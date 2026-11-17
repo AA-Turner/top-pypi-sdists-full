@@ -1,6 +1,7 @@
 //! The per-validator precompute: record-field lookups, literal-union decision
 //! tables, and compiled string patterns, built once and reused across calls.
 
+use pyo3::basic::CompareOp;
 use pyo3::prelude::*;
 use pyo3::types::{PyFloat, PyInt, PyString};
 use regex_automata::util::syntax;
@@ -9,9 +10,9 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use std::cell::RefCell;
 use std::collections::hash_map::Entry;
 use std::sync::{Arc, LazyLock, Mutex, Weak};
-use valgebra_core::{Constraint, Schema};
+use valgebra_core::{Constraint, DefIx, MapClause, OperandIx, Schema, SeqKind};
 
-use super::memo::{self, MemoPlan};
+use super::memo::{self, MemoPlan, for_each_child};
 use crate::input::Value;
 
 pub(crate) struct RecordPlan {
@@ -206,6 +207,567 @@ impl TaggedPlan {
 
 /// Each tagged union's members-buffer address mapped to its [`TaggedPlan`].
 pub(crate) type TaggedIndex = FxHashMap<usize, TaggedPlan>;
+
+/// An exact builtin type a reading settles a value of, as its bit: a value of
+/// one of these types is what a leaf ([`LeafPlan`]) decides by its type, and
+/// for an `int`, a `bool` or a `float` by its number, and a list or a dict is
+/// what a tree of scalars ([`TreePlan`]) reads on.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub(crate) enum Exact {
+    None = 1,
+    Bool = 1 << 1,
+    Int = 1 << 2,
+    Float = 1 << 3,
+    Str = 1 << 4,
+    Bytes = 1 << 5,
+    List = 1 << 6,
+    Dict = 1 << 7,
+}
+
+impl Exact {
+    /// Every exact type, in the order of their bits.
+    pub(crate) const ALL: [Exact; 8] = [
+        Exact::None,
+        Exact::Bool,
+        Exact::Int,
+        Exact::Float,
+        Exact::Str,
+        Exact::Bytes,
+        Exact::List,
+        Exact::Dict,
+    ];
+
+    /// The place of this type among [`Exact::ALL`].
+    fn place(self) -> usize {
+        (self as u8).trailing_zeros() as usize
+    }
+}
+
+/// A schema decided by a value's exact builtin type and, for an `int`, a
+/// `bool` or a `float`, by the number it holds: a union, meet or complement of
+/// scalar kinds, refinements of `int` by order bounds whose operands are exact
+/// `int`s a machine word holds, and refinements of `float` by order bounds and
+/// steps whose operands a float holds. JSON Schema's `integer`, `(int |
+/// Annotated[float, MultipleOf(1)]) & ~bool`, is one, and its `number` another.
+///
+/// Every node of one reads a value's type before anything in it, and for a
+/// value of an exact builtin type none runs Python or reads past the number: a
+/// complement's inner walk decides, a refinement's comparison and step are the
+/// two numbers' own. So where the levels to its deepest type test are free, a
+/// leaf answers as the walk does.
+///
+/// A reference to a tree of scalars ([`TreePlan`]) is a leaf too: a value of a
+/// scalar type is its leaves' answer, and a list or a dict, which the tree reads
+/// on, is the walk's to read ([`Leaf::Walk`]). The JSON values met with a
+/// keyword's guard, `(~NUMBER | Annotated[int, Ge(0)] | ...) & J`, are one.
+#[derive(Clone)]
+pub(crate) enum Leaf {
+    /// A scalar kind, by the exact type it admits every value of; `int`
+    /// admits a `bool` too, which subclasses it.
+    Kind(Exact),
+    /// A refinement of `int` by order bounds, as the inclusive range they
+    /// admit; a `bool` is read as its number, as the comparison reads it.
+    Ints(i64, i64),
+    /// A refinement of `float`: every test holds of the number.
+    Floats(Box<[FloatTest]>),
+    /// A complement.
+    Not(Box<Leaf>),
+    /// A meet: the top, `anything`, where it has no member.
+    All(Box<[Leaf]>),
+    /// A union: the bottom, `nothing`, where it has no member.
+    Any(Box<[Leaf]>),
+    /// A reference to a tree of scalars: its leaves over a scalar, and the walk
+    /// over a container it reads on.
+    Tree(Box<TreeAtom>),
+    /// What a tree answers over a container it reads on: the walk's answer,
+    /// which no leaf settles. A plan reads it for a list or a dict alone, and no
+    /// number is read for either.
+    Walk,
+}
+
+/// A reference to a tree of scalars, as a leaf reads it.
+#[derive(Clone)]
+pub(crate) struct TreeAtom {
+    /// The tree's members that are leaves, as their union.
+    scalars: Leaf,
+    /// The containers the tree reads on, their [`Exact`] bits.
+    containers: u8,
+}
+
+/// One constraint of a refinement of `float`, its operand read as a float.
+#[derive(Clone, Copy)]
+pub(crate) enum FloatTest {
+    /// An order bound.
+    Order(CompareOp, f64),
+    /// A step, `number % step == 0`: for two floats, the remainder `fmod`
+    /// leaves, which is `nan` where Python's raises, for a step of zero.
+    Step(f64),
+}
+
+impl FloatTest {
+    fn holds(self, number: f64) -> bool {
+        match self {
+            FloatTest::Order(op, operand) => ordered(number, op, operand),
+            FloatTest::Step(step) => number % step == 0.0,
+        }
+    }
+}
+
+/// The number a value of an exact numeric type holds, which a refinement reads.
+#[derive(Clone, Copy)]
+pub(crate) enum Number {
+    Int(i64),
+    Float(f64),
+    /// A value of no numeric type.
+    None,
+}
+
+impl Leaf {
+    /// The leaf `schema` is, its operands read out of `pool` and its references
+    /// to a tree of scalars out of `trees`, or `None` where some node of it is
+    /// no leaf.
+    fn of(
+        schema: &Schema,
+        pool: &[Py<PyAny>],
+        py: Python<'_>,
+        trees: &[Option<TreePlan>],
+    ) -> Option<Leaf> {
+        let operand = |index: OperandIx| Some(pool.get(index.get())?.bind(py));
+        Some(match schema {
+            Schema::Anything(_) => Leaf::All(Box::default()),
+            Schema::Nothing => Leaf::Any(Box::default()),
+            Schema::NoneType => Leaf::Kind(Exact::None),
+            Schema::Bool => Leaf::Kind(Exact::Bool),
+            Schema::Int => Leaf::Kind(Exact::Int),
+            Schema::Float => Leaf::Kind(Exact::Float),
+            Schema::Str => Leaf::Kind(Exact::Str),
+            Schema::Bytes => Leaf::Kind(Exact::Bytes),
+            Schema::Refine { base, constraints } => match **base {
+                Schema::Int => {
+                    let word = |index: OperandIx| {
+                        let operand = operand(index)?;
+                        if !operand.is_exact_instance_of::<PyInt>() {
+                            return None;
+                        }
+                        operand.extract::<i64>().ok()
+                    };
+                    let (mut least, mut most) = (i64::MIN, i64::MAX);
+                    for constraint in constraints.iter() {
+                        match constraint {
+                            Constraint::Ge(i) => least = least.max(word(*i)?),
+                            Constraint::Gt(i) => least = least.max(word(*i)?.checked_add(1)?),
+                            Constraint::Le(i) => most = most.min(word(*i)?),
+                            Constraint::Lt(i) => most = most.min(word(*i)?.checked_sub(1)?),
+                            _ => return None,
+                        }
+                    }
+                    Leaf::Ints(least, most)
+                }
+                Schema::Float => Leaf::Floats(
+                    constraints
+                        .iter()
+                        .map(|constraint| {
+                            let (index, test): (_, fn(f64) -> FloatTest) = match constraint {
+                                Constraint::Ge(i) => (i, |f| FloatTest::Order(CompareOp::Ge, f)),
+                                Constraint::Gt(i) => (i, |f| FloatTest::Order(CompareOp::Gt, f)),
+                                Constraint::Le(i) => (i, |f| FloatTest::Order(CompareOp::Le, f)),
+                                Constraint::Lt(i) => (i, |f| FloatTest::Order(CompareOp::Lt, f)),
+                                Constraint::MultipleOf(i) => (i, FloatTest::Step),
+                                _ => return None,
+                            };
+                            Some(test(float_operand(operand(*index)?)?))
+                        })
+                        .collect::<Option<_>>()?,
+                ),
+                _ => return None,
+            },
+            Schema::Union(members) => Leaf::Any(Leaf::each(members, pool, py, trees)?),
+            Schema::Intersection(members) => Leaf::All(Leaf::each(members, pool, py, trees)?),
+            Schema::Complement(inner) => Leaf::Not(Box::new(Leaf::of(inner, pool, py, trees)?)),
+            Schema::Ref(id) => {
+                let tree = trees.get(id.get())?.as_ref()?;
+                Leaf::Tree(Box::new(TreeAtom {
+                    scalars: tree.scalars.clone(),
+                    containers: tree.containers,
+                }))
+            }
+            _ => return None,
+        })
+    }
+
+    /// Each of `members` as a leaf, or `None` where one is none.
+    fn each(
+        members: &[Schema],
+        pool: &[Py<PyAny>],
+        py: Python<'_>,
+        trees: &[Option<TreePlan>],
+    ) -> Option<Box<[Leaf]>> {
+        members
+            .iter()
+            .map(|m| Leaf::of(m, pool, py, trees))
+            .collect()
+    }
+
+    /// The levels the walk opens from this node's own to its deepest type
+    /// test: a refinement asks its base a level below itself, and a union asks
+    /// a scalar branch where the branch's level is free.
+    fn levels(&self) -> usize {
+        match self {
+            Leaf::Kind(_) => 1,
+            Leaf::Ints(..) | Leaf::Floats(_) => 2,
+            Leaf::Not(inner) => 1 + inner.levels(),
+            Leaf::All(parts) | Leaf::Any(parts) => {
+                1 + parts.iter().map(Leaf::levels).max().unwrap_or_default()
+            }
+            // The reference's own level, and the tree's union below it.
+            Leaf::Tree(atom) => 1 + atom.scalars.levels(),
+            Leaf::Walk => 0,
+        }
+    }
+
+    /// Whether a reference to a tree is part of this leaf: a walk of it enters a
+    /// definition, which the trail bounds and an armed memo keeps.
+    fn reaches_a_tree(&self) -> bool {
+        match self {
+            Leaf::Tree(_) => true,
+            Leaf::Not(inner) => inner.reaches_a_tree(),
+            Leaf::All(parts) | Leaf::Any(parts) => parts.iter().any(Leaf::reaches_a_tree),
+            Leaf::Kind(_) | Leaf::Ints(..) | Leaf::Floats(_) | Leaf::Walk => false,
+        }
+    }
+
+    /// This leaf over the values of the exact type `exact` alone: each kind
+    /// folded to the top or the bottom, which a meet and a union absorb, so
+    /// what is left is the test of the number, or a constant where that type
+    /// decides it.
+    fn specialized(&self, exact: Exact) -> Leaf {
+        let constant = |admitted: bool| {
+            if admitted {
+                Leaf::All(Box::default())
+            } else {
+                Leaf::Any(Box::default())
+            }
+        };
+        match self {
+            Leaf::Kind(kind) => constant(admits(*kind, exact)),
+            Leaf::Ints(least, most) if admits(Exact::Int, exact) => Leaf::Ints(*least, *most),
+            Leaf::Floats(tests) if exact == Exact::Float => Leaf::Floats(tests.clone()),
+            Leaf::Ints(..) | Leaf::Floats(_) => constant(false),
+            Leaf::Not(inner) => match inner.specialized(exact) {
+                inner if inner.constant().is_some() => constant(inner.constant() == Some(false)),
+                inner => Leaf::Not(Box::new(inner)),
+            },
+            Leaf::All(parts) => Leaf::joined(parts, exact, false),
+            Leaf::Any(parts) => Leaf::joined(parts, exact, true),
+            Leaf::Tree(atom) if atom.containers & exact as u8 != 0 => Leaf::Walk,
+            Leaf::Tree(atom) => atom.scalars.specialized(exact),
+            Leaf::Walk => Leaf::Walk,
+        }
+    }
+
+    /// The parts of a meet (`deciding` false) or a union (`deciding` true)
+    /// specialized and joined: a part that answers `deciding` decides the
+    /// whole, one that answers the other is dropped, and one part left is the
+    /// whole.
+    fn joined(parts: &[Leaf], exact: Exact, deciding: bool) -> Leaf {
+        let mut left = Vec::new();
+        for part in parts {
+            let part = part.specialized(exact);
+            match part.constant() {
+                Some(answer) if answer == deciding => return part,
+                Some(_) => {}
+                None => left.push(part),
+            }
+        }
+        match (left.len(), deciding) {
+            (1, _) => left.pop().unwrap_or_else(|| Leaf::Any(Box::default())),
+            (_, false) => Leaf::All(left.into()),
+            (_, true) => Leaf::Any(left.into()),
+        }
+    }
+
+    /// What this answers whatever the number: a meet of no part admits, and a
+    /// union of none refuses.
+    fn constant(&self) -> Option<bool> {
+        match self {
+            Leaf::All(parts) if parts.is_empty() => Some(true),
+            Leaf::Any(parts) if parts.is_empty() => Some(false),
+            _ => None,
+        }
+    }
+
+    /// What this answers for a value of the exact type `exact` holding
+    /// `number`.
+    fn holds(&self, exact: Exact, number: Number) -> bool {
+        match self {
+            Leaf::Kind(kind) => admits(*kind, exact),
+            Leaf::Ints(least, most) => {
+                matches!(number, Number::Int(number) if *least <= number && number <= *most)
+            }
+            Leaf::Floats(tests) => {
+                matches!(number, Number::Float(number) if tests.iter().all(|test| test.holds(number)))
+            }
+            Leaf::Not(inner) => !inner.holds(exact, number),
+            Leaf::All(parts) => parts.iter().all(|part| part.holds(exact, number)),
+            Leaf::Any(parts) => parts.iter().any(|part| part.holds(exact, number)),
+            // Specialized away for every scalar type, and a container's number
+            // is never read ([`Leaf::Walk`]).
+            Leaf::Tree(_) | Leaf::Walk => false,
+        }
+    }
+}
+
+/// Whether the scalar kind `kind` admits every value of the exact type
+/// `exact`: its own, and for `int` a `bool` as well, which subclasses it.
+fn admits(kind: Exact, exact: Exact) -> bool {
+    kind == exact || (kind == Exact::Int && exact == Exact::Bool)
+}
+
+/// A [`Leaf`] with what it answers for each exact type it decides without the
+/// number, read once a validator, and the levels the walk opens to its deepest
+/// type test.
+pub(crate) struct LeafPlan {
+    /// The leaf over the values of each exact type ([`Leaf::specialized`]).
+    specialized: [Leaf; 8],
+    /// What the leaf answers for every value of each exact type, where it
+    /// answers without the number.
+    decided: [Option<bool>; 8],
+    /// The levels below the level the leaf is asked at, its own included,
+    /// that the walk opens to reach its deepest type test.
+    pub(crate) levels: usize,
+    /// The leaf over `float`s as the interval it admits, where it is order
+    /// bounds alone ([`Interval::of`]).
+    floats: Option<Interval>,
+    /// Whether the leaf holds a reference to a tree of scalars, whose walk
+    /// pushes a pair on the trail and is kept where a memo is armed: a reader
+    /// reads it where neither can bear on the answer.
+    pub(crate) trees: bool,
+}
+
+impl LeafPlan {
+    fn new(leaf: &Leaf) -> LeafPlan {
+        let specialized = Exact::ALL.map(|exact| leaf.specialized(exact));
+        let floats = specialized.get(Exact::Float.place()).and_then(Interval::of);
+        LeafPlan {
+            floats,
+            decided: specialized.each_ref().map(Leaf::constant),
+            specialized,
+            levels: leaf.levels(),
+            trees: leaf.reaches_a_tree(),
+        }
+    }
+
+    /// The plan of `schema`, where it is a leaf.
+    fn of(
+        schema: &Schema,
+        pool: &[Py<PyAny>],
+        py: Python<'_>,
+        trees: &[Option<TreePlan>],
+    ) -> Option<LeafPlan> {
+        Leaf::of(schema, pool, py, trees)
+            .as_ref()
+            .map(LeafPlan::new)
+    }
+
+    /// What the leaf answers for every value of the exact type `exact`, or
+    /// `None` where the answer is the number's ([`LeafPlan::holds`]).
+    #[inline]
+    pub(crate) fn decided(&self, exact: Exact) -> Option<bool> {
+        self.decided.get(exact.place()).copied().flatten()
+    }
+
+    /// The interval a `float` is admitted in, where the leaf over `float`s is
+    /// order bounds alone.
+    #[inline]
+    pub(crate) fn floats(&self) -> Option<Interval> {
+        self.floats
+    }
+
+    /// What the leaf answers for a value of the exact type `exact` holding
+    /// `number`.
+    pub(crate) fn holds(&self, exact: Exact, number: Number) -> bool {
+        self.specialized
+            .get(exact.place())
+            .is_some_and(|leaf| leaf.holds(exact, number))
+    }
+}
+
+/// A definition whose body is a union of which every member is a leaf
+/// ([`LeafPlan`]) refusing every list and dict, a list of the definition, or a
+/// mapping of `str` keys to it, and one member at least a container: a tree of
+/// scalars. The values `json.loads` returns are one, `recursive(lambda j: None
+/// | bool | int | str | list[j] | dict[str, j] | Annotated[float,
+/// Ge(-inf)])`, and `recursive(lambda t: int | list[t])` is another.
+///
+/// Every member reads a value's type before anything in it, and only the two
+/// containers read further, each of them the definition again for every value
+/// it holds. So a value of an exact builtin type is the leaves' answer, and a
+/// list or a dict the same question asked of what it holds (`tree_member` in
+/// `check/walk/tree.rs`).
+/// A leaf over `float`s that is order bounds alone, as the interval they
+/// admit: each end a bound or an infinity, closed or open.
+///
+/// The bounds are tested one by one at every number otherwise, through the
+/// leaf's tree; as an interval they are two comparisons. A `nan` is in no
+/// interval, as it holds no order bound, and an infinity lies where its bounds
+/// put it, so the interval admits exactly the numbers the bounds do. A leaf
+/// with no bound, or with a step, a complement or a union in it, is no
+/// interval and is read by its tree.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Interval {
+    least: f64,
+    least_open: bool,
+    most: f64,
+    most_open: bool,
+}
+
+impl Interval {
+    /// The interval of every number but `nan`.
+    const NUMBERS: Interval = Interval {
+        least: f64::NEG_INFINITY,
+        least_open: false,
+        most: f64::INFINITY,
+        most_open: false,
+    };
+
+    /// The interval `leaf` admits, or `None` where it is not order bounds alone.
+    fn of(leaf: &Leaf) -> Option<Interval> {
+        match leaf {
+            Leaf::Floats(tests) if !tests.is_empty() => tests
+                .iter()
+                .try_fold(Interval::NUMBERS, |range, test| range.bounded(*test)),
+            Leaf::All(parts) if !parts.is_empty() => {
+                parts.iter().try_fold(Interval::NUMBERS, |range, part| {
+                    Some(range.meet(Interval::of(part)?))
+                })
+            }
+            _ => None,
+        }
+    }
+
+    /// This interval narrowed by one test, or `None` where it is no order bound.
+    fn bounded(self, test: FloatTest) -> Option<Interval> {
+        let FloatTest::Order(op, operand) = test else {
+            return None;
+        };
+        if operand.is_nan() {
+            return None;
+        }
+        let end = |open| Interval {
+            least: operand,
+            least_open: open,
+            ..Interval::NUMBERS
+        };
+        let top = |open| Interval {
+            most: operand,
+            most_open: open,
+            ..Interval::NUMBERS
+        };
+        Some(self.meet(match op {
+            CompareOp::Ge => end(false),
+            CompareOp::Gt => end(true),
+            CompareOp::Le => top(false),
+            CompareOp::Lt => top(true),
+            _ => return None,
+        }))
+    }
+
+    /// The numbers both intervals admit. No end is `nan`, and two ends at one
+    /// number, `-0.0` and `0.0` among them, are one end, open where either is.
+    fn meet(self, other: Interval) -> Interval {
+        use std::cmp::Ordering::{Equal, Greater, Less};
+        let (least, least_open) = match other.least.partial_cmp(&self.least) {
+            Some(Greater) => (other.least, other.least_open),
+            Some(Equal) => (self.least, self.least_open || other.least_open),
+            _ => (self.least, self.least_open),
+        };
+        let (most, most_open) = match other.most.partial_cmp(&self.most) {
+            Some(Less) => (other.most, other.most_open),
+            Some(Equal) => (self.most, self.most_open || other.most_open),
+            _ => (self.most, self.most_open),
+        };
+        Interval {
+            least,
+            least_open,
+            most,
+            most_open,
+        }
+    }
+
+    /// Whether `number` lies in the interval.
+    #[inline]
+    pub(crate) fn holds(self, number: f64) -> bool {
+        (if self.least_open {
+            number > self.least
+        } else {
+            number >= self.least
+        }) && (if self.most_open {
+            number < self.most
+        } else {
+            number <= self.most
+        })
+    }
+}
+
+pub(crate) struct TreePlan {
+    /// The members that are leaves, as their union.
+    pub(crate) leaf: LeafPlan,
+    /// That union as a leaf, which a leaf referring to the tree reads.
+    scalars: Leaf,
+    /// The containers among the members, their [`Exact`] bits.
+    containers: u8,
+}
+
+impl TreePlan {
+    /// The plan for the definition at `def` whose body is `body`, or `None`
+    /// where it is no tree of scalars.
+    fn of(def: usize, body: &Schema, pool: &[Py<PyAny>], py: Python<'_>) -> Option<TreePlan> {
+        let Schema::Union(members) = body else {
+            return None;
+        };
+        let itself =
+            |schema: Option<&Schema>| matches!(schema, Some(Schema::Ref(id)) if id.get() == def);
+        let mut containers = 0;
+        let mut leaves = Vec::new();
+        for member in members.iter() {
+            match member {
+                Schema::Seq {
+                    container: SeqKind::List,
+                    shape,
+                } if shape.prefix.is_empty() && itself(shape.tail.as_deref()) => {
+                    containers |= Exact::List as u8;
+                }
+                Schema::KeyedMap { fields, defaults }
+                    if fields.is_empty()
+                        && matches!(&defaults[..], [clause]
+                            if matches!(clause.key, Schema::Str) && itself(Some(&clause.value))) =>
+                {
+                    containers |= Exact::Dict as u8;
+                }
+                // A tree's member refers to no other tree: one that did would
+                // read a container on, which the tree reads itself.
+                _ => leaves.push(Leaf::of(member, pool, py, &[])?),
+            }
+        }
+        let scalars = Leaf::Any(leaves.into());
+        let leaf = LeafPlan::new(&scalars);
+        let containers_alone = [Exact::List, Exact::Dict]
+            .into_iter()
+            .all(|container| leaf.decided(container) == Some(false));
+        (containers != 0 && containers_alone).then_some(TreePlan {
+            leaf,
+            scalars,
+            containers,
+        })
+    }
+
+    /// Whether a member reads a value of the container type `container` on.
+    #[inline]
+    pub(crate) fn reads(&self, container: Exact) -> bool {
+        self.containers & container as u8 != 0
+    }
+}
 
 /// A compiled pattern: the engine `regex` builds a `Regex` on, built as it
 /// builds one ([`compile_pattern`]), so it matches the same language and can
@@ -492,9 +1054,61 @@ pub(crate) struct ValidatorIndex {
     /// holds none, and a schema with no order bound has no table, so no answer
     /// depends on it: the rich comparison reads what it does not hold.
     float_operands: Vec<Option<f64>>,
+    /// The readings of leaves and of trees of scalars ([`Readings`]), none
+    /// where the validator holds neither, so the reference's arm asks one word
+    /// of a validator with no tree. One word, which the table's alignment
+    /// leaves free: a field of two moves every frame that holds a validator.
+    /// Not built on `PyPy`, whose walk asks its own stack probe at every level
+    /// a reading would pass.
+    readings: Option<Box<Readings>>,
+}
+
+/// The leaves the validator reads by a value's type, and its trees of scalars.
+#[derive(Default)]
+struct Readings {
+    /// Each definition's [`TreePlan`] at its place in the definitions table,
+    /// and empty where no definition is a tree.
+    trees: Vec<Option<TreePlan>>,
+    /// The [`LeafPlan`] of each list's element that is a union, a meet or a
+    /// complement of leaves, keyed by the element's address.
+    leaves: FxHashMap<usize, LeafPlan>,
 }
 
 impl ValidatorIndex {
+    /// Whether the index holds a reading, of a tree of scalars or of a leaf:
+    /// one word, which the reference's arm asks before it asks for a tree. A
+    /// validator holding leaves and no tree pays a call that declines at each
+    /// reference, where asking for the trees themselves would be a load more in
+    /// that arm, which every walk of a nested list reads three instructions a
+    /// level dearer on the profiled wheel.
+    #[inline]
+    pub(crate) fn has_readings(&self) -> bool {
+        self.readings.is_some()
+    }
+
+    /// The plan of the definition `def`, where it is read as a tree of scalars.
+    #[inline]
+    pub(crate) fn tree(&self, def: DefIx) -> Option<&TreePlan> {
+        self.readings.as_ref()?.trees.get(def.get())?.as_ref()
+    }
+
+    /// The plan of a list's `element`, where it is a union, a meet or a
+    /// complement of leaves.
+    #[inline]
+    pub(crate) fn leaf(&self, element: &Schema) -> Option<&LeafPlan> {
+        self.readings
+            .as_ref()?
+            .leaves
+            .get(&(std::ptr::from_ref(element) as usize))
+    }
+
+    /// Drop every reading of leaves and trees, so the walk reads each node
+    /// generally: what the tests hold the readings to.
+    #[cfg(all(test, feature = "interpreter-tests"))]
+    pub(crate) fn forget_readings(&mut self) {
+        self.readings = None;
+    }
+
     /// The float the order bound's operand at `slot` is exactly, where the index
     /// holds one.
     #[inline]
@@ -579,7 +1193,76 @@ pub(crate) fn build_index_from(
         collect(py, def, pool, &mut index);
     }
     index.memo = memo::plan(py, schema, defs, pool);
+    if !cfg!(PyPy) {
+        index.readings = readings(schema, defs, pool, py);
+    }
     index
+}
+
+/// The readings of the leaves and the trees of scalars `schema` and `defs`
+/// hold, or `None` where they hold neither. Out of line: the index is built
+/// where a validator is first used, and inlined there the plans grow the frame
+/// of every caller that builds one.
+#[inline(never)]
+fn readings(
+    schema: &Schema,
+    defs: &[Schema],
+    pool: &[Py<PyAny>],
+    py: Python<'_>,
+) -> Option<Box<Readings>> {
+    let mut readings = Readings::default();
+    let trees: Vec<_> = defs
+        .iter()
+        .enumerate()
+        .map(|(def, body)| TreePlan::of(def, body, pool, py))
+        .collect();
+    for node in std::iter::once(schema).chain(defs) {
+        hold_leaves(node, pool, py, &trees, &mut readings.leaves);
+    }
+    if trees.iter().any(Option::is_some) {
+        readings.trees = trees;
+    }
+    (!readings.trees.is_empty() || !readings.leaves.is_empty()).then(|| Box::new(readings))
+}
+
+/// Hold the plan of each list's element below `schema` that is a union, a
+/// meet or a complement of leaves, by the element's address. A union of
+/// scalar kinds has a reader of its own, and holds none: a validator holding
+/// no plan keeps the list's tail call to that reader.
+fn hold_leaves(
+    schema: &Schema,
+    pool: &[Py<PyAny>],
+    py: Python<'_>,
+    trees: &[Option<TreePlan>],
+    leaves: &mut FxHashMap<usize, LeafPlan>,
+) {
+    // A list's element, or the value a mapping of `str` keys holds.
+    let held = match schema {
+        Schema::Seq {
+            container: SeqKind::List,
+            shape,
+        } if shape.prefix.is_empty() => shape.tail.as_deref(),
+        Schema::KeyedMap { fields, defaults } if fields.is_empty() => match &defaults[..] {
+            [
+                MapClause {
+                    key: Schema::Str,
+                    value,
+                },
+            ] => Some(value),
+            _ => None,
+        },
+        _ => None,
+    };
+    if let Some(element @ (Schema::Union(_) | Schema::Intersection(_) | Schema::Complement(_))) =
+        held
+        && !matches!(element, Schema::Union(members) if members.iter().all(|m| matches!(m, Schema::NoneType | Schema::Bool | Schema::Int | Schema::Float | Schema::Str | Schema::Bytes)))
+        && let Some(plan) = LeafPlan::of(element, pool, py, trees)
+    {
+        leaves.insert(std::ptr::from_ref(element) as usize, plan);
+    }
+    for_each_child(schema, &mut |child| {
+        hold_leaves(child, pool, py, trees, leaves);
+    });
 }
 
 fn collect(py: Python<'_>, schema: &Schema, pool: &[Py<PyAny>], index: &mut ValidatorIndex) {
@@ -695,6 +1378,19 @@ pub(crate) fn float_operand(operand: &Bound<'_, PyAny>) -> Option<f64> {
         reason = "an integer of at most 2^53 is a float exactly"
     )]
     (whole.unsigned_abs() <= 1 << 53).then_some(whole as f64)
+}
+
+/// What the order bound `op` makes of two floats, `number` against `operand`:
+/// the comparison an exact `float` and an operand [`float_operand`] holds make
+/// in Python, `nan` refused by every bound.
+#[inline]
+pub(crate) fn ordered(number: f64, op: CompareOp, operand: f64) -> bool {
+    match op {
+        CompareOp::Ge => number >= operand,
+        CompareOp::Gt => number > operand,
+        CompareOp::Le => number <= operand,
+        _ => number < operand,
+    }
 }
 
 /// Build a [`UnionPlan`] when every union member is a literal, bucketing the

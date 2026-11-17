@@ -1,0 +1,38 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "entsoe-py"
+dynamic = ["version"]
+description = "A python API wrapper for ENTSO-E"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+authors = [
+    { name = "Frank Boerman-Lima", email = "frank@fboerman.nl" },
+    { name = "Jan Pecinovsky", email = "jan@energieid.be" },
+]
+dependencies = [
+    "requests",
+    "pytz",
+    "pandas>=2.2.0",
+    "beautifulsoup4>=4.11.1",
+]
+
+[dependency-groups]
+dev = [
+    "python-dotenv",
+    "pytest",
+    "pytest-xdist"
+]
+
+[project.urls]
+Homepage = "https://github.com/fboerman/entsoe-py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["entsoe"]
+
+[tool.hatch.version]
+source = "regex"
+path = "entsoe/entsoe.py"

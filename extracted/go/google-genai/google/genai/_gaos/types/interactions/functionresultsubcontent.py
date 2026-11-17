@@ -22,6 +22,7 @@ from .. import BaseModel
 from ...utils.unions import parse_open_union
 from .audiocontent import AudioContent, AudioContentParam
 from .documentcontent import DocumentContent, DocumentContentParam
+from .function import Function, FunctionParam
 from .imagecontent import ImageContent, ImageContentParam
 from .textcontent import TextContent, TextContentParam
 from .videocontent import VideoContent, VideoContentParam
@@ -36,8 +37,9 @@ FunctionResultSubcontentParam = TypeAliasType(
     "FunctionResultSubcontentParam",
     Union[
         TextContentParam,
-        DocumentContentParam,
         ImageContentParam,
+        DocumentContentParam,
+        FunctionParam,
         AudioContentParam,
         VideoContentParam,
     ],
@@ -61,6 +63,7 @@ class UnknownFunctionResultSubcontent(BaseModel):
 _FUNCTION_RESULT_SUBCONTENT_VARIANTS: dict[str, Any] = {
     "audio": AudioContent,
     "document": DocumentContent,
+    "function": Function,
     "image": ImageContent,
     "text": TextContent,
     "video": VideoContent,
@@ -71,6 +74,7 @@ FunctionResultSubcontent = Annotated[
     Union[
         AudioContent,
         DocumentContent,
+        Function,
         ImageContent,
         TextContent,
         VideoContent,

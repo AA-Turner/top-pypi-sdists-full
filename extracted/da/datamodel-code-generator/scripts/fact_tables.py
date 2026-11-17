@@ -415,7 +415,19 @@ ATTRIBUTE_FACTS: tuple[AttributeFact, ...] = (
     AttributeFact(
         "DataType", "_UNIQUE_ITEMS_SET_KEY", FactKind.BOOKKEEPING, (), Phase.MODULES, None, access=Access.DICT_KEY
     ),
+    AttributeFact(
+        "DataType", "_INLINED_SITE_KEY", FactKind.BOOKKEEPING, (), Phase.MODULES, None, access=Access.DICT_KEY
+    ),
     AttributeFact("DataType", "ENUM_LITERAL_KEY", FactKind.BOOKKEEPING, (), Phase.PARSE, None, access=Access.DICT_KEY),
+    AttributeFact(
+        "DataType",
+        "_UNTYPED_VALUE_DATA_TYPE_KEY",
+        FactKind.BOOKKEEPING,
+        (),
+        Phase.PARSE,
+        None,
+        access=Access.DICT_KEY,
+    ),
     AttributeFact("DataType", "SUBTYPE_REF_KEY", FactKind.BOOKKEEPING, (), Phase.PARSE, None, access=Access.DICT_KEY),
     AttributeFact(
         "DataType",
@@ -1177,6 +1189,7 @@ ATTRIBUTE_FACTS: tuple[AttributeFact, ...] = (
         (RenderFact.MODEL_ORDER, RenderFact.MODULE_MEMBERSHIP),
         Phase.IMPORTS,
         FreezePoint.RENDER,
+        store_ops=("set_module_models",),
         access=Access.CONTAINER,
     ),
     AttributeFact(

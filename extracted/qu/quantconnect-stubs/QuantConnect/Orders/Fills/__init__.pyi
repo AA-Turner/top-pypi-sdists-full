@@ -197,8 +197,8 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
     @property
     def python_wrapper(self) -> QuantConnect.Python.FillModelPythonWrapper:
         """
-        This is required due to a limitation in PythonNet to resolved overriden methods.
-        When Python calls a C# method that calls a method that's overriden in python it won't
+        This is required due to a limitation in PythonNet to resolved overridden methods.
+        When Python calls a C# method that calls a method that's overridden in python it won't
         run the python implementation unless the call is performed through python too.
         
         
@@ -282,7 +282,7 @@ class FillModel(System.Object, QuantConnect.Orders.Fills.IFillModel):
     def get_prices_checking_python_wrapper(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
         """
         This is required due to a limitation in PythonNet to resolved
-        overriden methods. get_prices
+        overridden methods. get_prices
         
         This Class is protected.
         """
@@ -512,7 +512,7 @@ class EquityFillModel(QuantConnect.Orders.Fills.FillModel):
     def get_prices_checking_python_wrapper(self, asset: QuantConnect.Securities.Security, direction: QuantConnect.Orders.OrderDirection) -> QuantConnect.Orders.Fills.Prices:
         """
         This is required due to a limitation in PythonNet to resolved
-        overriden methods. get_prices
+        overridden methods. get_prices
         
         This Class is protected.
         """

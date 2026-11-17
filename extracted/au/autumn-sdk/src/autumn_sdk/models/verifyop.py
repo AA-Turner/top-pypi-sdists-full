@@ -564,6 +564,7 @@ CustomerMismatchReason3 = Union[
         "phase_count_mismatch",
         "phase_start_mismatch",
         "billing_cycle_anchor_mismatch",
+        "prebill_credit_without_plan",
     ],
     UnrecognizedStr,
 ]
@@ -580,6 +581,9 @@ class CustomerMismatch5TypedDict(TypedDict):
     actual_phase_count: NotRequired[float]
     actual_phase_starts_at: NotRequired[List[float]]
     phase_starts_at: NotRequired[float]
+    amount: NotRequired[float]
+    currency: NotRequired[str]
+    customer_product_id: NotRequired[str]
 
 
 class CustomerMismatch5(BaseModel):
@@ -607,6 +611,12 @@ class CustomerMismatch5(BaseModel):
 
     phase_starts_at: Optional[float] = None
 
+    amount: Optional[float] = None
+
+    currency: Optional[str] = None
+
+    customer_product_id: Optional[str] = None
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
@@ -617,6 +627,9 @@ class CustomerMismatch5(BaseModel):
                 "actual_phase_count",
                 "actual_phase_starts_at",
                 "phase_starts_at",
+                "amount",
+                "currency",
+                "customer_product_id",
             ]
         )
         serialized = handler(self)
@@ -1032,9 +1045,9 @@ CustomerMismatchUnionTypedDict = TypeAliasType(
         CustomerMismatch6TypedDict,
         CustomerMismatch13TypedDict,
         CustomerMismatch11TypedDict,
-        CustomerMismatch5TypedDict,
         CustomerMismatch4TypedDict,
         CustomerMismatch3TypedDict,
+        CustomerMismatch5TypedDict,
         CustomerMismatch1TypedDict,
         CustomerMismatch2TypedDict,
     ],
@@ -1594,6 +1607,7 @@ MismatchReason3 = Union[
         "phase_count_mismatch",
         "phase_start_mismatch",
         "billing_cycle_anchor_mismatch",
+        "prebill_credit_without_plan",
     ],
     UnrecognizedStr,
 ]
@@ -1610,6 +1624,9 @@ class Mismatch5TypedDict(TypedDict):
     actual_phase_count: NotRequired[float]
     actual_phase_starts_at: NotRequired[List[float]]
     phase_starts_at: NotRequired[float]
+    amount: NotRequired[float]
+    currency: NotRequired[str]
+    customer_product_id: NotRequired[str]
 
 
 class Mismatch5(BaseModel):
@@ -1637,6 +1654,12 @@ class Mismatch5(BaseModel):
 
     phase_starts_at: Optional[float] = None
 
+    amount: Optional[float] = None
+
+    currency: Optional[str] = None
+
+    customer_product_id: Optional[str] = None
+
     @model_serializer(mode="wrap")
     def serialize_model(self, handler):
         optional_fields = set(
@@ -1647,6 +1670,9 @@ class Mismatch5(BaseModel):
                 "actual_phase_count",
                 "actual_phase_starts_at",
                 "phase_starts_at",
+                "amount",
+                "currency",
+                "customer_product_id",
             ]
         )
         serialized = handler(self)
@@ -2062,9 +2088,9 @@ MismatchUnionTypedDict = TypeAliasType(
         Mismatch6TypedDict,
         Mismatch13TypedDict,
         Mismatch11TypedDict,
-        Mismatch5TypedDict,
         Mismatch4TypedDict,
         Mismatch3TypedDict,
+        Mismatch5TypedDict,
         Mismatch1TypedDict,
         Mismatch2TypedDict,
     ],

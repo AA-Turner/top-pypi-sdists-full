@@ -15,6 +15,13 @@ TZ_LOCAL: Literal['local'] = 'local'
 # SocketCAN marks an error frame by this bit of the CAN id (linux/can.h)
 CAN_ERR_FLAG = 0x20000000
 
+
+def _parse_candump_date(timestamp: str) -> datetime.datetime:
+    # candump -N prints nanoseconds, but datetime stores microseconds.
+    timestamp = re.sub(r'(\.\d{6})\d{1,3}\Z', r'\1', timestamp)
+    return datetime.datetime.strptime(timestamp, '%Y-%m-%d %H:%M:%S.%f')  # noqa: DTZ007
+
+
 class TimestampFormat(enum.Enum):
     """Describes a type of timestamp. ABSOLUTE is referring to UNIX time
     (seconds since epoch). RELATIVE is seconds since start of log, or time
@@ -168,7 +175,14 @@ class CandumpDefaultLogPattern(CandumpBasePattern):
         self.tz = tz
 
     def parse_timestamp(self, match_object: re.Match[str]) -> tuple[TimestampType, TimestampFormat]:
-        timestamp = datetime.datetime.fromtimestamp(float(match_object.group('timestamp')), self.tz)
+        timestamp_text = match_object.group('timestamp')
+        seconds = float(timestamp_text)
+        # candump pads epoch seconds to ten digits. With -tz it pads
+        # elapsed seconds to three digits, growing the field as needed.
+        if len(timestamp_text.partition('.')[0]) < 10:
+            return datetime.timedelta(seconds=seconds), TimestampFormat.RELATIVE
+
+        timestamp = datetime.datetime.fromtimestamp(seconds, self.tz)
         if self.convert_to_timezone_aware_object:
             timestamp = timestamp.astimezone()
         timestamp_format = TimestampFormat.ABSOLUTE
@@ -187,7 +201,7 @@ class CandumpAbsoluteLogPattern(CandumpBasePattern):
         r'^\s*?\((?P<timestamp>\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+)\)\s+(?P<channel>\S+)\s+(?P<can_id>[0-9A-F]+)\s+\[\d+\]\s*(?P<can_data>remote request|(?:[0-9A-F]{2} *)*)\s*(?P<error_frame>ERRORFRAME)?.*?$')
 
     def parse_timestamp(self, match_object: re.Match[str]) -> tuple[TimestampType, TimestampFormat]:
-        timestamp = datetime.datetime.strptime(match_object.group('timestamp'), "%Y-%m-%d %H:%M:%S.%f")  # noqa: DTZ007
+        timestamp = _parse_candump_date(match_object.group('timestamp'))
         timestamp_format = TimestampFormat.ABSOLUTE
         return timestamp, timestamp_format
 
@@ -326,7 +340,7 @@ class Parser:
         '''
         :param tz: The timezone which returned datetime objects should have when parsing `candump -l`, `candump -L` or `candump -ta`.
                    (It cannot be applied to `candump -tA` because the information is missing which timezone the time stamps have.
-                    `candump -td`, `candump -tz` and PCAN trace do not have absolute time stamps but relative time stamps and return timedelta objects instead of datetime objects.)
+                    `candump -td`, `candump -tz` (including `-l` and `-L` output) and PCAN traces return relative time stamps as timedelta objects instead.)
                    With `tz=None` naive datetime objects representing the local system time will be returned.
                    With `tz=TZ_LOCAL` timezone-aware datetime objects in the local system time will be returned.
                    TZ_LOCAL should be preferred over None to avoid confusion with the naive datetime objects returned when parsing a `candump -tA` log.

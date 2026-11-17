@@ -90,8 +90,8 @@ class TMDRBFESettings(Base):
         local_md_k: Spring constant used during local MD.
         local_md_radius: Sphere radius in nanometers for the local MD region.
         local_md_free_reference: Free the reference frame during local MD when true.
-        restrain_protein_metal_contacts: Preserve input protein–Zn donor distances with harmonic springs during complex-leg setup and sampling.
-            Other metals are currently unsupported. Spring strength is fixed by the runner.
+        restrain_protein_metal_contacts: Preserve input protein–metal donor distances with harmonic springs during complex-leg setup and sampling.
+            Supported metals, contact-detection bounds and spring strength are defined by the runner. Water and ligand contacts are excluded.
         legs: Which thermodynamic cycle legs to run (default: solvent and complex).
         save_trajectories: Save complex- and solvent-leg endpoint DCD trajectories when true.
         trajectory_save_interval: Save every Nth frame when saving trajectories.

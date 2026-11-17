@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -12,25 +14,26 @@ T = TypeVar("T", bound="SandboxEgressRule")
 
 @_attrs_define
 class SandboxEgressRule:
-    """
+    """A destination that sandboxes can access when the network policy is `allow-list`.
+
     Attributes:
-        domain (str): Hostname to apply the rule to. Matching is exact: `foo.local` does not
-            cover `api.foo.local`, which needs its own rule or `*.foo.local`. A
-            wildcard is only allowed as the leftmost label.
+        domain (str): The hostname this rule allows, up to 253 characters. Matching is exact: `foo.local` does not match
+            `api.foo.local`. Use a separate rule or `*.foo.local` for subdomains. A wildcard is allowed only as the leftmost
+            label.
              Example: *.bar.local.
-        protocol (Union[Unset, SandboxEgressRuleProtocol]): Protocol this rule admits. Only `https` is accepted:
-            under `allow-list` every other outbound protocol is dropped.
-             Default: SandboxEgressRuleProtocol.HTTPS.
+        protocol (SandboxEgressRuleProtocol | Unset): The protocol allowed for this destination. Defaults to `https`.
+            The `allow-list` policy blocks outbound traffic that uses other protocols. Default:
+            SandboxEgressRuleProtocol.HTTPS.
     """
 
     domain: str
-    protocol: Union[Unset, SandboxEgressRuleProtocol] = SandboxEgressRuleProtocol.HTTPS
+    protocol: SandboxEgressRuleProtocol | Unset = SandboxEgressRuleProtocol.HTTPS
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         domain = self.domain
 
-        protocol: Union[Unset, str] = UNSET
+        protocol: str | Unset = UNSET
         if not isinstance(self.protocol, Unset):
             protocol = self.protocol.value
 
@@ -52,7 +55,7 @@ class SandboxEgressRule:
         domain = d.pop("domain")
 
         _protocol = d.pop("protocol", UNSET)
-        protocol: Union[Unset, SandboxEgressRuleProtocol]
+        protocol: SandboxEgressRuleProtocol | Unset
         if isinstance(_protocol, Unset):
             protocol = UNSET
         else:

@@ -6,7 +6,7 @@ use crate::{
 	lossless::{LinkKind, QuoteKind, TokenKind},
 	node::{
 		Element,
-		block::{heading, list, quote, small},
+		block::{heading, list, quote, subtext},
 		inline::{
 			code, code_block,
 			emoji::{self, Emoji},
@@ -108,7 +108,9 @@ pub fn parse<'data, S: Span>(
 			.map(|content| block(Element::Quote(QuoteKind::Line, content))),
 		Syntax::MultilineQuote => quote::quote_rest(input, context)
 			.map(|content| block(Element::Quote(QuoteKind::Rest, content))),
-		Syntax::Small => small::small(input, context).map(|small| block(Element::Small(small))),
+		Syntax::Subtext => {
+			subtext::subtext(input, context).map(|subtext| block(Element::Subtext(subtext)))
+		}
 		// recorded as delimiters and resolved after the parse; see `crate::range`
 		Syntax::Bold
 		| Syntax::AsteriskItalic

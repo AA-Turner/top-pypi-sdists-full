@@ -58,7 +58,7 @@ class _Typed_NotifiedSecurityChanges_UpdateDictionary(typing.Generic[QuantConnec
         
         :param dictionary: The securities collection to be updated with the changes
         :param changes: The changes to be applied to the securities collection
-        :param value_factory: Factory for creating dictonary values for a key
+        :param value_factory: Factory for creating dictionary values for a key
         """
         ...
 
@@ -69,7 +69,7 @@ class _Typed_NotifiedSecurityChanges_UpdateDictionary(typing.Generic[QuantConnec
         
         :param dictionary: The securities collection to be updated with the changes
         :param changes: The changes to be applied to the securities collection
-        :param value_factory: Factory for creating dictonary values for a key
+        :param value_factory: Factory for creating dictionary values for a key
         """
         ...
 

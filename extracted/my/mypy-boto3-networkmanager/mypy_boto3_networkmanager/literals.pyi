@@ -35,6 +35,9 @@ __all__ = (
     "ConnectionStateType",
     "ConnectionStatusType",
     "ConnectionTypeType",
+    "ContextChangeTypeType",
+    "ContextStoreAssociationStateType",
+    "ContextStoreStateType",
     "CoreNetworkPolicyAliasType",
     "CoreNetworkStateType",
     "CustomerGatewayAssociationStateType",
@@ -63,6 +66,10 @@ __all__ = (
     "ListAttachmentRoutingPolicyAssociationsPaginatorName",
     "ListAttachmentsPaginatorName",
     "ListConnectPeersPaginatorName",
+    "ListContextChangesPaginatorName",
+    "ListContextStoreAssociationsPaginatorName",
+    "ListContextStoresPaginatorName",
+    "ListContextsPaginatorName",
     "ListCoreNetworkPolicyVersionsPaginatorName",
     "ListCoreNetworkPrefixListAssociationsPaginatorName",
     "ListCoreNetworkRoutingInformationPaginatorName",
@@ -169,6 +176,9 @@ ConnectPeerStateType = Literal["AVAILABLE", "CREATING", "DELETING", "FAILED"]
 ConnectionStateType = Literal["AVAILABLE", "DELETING", "PENDING", "UPDATING"]
 ConnectionStatusType = Literal["DOWN", "UP"]
 ConnectionTypeType = Literal["BGP", "IPSEC"]
+ContextChangeTypeType = Literal["ADDED", "REMOVED"]
+ContextStoreAssociationStateType = Literal["ASSOCIATED", "ASSOCIATING", "DISASSOCIATING", "FAILED"]
+ContextStoreStateType = Literal["AVAILABLE", "DELETED", "DELETING", "PENDING", "UPDATING"]
 CoreNetworkPolicyAliasType = Literal["LATEST", "LIVE"]
 CoreNetworkStateType = Literal["AVAILABLE", "CREATING", "DELETING", "UPDATING"]
 CustomerGatewayAssociationStateType = Literal["AVAILABLE", "DELETED", "DELETING", "PENDING"]
@@ -201,6 +211,10 @@ ListAttachmentRoutingPolicyAssociationsPaginatorName = Literal[
 ]
 ListAttachmentsPaginatorName = Literal["list_attachments"]
 ListConnectPeersPaginatorName = Literal["list_connect_peers"]
+ListContextChangesPaginatorName = Literal["list_context_changes"]
+ListContextStoreAssociationsPaginatorName = Literal["list_context_store_associations"]
+ListContextStoresPaginatorName = Literal["list_context_stores"]
+ListContextsPaginatorName = Literal["list_contexts"]
 ListCoreNetworkPolicyVersionsPaginatorName = Literal["list_core_network_policy_versions"]
 ListCoreNetworkPrefixListAssociationsPaginatorName = Literal[
     "list_core_network_prefix_list_associations"
@@ -377,6 +391,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -561,6 +576,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -628,6 +644,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -730,6 +747,10 @@ PaginatorName = Literal[
     "list_attachment_routing_policy_associations",
     "list_attachments",
     "list_connect_peers",
+    "list_context_changes",
+    "list_context_store_associations",
+    "list_context_stores",
+    "list_contexts",
     "list_core_network_policy_versions",
     "list_core_network_prefix_list_associations",
     "list_core_network_routing_information",

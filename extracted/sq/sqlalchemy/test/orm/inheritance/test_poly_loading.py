@@ -12,14 +12,18 @@ from sqlalchemy.orm import backref
 from sqlalchemy.orm import column_property
 from sqlalchemy.orm import composite
 from sqlalchemy.orm import defaultload
+from sqlalchemy.orm import defer
+from sqlalchemy.orm import deferred
 from sqlalchemy.orm import immediateload
 from sqlalchemy.orm import joinedload
 from sqlalchemy.orm import lazyload
+from sqlalchemy.orm import load_only
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import selectin_polymorphic
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
 from sqlalchemy.orm import subqueryload
+from sqlalchemy.orm import undefer
 from sqlalchemy.orm import with_polymorphic
 from sqlalchemy.orm.interfaces import CompileStateOption
 from sqlalchemy.sql.selectable import LABEL_STYLE_TABLENAME_PLUS_COL
@@ -1713,3 +1717,354 @@ class PolymorphicOnExprTest(
             eq_(obj, [Foo(type_id=foo_type.id, foo_attr="foo value")])
 
         self.assert_sql_count(testing.db, go, 0 if use_load != "none" else 1)
+
+
+class NestedOptsUnderSelectinPolyCachedTest(
+    fixtures.DeclarativeMappedTest, testing.AssertsExecutionResults
+):
+    """test #13777"""
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Parent(ComparableEntity, Base):
+            __tablename__ = "parent"
+            id = Column(Integer, primary_key=True)
+            type = Column(String(10))
+            __mapper_args__ = {
+                "polymorphic_on": type,
+                "polymorphic_identity": "parent",
+            }
+
+        class A(Parent):
+            __tablename__ = "a"
+            id = Column(ForeignKey("parent.id"), primary_key=True)
+            data = Column(String(10))
+            children = relationship("Child", order_by="Child.id")
+            __mapper_args__ = {"polymorphic_identity": "a"}
+
+        class Child(ComparableEntity, Base):
+            __tablename__ = "child"
+            id = Column(Integer, primary_key=True)
+            type = Column(String(10))
+            parent_id = Column(ForeignKey("a.id"))
+            __mapper_args__ = {
+                "polymorphic_on": type,
+                "polymorphic_identity": "child",
+            }
+
+        class Group(Child):
+            __tablename__ = "grp"
+            id = Column(ForeignKey("child.id"), primary_key=True)
+            members = relationship("Member", order_by="Member.id")
+            __mapper_args__ = {"polymorphic_identity": "group"}
+
+        class Member(ComparableEntity, Base):
+            __tablename__ = "member"
+            id = Column(Integer, primary_key=True)
+            group_id = Column(ForeignKey("grp.id"))
+            data = Column(String(10))
+
+    @classmethod
+    def insert_data(cls, connection):
+        A, Child, Group, Member = cls.classes("A", "Child", "Group", "Member")
+        with Session(connection) as sess:
+            sess.add(
+                A(
+                    id=1,
+                    data="a1",
+                    children=[
+                        Group(
+                            id=10,
+                            members=[
+                                Member(id=1, data="m1"),
+                                Member(id=2, data="m2"),
+                            ],
+                        ),
+                        Child(id=11),
+                    ],
+                )
+            )
+            sess.commit()
+
+    @testing.combinations(
+        (("plain", "where"),),
+        (("where", "plain"),),
+        argnames="order",
+    )
+    @testing.variation("use_criteria", [True, False])
+    def test_nested_opts_w_different_parent_stmts(
+        self, connection, order, use_criteria
+    ):
+        """the selectinload for A.children is cached independently of the
+        parent statement; the selectin_polymorphic load beneath it needs to
+        use the cached options in order to line up with the cached path
+        that refers to the with_polymorphic() of the first parent statement
+
+        """
+        Parent, A, Child, Group, Member = self.classes(
+            "Parent", "A", "Child", "Group", "Member"
+        )
+
+        connection = connection.execution_options(compiled_cache={})
+
+        for style, member_data in zip(order, ["m1", "m2"]):
+            poly = with_polymorphic(Parent, [A])
+
+            if use_criteria:
+                members_opt = selectinload(
+                    Group.members.and_(Member.data == member_data)
+                )
+                expected_members = [
+                    Member(id=int(member_data[1]), data=member_data)
+                ]
+            else:
+                members_opt = selectinload(Group.members)
+                expected_members = [
+                    Member(id=1, data="m1"),
+                    Member(id=2, data="m2"),
+                ]
+
+            stmt = select(poly).options(
+                selectinload(poly.A.children)
+                .selectin_polymorphic([Group])
+                .options(members_opt)
+            )
+            if style == "where":
+                stmt = stmt.where(poly.A.data == "a1")
+
+            with Session(connection) as sess:
+                result = sess.scalars(stmt).all()
+
+                def go():
+                    eq_(
+                        result,
+                        [
+                            A(
+                                id=1,
+                                children=[
+                                    Group(id=10, members=expected_members),
+                                    Child(id=11),
+                                ],
+                            )
+                        ],
+                    )
+
+                self.assert_sql_count(connection, go, 0)
+
+
+class OptionsAgainstOtherRootEntityTest(
+    fixtures.DeclarativeMappedTest, testing.AssertsExecutionResults
+):
+    """test #13780"""
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Company(ComparableEntity, Base):
+            __tablename__ = "company"
+            id = Column(Integer, primary_key=True)
+            name = Column(String(10))
+            employees = relationship("Person", order_by="Person.id")
+
+        class Person(ComparableEntity, Base):
+            __tablename__ = "person"
+            id = Column(Integer, primary_key=True)
+            company_id = Column(ForeignKey("company.id"))
+            type = Column(String(10))
+            name = Column(String(10))
+            notes = deferred(Column(String(10)))
+            paperwork = relationship("Paperwork", order_by="Paperwork.id")
+            __mapper_args__ = {
+                "polymorphic_on": type,
+                "polymorphic_identity": "person",
+            }
+
+        class Engineer(Person):
+            __tablename__ = "engineer"
+            id = Column(ForeignKey("person.id"), primary_key=True)
+            language = Column(String(10))
+            __mapper_args__ = {
+                "polymorphic_identity": "engineer",
+                "polymorphic_load": "selectin",
+            }
+
+        class Manager(Person):
+            __tablename__ = "manager"
+            id = Column(ForeignKey("person.id"), primary_key=True)
+            golf = Column(String(10))
+            __mapper_args__ = {"polymorphic_identity": "manager"}
+
+        class Paperwork(ComparableEntity, Base):
+            __tablename__ = "paperwork"
+            id = Column(Integer, primary_key=True)
+            person_id = Column(ForeignKey("person.id"))
+            data = Column(String(10))
+            notes = deferred(Column(String(10)))
+
+    @classmethod
+    def insert_data(cls, connection):
+        Company, Engineer, Manager, Paperwork = cls.classes(
+            "Company", "Engineer", "Manager", "Paperwork"
+        )
+        with Session(connection) as sess:
+            sess.add(
+                Company(
+                    id=1,
+                    name="c1",
+                    employees=[
+                        Engineer(
+                            id=1,
+                            name="e1",
+                            notes="en1",
+                            language="py",
+                            paperwork=[
+                                Paperwork(id=1, data="p1", notes="pn1"),
+                                Paperwork(id=2, data="p2", notes="pn2"),
+                            ],
+                        ),
+                        Manager(
+                            id=2,
+                            name="m1",
+                            notes="mn1",
+                            golf="g1",
+                            paperwork=[
+                                Paperwork(id=3, data="p3", notes="pn3")
+                            ],
+                        ),
+                    ],
+                )
+            )
+            sess.commit()
+
+    @testing.variation("root", ["aliased", "wp", "wp_aliased"])
+    @testing.variation(
+        "option",
+        [
+            "undefer",
+            "defer",
+            "load_only",
+            "selectinload",
+            "joinedload",
+            "selectinload_nested",
+        ],
+    )
+    def test_options_against_aliased_root(self, root, option):
+        """loader options against an aliased() or with_polymorphic() of
+        the base don't get in the way of the automatic selectin load of
+        Engineer, which is rooted at Engineer itself
+
+        """
+        Person, Engineer, Manager, Paperwork = self.classes(
+            "Person", "Engineer", "Manager", "Paperwork"
+        )
+
+        if root.aliased:
+            ent = aliased(Person)
+        elif root.wp:
+            ent = with_polymorphic(Person, [Manager])
+        elif root.wp_aliased:
+            ent = with_polymorphic(Person, [Manager], aliased=True)
+        else:
+            root.fail()
+
+        # Engineer columns are always loaded by the selectin load;
+        # Manager columns are loaded only when Manager is part of the
+        # with_polymorphic()
+        engineer = {"id": 1, "language": "py"}
+        manager = {"id": 2} if root.aliased else {"id": 2, "golf": "g1"}
+
+        if option.undefer:
+            opt = undefer(ent.notes)
+            engineer.update(name="e1", notes="en1")
+            manager.update(name="m1", notes="mn1")
+            count = 2
+        elif option.defer:
+            opt = defer(ent.name)
+            count = 2
+        elif option.load_only:
+            opt = load_only(ent.notes)
+            engineer.update(notes="en1")
+            # load_only() leaves the columns local to Manager unloaded
+            manager = {"notes": "mn1"}
+            count = 2
+        elif option.selectinload:
+            opt = selectinload(ent.paperwork)
+            engineer.update(
+                name="e1",
+                paperwork=[
+                    Paperwork(id=1, data="p1"),
+                    Paperwork(id=2, data="p2"),
+                ],
+            )
+            manager.update(name="m1", paperwork=[Paperwork(id=3, data="p3")])
+            count = 3
+        elif option.joinedload:
+            opt = joinedload(ent.paperwork)
+            engineer.update(
+                name="e1",
+                paperwork=[
+                    Paperwork(id=1, data="p1"),
+                    Paperwork(id=2, data="p2"),
+                ],
+            )
+            manager.update(name="m1", paperwork=[Paperwork(id=3, data="p3")])
+            count = 2
+        elif option.selectinload_nested:
+            opt = selectinload(ent.paperwork).options(undefer(Paperwork.notes))
+            engineer.update(
+                name="e1",
+                paperwork=[
+                    Paperwork(id=1, data="p1", notes="pn1"),
+                    Paperwork(id=2, data="p2", notes="pn2"),
+                ],
+            )
+            manager.update(name="m1", paperwork=[Paperwork(id=3, notes="pn3")])
+            count = 3
+        else:
+            option.fail()
+
+        sess = fixture_session()
+        stmt = select(ent).options(opt).order_by(ent.id)
+
+        def go():
+            return sess.scalars(stmt).unique().all()
+
+        result = self.assert_sql_count(testing.db, go, count)
+
+        with self.assert_statement_count(testing.db, 0):
+            eq_(result, [Engineer(**engineer), Manager(**manager)])
+
+    def test_options_against_other_entity(self):
+        """loader options against another entity in the statement don't
+        get in the way of the automatic selectin load of Engineer
+
+        """
+        Company, Person, Engineer, Manager = self.classes(
+            "Company", "Person", "Engineer", "Manager"
+        )
+
+        sess = fixture_session()
+        stmt = (
+            select(Person, Company)
+            .join(Company, Person.company_id == Company.id)
+            .options(defer(Company.name))
+            .order_by(Person.id)
+        )
+
+        def go():
+            return sess.execute(stmt).all()
+
+        result = self.assert_sql_count(testing.db, go, 2)
+
+        with self.assert_statement_count(testing.db, 0):
+            eq_(
+                result,
+                [
+                    (Engineer(id=1, name="e1", language="py"), Company(id=1)),
+                    (Manager(id=2, name="m1"), Company(id=1)),
+                ],
+            )
+            eq_(inspect(result[0][1]).unloaded, {"name", "employees"})

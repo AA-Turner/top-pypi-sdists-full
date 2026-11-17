@@ -1701,7 +1701,7 @@ class TwitterNamespace:
         per-page maximum; native pages contain approximately 20 tweets unless
         requireSinglePage selects a bulk lane.
 
-        Price: $0.00049 per request.
+        Price: $0.00048 per request.
 
         Example:
             res = client.twitter.search(query="openai")
@@ -2239,7 +2239,7 @@ class AsyncTwitterNamespace:
         per-page maximum; native pages contain approximately 20 tweets unless
         requireSinglePage selects a bulk lane.
 
-        Price: $0.00049 per request.
+        Price: $0.00048 per request.
 
         Example:
             res = client.twitter.search(query="openai")

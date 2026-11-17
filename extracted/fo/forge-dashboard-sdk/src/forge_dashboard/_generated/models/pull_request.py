@@ -87,25 +87,32 @@ class PullRequest:
                 forge doesn't tell queued from running. A failed pipeline can still have
                 checks running or waiting, and says so. A pull request's counts agree
                 with its `ci`: one whose `ci` is `pending` has `failed` at 0, and one
-                whose `ci` is `success` has nothing running, waiting or failed. Two
-                kinds of run are therefore in none of the four, as long as something
-                else explains the state. A run held for approval: on a pull request
-                `awaitingWorkflowApproval` says that. A cancelled run: a push or a
-                concurrency group superseded it, and the overall state does not read it
-                as a failure while others still run. When a held run (and, on a
-                branch, cancelled ones) is the only reason a pipeline reads as failed,
-                the held run counts as `failed` with the cancelled ones, so a failed
-                pipeline always has a failed count on GitHub. A pull request whose `ci`
-                is `cancelled`, and a branch whose status is `cancelled`, have `failed`
-                at 0; the pull request counts its cancelled runs in `cancelled`. A timed-out or stale check counts as `failed`,
-                a skipped,
+                whose `ci` is `success` has nothing running, waiting or failed. On a
+                pull request or branch a cancelled run and a run held for approval
+                have counts of their own, `cancelled` and `held`, and are never in
+                `failed`: a push or a concurrency group superseded a cancelled run, and
+                the overall state does not read it as a failure while others still run.
+                A held run is also said by `awaitingWorkflowApproval`. Every check the
+                pipeline lists is in exactly one count, so the counts add up to the
+                jobs the pipeline lists, on a pull request and a default branch alike.
+                A failed branch can have a `failed` of 0 when a held or cancelled run is what
+                failed it. A timed-out or stale check counts as `failed`, a skipped,
                 neutral or bare completed one as `passed`, on Forgejo too.
+
+                `unknown` is how many checks are in a state the server cannot grade: a
+                status or conclusion the forge added after the server was written. It
+                is none of the others, so a check nobody can name is not hidden in a
+                count that means something. A pull request or branch whose only odd
+                check is unknown is neither failing nor passing: a branch that would
+                read `passed` reads `running` while one is present. The server always
+                sends it; a client that may talk to an older server reads a missing
+                one as zero.
 
                 `skipped` is a newer field and says how many of the `passed` checks
                 were skipped. It never exceeds `passed`: it is inside `passed`, not
                 beside it, so `passed` still counts every check that needs nothing more
-                and the four states still add up to the checks the pipeline lists, bar
-                the blocked jobs of a failed Forgejo run described below. The
+                and the counts still add up to the checks the pipeline lists, on a pull
+                request and a default branch alike. The
                 server always sends it, which is why it is required; a client that may
                 talk to an older server may read a missing one as zero. A neutral or bare
                 completed check is passed without being skipped. A client that draws the
@@ -117,13 +124,13 @@ class PullRequest:
                 for a pull request and a branch alike; on Forgejo a pull request counts
                 the statuses of the combined commit status, which only say pending, and
                 takes the running ones out of the pending count by reading the jobs of
-                the commit's runs that are still going. When a run has failed, a
-                pending status of a job in a run that has failed is no wait: its
-                needs failed, so Forgejo leaves it blocked and nothing will start it,
-                and it is in none of the four. A default branch holds to the same: it
-                counts the jobs of the workflow runs of the newest commit that has one,
+                the commit's runs that are still going. A pending status of a job in a
+                run that has failed is no wait: its needs failed, so Forgejo leaves it
+                blocked and nothing will start it, and it counts as `notStarted`, not
+                `waiting`. A default branch counts the jobs of the workflow runs of the
+                newest commit that has one,
                 where a running job is `running`, a queued one `waiting`, and a blocked
-                one `waiting` unless its run has failed, when it is in none of the four. A run
+                one `waiting` unless its run has failed. A run
                 whose jobs can't be read counts as one check by its own status. Forgejo
                 answers one page of those statuses, and when its total says there are
                 more than the page holds a pull request's counts are all zero rather
@@ -155,6 +162,11 @@ class PullRequest:
                 get recomputed just because the base moved), so folding this
                 into mergeStatus would force picking one and losing the
                 other.
+            edited_by_others (bool): Whether a Dependabot pull request's head branch holds a commit
+                Dependabot didn't write, such as a bot refreshing a lockfile on it.
+                Dependabot refuses to rebase such a branch, so the pull request
+                offers Update branch instead of Dependabot's Rebase. Always false
+                for any other author. Always present.
             head_sha (str): The commit the pull request's head branch points at. A bot's
                 rebase moves it, which shows the bot acted even when the pull
                 request is still reported behind, or wasn't behind to begin
@@ -420,6 +432,7 @@ class PullRequest:
     checks: CheckCounts
     merge_status: MergeStatus
     behind: bool
+    edited_by_others: bool
     head_sha: str
     kind: PullRequestKind
     base_branch: str
@@ -514,6 +527,8 @@ class PullRequest:
         merge_status = self.merge_status.value
 
         behind = self.behind
+
+        edited_by_others = self.edited_by_others
 
         head_sha = self.head_sha
 
@@ -674,6 +689,7 @@ class PullRequest:
             "checks": checks,
             "mergeStatus": merge_status,
             "behind": behind,
+            "editedByOthers": edited_by_others,
             "headSha": head_sha,
             "kind": kind,
             "baseBranch": base_branch,
@@ -804,6 +820,8 @@ class PullRequest:
 
 
         behind = d.pop("behind")
+
+        edited_by_others = d.pop("editedByOthers")
 
         head_sha = d.pop("headSha")
 
@@ -1069,6 +1087,7 @@ class PullRequest:
             checks=checks,
             merge_status=merge_status,
             behind=behind,
+            edited_by_others=edited_by_others,
             head_sha=head_sha,
             kind=kind,
             base_branch=base_branch,

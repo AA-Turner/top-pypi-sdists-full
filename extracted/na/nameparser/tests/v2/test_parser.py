@@ -146,21 +146,42 @@ def test_parser_for_warns_on_scalar_conflict() -> None:
 _HAN_FIRST = {Script.HAN: FAMILY_FIRST, Script.HANGUL: GIVEN_FIRST}
 _SCALARS: dict[str, tuple[object, object, object]] = {
     "name_order": (GIVEN_FIRST, FAMILY_FIRST, GIVEN_FIRST),
-    "script_orders": (_HAN_FIRST, {Script.HAN: GIVEN_FIRST},
-                      dict(reversed(list(_HAN_FIRST.items())))),
     "unlisted_caps_suffixes": (CapsSuffixes.OFF, CapsSuffixes.AFTER_COMMA,
                                CapsSuffixes.OFF),
     "lone_name_word": (Role.FAMILY, Role.GIVEN, "family"),
     **{flag: (False, True, False) for flag in (
         "middle_as_family", "lenient_comma_suffixes", "strip_emoji",
         "strip_bidi", "unlisted_dotted_suffixes", "two_family_names",
-        "two_given_names")},
+        "two_given_names", "initials_as_family", "capitals_as_family")},
 }
 
 
 def test_the_scalar_table_is_every_scalar_patch_field() -> None:
     assert set(_SCALARS) == {f.name for f in dataclasses.fields(PolicyPatch)
-                             if f.metadata.get("compose") != "union"}
+                             if f.metadata.get("compose")
+                             not in ("union", "by-script")}
+
+
+def test_parser_for_warns_where_two_packs_set_one_script_differently() -> None:
+    # script_orders composes by script (#1237): a later pack setting the
+    # same script to another order overrides that entry and warns; one
+    # adding another script's entry, or the same order in another key
+    # order, merges in silence
+    with pytest.warns(UserWarning, match="'bb' overrides the script_orders "
+                                         "entry for 'han' already set by "
+                                         "locale 'aa'; later wins"):
+        stacked = parser_for(_pack("aa", "script_orders", _HAN_FIRST),
+                             _pack("bb", "script_orders", {Script.HAN: GIVEN_FIRST}))
+    assert dict(stacked.policy.script_orders)[Script.HAN] == GIVEN_FIRST
+    assert dict(stacked.policy.script_orders)[Script.HANGUL] == GIVEN_FIRST
+    for second in (dict(reversed(list(_HAN_FIRST.items()))),
+                   {Script.CYRILLIC: FAMILY_FIRST}):
+        parser_for(_pack("aa", "script_orders", _HAN_FIRST),
+                   _pack("bb", "script_orders", second))
+    # a pack setting another script owns none of the base's entries, so
+    # a later pack overriding a default entry warns of nothing
+    parser_for(_pack("aa", "script_orders", {Script.CYRILLIC: FAMILY_FIRST}),
+               _pack("bb", "script_orders", {Script.HAN: GIVEN_FIRST}))
 
 
 def _pack(code: str, field: str, value: object) -> Locale:
@@ -220,7 +241,7 @@ def test_ambiguous_particle_middle_defeats_both_family_first_orders() -> None:
     # the vocabulary layer joins the ambiguous particle "van" forward
     # before the positional layer runs, so a name whose middle word
     # collides with it parses identically under either family-first
-    # order -- the caution in customize.rst rests on this
+    # order -- the caution in policy.rst rests on this
     for order in (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST):
         pn = Parser(policy=Policy(name_order=order)).parse("Nguyen Van Minh")
         assert (pn.family, pn.middle, pn.given) == ("Nguyen", "", "Van Minh")
@@ -505,8 +526,11 @@ def test_trailing_roman_numeral_reports_the_fork() -> None:
     assert [t.text for t in numeral.ambiguities[0].tokens] == ["V"]
     # the same shape with a non-numeral letter faces no fork
     assert parse("John Smith B").ambiguities == ()
-    # and a numeral after an initial is not treated as a suffix at all
-    assert parse("John Q. V").ambiguities == ()
+    # and a numeral after an initial is not treated as a suffix at all:
+    # the name is one word and initials, which reports the order alone
+    # (rules/O4, #1254)
+    assert [a.kind for a in parse("John Q. V").ambiguities] == [
+        AmbiguityKind.ORDER]
 
 
 #: The words the _group-emitter tests below spell, apart from the
@@ -1058,8 +1082,14 @@ def test_a_fork_is_reported_by_exactly_one_stage() -> None:
     # 'Do' rather than the 'Dr.' this used until 2.2, for the reason
     # above: with a plain title the chain loop never fires at all now,
     # so the double-report it guards against is out of reach there.
-    n = _overlap_parser().parse("Do Van Jr Smith")
+    n = _overlap_parser().parse("Do Van PhD Smith")
     assert n.given == "Van"
+    assert len(n.ambiguities) == 1
+    # Since #1177 a generation word written out before a name no longer
+    # stops the chain (rules/P2), so group's chain reports the fork and
+    # assign, which would report the lone particle, must not as well.
+    n = _overlap_parser().parse("Do Van Jr Smith")
+    assert (n.given, n.family) == ("", "Van Jr Smith")
     assert len(n.ambiguities) == 1
 
 
@@ -1453,6 +1483,12 @@ _HONORIFIC_PEEL = frozenset({"김민준씨, J.씨", "김민준씨., J.씨",
 #: reads the marker as a word too.
 _MARKER_IN_SUFFIX = frozenset({"Jane Doe PhD nee Smith",
                                "Smith, John, PhD née Jones"})
+#: The third (2026-11-10, #1230/#1235): a glued word the whole name reads
+#: as its suffix and keeps whole, being after a comma, and the
+#: value's own sub-parse divides, being the part before any comma there
+#: (rules/T8) -- 'M.Filho' revising to 'M. Filho', as a CJK value's
+#: sub-parse divides it (`revise(family="김민준")`).
+_GLUED_IN_SUFFIX = frozenset({"Smith, Pedro M.Filho"})
 
 
 def _suffix_bearing_corpus_names() -> list[str]:
@@ -1460,7 +1496,7 @@ def _suffix_bearing_corpus_names() -> list[str]:
     p = Parser()
     return [n for n in _CORPUS_NAMES
             if p.parse(n).suffix and n not in _HONORIFIC_PEEL
-            and n not in _MARKER_IN_SUFFIX]
+            and n not in _MARKER_IN_SUFFIX and n not in _GLUED_IN_SUFFIX]
 
 
 def test_the_known_round_trip_exceptions_are_one_limit() -> None:
@@ -1498,6 +1534,19 @@ def test_the_known_round_trip_exceptions_are_one_limit() -> None:
     assert all(takes_a_clause_on_its_own(n) for n in _MARKER_IN_SUFFIX)
     assert not [n for n in _suffix_bearing_corpus_names()
                 if takes_a_clause_on_its_own(n)]
+
+    # the glued limit, characterized the same way: a word of the parsed
+    # suffix that T8 divides when read on its own
+    from nameparser._pipeline._vocab import glued_cuts
+    lex = p.lexicon
+
+    def divides_on_its_own(name: str) -> bool:
+        return any(glued_cuts(word.rstrip(","), lex)
+                   for word in p.parse(name).suffix.split())
+
+    assert all(divides_on_its_own(n) for n in _GLUED_IN_SUFFIX)
+    assert not [n for n in _suffix_bearing_corpus_names()
+                if divides_on_its_own(n)]
 
 
 def test_the_suffix_bearing_corpus_is_not_empty() -> None:
@@ -2266,10 +2315,10 @@ _NFD_ROWS = [
     "Smith, John й Jones",
     # ... and the veto on scripts that write no initials (#320), asked
     # of the composed spelling too: decomposed hangul is conjoining
-    # jamo, outside every _NO_INITIALS range until #1087, so composing the initial
+    # jamo, outside every no-initials range until #1087, so composing the initial
     # shape alone made a decomposed '씨.' an initial (a title or a
     # given name). Spaced or after a comma, since an UNSPACED
-    # decomposed hangul name is not split (docs/usage.rst) and so has
+    # decomposed hangul name is not split (docs/east-asian.rst) and so has
     # no composed twin to match
     "김민준, 씨.",
     "김 민준 씨.",
@@ -2287,6 +2336,13 @@ _NFD_ROWS = [
     "(Bob), 이서연·김민준",
     "Smith, 이서연·김민준",
     "이서연·김민준·박지훈",
+    # an initial behind a credential written short, after a family comma,
+    # counted in letters by rules/C13's given-name Except (#1395's third
+    # review: `len()` counted the decomposed É as two code points, so the
+    # NFD twin read suffix 'Md É'); added 2026-11-14, after the control below
+    "Rahman, Md É",
+    "Rahman, Md É.",
+    "Rahman, Md Ç",
 ]
 # Jamo that compose to no syllable (archaic, lone, Extended-A U+A960 and
 # Extended-B U+D7B0), which NFC leaves as written and so reach every
@@ -2421,6 +2477,89 @@ def test_a_decomposed_abbreviation_reads_as_its_composed_twin(
     parser = Parser(policy=policy)
     assert (_composed_reading(parser, decomposed)
             == _composed_reading(parser, composed))
+
+
+_TURKIC_NFD_ROWS = [
+    "Mamedov Ali Huseyn oğlu",
+    "Mamedov Ali Huseyn OĞLU",
+    "Мамедов Али Гусейн ўғли",
+    "Mamedov, Ali Huseyn oğlu",
+    "Mamedov Ali née Huseyn oğlu",
+    "Mamedov Ali Huseyn oğlu Jr.",
+    # the marker behind a unit of a two-word given name (O7's guard)
+    "Ali Veli oğlu Mamedov",
+    "Ali Veli oğlu",
+    "Али Вели ўғли Мамедов",
+    "Mamedov, Ali Veli oğlu",
+    # the marker ending a particle-opened given part (P10's guard)
+    "María del Carmen oğlu García",
+    # parity controls: nothing in the word decomposes, or it is no marker
+    "Mamedov Ali Huseyn ğ",
+    "Oğlu Ali Huseyn Mamedov",
+]
+
+_TURKIC_NFD_POLICIES = [
+    Policy(patronymic_rules=frozenset({PatronymicRule.TURKIC}),
+           two_given_names=True),
+    Policy(patronymic_rules=frozenset({PatronymicRule.TURKIC}),
+           two_given_names=True, name_order=FAMILY_FIRST),
+    Policy(patronymic_rules=frozenset({PatronymicRule.TURKIC}),
+           two_given_names=True, name_order=FAMILY_FIRST_GIVEN_LAST),
+]
+
+
+@pytest.mark.parametrize("policy", _TURKIC_NFD_POLICIES,
+                         ids=["default", "family-first",
+                              "family-first-given-last"])
+@pytest.mark.parametrize("text", _TURKIC_NFD_ROWS)
+def test_a_decomposed_turkic_marker_reads_as_its_composed_twin(
+        text: str, policy: Policy) -> None:
+    """#1316: `_vocab.is_patronymic_marker` matched `oğlu` as written,
+    so a ğ typed as g + U+0306 was no marker and `Mamedov Ali Huseyn
+    oğlu` read given 'Mamedov', family 'oğlu' under the Turkic rule (the
+    group suggester already folded it). The Cyrillic `ўғли` decomposes
+    too. Compared composed, with the patronymic view and the
+    ambiguity kinds beside the roles: under a family-first order with
+    `two_given_names` off only the view and the tokens' reading moved
+    (`_assemble`'s site), which `_composed_reading` cannot see; with it
+    on, O7's guard moved the roles too (these policies set it).
+    The rows reach all four call sites of the predicate (O2's rotation,
+    O7's and P10's guards, the patronymic view); the ASCII row and
+    `Oğlu` at the head are parity controls that pass without the fix.
+    Recorded control, measured 2026-11-10 against 213f90f7's
+    nameparser/: of the 42 new cases in this module and test_locales.py
+    36 fail, including the O7 and P10 rows, the patronymic-view row
+    under both family-first orders, the predicate test and the pack's
+    DEVIATES test; the six that pass are the two parity rows under
+    each policy."""
+    composed = unicodedata.normalize("NFC", text)
+    decomposed = unicodedata.normalize("NFD", text)
+    parser = Parser(policy=policy)
+
+    def reading(t: str) -> tuple[object, ...]:
+        name = parser.parse(t)
+        return (*_composed_reading(parser, t),
+                unicodedata.normalize("NFC", name.patronymic))
+
+    assert reading(decomposed) == reading(composed)
+
+
+def test_a_decomposed_turkic_marker_is_still_a_patronymic() -> None:
+    """The twin comparison passes if both encodings break alike; this
+    pins the reading (#1316)."""
+    name = Parser(policy=Policy(
+        patronymic_rules=frozenset({PatronymicRule.TURKIC}))).parse(
+        unicodedata.normalize("NFD", "Mamedov Ali Huseyn oğlu"))
+    assert name.given == "Ali"
+    assert name.family == "Mamedov"
+    assert unicodedata.normalize("NFC", name.patronymic) == "Huseyn oğlu"
+
+
+def test_the_marker_predicate_reads_a_decomposed_marker() -> None:
+    from nameparser._pipeline._vocab import is_patronymic_marker
+    for word in ("oğlu", "OĞLU", "ўғли"):
+        assert is_patronymic_marker(unicodedata.normalize("NFD", word)), word
+    assert not is_patronymic_marker(unicodedata.normalize("NFD", "ğ"))
 
 
 def test_a_decomposed_conjunction_reports_as_its_composed_twin() -> None:
@@ -3273,15 +3412,16 @@ def test_a_strict_choice_keeps_mul_and_native_script_vocabulary() -> None:
     assert strict.parse("Madam Minh Do").title == "Madam"
     assert strict.parse("Do, Madam Minh").title == "Madam"
     assert strict.parse("Do, Minh Madam").title == "Madam"
-    assert strict.parse("A Israni, MD, MS").suffix == "MS"
+    assert strict.parse("A Israni, MD, MS").suffix == "MD, MS"
     assert strict.parse("Radha MS").suffix == parse("Radha MS").suffix == "MS"
     # the five degrees #1021 moved (and `ms`'s, above), each after a
     # comma and in a run
     assert strict.parse("Minh Do, MSc, MBA").suffix == "MSc, MBA"
     assert strict.parse("Minh Do, MPH, BSc").suffix == "MPH, BSc"
-    # en.toml's leave: `md`, kept there since a leading Md abbreviates
-    # Muhammad, `mx`, the abbreviation for Mexico, and `rn`
-    assert strict.parse("Minh Do, MD").given == "MD"
+    # `md` reads in mul.toml beside its given reading since #1383's
+    # review, so strict vi keeps the degree
+    assert strict.parse("Minh Do, MD").suffix == "MD"
+    # en.toml's leave: `mx`, the abbreviation for Mexico, and `rn`
     assert strict.parse("Mx Minh Do").given == "Mx"
     # and `sir`, a British honour, and the job titles `director` and
     # `ceo` (#1038)
@@ -3320,24 +3460,29 @@ def test_a_strict_call_choosing_no_language_is_refused_with_a_fix_that_runs(
 
 
 def test_a_file_with_no_reading_is_a_strict_choice_only() -> None:
-    # hu.toml holds only exclusions (vi.toml did until #1108)
-    with pytest.raises(ValueError, match=r"hu\.toml holds no reading yet.*"
-                                         r"strict=True"):
+    # hu.toml holds only exclusions, which no parse reads (vi.toml held
+    # only exclusions until #1108)
+    with pytest.raises(ValueError, match=r"hu\.toml holds no reading a "
+                                         r"parse reads yet.*strict=True"):
         parser_for(_choosing("hu"))
     assert "do" not in parser_for(_choosing("hu"), strict=True).lexicon._sets.particles
 
 
-def test_md_stays_out_of_a_strict_choice_that_does_not_read_en() -> None:
-    # `md` stays in en.toml (#1005): a leading Md abbreviates Muhammad
-    # (#853), and after a family comma a strict choice reading `md`
-    # from mul.toml took the given name as a credential
+def test_md_reads_alike_under_a_strict_choice_that_does_not_read_en() -> None:
+    # `md`'s credential and its given reading are both in mul.toml since
+    # #1383's review, which every strict choice reads, so strict bn reads
+    # it as the default does: the given name after a family comma where
+    # rules/C13's given-name Except reads one (#1393), which kept the
+    # credential in en.toml until then (#1005), and the degree in
+    # capitals alone there and after a whole name, which strict bn read
+    # as a given name until then
     bn = parser_for(_choosing("bn"), strict=True)
-    for text, given, middle in (("Rahman, Md", "Md", ""),
-                                ("Rahman, MD", "MD", ""),
-                                ("Karim, Md Abdul", "Md", "Abdul")):
-        got = bn.parse(text)
-        assert (got.given, got.middle, got.suffix) == (given, middle, ""), text
-    assert bn.parse("Md Rahman").given == "Md"
+    for text in ("Rahman, Md", "Karim, Md Abdul", "Rahman, MD",
+                 "John Smith, MD", "Md Rahman", "Md. Rahman"):
+        assert bn.parse(text).as_dict() == parse(text).as_dict(), text
+    assert bn.parse("Karim, Md Abdul").given == "Md"
+    assert bn.parse("Rahman, MD").suffix == "MD"
+    assert bn.parse("John Smith, MD").suffix == "MD"
 
 
 def test_a_strict_filipino_choice_reads_the_one_word_and_plural_particles() -> None:
@@ -3538,3 +3683,103 @@ def test_a_spanish_choice_reads_lady_as_a_given_name() -> None:
     # under the pack two family names follow, so the peeress's own given
     # name lands in the family (rules/O6)
     assert parser_for(locales.ES).parse("Lady Annabel Goldsmith").family == "Annabel Goldsmith"
+
+
+def test_matching_parses_strings_with_this_parser() -> None:
+    p = Parser(lexicon=Lexicon.default().add(
+        "brgdr", kind="military", same_as="brigadier"))
+    assert p.matching().check(
+        "Brgdr. John Smith", "Brigadier John Smith").consistent
+
+
+def test_check_compares_parsed_names_as_given() -> None:
+    ff = Parser(policy=Policy(name_order=FAMILY_FIRST))
+    assert Parser().matching().check(
+        ff.parse("Smith John"), "John Smith").consistent
+
+
+def test_matching_accept_none_is_the_default_and_bad_values_raise() -> None:
+    from nameparser._match import DEFAULT_ACCEPT
+    assert Parser().matching().accept == DEFAULT_ACCEPT
+    assert Parser().matching({"initial"}).accept >= {"same", "initial"}
+    with pytest.raises(TypeError):
+        Parser().matching("initial")  # type: ignore[arg-type]
+
+
+# rules/O4's order report (#1254): one name word followed by nothing but
+# initials, read given-first by the default order
+
+
+@pytest.mark.parametrize("text", [
+    "Armitage J. O.", "Armitage J O", "Gomes A.R.S.", "Kavitha S",
+    "Delgado G.", "Lakshmi R S", "Lakshmi R S Jr.", "Dr. Kavitha S",
+    "Kavitha S, PhD", "kavitha s", "KAVITHA S", "Иванов И. И.",
+    "Иванов И.И.", unicodedata.normalize("NFD", "Gomes É.S."),
+])
+def test_one_word_and_initials_report_the_order(text: str) -> None:
+    order = [a for a in parse(text).ambiguities
+             if a.kind is AmbiguityKind.ORDER]
+    assert len(order) == 1
+    assert order[0].tokens[0].role is Role.GIVEN
+    # the other order lays out the whole name, which no one word's
+    # role names, so the report names none and says it in words
+    assert order[0].alternative is None
+    assert "name_order=FAMILY_FIRST" in order[0].detail
+
+
+@pytest.mark.parametrize("text", [
+    "John Smith",          # no initials
+    "Zhi LI",              # capitals written as one word: a surname's shape
+    "Armitage JO",
+    "Smith, J.O.",         # a family comma names the family
+    ", R S",
+    "Ram Bahadur B K",     # a second name word in front
+    "J R S",               # a run of initials in front (T7)
+    "J.A. K.D.",
+    "Van R S",             # a particle in front: PARTICLE_OR_GIVEN's
+    "Kavitha s",           # a lower-case letter among capitals (T4)
+    "Dupont J.-P.",        # hyphenated initials carry no initial tag
+    "Smith J-P",
+    "김 v",                 # a script that writes no initials in front
+    "王 J",
+    "?? S",                # no letter in front (#1348 review)
+    "12 S.",
+    "-- J O",
+    unicodedata.normalize("NFD", "\u00c9 S"),  # one letter, decomposed
+    # limits rules/O4 states, not extended here (#1348 review)
+    "राम बि.क.",           # Devanagari letters with a vowel sign (#1273)
+    "सीता के.सी.",
+    "Ivanov Yu. A.",       # transliteration digraphs are name words (H2)
+    "Petrov A. Yu.",
+    "Ivanov Yu.",
+    "SILVA Y",             # a one-case Y is the connective (P8)
+    "SILVA J Y",
+    "silva y",
+])
+def test_what_does_not_report_the_order(text: str) -> None:
+    assert AmbiguityKind.ORDER not in {
+        a.kind for a in parse(text).ambiguities}
+
+
+@pytest.mark.parametrize("text", [
+    "PHUOC T DO", "Sigve N Aas, PhD", "Felicio S Neto", "Smith J. Jr."])
+def test_the_order_report_says_what_follows_the_word(text: str) -> None:
+    # a word read as a suffix after the initials is no name word, so
+    # the name has the shape; the text claims only the name words
+    # (#1348 review: it said "followed only by initials")
+    order = [a for a in parse(text).ambiguities
+             if a.kind is AmbiguityKind.ORDER]
+    assert len(order) == 1
+    assert "is the only name word before initials" in order[0].detail
+
+
+@pytest.mark.parametrize("policy", [
+    Policy(name_order=FAMILY_FIRST),
+    Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+    Policy(initials_as_family=True),
+])
+def test_a_declared_order_or_the_switch_reports_no_order(
+        policy: Policy) -> None:
+    for text in ("Kavitha S", "Lakshmi R S", "Armitage J. O."):
+        assert AmbiguityKind.ORDER not in {
+            a.kind for a in Parser(policy=policy).parse(text).ambiguities}

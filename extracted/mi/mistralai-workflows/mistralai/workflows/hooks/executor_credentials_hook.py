@@ -15,9 +15,10 @@ from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core import _http_transport as http_transport
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import RunAs, StaticTokenProvider, TokenProvider
-from mistralai.workflows.core.config.config import config
+from mistralai.workflows.core.auth.header_files import get_deployment_headers, get_header_files
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
 from mistralai.workflows.exceptions import WorkflowError
+from mistralai.workflows.hooks.header_files_hook import AsyncRefreshHeaderFilesHook, RefreshHeaderFilesHook
 from mistralai.workflows.hooks.token_provider_hook import (
     AsyncTokenProviderHook,
     TokenProviderHook,
@@ -65,7 +66,7 @@ class ExecutorCredentialsHook(abc.ABC):
     ) -> None:
         self._run_as = RunAs(run_as) if run_as is not None else RunAs.EXECUTOR
         self._server_url = server_url.rstrip("/")
-        self._headers = dict(headers if headers is not None else config.worker.mistral_api_headers or {})
+        self._headers = dict(headers if headers is not None else get_deployment_headers())
         self._token_provider = _resolve_hook_token_provider(api_key, token_provider)
         if self._run_as == RunAs.EXECUTOR and self._token_provider is None and not self._headers:
             raise WorkflowError(
@@ -147,6 +148,18 @@ class ExecutorCredentialsHook(abc.ABC):
             "User-Agent": USER_AGENT,
         }
 
+    @staticmethod
+    def _exchange_request_hooks(
+        provider: TokenProvider | None,
+        token_hook: type[TokenProviderHook] | type[AsyncTokenProviderHook],
+        refresh_hook: type[RefreshHeaderFilesHook] | type[AsyncRefreshHeaderFilesHook],
+    ) -> list:
+        hooks: list = [token_hook(provider)] if provider else []
+        header_files = get_header_files()
+        if header_files is not None:
+            hooks.append(refresh_hook(header_files))
+        return hooks
+
     def _cache_jwt(self, jwt: str, execution_token: str) -> str:
         if len(self._jwt_cache) >= self._JWT_CACHE_SIZE:
             self._jwt_cache.popitem(last=False)  # FIFO eviction: drop oldest entry
@@ -171,7 +184,11 @@ class AsyncExecutorCredentialsHook(ExecutorCredentialsHook):
             async_client=httpx.AsyncClient(
                 verify=http_transport.verify(),
                 headers=self._client_headers,
-                event_hooks={"request": [AsyncTokenProviderHook(provider)] if provider else []},
+                event_hooks={
+                    "request": self._exchange_request_hooks(
+                        provider, AsyncTokenProviderHook, AsyncRefreshHeaderFilesHook
+                    )
+                },
                 follow_redirects=False,
                 transport=http_transport.async_transport(),
                 mounts=http_transport.async_mounts(),
@@ -225,7 +242,9 @@ class SyncExecutorCredentialsHook(ExecutorCredentialsHook):
             client=httpx.Client(
                 verify=http_transport.verify(),
                 headers=self._client_headers,
-                event_hooks={"request": [TokenProviderHook(provider)] if provider else []},
+                event_hooks={
+                    "request": self._exchange_request_hooks(provider, TokenProviderHook, RefreshHeaderFilesHook)
+                },
                 follow_redirects=False,
                 transport=http_transport.sync_transport(),
                 mounts=http_transport.sync_mounts(),

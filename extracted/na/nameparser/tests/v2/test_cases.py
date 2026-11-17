@@ -423,18 +423,83 @@ def test_the_field_sweep_sees_the_claims_it_checks() -> None:
     # switch set to family under the default order and under
     # FAMILY_FIRST, and 'Anh,'), one claim each; 1672 -> 1675 on
     # 2026-11-07, #1138's 'John (MA/PhD) Smith' reporting
-    # suffix-or-nickname under three orders.
-    assert claims == 1675, (
-        f"the field sweep checks {claims} claims, recorded as 1675 on "
-        f"2026-11-07")
+    # suffix-or-nickname under three orders; 1675 -> 1678 on
+    # 2026-11-08, #1202's 'John Smith (Msc.Ed، Bob)' reporting
+    # suffix-or-nickname under three orders; 1678 -> 1681 the same day,
+    # #1191's lone 'एम.' reporting given-or-family under three orders;
+    # 1681 -> 1684 the same day, #1177's 'Hasan, Ali bin Ahmad Jr. Smith'
+    # reporting suffix-or-name under three orders; 1684 -> 1702 the same
+    # day, the six reports of its reviews' boundary rows under three
+    # orders; 1702 -> 1705 the same day, its PR review's words-to-spare
+    # rows; 1705 -> 1711 on 2026-11-09, #998's 'Ahmed Ali M.Hassan'
+    # reporting suffix-or-name and 'Ali C.Psych' given-or-family under
+    # three orders; 1711 -> 1720 the same day, its review's three msi
+    # rows reporting suffix-or-name under three orders; 1720 -> 1747 the
+    # same day, #490's rows reporting suffix-or-name under three orders
+    # ('Treadwell, U.S. District Judge Marc', its code review's 'Smith,
+    # U.S. Marshal John' and 'U.S. Senator Smith, Ed', its fix commit's
+    # review's 'John Smith U.S. Dean.' and its test review's five comma
+    # rows, C4's count of a dotted run); 1747 -> 1762 on 2026-11-10,
+    # #1238's five rows of initials spelling a credential behind one
+    # name word ('Andrews, M.D.') reporting suffix-or-name under three
+    # orders; 1762 -> 1768 on 2026-11-10, #1312's two rows reporting
+    # given-or-family under three orders (the fullwidth and the ideographic
+    # full stop, each between Han or Latin neighbors that do not divide);
+    # 1768 -> 1771 on 2026-11-10, #1319's trailing run of initials
+    # opening like a rank ('สมชาย พ.ต.ส.') reporting suffix-or-name under
+    # three orders; 1771 -> 1777 on 2026-11-11, #1169's two rows of a
+    # nickname and a lone title word ('(Bob) Sir Jr.', "'Smitty' Sir
+    # Pope Jr.") reporting title-or-name under three orders; 1777 ->
+    # 1795 the same day, its review's six rows reporting title-or-name
+    # under three orders; 1795 -> 1860 the same day, #1323's rows of two
+    # capitals before credentials ('Jane Doe, BM PhD') and its reviews'
+    # boundaries, 65 claims (three fixes, four, three and nine
+    # boundaries reporting suffix-or-name under three orders, and three
+    # fixes under their own policy or three orders); 1860 -> 1882 the
+    # same day, #1254's order report on 22 rows of one name word and
+    # initials ('Kavitha S', 'John V', 'Jack X.Y.Z.'); 1882 -> 1888 on
+    # 2026-11-12, #1257's two Hebrew rows of a particle opening a name
+    # ('בן כהן', 'אל כהן') reporting particle-or-given under three
+    # orders; 1888 -> 1891 the same day, its 'El Mehdi Haddou' the same;
+    # 1891 -> 1897 the same day, #1222's two Georgian rows ('ჯეკ MA',
+    # 'ჯეკ, MA') reporting suffix-or-name under three orders; 1897 ->
+    # 1896 the same day, #1256's Thai row ('สมชาย พ.ต.ส.') dropping its
+    # order report; 1896 -> 1899 on 2026-11-13, #1383's 'Md.' row
+    # reporting suffix-or-name under three orders; 1899 -> 1902 on
+    # 2026-11-14, #1393: the two 'Uddin, Md Karim' rows stop reporting
+    # and three boundary rows report ('Smith, MD XYZ', 'Rahman Khan, Md
+    # Abdul', 'SMITH, MD MBA, JANE'), each under three orders; 1902 ->
+    # 1950 the same day, #1395's second review: the Except reports its
+    # fork (the ten `fix(#1393)` rows), and six of its new rows report
+    # ('Smith, MD J', 'Rahman, MD A', 'Rahman, Sr Md Karim', 'Smith, Md
+    # XYZ', 'SMITH, MD SHEIKH', 'SMITH, MD DEAN'), each under three orders;
+    # 1950 -> 1971 the same day, #1395's third review's five rows ('Md and
+    # Karim' and 'Md Sheikh Karim' two reports each, 'Md Dean', 'Md
+    # KARIM' and 'Md ABDUL' one) under three orders; 1971 -> 2011 on
+    # 2026-11-15, #1392's thirteen rows of two capitals before a later
+    # listed credential ('Jane Mary Doe, MH, PhD'), each reporting the
+    # flip under three orders, and its EVERYWHERE boundary row, the pair
+    # kept as the given name reporting once under its declared policy;
+    # 2011 -> 2077 the same day, the dotted pair joining the rule and
+    # the three reviews' rows: each row that reports (a flip, or a pair
+    # kept as the given name that reports as before) under three orders,
+    # or once where it declares a policy; 2077 -> 2080, the second
+    # code review's 'Jane Doe, MH, MD/PhD;' under three orders; 2080 ->
+    # 2086, the coordinator's review: 'Jane Doe, MH, Mc, PhD' and 'Jane
+    # Doe, VI, PhD' under three orders (the vi row is not swept); 2086
+    # -> 2098, the third review's four rows under three orders; 2098 ->
+    # 2101, 'Jane Doe, A.L., PhD' under three orders.
+    assert claims == 2101, (
+        f"the field sweep checks {claims} claims, recorded as 2101 on "
+        f"2026-11-15")
 
 
 #: The kinds that report a fork between two readings of a word, so carry
-#: the reading not taken: three of the rest report a shape, and `order`
-#: is reserved (#752 phase 2m).
+#: the reading not taken: the three left out report a shape (#752 phase
+#: 2m). `order` was reserved until #1254 gave it an emitter.
 _FORK_KINDS = frozenset(AmbiguityKind) - {
     AmbiguityKind.COMMA_STRUCTURE, AmbiguityKind.UNBALANCED_DELIMITER,
-    AmbiguityKind.SEGMENTATION, AmbiguityKind.ORDER}
+    AmbiguityKind.SEGMENTATION}
 
 #: The field a non-name reading names by what it is.
 _FIELD_OF_KIND = {
@@ -482,6 +547,24 @@ _STAND_IN_REREADS = {
     # a name word in VI's place gives the 'y' a word to link, so P3's
     # join takes it with 'Smith' (#1098)
     ("John Smith y VI", 1),
+    # a name word in Pharm's place makes the 'MD' opening the part the
+    # given name written short (rules/C13's given-name Except, #1393)
+    ("Smith, MD Pharm D", None), ("Smith, MD Pharm D", 1),
+    ("Smith, MD Pharm D", 2),
+    ("SMITH, MD MBA, JANE", None), ("SMITH, MD MBA, JANE", 1),
+    ("SMITH, MD MBA, JANE", 2),
+    # likewise a plain word in place of a gated title (#1395's second
+    # review: a title reading of any kind is no name word there)
+    ("SMITH, MD DEAN", None), ("SMITH, MD DEAN", 1), ("SMITH, MD DEAN", 2),
+    ("SMITH, MD SHEIKH", None), ("SMITH, MD SHEIKH", 1),
+    ("SMITH, MD SHEIKH", 2),
+    # and in place of a conjunction or a gated title behind a mixed-case
+    # `Md` (#1395's third review)
+    ("Rahman, Md and Karim", None), ("Rahman, Md and Karim", 1),
+    ("Rahman, Md and Karim", 2),
+    ("Rahman, Md Sheikh Karim", None), ("Rahman, Md Sheikh Karim", 1),
+    ("Rahman, Md Sheikh Karim", 2),
+    ("Rahman, Md Dean", None), ("Rahman, Md Dean", 1), ("Rahman, Md Dean", 2),
 }
 
 #: Reports whose deferred field assign could not name: the particle the
@@ -539,7 +622,9 @@ def _check_alternatives(key: tuple[str, int | None], pn: ParsedName,
                         parser: Parser) -> None:
     for a in pn.ambiguities:
         alt = a.alternative
-        if a.kind not in _FORK_KINDS:
+        if a.kind not in _FORK_KINDS or a.kind is AmbiguityKind.ORDER:
+            # rules/O4's order report names no alternative: the other
+            # order lays out the whole name, no one word's role (#1254)
             assert alt is None, (key, a)
             continue
         if key in _NO_ALTERNATIVE and alt is None:
@@ -673,16 +758,18 @@ _EXPECTED_ALTERNATIVES: dict[tuple[str, tuple[tuple[str, Any], ...]],
     # a credential gated as a generation word is (#965) names a credential
     ("Ram KC", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.VOCABULARY)),),
-    ("John V", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
-        ReadingKind.GENERATION, Role.SUFFIX, ReadingSource.VOCABULARY)),),
+    ("John V", ()): ((AmbiguityKind.ORDER, None),
+        (AmbiguityKind.SUFFIX_OR_NAME, (
+            ReadingKind.GENERATION, Role.SUFFIX, ReadingSource.VOCABULARY))),
     ("John Smith Vi", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.GENERATION, Role.SUFFIX, ReadingSource.SHAPE)),),
     ("Esq Jr", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.POST_NOMINAL, Role.SUFFIX, ReadingSource.VOCABULARY)),),
     ("Jack Ma", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
         ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.VOCABULARY)),),
-    ("Jack X.Y.Z.", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
-        ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.SHAPE)),),
+    ("Jack X.Y.Z.", ()): ((AmbiguityKind.ORDER, None),
+        (AmbiguityKind.SUFFIX_OR_NAME, (
+            ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.SHAPE))),
     ("(MA) John Smith", ()): ((AmbiguityKind.SUFFIX_OR_NICKNAME, (
         ReadingKind.CREDENTIAL, Role.SUFFIX, ReadingSource.VOCABULARY)),),
     # name_reading: an initial, a declared name, a word by position
@@ -734,6 +821,12 @@ _EXPECTED_ALTERNATIVES: dict[tuple[str, tuple[tuple[str, Any], ...]],
     ("SMITH E JONES, JOHN", ()): ((AmbiguityKind.CONJUNCTION_OR_INITIAL, (
         ReadingKind.CONJUNCTION, Role.FAMILY, ReadingSource.VOCABULARY)),),
     ("E SMITH JONES", ()): ((AmbiguityKind.CONJUNCTION_OR_INITIAL, None),),
+    # #1392: the pair a later credential speaks for is the given name
+    # in the other reading, as the pair alone is ('Jane Doe, BM')
+    ("Jane Mary Doe, MH, PhD", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
+        ReadingKind.NAME, Role.GIVEN, ReadingSource.POSITION)),),
+    ("Jane Mary Doe, M.H., PhD", ()): ((AmbiguityKind.SUFFIX_OR_NAME, (
+        ReadingKind.NAME, Role.GIVEN, ReadingSource.POSITION)),),
     # middle_as_family folds a middle alternative as it folds the middle
     ("Doe, John MA Smith", (("middle_as_family", True),)): (
         (AmbiguityKind.SUFFIX_OR_NAME, (
@@ -828,8 +921,40 @@ def test_the_alternative_sweep_sees_the_fields_it_checks() -> None:
     # under the three orders; 331 -> 334 the same day, its review's
     # 'Akther, Mst. Nasima' the same; 334 -> 335 the same day, #1111's
     # 'Sir Freiherr von Richthofen' under its own policy, whose stand-in
-    # for 'von' lands in the family with the chain, as the particle did
-    assert (checked, skipped) == (537, 335), (checked, skipped)
+    # for 'von' lands in the family with the chain, as the particle did;
+    # 335 -> 338 on 2026-11-08, #1177's 'Hasan, Ali bin Ahmad Jr. Smith'
+    # under the three orders, each stand-in keeping the taken one;
+    # 537 -> 540 and 338 -> 350 the same day, its reviews' boundary
+    # rows under the three orders; 540 -> 542 and 350 -> 354 the same
+    # day, its PR review's two words-to-spare rows under the three orders;
+    # 542 -> 545 on 2026-11-09, #998's 'Ahmed Ali M.Hassan' under the
+    # three orders; 545 -> 551 the same day, its review's 'Jane Doe, MSi'
+    # and 'ANDISWA ZANELE MSI' under the three orders; 551 -> 560 the
+    # same day, #490's 'P.D. Grant, Ed', 'P.D. Grant PhD, Ed' and 'Jones
+    # U.S. Senator PhD, Ed' under the three orders; 560 -> 566 and
+    # 354 -> 357 on 2026-11-11, #1323's three rows of two capitals
+    # before credentials ('Jane Doe, BM PhD') under the three orders;
+    # 566 -> 576 and 357 -> 360 the same day, its review's rows; 576 ->
+    # 582 and 360 -> 363, its second review's three head rows; 582 ->
+    # 594 and 363 -> 366, its third review's rows; #1254's order
+    # reports on 22 rows carry no alternative (rules/A1), so neither
+    # count moves with them; 366 -> 363 on 2026-11-14, #1393's 'Smith,
+    # MD Pharm D' joining `_STAND_IN_REREADS` under the three orders,
+    # where its stand-in had landed in the taken field; 363 -> 366 the
+    # same day, #1395's second review's 'Smith, Md XYZ' under the three
+    # orders, whose stand-in keeps the taken field; 366 -> 372 the same
+    # day, #1395's third review's 'Rahman, Md KARIM' and 'Rahman, Md
+    # ABDUL' under the three orders, likewise; 372 -> 411 on 2026-11-15,
+    # #1392's thirteen rows under the three orders, a comma credential
+    # run's report, whose stand-in the run reads too (two capitals,
+    # alone, before the listed credential), so its field is pinned in
+    # _EXPECTED_ALTERNATIVES instead; 594 -> 595 and 411 -> 453 the same
+    # day, the dotted pair's rows and the three reviews': the flips skip
+    # as the undotted ones do, and one boundary row's stand-in lands in
+    # the other field; 453 -> 456, the second code review's glued row;
+    # 456 -> 462, the coordinator's review's two rows; 462 -> 474, the
+    # third review's four; 474 -> 477, the 'A.L.' row
+    assert (checked, skipped) == (595, 477), (checked, skipped)
 
 
 def test_every_case_name_is_unique() -> None:

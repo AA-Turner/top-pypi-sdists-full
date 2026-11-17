@@ -2897,10 +2897,110 @@ def ai_can_write(profile: str) -> bool:
     return "*" in allowed or profile in allowed
 
 
-def ai_payload(state, cube: str) -> dict:
-    """Serialize a `reactor.state.ReactorState` for the browser. Explicit literals only."""
+# The vision section (reactor/vision.py). Same rule: explicit fields only, so neither the
+# gateway's override nor anything else the gateway's own model list says reaches the page.
+AI_VISION_FIELDS = frozenset({"available", "can_write", "saturated", "gateway", "endpoint",
+                              "live_available", "models", "others", "streams", "upload_available"})
+AI_VISION_GATEWAY_FIELDS = frozenset({"status", "reason", "lifecycle", "health", "ready",
+                                      "console_installed"})
+AI_VISION_MODEL_FIELDS = frozenset({"id", "display_name", "description", "task", "detects",
+                                    "backend", "device", "status", "owner", "actions", "error",
+                                    "runtime", "tags"})
+# A model on the gateway that is not a catalog card (vision.other_models): shown, and removable
+# only when the console uploaded it (`removable`).
+AI_VISION_OTHER_FIELDS = frozenset({"name", "display_name", "status", "source", "detects",
+                                    "device", "runtime", "error", "image", "tags", "tags_more",
+                                    "removable"})
+VISION_DETECTS_SHOWN = 6
+
+
+def _vision_detects(live) -> str:
+    """What a model outside the catalog finds, in words, from its own labels."""
+    if live is None or not live.labels:
+        return ""
+    shown = list(live.labels[:VISION_DETECTS_SHOWN])
+    rest = max(live.label_count, len(live.labels)) - len(shown)
+    return ", ".join(shown) + (f" and {rest} more" if rest > 0 else "")
+
+
+def _vision_upload_available() -> bool:
+    from cube_cloud.reactor import vision_upload
+    return vision_upload.available()
+
+
+def ai_vision_payload(state) -> dict:
+    """Serialize a `reactor.vision.VisionState`, or say it could not be read."""
+    if state is None:
+        return {"available": False}
     gw = state.gateway
     return {
+        "available": True,
+        "can_write": state.can_write,
+        "saturated": state.saturated,
+        "endpoint": state.endpoint,
+        "live_available": state.live_available,
+        "gateway": {
+            "status": gw.status,
+            "reason": gw.reason,
+            "lifecycle": gw.lifecycle,
+            "health": gw.health,
+            "ready": gw.ready,
+            "console_installed": gw.console_installed,
+        },
+        "models": [
+            {
+                "id": m.spec.id,
+                "display_name": m.spec.display_name,
+                "description": m.spec.description,
+                "task": m.spec.task,
+                "detects": m.spec.detects,
+                "backend": m.spec.backend,
+                "device": m.spec.device,
+                "status": m.status,
+                "owner": m.owner,
+                "actions": list(m.actions),
+                # The gateway's own words for why it could not load the model (capped in
+                # vision.parse_live); empty unless it failed.
+                "error": m.live.error if m.live else "",
+                "runtime": m.live.runtime if m.live else "",
+                "tags": list(m.spec.tags),
+            }
+            for m in state.models
+        ],
+        "others": [
+            {
+                "name": o.name,
+                "display_name": o.live.display_name if o.live else "",
+                "status": o.status,
+                "source": o.source,
+                "removable": o.removable,
+                "detects": _vision_detects(o.live),
+                # What the gateway runs it on when it said; else what the entry asked for.
+                "device": (o.live.device if o.live and o.live.device else o.device.upper()),
+                "runtime": o.live.runtime if o.live else "",
+                "error": o.live.error if o.live else "",
+                "image": o.image,
+                "tags": list(o.live.labels[:VISION_DETECTS_SHOWN]) if o.live else [],
+                "tags_more": (max(0, max(o.live.label_count, len(o.live.labels)) - VISION_DETECTS_SHOWN)
+                              if o.live else 0),
+            }
+            for o in state.others
+        ],
+        # Whether this caller may add a custom model here: uploads configured on this stack
+        # and the profile allowed to write AI models.
+        "upload_available": bool(state.can_write and _vision_upload_available()),
+        # Counts only (vision.LiveStreams); null when the gateway's stream list was not read.
+        "streams": ({"cameras": state.streams.cameras, "subscriptions": state.streams.subscriptions}
+                    if state.streams else None),
+    }
+
+
+def ai_payload(state, cube: str, vision=None) -> dict:
+    """Serialize a `reactor.state.ReactorState` (and the vision section) for the
+    browser. Explicit literals only."""
+    gw = state.gateway
+    return {
+        "vision": ai_vision_payload(vision),
         "cube": cube,
         "can_write": state.can_write,
         "saturated": state.saturated,
@@ -2976,11 +3076,17 @@ async def cube_ai(client: ApolloClient, profile: str, cube: str) -> dict | None:
     """
     from cube_cloud.reactor import service as reactor
 
+    from cube_cloud.reactor import vision
+
     env = await _ai_environment(client, profile, cube)
     if env is None:
         return None
-    state = await reactor.read_state(
-        client, env, can_write=ai_can_write(profile), profile=profile,
-        gpu_wait=reactor.GPU_WAIT_ON_READ_SECONDS,
+    can_write = ai_can_write(profile)
+    # The vision read is independent and never raises: a failure there leaves the LLM
+    # section working and the vision one saying it could not look.
+    state, vision_state = await asyncio.gather(
+        reactor.read_state(client, env, can_write=can_write, profile=profile,
+                           gpu_wait=reactor.GPU_WAIT_ON_READ_SECONDS),
+        vision.safe_read_state(client, env, can_write, profile=profile),
     )
-    return ai_payload(state, cube)
+    return ai_payload(state, cube, vision_state)

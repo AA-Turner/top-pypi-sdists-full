@@ -23,20 +23,18 @@ cause and the remedy: an explicit IANA zone, or a writable cache.
 """
 from __future__ import annotations
 
-import contextlib
 import ipaddress
 import re
 import socket
 import threading
 import time
 from typing import Any, Dict, NamedTuple, Optional, Sequence
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 # At import, as in prefs.py: zoneinfo resolves its search path from the real
 # platform the first time it is imported.
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import requests
-import urllib3.util.connection as _u3conn
 
 from . import _udp_exit
 from ._geoposition import DeclaredPosition, position_to_declare
@@ -411,28 +409,83 @@ def _proxies_for_requests(proxy: Dict[str, str]) -> Dict[str, str]:
     return {"http": url, "https": url}
 
 
-_family_lock = threading.Lock()
+# ⛔ THE ADDRESS FAMILY OF AN ECHO IS FORCED ON THE REQUEST'S OWN SOCKET, never on
+# the process. Until this change a direct echo swapped urllib3's GLOBAL
+# `allowed_gai_family` for its whole duration under one process-wide lock, so N
+# launches in one process made N TLS requests in series (measured on GitHub
+# runners, four browsers launched together: 0.24 / 0.48 / 0.83 / 1.1 s). Now the
+# session that makes the request binds its sockets to a wildcard address of one
+# family: an IPv4 socket (bound to ``0.0.0.0``) can only reach IPv4 addresses, an
+# IPv6 one (``::``) only IPv6 ones, and every other connection of the process,
+# and every other thread, is untouched.
+_V4_SOURCE = ("0.0.0.0", 0)
+_V6_SOURCE = ("::", 0)
 
 
-@contextlib.contextmanager
-def _only_family(family: "socket.AddressFamily"):
-    """Make the connections THIS thread opens use one address family, for the
-    duration of the block, through urllib3's own hook (``allowed_gai_family``,
-    read by ``create_connection`` on every connect). Other threads keep the
-    original answer; the lock keeps two blocks from overwriting each other's
-    restore. Opens no socket by itself."""
-    owner = threading.get_ident()
-    original = _u3conn.allowed_gai_family
+class _BoundAdapter(requests.adapters.HTTPAdapter):
+    """An adapter whose pool opens every socket bound to ``source_address``.
 
-    def gated() -> "socket.AddressFamily":
-        return family if threading.get_ident() == owner else original()
+    ``source_address`` reaches ``create_connection`` for plain and for TLS
+    connections alike: urllib3 hands the pool's connection keywords to both."""
 
-    with _family_lock:
-        _u3conn.allowed_gai_family = gated
+    def __init__(self, source_address: "tuple[str, int]", **kwargs: Any) -> None:
+        # Before the base class: its __init__ builds the pool manager, which
+        # asks for this.
+        self._source_address = source_address
+        super().__init__(**kwargs)
+
+    def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
+        pool_kwargs["source_address"] = self._source_address
+        super().init_poolmanager(connections, maxsize, block, **pool_kwargs)
+
+
+def _http_get(url: str, proxies: Optional[Dict[str, str]] = None,
+              timeout: Any = None, family: int = socket.AF_INET):
+    """One GET of an echo endpoint. THE seam to the network of this module.
+
+    Through a proxy the address family is the proxy's business and the request is
+    a plain ``requests.get``. Direct, it is made by a private session bound to
+    ``family``, which keeps the choice off every global."""
+    if proxies:
+        return requests.get(url, proxies=proxies, timeout=timeout)
+    source = _V6_SOURCE if family == socket.AF_INET6 else _V4_SOURCE
+    with requests.Session() as session:
+        adapter = _BoundAdapter(source)
+        session.mount("https://", adapter)
+        session.mount("http://", adapter)
         try:
-            yield
-        finally:
-            _u3conn.allowed_gai_family = original
+            return session.get(url, timeout=timeout)
+        except requests.exceptions.ConnectionError as exc:
+            if _bind_refused_the_family(exc, url, family):
+                # Not a DNS failure: every address of the OTHER family refused the
+                # bound socket, and urllib3 reports the last error it met.
+                raise requests.exceptions.ConnectionError(
+                    f"no route over {'IPv6' if family == socket.AF_INET6 else 'IPv4'} "
+                    f"to {urlsplit(url).hostname}") from exc
+            raise
+
+
+def _bind_refused_the_family(exc: BaseException, url: str, family: int) -> bool:
+    """True when ``exc`` is the ``gaierror`` of binding a socket to a wildcard of the
+    wrong family, which urllib3 reports exactly like a failed lookup
+    (``NameResolutionError``) and which would send the reader to a DNS problem that
+    does not exist (and hide an IPv6-only host from ``_host_is_ipv6_only``'s caller).
+    Told apart by asking the resolver for the same name in the same family: when it
+    answers, the lookup was not what failed."""
+    chain, cur = [], exc
+    while cur is not None and cur not in chain:
+        chain.append(cur)
+        cur = cur.__cause__ or cur.__context__
+    if not any(isinstance(e, socket.gaierror) or type(e).__name__ == "NameResolutionError"
+               for e in chain):
+        return False
+    host = urlsplit(url).hostname
+    if not host:
+        return False
+    try:
+        return bool(socket.getaddrinfo(host, None, family, socket.SOCK_STREAM))
+    except OSError:
+        return False
 
 
 def _host_is_ipv6_only() -> bool:
@@ -445,9 +498,9 @@ def _host_is_ipv6_only() -> bool:
         if remaining <= 0:
             break
         try:
-            with _only_family(socket.AF_INET6):
-                resp = requests.get(url, proxies=None,
-                                    timeout=(remaining / 2, remaining / 2))
+            resp = _http_get(url, proxies=None,
+                             timeout=(remaining / 2, remaining / 2),
+                             family=socket.AF_INET6)
             resp.raise_for_status()
             if ipaddress.ip_address(resp.text.strip()).version == 6:
                 return True
@@ -456,13 +509,88 @@ def _host_is_ipv6_only() -> bool:
     return False
 
 
+# How long a direct measurement of the egress is kept and shared. The wrapper
+# rechecks the exit of a running session on the same interval
+# (`_INTERVALLO_CONTROLLO_USCITA_S`, 120.0, in invisible_playwright), so a launch
+# never sees an answer older than the longest age the wrapper itself accepts.
+_EGRESS_SHARED_FOR_S = 120.0
+_egress_clock = time.monotonic  # a seam for the tests
+
+
+class _Flight:
+    """One direct measurement in progress, and what the callers waiting on it get."""
+
+    def __init__(self) -> None:
+        self.done = threading.Event()
+        self.ip: Optional[str] = None
+        self.error: Optional[BaseException] = None
+
+
+_egress_lock = threading.Lock()
+_egress_kept: "Optional[tuple[str, float]]" = None   # (ip, valid until)
+_egress_flight: Optional[_Flight] = None
+
+
 def discover_egress_ip(
     proxy: Optional[Dict[str, str]] = None,
     *,
     timeout: float = 10.0,
     budget: float = 15.0,
 ) -> str:
-    """Return the public egress IP.
+    """Return the public egress IP. See :func:`_measure_egress_ip` for how it is
+    measured and what it raises.
+
+    ⛔ WITHOUT A PROXY the measurement is made ONCE for the whole process: launches
+    that ask at the same moment wait for the one request in flight instead of
+    making their own, and the answer is kept for ``_EGRESS_SHARED_FOR_S`` seconds,
+    so a launch inside that interval makes no request at all. A failure is not
+    kept - the next call measures again - and every caller waiting on that
+    measurement gets the same error.
+
+    WITH A PROXY nothing is shared and nothing is kept: a rotating proxy answers
+    with a different exit for every connection, so each request is its own
+    measurement. Nor do they queue: requests through proxies run side by side.
+    """
+    if proxy:
+        return _measure_egress_ip(proxy, timeout=timeout, budget=budget)
+
+    global _egress_kept, _egress_flight
+    with _egress_lock:
+        kept = _egress_kept
+        if kept is not None and _egress_clock() < kept[1]:
+            return kept[0]
+        flight = _egress_flight
+        leader = flight is None
+        if leader:
+            flight = _egress_flight = _Flight()
+    if not leader:
+        flight.done.wait()
+        if flight.error is not None:
+            raise flight.error
+        assert flight.ip is not None
+        return flight.ip
+
+    try:
+        flight.ip = _measure_egress_ip(None, timeout=timeout, budget=budget)
+    except BaseException as exc:
+        flight.error = exc
+        raise
+    finally:
+        with _egress_lock:
+            if flight.ip is not None:
+                _egress_kept = (flight.ip, _egress_clock() + _EGRESS_SHARED_FOR_S)
+            _egress_flight = None
+        flight.done.set()
+    return flight.ip
+
+
+def _measure_egress_ip(
+    proxy: Optional[Dict[str, str]] = None,
+    *,
+    timeout: float = 10.0,
+    budget: float = 15.0,
+) -> str:
+    """Measure the public egress IP: ONE round of requests, nothing shared.
 
     Routes the request through ``proxy`` when given (SOCKS support requires
     ``requests[socks]`` / PySocks); with ``proxy=None`` it makes a direct
@@ -510,11 +638,9 @@ def discover_egress_ip(
             # so the loop really does reach the second and third endpoint when
             # the first goes quiet.
             slice_ = min(timeout, remaining)
-            with (contextlib.nullcontext() if proxies
-                  else _only_family(socket.AF_INET)):
-                resp = requests.get(
-                    url, proxies=proxies, timeout=(slice_ / 2, slice_ / 2)
-                )
+            resp = _http_get(
+                url, proxies=proxies, timeout=(slice_ / 2, slice_ / 2)
+            )
             resp.raise_for_status()
             ip = resp.text.strip()
             parsed = ipaddress.ip_address(ip)  # raises ValueError if not an IP

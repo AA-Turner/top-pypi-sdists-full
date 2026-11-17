@@ -276,7 +276,7 @@ DEPRECATIONS: dict[DeprecationId, Deprecation] = {
             "JSON configuration values that do not match the documented schema are deprecated and will become "
             "validation errors in a future release."
         ),
-        warning_since="0.64.2",
+        warning_since="0.65.0",
         removal_version=None,
         replacement="Update the JSON configuration to match --output-format-json-schema config.",
         warning_category="FutureWarning",
@@ -334,7 +334,7 @@ _CLI_MIGRATION_WARNINGS: ContextVar[set[DeprecationId] | None] = ContextVar("cli
 
 @contextmanager
 def cli_migration_warning_scope() -> Generator[None]:
-    """Deduplicate migration notices within one CLI invocation, including batch/watch."""
+    """Deduplicate migration notices within one CLI invocation, including batch/watch, and keep them at the package."""
     with context_values({_CLI_MIGRATION_WARNINGS: set()}):
         yield
 
@@ -401,19 +401,21 @@ def warn_deprecated(
     """Emit a warning from the central registry.
 
     The warning names the code that called the package (``_stacklevel_at_caller``), or the frame ``stacklevel`` gives
-    as ``warnings.warn`` counts it when a caller passes one.
+    as ``warnings.warn`` counts it when a caller passes one. In a CLI invocation (``cli_migration_warning_scope``) it
+    names this function in the package: the console script and the ``__main__.py`` of ``python -m`` both run as
+    ``__main__``, and Python's default filters show a ``DeprecationWarning`` raised from ``__main__`` that they hide
+    when it is raised from the package.
     """
     if (deprecation := get_deprecation(deprecation_id)).status == "scheduled":
         return
-    seen = _CLI_MIGRATION_WARNINGS.get() if deprecation_id in _MIGRATION_WARNINGS else None
+    cli_seen = _CLI_MIGRATION_WARNINGS.get()
+    seen = cli_seen if deprecation_id in _MIGRATION_WARNINGS else None
     if seen is not None and deprecation_id in seen:
         return
     message = deprecation.message if details is None else f"{deprecation.message} {details}"
-    warnings.warn(
-        message,
-        _WARNING_CATEGORIES[deprecation.warning_category],
-        stacklevel=_stacklevel_at_caller() if stacklevel is None else stacklevel,
-    )
+    if stacklevel is None:
+        stacklevel = 1 if cli_seen is not None else _stacklevel_at_caller()
+    warnings.warn(message, _WARNING_CATEGORIES[deprecation.warning_category], stacklevel=stacklevel)
     if seen is not None:
         seen.add(deprecation_id)
 
@@ -423,8 +425,8 @@ def _stacklevel_at_caller() -> int:
 
     That caller is the frame that called the outermost frame of a file of the package: the code that called the
     library however deep in it, past the third-party code the package calls back through (a Pydantic validator, a YAML
-    constructor), so a ``module=`` filter matches the caller's module. In the CLI it is the console script, or the
-    ``runpy`` frame of ``python -m``. Frames are counted as ``warn()`` counts them, past the import machinery's own.
+    constructor), so a ``module=`` filter matches the caller's module. A CLI invocation does not use it (see
+    ``warn_deprecated``). Frames are counted as ``warn()`` counts them, past the import machinery's own.
     """
     frame: FrameType | None = sys._getframe(1)  # noqa: SLF001
     level = outermost = 1
@@ -519,6 +521,21 @@ def render_deprecations(format_: DeprecationFormat) -> str:
     return _render_registry(iter_deprecations(), _PAGE, format_)
 
 
+def _release_note_line(item: Deprecation) -> str:
+    """Return the release-note line of a deprecation in the release where its warning or scheduled change starts."""
+    started = (
+        "is registered without a runtime warning"
+        if item.status == "scheduled"
+        else f"now emits `{item.warning_category}`"
+    )
+    return f"`{item.target}` {started}. Planned removal: {_format_removal_version(item)}. {item.message}"
+
+
+def _removal_release_note_line(item: Deprecation) -> str:
+    """Return the release-note line of a deprecation in the release that removes it."""
+    return f"`{item.target}` was scheduled for removal in {item.removal_version}. {item.message}"
+
+
 def render_release_note_deprecations(version: str) -> str:
     """Render release-note text for deprecations that start or end in a version."""
     warning_started: list[Deprecation] = []
@@ -535,24 +552,7 @@ def render_release_note_deprecations(version: str) -> str:
             removals.append(item)
 
     return _render_release_notes((
-        (
-            "Deprecations",
-            (
-                f"`{item.target}` now emits `{item.warning_category}`. "
-                f"Planned removal: {_format_removal_version(item)}. {item.message}"
-                for item in warning_started
-            ),
-        ),
-        (
-            "Scheduled Breaking Changes",
-            (
-                f"`{item.target}` is registered without a runtime warning. "
-                f"Planned removal: {_format_removal_version(item)}. {item.message}"
-                for item in scheduled_changes
-            ),
-        ),
-        (
-            "Removed Deprecated Features",
-            (f"`{item.target}` was scheduled for removal in {version}. {item.message}" for item in removals),
-        ),
+        ("Deprecations", map(_release_note_line, warning_started)),
+        ("Scheduled Breaking Changes", map(_release_note_line, scheduled_changes)),
+        ("Removed Deprecated Features", map(_removal_release_note_line, removals)),
     ))

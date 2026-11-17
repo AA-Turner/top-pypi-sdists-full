@@ -27,13 +27,6 @@ use crate::bindings::_helpers::cli::dispatch::{Invocation, command_facts, wareho
 use crate::bindings::_helpers::command_runtime::warehouses::{
     WarehouseInputs, configured_warehouses,
 };
-use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_connection_config;
-use crate::bindings::_helpers::compiled_project::constants::SQL_TEST_KEY_PREFIX;
-use crate::bindings::_helpers::compiled_project::snapshot::NativeOrchestrationSnapshot;
-use crate::bindings::_helpers::compiled_project::snapshot_execution::{NodeKeys, WorkerBuild};
-use crate::bindings::_helpers::compiled_project::snapshot_worker::NativeOrchestrationWorker;
-use crate::bindings::_helpers::compiled_views::project_reads::sql_tests;
-use crate::bindings::_helpers::discovery::project_config::configured_changes;
 use crate::bindings::_helpers::freshness::freshness_command::run_freshness_command;
 use crate::bindings::_helpers::location_command::command::compile_snapshot;
 use crate::bindings::_helpers::location_command::constants::{
@@ -41,8 +34,6 @@ use crate::bindings::_helpers::location_command::constants::{
     SQL_TEST_NODE_KIND,
 };
 use crate::bindings::_helpers::query_command::project::ProjectAdapter;
-use crate::bindings::_helpers::recall::console::write_stderr;
-use crate::bindings::_helpers::recall::session::InvocationRecall;
 use crate::bindings::_helpers::seed_command::command::run_seed;
 use crate::bindings::_helpers::sql_test_command::test_command::run_test;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
@@ -52,6 +43,16 @@ use sqlbuild_python_base::boundary::models::KeywordArguments;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry as entry;
 use sqlbuild_python_base::records::main::fields::field::field;
 use sqlbuild_python_base::records::main::fields::replaced::replaced;
+use sqlbuild_python_front::compile_attachment::main::build_effective_connection_config::build_effective_connection_config;
+use sqlbuild_python_front::discovery::main::project::configured_changes::configured_changes;
+use sqlbuild_python_output::recall::main::write_stderr::write_stderr;
+use sqlbuild_python_output::recall::models::InvocationRecall;
+use sqlbuild_python_project::compiled_project::constants::SQL_TEST_KEY_PREFIX;
+use sqlbuild_python_project::compiled_views::main::project::sql_tests::sql_tests;
+use sqlbuild_python_project::project_snapshot::models::NativeOrchestrationSnapshot;
+use sqlbuild_python_project::project_snapshot::models::NativeOrchestrationWorker;
+use sqlbuild_python_project::project_snapshot::models::WorkerBuild;
+use sqlbuild_python_project::project_snapshot::types::NodeKeys;
 
 /// Each audit and SQL test the snapshot publishes, with the node keys it checks.
 fn attached_nodes(snapshot: &NativeOrchestrationSnapshot) -> BTreeMap<String, Vec<String>> {

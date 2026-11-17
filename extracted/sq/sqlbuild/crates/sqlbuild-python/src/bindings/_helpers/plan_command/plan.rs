@@ -11,22 +11,12 @@ use sqlbuild_core::plan_display::constants::{
 };
 use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::build_progress::progress_reporters::{
-    ConnectionProgressReporter, PlanningProgressReporter,
-};
-use crate::bindings::_helpers::build_progress::progress_text::with_verbose_inspection;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_adapter_connection_context;
 use crate::bindings::_helpers::command_runtime::preview_target::validate_preview_target;
 use crate::bindings::_helpers::command_runtime::runtime_errors::raised;
-use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_settings_config;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
 use crate::bindings::_helpers::compile_driver::plan_pipeline::run_compile_pipeline;
-use crate::bindings::_helpers::consumption::policy::{changed_policy, policy_line};
-use crate::bindings::_helpers::consumption::recorder::{ChangedDecision, preview_changed};
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
 use crate::bindings::_helpers::plan_command::changed::{changed_json, changed_text};
-use crate::bindings::_helpers::plan_output::plan_json::{CHANGED_KEY, format_plan_json};
-use crate::bindings::_helpers::plan_output::plan_text::format_plan;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::imported::imported;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
@@ -37,6 +27,18 @@ use sqlbuild_python_base::records::main::construct::new_record::new_record;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::RecordId;
 use sqlbuild_python_base::warehouse_access::models::SyncedCopyAdapter;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::compile_attachment::main::build_effective_settings_config::build_effective_settings_config;
+use sqlbuild_python_output::build_progress::main::with_verbose_inspection::with_verbose_inspection;
+use sqlbuild_python_output::build_progress::models::ConnectionProgressReporter;
+use sqlbuild_python_output::build_progress::models::PlanningProgressReporter;
+use sqlbuild_python_planner::consumption::main::changed_policy::changed_policy;
+use sqlbuild_python_planner::consumption::main::policy_line::policy_line;
+use sqlbuild_python_planner::consumption::main::preview_changed::preview_changed;
+use sqlbuild_python_planner::consumption::models::ChangedDecision;
+use sqlbuild_python_planner::plan_output::constants::CHANGED_KEY;
+use sqlbuild_python_planner::plan_output::main::format_plan::format_plan;
+use sqlbuild_python_planner::plan_output::main::format_plan_json::format_plan_json;
 
 const COMMAND_NAME: &str = "plan";
 const DEFAULT_SECTION_ENTRIES: i64 = 50;

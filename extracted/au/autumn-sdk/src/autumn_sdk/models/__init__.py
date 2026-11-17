@@ -10687,8 +10687,6 @@ if TYPE_CHECKING:
         TaxBehavior,
     )
     from .createscheduleresponse import (
-        CreateScheduleBillingCycleAnchor2,
-        CreateScheduleBillingCycleAnchor2TypedDict,
         CreateScheduleCode,
         CreateScheduleInvoice,
         CreateScheduleInvoiceTypedDict,
@@ -27635,8 +27633,6 @@ __all__ = [
     "CreateScheduleAttachDiscount",
     "CreateScheduleAttachDiscountTypedDict",
     "CreateScheduleBillingBehavior",
-    "CreateScheduleBillingCycleAnchor2",
-    "CreateScheduleBillingCycleAnchor2TypedDict",
     "CreateScheduleCode",
     "CreateScheduleFreeTrialDurationType",
     "CreateScheduleFreeTrialParams",
@@ -44341,8 +44337,6 @@ _dynamic_imports: dict[str, str] = {
     "SandboxHeadOffice": ".createsandboxop",
     "SandboxHeadOfficeTypedDict": ".createsandboxop",
     "TaxBehavior": ".createsandboxop",
-    "CreateScheduleBillingCycleAnchor2": ".createscheduleresponse",
-    "CreateScheduleBillingCycleAnchor2TypedDict": ".createscheduleresponse",
     "CreateScheduleCode": ".createscheduleresponse",
     "CreateScheduleInvoice": ".createscheduleresponse",
     "CreateScheduleInvoiceTypedDict": ".createscheduleresponse",

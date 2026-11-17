@@ -14,9 +14,9 @@ observation post that went well, with nothing: every answer names the last it se
 each post up to it taken → an answer is an httpx.Response to its caller (StreamRouted), and a post is done when taken
 or answered (observe_stream, which waits for none).
 
-WHY one way alone: {the user 10-30: "no we want to delete, we dont want to support any previous version, we need to keep
-clean"} and a second way is a second thing to go wrong: a robot whose loop observed before its worker's first answer
-stayed on connections of its own for good, a teleop console refused it, and nothing said so (worker 4's dev check 10-30).
+WHY one way alone:
+ and a second way is a second thing to go wrong: a robot whose loop observed before its worker's first answer
+stayed on connections of its own for good, a teleop console refused it, and nothing said so.
 WHY one connection: an act and the observations before it went on connections of their own, and the act often reached
 the worker first and waited - a session's first act about 4.5 round trips, an act waiting 8.6 s for a frame still on
 its way (plan 111 section 2). On one connection what the robot handed over first arrives first.
@@ -29,8 +29,8 @@ WHY in pieces, an act's first: a camera frame of hundreds of KB on the one conne
 pieces, an act waits for one at most.
 WHY no answer to a post that went well: the tunnel in front of a worker holds a small piece of data back until the robot
 acknowledged the one before it: an act answered within a round trip
-of a post's answer waited for that acknowledgment. {dev 10-27, worker 4: a 1 ms policy's act p50 76-96 ms on one stream
-answering every post, 47-58 ms on eight connections}
+of a post's answer waited for that acknowledgment.
+
 """
 from __future__ import annotations
 
@@ -123,8 +123,8 @@ def _masked(data: bytes, mask: bytes) -> bytes:
     imported already (a 16 KB piece in about 5 us), else each fourth byte at once by a translation table (about 50 us).
     Every byte the robot sends its worker goes through it, on the stream's one thread and holding the interpreter: as
     one integer, as it was, a 16 KB piece took 150 us, a 100 KB camera frame 1 ms, which the act behind it waited for,
-    and every other thread of the robot's with it. {dev 10-30, worker 4: at RTT 22 ms an act on the stream p50 2.4 ms
-    slower than one on a connection of its own; a 100 KB frame 1.4 ms from its first byte written to its last}"""
+    and every other thread of the robot's with it.
+"""
     n = len(data)
     if not n:
         return b""

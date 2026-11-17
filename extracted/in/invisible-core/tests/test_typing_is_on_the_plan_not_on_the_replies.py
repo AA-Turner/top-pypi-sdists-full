@@ -1,34 +1,27 @@
-"""A key is sent at its planned time from the start of the action, not at "the previous reply plus the gap".
+"""A key is sent at its planned instant from the start of the text, on the client's own clock, and no reply is waited for until the text ends.
 
-THE KNOWN-BAD, measured 2026-11-13 on GitHub runners: the page saw each key 0 ms after it was sent, and the last key of a 19-character
-address was sent 575 ms (Linux) / 681 ms (Windows) after its plan alone, 1114 / 1518 ms with four workers; stock Playwright 96 / 134 and
-97 / 140. The engine holds the reply of a key event for its `latency` (PageAgent `_dispatchKeyEvent`: `await setTimeout(latency)`), and the
-core slept the plan after each reply, so the slip was the sum of the latencies (458 ms for seed 2) plus every round trip.
+THE KNOWN-BAD, measured on GitHub runners: the engine held the reply of a key event for its `latency` (PageAgent `_dispatchKeyEvent`:
+`await setTimeout(latency)`) and a loaded host answered later still. The core slept the plan AFTER each reply, so the schedule was the
+engine's: the first key reached the page at once and was answered 1.7 s later; the second, planned 276 ms after the first, was only
+sent when that reply came (columns planned / sent / reply / page timeStamp, ms from the first send: 1st 0 / 0 / 1728 / -10; 2nd 276 /
+1753 / 1756 / 1740), and every key after it slipped. The page saw a pause the plan does not have.
 
-Then, measured with a real browser (run 43481977643, Windows): a late key was caught up by sending it 20 ms after the one before (the
-page saw keydowns 95 ms apart where the plan's smallest gap is 181), and a keyup waited its dwell from the keydown's send.
-So: a late event never goes closer to the previous one than the smallest distance THIS plan has (keydown to keydown, dwell), and a keyup
-is on its own deadline (the keydown's planned time plus the dwell).
+A text is one stroke (`_stroke.Stroke`): each command leaves at `t0 + at` and carries its stroke's id and its `at` (ms, from the stroke's
+start; no clock is shared with the engine), the replies are collected when the text has been typed, and the error of any one command is
+the error of the call, raised then.
 
-No browser starts here: the real `Keyboard`, the real plan, a clock that only moves when something sleeps or the fake engine answers, and a
-connection whose reply takes the event's own `latency` plus a round trip the test picks. Times are the times SENT (the page sees each
-event `latency` later, a different draw per event, as on a real keyboard).
-
-Then, in the wrapper's e2e (humanize=False, `type("abcd", delay=150)`: keydown gaps seen by the page [183, 117, 149]): when the browser
-delivers a key late its reply is late, the next key's deadline has passed, and a floor measured from the previous key's SEND let the next
-one out at once, right behind the late one. The floors are measured from when the page saw the previous event, which the reply bounds
-(reply minus the smallest round trip seen), and they are taken off the hold the next event will carry: what is asserted is what the PAGE
-sees (`seen` = sent + hold + whatever the browser added before dispatching), not the send times.
-
-Known-bad: `Keyboard.type` as of core 63.68.0 (sleeps after the reply) fails the plan tests at every round trip; the version of 64.70.0
-(floors from the send) fails the keydown-gap tests with a late reply, the keyup-deadline test and the two late-delivery tests.
+No browser starts here: the real `Keyboard`, the real plan, a clock that only moves when something sleeps or a reply is waited for, and
+a connection whose replies take the event's own `latency` plus a round trip the test picks. The fake answers `send` (what the code did
+before) as well as `send_async`, so the same test runs on both and the old code fails it.
 """
 from __future__ import annotations
 
 import pytest
 
+from _stroke_fakes import Clock, Engine
 from invisible_core.juggler import keyboard as kb
-from invisible_core.juggler._behaviour import InputLatency, PageActs, TypingPersona, plan_typing
+from invisible_core.juggler._behaviour import InputLatency, PageActs, TypingPersona, plan_shift, plan_typing
+from invisible_core.juggler.connection import ProtocolError
 
 pytestmark = pytest.mark.unit
 
@@ -37,200 +30,155 @@ SEED = 2
 RTTS = [0.0, 5.0, 60.0]
 
 
-class _Clock:
-    """`time` for the keyboard: `monotonic` and `sleep` over a number the test owns."""
-
-    def __init__(self) -> None:
-        self.t = 1000.0
-
-    def monotonic(self) -> float:
-        return self.t
-
-    def sleep(self, seconds: float) -> None:
-        assert seconds >= 0.0, "a negative sleep"
-        self.t += seconds
-
-
-class _Engine:
-    """A connection that answers a key event after the engine's hold (`latency`) and `rtt_ms` of round trip, and records when each was sent."""
-
-    def __init__(self, clock: _Clock, rtt_ms: float, late=None) -> None:
-        self.clock = clock
-        self.rtt_ms = rtt_ms
-        self.late = late or {}      # index of the command -> extra ms before its reply
-        self.sent = []              # (seconds, type, key)
-        self.replied = []           # seconds, when each reply came back
-        self.seen = []              # seconds, when the page saw it: sent + the hold asked for + what the browser added before dispatching
-        self.hold = []              # ms, the `latency` the event carried
-
-    def send(self, method, params, session=None, timeout=None):
-        assert method == "Page.dispatchKeyEvent"
-        index = len(self.sent)
-        self.sent.append((self.clock.t, params["type"], params["key"]))
-        hold = params.get("latency", 0.0)
-        delay = (hold + self.late.get(index, 0.0)) / 1000.0
-        self.hold.append(hold)
-        self.seen.append(self.clock.t + delay)
-        self.clock.t += delay + self.rtt_ms / 1000.0
-        self.replied.append(self.clock.t)
-        return {}
-
-
-def _type(monkeypatch, rtt_ms, late=None):
-    clock = _Clock()
+def _type(monkeypatch, text=TEXT, rtt_ms=5.0, late=None, fail=None, delay_ms=0.0, persona=True):
+    clock = Clock()
     monkeypatch.setattr(kb, "time", clock)
-    engine = _Engine(clock, rtt_ms, late)
-    board = kb.Keyboard(engine, "s", TypingPersona.from_seed(SEED), acts=PageActs(0), latency=InputLatency.from_seed(SEED))
+    engine = Engine(clock, rtt_ms, late, fail)
+    board = kb.Keyboard(engine, "s", TypingPersona.from_seed(SEED) if persona else None, acts=PageActs(0),
+                        latency=InputLatency.from_seed(SEED) if persona else None)
     start = clock.t
-    board.type(TEXT)
+    if delay_ms:
+        board.type(text, delay_ms=delay_ms)
+    else:
+        board.type(text)
     return engine, start
 
 
-def _plan():
-    """What the keyboard draws first on page 0: the planned keydown time of every character, the plan, and its two minima (ms)."""
-    plan = plan_typing(TEXT, TypingPersona.from_seed(SEED), nonce=PageActs(0).next("typing"))
-    planned, t = [], 0.0
-    for dwell, gap in plan:
-        planned.append(t)
-        t += dwell + gap
-    min_gap = min(planned[i + 1] - planned[i] for i in range(len(planned) - 1))
-    min_dwell = min(d for d, _g in plan)
-    return planned, plan, min_gap, min_dwell
+def _expected(text):
+    """(type, key, at ms) of every command the plan asks for, worked out here from the plan alone: a Shift run's Shift goes down `lead`
+    before its first key and up `lag` after its last keyup; the plan starts when the first Shift goes down."""
+    persona = TypingPersona.from_seed(SEED)
+    plan = plan_typing(text, persona, nonce=PageActs(0).next("typing"))
+    closure = kb.closure_for("us")
+    shifted = [bool(closure[ch].get("needs_shift")) for ch in text]
+    starts = [s and (i == 0 or not shifted[i - 1]) for i, s in enumerate(shifted)]
+    ends = [s and (i == len(text) - 1 or not shifted[i + 1]) for i, s in enumerate(shifted)]
+    timing = iter(plan_shift(persona, sum(starts), nonce=PageActs(0).next("typing-shift")))
+    lead_at, lag_at = {}, {}
+    for i in range(len(text)):
+        if starts[i]:
+            lead_at[i], lag = next(timing)
+        if ends[i]:
+            lag_at[i] = lag
+    base = lead_at[0] if starts[0] else 0.0
+    out, start = [], 0.0
+    for i, ch in enumerate(text):
+        dwell, gap = plan[i]
+        if starts[i]:
+            out.append(("keydown", "Shift", base + start - lead_at[i]))
+        out.append(("keydown", closure[ch]["key"], base + start))
+        out.append(("keyup", closure[ch]["key"], base + start + dwell))
+        if ends[i]:
+            out.append(("keyup", "Shift", base + start + dwell + lag_at[i]))
+        start += dwell + gap
+    floor, fixed = 0.0, []
+    for typ, key, at in out:       # an instant behind the event before it goes right after it, as the stroke does
+        floor = max(floor, at)
+        fixed.append((typ, key, floor))
+    return fixed
 
 
-def _keys(engine, start, kind):
-    """(sent ms from the start, index into the engine's events) of every typed key's `kind`, Shift left out."""
-    return [((t - start) * 1000.0, n) for n, (t, k, key) in enumerate(engine.sent) if k == kind and key != "Shift"]
+def _commands(engine):
+    return [(p["type"], p["key"], p["at"]) for p in engine.params()]
 
 
-def _seen(engine, start, kind):
-    """When the PAGE saw each typed key's `kind`, ms from the start."""
-    return [(engine.seen[n] - start) * 1000.0 for _t, n in _keys(engine, start, kind)]
-
-
-STALLS = {"no stall": None, "a reply 1.5 s late": {4: 1500.0}, "a keyup reply 1.5 s late": {7: 1500.0}}
+STALLS = {"no stall": None, "a reply 1.5 s late": {4: 1500.0}, "a keyup reply 1.5 s late": {7: 1500.0}, "the first reply 1.7 s late": {0: 1700.0}}
 
 
 @pytest.mark.parametrize("stall", list(STALLS))
 @pytest.mark.parametrize("rtt_ms", RTTS)
-def test_no_two_keydowns_are_closer_than_the_plans_smallest_gap(monkeypatch, rtt_ms, stall):
-    engine, start = _type(monkeypatch, rtt_ms, STALLS[stall])
-    _planned, _plan_, min_gap, _min_dwell = _plan()
-    seen = _seen(engine, start, "keydown")
-    assert len(seen) == len(TEXT)
-    closest = min(b - a for a, b in zip(seen, seen[1:]))
-    assert closest >= min_gap - 0.5, "the page saw two keydowns %.1f ms apart, the plan's smallest gap is %.1f" % (closest, min_gap)
+def test_every_command_leaves_at_its_planned_instant_whatever_the_replies_cost(monkeypatch, rtt_ms, stall):
+    engine, start = _type(monkeypatch, rtt_ms=rtt_ms, late=STALLS[stall])
+    expected = _expected(TEXT)
+    assert len(engine.sent) == len(expected)
+    for (t, _m, _params), (typ, key, at) in zip(engine.sent, expected):
+        assert (t - start) * 1000.0 == pytest.approx(at, abs=0.5), "%s %s sent %.1f ms from the start, planned %.1f" % (typ, key, (t - start) * 1000.0, at)
 
 
-@pytest.mark.parametrize("stall", list(STALLS))
-@pytest.mark.parametrize("rtt_ms", RTTS)
-def test_every_dwell_the_page_sees_is_one_the_plan_can_produce(monkeypatch, rtt_ms, stall):
-    engine, start = _type(monkeypatch, rtt_ms, STALLS[stall])
-    planned, plan, _min_gap, min_dwell = _plan()
-    downs = _keys(engine, start, "keydown")
-    ups = _keys(engine, start, "keyup")
-    for i, ((down, dn), (up, un)) in enumerate(zip(downs, ups)):
-        seen_dwell = (engine.seen[un] - engine.seen[dn]) * 1000.0
-        assert seen_dwell >= min_dwell - 0.5, "key %d held %.1f ms as the page sees it, the plan's smallest dwell is %.1f" % (i, seen_dwell, min_dwell)
-        # nothing late: the keyup is on its own deadline (the keydown's planned time plus its dwell), or the plan's smallest dwell
-        # as the page sees it, or the moment the keydown's own reply is in (a round trip longer than the dwell)
-        if not STALLS[stall] and abs(down - planned[i]) <= 12.0:
-            reply = (engine.replied[dn] - start) * 1000.0
-            seen_dn = (engine.seen[dn] - start) * 1000.0
-            wanted = max(planned[i] + plan[i][0], seen_dn + min_dwell - engine.hold[un], reply)
-            assert up == pytest.approx(wanted, abs=1.5), "key %d: keyup at %.1f, deadline %.1f" % (i, up, wanted)
+def test_a_first_keydown_answered_1_7_s_late_does_not_move_the_second_command(monkeypatch):
+    """The measured case: the engine answers the first keydown after 1.7 s. The second command (that key's keyup) leaves at its planned
+    instant, one dwell after the first; sent behind that reply it went out at 1.75 s."""
+    engine, start = _type(monkeypatch, rtt_ms=5.0, late={0: 1700.0})
+    planned = _expected(TEXT)[1][2]
+    second = (engine.sent[1][0] - start) * 1000.0
+    assert second == pytest.approx(planned, abs=50.0), "the second command left at %.0f ms, planned %.0f" % (second, planned)
+    assert second < 500.0
 
 
-@pytest.mark.parametrize("rtt_ms", RTTS)
-def test_the_last_key_is_on_the_plan_when_no_reply_is_later_than_the_next_deadline(monkeypatch, rtt_ms):
-    engine, start = _type(monkeypatch, rtt_ms)
-    planned, _plan_, _g, _d = _plan()
-    last = _keys(engine, start, "keydown")[-1][0]
-    assert abs(last - planned[-1]) <= 2.0, "the last key is %.1f ms off the plan" % (last - planned[-1])
-    # a key is later than its plan only because the pipe was not free (the command before it was unanswered), or because the Shift
-    # just before it keeps the plan's lead (the one key of this text that is typed under Shift)
-    from invisible_core.juggler._behaviour import plan_shift
-    lead = plan_shift(TypingPersona.from_seed(SEED), 1, nonce=PageActs(0).next("typing-shift"))[0][0]
-    for i, (down, n) in enumerate(_keys(engine, start, "keydown")):
-        if down - planned[i] > 2.0:
-            free = max((r - start) * 1000.0 for r in engine.replied[:n])
-            allowed = free
-            if engine.sent[n - 1][2] == "Shift":
-                allowed = max(allowed, (engine.seen[n - 1] - start) * 1000.0 + lead - engine.hold[n])
-            assert down <= allowed + 0.5, "key %d is %.1f ms late with the pipe free" % (i, down - planned[i])
+def test_every_command_of_a_text_carries_the_one_stroke_and_the_plan_s_offsets(monkeypatch):
+    engine, _start = _type(monkeypatch)
+    expected = _expected(TEXT)
+    got = _commands(engine)
+    assert [(a, b) for a, b, _ in got] == [(a, b) for a, b, _ in expected]
+    assert [at for _, _, at in got] == pytest.approx([at for _, _, at in expected])
+    assert any(key == "Shift" for _, key, _ in got), "no Shift run in the text: the test is not testing"
+    ats = [at for _, _, at in got]
+    assert ats == sorted(ats) and ats[0] == 0.0
+    assert len({p["stroke"] for p in engine.params()}) == 1
+    assert all(isinstance(p["stroke"], str) and p["stroke"] for p in engine.params())
 
 
-def test_a_keyup_is_on_its_own_deadline_after_a_late_keydown(monkeypatch):
-    """A keydown 1.5 s late (the reply before it was): its keyup goes at the keydown's PLANNED time plus the dwell, but never sooner
-    than the plan's smallest dwell as the page sees it. The old rule (a dwell after the keydown's send) made it the full dwell."""
-    engine, start = _type(monkeypatch, 5.0, late={4: 1500.0})
-    planned, plan, _g, min_dwell = _plan()
-    downs = _keys(engine, start, "keydown")
-    ups = _keys(engine, start, "keyup")
-    shortened = 0
-    for i, ((down, dn), (up, un)) in enumerate(zip(downs, ups)):
-        seen_dn = (engine.seen[dn] - start) * 1000.0
-        wanted = max(planned[i] + plan[i][0], seen_dn + min_dwell - engine.hold[un])
-        reply = (engine.replied[dn] - start) * 1000.0
-        assert up == pytest.approx(max(wanted, reply), abs=1.5), "key %d: keyup at %.1f, deadline %.1f" % (i, up, wanted)
-        if up - down < plan[i][0] - 2.0:
-            shortened += 1
-    assert shortened, "no keyup was held shorter than its dwell: the late keydown did not reach the keyup deadline"
+def test_a_text_that_starts_under_shift_starts_its_plan_at_the_shift(monkeypatch):
+    engine, _start = _type(monkeypatch, text="Ab")
+    expected = _expected("Ab")
+    got = _commands(engine)
+    assert [(a, b) for a, b, _ in got] == [("keydown", "Shift"), ("keydown", "A"), ("keyup", "A"), ("keyup", "Shift"),
+                                           ("keydown", "b"), ("keyup", "b")]
+    assert [at for _, _, at in got] == pytest.approx([at for _, _, at in expected])
+    assert got[0][2] == 0.0 and got[1][2] > 0.0, "the first Shift is the start of the stroke, its key a lead later"
 
 
-def test_a_keydown_delivered_300_ms_late_is_not_followed_closer_than_the_plans_gap(monkeypatch):
-    """The 5th command (the keydown of the third key) reaches the page 300 ms late and its reply with it. The next keydown was due
-    long before the reply: sent at once it would reach the page right behind the late one. It goes when the page has had the plan's
-    smallest gap (the reply, less the round trip, plus the gap, less the hold the next key carries)."""
-    engine, start = _type(monkeypatch, 5.0, late={4: 300.0})
-    _planned, _plan_, min_gap, _d = _plan()
-    late_n = 4
-    next_down = next(n for n, (_t, kind, key) in enumerate(engine.sent) if n > late_n and kind == "keydown" and key != "Shift")
-    gap = (engine.seen[next_down] - engine.seen[late_n]) * 1000.0
-    assert gap >= min_gap - 0.5, "the next keydown reached the page %.1f ms after the late one (plan's smallest gap %.1f)" % (gap, min_gap)
-    sent_after_reply = (engine.sent[next_down][0] - engine.replied[late_n]) * 1000.0
-    assert sent_after_reply >= min_gap - engine.hold[next_down] - 5.0 - 0.5, "sent %.1f ms after the late reply" % sent_after_reply
-
-
-def test_humanize_off_with_a_delay_never_compresses_it_after_a_late_reply(monkeypatch):
-    """`type("abcd", delay=150)` with no persona: the plan is the caller's delay. One reply is 300 ms late; every keydown goes at least
-    the delay after the previous one reached the page, so every send is at least 150 ms (less the round trip) after the previous
-    keydown's reply and the page never sees two keydowns closer than 150 ms."""
-    clock = _Clock()
+def test_two_texts_are_two_strokes(monkeypatch):
+    clock = Clock()
     monkeypatch.setattr(kb, "time", clock)
-    engine = _Engine(clock, 5.0, late={2: 300.0})
-    kb.Keyboard(engine, "s", None, acts=PageActs(0)).type("abcd", delay_ms=150)
-    downs = [n for n, (_t, kind, _k) in enumerate(engine.sent) if kind == "keydown"]
-    assert len(downs) == 4
-    gaps = [(engine.seen[b] - engine.seen[a]) * 1000.0 for a, b in zip(downs, downs[1:])]
-    assert min(gaps) >= 150.0 - 0.5, "the page saw keydowns %s ms apart, 150 asked" % [round(g) for g in gaps]
-    for before, after in zip(downs, downs[1:]):
-        assert (engine.sent[after][0] - engine.replied[before]) * 1000.0 >= 150.0 - 5.0 - 0.5
+    engine = Engine(clock, 5.0)
+    board = kb.Keyboard(engine, "s", TypingPersona.from_seed(SEED), acts=PageActs(0))
+    board.type("ab")
+    n = len(engine.sent)
+    board.type("cd")
+    first = {p["stroke"] for _t, _m, p in engine.sent[:n]}
+    second = {p["stroke"] for _t, _m, p in engine.sent[n:]}
+    assert len(first) == len(second) == 1 and first != second
+    assert engine.sent[n][2]["at"] == 0.0, "the second text counts its offsets from its own start"
 
 
-def test_a_reply_later_than_the_next_deadline_keeps_the_order_and_pays_the_lateness_back_gradually(monkeypatch):
-    """The reply of the 5th command (the keydown of the third key) comes 1.5 s late, far past the next deadlines."""
-    engine, start = _type(monkeypatch, 5.0, late={4: 1500.0})
-    planned, _plan_, min_gap, _min_dwell = _plan()
-    kinds = [(kind, key) for _t, kind, key in engine.sent if key != "Shift"]
-    expected = []
-    for ch in TEXT:
-        expected += [("keydown", ch), ("keyup", ch)]
-    assert kinds == expected, "a key was skipped, doubled or swapped"
-    times = [t for t, _kind, _key in engine.sent]
-    assert times == sorted(times), "events out of order in time"
-    late = [down - planned[i] for i, (down, _n) in enumerate(_keys(engine, start, "keydown"))]
-    assert max(late) > 1000.0, "the stall did not reach the plan: the test is not testing"
-    after = late[late.index(max(late)):]
-    assert all(b <= a + 0.5 for a, b in zip(after, after[1:])), "the lateness grew again after the stall: %s" % [round(x) for x in after]
-    assert after[-1] < after[0], "none of the lateness was paid back where the plan has room"
-    seen = _seen(engine, start, "keydown")
-    assert min(b - a for a, b in zip(seen, seen[1:])) >= min_gap - 0.5
+def test_no_reply_is_waited_for_until_the_text_has_been_typed(monkeypatch):
+    engine, _start = _type(monkeypatch)
+    kinds = [k for k, _t in engine.log]
+    assert kinds == ["send"] * len(engine.sent) + ["wait"] * len(engine.sent), "a reply was waited for in the middle of the text"
+
+
+def test_the_reply_of_a_middle_key_that_fails_is_raised_after_the_text_is_typed(monkeypatch):
+    with pytest.raises(ProtocolError, match="no such key"):
+        _type(monkeypatch, fail={5: ProtocolError("Page.dispatchKeyEvent: no such key")})
+
+
+def test_a_failure_in_the_middle_loses_no_command_and_leaves_no_reply_unread(monkeypatch):
+    clock = Clock()
+    monkeypatch.setattr(kb, "time", clock)
+    engine = Engine(clock, 5.0, fail={5: ProtocolError("boom")})
+    board = kb.Keyboard(engine, "s", TypingPersona.from_seed(SEED), acts=PageActs(0))
+    with pytest.raises(ProtocolError):
+        board.type(TEXT)
+    assert [(a, b) for a, b, _ in _commands(engine)] == [(a, b) for a, b, _ in _expected(TEXT)], "a command was lost to the failure"
+    assert [k for k, _t in engine.log].count("wait") == len(engine.sent), "a reply was left unread"
+
+
+def test_the_first_of_two_failures_in_order_is_the_one_raised(monkeypatch):
+    with pytest.raises(ProtocolError, match="first"):
+        _type(monkeypatch, fail={9: ProtocolError("second"), 3: ProtocolError("first")})
 
 
 def test_the_same_seed_is_sent_at_the_same_times_twice(monkeypatch):
-    first = _type(monkeypatch, 5.0)
-    second = _type(monkeypatch, 5.0)
-    a = [(round((t - first[1]) * 1000.0, 6), kind, key) for t, kind, key in first[0].sent]
-    b = [(round((t - second[1]) * 1000.0, 6), kind, key) for t, kind, key in second[0].sent]
+    first = _type(monkeypatch, rtt_ms=5.0)
+    second = _type(monkeypatch, rtt_ms=5.0)
+    a = [(round((t - first[1]) * 1000.0, 6), p["type"], p["key"], p["at"]) for t, _m, p in first[0].sent]
+    b = [(round((t - second[1]) * 1000.0, 6), p["type"], p["key"], p["at"]) for t, _m, p in second[0].sent]
     assert a == b
+
+
+def test_humanize_off_with_a_delay_is_on_the_callers_delay_whatever_a_reply_costs(monkeypatch):
+    """`type("abcd", delay=150)` with no persona: a keydown every 150 ms from the start, on the client's clock, one reply 300 ms late."""
+    engine, start = _type(monkeypatch, text="abcd", rtt_ms=5.0, late={2: 300.0}, delay_ms=150.0, persona=False)
+    downs = [(t - start) * 1000.0 for t, _m, p in engine.sent if p["type"] == "keydown"]
+    assert downs == pytest.approx([0.0, 150.0, 300.0, 450.0], abs=0.5)

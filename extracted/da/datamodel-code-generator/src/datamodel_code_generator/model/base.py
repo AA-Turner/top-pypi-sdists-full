@@ -120,6 +120,7 @@ from datamodel_code_generator.model._render_plan import (
     Kwarg,
     RuleId,
     Why,
+    frozen_field_hint,
     visible_nested_factories,
 )
 from datamodel_code_generator.model._rendered_names import (
@@ -142,6 +143,7 @@ from datamodel_code_generator.types import (
     NONE,
     DataType,
     Nullable,
+    _hint_null,
     chain_as_tuple,
 )
 
@@ -152,7 +154,6 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator import types as _types
     from datamodel_code_generator._constraint_applicability import ConstraintOptions, OutputKeywords, RenderDrop
-    from datamodel_code_generator._parse_memo import ParseMemo
     from datamodel_code_generator._reference_graph import ReachedModels
     from datamodel_code_generator._requirements import PydanticConstruct
     from datamodel_code_generator.enums import TargetPydanticVersion
@@ -585,6 +586,11 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
         ]
         | None
     ] = None
+    WRITES_NO_CALL_WITHOUT_PLAN: ClassVar[Callable[[DataModelFieldBase], bool] | None] = None
+    """Return whether a field is known to write no call before its render plan is built (`_FieldRender.writes_no_call`).
+
+    Only a class whose imports then read no plan has it (the Pydantic v2 field); the others build the plan.
+    """
     NEEDS_MODEL_REGEX_ENGINE: ClassVar[Callable[[list[DataModelFieldBase]], bool] | None] = None
     """Return whether a pattern of the fields selects a regex engine in the config of the model that holds them."""
     PATTERN_NEEDS_HOLDER_ENGINE: ClassVar[
@@ -846,15 +852,22 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
 
     @property
     def type_hint(self) -> str:
-        """Get the type hint string for this field, including nullability."""
-        return self._type_hint_from_data_type(self.data_type)
+        """Get the type hint string for this field, including nullability.
 
-    def _type_hint_from_data_type(self, data_type: DataType, *, base: bool = False) -> str:
-        """Get the type hint string, or with ``base`` the base hint, for a field data type, including nullability."""
+        From B2 it renders the expression of the hint that the parse kept for the field (``frozen_field_hint``).
+        """
+        return self._type_hint_from_data_type(self.data_type, expression=frozen_field_hint(self))
+
+    def _type_hint_from_data_type(self, data_type: DataType, *, base: bool = False, expression: object = None) -> str:
+        """Get the type hint string, or with ``base`` the base hint, for a field data type, including nullability.
+
+        ``expression`` is the type's expression (``types.type_expr_of``) when it is built already.
+        """
         if base:
             type_hint, hint_has_none = data_type.base_type_hint, None
         else:
-            type_hint, hint_has_none = data_type._type_hint_and_null()  # noqa: SLF001
+            type_hint, hint_null = data_type._type_hint_and_null(expression)  # noqa: SLF001
+            hint_has_none = hint_null is not None
 
         if not type_hint:
             return NONE
@@ -871,14 +884,12 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
     ) -> FieldNullSource | None:
         """Return why the field writes None around the hint of ``data_type`` (``field_renders_none``).
 
-        Without ``pending_reference_null`` the hint is the one ``type_hint`` renders, whose None ``hint_has_none``
-        gives when the caller rendered it; with it, imports collected without a hint read the type's own None and pass
-        its model's.
+        Whether the hint writes None is the answer of ``types._hint_null``, which ``hint_has_none`` gives when the
+        caller rendered the hint; with ``pending_reference_null``, imports collected without a hint leave the None of
+        the type's model out of it and pass that None on.
         """
         if hint_has_none is None:
-            hint_has_none = (
-                data_type.is_optional if pending_reference_null else data_type._hint_null_source() is not None  # noqa: SLF001
-            )
+            hint_has_none = _hint_null(data_type, reference=not pending_reference_null) is not None
         return _field_imports.field_none_source(
             self, hint_has_none=hint_has_none and data_type.type != ANY, pending_reference_null=pending_reference_null
         )
@@ -894,8 +905,17 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
 
     @property
     def imports(self) -> tuple[Import, ...]:
-        """Get all imports required for this field's type hint."""
+        """Get all imports required for this field: those of its type hint, then those its call needs."""
+        plan = self._render_plan()
+        return (*self._hint_imports(plan), *self._call_imports(plan))
+
+    def _hint_imports(self, plan: FieldRenderPlan) -> tuple[Import, ...]:  # noqa: ARG002
+        """Return the imports the field's type hint needs."""
         return self._collect_field_imports(needs_annotated=self.use_annotated and self.needs_annotated_import)
+
+    def _call_imports(self, plan: FieldRenderPlan) -> tuple[Import, ...]:  # noqa: PLR6301
+        """Return the imports the field's call needs: the ``symbol_imports`` of its render plan."""
+        return tuple(import_ for import_, _ in plan.symbol_imports) if plan.symbol_imports else ()
 
     @property
     def runtime_expression_imports(self) -> tuple[Import, ...]:
@@ -1125,22 +1145,20 @@ class DataModelFieldBase(_BaseModel):  # noqa: PLR0904
         return _classify_field_assignment(self, self._FIELD_ASSIGNMENT_ROW).default_info
 
     def _build_frozen_render_plan(self) -> FieldRenderPlan | None:
-        """Return the render plan the parse freezes for this field at B2, or None when it renders without one.
+        """Build the render plan the parse freezes for this field at B2, or return None when it renders without one.
 
-        A field that renders from a plan (``_FREEZES_RENDER_PLAN``) freezes its live plan (``_render_plan`` before B2),
-        which ``RenderReady`` rebuilds from the field's facts while it compares or refreshes a frozen plan.
+        A field that renders from a plan (``_FREEZES_RENDER_PLAN``) builds it from its facts, final at B2, as
+        ``RenderReady`` rebuilds it while it compares or refreshes a frozen plan.
         """
-        return self._render_plan() if self._FREEZES_RENDER_PLAN else None
+        return self._build_render_plan() if self._FREEZES_RENDER_PLAN else None
 
     def _render_inputs(self) -> RenderInputs:
         """Return what the field's render plan reads from the field, to compare when it renders (``RenderReady``)."""
         return _render_inputs_of(self)
 
     def _render_plan(self) -> FieldRenderPlan:
-        """Return the plan the parse froze for this field, or the plan its facts give now (`live_render_plan`)."""
-        if (ready := RENDER_READY.get()) is not None and (plan := ready.plan_of(self)) is not None:
-            return plan
-        return live_render_plan(self)
+        """Return the render plan the field reads now (`_FieldRender.plan`)."""
+        return _field_render(self).plan()
 
     def _build_render_plan(self) -> FieldRenderPlan:
         """Build the field's render plan from its facts as they are now: its type alone, nothing after it."""
@@ -1577,6 +1595,9 @@ construction key does, also where a Pydantic dataclass keeps it for a type rende
 _ORDERS_CONSTRUCTOR_FIELDS: Final[ContextVar[bool]] = ContextVar("orders_constructor_fields", default=False)
 """Whether constructor ordering runs, which leaves out under ``--order-constructor-fields-by written-defaults`` the
 nested factories render preparation has not decided yet."""
+_WITHOUT_PLAN: Final = "without plan"
+"""The first part of the view the memo keeps the imports of a field under when its class knows it writes no call, and
+None for the other fields of such a class, beside those read with its plan (`_FieldRender.imports`)."""
 
 
 @contextmanager
@@ -1629,6 +1650,63 @@ def _plan_view(field: DataModelFieldBase, ready: RenderReady) -> Hashable:
     )
 
 
+@final
+@record(eq=False)
+class _FieldRender:
+    """What a field reads now in the running parse (`_field_render`): its render plan and its imports.
+
+    ``ready`` is the parse's ``RenderReady``, or None outside a parse. Each part is computed when it is read, so a read
+    of the plan builds no imports and a read of the imports where the parse keeps nothing for the field builds no plan.
+    The plan is a method, not a property: ``scripts/check_generation_store_usage.py`` follows calls, not attributes,
+    from the parser's hooks to the plan builders.
+    """
+
+    field: DataModelFieldBase
+    ready: RenderReady | None
+
+    def plan(self) -> FieldRenderPlan:
+        """Return the plan the parse froze for the field in the current view, else the live one (`live_render_plan`)."""
+        if (ready := self.ready) is None or (plan := ready.plan_of(self.field)) is None:
+            return live_render_plan(self.field)
+        return plan
+
+    def writes_no_call(self) -> bool:
+        """Return whether the field is known to write no call without building a plan.
+
+        The plan the parse froze for the field says it, else its class knows it (``WRITES_NO_CALL_WITHOUT_PLAN``).
+        """
+        field = self.field
+        if (ready := self.ready) is not None and (plan := ready.plan_of(field)) is not None:
+            return plan.call is None
+        return (known := field.WRITES_NO_CALL_WITHOUT_PLAN) is not None and known(field)
+
+    @property
+    def imports(self) -> tuple[Import, ...]:
+        """The field's imports, kept in the parse's memo with ``plan`` while the revisions they read hold.
+
+        They are kept for the view the plan is kept for (`_plan_view`); where the memo keeps nothing for the field they
+        are computed at each read. Those of a field whose class knows it writes no call before building a plan read
+        none: they are kept without one (``_WITHOUT_PLAN``), as the answer, None for the other fields, is kept; both
+        read the field's facts alone, so they hold under the same revisions, also once the plans are frozen.
+        """
+        field, ready = self.field, self.ready
+        if ready is None or (memo := ready.derived_from(field)) is None:
+            return field.imports
+        view = _plan_view(field, ready)
+        if (known := field.WRITES_NO_CALL_WITHOUT_PLAN) is not None and (
+            kept := memo.derived(
+                MemoTable.FIELD_IMPORTS, field, (_WITHOUT_PLAN, view), lambda: field.imports if known(field) else None
+            )
+        ) is not None:
+            return kept
+        return memo.derived(MemoTable.FIELD_IMPORTS, field, view, lambda: field.imports, source=self.plan())
+
+
+def _field_render(field: DataModelFieldBase) -> _FieldRender:
+    """Return what ``field`` reads now in the running parse: the one resolution of its render plan and its imports."""
+    return _FieldRender(field, RENDER_READY.get())
+
+
 def live_render_plan(field: DataModelFieldBase) -> FieldRenderPlan:
     """Return the plan of ``field`` built from its facts as they are now, kept in the parse's memo while they hold.
 
@@ -1637,24 +1715,12 @@ def live_render_plan(field: DataModelFieldBase) -> FieldRenderPlan:
     """
     if (ready := RENDER_READY.get()) is None or (memo := ready.derived_from(field)) is None:
         return field._build_render_plan()  # noqa: SLF001
-    return _kept_render_plan(field, memo, _plan_view(field, ready))
-
-
-def _kept_render_plan(field: DataModelFieldBase, memo: ParseMemo, view: Hashable) -> FieldRenderPlan:
-    """Return the live plan of ``field`` that the parse's memo keeps for ``view`` (`live_render_plan`)."""
-    return memo.derived(MemoTable.FIELD_RENDER_PLAN, field, view, field._build_render_plan)  # noqa: SLF001
+    return memo.derived(MemoTable.FIELD_RENDER_PLAN, field, _plan_view(field, ready), field._build_render_plan)  # noqa: SLF001
 
 
 def field_imports(field: DataModelFieldBase) -> tuple[Import, ...]:
-    """Return the imports of ``field``, kept in the parse's memo with the plan they read while its facts hold.
-
-    The plan is the one frozen for the field in the current view, else its live plan (`live_render_plan`).
-    """
-    if (ready := RENDER_READY.get()) is None or (memo := ready.derived_from(field)) is None:
-        return field.imports
-    view = _plan_view(field, ready)
-    plan = ready.plan_of(field) or _kept_render_plan(field, memo, view)
-    return memo.derived(MemoTable.FIELD_IMPORTS, field, view, lambda: field.imports, source=plan)
+    """Return the imports of ``field``, kept in the parse's memo with the plan it reads now (`_FieldRender.imports`)."""
+    return _field_render(field).imports
 
 
 def _keeps_order_before_nullability(field: DataModelFieldBase) -> bool:
@@ -2867,10 +2933,14 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
             field.parent = self
             field.invalidate_semantic_caches(invalidate_parent=False)
 
-        self._additional_imports.extend(self.DEFAULT_IMPORTS)
+        self._additional_imports.extend(self._default_imports())
         self.default: Any = default
         self._nullable: bool = nullable
         self._treat_dot_as_module: bool | None = treat_dot_as_module
+
+    def _default_imports(self) -> tuple[Import, ...]:
+        """Return the imports every model of the class takes (``DEFAULT_IMPORTS``)."""
+        return self.DEFAULT_IMPORTS
 
     def _with_template_value(self, key: str, value: Any) -> Any:
         """Return the value the options give the model with the one of the template data over it.
@@ -2908,10 +2978,17 @@ class DataModel(TemplateBase, Nullable, ABC):  # noqa: PLR0904
         The models of ``visited`` are left out, with the bases reached only through them; every model yielded from is
         added to it.
         """
-        met = set() if visited is None else visited
+        for model in self._bases_first(set() if visited is None else visited):
+            yield from model.fields
+
+    def _bases_first(self, met: set[ModelKey]) -> list[DataModel]:
+        """Return the model and the generated models it inherits from, each after its bases, so the model last.
+
+        The models of ``met`` are left out, with the bases reached only through them; every model returned is added to
+        it.
+        """
         walk = _base_walk(GraphSnapshot.INHERITED_FIELDS, (self,))
-        for key in walk.graph.postorder(walk.starts[0], EdgeKind.BASE, met):
-            yield from walk.node_of[key].fields
+        return [walk.node_of[key] for key in walk.graph.postorder(walk.starts[0], EdgeKind.BASE, met)]
 
     def get_dedup_key(self, class_name: str | None = None, *, use_default: bool = True) -> tuple[Any, ...]:
         """Generate hashable key for model deduplication.

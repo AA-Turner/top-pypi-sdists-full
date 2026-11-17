@@ -138,7 +138,7 @@ class Config(System.Object):
         """
         Get the matching config setting from the file searching for this key.
         
-        :param key: String key value we're seaching for in the config file.
+        :param key: String key value we're searching for in the config file.
         :param default_value: 
         :returns: String value of the configuration setting or empty string if nothing found.
         """

@@ -436,7 +436,7 @@ class Log(System.Object):
         Log error
         
         :param exception: The exception to be logged
-        :param message: An optional message to be logged, if null/whitespace the messge text will be extracted
+        :param message: An optional message to be logged, if null/whitespace the message text will be extracted
         :param override_message_flood_protection: Force sending a message, overriding the "do not flood" directive
         """
         ...

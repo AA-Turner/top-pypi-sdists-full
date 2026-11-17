@@ -114,6 +114,8 @@ from datamodel_code_generator._user_keys import (
     model_level_type_override,
     scoped_key,
 )
+from datamodel_code_generator._user_keys import RecordedOverrides as _RecordedOverrides
+from datamodel_code_generator._user_keys import TypeOverrideLookups as _TypeOverrideLookups
 from datamodel_code_generator._user_keys import class_scope as _class_scope_of
 from datamodel_code_generator._warning_control import quiet
 from datamodel_code_generator.enums import (
@@ -128,6 +130,7 @@ from datamodel_code_generator.imports import (
     Imports,
     _iter_import_bindings,
 )
+from datamodel_code_generator.model._decisions.enum_kind import enum_is_open, open_enum_base
 from datamodel_code_generator.model._render_plan import RENDER_READY, NestedFactoryMetadata, RenderReady
 from datamodel_code_generator.model.base import (
     ALL_MODEL,  # noqa: F401  # Preserve the established parser.base export.
@@ -145,6 +148,7 @@ from datamodel_code_generator.model.base import (
 )
 from datamodel_code_generator.model.enum import (
     Enum,
+    enum_class_base,
 )
 from datamodel_code_generator.model.enum import escape_characters as _enum_escape_characters
 from datamodel_code_generator.model.output import (
@@ -267,7 +271,7 @@ from datamodel_code_generator.types import (
     build_union,  # noqa: F401  # Preserve the established parser.base export.
     union_members,  # noqa: F401  # Preserve the established parser.base export.
 )
-from datamodel_code_generator.util import record_watch_dependency
+from datamodel_code_generator.util import record_watch_dependency, yaml_number_reading
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Collection, Generator, Hashable, Iterable, Iterator, Mapping, Sequence
@@ -279,6 +283,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator.config import ParserConfig
     from datamodel_code_generator.format import CodeFormatter
     from datamodel_code_generator.http import _HTTPFetchSession
+    from datamodel_code_generator.model._decisions.enum_kind import OpenEnumSetting
     from datamodel_code_generator.model_metadata import GeneratedModelMetadata, ModelFieldMetadata, ModelMetadata
     from datamodel_code_generator.parser._facts import Phase
     from datamodel_code_generator.parser._field_rows import FieldAliasRow, FieldFacts, FieldIdentity, FieldRow
@@ -427,6 +432,8 @@ class ParserRunContext:
     untyped_nullable_maps: bool = False
     yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = ()
     document_roles: DocumentRoles = ()
+    read_yaml_numbers_where_strings_required: bool = False
+    """Whether the YAML 1.1-only numbers read as text where a string is required: in a run they refused as numbers."""
     model_name_keys: ModelNameKeys | None = None
     records_model_names: bool = False
     final_name_keys: tuple[tuple[str, tuple[str, ...]], ...] = ()
@@ -748,6 +755,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         untyped_nullable_maps: bool = False,
         yielding_names: tuple[tuple[str, tuple[str, str | None]], ...] = (),
         document_roles: DocumentRoles = (),
+        read_yaml_numbers_where_strings_required: bool = False,
         model_name_keys: ModelNameKeys | None = None,
         records_model_names: bool = False,
         final_name_keys: tuple[tuple[str, tuple[str, ...]], ...] = (),
@@ -772,6 +780,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             untyped_nullable_maps=untyped_nullable_maps,
             yielding_names=yielding_names,
             document_roles=document_roles,
+            read_yaml_numbers_where_strings_required=read_yaml_numbers_where_strings_required,
             model_name_keys=model_name_keys,
             records_model_names=records_model_names,
             final_name_keys=final_name_keys,
@@ -1092,6 +1101,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             treat_dot_as_module=config.treat_dot_as_module or False,
             use_serialize_as_any=config.use_serialize_as_any,
         )
+        self.data_type_manager.use_untyped_value_type(config.untyped_value_type)
         self.data_type_manager.omit_redundant_constraints = config.omit_redundant_constraints
         self.data_type_manager.read_length_keywords_by_type = config.read_length_keywords_by_type
         self.data_type_manager.read_msgspec_union_bounds_exactly = config.read_msgspec_union_bounds_exactly
@@ -1205,6 +1215,8 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.encoding: str = self._source_context.encoding
         self.enum_field_as_literal: LiteralType | None = config.enum_field_as_literal
         self.enum_field_as_literal_map: dict[str, str] = config.enum_field_as_literal_map or {}
+        self.open_enums: OpenEnumSetting | None = config.open_enums.value if config.open_enums else None
+        self.open_enum_base_class_map: dict[str, str] = config.open_enum_base_class_map or {}
         self.ignore_enum_constraints: bool = config.ignore_enum_constraints
         self.set_default_enum_member: bool = config.set_default_enum_member
         self.use_subclass_enum: bool = config.use_subclass_enum
@@ -1333,6 +1345,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             skip_affix_for_root=config.class_name is not None,
             default_value_overrides=config.default_value_overrides,
             http_backend=self._source_context.http_backend,
+            read_ids_with_empty_fragment=config.read_ids_with_empty_fragment,
             field_name_resolver_classes=(
                 {self.field_name_model_type: field_name_resolver_class}
                 if (field_name_resolver_class := self.data_model_type.FIELD_NAME_RESOLVER_CLASS) is not None
@@ -1413,7 +1426,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_typed_map_values_beside_other_types = config.use_typed_map_values_beside_other_types
         self.use_single_dict_for_object_maps = config.use_single_dict_for_object_maps
         self.read_unevaluated_properties = config.read_unevaluated_properties
+        self.read_kubernetes_extensions = config.read_kubernetes_extensions
+        self.read_yaml_1_1_numbers_as_text = config.read_yaml_1_1_numbers_as_text
         self.use_single_value_enum_as_const = config.use_single_value_enum_as_const
+        self.read_format_as_annotation = config.read_format_as_annotation
         self.read_const_beside_enum = config.read_const_beside_enum
         self.known_third_party = config.known_third_party
         self.custom_formatter = config.custom_formatters
@@ -1439,6 +1455,13 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self._model_type_override_imports: dict[str, Import] = {
             key: import_ for key, import_ in self._type_override_imports.items() if model_level_type_override(key)
         }
+        self._type_override_lookups: _TypeOverrideLookups | None = None
+        """The lookups of the ``--type-overrides`` keys, which the two dicts above record when the option gives keys."""
+        if self._type_override_imports:
+            self._type_override_lookups = lookups = _TypeOverrideLookups()
+            self._type_override_imports = _RecordedOverrides(self._type_override_imports, lookups)
+            if self._model_type_override_imports:
+                self._model_type_override_imports = _RecordedOverrides(self._model_type_override_imports, lookups)
         self._base_stand_in_imports: dict[ModelKey, Import] = {}
         """The import of the class each stand-in model stands for, by model key: a schema that a base names and the
         output types by an import (``--external-ref-mapping``, ``x-python-import``) is parsed into a model that is
@@ -1698,6 +1721,16 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         for additional_import_string in _validate_additional_import_paths(additional_imports, target) or []:
             new_import = Import.from_full_path(additional_import_string)
             self._import_ledger.append(self.imports, new_import, _ADDITIONAL_IMPORTS)
+
+    def _enum_is_open(self, *, marker: bool | None, member_count: int, const_beside: bool) -> bool:
+        """Return whether an enum accepts the values of its type that it does not list (``enum_is_open``)."""
+        return enum_is_open(
+            setting=self.open_enums, marker=marker, member_count=member_count, const_beside=const_beside
+        )
+
+    def _open_enum_base(self, enum_class: type[Enum]) -> str | None:
+        """Return the ``--open-enum-base-class-map`` entry an open enum of ``enum_class`` takes as its base, if any."""
+        return open_enum_base(enum_class_base(enum_class), self.open_enum_base_class_map)
 
     def _resolve_base_class(
         self, scope: ClassScope, custom_base_path: str | list[str] | None = None
@@ -2850,12 +2883,15 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             default_build_code_formatter=Parser._build_code_formatter,
             result_type=Result,
         )
-        with context_values({
-            SCHEMA_GRAPH: self._schema_graph,
-            RENDER_READY: RenderReady(type(self), self.generation_store._memo),  # noqa: SLF001
-            PARSE_MEMO: self.generation_store._memo,  # noqa: SLF001
-            PARSE_CALLER: parse_caller(),
-        }):
+        with (
+            context_values({
+                SCHEMA_GRAPH: self._schema_graph,
+                RENDER_READY: RenderReady(type(self), self.generation_store._memo),  # noqa: SLF001
+                PARSE_MEMO: self.generation_store._memo,  # noqa: SLF001
+                PARSE_CALLER: parse_caller(),
+            }),
+            yaml_number_reading(as_text=True) if self.read_yaml_1_1_numbers_as_text else contextlib.nullcontext(),
+        ):
             self.__runner().run_steps(PIPELINE, self, run)
         return run.output
 

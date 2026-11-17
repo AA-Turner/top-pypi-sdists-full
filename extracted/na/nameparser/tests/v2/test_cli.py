@@ -211,6 +211,8 @@ _SWITCH_ROWS = [
      "García Márquez", "Márquez"),
     ("middle_as_family", "John Quincy Adams", "family",
      "Quincy Adams", "Adams"),
+    ("initials_as_family", "Lakshmi R S", "family", "R S", "S"),
+    ("capitals_as_family", "DUPONT Mary", "family", "DUPONT", "Mary"),
     ("lenient_comma_suffixes", "John Smith, V", "suffix", "V", ""),
     ("unlisted_dotted_suffixes", "John Smith X.Y.Z.", "suffix",
      "X.Y.Z.", ""),
@@ -486,9 +488,10 @@ def test_cli_locale_that_is_no_tag_at_all_lists_the_packs(
 
 def test_cli_a_language_with_no_reading_needs_strict(
         capsys: pytest.CaptureFixture[str]) -> None:
-    # hu.toml holds only exclusions (vi.toml did until #1108)
+    # hu.toml holds only exclusions (vi.toml held only exclusions until
+    # #1108, and familiar forms too until 2026-11-12)
     err = _usage_error(capsys, "--locale", "hu")
-    assert "hu.toml holds no reading yet" in err
+    assert "hu.toml holds no reading a parse reads yet" in err
     assert "(--strict) accepts it" in err
 
 

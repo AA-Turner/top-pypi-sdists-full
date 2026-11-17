@@ -25,6 +25,12 @@ class WalletActionSwapSucceededWebhookPayload(BaseModel):
     created_at: str
     """ISO 8601 timestamp of when the wallet action was created."""
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     input_amount: Optional[str] = None
     """Amount of input token in base units. Populated after onchain confirmation."""
 
@@ -44,7 +50,11 @@ class WalletActionSwapSucceededWebhookPayload(BaseModel):
     """The status of the wallet action."""
 
     steps: List[WalletActionStep]
-    """The steps of the wallet action, including transaction hashes."""
+    """
+    The steps of the wallet action, including transaction hashes;
+    `gas_credits_charged` on a step may still be `null` when this webhook fires, so
+    fetch the wallet action directly for up-to-date gas data.
+    """
 
     type: Literal["wallet_action.swap.succeeded"]
     """The type of webhook event."""
@@ -54,6 +64,12 @@ class WalletActionSwapSucceededWebhookPayload(BaseModel):
 
     wallet_id: str
     """The ID of the wallet involved in the action."""
+
+    destination_caip2: Optional[str] = None
+    """CAIP-2 identifier of the chain that settled the swap output."""
+
+    destination_transaction_hash: Optional[str] = None
+    """Transaction hash on the destination chain that settled the swap output."""
 
     reference_id: Optional[str] = None
     """Developer-provided reference ID, if one was included in the request."""

@@ -397,8 +397,8 @@ class Terminal:
     def _size(self) -> tuple[int, int]:
         """The window's rows and columns: stdin's terminal, else stdout's, else COLUMNS and LINES, else 24 x 80. A
         terminal that says 0 x 0 has no size of its own - a pseudo-terminal nothing sized, as `script` makes one from a
-        session with no terminal - and the machine refuses 0 (400): the next is asked. {dev 11-09, worker 8: `the
-        machine did not open a terminal (HTTP 400)` from an unsized pty}"""
+        session with no terminal - and the machine refuses 0 (400): the next is asked.
+"""
         for fd in (self._stdin, self._stdout):
             try:
                 if os.isatty(fd):

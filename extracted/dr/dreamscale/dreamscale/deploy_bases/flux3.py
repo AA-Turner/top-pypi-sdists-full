@@ -1,6 +1,6 @@
 """FLUX 3 Action deployments in the SDK: a strict BF16 policy export whose robot shape and
-sampler the export records, RTC off or trained (experimental); `dreamscale run so101` and
-`dreamscale run yam` drive its joint-target exports."""
+sampler the export records, RTC off or trained (experimental); `dreamscale run so101`,
+`dreamscale run yam` and `dreamscale run xarm7` drive its joint-target exports."""
 
 from __future__ import annotations
 
@@ -46,10 +46,39 @@ def flux3_rtc(checkpoint: dict) -> str:
     return cmd.prefix_rtc(checkpoint, note="experimental")
 
 
+# `--preset bimanual_xarm7`: the export's 16 values are the xArm 7 rig's joint targets, aft
+# first, seven radians and a 0–1 gripper per arm, which `dreamscale run xarm7` drives. The
+# export's own shape and cameras still decide everything else (checked before any upload).
+XARM7_PRESET = "bimanual_xarm7"
+XARM7_UNITS = {"action_space": "absolute_joint_position", "joint_unit": "rad",
+               "gripper_unit": "normalized"}
+
+
+def _check_xarm7(found: dict) -> None:
+    from dreamscale.policy.flux3_deployment import xarm7_camera_keys
+
+    detected = found.get("detected") or {}
+    if xarm7_camera_keys({**detected, **XARM7_UNITS}) is None:
+        features = [str(c.get("feature")) for c in detected.get("cameras") or []]
+        raise cmd._invalid(
+            "this export isn't the bimanual xArm 7 layout",
+            "deploy it without --preset, then drive it from Python",
+            cause=f"--preset {XARM7_PRESET} needs 16 state and action values and the cameras "
+            f"images.scene, images.wrist, images.right_wrist in that order; this export has "
+            f"{detected.get('state_dim')} and {detected.get('action_dim')} values and "
+            f"cameras {', '.join(features) or 'none'}",
+        )
+
+
 def run_add_flux3(*, repo: str, revision=None, name=None, hf_token=None, path=None,
                   region="auto", wait=True, keep_warm=None, slug=None, region_fallback=None,
-                  client_factory=ControlPlaneClient, print_fn=print, sleep=time.sleep):
-    """Inspect the exported contract, pin the resolved commit, and deploy its exact files."""
+                  preset=None, client_factory=ControlPlaneClient, print_fn=print,
+                  sleep=time.sleep):
+    """Inspect the exported contract, pin the resolved commit, and deploy its exact files.
+    ``preset``: None (actions mean what the recording meant) or ``bimanual_xarm7``."""
+    if preset not in (None, XARM7_PRESET):
+        raise cmd._invalid(f"FLUX 3 Action has no preset {preset!r}",
+                           f"omit --preset, or pass --preset {XARM7_PRESET}")
     region = cmd._check_region(client_factory, NAME, "FLUX 3 Action", region, print_fn=print_fn)
     folder = cmd.local_checkpoint.scan(repo) if cmd.local_checkpoint.is_local_folder(repo) else None
     if folder and (revision is not None or hf_token is not None):
@@ -67,6 +96,8 @@ def run_add_flux3(*, repo: str, revision=None, name=None, hf_token=None, path=No
         raise cmd._invalid(
             "the server did not return a FLUX policy export", "update the SDK and retry"
         )
+    if preset == XARM7_PRESET:
+        _check_xarm7(found)
     source = found.get("request") or {}
     local = {}
     if folder:
@@ -81,9 +112,10 @@ def run_add_flux3(*, repo: str, revision=None, name=None, hf_token=None, path=No
         repo, revision = source["repo"], source["revision"]
     return cmd.run_add(
         repo=repo, model=NAME, revision=revision, name=name, hf_token=token,
-        # The checkpoint owns geometry. Action meaning remains model-defined unless a
-        # caller explicitly declares units through the API.
-        embodiment={"preset": "custom"}, region=region, wait=wait,
+        # The checkpoint owns geometry. Action meaning remains model-defined unless the
+        # caller declares it: through the API, or as the xArm 7 rig's joints (--preset).
+        embodiment={"preset": "custom", **(XARM7_UNITS if preset == XARM7_PRESET else {})},
+        region=region, wait=wait,
         client_factory=client_factory, print_fn=print_fn, sleep=sleep,
         keep_warm=keep_warm, slug=slug, source_path=source.get("source_path", ""),
         # RTC is the export's: trained where it trained with committed prefixes, else off.
@@ -91,26 +123,38 @@ def run_add_flux3(*, repo: str, revision=None, name=None, hf_token=None, path=No
     )
 
 
-def _flux3_runner_model(embodiment: Any, checkpoint_id: str, row: dict) -> str:
-    """A FLUX 3 Action deployment `dreamscale run <robot>` drives: joint targets of BFL's
-    SO-101 layout on `dreamscale run so101`, of a bimanual YAM recording on `dreamscale run
-    yam`; any other runs from Python, with the cameras and state its contract names."""
+ROBOT_LABELS = {"so101": "SO-101", "yam": "bimanual YAM", "xarm7": "bimanual xArm 7"}
+
+
+def flux3_robot(declared: Any) -> str | None:
+    """The robot whose `dreamscale run` drives a FLUX deployment (a row's ``embodiment`` or a
+    session's deployment): so101, yam or xarm7, else None."""
     from dreamscale.policy.flux3_deployment import (
-        YAM_FEATURES,
         so101_camera_keys,
+        xarm7_camera_keys,
         yam_camera_keys,
     )
 
+    for robot, keys in (("so101", so101_camera_keys), ("yam", yam_camera_keys),
+                        ("xarm7", xarm7_camera_keys)):
+        if keys(declared) is not None:
+            return robot
+    return None
+
+
+def _flux3_runner_model(embodiment: Any, checkpoint_id: str, row: dict) -> str:
+    """A FLUX 3 Action deployment `dreamscale run <robot>` drives: joint targets of BFL's
+    SO-101 layout on `dreamscale run so101`, of a bimanual YAM recording on `dreamscale run
+    yam`, of a bimanual xArm 7 recording on `dreamscale run xarm7`; any other runs from
+    Python, with the cameras and state its contract names."""
+    from dreamscale.policy.flux3_deployment import XARM7_FEATURES, YAM_FEATURES
+
     declared = row.get("embodiment") or {}
-    robot = (
-        "so101" if so101_camera_keys(declared) is not None
-        else "yam" if yam_camera_keys(declared) is not None
-        else None
-    )
+    robot = flux3_robot(declared)
     if robot == embodiment.name:
         return NAME
     if robot is not None:
-        label = {"so101": "SO-101", "yam": "bimanual YAM"}[robot]
+        label = ROBOT_LABELS[robot]
         raise cmd._invalid(
             f"{checkpoint_id} is a FLUX 3 Action deployment for {label}, not {embodiment.label}",
             f"run it with `dreamscale run {robot} --deployment {checkpoint_id}`",
@@ -134,28 +178,49 @@ def _flux3_runner_model(embodiment: Any, checkpoint_id: str, row: dict) -> str:
             + ", then run that deployment",
             cause="its deployment doesn't declare its actions as YAM joint targets",
         )
+    xarm7_shaped = (
+        width == declared.get("action_dim") == 16
+        and tuple(c.get("feature") for c in declared.get("cameras") or []) == XARM7_FEATURES
+    )
+    if embodiment.name == "xarm7" and xarm7_shaped and (
+        declared.get("action_space") == "model_defined"
+    ):
+        # The export's actions are what its recording meant until its deployment says they are
+        # this rig's joints; deployed again with the preset, `dreamscale run xarm7` drives it.
+        raise cmd._invalid(
+            f"{checkpoint_id} doesn't declare its actions as xArm 7 joint targets",
+            "deploy the export again with `dreamscale deployments create <folder> --base "
+            f"{NAME} --preset {XARM7_PRESET}`, then run that deployment",
+            cause="it was deployed without --preset, so its 16 values mean what its recording "
+            "meant",
+        )
     frames = ", ".join(f'"{key}": frame' for key in cameras)
     raise cmd._invalid(
         f"{checkpoint_id} is a FLUX 3 Action deployment `dreamscale run` doesn't drive",
         f'drive it from Python: dreamscale.connect("{NAME}", deployment="{checkpoint_id}"), '
         f"then policy.next_action(dreamscale.robot.observation(cameras={{{frames}}}, "
         f"state=[{width} values]), ...)",
-        cause="`dreamscale run` drives FLUX deployments of SO-101 or bimanual YAM joint "
-        "targets; this one's actions mean what its recording meant",
+        cause="`dreamscale run` drives FLUX deployments of SO-101, bimanual YAM or bimanual "
+        "xArm 7 joint targets; this one's actions mean what its recording meant",
     )
-
 
 
 def _create_flux3(*, repo, given, preset, camera, hz, path, executed, steps, joint_unit, rtc,
                   rtc_prefix, revision, name, hf_token, region, wait, keep_warm, slug,
                   region_fallback=None) -> None:
     unsupported = {key: value for key, value in given.items() if key != "path"}
-    if preset is not None or camera or hz is not None or joint_unit is not None or any(
+    if camera or hz is not None or joint_unit is not None or any(
         value is not None for value in unsupported.values()
     ):
         raise cli.typer.BadParameter(
             "FLUX reads its robot shape and sampler from the policy export; "
             "omit robot, geometry and RTC flags."
+        )
+    if preset not in (None, XARM7_PRESET):
+        raise cli.typer.BadParameter(
+            f"FLUX reads its robot shape from the policy export; its only preset is "
+            f"{XARM7_PRESET} (the export's actions are the xArm 7 rig's joints).",
+            param_hint="'--preset'",
         )
     result: dict = {}
     cli._run(
@@ -163,22 +228,17 @@ def _create_flux3(*, repo, given, preset, camera, hz, path, executed, steps, joi
         repo=repo, revision=revision, name=name, hf_token=hf_token,
         path=path, region=region or cmd.AUTO_REGION, wait=wait,
         keep_warm=keep_warm, slug=slug, region_fallback=region_fallback,
+        **({"preset": preset} if preset is not None else {}),
     )
     if result.get("status") == "failed":
         raise cli.typer.Exit(code=1)
 
 
 def run_command(deployment: dict) -> str | None:
-    """A trained deployment of BFL's SO-101 layout or a bimanual YAM recording: its robot's
-    `dreamscale run`."""
-    from dreamscale.policy.flux3_deployment import so101_camera_keys, yam_camera_keys
-
-    embodiment = deployment.get("embodiment") or {}
-    if so101_camera_keys(embodiment):
-        return f"dreamscale run so101 --deployment {deployment['id']}"
-    if yam_camera_keys(embodiment):
-        return f"dreamscale run yam --deployment {deployment['id']}"
-    return None
+    """A deployment of BFL's SO-101 layout, or of a bimanual YAM or xArm 7 recording: its
+    robot's `dreamscale run`."""
+    robot = flux3_robot(deployment.get("embodiment") or {})
+    return f"dreamscale run {robot} --deployment {deployment['id']}" if robot else None
 
 
 def runner(embodiment, checkpoint_id, row, model):
@@ -205,4 +265,8 @@ BASE = DeployBase(
     claims_model=True, robot_line=flux3_robot_line, describe_rtc=flux3_rtc, shows_rtc=True,
     runner=runner, set_rtc=set_rtc, detects_as_base=True, create=_create_flux3,
     exported=EXPORTED, run_command=run_command,
+    # Its exports of bimanual xArm 7 recordings (--preset bimanual_xarm7); SO-101 and YAM
+    # runs pick FLUX deployments by their own runner checks.
+    robots=("xarm7",),
+    robot_observe={"xarm7": "dreamscale.policy.flux3_deployment:xarm7_deployment_observe"},
 )

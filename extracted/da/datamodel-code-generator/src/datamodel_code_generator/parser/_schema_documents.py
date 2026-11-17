@@ -1,10 +1,11 @@
 """The document reading of the JSON Schema parser (L0): loading documents, their schema resources and the sources.
 
 These functions load a referenced document (from a local mirror of an HTTP reference, a file or a URL text) and read
-it under ``--use-single-value-enum-as-const``, register the schema resources a document declares in the schema graph
-(rewriting the references an embedded `$id` resolves, copy-on-write) and index it so that the graph locates its JSON
-objects, map the references of documents that resolve them against themselves, like OpenAPI, walk the definitions and
-their namespaces, read the input sources and parse each of them, and list the targets a source reserves.
+it under ``--read-kubernetes-extensions``, ``--read-format-as-annotation`` and ``--use-single-value-enum-as-const``,
+register the schema resources a document declares in the schema graph (rewriting the references an embedded `$id`
+resolves, copy-on-write) and index it so that the graph locates its JSON objects, map the references of documents that
+resolve them against themselves, like OpenAPI, walk the definitions and their namespaces, read the input sources and
+parse each of them, and list the targets a source reserves.
 
 Each function takes the parser through ``SchemaDocumentsHost``, which ``JsonSchemaParser`` satisfies structurally.
 The methods that tests call or that other parts of the parser call stay on the parser as delegators to these
@@ -24,12 +25,11 @@ from __future__ import annotations
 import json
 from contextlib import contextmanager
 from copy import copy
-from dataclasses import replace
 from functools import partial
 from itertools import chain
 from operator import is_not
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, TypeAlias, cast
 from urllib.parse import ParseResult, unquote, urljoin, urlparse
 
 from typing_extensions import Protocol
@@ -105,6 +105,7 @@ __all__ = [
     "has_schema_affecting_keywords",
     "implicit_schema_resources",
     "index_document",
+    "is_input_document_root",
     "iter_definition_namespace_entries",
     "iter_local_source_paths",
     "iter_schema_definition_entries",
@@ -141,20 +142,25 @@ __all__ = [
 ]
 
 
-def _single_value_enum_as_const(
-    value: YamlValue, named_entry_maps: frozenset[str], entries: _DocumentEntries = "object"
-) -> YamlValue:
-    """Return a document with the enum of each schema that lists one value written as the const it equals.
+_SchemaReading: TypeAlias = "Callable[[dict[str, YamlValue]], dict[str, YamlValue]]"
+"""One reading of a schema object: it takes the object as the readings before it left it, children read."""
 
-    The values of instance data keywords, extensions other than x-propertyNames, links, security requirements and
-    servers hold no schemas and stay as written. Those words are names, not keywords, in maps of named entries such
-    as properties, $defs, responses, webhooks, channels or the component maps. A schema with nullable true beside a
-    value other than null keeps its enum, since a const does not carry nullable. Each schema read so that holds a
-    const is marked, so that the const branches the option reads are known wherever the parser copies them to.
-    Unchanged parts are shared, so cached documents stay intact.
+
+def _read_schema_objects(
+    value: YamlValue,
+    named_entry_maps: frozenset[str],
+    readings: tuple[_SchemaReading, ...],
+    entries: _DocumentEntries = "object",
+) -> YamlValue:
+    """Return a document with each schema object read by ``readings`` in order, after its children (one walk).
+
+    The values of instance data keywords, extensions other than x-propertyNames, discriminator objects, links,
+    security requirements and servers hold no schemas and stay as written. Those words are names, not keywords, in
+    maps of named entries such as properties, $defs, responses, webhooks, channels or the component maps. Unchanged
+    parts are shared, so cached documents stay intact.
     """
     if isinstance(value, list):
-        items = [_single_value_enum_as_const(item, named_entry_maps) for item in value]
+        items = [_read_schema_objects(item, named_entry_maps, readings) for item in value]
         return items if any(map(is_not, items, value)) else value
     if not isinstance(value, dict):
         return value
@@ -162,22 +168,155 @@ def _single_value_enum_as_const(
         key: updated
         for key, child in value.items()
         if (child_entries := _document_child_entries(entries, key, named_entry_maps)) is not None
-        and (updated := _single_value_enum_as_const(child, named_entry_maps, child_entries)) is not child
+        and (updated := _read_schema_objects(child, named_entry_maps, readings, child_entries)) is not child
     }
     result = {**value, **changed} if changed else value
-    if entries != "object":
-        return result
+    return _read_schema_object(result, readings) if entries == "object" else result
+
+
+def _read_schema_object(schema: dict[str, YamlValue], readings: tuple[_SchemaReading, ...]) -> dict[str, YamlValue]:
+    """Return one schema object, its children already read, read by each of ``readings`` in turn."""
+    for read in readings:
+        schema = read(schema)
+    return schema
+
+
+def _single_value_enum_as_const(schema: dict[str, YamlValue]) -> dict[str, YamlValue]:
+    """Return a schema whose enum lists one value written as the const it equals (``_read_schema_objects``).
+
+    A schema with nullable true beside a value other than null keeps its enum, since a const does not carry nullable.
+    Each schema read so that holds a const is marked, so that the const branches the option reads are known wherever
+    the parser copies them to.
+    """
     if (
-        isinstance(enum := value.get("enum"), list)
+        isinstance(enum := schema.get("enum"), list)
         and len(enum) == 1
-        and "const" not in value
-        and resolve_null_facts(replace(dump_null_sources(value), enum_null=enum[0] is None), "enum-as-const").rule
-        != "nullable-enum-not-const"
+        and "const" not in schema
+        and resolve_null_facts(dump_null_sources(schema), "enum-as-const").rule != "nullable-enum-not-const"
     ):
-        result = {
-            ("const" if key == "enum" else key): enum[0] if key == "enum" else item for key, item in result.items()
+        schema = {
+            ("const" if key == "enum" else key): enum[0] if key == "enum" else item for key, item in schema.items()
         }
-    return {**result, _READ_AS_CONST_KEY: True} if "const" in result else result
+    return {**schema, _READ_AS_CONST_KEY: True} if "const" in schema else schema
+
+
+def _read_format_as_annotation(
+    schema: dict[str, YamlValue], *, typed_formats: frozenset[tuple[str, str]]
+) -> dict[str, YamlValue]:
+    """Return a schema without its format unless the format still selects its type (``_read_schema_objects``).
+
+    ``format: binary`` does, as raw octets are no JSON string, and so does a format that a --type-mappings entry of
+    ``typed_formats`` names for a type the schema declares; a schema that declares no type, such as an allOf part, has
+    no such entry.
+    """
+    if "format" not in schema or (format_ := schema["format"]) == "binary":
+        return schema
+    declared = schema.get("type")
+    if isinstance(format_, str) and any(
+        (type_, format_) in typed_formats for type_ in (declared if isinstance(declared, list) else [declared])
+    ):
+        return schema
+    return {key: item for key, item in schema.items() if key != "format"}
+
+
+_INT_OR_STRING_TYPES = frozenset({"integer", "string"})
+_INT_OR_STRING_BRANCHES = ({"type": "integer"}, {"type": "string"})
+_KUBERNETES_FIXED_FIELD_BLOCKERS = frozenset({"$ref", "allOf", "anyOf", "const", "enum", "oneOf"})
+
+
+def _is_int_or_string(schema: dict[str, YamlValue]) -> bool:
+    """Return whether a schema says it holds an integer or a string, in a form read as ``type: [integer, string]``.
+
+    It writes x-kubernetes-int-or-string true or the format int-or-string, declares no type other than integer, string
+    or that pair, and each anyOf or oneOf beside lists exactly the two branches ``{type: integer}``, ``{type: string}``.
+    """
+    types = schema.get("type")
+    return (
+        (schema.get("x-kubernetes-int-or-string") is True or schema.get("format") == "int-or-string")
+        and (
+            types is None
+            or (isinstance(types, str) and types in _INT_OR_STRING_TYPES)
+            or (
+                isinstance(types, list)
+                and len(types) == len(_INT_OR_STRING_TYPES)
+                and all(name in types for name in _INT_OR_STRING_TYPES)
+            )
+        )
+        and all(
+            isinstance(branches := schema[key], list)
+            and len(branches) == len(_INT_OR_STRING_BRANCHES)
+            and all(branch in branches for branch in _INT_OR_STRING_BRANCHES)
+            for key in ("anyOf", "oneOf")
+            if key in schema
+        )
+    )
+
+
+def _group_version_kind_values(entries: YamlValue) -> dict[str, YamlValue]:
+    """Return the apiVersion and the kind that every entry of an x-kubernetes-group-version-kind list names alike.
+
+    The apiVersion is ``group/version``, or the version alone for the core group, whose name is empty. A property the
+    entries give several values, and every property for a malformed list, gets none.
+    """
+    if not isinstance(entries, list) or not entries:
+        return {}
+    values: dict[str, set[str]] = {"apiVersion": set(), "kind": set()}
+    for entry in entries:
+        if not (
+            isinstance(entry, dict)
+            and isinstance(group := entry.get("group"), str)
+            and isinstance(version := entry.get("version"), str)
+            and isinstance(kind := entry.get("kind"), str)
+        ):
+            return {}
+        values["apiVersion"].add(f"{group}/{version}" if group else version)
+        values["kind"].add(kind)
+    return {name: next(iter(names)) for name, names in values.items() if len(names) == 1}
+
+
+def _read_kubernetes_extensions(
+    schema: dict[str, YamlValue], *, const_support: bool, read_property: _SchemaReading
+) -> dict[str, YamlValue]:
+    """Return a schema with its Kubernetes extensions read as the keywords they stand for (``_read_schema_objects``).
+
+    x-kubernetes-int-or-string true, or the format int-or-string, is ``type: [integer, string]`` in place of the
+    anyOf or oneOf of those two types (``_is_int_or_string``), without that format. x-kubernetes-preserve-unknown-fields
+    true beside properties and no additionalProperties is ``additionalProperties: true``. Where const is a keyword, an
+    x-kubernetes-group-version-kind writes the one value it gives the apiVersion or the kind property as the const and
+    default of that property, when the property is a plain string schema whose default, if any, is that value; each
+    property so written is read by ``read_property``, the readings after this one.
+    """
+    read = schema
+    if _is_int_or_string(read):
+        read = {
+            key: item
+            for key, item in read.items()
+            if key not in {"anyOf", "oneOf"} and (key != "format" or item != "int-or-string")
+        }
+        if not isinstance(read.get("type"), list):
+            read["type"] = ["integer", "string"]
+    if (
+        read.get("x-kubernetes-preserve-unknown-fields") is True
+        and "properties" in read
+        and "additionalProperties" not in read
+    ):
+        read = {**read, "additionalProperties": True}
+    if (
+        const_support
+        and isinstance(properties := read.get("properties"), dict)
+        and (
+            fixed := {
+                name: read_property({**prop, "const": value, "default": value})
+                for name, value in _group_version_kind_values(read.get("x-kubernetes-group-version-kind")).items()
+                if isinstance(prop := properties.get(name), dict)
+                and not _KUBERNETES_FIXED_FIELD_BLOCKERS.intersection(prop)
+                and prop.get("type", "string") == "string"
+                and prop.get("default", value) == value
+            }
+        )
+    ):
+        read = {**read, "properties": {**properties, **fixed}}
+    return read
 
 
 def _find_json_schema_anchor_pointer(schema: YamlValue, anchor: str) -> str | None:
@@ -300,7 +439,9 @@ class SchemaDocumentsHost(SchemaResourcesHost, Protocol):
     http_query_parameters: Sequence[tuple[str, str]] | None
     remote_object_cache: DefaultPutDict[str, dict[str, YamlValue]]
     reserved_refs: defaultdict[tuple[str, ...], set[str]]
+    read_format_as_annotation: bool
     source: str | Path | list[Path] | ParseResult | dict[str, YamlValue]
+    type_mappings: dict[tuple[str, str], str]
     untrusted_input: bool
     _cache_local_sources: bool
     _document_dialects: dict[str, DocumentDialect]
@@ -326,6 +467,10 @@ class SchemaDocumentsHost(SchemaResourcesHost, Protocol):
     @property
     def use_single_value_enum_as_const(self) -> bool:
         """Whether a single-value enum is read as a const (``--use-single-value-enum-as-const``)."""
+
+    @property
+    def read_kubernetes_extensions(self) -> bool:
+        """Whether the Kubernetes schema extensions are read (``--read-kubernetes-extensions``)."""
 
     @classmethod
     def get_url_path_parts(cls, url: ParseResult) -> list[str]:
@@ -443,34 +588,59 @@ def normalize_external_ref(parser: SchemaDocumentsHost, ref: str) -> str:
 def read_document(
     parser: SchemaDocumentsHost, document: dict[str, YamlValue], root: dict[str, YamlValue] | None = None
 ) -> dict[str, YamlValue]:
-    """Return a document as read, with each single-value enum as const under --use-single-value-enum-as-const.
+    """Return a document as read, each schema object read under the options that read documents (one walk).
 
-    A document read where const is no keyword is kept as written: under --read-schema-version-per-document in the
-    version of the document (an input document, without ``root``, read by itself, another one by its own version or
-    that of the document that loads it); without the option (row ``legacy-first-read-dialect``) under the draft-04
-    schema features the parser already uses, or else those of its root document. The document as written is kept
-    beside a rewritten one for the targets that serve it. Under --untrusted-input a document past the size limits is
-    refused first (``refuse_oversized_document``), before anything reads it.
+    Each schema object, after its children, is read in this order (``_read_schema_objects``): under
+    --read-kubernetes-extensions its Kubernetes extensions as the keywords they stand for
+    (``_read_kubernetes_extensions``), which reads the format int-or-string before anything leaves it out; under
+    --read-format-as-annotation its format as an annotation (``_read_format_as_annotation``); under
+    --use-single-value-enum-as-const its single-value enum as const (``_single_value_enum_as_const``). Each reading
+    takes the object as the readings before it left it. Where const is no keyword nothing reads a const: under
+    --read-schema-version-per-document in the version of the document (an input document, without ``root``, read by
+    itself, another one by its own version or that of the document that loads it); without the option (row
+    ``legacy-first-read-dialect``) under the draft-04 schema features the parser already uses, or else those of its
+    root document. Documents converted from other input types are not read here, so their formats stay. The document
+    as written is kept beside a rewritten one for the targets that serve it. Under --untrusted-input a document past
+    the size limits is refused first (``refuse_oversized_document``), before anything reads it.
     """
     if parser.untrusted_input:
         refuse_oversized_document(document)
-    if not parser.use_single_value_enum_as_const:
+    reads_const = (parser.use_single_value_enum_as_const or parser.read_kubernetes_extensions) and _reads_const(
+        parser, document, root
+    )
+    later: tuple[_SchemaReading, ...] = ()
+    if parser.read_format_as_annotation:
+        later = (partial(_read_format_as_annotation, typed_formats=frozenset(parser.type_mappings)),)
+    if parser.use_single_value_enum_as_const and reads_const:
+        later = (*later, _single_value_enum_as_const)
+    readings = later
+    if parser.read_kubernetes_extensions:
+        read_property = partial(_read_schema_object, readings=later)
+        readings = (
+            partial(_read_kubernetes_extensions, const_support=reads_const, read_property=read_property),
+            *later,
+        )
+    if not readings:
         return document
-    if parser._reads_schema_version_per_document:  # noqa: SLF001
-        inherited = None if root is None else loading_document_dialect(parser)
-        features = parser._read_dialect(document, inherited=inherited).features  # noqa: SLF001
-    else:
-        features = parser.__dict__.get("schema_features") or parser._schema_features_for(root or document)  # noqa: SLF001
-    if not features.const_support:
-        return document
-    read = cast("dict[str, YamlValue]", _single_value_enum_as_const(document, parser._named_entry_maps))  # noqa: SLF001
+    read = cast("dict[str, YamlValue]", _read_schema_objects(document, parser._named_entry_maps, readings))  # noqa: SLF001
     if read is not document:
         parser._documents_as_written[id(read)] = read, document  # noqa: SLF001
     return read
 
 
+def _reads_const(
+    parser: SchemaDocumentsHost, document: dict[str, YamlValue], root: dict[str, YamlValue] | None
+) -> bool:
+    """Whether const is a keyword where ``read_document`` reads a document, as its docstring says."""
+    if parser._reads_schema_version_per_document:  # noqa: SLF001
+        inherited = None if root is None else loading_document_dialect(parser)
+        return parser._read_dialect(document, inherited=inherited).features.const_support  # noqa: SLF001
+    features = parser.__dict__.get("schema_features") or parser._schema_features_for(root or document)  # noqa: SLF001
+    return features.const_support
+
+
 def document_as_written(parser: SchemaDocumentsHost, document: dict[str, YamlValue]) -> dict[str, YamlValue]:
-    """Return a document as written, before --use-single-value-enum-as-const read its single-value enums."""
+    """Return a document as written, before the options that read documents read it (``read_document``)."""
     entry = parser._documents_as_written.get(id(document))  # noqa: SLF001
     return entry[1] if entry is not None and entry[0] is document else document
 
@@ -737,7 +907,7 @@ def lenient_pointer_exists(parser: SchemaResourcesHost, document: str, reference
         parser._lenient_documents[document],  # noqa: SLF001
         fragment,
         or_missing=True,
-        names=parser._pointer_slash_names,  # noqa: SLF001
+        reading=parser._pointer_slash_names,  # noqa: SLF001
     )
     return value is not _MISSING_JSON_POINTER
 
@@ -1002,6 +1172,26 @@ def get_context_source_path_parts(parser: SchemaDocumentsHost) -> Iterator[tuple
             yield source, path_parts
 
 
+def is_input_document_root(parser: SchemaDocumentsHost, key: str) -> bool:
+    """Return whether the key ``key`` names the root of an input document, one read from a source, not a ``$ref``.
+
+    The input documents are known from the sources before any model is parsed (``get_context_source_path_parts``): the
+    local files of a directory or list input (``after_load_files``), else the one source, named as its path parts.
+    """
+    document, _, pointer = key.partition("#")
+    if pointer:
+        return False
+    location = schema_resource_document(parser, [document])
+    if parser.model_resolver.after_load_files:
+        return location in parser.model_resolver.after_load_files
+    path_parts: list[str] = []
+    if isinstance(parser.source, ParseResult):
+        path_parts = type(parser).get_url_path_parts(parser.source)
+    elif isinstance(parser.source, Path):
+        path_parts = list(parser.source.relative_to(parser.base_path).parts)
+    return location == schema_resource_document(parser, path_parts)
+
+
 def iter_local_source_paths(parser: SchemaDocumentsHost) -> Iterator[Path]:
     if parser._cache_local_sources and parser._source_context.directory_input_filter is not None:  # noqa: SLF001
         parser._local_source_cache = tuple(parser._iter_source_uncached())  # noqa: SLF001
@@ -1095,7 +1285,7 @@ def reserved_targets(
     graph = cast("SchemaGraphBuilder", parser._schema_graph)  # noqa: SLF001
     for key in sorted(parser.reserved_refs.get(tuple(path_parts)) or ()):
         if not loaded(key):
-            value = _fragment_value(tree, key.split("#", 1)[-1], or_missing=True, names=parser._pointer_slash_names)  # noqa: SLF001
+            value = _fragment_value(tree, key.split("#", 1)[-1], or_missing=True, reading=parser._pointer_slash_names)  # noqa: SLF001
             yield ReservedTarget(document=document, key=key, node=graph.node(value))
 
 

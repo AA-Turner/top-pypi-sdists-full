@@ -19,28 +19,36 @@ def sql_dynamic(query, *arg):
     return _sql(query, *arg)
 
 
-def conv_value(value, col_is_str):
-    if value is None:
-        return "NULL"
-    if col_is_str:
-        return repr(str(value))
-    elif isinstance(value, dt.datetime):
-        return value.isoformat()
-    else:
-        return repr(value)
+def conv_value(value):
+    if isinstance(value, dt.datetime):
+        # Same format as SQLite's datetime(), so that comparisons with it work
+        return value.isoformat(" ")
+    return value
+
+
+def quote_identifier(name):
+    return '"%s"' % str(name).replace('"', '""')
 
 
 def get_column_type(column_values):
+    types = set()
     for val in column_values:
         if val in (None, ""):
             continue
         elif isinstance(val, dt.datetime):
-            return "DATETIME"
+            types.add("DATETIME")
         elif isinstance(val, bool):
-            return "BOOLEAN"
+            types.add("BOOLEAN")
         elif isinstance(val, str):
-            return "STRING"
-        return "REAL"
+            types.add("TEXT")
+        else:
+            types.add("REAL")
+    if not types:
+        return "TEXT"
+    if len(types) == 1:
+        return types.pop()
+    # Mixed columns, e.g., "n/a" and numbers: BLOB affinity stores values as they are
+    return "BLOB"
 
 
 def _sql(query, *tables_or_aliases):
@@ -50,8 +58,7 @@ def _sql(query, *tables_or_aliases):
         return dt.datetime.fromisoformat(bytestring.decode("utf-8"))
 
     def convert_boolean(value):
-        print(value)
-        return True if value.decode("utf-8").lower() == "true" else False
+        return value.decode("utf-8").lower() in ("1", "true")
 
     sqlite3.register_converter("DATETIME", convert_datetime)
     sqlite3.register_converter("BOOLEAN", convert_boolean)
@@ -86,26 +93,19 @@ def _sql(query, *tables_or_aliases):
             types.append(get_column_type(column_values))
 
         stmt = "CREATE TABLE %s (%s)" % (
-            alias,
-            ", ".join("'%s' %s" % (col, typ) for col, typ in zip(cols, types)),
+            quote_identifier(alias),
+            ", ".join(
+                "%s %s" % (quote_identifier(col), typ) for col, typ in zip(cols, types)
+            ),
         )
         c.execute(stmt)
 
         if rows:
-            stmt = "INSERT INTO %s VALUES %s" % (
-                alias,
-                ", ".join(
-                    "(%s)"
-                    % ", ".join(
-                        conv_value(value, type) for value, typ in zip(row, types)
-                    )
-                    for row in rows
-                ),
+            c.executemany(
+                "INSERT INTO %s VALUES (%s)"
+                % (quote_identifier(alias), ", ".join("?" * len(cols))),
+                ([conv_value(value) for value in row] for row in rows),
             )
-            # Fixes values like these:
-            # sql('SELECT a FROM a', [['a', 'b'], ["""X"Y'Z""", 'd']])
-            stmt = stmt.replace("\\'", "''")
-            c.execute(stmt)
 
     res = []
     c.execute(query)

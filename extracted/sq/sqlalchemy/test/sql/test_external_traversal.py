@@ -1071,6 +1071,124 @@ class ClauseTest(fixtures.TestBase, AssertsCompiledSQL):
             jj._generate_cache_key()[1],
         )
 
+    @testing.combinations(
+        (
+            "join_from",
+            lambda cte, b: select(b.c.id).join_from(
+                cte, b, cte.c.id == b.c.id
+            ),
+        ),
+        (
+            "select_from",
+            lambda cte, b: select(b.c.id).select_from(cte).order_by(cte.c.id),
+        ),
+        (
+            "select_from_join",
+            lambda cte, b: select(b.c.id)
+            .select_from(b.join(cte, cte.c.id == b.c.id))
+            .order_by(cte.c.x),
+        ),
+        (
+            "select_from_grouping",
+            lambda cte, b: select(b.c.id)
+            .select_from(b.join(cte, cte.c.id == b.c.id).self_group())
+            .order_by(cte.c.x),
+        ),
+        (
+            "join_with_only_columns",
+            lambda cte, b: select(b.c.id)
+            .join(cte, cte.c.id == b.c.id)
+            .with_only_columns(b.c.id),
+        ),
+        (
+            "columns_with_only_columns",
+            lambda cte, b: select(cte.c.id)
+            .join(b, cte.c.id == b.c.id)
+            .with_only_columns(b.c.id),
+        ),
+        argnames="build",
+        id_="ia",
+    )
+    @testing.variation("method", ["cloned_traverse", "params"])
+    def test_clone_cte_not_in_columns(self, build, method):
+        """test #13791"""
+
+        a = table("a", column("id", Integer), column("x", Integer))
+        b = table("b", column("id", Integer))
+
+        def go(value):
+            cte = select(a).where(a.c.x == bindparam("p", 0)).cte()
+            stmt = build(cte, b)
+
+            if method.cloned_traverse:
+
+                def visit_bindparam(bind):
+                    bind.value = value
+
+                return cloned_traverse(
+                    stmt, {}, {"bindparam": visit_bindparam}
+                )
+            elif method.params:
+                return stmt.params(p=value)
+            else:
+                method.fail()
+
+        stmt1 = go(5)
+        stmt2 = go(6)
+        key1 = stmt1._generate_cache_key()
+        key2 = stmt2._generate_cache_key()
+        eq_(key1, key2)
+        eq_([bp.key for bp in key1.bindparams + key2.bindparams], ["p", "p"])
+
+        # the compiled form of the first statement, as would be retrieved
+        # from the compiled cache, is used with the parameters extracted
+        # from each statement's cache key
+        compiled = stmt1.compile(cache_key=key1)
+        eq_(
+            [
+                compiled.construct_params(
+                    extracted_parameters=key.bindparams,
+                    # 2.1 only: Select.params() values are carried on
+                    # the cache key, not on the bound parameters
+                    _collected_params=key.params,
+                )
+                for key in (key1, key2)
+            ],
+            [{"p": 5}, {"p": 6}],
+        )
+
+    @testing.combinations(
+        (
+            lambda a, b: select(a.c.x).join(b, a.c.id == b.c.id),
+            "SELECT a.x FROM a JOIN (b JOIN c ON b.id = c.id) "
+            "ON a.id = b.id",
+        ),
+        (
+            lambda a, b: select(a.c.x).join_from(a, b, a.c.id == b.c.id),
+            "SELECT a.x FROM a JOIN (b JOIN c ON b.id = c.id) "
+            "ON a.id = b.id",
+        ),
+        (
+            lambda a, b: select(a.c.x).where(a.c.id == b.c.id),
+            "SELECT a.x FROM b JOIN c ON b.id = c.id, a WHERE a.id = b.id",
+        ),
+        argnames="build, expected",
+    )
+    def test_replace_from_with_join(self, build, expected):
+        """test #13791"""
+
+        a = table("a", column("id", Integer), column("x", Integer))
+        b = table("b", column("id", Integer))
+        c = table("c", column("id", Integer))
+
+        def replace(elem):
+            if elem is b:
+                return b.join(c, b.c.id == c.c.id)
+            return None
+
+        stmt = visitors.replacement_traverse(build(a, b), {}, replace)
+        self.assert_compile(stmt, expected)
+
     def test_in(self):
         expr = t1.c.col1.in_(["foo", "bar"])
         expr2 = CloningVisitor().traverse(expr)
@@ -2727,6 +2845,162 @@ class SpliceJoinsTest(fixtures.TestBase, AssertsCompiledSQL):
             "AS table3_1 ON table2_1.col2 = "
             "table3_1.col2 JOIN table4 AS table4_1 ON "
             "table1.col3 = table4_1.col3",
+        )
+
+    @testing.variation(
+        "correlate",
+        ["auto", "explicit", "explicit_except", "aliased_lateral", "nested"],
+    )
+    def test_splice_lateral_correlated(self, correlate):
+        """test #13783"""
+
+        stmt = select(table2).where(table2.c.col1 == table1.c.col1)
+
+        if correlate.auto or correlate.aliased_lateral:
+            pass
+        elif correlate.explicit:
+            stmt = stmt.correlate(table1)
+        elif correlate.explicit_except:
+            stmt = stmt.correlate_except(table2)
+        elif correlate.nested:
+            stmt = stmt.where(
+                table2.c.col2
+                == select(table3.c.col2)
+                .where(table3.c.col3 == table1.c.col3)
+                .correlate(table1)
+                .scalar_subquery()
+            ).correlate(table1)
+        else:
+            correlate.fail()
+
+        lat = stmt.lateral("lat")
+        if correlate.aliased_lateral:
+            lat = lat.alias("lat_1")
+
+        j = table1.join(lat, lat.c.col1 == table1.c.col1)
+        s = select(table1).where(table1.c.col2 < 5).alias()
+
+        if correlate.nested:
+            where = (
+                "table2.col1 = anon_1.col1 AND table2.col2 = "
+                "(SELECT table3.col2 FROM table3 "
+                "WHERE table3.col3 = anon_1.col3)"
+            )
+        else:
+            where = "table2.col1 = anon_1.col1"
+
+        if correlate.aliased_lateral:
+            lat_name = "lat_1"
+        else:
+            lat_name = "lat"
+
+        self.assert_compile(
+            select(literal_column("*")).select_from(
+                sql_util.splice_joins(s, j)
+            ),
+            "SELECT * FROM (SELECT table1.col1 AS col1, table1.col2 AS col2, "
+            "table1.col3 AS col3 FROM table1 "
+            "WHERE table1.col2 < :col2_1) AS anon_1 "
+            "JOIN LATERAL (SELECT table2.col1 AS col1, table2.col2 AS col2, "
+            f"table2.col3 AS col3 FROM table2 WHERE {where}) AS {lat_name} "
+            f"ON {lat_name}.col1 = anon_1.col1",
+        )
+
+    def test_splice_lateral_own_from_not_adapted(self):
+        """test #13783; a table on the left side that the LATERAL selects
+        from on its own, rather than correlating to it, is not adapted"""
+
+        lat = (
+            select(table2)
+            .where(table2.c.col1 == table1.c.col1)
+            .correlate(table1)
+            .lateral("lat")
+        )
+        j = table1.join(lat, lat.c.col1 == table1.c.col1)
+        s = (
+            select(table1, table2.c.col3.label("t2col3"))
+            .join_from(table1, table2, table1.c.col2 == table2.c.col2)
+            .alias()
+        )
+
+        self.assert_compile(
+            select(literal_column("*")).select_from(
+                sql_util.splice_joins(s, j)
+            ),
+            "SELECT * FROM (SELECT table1.col1 AS col1, table1.col2 AS col2, "
+            "table1.col3 AS col3, table2.col3 AS t2col3 FROM table1 "
+            "JOIN table2 ON table1.col2 = table2.col2) AS anon_1 "
+            "JOIN LATERAL (SELECT table2.col1 AS col1, table2.col2 AS col2, "
+            "table2.col3 AS col3 FROM table2 "
+            "WHERE table2.col1 = anon_1.col1) AS lat "
+            "ON lat.col1 = anon_1.col1",
+        )
+
+    @testing.variation("correlate", ["explicit", "auto"])
+    def test_splice_lateral_sibling_not_adapted(self, correlate):
+        """test #13783; the LATERAL correlates to a table further along the
+        join, rather than to the element that the left side replaces.  The
+        left side is derived from that table as well, however the LATERAL
+        is not adapted to it"""
+
+        stmt = select(table2).where(table2.c.col1 == table3.c.col3)
+        if correlate.explicit:
+            stmt = stmt.correlate(table3)
+
+        lat = stmt.lateral("lat")
+        j = table1.join(table3, table1.c.col2 == table3.c.col2).join(
+            lat, lat.c.col1 == table3.c.col1
+        )
+        s = (
+            select(table1, table3.c.col3.label("t3col3"))
+            .join_from(table1, table3, table1.c.col1 == table3.c.col1)
+            .alias()
+        )
+
+        self.assert_compile(
+            select(literal_column("*")).select_from(
+                sql_util.splice_joins(s, j)
+            ),
+            "SELECT * FROM (SELECT table1.col1 AS col1, table1.col2 AS col2, "
+            "table1.col3 AS col3, table3.col3 AS t3col3 FROM table1 "
+            "JOIN table3 ON table1.col1 = table3.col1) AS anon_1 "
+            "JOIN table3 ON anon_1.col2 = table3.col2 "
+            "JOIN LATERAL (SELECT table2.col1 AS col1, table2.col2 AS col2, "
+            "table2.col3 AS col3 FROM table2 "
+            "WHERE table2.col1 = table3.col3) AS lat "
+            "ON lat.col1 = table3.col1",
+        )
+
+    @testing.variation("kind", ["subquery", "lateral_no_correlate"])
+    def test_splice_uncorrelated_not_adapted(self, kind):
+        """test #13783; a FROM that does not correlate to the left side is
+        not adapted"""
+
+        stmt = select(table2).where(table2.c.col1 == table1.c.col1)
+
+        if kind.subquery:
+            subq = stmt.subquery("subq")
+            lateral = ""
+        elif kind.lateral_no_correlate:
+            subq = stmt.correlate(None).lateral("subq")
+            lateral = "LATERAL "
+        else:
+            kind.fail()
+
+        j = table1.join(subq, subq.c.col1 == table1.c.col1)
+        s = select(table1).where(table1.c.col2 < 5).alias()
+
+        self.assert_compile(
+            select(literal_column("*")).select_from(
+                sql_util.splice_joins(s, j)
+            ),
+            "SELECT * FROM (SELECT table1.col1 AS col1, table1.col2 AS col2, "
+            "table1.col3 AS col3 FROM table1 "
+            "WHERE table1.col2 < :col2_1) AS anon_1 "
+            f"JOIN {lateral}(SELECT table2.col1 AS col1, "
+            "table2.col2 AS col2, table2.col3 AS col3 FROM table2, table1 "
+            "WHERE table2.col1 = table1.col1) AS subq "
+            "ON subq.col1 = anon_1.col1",
         )
 
 

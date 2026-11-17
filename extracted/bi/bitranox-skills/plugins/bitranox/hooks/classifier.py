@@ -32,6 +32,7 @@ exception into a hook.
 
 import contextlib
 import json
+import math
 import os
 import re
 import ssl
@@ -43,6 +44,7 @@ import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
+from enum import StrEnum
 from datetime import datetime, timedelta, UTC
 from pathlib import Path
 from urllib.parse import urlparse
@@ -59,9 +61,10 @@ import transcript_turns  # noqa: E402
 __all__ = [
     "Answer", "CAP_MARK", "CONTEXT_VIEW", "DEFAULT_BASE_URL",
     "JevClassifier", "NOTIFY_VIEW",
-    "NO_SKILL_KEY", "NullClassifier", "PICK_ID", "PREVIOUS_FIELD", "Question", "Result",
+    "NO_SKILL_KEY", "NullClassifier", "PICK_ID", "PREVIOUS_FIELD", "Question", "QuestionType",
+    "Result",
     "SHADOW_DAY_PREFIX", "SHADOW_KEEP_DAYS", "SHADOW_LOG", "SHADOW_MAX_BYTES", "SHORT_DESC_CAP",
-    "SITES", "SITE_MODES", "SITE_THRESHOLDS", "TURN_NOTIFICATION", "TURN_PROMPT",
+    "SITES", "SITE_MODES", "SITE_THRESHOLDS", "SiteMode", "TURN_NOTIFICATION", "TURN_PROMPT",
     "append_row", "ask_in_hook", "choice_answer", "error_row",
     "detect_language", "get_classifier", "load_key", "load_router_criteria",
     "load_skill_descriptions", "prepare_state", "prune_shadow_logs",
@@ -99,7 +102,18 @@ CAP_MARK = "\n[... truncated ...]\n"
 # `subagent_signal` gained decide only after its shadow passed the pre-registered decide rule:
 # SubagentStop's capture buffers on its BROAD patterns too, and the blind review found those noise.
 SITES = ("stop_signal", "skill_router", "recall_rerank", "subagent_signal")
-SITE_MODES = ("off", "shadow", "decide")
+
+
+class SiteMode(StrEnum):
+    """What one site's `classifier_<site>` knob asks for; the values are the strings the config
+    file holds, so it reads and writes unchanged."""
+
+    OFF = "off"
+    SHADOW = "shadow"
+    DECIDE = "decide"
+
+
+SITE_MODES = tuple(SiteMode)
 # The threshold each site's gate or score is read at - by `classifier_eval.py report` when judging
 # a log, and by a site in decide mode when acting on an answer, so the two can never disagree.
 # One number for all three was always a placeholder: they ask different questions and their
@@ -151,15 +165,28 @@ MIN_PROMPT_CHARS = {"correction": 40}
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
+class QuestionType(StrEnum):
+    """The answer kinds the API knows; the values are its own wire strings."""
+
+    NOUL = "noul"
+    CHOICE = "choice"
+    SCORE = "score"
+
+
 @dataclass(frozen=True)
 class Question:
     """One typed question. `id` is for code only - the API never shows it to the model, so
-    `instructions` must carry the whole meaning, naming state fields as backticked paths."""
+    `instructions` must carry the whole meaning, naming state fields as backticked paths.
+    `type` takes a member or its string; any other string is refused here, where it was written,
+    rather than by the server's reply."""
 
     id: str
-    type: str  # noul | choice | score
+    type: QuestionType
     instructions: str
     criteria: object = None
+
+    def __post_init__(self):
+        object.__setattr__(self, "type", QuestionType(self.type))
 
     def to_json(self):
         d = {"id": self.id, "type": self.type, "instructions": self.instructions}
@@ -311,15 +338,39 @@ def _parse(raw, questions, latency):
             raise _BadResponse("missing or mistyped answer %r" % q.id)
         value = a[q.type]
         # A str test first: an unhashable value (a list, a dict) cannot be looked up at all.
-        if q.type == "choice" and isinstance(q.criteria, dict) and (
+        if q.type == QuestionType.CHOICE and isinstance(q.criteria, dict) and (
                 not isinstance(value, str) or value not in q.criteria):
             raise _BadResponse("choice %r not among the options" % (value,))
+        if q.type == QuestionType.NOUL and not _is_number_within(value, 1):
+            raise _BadResponse("noul %r is not a probability: %r" % (q.id, value))
+        if q.type == QuestionType.SCORE and not _is_number_within(value, _score_top(q.criteria)):
+            raise _BadResponse("score %r is not a level: %r" % (q.id, value))
         answers[q.id] = Answer(type=q.type, value=value, probabilities=a.get("probabilities"),
                                confidence=a.get("confidence"))
     usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
     return Result(answers=answers, latency_ms=latency,
                   input_tokens=_token_count(usage.get("input_tokens")),
                   model=str(data.get("model", "")))
+
+
+def _is_number_within(value, top):
+    """True for a finite JSON number in [0, top]; never for a bool, a string or null.
+
+    The boundary check every noul/score consumer relies on: once parsed, "not a number" can only
+    mean the request failed, so a gate a server sends as "0.02", true or null cannot read as
+    unanswered and let a suppressed pick through. bool is excluded by exact type, since True is
+    an int that compares >= every threshold below 1.
+    """
+    return type(value) in (int, float) and math.isfinite(value) and 0 <= value <= top
+
+
+def _score_top(criteria):
+    """The highest level a score answer may name: levels count from 0, so len(criteria) - 1.
+    Unsized criteria give no upper bound beyond finiteness."""
+    try:
+        return max(len(criteria) - 1, 0)
+    except TypeError:
+        return math.inf
 
 
 def _token_count(value):
@@ -363,17 +414,27 @@ def load_key(env, home):
 
 
 def site_mode(cfg, site):
-    """off | shadow | decide: what the site's knob asks for. Anything but the jev backend, and any
-    value outside SITE_MODES, reads as off."""
+    """The SiteMode the site's knob asks for. Anything but the jev backend reads as OFF; so does a
+    value outside SiteMode, which is also named on stderr: a hand-edited `"decided"` otherwise
+    switched the site off without a word (meta-memory-settings refuses it, a text editor does not).
+    """
     if cfg.get("classifier_backend") != "jev":
-        return "off"
-    mode = cfg.get("classifier_" + site)
-    return mode if mode in SITE_MODES else "off"
+        return SiteMode.OFF
+    knob = "classifier_" + site
+    mode = cfg.get(knob)
+    if mode is None:
+        return SiteMode.OFF
+    try:
+        return SiteMode(mode)
+    except (ValueError, TypeError):
+        sys.stderr.write("bitranox classifier: %s = %r is not one of %s; read as off\n"
+                         % (knob, mode, ", ".join(SiteMode)))
+        return SiteMode.OFF
 
 
 def shadow_enabled(cfg, site):
     """Only `shadow`: a site in decide mode asks in the hook and must not also spawn a child."""
-    return site_mode(cfg, site) == "shadow"
+    return site_mode(cfg, site) is SiteMode.SHADOW
 
 
 def _base_url(env):
@@ -390,7 +451,7 @@ def get_classifier(cfg, site, env=None, home=None, deadline=DEFAULT_DEADLINE):
     home = Path.home() if home is None else Path(home)
     if cfg.get("classifier_backend") != "jev":
         return NullClassifier("classifier_backend is off")
-    if site_mode(cfg, site) == "off":
+    if site_mode(cfg, site) is SiteMode.OFF:
         return NullClassifier("classifier_%s is off" % site)
     key, reason = load_key(env, home)
     if key is None:
@@ -461,19 +522,19 @@ def stop_signal_questions():
     """The Stop gate's learning-signal families, over {previous_assistant_message, user_message,
     assistant_reply}."""
     return [
-        Question("correction", "noul",
+        Question("correction", QuestionType.NOUL,
                  "Does `user_message` correct, reject or push back on something the assistant did "
                  "or said, for example in `previous_assistant_message`?"),
-        Question("remember_rule", "noul",
+        Question("remember_rule", QuestionType.NOUL,
                  "Does `user_message` state a lasting rule, preference or instruction for future "
                  "work, such as 'always', 'never', 'from now on' or 'remember this'?"),
-        Question("self_admission", "noul",
+        Question("self_admission", QuestionType.NOUL,
                  "Does `assistant_reply` admit that the assistant made a mistake, missed something, "
                  "or was wrong?"),
-        Question("realization", "noul",
+        Question("realization", QuestionType.NOUL,
                  "Does `assistant_reply` state a newly understood root cause or a reusable lesson, "
                  "beyond just reporting that a fix was made?"),
-        Question("endorsement", "noul",
+        Question("endorsement", QuestionType.NOUL,
                  "Does `user_message` approve an approach the assistant proposed in "
                  "`previous_assistant_message`, or does `assistant_reply` agree to adopt an idea "
                  "the user suggested?"),
@@ -635,8 +696,8 @@ def skill_router_questions(skills, fields, turn=TURN_PROMPT):
     gate_instructions, subject, context = _router_turn_text(turn, fields)
     skip_used = ("Answer no if the skill is listed in `skills_already_used`."
                  if _have(fields, "skills_already_used") else "")
-    return [Question(NEW_TASK_ID, "noul", gate_instructions)] + [
-        Question(name, "noul",
+    return [Question(NEW_TASK_ID, QuestionType.NOUL, gate_instructions)] + [
+        Question(name, QuestionType.NOUL,
                  _joined("Would the assistant need the skill described here to handle %s well?"
                          % subject, context, skip_used, "Skill description: %s" % desc))
         for name, desc in skills.items()]
@@ -705,7 +766,7 @@ def _pick_question(skills, subject, context, no_match, fields=None):
              "`skills_already_used`" if _have(fields, "skills_already_used")
              else "one that merely sounds related is wrong")
     return Question(
-        PICK_ID, "choice",
+        PICK_ID, QuestionType.CHOICE,
         _joined("Which ONE of these skills would the assistant need to handle %s well? Each "
                 "option describes when that skill applies." % subject, context,
                 "Choose a skill only when it does the specific thing being asked; %s. Otherwise "
@@ -721,7 +782,7 @@ def skill_router_choice_questions(skills, fields, turn=TURN_PROMPT):
     That holds per state, since both arms build the gate from the same `fields`.
     """
     gate_instructions, subject, context = _router_turn_text(turn, fields)
-    return [Question(NEW_TASK_ID, "noul", gate_instructions),
+    return [Question(NEW_TASK_ID, QuestionType.NOUL, gate_instructions),
             _pick_question(skills, subject, context,
                            "No listed skill does this. Ordinary work the assistant handles from "
                            "general understanding, or a task none of these cover.", fields)]
@@ -738,7 +799,7 @@ def skill_router_rerank_questions(shortlist):
     """
     return [_pick_question(shortlist, "the request", "",
                            "None of these does the specific thing being asked.")] + [
-        Question(name, "noul",
+        Question(name, QuestionType.NOUL,
                  "Does the skill %r do the specific thing the request asks for, rather than "
                  "something merely related? Skill: %s" % (name, body))
         for name, body in shortlist.items()]
@@ -746,7 +807,7 @@ def skill_router_rerank_questions(shortlist):
 
 def recall_questions():
     """One noul per (prompt, note) pair, asked in its own request (TypeSafe's rerank pattern)."""
-    return [Question("relevant", "noul",
+    return [Question("relevant", QuestionType.NOUL,
                      "Would `memory_note` be useful context for carrying out `user_prompt`, read "
                      "as a reply to `previous_assistant_message` when that is given? Only if it is "
                      "about the same task, tool or problem, not merely sharing some words.")]

@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/sqlbuild-build-features", "crates/sqlbuild-build-identity", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-process-ownership", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-orchestration", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-project", "crates/sqlbuild-cli", "crates/sqlbuild-python-base", "crates/sqlbuild-python"]
+members = ["crates/sqlbuild-build-features", "crates/sqlbuild-build-identity", "crates/sqlbuild-core", "crates/sqlbuild-cursor", "crates/sqlbuild-process-ownership", "crates/sqlbuild-state", "crates/sqlbuild-pysource", "crates/sqlbuild-cache", "crates/sqlbuild-sqltext", "crates/sqlbuild-config", "crates/sqlbuild-host", "crates/sqlbuild-recall", "crates/sqlbuild-orchestration", "crates/sqlbuild-discovery", "crates/sqlbuild-scopes", "crates/sqlbuild-model-config", "crates/sqlbuild-render", "crates/sqlbuild-attachments", "crates/sqlbuild-analysis", "crates/sqlbuild-rules", "crates/sqlbuild-refactor", "crates/sqlbuild-project", "crates/sqlbuild-cli", "crates/sqlbuild-python-base", "crates/sqlbuild-python-front", "crates/sqlbuild-python-project", "crates/sqlbuild-python-planner", "crates/sqlbuild-python-compile", "crates/sqlbuild-python-output", "crates/sqlbuild-python"]
 resolver = "2"
 
 # Native crates from the bottom up: each crate may depend only on crates listed before it.
@@ -31,9 +31,14 @@ order = [
     "sqlbuild-project",
     "sqlbuild-cli",
     "sqlbuild-python-base",
+    "sqlbuild-python-front",
+    "sqlbuild-python-project",
+    "sqlbuild-python-planner",
+    "sqlbuild-python-compile",
+    "sqlbuild-python-output",
     "sqlbuild-python",
 ]
-python-boundary = ["sqlbuild-python-base", "sqlbuild-python"]
+python-boundary = ["sqlbuild-python-base", "sqlbuild-python-front", "sqlbuild-python-project", "sqlbuild-python-planner", "sqlbuild-python-compile", "sqlbuild-python-output", "sqlbuild-python"]
 polyglot-floor = "sqlbuild-analysis"
 
 [workspace.package]
@@ -55,8 +60,8 @@ tower-http = { version = "0.6", default-features = false, features = ["compressi
 fensu-policy = "=0.22.0"
 # Fensu's Python facts and core rules without their Python bindings: the default `python`
 # feature adds PyO3, rusqlite, flate2 and sha2.
-fensu-facts = { version = "=0.31.0", default-features = false }
-fensu-native = { version = "=0.31.0", default-features = false }
+fensu-facts = { version = "=0.31.1", default-features = false }
+fensu-native = { version = "=0.31.1", default-features = false }
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 # `sqb` names compute log captures with random ids, as `uuid.uuid4().hex`.
 getrandom = "0.4"
@@ -154,6 +159,11 @@ sqlbuild-orchestration = { path = "crates/sqlbuild-orchestration" }
 sqlbuild-process-ownership = { path = "crates/sqlbuild-process-ownership" }
 sqlbuild-project = { path = "crates/sqlbuild-project" }
 sqlbuild-python-base = { path = "crates/sqlbuild-python-base" }
+sqlbuild-python-front = { path = "crates/sqlbuild-python-front" }
+sqlbuild-python-project = { path = "crates/sqlbuild-python-project" }
+sqlbuild-python-planner = { path = "crates/sqlbuild-python-planner" }
+sqlbuild-python-compile = { path = "crates/sqlbuild-python-compile" }
+sqlbuild-python-output = { path = "crates/sqlbuild-python-output" }
 sqlbuild-pysource = { path = "crates/sqlbuild-pysource" }
 sqlbuild-recall = { path = "crates/sqlbuild-recall" }
 sqlbuild-scopes = { path = "crates/sqlbuild-scopes" }
@@ -177,6 +187,8 @@ sqlquack-syntax-postgres = { git = "https://github.com/sqlstack-io/sqlquack.git"
 sqlquack-syntax-sqlite = { git = "https://github.com/sqlstack-io/sqlquack.git", rev = "75d4c8486ab262a6c9c02a6c913334856367d890" }
 sqlquack-syntax-sqlserver = { git = "https://github.com/sqlstack-io/sqlquack.git", rev = "75d4c8486ab262a6c9c02a6c913334856367d890" }
 stacker = "0.1"
+# Counts heap allocations in growth tests, which measure work instead of time.
+stats_alloc = "0.1"
 syn = { version = "2", features = ["full", "visit", "extra-traits"] }
 subtle = "2"
 tempfile = "3"

@@ -9,7 +9,12 @@
 """Relay one chat to a worker's POST /infer/stream and yield its events."""
 from __future__ import annotations
 
+import contextlib
+import http.client
 import json
+import select
+import socket
+import threading
 import urllib.error
 import urllib.request
 from typing import Any, Dict, Iterator, Optional
@@ -23,6 +28,129 @@ _WORKER_FINISH_MAP = {
 
 WORKER_PAYLOAD_KEYS = ("model_key", "messages", "request_id", "task",
                        "max_new_tokens", "temperature", "top_p", "knobs", "metadata")
+
+
+# A call to a worker's front door waits in that worker's queue for as long as the queue needs: there is no read
+# deadline (operator 2026-11-16: "a 6 hour per call timeout? what even is this for?"). With a 600 s socket timeout
+# here, 205 of a 261-call test fire failed "TimeoutError: timed out" at exactly 600 s while their calls were still
+# queued at the Wrapper, which went on serving them for nobody. Reaching the worker is bounded (CONNECT_TIMEOUT_S);
+# after that a dead peer is noticed by TCP keepalive, and a caller that hangs up is noticed by watching ITS socket
+# (CALLER_CHECK_S): the upstream socket is then shut, so the worker (the Wrapper cancels a parked call whose caller
+# hung up) stops working for nobody. A caller that passes a number keeps that socket timeout throughout, as before.
+CONNECT_TIMEOUT_S = 30.0
+CALLER_CHECK_S = 5.0
+_UPSTREAM = threading.local()        # the request thread's upstream socket, recorded at connect for the watcher
+
+
+class CallerGone(ConnectionError):
+    """The caller hung up while its call waited at the worker; the worker was told (its socket shut)."""
+
+
+def _keepalive(sock) -> None:
+    try:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+        for name, value in (("TCP_KEEPIDLE", 60), ("TCP_KEEPINTVL", 15), ("TCP_KEEPCNT", 4)):
+            if hasattr(socket, name):
+                sock.setsockopt(socket.IPPROTO_TCP, getattr(socket, name), value)
+    except OSError:
+        pass
+
+
+def _waiting(sock) -> None:
+    """A connected upstream socket: keepalive on, no read deadline, recorded for the caller watcher."""
+    _keepalive(sock)
+    sock.settimeout(None)
+    ref = getattr(_UPSTREAM, "ref", None)
+    if ref is not None:
+        ref["sock"] = sock
+
+
+class _QueueWaitHTTPConnection(http.client.HTTPConnection):
+    def connect(self):
+        super().connect()                 # bounded by the connect timeout
+        _waiting(self.sock)
+
+
+class _QueueWaitHTTPSConnection(http.client.HTTPSConnection):
+    def connect(self):
+        super().connect()                 # TCP + TLS handshake bounded by the connect timeout
+        _waiting(self.sock)
+
+
+class _QueueWaitHTTPHandler(urllib.request.HTTPHandler):
+    def http_open(self, req):
+        return self.do_open(_QueueWaitHTTPConnection, req)
+
+
+class _QueueWaitHTTPSHandler(urllib.request.HTTPSHandler):
+    def https_open(self, req):
+        return self.do_open(_QueueWaitHTTPSConnection, req, context=self._context)
+
+
+_QUEUE_WAIT = urllib.request.build_opener(_QueueWaitHTTPHandler, _QueueWaitHTTPSHandler)
+
+
+def _open(req, timeout: Optional[float]):
+    """timeout None: connect within CONNECT_TIMEOUT_S, then wait for the answer as long as the worker's queue needs;
+    a number: that socket timeout throughout (connect and every read), as before. HTTPError as urlopen raises it."""
+    if timeout is None:
+        return _QUEUE_WAIT.open(req, timeout=CONNECT_TIMEOUT_S)
+    return urllib.request.urlopen(req, timeout=timeout)
+
+
+def _peer_closed(sock) -> bool:
+    """Whether the peer on `sock` hung up (FIN or reset). Its request was read whole, so a readable socket that peeks
+    EMPTY is its close. Never consumes a byte, never blocks; a socket that cannot be peeked (TLS) reads as live."""
+    try:
+        readable, _, _ = select.select([sock], [], [], 0)
+    except (OSError, ValueError):
+        return True
+    if not readable:
+        return False
+    try:
+        return sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT) == b""
+    except (BlockingIOError, InterruptedError, ValueError):
+        return False
+    except OSError:
+        return True
+
+
+def _caller_socket():
+    """The socket of the request being served on this thread (werkzeug's environ), or None outside a request."""
+    try:
+        from flask import has_request_context, request
+        return request.environ.get("werkzeug.socket") if has_request_context() else None
+    except Exception:  # noqa: BLE001 — no request, no watcher
+        return None
+
+
+@contextlib.contextmanager
+def _follows_caller(active: bool):
+    """While the block runs (the upstream connect, the queue wait, the answer), watch the caller's socket every
+    CALLER_CHECK_S; when the caller has hung up, shut the upstream socket — which ends the blocked read here and
+    tells the worker. Yields a dict: "caller_gone" is set when that happened."""
+    ref: dict = {}
+    caller = _caller_socket() if active else None
+    stop = threading.Event()
+    _UPSTREAM.ref = ref
+    if caller is not None:
+        def watch():
+            while not stop.wait(CALLER_CHECK_S):
+                if _peer_closed(caller):
+                    ref["caller_gone"] = True
+                    up = ref.get("sock")
+                    if up is not None:
+                        try:
+                            up.shutdown(socket.SHUT_RDWR)
+                        except OSError:
+                            pass
+                    return
+        threading.Thread(target=watch, daemon=True, name="relay-caller-watch").start()
+    try:
+        yield ref
+    finally:
+        stop.set()
+        _UPSTREAM.ref = None
 
 
 class WorkerHTTPError(Exception):
@@ -118,7 +246,7 @@ UNBOUNDED_ROUND = int(__import__("os").environ.get("HUGPY_DEFAULT_MAX_TOKENS") o
 MAX_ROUNDS = int(__import__("os").environ.get("HUGPY_MAX_CHUNKS") or 256)
 
 
-def front_door_stream(worker: dict, payload: dict, timeout: float = 600.0) -> Iterator[Dict[str, Any]]:
+def front_door_stream(worker: dict, payload: dict, timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]:
     """Relay one chat to a box's wrapper through the router (POST /v1/chat/completions,
     streamed) as the same token/done/error events the /infer path yields. The call's
     request_id rides as X-Hugpy-Parent-Request-Id, so the box's call_log row points at
@@ -155,7 +283,20 @@ def front_door_stream(worker: dict, payload: dict, timeout: float = 600.0) -> It
         yield {**last, "usage": total or last.get("usage")}
 
 
-def _front_door_round(worker: dict, payload: dict, timeout: float) -> Iterator[Dict[str, Any]]:
+def _front_door_round(worker: dict, payload: dict, timeout: Optional[float]) -> Iterator[Dict[str, Any]]:
+    with _follows_caller(timeout is None) as watch:
+        try:
+            for ev in _front_door_events(worker, payload, timeout):
+                if ev.get("type") == "done" and watch.get("caller_gone"):   # a shut stream reads as a short answer
+                    raise CallerGone("the caller hung up while its call waited at the worker; the worker was told")
+                yield ev
+        except (OSError, http.client.HTTPException) as exc:
+            if watch.get("caller_gone") and not isinstance(exc, CallerGone):
+                raise CallerGone("the caller hung up while its call waited at the worker; the worker was told") from exc
+            raise
+
+
+def _front_door_events(worker: dict, payload: dict, timeout: Optional[float]) -> Iterator[Dict[str, Any]]:
     from hugpy_core.registry.transport import headers as worker_headers
     url = worker["url"].rstrip("/") + "/v1/chat/completions"
     headers = worker_headers(worker, {"Content-Type": "application/json", "Accept": "text/event-stream"})
@@ -168,7 +309,7 @@ def _front_door_round(worker: dict, payload: dict, timeout: float) -> Iterator[D
     req = urllib.request.Request(url, data=json.dumps(_openai_body(payload)).encode("utf-8"),
                                  headers=headers, method="POST")
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout)
+        resp = _open(req, timeout)
     except urllib.error.HTTPError as exc:
         body = None
         try:
@@ -239,9 +380,11 @@ def _front_door_round(worker: dict, payload: dict, timeout: float) -> Iterator[D
            "execution_request_id": exec_id, "worker_request_id": None, "usage": usage, "timings": timings}
 
 
-def worker_stream(worker: dict, payload: dict, timeout: float = 600.0) -> Iterator[Dict[str, Any]]:
+def worker_stream(worker: dict, payload: dict, timeout: Optional[float] = None) -> Iterator[Dict[str, Any]]:
     """Relay a worker's POST /infer/stream SSE as event dicts (a box behind the
-    router: its OpenAI /v1/chat/completions, front_door_stream)."""
+    router: its OpenAI /v1/chat/completions, front_door_stream). timeout None (the
+    default): connect within CONNECT_TIMEOUT_S, then wait as long as the worker's queue
+    needs; a number: that socket timeout throughout."""
     if is_front_door(worker):
         yield from front_door_stream(worker, payload, timeout)
         return
@@ -250,7 +393,7 @@ def worker_stream(worker: dict, payload: dict, timeout: float = 600.0) -> Iterat
                                  headers={"Content-Type": "application/json"},
                                  method="POST")
     try:
-        resp = urllib.request.urlopen(req, timeout=timeout)
+        resp = _open(req, timeout)
     except urllib.error.HTTPError as exc:
         body = None
         try:

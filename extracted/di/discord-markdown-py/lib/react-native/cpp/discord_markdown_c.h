@@ -58,7 +58,7 @@ typedef struct DmdParseResult {
 #define DMD_SYNTAX_LIST (1u << 26)
 #define DMD_SYNTAX_QUOTE (1u << 27)
 #define DMD_SYNTAX_MULTILINE_QUOTE (1u << 28)
-#define DMD_SYNTAX_SMALL (1u << 29)
+#define DMD_SYNTAX_SUBTEXT (1u << 29)
 // Not a syntax: lets any link carry the `dev` scheme, e.g. `dev://branch/main`.
 #define DMD_DEV_LINKS (1u << 30)
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: CacheControl
-Version: 0.14.4
+Version: 0.15.0
 Summary: httplib2 caching for requests
 Keywords: requests,http,caching,web
 Author: Eric Larson, Frost Ming, William Woodruff
@@ -18,26 +18,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 Requires-Dist: requests>=2.16.0
 Requires-Dist: msgpack>=0.5.2,<2.0.0
-Requires-Dist: cachecontrol[filecache,redis] ; extra == 'dev'
-Requires-Dist: cherrypy ; extra == 'dev'
-Requires-Dist: cheroot>=11.1.2 ; extra == 'dev'
-Requires-Dist: codespell ; extra == 'dev'
-Requires-Dist: furo ; extra == 'dev'
-Requires-Dist: mypy ; extra == 'dev'
-Requires-Dist: pytest ; extra == 'dev'
-Requires-Dist: pytest-cov ; extra == 'dev'
-Requires-Dist: ruff ; extra == 'dev'
-Requires-Dist: sphinx ; extra == 'dev'
-Requires-Dist: sphinx-copybutton ; extra == 'dev'
-Requires-Dist: types-redis ; extra == 'dev'
-Requires-Dist: types-requests ; extra == 'dev'
 Requires-Dist: filelock>=3.8.0 ; extra == 'filecache'
 Requires-Dist: redis>=2.10.5 ; extra == 'redis'
 Requires-Python: >=3.10
 Project-URL: Homepage, https://pypi.org/project/CacheControl/
 Project-URL: Issues, https://github.com/psf/cachecontrol/issues
 Project-URL: Source, https://github.com/psf/cachecontrol
-Provides-Extra: dev
 Provides-Extra: filecache
 Provides-Extra: redis
 Description-Content-Type: text/x-rst

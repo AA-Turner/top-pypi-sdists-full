@@ -80,6 +80,21 @@ class TestPlaylists:
                     assert isinstance(vote_status["netVoteValue"], int)
                     assert vote_status["status"] in VoteStatus
 
+    def test_get_playlist_play_button_position(self, yt, data_path):
+        playlist_id = "RDCLAK5uy_lWy02cQBnTVTlwuRauaGKeUDH3L6PXNxI"
+        with open(data_path / "2024_03_get_playlist_public.json", encoding="utf8") as f:
+            mock_response = json.load(f)
+
+        header = mock_response["contents"]["twoColumnBrowseResultsRenderer"]["tabs"][0]["tabRenderer"][
+            "content"
+        ]["sectionListRenderer"]["contents"][0]["musicResponsiveHeaderRenderer"]
+        header["buttons"].append(header["buttons"].pop(1))
+
+        with mock.patch("ytmusicapi.YTMusic._send_request", return_value=mock_response):
+            playlist = yt.get_playlist(playlist_id)
+
+        assert playlist["id"] == playlist_id
+
     @pytest.mark.parametrize(
         "playlist_id, tracks_len, related_len",
         [
@@ -311,6 +326,10 @@ class TestPlaylists:
             pytest.raises(YTMusicGatedError, match="PAfeature_enablement"),
         ):
             yt_brand.create_playlist("test", description="test")
+
+    def test_add_playlist_items_rejects_duplicate_video_ids(self, yt_auth):
+        with pytest.raises(YTMusicUserError, match="Duplicate videoIds"):
+            yt_auth.add_playlist_items("PLABC", ["songA", "songB", "songA"])
 
     @pytest.mark.xdist_group("playlist")
     def test_end2end(self, yt_brand, sample_video):

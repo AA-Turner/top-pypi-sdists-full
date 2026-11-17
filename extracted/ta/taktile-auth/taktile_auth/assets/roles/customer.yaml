@@ -76,6 +76,7 @@ ws_editor/org_id,ws_id:
     - w:workspace_sandbox_job_trigger/org_id,ws_id
     - w:workspace_test_job_trigger/org_id,ws_id
     - case_editor/org_id,ws_id
+    - w:workspace_config_file/org_id,ws_id
 ws_admin/org_id,ws_id:
     - ws_editor/org_id,ws_id
     - ws_manager/org_id,ws_id

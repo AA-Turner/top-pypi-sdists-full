@@ -1,6 +1,7 @@
 import re
 from datetime import datetime, time, timedelta
 from sys import version_info as sys_version_info
+from warnings import warn
 
 _ISO8601_DURATION_PATTERN = re.compile(
     "^P"  # Duration P indicator
@@ -42,9 +43,13 @@ def parse_timedelta_from_iso_format(text: str) -> timedelta:
                     ) if m.group("minutes") else 0
     seconds = float(m.group("seconds").replace(",", ".").replace("S", "")
                     ) if m.group("seconds") else 0
-    _have_date = years or months or days
-    _have_time = hours or minutes or seconds
-    if weeks and (_have_date or _have_time):
+    _have_weeks = bool(m.group("weeks"))
+    _have_date = bool(m.group("years") or m.group("months") or m.group("days"))
+    _have_time = bool(m.group("hours") or m.group("minutes") or m.group("seconds"))
+    if not (_have_weeks or _have_date or _have_time):
+        raise ValueError(f"Invalid ISO8601 duration string: {text}")
+
+    if _have_weeks and (_have_date or _have_time):
         raise ValueError("Combining weeks with other date/time parts is not supported")
 
     _total_days = (years * 365) + (months * 30) + days
@@ -64,7 +69,12 @@ _TIMEDELTA_PATTERN = re.compile(r"^(?P<hours>\d+):(?P<minutes>\d+)(?::(?P<second
 
 
 def parse_timedelta_string(text: str) -> timedelta:
-    """Checks if a given string is a valid ISO8601 duration string. Or hh:mm:ss format."""
+    """Parse legacy durations. Deprecated; use parse_timedelta_from_iso_format instead."""
+    warn(
+        "parse_timedelta_string is deprecated. Use parse_timedelta_from_iso_format instead.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
     try:
         return parse_timedelta_from_iso_format(text)
     except ValueError as exc:

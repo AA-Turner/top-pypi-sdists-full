@@ -135,7 +135,7 @@ class BaseRealTimeHandler(System.Object, QuantConnect.Lean.Engine.RealTime.IReal
 
     def get_time_monitor_timeout(self) -> int:
         """
-        Get's the timeout the scheduled task time monitor should use
+        Gets the timeout the scheduled task time monitor should use
         
         
         This Class is protected.
@@ -184,7 +184,7 @@ class BacktestingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BaseRealTimeH
     @property
     def is_active(self) -> bool:
         """
-        Flag indicating the hander thread is completely finished and ready to dispose.
+        Flag indicating the handler thread is completely finished and ready to dispose.
         this doesn't run as its own thread
         """
         ...
@@ -294,7 +294,7 @@ class LiveTradingRealTimeHandler(QuantConnect.Lean.Engine.RealTime.BacktestingRe
 
     def get_time_monitor_timeout(self) -> int:
         """
-        Get's the timeout the scheduled task time monitor should use
+        Gets the timeout the scheduled task time monitor should use
         
         
         This Class is protected.
@@ -373,12 +373,12 @@ class ScheduledEventFactory(System.Object):
         
         This method is deprecated. It will generate ScheduledEvents for the deprecated IAlgorithm.OnEndOfDay()
         
-        :param algorithm: The algorithm instance the event is fo
+        :param algorithm: The algorithm instance the event is for
         :param result_handler: The result handler, used to communicate run time errors
         :param start: The date to start the events
         :param end: The date to end the events
         :param end_of_day_delta: The time difference between the market close and the event, positive time will fire before market close
-        :param current_utc_time: Specfies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
+        :param current_utc_time: Specifies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
         :returns: The new ScheduledEvent that will fire near market close each tradeable dat.
         """
         warnings.warn("This method is deprecated. It will generate ScheduledEvents for the deprecated IAlgorithm.OnEndOfDay()", DeprecationWarning)
@@ -395,7 +395,7 @@ class ScheduledEventFactory(System.Object):
         the addition
         :param time_of_day: The time each tradeable date to fire the event
         :param callback: The delegate to call when an event fires
-        :param current_utc_time: Specfies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
+        :param current_utc_time: Specifies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
         :returns: A new ScheduledEvent instance that fires events each tradeable day from the start to the finish at the specified time.
         """
         ...
@@ -405,13 +405,13 @@ class ScheduledEventFactory(System.Object):
         """
         Creates a new ScheduledEvent that will fire before market close by the specified time
         
-        :param algorithm: The algorithm instance the event is fo
+        :param algorithm: The algorithm instance the event is for
         :param result_handler: The result handler, used to communicate run time errors
         :param security: The security used for defining tradeable dates
         :param start: The first date for the events
         :param end: The date to end the events
         :param end_of_day_delta: The time difference between the market close and the event, positive time will fire before market close
-        :param current_utc_time: Specfies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
+        :param current_utc_time: Specifies the current time in UTC, before which, no events will be scheduled. Specify null to skip this filter.
         :returns: The new ScheduledEvent that will fire near market close each tradeable dat.
         """
         ...

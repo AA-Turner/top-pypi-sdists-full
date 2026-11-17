@@ -832,7 +832,7 @@ class UniverseDefinitions(System.Object):
     @property
     def qc_500(self) -> QuantConnect.Data.UniverseSelection.Universe:
         """
-        Creates a new fine universe that contains the constituents of QC500 index based onthe company fundamentals
+        Creates a new fine universe that contains the constituents of QC500 index based on the company fundamentals
         The algorithm creates a default tradable and liquid universe containing 500 US equities
         which are chosen at the first trading day of each month.
         """
@@ -4667,7 +4667,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], type: System.FormattableString, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
         """
-        Creates a new name for an indicator created with the convenience functions (SMA, EMA, ect...)
+        Creates a new name for an indicator created with the convenience functions (SMA, EMA, etc...)
         
         :param symbol: The symbol this indicator is registered to
         :param type: The indicator type, for example, 'SMA(5)'
@@ -4679,7 +4679,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
     @overload
     def create_indicator_name(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], type: str, resolution: typing.Optional[QuantConnect.Resolution]) -> str:
         """
-        Creates a new name for an indicator created with the convenience functions (SMA, EMA, ect...)
+        Creates a new name for an indicator created with the convenience functions (SMA, EMA, etc...)
         
         :param symbol: The symbol this indicator is registered to
         :param type: The indicator type, for example, 'SMA(5)'
@@ -4989,7 +4989,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         
         :param symbol: The symbol whose EMV we want
         :param period: The period of the EMV
-        :param scale: The length of the outputed value
+        :param scale: The length of the outputted value
         :param resolution: The resolution
         :param selector: Selects a value from the BaseData to send into the indicator, if null defaults to casting the input value to a TradeBar
         :returns: The EaseOfMovementValue indicator for the given parameters.
@@ -7365,7 +7365,7 @@ class QCAlgorithm(System.MarshalByRefObject, QuantConnect.Interfaces.IAlgorithm)
         ...
 
     def set_locked(self) -> None:
-        """Lock the algorithm initialization to avoid user modifiying cash and data stream subscriptions"""
+        """Lock the algorithm initialization to avoid user modifying cash and data stream subscriptions"""
         ...
 
     def set_maximum_orders(self, max: int) -> None:

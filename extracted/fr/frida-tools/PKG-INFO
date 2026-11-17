@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: frida-tools
-Version: 14.13.1
+Version: 14.13.2
 Summary: Frida CLI tools
 Keywords: frida,debugger,dynamic,instrumentation,inject,javascript,windows,macos,linux,ios,iphone,ipad,android,qnx
 Author-Email: Frida Developers <oleavr@frida.re>

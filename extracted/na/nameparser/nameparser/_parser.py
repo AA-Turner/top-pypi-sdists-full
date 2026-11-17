@@ -1,7 +1,8 @@
 """Parser and the module-level parse() for the 2.0 API.
 
-Layering: sits on _types/_lexicon/_policy/_locale/_pipeline; never
-imports _render (enforced by tests/v2/test_layering.py).
+Layering: sits on _types/_lexicon/_policy/_locale/_pipeline, and imports
+_match, _suggest and _reading_index at call time only; never imports
+_render (enforced by tests/v2/test_layering.py).
 
 _default_parser is THE one sanctioned module-level global: a
 functools.cache'd frozen Parser over default config.
@@ -11,7 +12,9 @@ from __future__ import annotations
 import dataclasses
 import functools
 import warnings
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
 from nameparser._lexicon import _rechosen_masks
 from nameparser._lexicon import Lexicon
@@ -21,11 +24,18 @@ from nameparser._pipeline._assemble import assemble
 from nameparser._pipeline._post_rules import suffix_entries
 from nameparser._pipeline._state import ParseState
 from nameparser._pipeline._vocab import _SCRIPT_MATCHERS
-from nameparser._policy import UNSET, Policy, PolicyPatch, _Unset, apply_patch
+from nameparser._policy import (
+    _EAST_ASIAN_SCRIPTS, _JA_SCRIPTS, UNSET, Policy, PolicyPatch, _Unset,
+    apply_patch,
+)
 from nameparser._types import (
     FOLDED_TAG, ParsedName, Role, Segmenter, Token, _guarded_getstate,
     _guarded_setstate, _validated_field_strings,
 )
+
+if TYPE_CHECKING:
+    from nameparser._match import Matching, Outcome
+    from nameparser._suggest import Suggestion
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,7 +100,7 @@ class Parser:
         # forgotten. The parser then behaves identically to a working
         # one minus the feature, which reads as "not working" with no
         # signal why. Statically decidable here, so say it here; a
-        # warning rather than an error because the inert pack is a
+        # warning rather than an error because the segmentation-inert pack is a
         # pinned, deliberate property (a JA registration must be safe
         # without the extra), and warnings are filterable by the rare
         # caller who wants exactly that.
@@ -98,7 +108,9 @@ class Parser:
             uncovered = sorted(
                 script.value
                 for script in self.policy.segment_scripts
-                if not any(_SCRIPT_MATCHERS[script](entry)
+                # only the East Asian scripts divide (#1237)
+                if script in _EAST_ASIAN_SCRIPTS
+                and not any(_SCRIPT_MATCHERS[script](entry)
                            for entry in self.lexicon._sets.surnames))
             if uncovered:
                 names = ", ".join(uncovered)
@@ -112,7 +124,7 @@ class Parser:
                     " For Japanese, pass "
                     "segmenter=locales.ja_segmenter() (install with: "
                     "pip install 'nameparser[ja]')."
-                    if {"han", "hiragana", "katakana"} & set(uncovered)
+                    if {s.value for s in _JA_SCRIPTS} & set(uncovered)
                     else "")
                 warnings.warn(
                     f"Policy.segment_scripts activates {names} but the "
@@ -278,6 +290,145 @@ class Parser:
             raise TypeError(f"matches() takes str or ParsedName, got {b!r}")
         return a.comparison_key() == b.comparison_key()
 
+    def matching(
+        self, accept: Iterable[Outcome | str] | None = None, *,
+        other_readings: bool = False,
+    ) -> Matching:
+        """A :class:`~nameparser.Matching` bound to THIS parser,
+        so its ``check`` and ``keys`` parse str arguments with this
+        parser's lexicon and policy. A ParsedName argument is compared
+        as given, whatever parser produced it. ``accept`` is the
+        iterable of outcomes counted as consistent; None takes the
+        default set, and any other value replaces it, so extend the
+        default with ``parser.matching(accept=parser.matching().accept
+        | {"family-initial"})``. ``other_readings=True`` also searches
+        each side's other readings (``Matching.other_readings``). A
+        value is validated by ``Matching``, which raises for a bad one."""
+        from nameparser._match import DEFAULT_ACCEPT, Matching
+        return Matching(
+            self, DEFAULT_ACCEPT if accept is None else accept,  # type: ignore[arg-type]
+            other_readings)
+
+    def suggest(self, names: Iterable[str]) -> Suggestion:
+        """The settings a group of names suggests, with THIS parser as
+        the base: a :class:`~nameparser.Suggestion` whose ``parser``
+        reads the group. ``names`` is any iterable of str the caller
+        declares to be one group (one source, one convention), read
+        once. Each name casts votes on its name order and its
+        patronymic shape, read with this parser's lexicon past the
+        titles it lists at the head and the post-nominals at the end; a
+        name of fewer than two words once those are read past casts
+        none, and so does a name with a comma, unless only
+        post-nominals follow the comma. A patronymic votes only where
+        the patronymic rule reads one, and a trailing initial
+        (``Smith J.``) only where at least three names, and 60% of the
+        group's names holding a name word, end in initials no other
+        signal in the same name contradicts. A capitals word of two
+        or three letters ending a name in mixed case (``Armitage JO``),
+        or opening it with no capitals word after it (``AM Hoy``, ``NG
+        Emily``), casts no capitals vote, being joined initials as
+        often as a short surname. The ending one casts no surname
+        vote of its own, and where it is itself a listed surname
+        (``Zhou NG``) the name casts none: its first word is usually
+        the given name there, and the table cannot tell the two
+        readings apart. A name opening in one casts no surname vote.
+        ``name_order`` is
+        decided in either direction, keeping this parser's family-first
+        spelling where it has one, where at least two names vote for
+        one end, they are more than two thirds of the names casting
+        an order vote, and they are at least 1% of the group's names a
+        comma does not leave out: in a long list where few names vote, a
+        few stray votes decide nothing, and the order evidence's note
+        says so. A patronymic rule is decided where more than four
+        in five of the names that cast a vote carry its patronymic (and
+        at least five do), for the East Slavic and the Turkic rule alike;
+        a name whose only vote was a set-aside trailing initial counts
+        among the names that cast one, and the patronymic evidence's
+        note says how many.
+        A group decided East Slavic gets the rule and reads
+        given-first, the order the rule reorders each name under,
+        unless its names' own votes decide family-first, which the rule
+        never overrides. One case keeps a declared order instead: under
+        a ``FAMILY_FIRST`` parser whose names' votes do not decide
+        given-first, where more of the names carrying the patronymic
+        write it last (``Sidorov Ivan Petrovich``) than in the middle
+        (``Ivan Petrovich Sidorov``), the group keeps that order and
+        gets the rule alone, which reorders no name there and fills the
+        ``patronymic`` view; the names written the other way get no
+        given-first order, and the patronymic evidence's note counts
+        them. A tie, and a ``FAMILY_FIRST_GIVEN_LAST`` parser,
+        get the given-first order with the rule. A Turkic group
+        gets the rule alone, its order decided by its names' own votes.
+        ``initials_as_family`` (rules/O8) is turned on where one run of
+        letters ends at least two names and at least half of the names
+        ending in letters (Nepal's ``B K``), and a group decided so
+        casts no trailing-initial vote on its order; a group never turns
+        it off, nor turns it on under a base reading names family first,
+        where letters ending a name are never read as its family.
+        ``capitals_as_family`` (rules/O9) is turned on where
+        at least two names, and more than two thirds of the names with
+        evidence either way, write the family in capitals: the rule,
+        asked of the name parsed with the switch on, reads as its family
+        a word in capitals of four letters or more that is no listed
+        credential or numeral and that this parser, reading the name,
+        does not take for a title (``Jean DUPONT``, ``Mary BISHOP``),
+        against a name whose family the switch would move onto a word
+        this parser reads as a title (``MISS Ann Berg``, ``DR DUPONT
+        Jean``) and a name of two
+        words or more in mixed case with none in capitals, read past its
+        titles and post-nominals (``DR Ann Berg``, ``John Smith FRCS``);
+        a name against a decided switch is among ``disagreeing()``. Two or three
+        capitals are no evidence (``Zhi LI``, or initials, ``AM Hoy``),
+        and only a name holding a word in capitals is parsed. A group
+        never turns it off, nor turns it on under a base with
+        ``unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE``, beside which
+        it cannot be set; it is decided apart from the order, which the
+        capitals in a name vote on as before. A setting the votes do not decide keeps this parser's value, so
+        an empty group, or one with no votes, suggests no change. A
+        bare str, bytes, a mapping or a non-str item raises TypeError.
+
+        Measured 2026-11-10, re-taken 2026-11-11, 2026-11-12,
+        2026-11-14, 2026-11-15 and 2026-11-16, with
+        tools/differential/suggest_measure.py on groups drawn from real
+        names written in a known order, 300 groups a size
+        (decisions/group-suggestion's 2026-11-16 ORDER FLOOR entry holds
+        the table): a group written in this parser's own order kept it
+        in at least 97% of groups at every size from 2 to 2,000 names,
+        under either base order, save three lists. ORCID holders who
+        typed their given name in capitals (``ANNA Smith``), which the
+        capitals signal reads as a family name, kept their given-first
+        order in 52% of groups of two and 4% of five (why, in that
+        file's 2026-11-12 CAPITALS entry). A list of
+        nothing but bylines written two or three joined initials first
+        (``AM Hoy``) kept it in at least 97% of groups at every size
+        measured, to 500 names (it holds 644), but 50 and 100 names,
+        where it kept it in 94.7% and 93.3%, the name tables voting on
+        a few of its names; ORCID's bylines of
+        every writing kept it in 95.3% and 96.7% at 100 and 200 names
+        and at least 97% at every other size.
+        Moving the base takes more names, and
+        how many depends on what the names carry: groups of Chinese,
+        Taiwanese, Korean, Czech, Polish or Italian names (the romanized
+        surnames and the common given names) were read right in 95% of
+        groups from 5 names; German, Dutch, Spanish, British, French,
+        Romanian and Vietnamese from 10; US, Japanese, Turkish,
+        Nigerian and Brazilian from 20; and Russian and Indian from
+        50. A group whose votes fall short of the thresholds keeps
+        the base rather than guess, so a smaller group moves it in fewer
+        of the draws. ``capitals_as_family``, measured 2026-11-12
+        (decisions/group-suggestion's CAPITALS entry): ORCID holders who
+        typed their family name in capitals were suggested it in at least
+        95% of groups from 4 names, and from 10 where many of the
+        surnames are two or three letters (holders in China, Korea,
+        Vietnam and Taiwan). Of the lists measured that do not write their
+        family names so, only ORCID holders who typed their given name in
+        capitals (``ANNA Smith``) were suggested it, which nothing in a
+        name tells apart; no other list was, ORCID's bylines (``AM Hoy``)
+        included. A name wholly in one case carries no evidence.
+        """
+        from nameparser._suggest import suggest
+        return suggest(self, names)
+
     # -- rendering delegates ----------------------------------------------
 
     def capitalized(self, name: ParsedName, *,
@@ -395,7 +546,8 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     reading that cannot stand beside one the choice turns on raises
     ValueError here, naming the call (decisions/vocabulary-model,
     2026-11-02 #754, items 3 and 4). Policy patches apply left-to-right
-    (later wins; set-valued fields union per the patch metadata). A
+    (later wins; set-valued fields union and script_orders merges by
+    script, per the patch metadata). A
     pack that chooses no language leaves the base vocabulary exactly
     as it is.
 
@@ -417,7 +569,8 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     recorded strictness, ``False`` on a strict base raises ValueError, a
     strict choice not being undone by a later call, and ``True`` on a
     plain one makes the whole choice strict. A strict choice accepts a
-    language whose file holds no reading yet (``hu``), which a plain
+    language whose file holds no reading a parse reads yet (``hu``,
+    whose familiar forms only name matching reads), which a plain
     one refuses as changing nothing, and raises ValueError when the
     packs choose no language, since it would then keep no language's
     own words, only mul.toml's and native-script words' readings
@@ -503,12 +656,13 @@ def parser_for(*locales: Locale, base: Parser | None = None,
     # each scalar field's setter so far and the value it left in the
     # policy: a later pack leaving another value overrides it, which is
     # warned; one leaving the same value (cs and sk's two_family_names)
-    # agrees. Compared as the applied Policy holds it, canonical, so a
-    # mapping written in another key order (script_orders) is the value
-    # it is, not the spelling it was given in.
+    # agrees. Compared as the applied Policy holds it, canonical.
     scalar_setters: dict[str, tuple[str, object]] = {}
     scalars = [f.name for f in dataclasses.fields(PolicyPatch)
-               if f.metadata.get("compose") != "union"]
+               if f.metadata.get("compose") not in ("union", "by-script")]
+    # script_orders composes by script: a later pack setting one script
+    # to another order overrides that entry, which is warned the same way
+    script_setters: dict[object, tuple[str, object]] = {}
     for loc in locales:
         # rules/D2: "applying a locale pack wraps any such error with
         # the locale's code, so a stacked configuration names which layer
@@ -529,6 +683,20 @@ def parser_for(*locales: Locale, base: Parser | None = None,
                         f"{name!r} already set by locale {code!r}; later wins",
                         UserWarning, stacklevel=2)
             scalar_setters[name] = (loc.code, value)
+        if loc.policy.script_orders is not UNSET:
+            patched = {s for s, _ in loc.policy.script_orders}
+            for script, order in policy.script_orders:
+                if script not in patched:
+                    continue
+                if script in script_setters:
+                    code, held = script_setters[script]
+                    if code != loc.code and held != order:
+                        warnings.warn(
+                            f"locale {loc.code!r} overrides the script_orders "
+                            f"entry for {script.value!r} already set by "
+                            f"locale {code!r}; later wins",
+                            UserWarning, stacklevel=2)
+                script_setters[script] = (loc.code, order)
     # rules/D1: "constructing a parser that activates division for
     # scripts with no covering surnames and no segmenter warns at
     # construction, naming the dead scripts and each way out"

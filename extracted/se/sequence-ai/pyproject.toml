@@ -4,14 +4,15 @@ build-backend = "hatchling.build"
 
 [project]
 name = "sequence-ai"
-version = "0.61.3"
+version = "0.62.3"
 description = "The inference and benchmark platform for physical AI: deploy a robot policy, run it on your robot, score it."
 readme = "README.md"
 requires-python = ">=3.9"
 license = "Apache-2.0"
-license-files = ["LICENSE"]
+license-files = ["LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 authors = [{ name = "General Sequences" }]
-keywords = ["robotics", "vla", "inference", "manipulation", "policy"]
+keywords = ["robotics", "vla", "inference", "manipulation", "policy", "robot policy serving", "remote inference",
+            "cuda graphs", "batching", "action chunk", "openpi", "lerobot", "gr00t", "latency", "wide-area network"]
 
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -34,6 +35,9 @@ dependencies = [
     "pydantic>=2; python_version >= '3.10'",
     "sequence-base>=0.8.12,<0.9; python_version >= '3.10'",
     "pillow>=10",
+    "uvicorn>=0.30,<1",
+    "numpy>=1.24",
+    "zstandard>=0.22",
 ]
 
 [project.optional-dependencies]
@@ -45,16 +49,22 @@ dev = [
     "pyarrow>=14",
     "av>=17; python_version >= '3.10'",
     "zstandard>=0.22",
-    "aiortc>=1.16,<1.17; python_version >= '3.10'",
+    "aiortc>=1.16,<1.17; python_version >= '3.11'",
     "opencv-python-headless>=4.8",
+    "uvicorn>=0.30,<1",
+    "websockets>=14,<19",
+    "msgpack>=1.0,<2",
+    "msgpack-numpy>=0.4.8,<0.5",
+    "torch>=2.4,<3",
+    "eclipse-zenoh>=1.10,<2",
 ]
 
 data = ["pyarrow>=14", "numpy>=1.24", "av>=17; python_version >= '3.10'", "zstandard>=0.22"]
 
 observe = ["numpy>=1.24", "av>=17; python_version >= '3.10'", "zstandard>=0.22"]
 
-teleop = ["aiortc>=1.16,<1.17; python_version >= '3.10'", "av>=17; python_version >= '3.10'",
-          "numpy>=1.24; python_version >= '3.10'"]
+teleop = ["aiortc>=1.16,<1.17; python_version >= '3.11'", "av>=17; python_version >= '3.11'",
+          "numpy>=1.24; python_version >= '3.11'"]
 
 port = [
     "mujoco==3.15.0; python_version >= '3.10'",
@@ -69,6 +79,8 @@ seq = "seq_launch:main"
 Homepage = "https://generalsequences.com"
 Documentation = "https://generalsequences.com/docs/"
 Console = "https://app.generalsequences.com"
+Repository = "https://github.com/General-Sequences/sequence-ai"
+Issues = "https://github.com/General-Sequences/sequence-ai/issues"
 Changelog = "https://generalsequences.com/docs/changelog/"
 
 [tool.hatch.build.targets.wheel]
@@ -78,9 +90,11 @@ exclude = ["sequence_ai/_core/mock_direct.py", "sequence_ai/_core/_mock_assets",
 "seq_launch.py" = "seq_launch.py"
 "eval.md" = "seq/eval.md"
 "observability.md" = "seq/observability.md"
+"platform.md" = "seq/platform.md"
 
 [tool.hatch.build.targets.sdist]
-only-include = ["seq", "sequence_ai", "seq_launch.py", "eval.md", "observability.md", "README.md", "LICENSE"]
+only-include = ["seq", "sequence_ai", "seq_launch.py", "eval.md", "observability.md", "platform.md", "README.md",
+                "LICENSE", "NOTICE", "THIRD_PARTY_NOTICES.md"]
 exclude = ["sequence_ai/_core/mock_direct.py", "sequence_ai/_core/_mock_assets", "seq/_mock.py"]
 
 [tool.pytest.ini_options]

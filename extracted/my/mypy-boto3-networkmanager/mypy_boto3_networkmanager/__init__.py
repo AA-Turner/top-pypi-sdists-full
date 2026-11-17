@@ -32,6 +32,10 @@ Usage::
         ListAttachmentRoutingPolicyAssociationsPaginator,
         ListAttachmentsPaginator,
         ListConnectPeersPaginator,
+        ListContextChangesPaginator,
+        ListContextStoreAssociationsPaginator,
+        ListContextStoresPaginator,
+        ListContextsPaginator,
         ListCoreNetworkPolicyVersionsPaginator,
         ListCoreNetworkPrefixListAssociationsPaginator,
         ListCoreNetworkRoutingInformationPaginator,
@@ -64,6 +68,10 @@ Usage::
     list_attachment_routing_policy_associations_paginator: ListAttachmentRoutingPolicyAssociationsPaginator = client.get_paginator("list_attachment_routing_policy_associations")
     list_attachments_paginator: ListAttachmentsPaginator = client.get_paginator("list_attachments")
     list_connect_peers_paginator: ListConnectPeersPaginator = client.get_paginator("list_connect_peers")
+    list_context_changes_paginator: ListContextChangesPaginator = client.get_paginator("list_context_changes")
+    list_context_store_associations_paginator: ListContextStoreAssociationsPaginator = client.get_paginator("list_context_store_associations")
+    list_context_stores_paginator: ListContextStoresPaginator = client.get_paginator("list_context_stores")
+    list_contexts_paginator: ListContextsPaginator = client.get_paginator("list_contexts")
     list_core_network_policy_versions_paginator: ListCoreNetworkPolicyVersionsPaginator = client.get_paginator("list_core_network_policy_versions")
     list_core_network_prefix_list_associations_paginator: ListCoreNetworkPrefixListAssociationsPaginator = client.get_paginator("list_core_network_prefix_list_associations")
     list_core_network_routing_information_paginator: ListCoreNetworkRoutingInformationPaginator = client.get_paginator("list_core_network_routing_information")
@@ -95,6 +103,10 @@ from .paginator import (
     ListAttachmentRoutingPolicyAssociationsPaginator,
     ListAttachmentsPaginator,
     ListConnectPeersPaginator,
+    ListContextChangesPaginator,
+    ListContextsPaginator,
+    ListContextStoreAssociationsPaginator,
+    ListContextStoresPaginator,
     ListCoreNetworkPolicyVersionsPaginator,
     ListCoreNetworkPrefixListAssociationsPaginator,
     ListCoreNetworkRoutingInformationPaginator,
@@ -128,6 +140,10 @@ __all__ = (
     "ListAttachmentRoutingPolicyAssociationsPaginator",
     "ListAttachmentsPaginator",
     "ListConnectPeersPaginator",
+    "ListContextChangesPaginator",
+    "ListContextStoreAssociationsPaginator",
+    "ListContextStoresPaginator",
+    "ListContextsPaginator",
     "ListCoreNetworkPolicyVersionsPaginator",
     "ListCoreNetworkPrefixListAssociationsPaginator",
     "ListCoreNetworkRoutingInformationPaginator",

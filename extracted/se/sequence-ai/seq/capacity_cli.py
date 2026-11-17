@@ -328,9 +328,9 @@ def own(key: str, value: Any, overrides: Any, plan: Any) -> str:
 def show_deployment(out: dict, echo: Echo) -> None:
     """What `seq account` says with a robot key: the platform answers a robot's key with the one deployment it is
     for (GET /v1/account scope "deployment") - what its machines used and cost over the window, its acts and errors - so
-    the first line says whose figures they are, and they never read as the account's. {the user 10-14, relayed by third
-    plan: "this shold limit to the account only on that deploymente..g the ocst of that machine not the entire account
-    all models"}"""
+    the first line says whose figures they are, and they never read as the account's.
+
+"""
     name = out.get("deployment") or "its deployment"
     u = out.get("usage") or {}
 
@@ -563,6 +563,26 @@ def holds_gpus(f: dict) -> bool:
     return card is not None and str(card).strip().lower() not in ("cpu", "none")
 
 
+def one_a_copy_of(policy: Any) -> str | None:
+    """Why a copy seats one robot (parts.one_a_copy, the words of `seq deploy`'s seats line), of the fleet's `policy`:
+    how the version keeps an episode and batches, and how its answers play now - {"episodes", "concurrency": {"sizes"},
+    "hz", "action_chunk_valid_len", "action_chunk_replan_at", "max_wait_for_batch"}, each chunk length and the wait as
+    `seq policy set` left it over the version's own. None where it seats by its batches' timing, or the platform says
+    none of it.
+"""
+    from types import SimpleNamespace
+
+    from seq.parts import one_a_copy
+
+    if not isinstance(policy, dict):
+        return None
+    batch = policy.get("concurrency") if isinstance(policy.get("concurrency"), dict) else {}
+    plays = {key: policy.get(key)
+             for key in ("hz", "action_chunk_valid_len", "action_chunk_replan_at", "max_wait_for_batch")}
+    return one_a_copy(SimpleNamespace(episodes=policy.get("episodes"),
+                                      concurrency=SimpleNamespace(sizes=batch.get("sizes")), **plays))
+
+
 def show_fleet(name: str, f: dict, echo: Echo) -> None:
     workers, queue = f.get("workers") or [], f.get("queue") or []
 
@@ -576,6 +596,10 @@ def show_fleet(name: str, f: dict, echo: Echo) -> None:
     seats = f.get("max") if f.get("max") is not None else "—"
     echo(f"fleet: {len(live)} worker(s) holding {cards} GPU(s) · {cap} · {full} · robots per worker: {seats}"
          f"{wait_said(f)}")
+
+    alone = one_a_copy_of(f.get("policy"))
+    if alone:
+        echo(f"  {alone}")
 
 
     for w in f.get("waits") or ():
@@ -1015,8 +1039,8 @@ def show_billed_price(p: dict | None, echo: Echo) -> None:
 
 def acts_unmeasured(measured: dict | None) -> bool:
     """Whether the build check never called infer, so what it measured of a copy is its load alone: the check acts on a
-    sample episode only (@seq.sample, measured.sample), so a version measured without one. The worker's measured said io_mode and its probe until worker 5's 64ad99b0 took them out,
-    and this read io_mode "raw", never there since."""
+    sample episode only (@seq.sample, measured.sample), so a version measured without one.
+"""
     m = measured if isinstance(measured, dict) else {}
     return bool(m) and not m.get("sample")
 

@@ -12,7 +12,7 @@ import System.IO
 
 class RemoteFileSubscriptionStreamReader(System.Object, QuantConnect.Interfaces.IStreamReader):
     """
-    Represents a stream reader capabable of downloading a remote file and then
+    Represents a stream reader capable of downloading a remote file and then
     reading it from disk
     """
 

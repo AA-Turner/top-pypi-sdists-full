@@ -288,6 +288,7 @@ __all__ = (
     "SearchableQueueTypeType",
     "SecurityProfileTypeType",
     "ServiceName",
+    "SessionEntityTypeType",
     "SingleSelectQuestionRuleCategoryAutomationConditionType",
     "SlaAssignmentTypeType",
     "SlaTypeType",
@@ -1252,6 +1253,7 @@ SearchWorkspaceAssociationsPaginatorName = Literal["search_workspace_association
 SearchWorkspacesPaginatorName = Literal["search_workspaces"]
 SearchableQueueTypeType = Literal["STANDARD"]
 SecurityProfileTypeType = Literal["AWS_MANAGED", "CUSTOMER_MANAGED"]
+SessionEntityTypeType = Literal["USER"]
 SingleSelectQuestionRuleCategoryAutomationConditionType = Literal["NOT_PRESENT", "PRESENT"]
 SlaAssignmentTypeType = Literal["CASES"]
 SlaTypeType = Literal["CaseField"]
@@ -1463,6 +1465,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -1647,6 +1650,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -1714,6 +1718,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -25,7 +25,8 @@ that uses an option, value or input type BASE does not have is `opt-in` and is n
 
 Accepted changes are listed in scripts/behaviour_diff_allowlist.toml: `base` and `[[accepted]]` entries with
 `input` (a glob, or a list of globs), optional `backends`, `aspects` and `match` (regex on the change line), `reason`,
-`decision` (the public PR or issue references of the owner decision, `#1234, #1235`) and `release_note`.
+`decision` (the public PR or issue references of the owner decision, `#1234, #1235`) and `migration` (the id of the
+upgrade guide entry whose title the release page and its notes use; scripts/build_migration_docs.py checks it).
 A `[[base_skip]]` entry (`input` glob, `bases`: releases such as `["0.88.0"]` or a maximum such as `["<=0.88.0"]`,
 `reason`, `issue`) names an input a release is known to hang on: the release does not run for those cells, which are
 `base-skipped` once the candidate generated and imported (a candidate failure is a violation). `--check` also fails
@@ -86,6 +87,7 @@ from scripts._behaviour_report import compare_records, redact, summarize_gate, v
 
 SIGNATURE_SCRIPT = Path(__file__).with_name("_behaviour_signature.py")
 DEFAULT_ALLOWLIST = Path(__file__).with_name("behaviour_diff_allowlist.toml")
+MIGRATION_JSON = ROOT / "docs" / "data" / "migration.json"
 FIXTURE_DIRS = (
     ("jsonschema", (".json", ".yaml", ".yml"), True),
     ("openapi", (".json", ".yaml", ".yml"), True),
@@ -122,6 +124,8 @@ FETCH_TRIES = 3
 DEFAULT_RECORDS = compare_release._default_cache_dir().parent / "behaviour-records"  # ruff: ignore[private-member-access]
 ERA_PYTHONS = ("3.14", "3.13", "3.12", "3.11")
 ERA_EXTRAS = "graphql,http,protobuf"
+# Installed beside every release: the formatters it may call and what the signature step and output imports need.
+ERA_PACKAGES = ("black", "isort", "msgspec", "email-validator")
 SNIPPET_LINES = 40
 OPT_IN_TRIES = 5
 RESTORE_GROUPS = (
@@ -148,7 +152,10 @@ print(json.dumps(found))
 """
 OPTION_INVENTORY = """
 import json
-from datamodel_code_generator.arguments import arg_parser
+try:
+    from datamodel_code_generator.arguments import arg_parser
+except ImportError:  # releases before 0.21 define the parser in __main__
+    from datamodel_code_generator.__main__ import arg_parser
 options = {o: sorted(map(str, a.choices)) if a.choices else None for a in arg_parser._actions for o in a.option_strings}
 print(json.dumps(options))
 """
@@ -613,21 +620,26 @@ def _write_tree(tree: dict[str, str], directory: Path) -> Path:
 
 def signature(gate: Gate, target: Path, backend: str, payloads: Path | None) -> dict[str, Any]:
     """Compute a behaviour signature in a fresh process of the candidate's interpreter."""
+    return signature_of(gate.signature_python or gate.candidate_python, gate.timeout, target, backend, payloads)
+
+
+def signature_of(python: Path, timeout: int, target: Path, backend: str, payloads: Path | None) -> dict[str, Any]:
+    """Compute the behaviour signature of a generated module or package in a fresh process of `python`."""
     env = {k: v for k, v in os.environ.items() if not k.startswith("DATAMODEL_CODE_GENERATOR")}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
-    command = [str(gate.signature_python or gate.candidate_python), "-I", str(SIGNATURE_SCRIPT), str(target), backend]
+    command = [str(python), "-I", str(SIGNATURE_SCRIPT), str(target), backend]
     try:
         result = subprocess.run(
             [*command, *([str(payloads)] if payloads else [])],
             capture_output=True,
             text=True,
-            timeout=gate.timeout,
+            timeout=timeout,
             cwd=target.parent,
             env=env,
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return {"import_error": f"signature timed out after {gate.timeout}s", SIGNATURE_FAILED: True}
+        return {"import_error": f"signature timed out after {timeout}s", SIGNATURE_FAILED: True}
     try:
         return json.loads(result.stdout)
     except json.JSONDecodeError:
@@ -1024,12 +1036,13 @@ def _pypi_upload_date(version: str) -> str:
 def era_python(version: str, cache_dir: Path) -> Path:
     """Install a release with the packages of its release day (`uv --exclude-newer`) and return its interpreter.
 
-    The newest Python of ERA_PYTHONS the release imports on is used.
+    The newest Python of ERA_PYTHONS the release imports on is used. The signature step imports msgspec, which no
+    release requires, so it is installed like black and isort, as is email-validator (`format: email` output).
     """
     import datetime as dt  # ruff: ignore[import-outside-top-level]
     import fcntl  # ruff: ignore[import-outside-top-level] - POSIX only, like compare_release
 
-    root = cache_dir / "era" / f"{version}-{ERA_EXTRAS.replace(',', '-')}"
+    root = cache_dir / "era" / f"{version}-{ERA_EXTRAS.replace(',', '-')}-{'-'.join(ERA_PACKAGES)}"
     root.parent.mkdir(parents=True, exist_ok=True)
     with (root.parent / f"{root.name}.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
@@ -1051,8 +1064,7 @@ def era_python(version: str, cache_dir: Path) -> Path:
                     "--exclude-newer",
                     newer,
                     f"datamodel-code-generator[{ERA_EXTRAS}]=={version}",
-                    "black",
-                    "isort",
+                    *ERA_PACKAGES,
                 ],
                 [str(root / "bin" / "python"), "-c", "import datamodel_code_generator.__main__"],
             ]
@@ -1399,6 +1411,15 @@ def render_notes(data: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
+def name_accepted_changes(data: dict[str, Any], migration_json: Path) -> None:
+    """Give each accepted change of a release page the title of its upgrade guide entry, or its reason without one."""
+    titles = {
+        entry["id"]: entry["title"] for entry in json.loads(migration_json.read_text(encoding="utf-8"))["changes"]
+    }
+    for group in data["accepted"]:
+        group["release_note"] = titles.get(group["migration"], group["reason"])
+
+
 def guide_main(ns: argparse.Namespace) -> int:
     """Write a release page's data (and release notes) from a gate run of the release against the previous one."""
     gate, _ = build_gate(ns)
@@ -1410,6 +1431,7 @@ def guide_main(ns: argparse.Namespace) -> int:
         rows = [json.loads(line) for path in ns.cells for line in path.read_text(encoding="utf-8").splitlines()]
         data = summarize_gate(rows, gate.loaded_allowlist.entries)
         data = {"version": ns.version, "previous": ns.base, "tier": ns.tier, **data}
+        name_accepted_changes(data, MIGRATION_JSON)
         enrich_accepted(gate, rows, data, ns)
         enrich_opt_in(gate, rows, data)
     finally:

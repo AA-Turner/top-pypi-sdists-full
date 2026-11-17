@@ -225,7 +225,7 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
 
     def path_for_key(self, path: str) -> str:
         """
-        Get's a file path for a given path.
+        Gets a file path for a given path.
         Internal use only because it does not guarantee the existence of the file.
         
         

@@ -6,7 +6,6 @@ use std::path::Path;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult};
 use pyo3::types::{PyDict, PyDictMethods};
-use serde_json::Value;
 use sqlbuild_analysis::definition_changes::constants::{
     MACRO_KIND, MODEL_KIND, SCENARIO_KIND, SEED_KIND, SOURCE_KIND, TABLE_FUNCTION_KIND,
     TEST_FILE_KIND,
@@ -20,18 +19,20 @@ use sqlbuild_analysis::definition_changes::main::selection_report::selection_rep
 use sqlbuild_analysis::definition_changes::models::{
     DefinitionChanges, DefinitionSnapshot, ExecutedItem, SelectedItem,
 };
+use sqlbuild_core::json::main::with_section::with_section;
 
 use crate::bindings::_helpers::change_selection::base_snapshot::BaseComparison;
 use crate::bindings::_helpers::change_selection::definition_snapshot::{
     declaration_uses, definition_snapshot, project_wide_keys,
 };
 use crate::bindings::_helpers::change_selection::environment_nodes::with_current_dependencies;
-use crate::bindings::_helpers::compiled_views::model_reads;
-use crate::bindings::_helpers::compiled_views::project_reads;
-use crate::bindings::_helpers::graph::keys::native_key;
-use crate::bindings::_helpers::planner_scenario::graph::plan_scenario_graph;
 use crate::bindings::_helpers::scenario_command::setup::{flush, write};
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_planner::planner_scenario::main::plan_scenario_graph::plan_scenario_graph;
+use sqlbuild_python_project::compiled_views::main::compiled_models::deps::deps;
+use sqlbuild_python_project::compiled_views::main::project::compiled_models::compiled_models;
+use sqlbuild_python_project::compiled_views::main::project::sql_tests::sql_tests;
+use sqlbuild_python_project::graph::main::nodes::native_key::native_key;
 
 const MACRO_TEST_MODE: &str = "macro";
 /// The JSON document key of the changes and selection of a `--since` run.
@@ -107,7 +108,7 @@ fn relation_keys((refs, sources, seeds): (&[String], &[String], &[String])) -> V
 /// The sources `model` reads, other than `mocked` ones, as node keys.
 fn read_sources(model: &Bound<'_, PyAny>, mocked: &[String]) -> PyResult<Vec<String>> {
     let mut keys: Vec<String> = Vec::new();
-    for dependency in model_reads::deps(model)?.try_iter()? {
+    for dependency in deps(model)?.try_iter()? {
         let (kind, name) = native_key(&dependency?)?;
         if kind == SOURCE_KIND && !mocked.contains(&name) {
             keys.push(node_key(SOURCE_KIND, &name));
@@ -239,7 +240,7 @@ impl ChangedProject {
                 continue;
             };
             item.executed.extend(read_sources(model, &mocked_sources)?);
-            for dependency in model_reads::deps(model)?.try_iter()? {
+            for dependency in deps(model)?.try_iter()? {
                 let (kind, dependency_name) = native_key(&dependency?)?;
                 if kind == SEED_KIND && !mocked_seeds.contains(&dependency_name) {
                     item.executed.push(node_key(SEED_KIND, &dependency_name));
@@ -310,17 +311,12 @@ pub(crate) fn with_since_section(payload: String, since: Option<&str>) -> PyResu
         return Ok(payload);
     };
     let invalid = |error: serde_json::Error| PyValueError::new_err(error.to_string());
-    let mut document: Value = serde_json::from_str(&payload).map_err(invalid)?;
-    if let Value::Object(fields) = &mut document {
-        fields.insert(
-            SINCE_SECTION.to_owned(),
-            serde_json::from_str(since).map_err(invalid)?,
-        );
-    }
-    Ok(format!(
-        "{}\n",
-        serde_json::to_string_pretty(&document).map_err(invalid)?
-    ))
+    with_section(
+        &payload,
+        SINCE_SECTION,
+        serde_json::from_str(since).map_err(invalid)?,
+    )
+    .map_err(invalid)
 }
 
 /// The project's compiled tests and models by name.
@@ -328,14 +324,19 @@ pub(crate) fn tests_and_models<'py>(
     project: &Bound<'py, PyAny>,
 ) -> PyResult<(ByName<'py>, ByName<'py>)> {
     let mut tests: ByName<'py> = HashMap::new();
-    for test in project_reads::sql_tests(project)?.try_iter()? {
+    for test in sql_tests(project)?.try_iter()? {
         let test: Bound<'py, PyAny> = test?;
         tests.insert(native_field(&test, "name")?.extract()?, test);
     }
     let mut models: ByName<'py> = HashMap::new();
-    for model in project_reads::models(project)?.try_iter()? {
+    for model in compiled_models(project)?.try_iter()? {
         let model: Bound<'py, PyAny> = model?;
-        models.insert(model_reads::model_name(&model)?, model);
+        models.insert(
+            sqlbuild_python_project::compiled_views::main::compiled_models::model_name::model_name(
+                &model,
+            )?,
+            model,
+        );
     }
     Ok((tests, models))
 }

@@ -37,6 +37,7 @@ from .literals import (
     EffortType,
     FeedbackCategoryType,
     GenerationStatusType,
+    GenerationTypeType,
     ImpactCategoryType,
     ImportLensStatusType,
     IntegrationStatusType,
@@ -45,12 +46,17 @@ from .literals import (
     LensStatusTypeType,
     LensTypeType,
     NotificationTypeType,
+    OrganizationalReportFormatType,
+    OrganizationalReportStateType,
     OrganizationSharingStatusType,
     PermissionTypeType,
     PillarType,
+    PreferenceStateType,
+    PreferenceStatusType,
     PriorityType,
     ProfileNotificationTypeType,
     ProfileOwnerTypeType,
+    ProfileTypeType,
     QuestionPriorityType,
     QuestionType,
     QuestionTypeType,
@@ -96,6 +102,7 @@ __all__ = (
     "AnswerTypeDef",
     "AssociateLensesInputTypeDef",
     "AssociateProfilesInputTypeDef",
+    "AutoRemediationTypeDef",
     "BestPracticeTypeDef",
     "CheckDetailTypeDef",
     "CheckSummaryTypeDef",
@@ -111,10 +118,17 @@ __all__ = (
     "ContextContentUnionTypeDef",
     "ContextResourceTagTypeDef",
     "ContextSummaryTypeDef",
+    "CoverageSummaryTypeDef",
+    "CreateAgentBasicProfileRequestTypeDef",
+    "CreateAgentBasicProfileResponseTypeDef",
     "CreateAgentContextRequestTypeDef",
     "CreateAgentContextResponseTypeDef",
     "CreateAgentGoalRequestTypeDef",
     "CreateAgentGoalResponseTypeDef",
+    "CreateAgentOrganizationalProfileRequestTypeDef",
+    "CreateAgentOrganizationalProfileResponseTypeDef",
+    "CreateAgentOrganizationalReportRequestTypeDef",
+    "CreateAgentOrganizationalReportResponseTypeDef",
     "CreateAgentProfileRequestTypeDef",
     "CreateAgentProfileResponseTypeDef",
     "CreateLensShareInputTypeDef",
@@ -138,7 +152,10 @@ __all__ = (
     "CrossPillarBenefitTypeDef",
     "DeleteAgentContextRequestTypeDef",
     "DeleteAgentGoalRequestTypeDef",
+    "DeleteAgentOrganizationalReportRequestTypeDef",
+    "DeleteAgentProfilePolicyRequestTypeDef",
     "DeleteAgentProfileRequestTypeDef",
+    "DeleteAgentRecommendationPolicyRequestTypeDef",
     "DeleteLensInputTypeDef",
     "DeleteLensShareInputTypeDef",
     "DeleteProfileInputTypeDef",
@@ -153,14 +170,26 @@ __all__ = (
     "ErrorDetailsTypeDef",
     "ExportLensInputTypeDef",
     "ExportLensOutputTypeDef",
+    "FailedAccountTypeDef",
+    "FailedOrganizationalUnitTypeDef",
     "GetAgentContextRequestTypeDef",
     "GetAgentContextResponseTypeDef",
     "GetAgentGoalRequestTypeDef",
     "GetAgentGoalResponseTypeDef",
+    "GetAgentOrganizationalReportDataRequestTypeDef",
+    "GetAgentOrganizationalReportDataResponseTypeDef",
+    "GetAgentOrganizationalReportRequestTypeDef",
+    "GetAgentOrganizationalReportRequestWaitTypeDef",
+    "GetAgentOrganizationalReportResponseTypeDef",
+    "GetAgentPreferencesResponseTypeDef",
+    "GetAgentProfilePolicyRequestTypeDef",
+    "GetAgentProfilePolicyResponseTypeDef",
     "GetAgentProfileRequestTypeDef",
     "GetAgentProfileResponseTypeDef",
     "GetAgentRecommendationGenerationRequestTypeDef",
     "GetAgentRecommendationGenerationResponseTypeDef",
+    "GetAgentRecommendationPolicyRequestTypeDef",
+    "GetAgentRecommendationPolicyResponseTypeDef",
     "GetAgentRecommendationRequestTypeDef",
     "GetAgentRecommendationResponseTypeDef",
     "GetAnswerInputTypeDef",
@@ -212,6 +241,9 @@ __all__ = (
     "ListAgentGoalsRequestPaginateTypeDef",
     "ListAgentGoalsRequestTypeDef",
     "ListAgentGoalsResponseTypeDef",
+    "ListAgentOrganizationalReportsRequestPaginateTypeDef",
+    "ListAgentOrganizationalReportsRequestTypeDef",
+    "ListAgentOrganizationalReportsResponseTypeDef",
     "ListAgentProfilesRequestPaginateTypeDef",
     "ListAgentProfilesRequestTypeDef",
     "ListAgentProfilesResponseTypeDef",
@@ -265,12 +297,27 @@ __all__ = (
     "MilestoneSummaryTypeDef",
     "MilestoneTypeDef",
     "NotificationSummaryTypeDef",
+    "OrganizationalAccountEntryOutputTypeDef",
+    "OrganizationalAccountEntryTypeDef",
+    "OrganizationalAggregationConfigurationOutputTypeDef",
+    "OrganizationalAggregationConfigurationTypeDef",
+    "OrganizationalAggregationConfigurationUnionTypeDef",
+    "OrganizationalReportFiltersOutputTypeDef",
+    "OrganizationalReportFiltersTypeDef",
+    "OrganizationalReportFiltersUnionTypeDef",
+    "OrganizationalReportSummaryTypeDef",
+    "OrganizationalUnitEntryOutputTypeDef",
+    "OrganizationalUnitEntryTypeDef",
     "PaginatorConfigTypeDef",
+    "PillarCountTypeDef",
     "PillarDifferenceTypeDef",
     "PillarItemOutputTypeDef",
     "PillarItemTypeDef",
     "PillarMetricTypeDef",
     "PillarReviewSummaryTypeDef",
+    "PreferenceEntryTypeDef",
+    "PreferenceUpdateTypeDef",
+    "PriorityCountTypeDef",
     "ProfileChoiceTypeDef",
     "ProfileNotificationSummaryTypeDef",
     "ProfileQuestionTypeDef",
@@ -282,7 +329,10 @@ __all__ = (
     "ProfileTemplateTypeDef",
     "ProfileTypeDef",
     "ProgressTypeDef",
+    "PutAgentPreferencesRequestTypeDef",
+    "PutAgentProfilePolicyRequestTypeDef",
     "PutAgentRecommendationFeedbackRequestTypeDef",
+    "PutAgentRecommendationPolicyRequestTypeDef",
     "QuestionDifferenceTypeDef",
     "QuestionMetricTypeDef",
     "RecommendationGoalTypeDef",
@@ -302,6 +352,8 @@ __all__ = (
     "ScopeUnionTypeDef",
     "SelectedPillarOutputTypeDef",
     "SelectedPillarTypeDef",
+    "SendAgentOrganizationalReportDataToS3RequestTypeDef",
+    "SendAgentOrganizationalReportDataToS3ResponseTypeDef",
     "ShareInvitationSummaryTypeDef",
     "ShareInvitationTypeDef",
     "StartAgentRecommendationGenerationRequestTypeDef",
@@ -309,12 +361,17 @@ __all__ = (
     "TagResourceInputTypeDef",
     "TagTypeDef",
     "TemplateShareSummaryTypeDef",
+    "TimeWindowOutputTypeDef",
+    "TimeWindowTypeDef",
+    "TimestampTypeDef",
     "TradeOffTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateAgentContextRequestTypeDef",
     "UpdateAgentContextResponseTypeDef",
     "UpdateAgentGoalRequestTypeDef",
     "UpdateAgentGoalResponseTypeDef",
+    "UpdateAgentOrganizationalProfileRequestTypeDef",
+    "UpdateAgentOrganizationalProfileResponseTypeDef",
     "UpdateAgentProfileRequestTypeDef",
     "UpdateAgentProfileResponseTypeDef",
     "UpdateAgentRecommendationStatusRequestTypeDef",
@@ -342,6 +399,7 @@ __all__ = (
     "UpgradeProfileVersionInputTypeDef",
     "UpgradeReviewTemplateLensReviewInputTypeDef",
     "VersionDifferencesTypeDef",
+    "WaiterConfigTypeDef",
     "WorkloadDiscoveryConfigOutputTypeDef",
     "WorkloadDiscoveryConfigTypeDef",
     "WorkloadDiscoveryConfigUnionTypeDef",
@@ -377,37 +435,13 @@ class AggregationConfigurationOutputTypeDef(TypedDict):
     regions: list[str]
     accessRoleArn: str
 
-class TagTypeDef(TypedDict):
-    key: str
-    value: str
+class ErrorDetailsTypeDef(TypedDict):
+    code: str
+    message: str
 
-AgentRecommendationGenerationSummaryTypeDef = TypedDict(
-    "AgentRecommendationGenerationSummaryTypeDef",
-    {
-        "id": str,
-        "profileArn": str,
-        "status": GenerationStatusType,
-        "createdBy": str,
-        "createdAt": datetime,
-        "name": NotRequired[str],
-        "estimatedCompletionTime": NotRequired[datetime],
-        "lastModifiedBy": NotRequired[str],
-        "lastModifiedAt": NotRequired[datetime],
-    },
-)
-AgentRecommendationItemSummaryTypeDef = TypedDict(
-    "AgentRecommendationItemSummaryTypeDef",
-    {
-        "id": str,
-        "recommendationArn": str,
-        "type": RecommendationItemTypeType,
-        "metadata": dict[str, Any],
-        "createdBy": str,
-        "createdAt": datetime,
-        "lastModifiedBy": NotRequired[str],
-        "lastModifiedAt": NotRequired[datetime],
-    },
-)
+class AutoRemediationTypeDef(TypedDict):
+    deepLink: NotRequired[str]
+    cliCommand: NotRequired[str]
 
 class RemediationStepTypeDef(TypedDict):
     content: str
@@ -492,6 +526,26 @@ class ChoiceUpdateTypeDef(TypedDict):
     Notes: NotRequired[str]
 
 class ContextResourceTagTypeDef(TypedDict):
+    key: str
+    value: str
+
+class FailedAccountTypeDef(TypedDict):
+    accountId: str
+    reason: str
+
+class FailedOrganizationalUnitTypeDef(TypedDict):
+    organizationalUnitId: str
+    reason: str
+
+class PillarCountTypeDef(TypedDict):
+    pillar: PillarType
+    count: int
+
+class PriorityCountTypeDef(TypedDict):
+    priority: PriorityType
+    count: int
+
+class TagTypeDef(TypedDict):
     key: str
     value: str
 
@@ -594,8 +648,17 @@ DeleteAgentGoalRequestTypeDef = TypedDict(
     },
 )
 
+class DeleteAgentOrganizationalReportRequestTypeDef(TypedDict):
+    reportId: str
+
+class DeleteAgentProfilePolicyRequestTypeDef(TypedDict):
+    profileArn: str
+
 class DeleteAgentProfileRequestTypeDef(TypedDict):
     profileArn: str
+
+class DeleteAgentRecommendationPolicyRequestTypeDef(TypedDict):
+    recommendationArn: str
 
 class DeleteLensInputTypeDef(TypedDict):
     LensAlias: str
@@ -642,10 +705,6 @@ class DisassociateProfilesInputTypeDef(TypedDict):
     WorkloadId: str
     ProfileArns: Sequence[str]
 
-class ErrorDetailsTypeDef(TypedDict):
-    code: str
-    message: str
-
 class ExportLensInputTypeDef(TypedDict):
     LensAlias: str
     LensVersion: NotRequired[str]
@@ -664,6 +723,28 @@ GetAgentGoalRequestTypeDef = TypedDict(
         "id": str,
     },
 )
+GetAgentOrganizationalReportDataRequestTypeDef = TypedDict(
+    "GetAgentOrganizationalReportDataRequestTypeDef",
+    {
+        "reportId": str,
+        "format": OrganizationalReportFormatType,
+    },
+)
+
+class GetAgentOrganizationalReportRequestTypeDef(TypedDict):
+    reportId: str
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
+
+class PreferenceEntryTypeDef(TypedDict):
+    key: Literal["ORG_INTEGRATION"]
+    status: PreferenceStatusType
+    detail: NotRequired[str]
+
+class GetAgentProfilePolicyRequestTypeDef(TypedDict):
+    profileArn: str
 
 class GetAgentProfileRequestTypeDef(TypedDict):
     profileArn: str
@@ -676,6 +757,9 @@ class ProgressTypeDef(TypedDict):
     stepsCompleted: int
     totalSteps: int
     completionPercentage: float
+
+class GetAgentRecommendationPolicyRequestTypeDef(TypedDict):
+    recommendationArn: str
 
 class GetAgentRecommendationRequestTypeDef(TypedDict):
     recommendationArn: str
@@ -848,6 +932,19 @@ class ListAgentGoalsRequestTypeDef(TypedDict):
     profileArn: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListAgentOrganizationalReportsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    state: NotRequired[OrganizationalReportStateType]
+
+class OrganizationalReportSummaryTypeDef(TypedDict):
+    reportId: str
+    ownerAccountId: str
+    organizationId: str
+    state: OrganizationalReportStateType
+    createdAt: datetime
+    label: NotRequired[str]
 
 class ListAgentProfilesRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -1068,6 +1165,30 @@ class ListWorkloadsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class OrganizationalAccountEntryOutputTypeDef(TypedDict):
+    accountId: str
+    regions: list[str]
+
+class OrganizationalAccountEntryTypeDef(TypedDict):
+    accountId: str
+    regions: Sequence[str]
+
+class OrganizationalUnitEntryOutputTypeDef(TypedDict):
+    organizationalUnitId: str
+    regions: list[str]
+
+class OrganizationalUnitEntryTypeDef(TypedDict):
+    organizationalUnitId: str
+    regions: Sequence[str]
+
+TimeWindowOutputTypeDef = TypedDict(
+    "TimeWindowOutputTypeDef",
+    {
+        "from": NotRequired[datetime],
+        "to": NotRequired[datetime],
+    },
+)
+
 class QuestionDifferenceTypeDef(TypedDict):
     QuestionId: NotRequired[str]
     QuestionTitle: NotRequired[str]
@@ -1081,6 +1202,10 @@ class PillarItemTypeDef(TypedDict):
     pillar: PillarType
     ids: Sequence[str]
 
+class PreferenceUpdateTypeDef(TypedDict):
+    key: Literal["ORG_INTEGRATION"]
+    state: PreferenceStateType
+
 class ProfileChoiceTypeDef(TypedDict):
     ChoiceId: NotRequired[str]
     ChoiceTitle: NotRequired[str]
@@ -1090,6 +1215,10 @@ class ProfileTemplateChoiceTypeDef(TypedDict):
     ChoiceId: NotRequired[str]
     ChoiceTitle: NotRequired[str]
     ChoiceDescription: NotRequired[str]
+
+class PutAgentProfilePolicyRequestTypeDef(TypedDict):
+    profileArn: str
+    policy: str
 
 PutAgentRecommendationFeedbackRequestTypeDef = TypedDict(
     "PutAgentRecommendationFeedbackRequestTypeDef",
@@ -1101,11 +1230,25 @@ PutAgentRecommendationFeedbackRequestTypeDef = TypedDict(
     },
 )
 
+class PutAgentRecommendationPolicyRequestTypeDef(TypedDict):
+    recommendationArn: str
+    policy: str
+
 class ReviewTemplatePillarReviewSummaryTypeDef(TypedDict):
     PillarId: NotRequired[str]
     PillarName: NotRequired[str]
     Notes: NotRequired[str]
     QuestionCounts: NotRequired[dict[QuestionType, int]]
+
+SendAgentOrganizationalReportDataToS3RequestTypeDef = TypedDict(
+    "SendAgentOrganizationalReportDataToS3RequestTypeDef",
+    {
+        "reportId": str,
+        "format": OrganizationalReportFormatType,
+        "bucketArn": str,
+        "objectKey": str,
+    },
+)
 
 class ShareInvitationTypeDef(TypedDict):
     ShareInvitationId: NotRequired[str]
@@ -1119,6 +1262,8 @@ class ShareInvitationTypeDef(TypedDict):
 class TagResourceInputTypeDef(TypedDict):
     WorkloadArn: str
     Tags: Mapping[str, str]
+
+TimestampTypeDef = Union[datetime, str]
 
 class UntagResourceInputTypeDef(TypedDict):
     WorkloadArn: str
@@ -1221,26 +1366,39 @@ AdditionalResourcesTypeDef = TypedDict(
         "Content": NotRequired[list[ChoiceContentTypeDef]],
     },
 )
-
-class AgentProfileSummaryTypeDef(TypedDict):
-    name: str
-    pillars: list[PillarType]
-    executionRoleArn: str
-    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
-    arn: str
-    createdBy: str
-    createdAt: datetime
-    displayName: NotRequired[str]
-    description: NotRequired[str]
-    businessOverview: NotRequired[str]
-    deletionProtection: NotRequired[bool]
-    eligibleForScheduledGeneration: NotRequired[bool]
-    eligibleForArchitectureGeneration: NotRequired[bool]
-    fieldErrors: NotRequired[dict[str, str]]
-    tags: NotRequired[list[TagTypeDef]]
-    lastModifiedBy: NotRequired[str]
-    lastModifiedAt: NotRequired[datetime]
-
+AgentRecommendationGenerationSummaryTypeDef = TypedDict(
+    "AgentRecommendationGenerationSummaryTypeDef",
+    {
+        "id": str,
+        "profileArn": str,
+        "status": GenerationStatusType,
+        "createdBy": str,
+        "createdAt": datetime,
+        "name": NotRequired[str],
+        "estimatedCompletionTime": NotRequired[datetime],
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+        "generationType": NotRequired[GenerationTypeType],
+        "generationRecommendationTypes": NotRequired[list[RecommendationTypeType]],
+        "startedAt": NotRequired[datetime],
+        "endedAt": NotRequired[datetime],
+        "errorDetails": NotRequired[ErrorDetailsTypeDef],
+    },
+)
+AgentRecommendationItemSummaryTypeDef = TypedDict(
+    "AgentRecommendationItemSummaryTypeDef",
+    {
+        "id": str,
+        "recommendationArn": str,
+        "type": RecommendationItemTypeType,
+        "metadata": dict[str, Any],
+        "createdBy": str,
+        "createdAt": datetime,
+        "lastModifiedBy": NotRequired[str],
+        "lastModifiedAt": NotRequired[datetime],
+        "autoRemediation": NotRequired[AutoRemediationTypeDef],
+    },
+)
 AgentRecommendationRemediationTypeDef = TypedDict(
     "AgentRecommendationRemediationTypeDef",
     {
@@ -1325,6 +1483,7 @@ class ContextContentOutputTypeDef(TypedDict):
     awsServices: NotRequired[list[str]]
     resourceTypes: NotRequired[list[str]]
     resourceTags: NotRequired[list[ContextResourceTagTypeDef]]
+    organizationalUnitIds: NotRequired[list[str]]
     applicationOverview: NotRequired[str]
     industry: NotRequired[str]
     applicationType: NotRequired[ApplicationTypeType]
@@ -1338,12 +1497,41 @@ class ContextContentTypeDef(TypedDict):
     awsServices: NotRequired[Sequence[str]]
     resourceTypes: NotRequired[Sequence[str]]
     resourceTags: NotRequired[Sequence[ContextResourceTagTypeDef]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
     applicationOverview: NotRequired[str]
     industry: NotRequired[str]
     applicationType: NotRequired[ApplicationTypeType]
     criticality: NotRequired[CriticalityType]
     architectureOverview: NotRequired[str]
     additionalContext: NotRequired[str]
+
+class CoverageSummaryTypeDef(TypedDict):
+    totalAccountsInScope: int
+    accountsWithProfile: int
+    accountsWithoutProfile: int
+    failedAccountCount: int
+    totalProfiles: int
+    totalRecommendations: int
+    recommendationCountByPillar: NotRequired[list[PillarCountTypeDef]]
+    recommendationCountByPriority: NotRequired[list[PriorityCountTypeDef]]
+    failedAccounts: NotRequired[list[FailedAccountTypeDef]]
+    failedOrganizationalUnits: NotRequired[list[FailedOrganizationalUnitTypeDef]]
+
+class CreateAgentBasicProfileRequestTypeDef(TypedDict):
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+class CreateAgentBasicProfileResponseTypeDef(TypedDict):
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    arn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateAgentOrganizationalReportResponseTypeDef(TypedDict):
+    reportId: str
+    state: OrganizationalReportStateType
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateAgentProfileResponseTypeDef(TypedDict):
     name: str
@@ -1415,24 +1603,19 @@ class ExportLensOutputTypeDef(TypedDict):
     LensJSON: str
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetAgentProfileResponseTypeDef(TypedDict):
-    name: str
-    displayName: str
-    description: str
-    businessOverview: str
-    pillars: list[PillarType]
-    deletionProtection: bool
-    executionRoleArn: str
-    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
-    arn: str
-    eligibleForScheduledGeneration: bool
-    eligibleForArchitectureGeneration: bool
-    fieldErrors: dict[str, str]
-    tags: list[TagTypeDef]
-    createdBy: str
-    createdAt: datetime
-    lastModifiedBy: str
-    lastModifiedAt: datetime
+class GetAgentOrganizationalReportDataResponseTypeDef(TypedDict):
+    downloadUrl: str
+    expiresAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentProfilePolicyResponseTypeDef(TypedDict):
+    profileArn: str
+    policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentRecommendationPolicyResponseTypeDef(TypedDict):
+    recommendationArn: str
+    policy: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetGlobalSettingsOutputTypeDef(TypedDict):
@@ -1446,16 +1629,6 @@ class ImportLensOutputTypeDef(TypedDict):
     Status: ImportLensStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
-class ListAgentRecommendationGenerationsResponseTypeDef(TypedDict):
-    items: list[AgentRecommendationGenerationSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class ListAgentRecommendationItemsResponseTypeDef(TypedDict):
-    items: list[AgentRecommendationItemSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
 class ListCheckDetailsOutputTypeDef(TypedDict):
     CheckDetails: list[CheckDetailTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1468,6 +1641,10 @@ class ListCheckSummariesOutputTypeDef(TypedDict):
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class SendAgentOrganizationalReportDataToS3ResponseTypeDef(TypedDict):
+    deliveredTo: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 StartAgentRecommendationGenerationResponseTypeDef = TypedDict(
@@ -1499,7 +1676,6 @@ class UpdateAgentProfileResponseTypeDef(TypedDict):
     eligibleForScheduledGeneration: bool
     eligibleForArchitectureGeneration: bool
     fieldErrors: dict[str, str]
-    tags: list[TagTypeDef]
     createdBy: str
     createdAt: datetime
     lastModifiedBy: str
@@ -1534,6 +1710,14 @@ class UpdateProfileInputTypeDef(TypedDict):
     ProfileArn: str
     ProfileDescription: NotRequired[str]
     ProfileQuestions: NotRequired[Sequence[ProfileQuestionUpdateTypeDef]]
+
+class GetAgentOrganizationalReportRequestWaitTypeDef(TypedDict):
+    reportId: str
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class GetAgentPreferencesResponseTypeDef(TypedDict):
+    preferences: list[PreferenceEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetLensOutputTypeDef(TypedDict):
     Lens: LensTypeDef
@@ -1608,6 +1792,10 @@ class ListAgentGoalsRequestPaginateTypeDef(TypedDict):
     profileArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListAgentOrganizationalReportsRequestPaginateTypeDef(TypedDict):
+    state: NotRequired[OrganizationalReportStateType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAgentProfilesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1630,6 +1818,11 @@ class ListAgentRecommendationsRequestPaginateTypeDef(TypedDict):
     state: NotRequired[RecommendationStateType]
     pillar: NotRequired[PillarType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAgentOrganizationalReportsResponseTypeDef(TypedDict):
+    items: list[OrganizationalReportSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListProfileNotificationsOutputTypeDef(TypedDict):
     NotificationSummaries: list[ProfileNotificationSummaryTypeDef]
@@ -1668,6 +1861,24 @@ class ListWorkloadSharesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class OrganizationalAggregationConfigurationOutputTypeDef(TypedDict):
+    organizationalUnits: NotRequired[list[OrganizationalUnitEntryOutputTypeDef]]
+    accounts: NotRequired[list[OrganizationalAccountEntryOutputTypeDef]]
+
+class OrganizationalAggregationConfigurationTypeDef(TypedDict):
+    organizationalUnits: NotRequired[Sequence[OrganizationalUnitEntryTypeDef]]
+    accounts: NotRequired[Sequence[OrganizationalAccountEntryTypeDef]]
+
+class OrganizationalReportFiltersOutputTypeDef(TypedDict):
+    accountIds: NotRequired[list[str]]
+    organizationalUnitIds: NotRequired[list[str]]
+    pillars: NotRequired[list[PillarType]]
+    recommendationTypes: NotRequired[list[RecommendationTypeType]]
+    statuses: NotRequired[list[RecommendationStatusType]]
+    priorities: NotRequired[list[PriorityType]]
+    createdAtRange: NotRequired[TimeWindowOutputTypeDef]
+    updatedAtRange: NotRequired[TimeWindowOutputTypeDef]
+
 class PillarDifferenceTypeDef(TypedDict):
     PillarId: NotRequired[str]
     PillarName: NotRequired[str]
@@ -1683,6 +1894,9 @@ class ScopeTypeDef(TypedDict):
     pillars: Sequence[PillarType]
     goalIds: NotRequired[Sequence[str]]
     items: NotRequired[Sequence[PillarItemTypeDef]]
+
+class PutAgentPreferencesRequestTypeDef(TypedDict):
+    preferences: Sequence[PreferenceUpdateTypeDef]
 
 class ProfileQuestionTypeDef(TypedDict):
     QuestionId: NotRequired[str]
@@ -1716,6 +1930,14 @@ class ReviewTemplateLensReviewTypeDef(TypedDict):
 class UpdateShareInvitationOutputTypeDef(TypedDict):
     ShareInvitation: ShareInvitationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+TimeWindowTypeDef = TypedDict(
+    "TimeWindowTypeDef",
+    {
+        "from": NotRequired[TimestampTypeDef],
+        "to": NotRequired[TimestampTypeDef],
+    },
+)
 
 class UpdateWorkloadShareOutputTypeDef(TypedDict):
     WorkloadId: str
@@ -1764,8 +1986,13 @@ class ChoiceTypeDef(TypedDict):
     ImprovementPlan: NotRequired[ChoiceContentTypeDef]
     AdditionalResources: NotRequired[list[AdditionalResourcesTypeDef]]
 
-class ListAgentProfilesResponseTypeDef(TypedDict):
-    items: list[AgentProfileSummaryTypeDef]
+class ListAgentRecommendationGenerationsResponseTypeDef(TypedDict):
+    items: list[AgentRecommendationGenerationSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class ListAgentRecommendationItemsResponseTypeDef(TypedDict):
+    items: list[AgentRecommendationItemSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -1910,6 +2137,105 @@ class ListNotificationsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class AgentProfileSummaryTypeDef(TypedDict):
+    name: str
+    arn: str
+    createdBy: str
+    createdAt: datetime
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    businessOverview: NotRequired[str]
+    pillars: NotRequired[list[PillarType]]
+    deletionProtection: NotRequired[bool]
+    profileType: NotRequired[ProfileTypeType]
+    executionRoleArn: NotRequired[str]
+    aggregationConfiguration: NotRequired[list[AggregationConfigurationOutputTypeDef]]
+    eligibleForScheduledGeneration: NotRequired[bool]
+    eligibleForArchitectureGeneration: NotRequired[bool]
+    fieldErrors: NotRequired[dict[str, str]]
+    lastModifiedBy: NotRequired[str]
+    lastModifiedAt: NotRequired[datetime]
+    organizationalAggregationConfiguration: NotRequired[
+        OrganizationalAggregationConfigurationOutputTypeDef
+    ]
+
+class CreateAgentOrganizationalProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    organizationId: str
+    organizationalAggregationConfiguration: OrganizationalAggregationConfigurationOutputTypeDef
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    tags: list[TagTypeDef]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetAgentProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    profileType: ProfileTypeType
+    executionRoleArn: str
+    aggregationConfiguration: list[AggregationConfigurationOutputTypeDef]
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    tags: list[TagTypeDef]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    organizationalAggregationConfiguration: OrganizationalAggregationConfigurationOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateAgentOrganizationalProfileResponseTypeDef(TypedDict):
+    name: str
+    displayName: str
+    description: str
+    businessOverview: str
+    pillars: list[PillarType]
+    deletionProtection: bool
+    organizationId: str
+    organizationalAggregationConfiguration: OrganizationalAggregationConfigurationOutputTypeDef
+    arn: str
+    eligibleForScheduledGeneration: bool
+    eligibleForArchitectureGeneration: bool
+    fieldErrors: dict[str, str]
+    createdBy: str
+    createdAt: datetime
+    lastModifiedBy: str
+    lastModifiedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+OrganizationalAggregationConfigurationUnionTypeDef = Union[
+    OrganizationalAggregationConfigurationTypeDef,
+    OrganizationalAggregationConfigurationOutputTypeDef,
+]
+
+class GetAgentOrganizationalReportResponseTypeDef(TypedDict):
+    reportId: str
+    ownerAccountId: str
+    organizationId: str
+    label: str
+    state: OrganizationalReportStateType
+    createdAt: datetime
+    filters: OrganizationalReportFiltersOutputTypeDef
+    coverageSummary: CoverageSummaryTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class VersionDifferencesTypeDef(TypedDict):
     PillarDifferences: NotRequired[list[PillarDifferenceTypeDef]]
 
@@ -1925,12 +2251,14 @@ GetAgentRecommendationGenerationResponseTypeDef = TypedDict(
         "createdAt": datetime,
         "lastModifiedBy": str,
         "lastModifiedAt": datetime,
-        "additionalContext": dict[str, Any],
-        "scope": ScopeOutputTypeDef,
+        "generationType": GenerationTypeType,
+        "generationRecommendationTypes": list[RecommendationTypeType],
         "startedAt": datetime,
         "endedAt": datetime,
-        "progress": ProgressTypeDef,
         "errorDetails": ErrorDetailsTypeDef,
+        "additionalContext": dict[str, Any],
+        "scope": ScopeOutputTypeDef,
+        "progress": ProgressTypeDef,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1963,6 +2291,16 @@ class UpdateReviewTemplateLensReviewOutputTypeDef(TypedDict):
     TemplateArn: str
     LensReview: ReviewTemplateLensReviewTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class OrganizationalReportFiltersTypeDef(TypedDict):
+    accountIds: NotRequired[Sequence[str]]
+    organizationalUnitIds: NotRequired[Sequence[str]]
+    pillars: NotRequired[Sequence[PillarType]]
+    recommendationTypes: NotRequired[Sequence[RecommendationTypeType]]
+    statuses: NotRequired[Sequence[RecommendationStatusType]]
+    priorities: NotRequired[Sequence[PriorityType]]
+    createdAtRange: NotRequired[TimeWindowTypeDef]
+    updatedAtRange: NotRequired[TimeWindowTypeDef]
 
 class CreateWorkloadInputTypeDef(TypedDict):
     WorkloadName: str
@@ -2150,6 +2488,36 @@ class ListMilestonesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListAgentProfilesResponseTypeDef(TypedDict):
+    items: list[AgentProfileSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class CreateAgentOrganizationalProfileRequestTypeDef(TypedDict):
+    name: str
+    pillars: Sequence[PillarType]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    businessOverview: NotRequired[str]
+    deletionProtection: NotRequired[bool]
+    clientToken: NotRequired[str]
+    organizationalAggregationConfiguration: NotRequired[
+        OrganizationalAggregationConfigurationUnionTypeDef
+    ]
+    tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateAgentOrganizationalProfileRequestTypeDef(TypedDict):
+    profileArn: str
+    clientToken: NotRequired[str]
+    displayName: NotRequired[str]
+    description: NotRequired[str]
+    businessOverview: NotRequired[str]
+    pillars: NotRequired[Sequence[PillarType]]
+    deletionProtection: NotRequired[bool]
+    organizationalAggregationConfiguration: NotRequired[
+        OrganizationalAggregationConfigurationUnionTypeDef
+    ]
+
 class GetLensVersionDifferenceOutputTypeDef(TypedDict):
     LensAlias: str
     LensArn: str
@@ -2164,9 +2532,9 @@ StartAgentRecommendationGenerationRequestTypeDef = TypedDict(
     {
         "profileArn": str,
         "types": Sequence[RecommendationTypeType],
-        "scope": ScopeUnionTypeDef,
         "name": NotRequired[str],
         "additionalContext": NotRequired[Mapping[str, Any]],
+        "scope": NotRequired[ScopeUnionTypeDef],
     },
 )
 
@@ -2181,6 +2549,10 @@ class UpdateProfileOutputTypeDef(TypedDict):
 class GetProfileTemplateOutputTypeDef(TypedDict):
     ProfileTemplate: ProfileTemplateTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+OrganizationalReportFiltersUnionTypeDef = Union[
+    OrganizationalReportFiltersTypeDef, OrganizationalReportFiltersOutputTypeDef
+]
 
 class GetMilestoneOutputTypeDef(TypedDict):
     WorkloadId: str
@@ -2239,6 +2611,11 @@ class ConsolidatedReportMetricTypeDef(TypedDict):
     UpdatedAt: NotRequired[datetime]
     Lenses: NotRequired[list[LensMetricTypeDef]]
     LensesAppliedCount: NotRequired[int]
+
+class CreateAgentOrganizationalReportRequestTypeDef(TypedDict):
+    clientToken: NotRequired[str]
+    label: NotRequired[str]
+    filters: NotRequired[OrganizationalReportFiltersUnionTypeDef]
 
 class GetConsolidatedReportOutputTypeDef(TypedDict):
     Metrics: list[ConsolidatedReportMetricTypeDef]

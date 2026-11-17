@@ -455,7 +455,7 @@ impl<'db> GenericAlias<'db> {
         let tcx = if type_mapping.is_structural() {
             &[]
         } else {
-            tcx.declared_type()
+            tcx.expected_type()
                 .and_then(|ty| ty.specialization_of(db, visitor.env, self.origin(db)))
                 .map(|specialization| specialization.types(db))
                 .unwrap_or(&[])
@@ -1862,11 +1862,7 @@ impl<'db> ClassType<'db> {
         else {
             return true;
         };
-        if types_are_disjoint(self_metaclass_instance, other_metaclass_instance) {
-            return false;
-        }
-
-        true
+        !types_are_disjoint(self_metaclass_instance, other_metaclass_instance)
     }
 
     /// Return a type representing "the set of all instances of the metaclass of this class".

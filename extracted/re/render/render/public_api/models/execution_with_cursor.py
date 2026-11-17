@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -13,17 +15,16 @@ T = TypeVar("T", bound="ExecutionWithCursor")
 
 @_attrs_define
 class ExecutionWithCursor:
-    """A sandbox execution with a cursor
+    """A sandbox execution with a cursor for fetching the next page of results.
 
     Attributes:
-        execution (Execution): One recorded sandbox execution (a command run or file transfer).
-            `startedAt` is the token provisioning time. `command` may be present
-            while the execution is in flight (recorded at token mint). `stoppedAt`
-            and `exitCode` are absent until a status report or sandbox finalization.
+        execution (Execution): A record of a command run or file transfer in a sandbox. `startedAt` records when the
+            connect token was created. The command can appear while the execution is running. `stoppedAt` and `exitCode` are
+            omitted until Render receives the result or finalizes the execution when the sandbox stops.
         cursor (str):
     """
 
-    execution: "Execution"
+    execution: Execution
     cursor: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -45,7 +46,7 @@ class ExecutionWithCursor:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.execution import Execution
+        from ..models.execution import Execution  # noqa: PLC0415
 
         d = dict(src_dict)
         execution = Execution.from_dict(d.pop("execution"))

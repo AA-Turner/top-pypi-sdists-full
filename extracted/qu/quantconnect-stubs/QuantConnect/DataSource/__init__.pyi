@@ -80468,7 +80468,7 @@ class FamaFrench(QuantConnect.Data.BaseData):
 
     @property
     def risk_free_rate(self) -> typing.Optional[float]:
-        """Risk-free rate (RF): one-month Treasury bill return."""
+        """Risk-free rate (RF): daily return of the one-month Treasury bill, the daily rate that compounds to the monthly rate over the month's trading days."""
         ...
 
     @risk_free_rate.setter

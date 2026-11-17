@@ -29,8 +29,8 @@ use super::{
     Base, Frame, const_at, fold, held_len, is_fatal, member, operand_at, predicate_at,
     reads_its_length, record_fatal, record_if_fatal, record_stop, stop, stopped,
 };
-use crate::check::ctx::Ctx;
-use crate::check::index::matches_unindexed;
+use crate::check::ctx::{Ctx, MAX_RECURSION_DEPTH};
+use crate::check::index::{Exact, LeafPlan, Number, matches_unindexed, ordered};
 use crate::check::violation::{mismatch, summarize_in, summarize_value};
 use crate::codes::{
     Code, GREATER_THAN, GREATER_THAN_EQUAL, LESS_THAN, LESS_THAN_EQUAL, LITERAL_ERROR, MULTIPLE_OF,
@@ -125,6 +125,122 @@ pub(super) fn scalar_member(
 ) -> Option<bool> {
     let kind = scalar_of(schema)?;
     room.then(|| !ctx.state.signals.fatal_seen.get() && scalar_admits(kind, value))
+}
+
+/// The exact builtin type of `value`, where it is one a reading of leaves and
+/// trees of scalars settles: a subclass, and any other type, is the walk's.
+#[inline]
+pub(super) fn exact_of(value: &Bound<'_, PyAny>) -> Option<Exact> {
+    Some(if value.is_exact_instance_of::<PyString>() {
+        Exact::Str
+    } else if value.is_exact_instance_of::<PyInt>() {
+        Exact::Int
+    } else if value.is_exact_instance_of::<PyFloat>() {
+        Exact::Float
+    } else if value.is_exact_instance_of::<PyDict>() {
+        Exact::Dict
+    } else if value.is_exact_instance_of::<PyList>() {
+        Exact::List
+    } else if value.is_exact_instance_of::<PyBool>() {
+        Exact::Bool
+    } else if value.is_none() {
+        Exact::None
+    } else if value.is_exact_instance_of::<PyBytes>() {
+        Exact::Bytes
+    } else {
+        return None;
+    })
+}
+
+/// Whether `plan` is read where the walk stands as the walk reads it: a leaf
+/// holding a reference to a tree of scalars only where no memo is armed, which
+/// keeps the tree's walk and the reach it notes, and where the trail is below
+/// its bound, which the tree's walk would stop on. A leaf of scalars alone
+/// enters no definition, and the walk's own count of those it enters is left
+/// where it stands: it decides only which later member is walked armed, which
+/// keeps answers and decides none.
+#[inline]
+pub(super) fn leaf_reads_here(plan: &LeafPlan, ctx: Ctx<'_>) -> bool {
+    !plan.trees
+        || (!ctx.state.memo.is_armed() && ctx.state.guard.borrow().height() < MAX_RECURSION_DEPTH)
+}
+
+/// What `plan` answers for `value`, whose exact type is `exact`, or `None`
+/// where the walk must read it: an `int` past a machine word whose number the
+/// leaf reads, which the comparison reads as the walk does. A plan holding a
+/// tree is read by [`tree_leaf_admits`].
+#[inline]
+pub(super) fn leaf_admits(plan: &LeafPlan, value: &Bound<'_, PyAny>, exact: Exact) -> Option<bool> {
+    if let Some(decided) = plan.decided(exact) {
+        return Some(decided);
+    }
+    let number = match exact {
+        Exact::Int => Number::Int(value.extract::<i64>().map_err(set_aside).ok()?),
+        Exact::Bool => Number::Int(i64::from(value.is_truthy().map_err(set_aside).ok()?)),
+        Exact::Float => {
+            let number = value.cast_exact::<PyFloat>().ok()?.value();
+            if let Some(range) = plan.floats() {
+                return Some(range.holds(number));
+            }
+            Number::Float(number)
+        }
+        _ => Number::None,
+    };
+    Some(plan.holds(exact, number))
+}
+
+/// [`leaf_admits`] for a plan that may hold a reference to a tree: a list or
+/// a dict the tree reads on, which no leaf settles, is the walk's
+/// ([`Leaf::Walk`](crate::check::index::Leaf)). Over a plan of scalars alone
+/// it answers as [`leaf_admits`] does, which decides every list and dict.
+#[inline]
+pub(super) fn tree_leaf_admits(
+    plan: &LeafPlan,
+    value: &Bound<'_, PyAny>,
+    exact: Exact,
+) -> Option<bool> {
+    match exact {
+        Exact::List | Exact::Dict => plan.decided(exact),
+        _ => leaf_admits(plan, value, exact),
+    }
+}
+
+/// What `plan` answers for a parsed value, read by its tag, or `None` where the
+/// walk must read it: an integer past a machine word whose number the leaf
+/// reads. A tag is a value's exact type, as `json.loads` builds it, and a
+/// number's value is in hand. A plan holding a tree is read by
+/// [`tree_json_leaf_admits`].
+#[inline]
+pub(super) fn json_leaf_admits(plan: &LeafPlan, value: &JsonValue<'_>) -> Option<bool> {
+    let (exact, number) = match value {
+        JsonValue::Null => (Exact::None, Number::None),
+        JsonValue::Bool(truth) => (Exact::Bool, Number::Int(i64::from(*truth))),
+        JsonValue::Int(number) => (Exact::Int, Number::Int(*number)),
+        JsonValue::BigInt(_) => return plan.decided(Exact::Int),
+        JsonValue::Float(number) => match plan.floats() {
+            Some(range) => return Some(range.holds(*number)),
+            None => (Exact::Float, Number::Float(*number)),
+        },
+        JsonValue::Str(_) => (Exact::Str, Number::None),
+        JsonValue::Array(_) => (Exact::List, Number::None),
+        JsonValue::Object(_) => (Exact::Dict, Number::None),
+    };
+    Some(
+        plan.decided(exact)
+            .unwrap_or_else(|| plan.holds(exact, number)),
+    )
+}
+
+/// [`json_leaf_admits`] for a plan that may hold a reference to a tree: an
+/// array or an object the tree reads on is the walk's, as
+/// [`tree_leaf_admits`] reads a list or a dict.
+#[inline]
+pub(super) fn tree_json_leaf_admits(plan: &LeafPlan, value: &JsonValue<'_>) -> Option<bool> {
+    match value {
+        JsonValue::Array(_) => plan.decided(Exact::List),
+        JsonValue::Object(_) => plan.decided(Exact::Dict),
+        _ => json_leaf_admits(plan, value),
+    }
 }
 
 /// What [`member`] answers at the root of a walk for a schema that is one scalar
@@ -493,6 +609,34 @@ pub(super) fn machine_range(
     Some((least, most))
 }
 
+/// The lengths every one of `constraints` admits, as an inclusive range, where
+/// each is a length bound, and `None` elsewhere: a bound the range does not say.
+///
+/// The length of an exact `str` is its count of code points, which `len` reads
+/// off the string and runs no Python for, so for a string of that type the
+/// range answers what the bounds answer. Read once for a list
+/// ([`length_range_list`](super::sequence)), as [`machine_range`] is.
+pub(super) fn length_range(constraints: &[Constraint]) -> Option<(usize, usize)> {
+    let (mut least, mut most) = (0, usize::MAX);
+    for constraint in constraints {
+        match constraint {
+            Constraint::MinLen(n) => least = least.max(*n),
+            Constraint::MaxLen(n) => most = most.min(*n),
+            _ => return None,
+        }
+    }
+    Some((least, most))
+}
+
+/// The length of `value`, where it is an exact `str`.
+#[inline]
+pub(super) fn exact_text_length(value: &Bound<'_, PyAny>) -> Option<usize> {
+    if !value.is_exact_instance_of::<PyString>() {
+        return None;
+    }
+    value.len().map_err(set_aside).ok()
+}
+
 /// `value` as a machine word, where it is an exact `int` that fits one.
 ///
 /// `Ok(None)` for a value that is no exact `int`, and `Err` for one past the
@@ -826,12 +970,7 @@ pub(super) fn floats_compared(
 ) -> Option<bool> {
     let number = value.cast_exact::<PyFloat>().ok()?.value();
     let operand = ctx.index.float_operand(index.get())?;
-    Some(match op {
-        CompareOp::Ge => number >= operand,
-        CompareOp::Gt => number > operand,
-        CompareOp::Le => number <= operand,
-        _ => number < operand,
-    })
+    Some(ordered(number, op, operand))
 }
 
 /// Record that `value` fails the order bound `op` makes with `bound`.

@@ -1,5 +1,5 @@
 [dependencies]
-version = "20261109"
+version = "20261117"
 bootstrap_version = "20250801"
 
 [ninja]
@@ -20,7 +20,7 @@ dependencies = [
 [vala]
 scope = "toolchain"
 name = "Vala"
-version = "fb982b3ccfb57bd9b6a833fc1653fbc6b0cd7b53"
+version = "cfc8f31cad85a58559f6e18061944bc87fca3f11"
 url = "https://github.com/frida-forks/vala.git"
 dependencies = [
     "glib",
@@ -284,7 +284,7 @@ dependencies = [
 [libusb]
 when = "machine.os in {'windows', 'macos', 'linux'} and not machine.is_freestanding"
 name = "libusb"
-version = "23d5a2cdc55aa4f0895960d08528e5aa13e7f7e2"
+version = "fb3ed78f899d84638179547ca7517b31ef8cbee5"
 url = "https://github.com/frida-forks/libusb.git"
 options = [
     "-Dexamples=disabled",

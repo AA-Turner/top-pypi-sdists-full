@@ -47,6 +47,7 @@ from .literals import (
     MessageTypeType,
     MultiRegionKeyTypeType,
     OriginTypeType,
+    ResourceOwnerTypeType,
     RotationTypeType,
     SigningAlgorithmSpecType,
     WrappingKeySpecType,
@@ -411,6 +412,7 @@ class RotationsListEntryTypeDef(TypedDict):
 class ListKeysRequestTypeDef(TypedDict):
     Limit: NotRequired[int]
     Marker: NotRequired[str]
+    ResourceOwners: NotRequired[Sequence[ResourceOwnerTypeType]]
 
 
 class ListResourceTagsRequestTypeDef(TypedDict):
@@ -872,6 +874,7 @@ class ListKeyRotationsRequestPaginateTypeDef(TypedDict):
 
 
 class ListKeysRequestPaginateTypeDef(TypedDict):
+    ResourceOwners: NotRequired[Sequence[ResourceOwnerTypeType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

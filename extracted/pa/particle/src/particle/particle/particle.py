@@ -776,7 +776,8 @@ class Particle:
 
         Baryons have :math:`B = +1` (antibaryons :math:`B = -1`) and nuclei have
         :math:`B = A`, the mass number (:math:`B = -A` for anti-nuclei).
-        Quarks carry a fractional baryon number of :math:`+1/3` (antiquarks :math:`-1/3`),
+        Quarks, and their SUSY partners the squarks, carry a fractional baryon number
+        of :math:`+1/3` (anti(s)quarks :math:`-1/3`),
         which is returned as a `~fractions.Fraction` so that the value stays exact;
         all other cases return a plain `int`. Everything else
         (mesons, leptons, gauge bosons, ...) has :math:`B = 0`.
@@ -790,7 +791,7 @@ class Particle:
             if self.pdgid > 0:
                 return A
             return -A
-        if self.pdgid.is_quark:
+        if self.pdgid.is_quark or self.pdgid.is_squark:
             return Fraction(1, 3) if self.pdgid > 0 else Fraction(-1, 3)
         return 0
 
@@ -799,11 +800,12 @@ class Particle:
         """
         The lepton quantum number :math:`L` of the particle.
 
-        Leptons have :math:`L = +1` and antileptons :math:`L = -1`.
+        Leptons, and their SUSY partners the sleptons, have :math:`L = +1`
+        and anti(s)leptons :math:`L = -1`.
         All other particles have :math:`L = 0`.
         Note that this is the total lepton number and not a per-generation lepton number.
         """
-        if self.pdgid.is_lepton:
+        if self.pdgid.is_lepton or self.pdgid.is_slepton:
             return 1 if self.pdgid > 0 else -1
         return 0
 
@@ -1280,7 +1282,7 @@ C (charge parity) = {C:<6}  I (isospin)       = {self.I!s:<7}  G (G-parity)     
                 f"Nucleus A={a}, Z={z} is invalid. Z must be smaller or equal to A."
             )
 
-        pdgid = int(1e9 + l_strange * 1e5 + z * 1e4 + a * 10 + i)
+        pdgid = int(1e9 + l_strange * 1e7 + z * 1e4 + a * 10 + i)
 
         if anti:
             pdgid = -pdgid

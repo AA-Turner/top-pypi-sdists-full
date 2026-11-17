@@ -18,6 +18,7 @@ import re
 from typing import TYPE_CHECKING, Any, Generator, Optional, Tuple, Union
 import warnings
 
+from requests.exceptions import InvalidHeader
 from urllib3 import Retry
 
 from ._version import __expected_server_version__, __version__
@@ -59,6 +60,9 @@ def _create_client(*args: Any, **kwargs: Any) -> Tuple[RESTClientObject, Optiona
         a request.
     """
     drconfig = create_drconfig(*args, **kwargs)
+    # requests would reject this header and quote the whole token in its error.
+    if "\n" in drconfig.token or "\r" in drconfig.token:
+        raise InvalidHeader("The API token contains a line break, which isn't allowed in an HTTP header.")
 
     client = RESTClientObject.from_config(drconfig)
     if not _is_compatible_client(client):
@@ -70,6 +74,15 @@ def _create_client(*args: Any, **kwargs: Any) -> Tuple[RESTClientObject, Optiona
         drconfig.enable_api_consumer_tracking,
         drconfig.trace_context,
     )
+
+
+def _mask_token(token: Optional[str]) -> str:
+    """Show at most the last 4 characters of a token, for error messages."""
+    # A blank token isn't a secret, and seeing it explains the 401.
+    if not token or token.isspace():
+        return token or ""
+    # A short token shows nothing, so the visible part is never most of the secret.
+    return "****" + token[-4:] if len(token) >= 12 else "****"
 
 
 def _is_compatible_client(client: RESTClientObject) -> bool:
@@ -97,23 +110,23 @@ def _is_compatible_client(client: RESTClientObject) -> bool:
         # TODO Prefer to do further error handling via BaseException.add_note but that
         # is only available in Python 3.11+
         if cerr.status_code == 401:
-            w_msg_tmpl = (
+            message = (
                 'Unable to authenticate to the server - are you sure the provided token of "{}" '
-                'and endpoint of "{}" are correct? '.format(client.token, client.endpoint)
+                'and endpoint of "{}" are correct? '.format(_mask_token(client.token), client.endpoint)
             )
         else:
-            w_msg_tmpl = (
+            message = (
                 "Error retrieving a version string from the server. "
                 "Server did not reply with an API version. This may indicate the "
                 "endpoint parameter `{}` is incorrect, or that the server there is "
-                "incompatible with this version of the DataRobot client package. "
+                "incompatible with this version of the DataRobot client package. ".format(client.endpoint)
             )
-        w_msg_tmpl += (
-            "Note that if you access the DataRobot webapp at "
+        message += (
+            "Note that if you access DataRobot at "
             "`https://app.datarobot.com`, then the correct endpoint to specify would "
             "be `https://app.datarobot.com/api/v2`."
         )
-        raise ClientError(w_msg_tmpl.format(client.endpoint), status_code=cerr.status_code) from cerr
+        raise ClientError(message, status_code=cerr.status_code) from cerr
 
     if not _is_compatible_version(server_response):
         return False

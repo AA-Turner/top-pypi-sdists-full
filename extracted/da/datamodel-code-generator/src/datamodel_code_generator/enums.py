@@ -119,6 +119,14 @@ class OpenAPIScope(Enum):
     Api = "api"
 
 
+_DEFAULT_OPENAPI_SCOPES: Final = (OpenAPIScope.Schemas,)
+
+
+def _openapi_scopes_or_default(scopes: list[OpenAPIScope] | None) -> list[OpenAPIScope]:
+    """Return the OpenAPI scopes a configuration gives, or a new list of the default ones where it gives none."""
+    return scopes or [*_DEFAULT_OPENAPI_SCOPES]
+
+
 class AllExportsScope(Enum):
     """Scope for __all__ exports in __init__.py.
 
@@ -258,6 +266,21 @@ class ReadOnlyWriteOnlyModelType(Enum):
     """
 
     RequestResponse = "request-response"
+    All = "all"
+
+
+class OpenEnums(Enum):
+    """Which enums accept values they do not list (``--open-enums``).
+
+    None_: no enum, as without the option.
+    Extensible: the enums whose schema marks them open (``x-extensible-enum: true``, or ``x-ms-enum`` with
+        ``modelAsString: true``).
+    All: every enum of two or more values, except one whose schema closes it (``x-extensible-enum: false``,
+        ``modelAsString: false``).
+    """
+
+    None_ = "none"
+    Extensible = "extensible"
     All = "all"
 
 
@@ -532,6 +555,7 @@ __all__ = [
     "OpenAPIAsDefinitions",
     "OpenAPIScope",
     "OpenAPIVersion",
+    "OpenEnums",
     "ProtobufVersion",
     "ReadOnlyWriteOnlyModelType",
     "ReuseScope",

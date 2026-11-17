@@ -597,12 +597,13 @@ mod test {
 		);
 	}
 
-	/// A backslash escapes a double quote or a backslash in the title, and is literal before
+	/// A backslash escapes either quote or a backslash in the title, and is literal before
 	/// anything else.
 	#[test]
 	fn masked_link_with_escaped_title() {
 		for (s, title) in [
 			(r#"[foo](https://good.com "say \"hi\"")"#, r#"say "hi""#),
+			(r#"[foo](https://good.com "it\'s")"#, "it's"),
 			(r#"[foo](https://good.com "\"")"#, r#"""#),
 			(r#"[foo](https://good.com "back\\")"#, r"back\"),
 			(r#"[foo](https://good.com "a\\\"b")"#, r#"a\"b"#),
@@ -616,6 +617,52 @@ mod test {
 				"unexpected title for {s:?}"
 			);
 		}
+	}
+
+	/// A title can be quoted with single quotes too, and then contains double quotes freely.
+	#[test]
+	fn masked_link_with_single_quoted_title() {
+		for (s, title) in [
+			(r"[foo](https://good.com 'my site')", "my site"),
+			(r"[foo](<https://good.com> 'my site')", "my site"),
+			(r#"[foo](https://good.com 'say "hi"')"#, r#"say "hi""#),
+			(
+				r"[foo](https://good.com 'Will Nelson\'s website')",
+				"Will Nelson's website",
+			),
+			(r"[foo](https://good.com 'back\\')", r"back\"),
+			(r"[foo](https://good.com 'a\b')", r"a\b"),
+			// a backslash escapes the other quote too
+			(r#"[foo](https://good.com 'a\"b')"#, r#"a"b"#),
+		] {
+			let (rem, (res, ())) = masked_link(s).expect("unable to parse");
+			assert_eq!(rem, "", "unexpected remainder for {s:?}");
+			assert_eq!(
+				res.title.as_deref(),
+				Some(title),
+				"unexpected title for {s:?}"
+			);
+		}
+	}
+
+	/// A title closes only on the quote that opened it.
+	#[test]
+	fn masked_link_with_mismatched_title_quotes() {
+		for s in [
+			r#"[foo](https://good.com "abc')"#,
+			r#"[foo](https://good.com 'abc")"#,
+			r"[foo](https://good.com 'abc\')",
+			r"[foo](https://good.com '')",
+		] {
+			masked_link(s).expect_err("able to parse");
+		}
+	}
+
+	/// A single-quoted title is held to the same guard as a double-quoted one.
+	#[test]
+	fn link_in_single_quoted_title_is_rejected() {
+		assert_spoof(r"[foo](https://good.com 'https://evil.com')");
+		assert_spoof(r"[foo](https://good.com '\'https://evil.com\'')");
 	}
 
 	/// An escaped quote does not close the title.

@@ -26,6 +26,12 @@ class WalletActionEarnIncentiveClaimSucceededWebhookPayload(BaseModel):
     created_at: str
     """ISO 8601 timestamp of when the wallet action was created."""
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     rewards: Optional[List[EarnIncetiveClaimRewardEntry]] = None
     """Claimed reward tokens. Populated after the preparation step fetches from Merkl."""
 
@@ -33,7 +39,11 @@ class WalletActionEarnIncentiveClaimSucceededWebhookPayload(BaseModel):
     """The status of the wallet action."""
 
     steps: List[WalletActionStep]
-    """The steps of the wallet action, including transaction hashes."""
+    """
+    The steps of the wallet action, including transaction hashes;
+    `gas_credits_charged` on a step may still be `null` when this webhook fires, so
+    fetch the wallet action directly for up-to-date gas data.
+    """
 
     type: Literal["wallet_action.earn_incentive_claim.succeeded"]
     """The type of webhook event."""

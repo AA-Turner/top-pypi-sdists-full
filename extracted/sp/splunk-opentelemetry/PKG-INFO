@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: splunk-opentelemetry
-Version: 2.13.3
+Version: 2.14.0
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -16,20 +16,21 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
-Requires-Dist: opentelemetry-api==1.45.1
-Requires-Dist: opentelemetry-configuration==0.66b1
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.45.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.45.1
-Requires-Dist: opentelemetry-instrumentation-logging==0.66b1
-Requires-Dist: opentelemetry-instrumentation-system-metrics==0.66b1
-Requires-Dist: opentelemetry-instrumentation==0.66b1
-Requires-Dist: opentelemetry-opamp-client==0.4b0
-Requires-Dist: opentelemetry-propagator-b3==1.45.1
-Requires-Dist: opentelemetry-sdk==1.45.1
-Requires-Dist: opentelemetry-semantic-conventions==0.66b1
+Requires-Dist: jsonschema>=4.26.0
+Requires-Dist: opentelemetry-api==1.45.2
+Requires-Dist: opentelemetry-configuration==0.66b2
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.45.2
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.45.2
+Requires-Dist: opentelemetry-instrumentation-logging==0.66b2
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.66b2
+Requires-Dist: opentelemetry-instrumentation==0.66b2
+Requires-Dist: opentelemetry-opamp-client==0.6b0
+Requires-Dist: opentelemetry-propagator-b3==1.45.2
+Requires-Dist: opentelemetry-sdk==1.45.2
+Requires-Dist: opentelemetry-semantic-conventions==0.66b2
 Requires-Dist: protobuf>=6.33.5
 Requires-Dist: requests>=2.33.0
-Requires-Dist: wrapt>=2.5.1
+Requires-Dist: wrapt>=2.5.2
 Provides-Extra: secureapp
 Requires-Dist: secureapp-python-agent>=26.10.0; extra == 'secureapp'
 Description-Content-Type: text/markdown
@@ -114,9 +115,27 @@ OTEL_CONFIG_FILE=/path/to/config.yaml opentelemetry-instrument python app.py
 See the [basic declarative configuration example](docs/examples/declarative-config.yaml),
 which exports traces, metrics, and logs to a local Collector at `http://localhost:4317`.
 
-This support configures upstream OpenTelemetry SDK components. The GDI
-`distribution.splunk` configuration block is not supported yet. Configure
+This support configures upstream OpenTelemetry SDK components. Configure
 exporters, including their endpoints and authentication headers, in the YAML file.
+
+The GDI `distribution.splunk` configuration block supports continuous CPU profiling,
+call graph profiling, and `instrumentations.http.trace_response_header_enabled`, which defaults to `true`.
+To disable the trace response header, add this block to the YAML file:
+
+```yaml
+distribution:
+  splunk:
+    instrumentations:
+      http:
+        trace_response_header_enabled: false
+```
+
+To enable profiling, see the YAML examples for
+[continuous profiling](docs/profiling.md#yaml-configuration) and
+[call graph profiling](docs/profiling.md#yaml-configuration-1).
+When `OTEL_CONFIG_FILE` is set, the distribution does not enable
+[PostgreSQL trace correlation](docs/postgresql.md).
+
 OpAMP does not report the declarative file as effective configuration and cannot
 manage it remotely yet.
 

@@ -12,6 +12,7 @@ Usage::
     from types_boto3_connecthealth import (
         Client,
         ConnectHealthClient,
+        ListDatasetsPaginator,
         ListDomainsPaginator,
         ListSubscriptionsPaginator,
     )
@@ -19,15 +20,22 @@ Usage::
     session = Session()
     client: ConnectHealthClient = session.client("connecthealth")
 
+    list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_domains_paginator: ListDomainsPaginator = client.get_paginator("list_domains")
     list_subscriptions_paginator: ListSubscriptionsPaginator = client.get_paginator("list_subscriptions")
     ```
 """
 
 from .client import ConnectHealthClient
-from .paginator import ListDomainsPaginator, ListSubscriptionsPaginator
+from .paginator import ListDatasetsPaginator, ListDomainsPaginator, ListSubscriptionsPaginator
 
 Client = ConnectHealthClient
 
 
-__all__ = ("Client", "ConnectHealthClient", "ListDomainsPaginator", "ListSubscriptionsPaginator")
+__all__ = (
+    "Client",
+    "ConnectHealthClient",
+    "ListDatasetsPaginator",
+    "ListDomainsPaginator",
+    "ListSubscriptionsPaginator",
+)

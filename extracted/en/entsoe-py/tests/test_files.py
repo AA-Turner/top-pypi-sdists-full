@@ -11,13 +11,13 @@ def client():
 
 
 def test_single_file(client):
-    files = client.list_folder('EnergyPrices_12.1.D_r3')
+    files = client.list_folder('EnergyPrices_12.1.D_r3.1')
     assert len(files) > 0
-    df = client.download_single_file('EnergyPrices_12.1.D_r3', max(files))
+    df = client.download_single_file('EnergyPrices_12.1.D_r3.1', max(files))
     assert len(df) > 0
 
 def test_list_file(client):
-    files = client.list_folder('EnergyPrices_12.1.D_r3')
+    files = client.list_folder('EnergyPrices_12.1.D_r3.1')
     assert len(files) > 0
     df = client.download_multiple_files([
         files[max(files)]

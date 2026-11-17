@@ -9,6 +9,14 @@ consume it without reaching into one another's private surface.
 
 from __future__ import annotations
 
+from ._bindings import (
+    UNTRUSTED,
+    ImportClassifier,
+    NameResolver,
+    attribute_root,
+    scope_bindings,
+    scoped_calls,
+)
 from ._cli import TOOL_VERSION, make_cli_main
 from ._directives import _IgnoreDirective, _parse_directives, parse_ignore_directive
 from ._discovery import EXCLUDE_DIRS, discover
@@ -24,6 +32,8 @@ from ._imports import (
     register_alias_records,
 )
 from ._io import safe_read_json, safe_read_text
+from ._names import base_names, leaf_name, pascal_to_kebab
+from ._parse import ParseFailure, parse_failure, runtime_python
 from ._pytest_collection import (
     is_collectable_test_file,
     is_test_class,
@@ -44,13 +54,28 @@ from ._toml_suppress import (
     make_toml_finding,
     parse_toml_suppressions,
 )
+from ._yaml import strip_yaml_comment, yaml_comment_start
 
 __all__ = [
+    "UNTRUSTED",
+    "ImportClassifier",
+    "NameResolver",
+    "attribute_root",
+    "base_names",
+    "leaf_name",
+    "pascal_to_kebab",
+    "scope_bindings",
+    "scoped_calls",
+    "strip_yaml_comment",
+    "yaml_comment_start",
     "merge_alias_targets",
     "qualified_class_key",
     "qualified_rebound_imports",
     "safe_read_json",
     "safe_read_text",
+    "ParseFailure",
+    "parse_failure",
+    "runtime_python",
     "EXCLUDE_DIRS",
     "SDK_APP_BASE_NAMES",
     "SDK_PACKAGE_PREFIX",

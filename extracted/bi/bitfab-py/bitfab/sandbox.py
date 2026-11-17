@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import copy
+import datetime
 import json
 import sys
 import threading
+import time
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
@@ -122,9 +124,14 @@ class SandboxSession:
     sandboxes: Sequence[Sandbox]
     client: Any
     make_start_ctx: Callable[[Sandbox], SandboxStartCtx]
+    trace_started_at: str | None = None
+    started: float = field(default_factory=time.monotonic)
     _states: dict[str, Any] = field(default_factory=dict)
     _reports: dict[str, dict[str, Any]] = field(default_factory=dict)
     _lock: threading.RLock = field(default_factory=threading.RLock)
+
+    def elapsed_ms(self) -> int:
+        return int((time.monotonic() - self.started) * 1000)
 
     def find(self, node: SpanNodeMeta) -> Sandbox | None:
         return next(
@@ -256,3 +263,36 @@ def sandbox_state(name: str) -> Any:
     if session is None or sandbox is None:
         return None
     return session.state_of(sandbox, _attach_to_replay_root)
+
+
+def sandbox_elapsed_ms() -> int:
+    session = current_session()
+    return session.elapsed_ms() if session is not None else 0
+
+
+def parse_timestamp(value: str | None) -> datetime.datetime | None:
+    if not value:
+        return None
+    try:
+        parsed = datetime.datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=datetime.timezone.utc)
+    return parsed
+
+
+def sandbox_now() -> datetime.datetime | None:
+    """The time sandboxes use in the current replay item.
+
+    It starts at the moment the original trace started and moves forward as
+    the replay item runs, so a sandbox answers as if the run were happening
+    again at its original time. Use it in a sandbox's ``handle`` to date what
+    the call writes. Returns ``None`` outside a replay item, or when the
+    original start time is not known. ``datetime.now()`` is not changed.
+    """
+    session = current_session()
+    started_at = parse_timestamp(session.trace_started_at) if session else None
+    if session is None or started_at is None:
+        return None
+    return started_at + datetime.timedelta(milliseconds=session.elapsed_ms())

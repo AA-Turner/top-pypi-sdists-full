@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quickjs-ng
-Version: 0.18.0.1
+Version: 0.18.0.2
 Summary: Thin Python wrapper of quickjs-ng
 Author-email: Ganesh Viswanathan <dev@genotrance.com>
 Project-URL: Homepage, https://github.com/genotrance/quickjs-ng
@@ -55,6 +55,12 @@ add(3, 4)  # => 7
 # Call Python functions from JS
 ctx.add_callable("py_add", lambda a, b: a + b)
 ctx.eval("py_add(3, 4)")  # => 7
+
+# Compile once, load many times (skips parsing; bytecode is only valid for the same build).
+# Only load bytecode produced by trusted code with the
+# same QuickJS build/binary configuration; never load bytecode from external or untrusted data.
+code = ctx.compile("function add(a, b) { return a + b; }")  # => bytes
+quickjs.Context().eval_bytecode(code)
 
 # Use the Function helper for thread-safe execution
 f = quickjs.Function("f", "function f(x) { return x * 2; }")

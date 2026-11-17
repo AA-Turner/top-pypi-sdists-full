@@ -1,7 +1,37 @@
+import errno
+import gc
 import os
+import shutil
+import stat
+import sys
+import tempfile
+import textwrap
+from pathlib import Path
 from unittest.mock import patch
 
-from nokap._browser import find_chrome
+import pytest
+
+import nokap
+from nokap._browser import (
+    Chrome,
+    _env_chrome_args,
+    _sandbox_hint,
+    _select_transport,
+    _split_args,
+    find_chrome,
+    is_headless_shell,
+)
+from nokap._errors import ChromeNotFoundError, ChromeStartError
+from nokap._install import chrome_platform
+from nokap._pipe import SyncPipeCDP
+
+posix_only = pytest.mark.skipif(sys.platform == "win32", reason="uses shell scripts")
+
+MACH_DENIED = (
+    "[0101/000000.000000:FATAL:mach_port_rendezvous_mac.cc(155)] Check failed: "
+    "kr == KERN_SUCCESS. bootstrap_check_in "
+    "org.chromium.Chromium.MachPortRendezvousServer.123: Permission denied (1100)"
+)
 
 
 def test_find_chrome_env_var(tmp_path):
@@ -34,3 +64,481 @@ def test_find_chrome_no_env_var():
             assert os.path.isfile(path)
         except RuntimeError:
             pass  # Chrome not installed, that's fine for CI
+
+
+# ---------------------------------------------------------------------------
+# chrome-headless-shell discovery
+# ---------------------------------------------------------------------------
+
+
+def _fake_install(cache, version):
+    exe_name = (
+        "chrome-headless-shell.exe"
+        if sys.platform == "win32"
+        else "chrome-headless-shell"
+    )
+    exe = (
+        cache
+        / "chrome-headless-shell"
+        / version
+        / f"chrome-headless-shell-{chrome_platform()}"
+        / exe_name
+    )
+    exe.parent.mkdir(parents=True)
+    exe.touch()
+    return str(exe)
+
+
+def test_find_chrome_prefers_installed_headless_shell(tmp_path):
+    exe = _fake_install(tmp_path, "156.0.8078.80")
+    with patch.dict(os.environ, {"NOKAP_CACHE_DIR": str(tmp_path)}):
+        os.environ.pop("CHROME_PATH", None)
+        assert find_chrome() == exe
+
+
+def test_find_chrome_picks_newest_installed_version(tmp_path):
+    _fake_install(tmp_path, "99.0.4844.51")
+    newest = _fake_install(tmp_path, "156.0.8078.80")
+    _fake_install(tmp_path, "120.0.6099.109")
+    with patch.dict(os.environ, {"NOKAP_CACHE_DIR": str(tmp_path)}):
+        os.environ.pop("CHROME_PATH", None)
+        assert find_chrome() == newest
+
+
+def test_find_chrome_env_var_beats_installed_headless_shell(tmp_path):
+    _fake_install(tmp_path / "cache", "156.0.8078.80")
+    fake_chrome = tmp_path / "chrome"
+    fake_chrome.touch()
+    env = {"NOKAP_CACHE_DIR": str(tmp_path / "cache"), "CHROME_PATH": str(fake_chrome)}
+    with patch.dict(os.environ, env):
+        assert find_chrome() == str(fake_chrome)
+
+
+@posix_only
+def test_find_chrome_headless_shell_on_path(tmp_path):
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    shell = bin_dir / "chrome-headless-shell"
+    shell.touch()
+    shell.chmod(0o755)
+    env = {"NOKAP_CACHE_DIR": str(tmp_path / "empty"), "PATH": str(bin_dir)}
+    with patch.dict(os.environ, env):
+        os.environ.pop("CHROME_PATH", None)
+        assert find_chrome() == str(shell)
+
+
+def test_is_headless_shell():
+    assert is_headless_shell("/x/chrome-headless-shell-mac-arm64/chrome-headless-shell")
+    assert is_headless_shell("chrome-headless-shell.exe")
+    assert not is_headless_shell(
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Launch arguments and failure handling
+# ---------------------------------------------------------------------------
+
+
+def test_env_chrome_args():
+    with patch.dict(
+        os.environ, {"NOKAP_CHROME_ARGS": ' --single-process --lang="en US" '}
+    ):
+        assert _env_chrome_args() == ["--single-process", "--lang=en US"]
+    with patch.dict(os.environ, {"NOKAP_CHROME_ARGS": ""}):
+        assert _env_chrome_args() == []
+    with patch.dict(os.environ, {}):
+        os.environ.pop("NOKAP_CHROME_ARGS", None)
+        assert _env_chrome_args() == []
+
+
+@pytest.mark.parametrize("windows", [False, True])
+def test_split_args_quoting(windows):
+    value = """--a --lang="en US" '--b=c d' --e#f"""
+    assert _split_args(value, windows) == ["--a", "--lang=en US", "--b=c d", "--e#f"]
+
+
+def test_split_args_backslashes():
+    value = r'--user-data-dir=C:\tmp\nokap --x="C:\Program Files\y"'
+    assert _split_args(value, windows=True) == [
+        r"--user-data-dir=C:\tmp\nokap",
+        r"--x=C:\Program Files\y",
+    ]
+    # POSIX shells treat backslash as an escape
+    assert _split_args(r"--a=b\ c", windows=False) == ["--a=b c"]
+
+
+def test_del_is_safe_on_uninitialized_instance():
+    # __del__ runs even when __init__ never ran or raised early
+    Chrome.__new__(Chrome).__del__()
+
+
+def test_failed_init_leaves_usable_instance():
+    with (
+        patch("nokap._browser.find_chrome", side_effect=ChromeNotFoundError()),
+        pytest.raises(ChromeNotFoundError),
+    ):
+        Chrome()
+    gc.collect()
+
+
+@posix_only
+@pytest.mark.parametrize("failure", ["second_pipe", "stderr_file"])
+def test_pipe_startup_allocation_failure_closes_descriptors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, failure: str
+) -> None:
+    executable = _write_script(tmp_path / "chrome", "exec cat <&3 >/dev/null\n")
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    allocate_pipe = os.pipe
+    pipe_fds: list[int] = []
+    allocation_error = OSError(errno.EMFILE, "Too many open files")
+
+    def pipe() -> tuple[int, int]:
+        if failure == "second_pipe" and len(pipe_fds) == 2:
+            raise allocation_error
+        descriptors = allocate_pipe()
+        pipe_fds.extend(descriptors)
+        return descriptors
+
+    def temporary_file() -> None:
+        raise allocation_error
+
+    monkeypatch.setattr(os, "pipe", pipe)
+    if failure == "stderr_file":
+        monkeypatch.setattr(tempfile, "TemporaryFile", temporary_file)
+
+    leaked: list[int] = []
+    try:
+        with (
+            pytest.raises(OSError) as raised,
+            nokap.Chrome(path=executable, transport="pipe", timeout=1),
+        ):
+            pass
+        assert raised.value is allocation_error
+        for descriptor in set(pipe_fds):
+            try:
+                os.fstat(descriptor)
+            except OSError as error:
+                assert error.errno == errno.EBADF
+            else:
+                leaked.append(descriptor)
+        assert leaked == []
+    finally:
+        for descriptor in leaked:
+            os.close(descriptor)
+
+
+def test_port_bind_failure_explains_sandbox(tmp_path):
+    with (
+        patch(
+            "nokap._browser.find_open_port", side_effect=PermissionError(1, "denied")
+        ),
+        pytest.raises(ChromeStartError, match="allow_local_binding"),
+    ):
+        Chrome(path=str(tmp_path / "chrome"), transport="websocket")
+
+
+def test_sandbox_hint_mach_denied():
+    hint = _sandbox_hint("/x/chrome-headless-shell", -5, MACH_DENIED)
+    assert hint is not None
+    assert "--single-process" in hint
+
+
+def test_sandbox_hint_full_chrome_sigabrt_on_macos():
+    full = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    with patch("nokap._browser.current_platform", return_value="macos"):
+        hint = _sandbox_hint(full, -6, "")
+        assert hint is not None
+        assert "nokap install-chrome" in hint
+        # Not for headless-shell, other exit codes, or when Chrome said something
+        assert _sandbox_hint("/x/chrome-headless-shell", -6, "") is None
+        assert _sandbox_hint(full, 1, "") is None
+        assert _sandbox_hint(full, -6, "some error") is None
+    with patch("nokap._browser.current_platform", return_value="linux"):
+        assert _sandbox_hint(full, -6, "") is None
+
+
+def _write_script(path, body):
+    path.write_text("#!/bin/sh\n" + body)
+    path.chmod(path.stat().st_mode | stat.S_IXUSR)
+    return str(path)
+
+
+def _launches(argv_file):
+    """Each launch is recorded as one line of space-separated args."""
+    return [line.split(" ") for line in argv_file.read_text().splitlines()]
+
+
+# Records its args, then behaves like Chrome once DevTools is up
+_OK_BODY = """\
+echo "$*" >> "$NOKAP_TEST_ARGV"
+echo "DevTools listening on ws://127.0.0.1:9/devtools/browser/fake" >&2
+exec sleep 30
+"""
+
+
+@posix_only
+def test_launch_arg_order(tmp_path):
+    chrome = _write_script(tmp_path / "chrome", _OK_BODY)
+    argv = tmp_path / "argv"
+    env = {"NOKAP_TEST_ARGV": str(argv), "NOKAP_CHROME_ARGS": "--env-a --env-b"}
+    with (
+        patch.dict(os.environ, env),
+        Chrome(path=chrome, transport="websocket", extra_args=["--extra"]) as c,
+    ):
+        assert c.ws_url == "ws://127.0.0.1:9/devtools/browser/fake"
+        assert c.is_alive()
+    (args,) = _launches(argv)
+    assert args[0] == f"--remote-debugging-port={c.port}"
+    assert args[-4:] == ["--env-a", "--env-b", "--extra", "about:blank"]
+    assert not c.is_alive()
+
+
+@posix_only
+@pytest.mark.parametrize("unavailable", [65536, 65538, None])
+@pytest.mark.parametrize("extra_args", [[], ["--single-process"], ["--no-sandbox"]])
+def test_macos_directory_queries_select_process_mode(
+    tmp_path, monkeypatch, unavailable, extra_args
+):
+    chrome = _write_script(tmp_path / "chrome-headless-shell", _OK_BODY)
+    argv = tmp_path / "argv"
+    monkeypatch.setenv("NOKAP_TEST_ARGV", str(argv))
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    monkeypatch.setattr("nokap._browser.current_platform", lambda: "macos")
+
+    def confstr(name):
+        if name == unavailable:
+            raise OSError(errno.EIO, "Input/output error")
+        return str(tmp_path)
+
+    monkeypatch.setattr(os, "confstr", confstr)
+    with Chrome(path=chrome, transport="websocket", extra_args=extra_args):
+        pass
+    (args,) = _launches(argv)
+    expected = int(
+        "--single-process" in extra_args
+        or (unavailable is not None and "--no-sandbox" not in extra_args)
+    )
+    assert args.count("--single-process") == expected
+
+
+@posix_only
+@pytest.mark.parametrize("platform", ["linux", "windows"])
+def test_non_macos_launch_does_not_query_darwin_directories(
+    tmp_path, monkeypatch, platform
+):
+    chrome = _write_script(tmp_path / "chrome-headless-shell", _OK_BODY)
+    argv = tmp_path / "argv"
+    monkeypatch.setenv("NOKAP_TEST_ARGV", str(argv))
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    monkeypatch.setattr("nokap._browser.current_platform", lambda: platform)
+
+    def confstr(name):
+        raise AssertionError("Darwin directory queries require macOS")
+
+    monkeypatch.setattr(os, "confstr", confstr)
+    with Chrome(path=chrome, transport="websocket"):
+        pass
+    (args,) = _launches(argv)
+    assert "--single-process" not in args
+
+
+@posix_only
+def test_macos_directory_query_unexpected_error_is_not_recovered(tmp_path, monkeypatch):
+    chrome = _write_script(tmp_path / "chrome-headless-shell", _OK_BODY)
+    monkeypatch.setenv("NOKAP_TEST_ARGV", str(tmp_path / "argv"))
+    monkeypatch.setattr("nokap._browser.current_platform", lambda: "macos")
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+
+    def confstr(name):
+        raise OSError(errno.ENOMEM, "Cannot allocate memory")
+
+    monkeypatch.setattr(os, "confstr", confstr)
+    with (
+        pytest.raises(OSError) as error,
+        Chrome(path=chrome, transport="websocket"),
+    ):
+        pass
+    assert error.value.errno == errno.ENOMEM
+
+
+@posix_only
+def test_mach_denial_retries_with_single_process(tmp_path):
+    body = f"""\
+echo "$*" >> "$NOKAP_TEST_ARGV"
+for a in "$@"; do
+  if [ "$a" = "--single-process" ]; then
+    echo "DevTools listening on ws://127.0.0.1:9/devtools/browser/fake" >&2
+    exec sleep 30
+  fi
+done
+echo "{MACH_DENIED}" >&2
+exit 133
+"""
+    chrome = _write_script(tmp_path / "chrome-headless-shell", body)
+    argv = tmp_path / "argv"
+    with patch.dict(os.environ, {"NOKAP_TEST_ARGV": str(argv)}):
+        os.environ.pop("NOKAP_CHROME_ARGS", None)
+        with Chrome(path=chrome, transport="websocket") as c:
+            assert c.is_alive()
+    first, second = _launches(argv)
+    assert "--single-process" not in first
+    assert "--single-process" in second
+
+
+@posix_only
+def test_mach_denial_not_retried_with_single_process_already_set(tmp_path):
+    body = f"""\
+echo "$*" >> "$NOKAP_TEST_ARGV"
+echo "{MACH_DENIED}" >&2
+exit 133
+"""
+    chrome = _write_script(tmp_path / "chrome-headless-shell", body)
+    argv = tmp_path / "argv"
+    env = {"NOKAP_TEST_ARGV": str(argv), "NOKAP_CHROME_ARGS": "--single-process"}
+    with patch.dict(os.environ, env), pytest.raises(ChromeStartError) as excinfo:
+        Chrome(path=chrome, transport="websocket")
+    assert "mach-register" in str(excinfo.value)
+    assert MACH_DENIED in excinfo.value.stderr
+    assert len(_launches(argv)) == 1
+
+
+@posix_only
+def test_other_failures_are_not_retried(tmp_path):
+    body = """\
+echo "$*" >> "$NOKAP_TEST_ARGV"
+echo "something else went wrong" >&2
+exit 1
+"""
+    chrome = _write_script(tmp_path / "chrome", body)
+    argv = tmp_path / "argv"
+    with patch.dict(os.environ, {"NOKAP_TEST_ARGV": str(argv)}):
+        os.environ.pop("NOKAP_CHROME_ARGS", None)
+        with pytest.raises(ChromeStartError, match="code 1"):
+            Chrome(path=chrome, transport="websocket")
+    assert len(_launches(argv)) == 1
+
+
+@posix_only
+def test_profile_cleanup_failure_does_not_mask_launch_retry(tmp_path, monkeypatch):
+    body = f"""\
+echo "$*" >> "$NOKAP_TEST_ARGV"
+for a in "$@"; do
+  if [ "$a" = "--single-process" ]; then
+    echo "DevTools listening on ws://127.0.0.1:9/devtools/browser/fake" >&2
+    exec sleep 30
+  fi
+done
+echo "{MACH_DENIED}" >&2
+exit 133
+"""
+    chrome = _write_script(tmp_path / "chrome-headless-shell", body)
+    argv = tmp_path / "argv"
+    monkeypatch.setenv("NOKAP_TEST_ARGV", str(argv))
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+
+    def rmtree(path, *args, onerror=None, onexc=None, **kwargs):
+        # Fail the way removal does when a Chrome helper recreates profile files
+        try:
+            raise OSError(errno.ENOTEMPTY, "Directory not empty", path)
+        except OSError as error:
+            if onexc is not None:
+                onexc(os.rmdir, path, error)
+            else:
+                onerror(os.rmdir, path, sys.exc_info())
+
+    monkeypatch.setattr(shutil, "rmtree", rmtree)
+    with Chrome(path=chrome, transport="websocket") as c:
+        assert c.is_alive()
+    first, second = _launches(argv)
+    assert "--single-process" not in first
+    assert "--single-process" in second
+
+
+@posix_only
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("websocket", "websocket"), (" Pipe ", "pipe"), ("WEBSOCKET", "websocket")],
+)
+def test_transport_from_environment_is_normalized(monkeypatch, value, expected):
+    monkeypatch.setenv("NOKAP_TRANSPORT", value)
+    assert _select_transport(None) == expected
+
+
+@pytest.mark.parametrize("value", ["", "  "])
+def test_empty_transport_environment_uses_platform_default(monkeypatch, value):
+    monkeypatch.setenv("NOKAP_TRANSPORT", value)
+    expected = "pipe" if os.name == "posix" else "websocket"
+    assert _select_transport(None) == expected
+
+
+@pytest.mark.parametrize(
+    ("transport", "environment", "source"),
+    [(None, "tcp", "NOKAP_TRANSPORT"), ("tcp", "pipe", "transport")],
+)
+def test_invalid_transport_names_its_source(
+    monkeypatch, transport, environment, source
+):
+    monkeypatch.setenv("NOKAP_TRANSPORT", environment)
+    with pytest.raises(ValueError, match=f"^{source} must be .*, not 'tcp'$"):
+        Chrome(transport=transport)
+
+
+@posix_only
+@pytest.mark.parametrize(
+    ("ending", "expected"),
+    [
+        ("kill -ABRT $$", "LaunchServices"),
+        (f"echo '{MACH_DENIED}' >&2\nexit 133", "mach-register"),
+    ],
+)
+def test_pipe_failure_waits_for_exit_details(tmp_path, monkeypatch, ending, expected):
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    monkeypatch.setattr("nokap._browser.current_platform", lambda: "macos")
+    # Chrome can close its pipe before it exits or finishes writing stderr
+    chrome = _write_script(tmp_path / "chrome", f"exec 4>&-\nsleep 0.3\n{ending}\n")
+    with pytest.raises(ChromeStartError, match=expected):
+        Chrome(
+            path=chrome, transport="pipe", extra_args=["--single-process"], timeout=5
+        )
+
+
+@posix_only
+def test_pipe_handshake_leaves_later_messages_for_connection(tmp_path, monkeypatch):
+    monkeypatch.delenv("NOKAP_CHROME_ARGS", raising=False)
+    chrome = tmp_path / "chrome"
+    chrome.write_text(
+        f"#!{sys.executable}\n"
+        + textwrap.dedent("""
+            import json, os
+
+            buffer, sequence = b"", 0
+            while chunk := os.read(3, 65536):
+                buffer += chunk
+                while b"\\0" in buffer:
+                    raw, buffer = buffer.split(b"\\0", 1)
+                    message = json.loads(raw)
+                    sequence += 1
+                    # Chrome can write an event right behind a response
+                    replies = [
+                        {"id": message["id"], "result": {}},
+                        {"method": "Test.event", "params": {"sequence": sequence}},
+                    ]
+                    data = b"".join(json.dumps(r).encode() + b"\\0" for r in replies)
+                    os.write(4, data)
+                    if message["method"] == "Browser.close":
+                        raise SystemExit(0)
+        """)
+    )
+    chrome.chmod(0o755)
+    events = []
+    with Chrome(path=str(chrome), transport="pipe", timeout=5) as browser:
+        connection = SyncPipeCDP(*browser.pipes, timeout=5)
+        connection.on("Test.event", events.append)
+        try:
+            connection.connect()
+        finally:
+            connection.close()
+    # The event behind the startup handshake reaches the next connection intact
+    assert events[0] == {"sequence": 1}

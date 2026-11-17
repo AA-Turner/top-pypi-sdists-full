@@ -111,16 +111,19 @@ def _reason(loaded=frozenset()):
 _REASON = _reason()
 
 
-def _loaded_since_compaction(transcript_path):
-    """Bare names of the skills invoked since the transcript's last compaction, or an empty set.
+_NO_SKILL_USAGE = _sig.skill_usage(())
 
-    Read only when the gate blocks: it streams the whole transcript, which a quiet turn should
-    not pay for."""
+
+def _skill_usage(transcript_path):
+    """The transcript's Skill calls (`self_improve_signals.SkillUsage`), or none on a read error.
+
+    Read only when the gate blocks: it streams the whole transcript once, line by line, for both
+    the skill hint and the loaded-since-compaction set, which a quiet turn should not pay for."""
     try:
         with open(transcript_path, encoding="utf-8", errors="replace") as fh:
-            return _sig.skills_loaded_since_compaction(fh)
+            return _sig.skill_usage(fh)
     except Exception:                                     # noqa: BLE001 - a hint must never wedge a turn
-        return frozenset()
+        return _NO_SKILL_USAGE
 
 
 def _routing_hint(event, proj):
@@ -158,8 +161,8 @@ def _routing_hint(event, proj):
         return ""
 
 
-def _skill_hint(transcript_path):
-    """Prose naming the skills this session invoked, or '' when none ran.
+def _skill_hint(tally):
+    """Prose naming the skills this session invoked (`tally`: name -> calls), or '' when none ran.
 
     A lesson learned while following a skill is usually that skill's gap: recording it as a memory
     fact leaves the skill wrong for every other install and adds a pointer competing with it. The
@@ -168,8 +171,6 @@ def _skill_hint(transcript_path):
     It names candidates and never decides: a skill loaded for one task says nothing about a lesson
     from another."""
     try:
-        with open(transcript_path, encoding="utf-8", errors="replace") as fh:
-            tally = _sig.skills_invoked(fh.read())
         if not tally:
             return ""
         names = sorted(tally)
@@ -258,8 +259,9 @@ def _nap_owed_hint(proj, session_id="", loaded=frozenset()):
 def _subagent_hint(session):
     """Prose naming learnings a SUBAGENT found this session, or '' when none are buffered.
 
-    A subagent's learning never reaches the main transcript unless the main agent restates it (and a
-    named/background agent's report is not returned at all), so the SubagentStop hook buffers the
+    A subagent's mid-task learning never reaches the main transcript unless the main agent restates
+    it (only the subagent's final text can arrive, and on older builds a named agent's not even
+    that), so the SubagentStop hook buffers the
     signal and the main capture is the one that can route + write it. Surfacing it here is what makes
     those learnings capturable at all.
 
@@ -453,7 +455,7 @@ def main():
     # After the once-per-message dedup, so a message already blocked is never asked about again;
     # a turn a hint already blocks needs no answer to decide it.
     cfg = _sig.load_config()
-    if not (nap_hint or sub_hint) and _classifier.site_mode(cfg, "stop_signal") == "decide":
+    if not (nap_hint or sub_hint) and _classifier.site_mode(cfg, "stop_signal") is _classifier.SiteMode.DECIDE:
         fires = _decide_stop_signal(event, regex, _request(last_user, last_asst,
                                                            turn.reply_before_prompt), cfg) or fires
     if fires:
@@ -464,8 +466,9 @@ def main():
             except OSError:
                 pass
         out["decision"] = "block"
-        hints = _routing_hint(event, proj) + _skill_hint(transcript) + sub_hint
-        loaded = _loaded_since_compaction(transcript)
+        usage = _skill_usage(transcript)
+        hints = _routing_hint(event, proj) + _skill_hint(usage.invoked) + sub_hint
+        loaded = usage.loaded_since_compaction
         if nap_hint and "meta-dream-nap" in loaded:
             nap_hint = _nap_owed_hint(proj, event.get("session_id") or "", loaded)
         out["reason"] = nap_hint + _reason(loaded) + hints

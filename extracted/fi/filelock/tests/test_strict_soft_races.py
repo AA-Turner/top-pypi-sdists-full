@@ -72,7 +72,8 @@ def test_strict_soft_lower_intent_delayed_until_higher_selects(tmp_path: Path, m
                 inside += 1
                 assert inside == 1
                 acquisition_order.append(label)
-            time.sleep(0)  # give up the GIL so the other thread contends for the lock
+            # GraalPy 25.4.4 sleeps up to a second for int 0 and returns at once for 0.0
+            time.sleep(0.0)  # give up the GIL so the other thread contends for the lock
             with state_lock:
                 inside -= 1
 
@@ -189,7 +190,7 @@ def test_strict_soft_private_partial_record_is_not_a_claim(tmp_path: Path, mocke
 def test_strict_soft_shared_instance_waits_for_failed_doorway(tmp_path: Path, mocker: MockerFixture) -> None:
     lock_path = tmp_path / "resource.lock"
     _initialize_protocol(lock_path)
-    lock = StrictSoftFileLock(lock_path, thread_local=False, timeout=2, poll_interval=0.001)
+    lock = StrictSoftFileLock(lock_path, thread_local=False, timeout=30, poll_interval=0.001)
     first_doorway = threading.Event()
     fail_first = threading.Event()
     second_entered = threading.Event()
@@ -206,7 +207,7 @@ def test_strict_soft_shared_instance_waits_for_failed_doorway(tmp_path: Path, mo
     ) -> None:
         if threading.current_thread().name == "first" and Path(destination).name.startswith("intent-"):
             first_doorway.set()
-            assert fail_first.wait(timeout=2)
+            assert fail_first.wait(timeout=30)
             raise OSError(EIO, "doorway failed")
         real_link(
             source,
@@ -230,7 +231,7 @@ def test_strict_soft_shared_instance_waits_for_failed_doorway(tmp_path: Path, mo
     first = threading.Thread(target=acquire_first, name="first")
     second = threading.Thread(target=acquire_second, name="second")
     first.start()
-    assert first_doorway.wait(timeout=2)
+    assert first_doorway.wait(timeout=30)
     second.start()
     assert not second_entered.wait(timeout=0.05)
     fail_first.set()

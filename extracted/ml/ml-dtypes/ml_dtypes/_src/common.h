@@ -16,17 +16,16 @@ limitations under the License.
 #ifndef ML_DTYPES_COMMON_H_
 #define ML_DTYPES_COMMON_H_
 
-// Must be included first
-// clang-format off
-#include "ml_dtypes/_src/numpy.h"
-// clang-format on
-
 #include <Python.h>
 
-#include <complex>  // NOLINT
-#include <memory>   // NOLINT
+#include <cmath>
+#include <complex>
+#include <cstdint>
+#include <limits>
+#include <memory>
 
 #include "Eigen/Core"
+#include "ml_dtypes/_src/numpy.h"
 
 namespace ml_dtypes {
 
@@ -44,6 +43,23 @@ inline void ByteSwap32(void* value) {
   std::swap(p[1], p[2]);
 }
 
+inline int CompareFloats(float fx, float fy) {
+  if (fx < fy) {
+    return -1;
+  }
+  if (fy < fx) {
+    return 1;
+  }
+  // NaNs sort to the end.
+  if (!Eigen::numext::isnan(fx) && Eigen::numext::isnan(fy)) {
+    return -1;
+  }
+  if (Eigen::numext::isnan(fx) && !Eigen::numext::isnan(fy)) {
+    return 1;
+  }
+  return 0;
+}
+
 struct PyDecrefDeleter {
   void operator()(PyObject* p) const { Py_DECREF(p); }
 };
@@ -55,130 +71,199 @@ inline Safe_PyObjectPtr make_safe(PyObject* object) {
   return Safe_PyObjectPtr(object);
 }
 
+// Converts a Python int `arg` (negative iff `is_negative`) whose magnitude does
+// not fit in `long long` to a double, rounding to odd: if the int is not
+// exactly representable, the result is whichever of the two doubles bracketing
+// it has an odd significand. A following round to nearest conversion to `float`
+// or a narrower type then rounds only once (see RoundToOddFloat). Returns false
+// with a Python error set on failure, raising OverflowError where `float(arg)`
+// would.
+inline bool PyLongToDoubleRoundToOdd(PyObject* arg, bool is_negative,
+                                     double* out) {
+  constexpr int kDoubleDigits = std::numeric_limits<double>::digits;
+  // Raise OverflowError where `float(arg)` would, as NumPy scalars do.
+  if (PyLong_AsDouble(arg) == -1.0 && PyErr_Occurred()) {
+    return false;
+  }
+  Safe_PyObjectPtr magnitude = make_safe(PyNumber_Absolute(arg));
+  if (!magnitude) {
+    return false;
+  }
+  Safe_PyObjectPtr bit_length_obj =
+      make_safe(PyObject_CallMethod(magnitude.get(), "bit_length", nullptr));
+  if (!bit_length_obj) {
+    return false;
+  }
+  const Py_ssize_t bit_length = PyLong_AsSsize_t(bit_length_obj.get());
+  if (bit_length == -1 && PyErr_Occurred()) {
+    return false;
+  }
+  // Keep the `kDoubleDigits` leading bits, and set the lowest of them if any of
+  // the discarded bits are set.
+  const Py_ssize_t shift =
+      bit_length > kDoubleDigits ? bit_length - kDoubleDigits : 0;
+  Safe_PyObjectPtr shift_obj = make_safe(PyLong_FromSsize_t(shift));
+  if (!shift_obj) {
+    return false;
+  }
+  Safe_PyObjectPtr leading =
+      make_safe(PyNumber_Rshift(magnitude.get(), shift_obj.get()));
+  if (!leading) {
+    return false;
+  }
+  Safe_PyObjectPtr restored =
+      make_safe(PyNumber_Lshift(leading.get(), shift_obj.get()));
+  if (!restored) {
+    return false;
+  }
+  const int exact =
+      PyObject_RichCompareBool(restored.get(), magnitude.get(), Py_EQ);
+  if (exact < 0) {
+    return false;
+  }
+  uint64_t significand = PyLong_AsUnsignedLongLong(leading.get());
+  if (PyErr_Occurred()) {
+    return false;
+  }
+  significand |= exact ? 0 : 1;
+  // `significand` has at most `kDoubleDigits` bits and `float(arg)` is finite,
+  // so this is exact.
+  double abs_value =
+      std::ldexp(static_cast<double>(significand), static_cast<int>(shift));
+  *out = is_negative ? -abs_value : abs_value;
+  return true;
+}
+
+// Reads a NumPy scalar as the C type behind `numpy_type`. Returns false with a
+// Python error set on failure.
+template <typename C>
+inline bool ReadNumpyScalar(PyObject* arg, int numpy_type, C* out) {
+  PyArray_Descr* descr = PyArray_DescrFromType(numpy_type);
+  if (descr == nullptr) {
+    return false;
+  }
+  // Similar to our code, NumPy accepts the array to be nullptr here.
+  const int result = PyDataType_GetArrFuncs(descr)->setitem(arg, out, nullptr);
+  Py_DECREF(descr);
+  return result >= 0;
+}
+
 template <typename T, typename Enable = void>
-struct TypeDescriptor {
-  // typedef ... T;  // Representation type in memory for NumPy values of type
+struct DtypeTraits {
   // static int Dtype() { return NPY_...; }  // Numpy type number for T.
+  // static PyArray_DTypeMeta* DTypeMeta();  // Numpy DTypeMeta for T.
 };
 
 template <>
-struct TypeDescriptor<unsigned char> {
-  typedef unsigned char T;
+struct DtypeTraits<unsigned char> {
   static int Dtype() { return NPY_UBYTE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_UByteDType; }
 };
 
 template <>
-struct TypeDescriptor<unsigned short> {  // NOLINT
-  typedef unsigned short T;              // NOLINT
+struct DtypeTraits<unsigned short> {  // NOLINT
   static int Dtype() { return NPY_USHORT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_UShortDType; }
 };
 
 // We register "int", "long", and "long long" types for portability across
 // Linux, where "int" and "long" are the same type, and Windows, where "long"
 // and "longlong" are the same type.
 template <>
-struct TypeDescriptor<unsigned int> {
-  typedef unsigned int T;
+struct DtypeTraits<unsigned int> {
   static int Dtype() { return NPY_UINT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_UIntDType; }
 };
 
 template <>
-struct TypeDescriptor<unsigned long> {  // NOLINT
-  typedef unsigned long T;              // NOLINT
+struct DtypeTraits<unsigned long> {  // NOLINT
   static int Dtype() { return NPY_ULONG; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_ULongDType; }
 };
 
 template <>
-struct TypeDescriptor<unsigned long long> {  // NOLINT
-  typedef unsigned long long T;              // NOLINT
+struct DtypeTraits<unsigned long long> {  // NOLINT
   static int Dtype() { return NPY_ULONGLONG; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_ULongLongDType; }
 };
 
 template <>
-struct TypeDescriptor<signed char> {
-  typedef signed char T;
+struct DtypeTraits<signed char> {
   static int Dtype() { return NPY_BYTE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_ByteDType; }
 };
 
 template <>
-struct TypeDescriptor<short> {  // NOLINT
-  typedef short T;              // NOLINT
+struct DtypeTraits<short> {  // NOLINT
   static int Dtype() { return NPY_SHORT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_ShortDType; }
 };
 
 template <>
-struct TypeDescriptor<int> {
-  typedef int T;
+struct DtypeTraits<int> {
   static int Dtype() { return NPY_INT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_IntDType; }
 };
 
 template <>
-struct TypeDescriptor<long> {  // NOLINT
-  typedef long T;              // NOLINT
+struct DtypeTraits<long> {  // NOLINT
   static int Dtype() { return NPY_LONG; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_LongDType; }
 };
 
 template <>
-struct TypeDescriptor<long long> {  // NOLINT
-  typedef long long T;              // NOLINT
+struct DtypeTraits<long long> {  // NOLINT
   static int Dtype() { return NPY_LONGLONG; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_LongLongDType; }
 };
 
 template <>
-struct TypeDescriptor<bool> {
-  typedef unsigned char T;
+struct DtypeTraits<bool> {
   static int Dtype() { return NPY_BOOL; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_BoolDType; }
 };
 
 template <>
-struct TypeDescriptor<ml_dtypes::half> {
-  typedef ml_dtypes::half T;
+struct DtypeTraits<ml_dtypes::half> {
   static int Dtype() { return NPY_HALF; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_HalfDType; }
 };
 
 template <>
-struct TypeDescriptor<float> {
-  typedef float T;
+struct DtypeTraits<float> {
   static int Dtype() { return NPY_FLOAT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_FloatDType; }
 };
 
 template <>
-struct TypeDescriptor<double> {
-  typedef double T;
+struct DtypeTraits<double> {
   static int Dtype() { return NPY_DOUBLE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_DoubleDType; }
 };
 
 template <>
-struct TypeDescriptor<long double> {
-  typedef long double T;
+struct DtypeTraits<long double> {
   static int Dtype() { return NPY_LONGDOUBLE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_LongDoubleDType; }
 };
 
 template <>
-struct TypeDescriptor<std::complex<float>> {
-  typedef std::complex<float> T;
+struct DtypeTraits<std::complex<float>> {
   static int Dtype() { return NPY_CFLOAT; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_CFloatDType; }
 };
 
 template <>
-struct TypeDescriptor<std::complex<double>> {
-  typedef std::complex<double> T;
+struct DtypeTraits<std::complex<double>> {
   static int Dtype() { return NPY_CDOUBLE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_CDoubleDType; }
 };
 
 template <>
-struct TypeDescriptor<std::complex<long double>> {
-  typedef std::complex<long double> T;
+struct DtypeTraits<std::complex<long double>> {
   static int Dtype() { return NPY_CLONGDOUBLE; }
+  static PyArray_DTypeMeta* DTypeMeta() { return &PyArray_CLongDoubleDType; }
 };
-
-template <class T>
-struct is_complex : std::false_type {};
-template <class T>
-struct is_complex<std::complex<T>> : std::true_type {};
-
-template <typename T>
-inline constexpr bool is_complex_v = is_complex<T>::value;
 
 }  // namespace ml_dtypes
 

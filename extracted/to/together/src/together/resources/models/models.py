@@ -259,6 +259,7 @@ class ModelsResource(SyncAPIResource):
         project_id: str | None = None,
         after: str | Omit = omit,
         limit: int | Omit = omit,
+        order_by: str | Omit = omit,
         organization_id: str | Omit = omit,
         visibility: Literal["VISIBILITY_PRIVATE", "VISIBILITY_INTERNAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -280,6 +281,9 @@ class ModelsResource(SyncAPIResource):
           after: Cursor from a previous model list response.
 
           limit: Maximum number of models to return.
+
+          order_by: Sort field for the results. Supports `created_at`, optionally followed by `asc`
+              or `desc`. Defaults to ascending.
 
           organization_id: Organization whose shared models should be included. Defaults to the
               authenticated project's organization.
@@ -311,6 +315,7 @@ class ModelsResource(SyncAPIResource):
                     {
                         "after": after,
                         "limit": limit,
+                        "order_by": order_by,
                         "organization_id": organization_id,
                         "visibility": visibility,
                     },
@@ -420,6 +425,7 @@ class ModelsResource(SyncAPIResource):
         *,
         after: str | Omit = omit,
         limit: int | Omit = omit,
+        order_by: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -437,6 +443,9 @@ class ModelsResource(SyncAPIResource):
           after: Cursor from a previous list response.
 
           limit: Maximum number of results to return.
+
+          order_by: Sort field for the results. Supports `created_at`, optionally followed by `asc`
+              or `desc`. Defaults to ascending.
 
           extra_headers: Send extra headers
 
@@ -460,6 +469,7 @@ class ModelsResource(SyncAPIResource):
                     {
                         "after": after,
                         "limit": limit,
+                        "order_by": order_by,
                     },
                     model_list_org_scoped_params.ModelListOrgScopedParams,
                 ),
@@ -572,6 +582,52 @@ class ModelsResource(SyncAPIResource):
                 ),
             ),
             model=SupportedModel,
+        )
+
+    def retrieve_org_model(
+        self,
+        organization_id: str,
+        model_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Model:
+        """
+        Retrieves a custom model shared with every project in the specified
+        organization, regardless of which project owns it. Returns not found if the
+        model belongs to another organization or is not organization-scoped.
+
+        Args:
+          organization_id: Organization identifier.
+
+          model_id: Model identifier.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not organization_id:
+            raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
+        if not model_id:
+            raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
+        return self._get(
+            path_template(
+                "/v2/organizations/{organization_id}/models/{model_id}",
+                organization_id=organization_id,
+                model_id=model_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Model,
         )
 
     def retrieve_supported(
@@ -819,6 +875,7 @@ class AsyncModelsResource(AsyncAPIResource):
         project_id: str | None = None,
         after: str | Omit = omit,
         limit: int | Omit = omit,
+        order_by: str | Omit = omit,
         organization_id: str | Omit = omit,
         visibility: Literal["VISIBILITY_PRIVATE", "VISIBILITY_INTERNAL"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -840,6 +897,9 @@ class AsyncModelsResource(AsyncAPIResource):
           after: Cursor from a previous model list response.
 
           limit: Maximum number of models to return.
+
+          order_by: Sort field for the results. Supports `created_at`, optionally followed by `asc`
+              or `desc`. Defaults to ascending.
 
           organization_id: Organization whose shared models should be included. Defaults to the
               authenticated project's organization.
@@ -871,6 +931,7 @@ class AsyncModelsResource(AsyncAPIResource):
                     {
                         "after": after,
                         "limit": limit,
+                        "order_by": order_by,
                         "organization_id": organization_id,
                         "visibility": visibility,
                     },
@@ -982,6 +1043,7 @@ class AsyncModelsResource(AsyncAPIResource):
         *,
         after: str | Omit = omit,
         limit: int | Omit = omit,
+        order_by: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -999,6 +1061,9 @@ class AsyncModelsResource(AsyncAPIResource):
           after: Cursor from a previous list response.
 
           limit: Maximum number of results to return.
+
+          order_by: Sort field for the results. Supports `created_at`, optionally followed by `asc`
+              or `desc`. Defaults to ascending.
 
           extra_headers: Send extra headers
 
@@ -1022,6 +1087,7 @@ class AsyncModelsResource(AsyncAPIResource):
                     {
                         "after": after,
                         "limit": limit,
+                        "order_by": order_by,
                     },
                     model_list_org_scoped_params.ModelListOrgScopedParams,
                 ),
@@ -1136,6 +1202,52 @@ class AsyncModelsResource(AsyncAPIResource):
             model=SupportedModel,
         )
 
+    async def retrieve_org_model(
+        self,
+        organization_id: str,
+        model_id: str,
+        *,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> Model:
+        """
+        Retrieves a custom model shared with every project in the specified
+        organization, regardless of which project owns it. Returns not found if the
+        model belongs to another organization or is not organization-scoped.
+
+        Args:
+          organization_id: Organization identifier.
+
+          model_id: Model identifier.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not organization_id:
+            raise ValueError(f"Expected a non-empty value for `organization_id` but received {organization_id!r}")
+        if not model_id:
+            raise ValueError(f"Expected a non-empty value for `model_id` but received {model_id!r}")
+        return await self._get(
+            path_template(
+                "/v2/organizations/{organization_id}/models/{model_id}",
+                organization_id=organization_id,
+                model_id=model_id,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=Model,
+        )
+
     async def retrieve_supported(
         self,
         id: str,
@@ -1204,6 +1316,9 @@ class ModelsResourceWithRawResponse:
         self.list_supported = to_raw_response_wrapper(
             models.list_supported,
         )
+        self.retrieve_org_model = to_raw_response_wrapper(
+            models.retrieve_org_model,
+        )
         self.retrieve_supported = to_raw_response_wrapper(
             models.retrieve_supported,
         )
@@ -1247,6 +1362,9 @@ class AsyncModelsResourceWithRawResponse:
         )
         self.list_supported = async_to_raw_response_wrapper(
             models.list_supported,
+        )
+        self.retrieve_org_model = async_to_raw_response_wrapper(
+            models.retrieve_org_model,
         )
         self.retrieve_supported = async_to_raw_response_wrapper(
             models.retrieve_supported,
@@ -1292,6 +1410,9 @@ class ModelsResourceWithStreamingResponse:
         self.list_supported = to_streamed_response_wrapper(
             models.list_supported,
         )
+        self.retrieve_org_model = to_streamed_response_wrapper(
+            models.retrieve_org_model,
+        )
         self.retrieve_supported = to_streamed_response_wrapper(
             models.retrieve_supported,
         )
@@ -1335,6 +1456,9 @@ class AsyncModelsResourceWithStreamingResponse:
         )
         self.list_supported = async_to_streamed_response_wrapper(
             models.list_supported,
+        )
+        self.retrieve_org_model = async_to_streamed_response_wrapper(
+            models.retrieve_org_model,
         )
         self.retrieve_supported = async_to_streamed_response_wrapper(
             models.retrieve_supported,

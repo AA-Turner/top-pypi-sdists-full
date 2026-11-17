@@ -505,6 +505,12 @@ class APIDriver:
             )
         except KeyError as e:
             raise TableNotFound(table_ref) from e
+        except BadRequestException as e:
+            # A missing table in a known warehouse answers 404, as does a deleted
+            # Anomalo View.
+            if e.status_code == 404:
+                raise TableNotFound(table_ref) from e
+            raise
 
     def _table_ref_parts(self, table_ref: str) -> tuple[str, str]:
         try:

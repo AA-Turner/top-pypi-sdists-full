@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from mistralai.workflows.core._registration.null_value_compat import call_stripping_nulls_on_rejection
 from mistralai.workflows.core.activity import activity
-from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX, config
+from mistralai.workflows.core.auth.header_files import get_deployment_headers
+from mistralai.workflows.core.config.config import INTERNAL_ACTIVITY_PREFIX
 from mistralai.workflows.core.worker_client import get_worker_client
 
 REGISTER_EXECUTION_ACTIVITY_NAME = f"{INTERNAL_ACTIVITY_PREFIX}register_execution"
@@ -19,7 +20,7 @@ async def _register_execution(
     execution_token_hash: str,
     search_key_metadata: dict[str, str | None] | None = None,
 ) -> bool:
-    client = get_worker_client(headers=config.worker.mistral_api_headers)
+    client = get_worker_client(headers=get_deployment_headers())
     await call_stripping_nulls_on_rejection(
         lambda metadata: client.register_execution_async(
             temporal_workflow_id=temporal_workflow_id,

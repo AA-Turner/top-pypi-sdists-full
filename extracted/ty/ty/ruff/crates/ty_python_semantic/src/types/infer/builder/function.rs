@@ -700,9 +700,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             };
             let implementation_callables = implementation_ty
                 .try_upcast_to_callable(db, self.program_environment())
-                .map_or_else(Box::default, |callables| {
-                    callables.iter().copied().collect()
-                });
+                .map_or_default(|callables| callables.iter().copied().collect());
             inferred_ty = Type::FunctionLiteral(
                 function_type.with_implementation_callables(db, implementation_callables),
             );
@@ -808,7 +806,7 @@ impl<'db, 'ast> TypeInferenceBuilder<'db, 'ast> {
             let annotation = param_with_default
                 .annotation()
                 .map(|annotation| function_signature_expression_type(db, definition, annotation));
-            self.infer_expression(default, TypeContext::declared(annotation));
+            self.infer_expression(default, TypeContext::preference(annotation));
         }
 
         self.deferred_state = previous_deferred_state;
@@ -1809,7 +1807,7 @@ impl KnownFunction {
                                 .speculate_without_diagnostics()
                                 .infer_expression(
                                     value_expr,
-                                    TypeContext::declared(Some(casted_type)),
+                                    TypeContext::preference(Some(casted_type)),
                                 )
                                 .is_disjoint_from(db, env, casted_type)
                         })

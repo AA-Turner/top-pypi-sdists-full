@@ -8,6 +8,7 @@ from sky import exceptions
 from sky import global_user_state
 from sky import models
 from sky import sky_logging
+from sky import skypilot_config
 from sky.skylet import constants
 
 logger = sky_logging.init_logger(__name__)
@@ -56,6 +57,34 @@ def check_no_active_resources_for_workspaces(
 
     _check_active_resources(workspace_operations, filter_by_workspace,
                             'workspace')
+    _check_no_storage_in_deleted_workspaces(workspace_operations)
+
+
+def _check_no_storage_in_deleted_workspaces(
+        workspace_operations: List[Tuple[str, str]]) -> None:
+    """Refuses to delete a workspace that still holds storage: it would be
+    hidden from everyone but admins, its name unusable and its bucket
+    orphaned.
+
+    Raises:
+        ValueError: If a workspace to delete has storage.
+    """
+    error_messages = []
+    for workspace_name, operation in workspace_operations:
+        if operation != 'delete':
+            continue
+        storage_names = sorted(record['name']
+                               for record in global_user_state.get_storage(
+                                   workspaces_filter={workspace_name}))
+        if storage_names:
+            label = skypilot_config.get_workspace_name(workspace_name)
+            error_messages.append(
+                f'Cannot delete workspace {label!r} because it has '
+                f'{len(storage_names)} storage(s): '
+                f'{", ".join(storage_names)}.')
+    if error_messages:
+        raise ValueError('\n'.join(error_messages) +
+                         ' Please delete these storages first.')
 
 
 def _check_active_resources(resource_operations: List[Tuple[str, str]],
@@ -121,6 +150,9 @@ def _check_active_resources(resource_operations: List[Tuple[str, str]],
                 user_info = global_user_state.get_user(resource_name)
                 if user_info and user_info.name:
                     resource_name = user_info.name
+            elif resource_type == 'workspace':
+                resource_name = skypilot_config.get_workspace_name(
+                    resource_name)
             error_messages.append(
                 f'Cannot {operation} {resource_type} {resource_name!r} '
                 f'because it has {resource_error_summary}.')
@@ -394,8 +426,6 @@ def load_fresh_workspaces() -> Dict[str, Any]:
     Individual callers should rely on the default ``workspaces=None`` of
     ``check_user_role_demotion`` instead.
     """
-    # pylint: disable=import-outside-toplevel
-    from sky import skypilot_config
     skypilot_config.safe_reload_config()
     return skypilot_config.get_nested(('workspaces',), default_value={})
 
@@ -513,7 +543,9 @@ def check_user_role_demotion(
             job_list = ', '.join(res['jobs'])
             parts.append(f'{n_jobs} active managed job(s): {job_list}')
         joined = ' and '.join(parts)
-        error_lines.append(f'  - workspace {ws!r}: {joined}')
+        error_lines.append(
+            f'  - workspace {skypilot_config.get_workspace_name(ws)!r}: '
+            f'{joined}')
 
     raise ValueError(
         f'Cannot demote user {user_display!r} from admin to user: user '

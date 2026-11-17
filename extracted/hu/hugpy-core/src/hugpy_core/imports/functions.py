@@ -29,6 +29,19 @@ def self_base() -> str:
     return C.DEFAULT_SELF_BASE.rstrip("/")
 
 
+def local_base() -> str:
+    """Core's OWN loopback listener (``HUGPY_CORE_HOST``:``HUGPY_CORE_PORT``), for
+    calls this box makes to itself. NEVER the public ``HUGPY_SELF_BASE`` / proxy
+    domain: an in-box call must not leave the box or meet the public proxy's auth
+    and request timeouts. ``0.0.0.0``/``::`` (listen-on-all) map to loopback; a
+    comma-list host uses its first entry."""
+    host = (os.environ.get("HUGPY_CORE_HOST") or "").split(",", 1)[0].strip() or "127.0.0.1"
+    if host in ("0.0.0.0", "::"):
+        host = "127.0.0.1"
+    port = os.environ.get("HUGPY_CORE_PORT") or "7002"
+    return f"http://{host}:{port}"
+
+
 def env_str(name: str, default: Optional[str] = None) -> Optional[str]:
     v = os.environ.get(name, default)
     if v is None:

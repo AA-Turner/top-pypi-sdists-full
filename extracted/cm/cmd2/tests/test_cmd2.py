@@ -9,9 +9,11 @@ import sys
 import tempfile
 import threading
 from code import InteractiveConsole
+from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from typing import (
     NoReturn,
+    TextIO,
     cast,
 )
 from unittest import mock
@@ -965,6 +967,138 @@ def test_pipe_to_shell_and_redirect(redirection_app, running_pipe_process) -> No
     assert not err
     assert os.path.exists(filename)
     os.remove(filename)
+
+
+class BrokenPipeApp(cmd2.Cmd):
+    """Commands which hit a broken pipe without going through one of cmd2's print methods."""
+
+    def do_own_console(self, _: str) -> None:
+        """Print through a console of its own, for longer than the reader of its output stays around."""
+        console = ru.Cmd2GeneralConsole(file=self.stdout)
+
+        # More than fits in a pipe, so the command is still writing when the reader goes away
+        for _line in range(4096):
+            console.print("x" * 1024)
+        self.perror("the pipe never broke")
+
+    def do_raise_broken_pipe(self, _: str) -> None:
+        """Raise the error a write to a closed pipe or socket raises."""
+        raise BrokenPipeError
+
+    def do_other_console(self, _: str) -> None:
+        """Print through a console which writes somewhere other than the command's output."""
+        ru.Cmd2GeneralConsole(file=self.other_stream).print("x")
+
+    def do_unwind(self, how: str) -> None:
+        """Have a console write as an exception ends the command, as the with block of a progress display does."""
+        try:
+            raise KeyboardInterrupt if how == "interrupt" else SystemExit(5)
+        finally:
+            ru.Cmd2GeneralConsole(file=self.stdout).print("x")
+
+    def do_quiet(self, _: str) -> None:
+        """Write nothing."""
+
+    def console_hook(self, data: cmd2.plugin.CommandFinalizationData) -> cmd2.plugin.CommandFinalizationData:
+        """Print through a console of its own once a command has finished."""
+        ru.Cmd2GeneralConsole(file=self.stdout).print("x")
+        return data
+
+
+@pytest.fixture
+def broken_pipe() -> Iterator[TextIO]:
+    """A stream which writes to a pipe nothing reads."""
+    read_fd, write_fd = os.pipe()
+    os.close(read_fd)
+    stream = open(write_fd, "w")  # noqa: SIM115
+    yield stream
+
+    # Closing flushes what a failed write left in the buffer, which fails again
+    with contextlib.suppress(BrokenPipeError):
+        stream.close()
+
+
+#: A closed pipe raises BrokenPipeError on POSIX. On Windows it can raise another OSError, which no part of cmd2 handles.
+posix_broken_pipe = pytest.mark.skipif(sys.platform == "win32", reason="a write to a closed pipe raises another OSError")
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_a_commands_own_console_is_ignored(broken_pipe, capsys) -> None:
+    """Whatever stdout is a pipe to, a command ends quietly when its reader goes away, as one which uses poutput() does."""
+    app = BrokenPipeApp(stdout=broken_pipe)
+    app.onecmd_plus_hooks("own_console")
+    assert not capsys.readouterr().err
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_a_commands_own_console_prints_the_warning(broken_pipe, capsys) -> None:
+    app = BrokenPipeApp(stdout=broken_pipe)
+    app.broken_pipe_warning = "The pipe broke"
+    app.onecmd_plus_hooks("own_console")
+    assert capsys.readouterr().err == "The pipe broke\n"
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_a_piped_commands_own_console_is_ignored(running_pipe_process) -> None:
+    """The shell command a command's output is piped to exits before reading all of it.
+
+    head cannot exit before the command has written a line, so cmd2 never finds that the pipe process ended before the
+    command could run, however slowly the two start.
+    """
+    out, err = run_cmd(BrokenPipeApp(), "own_console | head -n 1")
+    assert out == ["x" * 1024]
+    assert not err
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_the_console_of_a_command_in_a_piped_script_is_ignored(tmp_path, running_pipe_process) -> None:
+    script = tmp_path / "script.txt"
+    script.write_text("own_console\n")
+    out, err = run_cmd(BrokenPipeApp(), f"run_script {script} | head -n 1")
+    assert out == ["x" * 1024]
+    assert not err
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_a_console_on_another_stream_is_reported(broken_pipe) -> None:
+    """A console knows which stream broke. Only the command's output going away is expected."""
+    app = BrokenPipeApp()
+    app.other_stream = broken_pipe
+    _out, err = run_cmd(app, "other_console")
+    assert any("BrokenPipeError" in line for line in err)
+
+
+@posix_broken_pipe
+def test_broken_pipe_does_not_hide_the_interrupt_it_replaced(broken_pipe) -> None:
+    """Ctrl-C still stops a script when a console hits a broken pipe as the interrupt ends the command."""
+    app = BrokenPipeApp(stdout=broken_pipe)
+    with pytest.raises(KeyboardInterrupt):
+        app.onecmd_plus_hooks("unwind interrupt", raise_keyboard_interrupt=True)
+
+
+@posix_broken_pipe
+def test_broken_pipe_does_not_hide_the_exit_it_replaced(broken_pipe) -> None:
+    app = BrokenPipeApp(stdout=broken_pipe)
+    assert app.onecmd_plus_hooks("unwind exit") is True
+    assert app.exit_code == 5
+
+
+@posix_broken_pipe
+def test_broken_pipe_from_the_console_of_a_finalization_hook_is_ignored(broken_pipe, capsys) -> None:
+    app = BrokenPipeApp(stdout=broken_pipe)
+    app.register_cmdfinalization_hook(app.console_hook)
+    app.onecmd_plus_hooks("quiet")
+    assert not capsys.readouterr().err
+
+
+@pytest.mark.parametrize("redirection", ["", " | sort", " > {file}"])
+def test_broken_pipe_raised_by_a_command_is_reported(tmp_path, running_pipe_process, redirection) -> None:
+    """Only a console knows that it was the command's output which broke. Any other BrokenPipeError is not hidden."""
+    app = BrokenPipeApp()
+    app.broken_pipe_warning = "The pipe broke"
+    _out, err = run_cmd(app, "raise_broken_pipe" + redirection.format(file=tmp_path / "out.txt"))
+    assert "BrokenPipeError" in err[0]
+    assert "The pipe broke" not in err
 
 
 @pytest.mark.parametrize(
@@ -4008,6 +4142,140 @@ def test_ppaged_pages_utf8_in_a_utf8_console(outsim_app, monkeypatch) -> None:
     paged = popen_mock.return_value.communicate.call_args.args[0]
     assert "box ─ smile \U0001f642".encode() in paged
     assert events == ["utf-8 console", "pager started", "pager exited", "restored"]
+
+
+class FakeTerminal(io.TextIOWrapper):
+    """A real file which says it is a terminal, so that a pager's shell can be given it to write to."""
+
+    def isatty(self) -> bool:
+        return True
+
+
+@pytest.fixture
+def paging_app(outsim_app, monkeypatch, tmp_path):
+    """An application which will page, and whatever reaches its terminal."""
+    stdin_mock = mock.MagicMock()
+    stdin_mock.isatty.return_value = True
+    monkeypatch.setattr(outsim_app, "stdin", stdin_mock)
+    if not sys.platform.startswith("win") and os.environ.get("TERM") is None:
+        monkeypatch.setenv("TERM", "simulated")
+    with FakeTerminal((tmp_path / "terminal").open("w+b"), encoding="utf-8") as terminal:
+        monkeypatch.setattr(outsim_app, "stdout", terminal)
+
+        def shown() -> str:
+            terminal.flush()
+            terminal.seek(0)
+            return terminal.read()
+
+        yield outsim_app, shown
+
+
+@pytest.mark.parametrize("chop", [True, False])
+def test_ppaged_shows_the_output_when_the_pager_cannot_be_run(paging_app, capfd, chop) -> None:
+    """A pager which is not installed must not cost the user the output.
+
+    The shell reports the missing program and exits. Nothing has been shown by then, and
+    without the pager there is nobody else to show it.
+    """
+    app, shown = paging_app
+    app.pager = app.pager_chop = "cmd2-no-such-pager-program --some-option"
+
+    app.ppaged("first line\nsecond line", chop=chop)
+
+    assert shown() == "first line\nsecond line\n"
+    # The shell said why there was no pager.
+    assert "cmd2-no-such-pager-program" in capfd.readouterr().err
+
+
+def test_ppaged_without_a_pager_wraps_as_the_caller_asked(paging_app) -> None:
+    """Chopping turns soft wrap on for a pager to scroll sideways. With no pager, the caller's choice stands."""
+    app, shown = paging_app
+    app.pager_chop = "cmd2-no-such-pager-program"
+
+    app.ppaged("word " * 400, chop=True, soft_wrap=False)
+
+    assert len(shown().splitlines()) > 1
+
+
+def test_ppaged_does_not_repeat_output_after_a_pager_which_ran_and_failed(paging_app) -> None:
+    """Only a pager which could not be started is made up for: one which ran has had the output."""
+    app, shown = paging_app
+    app.pager = f'"{sys.executable}" -c "import sys; sys.stdin.read(); sys.exit(1)"'
+
+    app.ppaged("first line\nsecond line")
+
+    assert shown() == ""
+
+
+class RendersOnce:
+    """A renderable which only has its lines to give the first time it is rendered."""
+
+    def __init__(self, *lines: str) -> None:
+        self._lines = iter(lines)
+
+    def __rich_console__(self, console, options):
+        yield from self._lines
+
+
+def test_ppaged_does_not_try_again_a_pager_which_cannot_be_run(paging_app, capfd) -> None:
+    """The shell says once that there is no such pager, not every time something is paged.
+
+    From then on nothing is rendered for a pager either, only for poutput().
+    """
+    app, shown = paging_app
+    app.pager = "cmd2-no-such-pager-program"
+
+    app.ppaged("first")
+    assert "cmd2-no-such-pager-program" in capfd.readouterr().err
+
+    with mock.patch("subprocess.Popen") as popen_mock:
+        app.ppaged(RendersOnce("second"))
+
+    popen_mock.assert_not_called()
+    assert capfd.readouterr().err == ""
+    assert shown() == "first\nsecond\n"
+
+
+def test_ppaged_tries_another_pager_after_one_which_cannot_be_run(paging_app) -> None:
+    """Only the command which could not be run is given up on, so setting a pager which works is enough."""
+    app, shown = paging_app
+    app.pager = "cmd2-no-such-pager-program"
+    app.ppaged("unpaged")
+
+    app.pager = f'"{sys.executable}" -c "import sys; sys.stdout.write(sys.stdin.read().upper())"'
+    app.ppaged("paged")
+
+    assert shown() == "unpaged\nPAGED\n"
+
+
+@pytest.mark.parametrize(
+    ("platform", "command", "returncode", "found", "expected"),
+    [
+        pytest.param("linux", "less -RXF", 127, True, True, id="a POSIX shell found no such command"),
+        pytest.param("linux", "less -RXF", 126, True, True, id="a POSIX shell could not execute it"),
+        pytest.param("linux", "less -RXF", 1, False, False, id="a POSIX pager failed by itself"),
+        pytest.param("linux", "less -RXF", 0, False, False, id="a POSIX pager succeeded"),
+        pytest.param("win32", "less -RXF", 1, False, True, id="cmd.exe found no such command"),
+        pytest.param("win32", '"C:\\Program Files\\less.exe" -R', 1, False, True, id="cmd.exe found no such quoted path"),
+        pytest.param("win32", "more", 1, True, False, id="a Windows pager failed by itself"),
+        pytest.param("win32", "less -RXF", 0, False, False, id="a Windows pager succeeded"),
+        pytest.param("win32", 'less "unbalanced', 1, False, False, id="a Windows command which cannot be taken apart"),
+        pytest.param("win32", "", 1, False, False, id="no Windows command at all"),
+    ],
+)
+def test_pager_failed_to_start(monkeypatch, platform, command, returncode, found, expected) -> None:
+    looked_for = []
+
+    def which(program: str) -> str | None:
+        looked_for.append(program)
+        return program if found else None
+
+    monkeypatch.setattr(sys, "platform", platform)
+    monkeypatch.setattr("shutil.which", which)
+
+    assert cmd2.Cmd._pager_failed_to_start(command, returncode) is expected
+    # A quoted program is looked for by its name, not with its quotes.
+    assert all(not program.startswith('"') for program in looked_for)
 
 
 def test_ppaged_no_pager(outsim_app) -> None:

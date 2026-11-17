@@ -9,7 +9,7 @@ import pytest
 
 from privy import PrivyAPI, AsyncPrivyAPI
 from tests.utils import assert_matches_type
-from privy.types.wallets import EarnIncentiveClaimActionResponse
+from privy.types.wallets import EarnIncentiveRewardsResponse, EarnIncentiveClaimActionResponse
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -19,10 +19,56 @@ class TestIncentive:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_list(self, client: PrivyAPI) -> None:
+        incentive = client.wallets.earn.ethereum.incentive.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        )
+        assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_list(self, client: PrivyAPI) -> None:
+        response = client.wallets.earn.ethereum.incentive.with_raw_response.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        incentive = response.parse()
+        assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_list(self, client: PrivyAPI) -> None:
+        with client.wallets.earn.ethereum.incentive.with_streaming_response.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            incentive = response.parse()
+            assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_list(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            client.wallets.earn.ethereum.incentive.with_raw_response.list(
+                wallet_id="",
+                chain="chain",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_claim(self, client: PrivyAPI) -> None:
         incentive = client.wallets.earn.ethereum.incentive._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         )
         assert_matches_type(EarnIncentiveClaimActionResponse, incentive, path=["response"])
 
@@ -31,7 +77,7 @@ class TestIncentive:
     def test_method_claim_with_all_params(self, client: PrivyAPI) -> None:
         incentive = client.wallets.earn.ethereum.incentive._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
             nonce="xxxxxxxxxxxxxxxxxxxxxxxx",
             reference_id="x",
             privy_authorization_signature="privy-authorization-signature",
@@ -45,7 +91,7 @@ class TestIncentive:
     def test_raw_response_claim(self, client: PrivyAPI) -> None:
         response = client.wallets.earn.ethereum.incentive.with_raw_response._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         )
 
         assert response.is_closed is True
@@ -58,7 +104,7 @@ class TestIncentive:
     def test_streaming_response_claim(self, client: PrivyAPI) -> None:
         with client.wallets.earn.ethereum.incentive.with_streaming_response._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -74,7 +120,7 @@ class TestIncentive:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
             client.wallets.earn.ethereum.incentive.with_raw_response._claim(
                 wallet_id="",
-                chain="base",
+                chain="tempo",
             )
 
 
@@ -85,10 +131,56 @@ class TestAsyncIncentive:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_list(self, async_client: AsyncPrivyAPI) -> None:
+        incentive = await async_client.wallets.earn.ethereum.incentive.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        )
+        assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_list(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.wallets.earn.ethereum.incentive.with_raw_response.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        incentive = await response.parse()
+        assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_list(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.wallets.earn.ethereum.incentive.with_streaming_response.list(
+            wallet_id="wallet_id",
+            chain="chain",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            incentive = await response.parse()
+            assert_matches_type(EarnIncentiveRewardsResponse, incentive, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_list(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            await async_client.wallets.earn.ethereum.incentive.with_raw_response.list(
+                wallet_id="",
+                chain="chain",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_claim(self, async_client: AsyncPrivyAPI) -> None:
         incentive = await async_client.wallets.earn.ethereum.incentive._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         )
         assert_matches_type(EarnIncentiveClaimActionResponse, incentive, path=["response"])
 
@@ -97,7 +189,7 @@ class TestAsyncIncentive:
     async def test_method_claim_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
         incentive = await async_client.wallets.earn.ethereum.incentive._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
             nonce="xxxxxxxxxxxxxxxxxxxxxxxx",
             reference_id="x",
             privy_authorization_signature="privy-authorization-signature",
@@ -111,7 +203,7 @@ class TestAsyncIncentive:
     async def test_raw_response_claim(self, async_client: AsyncPrivyAPI) -> None:
         response = await async_client.wallets.earn.ethereum.incentive.with_raw_response._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         )
 
         assert response.is_closed is True
@@ -124,7 +216,7 @@ class TestAsyncIncentive:
     async def test_streaming_response_claim(self, async_client: AsyncPrivyAPI) -> None:
         async with async_client.wallets.earn.ethereum.incentive.with_streaming_response._claim(
             wallet_id="wallet_id",
-            chain="base",
+            chain="tempo",
         ) as response:
             assert not response.is_closed
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -140,5 +232,5 @@ class TestAsyncIncentive:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
             await async_client.wallets.earn.ethereum.incentive.with_raw_response._claim(
                 wallet_id="",
-                chain="base",
+                chain="tempo",
             )

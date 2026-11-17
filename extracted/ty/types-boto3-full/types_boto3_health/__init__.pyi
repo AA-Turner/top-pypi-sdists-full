@@ -19,6 +19,8 @@ Usage::
         DescribeEventsForOrganizationPaginator,
         DescribeEventsPaginator,
         DescribeServiceLifecyclePaginator,
+        DescribeTagsForOrganizationPaginator,
+        DescribeTagsPaginator,
         HealthClient,
     )
 
@@ -33,6 +35,8 @@ Usage::
     describe_events_for_organization_paginator: DescribeEventsForOrganizationPaginator = client.get_paginator("describe_events_for_organization")
     describe_events_paginator: DescribeEventsPaginator = client.get_paginator("describe_events")
     describe_service_lifecycle_paginator: DescribeServiceLifecyclePaginator = client.get_paginator("describe_service_lifecycle")
+    describe_tags_for_organization_paginator: DescribeTagsForOrganizationPaginator = client.get_paginator("describe_tags_for_organization")
+    describe_tags_paginator: DescribeTagsPaginator = client.get_paginator("describe_tags")
     ```
 """
 
@@ -46,6 +50,8 @@ from .paginator import (
     DescribeEventsPaginator,
     DescribeEventTypesPaginator,
     DescribeServiceLifecyclePaginator,
+    DescribeTagsForOrganizationPaginator,
+    DescribeTagsPaginator,
 )
 
 Client = HealthClient
@@ -60,5 +66,7 @@ __all__ = (
     "DescribeEventsForOrganizationPaginator",
     "DescribeEventsPaginator",
     "DescribeServiceLifecyclePaginator",
+    "DescribeTagsForOrganizationPaginator",
+    "DescribeTagsPaginator",
     "HealthClient",
 )

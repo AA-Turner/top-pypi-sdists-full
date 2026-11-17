@@ -1227,6 +1227,8 @@ WRITE_GROUPS = frozenset(
         "span",
         "group",
         "edge",
+        # Decisions (decisions PR2): `add` records, `list` reads, `remove` removes.
+        "decision",
         "trial",
         "views",
         "paper",
@@ -1620,8 +1622,9 @@ def daemon_allows_agent(matched: str) -> bool:
 #: THE DAEMON PROFILE (daemon reads): the machine installed the lean
 #: `probe-research-daemon` plugin, so the daemon records AND reads, and the main
 #: agent's `probe` is `ask`, `exec`, its runs' own data and its panes
-#: (`DAEMON_AGENT_WRITES`), reads of one run (`DAEMON_PROFILE_RUN_READS`) or of
-#: one scope's panes (`DAEMON_PROFILE_PANE_READS`), `session status` and Probe's
+#: (`DAEMON_AGENT_WRITES`), reads of one run (`DAEMON_PROFILE_RUN_READS`), of
+#: one scope's panes (`DAEMON_PROFILE_PANE_READS`) or of the team's tables
+#: (`DAEMON_PROFILE_TABLE_READS`), `session status` and Probe's
 #: own upkeep (`DAEMON_PROFILE_ALLOWED`). The guard in that
 #: plugin refuses every other `probe` command, reads included, with
 #: `DAEMON_PROFILE_DENY` (the approved text, pinned by `test_daemon_profile.py`:
@@ -1695,8 +1698,9 @@ DAEMON_PROFILE_ALLOWED = frozenset(
 #: (Richard 2026-10-21: the agent should see its own runs). Any run id passes --
 #: the hook cannot tell this session's runs from a teammate's, and the ids an
 #: agent holds are the ones `probe exec` printed or the daemon handed it.
-#: Listings and searches across the team's work (`run list`, `series latest`,
-#: `artifact list`, `provenance`, `commits`) stay the daemon's, through `probe ask`.
+#: The team's tables are `DAEMON_PROFILE_TABLE_READS`; searches across the team's
+#: work (`series latest`, `artifact list`, `provenance`, `commits`) stay the daemon's,
+#: through `probe ask`.
 #: An RL run's samples and best checkpoint are its own (`instrument-code` checks the
 #: capture of a run before its long launch); `samples export` writes, so it stays out.
 DAEMON_PROFILE_RUN_READS = frozenset(
@@ -1718,6 +1722,30 @@ DAEMON_PROFILE_RUN_READS = frozenset(
 #: A project's canvas preview too (`pane preview show`): which pane fills its box, read only; the
 #: daemon's writer writes it.
 DAEMON_PROFILE_PANE_READS = frozenset({"pane data", "pane get", "pane list", "pane preview show"})
+
+#: The team's tables, one page at a time: runs with their latest metrics (`run list
+#: --latest-metrics loss`, `--project <slug>` for one project), how many, experiments,
+#: projects, a project or experiment, and one entity's notes. Each is a plain listing
+#: the server answers the same way every time, not a search. A lookup like these
+#: through `probe ask` took 40 s at the median (Bucket, 2026-11-16); read directly it
+#: takes about a second. Searches stay the daemon's (`notes find`, `series latest`).
+DAEMON_PROFILE_TABLE_READS = frozenset(
+    {
+        "run list",
+        "run count",
+        "experiment list",
+        "project list",
+        "project get",
+        "experiment get",
+        "notes list",
+        "notes show",
+    }
+)
+
+#: ...but never every page at once: `run list --all` walks every page and holds every
+#: run in memory; one page is at most 200 rows. (`project list --all` is one page
+#: across workspaces, so it stays admitted.)
+DAEMON_PROFILE_TABLE_UNBOUNDED = {"run list": frozenset({"--all"})}
 
 #: ...but not where a flag writes what it read: `run reproduce --materialize`
 #: restores the run's captured tree, as the kept `snapshot-restore` does, and
@@ -1811,7 +1839,7 @@ SWITCH_FLIP_DENY = (
 )
 
 _DAEMON_PROFILE_DENY_HEAD = (
-    'The Probe daemon records this session and reads the team\'s work for you, so `{matched}` was refused before it ran. You instrument your runs with the SDK and can read one by its id (`probe run get <id>`). To ask about the team\'s prior work: `probe ask "<question>"`. '
+    'The Probe daemon records this session and reads the team\'s work for you, so `{matched}` was refused before it ran. You instrument your runs with the SDK and can read one by its id (`probe run get <id>`) or the team\'s runs (`probe run list --fields name,status`). To ask about the team\'s prior work: `probe ask "<question>"`. '
 )
 DAEMON_PROFILE_DENY = _DAEMON_PROFILE_DENY_HEAD + "If you need to do it yourself, ask the researcher to type `/probe inline`."
 #: ...and in an auto chat (`is_auto_chat`), where the agent takes Probe inline itself (probe auto mode).
@@ -1852,8 +1880,9 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
 
     A write carrying `--directed` is allowed, as the CLI's gate allows it in the
     `daemon` state (`write_gate.refusal`). A read is not (reads go through
-    `probe ask`) but one run's (`DAEMON_PROFILE_RUN_READS`) and one scope's
-    panes (`DAEMON_PROFILE_PANE_READS`). The researcher's
+    `probe ask`) but one run's (`DAEMON_PROFILE_RUN_READS`), one scope's
+    panes (`DAEMON_PROFILE_PANE_READS`) and the team's tables, a page at a
+    time (`DAEMON_PROFILE_TABLE_READS`). The researcher's
     switch runs only as `session state <target> --directed` (`switch_refusal`).
     Probe's own upkeep runs with its own flags (`upkeep_command`), and what
     records less only with `--directed` (`records_less`); the agent's own
@@ -1877,6 +1906,8 @@ def daemon_profile_allows(args: "list[str]", session_id: "str | None" = None) ->
             return (True, "probe " + key)
         if key in DAEMON_PROFILE_RUN_READS or key in DAEMON_PROFILE_PANE_READS:
             return (not _flag_writes(args, DAEMON_PROFILE_READ_WRITES.get(key, frozenset())), "probe " + key)
+        if key in DAEMON_PROFILE_TABLE_READS:
+            return (not _reads_every_page(args, key), "probe " + key)
     kind, matched = classify_probe_args(args)
     if kind == "write" and carries_directed(args):
         return (True, matched)
@@ -1911,6 +1942,16 @@ def _runs_plainly(args: "list[str]", head: str) -> bool:
             return False
         i += 1
     return actions > 0
+
+
+def _reads_every_page(args: "list[str]", key: str) -> bool:
+    """Does this table read ask for every page at once (`DAEMON_PROFILE_TABLE_UNBOUNDED`)?
+    Any word, `--` or not: click still reads `--all` after a `--` that comes before the
+    command words (`probe -- run list --all`), and refusing a stray `-- --all` costs
+    nothing. An `--all` the shell has yet to produce (`$EXTRA`) reaches the CLI gate,
+    which runs this same check on the argv the shell made."""
+    unbounded = DAEMON_PROFILE_TABLE_UNBOUNDED.get(key, frozenset())
+    return any(arg.partition("=")[0] in unbounded for arg in args)
 
 
 def _flag_writes(args: "list[str]", flags: "frozenset[str]") -> bool:
@@ -3943,6 +3984,14 @@ PROBE_MESSAGES_RULE_FLOWED = "\n\n".join(
     textwrap.fill(paragraph, 77, break_long_words=False, break_on_hyphens=False)
     for paragraph in PROBE_MESSAGES_RULE.rstrip("\n").split("\n\n")
 ) + "\n"
+#: How the main agent names a run, experiment or project to the researcher: the LINKS section here and a
+#: paragraph of `agent_rules.POINTER_BODY` and `agent_rules.RUNS_POINTER_BODY`, one text.
+LINKS_RULE = (
+    "To the researcher, write a run, experiment or project as `[name](url)` with the `url` Probe gave, never a "
+    "bare id. No `url`: its name.\n"
+)
+#: The same words wrapped at 77 columns, as `agent_rules.POINTER_BODY`'s prose is: the pointer bodies' copy.
+LINKS_RULE_FLOWED = textwrap.fill(LINKS_RULE.rstrip("\n"), 77, break_long_words=False, break_on_hyphens=False) + "\n"
 #: Probe's working rules in the daemon profile: the end of `agent_rules.DAEMON_POINTER_BODY`, byte for byte.
 DAEMON_RULES = (
     "### ASK THE DAEMON:\n\n"
@@ -3964,6 +4013,10 @@ DAEMON_RULES = (
     "### DAEMON MESSAGES:\n"
     "\n"
     + PROBE_MESSAGES_RULE
+    + "\n"
+    "### LINKS:\n"
+    "\n"
+    + LINKS_RULE
     + "\n"
     "### FEEDBACK:\n"
     "\n"

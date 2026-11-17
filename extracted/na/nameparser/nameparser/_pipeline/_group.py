@@ -11,7 +11,11 @@ TITLE roles of a postnominal part after the comma, emptying its
 segment and dropping its delimiter cores before any join, plus the SUFFIX_OR_NAME
 ambiguities that decision reports, those the particle chain and a
 maiden clause report on a trailing member they take into the name
-(an ambiguous acronym, or since #718 a declined numeral), and the
+(an ambiguous acronym, or since #718 a declined numeral), the
+PARTICLE_OR_GIVEN report the particle chain makes where it chains an
+ambiguous particle with nothing but leading titles in front of it
+(`St van Johnson`, `Freiherr von der Berg`; `Vincent van Gogh` and
+`Dr. Van Johnson` report nothing here), and the
 caps shape's acronym tags on
 a bound all-caps word (#564); pieces + piece_tags per segment
 (runs of token indices -- tokens are NEVER joined into strings: the
@@ -37,7 +41,8 @@ them). The v1
 per-parse state that dissolves with the state (v1 kept per-parse sets
 for the same reason).
 
-Implements rules P2, P3, P4, P12 and M2, S2's trailing read (#614), C1's
+Implements rules P2, P3, P4, P12, P13, M2 and C10 (a delimiter core
+parting a tail segment), S2's trailing read (#614), C1's
 decision through _comma, and
 the
 group half of M1 (#329: the marker dropped inside EXTRACTED maiden
@@ -59,8 +64,9 @@ back like any other caller, and still does the work H3 and S2 describe
 with them. is_prefix_piece and is_conj_piece followed in #617, with
 the merge and rules/P3's connective joins (join_connectives), when
 the comma decision's own copy of those joins was folded into them.
-What remains defined here is group's own: _is_rootname and
-_is_maiden_marker_piece.
+What remains defined here is group's own: the piece predicates
+_is_rootname, _is_maiden_marker_piece, _is_lone_letter and
+_is_name_word, beside the helpers of its joins and its maiden take.
 """
 from __future__ import annotations
 
@@ -73,7 +79,8 @@ from nameparser._lexicon import _run_addresses_by_given
 from nameparser._pipeline._pieces import (
     split_credential_report,
     Peel, TailRead, chain_lead, chain_run_end, is_conj_piece, is_leading_title, is_prefix_piece,
-    is_suffix_piece, is_title_piece, join_connectives, joined_tags,
+    is_suffix_piece, is_title_piece, is_trailing_title_word,
+    join_connectives, joined_tags,
     leading_titles, merge_particle_runs, merge_pieces, peel_walk,
     read_trailing_run, settled_by_case, tail_reading, trailing_candidates,
     trailing_run_start, trailing_start,
@@ -81,7 +88,7 @@ from nameparser._pipeline._pieces import (
 )
 from nameparser._pipeline._state import (
     AMBIGUOUS_ACRONYM_TAG, BOUND_PHRASE_TAG, SPLIT_CREDENTIAL_TAG,
-    JOINED_TITLE_TAG, SPLIT_MEMBER_TAG, TRAILING_TITLE_TAG, ParseState,
+    SPLIT_MEMBER_TAG, TRAILING_TITLE_TAG, ParseState,
     Deferred, PendingAmbiguity, Structure, WorkToken,
     _AMBIGUOUS_CREDENTIAL_TAGS, copy_with,
 )
@@ -532,19 +539,6 @@ def _is_name_word(piece: Sequence[int], ptags: Set[str],
                 or is_suffix_piece(piece, ptags, tokens))
 
 
-def _is_trailing_title(piece: Sequence[int], ptags: Set[str],
-                       tokens: Sequence[WorkToken]) -> bool:
-    """A title word H5 reads as ending the name: a period-marked one,
-    or a title listed whole with a period inside it (JOINED_TITLE_TAG).
-    P13 reads the name words past it."""
-    return len(piece) == 1 and (
-        tokens[piece[0]].text.endswith(".")
-        and is_title_piece(piece, ptags, tokens)
-        # rules/H5: "a title the vocabulary lists whole with a period
-        # inside it chains without a final one" (decisions/H5, #1104)
-        or JOINED_TITLE_TAG in tokens[piece[0]].tags)
-
-
 def _link_the_last_letter(pieces: list[list[int]], ptags: list[set[str]],
                           tokens: Sequence[WorkToken],
                           one_case: bool | None, keep_a_name: bool) -> None:
@@ -567,7 +561,11 @@ def _link_the_last_letter(pieces: list[list[int]], ptags: list[set[str]],
         if _is_lone_letter(piece, tokens, one_case):
             lone = True
             break
-        if not (_is_trailing_title(piece, ptags[e], tokens)
+        # rules/P13: "with nothing behind it but suffixes or a
+        # trailing title H5 reads" -- H5's own word test, asked rather
+        # than copied, so the walk steps over every title the chain
+        # takes (decisions/P13, #1168)
+        if not (is_trailing_title_word(piece, tokens)
                 or is_suffix_piece(piece, ptags[e], tokens)
                 or (e > 0 and len(piece) == 1
                     # reads_as_generation's own first test, asked at C
@@ -599,8 +597,7 @@ def _link_the_last_letter(pieces: list[list[int]], ptags: list[set[str]],
                        and text.lower() != text.upper())
               and "vocab:suffix" not in word.tags
               and not (len(text) > 1 and e + 1 < len(pieces)
-                       and _is_trailing_title(pieces[e + 1], ptags[e + 1],
-                                              tokens))):
+                       and is_trailing_title_word(pieces[e + 1], tokens))):
         return
     if (at - 1 >= leading_titles(pieces, ptags, tokens) + keep_a_name
             and _is_name_word(pieces[at - 1], ptags[at - 1], tokens)):
@@ -1102,7 +1099,10 @@ def _group_segment(seg: tuple[int, ...], additional: int,
         # starts the run: the prefix run below takes it as a particle,
         # as P6 reads it after a comma, and 'John van Mc' keeps family
         # 'van Mc' (every baseline's reading). A suffix WORD stops the
-        # chain wherever it stands, and the trailing
+        # chain where S8 would start its run at it, a word S8 starts no
+        # run at ('bin Abd Rahman') or declines for its writing with a
+        # name word behind it ('binti Md Salleh') being the chain's
+        # (#1177), and the trailing
         # run -- the numeral, or the bare acronym with words to spare
         # -- stops it where the suffix-piece test alone did not ('John
         # van der Berg V' read family 'van der Berg V'). The chain
@@ -1163,8 +1163,8 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                     k += 1
                     continue
                 j = chain_run_end(k, pieces, ptags, tokens,
-                                  len(pieces) - tail,
-                                  one_case if given_slot else None)
+                                  len(pieces) - tail, one_case,
+                                  given_slot)
                 # The other half of PARTICLE_OR_GIVEN. _assign reports the
                 # fork when an ambiguous particle stays a lone leading piece
                 # ("Van Johnson" -> given under the default order, family
@@ -1205,10 +1205,12 @@ def _group_segment(seg: tuple[int, ...], additional: int,
                 # lone token in both vocabularies.
                 #
                 # j > k + 1 is what makes this a DECISION rather than a
-                # shape: when the next piece is a suffix the inner scan
-                # never advances, the merge from k to k+1 folds a piece
-                # into itself, and the particle stays a lone leading
-                # piece -- nothing
+                # shape: when the chain stops at the next piece (the
+                # trailing run, a suffix word S8 would start its run
+                # at, or a suffix-vocabulary particle's stop) the inner
+                # scan never advances, the merge from k to k+1 folds a
+                # piece into itself, and the particle stays a lone
+                # leading piece -- nothing
                 # was chained, and _assign reports that case instead.
                 # Without this the two emitters both fire on the same token.
                 # A run merged ahead of the read (`premerged`, #625) has

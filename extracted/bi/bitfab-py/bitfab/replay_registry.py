@@ -26,6 +26,8 @@ from bitfab.replay import (
     ReplayItemFinishProgress,
     ReplayResult,
     execute_replay_item,
+    experiment_group_required_message,
+    experiment_group_skip_conflict_message,
     is_code_change_type,
     report_replay_progress,
     serialize_replay_item,
@@ -74,6 +76,7 @@ _REGISTRY_OPTION_NAMES = frozenset(
         "experiment_group_id",
         "experiment_group_name",
         "baseline_experiment_id",
+        "agent_session_id",
         "dataset_id",
         "dataset_ids",
         "grader_ids",
@@ -283,7 +286,7 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
     parser.add_argument(
         "--name",
         help=(
-            "What this run is testing, in a few words, such as 'baseline' or "
+            "What this run changes, in a few words, such as 'baseline' or "
             "'shorter system prompt'. Bitfab records the commit, branch, tree "
             "state, datasets, and who ran it with every experiment, so do not "
             "repeat them here."
@@ -339,15 +342,41 @@ def _parser(registry: ReplayRegistry | None) -> argparse.ArgumentParser:
     parser.add_argument(
         "--experiment-group-id",
         metavar="UUID",
-        help="Add this run to an experiment group. A new UUID creates the group.",
+        help=(
+            "Required, except with --dry-run, --resume or "
+            "--skip-experiment-group: the experiment group "
+            "this run belongs to, one series of experiments testing one thing. "
+            "Reuse the id of the group whose runs test the same thing, or pass "
+            "a new UUID with --experiment-group-name, named after what this run "
+            "tests, to start a group."
+        ),
     )
     parser.add_argument(
         "--experiment-group-name",
         metavar="NAME",
         help=(
-            "Name the experiment group when this run creates it or it has no "
-            "name yet. A group that already has a name keeps it. Requires "
-            "--experiment-group-id."
+            "Name the experiment group after what this run tests, when this run "
+            "creates it or it has no name yet. A group that already has a name "
+            "keeps it. Requires --experiment-group-id."
+        ),
+    )
+    parser.add_argument(
+        "--skip-experiment-group",
+        action="store_true",
+        dest="skip_experiment_group",
+        help=(
+            "Run without an experiment group, for scripts and schedules whose "
+            "runs should not be grouped. Cannot be combined with "
+            "--experiment-group-id or --experiment-group-name."
+        ),
+    )
+    parser.add_argument(
+        "--agent-session-id",
+        metavar="ID",
+        help=(
+            "The coding agent session that launched this run, stored on the "
+            "experiment. Defaults to CLAUDE_CODE_SESSION_ID, CODEX_THREAD_ID or "
+            "AGENT_SESSION_ID, the first one set."
         ),
     )
     parser.add_argument(
@@ -1104,10 +1133,34 @@ def _require_code_change(args: argparse.Namespace) -> None:
         )
 
 
+def _require_experiment_group(args: argparse.Namespace) -> None:
+    if args.skip_experiment_group and (
+        args.experiment_group_id is not None or args.experiment_group_name is not None
+    ):
+        raise ValueError(
+            experiment_group_skip_conflict_message(
+                "--skip-experiment-group",
+                "--experiment-group-id",
+                "--experiment-group-name",
+            )
+        )
+    if args.dry_run or args.resume is not None or args.skip_experiment_group:
+        return
+    if args.experiment_group_id is None or not args.experiment_group_id.strip():
+        raise ValueError(
+            experiment_group_required_message(
+                "--experiment-group-id",
+                "--experiment-group-name",
+                "--skip-experiment-group",
+            )
+        )
+
+
 def check_replay_arguments(argv: list[str]) -> None:
     args = _parser(None).parse_args(argv)
     if args.seed is None:
         _require_code_change(args)
+        _require_experiment_group(args)
     _refuse_selection_flags_with_resume(args)
 
 
@@ -1135,6 +1188,7 @@ def run_replay_cli(
     if args.seed is not None:
         return run_seed_cli(registry, argv, stdout=stdout, stderr=stderr)
     _require_code_change(args)
+    _require_experiment_group(args)
     registration = registry.get(args.pipeline)
     options = _resolve_registry_options(
         registration, _load_parameters(args.params, args.param)
@@ -1223,6 +1277,8 @@ def run_replay_cli(
         "experiment_group_id": args.experiment_group_id,
         "experiment_group_name": args.experiment_group_name,
         "baseline_experiment_id": args.baseline_experiment_id,
+        "skip_experiment_group": args.skip_experiment_group or None,
+        "agent_session_id": args.agent_session_id,
         "dataset_ids": args.dataset_ids,
         "grader_ids": args.grader_ids,
         "mock": args.mock,

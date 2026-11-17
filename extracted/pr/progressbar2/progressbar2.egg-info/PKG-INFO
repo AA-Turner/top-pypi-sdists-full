@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: progressbar2
-Version: 4.7.0
+Version: 4.7.1
 Summary: A Python Progressbar library to provide visual (yet text based) progress to long running operations.
 Author-email: "Rick van Hattem (Wolph)" <wolph@wol.ph>
 License: BSD-3-Clause
@@ -8,6 +8,7 @@ Project-URL: bugs, https://github.com/wolph/python-progressbar/issues
 Project-URL: documentation, https://progressbar-2.readthedocs.io/en/latest/
 Project-URL: repository, https://github.com/wolph/python-progressbar/
 Project-URL: Funding, https://github.com/sponsors/wolph
+Project-URL: Changelog, https://github.com/wolph/python-progressbar/releases
 Keywords: REPL,animated,bar,color,console,duration,efficient,elapsed,eta,feedback,live,meter,monitor,monitoring,multi-threaded,progress,progress-bar,progressbar,progressmeter,python,rate,simple,speed,spinner,stats,terminal,throughput,time,visual
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Development Status :: 6 - Mature

@@ -19,15 +19,6 @@ use crate::bindings::_helpers::build_command::planning::{
     write_compile_target, write_plan_text,
 };
 use crate::bindings::_helpers::check::check_core::relevant_check_functions;
-use crate::bindings::_helpers::compiled_project::snapshot_execution::WorkerBuild;
-use crate::bindings::_helpers::discovery::provider_secrets::{
-    consumer_uses, provider_uses, require_used_secrets, sink_uses,
-};
-use crate::bindings::_helpers::graph::python_node_graph::python_node_graph;
-use crate::bindings::_helpers::observations::source_capture::{
-    arm_source_capture, take_source_capture,
-};
-use crate::bindings::_helpers::recall::console::write_stderr;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::within::within;
 use sqlbuild_python_base::build_command::main::frozenset::frozenset;
@@ -35,15 +26,46 @@ use sqlbuild_python_base::build_command::main::tuple::tuple;
 use sqlbuild_python_base::diagnostics::models::BuildPhaseTimingTracker;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
+use sqlbuild_python_compile::compile_driver::main::setup::selected_target_settings::selected_target_settings;
+use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
+use sqlbuild_python_front::compile_attachment::main::build_effective_runtime_config::build_effective_runtime_config;
+use sqlbuild_python_front::discovery::main::sources::consumer_uses::consumer_uses;
+use sqlbuild_python_front::discovery::main::sources::provider_uses::provider_uses;
+use sqlbuild_python_front::discovery::main::sources::require_used_secrets::require_used_secrets;
+use sqlbuild_python_front::discovery::main::sources::sink_uses::sink_uses;
+use sqlbuild_python_output::recall::main::write_stderr::write_stderr;
+use sqlbuild_python_planner::observations::main::arm_source_capture::arm_source_capture;
+use sqlbuild_python_planner::observations::main::take_source_capture::take_source_capture;
+use sqlbuild_python_project::graph::main::python_nodes::python_node_graph::python_node_graph;
+use sqlbuild_python_project::project_snapshot::models::WorkerBuild;
 
 fn run_with_providers(context: &BuildContext<'_>) -> PyResult<i32> {
     let py: Python<'_> = context.py();
+    let discovered: Bound<'_, PyAny> = context.get("discovered_inputs")?;
+    let selected_target: Bound<'_, PyAny> = native_field(&context.request, "selected_target")?;
+    let (_, effective_vars, _): (Bound<'_, PyAny>, Bound<'_, PyAny>, Bound<'_, PyAny>) =
+        build_effective_runtime_config(
+            &discovered,
+            Some(selected_target.clone()).filter(|value| !value.is_none()),
+            Some(native_field(&context.request, "cli_vars")?).filter(|value| !value.is_none()),
+        )
+        .and_then(|value| pyo3::IntoPyObjectExt::into_bound_py_any(value, py))?
+        .extract()?;
+    let target_config: TargetSettingsValues = selected_target_settings(
+        (&discovered, &selected_target),
+        &context.get("adapter_name")?.extract::<String>()?,
+        (
+            &context.get("connection_config")?,
+            &effective_vars,
+            &context.get("adapter")?,
+        ),
+    )?;
     let session: Bound<'_, PyAny> = call_with(
         &host_entry(py, UserCodeHost::BuildProviderSession)?,
-        &[(
-            "discovered_providers",
-            context.get("discovered_inputs")?.getattr("providers")?,
-        )],
+        &[
+            ("discovered_providers", discovered.getattr("providers")?),
+            ("setup_context", target_config.setup_context(py)?),
+        ],
     )?;
     let built: PyResult<i32> = run_planned_build(context, &native_field(&session, "providers")?);
     let closed: PyResult<Bound<'_, PyAny>> = session.call_method0("close");

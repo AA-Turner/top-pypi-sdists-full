@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: internetarchive
-Version: 5.12.1
+Version: 5.13.0
 Summary: A Python interface to archive.org.
 Project-URL: Homepage, https://github.com/jjjake/internetarchive
 Project-URL: Documentation, https://archive.org/developers/internetarchive/
@@ -91,7 +91,7 @@ Please report all bugs and issues on `Github <https://github.com/jjjake/internet
 SECURITY NOTICE
 _______________
 
-**Please upgrade to v5.4.2+ immediately.** Versions <=5.4.1 contain a critical directory traversal vulnerability in the ``File.download()`` method. `See the changelog for details <https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst>`_. Thank you to Pengo Wray for their contributions in identifying and resolving this issue.
+**Please upgrade to v5.5.1+ immediately.** Versions <=5.5.0 contain a critical directory traversal vulnerability in the ``File.download()`` method. `See the changelog for details <https://github.com/jjjake/internetarchive/blob/master/HISTORY.rst>`_. Thank you to Pengo Wray for their contributions in identifying and resolving this issue.
 
 Installation
 ------------

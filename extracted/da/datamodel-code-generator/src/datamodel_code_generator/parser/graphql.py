@@ -31,13 +31,13 @@ from datamodel_code_generator.model._decisions.enum_kind import decide_enum_kind
 from datamodel_code_generator.model._decisions.union_assembly import MEMBER, UnionPolicy, assemble_union
 from datamodel_code_generator.model.base import TYPENAME_PROPERTY_KEY, _find_base_classes, get_inherited_fields
 from datamodel_code_generator.model.enum import SUBCLASS_BASE_CLASSES, EnumMemberValue, _enum_class
-from datamodel_code_generator.parser._null_facts import NullMode, NullSources, resolve_null_facts
+from datamodel_code_generator.parser._null_facts import NullMode, null_sources, resolve_null_facts
 from datamodel_code_generator.parser.base import (
     DataType,
     Parser,
 )
 from datamodel_code_generator.reference import ModelType, Reference
-from datamodel_code_generator.types import Types
+from datamodel_code_generator.types import Types, build_union
 
 try:
     import graphql
@@ -54,6 +54,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator._types import GraphQLParserConfigDict
     from datamodel_code_generator.config import GraphQLParserConfig
     from datamodel_code_generator.model import DataModel, DataModelFieldBase
+    from datamodel_code_generator.model._decisions.enum_kind import EnumKind
     from datamodel_code_generator.parser.schema_version import JsonSchemaFeatures
 
 # graphql-core >=3.2.7 removed TypeResolvers in favor of TypeFields.kind.
@@ -225,13 +226,32 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         )
 
     def should_parse_enum_as_literal(self, obj: graphql.GraphQLEnumType) -> bool:
-        """Determine if an enum should be parsed as a literal type (``enum_as_literal``)."""
+        """Determine if an enum should be parsed as a literal type (``enum_as_literal``).
+
+        An open enum with no base for its class (``--open-enum-base-class-map``) is a Literal whatever the setting.
+        """
         return enum_as_literal(
             extension=None,
             mapped=None,
             setting=self.enum_field_as_literal.value if self.enum_field_as_literal else None,
             member_count=len(obj.values),
+        ) or (self._graphql_enum_is_open(obj) and self._open_enum_base(_enum_class(self._enum_kind(obj))) is None)
+
+    def _enum_kind(self, enum_object: graphql.GraphQLEnumType) -> EnumKind:
+        """Return the class a GraphQL enum is written as (``decide_enum_kind``): its members are strings."""
+        return decide_enum_kind(
+            "graphql",
+            value_type=SUBCLASS_BASE_CLASSES[Types.string],
+            values=enum_object.values,
+            use_specialized_enum=self.use_specialized_enum,
+            use_subclass_enum=self.use_subclass_enum,
+            has_strenum=python_target_meets("python.strenum", self.target_python_version.version_key),
+            keep_member_values=self.config.keep_enum_member_values,
         )
+
+    def _graphql_enum_is_open(self, obj: graphql.GraphQLEnumType) -> bool:
+        """Return whether a GraphQL enum accepts values it does not list, by its member count: SDL marks none."""
+        return self._enum_is_open(marker=None, member_count=len(obj.values), const_beside=False)
 
     def parse_enum(self, enum_object: graphql.GraphQLEnumType) -> None:
         """Parse a GraphQL enum type and add it to results."""
@@ -246,8 +266,11 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         self._parse_enum_as_root(enum_object, self.data_type_manager.get_data_type(Types.string))
 
     def parse_enum_as_literal(self, enum_object: graphql.GraphQLEnumType) -> None:
-        """Parse enum values as a Literal type."""
-        self._parse_enum_as_root(enum_object, self.data_type(literals=list(enum_object.values.keys())))
+        """Parse enum values as a Literal type, joined with ``str`` when the enum is open."""
+        literal = self.data_type(literals=list(enum_object.values.keys()))
+        if self._graphql_enum_is_open(enum_object):
+            literal = build_union(self.data_type, [literal, self.data_type_manager.get_data_type(Types.string)])
+        self._parse_enum_as_root(enum_object, literal)
 
     def _parse_enum_as_root(self, enum_object: graphql.GraphQLEnumType, data_type: DataType) -> None:
         """Register a root model of the enum whose required root field has ``data_type``."""
@@ -301,19 +324,13 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
                 )
             )
 
-        kind = decide_enum_kind(
-            "graphql",
-            value_type=SUBCLASS_BASE_CLASSES[Types.string],
-            values=enum_object.values,
-            use_specialized_enum=self.use_specialized_enum,
-            use_subclass_enum=self.use_subclass_enum,
-            has_strenum=python_target_meets("python.strenum", self.target_python_version.version_key),
-            keep_member_values=self.config.keep_enum_member_values,
-        )
+        kind = self._enum_kind(enum_object)
+        enum_class = _enum_class(kind)
         enum = self._new_model(
-            _enum_class(kind),
+            enum_class,
             reference=self.references[enum_object.name],
             fields=enum_fields,
+            custom_base_class=self._open_enum_base(enum_class) if self._graphql_enum_is_open(enum_object) else None,
             path=self.current_source_path,
             description=enum_object.description,
             type_=Types.string if kind.subclasses_value_type else None,
@@ -369,7 +386,7 @@ class GraphQLParser(Parser["GraphQLParserConfig", "JsonSchemaFeatures"]):
         )
         has_schema_default = default is not graphql.pyutils.Undefined
         null_facts = resolve_null_facts(
-            NullSources(nullable=final_data_type.is_optional),
+            null_sources(None, nullable=final_data_type.is_optional),
             "graphql-field",
             self._null_mode,
             has_default=has_schema_default,

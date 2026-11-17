@@ -160,9 +160,10 @@ class PlaylistsMixin(MixinProtocol):
         playlist["owned"] = EDITABLE_PLAYLIST_DETAIL_HEADER[0] in header_data
         if not playlist["owned"]:
             header = nav(header_data, RESPONSIVE_HEADER)
+            play_button = find_object_by_key(nav(header, ["buttons"], True) or [], "musicPlayButtonRenderer")
             playlist["id"] = nav(
-                header,
-                ["buttons", 1, "musicPlayButtonRenderer", "playNavigationEndpoint", *WATCH_PLAYLIST_ID],
+                play_button,
+                ["musicPlayButtonRenderer", "playNavigationEndpoint", *WATCH_PLAYLIST_ID],
                 True,
             )
             playlist["privacy"] = "PUBLIC"
@@ -457,11 +458,22 @@ class PlaylistsMixin(MixinProtocol):
             )
 
         if videoIds:
+            video_id_counts: dict[str, int] = {}
             for videoId in videoIds:
+                video_id_counts[videoId] = video_id_counts.get(videoId, 0) + 1
+
                 action = {"action": "ACTION_ADD_VIDEO", "addedVideoId": videoId}
                 if duplicates:
                     action["dedupeOption"] = "DEDUPE_OPTION_SKIP"
                 body["actions"].append(action)
+
+            if not duplicates:
+                duplicate_video_ids = [videoId for videoId, count in video_id_counts.items() if count > 1]
+                if duplicate_video_ids:
+                    raise YTMusicUserError(
+                        "Duplicate videoIds provided to add_playlist_items while duplicates=False: "
+                        + ", ".join(duplicate_video_ids)
+                    )
 
         if source_playlist:
             body["actions"].append({"action": "ACTION_ADD_PLAYLIST", "addedFullListId": source_playlist})

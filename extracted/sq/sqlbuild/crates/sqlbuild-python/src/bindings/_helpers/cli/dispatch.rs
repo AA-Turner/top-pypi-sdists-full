@@ -1,5 +1,6 @@
 //! `sqb` command dispatch: the native route table applied to a parsed namespace.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::path::PathBuf;
 
 use crate::bindings::_helpers::audit_command::command::run_audit_command;
@@ -8,8 +9,6 @@ use crate::bindings::_helpers::check::check_command::run_check_command;
 use crate::bindings::_helpers::clone::clone_command::run_clone_command;
 use crate::bindings::_helpers::command_runtime::warehouse_scope::command_warehouse_scope;
 use crate::bindings::_helpers::command_runtime::warehouses::validate_cli_warehouse;
-use crate::bindings::_helpers::compile_command::reuse_attempt::run_compile;
-use crate::bindings::_helpers::compiled_project::job_catalog::with_job_scope;
 use crate::bindings::_helpers::contract_command::command::run_contract_command;
 use crate::bindings::_helpers::cost_command::command::run_cost_command;
 use crate::bindings::_helpers::dbt_command::command::run_dbt_command;
@@ -17,7 +16,6 @@ use crate::bindings::_helpers::dbt_command::init::run_dbt_init_command;
 use crate::bindings::_helpers::debug_command::run_debug::run_debug_command;
 use crate::bindings::_helpers::diff_report::command::run_diff_command;
 use crate::bindings::_helpers::diff_report::support::cli_error;
-use crate::bindings::_helpers::discovery::provider_secrets::MissingSecretsScope;
 use crate::bindings::_helpers::format_command::command::run_format_command;
 use crate::bindings::_helpers::freshness::freshness_command::run_freshness_command;
 use crate::bindings::_helpers::init_command::command::run_init_command;
@@ -30,7 +28,6 @@ use crate::bindings::_helpers::plan_command::rules::run_rules_command;
 use crate::bindings::_helpers::query_command::dag::run_dag_command;
 use crate::bindings::_helpers::query_command::query::run_query_command;
 use crate::bindings::_helpers::recall::command::run_recall_command;
-use crate::bindings::_helpers::recall::session::InvocationRecall;
 use crate::bindings::_helpers::refactor::refactor_command::run_refactor_command;
 use crate::bindings::_helpers::review_command::command::run_review_command;
 use crate::bindings::_helpers::scenario_command::capture_command::run_scenario_capture_command;
@@ -57,10 +54,13 @@ use sqlbuild_core::format_command::main::format_path_selectors::format_path_sele
 use sqlbuild_python_base::cli::main::withhold_launch_record::withhold_launch_record;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::construct::record_class::record_class;
+use sqlbuild_python_compile::compile_command::main::invocation::run_compile::run_compile;
+use sqlbuild_python_front::discovery::models::MissingSecretsScope;
+use sqlbuild_python_output::recall::models::InvocationRecall;
+use sqlbuild_python_project::compiled_project::main::with_job_scope::with_job_scope;
 
 use sqlbuild_python_base::boundary::main::imported::imported;
 use sqlbuild_python_base::boundary::main::within::within;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::registry::record_named::record_named;
 use sqlbuild_python_base::records::types::ErrorId;
@@ -266,16 +266,12 @@ fn concatenated<'py>(
 
 /// `CliUserError(message, code=..., help=...)`.
 fn user_error(py: Python<'_>, failure: DispatchFailure) -> PyErr {
-    let raised = (|| {
-        let keywords: Bound<'_, PyDict> = PyDict::new(py);
-        keywords.set_item("code", failure.code)?;
-        keywords.set_item("help", failure.help)?;
-        error_class(py, ErrorId::CliUser)?.call((failure.message,), Some(&keywords))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        &failure.message,
+        (Some(failure.code), failure.help),
+    )
 }
 
 /// `--select` and the selectors of every `--select-file`, with each file's selector count.

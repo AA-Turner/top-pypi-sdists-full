@@ -3,8 +3,7 @@
 //! advance, exhaustion `Retry-After`) on the real loop rather than on its parts.
 
 use std::collections::HashMap;
-use std::sync::atomic::AtomicUsize;
-use std::sync::{Arc, Mutex};
+use std::sync::{atomic::AtomicUsize, Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use pyo3::prelude::*;
@@ -16,11 +15,10 @@ use crate::bridge::Bridge;
 use crate::throttle_backoff::ThrottleRedial;
 use crate::upstream::build_client;
 
-/// A control plane that mirrors the python candidate policy for one two-rung
-/// route: a `throttle_backoff` reservation redials the same depth while the
-/// per-rung redial cap allows, a failover-eligible failure advances, and
-/// anything else exhausts with the failure echoed back. Every call is
-/// recorded so the test can read the ledger story.
+/// A control plane mirroring the python candidate policy for one two-rung route:
+/// a `throttle_backoff` reservation redials the same depth while the per-rung
+/// redial cap allows, a failover-eligible failure advances, and anything else
+/// exhausts with the failure echoed back, every call recorded for the test.
 const PLANE_SOURCE: &std::ffi::CStr = cr#"
 import json
 import threading
@@ -323,6 +321,7 @@ pub(super) fn wire(deployment_id: &str, url: &str, throttle_redial_budget: u32) 
         failover_only_on: None,
         zdr_constrained: false,
         capture_logprobs: false,
+        rung_family: None,
     }
 }
 
@@ -399,7 +398,7 @@ pub(super) const SCHEDULE: ThrottleRedial = ThrottleRedial {
     max_delay_ms: 2_000,
 };
 
-const TEXT_FRAME: &str = "{\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}";
+pub(super) const TEXT_FRAME: &str = "{\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}";
 const THROTTLE_FRAME: &str = "{\"error\":{\"code\":\"rate_limit_exceeded\",\
                               \"message\":\"Rate limit reached\"}}";
 
@@ -496,6 +495,7 @@ impl Harness {
             output_token_cap: None,
             tool_search: None,
             output_guardrails: None,
+            buffered: &[],
         };
         let won = acquire_attempt(&context, &mut guard).await;
         (won, guard)

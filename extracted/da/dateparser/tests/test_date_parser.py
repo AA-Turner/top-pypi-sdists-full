@@ -6,6 +6,7 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 import pytest
+import pytz
 from parameterized import param, parameterized
 
 import dateparser.timezone_parser
@@ -21,6 +22,70 @@ from tests import BaseTestCase
 
 
 class TestDateParser(BaseTestCase):
+    @parameterized.expand(
+        [
+            (2024, "first", 1),
+            (2024, "current", 15),
+            (2024, "last", 29),
+            (2023, "last", 28),
+        ]
+    )
+    def test_yearless_format_uses_reference_day_preference(
+        self, year: int, preference: str, day: int
+    ) -> None:
+        result = parse(
+            "February",
+            date_formats=["%B"],
+            settings={
+                "RELATIVE_BASE": datetime(year, 6, 15),
+                "PREFER_DAY_OF_MONTH": preference,
+                "PARSERS": ["custom-formats"],
+            },
+        )
+        self.assertEqual(result, datetime(year, 2, day))
+
+    @parameterized.expand([("first", 1), ("current", 7), ("last", 12)])
+    def test_year_only_format_uses_reference_month_and_day(
+        self, preference: str, month: int
+    ) -> None:
+        result = parse(
+            "2030",
+            date_formats=["%Y"],
+            settings={
+                "RELATIVE_BASE": datetime(2024, 7, 17),
+                "PREFER_MONTH_OF_YEAR": preference,
+                "PREFER_DAY_OF_MONTH": "current",
+                "PARSERS": ["custom-formats"],
+            },
+        )
+        self.assertEqual(result, datetime(2030, month, 17))
+
+    @parameterized.expand([(2024, datetime(2024, 2, 29)), (2023, None)])
+    def test_yearless_leap_day_respects_reference_year(
+        self, year: int, expected: datetime | None
+    ) -> None:
+        result = parse(
+            "29 February",
+            date_formats=["%d %B"],
+            settings={
+                "RELATIVE_BASE": datetime(year, 6, 15),
+                "PARSERS": ["custom-formats"],
+            },
+        )
+        self.assertEqual(result, expected)
+
+    def test_yearless_format_without_relative_base_uses_current_date(self) -> None:
+        with patch("dateparser.date._now", return_value=datetime(2024, 7, 17)):
+            result = parse(
+                "February",
+                date_formats=["%B"],
+                settings={
+                    "PREFER_DAY_OF_MONTH": "current",
+                    "PARSERS": ["custom-formats"],
+                },
+            )
+        self.assertEqual(result, datetime(2024, 2, 17))
+
     def setUp(self) -> None:
         super().setUp()
         self.parser: DateDataParser = NotImplemented
@@ -160,6 +225,7 @@ class TestDateParser(BaseTestCase):
                 "Tháng Mười Hai 29, 2013, 14:14", datetime(2013, 12, 29, 14, 14)
             ),  # bpsosrcs.wordpress.com
             param("05 Tháng một 2015 - 03:54 AM", datetime(2015, 1, 5, 3, 54)),
+            param("15 Tháng năm 2020", datetime(2020, 5, 15)),  # May
             # Belarusian dates
             param("11 траўня", datetime(2012, 5, 11)),
             param("4 мая", datetime(2012, 5, 4)),
@@ -434,6 +500,7 @@ class TestDateParser(BaseTestCase):
                 "Tháng Mười Hai 29, 2013, 14:14", datetime(2013, 12, 29, 14, 14)
             ),  # bpsosrcs.wordpress.com
             param("05 Tháng một 2015 - 03:54 AM", datetime(2015, 1, 5, 3, 54)),
+            param("15 Tháng năm 2020", datetime(2020, 5, 15)),  # May
             # Belarusian dates
             param("11 траўня", datetime(2012, 5, 11)),
             param("4 мая", datetime(2012, 5, 4)),
@@ -787,6 +854,27 @@ class TestDateParser(BaseTestCase):
         self.when_date_is_parsed(date_string)
         self.then_date_was_parsed_by_date_parser()
         self.then_date_obj_exactly_is(expected)
+
+    @parameterized.expand(
+        [
+            param("3pm", "past", datetime(2020, 6, 15, 18, 0)),
+            param("3pm", "future", datetime(2020, 6, 15, 12, 0)),
+        ]
+    )
+    def test_time_only_with_timezone_aware_relative_base(
+        self, date_string: str, prefer_dates_from: str, relative_base: datetime
+    ) -> None:
+        tz = pytz.timezone("America/Los_Angeles")
+        self.given_parser(
+            settings={
+                "TIMEZONE": "America/Los_Angeles",
+                "PREFER_DATES_FROM": prefer_dates_from,
+                "RELATIVE_BASE": tz.localize(relative_base),
+            }
+        )
+        self.when_date_is_parsed(date_string)
+        self.then_date_was_parsed_by_date_parser()
+        self.then_period_is("day")
 
     @parameterized.expand(
         [

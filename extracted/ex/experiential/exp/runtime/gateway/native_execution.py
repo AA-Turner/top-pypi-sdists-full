@@ -41,8 +41,16 @@ from exp.runtime.gateway.health import (
 )
 from exp.runtime.gateway.model_plan import project_stage_selection
 from exp.runtime.gateway.native_capture import PendingCapture
+from exp.runtime.gateway.native_context_window import wider_windows
 from exp.runtime.gateway.native_dead_rungs import ADMISSION_DEAD_ERRORS, DeadRung, dead_rung
-from exp.runtime.gateway.native_fallback_rules import FallbackRules, untried_depths
+from exp.runtime.gateway.native_fallback_rules import (
+    FallbackRules,
+    RungFamilies,
+    fresh_family_count,
+    reserve_fresh_families,
+    rung_family_index,
+    untried_depths,
+)
 from exp.runtime.gateway.native_responses import ContinuationContext
 from exp.runtime.gateway.native_settlement import deployment_operation_key
 from exp.runtime.gateway.reasoning_carrier import ReasoningCarrierAuthority
@@ -76,6 +84,10 @@ MAXIMUM_SAME_DEPLOYMENT_ATTEMPTS = 2
 # Timeouts keep their classifier's retry flags: a 408 can retry; a silent
 # first-byte stall must advance and is not a cache-preserving failure.
 _CACHE_PRESERVING_NO_FAILOVER_CLASSES = frozenset({GatewayFailureClass.THROTTLED})
+
+# A warm throttle surfaces only while the prompt cache outlives its Retry-After;
+# a plan's hours-long usage window (2026-11-16) advances cold instead.
+CACHE_PRESERVING_MAX_WAIT_SECONDS: Final[int] = 60
 
 ThrottleDisposition = Literal[
     "throttle_surfaced_cache_preserving", "throttle_failover_cold", "throttle_backoff"
@@ -126,7 +138,8 @@ def throttle_disposition(
         or failure.failure_class not in _CACHE_PRESERVING_NO_FAILOVER_CLASSES
     ):
         return None
-    if cached_fraction >= throttle_cache_threshold:
+    short_wait = (failure.retry_after_seconds or 0) <= CACHE_PRESERVING_MAX_WAIT_SECONDS
+    if cached_fraction >= throttle_cache_threshold and short_wait:
         return THROTTLE_SURFACED_CACHE_PRESERVING
     return THROTTLE_FAILOVER_COLD
 
@@ -307,29 +320,6 @@ def rung_load_key(deployment: ExactModelDeployment) -> RungLoadKey:
     return (deployment.deployment_id, deployment.connection_sha256)
 
 
-def deployment_priced_for_service_tier(
-    deployment: ExactModelDeployment,
-    service_tier: str | None,
-    *,
-    forwards_tier: bool,
-) -> ExactModelDeployment:
-    """Reprice one deployment for a requested flex/priority processing tier.
-
-    The admitted card is frozen beside the standard card; settlement selects
-    between them from upstream evidence rather than assuming the requested tier.
-    No tier, no forwarding, or no card returns the deployment unchanged. The
-    copy stays Python-side and never crosses the native boundary.
-    """
-    if not forwards_tier:
-        return deployment
-    effective = deployment.gateway.prices.for_service_tier(service_tier)
-    if effective is deployment.gateway.prices:
-        return deployment
-    return deployment.model_copy(
-        update={"gateway": deployment.gateway.model_copy(update={"prices": effective})}
-    )
-
-
 def dispatch_disclosure(
     route: GatewayRoute,
     candidate: int,
@@ -420,6 +410,8 @@ def next_route_candidate(
     fallback_rules: FallbackRules = (),
     physical_route_cap: int | None = None,
     physical_attempt_counts: list[int] | None = None,
+    context_windows: Sequence[int | None] = (),
+    rung_families: RungFamilies = (),
 ) -> int | None:
     """Choose a safe retry or later exact deployment without changing logical model.
 
@@ -466,6 +458,13 @@ def next_route_candidate(
     not-found, provider 5xx, transport) and client errors are identical in
     every mode too: deadness always fails over, client errors never do.
 
+    A provider context-window rejection advances once, only to a wider rung
+    (``native_context_window``). A transport failure is never decided by cache
+    stakes: it takes an untried sibling before any redial of the failed rung.
+    When a request's only dial failed and no sibling can serve, its redial
+    through the rung's open circuit gets the forced claim a fresh first dial
+    would; any later redial stays behind the circuit.
+
     Args:
         health: Revision-isolated circuit and throttle registry.
         keys: One health key per ordered route deployment.
@@ -496,6 +495,13 @@ def next_route_candidate(
             unrestricted rung); empty when no rung authored one. A rule rung is
             claimed only when the failure spells one of its tokens, and then
             even for a class the route policy would not advance.
+        physical_route_cap: Physical dispatches allowed per route position.
+        physical_attempt_counts: Physical dispatch counts per route position.
+        context_windows: Each depth's advertised context window (``None``
+            when the catalog states none); empty when unknown for the route.
+            Read only for a provider context-window rejection.
+        rung_families: Each depth's family; a tight budget reaches an undialed
+            one before any redial or sibling (``reserve_fresh_families``).
 
     Returns:
         The claimed route index, or ``None`` when the ladder is exhausted.
@@ -503,15 +509,40 @@ def next_route_candidate(
     if total_attempts >= maximum_total_attempts:
         return None
     physical_counts = physical_attempt_counts or attempt_counts
+    refusal_eligible = failure.failure_class == GatewayFailureClass.REFUSAL and refusal_failover
+    remaining_attempts = maximum_total_attempts - total_attempts
+    depths = wider_windows(
+        untried_depths(
+            fallback_rules or (None,) * len(keys),
+            failure,
+            physical_counts,
+            current_depth,
+            unrestricted=failure.failover_eligible or refusal_eligible,
+        ),
+        failure,
+        current_depth,
+        context_windows,
+    )
+    # A redial spends an attempt on a family already dialed, so it waits while
+    # the attempts left are all needed to reach the undialed ones; those come
+    # first in the ladder (``reserve_fresh_families``).
+    reserved = bool(rung_families) and (
+        fresh_family_count(depths, rung_families, physical_counts) >= remaining_attempts
+    )
+    if rung_families:
+        depths = reserve_fresh_families(depths, rung_families, physical_counts, remaining_attempts)
     same_permitted = (
         physical_route_cap is None or physical_counts[current_depth] < physical_route_cap
     )
-    if (
+    same_redial = (
         same_permitted
         and failure.retryable_same_deployment
         and attempt_counts[current_depth] < maximum_same_deployment_attempts
-        and health.claim(keys[current_depth])
-    ):
+    )
+    # A reset is the path to the provider failing: a redial mid-burst meets the
+    # same reset, so transport takes an untried sibling (and its cache miss) first.
+    transport = failure.failure_class == GatewayFailureClass.TRANSPORT
+    if same_redial and not transport and not reserved and health.claim(keys[current_depth]):
         return current_depth
     throttled = failure.failure_class in _CACHE_PRESERVING_NO_FAILOVER_CLASSES
     if throttle_redial is not None and throttled:
@@ -520,6 +551,7 @@ def next_route_candidate(
         if (
             throttle_backoff
             and same_permitted
+            and not reserved
             and throttle_redial_budget > 0
             and health.claim_throttle_redial(keys[current_depth])
         ):
@@ -536,18 +568,20 @@ def next_route_candidate(
         )
         if disposition == THROTTLE_SURFACED_CACHE_PRESERVING:
             return None
-        if disposition is None and failover_mode == "maximize_cache" and throttled:
+        warm_mode = disposition is None and failover_mode == "maximize_cache"
+        short_wait = (failure.retry_after_seconds or 0) <= CACHE_PRESERVING_MAX_WAIT_SECONDS
+        if warm_mode and throttled and short_wait:
             return None
-    refusal_eligible = failure.failure_class == GatewayFailureClass.REFUSAL and refusal_failover
-    rules = fallback_rules or (None,) * len(keys)
-    depths = untried_depths(
-        rules,
-        failure,
-        physical_counts,
-        current_depth,
-        unrestricted=failure.failover_eligible or refusal_eligible,
-    )
-    return claim_route_from(health, keys, 0, depths) if depths else None
+    candidate = claim_route_from(health, keys, 0, depths) if depths else None
+    if candidate is None and same_redial:
+        if health.claim(keys[current_depth]):
+            candidate = current_depth
+        elif total_attempts <= 1:
+            # The request's one dial failed, nothing else can serve, and the
+            # circuit is open: load shedding, not a verdict. A fresh request would
+            # be force-admitted here, so this redial is too (a throttle refuses).
+            candidate = claim_route_from(health, keys, 0, (current_depth,))
+    return candidate
 
 
 @dataclass(frozen=True)
@@ -933,6 +967,7 @@ def deployment_wire_entry(
         ),
         "zdr_constrained": zdr_constrained,
         "capture_logprobs": capture_logprobs,
+        "rung_family": rung_family_index(route, deployment),  # throttle redial reserve
     }
 
 

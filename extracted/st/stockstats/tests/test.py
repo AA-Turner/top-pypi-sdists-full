@@ -525,18 +525,18 @@ class StockDataFrameTest(TestCase):
         boll_lb = stock["boll_lb"]
         idx = 20141103
         assert_that(stock["boll"].loc[idx], near_to(9.8035))
-        assert_that(boll_ub.loc[idx], near_to(10.1310))
-        assert_that(boll_lb.loc[idx], near_to(9.4759))
+        assert_that(boll_ub.loc[idx], near_to(10.1228))
+        assert_that(boll_lb.loc[idx], near_to(9.4842))
 
     def test_bollinger_with_window(self):
         stock = self.get_stock().within(20140930, 20141211)
         _ = stock["boll_20"]
         idx = 20141103
         assert_that(stock["boll_20"].loc[idx], near_to(9.8035))
-        assert_that(stock["boll_ub_20"].loc[idx], near_to(10.1310))
-        assert_that(stock["boll_lb_20"].loc[idx], near_to(9.4759))
+        assert_that(stock["boll_ub_20"].loc[idx], near_to(10.1228))
+        assert_that(stock["boll_lb_20"].loc[idx], near_to(9.4842))
         _ = stock["boll_5"]
-        assert_that(stock["boll_ub_5"].loc[idx], near_to(10.44107))
+        assert_that(stock["boll_ub_5"].loc[idx], near_to(10.38310))
 
     def test_bollinger_empty(self):
         stock = self.get_stock().within(18800101, 18900101)
@@ -1034,6 +1034,13 @@ class StockDataFrameTest(TestCase):
         bop = stock["bop"]
         assert_that(bop[20110104], near_to(0.5))
         assert_that(bop[20110106], near_to(-0.207))
+
+    def test_bop_integer_prices(self):
+        df = pd.DataFrame(dict(open=[10, 11, 12], high=[12, 13, 14],
+                               low=[9, 10, 11], close=[11, 12, 12]))
+        bop = wrap(df)['bop']
+        assert_that(bop[0], near_to(0.333))
+        assert_that(bop[2], equal_to(0))
 
     def test_cmo(self):
         stock = self.get_stock_30days()

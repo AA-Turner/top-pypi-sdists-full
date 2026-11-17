@@ -15,6 +15,7 @@ import {
   fetchServices,
   fetchCubes,
   fetchExposed,
+  fetchProducts,
   fetchSession,
   submitFeedback,
   unexposeApp,
@@ -258,5 +259,25 @@ describe('the expose request builders', () => {
       `${CONSOLE_BASE}/api/cubes/cube-66odzn95/services`,
     )
     expect(fetchMock.mock.calls[0]![1].method).toBe('GET')
+  })
+})
+
+describe('the products read', () => {
+  it("fetchProducts GETs the Manage section's products endpoint", async () => {
+    await fetchProducts()
+    expect(fetchMock.mock.calls[0]![0]).toBe(`${CONSOLE_BASE}/api/manage/products`)
+    expect(fetchMock.mock.calls[0]![1].method).toBe('GET')
+  })
+
+  it("maps the route's refusal, a plain 404, to NotFound", async () => {
+    // Not staff, or a stack that does not serve the page: the page renders "no such
+    // page" off this, so it must not surface as an ordinary error.
+    fetchMock.mockResolvedValue(jsonResponse({ error: 'Not found.' }, 404))
+    await expect(fetchProducts()).rejects.toBeInstanceOf(NotFound)
+  })
+
+  it("surfaces the server's message on a 502", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({ error: 'Could not read product tags.' }, 502))
+    await expect(fetchProducts()).rejects.toThrow('Could not read product tags.')
   })
 })

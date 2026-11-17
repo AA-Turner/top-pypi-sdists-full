@@ -61,6 +61,11 @@ impl CoalescingQueue {
         })
     }
 
+    #[cfg(target_os = "linux")]
+    pub(crate) fn requires_target(&self) -> bool {
+        self.handler.requires_target()
+    }
+
     /// Enqueue a call. Flushes immediately if the queue hits `max_size`.
     pub async fn submit(self: Arc<Self>, call: BufferedCall) {
         let should_flush = {
@@ -193,7 +198,7 @@ impl CoalescingQueue {
                         crate::metrics::Mode::Sync,
                     );
                 }
-                let status = Status::unknown(e.to_string());
+                let status = e.status();
                 for tx in response_txs {
                     let _ = tx.send(Err(status.clone())).await;
                 }

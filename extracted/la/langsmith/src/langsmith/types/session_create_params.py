@@ -29,6 +29,14 @@ class SessionCreateParams(TypedDict, total=False):
 
     kicked_off_by: Optional[str]
 
+    longlived_ttl_days: Optional[int]
+    """Retention in days for traces while trace_tier is longlived.
+
+    One of the deployment's allowed values (allowed_longlived_ttl_days in /info), up
+    to the maximum of the deployment. The value is kept while trace_tier is
+    shortlived. Null means the project uses the workspace retention.
+    """
+
     name: str
 
     num_examples: Optional[int]

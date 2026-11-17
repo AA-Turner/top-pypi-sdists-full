@@ -26,37 +26,50 @@ from botocore.client import BaseClient, ClientMeta
 from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
-from .paginator import ListDomainsPaginator, ListSubscriptionsPaginator
+from .paginator import ListDatasetsPaginator, ListDomainsPaginator, ListSubscriptionsPaginator
 from .type_defs import (
     ActivateSubscriptionInputTypeDef,
     ActivateSubscriptionOutputTypeDef,
+    CreateDatasetInputTypeDef,
+    CreateDatasetOutputTypeDef,
     CreateDomainInputTypeDef,
     CreateDomainOutputTypeDef,
     CreateSubscriptionInputTypeDef,
     CreateSubscriptionOutputTypeDef,
     DeactivateSubscriptionInputTypeDef,
     DeactivateSubscriptionOutputTypeDef,
+    DeleteDatasetInputTypeDef,
+    DeleteDatasetOutputTypeDef,
     DeleteDomainInputTypeDef,
     DeleteDomainOutputTypeDef,
     EmptyResponseMetadataTypeDef,
+    GetDatasetInputTypeDef,
+    GetDatasetOutputTypeDef,
     GetDomainInputTypeDef,
     GetDomainOutputTypeDef,
+    GetMedicalCodingJobRequestTypeDef,
+    GetMedicalCodingJobResponseTypeDef,
     GetMedicalScribeListeningSessionInputTypeDef,
     GetMedicalScribeListeningSessionOutputTypeDef,
     GetPatientInsightsJobRequestTypeDef,
     GetPatientInsightsJobResponseTypeDef,
     GetSubscriptionInputTypeDef,
     GetSubscriptionOutputTypeDef,
+    ListDatasetsInputTypeDef,
+    ListDatasetsOutputTypeDef,
     ListDomainsInputTypeDef,
     ListDomainsOutputTypeDef,
     ListSubscriptionsInputTypeDef,
     ListSubscriptionsOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
+    StartMedicalCodingJobRequestTypeDef,
+    StartMedicalCodingJobResponseTypeDef,
     StartMedicalScribeListeningSessionInputTypeDef,
     StartMedicalScribeListeningSessionOutputTypeDef,
     StartPatientInsightsJobRequestTypeDef,
     StartPatientInsightsJobResponseTypeDef,
+    SubmitFeedbackRequestTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
 )
@@ -123,6 +136,16 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#activate_subscription)
         """
 
+    def create_dataset(
+        self, **kwargs: Unpack[CreateDatasetInputTypeDef]
+    ) -> CreateDatasetOutputTypeDef:
+        """
+        Creates a Dataset in a Domain and starts building it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/create_dataset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#create_dataset)
+        """
+
     def create_domain(
         self, **kwargs: Unpack[CreateDomainInputTypeDef]
     ) -> CreateDomainOutputTypeDef:
@@ -153,6 +176,17 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#deactivate_subscription)
         """
 
+    def delete_dataset(
+        self, **kwargs: Unpack[DeleteDatasetInputTypeDef]
+    ) -> DeleteDatasetOutputTypeDef:
+        """
+        Starts deleting a Dataset and the resources that Amazon Connect Health built
+        for it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/delete_dataset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#delete_dataset)
+        """
+
     def delete_domain(
         self, **kwargs: Unpack[DeleteDomainInputTypeDef]
     ) -> DeleteDomainOutputTypeDef:
@@ -163,12 +197,32 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#delete_domain)
         """
 
+    def get_dataset(self, **kwargs: Unpack[GetDatasetInputTypeDef]) -> GetDatasetOutputTypeDef:
+        """
+        Retrieves information about a Dataset, including its status and, after it is
+        built, its results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/get_dataset.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#get_dataset)
+        """
+
     def get_domain(self, **kwargs: Unpack[GetDomainInputTypeDef]) -> GetDomainOutputTypeDef:
         """
         Retrieves information about a Domain.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/get_domain.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#get_domain)
+        """
+
+    def get_medical_coding_job(
+        self, **kwargs: Unpack[GetMedicalCodingJobRequestTypeDef]
+    ) -> GetMedicalCodingJobResponseTypeDef:
+        """
+        Retrieves information about a medical coding job, including its status and,
+        when it succeeds, the location of its results.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/get_medical_coding_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#get_medical_coding_job)
         """
 
     def get_medical_scribe_listening_session(
@@ -201,6 +255,16 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#get_subscription)
         """
 
+    def list_datasets(
+        self, **kwargs: Unpack[ListDatasetsInputTypeDef]
+    ) -> ListDatasetsOutputTypeDef:
+        """
+        Lists the Datasets in a Domain.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/list_datasets.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#list_datasets)
+        """
+
     def list_domains(self, **kwargs: Unpack[ListDomainsInputTypeDef]) -> ListDomainsOutputTypeDef:
         """
         Lists Domains for a given account.
@@ -229,6 +293,17 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#list_tags_for_resource)
         """
 
+    def start_medical_coding_job(
+        self, **kwargs: Unpack[StartMedicalCodingJobRequestTypeDef]
+    ) -> StartMedicalCodingJobResponseTypeDef:
+        """
+        Starts an asynchronous job that generates medical codes (ICD-10 and CPT) for
+        clinical text.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/start_medical_coding_job.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#start_medical_coding_job)
+        """
+
     def start_medical_scribe_listening_session(
         self, **kwargs: Unpack[StartMedicalScribeListeningSessionInputTypeDef]
     ) -> StartMedicalScribeListeningSessionOutputTypeDef:
@@ -249,6 +324,15 @@ class ConnectHealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#start_patient_insights_job)
         """
 
+    def submit_feedback(self, **kwargs: Unpack[SubmitFeedbackRequestTypeDef]) -> dict[str, Any]:
+        """
+        Submits feedback on a clinical document or a set of medical codes that Amazon
+        Connect Health generated.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/submit_feedback.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#submit_feedback)
+        """
+
     def tag_resource(
         self, **kwargs: Unpack[TagResourceInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -267,6 +351,17 @@ class ConnectHealthClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/untag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#untag_resource)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_datasets"]
+    ) -> ListDatasetsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

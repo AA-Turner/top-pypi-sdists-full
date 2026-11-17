@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_connecthealth.literals import CustomTemplateBaseType
+    from mypy_boto3_connecthealth.literals import ChecklistItemStatusType
 
-    data: CustomTemplateBaseType = "BEHAVIORAL_SOAP"
+    data: ChecklistItemStatusType = "DISCUSSED"
     ```
 """
 
@@ -22,12 +22,18 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ChecklistItemStatusType",
     "ConnectHealthServiceName",
     "CustomTemplateBaseType",
+    "DatasetStatusType",
+    "DatasetTypeType",
     "DomainStatusType",
+    "EncounterTypeType",
     "EncryptionTypeType",
+    "FeedbackArtifactTypeType",
     "InsightsTypeType",
     "JobStatusType",
+    "ListDatasetsPaginatorName",
     "ListDomainsPaginatorName",
     "ListSubscriptionsPaginatorName",
     "ManagedNoteTemplateType",
@@ -37,22 +43,34 @@ __all__ = (
     "MedicalScribeSessionControlEventTypeType",
     "MedicalScribeStreamStatusType",
     "PaginatorName",
+    "PatientStatusType",
+    "PeriodontalReviewReasonType",
+    "PeriodontalSiteNameType",
     "PostStreamArtifactGenerationStatusType",
     "PronounsType",
     "ProviderRoleType",
     "ResourceServiceName",
     "ServiceName",
+    "SexType",
     "SpecialtyType",
     "SubscriptionStatusType",
 )
 
+ChecklistItemStatusType = Literal["DISCUSSED", "NOT_DISCUSSED", "PARTIALLY_DISCUSSED"]
 CustomTemplateBaseType = Literal[
     "BEHAVIORAL_SOAP", "BIRP", "DAP", "GIRPP", "HISTORY_AND_PHYSICAL", "SIRP"
 ]
+DatasetStatusType = Literal[
+    "ACTIVE", "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING"
+]
+DatasetTypeType = Literal["MEDICAL_CODING"]
 DomainStatusType = Literal["ACTIVE", "DELETED", "DELETING"]
+EncounterTypeType = Literal["IN_PERSON", "TELEHEALTH"]
 EncryptionTypeType = Literal["AWS_OWNED_KEY", "CUSTOMER_MANAGED_KEY"]
+FeedbackArtifactTypeType = Literal["CLINICAL_DOC", "MEDICAL_CODES"]
 InsightsTypeType = Literal["PRE_VISIT"]
 JobStatusType = Literal["FAILED", "IN_PROGRESS", "SUBMITTED", "SUCCEEDED"]
+ListDatasetsPaginatorName = Literal["list_datasets"]
 ListDomainsPaginatorName = Literal["list_domains"]
 ListSubscriptionsPaginatorName = Literal["list_subscriptions"]
 ManagedNoteTemplateType = Literal[
@@ -63,9 +81,24 @@ MedicalScribeMediaEncodingType = Literal["flac", "pcm"]
 MedicalScribeParticipantRoleType = Literal["CLINICIAN", "PATIENT"]
 MedicalScribeSessionControlEventTypeType = Literal["END_OF_SESSION"]
 MedicalScribeStreamStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS", "PAUSED"]
-PostStreamArtifactGenerationStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
+PatientStatusType = Literal["ESTABLISHED", "NEW"]
+PeriodontalReviewReasonType = Literal[
+    "LINE_UNCLEAR",
+    "MEASUREMENT_NOT_CHARTED",
+    "MISSING_TOOTH_CONFLICT",
+    "READING_COUNT_MISMATCH",
+    "SESSION_ISSUE",
+    "SITE_NOT_CHARTED",
+    "TOOTH_UNCLEAR",
+    "VALUE_NOT_CHARTED",
+]
+PeriodontalSiteNameType = Literal["B", "DB", "DL", "L", "MB", "ML"]
+PostStreamArtifactGenerationStatusType = Literal[
+    "COMPLETED", "FAILED", "IN_PROGRESS", "PENDING", "SKIPPED"
+]
 PronounsType = Literal["HE_HIM", "SHE_HER", "THEY_THEM"]
 ProviderRoleType = Literal["CLINICIAN"]
+SexType = Literal["FEMALE", "MALE", "NON_BINARY", "UNKNOWN"]
 SpecialtyType = Literal["PRIMARY_CARE"]
 SubscriptionStatusType = Literal["ACTIVE", "DELETED", "INACTIVE"]
 ConnectHealthServiceName = Literal["connecthealth"]
@@ -178,6 +211,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -362,6 +396,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -429,6 +464,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -509,4 +545,4 @@ ServiceName = Literal[
 ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
-PaginatorName = Literal["list_domains", "list_subscriptions"]
+PaginatorName = Literal["list_datasets", "list_domains", "list_subscriptions"]

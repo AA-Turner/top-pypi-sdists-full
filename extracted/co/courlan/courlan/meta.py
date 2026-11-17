@@ -4,7 +4,8 @@ Meta-functions to be applied module-wide.
 
 import logging
 
-from .filters import langcodes_score
+from .core import _host_parts
+from .hosts import get_registrable_domain
 
 LOGGER = logging.getLogger(__name__)
 
@@ -21,4 +22,5 @@ def clear_caches() -> None:
     """Reset all known LRU caches used to speed up processing.
     This may release some memory."""
     urllib_clear_cache()
-    langcodes_score.cache_clear()
+    get_registrable_domain.cache_clear()
+    _host_parts.cache_clear()

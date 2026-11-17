@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 2.9.0
+Version: 2.10.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -457,7 +457,23 @@ cosign verify-blob \
 
 # Release History
 
-## 2.9.0
+## 2.10.0
+
+### New Features
+
+* Model Monitoring: Added inference-table model monitors. Omit `source` on `ModelMonitorSourceConfig` to
+  monitor the model inference table. `ModelMonitor.describe` returns the DESC MODEL MONITOR row.
+
+### Bug Fixes
+
+* Registry: Deploying a model whose file names contain spaces or quotes (for example `bar plot.png`) no longer
+  fails with a `001003` SQL compilation error while the inference service downloads the model.
+
+### Behavior Changes
+
+### Deprecations
+
+## 2.9.0 (2026-11-09)
 
 ### New Features
 

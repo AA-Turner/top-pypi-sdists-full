@@ -12,13 +12,24 @@ from typing import Any
 
 from bitfab.google_calls import CREDENTIAL_PARAM, HTTP_ERROR_KEY, request_credentials
 from bitfab.mock_override import MockOverrideCtx, SpanNodeMeta
-from bitfab.sandbox import Sandbox, SandboxStartCtx, sandbox_state
+from bitfab.sandbox import (
+    Sandbox,
+    SandboxStartCtx,
+    sandbox_elapsed_ms,
+    sandbox_state,
+)
 from bitfab.service_calls import ServiceCallHeldBackError
 
 GMAIL_SANDBOX_NAME = "Gmail"
 GET_METHOD = "gmail.users.messages.get"
 LIST_METHOD = "gmail.users.messages.list"
 PROFILE_METHOD = "gmail.users.getProfile"
+LABELS_LIST_METHOD = "gmail.users.labels.list"
+LABEL_GET_METHOD = "gmail.users.labels.get"
+SEND_AS_LIST_METHOD = "gmail.users.settings.sendAs.list"
+DRAFT_GET_METHOD = "gmail.users.drafts.get"
+DRAFT_LIST_METHOD = "gmail.users.drafts.list"
+DRAFT_CREATE_METHOD = "gmail.users.drafts.create"
 SYSTEM_LABELS = (
     "INBOX",
     "SENT",
@@ -44,11 +55,21 @@ _PLAIN_HEADERS = {
 }
 _TOKEN = re.compile(r'-?[A-Za-z_]+:"[^"]*"|-?[A-Za-z_]+:\S+|-?"[^"]*"|\S+')
 _OPERATOR = re.compile(r"^[A-Za-z_]+:")
+_QUERY_TOKEN = re.compile(
+    r'-?[A-Za-z_]+:\(|-?[A-Za-z_]+:"[^"]*"|-?[A-Za-z_]+:[^\s(){}]+|-?"[^"]*"'
+    r'|-?[({]|[)}]|-?[^\s(){}"]+'
+)
+_HISTORY_TYPES = {
+    "messageAdded": "messagesAdded",
+    "messageDeleted": "messagesDeleted",
+    "labelAdded": "labelsAdded",
+    "labelRemoved": "labelsRemoved",
+}
 _RELATIVE = re.compile(r"^(\d+)([dmy])$")
 
 
 def _b64(text: str) -> str:
-    return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii").rstrip("=")
+    return base64.urlsafe_b64encode(text.encode("utf-8")).decode("ascii")
 
 
 def _unb64(data: str) -> str:
@@ -164,6 +185,26 @@ def gmail_message(fields: dict[str, Any]) -> dict[str, Any]:
     return message
 
 
+def _fields_from_raw(raw: str | None) -> dict[str, Any]:
+    parsed = email.message_from_string(
+        _unb64(raw) if raw else "", policy=email.policy.default
+    )
+    body_part = (
+        parsed.get_body(preferencelist=("plain", "html"))
+        if parsed.is_multipart()
+        else parsed
+    )
+    body = body_part.get_content() if body_part is not None else ""
+    return {
+        **{
+            key: str(parsed.get(header))
+            for key, header in _PLAIN_HEADERS.items()
+            if parsed.get(header)
+        },
+        "body": str(body),
+    }
+
+
 def _richer(
     existing: dict[str, Any] | None, candidate: dict[str, Any]
 ) -> dict[str, Any]:
@@ -179,13 +220,30 @@ def mailbox_from_recorded_calls(ctx: SandboxStartCtx) -> dict[str, Any]:
 
     Uses the state recorded with ``record_sandbox_state("Gmail", ...)`` when
     there is one. Otherwise takes every message the original run read
-    (``gmail.users.messages.get`` replies) and each account's address from
-    ``gmail.users.getProfile``, one mailbox per credential the calls used.
+    (``gmail.users.messages.get`` replies), each account's address from
+    ``gmail.users.getProfile``, and the drafts the run found
+    (``gmail.users.drafts.list`` and ``gmail.users.drafts.get`` replies, the
+    first read of each draft), one mailbox per credential the calls used.
+    Drafts the original run created are left out.
     """
     if ctx.recorded_state is not None:
         return as_mailboxes(ctx, ctx.recorded_state)
+    created = {
+        str(span.output.get("id"))
+        for span in ctx.recorded_spans(DRAFT_CREATE_METHOD)
+        if isinstance(span.output, dict) and span.output.get("id")
+    }
     by_credential: dict[str | None, dict[str, Any]] = {}
-    for name in (GET_METHOD, PROFILE_METHOD, LIST_METHOD):
+    for name in (
+        GET_METHOD,
+        PROFILE_METHOD,
+        LIST_METHOD,
+        LABELS_LIST_METHOD,
+        LABEL_GET_METHOD,
+        SEND_AS_LIST_METHOD,
+        DRAFT_GET_METHOD,
+        DRAFT_LIST_METHOD,
+    ):
         for span in ctx.recorded_spans(name):
             output = span.output
             if not isinstance(output, dict) or HTTP_ERROR_KEY in output:
@@ -198,7 +256,11 @@ def mailbox_from_recorded_calls(ctx: SandboxStartCtx) -> dict[str, Any]:
                     "credential": credential,
                     "emailAddress": None,
                     "messages": {},
+                    "drafts": {},
                     "searches": [],
+                    "labels": {},
+                    "sendAs": None,
+                    "historyId": None,
                 },
             )
             if name == LIST_METHOD and not given.get("pageToken"):
@@ -214,11 +276,43 @@ def mailbox_from_recorded_calls(ctx: SandboxStartCtx) -> dict[str, Any]:
                 )
             if name == PROFILE_METHOD:
                 box["emailAddress"] = output.get("emailAddress") or box["emailAddress"]
+                box["historyId"] = output.get("historyId") or box["historyId"]
+            if name == LABELS_LIST_METHOD:
+                for label in output.get("labels") or []:
+                    _keep_user_label(box["labels"], label)
+            if name == LABEL_GET_METHOD:
+                _keep_user_label(box["labels"], output)
+            if name == SEND_AS_LIST_METHOD and isinstance(output.get("sendAs"), list):
+                box["sendAs"] = output["sendAs"]
+            drafts = (
+                [output]
+                if name == DRAFT_GET_METHOD
+                else output.get("drafts") or []
+                if name == DRAFT_LIST_METHOD
+                else []
+            )
+            for draft in drafts:
+                draft_id = str(draft.get("id") or "")
+                if draft_id and draft_id not in created:
+                    box["drafts"].setdefault(draft_id, draft)
     boxes = [
-        {**box, "messages": list(box["messages"].values())}
+        {
+            **box,
+            "messages": list(box["messages"].values()),
+            "labels": list(box["labels"].values()),
+            "drafts": list(box["drafts"].values()),
+        }
         for box in by_credential.values()
     ]
     return as_mailboxes(ctx, {"mailboxes": boxes or [{}]})
+
+
+def _keep_user_label(into: dict[str, dict[str, Any]], label: Any) -> None:
+    if not isinstance(label, dict) or not label.get("id"):
+        return
+    if label.get("type") == "system" or label["id"] in SYSTEM_LABELS:
+        return
+    into[str(label["id"])] = label
 
 
 def as_mailboxes(ctx: SandboxStartCtx, started: Any) -> dict[str, Any]:
@@ -255,10 +349,26 @@ def as_mailboxes(ctx: SandboxStartCtx, started: Any) -> dict[str, Any]:
                 drafts=box.get("drafts"),
                 details=box.get("details"),
                 searches=box.get("searches"),
+                labels=box.get("labels"),
+                send_as=box.get("sendAs"),
+                clock=box.get("clock"),
+                history_id=box.get("historyId"),
             )
             for index, box in enumerate(boxes or [{}])
         ]
     }
+
+
+def _history_number(value: Any) -> int:
+    text = str(value or "").strip()
+    return int(text) if text.isdigit() else 0
+
+
+def _starting_history_id(messages: list[dict[str, Any]], recorded: Any) -> int:
+    return max(
+        [1000, _history_number(recorded)]
+        + [_history_number(m.get("historyId")) for m in messages]
+    )
 
 
 def new_mailbox(
@@ -270,8 +380,18 @@ def new_mailbox(
     drafts: list[dict[str, Any]] | None = None,
     details: dict[str, Any] | None = None,
     searches: list[dict[str, Any]] | None = None,
+    labels: list[dict[str, Any] | str] | None = None,
+    send_as: list[dict[str, Any]] | None = None,
+    clock: str | None = None,
+    history_id: Any = None,
 ) -> dict[str, Any]:
     normalized = [gmail_message(message) for message in messages or []]
+    notes: list[str] = []
+    started_drafts = [
+        _start_draft(draft, position, normalized, notes)
+        for position, draft in enumerate(drafts or [])
+        if isinstance(draft, dict)
+    ]
     for message in normalized:
         if (
             message.get("payload")
@@ -290,14 +410,84 @@ def new_mailbox(
         "emailAddress": email_address,
         "credential": credential,
         "details": dict(details or {}),
-        "clock": ctx.trace_started_at,
-        "historyId": 1000,
+        "clock": clock or ctx.trace_started_at,
+        "historyId": _starting_history_id([*(messages or []), *normalized], history_id),
         "nextId": index * 1_000_000 + 1,
         "messages": normalized,
-        "drafts": list(drafts or []),
+        "drafts": started_drafts,
         "searches": list(searches or []),
-        "notes": [],
+        "labels": [_user_label(label) for label in labels or []],
+        "sendAs": None if send_as is None else [dict(entry) for entry in send_as],
+        "history": [],
+        "notes": notes,
     }
+
+
+def _user_label(label: dict[str, Any] | str) -> dict[str, Any]:
+    given = {"name": label} if isinstance(label, str) else dict(label)
+    name = str(given.get("name") or given.get("id") or "")
+    return {
+        "id": str(given.get("id") or name),
+        "name": name,
+        "type": "user",
+        "messageListVisibility": "show",
+        "labelListVisibility": "labelShow",
+        **given,
+    }
+
+
+def _draft_label(labels: Any) -> list[str]:
+    kept = [label for label in labels or [] if label != "DRAFT"]
+    return ["DRAFT", *kept]
+
+
+def _draft_ref(message: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": message["id"],
+        "threadId": message.get("threadId"),
+        "labelIds": message.get("labelIds"),
+    }
+
+
+def _start_draft(
+    draft: dict[str, Any],
+    position: int,
+    messages: list[dict[str, Any]],
+    notes: list[str],
+) -> dict[str, Any]:
+    draft_id = str(draft.get("id") or f"r-start{position}")
+    given = dict(draft.get("message") or {})
+    message_id = str(given.get("id") or f"m-{draft_id}")
+    if given.get("raw") and "payload" not in given:
+        given = {**given, **_fields_from_raw(given.pop("raw"))}
+    existing = next((m for m in messages if m.get("id") == message_id), None)
+    carries_content = bool(set(given) - {"id", "threadId", "labelIds", "historyId"})
+    if carries_content:
+        built = gmail_message({"labelIds": ["DRAFT"], **given, "id": message_id})
+        message = _richer(existing, built) if existing else built
+    elif existing is not None:
+        message = existing
+    else:
+        message = gmail_message(
+            {
+                "id": message_id,
+                "threadId": given.get("threadId"),
+                "labelIds": ["DRAFT"],
+                "body": "",
+            }
+        )
+    message["labelIds"] = _draft_label(
+        message.get("labelIds") if given.get("labelIds") is None else given["labelIds"]
+    )
+    if not _body_text(message.get("payload") or {}) and not message.get("snippet"):
+        notes.append(
+            f"draft {draft_id} was never read in full in the original run, so its message is empty"
+        )
+    if existing is None:
+        messages.append(message)
+    elif message is not existing:
+        messages[messages.index(existing)] = message
+    return {"id": draft_id, "message": _draft_ref(message)}
 
 
 def _note(state: dict[str, Any], text: str) -> None:
@@ -359,9 +549,16 @@ def _shaped(
 
 
 def _clock_millis(state: dict[str, Any]) -> int:
-    return _millis(state.get("clock")) or int(
-        datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000
-    )
+    started = _millis(state.get("clock"))
+    if started is None:
+        return int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+    return started + sandbox_elapsed_ms()
+
+
+def _created_millis(state: dict[str, Any]) -> int:
+    created = max(_clock_millis(state), int(state.get("lastCreatedAt") or 0) + 1)
+    state["lastCreatedAt"] = created
+    return created
 
 
 def _date_bound(value: str) -> int | None:
@@ -385,6 +582,19 @@ def _relative_millis(value: str) -> int | None:
         return None
     days = int(matched.group(1)) * {"d": 1, "m": 30, "y": 365}[matched.group(2)]
     return days * 86_400_000
+
+
+def _search_name(name: str) -> str:
+    return re.sub(r"[\s/&]+", "-", name.strip().lower())
+
+
+def _label_ids_named(state: dict[str, Any], value: str) -> set[str]:
+    wanted = _search_name(value)
+    return {
+        str(label.get("id"))
+        for label in state.get("labels") or []
+        if _search_name(str(label.get("name") or "")) == wanted
+    }
 
 
 def _contains(haystack: str, needle: str) -> bool:
@@ -422,7 +632,12 @@ def _term_matches(state: dict[str, Any], message: dict[str, Any], term: str) -> 
         return wanted.upper() in labels
     if operator in {"in", "label"}:
         wanted = value.upper().replace("-", "_")
-        return wanted == "ANYWHERE" or wanted in labels or value in labels
+        return (
+            wanted == "ANYWHERE"
+            or wanted in labels
+            or value in labels
+            or bool(_label_ids_named(state, value) & labels)
+        )
     if operator == "has":
         return value.lower() != "attachment" or bool(
             _attachments(message.get("payload") or {})
@@ -449,6 +664,126 @@ def _term_matches(state: dict[str, Any], message: dict[str, Any], term: str) -> 
     return _contains(text, term.strip('"'))
 
 
+Query = tuple[str, Any]
+
+
+def _negated(negate: bool, query: Query) -> Query:
+    return ("not", query) if negate else query
+
+
+def _leaf(token: str, field: str | None) -> Query:
+    negate = token.startswith("-") and len(token) > 1
+    text = token[1:] if negate else token
+    if field and not _OPERATOR.match(text):
+        text = f"{field}:{text}"
+    return _negated(negate, ("term", text))
+
+
+class _QueryParser:
+    def __init__(self, query: str) -> None:
+        self.tokens = _QUERY_TOKEN.findall(query or "")
+        self.at = 0
+
+    def peek(self) -> str | None:
+        return self.tokens[self.at] if self.at < len(self.tokens) else None
+
+    def take(self) -> str:
+        token = self.tokens[self.at]
+        self.at += 1
+        return token
+
+    def conjunction(self, closer: str | None, field: str | None) -> Query:
+        items: list[Query] = []
+        while (token := self.peek()) is not None and token != closer:
+            if token in {"AND", ")", "}"}:
+                self.take()
+                continue
+            items.append(self.disjunction(closer, field))
+        if self.peek() == closer and closer is not None:
+            self.take()
+        return items[0] if len(items) == 1 else ("and", items)
+
+    def disjunction(self, closer: str | None, field: str | None) -> Query:
+        items = [self.unary(field)]
+        while self.peek() == "OR":
+            self.take()
+            if self.peek() in {None, closer, "OR"}:
+                continue
+            items.append(self.unary(field))
+        return items[0] if len(items) == 1 else ("or", items)
+
+    def unary(self, field: str | None) -> Query:
+        token = self.take()
+        negate = token.startswith("-") and len(token) > 1
+        bare = token[1:] if negate else token
+        if bare == "(":
+            return _negated(negate, self.conjunction(")", field))
+        if bare == "{":
+            return _negated(negate, self.braced(field))
+        if bare.endswith(":("):
+            return _negated(negate, self.conjunction(")", bare[:-2]))
+        return _leaf(token, field)
+
+    def braced(self, field: str | None) -> Query:
+        items: list[Query] = []
+        while (token := self.peek()) is not None and token != "}":
+            if token in {"AND", "OR", ")"}:
+                self.take()
+                continue
+            items.append(self.unary(field))
+        if self.peek() == "}":
+            self.take()
+        return items[0] if len(items) == 1 else ("or", items)
+
+
+def _flattened(query: Query) -> Query:
+    kind, value = query
+    if kind == "term":
+        return query
+    if kind == "not":
+        return ("not", _flattened(value))
+    items: list[Query] = []
+    for child in (_flattened(q) for q in value):
+        items.extend(child[1] if child[0] == kind else [child])
+    return items[0] if len(items) == 1 else (kind, items)
+
+
+def parse_query(query: str) -> Query:
+    return _flattened(_QueryParser(query).conjunction(None, None))
+
+
+def _matches(state: dict[str, Any], message: dict[str, Any], query: Query) -> bool:
+    kind, value = query
+    if kind == "term":
+        return _term_matches(state, message, value)
+    if kind == "not":
+        return not _matches(state, message, value)
+    if kind == "or":
+        return any(_matches(state, message, q) for q in value)
+    return all(_matches(state, message, q) for q in value)
+
+
+def _leaves(query: Query) -> list[str]:
+    kind, value = query
+    if kind == "term":
+        return [value]
+    if kind == "not":
+        return []
+    return [leaf for q in value for leaf in _leaves(q)]
+
+
+def _required(query: Query) -> list[Query]:
+    kind, value = query
+    return list(value) if kind == "and" else [query]
+
+
+def _is_plain(query: Query) -> bool:
+    return all(
+        q[0] == "term" or (q[0] == "not" and q[1][0] == "term")
+        for q in _required(query)
+    )
+
+
 def _is_free_text(term: str) -> bool:
     return bool(term) and not term.startswith("-") and not _OPERATOR.match(term)
 
@@ -456,14 +791,23 @@ def _is_free_text(term: str) -> bool:
 _DATE_OPERATORS = ("after:", "before:", "newer_than:", "older_than:")
 
 
+def _canonical(query: Query) -> str:
+    kind, value = query
+    if kind == "term":
+        return str(value).lower()
+    if kind == "not":
+        return "-" + _canonical(value)
+    joined = f" {kind.upper()} ".join(sorted(_canonical(q) for q in value))
+    return f"({joined})"
+
+
+def _is_date_bound(query: Query) -> bool:
+    return query[0] == "term" and query[1].lower().startswith(_DATE_OPERATORS)
+
+
 def search_key(query: str) -> str:
-    return " ".join(
-        sorted(
-            t.lower()
-            for t in _TOKEN.findall(query or "")
-            if t != "AND" and not t.lower().startswith(_DATE_OPERATORS)
-        )
-    )
+    kept = [q for q in _required(parse_query(query)) if not _is_date_bound(q)]
+    return " ".join(sorted(_canonical(q) for q in kept))
 
 
 def _text_key(query: str) -> str:
@@ -500,73 +844,58 @@ def _known_results(state: dict[str, Any], key: str) -> set[str] | None:
     return {i for ids in found for i in ids}
 
 
-def _matches_every_term(
-    state: dict[str, Any], message: dict[str, Any], terms: list[str]
-) -> bool:
-    return all(
-        (not _term_matches(state, message, t[1:]))
-        if t.startswith("-") and len(t) > 1
-        else _term_matches(state, message, t)
-        for t in terms
-        if t
-    )
-
-
 def _search(
     state: dict[str, Any], query: str, include_spam_trash: bool
 ) -> list[dict[str, Any]]:
-    terms = [t for t in _TOKEN.findall(query or "") if t not in {"(", ")", "AND"}]
-    if "OR" in terms or any(t.startswith("{") or t.startswith("(") for t in terms):
-        _note(
-            state, "OR and grouped searches are matched as if every word were required"
-        )
-    terms = [t.strip("(){}") for t in terms if t != "OR"]
+    parsed = parse_query(query)
+    searching_everywhere = any(
+        t.lower() in {"in:anywhere", "in:spam", "in:trash"} for t in _leaves(parsed)
+    )
+    visible = {
+        m.get("id"): m
+        for m in state["messages"]
+        if include_spam_trash
+        or searching_everywhere
+        or not set(m.get("labelIds") or []) & {"SPAM", "TRASH"}
+    }
     same = _same_search(state, query)
     if same is not None:
-        by_id = {m.get("id"): m for m in state["messages"]}
         created = [
             m
-            for m in state["messages"]
-            if m.get("bitfabCreated") and _matches_every_term(state, m, terms)
+            for m in visible.values()
+            if m.get("bitfabCreated") and _matches(state, m, parsed)
         ]
-        dates = [t for t in terms if t.lower().startswith(_DATE_OPERATORS)]
+        dates = [q for q in _required(parsed) if _is_date_bound(q)]
         recorded = [
-            by_id[i]
+            visible[i]
             for i in same
-            if i in by_id and all(_term_matches(state, by_id[i], t) for t in dates)
+            if i in visible and all(_matches(state, visible[i], q) for q in dates)
         ]
         newest_first = sorted(
             created, key=lambda m: int(m.get("internalDate") or 0), reverse=True
         )
         return newest_first + recorded
-    known = _known_results(state, _text_key(query))
+    known = _known_results(state, _text_key(query)) if _is_plain(parsed) else None
+    rest = parsed
+    free: Query = ("and", [])
     if known is not None:
-        free = [t for t in terms if _is_free_text(t)]
-        terms = [t for t in terms if not _is_free_text(t)]
+        required = _required(parsed)
+        free = ("and", [q for q in required if q[0] == "term" and _is_free_text(q[1])])
+        rest = ("and", [q for q in required if q not in free[1]])
     found = []
-    for message in state["messages"]:
-        labels = set(message.get("labelIds") or [])
-        searching_everywhere = any(
-            t.lower() in {"in:anywhere", "in:spam", "in:trash"} for t in terms
-        )
-        if (
-            not include_spam_trash
-            and not searching_everywhere
-            and labels & {"SPAM", "TRASH"}
-        ):
-            continue
+    for message in visible.values():
         if known is not None and (
             message.get("id") not in known
             if not message.get("bitfabCreated")
-            else not all(_term_matches(state, message, t) for t in free)
+            else not _matches(state, message, free)
         ):
             continue
-        if _matches_every_term(state, message, terms):
+        if _matches(state, message, rest):
             found.append(message)
     return sorted(found, key=lambda m: int(m.get("internalDate") or 0), reverse=True)
 
 
-def _list(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+def _matching(state: dict[str, Any], params: dict[str, Any]) -> list[dict[str, Any]]:
     matched = _search(
         state,
         str(params.get("q") or ""),
@@ -575,18 +904,53 @@ def _list(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     label_ids = params.get("labelIds") or []
     if isinstance(label_ids, str):
         label_ids = [label_ids]
-    matched = [m for m in matched if set(label_ids) <= set(m.get("labelIds") or [])]
+    return [m for m in matched if set(label_ids) <= set(m.get("labelIds") or [])]
+
+
+def _paged(
+    params: dict[str, Any], items: list[Any], key: str, shape: Callable[[Any], Any]
+) -> dict[str, Any]:
     size = min(int(params.get("maxResults") or 100), 500)
     offset = int(params.get("pageToken") or 0)
-    page = matched[offset : offset + size]
-    reply: dict[str, Any] = {"resultSizeEstimate": len(matched)}
+    page = items[offset : offset + size]
+    reply: dict[str, Any] = {"resultSizeEstimate": len(items)}
     if page:
-        reply["messages"] = [
-            {"id": m["id"], "threadId": m.get("threadId")} for m in page
-        ]
-    if offset + size < len(matched):
+        reply[key] = [shape(item) for item in page]
+    if offset + size < len(items):
         reply["nextPageToken"] = str(offset + size)
     return reply
+
+
+def _list(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    return _paged(
+        params,
+        _matching(state, params),
+        "messages",
+        lambda m: {"id": m["id"], "threadId": m.get("threadId")},
+    )
+
+
+def _thread_messages(state: dict[str, Any], thread_id: str) -> list[dict[str, Any]]:
+    return [m for m in state["messages"] if m.get("threadId") == thread_id]
+
+
+def _threads_list(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    newest: dict[str, dict[str, Any]] = {}
+    for message in _matching(state, params):
+        newest.setdefault(str(message.get("threadId") or message["id"]), message)
+
+    def shape(thread_id: str) -> dict[str, Any]:
+        latest = max(
+            _thread_messages(state, thread_id) or [newest[thread_id]],
+            key=lambda m: int(m.get("historyId") or 0),
+        )
+        return {
+            "id": thread_id,
+            "snippet": newest[thread_id].get("snippet") or "",
+            "historyId": str(latest.get("historyId") or state.get("historyId")),
+        }
+
+    return _paged(params, list(newest), "threads", shape)
 
 
 def _get(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
@@ -614,84 +978,182 @@ def _bump_history(state: dict[str, Any]) -> str:
     return str(state["historyId"])
 
 
+def _message_ref(message: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "id": message["id"],
+        "threadId": message.get("threadId"),
+        "labelIds": list(message.get("labelIds") or []),
+    }
+
+
+def _record_change(
+    state: dict[str, Any], message: dict[str, Any], changes: dict[str, Any]
+) -> None:
+    history_id = _bump_history(state)
+    message["historyId"] = history_id
+    ref = _message_ref(message)
+    entry: dict[str, Any] = {
+        "id": history_id,
+        "messages": [{"id": ref["id"], "threadId": ref["threadId"]}],
+    }
+    for key, labels in changes.items():
+        if key in {"messagesAdded", "messagesDeleted"}:
+            entry[key] = [{"message": ref}]
+        elif labels:
+            entry[key] = [{"message": ref, "labelIds": list(labels)}]
+    state.setdefault("history", []).append(entry)
+
+
+def _relabel(
+    state: dict[str, Any],
+    message: dict[str, Any],
+    add: list[str],
+    remove: list[str],
+) -> None:
+    before = list(message.get("labelIds") or [])
+    removed = [label for label in before if label in set(remove)]
+    kept = [label for label in before if label not in set(remove)]
+    added = list(dict.fromkeys(label for label in add if label not in kept))
+    message["labelIds"] = kept + added
+    if added or removed:
+        _record_change(state, message, {"labelsAdded": added, "labelsRemoved": removed})
+
+
 def _from_raw(
     state: dict[str, Any], raw: str | None, thread_id: str | None, labels: list[str]
 ) -> dict[str, Any]:
-    parsed = email.message_from_string(
-        _unb64(raw) if raw else "", policy=email.policy.default
-    )
-    body_part = (
-        parsed.get_body(preferencelist=("plain", "html"))
-        if parsed.is_multipart()
-        else parsed
-    )
-    body = body_part.get_content() if body_part is not None else ""
-    fields = {
-        key: parsed.get(header)
-        for key, header in _PLAIN_HEADERS.items()
-        if parsed.get(header)
-    }
     message_id = _next_id(state, "sandbox")
     message = gmail_message(
         {
-            **fields,
+            **_fields_from_raw(raw),
             "id": message_id,
             "threadId": thread_id or message_id,
-            "body": str(body),
             "labelIds": labels,
-            "internalDate": _clock_millis(state),
+            "internalDate": _created_millis(state),
         }
     )
-    message["historyId"] = _bump_history(state)
     message["bitfabCreated"] = True
+    state["messages"].append(message)
+    _record_change(state, message, {"messagesAdded": True})
     return message
 
 
 def _send(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     body = params.get("body") or {}
     message = _from_raw(state, body.get("raw"), body.get("threadId"), ["SENT"])
-    state["messages"].append(message)
     return {
         "id": message["id"],
         "threadId": message["threadId"],
         "labelIds": message["labelIds"],
     }
+
+
+def _bad_request(text: str) -> dict[str, Any]:
+    return {
+        HTTP_ERROR_KEY: {
+            "code": 400,
+            "message": text,
+            "status": "INVALID_ARGUMENT",
+            "errors": [
+                {"message": text, "domain": "global", "reason": "invalidArgument"}
+            ],
+        }
+    }
+
+
+def _find_draft(state: dict[str, Any], draft_id: Any) -> dict[str, Any] | None:
+    return next((d for d in state["drafts"] if d.get("id") == draft_id), None)
+
+
+def _new_draft_message(
+    state: dict[str, Any], inner: dict[str, Any], thread_id: str | None
+) -> dict[str, Any]:
+    message = _from_raw(
+        state, inner.get("raw"), inner.get("threadId") or thread_id, ["DRAFT"]
+    )
+    return message
 
 
 def _draft_create(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     inner = (params.get("body") or {}).get("message") or {}
-    message = _from_raw(state, inner.get("raw"), inner.get("threadId"), ["DRAFT"])
-    state["messages"].append(message)
-    draft = {
-        "id": _next_id(state, "r-sandbox"),
-        "message": {
-            "id": message["id"],
-            "threadId": message["threadId"],
-            "labelIds": ["DRAFT"],
-        },
-    }
+    message = _new_draft_message(state, inner, None)
+    draft = {"id": _next_id(state, "r-sandbox"), "message": _draft_ref(message)}
     state["drafts"].append(draft)
-    return draft
+    return copy.deepcopy(draft)
 
 
-def _draft_send(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
-    draft_id = (params.get("body") or {}).get("id")
-    draft = next((d for d in state["drafts"] if d.get("id") == draft_id), None)
+def _draft_get(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    draft = _find_draft(state, params.get("id"))
     if draft is None:
-        return _not_found(f"draft {draft_id}")
-    state["drafts"].remove(draft)
+        return _not_found(f"draft {params.get('id')}")
     message = _find(state, draft["message"]["id"])
     if message is None:
         return _not_found(f"message {draft['message']['id']}")
-    message["labelIds"] = [
-        label for label in message.get("labelIds") or [] if label != "DRAFT"
-    ] + ["SENT"]
-    message["historyId"] = _bump_history(state)
+    fmt = str(params.get("format") or "full").lower()
+    return {"id": draft["id"], "message": _shaped(message, fmt, None)}
+
+
+def _replace_draft_message(
+    state: dict[str, Any], draft: dict[str, Any], inner: dict[str, Any]
+) -> None:
+    old = _find(state, draft["message"]["id"])
+    if old is not None:
+        _remove_message(state, old)
+    message = _new_draft_message(
+        state, inner, (old or draft["message"]).get("threadId")
+    )
+    draft["message"] = _draft_ref(message)
+
+
+def _draft_update(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    draft = _find_draft(state, params.get("id"))
+    if draft is None:
+        return _not_found(f"draft {params.get('id')}")
+    inner = (params.get("body") or {}).get("message") or {}
+    if not inner.get("raw"):
+        return _bad_request("Missing draft message")
+    _replace_draft_message(state, draft, inner)
+    return copy.deepcopy(draft)
+
+
+def _draft_delete(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    draft = _find_draft(state, params.get("id"))
+    if draft is None:
+        return _not_found(f"draft {params.get('id')}")
+    state["drafts"].remove(draft)
+    message = _find(state, draft["message"]["id"])
+    if message is not None:
+        _remove_message(state, message)
+    return {}
+
+
+def _mark_sent(state: dict[str, Any], message: dict[str, Any]) -> dict[str, Any]:
+    _relabel(state, message, ["SENT"], ["DRAFT"])
     return {
         "id": message["id"],
         "threadId": message["threadId"],
         "labelIds": message["labelIds"],
     }
+
+
+def _draft_send(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    body = params.get("body") or {}
+    inner = body.get("message") or {}
+    draft_id = body.get("id")
+    if draft_id is None:
+        if not inner.get("raw"):
+            return _bad_request("Missing draft id or message")
+        return _mark_sent(state, _new_draft_message(state, inner, None))
+    draft = _find_draft(state, draft_id)
+    if draft is None:
+        return _not_found(f"draft {draft_id}")
+    if inner.get("raw"):
+        _replace_draft_message(state, draft, inner)
+    state["drafts"].remove(draft)
+    message = _find(state, draft["message"]["id"])
+    if message is None:
+        return _not_found(f"message {draft['message']['id']}")
+    return _mark_sent(state, message)
 
 
 def _modify(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
@@ -699,20 +1161,104 @@ def _modify(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     if message is None:
         return _not_found(f"message {params.get('id')}")
     body = params.get("body") or {}
-    labels = [
-        label
-        for label in message.get("labelIds") or []
-        if label not in set(body.get("removeLabelIds") or [])
-    ]
-    labels += [label for label in body.get("addLabelIds") or [] if label not in labels]
-    message["labelIds"] = labels
-    message["historyId"] = _bump_history(state)
+    _relabel(
+        state,
+        message,
+        list(body.get("addLabelIds") or []),
+        list(body.get("removeLabelIds") or []),
+    )
     return _shaped(message, "minimal", None)
+
+
+def _trash(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    message = _find(state, str(params.get("id")))
+    if message is None:
+        return _not_found(f"message {params.get('id')}")
+    _relabel(state, message, ["TRASH"], [])
+    return _shaped(message, "minimal", None)
+
+
+def _untrash(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    message = _find(state, str(params.get("id")))
+    if message is None:
+        return _not_found(f"message {params.get('id')}")
+    _relabel(state, message, [], ["TRASH"])
+    return _shaped(message, "minimal", None)
+
+
+def _remove_message(state: dict[str, Any], message: dict[str, Any]) -> None:
+    state["messages"].remove(message)
+    _record_change(state, message, {"messagesDeleted": True})
+
+
+def _delete(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    message = _find(state, str(params.get("id")))
+    if message is None:
+        return _not_found(f"message {params.get('id')}")
+    state["drafts"] = [
+        d for d in state["drafts"] if d.get("message", {}).get("id") != message["id"]
+    ]
+    _remove_message(state, message)
+    return {}
+
+
+def _batch_modify(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    body = params.get("body") or {}
+    for message_id in body.get("ids") or []:
+        message = _find(state, str(message_id))
+        if message is None:
+            _note(
+                state,
+                f"batchModify skipped message {message_id}, which is not in the mailbox",
+            )
+            continue
+        _relabel(
+            state,
+            message,
+            list(body.get("addLabelIds") or []),
+            list(body.get("removeLabelIds") or []),
+        )
+    return {}
+
+
+def _thread_modify(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    thread_id = str(params.get("id"))
+    messages = _thread_messages(state, thread_id)
+    if not messages:
+        return _not_found(f"thread {thread_id}")
+    body = params.get("body") or {}
+    for message in messages:
+        _relabel(
+            state,
+            message,
+            list(body.get("addLabelIds") or []),
+            list(body.get("removeLabelIds") or []),
+        )
+    return _minimal_thread(thread_id, messages)
+
+
+def _thread_trash(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    thread_id = str(params.get("id"))
+    messages = _thread_messages(state, thread_id)
+    if not messages:
+        return _not_found(f"thread {thread_id}")
+    for message in messages:
+        _relabel(state, message, ["TRASH"], [])
+    return _minimal_thread(thread_id, messages)
+
+
+def _minimal_thread(thread_id: str, messages: list[dict[str, Any]]) -> dict[str, Any]:
+    ordered = sorted(messages, key=lambda m: int(m.get("internalDate") or 0))
+    return {
+        "id": thread_id,
+        "historyId": str(max(int(m.get("historyId") or 0) for m in ordered)),
+        "messages": [_shaped(m, "minimal", None) for m in ordered],
+    }
 
 
 def _thread(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     thread_id = str(params.get("id"))
-    messages = [m for m in state["messages"] if m.get("threadId") == thread_id]
+    messages = _thread_messages(state, thread_id)
     if not messages:
         return _not_found(f"thread {thread_id}")
     fmt = str(params.get("format") or "full").lower()
@@ -723,26 +1269,48 @@ def _thread(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _wanted_types(params: dict[str, Any]) -> set[str]:
+    given = params.get("historyTypes") or []
+    names = [given] if isinstance(given, str) else list(given)
+    chosen = {_HISTORY_TYPES[n] for n in names if n in _HISTORY_TYPES}
+    return chosen or set(_HISTORY_TYPES.values())
+
+
+def _touches_label(entry: dict[str, Any], label: str) -> bool:
+    return any(
+        label in (change["message"].get("labelIds") or [])
+        or label in (change.get("labelIds") or [])
+        for key in _HISTORY_TYPES.values()
+        for change in entry.get(key) or []
+    )
+
+
 def _history(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
     start = int(params.get("startHistoryId") or 0)
-    added = [m for m in state["messages"] if int(m.get("historyId") or 0) > start]
+    wanted = _wanted_types(params)
+    label = params.get("labelId")
+    entries = []
+    for entry in state.get("history") or []:
+        if int(entry["id"]) <= start:
+            continue
+        kept = {
+            key: copy.deepcopy(value)
+            for key, value in entry.items()
+            if key in {"id", "messages"} or key in wanted
+        }
+        if len(kept) == 2:
+            continue
+        if label and not _touches_label(kept, str(label)):
+            continue
+        entries.append(kept)
+    size = min(int(params.get("maxResults") or 100), 500)
+    offset = int(params.get("pageToken") or 0)
     reply: dict[str, Any] = {"historyId": str(state.get("historyId") or 1000)}
-    if added:
-        reply["history"] = [
-            {
-                "id": m["historyId"],
-                "messagesAdded": [
-                    {
-                        "message": {
-                            "id": m["id"],
-                            "threadId": m.get("threadId"),
-                            "labelIds": m.get("labelIds"),
-                        }
-                    }
-                ],
-            }
-            for m in added
-        ]
+    page = entries[offset : offset + size]
+    if page:
+        reply["history"] = page
+    if offset + size < len(entries):
+        reply["nextPageToken"] = str(offset + size)
     return reply
 
 
@@ -782,10 +1350,106 @@ def _profile(state: dict[str, Any], _params: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _labels(_state: dict[str, Any], _params: dict[str, Any]) -> dict[str, Any]:
+def _all_labels(state: dict[str, Any]) -> list[dict[str, Any]]:
+    found = [{"id": label, "name": label, "type": "system"} for label in SYSTEM_LABELS]
+    known = set(SYSTEM_LABELS)
+    for label in state.setdefault("labels", []):
+        if label["id"] not in known:
+            known.add(label["id"])
+            found.append(label)
+    for message in state["messages"]:
+        for label_id in message.get("labelIds") or []:
+            if label_id in known:
+                continue
+            known.add(label_id)
+            _note(
+                state,
+                f"label {label_id} was only seen on messages, so its name is its id",
+            )
+            found.append(_user_label({"id": label_id, "name": label_id}))
+    return found
+
+
+def _labels(state: dict[str, Any], _params: dict[str, Any]) -> dict[str, Any]:
+    return {"labels": _all_labels(state)}
+
+
+def _label_get(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    wanted = str(params.get("id"))
+    label = next((lb for lb in _all_labels(state) if lb["id"] == wanted), None)
+    if label is None:
+        return _not_found(f"label {wanted}")
+    return copy.deepcopy(label)
+
+
+def _conflict(message: str) -> dict[str, Any]:
     return {
-        "labels": [
-            {"id": label, "name": label, "type": "system"} for label in SYSTEM_LABELS
+        HTTP_ERROR_KEY: {
+            "code": 409,
+            "message": message,
+            "status": "ABORTED",
+            "errors": [{"message": message, "domain": "global", "reason": "aborted"}],
+        }
+    }
+
+
+def _invalid(message: str) -> dict[str, Any]:
+    return {
+        HTTP_ERROR_KEY: {
+            "code": 400,
+            "message": message,
+            "status": "INVALID_ARGUMENT",
+            "errors": [{"message": message, "domain": "global", "reason": "invalid"}],
+        }
+    }
+
+
+def _label_create(state: dict[str, Any], params: dict[str, Any]) -> dict[str, Any]:
+    body = params.get("body") or {}
+    name = str(body.get("name") or "").strip()
+    if not name:
+        return _invalid("Invalid label name")
+    if any(lb["name"].lower() == name.lower() for lb in _all_labels(state)):
+        return _conflict("Label name exists or conflicts")
+    label = _user_label(
+        {
+            **{k: v for k, v in body.items() if k not in {"id", "type"}},
+            "id": _next_id(state, "Label_sandbox"),
+            "name": name,
+        }
+    )
+    state["labels"].append(label)
+    return copy.deepcopy(label)
+
+
+def _send_as(state: dict[str, Any], _params: dict[str, Any]) -> dict[str, Any]:
+    recorded = state.get("sendAs")
+    if recorded is not None:
+        return {"sendAs": copy.deepcopy(recorded)}
+    address = state.get("emailAddress")
+    if not address:
+        _note(
+            state,
+            "the account's address was never recorded, so it has no send-as addresses",
+        )
+        return {"sendAs": []}
+    _note(
+        state,
+        "send-as settings were never recorded, so the account's own address is "
+        "listed with no display name or signature",
+    )
+    return {
+        "sendAs": [
+            {
+                "sendAsEmail": address,
+                "displayName": "",
+                "replyToAddress": "",
+                "signature": "",
+                "isPrimary": True,
+                "isDefault": True,
+                "treatAsAlias": False,
+                "verificationStatus": "accepted",
+            }
         ]
     }
 
@@ -802,13 +1466,26 @@ HANDLERS: dict[str, Callable[[dict[str, Any], dict[str, Any]], dict[str, Any]]] 
     GET_METHOD: _get,
     "gmail.users.messages.send": _send,
     "gmail.users.messages.modify": _modify,
+    "gmail.users.messages.batchModify": _batch_modify,
+    "gmail.users.messages.trash": _trash,
+    "gmail.users.messages.untrash": _untrash,
+    "gmail.users.messages.delete": _delete,
     "gmail.users.messages.attachments.get": _attachment,
-    "gmail.users.drafts.create": _draft_create,
+    DRAFT_CREATE_METHOD: _draft_create,
+    DRAFT_GET_METHOD: _draft_get,
+    "gmail.users.drafts.update": _draft_update,
+    "gmail.users.drafts.delete": _draft_delete,
     "gmail.users.drafts.send": _draft_send,
-    "gmail.users.drafts.list": _drafts_list,
+    DRAFT_LIST_METHOD: _drafts_list,
     "gmail.users.threads.get": _thread,
+    "gmail.users.threads.list": _threads_list,
+    "gmail.users.threads.modify": _thread_modify,
+    "gmail.users.threads.trash": _thread_trash,
     "gmail.users.history.list": _history,
-    "gmail.users.labels.list": _labels,
+    LABELS_LIST_METHOD: _labels,
+    LABEL_GET_METHOD: _label_get,
+    "gmail.users.labels.create": _label_create,
+    SEND_AS_LIST_METHOD: _send_as,
     PROFILE_METHOD: _profile,
 }
 
@@ -880,6 +1557,9 @@ def _empty_mailbox_for(boxes: list[dict[str, Any]], address: str) -> dict[str, A
         "messages": [],
         "drafts": [],
         "searches": [],
+        "labels": [],
+        "sendAs": None,
+        "history": [],
         "notes": [f"{address} had no mailbox in the original run, so it starts empty"],
     }
 
@@ -912,16 +1592,27 @@ def gmail_sandbox(
 
     It answers calls made through Google's Python client
     (``googleapiclient``), keeping sends, drafts and label changes in the
-    mailbox for the rest of the replay item. It is on by default; pass it
+    mailbox for the rest of the replay item, along with trashed, deleted
+    and relabeled messages and threads. It is on by default; pass it
     only to change where its mailbox comes from.
 
     Args:
         start: Builds the mailbox for one replay item from a
             ``SandboxStartCtx``. Return a list of messages, or
-            ``{"messages": [...], "emailAddress": ..., "drafts": [...]}``.
+            ``{"messages": [...], "emailAddress": ..., "drafts": [...],
+            "labels": [...], "sendAs": [...]}``. ``labels`` are the account's
+            own labels, each a Gmail label or a name; ``sendAs`` are Gmail
+            send-as entries (``sendAsEmail``, ``displayName``, ``signature``,
+            ...). Without ``sendAs``, the account's address is listed with no
+            signature.
+            ``clock`` (ISO 8601) is where the mailbox's time starts, in place
+            of the original trace's start time.
             Each message is a Gmail API message or plain fields as
             ``gmail_message`` takes them; a plain ``account`` field puts the
-            message in that account's mailbox. For several accounts, return
+            message in that account's mailbox. Each draft is
+            ``{"id": ..., "message": ...}``, where the message is a Gmail API
+            message (as ``drafts.get`` returns it, ``raw`` included), plain
+            fields, or only the ``id`` of a message in ``messages``. For several accounts, return
             ``{"mailboxes": [{"emailAddress": ..., "messages": [...]}]}``.
             ``None`` uses ``mailbox_from_recorded_calls``.
         account: With several mailboxes, names the account a call is for
@@ -938,10 +1629,6 @@ def gmail_sandbox(
         start=lambda ctx: as_mailboxes(ctx, chosen(ctx)),
         integration="gmail",
     )
-
-
-def default_sandboxes() -> list[Sandbox]:
-    return [gmail_sandbox()]
 
 
 class SandboxGoogleCredentials:

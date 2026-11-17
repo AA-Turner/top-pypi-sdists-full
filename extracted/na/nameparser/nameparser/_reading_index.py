@@ -42,7 +42,18 @@ from typing import Any, TypedDict
 #: its category's name; the relation (birth_marker) and name (given,
 #: family) categories have no generic kind. Kind
 #: names are unique across categories; a fine kind arrives with its
-#: category's classification, in a core PR, as one row here.
+#: category's classification, in a core PR, as one row here. The
+#: familiar category's one kind, `familiar` (a short given name standing
+#: for longer ones, `max` of `maximilian`), compiles into FAMILIAR alone,
+#: which only the name match reads: no parse reads it (decisions/
+#: name-matching, 2026-11-08 FAMILIAR FORMS). The spelling category's
+#: one kind, `spelling` (a given name written another way, by choice or
+#: by a romanization, `olha` of `olga`), compiles into
+#: ALTERNATE_SPELLINGS alone, which only the name match reads, as the
+#: opt-in `alternate-spelling`: unlike a `given` reading's `same_as`, it
+#: puts no word in GIVEN_NAME_ABBREVIATIONS and gives the word no name
+#: reading, so no parse reads it either (decisions/name-matching,
+#: 2026-11-12 ALTERNATE SPELLINGS ARE OPT-IN).
 CATEGORY: dict[str, str] = {
     "title": "title",
     "salutation": "title",
@@ -77,24 +88,45 @@ CATEGORY: dict[str, str] = {
     "birth_marker": "relation",
     "given": "name",
     "family": "name",
+    "familiar": "familiar",
+    "spelling": "spelling",
 }
+
+#: The categories a choice neither prefers nor drops by (`choose`): a
+#: name reading keeps a gate on and settles nothing, and a familiar or a
+#: spelling reading moves no parse at all, so none competes with another
+#: file's reading of the word.
+UNPREFERRED = frozenset({"name", "familiar", "spelling"})
+#: Each category only the name match reads, with the list property its
+#: reading names its pairs by: the longer names a familiar form stands
+#: for, the names a spelling is another spelling of.
+MATCHING_LISTS: Mapping[str, str] = MappingProxyType({
+    "familiar": "short_for", "spelling": "spelling_of"})
+#: The categories only the name match reads: a file of these alone
+#: changes nothing a plain choice of it could (tags).
+MATCHING_ONLY = frozenset(MATCHING_LISTS)
 
 #: Behavioral properties per category: each compiles into a field, and
 #: its allowed values are exactly what today's pipeline does. A name
 #: reading's are `default` (phase 3a), `cased`, the word's case mask
 #: (the shipped ones on `family` readings, #1014), `shared`, which
 #: rules/P10, O6 and O7 read, and `after_particle`, which P10 and O6 read
-#: (#704): its other keys are evidence.
+#: (#704): its other keys are evidence. A particle reading's
+#: `capital_opening` is rules/R12's: the particle takes a capital where
+#: it opens the family name, the Armenian `Ter` and `Der`.
 BEHAVIORAL: dict[str, frozenset[str]] = {
     "title": frozenset({"abbreviation", "addresses", "after_given",
-                        "attaches", "cased", "default"}),
+                        "attached", "attaches", "cased", "default",
+                        "dotted"}),
     "suffix": frozenset({"acronym", "attached", "cased", "default",
                          "title_case_is_name"}),
-    "particle": frozenset({"cased", "default"}),
+    "particle": frozenset({"capital_opening", "cased", "default"}),
     "conjunction": frozenset({"may_be_initial", "cased", "default"}),
     "bound_given": frozenset({"completed_by", "cased", "default"}),
     "relation": frozenset({"cased", "default"}),
     "name": frozenset({"after_particle", "cased", "default", "shared"}),
+    "familiar": frozenset({"default"}),
+    "spelling": frozenset({"default"}),
 }
 
 #: The suffix word kinds a name reading gates (rules/S11): the third
@@ -117,14 +149,56 @@ HONORIFIC_KINDS = frozenset({"honorific", "professional_honorific"})
 CAPITALIZED_PARTICLE_KINDS = frozenset({"saint", "rank"})
 
 
+#: The group a reading's `same_as` is read in, by the reading's
+#: category, a name reading's being its kind (`given`, `family`): the
+#: roles of a name each read one group (decisions/name-matching,
+#: 2026-11-08), so a given name's listed spelling is not a surname's
+#: (`ma`, María written short, beside the surname Ma). A bound given
+#: name stands in the given name and a particle in the surname, so
+#: theirs are read there; a conjunction's and a birth marker's stand in
+#: no role a match compares, and compile to no group.
+SAME_AS_GROUPS: Mapping[str, str] = MappingProxyType({
+    "given": "given",
+    "bound_given": "given",
+    "family": "family",
+    "particle": "family",
+    "title": "title",
+    "suffix": "suffix",
+})
+
+
+def same_as_group(kind: str) -> str | None:
+    """The `SAME_AS` group a `kind` reading's `same_as` compiles into,
+    or None where it compiles into none."""
+    category = CATEGORY[kind]
+    return SAME_AS_GROUPS.get(kind if category == "name" else category)
+
+
+def same_as_of(props: Mapping[str, Any]) -> tuple[str, ...]:
+    """The words a reading's `same_as` names, in the order written: a
+    text names one, a list several (`md` written short for `muhammad`,
+    `mohammad`, `mohammed` and `mohamed`, #1383), and none is ()."""
+    value = props.get("same_as")
+    if value is None:
+        return ()
+    if isinstance(value, str):
+        return (value,)
+    return tuple(value)
+
+
 def indexed(kind: str) -> frozenset[str]:
     """The properties of a `kind` reading the index keeps: its
-    category's behavioral ones, and on a `given` reading `same_as`,
-    which compiles the word into GIVEN_NAME_ABBREVIATIONS (#789).
-    Everything else a reading carries is evidence, compiled to
-    nothing."""
-    keep = BEHAVIORAL[CATEGORY[kind]]
-    return keep | {"same_as"} if kind == "given" else keep
+    category's behavioral ones, and on every kind but `familiar`
+    `same_as`, the word a spelling stands for, which compiles into
+    SAME_AS (in the group of `same_as_group`) and on a `given` reading
+    also into GIVEN_NAME_ABBREVIATIONS (#789); on a `familiar` reading
+    `short_for`, the longer given names the word stands for, which
+    compiles into FAMILIAR; on a `spelling` reading `spelling_of`, the
+    given names the word is another spelling of, which compiles into
+    ALTERNATE_SPELLINGS. Everything else a reading carries is
+    evidence, compiled to nothing."""
+    category = CATEGORY[kind]
+    return BEHAVIORAL[category] | {MATCHING_LISTS.get(category, "same_as")}
 
 
 class ReadingProperties:
@@ -144,6 +218,18 @@ class ReadingProperties:
         return CATEGORY[self.kind]
 
     @property
+    def marks_a_clash(self) -> bool:
+        """A name reading that marks a clash with a reading beside it
+        (the derived markers, the build's check 11): every name reading
+        but a `given` one carrying `same_as`, a name written short, which
+        the parse reads through rules/H2's yielding at the head of a name
+        and the match through its listed spellings, never through the
+        words-to-spare count a clash gates (`md`, Muhammad written short
+        and the medical degree, #1383)."""
+        return self.category == "name" and not (
+            self.kind == "given" and "same_as" in self.props)
+
+    @property
     def acronym(self) -> bool:
         """Matched with its periods removed: unwritten, true only for a
         credential."""
@@ -159,8 +245,8 @@ class ReadingProperties:
 
     def flag(self, prop: str) -> bool:
         """A `may_be_*` flag, `after_given`, `abbreviation`,
-        `title_case_is_name`, `shared` or `after_particle`: unwritten,
-        false."""
+        `title_case_is_name`, `shared`, `after_particle`,
+        `capital_opening` or `dotted`: unwritten, false."""
         return bool(self.props.get(prop, False))
 
     @property
@@ -271,8 +357,15 @@ UNCHOOSABLE = frozenset({"mul", "und"})
 
 @functools.cache
 def tags() -> frozenset[str]:
-    """The tags of the shipped files that hold a reading."""
-    return frozenset(row[0] for rows in _by_text().values() for row in rows)
+    """The tags of the shipped files that hold a reading a choice can
+    change: any but a familiar or a spelling one (MATCHING_ONLY). A
+    plain choice never drops one of those, which no parse reads, so a
+    file holding only those would change nothing as a plain choice, and
+    is refused as one holding no reading (decisions/name-matching,
+    2026-11-08 FAMILIAR FORMS; no shipped file has that shape at
+    present)."""
+    return frozenset(row[0] for rows in _by_text().values() for row in rows
+                     if CATEGORY[row[1]] not in MATCHING_ONLY)
 
 
 @functools.cache
@@ -310,15 +403,16 @@ def selected(languages: Iterable[str], *,
                 f"every choice, plain or strict, keeps mul.toml's, a plain "
                 f"one keeps und.toml's too and a strict one drops "
                 f"und.toml's. Drop it")
-        found = {by_fold[a] for a in _ancestors(tag) if a in by_fold}
+        ancestors = _ancestors(tag)
+        found = {by_fold[a] for a in ancestors if a in by_fold}
         if not found:
             empty = sorted(t for t in files() - tags() - UNCHOOSABLE
-                           if t.casefold() in _ancestors(tag))
+                           if t.casefold() in ancestors)
             if empty:
                 raise ValueError(
-                    f"{empty[0]}.toml holds no reading yet, so a plain "
-                    f"choice of {tag!r} would change nothing; a strict one "
-                    f"(strict=True) accepts it")
+                    f"{empty[0]}.toml holds no reading a parse reads yet, "
+                    f"so a plain choice of {tag!r} would change nothing; a "
+                    f"strict one (strict=True) accepts it")
             raise ValueError(
                 f"no vocabulary file holds the language {tag!r} or one it "
                 f"belongs to; the languages that have one: "
@@ -346,7 +440,8 @@ def choose(readings: Iterable[IndexReading],
       readings leave, save mul.toml's, which are every language's, and
       und.toml's, whose language is not known to be another's. Name
       readings never leave and never settle anything (decision 15):
-      they keep the gate on;
+      they keep the gate on; nor do familiar or spelling readings,
+      which no parse reads (:data:`UNPREFERRED`);
     * **the shape clash**: a chosen file's conjunction reading drops
       ``may_be_initial``, the clash it records being with the initial
       the letter spells, a shape reading, which a preference outranks
@@ -356,12 +451,13 @@ def choose(readings: Iterable[IndexReading],
     so the default is the compile of an empty choice."""
     if not chosen:
         return [r for r in readings if r.on_by_default]
-    live = [r for r in readings if r.on_by_default or r.tag in chosen]
-    preferred = {r.text for r in live
-                 if r.tag in chosen and r.category != "name"}
+    live = [(r, CATEGORY[r.kind] not in UNPREFERRED) for r in readings
+            if r.on_by_default or r.tag in chosen]
+    preferred = {r.text for r, competes in live
+                 if competes and r.tag in chosen}
     out = []
-    for r in live:
-        if (r.text in preferred and r.category != "name"
+    for r, competes in live:
+        if (competes and r.text in preferred
                 and r.tag not in chosen and r.tag not in UNCHOOSABLE):
             continue
         if r.tag in chosen and ("default" in r.props
@@ -458,6 +554,13 @@ def changed_words(chosen: frozenset[str]) -> frozenset[str]:
     default, choice = compile_choice(frozenset()), compile_choice(chosen)
     words: set[str] = set()
     for key in default:
+        if key in ("SAME_AS", "SAME_AS_NAMED", "FAMILIAR",
+                   "ALTERNATE_SPELLINGS"):
+            # a word's listed spelling moves no word between sets, so it
+            # changes no parse: a choice's `sr` of `senhor`, not `señor`,
+            # and whether the match reads the link written bare; nor does
+            # a familiar form, which only the match reads
+            continue
         a: Any = default[key]  # type: ignore[literal-required]
         b: Any = choice[key]  # type: ignore[literal-required]
         if isinstance(a, dict):
@@ -508,6 +611,13 @@ def holds_kind(text: str, kind: str) -> bool:
     return any(k == kind for _tag, k, _pairs in _by_text().get(text, ()))
 
 
+def _sorted_lists(lists: Mapping[str, Iterable[str]]
+                  ) -> dict[str, tuple[str, ...]]:
+    """Each word's names as a sorted tuple, the words sorted, as the
+    compiled module writes a map of word lists."""
+    return {w: tuple(sorted(names)) for w, names in sorted(lists.items())}
+
+
 class CompileError(ValueError):
     """The readings cannot compile: a fact about the data, which the
     build reports as a vocabulary error (exit 2) where any other
@@ -549,7 +659,14 @@ class Compiled(TypedDict):
     PARTICLE_GIVEN_NAMES: frozenset[str]
     SAINT_PARTICLES: frozenset[str]
     CAPITALIZED_PARTICLES: frozenset[str]
+    CAPITAL_OPENING_PARTICLES: frozenset[str]
+    DOTTED_TITLES: frozenset[str]
+    GLUED_TITLES: frozenset[str]
     BOUND_PHRASES: frozenset[str]
+    SAME_AS: dict[str, dict[str, tuple[str, ...]]]
+    SAME_AS_NAMED: dict[str, frozenset[str]]
+    FAMILIAR: dict[str, tuple[str, ...]]
+    ALTERNATE_SPELLINGS: dict[str, tuple[str, ...]]
 
 
 def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
@@ -561,13 +678,15 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
     Raises :class:`CompileError` on a post-nominal that is both an
     acronym and a word, a backstop the build's checks 4 and 5 always
     reach first. Any other exception is a bug in this function."""
-    texts = [(r, r.text) for r in readings if r.on_by_default]
+    on = [r for r in readings if r.on_by_default]
     # the derived markers (the build's check 11): a clash with a name is
     # a word's name reading beside the reading it clashes with, and a
     # name reading written `default = false` marks nothing in the
     # default, as it compiles to nothing (3a)
-    named = {t for r, t in texts if r.category == "name"}
-    given = {t for r, t in texts if r.kind == "given"}
+    # a `given` reading carrying `same_as`, a name written short, marks
+    # none (`ReadingProperties.marks_a_clash`, #1383)
+    named = {r.text for r in on if r.marks_a_clash}
+    given = {r.text for r in on if r.kind == "given"}
     titles: set[str] = set()
     given_titles: set[str] = set()
     after_given: set[str] = set()
@@ -579,7 +698,6 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
     conjunctions: set[str] = set()
     initial_conjunctions: set[str] = set()
     bound: set[str] = set()
-    abbreviations: set[str] = set()
     markers: set[str] = set()
     words: set[str] = set()
     glued: set[str] = set()
@@ -593,30 +711,57 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
     patronymics: set[str] = set()
     saints: set[str] = set()
     capitalized: set[str] = set()
+    capital_opening: set[str] = set()
+    dotted: set[str] = set()
+    glued_titles: set[str] = set()
     title_case_names: set[str] = set()
     shared: set[str] = set()
     after_particle: set[str] = set()
     bound_phrases: set[str] = set()
     cased: dict[str, str] = {}
-    for r, t in texts:
-        p = r.props
+    same_as: dict[str, dict[str, set[str]]] = {
+        g: {} for g in SAME_AS_GROUPS.values()}
+    # per name kind, the words a reading of it writes short (`same_as`)
+    # and the words it names with none: a name of its own
+    short_names: dict[str, set[str]] = {}
+    own_names: dict[str, set[str]] = {}
+    # per matching-only category, a word -> the given names its pairs
+    # name, every file's: a familiar form -> the longer names it stands
+    # for, a spelling -> the names it is another spelling of
+    pairs: dict[str, dict[str, set[str]]] = {c: {} for c in MATCHING_LISTS}
+    for r in on:
+        t, p, category = r.text, r.props, CATEGORY[r.kind]
+        if category in MATCHING_LISTS:
+            pairs[category].setdefault(t, set()).update(
+                p.get(MATCHING_LISTS[category], ()))
+            continue
+        if "same_as" in p and (group := same_as_group(r.kind)) is not None:
+            same_as[group].setdefault(t, set()).update(same_as_of(p))
         if "cased" in p:
             cased[t] = p["cased"]
-        if r.category == "name" and r.flag("shared"):
-            shared.add(t)
-        if r.kind == "given" and r.flag("after_particle"):
-            after_particle.add(t)
-        if r.category == "title":
+        if category == "name":
+            into = short_names if "same_as" in p else own_names
+            into.setdefault(r.kind, set()).add(t)
+            if r.flag("shared"):
+                shared.add(t)
+            if r.kind == "given" and r.flag("after_particle"):
+                after_particle.add(t)
+        elif category == "title":
             titles.add(t)
             if r.addresses == "given":
                 given_titles.add(t)
             if r.flag("after_given"):
                 after_given.add(t)
+            if r.flag("dotted"):
+                dotted.add(t)
+            if "attached" in p:
+                # a title reading's side is "before", the build's check
+                glued_titles.add(t)
             if r.flag("abbreviation"):
                 written_short.add(t)
             title_kinds.setdefault(t, set()).add(r.kind)
             attaches.setdefault(t, set()).update(p.get("attaches", ()))
-        elif r.category == "suffix":
+        elif category == "suffix":
             if r.acronym:
                 acronyms.add(t)
                 if t in named:
@@ -637,7 +782,7 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
                     credential_words.add(t)
                 elif r.kind in HONORIFIC_KINDS:
                     honorific_words.add(t)
-        elif r.category == "particle":
+        elif category == "particle":
             particles.add(t)
             if r.kind == "patronymic":
                 patronymics.add(t)
@@ -645,20 +790,20 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
                 saints.add(t)
             if r.kind in CAPITALIZED_PARTICLE_KINDS:
                 capitalized.add(t)
+            if r.flag("capital_opening"):
+                capital_opening.add(t)
             if t not in given:
                 never_given.add(t)
-        elif r.category == "conjunction":
+        elif category == "conjunction":
             conjunctions.add(t)
             if r.flag("may_be_initial"):
                 initial_conjunctions.add(t)
-        elif r.category == "bound_given":
+        elif category == "bound_given":
             bound.add(t)
             bound_phrases.update(f"{t} {w}"
                                  for w in p.get("completed_by", ()))
-        elif r.category == "relation":
+        elif category == "relation":
             markers.add(t)
-        elif r.kind == "given" and "same_as" in p:
-            abbreviations.add(t)
     contested = titles & given - particles
     out = Compiled(
         GIVEN_NAME_TITLES=frozenset(given_titles),
@@ -694,7 +839,7 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
         # a given name written short (`chas`, Filipino `ma`): opening the
         # given part period-marked, it is the given name, which outranks
         # rules/H2's shape (#789)
-        GIVEN_NAME_ABBREVIATIONS=frozenset(abbreviations),
+        GIVEN_NAME_ABBREVIATIONS=frozenset(short_names.get("given", ())),
         MAIDEN_MARKERS=frozenset(markers),
         SUFFIX_WORDS=frozenset(words),
         GLUED_HONORIFICS=frozenset(glued),
@@ -738,10 +883,58 @@ def compile_readings(readings: Iterable[ReadingProperties]) -> Compiled:
         # `San`, `Freiherr`, `Graf`), which case repair does not
         # lowercase, rules/R4 (#1069)
         CAPITALIZED_PARTICLES=frozenset(capitalized),
+        # the particles written `capital_opening` (`ter`, `der`), which
+        # case repair writes with a capital where no particle stands
+        # before one in the family name, nor, where it opens the family
+        # name, written right before it in any role, rules/R12
+        CAPITAL_OPENING_PARTICLES=frozenset(capital_opening),
+        # the titles written `dotted` (`us`, `uk`, `pd`), which a run of
+        # single letters joined by full stops spells at the head of a
+        # name where a title the run keeps stands behind it, rules/H10
+        DOTTED_TITLES=frozenset(dotted),
+        # the titles written `attached` (side "before"), which
+        # rules/W6's front peel splits off the start of the name's first
+        # word they are glued to (`นายสมชาย`, #317)
+        # a title that may be a given name is a title only in a phrase
+        # (rules/H9), so none is split off a glued word: the given name
+        # it opens would be cut and no title read (#317)
+        GLUED_TITLES=frozenset(glued_titles - contested),
         # `completed_by` resolved to the two-word given names it lists,
         # the bound word and each word that completes it ('عبد الله'),
         # which rules/P12 joins wherever they stand (#694)
         BOUND_PHRASES=frozenset(bound_phrases),
+        # every reading's `same_as` in the group of its kind: the words
+        # it is a listed spelling of (`wm` of `william` among given
+        # names, `junior` of `jr` among suffixes, `sr` of both `señor`
+        # and `senhor` among titles), which no set above records
+        SAME_AS={g: {w: tuple(sorted(heads))
+                     for w, heads in sorted(same_as[g].items())}
+                 for g in sorted(same_as)},
+        # the derived marker of a listed spelling: a word whose name
+        # reading carries a `same_as` beside a reading of the same kind
+        # with none, a name written short that is a name of its own too
+        # (`jo`, José written short and the given name Jo), whose links
+        # the name match reads only where the word is written with its
+        # period (decisions/name-matching, 2026-11-08 #1006 follow-up).
+        # A bound given name's or a particle's `same_as` is a spelling
+        # written without one (`ابو` of `أبو`), and marks nothing
+        SAME_AS_NAMED={g: frozenset(
+            w for k, short in short_names.items()
+            if same_as_group(k) == g
+            for w in short & own_names.get(k, set()))
+            for g in sorted(same_as)},
+        # a familiar form and the longer given names it stands for, one
+        # way (`max` of `maxim` and `maximilian`, which do not stand for
+        # each other), every file's together: read by the name match's
+        # opt-in `familiar-form` alone, never by a parse
+        # (decisions/name-matching, 2026-11-08 FAMILIAR FORMS)
+        FAMILIAR=_sorted_lists(pairs["familiar"]),
+        # a given name and the given names it is another spelling of,
+        # one way, every file's together: read by the name match's
+        # opt-in `alternate-spelling` alone, never by a parse
+        # (decisions/name-matching, 2026-11-12 ALTERNATE SPELLINGS ARE
+        # OPT-IN)
+        ALTERNATE_SPELLINGS=_sorted_lists(pairs["spelling"]),
     )
     # One form per post-nominal: the word test strips only edge periods
     # and the acronym test strips all of them, so a word in both is

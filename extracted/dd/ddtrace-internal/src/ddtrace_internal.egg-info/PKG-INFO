@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddtrace-internal
-Version: 0.2.0
+Version: 0.3.0
 Summary: Stub internal Datadog Python package (ddtrace-internal).
 Author-email: "Datadog, Inc." <dev@datadoghq.com>
 License-Expression: BSD-3-Clause OR Apache-2.0
@@ -10,7 +10,13 @@ Description-Content-Type: text/markdown
 
 # ddtrace-internal
 
-Stub Python distribution for code used by multiple products in dd-trace-py
+Pure-Python code shared by multiple products in dd-trace-py, extracted from
+`ddtrace.internal`: the module registry and `codeowners` so far.
+
+Pure Python by design -- this installs and imports with nothing but an
+interpreter. The compiled components live in their own distribution, and the
+two are peers: neither imports the other, and anything needing both depends on
+both.
 
 ## Local install (editable)
 

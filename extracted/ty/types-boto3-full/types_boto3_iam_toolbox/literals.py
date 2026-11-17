@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_iam_toolbox.literals import EvaluatedEffectType
+    from types_boto3_iam_toolbox.literals import CheckEffectType
 
-    data: EvaluatedEffectType = "ALLOW"
+    data: CheckEffectType = "ALLOW"
     ```
 """
 
@@ -23,6 +23,8 @@ else:
 
 
 __all__ = (
+    "CheckEffectType",
+    "CheckTypeType",
     "EvaluatedEffectType",
     "GetRequestAuthorizationDetailsPaginatorName",
     "IAMToolboxPreviewServiceName",
@@ -34,6 +36,16 @@ __all__ = (
 )
 
 
+CheckEffectType = Literal["ALLOW", "EXPLICIT_DENY", "IMPLICIT_DENY", "NO_IMPACT"]
+CheckTypeType = Literal[
+    "PERMISSIONS_BOUNDARY",
+    "PRINCIPAL",
+    "RESOURCE",
+    "RESOURCE_CONTROL_POLICY",
+    "SERVICE_CONTROL_POLICY",
+    "SESSION",
+    "VPC_ENDPOINT",
+]
 EvaluatedEffectType = Literal["ALLOW", "EXPLICIT_DENY", "IMPLICIT_DENY"]
 GetRequestAuthorizationDetailsPaginatorName = Literal["get_request_authorization_details"]
 PolicyTypeType = Literal[
@@ -156,6 +168,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -340,6 +353,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -407,6 +421,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

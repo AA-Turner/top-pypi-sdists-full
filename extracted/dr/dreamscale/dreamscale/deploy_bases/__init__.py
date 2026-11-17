@@ -128,9 +128,8 @@ class DeployBase:
     # (None: no RTC setting; ``rtc_refusal_fix`` says what to do instead).
     set_rtc: Callable[..., dict] | None = None
     rtc_refusal_fix: str = "nothing to change: its base fixes RTC"
-    # The engines its deployments choose between, the default first (the API's ``engine``:
-    # what its units serve; `deployments create --engine`, `deployments engine`); every other
-    # is experimental. Empty: one engine, no setting.
+    # Kept for compatibility, always empty: no base has an engine setting (Praxis-1 always runs
+    # its fast engine).
     engines: tuple[str, ...] = ()
     # Detect reads it as this base (``model=<name>``); what `deployments inspect` prints of it
     # (None: its robot line).
@@ -174,6 +173,9 @@ class DeployBase:
     # robot -> the module of the end-effector adapter its deployments run through there: its
     # ``ADAPTER`` class and ``describe_failures(policy)``.
     robot_adapters: Mapping[str, str] = field(default_factory=dict)
+    # robot -> ``module:function(rig, runner)`` returning the rig's observe for its deployments
+    # (their cameras under the deployment's own names; ``runner``: () -> the task runner).
+    robot_observe: Mapping[str, str] = field(default_factory=dict)
 
 
 def _load_bases() -> tuple[DeployBase, ...]:

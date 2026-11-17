@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daytona_sdk
-Version: 0.231.1
+Version: 0.232.0
 Summary: Deprecated: please migrate to the 'daytona' package. This alias is being phased out.
 License: Apache-2.0
 License-File: LICENSE
@@ -19,12 +19,12 @@ Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: Deprecated (>=1.2.18,<2.0.0)
 Requires-Dist: aiofiles (>=24.1.0,<25.2.0)
 Requires-Dist: aiohttp (>=3.14.1,<4.0.0)
-Requires-Dist: daytona-analytics-api-client (==0.231.1)
-Requires-Dist: daytona-analytics-api-client-async (==0.231.1)
-Requires-Dist: daytona-api-client (==0.231.1)
-Requires-Dist: daytona-api-client-async (==0.231.1)
-Requires-Dist: daytona-toolbox-api-client (==0.231.1)
-Requires-Dist: daytona-toolbox-api-client-async (==0.231.1)
+Requires-Dist: daytona-analytics-api-client (==0.232.0)
+Requires-Dist: daytona-analytics-api-client-async (==0.232.0)
+Requires-Dist: daytona-api-client (==0.232.0)
+Requires-Dist: daytona-api-client-async (==0.232.0)
+Requires-Dist: daytona-toolbox-api-client (==0.232.0)
+Requires-Dist: daytona-toolbox-api-client-async (==0.232.0)
 Requires-Dist: httpx (>=0.28.0,<0.29.0)
 Requires-Dist: httpx-ws (>=0.7.0,<1.0.0)
 Requires-Dist: obstore (>=0.8.0,<0.12.0)
@@ -44,10 +44,11 @@ Description-Content-Type: text/markdown
 
 # ⚠️ `daytona_sdk` is deprecated
 
-**This package is deprecated. Please migrate to the [`daytona`](https://pypi.org/project/daytona/) package.**
+**This package is deprecated. Please migrate to the 0.x line of the [`daytona`](https://pypi.org/project/daytona/) package.**
 
 ```bash
-pip install daytona
+pip uninstall daytona_sdk
+pip install "daytona<1"
 ```
 
 Then update your imports:
@@ -56,11 +57,12 @@ Then update your imports:
 import daytona  # instead of: import daytona_sdk
 ```
 
-`daytona_sdk` currently ships the same code as `daytona` and will continue to
+`daytona_sdk` currently ships the same code as `daytona` 0.x and will continue to
 receive updates for a transition period so existing installs keep working.
 However, it is being phased out and will eventually be discontinued. All active
 development happens on the [`daytona`](https://pypi.org/project/daytona/)
-package, so please migrate at your earliest convenience.
+package, so please migrate at your earliest convenience. Keep the `<1` pin:
+`daytona` 2.x is a new major version with breaking changes.
 
 See the [Daytona Python SDK documentation](https://www.daytona.io/docs/en/python-sdk/) for more information.
 

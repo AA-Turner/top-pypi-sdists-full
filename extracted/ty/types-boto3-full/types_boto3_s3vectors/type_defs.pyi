@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_s3vectors.type_defs import EncryptionConfigurationTypeDef
+    from types_boto3_s3vectors.type_defs import Bm25ScoreTypeDef
 
-    data: EncryptionConfigurationTypeDef = ...
+    data: Bm25ScoreTypeDef = ...
     ```
 """
 
@@ -21,7 +21,13 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any, Union
 
-from .literals import DistanceMetricType, IndexModeType, SseTypeType
+from .literals import (
+    AnalyzerStatusType,
+    DistanceMetricType,
+    IndexModeType,
+    LanguageCodeType,
+    SseTypeType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import Literal, NotRequired, TypedDict
@@ -29,6 +35,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "Bm25ScoreTypeDef",
     "CreateIndexInputTypeDef",
     "CreateIndexOutputTypeDef",
     "CreateVectorBucketInputTypeDef",
@@ -61,6 +68,8 @@ __all__ = (
     "ListVectorsInputPaginateTypeDef",
     "ListVectorsInputTypeDef",
     "ListVectorsOutputTypeDef",
+    "MetadataConfigurationAddTypeDef",
+    "MetadataConfigurationDeleteTypeDef",
     "MetadataConfigurationOutputTypeDef",
     "MetadataConfigurationTypeDef",
     "MetadataConfigurationUnionTypeDef",
@@ -70,19 +79,29 @@ __all__ = (
     "PutVectorBucketPolicyInputTypeDef",
     "PutVectorsInputTypeDef",
     "QueryOutputVectorTypeDef",
+    "QueryScoresTypeDef",
+    "QueryTextTypeDef",
     "QueryVectorsInputPaginateTypeDef",
     "QueryVectorsInputTypeDef",
     "QueryVectorsOutputTypeDef",
     "ResponseMetadataTypeDef",
     "TagResourceInputTypeDef",
+    "TextSearchConfigurationKeyTypeDef",
+    "TextSearchConfigurationTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateIndexModeInputTypeDef",
+    "UpdateMetadataConfigurationInputTypeDef",
+    "UpdateMetadataConfigurationOutputTypeDef",
     "VectorBucketSummaryTypeDef",
     "VectorBucketTypeDef",
     "VectorDataOutputTypeDef",
     "VectorDataTypeDef",
     "VectorDataUnionTypeDef",
 )
+
+class Bm25ScoreTypeDef(TypedDict):
+    metadataKey: str
+    score: float
 
 class EncryptionConfigurationTypeDef(TypedDict):
     sseType: NotRequired[SseTypeType]
@@ -144,9 +163,6 @@ class IndexSummaryTypeDef(TypedDict):
     indexArn: str
     creationTime: datetime
 
-class MetadataConfigurationOutputTypeDef(TypedDict):
-    nonFilterableMetadataKeys: list[str]
-
 class PaginatorConfigTypeDef(TypedDict):
     MaxItems: NotRequired[int]
     PageSize: NotRequired[int]
@@ -183,8 +199,13 @@ class ListVectorsInputTypeDef(TypedDict):
     returnData: NotRequired[bool]
     returnMetadata: NotRequired[bool]
 
-class MetadataConfigurationTypeDef(TypedDict):
-    nonFilterableMetadataKeys: Sequence[str]
+class TextSearchConfigurationTypeDef(TypedDict):
+    metadataKey: str
+    language: NotRequired[LanguageCodeType]
+    status: NotRequired[AnalyzerStatusType]
+
+class TextSearchConfigurationKeyTypeDef(TypedDict):
+    metadataKey: str
 
 class PutVectorBucketDefaultIndexModeInputTypeDef(TypedDict):
     defaultIndexMode: IndexModeType
@@ -196,10 +217,9 @@ class PutVectorBucketPolicyInputTypeDef(TypedDict):
     vectorBucketName: NotRequired[str]
     vectorBucketArn: NotRequired[str]
 
-class QueryOutputVectorTypeDef(TypedDict):
-    key: str
-    distance: NotRequired[float]
-    metadata: NotRequired[dict[str, Any]]
+class QueryTextTypeDef(TypedDict):
+    text: str
+    metadataKey: str
 
 class TagResourceInputTypeDef(TypedDict):
     resourceArn: str
@@ -217,6 +237,11 @@ class UpdateIndexModeInputTypeDef(TypedDict):
 
 class VectorDataTypeDef(TypedDict):
     float32: NotRequired[Sequence[float]]
+
+class QueryScoresTypeDef(TypedDict):
+    fused: NotRequired[float]
+    bm25Scores: NotRequired[list[Bm25ScoreTypeDef]]
+    vectorDistance: NotRequired[float]
 
 class CreateVectorBucketInputTypeDef(TypedDict):
     vectorBucketName: str
@@ -246,6 +271,10 @@ class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateMetadataConfigurationOutputTypeDef(TypedDict):
+    indexArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetOutputVectorTypeDef(TypedDict):
     key: str
     data: NotRequired[VectorDataOutputTypeDef]
@@ -260,18 +289,6 @@ class ListIndexesOutputTypeDef(TypedDict):
     indexes: list[IndexSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class IndexTypeDef(TypedDict):
-    vectorBucketName: str
-    indexName: str
-    indexArn: str
-    creationTime: datetime
-    dataType: Literal["float32"]
-    dimension: int
-    distanceMetric: DistanceMetricType
-    metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
-    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
-    indexMode: NotRequired[IndexModeType]
 
 class ListIndexesInputPaginateTypeDef(TypedDict):
     vectorBucketName: NotRequired[str]
@@ -298,17 +315,27 @@ class ListVectorBucketsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-MetadataConfigurationUnionTypeDef = Union[
-    MetadataConfigurationTypeDef, MetadataConfigurationOutputTypeDef
-]
+class MetadataConfigurationAddTypeDef(TypedDict):
+    textSearchConfigurations: NotRequired[Sequence[TextSearchConfigurationTypeDef]]
 
-class QueryVectorsOutputTypeDef(TypedDict):
-    vectors: list[QueryOutputVectorTypeDef]
-    distanceMetric: DistanceMetricType
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class MetadataConfigurationOutputTypeDef(TypedDict):
+    nonFilterableMetadataKeys: NotRequired[list[str]]
+    textSearchConfigurations: NotRequired[list[TextSearchConfigurationTypeDef]]
+
+class MetadataConfigurationTypeDef(TypedDict):
+    nonFilterableMetadataKeys: NotRequired[Sequence[str]]
+    textSearchConfigurations: NotRequired[Sequence[TextSearchConfigurationTypeDef]]
+
+class MetadataConfigurationDeleteTypeDef(TypedDict):
+    textSearchConfigurations: NotRequired[Sequence[TextSearchConfigurationKeyTypeDef]]
 
 VectorDataUnionTypeDef = Union[VectorDataTypeDef, VectorDataOutputTypeDef]
+
+class QueryOutputVectorTypeDef(TypedDict):
+    key: str
+    distance: NotRequired[float]
+    scores: NotRequired[QueryScoresTypeDef]
+    metadata: NotRequired[dict[str, Any]]
 
 class GetVectorBucketOutputTypeDef(TypedDict):
     vectorBucket: VectorBucketTypeDef
@@ -320,6 +347,75 @@ class GetVectorsOutputTypeDef(TypedDict):
 
 class ListVectorsOutputTypeDef(TypedDict):
     vectors: list[ListOutputVectorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class IndexTypeDef(TypedDict):
+    vectorBucketName: str
+    indexName: str
+    indexArn: str
+    creationTime: datetime
+    dataType: Literal["float32"]
+    dimension: int
+    distanceMetric: DistanceMetricType
+    metadataConfiguration: NotRequired[MetadataConfigurationOutputTypeDef]
+    encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
+    indexMode: NotRequired[IndexModeType]
+
+MetadataConfigurationUnionTypeDef = Union[
+    MetadataConfigurationTypeDef, MetadataConfigurationOutputTypeDef
+]
+
+class UpdateMetadataConfigurationInputTypeDef(TypedDict):
+    vectorBucketName: NotRequired[str]
+    indexName: NotRequired[str]
+    indexArn: NotRequired[str]
+    add: NotRequired[MetadataConfigurationAddTypeDef]
+    delete: NotRequired[MetadataConfigurationDeleteTypeDef]
+
+class PutInputVectorTypeDef(TypedDict):
+    key: str
+    data: VectorDataUnionTypeDef
+    metadata: NotRequired[Mapping[str, Any]]
+
+QueryVectorsInputPaginateTypeDef = TypedDict(
+    "QueryVectorsInputPaginateTypeDef",
+    {
+        "topK": int,
+        "vectorBucketName": NotRequired[str],
+        "indexName": NotRequired[str],
+        "indexArn": NotRequired[str],
+        "queryVector": NotRequired[VectorDataUnionTypeDef],
+        "filter": NotRequired[Mapping[str, Any]],
+        "queryMode": NotRequired[IndexModeType],
+        "returnMetadata": NotRequired[bool],
+        "returnDistance": NotRequired[bool],
+        "queryTexts": NotRequired[Sequence[QueryTextTypeDef]],
+        "returnScores": NotRequired[bool],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+QueryVectorsInputTypeDef = TypedDict(
+    "QueryVectorsInputTypeDef",
+    {
+        "topK": int,
+        "vectorBucketName": NotRequired[str],
+        "indexName": NotRequired[str],
+        "indexArn": NotRequired[str],
+        "queryVector": NotRequired[VectorDataUnionTypeDef],
+        "filter": NotRequired[Mapping[str, Any]],
+        "queryMode": NotRequired[IndexModeType],
+        "returnMetadata": NotRequired[bool],
+        "returnDistance": NotRequired[bool],
+        "queryTexts": NotRequired[Sequence[QueryTextTypeDef]],
+        "returnScores": NotRequired[bool],
+        "nextToken": NotRequired[str],
+    },
+)
+
+class QueryVectorsOutputTypeDef(TypedDict):
+    vectors: list[QueryOutputVectorTypeDef]
+    distanceMetric: DistanceMetricType
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -337,42 +433,6 @@ class CreateIndexInputTypeDef(TypedDict):
     metadataConfiguration: NotRequired[MetadataConfigurationUnionTypeDef]
     encryptionConfiguration: NotRequired[EncryptionConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
-
-class PutInputVectorTypeDef(TypedDict):
-    key: str
-    data: VectorDataUnionTypeDef
-    metadata: NotRequired[Mapping[str, Any]]
-
-QueryVectorsInputPaginateTypeDef = TypedDict(
-    "QueryVectorsInputPaginateTypeDef",
-    {
-        "topK": int,
-        "queryVector": VectorDataUnionTypeDef,
-        "vectorBucketName": NotRequired[str],
-        "indexName": NotRequired[str],
-        "indexArn": NotRequired[str],
-        "filter": NotRequired[Mapping[str, Any]],
-        "queryMode": NotRequired[IndexModeType],
-        "returnMetadata": NotRequired[bool],
-        "returnDistance": NotRequired[bool],
-        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
-    },
-)
-QueryVectorsInputTypeDef = TypedDict(
-    "QueryVectorsInputTypeDef",
-    {
-        "topK": int,
-        "queryVector": VectorDataUnionTypeDef,
-        "vectorBucketName": NotRequired[str],
-        "indexName": NotRequired[str],
-        "indexArn": NotRequired[str],
-        "filter": NotRequired[Mapping[str, Any]],
-        "queryMode": NotRequired[IndexModeType],
-        "returnMetadata": NotRequired[bool],
-        "returnDistance": NotRequired[bool],
-        "nextToken": NotRequired[str],
-    },
-)
 
 class PutVectorsInputTypeDef(TypedDict):
     vectors: Sequence[PutInputVectorTypeDef]

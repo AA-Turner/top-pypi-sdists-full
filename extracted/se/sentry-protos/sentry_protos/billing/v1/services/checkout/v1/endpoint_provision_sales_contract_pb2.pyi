@@ -86,9 +86,9 @@ class ProvisionSalesContractRequest(google.protobuf.message.Message):
 
     @property
     def sales_config(self) -> sentry_protos.billing.v1.services.contract.v2.sales_config_pb2.SalesConfig:
-        """The deal's prices. When set, it replaces the contract's whole sales config
-        when the deal takes effect, and an empty SalesConfig clears it. Unset keeps
-        the current prices.
+        """The deal's prices and soft caps. When set, it replaces the contract's whole
+        sales config when the deal takes effect, and an empty SalesConfig clears it.
+        Unset keeps the current prices and soft caps.
         """
 
     def __init__(

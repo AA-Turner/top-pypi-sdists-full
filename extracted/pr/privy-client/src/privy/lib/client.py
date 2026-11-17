@@ -6,6 +6,7 @@ import time
 from types import TracebackType
 
 from .apps import PrivyAppsService
+from .auth import PrivyAuthService, create_privy_app_jwks
 from .users import PrivyUsersService
 from .intents import PrivyIntentsService
 from .wallets import PrivyWalletsService
@@ -37,6 +38,8 @@ class PrivyClient:
         base_url: str | None = None,
         authorization_key_cache_max_capacity: int | None = DEFAULT_AUTHORIZATION_KEY_CACHE_MAX_CAPACITY,
         request_expiry: PrivyRequestExpiryOptions | None = None,
+        jwt_verification_key: str | None = None,
+        webhook_signing_secret: str | None = None,
     ) -> None:
         request_expiry_options = request_expiry or PrivyRequestExpiryOptions()
         self._request_expiry_disabled = request_expiry_options.disabled
@@ -60,26 +63,38 @@ class PrivyClient:
             self._client.wallets,
             cache_max_capacity=authorization_key_cache_max_capacity,
         )
+        app_jwks = create_privy_app_jwks(
+            app_id=app_id,
+            api_url=str(self._client.base_url),
+            headers={"privy-client": f"python:{__version__}"},
+            verification_key_override=jwt_verification_key,
+        )
+        self.auth = PrivyAuthService(app_id, app_jwks)
         self.apps = PrivyAppsService(self._client)
         self.policies = PrivyPoliciesService(self._client, self.get_request_expiry, self._jwt_exchange)
         self.key_quorums = PrivyKeyQuorumsService(self._client, self.get_request_expiry, self._jwt_exchange)
-        self.intents = PrivyIntentsService(self._client, self._get_intent_request_expiry, self._jwt_exchange)
-        self.users = PrivyUsersService(self._client)
+        self.intents = PrivyIntentsService(self._client, self.get_intent_request_expiry, self._jwt_exchange)
+        self.users = PrivyUsersService(self._client, self.auth)
         self.organizations = PrivyOrganizationsService(self._client)
         self.transactions = PrivyTransactionsService(self._client)
         self.wallets = PrivyWalletsService(self._client, self._jwt_exchange, self.get_request_expiry)
-        self.webhooks = PrivyWebhooksService(self._client)
+        self.webhooks = PrivyWebhooksService(self._client, webhook_signing_secret)
 
     def get_request_expiry(self, expiry_ms_from_now: int | None = None) -> int | None:
-        """Return an absolute request-expiry timestamp in Unix milliseconds."""
+        """Return now plus a duration as an absolute Unix timestamp in milliseconds.
+
+        Uses the client's generic default duration when ``expiry_ms_from_now`` is
+        omitted. Returns ``None`` when automatic request expiry is disabled. Pass
+        the result to ``PrivyRequestOptions(request_expiry=...)``.
+        """
 
         if self._request_expiry_disabled:
             return None
         duration = self._default_request_expiry_ms if expiry_ms_from_now is None else expiry_ms_from_now
         return time.time_ns() // 1_000_000 + duration
 
-    def _get_intent_request_expiry(self, expiry_ms_from_now: int | None = None) -> int | None:
-        """Return an absolute request-expiry timestamp for an intent request."""
+    def get_intent_request_expiry(self, expiry_ms_from_now: int | None = None) -> int | None:
+        """Like ``get_request_expiry`` but defaults to the client's intent duration."""
 
         if self._request_expiry_disabled:
             return None

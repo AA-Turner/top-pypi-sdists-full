@@ -31,7 +31,7 @@ class TiingoPrice(QuantConnect.Data.Market.TradeBar):
 
     @property
     def period(self) -> datetime.timedelta:
-        """The period of this trade bar, (second, minute, daily, ect...)"""
+        """The period of this trade bar, (second, minute, daily, etc...)"""
         ...
 
     @property

@@ -19,6 +19,9 @@ from .types.query_identity_risky_users_response import QueryIdentityRiskyUsersRe
 from .types.query_users_response import QueryUsersResponse
 from .types.user_id import UserId
 
+# this is used as the default value for optional parameters
+OMIT = typing.cast(typing.Any, ...)
+
 
 class IdentityClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
@@ -55,7 +58,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of events to return. Defaults to 100.
+            Number of events to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -107,7 +110,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of events to return. Defaults to 100.
+            Number of events to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -159,7 +162,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -211,7 +214,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of applications to return. Defaults to 100.
+            Number of applications to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -263,7 +266,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of grants to return. Defaults to 100.
+            Number of grants to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position. A page may hold fewer than `limit` grants, or none; keep paging until the response carries no cursor.
@@ -315,7 +318,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of policies to return. Defaults to 100.
+            Number of policies to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -366,7 +369,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -436,7 +439,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -497,7 +500,7 @@ class IdentityClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetGroupMembersResponse:
         """
-        Returns list of `User` objects wrapped in an OCSF Entity Management event of type Read from the token-linked identity provider that are members in the group referenced by ID.
+        Returns the users who are members of the group. Group membership may be distinct from role assignments, even if the group and role share a name. For example, a group named `administrators` may have no members, even when there are users assigned an `administrator` role. This behavior may be provider dependent, see capabilities for provider specific details.
 
         Parameters
         ----------
@@ -507,7 +510,7 @@ class IdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -613,7 +616,7 @@ class IdentityClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-        Logs a user out of all current sessions so they must log in again.
+        Signs a user out of all current sessions so they must sign in again.
 
         Parameters
         ----------
@@ -630,6 +633,43 @@ class IdentityClient:
         None
         """
         _response = self._raw_client.expire_all_user_sessions(user_id, meta=meta, request_options=request_options)
+        return _response.data
+
+    def revoke_programmatic_credential(
+        self,
+        user_id: UserId,
+        credential_uid: str,
+        *,
+        meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        resource_uid: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Revokes one of a user's programmatic credentials. A programmatic credential is a secret software uses to act as a user or service account, such as an API key or access token; OCSF names them so. A user's credentials are listed in the `programmatic_credentials` field of the user that `get_user` returns. The user stays enabled.
+
+        Parameters
+        ----------
+        user_id : UserId
+
+        credential_uid : str
+            The `uid` of the programmatic credential, such as an API key ID, from the user's `programmatic_credentials` field.
+
+        meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
+
+        resource_uid : typing.Optional[str]
+            The `uid` of the credential's `resource`, from the user's `programmatic_credentials` field. Give it whenever the credential lists a `resource`; a credential that lists one cannot be revoked without it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+        """
+        _response = self._raw_client.revoke_programmatic_credential(
+            user_id, credential_uid, meta=meta, resource_uid=resource_uid, request_options=request_options
+        )
         return _response.data
 
     def get_user_picture(
@@ -688,7 +728,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of events to return. Defaults to 100.
+            Number of events to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -740,7 +780,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of events to return. Defaults to 100.
+            Number of events to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -792,7 +832,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -844,7 +884,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of applications to return. Defaults to 100.
+            Number of applications to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -896,7 +936,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of grants to return. Defaults to 100.
+            Number of grants to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position. A page may hold fewer than `limit` grants, or none; keep paging until the response carries no cursor.
@@ -948,7 +988,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of policies to return. Defaults to 100.
+            Number of policies to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -999,7 +1039,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -1069,7 +1109,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -1130,7 +1170,7 @@ class AsyncIdentityClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> GetGroupMembersResponse:
         """
-        Returns list of `User` objects wrapped in an OCSF Entity Management event of type Read from the token-linked identity provider that are members in the group referenced by ID.
+        Returns the users who are members of the group. Group membership may be distinct from role assignments, even if the group and role share a name. For example, a group named `administrators` may have no members, even when there are users assigned an `administrator` role. This behavior may be provider dependent, see capabilities for provider specific details.
 
         Parameters
         ----------
@@ -1140,7 +1180,7 @@ class AsyncIdentityClient:
             Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
 
         limit : typing.Optional[int]
-            Number of users to return. Defaults to 100.
+            Number of users to return. Defaults to 100. A page may hold fewer results than `limit`, or none, even when more remain; keep paging until the returned cursor is empty.
 
         cursor : typing.Optional[str]
             Start search from cursor position.
@@ -1248,7 +1288,7 @@ class AsyncIdentityClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> None:
         """
-        Logs a user out of all current sessions so they must log in again.
+        Signs a user out of all current sessions so they must sign in again.
 
         Parameters
         ----------
@@ -1265,6 +1305,43 @@ class AsyncIdentityClient:
         None
         """
         _response = await self._raw_client.expire_all_user_sessions(user_id, meta=meta, request_options=request_options)
+        return _response.data
+
+    async def revoke_programmatic_credential(
+        self,
+        user_id: UserId,
+        credential_uid: str,
+        *,
+        meta: typing.Optional[typing.Union[str, typing.Sequence[str]]] = None,
+        resource_uid: typing.Optional[str] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> None:
+        """
+        Revokes one of a user's programmatic credentials. A programmatic credential is a secret software uses to act as a user or service account, such as an API key or access token; OCSF names them so. A user's credentials are listed in the `programmatic_credentials` field of the user that `get_user` returns. The user stays enabled.
+
+        Parameters
+        ----------
+        user_id : UserId
+
+        credential_uid : str
+            The `uid` of the programmatic credential, such as an API key ID, from the user's `programmatic_credentials` field.
+
+        meta : typing.Optional[typing.Union[str, typing.Sequence[str]]]
+            Add metadata to the response by invoking meta functions. Documentation for [meta functions](https://docs.synqly.com/api-reference/meta-functions) is available. Not all meta functions are available at every endpoint.
+
+        resource_uid : typing.Optional[str]
+            The `uid` of the credential's `resource`, from the user's `programmatic_credentials` field. Give it whenever the credential lists a `resource`; a credential that lists one cannot be revoked without it.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        None
+        """
+        _response = await self._raw_client.revoke_programmatic_credential(
+            user_id, credential_uid, meta=meta, resource_uid=resource_uid, request_options=request_options
+        )
         return _response.data
 
     async def get_user_picture(

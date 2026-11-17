@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-slugify
-Version: 9.1.3
+Version: 9.2.0
 Summary: A Python slugify application that also handles Unicode
 Author-email: Val Neekman <info@neekware.com>
 License-Expression: MIT
@@ -37,7 +37,7 @@ Unicode-aware slug generation for Python, with explicit transliteration choices.
 
 ## Quickstart
 
-**[9+ releases](https://github.com/un33k/python-slugify/releases) ship the modern algorithm.**
+**[Version 9.0.0 and later](https://github.com/un33k/python-slugify/releases) ship the modern algorithm.**
 Legacy behavior remains the default; use `algorithm='modern'` for the latest rules.
 See the [migration guide](docs/release-9/migration.md) before changing persisted URLs or keys.
 
@@ -69,7 +69,7 @@ slugify --regex-pattern '[^-a-z0-9_]+' '___This is a test___'
 # ___this-is-a-test___
 ```
 
-The examples above work with 9+ releases. Python 3.10 or newer is required.
+The examples above require python-slugify 9.0.0 or later. Python 3.10 or newer is required.
 
 ## Python support
 
@@ -131,7 +131,7 @@ slugify(
 - `lowercase`: apply `str.lower()`; false preserves case.
 - `replacements`: ordered iterable of `(old, new)` literal string rules. Legacy preserves iterator consumption across passes. Modern materializes outer and inner iterables once so generators behave like lists.
 - `replacement_stage`: `both` preserves two passes; `pre` runs only before normalization; `post` runs after cleanup and stopword removal, before separator mapping and truncation. Post replacements are **not** re-sanitized. Replacements need not be idempotent.
-- `allow_unicode`: retain Unicode word characters after NFKC normalization, not exact original code points; default ASCII mode uses NFKD plus transliteration.
+- `allow_unicode`: retain Unicode word characters after NFKC normalization, not exact original code points; default ASCII mode uses NFKD plus transliteration. Modern mode also keeps combining marks (vowel signs, viramas, harakat, niqqud) and in-word ZWNJ/ZWJ inside words, so `'नमस्ते दुनिया'` becomes `'नमस्ते-दुनिया'`; legacy splits words at those marks.
 - `backend`: select a backend from the table above. Ignored for transliteration in Unicode mode, but still validated.
 
 `smart_truncate(string, max_length=0, word_boundary=False, separator=' ', save_order=False)`
@@ -207,6 +207,15 @@ python-slugify's own code is [MIT licensed](LICENSE). Dependency licenses are se
 The installed package set and the backend used at runtime are different questions. Selecting AnyASCII does not remove
 text-unidecode from a normal installation. This is factual dependency guidance, not legal advice or a blanket assurance
 about your application's obligations. Evaluate the actual versions, distribution method, and applicable license terms.
+
+## Bugs and ideas
+
+Open an [issue](https://github.com/un33k/python-slugify/issues) with a concrete
+input and expected result. This project is issues first: we don't review
+unsolicited pull requests, because verifying a change against the frozen legacy
+output is the expensive part and it lands on the maintainer. If an issue is
+accepted, we'll fix it or welcome a pull request for it. See
+[CONTRIBUTING](CONTRIBUTING.md).
 
 ## Sponsors
 

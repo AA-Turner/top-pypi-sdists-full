@@ -150,7 +150,7 @@ def logout(login_id: str | None = None, *, base_url: str | None = None, echo: Ec
     """Sign out: this machine's sign-in ended on the platform and removed here - or, given one of the ids `seq account`
     lists, that sign-in ended wherever it is. Signed out is said only when the platform ended it (or it had ended
     already); when the platform did not, or could not be reached, the sign-in is kept here to try again and the refusal
-    says so (Unavailable). {cl6 SDK scan #1 10-29: "signed out" was said whatever the platform answered}"""
+    says so (Unavailable)."""
     base = _base(base_url)
     if login_id:
         hit = _resolve(login_id, base)
@@ -226,7 +226,7 @@ def account(*, base_url: str | None = None, echo: Echo = print) -> dict:
     """`seq account`: who you are when signed in (you), then the account's own lines (capacity_cli.account). With a key
     in $SEQUENCES_API_KEY the lines are that key's account - a key wins over the sign-in (_account.credential) - so your
     sign-in is said in one line after them, not as their head: a CI key's account is never shown under your name.
-    {cl6 SDK scan #10 10-29: with both, the key's account was headed with the sign-in's "you" and its sign-ins}"""
+    """
     from seq import capacity_cli
 
     if os.environ.get("SEQUENCES_API_KEY"):

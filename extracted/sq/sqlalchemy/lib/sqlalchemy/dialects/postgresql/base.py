@@ -1653,7 +1653,7 @@ defined, so other SQL dialects may behave differently than PostgreSQL.
 The ``NULLS NOT DISTINCT`` clause can be used to change this behavior, treating
 null values as equal and preventing unintended duplicate rows. The opposite
 ``NULLS DISTINCT`` clause can also be used to make PostgreSQL's default behavior
-explict.
+explicit.
 
 The ``postgresql_nulls_not_distinct`` parameter can be set to ``True`` to
 add the ``NULLS NOT DISTINCT`` clause, or ``False`` to add ``NULLS DISTINCT``.
@@ -1959,6 +1959,7 @@ from .types import REGCLASS as REGCLASS
 from .types import REGCONFIG as REGCONFIG  # noqa: F401
 from .types import TIME as TIME
 from .types import TIMESTAMP as TIMESTAMP
+from .types import TSQUERY as TSQUERY
 from .types import TSVECTOR as TSVECTOR
 from ... import exc
 from ... import schema
@@ -2168,6 +2169,8 @@ ischema_names = {
     "boolean": BOOLEAN,
     "interval": INTERVAL,
     "tsvector": TSVECTOR,
+    "tsquery": TSQUERY,
+    "regconfig": REGCONFIG,
 }
 
 

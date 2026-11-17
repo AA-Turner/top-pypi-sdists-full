@@ -1,6 +1,6 @@
 [project]
 name = "atlan-application-sdk"
-version = "3.57.0"
+version = "3.58.0"
 description = "Atlan Application SDK is a Python library for developing applications on the Atlan Platform"
 license = "Apache-2.0"
 authors = [
@@ -21,7 +21,7 @@ classifiers = [
 ]
 keywords = ["atlan", "sdk", "platform", "app", "development"]
 dependencies = [
-    "atlan-application-sdk-api==3.57.0",
+    "atlan-application-sdk-api==3.58.0",
     # The OTLP gRPC exporters only, not the opentelemetry-exporter-otlp meta
     # package: that also pulls the HTTP exporter, which nothing imports.
     "opentelemetry-exporter-otlp-proto-grpc>=1.45.0,<2.0.0",
@@ -39,7 +39,7 @@ dependencies = [
     # was never imported and shipped in every connector image.
     "fastapi>=0.162.0,<0.163.0",
     "uvicorn[standard]>=0.30.0,<1.0.0",
-    "pyatlan>=11.7.0,<12",  # floor carries authlib~=1.9.1 (CVE-2026-96760) to consumers
+    "pyatlan>=11.7.1,<12",  # floor carries authlib~=1.9.1 (CVE-2026-96760) to consumers
     "httpx>=0.27.0,<0.29.0",
     "httpx-retries>=0.6.0,<0.7.0",
     # Published floor (not just [tool.uv] constraint-dependencies, which only
@@ -47,7 +47,7 @@ dependencies = [
     "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2
     # Arrives via pyatlan (~=1.9.1 on Python >=3.10). Published as well so the
     # api wheel's pyatlan extra can carry the same pin (test_api_distribution).
-    "authlib>=1.9.5,<2",  # CVE-2026-96760; GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3; GHSA-f7j6-p4qx-gq99
+    "authlib>=1.9.6,<2",  # CVE-2026-96760; GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3; GHSA-f7j6-p4qx-gq99; GHSA-cg3f-7pqx-v33v
     # Transitive runtime deps, published for the same reason as certifi:
     # protobuf arrives via temporalio / opentelemetry-proto, pyjwt via
     # azure-identity -> msal.
@@ -62,7 +62,7 @@ dependencies = [
     # but it is imported directly, so it is declared directly.
     "typing-extensions>=4.12.2,<5",
     "packaging>=24.0",
-    "loguru>=0.7.3,<0.8.0",
+    "loguru>=0.8.0,<0.9.0",
     "python-dotenv>=1.2.2,<2.0.0",  # CVE-2026-28684 (symlink file overwrite)
     "pyyaml>=6.0.2,<7.0.0",
     "obstore>=0.12.0,<0.13.0",
@@ -164,6 +164,10 @@ distributed_lock = [
 ]
 mcp = [
     "fastmcp>=3.2.0,<4.0.0",
+    # Published CVE floor: arrives via fastmcp -> pydantic[email] ->
+    # email-validator. Not core: the SDK never imports it, and only this extra
+    # installs it.
+    "dnspython>=2.9.2",  # CVE-2026-128089
 ]
 tests = [
     "pandera[io]>=0.36.0,<0.37.0",
@@ -217,15 +221,21 @@ dev = [
     # Exact pin, equal to the ruff-pre-commit rev in .pre-commit-config.yaml
     # (enforced by .github/scripts/tests/test_lint_guards.py), so `uv run ruff`
     # and the CI hook lint, format and sort imports identically.
-    "ruff==0.17.4",
+    "ruff==0.17.5",
     # Exact pin, equal to the pyright-python rev in .pre-commit-config.yaml
     # (enforced by .github/scripts/tests/test_check_pyright_baseline.py), so the
     # .github/scripts baseline check and the pre-commit hook run one pyright.
     "pyright==1.1.414",
     "boto3-stubs>=1.38.6,<2.0.0",
     "poethepoet>=0.49.0,<1.0.0",
-    "libcst>=1.4.0,<2.0.0",
     "atlan-application-sdk-conformance",
+]
+# tools/migrate_v3's codemods and import rewriter, and their tests
+# (tests/unit/tools). Its own group so a Python it cannot install on skips
+# this group alone, not every dev tool with it. Goes when the tool does
+# (tools/migrate_v3/README.md, "Retirement").
+migrate-v3 = [
+    "libcst>=1.4.0,<2.0.0",
 ]
 test = [
     "mock>=5.1.0,<6.0.0",
@@ -611,15 +621,16 @@ extend-select = [
 ".github/scripts/tests/test_resolve_e2e_source.py" = ["E402"]
 
 [tool.uv]
-default-groups = ["dev", "test"]
+default-groups = ["dev", "migrate-v3", "test"]
 constraint-dependencies = [
     "python-multipart>=0.0.26",  # CVE-2026-24486, CVE-2026-40347
     "protobuf>=6.33.5",          # CVE-2026-0994
-    "authlib>=1.9.5",  # CVE-2026-96760 (signature bypass), CVE-2026-28802, GHSA-jj8c-mmj3-mmgv, GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3, GHSA-f7j6-p4qx-gq99
+    "authlib>=1.9.6",  # CVE-2026-96760 (signature bypass), CVE-2026-28802, GHSA-jj8c-mmj3-mmgv, GHSA-9qr6-8289-9j56, GHSA-f3fg-34g9-v7jx, GHSA-gp2m-377p-m4j3, GHSA-f7j6-p4qx-gq99, GHSA-cg3f-7pqx-v33v
     "pyjwt>=2.12.0",             # CVE-2026-32597
     "python-dotenv>=1.2.2",      # CVE-2026-28684 (symlink file overwrite)
     "certifi>=2026.10.19",  # GHSA-6q48-6c7w-9gw2
     "filelock>=4.2.1",           # ReadWriteLock SQLite symlink/journal overwrite (dev/test only)
+    "dnspython>=2.9.2",          # CVE-2026-128089
 ]
 
 [tool.uv.sources]

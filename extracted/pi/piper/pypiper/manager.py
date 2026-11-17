@@ -409,17 +409,16 @@ class PipelineManager(object):
 
         pipestat_config_resolved = pipestat_config or _get_arg(args_dict, "pipestat_config")
         if pipestat_config_resolved:
-            self._pipestat_manager = PipestatManager.from_config(
-                config=pipestat_config_resolved,
+            # Pass record_identifier at construction so pipestat can fill a
+            # {record_identifier} placeholder in the config's results_file_path.
+            # Pypiper owns the record identity; it overrides any value in the config.
+            self._pipestat_manager = PipestatManager(
+                config_file=pipestat_config_resolved,
+                record_identifier=self.pipestat_record_identifier
+                or _get_arg(args_dict, "pipestat_sample_name")
+                or DEFAULT_SAMPLE_NAME,
                 pipeline_type=self.pipestat_pipeline_type,
                 multi_pipelines=multi,
-            )
-            # Always set record_identifier from pypiper's resolution chain.
-            # Pypiper owns the record identity; the pipestat config should not override it.
-            self._pipestat_manager.record_identifier = (
-                self.pipestat_record_identifier
-                or _get_arg(args_dict, "pipestat_sample_name")
-                or DEFAULT_SAMPLE_NAME
             )
             # Sync pipeline_stats_file to pipestat's actual results file location
             # so that _refresh_stats() reads from the correct file.
@@ -963,9 +962,7 @@ class PipelineManager(object):
                     if os.path.exists(tgt):
                         self.info(
                             "Target exists: `{tgt}`. Skipping this step. "
-                            "To force re-computation, use new_start=True (CLI: -N).".format(
-                                tgt=tgt
-                            )
+                            "To force re-computation, use new_start=True (CLI: -N).".format(tgt=tgt)
                         )
                 if self.new_start:
                     self.info("New start mode; run anyway.  ")
@@ -1298,9 +1295,7 @@ class PipelineManager(object):
                 t.start()
                 tee_threads.append(t)
         if processes[-1].stdout:
-            t = threading.Thread(
-                target=self._tee_output, args=(processes[-1].stdout,), daemon=True
-            )
+            t = threading.Thread(target=self._tee_output, args=(processes[-1].stdout,), daemon=True)
             t.start()
             tee_threads.append(t)
 
@@ -2497,9 +2492,7 @@ class PipelineManager(object):
         cmd = "docker rm -f " + container
         self.callprint(cmd)
 
-    def clean_add(
-        self, regex: str | None, conditional: bool = False, manual: bool = False
-    ) -> None:
+    def clean_add(self, regex: str | None, conditional: bool = False, manual: bool = False) -> None:
         """Register files for automatic deletion when the pipeline succeeds.
 
         Example:

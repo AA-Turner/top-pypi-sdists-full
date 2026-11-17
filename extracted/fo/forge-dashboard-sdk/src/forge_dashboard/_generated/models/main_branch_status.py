@@ -7,6 +7,7 @@ class MainBranchStatus(StrEnum):
     NONE = "none"
     PASSED = "passed"
     RUNNING = "running"
+    UNKNOWN = "unknown"
 
     def __str__(self) -> str:
         return str(self.value)

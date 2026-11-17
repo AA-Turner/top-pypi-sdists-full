@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bluesky-queueserver
-Version: 0.0.26
+Version: 0.0.27
 Summary: Server for queueing and executing Bluesky plans.
 Author: Brookhaven National Laboratory
 License: BSD 3-Clause License
@@ -57,7 +57,7 @@ Requires-Dist: pydantic
 Requires-Dist: python-multipart
 Requires-Dist: pyyaml
 Requires-Dist: pyzmq
-Requires-Dist: redis[hiredis]
+Requires-Dist: redis[hiredis]>=5.0
 Requires-Dist: requests
 Provides-Extra: dev
 Requires-Dist: coverage; extra == "dev"

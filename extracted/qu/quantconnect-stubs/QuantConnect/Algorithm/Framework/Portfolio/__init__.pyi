@@ -85,7 +85,7 @@ class PortfolioOptimizerPythonWrapper(QuantConnect.Python.BasePythonWrapper[Quan
         """
         Creates a new instance
         
-        :param portfolio_optimizer: The python model to wrapp
+        :param portfolio_optimizer: The python model to wrap
         """
         ...
 
@@ -174,8 +174,8 @@ class PortfolioConstructionModel(System.Object, QuantConnect.Algorithm.Framework
     @property
     def python_wrapper(self) -> QuantConnect.Algorithm.Framework.Portfolio.PortfolioConstructionModelPythonWrapper:
         """
-        This is required due to a limitation in PythonNet to resolved overriden methods.
-        When Python calls a C# method that calls a method that's overriden in python it won't
+        This is required due to a limitation in PythonNet to resolved overridden methods.
+        When Python calls a C# method that calls a method that's overridden in python it won't
         run the python implementation unless the call is performed through python too.
         
         
@@ -1213,7 +1213,7 @@ class AlphaStreamsPortfolioConstructionModel(System.Object, QuantConnect.Algorit
 
     def get_alpha_weight(self, alpha_id: str) -> float:
         """
-        Get's the weight for an alpha
+        Gets the weight for an alpha
         
         :param alpha_id: The algorithm instance that experienced the change in securities
         :returns: The alphas weight.
@@ -1876,7 +1876,7 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
     def add(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:
         """
         Adds the specified target to the collection. If a target for the same symbol
-        already exists it wil be overwritten.
+        already exists it will be overwritten.
         
         :param symbol: The symbol key
         :param target: The portfolio target to add
@@ -1887,7 +1887,7 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
     def add(self, target: QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget) -> None:
         """
         Adds the specified target to the collection. If a target for the same symbol
-        already exists it wil be overwritten.
+        already exists it will be overwritten.
         
         :param target: The portfolio target to add
         """
@@ -1897,7 +1897,7 @@ class PortfolioTargetCollection(System.Object, System.Collections.Generic.IDicti
     def add(self, target: System.Collections.Generic.KeyValuePair[QuantConnect.Symbol, QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
         """
         Adds the specified target to the collection. If a target for the same symbol
-        already exists it wil be overwritten.
+        already exists it will be overwritten.
         
         :param target: The portfolio target to add
         """

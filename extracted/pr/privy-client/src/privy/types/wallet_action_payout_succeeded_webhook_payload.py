@@ -36,6 +36,12 @@ class WalletActionPayoutSucceededWebhookPayload(BaseModel):
     environment: Environment
     """The Privy API environment."""
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     provider: OrchestrationProvider
     """Supported fiat orchestration providers."""
 
@@ -52,7 +58,11 @@ class WalletActionPayoutSucceededWebhookPayload(BaseModel):
     """The status of the wallet action."""
 
     steps: List[WalletActionStep]
-    """The steps of the wallet action, including transaction hashes."""
+    """
+    The steps of the wallet action, including transaction hashes;
+    `gas_credits_charged` on a step may still be `null` when this webhook fires, so
+    fetch the wallet action directly for up-to-date gas data.
+    """
 
     type: Literal["wallet_action.payout.succeeded"]
     """The type of webhook event."""

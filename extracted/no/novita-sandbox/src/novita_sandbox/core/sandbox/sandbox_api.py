@@ -1,3 +1,6 @@
+import math
+
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Literal, Optional, TypedDict, Union, cast
@@ -43,6 +46,130 @@ GitHubMcpServer = Dict[str, Union[GitHubMcpServerConfig, Any]]
 
 # Union type that combines base MCP servers with GitHub-based servers
 McpServer = Union[BaseMcpServer, GitHubMcpServer]
+
+
+class SandboxResourceTargets(TypedDict, total=False):
+    """Absolute resource totals for a sandbox, not increments.
+
+    Memory and disk values are user-facing GiB and converted to the MiB values
+    the API expects. A changed memory or disk total must be a whole number of
+    GiB on the server, but fractional GiB values that are exact MiB multiples
+    can be used to match a template's non-integral size.
+    """
+
+    cpu: int
+    """Total virtual CPUs. Must be 1 or an even number."""
+    memory_gib: float
+    """Total memory in GiB."""
+    disk_gib: float
+    """Total disk size in GiB."""
+
+
+class SandboxResizeItem(TypedDict, total=False):
+    """Outcome of one resource in a resize request."""
+
+    status: str
+    """One of ``applied``, ``skipped``, ``failed`` or ``unknown``."""
+    requested: float
+    """Requested total: cores for cpu, GiB for memory and disk."""
+    previous: float
+    """Total before the call: cores for cpu, GiB for memory and disk."""
+    current: float
+    """Total after the call: cores for cpu, GiB for memory and disk."""
+    unit: Literal["cores", "GiB"]
+    """Unit of requested, previous and current."""
+    code: int
+    """HTTP status this resource would have returned on its own."""
+    reason: str
+    """Reason code when the resource was not applied."""
+    message: str
+    """Human-readable reason when the resource was not applied."""
+
+
+class SandboxResizeResult(TypedDict, total=False):
+    """Per-resource resize outcome; only requested resources are present."""
+
+    cpu: SandboxResizeItem
+    memory: SandboxResizeItem
+    disk: SandboxResizeItem
+
+
+_MIB_PER_GIB = 1024
+
+_RESOURCE_FIELDS = {
+    "cpu": "vcpu",
+    "memory_gib": "memory_mb",
+    "disk_gib": "disk_size_mb",
+}
+
+
+def _gib_to_mib(value: Union[int, float], name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"resource target {name} must be a positive number")
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError(f"resource target {name} must be a positive number")
+    mib = value * _MIB_PER_GIB
+    if isinstance(mib, float):
+        if not mib.is_integer():
+            raise ValueError(
+                f"resource target {name} must be an exact number of MiB; "
+                f"use a multiple of 1/{_MIB_PER_GIB} GiB"
+            )
+    return int(mib)
+
+
+def reject_unknown_resize_kwargs(opts: Mapping[str, Any]) -> None:
+    """Reject keyword arguments that ``get_api_params`` would silently drop."""
+    unexpected = sorted(set(opts) - set(ApiParams.__annotations__))
+    if unexpected:
+        raise TypeError(
+            "Sandbox.resize() got unexpected keyword argument(s): "
+            + ", ".join(unexpected)
+            + ". Resource totals are set with cpu, memory_gib and disk_gib."
+        )
+
+
+def resource_targets_to_api(resources: SandboxResourceTargets) -> Dict[str, int]:
+    """Validate public GiB resource totals and return the MiB request body."""
+    if not isinstance(resources, Mapping):
+        raise ValueError(
+            "resources must be a mapping of cpu, memory_gib and disk_gib "
+            "to absolute totals"
+        )
+    unknown = set(resources) - set(_RESOURCE_FIELDS)
+    if unknown:
+        raise ValueError(f"unsupported resource fields: {', '.join(sorted(unknown))}")
+
+    body: Dict[str, int] = {}
+    for key, value in resources.items():
+        if key == "cpu":
+            if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+                raise ValueError("resource target cpu must be a positive whole number")
+            body["vcpu"] = value
+        else:
+            body[_RESOURCE_FIELDS[key]] = _gib_to_mib(value, key)
+    if not body:
+        raise ValueError("at least one of cpu, memory_gib or disk_gib is required")
+    return body
+
+
+def resize_result_from_api(data: Dict[str, Any]) -> SandboxResizeResult:
+    """Map the MiB values returned by the API to the GiB values users see."""
+    result: Dict[str, Any] = {}
+    if data.get("cpu") is not None:
+        result["cpu"] = {**data["cpu"], "unit": "cores"}
+    for key in ("memory", "disk"):
+        item = data.get(key)
+        if item is None:
+            continue
+        result[key] = {
+            **item,
+            "requested": item.get("requested", 0) / _MIB_PER_GIB,
+            "previous": item.get("previous", 0) / _MIB_PER_GIB,
+            "current": item.get("current", 0) / _MIB_PER_GIB,
+            "unit": "GiB",
+        }
+    return cast(SandboxResizeResult, result)
 
 
 class SandboxNetworkOpts(TypedDict):
@@ -110,6 +237,7 @@ def legacy_create_network_config(
     unsupported = sorted(set(network) - {"allow_public_traffic"})
     if unsupported:
         from novita_sandbox.core.exceptions import SandboxException
+
         raise SandboxException(
             "Sandbox.create network only supports allow_public_traffic on legacy "
             f"domains; unsupported options: {', '.join(unsupported)}"
@@ -204,6 +332,8 @@ class SandboxInfo:
     """Envd version."""
     _envd_access_token: Optional[str]
     """Envd access token."""
+    disk_size_mb: Optional[int] = None
+    """Sandbox disk size in MiB, when the server returns it."""
     allow_internet_access: Optional[bool] = None
     """Whether internet access was explicitly enabled or disabled for the sandbox."""
     network: Optional[SandboxNetworkOpts] = None
@@ -237,6 +367,9 @@ class SandboxInfo:
             state=sandbox.state,
             cpu_count=sandbox.cpu_count,
             memory_mb=sandbox.memory_mb,
+            disk_size_mb=(
+                sandbox.disk_size_mb if isinstance(sandbox.disk_size_mb, int) else None
+            ),
             envd_version=sandbox.envd_version,
             volume_mounts=[
                 {"name": vm.name, "path": vm.path} for vm in sandbox.volume_mounts

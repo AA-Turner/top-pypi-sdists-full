@@ -154,6 +154,7 @@ crate::register_servo!(
     ),
     servo: (feetech, STS3215,
         (STS3215, 777), // Bytes 9, 3 at address 3, read little-endian (STS byte order), as LeRobot's handshake does.
+        (STS3235, 2057),
         (STS3250, 2825),
         (SM8512BL, 11272), // Same control table as the STS3215.
         (STS3036, 521) // Same control table as the STS3215, checked on an ST-3036-C001.
@@ -204,6 +205,10 @@ mod tests {
         assert_eq!(super::find_model("sts3216"), None);
 
         assert_eq!(
+            super::find_model("sts3235"),
+            Some((2057, sts3215::DEFINITION))
+        );
+        assert_eq!(
             super::find_model("sts3036"),
             Some((521, sts3215::DEFINITION))
         );
@@ -211,6 +216,7 @@ mod tests {
             sts3215::DEFINITION.models,
             [
                 ("STS3215", 777),
+                ("STS3235", 2057),
                 ("STS3250", 2825),
                 ("SM8512BL", 11272),
                 ("STS3036", 521)
@@ -311,6 +317,37 @@ mod tests {
         let settings = settings.lock().unwrap();
         assert_eq!(settings.baud_rate, 57_600);
         assert_eq!(settings.timeouts.last(), Some(&Duration::from_millis(20)));
+    }
+
+    #[test]
+    fn a_controller_resets_the_turn_count_of_a_servo_known_to_answer_it_only() {
+        use crate::fake_port::FakePort;
+        use crate::servo::RegisterError;
+
+        // The XL430 is not known to answer Clear: refused before the bus, nothing sent.
+        let port = FakePort::new(vec![]);
+        let written = port.written();
+        let mut c = xl430::Xl430Controller::new()
+            .with_serial_port(Box::new(port))
+            .with_protocol_v2();
+        let error = c.reset_turn_count(1).unwrap_err();
+        assert!(matches!(
+            error.downcast_ref::<RegisterError>(),
+            Some(RegisterError::TurnCountReset("XL430"))
+        ));
+        assert!(written.lock().unwrap().is_empty());
+
+        // The STS3215 answers RESET (0x0A).
+        let port = FakePort::new(vec![vec![0xFF, 0xFF, 0x01, 0x02, 0x00, 0xFC]]);
+        let written = port.written();
+        let mut c = sts3215::Sts3215Controller::new()
+            .with_serial_port(Box::new(port))
+            .with_protocol_v1();
+        assert!(c.reset_turn_count(1).unwrap().is_ok());
+        assert_eq!(
+            *written.lock().unwrap(),
+            [vec![0xFF, 0xFF, 0x01, 0x02, 0x0A, 0xF2]]
+        );
     }
 
     #[test]
@@ -579,6 +616,10 @@ mod tests {
         assert!(matches!(
             ServoKind::try_from(777),
             Ok(ServoKind::feetech_STS3215)
+        ));
+        assert!(matches!(
+            ServoKind::try_from(2057),
+            Ok(ServoKind::feetech_STS3235)
         ));
         assert!(matches!(
             ServoKind::try_from(2825),

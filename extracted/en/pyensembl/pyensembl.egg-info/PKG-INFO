@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyensembl
-Version: 2.33.2
+Version: 2.34.3
 Summary: Python interface to Ensembl reference genome metadata
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 License-Expression: Apache-2.0
@@ -155,6 +155,10 @@ Most tests need the Ensembl releases that
 installs. Every PR bumps `pyensembl/version.py`, including documentation
 changes. See [contributing](https://openvax.github.io/pyensembl/dev/contributing/)
 and [releasing](https://openvax.github.io/pyensembl/dev/releasing/).
+
+The development installer uses `python` from the active environment. Set
+`PYTHON=/path/to/python ./develop.sh` to select an interpreter explicitly;
+additional arguments are passed to pip.
 
 ## License
 

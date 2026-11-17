@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fireblocks
-Version: 36.1.0
+Version: 36.2.0
 Summary: Fireblocks API
 Home-page: https://github.com/fireblocks/py-sdk/tree/master
 Author: Fireblocks
@@ -575,11 +575,6 @@ Class | Method | HTTP request | Description
 *PolicyEditorV2Api* | [**publish_draft**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorV2Api.md#publish_draft) | **POST** /policy/draft | Send publish request for a certain draft id
 *PolicyEditorV2Api* | [**update_draft**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorV2Api.md#update_draft) | **PUT** /policy/draft | Update the draft with a new set of rules by policy types
 *PolicyEditorV2BetaApi* | [**get_policy_rule_quota**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorV2BetaApi.md#get_policy_rule_quota) | **POST** /policy/rules/quota | Calculate the AOT quota for a policy rule
-*PolicyEditorBetaApi* | [**get_active_policy_legacy**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#get_active_policy_legacy) | **GET** /tap/active_policy | Get the active policy and its validation
-*PolicyEditorBetaApi* | [**get_draft_legacy**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#get_draft_legacy) | **GET** /tap/draft | Get the active draft
-*PolicyEditorBetaApi* | [**publish_draft_legacy**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#publish_draft_legacy) | **POST** /tap/draft | Send publish request for a certain draft id
-*PolicyEditorBetaApi* | [**publish_policy_rules**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#publish_policy_rules) | **POST** /tap/publish | Send publish request for a set of policy rules
-*PolicyEditorBetaApi* | [**update_draft_legacy**](https://github.com/fireblocks/py-sdk/tree/master/docs/PolicyEditorBetaApi.md#update_draft_legacy) | **PUT** /tap/draft | Update the draft with a new set of rules
 *ReportsBetaApi* | [**create_report**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#create_report) | **POST** /reports | Create a report
 *ReportsBetaApi* | [**get_report**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#get_report) | **GET** /reports/{reportId} | Get report status
 *ReportsBetaApi* | [**list_reports**](https://github.com/fireblocks/py-sdk/tree/master/docs/ReportsBetaApi.md#list_reports) | **GET** /reports | List reports
@@ -1396,34 +1391,6 @@ Class | Method | HTTP request | Description
  - [LeanAbiFunction](https://github.com/fireblocks/py-sdk/tree/master/docs/LeanAbiFunction.md)
  - [LeanContractDto](https://github.com/fireblocks/py-sdk/tree/master/docs/LeanContractDto.md)
  - [LeanDeployedContractResponseDto](https://github.com/fireblocks/py-sdk/tree/master/docs/LeanDeployedContractResponseDto.md)
- - [LegacyAmountAggregationTimePeriodMethod](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyAmountAggregationTimePeriodMethod.md)
- - [LegacyDraftResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyDraftResponse.md)
- - [LegacyDraftReviewAndValidationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyDraftReviewAndValidationResponse.md)
- - [LegacyPolicyAndValidationResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyAndValidationResponse.md)
- - [LegacyPolicyCheckResult](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyCheckResult.md)
- - [LegacyPolicyMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyMetadata.md)
- - [LegacyPolicyResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyResponse.md)
- - [LegacyPolicyRule](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRule.md)
- - [LegacyPolicyRuleAmount](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleAmount.md)
- - [LegacyPolicyRuleAmountAggregation](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleAmountAggregation.md)
- - [LegacyPolicyRuleAuthorizationGroups](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleAuthorizationGroups.md)
- - [LegacyPolicyRuleAuthorizationGroupsGroupsInner](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleAuthorizationGroupsGroupsInner.md)
- - [LegacyPolicyRuleCheckResult](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleCheckResult.md)
- - [LegacyPolicyRuleDesignatedSigners](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleDesignatedSigners.md)
- - [LegacyPolicyRuleDst](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleDst.md)
- - [LegacyPolicyRuleError](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleError.md)
- - [LegacyPolicyRuleOperators](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleOperators.md)
- - [LegacyPolicyRuleRawMessageSigning](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleRawMessageSigning.md)
- - [LegacyPolicyRuleRawMessageSigningDerivationPath](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleRawMessageSigningDerivationPath.md)
- - [LegacyPolicyRuleSrc](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRuleSrc.md)
- - [LegacyPolicyRules](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyRules.md)
- - [LegacyPolicySrcOrDestSubType](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicySrcOrDestSubType.md)
- - [LegacyPolicySrcOrDestType](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicySrcOrDestType.md)
- - [LegacyPolicyStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyStatus.md)
- - [LegacyPolicyValidation](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPolicyValidation.md)
- - [LegacyPublishDraftRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishDraftRequest.md)
- - [LegacyPublishResult](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacyPublishResult.md)
- - [LegacySrcOrDestAttributesInner](https://github.com/fireblocks/py-sdk/tree/master/docs/LegacySrcOrDestAttributesInner.md)
  - [LegalEntityRegistration](https://github.com/fireblocks/py-sdk/tree/master/docs/LegalEntityRegistration.md)
  - [LeiStatus](https://github.com/fireblocks/py-sdk/tree/master/docs/LeiStatus.md)
  - [LimitExecutionRequestDetails](https://github.com/fireblocks/py-sdk/tree/master/docs/LimitExecutionRequestDetails.md)
@@ -1735,8 +1702,6 @@ Class | Method | HTTP request | Description
  - [SepaPaymentInfo](https://github.com/fireblocks/py-sdk/tree/master/docs/SepaPaymentInfo.md)
  - [SessionDTO](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionDTO.md)
  - [SessionMetadata](https://github.com/fireblocks/py-sdk/tree/master/docs/SessionMetadata.md)
- - [SetAdminQuorumThresholdRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SetAdminQuorumThresholdRequest.md)
- - [SetAdminQuorumThresholdResponse](https://github.com/fireblocks/py-sdk/tree/master/docs/SetAdminQuorumThresholdResponse.md)
  - [SetAssetPriceRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SetAssetPriceRequest.md)
  - [SetAutoFuelRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SetAutoFuelRequest.md)
  - [SetConfirmationsThresholdRequest](https://github.com/fireblocks/py-sdk/tree/master/docs/SetConfirmationsThresholdRequest.md)

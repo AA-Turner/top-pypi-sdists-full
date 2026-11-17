@@ -54,8 +54,6 @@ def test_python_quote_preserves_unicode_across_source_encodings(encoding: str) -
 
 
 def test_python_activator_generates_pkg_config_path(tmp_path) -> None:
-    """Test that activate_this.py sets PKG_CONFIG_PATH."""
-
     class MockInterpreter:
         tcl_lib = None
         tk_lib = None
@@ -71,8 +69,7 @@ def test_python_activator_generates_pkg_config_path(tmp_path) -> None:
             self.pyenv_cfg = {}
 
     creator = MockCreator(tmp_path)
-    options = Namespace(prompt=None)
-    activator = PythonActivator(options)
+    activator = PythonActivator(Namespace(prompt=None))
 
     # Generate the activation script
     activator.generate(creator)
@@ -110,6 +107,19 @@ def test_python_activator_adds_no_empty_path_entry(
     env = {key: value for key, value in os.environ.items() if key != "PATH"} | path_env
     out = subprocess.check_output([sys.executable, "-c", code], env=env, text=True, encoding="utf-8")
     assert literal_eval(out) == f"{activation_python.creator.bin_dir}{expected_suffix}"
+
+
+def test_python_activator_sets_exec_prefix(activation_python: Session) -> None:
+    script = str(activation_python.creator.bin_dir / "activate_this.py")
+    # CPython before 3.12.8 reads the prefixes once, when sysconfig is imported, so import it after the activation, and
+    # pass -S because site would import it at startup
+    code = (
+        f"import runpy, sys; runpy.run_path({script!r}); import sysconfig; "
+        "print(repr((sys.prefix, sys.exec_prefix, sysconfig.get_path('platlib'))))"
+    )
+    out = subprocess.check_output([sys.executable, "-S", "-c", code], text=True, encoding="utf-8")
+    dest = str(activation_python.creator.dest)
+    assert literal_eval(out) == (dest, dest, str(activation_python.creator.platlib))
 
 
 def test_python(raise_on_non_source_class, activation_tester) -> None:
@@ -162,6 +172,7 @@ def test_python(raise_on_non_source_class, activation_tester) -> None:
             """
             return dedent(raw).splitlines()
 
+        # the base tester calls assert_output with tmp_path, this check does not use it
         def assert_output(self, out, raw, tmp_path) -> None:  # ruff:ignore[unused-method-argument]
             out = [literal_eval(i) for i in out]
             assert out[0] is None  # start with VIRTUAL_ENV None
@@ -169,9 +180,7 @@ def test_python(raise_on_non_source_class, activation_tester) -> None:
 
             prev_path = out[2]
             prev_sys_path = out[3]
-            assert out[4] == str(self._creator.dest)  # VIRTUAL_ENV now points to the virtual env folder
-
-            assert out[5] == str(self._creator.env_name)  # VIRTUAL_ENV_PROMPT now has the env name
+            assert (out[4], out[5]) == (str(self._creator.dest), str(self._creator.env_name))
 
             new_path = out[6]  # PATH now starts with bin path of current
             assert ([str(self._creator.bin_dir), *prev_path]) == new_path
@@ -189,7 +198,6 @@ def test_python(raise_on_non_source_class, activation_tester) -> None:
             assert found.startswith(dest)
 
         def non_source_activate(self, activate_script):
-            act = str(activate_script)
-            return [*self._invoke_script, "-c", f"exec(open({act!r}).read())"]
+            return [*self._invoke_script, "-c", f"exec(open({str(activate_script)!r}).read())"]
 
     activation_tester(Python)

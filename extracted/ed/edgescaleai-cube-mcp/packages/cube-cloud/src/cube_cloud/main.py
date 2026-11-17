@@ -553,6 +553,28 @@ async def console_fleet_gps(request: Request):
     return await _console_or_proxy(request, console_routes.fleet_gps)
 
 
+# The Manage section's Products tab: every Apollo product with its rbac-service tag,
+# EdgeScale staff only (docs/console-spec.md §4.30). Every Manage read lives under
+# /console/api/manage/. A GET above the deep-link catch-all (AGENTS.md console rule 4).
+@app.get("/console/api/manage/products")
+async def console_manage_products(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_products)
+
+
+# Whether to offer Manage and its tag edits, as the rbac-service answers: asked by the
+# page after the session, never inside it, so no page waits on the service.
+@app.get("/console/api/manage/access")
+async def console_manage_access(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_access)
+
+
+# The companies a tag edit picks from (the rbac-service's enabled customers), asked by
+# the Products tab only where it offers edits.
+@app.get("/console/api/manage/companies")
+async def console_manage_companies(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_companies)
+
+
 # MUST stay above /console/{sub_path:path} — Starlette matches in registration
 # order, so registering it after the deep-link route would serve the SPA shell to a
 # fetch expecting JSON. Guarded by test_specific_console_api_routes_precede_the_deep_link_catch_all.
@@ -753,12 +775,48 @@ async def console_ai_remove(request: Request, cube: str):
     )
 
 
+# Custom vision models (reactor/vision_upload.py): a presigned upload, the registration
+# form, and following one registration. Each takes enumerated, validated fields; none
+# names a tool, a product or a chart. The follow-up is a POST because it can write.
+@app.post("/console/api/cubes/{cube}/ai/vision/uploads")
+async def console_vision_upload(request: Request, cube: str):
+    return await _console_or_proxy(request, lambda r: console_routes.vision_upload(r, cube))
+
+
+@app.post("/console/api/cubes/{cube}/ai/vision/registrations")
+async def console_vision_register(request: Request, cube: str):
+    return await _console_or_proxy(request, lambda r: console_routes.vision_register(r, cube))
+
+
+@app.post("/console/api/cubes/{cube}/ai/vision/registrations/{reg_id}")
+async def console_vision_registration(request: Request, cube: str, reg_id: str):
+    return await _console_or_proxy(request, lambda r: console_routes.vision_registration(r, cube, reg_id))
+
+
 # Also a mutation (files a Jira ticket, not a cube change), so it needs the same
 # "above the method guard" placement — but no {cube} path param, since `cube` is
 # optional free-text context in the body rather than something this route resolves.
 @app.post("/console/api/feedback")
 async def console_feedback(request: Request):
     return await _console_or_proxy(request, console_routes.submit_feedback)
+
+
+# The Products tab's tag edits (docs/console-spec.md §4.30): one route per edit, each
+# with enumerated fields, made as the signed-in person on the rbac-service. 404 unless
+# the stack edits tags (`rbac_service_writes_enabled`) and the caller is staff.
+@app.post("/console/api/manage/products/owner")
+async def console_manage_set_owner(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_set_owner)
+
+
+@app.post("/console/api/manage/products/share")
+async def console_manage_share(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_share)
+
+
+@app.post("/console/api/manage/products/unshare")
+async def console_manage_unshare(request: Request):
+    return await _console_or_proxy(request, console_routes.manage_unshare)
 
 
 # Non-GET under the console prefix. Registered after the GET routes (so it never

@@ -24,6 +24,7 @@ else:
 __all__ = (
     "CompatibilityPolicyType",
     "ComputeResourceTypeType",
+    "ElasticIpTypeType",
     "IntegrationModelType",
     "LambdaCoreServiceName",
     "ListNetworkConnectorVersionsPaginatorName",
@@ -53,6 +54,7 @@ __all__ = (
 
 CompatibilityPolicyType = Literal["NotSupported", "Supported"]
 ComputeResourceTypeType = Literal["MicroVm", "WebFunction"]
+ElasticIpTypeType = Literal["None", "ServiceManaged"]
 IntegrationModelType = Literal["RuntimeAPI"]
 ListNetworkConnectorVersionsPaginatorName = Literal["list_network_connector_versions"]
 ListNetworkConnectorsPaginatorName = Literal["list_network_connectors"]
@@ -64,6 +66,7 @@ NetworkConnectorLastUpdateStatusReasonCodeType = Literal[
     "Ec2RequestLimitExceeded",
     "InsufficientRolePermissions",
     "InternalError",
+    "InternetGatewayNotAttached",
     "InvalidSecurityGroup",
     "InvalidSubnet",
     "SecurityGroupsPerInterfaceLimitExceeded",
@@ -75,6 +78,7 @@ NetworkConnectorStateReasonCodeType = Literal[
     "Ec2RequestLimitExceeded",
     "InsufficientRolePermissions",
     "InternalError",
+    "InternetGatewayNotAttached",
     "InvalidSecurityGroup",
     "InvalidSubnet",
     "SecurityGroupsPerInterfaceLimitExceeded",
@@ -202,6 +206,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -386,6 +391,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -453,6 +459,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

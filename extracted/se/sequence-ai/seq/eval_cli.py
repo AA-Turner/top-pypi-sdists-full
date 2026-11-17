@@ -10,8 +10,8 @@ result into an exit code for CI, and `seq eval report --csv [-o PATH]` gives one
 platform puts the whole eval in line (up to 10 minutes, nothing held or billed) and the CLI says what it waits for;
 `--dry-run` prints the card report the real submit acts on, and `seq eval status <id>` shows the wait.
 
-WHY a sweep's arms run in one eval: the platform runs every arm on the same episodes (task, seed) side by side, so their tables need no second run and no matching across evals. Another policy is an eval of its own (the user
-10-19 had --compare taken out).
+WHY a sweep's arms run in one eval: the platform runs every arm on the same episodes (task, seed) side by side, so their tables need no second run and no matching across evals. Another policy is an eval of its own
+.
 """
 from __future__ import annotations
 
@@ -388,7 +388,7 @@ def print_selection(picked: dict, *, arms: int = 1) -> None:
     """Which episodes run (a dry run's layout.selection): how many, each chosen task's seeds and episodes - the first
     twelve tasks, then how many more - and each arm's time limit beside the benchmark's own.
 
-    {the user 10-17: "each task how many trials and also the seed and aslo total eps"}"""
+    """
     tasks = picked.get("tasks") or []
     n = int(picked.get("episodes") or 0)
     head = f"episodes: {n} ({len(tasks)} task{'s' if len(tasks) != 1 else ''})"
@@ -1143,8 +1143,8 @@ def _print_usage(usage: list[dict], echo: Callable[[str], Any] = print) -> None:
 
 def placement_line(place: Any) -> str | None:
     """Where the eval's machines ran (details["placement"]): on one machine or apart. No region is named, ours or a
-    provider's, whatever a platform sends. None when it is not known. {the user 11-02: "are these two machines just next
-    to each other"; the user 11-12: "we shouldnt say the region here"}"""
+    provider's, whatever a platform sends. None when it is not known.
+"""
     if not isinstance(place, dict):
         return None
     return ("placement: the policy and benchmark ran on " + ("one machine" if place.get("same_machine")

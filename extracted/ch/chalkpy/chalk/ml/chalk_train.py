@@ -43,6 +43,12 @@ VALID_MODEL_TRAINING_METRICS = {
     "response_length",
     # Sampler-vs-trainer divergence on the sampled tokens (asynchronous RL); not a KL penalty.
     "mismatch_kl",
+    # Learning signal of a group-relative policy-gradient step (GRPO): the spread of its advantages,
+    # the fraction of groups whose rollouts all earned the same reward, and the fraction of
+    # completions cut off by the token limit.
+    "advantage_std",
+    "zero_advantage_ratio",
+    "truncated_ratio",
     # Reward broken out per reward function (tag `rubric`) and per task or environment (tag `task`).
     # Distinct names keep them out of the overall `reward` series on the training dashboard.
     "rubric_reward",

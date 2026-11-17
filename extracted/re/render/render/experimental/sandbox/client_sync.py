@@ -8,7 +8,6 @@ import os
 import re
 import warnings
 from collections.abc import Iterator, Mapping, Sequence
-from datetime import datetime
 from typing import TYPE_CHECKING
 
 from render.client.errors import RenderError
@@ -23,7 +22,11 @@ from render.experimental.sandbox.errors import (
 )
 from render.experimental.sandbox.files import normalize_remote_path
 from render.experimental.sandbox.types import (
+    Credential,
+    CredentialInjection,
+    CredentialVersion,
     Image,
+    ImageList,
     NetworkPolicy,
     RegistryCredentials,
     Sandbox,
@@ -44,6 +47,11 @@ if TYPE_CHECKING:
 # The format of an image ID; create(image=...) treats anything else as a name.
 _IMAGE_ID_PATTERN = re.compile(r"sbb-[0-9a-v]{20}")
 
+# Aliased at module scope so annotations in SyncCredentialClient resolve the
+# builtin list, not the SyncCredentialClient.list method that shadows it.
+_CredentialList = list[Credential]
+_CredentialVersionList = list[CredentialVersion]
+
 
 class SyncSandboxClient:
     """High-level client for creating and operating Render sandboxes."""
@@ -59,6 +67,7 @@ class SyncSandboxClient:
         self.snapshots = SyncSnapshotClient(self)
         self.images = SyncImageClient(self)
         self.builds = SyncBuildClient(self)
+        self.credentials = SyncCredentialClient(self)
         self._default_owner_id = default_owner_id
         self._default_region = default_region
 
@@ -403,7 +412,7 @@ class SyncSnapshotClient:
         *,
         kind: str | None = None,
         name: str | None = None,
-        expires_at: datetime | None = None,
+        ttl_seconds: int | None = None,
         owner_id: str | None = None,
         wait: bool | SandboxWaitOptions = False,
     ) -> Snapshot:
@@ -411,8 +420,10 @@ class SyncSnapshotClient:
 
         kind is filesystem (the writable filesystem) or runtime (also memory and
         CPU state). name is case sensitive and can be reused within a sandbox
-        group. expires_at must be in the future; omit it for Render's default
-        snapshot lifetime. The snapshot is returned in
+        group. ttl_seconds is the number of seconds the snapshot lives after its
+        last use; each sandbox you create from it starts the time again. Set
+        ttl_seconds to 0 to keep the snapshot until you delete it. Omit it for
+        Render's default snapshot lifetime. The snapshot is returned in
         status creating; call wait_until_available to wait for it. Raises
         SandboxNotFoundError if the sandbox does not exist, and a ClientError
         with code sandbox_not_running if it is not running.
@@ -434,7 +445,7 @@ class SyncSnapshotClient:
             sandbox_id,
             kind,
             name,
-            expires_at,
+            ttl_seconds,
             self._sandboxes._optional_owner_id(owner_id),
         )
         if wait_settings is None:
@@ -591,6 +602,36 @@ class SyncImageClient:
         """
         return self._sandboxes.api.get_image(sandbox_group_id, image_id)
 
+    def delete(self, *, sandbox_group_id: str, image_id: str) -> None:
+        """Delete an image.
+
+        Deleting an image that was already deleted succeeds. Raises
+        ImageNotFoundError if the image does not exist, and ImageInUseError
+        while sandboxes or snapshots still use it.
+        """
+        self._sandboxes.api.delete_image(sandbox_group_id, image_id)
+
+    def list(
+        self,
+        *,
+        sandbox_group_id: str,
+        name: str | None = None,
+        status: str | Sequence[str] | None = None,
+        cursor: str | None = None,
+        limit: int | None = None,
+    ) -> ImageList:
+        """List images of one sandbox group, newest first.
+
+        Each version of a name is its own image. name returns only versions of
+        that image. status filters by import status, one or a sequence of them
+        (each one of pending, running, succeeded, failed). limit is capped at
+        100 by the API. sandboxes.create(image=name) uses the newest succeeded
+        image with that name.
+        """
+        return self._sandboxes.api.list_images(
+            sandbox_group_id, name, status, cursor, limit
+        )
+
     def wait_until_ready(
         self,
         *,
@@ -658,3 +699,134 @@ class SyncBuildClient:
             stacklevel=2,
         )
         return self._sandboxes.api.get_image(sandbox_group_id, build_id)
+
+
+class SyncCredentialClient:
+    """Credentials that Render adds to requests from a sandbox group's
+    sandboxes, accessed via ``SyncSandboxClient.credentials``.
+
+    When a request from a sandbox matches a credential's domain, methods and
+    paths, Render adds the secret value to it, so code in the sandbox never
+    sees the secret. The API never returns secret values.
+
+    Creating, deleting and restoring a credential, and changing its domain or
+    value, need an admin of the workspace.
+    """
+
+    def __init__(self, sandboxes: SyncSandboxClient):
+        self._sandboxes = sandboxes
+
+    def create(
+        self,
+        *,
+        sandbox_group_id: str,
+        credential_id: str,
+        domain: str,
+        value: str,
+        injection: CredentialInjection,
+        methods: Sequence[str] | None = None,
+        paths: Sequence[str] | None = None,
+        enabled: bool | None = None,
+    ) -> Credential:
+        """Create a credential in a sandbox group.
+
+        credential_id is a URL-safe name, case sensitive and unique within the
+        group. domain is the exact public hostname it applies to, like
+        ``api.openai.com``. value is the secret, at most 5 KiB. injection says
+        how the secret is added to a matching request. methods, like
+        ``["POST"]``, and paths, like ``["/v1/**"]``, narrow which requests
+        match; omit them to match any. enabled defaults to True.
+
+        A group holds at most 25 credentials. Raises a ClientError with
+        status_code 409 if the group already has credential_id.
+        """
+        return self._sandboxes.api.create_credential(
+            sandbox_group_id,
+            credential_id,
+            domain,
+            value,
+            injection,
+            enabled,
+            methods,
+            paths,
+        )
+
+    def from_id(self, *, sandbox_group_id: str, credential_id: str) -> Credential:
+        """Fetch a credential by id.
+
+        Raises CredentialNotFoundError if the credential or the sandbox group
+        does not exist.
+        """
+        return self._sandboxes.api.get_credential(sandbox_group_id, credential_id)
+
+    def list(self, *, sandbox_group_id: str) -> _CredentialList:
+        """List every credential in a sandbox group, sorted by id."""
+        return self._sandboxes.api.list_credentials(sandbox_group_id)
+
+    def update(
+        self,
+        *,
+        sandbox_group_id: str,
+        credential_id: str,
+        domain: str | None = None,
+        value: str | None = None,
+        injection: CredentialInjection | None = None,
+        methods: Sequence[str] | None = None,
+        paths: Sequence[str] | None = None,
+        enabled: bool | None = None,
+    ) -> Credential:
+        """Change a credential.
+
+        Arguments left as None keep their current value. An empty methods or
+        paths list clears that filter, so the credential matches any method
+        or path. Changing domain or value needs an admin. Passing value
+        always creates a new version, even when the value is unchanged.
+
+        Raises CredentialNotFoundError if the credential or the sandbox group
+        does not exist.
+        """
+        return self._sandboxes.api.update_credential(
+            sandbox_group_id,
+            credential_id,
+            value,
+            domain,
+            enabled,
+            methods,
+            paths,
+            injection,
+        )
+
+    def delete(self, *, sandbox_group_id: str, credential_id: str) -> None:
+        """Delete a credential and its versions.
+
+        Deleting a credential that does not exist succeeds.
+        """
+        self._sandboxes.api.delete_credential(sandbox_group_id, credential_id)
+
+    def list_versions(
+        self, *, sandbox_group_id: str, credential_id: str
+    ) -> _CredentialVersionList:
+        """List the versions of a credential, newest first.
+
+        The API keeps the current configuration and the three most recently
+        active earlier ones, with every version that used them.
+
+        Raises CredentialNotFoundError if the credential or the sandbox group
+        does not exist.
+        """
+        return self._sandboxes.api.list_credential_versions(
+            sandbox_group_id, credential_id
+        )
+
+    def restore(
+        self, *, sandbox_group_id: str, credential_id: str, version_id: int
+    ) -> Credential:
+        """Make an earlier version's configuration and value current again.
+
+        Creates a new version whose restored_from_version_id is version_id.
+        Raises CredentialNotFoundError if the credential, the sandbox group
+        or the version does not exist.
+        """
+        return self._sandboxes.api.restore_credential(
+            sandbox_group_id, credential_id, version_id
+        )

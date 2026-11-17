@@ -8,9 +8,9 @@ not 5 ms. A program that set its own interval (sys.setswitchinterval) keeps it.
 
 WHY: an act crosses three threads and its socket's reads and writes, each a wait for the GIL, and a robot's program runs
 threads of its own beside the SDK (its arm's SDK reading the arm's state, its cameras). With one of them busy, each wait
-was Python's 5 ms. {worker 4 10-31, dev, an act every 7 s beside one thread of pure Python: 190 ms an act at Python's
-5 ms, 96 ms at 0.5 ms, 93 ms with no such thread; a real arm's act spent some 20 ms more outside its worker than a
-lab robot's}
+was Python's 5 ms.
+
+
 """
 from __future__ import annotations
 

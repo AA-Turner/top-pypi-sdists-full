@@ -1320,7 +1320,7 @@ def _print_steps(got: dict) -> None:
 def _how_it_ended(step: dict) -> str:
     """How a step that did not finish ended, as its own error says it: stopped, at the time its deploy gave it, or failed.
     WHY its own: the build's state is read apart from its steps, so a step can be read ended while the state still says
-    building. {dev 11-06, w9t_pol3_user: "failed after 1 min 35 s", then "stopped in its image step"}"""
+    building."""
     error = step.get("error") if isinstance(step.get("error"), dict) else {}
     return "stopped" if str(error.get("message") or "").startswith(TIME_LIMIT.removeprefix(CANCELED)) else "failed"
 
@@ -1349,7 +1349,7 @@ def _check_machine_kept(name: str, base_url: str | None, fleet: dict | None) -> 
     """Whether the machine the version's check ran on stays on as its first worker, as the fleet lists it: running, its
     newest event the take-over's boot and not
     leaving for a newer version. A version checked on a sandbox that is ended after it (a CPU policy, a worker of
-    several cards, before seq-control keeps one) has none - nor one whose take-over failed. None where the fleet cannot
+    several cards, before the platform keeps one) has none - nor one whose take-over failed. None where the fleet cannot
     be read: nothing is said then.
 
 """

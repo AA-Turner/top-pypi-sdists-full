@@ -5,10 +5,17 @@ from typing import Any, Dict, List, Optional
 from aiounifi.models.api import ApiRequest
 from aiounifi.models.device import Device
 
-from unifi_core.exceptions import UniFiNotFoundError
+from unifi_core.exceptions import UniFiNotFoundError, UniFiValidationError
 from unifi_core.mac import looks_like_mac, mac_equal, normalize_mac
 from unifi_core.network.managers.connection_manager import ConnectionManager
-from unifi_core.network.models.devices import normalize_radio_channel, normalize_radio_ht
+from unifi_core.network.models.devices import (
+    OUTDOOR_MODES,
+    antenna_change,
+    ip_settings_change,
+    ip_settings_view,
+    normalize_radio_channel,
+    normalize_radio_ht,
+)
 from unifi_core.request_paths import object_id
 
 logger = logging.getLogger("unifi-network-mcp")
@@ -17,6 +24,7 @@ CACHE_PREFIX_DEVICES = "devices"
 CACHE_PREFIX_ROGUE_APS = "rogue_aps"
 CACHE_PREFIX_RF_SCAN = "rf_scan"
 CACHE_PREFIX_CHANNELS = "available_channels"
+_ANTENNA_KEYS = ("id", "name", "default")
 
 
 class DeviceManager:
@@ -262,6 +270,8 @@ class DeviceManager:
                 "is_11ax": radio.get("is_11ax", False),
                 "is_11be": radio.get("is_11be", False),
             }
+            if "antenna_id" in radio:
+                entry["antenna_id"] = radio.get("antenna_id")
             if stats := stats_by_name.get(radio.get("name", "")):
                 entry["current_tx_power"] = stats.get("tx_power")
                 entry["current_channel"] = normalize_radio_channel(stats.get("channel"))
@@ -274,12 +284,36 @@ class DeviceManager:
                 entry["tx_packets"] = stats.get("tx_packets")
             radios.append(entry)
 
-        return {
+        result: Dict[str, Any] = {
             "mac": device_mac,
             "name": device.raw.get("name", device.raw.get("model", "Unknown")),
             "model": device.raw.get("model", ""),
             "radios": radios,
         }
+        antennas = [option for option in device.raw.get("antenna_table") or [] if isinstance(option, dict)]
+        if antennas:
+            # Each option's gain is keyed per radio (wifi0_gain, ...); keep them all.
+            result["antennas"] = [
+                {key: value for key, value in option.items() if key in _ANTENNA_KEYS or key.endswith("_gain")}
+                for option in antennas
+            ]
+        return result
+
+    async def preview_radio_antenna(self, device_mac: str, antenna_id: int) -> Dict[str, Any]:
+        """Check a device-wide antenna choice and describe it, without writing.
+
+        Returns :func:`antenna_change` for the device's current record.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: The device has no antenna_table, or the id is
+                not one of its antennas.
+        """
+        device = await self.get_device_details(device_mac)  # raises on miss
+        try:
+            return antenna_change(device.raw, antenna_id)
+        except ValueError as e:
+            raise UniFiValidationError(str(e)) from None
 
     async def update_device_radio(self, device_mac: str, radio_id: str, updates: Dict[str, Any]) -> bool:
         """Update radio settings for a specific band on a device with radios.
@@ -289,9 +323,13 @@ class DeviceManager:
             radio_id: Radio identifier -- either the band code ("na", "ng", "6e")
                       or the internal name ("wifi0", "wifi1").
             updates: Dict of radio_table fields to update (e.g. tx_power_mode, channel).
+                ``antenna_id`` is device-wide: it is checked against the
+                device's antenna_table and written to every radio, and left
+                alone when every radio already uses that antenna.
 
         Returns:
-            True on success, False on failure.
+            True on success (including an antenna-only update that changes
+            nothing, which sends no request), False on failure.
         """
         device_mac = normalize_mac(device_mac) or device_mac
         try:
@@ -300,6 +338,15 @@ class DeviceManager:
                 logger.error("Cannot update radio for [redacted]: missing _id in raw payload.")
                 return False
             device_id = device.raw["_id"]
+
+            updates = dict(updates)
+            antenna = None
+            if "antenna_id" in updates:
+                try:
+                    change = antenna_change(device.raw, updates.pop("antenna_id"))
+                except ValueError as e:
+                    raise UniFiValidationError(str(e)) from None
+                antenna = None if change["unchanged"] else change["antenna_id"]
 
             radio_table = copy.deepcopy(device.raw.get("radio_table", []))
             matched = False
@@ -312,6 +359,14 @@ class DeviceManager:
             if not matched:
                 logger.error("Radio '%s' not found on device [redacted].", radio_id)
                 return False
+            if not updates and antenna is None:
+                logger.info("Radio '%s' on device [redacted] already uses the requested antenna.", radio_id)
+                return True
+            if antenna is not None:
+                # The controller keeps one antenna selection on every radio.
+                for entry in radio_table:
+                    entry["antenna_id"] = antenna
+                updates["antenna_id"] = antenna
 
             api_request = ApiRequest(
                 method="put",
@@ -503,6 +558,169 @@ class DeviceManager:
             return True
         except Exception as e:
             logger.error("Error setting LED override on device [redacted]: %s", type(e).__name__)
+            raise
+
+    async def _outdoor_mode_device(self, device_mac: str) -> Device:
+        device = await self.get_device_details(device_mac)  # raises on miss
+        if "outdoor_mode_override" not in device.raw:
+            raise UniFiValidationError(
+                "This device does not report outdoor_mode_override; outdoor mode applies only to "
+                "access points that support it."
+            )
+        return device
+
+    async def get_device_outdoor_mode(self, device_mac: str) -> Dict[str, Any]:
+        """Return a device's outdoor mode override as ``{mac, name, model, outdoor_mode_override}``.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: The device does not report
+                ``outdoor_mode_override`` (not an access point, or a model
+                without the setting).
+        """
+        device = await self._outdoor_mode_device(device_mac)
+        return {
+            "mac": device.raw.get("mac", device_mac),
+            "name": device.raw.get("name") or device.raw.get("model"),
+            "model": device.raw.get("model"),
+            "outdoor_mode_override": device.raw.get("outdoor_mode_override"),
+        }
+
+    async def set_device_outdoor_mode(self, device_mac: str, mode: str) -> bool:
+        """Set an access point's outdoor mode override, which decides the channels it may use.
+
+        Args:
+            device_mac: MAC address of the access point.
+            mode: "default" (the model's own setting), "on" or "off".
+
+        Returns:
+            True on success, including when the mode is already set (no
+            request is sent then), False when the record has no ``_id``.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: ``mode`` is not a valid value, or the device
+                does not report ``outdoor_mode_override``.
+        """
+        if mode not in OUTDOOR_MODES:
+            raise UniFiValidationError(f"Invalid outdoor mode '{mode}'. Must be one of: {', '.join(OUTDOOR_MODES)}")
+        device = await self._outdoor_mode_device(device_mac)
+        if device.raw.get("outdoor_mode_override") == mode:
+            logger.info("Outdoor mode override on device [redacted] is already '%s'", mode)
+            return True
+        if "_id" not in device.raw:
+            logger.error("Cannot set outdoor mode for [redacted]: missing _id in raw payload.")
+            return False
+        try:
+            api_request = ApiRequest(
+                method="put",
+                path=f"/rest/device/{object_id(device.raw['_id'], 'device')}",
+                data={"outdoor_mode_override": mode},
+            )
+            await self._connection.request(api_request)
+            logger.info("Outdoor mode override set to '%s' for device [redacted]", mode)
+            self._connection._invalidate_cache(CACHE_PREFIX_DEVICES)
+            return True
+        except Exception as e:
+            logger.error("Error setting outdoor mode on device [redacted]: %s", type(e).__name__)
+            raise
+
+    async def get_device_ip_settings(self, device_mac: str) -> Dict[str, Any]:
+        """Return a device's IP settings as ``{mac, name, model, ip, ip_settings}``.
+
+        ``ip`` is the address the controller sees the device at; ``ip_settings``
+        is :func:`ip_settings_view` of its ``config_network``.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: The device reports no ``config_network``.
+        """
+        device = await self.get_device_details(device_mac)  # raises on miss
+        config = device.raw.get("config_network")
+        if not isinstance(config, dict):
+            raise UniFiValidationError("This device reports no IP settings (config_network).")
+        return {
+            "mac": device.raw.get("mac", device_mac),
+            "name": device.raw.get("name") or device.raw.get("model"),
+            "model": device.raw.get("model"),
+            "ip": device.raw.get("ip"),
+            "ip_settings": ip_settings_view(config),
+        }
+
+    async def _ip_settings_change(self, device_mac: str, mode: str, fields: Dict[str, Any]) -> tuple[Device, Dict]:
+        device = await self.get_device_details(device_mac)  # raises on miss
+        try:
+            change = ip_settings_change(device.raw, mode, **fields)
+        except ValueError as e:
+            raise UniFiValidationError(str(e)) from None
+        address = change["requested"].get("ip")
+        if address and address != change["current"].get("ip"):
+            own_mac = normalize_mac(device.raw.get("mac")) or device.raw.get("mac")
+            for other in await self.get_devices():
+                raw = other.raw if hasattr(other, "raw") else other
+                if raw.get("ip") == address and not mac_equal(raw.get("mac"), own_mac):
+                    raise UniFiValidationError(
+                        f"ip {address} is already the address of another adopted device "
+                        f"({raw.get('name') or raw.get('model') or 'unnamed'})."
+                    )
+        return device, change
+
+    async def preview_device_ip_settings(self, device_mac: str, mode: str, **fields: Any) -> Dict[str, Any]:
+        """Check a device IP settings change and describe it, without writing.
+
+        Takes the ``ip``, ``netmask``, ``gateway``, ``dns1`` and ``dns2``
+        keywords of :func:`ip_settings_change`. Returns its result plus the
+        device's ``mac``, ``name``, ``model`` and current address ``ip``.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: :func:`ip_settings_change` refuses the change,
+                or the requested static ip is another adopted device's address.
+        """
+        device, change = await self._ip_settings_change(device_mac, mode, fields)
+        return {
+            "mac": device.raw.get("mac", device_mac),
+            "name": device.raw.get("name") or device.raw.get("model"),
+            "model": device.raw.get("model"),
+            "ip": device.raw.get("ip"),
+            **change,
+        }
+
+    async def set_device_ip_settings(self, device_mac: str, mode: str, **fields: Any) -> bool:
+        """Set a device's IP settings (``config_network``): DHCP, or a static address.
+
+        A wrong static address can leave the device unreachable until it is
+        reset, so callers should preview first. Takes the same arguments as
+        :meth:`preview_device_ip_settings`.
+
+        Returns:
+            True on success, including when nothing changes (no request is
+            sent then), False when the record has no ``_id``.
+
+        Raises:
+            UniFiNotFoundError: If the device does not exist.
+            UniFiValidationError: The change is refused; see
+                :meth:`preview_device_ip_settings`.
+        """
+        device, change = await self._ip_settings_change(device_mac, mode, fields)
+        if change["unchanged"]:
+            logger.info("IP settings on device [redacted] are already as requested")
+            return True
+        if "_id" not in device.raw:
+            logger.error("Cannot set IP settings for [redacted]: missing _id in raw payload.")
+            return False
+        try:
+            api_request = ApiRequest(
+                method="put",
+                path=f"/rest/device/{object_id(device.raw['_id'], 'device')}",
+                data={"config_network": change["config_network"]},
+            )
+            await self._connection.request(api_request)
+            logger.info("IP settings set to '%s' for device [redacted]", change["requested"].get("mode"))
+            self._connection._invalidate_cache(CACHE_PREFIX_DEVICES)
+            return True
+        except Exception as e:
+            logger.error("Error setting IP settings on device [redacted]: %s", type(e).__name__)
             raise
 
     async def set_device_disabled(self, device_mac: str, disabled: bool) -> bool:

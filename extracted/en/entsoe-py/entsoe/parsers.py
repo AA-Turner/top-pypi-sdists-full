@@ -4,6 +4,7 @@ from io import BytesIO
 from typing import Union
 import warnings
 import bs4
+import numpy as np
 from bs4.builder import XMLParsedAsHTMLWarning
 import pandas as pd
 
@@ -17,15 +18,17 @@ GENERATION_ELEMENT = "inBiddingZone_Domain.mRID"
 CONSUMPTION_ELEMENT = "outBiddingZone_Domain.mRID"
 
 
-def parse_prices(xml_text):
+def parse_prices(xml_text, include_currency: bool = False):
     """
     Parameters
     ----------
     xml_text : str
+    include_currency : bool
+        Include the reported currency alongside each price. No conversion is performed.
 
     Returns
     -------
-    pd.Series
+    dict[str, pd.Series | pd.DataFrame]
     """
     series = {
         '15min': [],
@@ -34,14 +37,22 @@ def parse_prices(xml_text):
     }
     for soup in _extract_timeseries(xml_text):
         soup_series = _parse_timeseries_generic(soup, 'price.amount')
+        if include_currency:
+            currency_element = soup.find('currency_unit.name')
+            currency = currency_element.text if currency_element is not None else None
         for key in series.keys():
-            series[key].append(soup_series[key])
+            parsed_series = soup_series[key]
+            if include_currency and parsed_series is not None:
+                parsed_series = parsed_series.to_frame(name='Price')
+                parsed_series['Currency'] = currency
+            series[key].append(parsed_series)
 
     for freq, freq_series in series.items():
         try:
             series[freq] = pd.concat(freq_series).sort_index()
         except ValueError:
-            series[freq] = pd.Series()
+            series[freq] = (pd.DataFrame(columns=['Price', 'Currency'])
+                            if include_currency else pd.Series())
     return series
 
 
@@ -156,12 +167,13 @@ def parse_generation(
     df = pd.DataFrame.from_dict(all_series)
     df.sort_index(inplace=True)
 
-    df = _calc_nett_and_drop_redundant_columns(df, nett=nett)
+    df = _calc_nett_and_drop_redundant_columns(
+        df, nett=nett, drop_redundant=not include_eic)
     return df
 
 
 def _calc_nett_and_drop_redundant_columns(
-        df: pd.DataFrame, nett: bool) -> pd.DataFrame:
+        df: pd.DataFrame, nett: bool, drop_redundant: bool = True) -> pd.DataFrame:
     def _calc_nett(_df):
         try:
             if set(['Actual Aggregated']).issubset(_df):
@@ -178,8 +190,10 @@ def _calc_nett_and_drop_redundant_columns(
         return _new
 
     if hasattr(df.columns, 'levels'):
-        if len(df.columns.levels[-1]) == 1:
-            # Drop the extra header, if it is redundant
+        if drop_redundant and len(df.columns.levels[-1]) == 1:
+            # Drop the extra header, if it is redundant. Skipped when the innermost
+            # level is the include_eic level: a single-unit window has one eic, which
+            # would otherwise be discarded even though the eic is the join key.
             df = df.droplevel(axis=1, level=-1)
         elif nett:
             frames = []
@@ -268,11 +282,11 @@ def parse_activated_balancing_energy_prices(xml_text):
     pd.DataFrame
     """
     timeseries_blocks = _extract_timeseries(xml_text)
-    frames = (_parse_activated_balancing_energy_prices_timeseries(soup)
-              for soup in timeseries_blocks)
-    df = pd.concat(frames)
-    df.sort_index(inplace=True)
-    return df
+    frames = list((_parse_activated_balancing_energy_prices_timeseries(soup)
+              for soup in timeseries_blocks))
+    # merge the "Up" and "Down" blocks into one row per timestamp
+    df = pd.concat(frames).groupby(level=0).first()
+    return df[[c for c in ['Down', 'Up', 'ReserveType'] if c in df.columns]]
 
 def parse_imbalance_prices(xml_text):
     """
@@ -524,46 +538,7 @@ def _parse_contracted_reserve_series(soup, tz, label):
     -------
     pd.Series
     """
-    # Parse all periods (handle both France: 1 Period/24 Points and Belgium: 24 Periods/1 Point)
-    periods = soup.find_all('period')
-    data = {}
-    
-    for period in periods:
-        start = pd.Timestamp(period.find('start').text)
-        end = pd.Timestamp(period.find('end').text)
-        delta_text = _resolution_to_timedelta(period.find('resolution').text)
-        delta = pd.Timedelta(delta_text)
-        
-        # Build dict mapping timestamp -> value using positions for this period
-        for point in period.find_all('point'):
-            position = int(point.find('position').text)
-            value = float(point.find(label).text)
-            timestamp = start + (position - 1) * delta
-            data[timestamp] = value
-    
-    # Create Series and sort
-    S = pd.Series(data).sort_index()
-    
-    # Handle curveType A03: forward fill missing positions
-    # See: https://eepublicdownloads.entsoe.eu/clean-documents/EDI/Library/cim_based/Introduction_of_different_Timeseries_possibilities__curvetypes__with_ENTSO-E_electronic_document_v1.4.pdf
-    curvetype_elem = soup.find('curvetype')
-    if curvetype_elem and curvetype_elem.text == 'A03':
-        if len(periods) == 1:
-            # Single period structure (like France): forward fill to 15min resolution
-            period = periods[0]
-            start = pd.Timestamp(period.find('start').text)
-            end = pd.Timestamp(period.find('end').text)
-            # Force 15-minute resolution for consistency
-            S = S.reindex(pd.date_range(start, end, freq='15min')).ffill()
-        else:
-            # Multi-period structure (like Belgium): forward fill to 15min resolution
-            # Get overall time range from first and last periods
-            first_period = periods[0]
-            last_period = periods[-1]
-            overall_start = pd.Timestamp(first_period.find('start').text)
-            overall_end = pd.Timestamp(last_period.find('end').text)
-            # Reindex to 15-minute intervals and forward fill
-            S = S.reindex(pd.date_range(overall_start, overall_end, freq='15min')).ffill()
+    S = _parse_timeseries_generic(soup, label=label, merge_series=True).sort_index()
     
     # Convert to DataFrame
     df = pd.DataFrame(S, columns=[label])
@@ -632,7 +607,6 @@ def _parse_activated_balancing_energy_prices_timeseries(soup) -> pd.DataFrame:
         'A98': 'RR'
     }
 
-
     flow_direction = direction_options[soup.find('flowdirection.direction').text]
     reserve_type = reserve_type_options[soup.find('businesstype').text]
     period = soup.find('period')
@@ -641,16 +615,16 @@ def _parse_activated_balancing_energy_prices_timeseries(soup) -> pd.DataFrame:
     resolution = _resolution_to_timedelta(period.find('resolution').text)
     tx = pd.date_range(start=start, end=end, freq=resolution, inclusive='left')
 
-    df = pd.DataFrame(index=tx, columns=['Price', 'Direction', 'ReserveType'])
-
+    # points without a price stay nan, positions that are absent repeat the previous point (nan included)
+    positions, prices = [], []
     for point in period.find_all('point'):
-        idx = int(point.find('position').text)
-        df.loc[tx[idx-1], 'Price'] = float(point.find('activation_price.amount').text)
-        df.loc[tx[idx-1], 'Direction'] = flow_direction
-        df.loc[tx[idx - 1], 'ReserveType'] = reserve_type
-    
-    #df.fillna(method='ffill', inplace=True)
-    df = df.infer_objects(copy=False).ffill()
+        amount_el = point.find('activation_price.amount')
+        positions.append(int(point.find('position').text))
+        prices.append(float(amount_el.text) if amount_el is not None else np.nan)
+    points = pd.Series(prices, index=tx[np.array(positions) - 1], dtype=float).sort_index()
+
+    df = points.reindex(tx, method='ffill').rename(flow_direction).to_frame()
+    df['ReserveType'] = reserve_type
     return df
 
 def _parse_imbalance_prices_timeseries(soup) -> pd.DataFrame:
@@ -844,11 +818,14 @@ def _parse_installed_capacity_per_plant(soup):
                     'Bidding Zone': 'inbiddingzone_domain.mrid',
                     # 'Status': 'businesstype',
                     'Voltage Connection Level [kV]':
-                        'production_powersystemresources.highvoltagelimit'}
+                        'voltage_powersystemresources.highvoltagelimit'}
     series = pd.Series(extract_vals).apply(lambda v: soup.find(v).text)
 
     period = soup.find('period')
-    series["Start"] = pd.to_datetime(period.find('timeinterval.start').text)
+    start_element = period.find('timeinterval.start')
+    if start_element is None:
+        start_element = period.find('timeinterval').find('start')
+    series["Start"] = pd.to_datetime(start_element.text)
 
     # extract only first point
     series['Installed Capacity [MW]'] = \

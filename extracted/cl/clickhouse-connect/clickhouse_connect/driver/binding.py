@@ -3,7 +3,7 @@ import ipaddress
 import re
 import uuid
 import zoneinfo
-from collections.abc import Collection, Sequence
+from collections.abc import Collection, Iterator, Mapping, Sequence
 from datetime import date, datetime, time, timedelta, timezone, tzinfo
 from enum import Enum
 from functools import lru_cache
@@ -19,12 +19,14 @@ from clickhouse_connect.json_impl import any_to_json
 
 BS = "\\"
 must_escape = (BS, "'", "`", "\t", "\n")
+_STR_ESCAPES = str.maketrans({c: BS + c for c in must_escape})
+_BYTE_ESCAPES = tuple(f"{BS}x{b:02x}" for b in range(256))
 # ClickHouse substitution names are ASCII BareWord tokens. Digit-led tokens promote to
 # a bareword only through ASCII letters, digits, and underscores and never absorb `$`.
 _BIND_NAME_PATTERN = r"(?:[A-Za-z_][A-Za-z0-9_$]*|\$[A-Za-z0-9_][A-Za-z0-9_$]*|[0-9]+[A-Za-z_][A-Za-z0-9_]*)"
 _bind_name_re = re.compile(rf"{_BIND_NAME_PATTERN}\Z")
-# Routing keeps the shipped 1.x `\w+` names in the union so decoy placeholders such as
-# `{13:Int32}` or `{idé:Int32}` still select server-side binding. `\w` cannot absorb `$`.
+# Routing keeps the shipped 1.x `\w+` names such as `{13:Int32}` or `{idé:Int32}`
+# in the union for unquoted placeholders. `\w` cannot absorb `$`.
 external_bind_re = re.compile(rf"\{{({_BIND_NAME_PATTERN}|\w+):([^}}]+)\}}")
 _heredoc_re = re.compile(r"\$[A-Za-z0-9_]*\$")
 _heredoc_start_re = re.compile(r"(?=(\$[A-Za-z0-9_]*\$))")
@@ -60,18 +62,20 @@ def _skip_quoted_token(query: str, index: int, quote: str) -> int:
 def _skip_block_comment(query: str, index: int) -> int:
     depth = 1
     index += 2
-    end = len(query)
-    while index < end:
-        if query.startswith("/*", index):
+    close = query.find("*/", index)
+    while close != -1:
+        opener = query.find("/*", index, close + 1)
+        if opener != -1:
             depth += 1
-            index += 2
-        elif query.startswith("*/", index):
+            index = opener + 2
+            if index > close:
+                close = query.find("*/", index)
+        else:
             depth -= 1
-            index += 2
+            index = close + 2
             if depth == 0:
                 return index
-        else:
-            index += 1
+            close = query.find("*/", index)
     return -1
 
 
@@ -103,6 +107,8 @@ def _skip_ascii_bareword(query: str, index: int) -> int:
     return index
 
 
+# clickhouse_connect/driverc/sqlscan.pyx mirrors this lexer, _sql_opaque_regions, and remove_sql_comments,
+# _matches_outside_quotes and _SQL_COMMENT_MARKERS in query.py. Keep them in sync.
 def _next_sql_token(query: str, index: int, heredoc_ends: dict[str, int]) -> tuple[int, int]:
     """Return the next SQL token kind and its exclusive end offset."""
     end = len(query)
@@ -166,6 +172,61 @@ def _next_sql_token(query: str, index: int, heredoc_ends: dict[str, int]) -> tup
     if "0" <= char <= "9":
         return _SQL_TOKEN_OTHER, _skip_ascii_bareword(query, index)
     return _SQL_TOKEN_OTHER, index + 1
+
+
+# Characters that start a token which hides other SQL text: quoted strings and identifiers, {name:Type}
+# placeholders and the comment forms of the server lexer. Only "$" can also continue a bareword.
+_sql_opaque_start_re = re.compile(r"""['"`\u2018\u201c{$]|--|//|/\*|#[ !]""")
+# The same starts. A quoted string without escapes is matched whole, because it ends at its first closing quote.
+_sql_opaque_token_re = re.compile(r"""'[^'\\]*'(?!')|"[^"\\]*"(?!")|`[^`\\]*`(?!`)|""" + _sql_opaque_start_re.pattern)
+
+
+def _sql_opaque_regions(query: str) -> Iterator[tuple[int, int]]:
+    """Yield the (start, end) of each comment, quoted string, quoted identifier and heredoc, in order.
+
+    Stops at the first unterminated token. Jumps between possible starts, reading a "$" from its
+    enclosing ASCII word boundary because it can continue a bareword or open a heredoc.
+    """
+    heredoc_ends: dict[str, int] = {}
+    heredocs_scanned = False
+    index = 0
+    end = len(query)
+    while index < end:
+        match = _sql_opaque_token_re.search(query, index)
+        if match is None:
+            return
+        start = match.start()
+        if match.end() - start > 1 and query[start] in _quote_closers:
+            yield start, match.end()
+            index = match.end()
+            continue
+        token_limit = match.end()
+        if query[start] == "$":
+            if not heredocs_scanned:
+                heredoc_ends = {match.group(1): match.start() for match in _heredoc_start_re.finditer(query)}
+                heredocs_scanned = True
+            while start > index and _is_ascii_bareword_char(query[start - 1]):
+                start -= 1
+        index = start
+        while index < token_limit:
+            token, token_end = _next_sql_token(query, index, heredoc_ends)
+            if token == _SQL_TOKEN_INVALID:
+                return
+            char = query[index]
+            if token == _SQL_TOKEN_TRIVIA:
+                is_opaque = char not in _SQL_WHITESPACE
+            elif token == _SQL_TOKEN_OTHER:
+                opener = _heredoc_re.match(query, index) if char == "$" else None
+                is_opaque = (
+                    char in _quote_closers
+                    or char in _curly_quote_closers
+                    or (opener is not None and heredoc_ends.get(opener.group(), -1) >= opener.end())
+                )
+            else:
+                is_opaque = False
+            if is_opaque:
+                yield index, token_end
+            index = token_end
 
 
 def _query_has_trailing_limit_zero(query: str) -> bool:
@@ -651,8 +712,42 @@ def _binary_bind_values(parameters: dict[str, Any]) -> dict[str, Any]:
     return binary_binds
 
 
+# Openers of tokens the SQL lexer skips or treats as opaque. An opaque span can only hide a
+# placeholder that starts after it opens, so without an opener before the last raw match the
+# raw regex and the token scan agree and routing skips the token loop.
+_opaque_sql_opener_re = re.compile("[" + re.escape("".join(_quote_closers) + "".join(_curly_quote_closers) + "$") + r"]|/\*|--|//|#[ !]")
+
+
 def _server_bind_matches(query: str, binary_names: Collection[str]) -> list[tuple[str, str]]:
-    return [(name, type_str) for name, type_str in external_bind_re.findall(query) if name not in binary_names]
+    raw_matches = list(external_bind_re.finditer(query))
+    if not raw_matches:
+        return []
+    filtered = [(match.group(1), match.group(2)) for match in raw_matches if match.group(1) not in binary_names]
+    last_end = raw_matches[-1].end()
+    if _opaque_sql_opener_re.search(query, 0, last_end) is None:
+        return filtered
+
+    # Each binary marker becomes its own heredoc after substitution, so it never opens one here.
+    heredoc_ends = (
+        {match.group(1): match.start() for match in _heredoc_start_re.finditer(query) if match.group(1) not in binary_names}
+        if "$" in query
+        else {}
+    )
+    matches = []
+    index = 0
+    while index < last_end:
+        token, token_end = _next_sql_token(query, index, heredoc_ends)
+        if token == _SQL_TOKEN_INVALID:
+            return filtered
+        if token == _SQL_TOKEN_TRIVIA:
+            index = token_end
+            continue
+        if query[index] == "{":
+            match = external_bind_re.fullmatch(query, index, token_end)
+            if match is not None and match.group(1) not in binary_names:
+                matches.append((match.group(1), match.group(2)))
+        index = token_end
+    return matches
 
 
 def _binding_keeps_query_structure(query: str, parameters: Sequence | dict[str, Any] | None) -> bool:
@@ -767,19 +862,56 @@ def finalize_query(query: str, parameters: Sequence | dict[str, Any] | None, ser
 def _unwrap_outer(type_str: str) -> tuple[str, tuple]:
     """Strip LowCardinality/Nullable wrappers and return (base_name, args)"""
     base = type_str.strip()
-    if base[:15].lower() == "lowcardinality(":
-        base = base[15:-1]
-    if base[:9].lower() == "nullable(":
-        base = base[9:-1]
-    base_name, values, _ = parse_callable(base)
-    return base_name, values
+    while True:
+        base_name, values, _ = parse_callable(base)
+        if base_name.lower() not in ("lowcardinality", "nullable") or len(values) != 1:
+            return base_name, values
+        base = str(values[0])
 
 
 @lru_cache(maxsize=256)
 def _container_element_types(type_str: str) -> tuple[str, ...]:
     """Parse Tuple or Nested element types."""
+    return _container_columns(type_str)[1]
+
+
+@lru_cache(maxsize=256)
+def _container_columns(type_str: str) -> tuple[tuple[str, ...], tuple[str, ...]]:
     _, values = _unwrap_outer(type_str)
-    return parse_columns(f"({', '.join(str(t).strip() for t in values)})")[1]
+    return parse_columns(f"({', '.join(str(t).strip() for t in values)})")
+
+
+def _named_tuple_values(names: tuple[str, ...], value: Mapping) -> tuple:
+    missing = [name for name in names if name not in value]
+    unexpected = [name for name in value if name not in names]
+    if missing or unexpected:
+        raise ProgrammingError(f"Named Tuple fields do not match: missing {missing!r}, unexpected {unexpected!r}")
+    return tuple(value[name] for name in names)
+
+
+def _normalize_named_tuples(type_str: str, value: Any) -> Any:
+    """Put mapping values in the declared order of named Tuple fields."""
+    if value is None or "tuple" not in type_str.lower():
+        return value
+    try:
+        base_name, types = _unwrap_outer(type_str)
+        base_name = base_name.lower()
+        columns = _container_columns(type_str) if base_name == "tuple" else None
+    except Exception:
+        return value
+    if columns is not None:
+        names, element_types = columns
+        if names and isinstance(value, Mapping):
+            value = _named_tuple_values(names, value)
+        if isinstance(value, tuple) and len(value) == len(element_types):
+            return tuple(_normalize_named_tuples(t, item) for t, item in zip(element_types, value))
+    elif base_name == "array" and types and isinstance(value, (list, tuple)):
+        items = (_normalize_named_tuples(str(types[0]), item) for item in value)
+        return tuple(items) if isinstance(value, tuple) else list(items)
+    elif base_name == "map" and len(types) == 2 and isinstance(value, dict) and common.get_setting("dict_parameter_format") == "map":
+        key_type, value_type = (str(t) for t in types)
+        return {_normalize_named_tuples(key_type, key): _normalize_named_tuples(value_type, item) for key, item in value.items()}
+    return value
 
 
 @lru_cache(maxsize=256)
@@ -914,9 +1046,7 @@ def bind_query(
         for key in binary_binds.keys():
             del params_copy[key]
 
-        # Placeholder detection and routing always use the regex over the raw query text,
-        # matching shipped 1.x semantics. The lexer scan below only validates non-buffer
-        # `$name$` keys against server heredoc parsing.
+        # Validate non-buffer `$name$` keys against server heredoc parsing.
         if nonbinary_marker_keys and any(key in query for key in nonbinary_marker_keys):
             match_objects, raw_markers = _external_bind_matches(query, nonbinary_marker_keys)
             for key in params_copy:
@@ -971,6 +1101,7 @@ def bind_query(
                 tz = server_tz
                 param_type = param_types.get(k)
                 if param_type is not None:
+                    v = _normalize_named_tuples(param_type, v)
                     hint_tz = _extract_tz_from_type(param_type)
                     if hint_tz is not None:
                         tz = hint_tz
@@ -1079,11 +1210,11 @@ def _decode_ch_string_literal(literal: str) -> str:
 
 
 def escape_str(value: str):
-    return "".join(f"{BS}{c}" if c in must_escape else c for c in value)
+    return value.translate(_STR_ESCAPES)
 
 
 def escape_bytes(value):
-    return "".join(f"{BS}x{b:02x}" for b in value)
+    return "".join([_BYTE_ESCAPES[b] for b in value])
 
 
 def format_query_value(value: Any, server_tz: tzinfo | None = timezone.utc):
@@ -1185,7 +1316,7 @@ def format_bind_value(value: Any, server_tz: tzinfo | None = timezone.utc, top_l
         pairs = [recurse(k) + ":" + recurse(v) for k, v in value.items()]
         return f"{{{', '.join(pairs)}}}"
     if isinstance(value, Enum):
-        return recurse(value.value)
+        return format_bind_value(value.value, server_tz, top_level)
     if isinstance(value, (uuid.UUID, ipaddress.IPv4Address, ipaddress.IPv6Address)):
         if top_level:
             return str(value)

@@ -43,6 +43,7 @@ from dreamscale_transport.errors import (
 )
 
 from dreamscale import errors
+from dreamscale.config import warn_engine_ignored
 from dreamscale.libero import LiberoObservation
 from dreamscale.model_names import aresolve_model, internal_model, public_model
 from dreamscale.policy.connection import (
@@ -2145,7 +2146,8 @@ class Policy:
 
 _DEFAULT_PROGRESS = object()
 # Accepted for compatibility with a102/a103 code and the CLI; absent from the documented
-# signature. Each keeps today's behaviour.
+# signature. Each keeps today's behaviour, but `engine`: ignored, with a DeprecationWarning
+# (Praxis-1 has one engine).
 LEGACY_CONNECT_KWARGS = frozenset(
     {
         "acceleration", "control", "rtc", "calibration", "region", "provider", "speed",
@@ -2180,7 +2182,6 @@ async def aconnect(
     api_key: str | None = None,
     region: str = "auto",
     region_fallback: bool | None = None,
-    engine: str | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     mode: str = "auto",
     **legacy: Any,
@@ -2191,15 +2192,11 @@ async def aconnect(
     the same beside the base model, and ``checkpoint=`` is its older name. Auth comes from
     ``api_key=``, ``DREAMSCALE_API_KEY`` or ``dreamscale login``. ``mode``: how
     ``next_action()`` runs chunks, ``"sync"`` (each to its end) or ``"async"`` (replanning);
-    ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest). ``engine``
-    (Praxis-1, experimental): ``"standard"`` (the default) or ``"lightning"``, the same actions
-    faster; ``policy.engine_reason`` says why standard serves instead: ``"unavailable"`` (no
-    lightning server could take the session), ``"busy"`` (every lightning server was in use) or,
-    on a deployment, ``"deployment_standard"`` (its own engine setting is standard:
-    ``dreamscale deployments engine``)."""
+    ``"auto"`` takes the model's own (sync for Praxis-1, async for the rest)."""
     from dreamscale.policy.remote import _aconnect
 
     _check_legacy_kwargs(legacy)
+    warn_engine_ignored(legacy.pop("engine", None))
     mode = _checked_mode(mode)
     # A public name (pi0.5-bimanualyam), one only the control plane lists, or the internal
     # id; the SDK keys on the latter.
@@ -2217,7 +2214,6 @@ async def aconnect(
             **({"api_key": api_key} if api_key is not None else {}),
             **({"region": region} if region != "auto" else {}),
             **({"region_fallback": region_fallback} if region_fallback is not None else {}),
-            **({"engine": engine} if engine is not None else {}),
             **legacy,
         )
 
@@ -2241,13 +2237,13 @@ def connect(
     api_key: str | None = None,
     region: str = "auto",
     region_fallback: bool | None = None,
-    engine: str | None = None,
     on_progress: Any = _DEFAULT_PROGRESS,
     mode: str = "auto",
     **legacy: Any,
 ) -> Policy:
     """Connect to a model (synchronous). See ``aconnect``."""
     _check_legacy_kwargs(legacy)
+    warn_engine_ignored(legacy.pop("engine", None))
     _checked_mode(mode)
     runner = _LoopRunner()
     try:
@@ -2257,7 +2253,6 @@ def connect(
                 on_progress=on_progress, mode=mode, **legacy,
                 **({"region": region} if region != "auto" else {}),
                 **({"region_fallback": region_fallback} if region_fallback is not None else {}),
-                **({"engine": engine} if engine is not None else {}),
             )
         )
     except BaseException:

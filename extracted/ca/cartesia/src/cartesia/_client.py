@@ -50,20 +50,22 @@ if TYPE_CHECKING:
         stt,
         tts,
         agents,
+        models,
         voices,
         datasets,
+        watermark,
         fine_tunes,
         access_token,
-        voice_changer,
         pronunciation_dicts,
     )
     from .resources.tts import TTSResource, AsyncTTSResource
+    from .resources.models import ModelsResource, AsyncModelsResource
     from .resources.voices import VoicesResource, AsyncVoicesResource
     from .resources.stt.stt import STTResource, AsyncSTTResource
+    from .resources.watermark import WatermarkResource, AsyncWatermarkResource
     from .resources.fine_tunes import FineTunesResource, AsyncFineTunesResource
     from .resources.access_token import AccessTokenResource, AsyncAccessTokenResource
     from .resources.agents.agents import AgentsResource, AsyncAgentsResource
-    from .resources.voice_changer import VoiceChangerResource, AsyncVoiceChangerResource
     from .resources.datasets.datasets import DatasetsResource, AsyncDatasetsResource
     from .resources.pronunciation_dicts import PronunciationDictsResource, AsyncPronunciationDictsResource
 
@@ -174,6 +176,12 @@ class Cartesia(SyncAPIClient):
         return FineTunesResource(self)
 
     @cached_property
+    def models(self) -> ModelsResource:
+        from .resources.models import ModelsResource
+
+        return ModelsResource(self)
+
+    @cached_property
     def pronunciation_dicts(self) -> PronunciationDictsResource:
         from .resources.pronunciation_dicts import PronunciationDictsResource
 
@@ -192,10 +200,10 @@ class Cartesia(SyncAPIClient):
         return TTSResource(self)
 
     @cached_property
-    def voice_changer(self) -> VoiceChangerResource:
-        from .resources.voice_changer import VoiceChangerResource
+    def watermark(self) -> WatermarkResource:
+        from .resources.watermark import WatermarkResource
 
-        return VoiceChangerResource(self)
+        return WatermarkResource(self)
 
     @cached_property
     def voices(self) -> VoicesResource:
@@ -457,6 +465,12 @@ class AsyncCartesia(AsyncAPIClient):
         return AsyncFineTunesResource(self)
 
     @cached_property
+    def models(self) -> AsyncModelsResource:
+        from .resources.models import AsyncModelsResource
+
+        return AsyncModelsResource(self)
+
+    @cached_property
     def pronunciation_dicts(self) -> AsyncPronunciationDictsResource:
         from .resources.pronunciation_dicts import AsyncPronunciationDictsResource
 
@@ -475,10 +489,10 @@ class AsyncCartesia(AsyncAPIClient):
         return AsyncTTSResource(self)
 
     @cached_property
-    def voice_changer(self) -> AsyncVoiceChangerResource:
-        from .resources.voice_changer import AsyncVoiceChangerResource
+    def watermark(self) -> AsyncWatermarkResource:
+        from .resources.watermark import AsyncWatermarkResource
 
-        return AsyncVoiceChangerResource(self)
+        return AsyncWatermarkResource(self)
 
     @cached_property
     def voices(self) -> AsyncVoicesResource:
@@ -680,6 +694,12 @@ class CartesiaWithRawResponse:
         return FineTunesResourceWithRawResponse(self._client.fine_tunes)
 
     @cached_property
+    def models(self) -> models.ModelsResourceWithRawResponse:
+        from .resources.models import ModelsResourceWithRawResponse
+
+        return ModelsResourceWithRawResponse(self._client.models)
+
+    @cached_property
     def pronunciation_dicts(self) -> pronunciation_dicts.PronunciationDictsResourceWithRawResponse:
         from .resources.pronunciation_dicts import PronunciationDictsResourceWithRawResponse
 
@@ -698,10 +718,10 @@ class CartesiaWithRawResponse:
         return TTSResourceWithRawResponse(self._client.tts)
 
     @cached_property
-    def voice_changer(self) -> voice_changer.VoiceChangerResourceWithRawResponse:
-        from .resources.voice_changer import VoiceChangerResourceWithRawResponse
+    def watermark(self) -> watermark.WatermarkResourceWithRawResponse:
+        from .resources.watermark import WatermarkResourceWithRawResponse
 
-        return VoiceChangerResourceWithRawResponse(self._client.voice_changer)
+        return WatermarkResourceWithRawResponse(self._client.watermark)
 
     @cached_property
     def voices(self) -> voices.VoicesResourceWithRawResponse:
@@ -745,6 +765,12 @@ class AsyncCartesiaWithRawResponse:
         return AsyncFineTunesResourceWithRawResponse(self._client.fine_tunes)
 
     @cached_property
+    def models(self) -> models.AsyncModelsResourceWithRawResponse:
+        from .resources.models import AsyncModelsResourceWithRawResponse
+
+        return AsyncModelsResourceWithRawResponse(self._client.models)
+
+    @cached_property
     def pronunciation_dicts(self) -> pronunciation_dicts.AsyncPronunciationDictsResourceWithRawResponse:
         from .resources.pronunciation_dicts import AsyncPronunciationDictsResourceWithRawResponse
 
@@ -763,10 +789,10 @@ class AsyncCartesiaWithRawResponse:
         return AsyncTTSResourceWithRawResponse(self._client.tts)
 
     @cached_property
-    def voice_changer(self) -> voice_changer.AsyncVoiceChangerResourceWithRawResponse:
-        from .resources.voice_changer import AsyncVoiceChangerResourceWithRawResponse
+    def watermark(self) -> watermark.AsyncWatermarkResourceWithRawResponse:
+        from .resources.watermark import AsyncWatermarkResourceWithRawResponse
 
-        return AsyncVoiceChangerResourceWithRawResponse(self._client.voice_changer)
+        return AsyncWatermarkResourceWithRawResponse(self._client.watermark)
 
     @cached_property
     def voices(self) -> voices.AsyncVoicesResourceWithRawResponse:
@@ -810,6 +836,12 @@ class CartesiaWithStreamedResponse:
         return FineTunesResourceWithStreamingResponse(self._client.fine_tunes)
 
     @cached_property
+    def models(self) -> models.ModelsResourceWithStreamingResponse:
+        from .resources.models import ModelsResourceWithStreamingResponse
+
+        return ModelsResourceWithStreamingResponse(self._client.models)
+
+    @cached_property
     def pronunciation_dicts(self) -> pronunciation_dicts.PronunciationDictsResourceWithStreamingResponse:
         from .resources.pronunciation_dicts import PronunciationDictsResourceWithStreamingResponse
 
@@ -828,10 +860,10 @@ class CartesiaWithStreamedResponse:
         return TTSResourceWithStreamingResponse(self._client.tts)
 
     @cached_property
-    def voice_changer(self) -> voice_changer.VoiceChangerResourceWithStreamingResponse:
-        from .resources.voice_changer import VoiceChangerResourceWithStreamingResponse
+    def watermark(self) -> watermark.WatermarkResourceWithStreamingResponse:
+        from .resources.watermark import WatermarkResourceWithStreamingResponse
 
-        return VoiceChangerResourceWithStreamingResponse(self._client.voice_changer)
+        return WatermarkResourceWithStreamingResponse(self._client.watermark)
 
     @cached_property
     def voices(self) -> voices.VoicesResourceWithStreamingResponse:
@@ -875,6 +907,12 @@ class AsyncCartesiaWithStreamedResponse:
         return AsyncFineTunesResourceWithStreamingResponse(self._client.fine_tunes)
 
     @cached_property
+    def models(self) -> models.AsyncModelsResourceWithStreamingResponse:
+        from .resources.models import AsyncModelsResourceWithStreamingResponse
+
+        return AsyncModelsResourceWithStreamingResponse(self._client.models)
+
+    @cached_property
     def pronunciation_dicts(self) -> pronunciation_dicts.AsyncPronunciationDictsResourceWithStreamingResponse:
         from .resources.pronunciation_dicts import AsyncPronunciationDictsResourceWithStreamingResponse
 
@@ -893,10 +931,10 @@ class AsyncCartesiaWithStreamedResponse:
         return AsyncTTSResourceWithStreamingResponse(self._client.tts)
 
     @cached_property
-    def voice_changer(self) -> voice_changer.AsyncVoiceChangerResourceWithStreamingResponse:
-        from .resources.voice_changer import AsyncVoiceChangerResourceWithStreamingResponse
+    def watermark(self) -> watermark.AsyncWatermarkResourceWithStreamingResponse:
+        from .resources.watermark import AsyncWatermarkResourceWithStreamingResponse
 
-        return AsyncVoiceChangerResourceWithStreamingResponse(self._client.voice_changer)
+        return AsyncWatermarkResourceWithStreamingResponse(self._client.watermark)
 
     @cached_property
     def voices(self) -> voices.AsyncVoicesResourceWithStreamingResponse:

@@ -71,6 +71,7 @@ from .paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
+    ListInferenceRoutersPaginator,
     ListJobSchemaVersionsPaginator,
     ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
@@ -216,6 +217,8 @@ from .type_defs import (
     CreateInferenceExperimentResponseTypeDef,
     CreateInferenceRecommendationsJobRequestTypeDef,
     CreateInferenceRecommendationsJobResponseTypeDef,
+    CreateInferenceRouterInputTypeDef,
+    CreateInferenceRouterOutputTypeDef,
     CreateJobRequestTypeDef,
     CreateJobResponseTypeDef,
     CreateLabelingJobRequestTypeDef,
@@ -320,6 +323,7 @@ from .type_defs import (
     DeleteEdgeDeploymentStageRequestTypeDef,
     DeleteEndpointConfigInputTypeDef,
     DeleteEndpointInputTypeDef,
+    DeleteEndpointPolicyRequestTypeDef,
     DeleteExperimentRequestTypeDef,
     DeleteExperimentResponseTypeDef,
     DeleteFeatureGroupRequestTypeDef,
@@ -334,6 +338,7 @@ from .type_defs import (
     DeleteInferenceComponentInputTypeDef,
     DeleteInferenceExperimentRequestTypeDef,
     DeleteInferenceExperimentResponseTypeDef,
+    DeleteInferenceRouterInputTypeDef,
     DeleteJobRequestTypeDef,
     DeleteMlflowAppRequestTypeDef,
     DeleteMlflowAppResponseTypeDef,
@@ -453,6 +458,8 @@ from .type_defs import (
     DescribeInferenceExperimentResponseTypeDef,
     DescribeInferenceRecommendationsJobRequestTypeDef,
     DescribeInferenceRecommendationsJobResponseTypeDef,
+    DescribeInferenceRouterInputTypeDef,
+    DescribeInferenceRouterOutputTypeDef,
     DescribeJobRequestTypeDef,
     DescribeJobResponseTypeDef,
     DescribeJobSchemaVersionRequestTypeDef,
@@ -538,6 +545,8 @@ from .type_defs import (
     ExtendTrainingPlanResponseTypeDef,
     GetDeviceFleetReportRequestTypeDef,
     GetDeviceFleetReportResponseTypeDef,
+    GetEndpointPolicyRequestTypeDef,
+    GetEndpointPolicyResponseTypeDef,
     GetLineageGroupPolicyRequestTypeDef,
     GetLineageGroupPolicyResponseTypeDef,
     GetModelPackageGroupPolicyInputTypeDef,
@@ -639,6 +648,8 @@ from .type_defs import (
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestTypeDef,
     ListInferenceRecommendationsJobStepsResponseTypeDef,
+    ListInferenceRoutersInputTypeDef,
+    ListInferenceRoutersOutputTypeDef,
     ListJobSchemaVersionsRequestTypeDef,
     ListJobSchemaVersionsResponseTypeDef,
     ListJobsRequestTypeDef,
@@ -737,6 +748,8 @@ from .type_defs import (
     ListWorkforcesResponseTypeDef,
     ListWorkteamsRequestTypeDef,
     ListWorkteamsResponseTypeDef,
+    PutEndpointPolicyRequestTypeDef,
+    PutEndpointPolicyResponseTypeDef,
     PutModelPackageGroupPolicyInputTypeDef,
     PutModelPackageGroupPolicyOutputTypeDef,
     QueryLineageRequestTypeDef,
@@ -841,6 +854,8 @@ from .type_defs import (
     UpdateInferenceComponentRuntimeConfigOutputTypeDef,
     UpdateInferenceExperimentRequestTypeDef,
     UpdateInferenceExperimentResponseTypeDef,
+    UpdateInferenceRouterInputTypeDef,
+    UpdateInferenceRouterOutputTypeDef,
     UpdateMlflowAppRequestTypeDef,
     UpdateMlflowAppResponseTypeDef,
     UpdateMlflowTrackingServerRequestTypeDef,
@@ -908,6 +923,7 @@ __all__ = ("SageMakerClient",)
 class Exceptions(BaseClientExceptions):
     ClientError: type[BotocoreClientError]
     ConflictException: type[BotocoreClientError]
+    ResourceAlreadyExists: type[BotocoreClientError]
     ResourceInUse: type[BotocoreClientError]
     ResourceLimitExceeded: type[BotocoreClientError]
     ResourceNotFound: type[BotocoreClientError]
@@ -1434,6 +1450,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_inference_recommendations_job.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#create_inference_recommendations_job)
+        """
+
+    def create_inference_router(
+        self, **kwargs: Unpack[CreateInferenceRouterInputTypeDef]
+    ) -> CreateInferenceRouterOutputTypeDef:
+        """
+        Creates an inference router.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_inference_router.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#create_inference_router)
         """
 
     def create_job(self, **kwargs: Unpack[CreateJobRequestTypeDef]) -> CreateJobResponseTypeDef:
@@ -2033,6 +2059,16 @@ class SageMakerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#delete_endpoint_config)
         """
 
+    def delete_endpoint_policy(
+        self, **kwargs: Unpack[DeleteEndpointPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the resource-based policy that is attached to an endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_endpoint_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#delete_endpoint_policy)
+        """
+
     def delete_experiment(
         self, **kwargs: Unpack[DeleteExperimentRequestTypeDef]
     ) -> DeleteExperimentResponseTypeDef:
@@ -2148,6 +2184,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_inference_experiment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#delete_inference_experiment)
+        """
+
+    def delete_inference_router(
+        self, **kwargs: Unpack[DeleteInferenceRouterInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes an inference router.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/delete_inference_router.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#delete_inference_router)
         """
 
     def delete_job(self, **kwargs: Unpack[DeleteJobRequestTypeDef]) -> dict[str, Any]:
@@ -2869,6 +2915,17 @@ class SageMakerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#describe_inference_recommendations_job)
         """
 
+    def describe_inference_router(
+        self, **kwargs: Unpack[DescribeInferenceRouterInputTypeDef]
+    ) -> DescribeInferenceRouterOutputTypeDef:
+        """
+        Returns information about an inference router, including the routing status of
+        each destination.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/describe_inference_router.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#describe_inference_router)
+        """
+
     def describe_job(
         self, **kwargs: Unpack[DescribeJobRequestTypeDef]
     ) -> DescribeJobResponseTypeDef:
@@ -3311,6 +3368,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_device_fleet_report.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#get_device_fleet_report)
+        """
+
+    def get_endpoint_policy(
+        self, **kwargs: Unpack[GetEndpointPolicyRequestTypeDef]
+    ) -> GetEndpointPolicyResponseTypeDef:
+        """
+        Returns the resource-based policy that is attached to an endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_endpoint_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#get_endpoint_policy)
         """
 
     def get_lineage_group_policy(
@@ -3822,6 +3889,17 @@ class SageMakerClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#list_inference_recommendations_jobs)
         """
 
+    def list_inference_routers(
+        self, **kwargs: Unpack[ListInferenceRoutersInputTypeDef]
+    ) -> ListInferenceRoutersOutputTypeDef:
+        """
+        Lists the inference routers in your account in the current Amazon Web Services
+        Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_inference_routers.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#list_inference_routers)
+        """
+
     def list_job_schema_versions(
         self, **kwargs: Unpack[ListJobSchemaVersionsRequestTypeDef]
     ) -> ListJobSchemaVersionsResponseTypeDef:
@@ -4311,6 +4389,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_workteams.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#list_workteams)
+        """
+
+    def put_endpoint_policy(
+        self, **kwargs: Unpack[PutEndpointPolicyRequestTypeDef]
+    ) -> PutEndpointPolicyResponseTypeDef:
+        """
+        Attaches a resource-based policy to an endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/put_endpoint_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#put_endpoint_policy)
         """
 
     def put_model_package_group_policy(
@@ -4949,6 +5037,16 @@ class SageMakerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_inference_experiment.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#update_inference_experiment)
+        """
+
+    def update_inference_router(
+        self, **kwargs: Unpack[UpdateInferenceRouterInputTypeDef]
+    ) -> UpdateInferenceRouterOutputTypeDef:
+        """
+        Updates the routing targets of an inference router.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_inference_router.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#update_inference_router)
         """
 
     def update_mlflow_app(
@@ -5632,6 +5730,17 @@ class SageMakerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_inference_recommendations_jobs"]
     ) -> ListInferenceRecommendationsJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_inference_routers"]
+    ) -> ListInferenceRoutersPaginator:
         """
         Create a paginator for an operation.
 

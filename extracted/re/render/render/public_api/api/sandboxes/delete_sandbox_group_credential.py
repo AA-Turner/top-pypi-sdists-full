@@ -1,7 +1,8 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -15,15 +16,16 @@ def _get_kwargs(
 ) -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": f"/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}",
+        "url": "/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}".format(
+            sandbox_group_id=quote(str(sandbox_group_id), safe=""),
+            credential_id=quote(str(credential_id), safe=""),
+        ),
     }
 
     return _kwargs
 
 
-def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, Error]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Any | Error | None:
     if response.status_code == 202:
         response_202 = cast(Any, None)
         return response_202
@@ -74,9 +76,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, Error]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Any | Error]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -89,27 +89,26 @@ def sync_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+) -> Response[Any | Error]:
     """Delete sandbox group credential
 
-     Admin-only. Removes the credential if present and synchronizes the
-    group's gateway configuration. Repeated deletion requests are accepted.
-    A temporary synchronization conflict returns 429.
+     Delete a credential from the sandbox group. Requires an admin. Repeated delete requests are
+    accepted, including if the credential is already absent.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error]]
+        Response[Any | Error]
     """
 
     kwargs = _get_kwargs(
@@ -128,27 +127,26 @@ def sync(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+) -> Any | Error | None:
     """Delete sandbox group credential
 
-     Admin-only. Removes the credential if present and synchronizes the
-    group's gateway configuration. Repeated deletion requests are accepted.
-    A temporary synchronization conflict returns 429.
+     Delete a credential from the sandbox group. Requires an admin. Repeated delete requests are
+    accepted, including if the credential is already absent.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error]
+        Any | Error
     """
 
     return sync_detailed(
@@ -162,27 +160,26 @@ async def asyncio_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+) -> Response[Any | Error]:
     """Delete sandbox group credential
 
-     Admin-only. Removes the credential if present and synchronizes the
-    group's gateway configuration. Repeated deletion requests are accepted.
-    A temporary synchronization conflict returns 429.
+     Delete a credential from the sandbox group. Requires an admin. Repeated delete requests are
+    accepted, including if the credential is already absent.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error]]
+        Response[Any | Error]
     """
 
     kwargs = _get_kwargs(
@@ -199,27 +196,26 @@ async def asyncio(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+) -> Any | Error | None:
     """Delete sandbox group credential
 
-     Admin-only. Removes the credential if present and synchronizes the
-    group's gateway configuration. Repeated deletion requests are accepted.
-    A temporary synchronization conflict returns 429.
+     Delete a credential from the sandbox group. Requires an admin. Repeated delete requests are
+    accepted, including if the credential is already absent.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error]
+        Any | Error
     """
 
     return (

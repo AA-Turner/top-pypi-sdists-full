@@ -434,6 +434,58 @@ def blocked_worker_ids(model_key: str) -> set:
                 if serveable_match(model_key, wanted, [r["model_key"]])}
 
 
+def worker_blocked_reasons(worker_id: str) -> dict:
+    """{model_key: reason} for pairs blocked on this worker — an operator block or
+    the Wrapper's automatic-fit verdict (user_settings.auto_blocked). The test
+    fire reads this to SKIP a blocked pair (never call it) and show the reason."""
+    with _conn() as conn, conn.cursor() as cur:
+        cur.execute("SELECT model_key, user_settings FROM model_workers WHERE worker_id=%s "
+                    "AND (user_settings ? 'blocked' OR user_settings ? 'auto_blocked')", (worker_id,))
+        rows = cur.fetchall()
+    out = {}
+    for r in rows:
+        us = r["user_settings"] or {}
+        if us.get("blocked"):
+            out[r["model_key"]] = "operator-blocked"
+        elif us.get("auto_blocked"):
+            out[r["model_key"]] = str(us["auto_blocked"])
+    return out
+
+
+def reflect_feasibility(conn, worker_id: str, models) -> None:
+    """Mirror the Wrapper's per-model feasibility verdict into the pair's
+    ``user_settings.auto_blocked`` for this worker (operator ruling 2026-11-16:
+    "an impossible model is supposed to be auto blocked to that worker").
+
+    From the worker's reported /v1/models inventory: set ``auto_blocked`` to
+    ``possible_reason`` where the Wrapper reports ``possible=false``, clear it
+    where it reports ``possible=true``, and leave it unchanged where the field is
+    absent (older wrappers). Core decides nothing — it only reflects the Wrapper.
+    Runs on the caller's connection, in the same transaction as the presence
+    write. The model_workers row is inserted if missing (like apply_report)."""
+    block, clear = {}, []
+    for m in models or []:
+        if not isinstance(m, dict) or not m.get("id"):
+            continue
+        possible = m.get("possible")
+        if possible is False:
+            block[m["id"]] = str(m.get("possible_reason") or "not possible on this worker")
+        elif possible is True:
+            clear.append(m["id"])
+    for key, reason in block.items():
+        conn.execute("INSERT INTO model_workers(model_key,worker_id) VALUES (%s,%s) ON CONFLICT DO NOTHING",
+                     (key, worker_id))
+        conn.execute("UPDATE model_workers SET user_settings = "
+                     "coalesce(user_settings,'{}'::jsonb) || jsonb_build_object('auto_blocked', %s::text), "
+                     "updated_at=now() WHERE worker_id=%s AND model_key=%s "
+                     "AND user_settings->>'auto_blocked' IS DISTINCT FROM %s",
+                     (reason, worker_id, key, reason))
+    if clear:
+        conn.execute("UPDATE model_workers SET user_settings = user_settings - 'auto_blocked', "
+                     "updated_at=now() WHERE worker_id=%s AND model_key = ANY(%s) "
+                     "AND user_settings ? 'auto_blocked'", (worker_id, clear))
+
+
 def _mode_bytes(mem: dict, mode: str) -> dict:
     """{gpu_bytes, ram_bytes} for one mode out of a verdict's memory table."""
     from hugpy_core.intake.schema import cell as _cell

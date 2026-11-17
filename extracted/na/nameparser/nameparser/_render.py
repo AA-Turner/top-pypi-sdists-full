@@ -19,7 +19,9 @@ from collections.abc import Callable, Sequence
 
 from nameparser._lexicon import (FULL_STOPS, Lexicon, _normalize,
                                  _spells_an_initial)
-from nameparser._policy import _NO_INITIALS, _script_matcher
+from nameparser._policy import (
+    _CASELESS_LETTERS, _NO_INITIAL_RANGES, _ranges_matcher,
+)
 from nameparser._types import (_NAME_ORDERS, FOLDED_TAG,
                                SHAPE_ACRONYM_TAG,
                                SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG,
@@ -27,9 +29,22 @@ from nameparser._types import (_NAME_ORDERS, FOLDED_TAG,
                                UNJOINED_TAG, Ambiguity, ParsedName, Role,
                                Token)
 
-_SPACES = re.compile(r"\s+")
-_SPACE_BEFORE_COMMA = re.compile(r"\s+,")
-_COMMA_CHAR = re.compile(r"[,،，]")  # ASCII, Arabic, fullwidth
+#: Whitespace runs the collapse makes one space, save a U+202F inside a
+#: word. rules/T6: "a narrow no-break space between two Mongolian
+#: letters joins them into one word" -- the render side, so a spec's
+#: collapse writes the word as str() does (decisions/T6, #1236). The
+#: class is _tokenize._mongolian_letter, held to it by
+#: tests/v2/test_regex_sync.py.
+_MONGOLIAN_LETTER = "[\u180B-\u180F\u181A-\u18AF]"
+_SPACES = re.compile(
+    rf"(?:(?!(?<={_MONGOLIAN_LETTER})\u202F(?={_MONGOLIAN_LETTER}))\s)+")
+#: ASCII, Arabic, fullwidth, Ethiopic, Burmese, then N'Ko, Mongolian,
+#: Manchu, Lisu, Vai and Bamum: _pipeline._state.COMMA_CHARS, which
+#: render may not import (tests/v2/test_regex_sync.py holds the copy)
+_COMMAS = ",\u060c\uff0c\u1363\u104a\u07f8\u1802\u1808\ua4fe\ua60d\ua6f5"
+_COMMA_CHAR = re.compile(f"[{_COMMAS}]")
+#: a space written before a comma of any script, which keeps the comma
+_SPACE_BEFORE_COMMA = re.compile(rf"\s+([{_COMMAS}])")
 _MC = re.compile(r"^(mc)(\w{2,})", re.IGNORECASE)
 _WORD = re.compile(r"(\w|\.)+")
 _NAME_RUN = re.compile(r"\w+")
@@ -43,7 +58,8 @@ _DERIVED_VIEWS = ("family_base", "family_particles", "surnames", "given_names",
 _RENDER_KEYS = tuple(r.value for r in Role) + _DERIVED_VIEWS
 
 #: str.format keys initials() accepts: the three name-bearing roles.
-_INITIALS_KEYS = (Role.GIVEN.value, Role.MIDDLE.value, Role.FAMILY.value)
+_INITIALS_ROLES = (Role.GIVEN, Role.MIDDLE, Role.FAMILY)
+_INITIALS_KEYS = tuple(role.value for role in _INITIALS_ROLES)
 
 #: Tags whose tokens contribute no initial outside the given group --
 #: unless the token also carries UNJOINED_TAG, i.e. the whole part is
@@ -90,6 +106,16 @@ _INITIAL = re.compile(r"^(\w\.|[A-Z])$")
 #: by tests/v2/test_regex_sync.py.
 _DOTTED_INITIAL = re.compile(r"^\w\.$")
 
+#: rules/T7's run of single letters joined by full stops and one
+#: letter of it, _pipeline._vocab's _LETTER_RUN and _RUN_LETTER copied
+#: by hand (layering, as for _INITIAL above) and pinned by
+#: tests/v2/test_regex_sync.py. Read by initials(), which gives such a
+#: word one initial per letter wherever the parse left it whole.
+_LETTER = (r'[^\W\d_]'
+           '[̀-ͯ᪰-᫿᷀-᷿⃐-⃿︠-︯]*')
+_LETTER_RUN = re.compile(r"(?:" + _LETTER + r"\.)+" + _LETTER + r"\.?")
+_RUN_LETTER = re.compile(_LETTER + r"\.?")
+
 # v1's "roman_numeral" pattern, the pipeline's _vocab._ROMAN copied
 # by hand (layering, as for _INITIAL above) and pinned by
 # tests/v2/test_regex_sync.py. Read only by _cap_word's numeral
@@ -124,16 +150,16 @@ def _reads_as_conjunction(word: str, lex: Lexicon) -> bool:
 def _collapse(rendered: str) -> str:
     """The #254 collapse: empty fields substitute '' and every artifact
     of that is removed -- dangling empty-nickname wrappers, space runs,
-    space-before-comma, one trailing comma character (any script),
-    leading/trailing ', ' debris."""
+    space-before-comma and leading or trailing commas and spaces, the
+    comma of any script whose comma the parse reads."""
     rendered = (rendered.replace(" ()", "")
                         .replace(" ''", "")
                         .replace(' ""', ""))
-    rendered = _SPACE_BEFORE_COMMA.sub(",", rendered)
+    rendered = _SPACE_BEFORE_COMMA.sub(r"\1", rendered)
     rendered = _SPACES.sub(" ", rendered.strip())
     if rendered and _COMMA_CHAR.fullmatch(rendered[-1]):
         rendered = rendered[:-1]
-    return rendered.strip(", ")
+    return rendered.strip(_COMMAS + " ")
 
 
 def _format_spec(spec: str, values: dict[str, str], noun: str,
@@ -197,14 +223,16 @@ _LAYOUTS = {order: _layout(order) for order in _NAME_ORDERS}
 _V2_DEFAULT_SPEC = ('{title} {given} "{nickname}" {middle} {family} '
                     "({maiden}) {suffix}")
 
-#: rules/T2 and T3's dividers: a nakaguro, or an interpunct the parse
-#: divided at (one written with a space beside it is a name word,
-#: rules/T3, so it is a token and never stands in a gap).
-_DOT_SEPARATORS = frozenset({"\u00B7", "\u30FB", "\uFF65"})
+#: rules/T2 and T3's dividers: a nakaguro or the Ethiopic wordspace,
+#: or an interpunct or fullwidth full stop the parse divided at (one
+#: written with a space beside it is a name word, rules/T3, so it is a
+#: token and never stands in a gap).
+_DOT_SEPARATORS = frozenset({"\u00B7", "\uFF0E", "\u30FB", "\uFF65",
+                             "\u1361"})
 _NAME_WORD_ROLES = frozenset({Role.GIVEN, Role.MIDDLE, Role.FAMILY})
 #: A comma the parse reads, and how it is written back: no space
 #: before it and one after, a full-width comma carrying its own width.
-_COMMA_WRITTEN = {",": ", ", "\u060C": "\u060C ", "\uFF0C": "\uFF0C"}
+_COMMA_WRITTEN = {c: c if c == "\uff0c" else c + " " for c in _COMMAS}
 
 
 def _written_separator(gap: str) -> str | None:
@@ -228,8 +256,12 @@ def _ordered(tokens: Sequence[Token]) -> list[Token]:
     # first (mechanisms.md#FOLDED_TAG: "a rule that needs different
     # rendering order tags the token, and the rendering views consult
     # the tag")
-    return ([t for t in tokens if FOLDED_TAG in t.tags]
-            + [t for t in tokens if FOLDED_TAG not in t.tags])
+    # (one loop, not two comprehensions: a frame each, on every str())
+    folded: list[Token] = []
+    rest: list[Token] = []
+    for t in tokens:
+        (folded if FOLDED_TAG in t.tags else rest).append(t)
+    return folded + rest
 
 
 def _default_render(name: ParsedName,
@@ -272,7 +304,7 @@ def _default_render(name: ParsedName,
         out.append(prev_close)
     # a comma that is a word of its own (a delimited nickname's) keeps
     # no space before it, as 2.x's collapse wrote it
-    return _SPACE_BEFORE_COMMA.sub(",", "".join(out))
+    return _SPACE_BEFORE_COMMA.sub(r"\1", "".join(out))
 
 
 def _side_by_side(name: ParsedName, a: Token, b: Token,
@@ -333,11 +365,13 @@ def _first_letter(text: str) -> str:
 #: asked of the composed letter (#665), the spelling the veto in
 #: _vocab reads; the conjoining jamo a decomposed syllable is written
 #: in are HANGUL too since #1087.
-_initialless = _script_matcher(*_NO_INITIALS, whole=True)
+_initialless = _ranges_matcher(_NO_INITIAL_RANGES, whole=True)
 
 
 def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str:
-    """First letter of each contributing token per group, v1 semantics:
+    """First letter of each contributing token per group (one per
+    letter of a word written as a run of initials, rules/R3, #1296),
+    v1 semantics:
     delimiter follows each initial, separator sits between initials
     within a group. Each group is ordered the way its FIELD is
     ordered -- written order, except folded words, which initial
@@ -363,13 +397,21 @@ def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str
     if not isinstance(separator, str):
         raise TypeError(f"separator must be a str, got {separator!r}")
     values: dict[str, str] = {}
-    for key in _INITIALS_KEYS:
-        role = Role(key)
-        tokens = name.tokens_for(role)
+    # rules/R3's run of initials reads a lower-case run where the given,
+    # middle and family words are written wholly in lower case, as the
+    # parse does (T7), a title not asked;
+    # a loop, not a generator, which would resume a frame per word
+    all_lower = True
+    for t in name.tokens:
+        # Unicode's case, as the parse's T7 reads it (#1256)
+        if t.role in _NAME_WORD_ROLES and not t.text.islower():
+            all_lower = False
+            break
+    for key, role in zip(_INITIALS_KEYS, _INITIALS_ROLES):
         skip = _SKIP_TAGS_GIVEN if role is Role.GIVEN else _SKIP_TAGS
-        tokens = tuple(t for t in tokens
-                       if not (skip & t.tags)
-                       or _UNJOINED_MARKS & t.tags)
+        tokens = [t for t in name.tokens
+                  if t.role is role
+                  and (not (skip & t.tags) or _UNJOINED_MARKS & t.tags)]
         # mechanisms.md#FOLDED_TAG: "a rule that needs different
         # rendering order tags the token, and the rendering views
         # consult the tag" -- this is a rendering view, so it reads
@@ -387,10 +429,18 @@ def initials(name: ParsedName, spec: str, delimiter: str, separator: str) -> str
         # (a loop, not a generator, which would resume a frame per word)
         letters: list[str] = []
         for t in _ordered(tokens):
-            letter = _first_letter(t.text)
-            if letter.isascii() or not _initialless(
-                    unicodedata.normalize("NFC", letter)):
-                letters.append(letter + delimiter)
+            # rules/R3: "A word written as a run of initials gives one
+            # initial per letter" -- 'J. E. T. S.' for 'John E.T.
+            # Smith', in capitals or in a name written wholly in lower
+            # case -- decisions/T7 (#1296)
+            firsts = ([_first_letter(c) for c in _RUN_LETTER.findall(t.text)]
+                      if "." in t.text and (all_lower or t.text.isupper())
+                      and _LETTER_RUN.fullmatch(t.text)
+                      else (_first_letter(t.text),))
+            for letter in firsts:
+                if letter.isascii() or not _initialless(
+                        unicodedata.normalize("NFC", letter)):
+                    letters.append(letter + delimiter)
         values[key] = separator.join(letters)
     return _format_spec(spec, values, "initials", _INITIALS_KEYS)
 
@@ -492,7 +542,11 @@ def _lowers_as_particle(normalized: str, word: str, role: Role,
 
 
 def _cap_word(word: str, role: Role, tags: frozenset[str],
-              lex: Lexicon) -> str:
+              lex: Lexicon, *, particle: bool = True) -> str:
+    # `particle=False` is the first word of the hyphen clause's opening
+    # part (_cap_text), or a particle opening the family name that its
+    # reading writes with a capital (_capital_openings): the particle arm
+    # is not asked, every other clause is.
     # Clause order: the particle/connective arm, then the exceptions
     # map as a mask, then the acronym clause (listed or by shape),
     # then the numeral clause, then, per full-stop chunk, the chunk's
@@ -611,7 +665,8 @@ def _cap_word(word: str, role: Role, tags: frozenset[str],
         return word.lower()
     generation = role is Role.SUFFIX and "vocab:suffix" in tags
     if not generation and (
-            _lowers_as_particle(normalized, word, role, tags, lex)
+            (particle
+             and _lowers_as_particle(normalized, word, role, tags, lex))
             or "conjunction" in tags
             or (UNCLASSIFIED_TAG in tags
                 and _reads_as_conjunction(word, lex))):
@@ -705,13 +760,35 @@ def _title_chunk(chunk: str) -> str:
     lead = _past_modifiers(chunk, 0)
     mc = _MC.match(unicodedata.normalize("NFC", chunk[lead:]))
     if not mc:
-        return chunk[:lead] + chunk[lead:].capitalize()
+        return chunk[:lead] + _capitalize(chunk[lead:])
     cut = end = lead + len(mc.group(1))
     while run := _NAME_RUN.match(chunk, end):
         end = _past_marks(chunk, run.end())
     at = _past_modifiers(chunk, cut)
-    return (chunk[:lead] + chunk[lead:cut].capitalize() + chunk[cut:at]
-            + chunk[at:end].capitalize() + chunk[end:])
+    return (chunk[:lead] + _capitalize(chunk[lead:cut]) + chunk[cut:at]
+            + _capitalize(chunk[at:end]) + chunk[end:])
+
+
+# rules/R4: "A script that writes no initial capital is written in its
+# lower case throughout" -- the title case of a word's first letter,
+# where Georgian's is its Mkhedruli lower case: the script-property
+# table's rows with no case (_policy._SCRIPT_PROPERTIES).
+# decisions/R4 (#1223), decisions/script-properties (#1256).
+def _capitalize(text: str) -> str:
+    """str.capitalize(), except that a first letter in a script with no
+    case (`_CASELESS_LETTERS`) is written in its lower case:
+    str.capitalize() title-cases the letter as it stands, and a
+    Mtavruli letter's title case is itself, so 'ᲜᲘᲜᲝ' gave 'Ნინო'. The
+    46 Mtavruli letters are the only ones it changes, a Mkhedruli
+    letter being its own lower case (measured over every codepoint,
+    2026-11-12, the same 46 that #1223's test of a lower case
+    title-casing to itself reached). The one-letter guard keeps the
+    word's length should a later Unicode give a longer lower case."""
+    out = text.capitalize()
+    if (text and ord(text[0]) in _CASELESS_LETTERS
+            and len(low := text[0].lower()) == 1):
+        return low + out[1:]
+    return out
 
 
 def _past_modifiers(text: str, at: int) -> int:
@@ -742,7 +819,8 @@ def _sub_words(cap: Callable[[str], str], text: str) -> str:
     spans: list[list[int]] = []
     for match in _WORD.finditer(text):
         start, end = match.start(), _past_marks(text, match.end())
-        if spans and spans[-1][1] == start:
+        if spans and (spans[-1][1] == start
+                      or _inner_apostrophe(text, spans[-1][1], start)):
             spans[-1][1] = end
         else:
             spans.append([start, end])
@@ -752,6 +830,35 @@ def _sub_words(cap: Callable[[str], str], text: str) -> str:
         out += (text[at:start], cap(text[start:end]))
         at = end
     return "".join(out) + text[at:]
+
+
+#: The apostrophes case repair joins a word across: U+0027, U+2018 and
+#: U+2019, none of them a word character to _WORD. U+02BC, the one
+#: Ukrainian orthography prescribes, is a modifier letter, which \w
+#: matches, so it never divides a word; the fullwidth U+FF07 and the
+#: Armenian U+055A still do.
+_APOSTROPHES = frozenset("'\u2018\u2019")
+#: The Cyrillic vowels a Ukrainian (я ю є ї) or Belarusian (е ё і ю я)
+#: apostrophe stands before, marking the vowel as pronounced apart.
+#: Lower case, and composed: a decomposed ї or ё opens with і or е.
+_APOSTROPHE_VOWELS = frozenset("яюєїеёі")
+
+
+# rules/R4: "An apostrophe between a Cyrillic letter and one of the
+# vowels я, ю, є, ї, е, ё or і is part of the word's spelling" -- the
+# test _sub_words asks before dividing a word at an apostrophe.
+# decisions/R4 (#1214).
+def _inner_apostrophe(text: str, end: int, start: int) -> bool:
+    """The text between a word ending at `end` and the next starting at
+    `start` is one apostrophe standing between a Cyrillic letter (past
+    the combining marks after it) and one of _APOSTROPHE_VOWELS, so the
+    two are one word: 'МАР'ЯНА' is one word, 'О'КОННОР' two."""
+    if start != end + 1 or text[end] not in _APOSTROPHES:
+        return False
+    before = _beside(text, end, -1)
+    return (before is not None
+            and unicodedata.name(before, "").startswith("CYRILLIC")
+            and text[start].lower() in _APOSTROPHE_VOWELS)
 
 
 def _joined_whole(text: str, role: Role, lex: Lexicon) -> str | None:
@@ -776,15 +883,18 @@ def _joined_whole(text: str, role: Role, lex: Lexicon) -> str | None:
 
 
 def _cap_text(text: str, role: Role, tags: frozenset[str],
-              lex: Lexicon) -> str:
+              lex: Lexicon, *, particle: bool = True) -> str:
     # word-by-word within the token text: hyphenated names capitalize
     # both sides ("mcdole-eisenhower" -> "McDole-Eisenhower"). The
     # per-word walk is also why an UNCLASSIFIED token gets the
     # vocabulary asked per word: the parse would have made one token
     # per word of that text, so this is the granularity its answer
     # would have had.
+    # `particle=False` leaves _cap_word's particle arm out of every
+    # word of the token, and the whole-token test below with it
+    # (capitalized, _capital_openings).
     def cap(word: str) -> str:
-        return _cap_word(word, role, tags, lex)
+        return _cap_word(word, role, tags, lex, particle=particle)
 
     # A particle written with a mark ("d'", "az-", "'t", #700) is one
     # vocabulary word that the per-word walk below would split at the
@@ -796,7 +906,7 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
     # casing) the token goes to the walk exactly as before. A wholly
     # alphabetic token is one word to the walk, which asks _cap_word this
     # same arm of it, so only a token the walk could split pays here.
-    if (not text.isalpha()
+    if (particle and not text.isalpha()
             and _lowers_as_particle(_normalize(text), text, role, tags,
                                     lex)):
         return text.lower()
@@ -818,8 +928,25 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
     # -- is not a worded neighbour and must not count as one.
     named = [at for at, part in enumerate(parts)
              if any(c.isalnum() for c in part)]
-    if len(named) < 3:
+    if len(named) < 2:
         return _sub_words(cap, text)
+
+    # rules/R4: "So is a particle opening a hyphenated word" -- the
+    # first word of the opening named part, asked without the particle
+    # arm, with a named part after it; a later word of that part
+    # ('la' in "d'la-vega") is asked as any word is. decisions/R4 (#1224).
+    def opening(part: str) -> str:
+        words: list[str] = []
+
+        def first_word(word: str) -> str:
+            # a run of bare periods or underscores is no word, as it is
+            # no worded part above
+            if any(c.isalnum() for c in word):
+                words.append(word)
+            return _cap_word(word, role, tags, lex,
+                             particle=particle and len(words) > 1)
+        return _sub_words(first_word, part)
+
     # rules/R4: "Inside a hyphenated word, a part that is
     # connective vocabulary with a worded part on each side of it
     # keeps its lowercase" (#478). Decided here, not in _cap_word,
@@ -839,8 +966,66 @@ def _cap_text(text: str, role: Role, tags: frozenset[str],
                 and not _DOTTED_INITIAL.fullmatch(
                     unicodedata.normalize("NFC", part))
                 and _normalize(part) in lex._sets.conjunctions)
+        # rules/R4: "An elided particle opening a hyphenated word" keeps
+        # its lowercase, and inside one "A particle is written in
+        # lowercase" -- asked whole in every part, since the per-word
+        # walk would split it at its apostrophe and ask only its stem
+        # ('s'). decisions/R4 (#1280).
+        or (particle and part[:1] in _APOSTROPHES
+            and _lowers_as_particle(_normalize(part), part, role, tags,
+                                    lex))
+        else opening(part) if at == first
         else _sub_words(cap, part)
         for at, part in enumerate(parts))
+
+
+def _capital_openings(tokens: Sequence[Token],
+                      lex: Lexicon) -> frozenset[int]:
+    """The indexes in `tokens` of the family words repaired without the
+    particle arm: a particle its reading writes with a capital
+    (`lex._sets.capital_opening_particles`, `ter`, `der`) whose word
+    before it in the family name, as the view joins the family's words
+    (_ordered), is no particle -- by its tag or, in a hyphenated word,
+    by the vocabulary of the word's last part. Opening the family, it
+    asks the same of the word written right before it, whatever its role
+    (`Van der Walt`, the given name the parse reads `Van`), and the
+    hyphen question of the last middle word, a surname's first half the
+    parse read as a middle name (`DER ZEE, ANKE MAITLAND-VAN`).
+    A token spliced in unread (UNCLASSIFIED_TAG) carries no tag, so the
+    vocabulary answers for it, as revise() would."""
+    capital = lex._sets.capital_opening_particles
+    particles = lex._sets.particles
+
+    def is_particle(t: Token) -> bool:
+        if UNCLASSIFIED_TAG in t.tags:
+            return _normalize(t.text) in particles
+        return "particle" in t.tags
+
+    def ends_in_particle(t: Token) -> bool:
+        return ("-" in t.text
+                and _normalize(t.text.rsplit("-", 1)[-1]) in particles)
+
+    def after_particle(t: Token) -> bool:
+        return is_particle(t) or ends_in_particle(t)
+
+    last_middle = next(
+        (t for t in reversed(tokens) if t.role is Role.MIDDLE), None)
+    family = [(i, t) for i, t in enumerate(tokens) if t.role is Role.FAMILY]
+    out: set[int] = set()
+    before: Token | None = None
+    # folded words first, as _ordered lays the family out (a stable sort)
+    for i, t in sorted(family, key=lambda p: FOLDED_TAG not in p[1].tags):
+        if before is None:
+            follows = ((i > 0 and after_particle(tokens[i - 1]))
+                       or (last_middle is not None
+                           and ends_in_particle(last_middle)))
+        else:
+            follows = after_particle(before)
+        if (not follows and is_particle(t)
+                and _normalize(t.text) in capital):
+            out.add(i)
+        before = t
+    return frozenset(out)
 
 
 def _split_pairs(tokens: tuple[Token, ...], repaired: tuple[Token, ...],
@@ -888,6 +1073,7 @@ def _split_pairs(tokens: tuple[Token, ...], repaired: tuple[Token, ...],
 def _in_one_case(text: str) -> bool:
     """R5's test: `text` is written all upper or all lower (a caseless
     text is both, and so passes)."""
+    text = text.translate(_CASELESS_LETTERS)
     return text in (text.upper(), text.lower())
 
 
@@ -970,12 +1156,28 @@ def capitalized(name: ParsedName, lexicon: Lexicon | None, *,
     # business re-spelling it ('EdD' stays 'EdD', where the acronym
     # clause would write 'EDD'). The cost is the garbled spelling kept
     # with the deliberate one ('Iii' stays 'Iii'); force repairs both.
+    # rules/R12: "the word is written as a name word is where the word
+    # before it in the family name" is no particle -- repaired with the
+    # particle arm left out; a loop over the family's words first, so a
+    # name whose ASCII family holds no such word pays no frame for it
+    # (the fold below is _normalize's, in str methods, for an ASCII
+    # word). decisions/R12 (#1224).
+    openings: frozenset[int] = frozenset()
+    capital = lex._sets.capital_opening_particles
+    if capital:
+        for t in name.tokens:
+            if (t.role is Role.FAMILY
+                    and (t.text.lower().strip(FULL_STOPS) if t.text.isascii()
+                         else _normalize(t.text)) in capital):
+                openings = _capital_openings(name.tokens, lex)
+                break
     new_tokens = tuple(
         t if (not force and t.role is Role.SUFFIX
               and not _in_one_case(t.text))
-        else Token(_cap_text(t.text, t.role, t.tags, lex),
+        else Token(_cap_text(t.text, t.role, t.tags, lex,
+                             particle=i not in openings),
                    t.span, t.role, t.tags, t.reading)
-        for t in name.tokens)
+        for i, t in enumerate(name.tokens))
     # rules/R4: "Repair changes case and nothing else" -- and a
     # credential split across a space (rules/S12) is repaired as its
     # one-word twin is, the pair's fold asked once; a loop over the

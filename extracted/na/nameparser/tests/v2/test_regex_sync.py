@@ -69,11 +69,17 @@ def test_dotted_initial_is_the_period_alternative_of_initial() -> None:
 # None for a pattern that is its own only copy.
 _SOURCES: dict[tuple[str, str], tuple[str, str] | None] = {
     ("_vocab", "_PERIOD_ABBREV"): None,
+    # rules/H2's Brahmic veto (#1191), and the SAME object imported for
+    # is_leading_title's inline copy of the shape test
+    # (derived from _policy._SCRIPT_PROPERTIES' spells_initials, #1256)
+    ("_vocab", "_SPELLED_INITIAL"): None,
+    ("_pieces", "_SPELLED_INITIAL"): ("_vocab", "_SPELLED_INITIAL"),
     # rules/H5's trailing shape, _PERIOD_ABBREV widened to an
     # abbreviation written joined or hyphenated (#1116)
     ("_vocab", "_TRAILING_TITLE_SHAPE"): None,
-    # SAME object, imported for H5's trailing chain
-    ("_pieces", "_TRAILING_TITLE_SHAPE"): ("_vocab", "_TRAILING_TITLE_SHAPE"),
+    # SAME object, imported for classify's CHAIN_TITLE_TAG, the word
+    # test of H5's trailing chain (#1171)
+    ("_classify", "_TRAILING_TITLE_SHAPE"): ("_vocab", "_TRAILING_TITLE_SHAPE"),
     # rules/H5's listed joined title (#1104's narrow half)
     ("_vocab", "_JOINED_WORD"): None,
     # SAME object, imported for classify's JOINED_TITLE_TAG
@@ -90,14 +96,24 @@ _SOURCES: dict[tuple[str, str], tuple[str, str] | None] = {
     # shape test), so it is visible under both module names and the
     # completeness scan below sees it twice.
     ("_pieces", "_PERIOD_ABBREV"): ("_vocab", "_PERIOD_ABBREV"),
-    # the same object again: assemble imports it to name a title read
-    # by rules/H2's shape (`Token.reading`, 3.0)
-    ("_assemble", "_PERIOD_ABBREV"): ("_vocab", "_PERIOD_ABBREV"),
     # `split_pair`'s two halves, the Ph./D. split credential (#752;
     # declared under _group until then, which had stopped holding them)
     ("_vocab", "_PH"): None,
     ("_vocab", "_D"): None,
     ("_vocab", "_DOTTED"): None,
+    # rules/T7's run of single letters and one letter of it (#1296);
+    # assemble imports the SAME objects to part a given name, and
+    # render copies them by hand for initials()
+    ("_vocab", "_LETTER_RUN"): None,
+    ("_vocab", "_GLUED_CHUNK"): None,
+    ("_vocab", "_GLUED_WORD"): None,
+    ("_vocab", "_GLUED_RUN"): None,
+    ("_vocab", "GLUED_SHAPE"): None,
+    ("_vocab", "_RUN_LETTER"): None,
+    ("_assemble", "_LETTER_RUN"): ("_vocab", "_LETTER_RUN"),
+    ("_assemble", "_RUN_LETTER"): ("_vocab", "_RUN_LETTER"),
+    ("_render", "_LETTER_RUN"): ("_vocab", "_LETTER_RUN"),
+    ("_render", "_RUN_LETTER"): ("_vocab", "_RUN_LETTER"),
     # #544: the chunked sibling of _DOTTED ('M.Eng.'), S3's period gate
     # for a member with a lower-case tail
     ("_vocab", "_CHUNKED"): None,
@@ -239,6 +255,23 @@ def test_comma_char_matches_the_pipeline_comma_set() -> None:
     from nameparser._pipeline._state import COMMA_CHARS
 
     assert set(_render._COMMA_CHAR.pattern.strip("[]")) == set(COMMA_CHARS)
+    assert set(_render._COMMAS) == set(COMMA_CHARS)
+    # the space-before-comma collapse reads every member too (#1202's
+    # follow-up: it read the ASCII comma alone)
+    for comma in COMMA_CHARS:
+        assert _render._SPACE_BEFORE_COMMA.sub(r"\1", f"a {comma}b") == f"a{comma}b"
+
+
+def test_render_writes_back_every_comma_and_divider_tokenize_reads() -> None:
+    # rules/R6 keeps the separator as written, so each comma and dot
+    # divider the tokenizer divides at needs a written form in _render; a comma
+    # added to COMMA_CHARS without one renders as a space (#1202)
+    from nameparser._pipeline import _tokenize
+    from nameparser._pipeline._state import COMMA_CHARS
+
+    assert set(_render._COMMA_WRITTEN) == set(COMMA_CHARS)
+    assert _render._DOT_SEPARATORS == (
+        _tokenize._NAME_DOT_SEPARATORS | _tokenize._TRANSCRIPTION_DOTS)
 
 
 def test_every_declared_pattern_still_exists() -> None:
@@ -251,3 +284,16 @@ def test_every_declared_pattern_still_exists() -> None:
                    if not isinstance(getattr(_MODULES[where[0]], where[1],
                                              None), re.Pattern))
     assert not stale, f"_SOURCES entries naming no compiled pattern: {stale}"
+
+
+def test_render_mongolian_letter_class_matches_tokenize() -> None:
+    # render's collapse keeps a U+202F between two Mongolian letters
+    # (the T6 join); its class is a hand copy of tokenize's predicate
+    import re
+    from nameparser._pipeline import _tokenize
+
+    letter = re.compile(_render._MONGOLIAN_LETTER)
+    for cp in range(0x1700, 0x1900):
+        ch = chr(cp)
+        assert bool(letter.fullmatch(ch)) == _tokenize._mongolian_letter(ch), (
+            hex(cp))

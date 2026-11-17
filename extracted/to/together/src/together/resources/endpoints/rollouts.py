@@ -71,6 +71,8 @@ class RolloutsResource(SyncAPIResource):
         canary: CanaryConfigParam | Omit = omit,
         final_source_replicas: int | Omit = omit,
         final_target_replicas: int | Omit = omit,
+        max_surge: int | Omit = omit,
+        max_unavailable: int | Omit = omit,
         metrics: Iterable[MetricRuleParam] | Omit = omit,
         rolling: RollingConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -104,25 +106,49 @@ class RolloutsResource(SyncAPIResource):
           final_source_replicas: Optional final replica count for the source deployment. Defaults to 0, which
               drains and stops the source.
 
-          final_target_replicas: Optional target replica floor at completion. Must be at least 1 when set;
-              defaults to the source deployment's replica count at create time, or to the
-              source and target deployments' combined replica count when both already stand in
-              the endpoint traffic split after a cancel. The completed target's autoscaling
-              max lands at the landing ceiling, max(this value, the source max, the target's
-              own max); the rollout may lift the target max at first wake, at the first step
-              that needs it, or at completion unless an operator changes max mid-run. The
-              lifted ceiling remains after completion, and PreviewRolloutDefaults reports a
-              coming lift as ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own
-              autoscaling min is higher keeps that floor, reported as
-              FINAL_BELOW_INHERITED_MIN. A target that starts stopped lands exactly at this
-              value; if the source min was higher, PreviewRolloutDefaults reports
-              FINAL_BELOW_SOURCE_MIN.
+          final_target_replicas: Optional target replica floor at completion. For rolling, the ladder climbs to
+              this count one replica per rung. Must be at least 1 when set; defaults to the
+              source deployment's replica count at create time, or to the source and target
+              deployments' combined replica count when both already stand in the endpoint
+              traffic split after a cancel. The completed target's autoscaling max lands at
+              the landing ceiling, max(this value, the source max, the target's own max); the
+              rollout may lift the target max at first wake, at the first step that needs it,
+              or at completion unless an operator changes max mid-run. The lifted ceiling
+              remains after completion, and PreviewRolloutDefaults reports a coming lift as
+              ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own autoscaling min
+              is higher keeps that floor, reported as FINAL_BELOW_INHERITED_MIN. A target that
+              starts stopped lands exactly at this value; if the source min was higher,
+              PreviewRolloutDefaults reports FINAL_BELOW_SOURCE_MIN.
+
+          max_surge: Optional maximum target replicas one canary step may add. No canary step raises
+              the target required replica count by more than this over the previous step (the
+              target's current count before the first). Canary steps are admitted only when
+              every raise fits. A rejection names the step, the counts, and the smallest
+              maxSurge that admits the plan. Autoscaler growth on either deployment is not
+              counted against the bound. Must be between 1 and 1000 when set. When unset, no
+              step-raise bound applies. Available on the canary strategy only for now; a
+              rolling or blue-green rollout that sets it is rejected at create and preview.
+
+          max_unavailable: Count of source replicas that may be missing or retired ahead of their
+              replacements at any one time. Defaults to 0, so the rollout waits for capacity
+              and refuses a degraded source. Spent three ways. A source already degraded at
+              create (ready below desired by at most this many) is admitted. The engine
+              retires source replicas ahead of a target raise to stay under maxSurge. When the
+              target cannot be placed, it retires source replicas to make room, and only when
+              both legs use the same GPU type; a target that cannot be placed on the source's
+              cluster gains nothing from the retire, and the rollout then pauses naming it. It
+              is a concurrent bound measured against the source's routed-share need, which
+              drops after every traffic shift, so a full cluster is walked rung by rung. The
+              last source replica is never retired before traffic moves, except at the final
+              100% rung, where the allowance may stop the source before the target's last
+              replicas are ready. A 1-replica source with maxUnavailable 1 on a full cluster
+              serves nothing while the replacement starts.
 
           metrics: Optional metric gates evaluated after each step's soak. Canary only; rejected on
               rolling and blue-green rollouts.
 
-          rolling: Rolling strategy configuration for small batches that ramp target replicas up
-              while shrinking source replicas to what their remaining traffic share needs.
+          rolling: Rolling strategy configuration. The target ramps up one replica per rung while
+              the source shrinks to what its remaining traffic share needs.
 
           extra_headers: Send extra headers
 
@@ -152,6 +178,8 @@ class RolloutsResource(SyncAPIResource):
                     "canary": canary,
                     "final_source_replicas": final_source_replicas,
                     "final_target_replicas": final_target_replicas,
+                    "max_surge": max_surge,
+                    "max_unavailable": max_unavailable,
                     "metrics": metrics,
                     "rolling": rolling,
                 },
@@ -499,6 +527,8 @@ class RolloutsResource(SyncAPIResource):
         canary: CanaryConfigParam | Omit = omit,
         final_source_replicas: int | Omit = omit,
         final_target_replicas: int | Omit = omit,
+        max_surge: int | Omit = omit,
+        max_unavailable: int | Omit = omit,
         metrics: Iterable[MetricRuleParam] | Omit = omit,
         rolling: RollingConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -533,25 +563,49 @@ class RolloutsResource(SyncAPIResource):
           final_source_replicas: Optional final replica count for the source deployment. Defaults to 0, which
               drains and stops the source.
 
-          final_target_replicas: Optional target replica floor at completion. Must be at least 1 when set;
-              defaults to the source deployment's replica count at create time, or to the
-              source and target deployments' combined replica count when both already stand in
-              the endpoint traffic split after a cancel. The completed target's autoscaling
-              max lands at the landing ceiling, max(this value, the source max, the target's
-              own max); the rollout may lift the target max at first wake, at the first step
-              that needs it, or at completion unless an operator changes max mid-run. The
-              lifted ceiling remains after completion, and PreviewRolloutDefaults reports a
-              coming lift as ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own
-              autoscaling min is higher keeps that floor, reported as
-              FINAL_BELOW_INHERITED_MIN. A target that starts stopped lands exactly at this
-              value; if the source min was higher, PreviewRolloutDefaults reports
-              FINAL_BELOW_SOURCE_MIN.
+          final_target_replicas: Optional target replica floor at completion. For rolling, the ladder climbs to
+              this count one replica per rung. Must be at least 1 when set; defaults to the
+              source deployment's replica count at create time, or to the source and target
+              deployments' combined replica count when both already stand in the endpoint
+              traffic split after a cancel. The completed target's autoscaling max lands at
+              the landing ceiling, max(this value, the source max, the target's own max); the
+              rollout may lift the target max at first wake, at the first step that needs it,
+              or at completion unless an operator changes max mid-run. The lifted ceiling
+              remains after completion, and PreviewRolloutDefaults reports a coming lift as
+              ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own autoscaling min
+              is higher keeps that floor, reported as FINAL_BELOW_INHERITED_MIN. A target that
+              starts stopped lands exactly at this value; if the source min was higher,
+              PreviewRolloutDefaults reports FINAL_BELOW_SOURCE_MIN.
+
+          max_surge: Optional maximum target replicas one canary step may add. No canary step raises
+              the target required replica count by more than this over the previous step (the
+              target's current count before the first). Canary steps are admitted only when
+              every raise fits. A rejection names the step, the counts, and the smallest
+              maxSurge that admits the plan. Autoscaler growth on either deployment is not
+              counted against the bound. Must be between 1 and 1000 when set. When unset, no
+              step-raise bound applies. Available on the canary strategy only for now; a
+              rolling or blue-green rollout that sets it is rejected at create and preview.
+
+          max_unavailable: Count of source replicas that may be missing or retired ahead of their
+              replacements at any one time. Defaults to 0, so the rollout waits for capacity
+              and refuses a degraded source. Spent three ways. A source already degraded at
+              create (ready below desired by at most this many) is admitted. The engine
+              retires source replicas ahead of a target raise to stay under maxSurge. When the
+              target cannot be placed, it retires source replicas to make room, and only when
+              both legs use the same GPU type; a target that cannot be placed on the source's
+              cluster gains nothing from the retire, and the rollout then pauses naming it. It
+              is a concurrent bound measured against the source's routed-share need, which
+              drops after every traffic shift, so a full cluster is walked rung by rung. The
+              last source replica is never retired before traffic moves, except at the final
+              100% rung, where the allowance may stop the source before the target's last
+              replicas are ready. A 1-replica source with maxUnavailable 1 on a full cluster
+              serves nothing while the replacement starts.
 
           metrics: Optional metric gates evaluated after each step's soak. Canary only; rejected on
               rolling and blue-green rollouts.
 
-          rolling: Rolling strategy configuration for small batches that ramp target replicas up
-              while shrinking source replicas to what their remaining traffic share needs.
+          rolling: Rolling strategy configuration. The target ramps up one replica per rung while
+              the source shrinks to what its remaining traffic share needs.
 
           extra_headers: Send extra headers
 
@@ -581,6 +635,8 @@ class RolloutsResource(SyncAPIResource):
                     "canary": canary,
                     "final_source_replicas": final_source_replicas,
                     "final_target_replicas": final_target_replicas,
+                    "max_surge": max_surge,
+                    "max_unavailable": max_unavailable,
                     "metrics": metrics,
                     "rolling": rolling,
                 },
@@ -790,6 +846,8 @@ class AsyncRolloutsResource(AsyncAPIResource):
         canary: CanaryConfigParam | Omit = omit,
         final_source_replicas: int | Omit = omit,
         final_target_replicas: int | Omit = omit,
+        max_surge: int | Omit = omit,
+        max_unavailable: int | Omit = omit,
         metrics: Iterable[MetricRuleParam] | Omit = omit,
         rolling: RollingConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -823,25 +881,49 @@ class AsyncRolloutsResource(AsyncAPIResource):
           final_source_replicas: Optional final replica count for the source deployment. Defaults to 0, which
               drains and stops the source.
 
-          final_target_replicas: Optional target replica floor at completion. Must be at least 1 when set;
-              defaults to the source deployment's replica count at create time, or to the
-              source and target deployments' combined replica count when both already stand in
-              the endpoint traffic split after a cancel. The completed target's autoscaling
-              max lands at the landing ceiling, max(this value, the source max, the target's
-              own max); the rollout may lift the target max at first wake, at the first step
-              that needs it, or at completion unless an operator changes max mid-run. The
-              lifted ceiling remains after completion, and PreviewRolloutDefaults reports a
-              coming lift as ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own
-              autoscaling min is higher keeps that floor, reported as
-              FINAL_BELOW_INHERITED_MIN. A target that starts stopped lands exactly at this
-              value; if the source min was higher, PreviewRolloutDefaults reports
-              FINAL_BELOW_SOURCE_MIN.
+          final_target_replicas: Optional target replica floor at completion. For rolling, the ladder climbs to
+              this count one replica per rung. Must be at least 1 when set; defaults to the
+              source deployment's replica count at create time, or to the source and target
+              deployments' combined replica count when both already stand in the endpoint
+              traffic split after a cancel. The completed target's autoscaling max lands at
+              the landing ceiling, max(this value, the source max, the target's own max); the
+              rollout may lift the target max at first wake, at the first step that needs it,
+              or at completion unless an operator changes max mid-run. The lifted ceiling
+              remains after completion, and PreviewRolloutDefaults reports a coming lift as
+              ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own autoscaling min
+              is higher keeps that floor, reported as FINAL_BELOW_INHERITED_MIN. A target that
+              starts stopped lands exactly at this value; if the source min was higher,
+              PreviewRolloutDefaults reports FINAL_BELOW_SOURCE_MIN.
+
+          max_surge: Optional maximum target replicas one canary step may add. No canary step raises
+              the target required replica count by more than this over the previous step (the
+              target's current count before the first). Canary steps are admitted only when
+              every raise fits. A rejection names the step, the counts, and the smallest
+              maxSurge that admits the plan. Autoscaler growth on either deployment is not
+              counted against the bound. Must be between 1 and 1000 when set. When unset, no
+              step-raise bound applies. Available on the canary strategy only for now; a
+              rolling or blue-green rollout that sets it is rejected at create and preview.
+
+          max_unavailable: Count of source replicas that may be missing or retired ahead of their
+              replacements at any one time. Defaults to 0, so the rollout waits for capacity
+              and refuses a degraded source. Spent three ways. A source already degraded at
+              create (ready below desired by at most this many) is admitted. The engine
+              retires source replicas ahead of a target raise to stay under maxSurge. When the
+              target cannot be placed, it retires source replicas to make room, and only when
+              both legs use the same GPU type; a target that cannot be placed on the source's
+              cluster gains nothing from the retire, and the rollout then pauses naming it. It
+              is a concurrent bound measured against the source's routed-share need, which
+              drops after every traffic shift, so a full cluster is walked rung by rung. The
+              last source replica is never retired before traffic moves, except at the final
+              100% rung, where the allowance may stop the source before the target's last
+              replicas are ready. A 1-replica source with maxUnavailable 1 on a full cluster
+              serves nothing while the replacement starts.
 
           metrics: Optional metric gates evaluated after each step's soak. Canary only; rejected on
               rolling and blue-green rollouts.
 
-          rolling: Rolling strategy configuration for small batches that ramp target replicas up
-              while shrinking source replicas to what their remaining traffic share needs.
+          rolling: Rolling strategy configuration. The target ramps up one replica per rung while
+              the source shrinks to what its remaining traffic share needs.
 
           extra_headers: Send extra headers
 
@@ -871,6 +953,8 @@ class AsyncRolloutsResource(AsyncAPIResource):
                     "canary": canary,
                     "final_source_replicas": final_source_replicas,
                     "final_target_replicas": final_target_replicas,
+                    "max_surge": max_surge,
+                    "max_unavailable": max_unavailable,
                     "metrics": metrics,
                     "rolling": rolling,
                 },
@@ -1218,6 +1302,8 @@ class AsyncRolloutsResource(AsyncAPIResource):
         canary: CanaryConfigParam | Omit = omit,
         final_source_replicas: int | Omit = omit,
         final_target_replicas: int | Omit = omit,
+        max_surge: int | Omit = omit,
+        max_unavailable: int | Omit = omit,
         metrics: Iterable[MetricRuleParam] | Omit = omit,
         rolling: RollingConfigParam | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -1252,25 +1338,49 @@ class AsyncRolloutsResource(AsyncAPIResource):
           final_source_replicas: Optional final replica count for the source deployment. Defaults to 0, which
               drains and stops the source.
 
-          final_target_replicas: Optional target replica floor at completion. Must be at least 1 when set;
-              defaults to the source deployment's replica count at create time, or to the
-              source and target deployments' combined replica count when both already stand in
-              the endpoint traffic split after a cancel. The completed target's autoscaling
-              max lands at the landing ceiling, max(this value, the source max, the target's
-              own max); the rollout may lift the target max at first wake, at the first step
-              that needs it, or at completion unless an operator changes max mid-run. The
-              lifted ceiling remains after completion, and PreviewRolloutDefaults reports a
-              coming lift as ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own
-              autoscaling min is higher keeps that floor, reported as
-              FINAL_BELOW_INHERITED_MIN. A target that starts stopped lands exactly at this
-              value; if the source min was higher, PreviewRolloutDefaults reports
-              FINAL_BELOW_SOURCE_MIN.
+          final_target_replicas: Optional target replica floor at completion. For rolling, the ladder climbs to
+              this count one replica per rung. Must be at least 1 when set; defaults to the
+              source deployment's replica count at create time, or to the source and target
+              deployments' combined replica count when both already stand in the endpoint
+              traffic split after a cancel. The completed target's autoscaling max lands at
+              the landing ceiling, max(this value, the source max, the target's own max); the
+              rollout may lift the target max at first wake, at the first step that needs it,
+              or at completion unless an operator changes max mid-run. The lifted ceiling
+              remains after completion, and PreviewRolloutDefaults reports a coming lift as
+              ROLLOUT_WILL_RAISE_TARGET_MAX. A pre-existing target whose own autoscaling min
+              is higher keeps that floor, reported as FINAL_BELOW_INHERITED_MIN. A target that
+              starts stopped lands exactly at this value; if the source min was higher,
+              PreviewRolloutDefaults reports FINAL_BELOW_SOURCE_MIN.
+
+          max_surge: Optional maximum target replicas one canary step may add. No canary step raises
+              the target required replica count by more than this over the previous step (the
+              target's current count before the first). Canary steps are admitted only when
+              every raise fits. A rejection names the step, the counts, and the smallest
+              maxSurge that admits the plan. Autoscaler growth on either deployment is not
+              counted against the bound. Must be between 1 and 1000 when set. When unset, no
+              step-raise bound applies. Available on the canary strategy only for now; a
+              rolling or blue-green rollout that sets it is rejected at create and preview.
+
+          max_unavailable: Count of source replicas that may be missing or retired ahead of their
+              replacements at any one time. Defaults to 0, so the rollout waits for capacity
+              and refuses a degraded source. Spent three ways. A source already degraded at
+              create (ready below desired by at most this many) is admitted. The engine
+              retires source replicas ahead of a target raise to stay under maxSurge. When the
+              target cannot be placed, it retires source replicas to make room, and only when
+              both legs use the same GPU type; a target that cannot be placed on the source's
+              cluster gains nothing from the retire, and the rollout then pauses naming it. It
+              is a concurrent bound measured against the source's routed-share need, which
+              drops after every traffic shift, so a full cluster is walked rung by rung. The
+              last source replica is never retired before traffic moves, except at the final
+              100% rung, where the allowance may stop the source before the target's last
+              replicas are ready. A 1-replica source with maxUnavailable 1 on a full cluster
+              serves nothing while the replacement starts.
 
           metrics: Optional metric gates evaluated after each step's soak. Canary only; rejected on
               rolling and blue-green rollouts.
 
-          rolling: Rolling strategy configuration for small batches that ramp target replicas up
-              while shrinking source replicas to what their remaining traffic share needs.
+          rolling: Rolling strategy configuration. The target ramps up one replica per rung while
+              the source shrinks to what its remaining traffic share needs.
 
           extra_headers: Send extra headers
 
@@ -1300,6 +1410,8 @@ class AsyncRolloutsResource(AsyncAPIResource):
                     "canary": canary,
                     "final_source_replicas": final_source_replicas,
                     "final_target_replicas": final_target_replicas,
+                    "max_surge": max_surge,
+                    "max_unavailable": max_unavailable,
                     "metrics": metrics,
                     "rolling": rolling,
                 },

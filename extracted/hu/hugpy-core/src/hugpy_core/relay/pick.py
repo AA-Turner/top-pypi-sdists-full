@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import logging
+import threading
 from typing import Any, Dict, Optional
 
 from hugpy_core.registry import registry
@@ -20,6 +21,49 @@ from hugpy_core.models.keys import model_key_forms, serveable_match
 class NoWorker(Exception):
     """No online worker can serve the requested model (or the pinned one can't)."""
     status = 404
+
+
+# ── test-fire sequestering (operator ruling 2026-11-16) ──────────────────────
+# While a test fire runs on a worker, routing must not place any OTHER call on
+# that worker. The test fire's own calls carry its job tag (request
+# metadata.test_fire.job_id) and so pass; everything else is routed elsewhere,
+# or fails fast naming the test fire. This is the test fire's ONE special
+# behaviour — it owns no relay path, no leases, no call records of its own.
+_SEQUESTERED: Dict[str, str] = {}      # worker_id -> the test-fire job_id holding it
+_SEQ_LOCK = threading.Lock()
+
+
+def sequester(worker_id: str, job_id: str) -> None:
+    """Hold ``worker_id`` for the test-fire ``job_id`` — no other call is routed there."""
+    if worker_id and job_id:
+        with _SEQ_LOCK:
+            _SEQUESTERED[worker_id] = job_id
+
+
+def release(worker_id: str, job_id: str) -> None:
+    """Release the hold if ``job_id`` still owns it (a newer job keeps its own)."""
+    with _SEQ_LOCK:
+        if _SEQUESTERED.get(worker_id) == job_id:
+            _SEQUESTERED.pop(worker_id, None)
+
+
+def sequestered_by(worker_id: str) -> Optional[str]:
+    """The test-fire job holding ``worker_id`` right now, or None."""
+    with _SEQ_LOCK:
+        return _SEQUESTERED.get(worker_id)
+
+
+def _current_test_fire_job() -> Optional[str]:
+    """The test-fire job tagged on the call being routed
+    (request_body.metadata.test_fire.job_id), or None for ordinary traffic."""
+    try:
+        from hugpy_core.calllog.call_record import current
+        row = current()
+        md = ((row or {}).get("request_body") or {}).get("metadata") or {}
+        tf = md.get("test_fire") if isinstance(md, dict) else None
+        return tf.get("job_id") if isinstance(tf, dict) else None
+    except Exception:  # noqa: BLE001 — sequestering never crashes a route
+        return None
 
 
 def _central_has(model_key: str) -> bool:
@@ -196,6 +240,9 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
             raise NoWorker(f"requested worker {pin!r} is outside the selected workers")
         if not registry.is_online(w):
             raise NoWorker(f"requested worker {pin!r} is offline")
+        holder = sequestered_by(w.get("id") or "")
+        if holder and holder != _current_test_fire_job():
+            raise NoWorker(f"requested worker {pin!r} is sequestered by test fire {holder}")
         from hugpy_core.relay.admission import is_blocked
         if is_blocked(w.get("id") or ""):
             raise NoWorker(f"requested worker {pin!r} is blocked by the operator")
@@ -218,10 +265,15 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
         # Existing allocations get first refusal. Wildcard can establish a new
         # temporary allocation when no allocated box is eligible or can serve.
         # Within each group, a healthy resident wins before any cold load.
-        eligible = [w for w in registry.all_workers()
-                    if selected_worker(w) and registry.is_online(w) and registry.effective_pool(w) == (pool or "")
-                    and not is_blocked(w.get("id") or "")
-                    and (w.get("id") or "") not in pair_blocked and allowed(w)]
+        cur_job = _current_test_fire_job()
+        candidates = [w for w in registry.all_workers()
+                      if selected_worker(w) and registry.is_online(w) and registry.effective_pool(w) == (pool or "")
+                      and not is_blocked(w.get("id") or "")
+                      and (w.get("id") or "") not in pair_blocked and allowed(w)]
+        # A worker held by a test fire takes no other traffic (only that job's
+        # own tagged calls, which always pin, would be let through).
+        sequestered = [w for w in candidates if sequestered_by(w.get("id") or "") not in (None, cur_job)]
+        eligible = [w for w in candidates if sequestered_by(w.get("id") or "") in (None, cur_job)]
         allocated = [w for w in eligible if pairs.get(w.get("id") or "", (False, False, False))[0]]
         groups = [allocated, [w for w in eligible if w not in allocated]] if allocated else [eligible]
         w = None
@@ -255,6 +307,12 @@ def pick(model_key: str, pool: str = "", pin: Optional[str] = None,
                 break
         if w is None:
             scope = 'selected ' if selected is not None else ''
+            held = [(box.get("name") or box.get("id"), sequestered_by(box.get("id") or ""))
+                    for box in sequestered if _serves(box, model_key, wanted)]
+            if held:
+                where = "; ".join(f"{name} is sequestered by test fire {job}" for name, job in held)
+                raise NoWorker(f"Unknown model {model_key!r}: no eligible {scope}worker can serve it "
+                               f"({where})")
             raise NoWorker(f"Unknown model {model_key!r}: no eligible {scope}worker can serve it")
     return remember(w)
 

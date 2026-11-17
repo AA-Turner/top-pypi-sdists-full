@@ -24,7 +24,7 @@ class TracerSession(BaseModel):
 
     tenant_id: str
 
-    completion_cost: Optional[str] = None
+    completion_cost: Optional[float] = None
 
     completion_tokens: Optional[int] = None
 
@@ -54,9 +54,17 @@ class TracerSession(BaseModel):
 
     latency_p99: Optional[float] = None
 
+    longlived_ttl_days: Optional[int] = None
+    """Retention in days for traces while trace_tier is longlived.
+
+    One of the deployment's allowed values (allowed_longlived_ttl_days in /info), up
+    to the maximum of the deployment. The value is kept while trace_tier is
+    shortlived. Null means the project uses the workspace retention.
+    """
+
     name: Optional[str] = None
 
-    prompt_cost: Optional[str] = None
+    prompt_cost: Optional[float] = None
 
     prompt_tokens: Optional[int] = None
 
@@ -74,7 +82,7 @@ class TracerSession(BaseModel):
 
     test_run_number: Optional[int] = None
 
-    total_cost: Optional[str] = None
+    total_cost: Optional[float] = None
 
     total_tokens: Optional[int] = None
 

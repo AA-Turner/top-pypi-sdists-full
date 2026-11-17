@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.2.1
+Version: 13.3.0
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -87,7 +87,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
 
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.2.1-blue)](https://pypi.org/project/snaptrade-python-sdk/13.2.1)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.3.0-blue)](https://pypi.org/project/snaptrade-python-sdk/13.3.0)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -104,6 +104,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
   * [Personal API Key Auth authentication](#personal-api-key-auth-authentication)
   * [OAuth Auth authentication](#oauth-auth-authentication)
   * [Device login](#device-login)
+  * [Browser OAuth and explicit refresh](#browser-oauth-and-explicit-refresh)
 - [Getting Started](#getting-started)
 - [Request timeouts](#request-timeouts)
 - [Async](#async)
@@ -183,7 +184,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.2.1
+pip install snaptrade-python-sdk==13.3.0
 ```
 
 ## Authentication<a id="authentication"></a>
@@ -256,6 +257,32 @@ interrupt polling waits. An in-flight request is bounded by the HTTP timeout
 (30 seconds by default) and remaining authorization lifetime. Catch
 `SnapTradeOAuthDeviceError` and inspect `.error` for denial, expiry or cancellation.
 Applications own token storage and refresh, including refresh-token rotation.
+
+### Browser OAuth and explicit refresh<a id="browser-oauth-and-explicit-refresh"></a>
+
+Configure confidential-client credentials on your backend. The synchronous helper generates fresh state and S256 PKCE and uses server discovery by default. Run blocking calls in a worker thread in asynchronous apps.
+
+```python
+from snaptrade_client import SnapTrade, SnapTradeAuth, SnapTradeOAuth
+
+oauth = SnapTradeOAuth(
+    client_id=client_id, client_secret=client_secret, redirect_uri=redirect_uri
+)
+flow = oauth.create_authorization_url(scope="read")
+# Save flow in the user's login session, then redirect to flow.url.
+# In the callback, handle OAuth errors, validate state, and consume that saved flow.
+tokens = oauth.exchange_code(code=code, code_verifier=flow.code_verifier)
+client = SnapTrade(auth=SnapTradeAuth.oauth(access_token=tokens.access_token))
+
+# Refresh explicitly and atomically replace the stored response, including the rotated refresh token.
+assert tokens.refresh_token is not None
+refreshed = oauth.refresh_token(refresh_token=tokens.refresh_token)
+refreshed_client = SnapTrade(
+    auth=SnapTradeAuth.oauth(access_token=refreshed.access_token)
+)
+```
+
+Token responses include `access_token`, `refresh_token`, `expires_in`, `token_type`, `scope`, and `raw`. Applications own token storage, callback validation, refresh scheduling and concurrency. A configured secret defaults to `client_secret_basic`; public clients omit the secret. Browser code must never receive a confidential-client secret.
 
 ## Getting Started<a id="getting-started"></a>
 

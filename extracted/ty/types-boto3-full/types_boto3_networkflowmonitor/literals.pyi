@@ -23,10 +23,14 @@ else:
 
 __all__ = (
     "DestinationCategoryType",
+    "FilterOperatorType",
+    "GetMonitorScopeSuggestionsPaginatorName",
     "GetQueryResultsMonitorTopContributorsPaginatorName",
+    "GetQueryResultsPerformanceMonitorPaginatorName",
     "GetQueryResultsWorkloadInsightsTopContributorsDataPaginatorName",
     "GetQueryResultsWorkloadInsightsTopContributorsPaginatorName",
     "ListMonitorsPaginatorName",
+    "ListPerformanceMonitorsPaginatorName",
     "ListScopesPaginatorName",
     "MetricUnitType",
     "MonitorLocalResourceTypeType",
@@ -34,9 +38,14 @@ __all__ = (
     "MonitorRemoteResourceTypeType",
     "MonitorStatusType",
     "NetworkFlowMonitorServiceName",
+    "OrgMembershipStatusType",
     "PaginatorName",
+    "PerformanceMonitorQueryTypeType",
+    "PerformanceMonitorTargetTypeType",
+    "PerformanceMonitorTypeType",
     "QueryStatusType",
     "ResourceServiceName",
+    "ScopeCoverageStatusType",
     "ScopeStatusType",
     "ServiceName",
     "TargetTypeType",
@@ -46,15 +55,22 @@ __all__ = (
 DestinationCategoryType = Literal[
     "AMAZON_DYNAMODB",
     "AMAZON_S3",
+    "AWS_SERVICE",
+    "INTERNET",
     "INTER_AZ",
     "INTER_REGION",
     "INTER_VPC",
     "INTRA_AZ",
+    "LOCAL_ZONE",
+    "TRANSIT_GATEWAY",
     "UNCLASSIFIED",
 ]
+FilterOperatorType = Literal["CONTAINS", "EQUALS", "IN", "NOT_EQUALS"]
+GetMonitorScopeSuggestionsPaginatorName = Literal["get_monitor_scope_suggestions"]
 GetQueryResultsMonitorTopContributorsPaginatorName = Literal[
     "get_query_results_monitor_top_contributors"
 ]
+GetQueryResultsPerformanceMonitorPaginatorName = Literal["get_query_results_performance_monitor"]
 GetQueryResultsWorkloadInsightsTopContributorsDataPaginatorName = Literal[
     "get_query_results_workload_insights_top_contributors_data"
 ]
@@ -62,6 +78,7 @@ GetQueryResultsWorkloadInsightsTopContributorsPaginatorName = Literal[
     "get_query_results_workload_insights_top_contributors"
 ]
 ListMonitorsPaginatorName = Literal["list_monitors"]
+ListPerformanceMonitorsPaginatorName = Literal["list_performance_monitors"]
 ListScopesPaginatorName = Literal["list_scopes"]
 MetricUnitType = Literal[
     "Bits",
@@ -100,7 +117,12 @@ MonitorRemoteResourceTypeType = Literal[
     "AWS::AWSService", "AWS::AvailabilityZone", "AWS::EC2::Subnet", "AWS::EC2::VPC", "AWS::Region"
 ]
 MonitorStatusType = Literal["ACTIVE", "DELETING", "ERROR", "INACTIVE", "PENDING"]
+OrgMembershipStatusType = Literal["IN_ORG", "NOT_IN_ORG", "UNKNOWN"]
+PerformanceMonitorQueryTypeType = Literal["TOP_PATHS"]
+PerformanceMonitorTargetTypeType = Literal["AWS::EC2::VPC"]
+PerformanceMonitorTypeType = Literal["VPC"]
 QueryStatusType = Literal["CANCELED", "FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]
+ScopeCoverageStatusType = Literal["COMPLETE", "INCOMPLETE", "PENDING", "STALE"]
 ScopeStatusType = Literal["DEACTIVATED", "DEACTIVATING", "FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["ACCOUNT"]
 WorkloadInsightsMetricType = Literal["DATA_TRANSFERRED", "RETRANSMISSIONS", "TIMEOUTS"]
@@ -214,6 +236,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -398,6 +421,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -465,6 +489,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -546,9 +571,12 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "get_monitor_scope_suggestions",
     "get_query_results_monitor_top_contributors",
+    "get_query_results_performance_monitor",
     "get_query_results_workload_insights_top_contributors",
     "get_query_results_workload_insights_top_contributors_data",
     "list_monitors",
+    "list_performance_monitors",
     "list_scopes",
 ]

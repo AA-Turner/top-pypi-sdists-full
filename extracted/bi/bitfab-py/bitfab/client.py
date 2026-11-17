@@ -35,6 +35,7 @@ from typing_extensions import ParamSpec
 
 from bitfab import (
     baml_auto_trace,
+    github_calls,
     google_calls,
     jev,
     provider_calls,
@@ -152,8 +153,9 @@ CAPTURE_ENABLED_ENV = "BITFAB_CAPTURE_ENABLED"
 MAX_CAPTURED_SUBTREE_SPANS_ENV = "BITFAB_MAX_CAPTURED_SUBTREE_SPANS"
 
 DISABLED_INTEGRATIONS_ENV = "BITFAB_DISABLED_INTEGRATIONS"
+ENABLED_INTEGRATIONS_ENV = "BITFAB_ENABLED_INTEGRATIONS"
 CONTENT_WITHHELD_KEY = "content_withheld_while_integration_off"
-OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail"})
+OFF_BY_DEFAULT_INTEGRATIONS = frozenset({"gmail", "github"})
 KNOWN_INTEGRATIONS = provider_calls.INTEGRATION_NAMES | OFF_BY_DEFAULT_INTEGRATIONS
 _TRUE_ENV_VALUES = frozenset({"1", "true", "yes"})
 _FALSE_ENV_VALUES = frozenset({"0", "false", "no"})
@@ -170,9 +172,23 @@ def read_positive_int_env(name: str) -> int | None:
     return value if value > 0 else None
 
 
-def resolve_disabled_integrations(
+def _integration_names_from_env(name: str, known: frozenset[str]) -> set[str]:
+    raw = os.environ.get(name, "")
+    names = {part.strip().lower() for part in raw.split(",") if part.strip()}
+    unknown = sorted(names - known)
+    if unknown:
+        warn_once(
+            f"unknown-integrations:{name}:{','.join(unknown)}",
+            f"{name} names {', '.join(unknown)}, "
+            f"which the SDK does not know; ignoring it. Known integrations are "
+            f"{', '.join(sorted(known))}.",
+        )
+    return names & known
+
+
+def resolve_integrations(
     integrations: Mapping[str, bool] | None,
-) -> frozenset[str]:
+) -> tuple[frozenset[str], frozenset[str]]:
     known = KNOWN_INTEGRATIONS
     in_code = dict(integrations or {})
     unknown = sorted(set(in_code) - known)
@@ -181,25 +197,26 @@ def resolve_disabled_integrations(
             f"Bitfab(integrations=...) got {', '.join(unknown)}; "
             f"known integrations are {', '.join(sorted(known))}."
         )
-    raw = os.environ.get(DISABLED_INTEGRATIONS_ENV, "")
-    from_env = {name.strip().lower() for name in raw.split(",") if name.strip()}
-    unknown_in_env = sorted(from_env - known)
-    if unknown_in_env:
-        warn_once(
-            f"unknown-disabled-integrations:{','.join(unknown_in_env)}",
-            f"{DISABLED_INTEGRATIONS_ENV} names {', '.join(unknown_in_env)}, "
-            f"which the SDK does not know; ignoring it. Known integrations are "
-            f"{', '.join(sorted(known))}.",
-        )
-    return frozenset(
-        name
-        for name in known
-        if (
-            not in_code[name]
-            if name in in_code
-            else name in from_env or name in OFF_BY_DEFAULT_INTEGRATIONS
-        )
-    )
+    turned_off = _integration_names_from_env(DISABLED_INTEGRATIONS_ENV, known)
+    turned_on = _integration_names_from_env(ENABLED_INTEGRATIONS_ENV, known)
+    disabled: set[str] = set()
+    off_by_default: set[str] = set()
+    for name in known:
+        if name in in_code:
+            if not in_code[name]:
+                disabled.add(name)
+        elif name in turned_off:
+            disabled.add(name)
+        elif name in OFF_BY_DEFAULT_INTEGRATIONS and name not in turned_on:
+            disabled.add(name)
+            off_by_default.add(name)
+    return frozenset(disabled), frozenset(off_by_default)
+
+
+def resolve_disabled_integrations(
+    integrations: Mapping[str, bool] | None,
+) -> frozenset[str]:
+    return resolve_integrations(integrations)[0]
 
 
 def read_boolean_env(name: str) -> bool | None:
@@ -1457,13 +1474,25 @@ class Bitfab:
                 span, and replay cannot mock them, and a model client no
                 Bitfab client has on is never patched. ``gmail`` (Google's
                 Python client) is off by default because mail is sensitive;
-                True records each Gmail API call as a span named for its
-                method. Whatever this says, a Gmail call made during a replay
-                never reaches Google: the Gmail sandbox answers it. None
+                True, or ``BITFAB_ENABLED_INTEGRATIONS=gmail``, records each
+                Gmail API call as a span named for its method, which the Gmail
+                sandbox builds its starting mailbox from on replay. While it is
+                off only by default, the first Gmail call inside a trace warns
+                once with how to turn it on; turning it off by name silences
+                that. ``github`` (calls to ``api.github.com`` through
+                ``requests``) is off by default because repos hold private
+                code; True records each call as a span named for its
+                operation (``github.contents.get``) and records the GitHub
+                snapshot (every branch and tag head) the first time a trace
+                calls a repo. Whatever this says, a Gmail or GitHub call made
+                during a replay never reaches the service's live state: its
+                sandbox answers it. None
                 (default) or a name left out: off when
-                ``BITFAB_DISABLED_INTEGRATIONS`` lists it (comma separated);
-                a name given here wins over that variable. Raises ValueError
-                for a name the SDK does not know.
+                ``BITFAB_DISABLED_INTEGRATIONS`` lists it, on when
+                ``BITFAB_ENABLED_INTEGRATIONS`` lists it (both comma
+                separated; off wins when both do); a name given here wins
+                over both variables. Raises ValueError for a name the SDK
+                does not know.
             enabled: Deprecated alias for ``capture_enabled``. Warns once.
         """
         if enabled is not None:
@@ -1484,7 +1513,10 @@ class Bitfab:
         self._capture_enabled_in_code = capture_enabled
         self._capture_enabled_from_env: bool | None = None
         self._strict = strict
-        self._disabled_integrations = resolve_disabled_integrations(integrations)
+        (
+            self._disabled_integrations,
+            self._integrations_off_by_default,
+        ) = resolve_integrations(integrations)
         self._patched_integrations = (
             provider_calls.INTEGRATION_NAMES - self._disabled_integrations
         )
@@ -1534,6 +1566,7 @@ class Bitfab:
         provider_calls.instrument_loaded_clients()
         service_calls.register_client(self)
         google_calls.install()
+        github_calls.install()
         start_commit_ref_resolution()
         self._simulation_plan.refresh()
 
@@ -2342,6 +2375,8 @@ class Bitfab:
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
         baseline_experiment_id: str | None = None,
+        skip_experiment_group: bool = False,
+        agent_session_id: str | None = None,
         dataset_id: str | None = None,
         dataset_ids: list[str] | None = None,
         grader_ids: list[str] | None = None,
@@ -2400,7 +2435,7 @@ class Bitfab:
                 because either source already determines how many traces
                 replay. Supplying ``trace_ids`` also emits a warning.
             trace_ids: Optional list of trace IDs to replay (max 100)
-            name: What this run is testing, in a few words, such as
+            name: What this run changes, in a few words, such as
                 'baseline' or 'shorter system prompt'. Bitfab records the
                 commit, branch, tree state, datasets, and who ran it with every
                 experiment, so do not repeat them here.
@@ -2445,18 +2480,31 @@ class Bitfab:
                 ``"release/2.3"``, or a commit SHA. A branch that exists only on
                 the remote is read as ``origin/<name>``. A name git cannot
                 resolve is refused.
-            experiment_group_id: Optional UUID that groups multiple replay runs
-                into a single experiment batch. The run joins that group, and an
-                ID no group has yet creates it.
-            experiment_group_name: Optional name for the experiment group,
-                1 to 120 characters. Applied when this replay creates the group
-                or the group has no name yet. A group that already has a name
-                keeps it. Requires ``experiment_group_id``.
+            experiment_group_id: UUID of the experiment group this run
+                belongs to. An experiment group is one series of experiments
+                testing one thing. Required, except for a dry run, a resume, or
+                with ``skip_experiment_group``: reuse the ID of the group whose
+                runs test the same thing, or pass a new UUID with
+                ``experiment_group_name`` to start a group. A replay without it
+                is refused before any request is sent.
+            experiment_group_name: Name for the experiment group, 1 to 120
+                characters, named after what this run tests. Applied when this
+                replay creates the group or the group has no name yet. A group
+                that already has a name keeps it. Requires
+                ``experiment_group_id``.
             baseline_experiment_id: Optional UUID of an earlier experiment to
                 compare this run against. When set, the run's summary measures
                 against that experiment instead of the first finished
                 experiment in its group or the original traces. The server
                 refuses an experiment outside your organization.
+            skip_experiment_group: Runs without an experiment group, for
+                scripts and schedules whose runs should not be grouped. Cannot
+                be combined with ``experiment_group_id`` or
+                ``experiment_group_name``.
+            agent_session_id: ID of the coding agent session that launched
+                this run, 1 to 255 characters, stored on the experiment. When
+                not given, the first non-empty of ``CLAUDE_CODE_SESSION_ID``,
+                ``CODEX_THREAD_ID`` and ``AGENT_SESSION_ID`` is used.
             dataset_id: Optional UUID of the dataset this replay runs against.
                 Mutually exclusive with ``dataset_ids``. Stored on the resulting
                 experiment for durable dataset attribution; validated
@@ -2512,8 +2560,8 @@ class Bitfab:
                 each item, keeping state for the length of the item so a write
                 followed by a read sees the write (see :class:`Sandbox`). A
                 sandbox that matches a call answers it before any mock override
-                or ``mock`` strategy. Built-in sandboxes (the Gmail sandbox)
-                are always on; passing one with the same name replaces it.
+                or ``mock`` strategy. Built-in sandboxes (the Gmail and
+                GitHub sandboxes) are always on; passing one with the same name replaces it.
             experimental_selective_replay: Opt-in must_run manifest. The
                 server protects required subtrees and ancestors, combining them
                 with each trace's assertions and recorded
@@ -2632,6 +2680,8 @@ class Bitfab:
             experiment_group_id=experiment_group_id,
             experiment_group_name=experiment_group_name,
             baseline_experiment_id=baseline_experiment_id,
+            skip_experiment_group=skip_experiment_group,
+            agent_session_id=agent_session_id,
             dataset_id=dataset_id,
             dataset_ids=dataset_ids,
             grader_ids=grader_ids,
@@ -6051,7 +6101,9 @@ class Bitfab:
             span_data[CONTENT_WITHHELD_KEY] = service_calls.content_withheld.get()
         else:
             span_data.update(
-                self._span_content(raw_args, raw_kwargs, result, on_payload_bytes)
+                self._span_content(
+                    raw_args, raw_kwargs, result, on_payload_bytes=on_payload_bytes
+                )
             )
 
         if function_name is not None:

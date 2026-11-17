@@ -367,6 +367,29 @@ class TestLogreaderFormats(unittest.TestCase):
         self.assertEqual(outp.timestamp_format, cantools.logreader.TimestampFormat.ABSOLUTE)
         self.assertEqual(outp.timestamp.tzinfo, utc_plus(2))
 
+    def test_candump_compact_log_zero_based_timestamp(self):
+        parser = cantools.logreader.Parser(tz=datetime.timezone.utc)
+        first = parser.parse('(000.000000) vcan0 123#01')
+        later = parser.parse('(1234.567890) vcan0 123#02')
+        self.assertEqual(first.timestamp_format, cantools.logreader.TimestampFormat.RELATIVE)
+        self.assertEqual(first.timestamp, datetime.timedelta())
+        self.assertEqual(later.timestamp_format, cantools.logreader.TimestampFormat.RELATIVE)
+        self.assertEqual(later.timestamp, datetime.timedelta(seconds=1234, microseconds=567890))
+
+    def test_candump_compact_log_zero_padded_epoch_timestamp(self):
+        parser = cantools.logreader.Parser(tz=datetime.timezone.utc)
+        frame = parser.parse('(0000000001.000000) vcan0 123#01')
+        self.assertEqual(frame.timestamp_format, cantools.logreader.TimestampFormat.ABSOLUTE)
+        self.assertEqual(frame.timestamp, datetime.datetime(1970, 1, 1, 0, 0, 1,
+                                                            tzinfo=datetime.timezone.utc))
+
+    def test_candump_log_absolute_timestamp_with_nanoseconds(self):
+        parser = cantools.logreader.Parser()
+        frame = parser.parse('(2020-12-19 12:04:45.485261999)  vcan0  0C8  [1]  F0')
+        self.assertEqual(frame.timestamp_format, cantools.logreader.TimestampFormat.ABSOLUTE)
+        self.assertEqual(frame.timestamp, datetime.datetime(2020, 12, 19, 12, 4, 45, 485261))  # noqa: DTZ001
+        self.assertEqual(frame.data, b'\xf0')
+
     def test_candump_log_absolute_timestamp(self):
         parser = cantools.logreader.Parser()
 

@@ -80,7 +80,7 @@ def pin_inode(lock_file: str) -> Generator[int | None]:
     # inside the block, gives up unless it read the yielded inode, and breaks the marker before leaving can rely on the
     # number.
     #
-    # :param lock_file: path to the lock file about to be read and perhaps broken.
+    # :param lock_file: path to the lock file to read and, if stale, break.
     #
     # :returns: the pinned inode number, or ``None`` where nothing can be pinned. Windows cannot rename a file this
     #     process holds open, so it needs no pin. Without ``O_PATH`` a symlink or a socket cannot be opened.
@@ -322,6 +322,21 @@ def _exchange_until_aside(lock_file: str, aside: str, own: os.stat_result) -> bo
     return True
 
 
+def write_at_start(fd: int, data: bytes) -> None:  # pragma: win32 no cover
+    # Overwrite the start of *fd* with *data*. GraalPy 25.4.4 has no os.pwrite, so there the descriptor is rewound and
+    # written instead. Nothing reads the offset that leaves behind: the caller truncates and closes the descriptor next.
+    #
+    # :param fd: file descriptor open for writing.
+    # :param data: bytes to write at offset zero.
+    #
+    # :raises OSError: if the write fails.
+    if (pwrite := getattr(os, "pwrite", None)) is not None:
+        pwrite(fd, data, 0)
+    else:
+        os.lseek(fd, 0, os.SEEK_SET)
+        write_all(fd, data)
+
+
 def foreign_directory_owner(directory: os.stat_result, parent: os.stat_result) -> int | None:
     # Return the uid that owns *directory* when another account controls it under a sticky parent.
     #
@@ -349,12 +364,16 @@ if sys.platform == "win32":  # pragma: win32 cover
         # A rename by path waits on a Level 1 or batch oplock holder until it answers or closes. Opening first with
         # FILE_COMPLETE_IF_OPLOCKED turns that wait into BlockingIOError, and the open handle shares delete, so the
         # rename then proceeds. Imported here because _windows imports this module.
-        from filelock._windows import open_for_delete_without_oplock_wait  # ruff:ignore[import-outside-top-level]
+        from ._windows import (  # ruff:ignore[import-outside-top-level]  # import cycle
+            open_for_delete_without_oplock_wait,
+        )
 
         return os.fdopen(open_for_delete_without_oplock_wait(path), "rb")
 
     def unlink_path(path: str) -> None:
-        from filelock._windows import unlink_without_oplock_wait  # ruff:ignore[import-outside-top-level]  # _windows binds Windows-only APIs on import
+        from ._windows import (  # ruff:ignore[import-outside-top-level]  # import cycle
+            unlink_without_oplock_wait,
+        )
 
         unlink_without_oplock_wait(path)
 
@@ -399,4 +418,5 @@ __all__ = [
     "touch",
     "unlink_path",
     "write_all",
+    "write_at_start",
 ]

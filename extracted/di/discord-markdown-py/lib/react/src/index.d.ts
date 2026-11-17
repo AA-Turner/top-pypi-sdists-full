@@ -12,9 +12,9 @@ import type {
 	Mention,
 	Paragraph,
 	Quote,
-	Small,
 	Spoiler,
 	Strikethrough,
+	Subtext,
 	Text,
 	Timestamp,
 	Underline,
@@ -64,9 +64,9 @@ export type HeadingProps = NodeRenderPropsWithChildren<
 >;
 export type ListProps = NodeRenderPropsWithChildren<List, List["value"]>;
 export type QuoteProps = NodeRenderPropsWithChildren<Quote>;
-export type SmallProps = NodeRenderPropsWithChildren<Small>;
+export type SubtextProps = NodeRenderPropsWithChildren<Subtext>;
 
-export type BlockProps = HeadingProps | ListProps | QuoteProps | SmallProps;
+export type BlockProps = HeadingProps | ListProps | QuoteProps | SubtextProps;
 
 // top-level
 export type TextProps = NodeRenderPropsWithChildren<Text>;
@@ -100,7 +100,7 @@ export type RendererProps = {
 	heading: HeadingProps;
 	list: ListProps;
 	quote: QuoteProps;
-	small: SmallProps;
+	subtext: SubtextProps;
 
 	// top-level
 	text: TextProps;

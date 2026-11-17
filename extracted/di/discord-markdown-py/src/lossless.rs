@@ -139,7 +139,7 @@ pub enum NodeKind<'data> {
 	Heading {
 		level: u8,
 	},
-	Small,
+	Subtext,
 	Quote(QuoteKind),
 	/// The kind of the list as a whole, as written on its first item.
 	List(Type),
@@ -274,7 +274,7 @@ pub enum TokenKind {
 	/// `#`, `##` or `###`.
 	HeadingMarker,
 	/// `-#`.
-	SmallMarker,
+	SubtextMarker,
 	/// Spaces or tabs elsewhere, as after a marker.
 	Whitespace,
 }
@@ -325,7 +325,7 @@ mod test {
 					})
 			}
 			TokenKind::HeadingMarker => matches!(text, "#" | "##" | "###"),
-			TokenKind::SmallMarker => text == "-#",
+			TokenKind::SubtextMarker => text == "-#",
 			TokenKind::Escape => text == "\\",
 			TokenKind::Delimiter { kind, .. } => {
 				let chars: &[char] = match kind {
@@ -399,7 +399,7 @@ mod test {
 		"# heading one\n## heading two\n### heading three",
 		"# h\n\n  \n> \nafter",
 		"#\theading\r\nnext",
-		"-# small\n-#\tsmall",
+		"-# subtext\n-#\tsubtext",
 		"> quoted line\n>\n> > not nested\n>",
 		">>> - foo\n  - bar\n- baz",
 		"> - foo\n>   - bar\n> - baz",
@@ -641,6 +641,28 @@ mod test {
 				..
 			}
 		));
+	}
+
+	/// A single-quoted title is a title token with its quotes as written.
+	#[test]
+	fn single_quoted_titles_keep_their_quotes() {
+		let s = "[t](https://a.b 'it\\'s \"x\"')";
+		round_trips(s);
+		let node = parsed(s);
+		let masked = child(child(&node, 0), 0);
+		assert!(matches!(
+			&masked.kind,
+			NodeKind::Link {
+				kind: LinkKind::Masked,
+				title: Some(title),
+				..
+			} if title == "it's \"x\""
+		));
+		assert!(
+			layout(masked).contains(&Ok((TokenKind::Title, "'it\\'s \"x\"'"))),
+			"{:?}",
+			layout(masked)
+		);
 	}
 
 	/// A link written without a scheme has the text it was written as, where a URL token would be.

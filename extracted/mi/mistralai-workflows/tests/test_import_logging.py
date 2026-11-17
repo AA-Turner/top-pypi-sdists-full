@@ -20,6 +20,7 @@ def snapshot():
     return {
         "handlers": [id(handler) for handler in root.handlers],
         "root_level": root.level,
+        "logger_class": id(logging.getLoggerClass()),
         "structlog_configured": structlog.is_configured(),
         "noisy_levels": {name: logging.getLogger(name).level for name in ("httpx", "httpcore", "asyncio", "urllib3")},
     }
@@ -34,6 +35,28 @@ logging.getLogger().addHandler(host_handler)
 logging.getLogger().addHandler(logging.NullHandler())
 logging.getLogger().setLevel(logging.DEBUG)
 """
+
+_HOST_LOGGER_CLASS = """
+class ApplicationLogger(logging.Logger):
+    def audit(self, message):
+        self.info(message)
+
+logging.setLoggerClass(ApplicationLogger)
+"""
+
+_HOST_CALLER_LOGGER_CLASS = (
+    _HOST_LOGGER_CLASS
+    + """
+class CallerLogger(ApplicationLogger):
+    def findCaller(self, stack_info=False, stacklevel=1):
+        return super().findCaller(stack_info, stacklevel + 1)
+
+logging.setLoggerClass(CallerLogger)
+"""
+)
+
+_LOGGER_SETUPS = ["", _HOST_CALLER_LOGGER_CLASS, "structlog.stdlib.LoggerFactory()\n"]
+_LOGGER_SETUP_IDS = ["stdlib", "custom_caller", "structlog"]
 
 
 def _env_without_worker_settings() -> dict[str, str]:
@@ -56,7 +79,11 @@ def _last_json_line(output: str) -> dict[str, Any]:
 
 
 class TestImportHasNoLoggingSideEffects:
-    @pytest.mark.parametrize("host_setup", ["", _HOST_HANDLERS], ids=["no_handlers", "host_handlers"])
+    @pytest.mark.parametrize(
+        "host_setup",
+        ["", _HOST_HANDLERS, _HOST_LOGGER_CLASS + _HOST_HANDLERS],
+        ids=["no_handlers", "host_handlers", "host_logger_class"],
+    )
     def test_import_leaves_root_logger_and_structlog_untouched(self, host_setup: str) -> None:
         result = _run(
             _SNAPSHOT
@@ -217,6 +244,7 @@ print(json.dumps({"before": before, "host_output": host_output.getvalue()}))
         after = json.loads(lines[-2])
         assert after["handlers"] == before["handlers"]
         assert after["root_level"] == before["root_level"] == 10
+        assert after["logger_class"] == before["logger_class"]
         assert after["noisy_levels"] == before["noisy_levels"]
         assert after["structlog_configured"] is True
         host_output = _last_json_line(result.stdout)["host_output"]
@@ -227,11 +255,47 @@ print(json.dumps({"before": before, "host_output": host_output.getvalue()}))
         assert "Configuration loaded" not in result.stderr
         assert "structlog" not in result.stderr
 
-    def test_host_logging_records_carry_call_site_one_traceback_and_otlp_fields(self) -> None:
+    def test_worker_start_preserves_custom_logger_methods(self) -> None:
+        result = _run(
+            _SNAPSHOT
+            + _HOST_LOGGER_CLASS
+            + _HOST_HANDLERS
+            + """
+import asyncio
+
+logging.getLogger("app.before").audit("before_startup")
+import mistralai.workflows as workflows
+assert logging.getLoggerClass() is ApplicationLogger
+before = snapshot()
+try:
+    asyncio.run(workflows.run_worker([], enable_config_discovery=False))
+except ValueError as exc:
+    assert "DEPLOYMENT_NAME is required" in str(exc)
+else:
+    raise AssertionError("Expected startup validation to fail")
+
+logging.getLogger("app.after").audit("after_startup")
+structlog.get_logger("app.structured").info("named_event")
+structlog.get_logger().info("unnamed_event")
+print(json.dumps({"before": before, "after": snapshot(), "host_output": host_output.getvalue()}))
+"""
+        )
+
+        assert result.returncode == 0, result.stderr
+        output = _last_json_line(result.stdout)
+        assert output["after"] == {**output["before"], "structlog_configured": True}
+        assert "HOST app.before INFO before_startup" in output["host_output"]
+        assert "HOST app.after INFO after_startup" in output["host_output"]
+        assert "HOST app.structured INFO named_event" in output["host_output"]
+        assert "HOST __main__ INFO unnamed_event" in output["host_output"]
+
+    @pytest.mark.parametrize("logger_setup", _LOGGER_SETUPS, ids=_LOGGER_SETUP_IDS)
+    def test_host_logging_records_carry_call_site_one_traceback_and_otlp_fields(self, logger_setup: str) -> None:
         # Host stdlib logging, then the SDK's setup, then a handler with the OTLP export's formatter
         # (config_otel adds it inside run_worker). Loggers made before and after the setup both count.
         result = _run(
             _SNAPSHOT
+            + logger_setup
             + _HOST_HANDLERS
             + """
 import structlog
@@ -306,6 +370,41 @@ print(json.dumps({
         assert output["extra_record_attributes"] == []
         assert output["host_otel_body_types"] == ["str"]
         assert not [key for key in output["host_otel_attributes"] if not key.startswith(("code.", "exception."))]
+
+    def test_host_logger_overrides_apply_to_sdk_events(self) -> None:
+        result = _run(
+            _SNAPSHOT
+            + """
+class TenantLogger(logging.Logger):
+    def _log(self, level, msg, args, exc_info=None, extra=None, **kwargs):
+        return super()._log(level, msg, args, exc_info, {**(extra or {}), "tenant": "t1"}, **kwargs)
+
+logging.setLoggerClass(TenantLogger)
+"""
+            + _HOST_HANDLERS
+            + """
+from mistralai.workflows.core.config.config import setup_default_logging
+setup_default_logging()
+host_handler.setFormatter(logging.Formatter("%(tenant)s %(message)s"))
+# Loggers created at import time predate TenantLogger, so their debug records have no tenant.
+logging.getLogger().setLevel(logging.INFO)
+host_output.truncate(0)
+host_output.seek(0)
+logger = structlog.get_logger("app.module")
+logger.info("sdk_event")
+try:
+    raise ValueError("failure")
+except ValueError:
+    logger.exception("sdk_error")
+print(json.dumps({"host_output": host_output.getvalue()}))
+"""
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert "Logging error" not in result.stderr
+        host_lines = _last_json_line(result.stdout)["host_output"].splitlines()
+        assert host_lines[:2] == ["t1 sdk_event", "t1 sdk_error"]
+        assert host_lines[-1] == "ValueError: failure"
 
     def test_diagnose_leaves_logging_alone_and_later_warnings_reach_stderr(self) -> None:
         # wf-diagnose prints its report to stdout and sets up no logging: an SDK warning logged

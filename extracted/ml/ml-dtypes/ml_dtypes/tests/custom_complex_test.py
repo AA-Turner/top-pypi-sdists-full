@@ -47,7 +47,7 @@ COMPLEX_VALUES = [
 
 
 def assert_expected_dtype(result, expected, sctype):
-  if expected.dtype == np.complex64:
+  if expected.dtype in [np.complex64, np.complex128]:
     assert result.dtype == sctype
   elif expected.dtype == np.bool_:
     assert result.dtype == np.bool_
@@ -76,6 +76,38 @@ def test_dtype_from_string(sctype):
 
 
 @pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("byteorder", ["=", "S"])
+@pytest.mark.parametrize(
+    "start, stop, step",
+    [
+        (0, 0, 1),
+        (0, 1, 1),
+        (0, 2, 1),
+        (0, 5, 1),
+        (1, 4, 0.5),
+        (4, 0, -1),
+    ],
+)
+def test_arange(sctype, byteorder, start, stop, step):
+  dtype = np.dtype(sctype).newbyteorder(byteorder)
+  result = np.arange(start, stop, step, dtype=dtype)
+  expected = np.arange(start, stop, step, dtype=np.complex64)
+  assert result.dtype == dtype
+  np.testing.assert_array_equal(result.astype(np.complex64), expected)
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("start, stop", [(1, 4), (1 + 2j, 4 + 8j), (4j, 1j)])
+@pytest.mark.parametrize("num", [0, 1, 2, 4])
+@pytest.mark.parametrize("dtype", [None, np.complex64])
+def test_linspace(sctype, start, stop, num, dtype):
+  result = np.linspace(sctype(start), sctype(stop), num, dtype=dtype)
+  expected = np.linspace(start, stop, num, dtype=np.complex64)
+  assert result.dtype == np.dtype(sctype if dtype is None else dtype)
+  np.testing.assert_array_equal(result.astype(np.complex64), expected)
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
 def test_pickleable(sctype):
   # Create complex array from real and imaginary parts
   x = np.asarray(COMPLEX_VALUES, dtype=sctype)
@@ -101,12 +133,41 @@ def test_constructor(sctype):
 
 
 @pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_constructor_python_int_beyond_int64(sctype):
+  with np.errstate(all="ignore"):
+    for value in (2**63, -(2**63) - 1, 2**64, 2**100):
+      np.testing.assert_equal(
+          complex(sctype(value)), complex(sctype(float(value)))
+      )
+  with pytest.raises(OverflowError):
+    sctype(2**1024)
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
 def test_float_and_int_conversion(sctype):
   z = sctype(1.5)
   with pytest.warns(ComplexWarning):
     assert float(z) == 1.5
   with pytest.warns(ComplexWarning):
     assert int(z) == 1
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_int_large_inf_nan(sctype):
+  z = sctype(1e20)
+  if np.isinf(float(z.real)):
+    with pytest.warns(ComplexWarning), pytest.raises(OverflowError):
+      int(z)
+  else:
+    with pytest.warns(ComplexWarning):
+      assert int(z) == int(float(z.real))
+
+  with pytest.warns(ComplexWarning), pytest.raises(OverflowError):
+    int(sctype(complex("inf")))
+  with pytest.warns(ComplexWarning), pytest.raises(OverflowError):
+    int(sctype(complex("-inf")))
+  with pytest.warns(ComplexWarning), pytest.raises(ValueError):
+    int(sctype(complex("nan")))
 
 
 @pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
@@ -127,6 +188,133 @@ def test_real_imag_arrays(sctype):
   assert real_part.dtype == imag_part.dtype == expected_dtype
   np.testing.assert_array_equal(real_part, [1.0, 3.0])
   np.testing.assert_array_equal(imag_part, [2.0, 4.0])
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.skipif(
+    np.lib.NumpyVersion(np.__version__) < "2.5.0",
+    reason="NumPy 2.5 introduced real and imag ufuncs.",
+)
+def test_real_imag_arrays_numpy25(sctype):
+  source = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]], dtype=np.complex64)
+  expected_dtype = ml_dtypes.finfo(sctype).dtype  # the real one
+
+  for arr, expected in (
+      (source.astype(sctype), source),
+      (source.astype(sctype).T, source.T),
+      (source.astype(sctype)[::-1, ::-1], source[::-1, ::-1]),
+  ):
+    for attr, func, expected_part in (
+        ("real", np.real, expected.real),
+        ("imag", np.imag, expected.imag),
+    ):
+      attr_result = getattr(arr, attr)
+      func_result = func(arr)
+      assert attr_result.dtype == func_result.dtype == expected_dtype
+      np.testing.assert_array_equal(attr_result, expected_part)
+      np.testing.assert_array_equal(func_result, expected_part)
+      assert np.shares_memory(arr, attr_result)
+      assert np.shares_memory(arr, func_result)
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.skipif(
+    np.lib.NumpyVersion(np.__version__) < "2.5.0",
+    reason="NumPy 2.5 introduced real and imag ufuncs.",
+)
+def test_real_imag_arrays_numpy25_write_through(sctype):
+  arr = np.array([1 + 2j, 3 + 4j], dtype=sctype)
+  arr.real[...] = [5, 7]
+  arr.imag[...] = [6, 8]
+  np.testing.assert_array_equal(
+      arr.astype(np.complex64), np.array([5 + 6j, 7 + 8j])
+  )
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_complex_byteswap_round_trip(sctype):
+  expected = np.array([1 + 2j, 3 + 4j], dtype=np.complex64)
+  arr = expected.astype(sctype)
+  swapped = arr.byteswap().view(arr.dtype.newbyteorder())
+  np.testing.assert_array_equal(swapped.astype(np.complex64), expected)
+
+
+@pytest.fixture
+def complex_sort_values():
+  return np.array(
+      [
+          complex(0, np.nan),
+          1 + 0j,
+          complex(np.nan, 1),
+          complex(np.nan, 0),
+          0 + 1j,
+          complex(np.nan, np.nan),
+          complex(-2, np.nan),
+          complex(3, np.nan),
+          complex(np.nan, -2),
+          -1 - 1j,
+          complex(-np.inf, 2),
+          complex(np.inf, -2),
+          1 + 0j,
+      ],
+      dtype=np.complex64,
+  )
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("kind", ["quicksort", "heapsort", "stable"])
+@pytest.mark.parametrize("strided", [False, True])
+def test_sort_nan_order(sctype, kind, strided, complex_sort_values):
+  x = np.stack([complex_sort_values, complex_sort_values[::-1]]).astype(sctype)
+  if strided:
+    x = x[:, ::-1]
+  expected = np.sort(x.astype(np.complex64), kind=kind)
+
+  result = np.sort(x, kind=kind)
+
+  assert result.dtype == sctype
+  # Compare components separately: a complex NaN must not hide its other part.
+  np.testing.assert_array_equal(result.astype(np.complex64).real, expected.real)
+  np.testing.assert_array_equal(result.astype(np.complex64).imag, expected.imag)
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("strided", [False, True])
+def test_argsort_nan_order(sctype, strided, complex_sort_values):
+  x = complex_sort_values.astype(sctype)
+  if strided:
+    x = x[::-1]
+
+  np.testing.assert_array_equal(
+      np.argsort(x, kind="stable"),
+      np.argsort(x.astype(np.complex64), kind="stable"),
+  )
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("side", ["left", "right"])
+def test_searchsorted_nan_order(sctype, side, complex_sort_values):
+  ordered = np.sort(complex_sort_values)
+
+  np.testing.assert_array_equal(
+      np.searchsorted(
+          ordered.astype(sctype), complex_sort_values.astype(sctype), side=side
+      ),
+      np.searchsorted(ordered, complex_sort_values, side=side),
+  )
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.skipif(
+    np.lib.NumpyVersion(np.__version__) < "2.5.0",
+    reason="NumPy 2.5 introduced real and imag ufuncs.",
+)
+def test_real_imag_byteswapped_arrays_numpy25(sctype):
+  source = np.array([1 + 2j, 3 + 4j], dtype=np.complex64)
+  arr = source.astype(sctype)
+  swapped = arr.byteswap().view(arr.dtype.newbyteorder())
+  np.testing.assert_array_equal(swapped.real, source.real)
+  np.testing.assert_array_equal(swapped.imag, source.imag)
 
 
 @pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
@@ -222,44 +410,125 @@ def test_comparisons(sctype, op, other):
   assert result == expected
 
 
-# =============
-# Casting tests
-# =============
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_casts_from_wide_floats_round_once(sctype):
+  # Values just below and above the midpoint between 1 and the next larger
+  # value of the component type. Rounding them to float32 first would produce
+  # the midpoint itself.
+  eps = float(ml_dtypes.finfo(sctype).eps)
+  midpoint = 1 + eps / 2
+  below, above = midpoint - 2**-40, midpoint + 2**-40
+  expected = complex(1, 1 + eps)
+  assert complex(sctype(complex(below, above))) == expected
+  assert complex(sctype(below, above)) == expected
+  assert complex(sctype(above)) == 1 + eps
+  for dtype in [np.complex128, np.clongdouble]:
+    x = np.array([complex(below, above)], dtype=dtype)
+    assert complex(x.astype(sctype)[0]) == expected
+    assert complex(sctype(x[0])) == expected
+  for dtype in [np.float64, np.longdouble]:
+    x = np.array([below, above], dtype=dtype)
+    np.testing.assert_array_equal(
+        x.astype(sctype).astype(np.complex128), [1, 1 + eps]
+    )
+    assert complex(sctype(x[1])) == 1 + eps
+    assert complex(sctype(x[0], x[1])) == expected
+
+  if np.finfo(np.longdouble).nmant > 52:
+    # Offsets below float64 precision collapse onto `midpoint` if narrowed
+    # through double before rounding to `sctype`.
+    delta_ld = np.longdouble(2) ** -60
+    below_ld = np.longdouble(midpoint) - delta_ld
+    above_ld = np.longdouble(midpoint) + delta_ld
+    assert np.float64(below_ld) == midpoint
+    assert np.float64(above_ld) == midpoint
+    x_ld = np.array([below_ld, above_ld], dtype=np.longdouble)
+    np.testing.assert_array_equal(
+        x_ld.astype(sctype).astype(np.complex128), [1, 1 + eps]
+    )
+    assert complex(sctype(below_ld)) == 1
+    assert complex(sctype(above_ld)) == 1 + eps
+    assert complex(sctype(below_ld, above_ld)) == expected
+    assert complex(sctype(above_ld, 0)) == 1 + eps
+    assert complex(sctype(0, above_ld)) == complex(0, 1 + eps)
+    z_ld = np.empty(1, dtype=np.clongdouble)
+    z_ld.real[0] = below_ld
+    z_ld.imag[0] = above_ld
+    assert complex(z_ld.astype(sctype)[0]) == expected
+    assert complex(sctype(z_ld[0])) == expected
+
+
+def test_bcomplex32_casts_from_wide_integers_round_once():
+  # 2**30 + 2**22 + 1 rounds to 2**30 + 2**22 as a float32, which is halfway
+  # between two bfloat16 values.
+  value = 2**30 + 2**22 + 1
+  expected = 2**30 + 2**23
+  assert complex(ml_dtypes.bcomplex32(value)) == expected
+  assert complex(ml_dtypes.bcomplex32(-value)) == -expected
+  assert complex(ml_dtypes.bcomplex32(value, -value)) == complex(
+      expected, -expected
+  )
+  assert complex(ml_dtypes.bcomplex32(np.int64(value))) == expected
+  assert complex(ml_dtypes.bcomplex32(np.int64(-value))) == -expected
+  for dtype in [np.int32, np.uint32, np.int64, np.uint64]:
+    x = np.array([value], dtype=dtype)
+    assert complex(x.astype(ml_dtypes.bcomplex32)[0]) == expected
+    assert complex(ml_dtypes.bcomplex32(x[0])) == expected
+    assert complex(ml_dtypes.bcomplex32(x[0], 0)) == expected
+    assert complex(ml_dtypes.bcomplex32(0, x[0])) == complex(0, expected)
+  for dtype in [np.int32, np.int64]:
+    x = np.array([-value], dtype=dtype)
+    assert complex(x.astype(ml_dtypes.bcomplex32)[0]) == -expected
+    assert complex(ml_dtypes.bcomplex32(x[0])) == -expected
+    assert complex(ml_dtypes.bcomplex32(x[0], 0)) == -expected
+
+  # (1 << 53) + (1 << 45) + 1 rounds to 2**53 + 2**45 as a float64 (an even
+  # bfloat16 tie), so narrowing through double rounds down instead of up.
+  wide_val = (1 << 53) + (1 << 45) + 1
+  wide_expected = float((1 << 53) + (1 << 46))
+  assert float(wide_val) == float((1 << 53) + (1 << 45))
+  assert complex(ml_dtypes.bcomplex32(wide_val)) == wide_expected
+  assert complex(ml_dtypes.bcomplex32(wide_val, 0)) == wide_expected
+  assert complex(ml_dtypes.bcomplex32(0, wide_val)) == complex(0, wide_expected)
+  assert complex(ml_dtypes.bcomplex32(wide_val, -wide_val)) == complex(
+      wide_expected, -wide_expected
+  )
+  for scalar in [np.int64(wide_val), np.uint64(wide_val)]:
+    assert complex(ml_dtypes.bcomplex32(scalar)) == wide_expected
+    assert complex(ml_dtypes.bcomplex32(scalar, 0)) == wide_expected
+    assert complex(ml_dtypes.bcomplex32(0, scalar)) == complex(0, wide_expected)
 
 
 @pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
-@pytest.mark.parametrize("to_dtype", [np.complex64, np.complex128])
-def test_casts_to_complex(sctype, to_dtype):
-  """Test casting to/from standard complex types."""
-  x = np.array([1 + 2j, 3 + 4j], dtype=sctype)
-  result = x.astype(to_dtype)
-  np.testing.assert_array_equal(x, result)
-
-
-@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
-@pytest.mark.parametrize(
-    "from_dtype", [np.float32, np.float64, ml_dtypes.float4_e2m1fn]
-)
-def test_cast_from_float(sctype, from_dtype):
-  """Test casting from real to complex."""
-  x = np.array([1.0, 2.0, 3.0], dtype=from_dtype)
-  y = x.astype(sctype)
-  assert y.dtype == sctype
-  np.testing.assert_array_equal(ml_dtypes.real(y).astype(np.float32), x)
-  np.testing.assert_array_equal(ml_dtypes.imag(y).astype(np.float32), 0.0)
-
-
-@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
-@pytest.mark.parametrize(
-    "to_dtype", [np.float32, np.float64, ml_dtypes.float4_e2m1fn]
-)
-def test_cast_to_float(sctype, to_dtype):
-  """Test casting from complex to real (should take real part)."""
-  # Make large, so that NumPy may release the GIL.
-  x = np.array([1 + 2j, 3 + 4j] * 500, dtype=sctype)
-  with pytest.warns(ComplexWarning):
-    y = x.astype(to_dtype)
-  np.testing.assert_array_equal(y, [1.0, 3.0] * 500)
+def test_construct_from_invalid_value_raises(sctype):
+  for bad in ("not a number", np.str_("not a number")):
+    with pytest.raises(ValueError):
+      sctype(bad)
+  with pytest.raises(TypeError):
+    sctype(b"not a number")
+  for args in (
+      ("1", 2),
+      (1, "2"),
+      (np.str_("1"), 2),
+      (1, np.str_("2")),
+      (1 + 2j, 3 + 4j),
+      (1 + 2j, 3),
+      (1, 3 + 4j),
+      (sctype(1 + 2j), 3),
+      (1, sctype(3 + 4j)),
+      (np.complex64(1 + 2j), 3),
+      (1, np.complex64(3 + 4j)),
+  ):
+    with pytest.raises(TypeError):
+      sctype(*args)
+  with pytest.raises((TypeError, ValueError)):
+    sctype(np.datetime64("2020-01-01"))
+  with pytest.raises((TypeError, ValueError)):
+    sctype(np.datetime64("2020-01-01"), 0)
+  with pytest.raises((TypeError, ValueError)):
+    np.array([np.str_("not a number")], dtype=sctype)
+  assert complex(sctype("0.5+1j")) == 0.5 + 1j
+  assert complex(sctype(np.str_("0.5+1j"))) == 0.5 + 1j
 
 
 # ==========================
@@ -361,17 +630,16 @@ def test_unimplemented_binary_ufuncs(sctype, func):
 @np.errstate(all="ignore")
 def test_unary_ufuncs(sctype, ufunc):
   """Test all unary ufuncs, we expect them to just use the float32 version."""
+  rng = np.random.RandomState(seed=42)
   x = np.array(COMPLEX_VALUES)
-  x = np.concatenate(
-      [x, np.random.random(20).astype(np.float32).view(np.complex64)]
-  )
+  x = np.concatenate([x, rng.random(20).astype(np.float32).view(np.complex64)])
   x = x.astype(sctype)
 
   result = ufunc(x)
   expected = ufunc(x.astype(np.complex64))
 
   assert_expected_dtype(result, expected, sctype)
-  if ufunc in [np.arctan, np.arctanh]:
+  if ufunc in [np.arctan, np.arctanh, np.cos, np.sinh, np.cosh]:
     # Arctan/arctanh seems to differe a bit with Inf/Nan results
     assert (np.isnan(expected) == np.isnan(result)).all()
     assert (np.isinf(expected) == np.isinf(result)).all()
@@ -420,6 +688,7 @@ def test_unary_ufuncs(sctype, ufunc):
         np.divide,
         np.true_divide,
         np.power,
+        np.float_power,
         # Maximum and minimum
         np.maximum,
         np.minimum,
@@ -440,13 +709,12 @@ def test_unary_ufuncs(sctype, ufunc):
 @np.errstate(all="ignore")
 def test_binary_ufuncs(sctype, ufunc):
   """Test binary ufuncs."""
+  rng = np.random.RandomState(seed=42)
   x = np.array(COMPLEX_VALUES)
-  x = np.concatenate(
-      [x, np.random.random(20).astype(np.float32).view(np.complex64)]
-  )
+  x = np.concatenate([x, rng.random(20).astype(np.float32).view(np.complex64)])
   x = x.astype(sctype)
 
-  if ufunc == np.power:
+  if ufunc in [np.power, np.float_power]:
     # TODO(seberg): std::power deals poorly with some values, drop for now.
     x = x[(ml_dtypes.real(x) != 0) & np.isfinite(x)]
 
@@ -456,7 +724,13 @@ def test_binary_ufuncs(sctype, ufunc):
   expected = ufunc(x.astype(np.complex64), y.astype(np.complex64))
 
   assert_expected_dtype(result, expected, sctype)
-  if ufunc in [np.multiply, np.divide, np.true_divide, np.power]:
+  if ufunc in [
+      np.multiply,
+      np.divide,
+      np.true_divide,
+      np.power,
+      np.float_power,
+  ]:
     np.testing.assert_allclose(
         result.astype(np.complex64),
         expected,
@@ -562,3 +836,47 @@ def test_comparison_with_sequences(sctype, seq, op):
   equiv_val = np.complex64(1 + 1j)
   np.testing.assert_array_equal(op(val, seq), op(equiv_val, seq))
   np.testing.assert_array_equal(op(seq, val), op(seq, equiv_val))
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize(
+    "ufunc",
+    [
+        np.logical_and,
+        np.logical_or,
+        np.logical_xor,
+    ],
+)
+def test_logical_ufunc_reduce(sctype, ufunc):
+  x = np.array([True, False, True], dtype=sctype)
+  np.testing.assert_equal(
+      ufunc.reduce(x),
+      ufunc.reduce(x.astype(bool)),
+  )
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_accumulate_with_output_dtype(sctype):
+  x = np.array([1 + 0j, 2 + 0j, 3 + 0j], dtype=sctype)
+  res = np.multiply.accumulate(x, dtype=np.complex128)
+  np.testing.assert_equal(res, np.multiply.accumulate(x.astype(np.complex128)))
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+@pytest.mark.parametrize("op,expected", [(np.add, 0), (np.multiply, 1)])
+def test_zero_size_reduction(sctype, op, expected):
+  x = np.array([], dtype=sctype)
+  np.testing.assert_equal(op.reduce(x), sctype(expected))
+
+
+@pytest.mark.parametrize("sctype", COMPLEX_SCTYPES)
+def test_multi_axis_reduction_and_byteswap(sctype):
+  x = np.array([[1 + 2j, 3 - 1j], [-1 + 0j, 2 + 1j]], dtype=sctype)
+  res = np.sum(x)
+  assert res.dtype == np.dtype(sctype)
+  np.testing.assert_equal(res, sctype(np.sum(x.astype(np.complex64))))
+
+  x_swapped = x.byteswap().view(x.dtype.newbyteorder())
+  res_swapped = x_swapped + x
+  assert res_swapped.dtype == np.dtype(sctype)
+  np.testing.assert_array_equal(res_swapped, x + x)

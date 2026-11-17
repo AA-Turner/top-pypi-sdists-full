@@ -562,19 +562,32 @@ fn subterms(schema: &Schema, defs: &[Schema]) -> Vec<Schema> {
     out
 }
 
-/// The distinct goals a query asks, against the pairs of subterms the two
-/// sides have.
+/// The distinct goals a query asks, against the pairs of the subterms its two
+/// sides hold together.
+///
+/// The query is one term, the subject less the supertype, whose emptiness
+/// [FCB08, §6.9] decides over "the atoms that occur in" it, both sides' at
+/// once; the rules read it so too, asking a set declined against a complement
+/// below the subject's complement, a subterm of one side below another of the
+/// same side. So a goal pairs any two of the subterms, and a pair of one
+/// subterm of each side counts fewer than a query asks:
+/// `¬set ⊆ ¬None ∪ ¬ℓ` asks 40 goals over 3 x 5 of those.
 fn distinct_against_subterm_pairs(sub: &Schema, sup: &Schema, defs: &[Schema]) -> (usize, usize) {
     let (_, counts) = ask(sub, sup, defs);
-    let pairs = subterms(sub, defs).len() * subterms(sup, defs).len();
-    (counts.asked - counts.repeated, pairs)
+    let mut held = subterms(sub, defs);
+    for term in subterms(sup, defs) {
+        if !held.contains(&term) {
+            held.push(term);
+        }
+    }
+    (counts.asked - counts.repeated, held.len() * held.len())
 }
 
 /// Whether `term` is in the closure the goals of a query over `subterms` are
 /// drawn from.
 ///
 /// A rule asks a pair of the children of the pair it was asked, or unfolds a
-/// reference into the definition `subterms` holds, except in six places. The
+/// reference into the definition `subterms` holds, except in seven places. The
 /// product rule meets a component with the complement of a branch's
 /// component, one conjunct per narrowing, so what it asks is a meet of
 /// subterms and of their complements. The union rule asks the subject against
@@ -584,13 +597,15 @@ fn distinct_against_subterm_pairs(sub: &Schema, sup: &Schema, defs: &[Schema]) -
 /// names members of two subterms, and a rule may keep one whole. A pair every
 /// decider declined against a complement is asked as the meet of the subject
 /// and the inner set below the bottom, and as the inner set below the
-/// subject's complement. A sequence or a mapping below a union asks its item
-/// against the union of what the branches hold at one position, which are
-/// children of the branches ([`readings::one_item_outside`]). A meet of
-/// sequences is asked as the one sequence of its items' meets
-/// ([`one_sequence_of`]). And a complement or a meet folds to a bound, the top
-/// or the bottom. Each of the six is a subset, a sign or a meet of the
-/// subterms, so the closure is finite because they are.
+/// subject's complement. A split's half is a meet of signed subterms asked as
+/// any subject is, so the subject's complement there is the complement of such
+/// a meet. A sequence or a mapping below a union asks its item against the
+/// union of what the branches hold at one position, which are children of the
+/// branches ([`readings::one_item_outside`]). A meet of sequences is asked as
+/// the one sequence of its items' meets ([`one_sequence_of`]). And a complement
+/// or a meet folds to a bound, the top or the bottom. Each of the seven is a
+/// subset, a sign or a meet of the subterms, or the sign of such a meet, so the
+/// closure is finite because they are.
 fn in_closure(term: &Schema, subterms: &[Schema]) -> bool {
     let signed = |t: &Schema| {
         subterms.contains(t) || matches!(t, Schema::Complement(inner) if subterms.contains(inner))
@@ -603,6 +618,9 @@ fn in_closure(term: &Schema, subterms: &[Schema]) -> bool {
         _ if signed(term) => true,
         Schema::Nothing | Schema::Anything(_) => true,
         Schema::Intersection(members) => members.iter().all(|m| signed(m) || built(m)),
+        Schema::Complement(inner) => {
+            matches!(&**inner, Schema::Intersection(members) if members.iter().all(signed))
+        }
         Schema::Union(members) => {
             members.iter().all(|member| subterms.contains(member))
                 || subterms.iter().any(|union| match union {
@@ -667,6 +685,31 @@ fn members_at_every_depth(members: &[Schema]) -> Vec<&Schema> {
     found
 }
 
+/// `subterms`, with each mapping beside the mapping its constructor builds of
+/// the same fields and clauses.
+///
+/// A drawn mapping may hold its clauses in an order no constructor gives, and a
+/// rule that rebuilds it asks it in the constructor's: one term, which the
+/// product, building every mapping through the constructor, holds in that
+/// order alone.
+fn in_the_constructors_spelling(mut subterms: Vec<Schema>) -> Vec<Schema> {
+    let rebuilt: Vec<Schema> = subterms
+        .iter()
+        .filter_map(|term| match term {
+            Schema::KeyedMap { fields, defaults } => {
+                Some(Schema::keyed_map(fields.to_vec(), defaults.to_vec()))
+            }
+            _ => None,
+        })
+        .collect();
+    for term in rebuilt {
+        if !subterms.contains(&term) {
+            subterms.push(term);
+        }
+    }
+    subterms
+}
+
 /// The goals a query asks that fall outside the closure of its subterms, and
 /// how many of the goals inside it are built rather than found.
 fn outside_the_closure(
@@ -675,7 +718,7 @@ fn outside_the_closure(
     defs: &[Schema],
 ) -> (Vec<(Schema, Schema)>, usize) {
     let (_, asked) = goals::recorded(|| sub.subtype_relation_under(sup, &PlainClasses, defs));
-    let found = [subterms(sub, defs), subterms(sup, defs)].concat();
+    let found = in_the_constructors_spelling([subterms(sub, defs), subterms(sup, defs)].concat());
     let built = asked
         .iter()
         .filter(|(a, b)| !found.contains(a) || !found.contains(b))
@@ -861,15 +904,105 @@ fn a_split_asks_its_halves_past_the_rules_inside_the_closure() {
 }
 
 // THEORY: regularity-bounds-the-goals
+/// A split's half that declines against a complement is asked as the inner
+/// set below the half's complement, the complement of a meet of signed
+/// subterms, inside the closure.
+///
+/// `¬set ⊆ ¬None ∪ ¬ℓ`, for a literal `ℓ`, splits on `ℓ`, and the half
+/// `¬set ∧ ℓ`, narrowed to the branch `¬None` it meets, asks
+/// `None ⊆ ¬(ℓ ∧ ¬set)`; the other half asks `ℓ` below `¬(None ∧ ¬set)`.
+#[test]
+fn a_half_asked_below_a_complement_asks_inside_the_closure() {
+    use crate::ir::{CollKind, ConstIx, Spelling};
+    let sub = Schema::Complement(Arc::new(Schema::Coll {
+        container: CollKind::Set,
+        element: Arc::new(Schema::Anything(Spelling::Top)),
+    }));
+    let sup = Schema::union([
+        Schema::NoneType.complement(),
+        Schema::Literal(ConstIx::new(0)).complement(),
+    ]);
+    let (outside, built) = outside_the_closure(&sub, &sup, &[]);
+    assert_eq!(outside, [], "asked outside the closure");
+    assert!(built >= 1, "built no goal of its own");
+    // Measured at forty, past the fifteen pairs of one subterm of each side
+    // and within the sixty-four of the eight the two sides hold.
+    let (distinct, pairs) = distinct_against_subterm_pairs(&sub, &sup, &[]);
+    assert!(
+        distinct <= pairs,
+        "{distinct} distinct goals over {pairs} pairs"
+    );
+}
+
+// THEORY: regularity-bounds-the-goals
+/// A mapping drawn with its clauses in an order no constructor gives is asked,
+/// where a rule rebuilds it, in the constructor's order: one term, inside the
+/// closure.
+#[test]
+fn a_mapping_a_rule_rebuilds_is_asked_inside_the_closure() {
+    use crate::ir::{ConstIx, Constraint, MapClause, OperandIx, Spelling};
+    let top = || Schema::Anything(Spelling::Top);
+    let map = |defaults: Vec<MapClause>| Schema::KeyedMap {
+        fields: Vec::new().into(),
+        defaults: defaults.into(),
+    };
+    let clause = |key: Schema, value: Schema| MapClause { key, value };
+    let sub = Schema::Refine {
+        base: Arc::new(map(vec![clause(
+            Schema::Str,
+            Schema::Anything(Spelling::Any),
+        )])),
+        constraints: vec![Constraint::Ge(OperandIx::new(0))].into(),
+    };
+    let sup = Schema::Union(
+        vec![
+            Schema::Complement(Arc::new(map(vec![clause(Schema::Str, top())]))),
+            Schema::Ref(DefIx::new(0)),
+        ]
+        .into(),
+    );
+    // The literal's clause first, as the drawn bodies hold it.
+    let unordered = map(vec![
+        clause(Schema::Literal(ConstIx::new(3)), top()),
+        clause(Schema::Str, top()),
+    ]);
+    let defs = [
+        Schema::Union(
+            vec![
+                map(vec![clause(Schema::Str, unordered)]),
+                list_of(Schema::Ref(DefIx::new(0))),
+            ]
+            .into(),
+        ),
+        Schema::Union(
+            vec![
+                Schema::list(SeqShape::fixed([
+                    Schema::tuple(SeqShape::fixed([
+                        Schema::NoneType,
+                        Schema::Anything(Spelling::Any),
+                    ])),
+                    Schema::Anything(Spelling::Any),
+                ])),
+                list_of(Schema::Ref(DefIx::new(1))),
+            ]
+            .into(),
+        ),
+    ];
+    let (outside, _) = outside_the_closure(&sub, &sup, &defs);
+    assert_eq!(outside, [], "asked outside the closure");
+}
+
+// THEORY: regularity-bounds-the-goals
 /// The distinct goals a query asks, measured against the pairs of subterms the
 /// two schemas have.
 ///
 /// The closure bounds them by an argument, and its square is a bound on
 /// nothing a caller waits for: a meet per subset of the subterms. This is the
 /// number the shapes in hand reach, which is far below it. Each shape here
-/// asks fewer distinct goals than its sides have subterm pairs, the product
-/// rule's split included -- its narrowings are few and each is asked once --
-/// and the row is what says so when a rule starts asking more.
+/// asks fewer distinct goals than there are pairs of the subterms its sides
+/// hold together, the product rule's split included -- its narrowings are few
+/// and each is asked once -- and the row is what says so when a rule starts
+/// asking more.
 #[test]
 fn the_goals_a_query_asks_are_pairs_of_the_subterms() {
     assert_eq!(
@@ -1234,8 +1367,8 @@ mod drawn {
 
         // THEORY: regularity-bounds-the-goals
         /// The goals a drawn query asks are drawn from the closure of its
-        /// subterms, and number no more than its subterm pairs, over drawn
-        /// definitions.
+        /// subterms, and number no more than the pairs of the subterms its
+        /// sides hold together, over drawn definitions.
         ///
         /// The chosen pairs above hold both on the shapes the budget is
         /// measured over; this holds them on whatever the recursive fragment

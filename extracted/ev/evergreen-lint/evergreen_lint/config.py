@@ -136,6 +136,10 @@ rules:
     - rule: "enforce-tags-for-variants"
       tags: {[]}
 
+    # Enforce variants must have tags from specific tag groups
+    - rule: "enforce-tag-groups-for-variants"
+      tag_groups: {[]}
+
     # Validate variant expansions
     - rule: "variant-expansions"
       require_expansions: {[]}

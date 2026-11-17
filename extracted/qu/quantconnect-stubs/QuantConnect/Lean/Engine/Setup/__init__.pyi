@@ -462,7 +462,7 @@ class BrokerageSetupHandler(System.Object, QuantConnect.Lean.Engine.Setup.ISetup
         
         :param algorithm: Algorithm instance
         :param result_handler: The configured result handler
-        :param transaction_handler: The configurated transaction handler
+        :param transaction_handler: The configured transaction handler
         :param brokerage: Brokerage output instance
         """
         ...

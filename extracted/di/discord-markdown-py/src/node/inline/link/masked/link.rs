@@ -10,29 +10,29 @@ use crate::{
 
 use super::{Scope, auto, verify_url};
 
-/// The character that opens and closes a title.
-const TITLE_QUOTE: char = '"';
-/// The character that makes the next [`TITLE_QUOTE`] or [`TITLE_ESCAPE`] stand for itself.
+/// The characters that can open a title. Whichever one opens it also closes it.
+const TITLE_QUOTES: [char; 2] = ['"', '\''];
+/// The character that makes the next of [`TITLE_QUOTES`] or [`TITLE_ESCAPE`] stand for itself.
 const TITLE_ESCAPE: char = '\\';
 
-/// Whether a title has to escape `ch` to contain it.
-fn needs_escape(ch: char) -> bool {
-	ch == TITLE_QUOTE || ch == TITLE_ESCAPE
+/// Whether a backslash before `ch` escapes it.
+fn is_escapable(ch: char) -> bool {
+	ch == TITLE_ESCAPE || TITLE_QUOTES.contains(&ch)
 }
 
-/// Parse a masked link title.
+/// Parse a masked link title, quoted with either `"` or `'`.
 ///
-/// A backslash escapes a double quote or another backslash; before anything else it is literal.
+/// A backslash escapes either quote or another backslash; before anything else it is literal.
 fn parse_title(input: &mut Input) -> PResult<String> {
-	input.char(TITLE_QUOTE)?;
+	let quote = input.satisfy(|ch| TITLE_QUOTES.contains(&ch))?;
 	let mut title = String::new();
 	loop {
-		title.push_str(input.take_while(|ch| !needs_escape(ch)));
-		if input.char(TITLE_QUOTE).is_ok() {
+		title.push_str(input.take_while(|ch| ch != quote && ch != TITLE_ESCAPE));
+		if input.char(quote).is_ok() {
 			break;
 		}
 		input.char(TITLE_ESCAPE)?;
-		match input.satisfy(needs_escape) {
+		match input.satisfy(is_escapable) {
 			Ok(escaped) => title.push(escaped),
 			Err(_) => title.push(TITLE_ESCAPE),
 		}

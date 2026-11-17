@@ -154,6 +154,8 @@ from .type_defs import (
     GetClientTokenResponseTypeDef,
     GetCSVHeaderRequestTypeDef,
     GetCSVHeaderResponseTypeDef,
+    GetDerivedTokenRequestTypeDef,
+    GetDerivedTokenResponseTypeDef,
     GetDeviceRequestTypeDef,
     GetDeviceResponseTypeDef,
     GetGroupRequestTypeDef,
@@ -1162,6 +1164,18 @@ class CognitoIdentityProviderClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_client_token.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#get_client_token)
+        """
+
+    def get_derived_token(
+        self, **kwargs: Unpack[GetDerivedTokenRequestTypeDef]
+    ) -> GetDerivedTokenResponseTypeDef:
+        """
+        Exchanges an existing token for a new token that is scoped and audience-bound
+        for a specific downstream service, following the OAuth 2.0 Token Exchange grant
+        type.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cognito-idp/client/get_derived_token.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_cognito_idp/client/#get_derived_token)
         """
 
     def get_device(self, **kwargs: Unpack[GetDeviceRequestTypeDef]) -> GetDeviceResponseTypeDef:

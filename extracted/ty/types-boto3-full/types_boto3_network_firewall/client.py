@@ -30,11 +30,13 @@ from .paginator import (
     GetAnalysisReportResultsPaginator,
     ListAnalysisReportsPaginator,
     ListContainerAssociationsPaginator,
+    ListContextStoresPaginator,
     ListFirewallPoliciesPaginator,
     ListFirewallPoliciesV2Paginator,
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
+    ListResourcesInContextStorePaginator,
     ListRuleGroupsPaginator,
     ListTagsForResourcePaginator,
     ListTLSInspectionConfigurationsPaginator,
@@ -120,6 +122,8 @@ from .type_defs import (
     ListAnalysisReportsResponseTypeDef,
     ListContainerAssociationsRequestTypeDef,
     ListContainerAssociationsResponseTypeDef,
+    ListContextStoresRequestTypeDef,
+    ListContextStoresResponseTypeDef,
     ListFirewallPoliciesRequestTypeDef,
     ListFirewallPoliciesResponseTypeDef,
     ListFirewallPoliciesV2RequestTypeDef,
@@ -130,6 +134,8 @@ from .type_defs import (
     ListFlowOperationResultsResponseTypeDef,
     ListFlowOperationsRequestTypeDef,
     ListFlowOperationsResponseTypeDef,
+    ListResourcesInContextStoreRequestTypeDef,
+    ListResourcesInContextStoreResponseTypeDef,
     ListRuleGroupsRequestTypeDef,
     ListRuleGroupsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -650,6 +656,16 @@ class NetworkFirewallClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_container_associations)
         """
 
+    def list_context_stores(
+        self, **kwargs: Unpack[ListContextStoresRequestTypeDef]
+    ) -> ListContextStoresResponseTypeDef:
+        """
+        Lists the active context stores that are associated with your firewalls.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_context_stores.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_context_stores)
+        """
+
     def list_firewall_policies(
         self, **kwargs: Unpack[ListFirewallPoliciesRequestTypeDef]
     ) -> ListFirewallPoliciesResponseTypeDef:
@@ -698,6 +714,16 @@ class NetworkFirewallClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_flow_operations.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_flow_operations)
+        """
+
+    def list_resources_in_context_store(
+        self, **kwargs: Unpack[ListResourcesInContextStoreRequestTypeDef]
+    ) -> ListResourcesInContextStoreResponseTypeDef:
+        """
+        Lists the resources that a context store records.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/list_resources_in_context_store.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#list_resources_in_context_store)
         """
 
     def list_rule_groups(
@@ -990,6 +1016,17 @@ class NetworkFirewallClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_context_stores"]
+    ) -> ListContextStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_firewall_policies"]
     ) -> ListFirewallPoliciesPaginator:
         """
@@ -1036,6 +1073,17 @@ class NetworkFirewallClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_flow_operations"]
     ) -> ListFlowOperationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/network-firewall/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_network_firewall/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_resources_in_context_store"]
+    ) -> ListResourcesInContextStorePaginator:
         """
         Create a paginator for an operation.
 

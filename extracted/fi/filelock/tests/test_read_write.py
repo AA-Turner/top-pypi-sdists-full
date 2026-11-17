@@ -12,7 +12,7 @@ from contextlib import closing
 from errno import EWOULDBLOCK
 from multiprocessing import Event, Process, Value, set_start_method
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Literal, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import pytest
 from capabilities import CAPABILITIES
@@ -23,14 +23,29 @@ import sqlite3
 
 from filelock import ReadWriteLock, Timeout
 from filelock._read_write import _ForkSafeConnection
-from tests.capability_marks import NEEDS_FIFO, SKIP_ON_UNRELIABLE_PROCESS_SYNC
+from tests.capability_marks import NEEDS_FIFO, NEEDS_SYMLINK, SKIP_ON_UNRELIABLE_PROCESS_SYNC
 from tests.process_helpers import cleanup_processes
-from tests.read_write_helpers import Interrupt, assert_read_write_lock_state, interrupt_once
+from tests.read_write_helpers import Interrupt, assert_read_write_lock_state, interrupt_once, writer_gets_in
 
 if sys.platform == "win32":  # pragma: win32 cover
     from filelock._identity import host_name
     from filelock._read_write import _host_digest, _remove_link_directory_on_windows
-    from filelock._windows import _ADVAPI32, _directory_is_private, _make_private_directory
+    from filelock._windows import _ADVAPI32, directory_is_private, make_private_directory
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows only")  # pragma: win32 cover
+def test_windows_read_write_rejects_changed_database_link(tmp_path: Path, mocker: MockerFixture) -> None:
+    database = tmp_path / "database.db"
+    mocker.patch(
+        "filelock._read_write._directory_is_private",
+        side_effect=lambda path: path != os.fspath(tmp_path),
+        autospec=True,
+    )
+    mocker.patch("filelock._read_write._identity_at", return_value=(-1, -1), autospec=True)
+    with pytest.raises(OSError, match="lock database changed"):
+        ReadWriteLock(database, is_singleton=False)
+    assert [entry.name for entry in tmp_path.iterdir()] == [database.name]
+
 
 # Bounds how long a spawned process may take to reach the lock, not how fast it must be: an interpreter that starts
 # slowly under a loaded suite is not a locking failure. Only a genuine hang waits this out. Each test's own timeout
@@ -53,8 +68,6 @@ if TYPE_CHECKING:
     from multiprocessing.synchronize import Event as EventType
 
     from pytest_mock import MockerFixture
-
-    from filelock._read_write import _LinkDirectory
 
 
 @pytest.mark.timeout(_PROCESS_DEADLINE * 5)
@@ -80,6 +93,28 @@ def test_read_locks_are_shared(lock_file: str) -> None:
         reader2.join(timeout=_PROCESS_DEADLINE)
         assert not reader1.is_alive(), "Reader 1 did not exit cleanly"
         assert not reader2.is_alive(), "Reader 2 did not exit cleanly"
+
+
+def acquire_lock(
+    lock_file: str,
+    mode: Literal["read", "write"],
+    acquired_event: EventType,
+    release_event: EventType | None = None,
+    timeout: float = -1,
+    blocking: bool = True,
+    ready_event: EventType | None = None,
+    contending_event: EventType | None = None,
+) -> None:
+    if ready_event:
+        ready_event.wait(timeout=_PROCESS_DEADLINE)
+
+    lock = ReadWriteLock(lock_file, timeout=timeout, blocking=blocking)
+    if contending_event:
+        contending_event.set()  # interpreter start-up is over, so a caller can time the contention itself
+    with getattr(lock, f"{mode}_lock")():
+        acquired_event.set()
+        if release_event:
+            release_event.wait(timeout=_PROCESS_DEADLINE)
 
 
 @pytest.mark.timeout(_PROCESS_DEADLINE * 5)
@@ -150,7 +185,7 @@ def test_lock_excludes_opposite_mode(
         contender.start()
         contender_started.set()
 
-        time.sleep(2)  # confirm the contender stays blocked  # simplint: ignore[SMP808]  # needs a blocked-poll signal
+        time.sleep(2)  # confirm the contender stays blocked  # simplint: ignore[sleep-in-test]  # no blocked signal
         assert not contender_acquired.is_set(), f"{contender_mode} lock should not be acquired while {holder_mode} held"
 
         release_holder.set()
@@ -166,88 +201,93 @@ def test_lock_excludes_opposite_mode(
 
 @pytest.mark.timeout(_PROCESS_DEADLINE * 8)
 def test_write_non_starvation(lock_file: str) -> None:
-    # A writer that joins after the first reader must acquire before the reader chain drains.
-    #
-    # Seven readers overlap in a chain and the writer contends mid-chain. It should win the lock while readers still
-    # hold it, so it is not starved.
-    NUM_READERS: Final[int] = 7
+    # A waiting writer must acquire before any reader that arrives after it, even while earlier readers hold the lock.
+    # Every phase waits on an event, so the outcome does not depend on how long a process takes to start.
+    NUM_EARLY_READERS: Final[int] = 2
+    NUM_LATE_READERS: Final[int] = 5
 
-    chain_forward = [Event() for _ in range(NUM_READERS)]
-    chain_backward = [Event() for _ in range(NUM_READERS)]
-    writer_ready = Event()
+    early_acquired = [Event() for _ in range(NUM_EARLY_READERS)]
+    early_release = [Event() for _ in range(NUM_EARLY_READERS)]
+    late_announced = [Event() for _ in range(NUM_LATE_READERS)]
     writer_contending = Event()
     writer_acquired = Event()
+    writer_release = Event()
+    late_entries = Value("i", 0)
 
-    release_count = Value("i", 0)
-
-    next_readers: Final = [*chain_forward[1:], None]
-    prev_or_writers: Final = [writer_ready, *chain_backward[:-1]]
-    readers = []
-    for idx in range(NUM_READERS):
-        reader = Process(
-            target=chain_reader,
-            args=(
-                idx,
-                lock_file,
-                release_count,
-                chain_forward[idx],
-                chain_backward[idx],
-                next_readers[idx],
-                prev_or_writers[idx],
-            ),
-        )
-        readers.append(reader)
-
-    # The last reader holds until its own wait expires, since the test only releases the chain once the writer is in,
-    # so the writer has to outwait that hold rather than time out first.
+    early = [
+        Process(target=acquire_lock, args=(lock_file, "read", early_acquired[idx], early_release[idx]))
+        for idx in range(NUM_EARLY_READERS)
+    ]
+    late = [
+        Process(target=_late_reader, args=(lock_file, late_announced[idx], late_entries))
+        for idx in range(NUM_LATE_READERS)
+    ]
     writer = Process(
         target=acquire_lock,
-        args=(lock_file, "write", writer_acquired, None, _PROCESS_DEADLINE * 2, True, writer_ready, writer_contending),
+        args=(
+            lock_file,
+            "write",
+            writer_acquired,
+            writer_release,
+            _PROCESS_DEADLINE * 2,
+            True,
+            None,
+            writer_contending,
+        ),
     )
 
-    with cleanup_processes([*readers, writer]):
-        for reader in readers:
+    prober = ReadWriteLock(lock_file, is_singleton=False)
+    with cleanup_processes([*early, *late, writer]):
+        for reader in early:
             reader.start()
-
-        chain_forward[0].set()
-
-        assert writer_ready.wait(timeout=_PROCESS_DEADLINE), "First reader did not acquire lock"
-
-        # Count only the releases the writer actually waited through; a slow interpreter start is not starvation.
-        # The contending event says the writer process booted, not that its write intent reached the database, and
-        # only the intent bars new readers. The probe observes that boundary: a non-blocking read acquire times out
-        # exactly once the intent is registered, so the count starts there. Probing before the writer exists pins
-        # the still-pending arc, which the loop alone cannot promise: on a fast host the first in-loop probe
-        # already times out.
-        prober = ReadWriteLock(lock_file, is_singleton=False)
-        probe_deadline = time.monotonic() + _PROCESS_DEADLINE
-        assert _write_intent_pending(prober, probe_deadline)
+        for acquired in early_acquired:
+            assert acquired.wait(timeout=_PROCESS_DEADLINE), "Early reader did not acquire lock"
+        assert _write_intent_pending(prober, time.monotonic() + _PROCESS_DEADLINE)
 
         writer.start()
-
         assert writer_contending.wait(timeout=_PROCESS_DEADLINE), "Writer process did not reach the lock"
-        while _write_intent_pending(prober, probe_deadline):  # pragma: no branch  # exits at the writer's speed
+        probe_deadline = time.monotonic() + _PROCESS_DEADLINE
+        while _write_intent_pending(prober, probe_deadline):  # pragma: no branch  # exits once the intent blocks reads
             pass  # pragma: no cover  # runs only when the first probe precedes the writer's intent
         prober.close()
-        with release_count.get_lock():
-            releases_before_contending = release_count.value
+        # A held write lock refuses the probe too, so only a writer still waiting proves its intent blocks readers.
+        assert not writer_acquired.is_set(), "Probe was refused by the held write lock, not by a pending intent"
 
+        for reader in late:
+            reader.start()
+        for announced in late_announced:
+            assert announced.wait(timeout=_PROCESS_DEADLINE), "Late reader did not start"
+
+        for release in early_release:
+            release.set()
         assert writer_acquired.wait(timeout=_PROCESS_DEADLINE * 2), "Writer couldn't acquire lock - possible starvation"
+        with late_entries.get_lock():
+            admitted = late_entries.value
+        assert admitted == 0, f"{admitted} readers arrived after the writer and got in before it"
 
-        with release_count.get_lock():
-            read_releases = release_count.value - releases_before_contending
-
-        assert read_releases < 3, f"Writer acquired after {read_releases} readers released - this indicates starvation"
-
+        writer_release.set()
         writer.join(timeout=_PROCESS_DEADLINE)
         assert not writer.is_alive(), "Writer did not exit cleanly"
-
-        for event in chain_backward:
-            event.set()
-
-        for idx, reader in enumerate(readers):
+        for idx, reader in enumerate([*early, *late]):
             reader.join(timeout=_PROCESS_DEADLINE)
             assert not reader.is_alive(), f"Reader {idx} did not exit cleanly"
+
+
+def _late_reader(lock_file: str, announced: EventType, entries: Synchronized[int]) -> None:
+    announced.set()
+    with ReadWriteLock(lock_file).read_lock(), entries.get_lock():
+        entries.value += 1
+
+
+def _write_intent_pending(prober: ReadWriteLock, deadline: float) -> bool:
+    try:
+        prober.acquire_read(blocking=False)
+    except Timeout:
+        return False
+    prober.release()
+    assert time.monotonic() < deadline, "Writer never registered its write intent"
+    time.sleep(0.05)  # simplint: ignore[sleep-in-test]  # needs a write-intent signal
+    return True
 
 
 @pytest.mark.parametrize(
@@ -268,6 +308,18 @@ def test_lock_mode_transition_prohibited(lock_file: str, hold_mode: Literal["rea
     assert result.value == 0, f"Illegal {hold_mode} transition was permitted"
 
 
+def try_illegal_transition(lock_file: str, hold_mode: Literal["read", "write"], result: Synchronized[int]) -> None:
+    lock = ReadWriteLock(lock_file)
+    with getattr(lock, f"{hold_mode}_lock")():
+        try:
+            if hold_mode == "read":
+                lock.acquire_write()
+            else:
+                lock.acquire_read()
+        except RuntimeError:
+            result.value = 0
+
+
 @pytest.mark.timeout(_PROCESS_DEADLINE * 3)
 def test_timeout_behavior(lock_file: str) -> None:
     write_acquired = Event()
@@ -281,13 +333,13 @@ def test_timeout_behavior(lock_file: str) -> None:
         writer.start()
         assert write_acquired.wait(timeout=_PROCESS_DEADLINE), "Write lock not acquired"
 
-        start_time = time.time()
+        start_time = time.perf_counter()
         reader.start()
 
         assert not read_acquired.wait(timeout=1), "Read lock should not be acquired"
         reader.join(timeout=_PROCESS_DEADLINE)
 
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
         assert 0.4 <= elapsed <= 10.0, f"Timeout was not respected: {elapsed}s"
 
         release_write.set()
@@ -305,12 +357,12 @@ def test_non_blocking_behavior(lock_file: str) -> None:
         writer.start()
         assert write_acquired.wait(timeout=_PROCESS_DEADLINE), "Write lock not acquired"
 
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         with pytest.raises(Timeout):
             ReadWriteLock(lock_file).acquire_read(blocking=False)
 
-        elapsed = time.time() - start_time
+        elapsed = time.perf_counter() - start_time
 
         assert elapsed < 0.1, f"Non-blocking took too long: {elapsed}s"
 
@@ -332,6 +384,33 @@ def test_recursive_lock_acquisition(lock_file: str, mode: Literal["read", "write
         worker.join(timeout=_PROCESS_DEADLINE)
 
     assert success.value == 1, "Recursive lock acquisition failed"
+
+
+def recursive_lock(lock_file: str, mode: Literal["read", "write"], success_flag: Synchronized[int]) -> None:
+    lock = ReadWriteLock(lock_file)
+    acquire = getattr(lock, f"{mode}_lock")
+    with acquire():
+        assert lock._hold.level == 1
+        assert lock._hold.mode == mode
+
+        with acquire():
+            assert lock._hold.level == 2
+            assert lock._hold.mode == mode
+
+            with acquire():
+                assert lock._hold.level == 3
+                assert lock._hold.mode == mode
+
+            assert lock._hold.level == 2
+            assert lock._hold.mode == mode
+
+        assert lock._hold.level == 1
+        assert lock._hold.mode == mode
+
+    assert lock._hold.level == 0
+    assert lock._hold.mode is None
+
+    success_flag.value = 1
 
 
 @pytest.mark.parametrize(
@@ -362,6 +441,14 @@ def test_lock_release_on_process_termination(lock_file: str, mode: Literal["read
         assert not successor.is_alive(), "Successor did not exit cleanly"
 
 
+def acquire_lock_and_crash(lock_file: str, mode: Literal["read", "write"], acquired_event: EventType) -> None:
+    lock = ReadWriteLock(lock_file)  # pragma: win32 no cover
+    with getattr(lock, f"{mode}_lock")():  # pragma: win32 no cover
+        acquired_event.set()
+        while True:  # pragma: no cover  # the test kills this child, and the kill can land before this line is traced
+            time.sleep(0.1)  # simplint: ignore[sleep-in-test]  # a blocked lock wait can swallow SIGTERM
+
+
 @pytest.mark.parametrize(
     "mode",
     [pytest.param("read", id="read"), pytest.param("write", id="write")],
@@ -370,11 +457,12 @@ def test_lock_release_on_process_termination(lock_file: str, mode: Literal["read
 def test_single_lock_reentrant(lock_file: str, mode: Literal["read", "write"]) -> None:
     acquire = getattr(ReadWriteLock(lock_file), f"{mode}_lock")
 
-    with acquire(), acquire():
-        pass
-
     with acquire():
-        pass
+        with acquire():
+            pass
+        assert not writer_gets_in(lock_file)
+
+    assert writer_gets_in(lock_file)
 
 
 @pytest.mark.parametrize(
@@ -393,7 +481,8 @@ def test_sequential_lock_modes(
     lock = ReadWriteLock(lock_file)
     for mode in (first, second):
         with getattr(lock, f"{mode}_lock")():
-            pass
+            assert not writer_gets_in(lock_file)
+    assert writer_gets_in(lock_file)
 
 
 def test_read_write_lock_keeps_constructed_database(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -494,14 +583,26 @@ def _grant_everyone_write(directory: Path) -> None:  # pragma: win32 cover
     subprocess.run([icacls, directory, "/grant", "*S-1-1-0:(OI)(CI)(M)"], capture_output=True, check=True)
 
 
-def test_read_write_lock_refuses_a_symlinked_path(tmp_path: Path) -> None:
+def test_locks_alive_at_shutdown_finalize_silently(tmp_path: Path) -> None:
+    # sys.excepthook outlives the stdlib module dicts teardown empties, so the finalizers run after os.getpid and
+    # sqlite3.Error read as None.
+    script = f"""
+import sys
+from filelock import AsyncReadWriteLock, ReadWriteLock
+held = ReadWriteLock({str(tmp_path / "a.db")!r}, is_singleton=False)
+held.acquire_read()
+locks = held, AsyncReadWriteLock({str(tmp_path / "b.db")!r}, is_singleton=False)
+sys.excepthook = lambda *args, _keep=locks, _hook=sys.excepthook: _hook(*args)
+"""
+    result = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, check=True)
+
+    assert not result.stderr
+
+
+@NEEDS_SYMLINK
+def test_read_write_lock_refuses_a_symlinked_path(tmp_path: Path) -> None:  # pragma: needs symlink
     # Following it would let anyone who can create names in the lock directory make the victim create the target.
-    target = tmp_path / "target.db"
-    link = tmp_path / "lock.db"
-    try:
-        link.symlink_to(target)
-    except OSError as error:  # pragma: no cover - platform policy can deny symlink creation
-        pytest.skip(str(error))
+    (link := tmp_path / "lock.db").symlink_to(target := tmp_path / "target.db")
     # Construction opens a connection, so the refusal lands there; acquiring reopens and refuses the same way.
     with pytest.raises(OSError, match=re.escape(str(link))):
         ReadWriteLock(link, is_singleton=False).acquire_read()
@@ -768,28 +869,6 @@ def test_acquire_proxy_releases_the_read_write_lock_on_exit(lock_file: str, mode
     assert_read_write_lock_state(lock_file, "write", available=True)
 
 
-def acquire_lock(
-    lock_file: str,
-    mode: Literal["read", "write"],
-    acquired_event: EventType,
-    release_event: EventType | None = None,
-    timeout: float = -1,
-    blocking: bool = True,
-    ready_event: EventType | None = None,
-    contending_event: EventType | None = None,
-) -> None:
-    if ready_event:
-        ready_event.wait(timeout=_PROCESS_DEADLINE)
-
-    lock = ReadWriteLock(lock_file, timeout=timeout, blocking=blocking)
-    if contending_event:
-        contending_event.set()  # interpreter start-up is over, so a caller can time the contention itself
-    with getattr(lock, f"{mode}_lock")():
-        acquired_event.set()
-        if release_event:
-            release_event.wait(timeout=_PROCESS_DEADLINE)
-
-
 def test_cleanup_reports_the_failure_that_escaped_before_a_start() -> None:
     unstarted = Process(target=time.sleep, args=(0,))
 
@@ -800,97 +879,6 @@ def test_cleanup_reports_the_failure_that_escaped_before_a_start() -> None:
 
     with pytest.raises(AssertionError, match="the real failure"):
         fail_before_start()
-
-
-def _write_intent_pending(prober: ReadWriteLock, deadline: float) -> bool:
-    try:
-        prober.acquire_read(blocking=False)
-    except Timeout:
-        return False
-    prober.release()
-    assert time.monotonic() < deadline, "Writer never registered its write intent"
-    time.sleep(0.05)  # simplint: ignore[SMP808]  # needs a write-intent signal
-    return True
-
-
-def chain_reader(
-    reader_index: int,
-    lock_file: str,
-    release_count: Synchronized[int],
-    start_signal: EventType,
-    release_signal: EventType,
-    next_reader_signal: EventType | None,
-    writer_or_prev_signal: EventType,
-) -> None:
-    start_signal.wait(timeout=_PROCESS_DEADLINE)
-
-    with ReadWriteLock(lock_file).read_lock():
-        if reader_index > 0:
-            time.sleep(  # simplint: ignore[SMP808]  # needs a write-intent signal
-                2
-            )  # overlap with earlier readers so the writer contends mid-chain
-
-        if next_reader_signal is not None:
-            next_reader_signal.set()
-
-        if reader_index == 0:
-            time.sleep(  # simplint: ignore[SMP808]  # needs a write-intent signal
-                1
-            )  # hold briefly before releasing the writer
-
-        writer_or_prev_signal.set()
-
-        release_signal.wait(timeout=_PROCESS_DEADLINE)
-
-        with release_count.get_lock():
-            release_count.value += 1
-
-
-def try_illegal_transition(lock_file: str, hold_mode: Literal["read", "write"], result: Synchronized[int]) -> None:
-    lock = ReadWriteLock(lock_file)
-    with getattr(lock, f"{hold_mode}_lock")():
-        try:
-            if hold_mode == "read":
-                lock.acquire_write()
-            else:
-                lock.acquire_read()
-        except RuntimeError:
-            result.value = 0
-
-
-def recursive_lock(lock_file: str, mode: Literal["read", "write"], success_flag: Synchronized[int]) -> None:
-    lock = ReadWriteLock(lock_file)
-    acquire = getattr(lock, f"{mode}_lock")
-    with acquire():
-        assert lock._lock_level == 1
-        assert lock._current_mode == mode
-
-        with acquire():
-            assert lock._lock_level == 2
-            assert lock._current_mode == mode
-
-            with acquire():
-                assert lock._lock_level == 3
-                assert lock._current_mode == mode
-
-            assert lock._lock_level == 2
-            assert lock._current_mode == mode
-
-        assert lock._lock_level == 1
-        assert lock._current_mode == mode
-
-    assert lock._lock_level == 0
-    assert lock._current_mode is None
-
-    success_flag.value = 1
-
-
-def acquire_lock_and_crash(lock_file: str, mode: Literal["read", "write"], acquired_event: EventType) -> None:
-    lock = ReadWriteLock(lock_file)  # pragma: win32 no cover
-    with getattr(lock, f"{mode}_lock")():  # pragma: win32 no cover
-        acquired_event.set()
-        while True:  # pragma: win32 no cover
-            time.sleep(0.1)  # simplint: ignore[SMP808]  # a blocked lock wait can swallow SIGTERM
 
 
 @pytest.mark.parametrize("mode", [pytest.param("read", id="read"), pytest.param("write", id="write")])
@@ -1047,6 +1035,13 @@ def test_shared_directory_ignores_a_journal_beside_the_database(  # pragma: need
     assert named.read_text() == "keep"
 
 
+def _hot_journal(super_journal: Path) -> bytes:  # pragma: needs posix-hard-link
+    # A journal whose tail names a super-journal makes SQLite unlink that file once it finishes the journal:
+    # https://www.sqlite.org/fileformat.html#the_rollback_journal
+    name = os.fsencode(super_journal)
+    return name + struct.pack(">II", len(name), sum(name)) + bytes.fromhex("d9d505f920a163d7")
+
+
 @pytest.mark.requires_hard_links
 @_NEEDS_POSIX_HARD_LINK
 def test_shared_directory_ignores_a_directory_at_the_wal_name(  # pragma: needs posix-hard-link
@@ -1128,7 +1123,7 @@ def test_windows_directory_whose_acl_can_be_rewritten_gets_a_private_link(  # pr
     ReadWriteLock(directory / "lock.db", is_singleton=False).close()
 
     opened = Path(connect.call_args_list[0].args[0])
-    assert (_directory_is_private(os.fspath(directory)), opened.parent.parent.parent) == (False, directory)
+    assert (directory_is_private(os.fspath(directory)), opened.parent.parent.parent) == (False, directory)
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="a Windows directory is shared through its ACL")
@@ -1140,7 +1135,7 @@ def test_windows_directory_only_the_account_can_write_connects_by_name(  # pragm
 
     ReadWriteLock(database, is_singleton=False).close()
 
-    assert (_directory_is_private(os.fspath(tmp_path)), connect.call_args_list[0].args[0]) == (True, str(database))
+    assert (directory_is_private(os.fspath(tmp_path)), connect.call_args_list[0].args[0]) == (True, str(database))
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="a Windows directory is shared through its ACL")
@@ -1191,7 +1186,9 @@ def test_windows_shared_directory_release_keeps_a_directory_renamed_onto_the_lin
     (other / "notes.txt").write_text("keep")
     renamed: list[Path] = []
 
-    def swap_then_remove(link: _LinkDirectory) -> None:
+    def swap_then_remove(
+        link: Any,  # ruff:ignore[any-type]  # simplint: ignore[imprecise-annotation]  # private payload
+    ) -> None:
         link.path.rename(tmp_path / "aside")
         other.rename(link.path)
         renamed.append(link.path)
@@ -1209,7 +1206,7 @@ def test_windows_shared_directory_sweeps_the_link_of_a_dead_holder(  # pragma: w
 ) -> None:
     everyone_writable_database.touch()
     left = everyone_writable_database.parent / f".filelock-{2**31 - 1}--{_host_digest(host_name())}-x"
-    _make_private_directory(os.fspath(left))
+    make_private_directory(os.fspath(left))
     (left / "0123456789abcdef").mkdir()
     (left / "0123456789abcdef" / "lock.db").hardlink_to(everyone_writable_database)
 
@@ -1228,7 +1225,7 @@ def test_windows_shared_directory_sweep_keeps_a_file_that_is_not_a_link_to_the_d
     everyone_writable_database: Path,
 ) -> None:
     left = everyone_writable_database.parent / f".filelock-{2**31 - 1}--{_host_digest(host_name())}-x"
-    _make_private_directory(os.fspath(left))
+    make_private_directory(os.fspath(left))
     (left / "0123456789abcdef").mkdir()
     (left / "0123456789abcdef" / "lock.db").write_text("keep")
 
@@ -1352,20 +1349,13 @@ def test_private_directory_under_a_shared_parent_refuses_a_replaced_directory(  
 
     with pytest.raises(OSError, match="replaced while acquiring"):
         lock.acquire_write()
-    if replacement == "symlink":  # simplint: ignore[SMP803]  # symlink and directory swap leave different state
+    if replacement == "symlink":  # simplint: ignore[conditional-in-test]  # distinct outcomes
         # SQLite's open creates the missing name, which a symlink there sends to its target.
         assert ((tmp_path / "elsewhere.txt").read_bytes(), (moved / "notes.txt").read_text()) == (b"", "keep")
     else:
         # The journal and WAL beside the replacement stay, the file the journal names stays, and no bytes change.
         assert {directory: _entries(directory) for directory in before} == before
     assert_read_write_lock_state(str(moved / "lock.db"), "write", available=True)
-
-
-def _hot_journal(super_journal: Path) -> bytes:  # pragma: needs posix-hard-link
-    # A journal whose tail names a super-journal makes SQLite unlink that file once it finishes the journal:
-    # https://www.sqlite.org/fileformat.html#the_rollback_journal
-    name = os.fsencode(super_journal)
-    return name + struct.pack(">II", len(name), sum(name)) + bytes.fromhex("d9d505f920a163d7")
 
 
 def _entries(directory: Path) -> list[tuple[str, bytes | None]]:  # pragma: needs posix-hard-link

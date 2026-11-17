@@ -1,17 +1,26 @@
 """Stage: tokenize.
 
 Consumes: original, masked (regions to skip), extracted (regions that
-tokenize with a pre-set role).
+tokenize with a pre-set role), and ambiguities (extract's
+UNBALANCED_DELIMITER reports, which carry a character offset).
 Produces: tokens (span-sorted WorkTokens; text always == original
 slice), comma_offsets (segmentation points of the main stream; a comma
 there is never a token, one inside an extracted region is word text),
-interpunct_offsets (间隔号 transcription markers, #298; never tokens).
+interpunct_offsets (间隔号 and fullwidth-stop transcription markers, #298,
+#1312; never tokens), and ambiguities, each report extract left
+carrying a character offset rewritten to the index of the token
+holding that character (no index where the offset is masked).
 Reads: Policy.strip_emoji, Policy.strip_bidi.
 
-Implements rules T1, T2 and T3 of docs/design/rules/, cited at
-their code below. There is NO text-rewriting normalize stage: all
-three are character-classification rules, so spans always index the
+Implements rules T1, T2, T3 and T6 of docs/design/rules/, and N1's
+comma kept inside a clause, cited at their code below. There is NO
+text-rewriting normalize stage: the four T rules are
+character-classification rules, so spans always index the
 original exactly as given (v1 contrast: decisions/T1).
+
+Beside the stage function, `_ignorable` is shared: extract asks it
+where a listed particle's word ends (rules/N2, #1241), so the two
+stages cannot disagree about which characters separate a word.
 """
 from __future__ import annotations
 
@@ -33,12 +42,19 @@ _EMOJI_RANGES = ((0x1F300, 0x1F64F), (0x1F680, 0x1F6FF),
                  (0x2600, 0x26FF), (0x2700, 0x27BF))
 _BIDI = re.compile('[\u061C\u200E\u200F\u202A-\u202E\u2066-\u2069]+')
 
-# rules/T2: "the katakana middle dot and its halfwidth twin divide
-# a name like whitespace, always." They record no offset: the
-# nakaguro also divides kanji roster pairs (高橋・一郎, read
-# family-first by the script license, #272), so it is not a
-# transcription marker; only the Chinese 间隔号 is (#298).
-_NAME_DOT_SEPARATORS = frozenset({"\u30FB", "\uFF65"})
+# rules/T2: "the katakana middle dot, its halfwidth twin and the
+# Ethiopic wordspace divide a name like whitespace, always." They
+# record no offset: the nakaguro also divides kanji roster pairs
+# (高橋・一郎, read family-first by the script license, #272), so it is
+# not a transcription marker; only the Chinese 间隔号 is (#298). The
+# Ethiopic wordspace U+1361 joined them (decisions/T2, #1202).
+_NAME_DOT_SEPARATORS = frozenset({"\u30FB", "\uFF65", "\u1361"})
+
+# rules/T6: "a narrow no-break space between two Mongolian letters
+# joins them into one word" -- the whole rule, T1's Except: anywhere
+# else U+202F is whitespace and divides (decisions/T6, #1236).
+_NARROW_NBSP = "\u202F"
+_MONGOLIAN_BLOCK = (0x1800, 0x18AF)
 
 # rules/T1: "a zero-width space, an invisible separator and a
 # byte-order mark have no such opt-out" -- the Except clause: they
@@ -52,6 +68,13 @@ _NAME_DOT_SEPARATORS = frozenset({"\u30FB", "\uFF65"})
 _INVISIBLE_SEPARATORS = frozenset({"\u200B", "\u2063", "\uFEFF"})
 
 _INTERPUNCT = "\u00B7"
+# The fullwidth full stop is the same transcription dot where Taiwan's
+# writers type it between two Han names (`台邦．撒沙勒`, #1312), and the
+# same plain full stop everywhere else, so it takes the interpunct's
+# flank guard whole: it divides, and records, only between two characters
+# of a classified script. The ideographic full stop U+3002 is not one:
+# it is the sentence stop (decisions/T3, #1312).
+_TRANSCRIPTION_DOTS = frozenset({_INTERPUNCT, "\uFF0E"})
 # rules/T3: "the interpunct divides a name only between two
 # characters of a classified East Asian script; anywhere else it is
 # part of the word" (history: decisions/T3). The flank guard asks
@@ -59,6 +82,16 @@ _INTERPUNCT = "\u00B7"
 # wholly-classified iff the character is. Context-sensitivity is why the
 # guard lives in _tokenize_region (where the index exists) and not in
 # _ignorable.
+
+
+def _mongolian_letter(ch: str) -> bool:
+    """A character of the Mongolian block that is not its punctuation
+    (U+1800-U+180A) or a digit (U+1810-U+1819): its letters, free
+    variation selectors and vowel separator, each of which stands
+    inside a written word, and the block's unassigned codepoints."""
+    cp = ord(ch)
+    return (_MONGOLIAN_BLOCK[0] <= cp <= _MONGOLIAN_BLOCK[1]
+            and not 0x1800 <= cp <= 0x180A and not 0x1810 <= cp <= 0x1819)
 
 
 def _is_emoji(ch: str) -> bool:
@@ -101,7 +134,7 @@ def _ignorable(ch: str, state: ParseState) -> bool:
     if ch.isascii():
         # both strip classes and the unconditional separators are
         # entirely non-ASCII (bidi >= U+061C, emoji >= U+2600, the
-        # invisibles >= U+200B, dots >= U+30FB): skip the checks below
+        # invisibles >= U+200B, dividers >= U+1361): skip the checks below
         # for every ASCII letter
         return False
     # unconditional, like whitespace -- not policy-gated, so this sits
@@ -131,8 +164,12 @@ def _tokenize_region(state: ParseState, start: int, end: int,
         # text, like ';' (decisions/N1, #653)
         is_separator = ((record_offsets and ch in COMMA_CHARS)
                         or _ignorable(ch, state))
-        if ch == _INTERPUNCT:
-            # Region-local flanks: a B7 at a region edge stays token
+        if (ch == _NARROW_NBSP and start < i < end - 1
+                and _mongolian_letter(text[i - 1])
+                and _mongolian_letter(text[i + 1])):
+            is_separator = False
+        if ch in _TRANSCRIPTION_DOTS:
+            # Region-local flanks: a dot at a region edge stays token
             # text, and the bound also stops a custom delimiter's
             # classified edge character from acting as a flank across
             # a mask seam. The scan reads raw characters, not the NFC
@@ -154,7 +191,7 @@ def _tokenize_region(state: ParseState, start: int, end: int,
             if record_offsets:
                 if ch in COMMA_CHARS:
                     commas.append(i)
-                elif ch == _INTERPUNCT:
+                elif ch in _TRANSCRIPTION_DOTS:
                     interpuncts.append(i)
             continue
         if tok_start is None:

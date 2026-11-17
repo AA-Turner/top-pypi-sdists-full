@@ -29,6 +29,7 @@ char *cmark_render_latex(cmark_node *root, int options, int width);
 char *cmark_render_man(cmark_node *root, int options, int width);
 char *cmark_render_commonmark(cmark_node *root, int options, int width);
 char *cmark_render_xml(cmark_node *root, int options);
+char *cmark_render_plaintext(cmark_node *root, int options, int width);
 
 const char *cmark_version_string(void);
 
@@ -113,6 +114,7 @@ int cmark_node_get_start_line(cmark_node *node);
 int cmark_node_get_start_column(cmark_node *node);
 int cmark_node_get_end_line(cmark_node *node);
 int cmark_node_get_end_column(cmark_node *node);
+_Bool cmark_gfm_extensions_get_math_display(cmark_node *node);
 
 /* Node creation and mutation */
 cmark_node *cmark_node_new(cmark_node_type type);

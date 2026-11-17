@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Optional
+from typing import List, Union
 from typing_extensions import Literal
 
 import httpx
@@ -57,14 +57,27 @@ class TransactionsResource(SyncAPIResource):
         token: Union[TransactionTokenAddressInput, SequenceNotStr[TransactionTokenAddressInput]] | Omit = omit,
         asset: Union[
             Literal[
-                "usdc", "usdc.e", "eth", "avax", "pol", "bnb", "usdt", "eurc", "usdb", "ousd", "pathusd", "sol", "trx"
+                "usdc",
+                "usdc.e",
+                "eth",
+                "avax",
+                "pol",
+                "bnb",
+                "mon",
+                "usdt",
+                "eurc",
+                "usdb",
+                "ousd",
+                "pathusd",
+                "sol",
+                "trx",
             ],
             List[WalletAsset],
         ]
         | Omit = omit,
         cursor: str | Omit = omit,
         include_archived: bool | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         tx_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -86,6 +99,8 @@ class TransactionsResource(SyncAPIResource):
 
           asset: Exactly one of `asset` or `token` is required. Cannot be used together with
               `token`.
+
+          cursor: Cursor returned by the previous page.
 
           include_archived: Include archived wallets in lookup. Defaults to false.
 
@@ -153,14 +168,27 @@ class AsyncTransactionsResource(AsyncAPIResource):
         token: Union[TransactionTokenAddressInput, SequenceNotStr[TransactionTokenAddressInput]] | Omit = omit,
         asset: Union[
             Literal[
-                "usdc", "usdc.e", "eth", "avax", "pol", "bnb", "usdt", "eurc", "usdb", "ousd", "pathusd", "sol", "trx"
+                "usdc",
+                "usdc.e",
+                "eth",
+                "avax",
+                "pol",
+                "bnb",
+                "mon",
+                "usdt",
+                "eurc",
+                "usdb",
+                "ousd",
+                "pathusd",
+                "sol",
+                "trx",
             ],
             List[WalletAsset],
         ]
         | Omit = omit,
         cursor: str | Omit = omit,
         include_archived: bool | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         tx_hash: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -182,6 +210,8 @@ class AsyncTransactionsResource(AsyncAPIResource):
 
           asset: Exactly one of `asset` or `token` is required. Cannot be used together with
               `token`.
+
+          cursor: Cursor returned by the previous page.
 
           include_archived: Include archived wallets in lookup. Defaults to false.
 

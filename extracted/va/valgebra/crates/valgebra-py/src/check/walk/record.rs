@@ -20,14 +20,18 @@ use pyo3::types::{PyDict, PyString};
 use rustc_hash::FxHashMap;
 use valgebra_core::{Attribute, Field, MapClause, PathSegment, Schema, Violation, quoted};
 
-use super::scalar::{Scalar, admitted_quietly, scalar_admits, scalar_member, scalar_of};
+use super::scalar::{
+    Scalar, admitted_quietly, exact_of, leaf_reads_here, scalar_admits, scalar_member, scalar_of,
+    tree_leaf_admits,
+};
+use super::tree::tree_dict_read;
 #[cfg(PyPy)]
 use super::{Base, held_dict, reads_its_length, reads_its_values};
 use super::{
     Frame, Scan, Unwritten, again, fast, fold, is_fatal, member, mutated, record_fatal,
     record_if_fatal, record_move, stop,
 };
-use crate::check::ctx::{Ctx, WalkState};
+use crate::check::ctx::{Ctx, MAX_WALK_DEPTH, WalkState};
 use crate::check::index::{RecordPlan, decided_by_its_value};
 use crate::check::violation::{at_key, key_segment, located, summarize_value, type_mismatch};
 use crate::codes::{DICT_TYPE, EXTRA_FORBIDDEN, MISSING_ATTRIBUTE, MISSING_KEY};
@@ -698,26 +702,22 @@ impl Undeclared {
 /// subclass with an `__eq__` of its own is found exactly where indexing the
 /// dict would find it.
 ///
-/// `None` means "ask the scan instead": a clause reads an undeclared key
-/// together with its value; the plan has no interned key for a field; or a
-/// probe raised something other than a fatal signal, which is not an answer. A
-/// value that changes size under the probes is not one of those: it is answered
-/// here, as the scan answers it, because there is no reading of it left to fall
-/// back to.
+/// `None` means "ask the scan instead": the value holds an undeclared key and a
+/// clause reads it together with its value; the plan has no interned key for a
+/// field; or a probe raised something other than a fatal signal, which is not
+/// an answer. A value that changes size under the probes is not one of those:
+/// it is answered here, as the scan answers it, because there is no reading of
+/// it left to fall back to.
 fn keyed_map_asks_for_its_keys(
-    fields: &[Field],
-    undeclared: Undeclared,
+    reading: &RecordReading<'_>,
     dict: &Bound<'_, PyDict>,
     frame: &mut Frame<'_, '_>,
     plan: &RecordPlan,
     decided: Option<&mut Decided>,
 ) -> Option<bool> {
+    let (fields, undeclared) = (reading.fields, reading.undeclared);
     let ctx = frame.ctx;
-    // By its keys where the keys settle it. A record whose clause reads an
-    // undeclared key together with its value has to be scanned, and the scan
-    // walks the declared fields as it goes, so reading those by key first would
-    // be work done twice; such a record is not read here.
-    if undeclared == Undeclared::Read || plan.keys.len() != fields.len() {
+    if plan.keys.len() != fields.len() {
         return None;
     }
     // A fast frame over the caller's buffers, which a fast walk writes nothing
@@ -835,11 +835,57 @@ fn keyed_map_asks_for_its_keys(
                     _ => Some(read_whole(&keys, ctx)),
                 }
             }
-            // Kept out by the guard above; were it not, the scan still decides,
-            // at the cost of the reading just done.
-            Undeclared::Read => None,
+            // A clause that reads an undeclared key together with its value --
+            // the `str: J` every object of a JSON Schema translation carries --
+            // is asked of each undeclared key, and of nothing the fields above
+            // read: an explaining walk resumes past them.
+            Undeclared::Read => Some(undeclared_held(
+                fields,
+                reading.defaults,
+                dict,
+                plan,
+                &sub.ctx,
+            )),
         }
     })
+}
+
+/// Whether a clause covers every key of `dict` that reaches no declared name,
+/// for a record whose clause reads an undeclared key with its value
+/// ([`Undeclared::Read`]) and whose declared fields the probes of
+/// [`keyed_map_asks_for_its_keys`] admitted.
+///
+/// A key is resolved as the scan resolves it ([`declared_position`]), and a
+/// declared one is skipped: its field was read by the probes, and a field read
+/// twice runs a predicate on it twice. Out of line, as [`other_keys_reach_names`]
+/// is: a record holding a key it does not declare is the rarer reading, and the
+/// probes are inlined into the reader of a list of records.
+#[cold]
+#[inline(never)]
+fn undeclared_held(
+    fields: &[Field],
+    defaults: &[MapClause],
+    dict: &Bound<'_, PyDict>,
+    plan: &RecordPlan,
+    ctx: &Ctx<'_>,
+) -> bool {
+    let ctx = *ctx;
+    let names = Names {
+        by_text: |name: &str| plan.by_name.get(name).copied(),
+        interned: Some(&plan.keys),
+        read: RefCell::default(),
+    };
+    let mut unwritten = Unwritten::default();
+    let mut sub = unwritten.frame(ctx);
+    let scan = scan_dict(dict, ctx.state, |key, value| {
+        let declared = declared_position(key, fields, &names, ctx, Entry { dict, value }).is_some();
+        if declared || covered(defaults, &Value::Py(key), &Value::Py(value), &mut sub) {
+            ControlFlow::Continue(())
+        } else {
+            ControlFlow::Break(())
+        }
+    });
+    read_whole(&scan, ctx)
 }
 
 /// Whether every key of `dict` that is not a `str` reaches a declared name, for
@@ -899,7 +945,7 @@ fn keyed_map_matches_py(
         fields,
         defaults,
         plan,
-        undeclared,
+        ..
     } = *reading;
     let Ok(dict) = dict.cast::<PyDict>() else {
         return false;
@@ -909,20 +955,31 @@ fn keyed_map_matches_py(
         return false;
     };
     let mut decided = decided;
-    if fields.is_empty()
-        && let Some(answered) = scalar_map_matches(defaults, dict, ctx, decided.as_deref_mut())
-    {
-        return answered;
+    if fields.is_empty() {
+        if let Some(answered) = scalar_map_matches(defaults, dict, ctx, decided.as_deref_mut()) {
+            return answered;
+        }
+        if let Some(answered) = leaf_dict_read(defaults, dict, frame) {
+            return answered;
+        }
+        // A mapping of a tree's reference -- `dict[str, J]`. What a union's
+        // deciding pass keeps is kept in a walk that explains, which the
+        // reading declines to the scan below.
+        if let [
+            MapClause {
+                key: Schema::Str,
+                value: value @ Schema::Ref(id),
+            },
+        ] = defaults
+            && let Some(answered) = tree_dict_read(*id, value, dict, frame)
+        {
+            return answered;
+        }
     }
     if let Some(plan) = plan {
-        if let Some(answered) = keyed_map_asks_for_its_keys(
-            fields,
-            undeclared,
-            dict,
-            frame,
-            plan,
-            decided.as_deref_mut(),
-        ) {
+        if let Some(answered) =
+            keyed_map_asks_for_its_keys(reading, dict, frame, plan, decided.as_deref_mut())
+        {
             return answered;
         }
         keyed_map_scan(
@@ -1018,6 +1075,55 @@ pub(super) fn scalar_map_matches(
         keep.admitted = admitted;
         keep.inside = false;
     }
+    Some(read_whole(&scan, ctx))
+}
+
+/// A mapping of `str` keys to a leaf -- `dict[str, integer]` -- each entry's
+/// key an instance of `str` and its value read by its exact type and number,
+/// as [`leaf_list_read`](super::sequence::leaf_list_read) reads a list's
+/// elements, or `None` where the index holds no plan for the value, the levels
+/// to its deepest type test are not free, or the walk explains.
+///
+/// The scan asks each value through its clause and the walk of the meet, the
+/// union and the complement the leaf is made of, around tests the value's type
+/// answers. A value no type settles -- a subclass, an `int` past a word the
+/// leaf reads -- is walked from the mapping's level, where the scan walks it.
+/// What a union's deciding pass keeps is kept in a walk that explains, which
+/// this declines to the scan.
+#[inline(never)]
+pub(super) fn leaf_dict_read(
+    defaults: &[MapClause],
+    dict: &Bound<'_, PyDict>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let ctx = frame.ctx;
+    let [
+        MapClause {
+            key: Schema::Str,
+            value: schema,
+        },
+    ] = defaults
+    else {
+        return None;
+    };
+    let plan = ctx.index.leaf(schema)?;
+    if ctx.mode.explains()
+        || ctx.state.depth.get() + plan.levels > MAX_WALK_DEPTH
+        || !leaf_reads_here(plan, ctx)
+    {
+        return None;
+    }
+    let scan = scan_dict(dict, ctx.state, |key, item| {
+        let admitted = key.is_instance_of::<PyString>()
+            && exact_of(item)
+                .and_then(|exact| tree_leaf_admits(plan, item, exact))
+                .unwrap_or_else(|| member(schema, &Value::Py(item), frame));
+        if admitted {
+            ControlFlow::Continue(())
+        } else {
+            ControlFlow::Break(())
+        }
+    });
     Some(read_whole(&scan, ctx))
 }
 

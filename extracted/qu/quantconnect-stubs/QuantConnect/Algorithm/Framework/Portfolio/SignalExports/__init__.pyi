@@ -288,7 +288,7 @@ class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalE
         @property
         def quantity(self) -> float:
             """
-            Number of shares/contracts of the given symbol. Positive quantites are long positions
+            Number of shares/contracts of the given symbol. Positive quantities are long positions
             and negative short positions.
             """
             ...
@@ -462,7 +462,7 @@ class SignalExportManager(System.Object):
     @property
     def automatic_export_time_span(self) -> typing.Optional[datetime.timedelta]:
         """
-        Gets the maximim time span elapsed to export signals after an order event
+        Gets the maximum time span elapsed to export signals after an order event
         If null, disable automatic export.
         """
         ...

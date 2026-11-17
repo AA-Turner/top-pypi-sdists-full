@@ -266,7 +266,7 @@ fn overlap(mut reaches: impl Iterator<Item = u128>) -> bool {
 
 /// Call `visit` on each schema directly below `schema`, references not
 /// followed.
-fn for_each_child(schema: &Schema, visit: &mut impl FnMut(&Schema)) {
+pub(crate) fn for_each_child(schema: &Schema, visit: &mut impl FnMut(&Schema)) {
     match schema {
         Schema::Seq { shape, .. } => {
             shape.prefix.iter().for_each(&mut *visit);
@@ -471,6 +471,22 @@ pub(crate) struct Kept {
 }
 
 impl Kept {
+    /// Each answer a deciding walk kept that met no stop, by its pair: whether
+    /// it admitted, and the levels and unfoldings of the deepest room it
+    /// answers, for the tests that hold a reading to what the walk keeps.
+    #[cfg(all(test, feature = "interpreter-tests"))]
+    pub(crate) fn answers(
+        &self,
+    ) -> std::collections::BTreeMap<(usize, usize), (bool, usize, usize)> {
+        self.decided
+            .iter()
+            .filter_map(|(key, decided)| {
+                let (admitted, deepest) = decided.answered?;
+                Some((*key, (admitted, deepest.levels, deepest.unfolded)))
+            })
+            .collect()
+    }
+
     /// The answer a deciding walk kept for this pair, where it answers a walk
     /// begun with `room`.
     pub(crate) fn decided(&self, key: (usize, usize), room: Room) -> Option<Answer> {

@@ -70,6 +70,8 @@ __all__ = (
     "ListStreamsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "MetricGroupRequestTypeDef",
+    "MetricGroupResponseTypeDef",
     "MultiRegionPropertiesOutputTypeDef",
     "MultiRegionPropertiesTypeDef",
     "MultiRegionPropertiesUnionTypeDef",
@@ -93,10 +95,18 @@ class ClusterSummaryTypeDef(TypedDict):
     arn: str
 
 
+class MetricGroupRequestTypeDef(TypedDict):
+    metricGroup: Literal["STATEMENT_STATISTICS"]
+
+
 class EncryptionDetailsTypeDef(TypedDict):
     encryptionType: EncryptionTypeType
     encryptionStatus: EncryptionStatusType
     kmsKeyArn: NotRequired[str]
+
+
+class MetricGroupResponseTypeDef(TypedDict):
+    metricGroup: Literal["STATEMENT_STATISTICS"]
 
 
 class MultiRegionPropertiesOutputTypeDef(TypedDict):
@@ -222,6 +232,7 @@ class CreateClusterOutputTypeDef(TypedDict):
     encryptionDetails: EncryptionDetailsTypeDef
     deletionProtectionEnabled: bool
     endpoint: str
+    metricGroups: list[MetricGroupResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -276,6 +287,7 @@ class GetClusterOutputTypeDef(TypedDict):
     tags: dict[str, str]
     encryptionDetails: EncryptionDetailsTypeDef
     endpoint: str
+    metricGroups: list[MetricGroupResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -395,6 +407,7 @@ class CreateClusterInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     multiRegionProperties: NotRequired[MultiRegionPropertiesUnionTypeDef]
     policy: NotRequired[str]
+    metricGroups: NotRequired[Sequence[MetricGroupRequestTypeDef]]
     bypassPolicyLockoutSafetyCheck: NotRequired[bool]
 
 
@@ -404,3 +417,4 @@ class UpdateClusterInputTypeDef(TypedDict):
     kmsEncryptionKey: NotRequired[str]
     clientToken: NotRequired[str]
     multiRegionProperties: NotRequired[MultiRegionPropertiesUnionTypeDef]
+    metricGroups: NotRequired[Sequence[MetricGroupRequestTypeDef]]

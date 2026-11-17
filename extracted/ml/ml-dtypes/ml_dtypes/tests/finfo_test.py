@@ -30,6 +30,7 @@ ALL_DTYPES = [
     ml_dtypes.float8_e4m3fnuz,
     ml_dtypes.float8_e5m2,
     ml_dtypes.float8_e5m2fnuz,
+    ml_dtypes.float8_e5m3fnu,
     ml_dtypes.float8_e8m0fnu,
 ]
 
@@ -38,6 +39,7 @@ DTYPES_WITH_NO_INFINITY = [
     ml_dtypes.float8_e4m3fn,
     ml_dtypes.float8_e4m3fnuz,
     ml_dtypes.float8_e5m2fnuz,
+    ml_dtypes.float8_e5m3fnu,
     ml_dtypes.float8_e8m0fnu,
 ]
 
@@ -63,15 +65,28 @@ class FinfoTest(parameterized.TestCase):
       return
     self.assertEqual(x, y)
 
+  @parameterized.parameters(
+      *ALL_DTYPES,
+      ml_dtypes.bcomplex32,
+      ml_dtypes.complex32,
+  )
+  def testFinfoEquivalence(self, dtype):
+    dt = np.dtype(dtype)
+    info = ml_dtypes.finfo(dtype)
+    self.assertIs(ml_dtypes.finfo(dt.name), info)
+    self.assertIs(ml_dtypes.finfo(dt), info)
+    self.assertIs(np.finfo(dtype), info)
+    self.assertIs(np.finfo(dt.name), info)
+    self.assertIs(np.finfo(dt), info)
+
   @parameterized.named_parameters(
       {"testcase_name": f"_{dtype.__name__}", "dtype": np.dtype(dtype)}
       for dtype in ALL_DTYPES
   )
   def testFInfo(self, dtype):
     info = ml_dtypes.finfo(dtype)
-
-    assert ml_dtypes.finfo(dtype.name) is info
-    assert ml_dtypes.finfo(dtype.type) is info
+    # Compare in Python floats: e8m0 cannot represent zero.
+    minimum, maximum = float(info.min), float(info.max)
 
     _ = str(info)  # doesn't crash
 
@@ -94,13 +109,13 @@ class FinfoTest(parameterized.TestCase):
       self.assertEqual(make_val(val), make_val(0))
 
     self.assertEqual(np.array(0, dtype).dtype, dtype)
-    self.assertIs(info.dtype, dtype)
+    self.assertEqual(info.dtype, dtype)
 
     if info.bits >= 8:
       self.assertEqual(info.bits, np.array(0, dtype).itemsize * 8)
 
     # Unsigned float => no sign bit.
-    if info.min >= 0.0:
+    if minimum >= 0.0:
       self.assertEqual(info.nmant + info.nexp, info.bits)
     else:
       self.assertEqual(info.nmant + info.nexp + 1, info.bits)
@@ -110,16 +125,16 @@ class FinfoTest(parameterized.TestCase):
 
     if dtype not in DTYPES_WITH_NO_INFINITY_AND_NO_NAN:
       assert_infinite(np.spacing(info.max))
-    assert info.max > 0.0
+    assert maximum > 0.0
 
-    if info.min < 0.0 and dtype not in DTYPES_WITH_NO_INFINITY_AND_NO_NAN:
+    if minimum < 0.0 and dtype not in DTYPES_WITH_NO_INFINITY_AND_NO_NAN:
       # Only valid for signed floating format.
       assert_infinite(-np.spacing(info.min))
-    elif info.min > 0.0:
+    elif minimum > 0.0:
       # No zero in floating point format.
       assert_infinite(0)
       assert_infinite(make_val(-1))
-    elif info.min == 0.0:
+    elif minimum == 0.0:
       # Zero supported, but not negative values.
       self.assertEqual(make_val(0), 0)
       assert_infinite(make_val(-1))
@@ -128,9 +143,9 @@ class FinfoTest(parameterized.TestCase):
     assert_infinite(2.0**info.maxexp)
 
     assert_representable(info.smallest_subnormal)
-    if info.min < 0.0:
-      assert_zero(info.smallest_subnormal * 0.5)
-    self.assertGreater(info.smallest_normal, 0.0)
+    if minimum < 0.0:
+      assert_zero(float(info.smallest_subnormal) * 0.5)
+    self.assertGreater(float(info.smallest_normal), 0.0)
     self.assertEqual(info.tiny, info.smallest_normal)
 
     # Identities according to the documentation:
@@ -158,6 +173,23 @@ class FinfoTest(parameterized.TestCase):
     # return the same object.
     arr = np.zeros(1, dtype=dtype)
     self.assertEqual(ml_dtypes.finfo(arr).dtype, dtype)
+
+  @parameterized.parameters(
+      (ml_dtypes.complex32, np.float16),
+      (ml_dtypes.bcomplex32, ml_dtypes.bfloat16),
+      (np.complex64, np.float32),
+      (np.complex128, np.float64),
+  )
+  def testComplexFinfo(self, complex_dtype, float_dtype):
+    complex_info = ml_dtypes.finfo(complex_dtype)
+    float_info = ml_dtypes.finfo(float_dtype)
+    self.assertEqual(complex_info.dtype, np.dtype(float_dtype))
+    self.assertEqual(complex_info.bits, float_info.bits)
+    self.assertEqual(complex_info.eps, float_info.eps)
+    self.assertEqual(complex_info.max, float_info.max)
+    self.assertEqual(complex_info.min, float_info.min)
+    arr = np.zeros(1, dtype=complex_dtype)
+    self.assertEqual(ml_dtypes.finfo(arr).dtype, np.dtype(float_dtype))
 
 
 if __name__ == "__main__":

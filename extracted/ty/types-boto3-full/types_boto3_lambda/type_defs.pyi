@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_lambda.type_defs import AccountLimitTypeDef
+    from types_boto3_lambda.type_defs import AcceleratorConfigTypeDef
 
-    data: AccountLimitTypeDef = ...
+    data: AcceleratorConfigTypeDef = ...
     ```
 """
 
@@ -27,6 +27,7 @@ from botocore.response import StreamingBody
 from .literals import (
     ApplicationLogLevelType,
     ArchitectureType,
+    CapacityProviderPredefinedMetricTypeType,
     CapacityProviderScalingModeType,
     CapacityProviderStateType,
     CodeSigningPolicyType,
@@ -74,6 +75,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AcceleratorConfigTypeDef",
     "AccountLimitTypeDef",
     "AccountUsageTypeDef",
     "AddLayerVersionPermissionRequestTypeDef",
@@ -404,6 +406,9 @@ __all__ = (
     "WaiterConfigTypeDef",
 )
 
+class AcceleratorConfigTypeDef(TypedDict):
+    AcceleratorMemorySize: int
+
 class AccountLimitTypeDef(TypedDict):
     TotalCodeSize: NotRequired[int]
     CodeSizeUnzipped: NotRequired[int]
@@ -491,7 +496,7 @@ class CapacityProviderPermissionsConfigTypeDef(TypedDict):
     CapacityProviderOperatorRoleArn: str
 
 class TargetTrackingScalingPolicyTypeDef(TypedDict):
-    PredefinedMetricType: Literal["LambdaCapacityProviderAverageCPUUtilization"]
+    PredefinedMetricType: CapacityProviderPredefinedMetricTypeType
     TargetValue: float
 
 class CapacityProviderVpcConfigOutputTypeDef(TypedDict):
@@ -1893,6 +1898,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     FunctionName: str
@@ -1917,6 +1923,7 @@ class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 class InvokeWithResponseStreamResponseTypeDef(TypedDict):
     StatusCode: int
@@ -1990,6 +1997,7 @@ class FunctionConfigurationResponseTypeDef(TypedDict):
     ConfigSha256: str
     DurableConfig: DurableConfigTypeDef
     RuntimeConfig: FunctionRuntimeConfigTypeDef
+    AcceleratorConfig: AcceleratorConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class FunctionConfigurationTypeDef(TypedDict):
@@ -2034,6 +2042,7 @@ class FunctionConfigurationTypeDef(TypedDict):
     ConfigSha256: NotRequired[str]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 class EventTypeDef(TypedDict):
     EventType: NotRequired[EventTypeType]

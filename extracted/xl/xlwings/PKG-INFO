@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xlwings
-Version: 0.37.8
+Version: 0.37.10
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -34,7 +34,7 @@ Requires-Dist: mistune ; extra == 'reports'
 Requires-Dist: watchgod ; extra == 'vba-edit'
 Provides-Extra: all
 Provides-Extra: reports
-Provides-Extra: vba_edit
+Provides-Extra: vba-edit
 License-File: LICENSE.txt
 License-File: LICENSE_PRO.txt
 Summary: Make Excel fly: Interact with Excel from Python and vice versa.

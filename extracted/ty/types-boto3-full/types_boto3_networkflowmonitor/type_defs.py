@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_networkflowmonitor.type_defs import MonitorLocalResourceTypeDef
+    from types_boto3_networkflowmonitor.type_defs import AccountToAddTypeDef
 
-    data: MonitorLocalResourceTypeDef = ...
+    data: AccountToAddTypeDef = ...
     ```
 """
 
@@ -23,12 +23,15 @@ from typing import Union
 
 from .literals import (
     DestinationCategoryType,
+    FilterOperatorType,
     MetricUnitType,
     MonitorLocalResourceTypeType,
     MonitorMetricType,
     MonitorRemoteResourceTypeType,
     MonitorStatusType,
+    OrgMembershipStatusType,
     QueryStatusType,
+    ScopeCoverageStatusType,
     ScopeStatusType,
     WorkloadInsightsMetricType,
 )
@@ -40,17 +43,32 @@ else:
 
 
 __all__ = (
+    "AccountToAddTypeDef",
+    "AdditionalFlowInfoTypeDef",
+    "ClientLocationTypeDef",
     "CreateMonitorInputTypeDef",
     "CreateMonitorOutputTypeDef",
+    "CreatePerformanceMonitorInputTypeDef",
+    "CreatePerformanceMonitorOutputTypeDef",
     "CreateScopeInputTypeDef",
     "CreateScopeOutputTypeDef",
     "DeleteMonitorInputTypeDef",
+    "DeletePerformanceMonitorInputTypeDef",
     "DeleteScopeInputTypeDef",
+    "FilterParameterTypeDef",
     "GetMonitorInputTypeDef",
     "GetMonitorOutputTypeDef",
+    "GetMonitorScopeSuggestionsInputPaginateTypeDef",
+    "GetMonitorScopeSuggestionsInputTypeDef",
+    "GetMonitorScopeSuggestionsOutputTypeDef",
+    "GetPerformanceMonitorInputTypeDef",
+    "GetPerformanceMonitorOutputTypeDef",
     "GetQueryResultsMonitorTopContributorsInputPaginateTypeDef",
     "GetQueryResultsMonitorTopContributorsInputTypeDef",
     "GetQueryResultsMonitorTopContributorsOutputTypeDef",
+    "GetQueryResultsPerformanceMonitorInputPaginateTypeDef",
+    "GetQueryResultsPerformanceMonitorInputTypeDef",
+    "GetQueryResultsPerformanceMonitorOutputTypeDef",
     "GetQueryResultsWorkloadInsightsTopContributorsDataInputPaginateTypeDef",
     "GetQueryResultsWorkloadInsightsTopContributorsDataInputTypeDef",
     "GetQueryResultsWorkloadInsightsTopContributorsDataOutputTypeDef",
@@ -59,6 +77,8 @@ __all__ = (
     "GetQueryResultsWorkloadInsightsTopContributorsOutputTypeDef",
     "GetQueryStatusMonitorTopContributorsInputTypeDef",
     "GetQueryStatusMonitorTopContributorsOutputTypeDef",
+    "GetQueryStatusPerformanceMonitorInputTypeDef",
+    "GetQueryStatusPerformanceMonitorOutputTypeDef",
     "GetQueryStatusWorkloadInsightsTopContributorsDataInputTypeDef",
     "GetQueryStatusWorkloadInsightsTopContributorsDataOutputTypeDef",
     "GetQueryStatusWorkloadInsightsTopContributorsInputTypeDef",
@@ -69,6 +89,9 @@ __all__ = (
     "ListMonitorsInputPaginateTypeDef",
     "ListMonitorsInputTypeDef",
     "ListMonitorsOutputTypeDef",
+    "ListPerformanceMonitorsInputPaginateTypeDef",
+    "ListPerformanceMonitorsInputTypeDef",
+    "ListPerformanceMonitorsOutputTypeDef",
     "ListScopesInputPaginateTypeDef",
     "ListScopesInputTypeDef",
     "ListScopesOutputTypeDef",
@@ -78,16 +101,23 @@ __all__ = (
     "MonitorRemoteResourceTypeDef",
     "MonitorSummaryTypeDef",
     "MonitorTopContributorsRowTypeDef",
+    "NetworkTypeDef",
     "PaginatorConfigTypeDef",
+    "PerformanceMonitorSummaryTypeDef",
+    "PerformanceMonitorTargetTypeDef",
+    "QueryFieldTypeDef",
     "ResponseMetadataTypeDef",
     "ScopeSummaryTypeDef",
     "StartQueryMonitorTopContributorsInputTypeDef",
     "StartQueryMonitorTopContributorsOutputTypeDef",
+    "StartQueryPerformanceMonitorInputTypeDef",
+    "StartQueryPerformanceMonitorOutputTypeDef",
     "StartQueryWorkloadInsightsTopContributorsDataInputTypeDef",
     "StartQueryWorkloadInsightsTopContributorsDataOutputTypeDef",
     "StartQueryWorkloadInsightsTopContributorsInputTypeDef",
     "StartQueryWorkloadInsightsTopContributorsOutputTypeDef",
     "StopQueryMonitorTopContributorsInputTypeDef",
+    "StopQueryPerformanceMonitorInputTypeDef",
     "StopQueryWorkloadInsightsTopContributorsDataInputTypeDef",
     "StopQueryWorkloadInsightsTopContributorsInputTypeDef",
     "TagResourceInputTypeDef",
@@ -99,11 +129,31 @@ __all__ = (
     "UntagResourceInputTypeDef",
     "UpdateMonitorInputTypeDef",
     "UpdateMonitorOutputTypeDef",
+    "UpdatePerformanceMonitorInputTypeDef",
+    "UpdatePerformanceMonitorOutputTypeDef",
     "UpdateScopeInputTypeDef",
     "UpdateScopeOutputTypeDef",
     "WorkloadInsightsTopContributorsDataPointTypeDef",
     "WorkloadInsightsTopContributorsRowTypeDef",
 )
+
+
+class AccountToAddTypeDef(TypedDict):
+    accountId: str
+    region: str
+    membership: OrgMembershipStatusType
+
+
+class ClientLocationTypeDef(TypedDict):
+    city: NotRequired[str]
+    subdivision: NotRequired[str]
+    country: NotRequired[str]
+
+
+class NetworkTypeDef(TypedDict):
+    asName: NotRequired[str]
+    asNumber: NotRequired[int]
+
 
 MonitorLocalResourceTypeDef = TypedDict(
     "MonitorLocalResourceTypeDef",
@@ -129,12 +179,35 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+PerformanceMonitorTargetTypeDef = TypedDict(
+    "PerformanceMonitorTargetTypeDef",
+    {
+        "type": Literal["AWS::EC2::VPC"],
+        "identifier": str,
+    },
+)
+
+
 class DeleteMonitorInputTypeDef(TypedDict):
+    monitorName: str
+
+
+class DeletePerformanceMonitorInputTypeDef(TypedDict):
     monitorName: str
 
 
 class DeleteScopeInputTypeDef(TypedDict):
     scopeId: str
+
+
+FilterParameterTypeDef = TypedDict(
+    "FilterParameterTypeDef",
+    {
+        "field": str,
+        "operator": FilterOperatorType,
+        "values": Sequence[str],
+    },
+)
 
 
 class GetMonitorInputTypeDef(TypedDict):
@@ -147,11 +220,37 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class GetMonitorScopeSuggestionsInputTypeDef(TypedDict):
+    monitorArn: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+class GetPerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+
+
 class GetQueryResultsMonitorTopContributorsInputTypeDef(TypedDict):
     monitorName: str
     queryId: str
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+
+class GetQueryResultsPerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    queryId: str
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
+QueryFieldTypeDef = TypedDict(
+    "QueryFieldTypeDef",
+    {
+        "name": str,
+        "type": str,
+    },
+)
 
 
 class GetQueryResultsWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
@@ -191,6 +290,11 @@ class GetQueryStatusMonitorTopContributorsInputTypeDef(TypedDict):
     queryId: str
 
 
+class GetQueryStatusPerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    queryId: str
+
+
 class GetQueryStatusWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
     scopeId: str
     queryId: str
@@ -226,6 +330,13 @@ class MonitorSummaryTypeDef(TypedDict):
     monitorStatus: MonitorStatusType
 
 
+class ListPerformanceMonitorsInputTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    monitorStatus: NotRequired[MonitorStatusType]
+    monitorType: NotRequired[Literal["VPC"]]
+
+
 class ListScopesInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
@@ -256,6 +367,11 @@ class StopQueryMonitorTopContributorsInputTypeDef(TypedDict):
     queryId: str
 
 
+class StopQueryPerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    queryId: str
+
+
 class StopQueryWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
     scopeId: str
     queryId: str
@@ -278,6 +394,11 @@ class TargetIdTypeDef(TypedDict):
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+
+class AdditionalFlowInfoTypeDef(TypedDict):
+    network: NotRequired[NetworkTypeDef]
+    clientLocation: NotRequired[ClientLocationTypeDef]
 
 
 class CreateMonitorInputTypeDef(TypedDict):
@@ -330,7 +451,20 @@ class GetMonitorOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetMonitorScopeSuggestionsOutputTypeDef(TypedDict):
+    status: ScopeCoverageStatusType
+    accountsToAdd: list[AccountToAddTypeDef]
+    updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class GetQueryStatusMonitorTopContributorsOutputTypeDef(TypedDict):
+    status: QueryStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetQueryStatusPerformanceMonitorOutputTypeDef(TypedDict):
     status: QueryStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -351,6 +485,11 @@ class ListTagsForResourceOutputTypeDef(TypedDict):
 
 
 class StartQueryMonitorTopContributorsOutputTypeDef(TypedDict):
+    queryId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class StartQueryPerformanceMonitorOutputTypeDef(TypedDict):
     queryId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -385,7 +524,77 @@ class UpdateScopeOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreatePerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    targets: Sequence[PerformanceMonitorTargetTypeDef]
+    scopeArn: NotRequired[str]
+    clientToken: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class CreatePerformanceMonitorOutputTypeDef(TypedDict):
+    monitorArn: str
+    monitorName: str
+    monitorStatus: MonitorStatusType
+    monitorType: Literal["VPC"]
+    targets: list[PerformanceMonitorTargetTypeDef]
+    createdAt: datetime
+    modifiedAt: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetPerformanceMonitorOutputTypeDef(TypedDict):
+    monitorArn: str
+    monitorName: str
+    monitorStatus: MonitorStatusType
+    monitorType: Literal["VPC"]
+    targets: list[PerformanceMonitorTargetTypeDef]
+    createdAt: datetime
+    modifiedAt: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PerformanceMonitorSummaryTypeDef(TypedDict):
+    monitorArn: str
+    monitorName: str
+    monitorStatus: MonitorStatusType
+    monitorType: Literal["VPC"]
+    targets: NotRequired[list[PerformanceMonitorTargetTypeDef]]
+
+
+class UpdatePerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    targetsToAdd: NotRequired[Sequence[PerformanceMonitorTargetTypeDef]]
+    targetsToRemove: NotRequired[Sequence[PerformanceMonitorTargetTypeDef]]
+    clientToken: NotRequired[str]
+
+
+class UpdatePerformanceMonitorOutputTypeDef(TypedDict):
+    monitorArn: str
+    monitorName: str
+    monitorStatus: MonitorStatusType
+    monitorType: Literal["VPC"]
+    targets: list[PerformanceMonitorTargetTypeDef]
+    createdAt: datetime
+    modifiedAt: datetime
+    tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetMonitorScopeSuggestionsInputPaginateTypeDef(TypedDict):
+    monitorArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class GetQueryResultsMonitorTopContributorsInputPaginateTypeDef(TypedDict):
+    monitorName: str
+    queryId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetQueryResultsPerformanceMonitorInputPaginateTypeDef(TypedDict):
     monitorName: str
     queryId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -408,8 +617,21 @@ class ListMonitorsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListPerformanceMonitorsInputPaginateTypeDef(TypedDict):
+    monitorStatus: NotRequired[MonitorStatusType]
+    monitorType: NotRequired[Literal["VPC"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListScopesInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class GetQueryResultsPerformanceMonitorOutputTypeDef(TypedDict):
+    fields: list[QueryFieldTypeDef]
+    data: list[list[str]]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class GetQueryResultsWorkloadInsightsTopContributorsDataOutputTypeDef(TypedDict):
@@ -435,6 +657,46 @@ class ListScopesOutputTypeDef(TypedDict):
     scopes: list[ScopeSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class StartQueryMonitorTopContributorsInputTypeDef(TypedDict):
+    monitorName: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    metricName: MonitorMetricType
+    destinationCategory: DestinationCategoryType
+    limit: NotRequired[int]
+
+
+class StartQueryPerformanceMonitorInputTypeDef(TypedDict):
+    monitorName: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    queryType: Literal["TOP_PATHS"]
+    filterParameters: NotRequired[Sequence[FilterParameterTypeDef]]
+    limit: NotRequired[int]
+
+
+class StartQueryWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
+    scopeId: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    metricName: WorkloadInsightsMetricType
+    destinationCategory: DestinationCategoryType
+
+
+class StartQueryWorkloadInsightsTopContributorsInputTypeDef(TypedDict):
+    scopeId: str
+    startTime: TimestampTypeDef
+    endTime: TimestampTypeDef
+    metricName: WorkloadInsightsMetricType
+    destinationCategory: DestinationCategoryType
+    limit: NotRequired[int]
+
+
+class TargetIdentifierTypeDef(TypedDict):
+    targetId: TargetIdTypeDef
+    targetType: Literal["ACCOUNT"]
 
 
 class MonitorTopContributorsRowTypeDef(TypedDict):
@@ -463,42 +725,11 @@ class MonitorTopContributorsRowTypeDef(TypedDict):
     remoteInstanceArn: NotRequired[str]
     remoteSubnetArn: NotRequired[str]
     remoteVpcArn: NotRequired[str]
+    additionalFlowInfo: NotRequired[AdditionalFlowInfoTypeDef]
 
 
-class StartQueryMonitorTopContributorsInputTypeDef(TypedDict):
-    monitorName: str
-    startTime: TimestampTypeDef
-    endTime: TimestampTypeDef
-    metricName: MonitorMetricType
-    destinationCategory: DestinationCategoryType
-    limit: NotRequired[int]
-
-
-class StartQueryWorkloadInsightsTopContributorsDataInputTypeDef(TypedDict):
-    scopeId: str
-    startTime: TimestampTypeDef
-    endTime: TimestampTypeDef
-    metricName: WorkloadInsightsMetricType
-    destinationCategory: DestinationCategoryType
-
-
-class StartQueryWorkloadInsightsTopContributorsInputTypeDef(TypedDict):
-    scopeId: str
-    startTime: TimestampTypeDef
-    endTime: TimestampTypeDef
-    metricName: WorkloadInsightsMetricType
-    destinationCategory: DestinationCategoryType
-    limit: NotRequired[int]
-
-
-class TargetIdentifierTypeDef(TypedDict):
-    targetId: TargetIdTypeDef
-    targetType: Literal["ACCOUNT"]
-
-
-class GetQueryResultsMonitorTopContributorsOutputTypeDef(TypedDict):
-    unit: MetricUnitType
-    topContributors: list[MonitorTopContributorsRowTypeDef]
+class ListPerformanceMonitorsOutputTypeDef(TypedDict):
+    monitors: list[PerformanceMonitorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -506,6 +737,13 @@ class GetQueryResultsMonitorTopContributorsOutputTypeDef(TypedDict):
 class TargetResourceTypeDef(TypedDict):
     targetIdentifier: TargetIdentifierTypeDef
     region: str
+
+
+class GetQueryResultsMonitorTopContributorsOutputTypeDef(TypedDict):
+    unit: MetricUnitType
+    topContributors: list[MonitorTopContributorsRowTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class CreateScopeInputTypeDef(TypedDict):

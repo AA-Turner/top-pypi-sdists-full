@@ -2,10 +2,10 @@
 cap you can lift, on the receive side keep only the freshest frame, and release each frame on its RTP marker instead of a
 frame late.
 
-Software libx264 only, on purpose. The operator's and the robot's machines are not any one kind -- "not always mac but
-might be other computer", and not always a box with an NVIDIA card -- so there is no hardware-specific encoder path here;
-one cross-platform encoder behaves the same everywhere. {the user 11-10: "we sholldnt optimize for the hardware because
-amc is not always mac but might be other computer"}
+Software libx264 only, on purpose. The operator's and the robot's machines are not any one kind -- not always a Mac, and
+not always a box with an NVIDIA card -- so there is no hardware-specific encoder path here; one cross-platform encoder
+behaves the same everywhere.
+
 
 
 Why this file exists -- aiortc 1.16 ships one H264 path and it is limiting for teleop (verified in source):
@@ -23,7 +23,7 @@ jitterbuffer. Low-latency libx264 params match aiortc's: zerolatency, Baseline (
 Robots differ only by parameters here (bitrate, resolution come from config) -- there is no per-robot code.
 
 New dependencies (aiortc, av) live in the `teleop` extra, imported lazily; without them these calls raise MissingPackage.
-Interface owned here; wired into the connection by sequence_ai/_core/teleop.py and teleop_robot.py (worker 3).
+Interface owned here; wired into the connection by sequence_ai/_core/teleop.py and teleop_robot.py.
 """
 from __future__ import annotations
 
@@ -132,7 +132,7 @@ def make_video_encoder(*, min_bitrate: int = _DEFAULT_MIN_BITRATE, max_bitrate: 
 
         @property
         def last_latency_ms(self) -> Optional[float]:
-            """Encode wall time of the most recent frame, for worker 1's stats."""
+            """Encode wall time of the most recent frame, for the connection's stats."""
             return self._last_latency_ms
 
 
@@ -247,7 +247,7 @@ def FrameTrack(key: str, *, hz: float, send_meta: Optional[Callable[[dict], None
     """The robot's camera as an aiortc video track for the direct connection. The robot's observe() thread calls
     `put(frame, n=, capture_us=)` with the raw HxWx3 uint8 RGB array (before marked encoding), non-blocking and
     latest-only -- an older frame not yet pulled is dropped. recv() hands aiortc the freshest frame, so the send rate
-    follows the slower of the camera and the link. Each frame gets a monotonic `seq`, and `send_meta` (worker 3's seq-ctl
+    follows the slower of the camera and the link. Each frame gets a monotonic `seq`, and `send_meta` (the seq-ctl
     sender) carries {seq, n, capture_us, rtp} out of band -- `rtp` the frame's on-wire RTP timestamp (install_encoder pins
     the origin to 0, so it is convert_timebase(pts) exactly), by which the console and the Python receiver pair the frame
     they show to its n and capture time. `put` runs on the observe() thread, so the wake-up is marshalled to the track's
@@ -319,8 +319,8 @@ def latest_frame_track(source, *, on_drop: Optional[Callable[[int], None]] = Non
     """Wrap an incoming aiortc video track so the consumer always gets the newest frame and a slow consumer never builds a
     backlog (aiortc's receiver queue is unbounded). A background task pulls from `source` as fast as it delivers and keeps
     only the latest; frames overwritten before the consumer took them are counted as dropped (read `.dropped`, or get each
-    batch via `on_drop` -- hand that to worker 1's stats). `recv()` returns `(frame_rgb: np.ndarray, n, capture_us)`: the
-    `n` and `capture_us` are the ones the sideband meta (worker 3's console on_meta via `feed_meta`) gave for this frame's
+    batch via `on_drop` -- hand that to the connection's stats). `recv()` returns `(frame_rgb: np.ndarray, n, capture_us)`: the
+    `n` and `capture_us` are the ones the sideband meta (the console's on_meta via `feed_meta`) gave for this frame's
     own RTP timestamp, so they are the frame returned, not the newest to arrive; a frame whose meta was lost returns None
     for both. Call `.stop()` to end it."""
     import asyncio
@@ -345,8 +345,8 @@ def latest_frame_track(source, *, on_drop: Optional[Callable[[int], None]] = Non
             self._pump = asyncio.ensure_future(self._drain())
 
         def feed_meta(self, meta: dict) -> None:
-            """worker 3 calls this from its console-side on_meta handler (seq-ctl): remember each frame's n and capture
-            time by its `rtp`, so recv() pairs the frame it returns to its own meta, not the newest to arrive."""
+            """Called from the console side's on_meta handler (seq-ctl): remember each frame's n and capture time by its
+            `rtp`, so recv() pairs the frame it returns to its own meta, not the newest to arrive."""
             rtp = meta.get("rtp")
             if rtp is None:
                 return
@@ -409,8 +409,8 @@ def install_wire_timestamps() -> Callable[[], None]:
     """Make a received frame's pts the RTP timestamp it came with. aiortc's receiver counts from the first timestamp it sees
     (rtcrtpreceiver.TimestampMapper), so a frame's pts is short of the `rtp` its sideband message names by the first frame's:
     every frame was paired with the step before it. Nothing else reads the pts. This replaces an aiortc internal, so
-    pyproject pins the minor tested; one without it fails here. Returns a restore(). {loopback check 11-11, before this: 0 of
-    61 frames named by the step their picture is of}"""
+    pyproject pins the minor tested; one without it fails here. Returns a restore().
+"""
     try:
         from aiortc import rtcrtpreceiver as _receiver
     except ImportError as exc:
@@ -520,9 +520,9 @@ def skip_lost(buffer, lost) -> int:
     dropped, with the rest of the frame the hole is in - a frame nothing can complete now - so the frames after the hole go
     out as they complete, and the keyframe the PLI sent with this asks for mends the picture. Without it the buffer held
     every later frame, that keyframe too, until 512 packets had come behind the hole (aiortc's video capacity): seconds.
-    Returns how many packets it dropped. {dev 11-11, the robot on the mini and the console on Wi-Fi, 4 runs: 3 to 4 s with no
-    frame in 3 of them, both cameras, the PLI sent within 0.5 s and the robot's keyframe at once - its arrival 2.7 to 3.7 s
-    later, as the buffer overflowed; the arrays meanwhile on time}"""
+    Returns how many packets it dropped.
+
+"""
     from aiortc.utils import uint16_add
 
     origin, capacity = buffer._origin, buffer._capacity

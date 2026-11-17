@@ -8,8 +8,8 @@ a step - and the benchmark → policy pairs it is for (`@seq.adapter(pairs=[...]
 version of its own → an eval of a pair it names runs it in the benchmark's container, between the two.
 WHY two functions and not a pipeline of named transforms: every adapter in use wrapped a plain function in seq.tf.custom
 ;
-the conversion is what the robot's own code does, so the adapter is that code. (the user 10-24: "The adapter is
-basically transforming the observations and the acts, right?")
+the conversion is what the robot's own code does, so the adapter is that code.
+
 """
 from __future__ import annotations
 

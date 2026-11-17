@@ -41,13 +41,15 @@ from . import (
     semantic_index,
     semantic_language_registry,
     source_closure,
+    source_custody,
     temporal,
+    trash_metadata,
     vault,
 )
 from . import (
     find as find_module,
 )
-from .kbdir import managed_form, managed_join, managed_relative, managed_split
+from .kbdir import managed_form, managed_relative, managed_split
 from .mutation_timings import MutationTimings, mutation_timing_span
 from .vault_store import read
 
@@ -73,7 +75,8 @@ _POSTHOC_FINDING_LIMIT = 256
 _POSTHOC_PATH_LIMIT = 64
 _POSTHOC_SUMMARY_LIMIT = 64
 _POSTHOC_BYTE_BUDGET = 120 * 1024
-_MOVE_WIKILINK_PATTERN = re.compile(r"\[\[([^\]\|\n]+?)(\|[^\]\n]*)?\]\]")
+# The wikilink shape a move rewrites; `structured_files` rewrites the same links through it.
+MOVE_WIKILINK_PATTERN = re.compile(r"\[\[([^\]\|\n]+?)(\|[^\]\n]*)?\]\]")
 _MAX_REVIEWED_STAMP_AGE = dt.timedelta(hours=24)
 _MAX_REVIEWED_STAMP_SKEW = dt.timedelta(minutes=5)
 
@@ -161,7 +164,7 @@ def rewrite_wikilinks_for_move(text: str, old_rel: str, new_rel: str) -> tuple[s
             changed += 1
         return rewritten
 
-    return _MOVE_WIKILINK_PATTERN.sub(replace, text), changed
+    return MOVE_WIKILINK_PATTERN.sub(replace, text), changed
 
 
 def _bounded_feedback_text(value: str, truncation: dict[str, int]) -> str:
@@ -1520,6 +1523,14 @@ def _validate_origin_inputs(root: Path, prepared: origin_bindings.PreparedOrigin
         raise SemanticWriteError(error.code, error.reason) from error
 
 
+def _custody_references(
+    closure: source_closure.SourceClosurePlan | None,
+    origins: origin_bindings.PreparedOriginInputs | None,
+) -> tuple[str, ...]:
+    references = source_closure.custody_references(closure) if closure is not None else ()
+    return tuple(dict.fromkeys((*references, *origins.source_references))) if origins is not None else references
+
+
 def _origin_commit_guards(
     root: Path,
     prepared: origin_bindings.PreparedOriginInputs | None,
@@ -2397,6 +2408,7 @@ def _commit_existing_locked(
     result: semantic_contract.SemanticContractResult,
     index_reports: list[Any] | None = None,
     source_guards: tuple[vault.PathGuard, ...] = (),
+    closure_plan: source_closure.SourceClosurePlan | None = None,
 ) -> ExistingCommit:
     """Plan lifecycle state and commit while the semantic namespace is held.
 
@@ -2600,11 +2612,14 @@ def _commit_existing_locked(
         derived=(*derived_auxiliaries, *(("lifecycle-review", item) for item in lifecycle_writes)),
     )
     publication_entered = False
+    custody_refs = _custody_references(closure_plan, preflight.origin_inputs)
 
     def validate_bindings() -> None:
         nonlocal publication_entered
         if preflight.origin_inputs is not None:
             _validate_origin_inputs(root, preflight.origin_inputs)
+        for reference in custody_refs:
+            source_custody.require_publishable(root, reference)
         if admission is not None:
             if not admission(relation_review.lifecycle_prepared_path(root, preflight.after.identity).relative_to(root).as_posix()):
                 raise ValueError("WRITE_REFUSED: target is unavailable")
@@ -2618,7 +2633,10 @@ def _commit_existing_locked(
     try:
         from . import reserved_paths
 
-        with reserved_paths._subsystem_authority_scope("compiled_history"):
+        with reserved_paths._subsystem_authority_scope("compiled_history"), source_custody.producing(
+            root, custody_refs, owner="semantic_writes", locator=preflight.path,
+            version=vault.content_hash(preflight.after_source), primary=primary_write,
+        ):
             written = vault.batch_atomic_write(
                 writes,
                 vault_root=root,
@@ -3378,6 +3396,7 @@ def _commit_existing(
                         result=result,
                         index_reports=index_reports,
                         source_guards=closure_plan.required_guards,
+                        closure_plan=closure_plan,
                     )
             # The fan-out ran as the creation lock was released.
             if committed.index_report is None and index_reports:
@@ -4349,7 +4368,7 @@ def _plan_recovery_lifecycle(
                     for path in preflight.before_corpus.identity_census.paths_by_identity.get(
                         item.after.identity, ()
                     )
-                    if not path.startswith(managed_join("_trash/"))
+                    if not trash_metadata.is_inside_trash(path)
                 )
                 trash_proof = relation_review.LifecycleTrashProof(
                     page_identity=item.after.identity,
@@ -5541,10 +5560,13 @@ def _commit_structural(
     bound_origins = [
         item.preflight.origin_inputs for item in planned if item.preflight.origin_inputs is not None
     ]
+    custody_refs = tuple(dict.fromkeys(reference for item in planned for reference in _custody_references(item.closure_plan, item.preflight.origin_inputs)))
 
     def validate_bound_origins() -> None:
         for bound in bound_origins:
             _validate_origin_inputs(root, bound)
+        for reference in custody_refs:
+            source_custody.require_publishable(root, reference)
 
     closure_guards = tuple(guard for item in planned for guard in item.closure_plan.required_guards)
     token = semantic_index.set_parent_states(
@@ -5560,17 +5582,22 @@ def _commit_structural(
             vocabulary_auxiliaries.seal(root, primary=primary, derived=item.derived)
             for item, primary in zip(planned, primary_writes, strict=True)
         )
-        written = vault.batch_atomic_write(
-            writes,
-            vault_root=root,
-            required_guards=(
-                *vocabulary_guards,
-                *origin_guards,
-                *closure_guards,
-            ),
-            _vocabulary_auxiliaries=manifests[0] if len(manifests) == 1 else manifests,
-            _validate_prepared_bindings=validate_bound_origins if bound_origins else None,
-        )
+        with contextlib.ExitStack() as custody:
+            for item, primary in zip(planned, primary_writes, strict=True):
+                custody.enter_context(source_custody.producing(root, _custody_references(item.closure_plan, item.preflight.origin_inputs),
+                                                              owner="semantic_writes", locator=item.preflight.destination,
+                                                              version=vault.content_hash(item.preflight.source), primary=primary))
+            written = vault.batch_atomic_write(
+                writes,
+                vault_root=root,
+                required_guards=(
+                    *vocabulary_guards,
+                    *origin_guards,
+                    *closure_guards,
+                ),
+                _vocabulary_auxiliaries=manifests[0] if len(manifests) == 1 else manifests,
+                _validate_prepared_bindings=validate_bound_origins if bound_origins or custody_refs else None,
+            )
     except vault.PathGuardError as error:
         if error.code == "PATH_VARIANT_EXISTS":
             raise SemanticWriteError(error.code, error.reason) from error
@@ -5781,7 +5808,18 @@ def _commit_creation(
                 ) from error
             # Its in-lock revalidation reports its outcome on the nested
             # `commit.relation_review_attempt` span.
-            with call_spans.span("commit.relation_review"):
+            custody_refs = _custody_references(closure_plan, preflight.origin_inputs)
+            custody_primary = vault.PlannedWrite(root / preflight.destination, preflight.source, create_only=True)
+            def validate_custody_and_origins() -> None:
+                if preflight.origin_inputs is not None:
+                    _validate_origin_inputs(root, preflight.origin_inputs)
+                for reference in custody_refs:
+                    source_custody.require_publishable(root, reference)
+
+            with call_spans.span("commit.relation_review"), source_custody.producing(
+                root, custody_refs, owner="semantic_writes", locator=preflight.destination,
+                version=vault.content_hash(preflight.source), primary=custody_primary,
+            ):
                 committed = relation_review.commit_prepared_creation_draft(
                     root,
                     prepared,
@@ -5800,9 +5838,7 @@ def _commit_creation(
                     origin_required_guards=_origin_commit_guards(
                         root, preflight.origin_inputs, catalog_writes
                     ),
-                    _validate_prepared_bindings=(
-                        lambda: _validate_origin_inputs(root, preflight.origin_inputs)
-                    ) if preflight.origin_inputs is not None else None,
+                    _validate_prepared_bindings=validate_custody_and_origins if preflight.origin_inputs is not None or custody_refs else None,
                 )
             _publish_creation_catalog(catalog_target)
             return CreationCommit(

@@ -72,21 +72,21 @@ test("list with content", () => {
 	]);
 });
 
-test("basic small", () => {
+test("basic subtext", () => {
 	const content = {
 		type: "text",
 		value: "foo",
 	};
 
-	const small = {
-		type: "small",
+	const subtext = {
+		type: "subtext",
 		value: {
 			content: [content],
 		},
 	};
 
-	const nodes = iter([small]);
+	const nodes = iter([subtext]);
 	const allNodes = Array.from(nodes);
 
-	expect(allNodes).toStrictEqual([small, content]);
+	expect(allNodes).toStrictEqual([subtext, content]);
 });

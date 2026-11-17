@@ -7,12 +7,12 @@ import warnings
 from collections.abc import Callable
 from datetime import date, datetime, time, timedelta
 from enum import Enum
-from typing import Any, Optional, TypeVar
+from typing import Any, Optional, TypeVar, cast
 from uuid import UUID
 
 from kiota_abstractions.date_utils import (
     datetime_from_iso_format_compat,
-    parse_timedelta_string,
+    parse_timedelta_from_iso_format,
     time_from_iso_format_compat,
 )
 from kiota_abstractions.serialization import Parsable, ParsableFactory, ParseNode
@@ -188,6 +188,9 @@ class JsonParseNode(ParseNode):
         if self._json_node is None:
             return None
         raw_key = str(self._json_node)
+        for member in cast(type[K], enum_class):
+            if member.value == raw_key:
+                return member
         if not raw_key:
             return None
 
@@ -266,8 +269,10 @@ class JsonParseNode(ParseNode):
             return value
         if isinstance(value, str):
             try:
-                return parse_timedelta_string(value)
-            except ValueError:
+                negative = value.startswith("-")
+                duration = parse_timedelta_from_iso_format(value[1:] if negative else value)
+                return -duration if negative else duration
+            except (ValueError, OverflowError):
                 return None
         return None
 

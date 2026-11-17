@@ -305,18 +305,17 @@ class RequestInformation:
         if isinstance(value, (list, tuple, set)):
             if not value:
                 return []
-            if all(isinstance(x, Enum) for x in value):
-                return ','.join([str(x.value) for x in value])
-            return [self._get_sanitized_value(x) for x in value]
+            non_null = [x for x in value if x is not None]
+            if not non_null:
+                return []
+            if all(isinstance(x, Enum) for x in non_null):
+                return ','.join([str(x.value) for x in non_null])
+            return [self._get_sanitized_value(x) for x in non_null]
 
         sanitized_value = value
         if isinstance(value, datetime):
             timezone_info = value.tzinfo if value.tzinfo is not None else timezone.utc
-            temp_date_with_tz_info = datetime(
-                value.year, value.month, value.day, value.hour, value.minute, value.second,
-                value.microsecond, timezone_info
-            )
-            sanitized_value = temp_date_with_tz_info.isoformat("T")
+            sanitized_value = value.replace(tzinfo=timezone_info).isoformat("T")
         elif isinstance(value, (UUID, date, time)):
             sanitized_value = str(value)
         return sanitized_value

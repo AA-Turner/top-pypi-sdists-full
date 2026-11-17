@@ -8,6 +8,7 @@ import re
 import sys
 import types
 import unicodedata
+import warnings
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from types import ModuleType
@@ -23,7 +24,7 @@ from nameparser._policy import (
     FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, UNSET, PatronymicRule, Policy,
     PolicyPatch, Script, _SCRIPT_RANGES,
 )
-from nameparser._types import AmbiguityKind
+from nameparser._types import AmbiguityKind, Role
 from nameparser.locales import ja as _ja
 from nameparser.locales import ru as _ru
 from nameparser.locales import tr_az as _tr_az
@@ -61,11 +62,12 @@ def _is_vocabulary_pack(pack: Locale) -> bool:
 # segmentation and supplies nothing to segment WITH, so every parse
 # through it needs the optional nameparser[ja] segmenter. Probed once
 # here; without the extra the ja code has no _PACKED entry, so every
-# test that PARSES through the pack skips -- its rotator rows and its
-# non-interference run included. What still runs either way is what
-# needs no parse: the registry contract (DEVIATES and a rotator list
-# exist), the range pin, the pack's contents, and the inertness test
-# below, which is the unsegmented pack's whole observable behavior.
+# test that PARSES through the pack with a segmenter skips -- its
+# segmentation rotator rows and its non-interference run included. What
+# still runs either way is what needs no segmenter: the registry
+# contract (DEVIATES and a rotator list exist), the range pin, the
+# pack's contents, the inertness test below (the unsegmented pack's
+# behavior on segmentation shapes) and the tests of its choice of 君.
 _JA_AVAILABLE = importlib.util.find_spec("namedivider") is not None
 _needs_ja = pytest.mark.skipif(not _JA_AVAILABLE, reason="needs nameparser[ja]")
 
@@ -115,11 +117,11 @@ def test_locales_module_attribute_access() -> None:
 def test_locales_get_and_available() -> None:
     assert locales.get("ru") is locales.RU
     assert set(locales.available()) == {
-        "bn", "cs", "es", "es_ar", "ga", "gd", "hi", "hr", "ja", "ne", "pt", "pt_br",
-        "ru", "sk", "sl", "tr_az", "vi", "zh"}
+        "ar", "bn", "cs", "es", "es_ar", "ga", "gd", "he", "hi", "hr", "ja", "mn",
+        "ne", "pt", "pt_br", "ru", "sk", "sl", "tr_az", "vi", "zh"}
     with pytest.raises(
             KeyError,
-            match="bn, cs, es, es_ar, ga, gd, hi, hr, ja, ne, pt, pt_br, ru, sk, sl, tr_az, vi, zh"):
+            match="ar, bn, cs, es, es_ar, ga, gd, he, hi, hr, ja, mn, ne, pt, pt_br, ru, sk, sl, tr_az, vi, zh"):
         locales.get("xx")
     # the segmenter FACTORY is not a locale: it is an ordinary function
     # on the package, so it must not appear among the codes
@@ -135,14 +137,121 @@ def test_tr_az_pack_contents() -> None:
 
 
 def test_ne_pack_contents() -> None:
-    # 3d: the first vocabulary pack, nothing but its choice; what the
-    # choice changes is exactly the three given readings ne.toml writes
-    # `default = false`, each also a title in another file
+    # 3d: the first vocabulary pack; what the choice changes is exactly
+    # the three given readings ne.toml writes `default = false`, each
+    # also a title in another file. Since #1254 its [rules] turn
+    # initials_as_family on (rules/O8)
     from nameparser._reading_index import changed_words, selected
     assert locales.NE == Locale(code="ne", lexicon=Lexicon.empty(),
+                                policy=PolicyPatch(initials_as_family=True),
                                 languages=frozenset({"ne"}))
     assert changed_words(selected(locales.NE.languages)) == {
         "guru", "गुरु", "श्री"}
+
+
+def test_ar_and_he_packs_are_their_choice_alone() -> None:
+    # #1257: each turns on `ben`'s clan reading, written default = false;
+    # ar's choice also drops en's credential ABD for abd's bound given name
+    import pickle
+    from nameparser._reading_index import changed_words, selected
+    for code, pack, words in (("ar", locales.AR, {"abd", "ben"}),
+                              ("he", locales.HE, {"ben"})):
+        assert pack == Locale(code=code, lexicon=Lexicon.empty(),
+                              languages=frozenset({code}))
+        assert changed_words(selected(pack.languages)) == words
+        assert pickle.loads(pickle.dumps(pack)) == pack
+        parser = parser_for(pack)
+        name = pickle.loads(pickle.dumps(parser)).parse("Karim Ben Haddad")
+        assert (name.middle, name.family) == ("", "Ben Haddad")
+
+
+@pytest.mark.parametrize("code, text, repaired", [
+    # #1257: each particle keeps the capital its family names are written
+    # with (its `cased` mask), where without one case repair would
+    # lowercase it as a particle: lower case, Title case and capitals,
+    # by default and under the packs that turn ben on
+    (None, "youssef ait haddou", "Youssef Ait Haddou"),
+    (None, "YOUSSEF AIT HADDOU", "Youssef Ait Haddou"),
+    (None, "Youssef Ait Haddou", "Youssef Ait Haddou"),
+    (None, "KARIM AÏT HADDOU", "Karim Aït Haddou"),
+    (None, "leila nait haddou", "Leila Nait Haddou"),
+    (None, "AHMED OULD HADDOU", "Ahmed Ould Haddou"),
+    (None, "karim ouled haddou", "Karim Ouled Haddou"),
+    (None, "karim ben haddad", "Karim Ben Haddad"),
+    ("ar", "karim ben haddad", "Karim Ben Haddad"),
+    ("ar", "KARIM BEN HADDAD", "Karim Ben Haddad"),
+    ("ar", "Karim Ben Haddad", "Karim Ben Haddad"),
+    ("he", "YAEL BEN ARIEH", "Yael Ben Arieh"),
+    ("he", "yael ben arieh", "Yael Ben Arieh"),
+    ("ar", "youssef ait haddou", "Youssef Ait Haddou"),
+    (None, "SARA EL HADDOU", "Sara El Haddou"),
+    ("ar", "SARA EL HADDOU", "Sara El Haddou"),
+    ("ar", "sara el haddou", "Sara El Haddou"),
+])
+def test_a_maghrebi_particle_keeps_its_capital(
+        code: str | None, text: str, repaired: str) -> None:
+    parser = parser_for(locales.get(code)) if code else Parser()
+    name = parser.parse(text)
+    assert str(parser.capitalized(name)) == repaired
+    assert str(name.capitalized(parser.lexicon, force=True)) == repaired
+
+
+def test_ould_fills_the_patronymic_view_and_hebrew_ben_does_not() -> None:
+    # #1257, the patronymic view: `ould` is a patronymic, filling it even in
+    # an Algerian fixed surname (the accepted cost of the kind); Hebrew
+    # `בן` is a clan particle, which fills none where an Arab name
+    # transcribed in Hebrew uses it for the father (the other one)
+    assert parse("Ahmed Ould Haddou").patronymic == "Ould Haddou"
+    assert parse("Karim Ould Haddou").patronymic == "Ould Haddou"
+    assert parse("Karim Ouled Haddou").patronymic == ""
+    assert parse("יעל בן חיים").family == "בן חיים"
+    assert parse("יעל בן חיים").patronymic == ""
+    assert parse("סאמר בן חליל אל חלבי").patronymic == ""
+    # the Latin ben, the same kind, fills none under either pack
+    for pack in (locales.AR, locales.HE):
+        assert parser_for(pack).parse("Karim Ben Haddad").patronymic == ""
+
+
+@pytest.mark.parametrize("code, a, b", [
+    (None, "Youssef Ait Haddou", "Haddou, Youssef Ait"),
+    (None, "Youssef Ait Haddou", "AIT HADDOU, YOUSSEF"),
+    (None, "Ahmed Ould Haddou", "Ould Haddou, Ahmed"),
+    (None, "סאמי אבו חליל", "אבו חליל, סאמי"),
+    (None, "בן כהן", "כהן, בן"),
+    ("ar", "Karim Ben Haddad", "Ben Haddad, Karim"),
+    ("he", "Yael Ben Arieh", "Ben Arieh, Yael"),
+])
+def test_a_maghrebi_or_hebrew_particle_matches_its_comma_form(
+        code: str | None, a: str, b: str) -> None:
+    parser = parser_for(locales.get(code)) if code else Parser()
+    matching = parser.matching()
+    for left, right in ((a, b), (b, a)):
+        result = matching.check(left, right)
+        assert result.consistent and result.weakest in ("same", "folded")
+
+
+@pytest.mark.parametrize("text", [
+    "Ram Bahadur B K", "Ram Bahadur B. K.", "Anjana K C(Maharjan)",
+    "Kalpana K C(Sunuwar)", "Bimala Kumari Singh (B. K.)", "Ram B K,Jr",
+    "Ram B\u200bK", "Ram B\ufeffK", "Ram B\u2063K", "Ram B\u30fbK",
+    "Ram B\u1361K", "Ram B\uff65K", "Ram E\u0301. K."])
+def test_ne_declares_every_name_its_letters_rule_moves(text: str) -> None:
+    # the #1347 review: words read by str.split() missed a name whose
+    # letters the parse divides at a bracket, a glued comma, a
+    # zero-width character or a word separator of another script
+    from nameparser.locales import ne as _ne
+    assert parser_for(locales.NE).parse(text).as_dict() != parse(
+        text).as_dict()
+    assert _ne.DEVIATES(text)
+
+
+def test_ne_declares_no_name_without_two_single_letters_in_a_row() -> None:
+    from nameparser.locales import ne as _ne
+    assert not any(map(_ne.DEVIATES, (
+        "Ram Bahadur Thapa", "Ram Bahadur BK", "Durga Kumari", "",
+        # a vowel sign stays in its letter's run: read as a divider,
+        # र and म would be two runs of one letter each
+        "राम बहादुर थापा")))
 
 
 def test_ne_reads_the_word_as_given_at_the_head_and_title_in_a_phrase() -> None:
@@ -393,7 +502,8 @@ def test_each_vi_removal_moves_its_own_row() -> None:
     # credential, unless past a second comma; CHI only without a comma
     ("Nguyen Van Anh, DO", "", "Nguyen Van Anh", "", "DO", ""),
     ("Nguyen Van Anh DO", "", "Nguyen", "Van Anh", "DO", ""),
-    ("Nguyen Van Anh D.O.", "", "Nguyen", "Van Anh", "D.O.", ""),
+    # and dotted, rules/T7 parts it as the initials it is written as
+    ("Nguyen Van Anh D.O.", "", "Nguyen", "Van Anh D.", "O.", ""),
     ("Nguyen Van Anh MD, DO", "", "Nguyen Van Anh", "", "DO", "MD"),
     ("Nguyen, Van Anh DO", "", "Nguyen", "Anh DO", "Van", ""),
     ("Nguyen, Van Anh, DO", "", "Nguyen", "Anh", "Van", "DO"),
@@ -479,6 +589,164 @@ def test_vi_differs_from_the_default_where_the_default_reads_given_first() -> No
         assert vi.parse(text).as_dict() == _default_parse(text)
 
 
+def test_mn_pack_contents() -> None:
+    # a choice of mn and a Cyrillic script order, nothing else: the
+    # order is keyed to the script, so a romanized name keeps the
+    # caller's (decisions/vocabulary-model, the 2026-11-12 #1237 entry)
+    from nameparser.locales import mn as _mn
+    assert locales.MN == Locale(
+        code="mn", lexicon=Lexicon.empty(),
+        policy=PolicyPatch(
+            script_orders=((Script.CYRILLIC, FAMILY_FIRST_GIVEN_LAST),)),
+        languages=frozenset({"mn"}))
+    assert _mn.DEVIATES("Сүхээ") and _mn.DEVIATES("Dr. Сүхээ")
+    assert not _mn.DEVIATES("Bataagiin Suhee") and not _mn.DEVIATES(", ")
+
+
+#: The father's name is the family under the pack (#1253's first
+#: statement), in each form a Cyrillic name is written in; the default
+#: reads each given-first. (text, family, middle, given)
+_MN_READINGS = [
+    ("Батын Сүхээ", "Батын", "", "Сүхээ"),
+    ("Бат Сүхээ", "Бат", "", "Сүхээ"),
+    ("БАТЫН СҮХЭЭ", "БАТЫН", "", "СҮХЭЭ"),
+    ("Дорждэрэмийн Ганбаатар", "Дорждэрэмийн", "", "Ганбаатар"),
+    ("Б. Сүхээ", "Б.", "", "Сүхээ"),
+    ("Ц.Сандаг-Очир", "Ц.", "", "Сандаг-Очир"),   # glued (#1306), rules/T8
+    # a hyphen or an apostrophe inside a Cyrillic word keeps it Cyrillic
+    ("Цэрэн Оюун-Эрдэнэ", "Цэрэн", "", "Оюун-Эрдэнэ"),
+    ("Оюун-Эрдэнэ Цэрэн", "Оюун-Эрдэнэ", "", "Цэрэн"),
+    ("Мар'яна Сидоренко", "Мар'яна", "", "Сидоренко"),
+    # a word before the father's name (a clan name, not read as one,
+    # #1237) leaves the given name last
+    ("Боржигин Батын Сүхээ", "Боржигин", "Батын", "Сүхээ"),
+    ("Батын Дорж Сүхээ Болд", "Батын", "Дорж Сүхээ", "Болд"),
+    # titles and suffixes stand aside, in either script: the name words
+    # decide the script
+    ("Др. Батын Сүхээ", "Батын", "", "Сүхээ"),
+    ("Dr. Батын Сүхээ", "Батын", "", "Сүхээ"),
+    ("Lama Батын Сүхээ", "Батын", "", "Сүхээ"),   # mn.toml's title
+    ("Батын Сүхээ Jr.", "Батын", "", "Сүхээ"),
+    ("Батын Сүхээ, PhD", "Батын", "", "Сүхээ"),
+    # the given name and the father's initial written given first read
+    # backwards in Cyrillic, an accepted cost (decisions/vocabulary-model)
+    ("Сүхээ Б.", "Сүхээ", "", "Б."),
+    # CLDR's sample title Ноён is no listed title
+    ("Ноён Азжаргал Төмөр", "Ноён", "Азжаргал", "Төмөр"),
+]
+
+
+@pytest.mark.parametrize("text, family, middle, given", _MN_READINGS)
+def test_mn_reads_the_fathers_name_as_the_family(
+        text: str, family: str, middle: str, given: str) -> None:
+    got = _require_packed("mn").parse(text)
+    assert (got.family, got.middle, got.given) == (family, middle, given)
+    assert parse(text).family != family
+
+
+_MN_DECOMPOSED = [
+    (unicodedata.normalize("NFD", t), unicodedata.normalize("NFD", f),
+     m, unicodedata.normalize("NFD", g))
+    for t, f, m, g in _MN_READINGS if t != unicodedata.normalize("NFD", t)]
+
+
+def test_mn_decomposed_rows_exist() -> None:
+    # an empty parametrize skips rather than fails
+    assert len(_MN_DECOMPOSED) >= 1
+
+
+@pytest.mark.parametrize("text, family, middle, given", _MN_DECOMPOSED)
+def test_mn_reads_a_decomposed_name_alike(
+        text: str, family: str, middle: str, given: str) -> None:
+    # Cyrillic ү and ө have no decomposition, so the row written with й
+    # is the one NFD reaches: the classified copy is composed first
+    got = _require_packed("mn").parse(text)
+    assert (got.family, got.middle, got.given) == (family, middle, given)
+
+
+@pytest.mark.parametrize("text", [
+    "Батын, Сүхээ",       # a family comma fixes the family name
+    "Сүхээ, Батын",       # whichever word stands before it
+    ", Сүхээ",            # nothing before the comma
+    "Сүхээ",              # one word: given, the caller's setting (rules/O5)
+    "Батын, Сүхээ Болд",
+    "Батын, Др. Сүхээ",
+    "Батын Сүхээ, Болд",  # a full name before the comma, one word after
+    "Батын, Сүхээ, Jr.",
+    "Др. Сүхээ",
+    "Сүхээ Jr.",
+    "Батын,",
+    # a name not wholly Cyrillic keeps the caller's order: romanized,
+    # mixed, or in the traditional script (whose default order
+    # decisions/T6 leaves open)
+    "Batyn Sükhee",
+    # a joiner at an edge is no word-inner joiner: the word is no
+    # Cyrillic word (#1237)
+    "-Батын Сүхээ",
+    "'Батын Сүхээ",
+    "Батын- Сүхээ",
+    "Батын' Сүхээ",
+    # a non-ASCII Latin word with a hyphen is no Cyrillic word
+    "Jürgen Müller-Lüdenscheid",
+    "BATAAGIIN SUHEE",
+    "Bataagiin Suhee, PhD",
+    "Uyanga B.",
+    "Батын Sükhee",
+    "ᠪᠠᠲᠤ\u202fᠶᠢᠨ ᠰᠦᠬᠡ",
+    # Han, Hangul and kana keep their own entries
+    "山田 太郎",
+    "김 민준",
+])
+def test_mn_reads_as_the_default_where_its_order_does_not_reach(
+        text: str) -> None:
+    assert _require_packed("mn").parse(text).as_dict() == _default_parse(text)
+
+
+def test_mn_lone_word_follows_the_callers_switch() -> None:
+    # the pack's order is a declaration, not a script that settles the
+    # order (rules/W4), so a lone word is rules/O5's: given and
+    # reported by default, family where the caller says so
+    lone = _require_packed("mn").parse("Сүхээ")
+    assert lone.given == "Сүхээ"
+    assert [a.kind for a in lone.ambiguities] == [AmbiguityKind.GIVEN_OR_FAMILY]
+    family_lone = parser_for(locales.MN, base=Parser(
+        policy=Policy(lone_name_word=Role.FAMILY)))
+    assert family_lone.parse("Сүхээ").family == "Сүхээ"
+    assert family_lone.parse("Батын Сүхээ").family == "Батын"
+
+
+def test_mn_order_composes_with_the_callers_script_orders() -> None:
+    # the pack adds its Cyrillic entry and keeps the caller's own table:
+    # an opt-out of the East Asian entries stands
+    opted_out = parser_for(locales.MN, base=Parser(policy=Policy(script_orders=())))
+    assert dict(opted_out.policy.script_orders) == {
+        Script.CYRILLIC: FAMILY_FIRST_GIVEN_LAST}
+    assert opted_out.parse("山田 太郎").given == "山田"
+    assert opted_out.parse("Батын Сүхээ").family == "Батын"
+    # and a declared family-first order still reaches a romanized name
+    family_first = parser_for(locales.MN, base=Parser(
+        policy=Policy(name_order=FAMILY_FIRST)))
+    assert family_first.parse("Batyn Sükhee").family == "Batyn"
+
+
+def test_mn_strict_reads_its_file_and_the_shared_vocabulary() -> None:
+    # the choice is what a strict parser reads: mn.toml's lama stays a
+    # title, en.toml's Sir is no title (so it is a Latin name word and
+    # the name is no longer wholly Cyrillic), and the order still holds
+    strict = parser_for(locales.MN, strict=True)
+    assert strict.parse("Lama Батын Сүхээ").title == "Lama"
+    assert strict.parse("Sir Батын Сүхээ").title == ""
+    assert _require_packed("mn").parse("Sir Батын Сүхээ").title == "Sir"
+    assert strict.parse("Батын Сүхээ").family == "Батын"
+
+
+def test_mn_fills_no_patronymic() -> None:
+    # the genitive is not read (#1237): the father's name is the family,
+    # and the patronymic view stays rules/R9's
+    for text, *_ in _MN_READINGS:
+        assert _require_packed("mn").parse(text).patronymic == "", text
+
+
 def test_cs_and_sk_pack_contents() -> None:
     # 3f, amended 2026-10-30: cs and sk are their choice plus rules/O6's
     # patch, no fragment; sl and hr stay nothing but their choice
@@ -521,6 +789,7 @@ _TWICE_COUNTED = [
     ("ꥠᅡ Kim", True, True, False),    # Extended-A
     ("ힰ Kim", True, True, False),      # Extended-B
     ("Pérez García", False, False, False),
+    ("Ли Ли", False, False, False),     # Cyrillic, in the table since #1237, is no run
     # the narrowing: compatibility jamo and the katakana phonetic
     # extensions were counted twice by name and are counted once now,
     # being in no range W1 divides (the test below shows the packs
@@ -548,7 +817,7 @@ def test_the_two_family_names_declaration_counts_by_the_script_table(
     monkeypatch.setitem(_policy._SCRIPT_RANGES, Script.HANGUL,
                         (_policy._HANGUL_SYLLABLES,))
     monkeypatch.setattr(_locale, "_classified_char", _policy._script_matcher(
-        *_policy._SCRIPT_RANGES, whole=True))
+        *_policy._EAST_ASIAN_SCRIPTS, whole=True))
     assert _locale.deviates_by_two_family_names(name) is by_syllables
 
 
@@ -646,6 +915,27 @@ def test_zh_parses_unspaced_names() -> None:
     assert (n.family, n.given) == ("萧", "红")
 
 
+@pytest.mark.parametrize("text, family, given", [
+    # The six simplified forms tools/zh_surnames.py enters by hand
+    # (BY_HAND, #1445), each beside its traditional form, which the
+    # rankings list: 2.5.0 through 3.0.1 divided both, from Unihan.
+    ("谌龙", "谌", "龙"), ("諶龍", "諶", "龍"),
+    ("盖丽丽", "盖", "丽丽"), ("蓋麗麗", "蓋", "麗麗"),
+    ("买文华", "买", "文华"), ("買文華", "買", "文華"),
+    ("篮建国", "篮", "建国"), ("籃建國", "籃", "建國"),
+    ("诸建国", "诸", "建国"), ("諸建國", "諸", "建國"),
+    ("芈月", "芈", "月"), ("羋月", "羋", "月"),
+    # the one Unihan gave that no standard writes stays whole, while its
+    # traditional form divides (decisions/shipped-data-licences,
+    # 2026-11-16 #1445)
+    ("厐建国", "厐建国", ""), ("龎建國", "龎", "建國"),
+])
+def test_zh_divides_the_hand_entered_simplified_surnames(
+        text: str, family: str, given: str) -> None:
+    n = _PACKED["zh"].parse(text)
+    assert (n.family, n.given) == (family, given)
+
+
 def test_zh_longest_match_prefers_compound_over_single_surname() -> None:
     # The longest-first tie-break, exercised by the PACK's own data
     # rather than by the synthetic lexicon the stage tests use. Most
@@ -688,7 +978,7 @@ def test_zh_composes_with_korean_defaults() -> None:
 
 
 def test_honorific_spellings_agree_where_the_vocabulary_divides() -> None:
-    # usage.rst says a SPACED honorific is how you keep a family name
+    # east-asian.rst says a SPACED honorific is how you keep a family name
     # whole. That holds only where a SEGMENTER divides it -- the ja
     # tests below pin that half -- because the segmenter's precondition
     # counts any neighbour and a spaced honorific is one. The
@@ -708,8 +998,9 @@ def test_honorific_spellings_agree_where_the_vocabulary_divides() -> None:
 
 def test_ja_pack_contents() -> None:
     assert locales.JA.code == "ja"
-    # segmentation activation ONLY: no vocabulary (no list settles a
-    # kanji name) and no order (the kana license already reads
+    assert locales.JA.languages == frozenset({"ja"})
+    # segmentation activation plus the choice of ja (君): no vocabulary
+    # of its own (no list settles a kanji name) and no order (the kana license already reads
     # Japanese family-first by default, decisions/W4)
     assert locales.JA.policy.segment_scripts == frozenset(
         {Script.HAN, Script.HIRAGANA})
@@ -723,6 +1014,34 @@ def test_ja_pack_contents() -> None:
     assert _ja.DEVIATES("みなみ")   # hiragana declared
     assert not _ja.DEVIATES("John Smith")
     assert not _ja.DEVIATES("김민준")   # the three JA scripts, not a wider union
+
+
+def test_ja_choice_reads_kun_as_an_honorific_and_the_default_does_not() -> None:
+    # #1194: 君 is the Diet's honorific, but 王君 is a complete Chinese
+    # name, so only a Japanese choice reads it; くん ships everywhere
+    with pytest.warns(UserWarning, match="ja_segmenter"):
+        ja = parser_for(locales.JA)
+    for text in ("逢沢　一郎君", "逢沢　一郎　君"):
+        n = ja.parse(text)
+        assert (n.family, n.given, n.middle, n.suffix) == (
+            "逢沢", "一郎", "", "君"), text
+        assert parse(text).suffix == "", text
+    assert parse("王君").family == "王君"
+    assert parse("山田　太郎くん").suffix == "くん"
+    # the accepted cost: a Chinese name ending in it loses it under JA
+    assert (ja.parse("陳怡君").family, ja.parse("陳怡君").suffix) == ("陳怡", "君")
+    # a 君 that is not final stays in the name
+    assert ja.parse("山田　君子").given == "君子"
+
+
+def test_ja_strict_choice_keeps_only_japanese_and_shared_vocabulary() -> None:
+    # #1194: JA chooses a language, so strict=True builds where it used
+    # to raise "chooses none", and drops the Latin vocabulary
+    with pytest.warns(UserWarning, match="ja_segmenter"):
+        strict = parser_for(locales.JA, strict=True)
+    assert strict.parse("逢沢　一郎君").suffix == "君"
+    assert parse("Sir John Smith").title == "Sir"
+    assert strict.parse("Sir John Smith").title == ""
 
 
 def test_ja_segmenter_without_extra_raises_helpfully() -> None:
@@ -804,6 +1123,26 @@ def test_ja_adapter_declines_shime_tokens(
     assert calls == []          # the decline sits before divide_name
 
 
+@pytest.mark.parametrize("text", ["あいさわいちろう", "なかやめぐ", "さくらエミ"])
+def test_ja_adapter_declines_a_token_with_no_kanji(
+        monkeypatch: pytest.MonkeyPatch, text: str) -> None:
+    # #1193: namedivider reads kanji statistics, and a token with none
+    # comes back cut after its first character, so the adapter declines
+    # before divide_name; a token holding a kanji still reaches it
+    calls: list[str] = []
+
+    def divide(name: str) -> _FakeDivided:
+        calls.append(name)
+        return _FakeDivided(name[:1], name[1:], 0.2)
+
+    _fake_namedivider(monkeypatch, divide)
+    seg = locales.ja_segmenter()
+    assert seg(text) is None
+    assert calls == []
+    assert seg("山田たろう") is not None
+    assert calls == ["山田たろう"]
+
+
 def test_ja_adapter_defensive_branches_against_a_stub(
         monkeypatch: pytest.MonkeyPatch) -> None:
     # reconstruction failure -> decline; an empty side -> the stated
@@ -863,15 +1202,15 @@ def test_ja_adapter_gbdt_flag_selects_the_gbdt_divider(
 def test_ja_pack_alone_is_inert() -> None:
     # The pack's own claim, and the reason it is safe to register
     # without the extra: activating segmentation while shipping nothing
-    # to segment WITH changes no parse at all. Pure pack data, so this
-    # runs whether or not nameparser[ja] is installed -- and it is the
-    # unsegmented pack's entire observable behavior.
+    # to segment WITH changes no parse of a segmentation shape. Pure pack data, so this
+    # runs whether or not nameparser[ja] is installed -- and the choice
+    # rows (君) are the pack's one other observable behavior.
     # construction now SAYS the pack alone cannot divide anything --
     # the segmenterless-activation warning is the loud half of this
     # test's claim, and the inert parses below are the quiet half
     with pytest.warns(UserWarning, match="ja_segmenter"):
         p = parser_for(locales.JA)
-    for name in _ROTATORS["ja"]:
+    for name in _JA_SEGMENTATION_ROTATORS:
         assert p.parse(name).as_dict() == _default_parse(name), name
 
 
@@ -945,6 +1284,24 @@ def test_ja_segmenter_declines_a_lone_character() -> None:
     p = _PACKED["ja"]
     n = p.parse("林")
     assert (n.family, n.given) == ("林", "")
+    assert n.ambiguities == ()
+
+
+@_needs_ja
+@pytest.mark.parametrize(("text", "family", "given"), [
+    ("あいさわいちろう", "あいさわいちろう", ""),
+    ("なかやめぐ", "なかやめぐ", ""),
+    ("山田たろう", "山田", "たろう"),
+    ("あいさわ　いちろう", "あいさわ", "いちろう"),
+])
+def test_ja_leaves_a_name_with_no_kanji_whole(
+        text: str, family: str, given: str) -> None:
+    # #1193, through the real divider: a hiragana name stays whole, as
+    # it does with the pack and no segmenter, where namedivider cut it
+    # after its first character with a SEGMENTATION report; a kanji
+    # still reaches the divider, and a written space still divides
+    n = _PACKED["ja"].parse(text)
+    assert (n.family, n.given) == (family, given)
     assert n.ambiguities == ()
 
 
@@ -1043,19 +1400,17 @@ def test_ja_reports_statistical_divisions_and_not_rule_based_ones() -> None:
 
 
 @_needs_ja
-def test_ja_divides_a_lone_hiragana_token() -> None:
-    # The whole-name presumption, applied to hiragana: at token level a
-    # bare given name is indistinguishable from a full name, so the
-    # stage gates みなみ in and namedivider divides it -- み + なみ,
-    # which is wrong if the writer meant the given name alone and right
-    # if they meant a (rare) all-kana full name. Exactly the acceptance
-    # 田中 -> 田 + 中 already carries for kanji, pinned here so the kana
-    # path's version is a recorded consequence rather than a surprise.
-    # The statistical score puts a SEGMENTATION report on it, which is
-    # the caller's handle for routing it to review.
+def test_ja_leaves_a_lone_hiragana_token_whole() -> None:
+    # The whole-name presumption no longer reaches hiragana: until #1193
+    # the stage gated みなみ in and namedivider cut it み + なみ with a
+    # SEGMENTATION report, wrong where the writer meant the given name
+    # alone. A token with no kanji now declines at the adapter, so it
+    # reads as the pack with no segmenter reads it, the lone name word
+    # a family. The kanji version of the presumption (田中 -> 田 + 中)
+    # still stands, namedivider having kanji to read there.
     n = _PACKED["ja"].parse("みなみ")
-    assert (n.family, n.given) == ("み", "なみ")
-    assert [a.kind for a in n.ambiguities] == [AmbiguityKind.SEGMENTATION]
+    assert (n.family, n.given) == ("みなみ", "")
+    assert n.ambiguities == ()
 
 
 @_needs_ja
@@ -1094,7 +1449,7 @@ def test_ja_stacked_on_zh_pays_the_zh_packs_documented_cost() -> None:
     # under ZH+JA exactly as it does under ZH alone -- the same reading
     # cases.py's zh_japanese_kanji_tradeoff row records, and the reason
     # the docs call the two packs corpus alternatives and qualify the
-    # stack (see _script_segment.py's module docstring, usage.rst and
+    # stack (see _script_segment.py's module docstring, east-asian.rst and
     # the release log). JA alone reads it correctly (test_ja_end_to_end).
     p = parser_for(locales.ZH, locales.JA, segmenter=locales.ja_segmenter())
     n = p.parse("高橋一郎")
@@ -1200,6 +1555,18 @@ def test_tr_az_deviates_scans_per_token() -> None:
     # markers are whole-token: a name merely CONTAINING one must not
     # declare ("Ogluev" is not a marker)
     assert not _tr_az.DEVIATES("Ogluev Ivan")
+
+
+def test_tr_az_deviates_reads_a_decomposed_marker() -> None:
+    """#1316: DEVIATES declares the surface the pack's rule rewrites,
+    and the rule reads a marker NFC-composed, so a ğ or ў written as base
+    plus combining mark must declare too, or the non-interference gate
+    misses an undeclared deviation."""
+    for name in ("Aliyev Rashad Vali oğlu", "Aliyev Rashad Vali OĞLU",
+                 "Каримов Алишер Вали ўғли"):
+        decomposed = unicodedata.normalize("NFD", name)
+        assert decomposed != name
+        assert _tr_az.DEVIATES(decomposed), name
 
 
 def test_locales_unknown_attribute() -> None:
@@ -1400,8 +1767,11 @@ _ROTATORS["tr_az"] = [
     "Aliyev Rashad Vali oğlu",           # oğlu
     "Mammadov Elchin Hasan ogly",        # ogly
     "Karimov Aziz Vali ogli",            # ogli
-    "Karimov Alisher Vali o'g'li",       # o['’ʻ]g['’ʻ]li, ASCII '
-    "Yusupov Botir Vali o’g’li",         # o['’ʻ]g['’ʻ]li, typographic ’
+    "Karimov Alisher Vali o'g'li",       # the o'g'li branch, ASCII '
+    "Yusupov Botir Vali o’g’li",         # the o'g'li branch, typographic ’
+    "Yusupov Botir Vali o‘g‘li",         # the o'g'li branch, smart quote ‘ (#1186)
+    "Yusupov Botir Vali oʼgʼli",         # the o'g'li branch, modifier ʼ (#1186)
+    "Yusupov Botir Vali o`g`li",         # the o'g'li branch, backtick (#1186)
     "Mammadova Aygun Hasan qizi",        # qizi
     "Aliyeva Leyla Vali qızı",           # qızı
     "Mammadova Sevinj Ali kizi",         # kizi
@@ -1449,9 +1819,9 @@ _ROTATORS["ne"] = [
     "Mr. Guru Sharma",      # guru behind a listed title
     "Sharma, Guru Prasad",  # guru after a family comma
 ]
-# ja has no marker regexes and no vocabulary either: its rotators cover
-# the shapes only the pack PLUS its segmenter changes. Every row is
-# UNSPACED on purpose -- a spaced kana-licensed name (高橋 みなみ) now
+# ja has no marker regexes and no vocabulary of its own: its
+# segmentation rotators cover the shapes only the pack PLUS its
+# segmenter changes. Every one of THESE rows is UNSPACED on purpose -- a spaced kana-licensed name (高橋 みなみ) now
 # reads family-first by DEFAULT (decisions/W4), so it would
 # not deviate and would fail the must-deviate assertion below.
 _ROTATORS["ja"] = [
@@ -1464,6 +1834,17 @@ _ROTATORS["ja"] = [
                      # pure katakana (マイケル) is deliberately not
     "佐々木健",      # the iteration mark 々 inside a top-20 surname
 ]
+# ja's choice of the language (#1194) turns on 君, the Diet's honorific:
+# glued, spaced and behind the fullwidth comma, where the default reads it
+# into the given name or as a middle name. Segmentation-free on purpose,
+# so the segmenterless pack's inert test reads only the rows above.
+_JA_CHOICE_ROTATORS = [
+    "逢沢　一郎君",    # glued, the Diet's own writing
+    "逢沢　一郎　君",  # spaced
+    "逢沢，一郎君",    # behind the fullwidth comma
+]
+_JA_SEGMENTATION_ROTATORS = list(_ROTATORS["ja"])
+_ROTATORS["ja"] = _JA_SEGMENTATION_ROTATORS + _JA_CHOICE_ROTATORS
 
 # The choice packs (3f): one name per word of the derived surface, each
 # in a shape the default reads differently, so the gate's positive side
@@ -1504,6 +1885,21 @@ _ROTATORS["sl"] = [
 _ROTATORS["hr"] = [
     "Ivan Horvat ml.",               # ml
     "Ivan Horvat st.",               # st
+]
+# ar and he (#1257): ben mid-name, in each case and after a family comma;
+# ar also the credential ABD its choice drops for abd's bound given name
+_ROTATORS["ar"] = [
+    "Karim Ben Haddad",              # ben
+    "KARIM BEN HADDAD",              # ben, in one case
+    "karim ben haddad",              # ben, lower case
+    "Haddad, Karim Ben",             # ben ending the given part
+    "Jane Smith, ABD",               # abd, the credential leaving
+    "Jane Smith ABD",                # abd ending the name
+]
+_ROTATORS["he"] = [
+    "Yael Ben Arieh",                # ben
+    "YAEL BEN ARIEH",                # ben, in one case
+    "Arieh, Yael Ben",               # ben ending the given part
 ]
 # hi and bn: each romanized title at the head, in each case, behind a
 # listed title, after a family comma and before one (rules/H6); a dotted
@@ -1563,6 +1959,17 @@ _ROTATORS["vi"] = [
     "Nguyen, Pgs Van Anh",           # pgs
     "Nguyen, PGS.TS. An",            # the stacked form
 ]
+# mn: the Cyrillic script order alone (its choice changes no word), in
+# each form the father's name is written in, with a word before it and
+# with a Latin title beside it; a romanized name does not deviate
+_ROTATORS["mn"] = [
+    "Батын Сүхээ",                   # the genitive, Cyrillic
+    "Бат Сүхээ",                     # the nominative, as passports write it
+    "Б. Сүхээ",                      # the father's name as its initial
+    "Цэрэн Оюун-Эрдэнэ",             # a hyphenated given name
+    "Боржигин Батын Сүхээ",          # a word before the father's name
+    "Dr. Батын Сүхээ",               # a Latin title beside a Cyrillic name
+]
 _ROTATORS["bn"] = [
     "Shrimati Mamata Banerjee",      # shrimati at the head
     "Banerjee, Mamata Shrimati",     # shrimati ending the given part
@@ -1578,8 +1985,20 @@ _ROTATORS["bn"] = [
 ]
 
 
+#: Packs whose choice of languages changes no compiled reading: the
+#: chosen file's readings are all on by default and clash with none
+#: other's, so the choice is recorded (a strict parser reads that file)
+#: and its derived surface is empty. mn: mn.toml held `lama` and
+#: an exclusion when locales.MN shipped (#1237). A choice that comes to
+#: change a word fails test_an_inert_choice_changes_no_word until its
+#: pack leaves this set and its rotators name the word, and
+#: docs/locales.rst's line that mn's choice turns on nothing changes.
+_INERT_CHOICES = frozenset({"mn"})
+
+
 @pytest.mark.parametrize("code", sorted(c for c in _PACKS
-                                        if locales.get(c).languages))
+                                        if locales.get(c).languages
+                                        and c not in _INERT_CHOICES))
 def test_choice_rotators_cover_every_changed_word(code: str) -> None:
     # the choice packs' counterpart of the marker-branch sweep below:
     # a word joining a choice's surface fails here until a rotator
@@ -1590,9 +2009,15 @@ def test_choice_rotators_cover_every_changed_word(code: str) -> None:
     assert surface and missing == []
 
 
+@pytest.mark.parametrize("code", sorted(_INERT_CHOICES))
+def test_an_inert_choice_changes_no_word(code: str) -> None:
+    assert locales.get(code).languages
+    assert _ri.changed_words(_ri.selected(locales.get(code).languages)) == set()
+
+
 @pytest.mark.parametrize("code", sorted(
     c for c in _PACKS if locales.get(c).languages
-    and not _is_vocabulary_pack(locales.get(c))))
+    and not _is_vocabulary_pack(locales.get(c)) and c not in _INERT_CHOICES))
 def test_a_choice_word_rotator_is_moved_by_the_choice_alone(code: str) -> None:
     # a pack with a choice beside a fragment or a patch (es): a rotator
     # holding a word the choice changes is that word's witness only if
@@ -1604,8 +2029,11 @@ def test_a_choice_word_rotator_is_moved_by_the_choice_alone(code: str) -> None:
     holds = _surface_deviates(surface)
     choice = parser_for(Locale(code="choice", lexicon=Lexicon.empty(),
                                languages=pack.languages))
-    rest = parser_for(Locale(code="rest", lexicon=pack.lexicon,
-                             policy=pack.policy))
+    with warnings.catch_warnings():
+        # ja's patch alone activates segmentation with nothing to divide by
+        warnings.filterwarnings("ignore", message=".*ja_segmenter")
+        rest = parser_for(Locale(code="rest", lexicon=pack.lexicon,
+                                 policy=pack.policy))
     witnesses = [n for n in _ROTATORS[code] if holds(n)]
     assert witnesses
     for name in witnesses:
@@ -1997,7 +2425,9 @@ def test_a_pack_with_a_choice_and_a_patch_declares_only_the_patch() -> None:
     assert deviates("Sidorov Ivan Petrovich")    # the patch's, declared
     assert not deviates("John Smith")
     assert not _is_vocabulary_pack(mixed)
-    assert _is_vocabulary_pack(locales.NE)
+    assert _is_vocabulary_pack(locales.HI)
+    # NE was the example until #1254 gave it a patch (rules/O8)
+    assert not _is_vocabulary_pack(locales.NE)
 
 
 @pytest.mark.parametrize("tags", _CHOICES, ids="+".join)
@@ -2399,8 +2829,8 @@ _3H_ROWS = [
      ("JOSE", "CARLOS", "SILVA SB", "", ()), ("JOSE", "CARLOS", "SILVA SB", "", ())),
     # the dotted S.B. after a comma is paired initials either way (rules/C5)
     ("PT_BR", "John Smith, S.B.",
-     ("S.B.", "", "John Smith", "", ("SUFFIX_OR_NAME",)),
-     ("S.B.", "", "John Smith", "", ("SUFFIX_OR_NAME",))),
+     ("S.", "B.", "John Smith", "", ("SUFFIX_OR_NAME",)),
+     ("S.", "B.", "John Smith", "", ("SUFFIX_OR_NAME",))),
     # F and N, written as an initial is, are excluded, the pack included
     # (pt-BR.toml): the family name they spell, by default and under it
     ("PT_BR", "JOSE CARLOS SILVA F",
@@ -2559,6 +2989,40 @@ def test_the_sb_mask_keeps_the_degrees_capitals_under_pt_br() -> None:
     ("محمد آل سعود", "family", "آل سعود"),
     ("آل سعود", "family", "آل سعود"),
     ("آل سعود", "given", ""),
+    # Persian writes yeh and kaf with letters of their own (U+06CC,
+    # U+06A9), so ar.toml's titles are listed again in them as
+    # same_as spellings (#1151).
+    ("الدکتور محمد علی", "title", "الدکتور"),
+    ("الشیخ محمد علی", "given", "محمد"),
+    ("دکتور محمد رضایی", "title", "دکتور"),
+    # Persian's own titles (fa.toml) are plain titles, addressing the
+    # family name as "Dr. Smith" does: ar.toml's, the given name.
+    ("دکتر محمد رضایی", "title", "دکتر"),
+    ("دکتر رضایی", "family", "رضایی"),
+    # Persian typed on an Arabic keyboard writes ي and ك: listed too.
+    ("دكتر محمد رضایی", "title", "دكتر"),
+    ("آقاي رضایی", "title", "آقاي"),
+    ("سرلشكر قاسم سلیمانی", "title", "سرلشكر"),
+    ("آقای دکتر علی رضایی", "title", "آقای دکتر"),
+    ("آیت‌الله جناب آقای حسن رضایی", "title", "آیت‌الله جناب آقای"),
+    ("حجت‌الاسلام حسن رضایی", "title", "حجت‌الاسلام"),
+    ("حجةالاسلام حسن رضایی", "title", "حجةالاسلام"),
+    ("سرلشکر علی رضایی", "title", "سرلشکر"),
+    ("خانم زهرا احمدی", "title", "خانم"),
+    # خانم after the name is Khanum, a name word: only the front claims.
+    ("زهرا خانم", "family", "خانم"),
+    # The words that open real Persian family names stay out (#1151).
+    ("شیخ احمدی، حسن", "family", "شیخ احمدی"),
+    # The Arabic tatweel only stretches a word: it is the same title.
+    ("الدكتــور خالد سالم", "title", "الدكتــور"),
+    # The hamza-less spelling "ال" standing alone is the same clan
+    # prefix (#1150): 15 of JRC-Names' 28 standalone ones, none the
+    # article split from its word.
+    ("سارة علي ال ناصر", "family", "ال ناصر"),
+    ("سارة علي ال ناصر", "middle", "علي"),
+    ("حسن علي محمد ال يحيى", "family", "ال يحيى"),
+    ("ال الشيخ", "family", "ال الشيخ"),
+    ("ال الشيخ", "given", ""),
     # The kunya "أبو"/"ابو" is AMBIGUOUS (it can begin a standalone
     # byname): leading it reads as the given name -- the "Van Johnson"
     # rule -- while non-leading it chains onto the family like any
@@ -2606,8 +3070,8 @@ def test_the_sb_mask_keeps_the_degrees_capitals_under_pt_br() -> None:
     # conjunctions need the same single-letter carve-out headroom (enough
     # rootname pieces), so pinned with the 6-piece shape the и row uses
     ("الأستاذ و الدكتور طارق حسن السيد", "title", "الأستاذ و الدكتور"),
-    # Hebrew patronymic prefixes: same non-leading chain-onto-family
-    # behavior.
+    # Hebrew particles: same non-leading chain-onto-family behavior,
+    # בת a patronymic, בן a clan particle since #1257.
     ("דוד בן גוריון", "family", "בן גוריון"),
     ("שרה בת אברהם", "family", "בת אברהם"),
     # Hebrew "מר" title (plain title, not GIVEN_NAME_TITLES -- like
@@ -2753,6 +3217,18 @@ def test_the_sb_mask_keeps_the_degrees_capitals_under_pt_br() -> None:
 def test_269_nonlatin_vocabulary_parses(
         name: str, field: str, expected: str) -> None:
     assert getattr(parse(name), field) == expected
+
+
+def test_a_choice_of_fa_reads_a_persian_engineer_as_a_title_for_the_family() -> None:
+    """#1151: مهندس is one word in Arabic and Persian. ar.toml's reading
+    addresses the given name (Egyptian usage) and the default keeps it;
+    fa.toml's, written default = false, addresses the family name, and
+    a choice of fa takes it over ar.toml's."""
+    fa = parser_for(Locale(code="fa", lexicon=Lexicon.empty(),
+                           languages=frozenset({"fa"})))
+    assert parse("مهندس رضایی").given == "رضایی"
+    assert fa.parse("مهندس رضایی").family == "رضایی"
+    assert fa.parse("مهندس رضایی").title == "مهندس"
 
 
 def test_269_vocabulary_one_row_per_script_and_category() -> None:

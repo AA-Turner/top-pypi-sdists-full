@@ -9,11 +9,16 @@ from sqlalchemy import join
 from sqlalchemy import select
 from sqlalchemy import testing
 from sqlalchemy.orm import aliased
+from sqlalchemy.orm import foreign
+from sqlalchemy.orm import immediateload
+from sqlalchemy.orm import join as orm_join
 from sqlalchemy.orm import joinedload
+from sqlalchemy.orm import lazyload
 from sqlalchemy.orm import noload
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import subqueryload
 from sqlalchemy.testing import eq_
 from sqlalchemy.testing import expect_warnings
 from sqlalchemy.testing import fixtures
@@ -398,3 +403,561 @@ class StructuralEagerLoadCycleTest(fixtures.DeclarativeMappedTest):
                 a = results.first()
 
         a.bs
+
+
+class LateralFixture(fixtures.DeclarativeMappedTest):
+    """relationship to an aliased class against a correlated LATERAL
+    subquery, as in #13783"""
+
+    @classmethod
+    def setup_classes(cls):
+        Base = cls.DeclarativeBasic
+
+        class Parent(ComparableEntity, Base):
+            __tablename__ = "parent"
+            id = Column(Integer, primary_key=True)
+
+        class Child(ComparableEntity, Base):
+            __tablename__ = "child"
+            id = Column(Integer, primary_key=True)
+            parent_id = Column(ForeignKey("parent.id"))
+            x = Column(Integer)
+
+        class Link(ComparableEntity, Base):
+            __tablename__ = "link"
+            id = Column(Integer, primary_key=True)
+            parent_id = Column(ForeignKey("parent.id"))
+            data = Column(Integer)
+
+        Parent.links = relationship(Link, order_by=Link.id)
+
+        latest = aliased(
+            Child,
+            select(Child)
+            .where(Child.parent_id == Parent.id)
+            .order_by(Child.x.desc())
+            .limit(1)
+            .correlate(Parent)
+            .subquery()
+            .lateral(),
+            flat=True,
+        )
+        Parent.latest_child = relationship(
+            latest,
+            primaryjoin=foreign(latest.parent_id) == Parent.id,
+            uselist=False,
+            viewonly=True,
+        )
+        Parent.latest_children = relationship(
+            latest,
+            primaryjoin=foreign(latest.parent_id) == Parent.id,
+            viewonly=True,
+        )
+
+        # auto-correlates to "link", rather than using correlate()
+        link_latest = aliased(
+            Child,
+            select(Child)
+            .where(Child.parent_id == Link.parent_id)
+            .order_by(Child.x.desc())
+            .limit(1)
+            .subquery()
+            .lateral(),
+            flat=True,
+        )
+        Link.latest_child = relationship(
+            link_latest,
+            primaryjoin=foreign(link_latest.parent_id) == Link.parent_id,
+            uselist=False,
+            viewonly=True,
+        )
+
+    @classmethod
+    def insert_data(cls, connection):
+        Parent, Child, Link = cls.classes("Parent", "Child", "Link")
+
+        sess = Session(connection)
+        sess.add_all([Parent(id=1), Parent(id=2)])
+        sess.flush()
+        sess.add_all(
+            [
+                Child(id=1, parent_id=1, x=5),
+                Child(id=2, parent_id=1, x=9),
+                Child(id=3, parent_id=2, x=3),
+                Link(id=1, parent_id=1, data=1),
+                Link(id=2, parent_id=2, data=2),
+                Link(id=3, parent_id=2, data=2),
+            ]
+        )
+        sess.commit()
+
+    def _wrapped_stmt(self, kind):
+        Parent, Child, Link = self.classes("Parent", "Child", "Link")
+
+        if kind.m2o_distinct:
+            return (
+                select(Parent, Link.data)
+                .join(Parent.links)
+                .distinct()
+                .order_by(Parent.id)
+                .options(joinedload(Parent.latest_child))
+            )
+        elif kind.m2o_group_by:
+            return (
+                select(Parent, func.count(Link.id))
+                .join(Parent.links)
+                .group_by(Parent.id)
+                .order_by(Parent.id)
+                .options(joinedload(Parent.latest_child))
+            )
+        elif kind.o2m_limit:
+            return (
+                select(Parent)
+                .order_by(Parent.id)
+                .limit(5)
+                .options(joinedload(Parent.latest_children))
+            )
+        else:
+            kind.fail()
+
+
+class LateralRelationshipCompileTest(
+    LateralFixture, testing.AssertsCompiledSQL
+):
+    __dialect__ = "default"
+
+    def test_joinedload_not_wrapped(self):
+        Parent = self.classes.Parent
+
+        self.assert_compile(
+            select(Parent).options(joinedload(Parent.latest_child)),
+            "SELECT parent.id, anon_1.id AS id_1, anon_1.parent_id, "
+            "anon_1.x FROM parent "
+            "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+            "child.parent_id AS parent_id, child.x AS x FROM child "
+            "WHERE child.parent_id = parent.id ORDER BY child.x DESC "
+            "LIMIT :param_1) AS anon_1 ON anon_1.parent_id = parent.id",
+        )
+
+    @testing.variation("kind", ["m2o_distinct", "m2o_group_by", "o2m_limit"])
+    def test_joinedload_wrapped(self, kind):
+        """test #13783"""
+
+        if kind.m2o_distinct:
+            expected = (
+                "SELECT anon_1.id, anon_1.data, anon_2.id AS id_1, "
+                "anon_2.parent_id, anon_2.x FROM (SELECT DISTINCT "
+                "parent.id AS id, link.data AS data FROM parent "
+                "JOIN link ON parent.id = link.parent_id "
+                "ORDER BY parent.id) AS anon_1 "
+                "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+                "child.parent_id AS parent_id, child.x AS x FROM child "
+                "WHERE child.parent_id = anon_1.id ORDER BY child.x DESC "
+                "LIMIT :param_1) AS anon_2 ON anon_2.parent_id = anon_1.id "
+                "ORDER BY anon_1.id"
+            )
+        elif kind.m2o_group_by:
+            expected = (
+                "SELECT anon_1.id, anon_1.count_1, anon_2.id AS id_1, "
+                "anon_2.parent_id, anon_2.x FROM (SELECT parent.id AS id, "
+                "count(link.id) AS count_1 FROM parent "
+                "JOIN link ON parent.id = link.parent_id "
+                "GROUP BY parent.id ORDER BY parent.id) AS anon_1 "
+                "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+                "child.parent_id AS parent_id, child.x AS x FROM child "
+                "WHERE child.parent_id = anon_1.id ORDER BY child.x DESC "
+                "LIMIT :param_1) AS anon_2 ON anon_2.parent_id = anon_1.id "
+                "ORDER BY anon_1.id"
+            )
+        elif kind.o2m_limit:
+            expected = (
+                "SELECT anon_1.id, anon_2.id AS id_1, anon_2.parent_id, "
+                "anon_2.x FROM (SELECT parent.id AS id FROM parent "
+                "ORDER BY parent.id LIMIT :param_1) AS anon_1 "
+                "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+                "child.parent_id AS parent_id, child.x AS x FROM child "
+                "WHERE child.parent_id = anon_1.id ORDER BY child.x DESC "
+                "LIMIT :param_2) AS anon_2 ON anon_2.parent_id = anon_1.id "
+                "ORDER BY anon_1.id"
+            )
+        else:
+            kind.fail()
+
+        self.assert_compile(self._wrapped_stmt(kind), expected)
+
+    def test_joinedload_wrapped_own_from_not_adapted(self):
+        """test #13783; the LATERAL selects from "child" on its own, which
+        is not adapted to the wrapping subquery even though the enclosing
+        query also selects from "child" """
+
+        Parent, Child = self.classes("Parent", "Child")
+
+        self.assert_compile(
+            select(Parent, Child)
+            .join(Child, Child.parent_id == Parent.id)
+            .limit(5)
+            .options(joinedload(Parent.latest_children)),
+            "SELECT anon_1.id, anon_1.id_1, anon_1.parent_id, anon_1.x, "
+            "anon_2.id AS id_2, anon_2.parent_id AS parent_id_1, "
+            "anon_2.x AS x_1 FROM (SELECT parent.id AS id, "
+            "child.id AS id_1, child.parent_id AS parent_id, child.x AS x "
+            "FROM parent JOIN child ON child.parent_id = parent.id "
+            "LIMIT :param_1) AS anon_1 "
+            "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+            "child.parent_id AS parent_id, child.x AS x FROM child "
+            "WHERE child.parent_id = anon_1.id ORDER BY child.x DESC "
+            "LIMIT :param_2) AS anon_2 ON anon_2.parent_id = anon_1.id",
+        )
+
+    @testing.variation("style", ["joinedload", "join"])
+    def test_from_aliased_parent(self, style):
+        """test #13786"""
+
+        Parent = self.classes.Parent
+        pa = aliased(Parent)
+
+        if style.joinedload:
+            stmt = select(pa).options(joinedload(pa.latest_child))
+        elif style.join:
+            stmt = select(pa).join(pa.latest_child)
+        else:
+            style.fail()
+
+        if style.joinedload:
+            expected = (
+                "SELECT parent_1.id, anon_1.id AS id_1, anon_1.parent_id, "
+                "anon_1.x FROM parent AS parent_1 LEFT OUTER JOIN LATERAL "
+                "(SELECT child.id AS id, child.parent_id AS parent_id, "
+                "child.x AS x FROM child WHERE child.parent_id = parent_1.id "
+                "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+                "ON anon_1.parent_id = parent_1.id"
+            )
+        else:
+            expected = (
+                "SELECT parent_1.id FROM parent AS parent_1 JOIN LATERAL "
+                "(SELECT child.id AS id, child.parent_id AS parent_id, "
+                "child.x AS x FROM child WHERE child.parent_id = parent_1.id "
+                "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+                "ON anon_1.parent_id = parent_1.id"
+            )
+
+        self.assert_compile(stmt, expected)
+
+    @testing.variation("left", ["plain", "aliased"])
+    def test_orm_join(self, left):
+        """test #13786; the LATERAL is adapted to an aliased left side
+        by orm.join() directly"""
+
+        Parent = self.classes.Parent
+        latest = Parent.latest_child.property.entity
+
+        if left.plain:
+            parent = Parent
+            parent_name = "parent"
+            parent_from = "parent"
+        elif left.aliased:
+            parent = aliased(Parent)
+            parent_name = "parent_1"
+            parent_from = "parent AS parent_1"
+        else:
+            left.fail()
+
+        self.assert_compile(
+            select(parent).select_from(
+                orm_join(parent, latest, parent.latest_child)
+            ),
+            f"SELECT {parent_name}.id FROM {parent_from} JOIN LATERAL "
+            "(SELECT child.id AS id, child.parent_id AS parent_id, "
+            "child.x AS x FROM child "
+            f"WHERE child.parent_id = {parent_name}.id "
+            "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+            f"ON anon_1.parent_id = {parent_name}.id",
+        )
+
+    def test_nested_joinedload_wrapped(self):
+        """test #13783, #13786; the LATERAL correlates to the eager alias
+        of "link" in the nested joined eager load, and not to the "link"
+        selected by the wrapped query"""
+
+        Parent, Link = self.classes("Parent", "Link")
+
+        self.assert_compile(
+            select(Parent, Link)
+            .join(Parent.links)
+            .limit(5)
+            .options(joinedload(Parent.links).joinedload(Link.latest_child)),
+            "SELECT anon_1.id, anon_1.id_1, anon_1.parent_id, anon_1.data, "
+            "link_1.id AS id_2, link_1.parent_id AS parent_id_1, "
+            "link_1.data AS data_1, anon_2.id AS id_3, "
+            "anon_2.parent_id AS parent_id_2, anon_2.x "
+            "FROM (SELECT parent.id AS id, link.id AS id_1, "
+            "link.parent_id AS parent_id, link.data AS data "
+            "FROM parent JOIN link ON parent.id = link.parent_id "
+            "LIMIT :param_1) AS anon_1 "
+            "LEFT OUTER JOIN link AS link_1 ON anon_1.id = link_1.parent_id "
+            "LEFT OUTER JOIN LATERAL (SELECT child.id AS id, "
+            "child.parent_id AS parent_id, child.x AS x FROM child "
+            "WHERE child.parent_id = link_1.parent_id "
+            "ORDER BY child.x DESC LIMIT :param_2) AS anon_2 "
+            "ON anon_2.parent_id = link_1.parent_id ORDER BY link_1.id",
+        )
+
+
+class LateralRelationshipRoundTripTest(LateralFixture):
+    __requires__ = ("lateral",)
+    __backend__ = True
+
+    @testing.variation("kind", ["m2o_distinct", "m2o_group_by", "o2m_limit"])
+    def test_joinedload_wrapped(self, kind):
+        """test #13783"""
+
+        Parent, Child = self.classes("Parent", "Child")
+
+        sess = fixture_session()
+        parents = [
+            row[0] for row in sess.execute(self._wrapped_stmt(kind)).unique()
+        ]
+
+        if kind.o2m_limit:
+            eq_(
+                parents,
+                [
+                    Parent(id=1, latest_children=[Child(id=2)]),
+                    Parent(id=2, latest_children=[Child(id=3)]),
+                ],
+            )
+        else:
+            eq_(
+                parents,
+                [
+                    Parent(id=1, latest_child=Child(id=2)),
+                    Parent(id=2, latest_child=Child(id=3)),
+                ],
+            )
+
+    @testing.variation(
+        "loader",
+        ["joined", "selectin", "subquery", "select", "immediate"],
+    )
+    @testing.variation("uselist", [True, False])
+    def test_loaders(self, loader, uselist):
+        """test #13786"""
+
+        Parent, Child = self.classes("Parent", "Child")
+
+        if uselist:
+            attr = Parent.latest_children
+        else:
+            attr = Parent.latest_child
+
+        if loader.joined:
+            opt = joinedload(attr)
+        elif loader.selectin:
+            opt = selectinload(attr)
+        elif loader.subquery:
+            opt = subqueryload(attr)
+        elif loader.select:
+            opt = lazyload(attr)
+        elif loader.immediate:
+            opt = immediateload(attr)
+        else:
+            loader.fail()
+
+        sess = fixture_session()
+        parents = (
+            sess.scalars(select(Parent).order_by(Parent.id).options(opt))
+            .unique()
+            .all()
+        )
+
+        if uselist:
+            eq_(
+                parents,
+                [
+                    Parent(id=1, latest_children=[Child(id=2)]),
+                    Parent(id=2, latest_children=[Child(id=3)]),
+                ],
+            )
+        else:
+            eq_(
+                parents,
+                [
+                    Parent(id=1, latest_child=Child(id=2)),
+                    Parent(id=2, latest_child=Child(id=3)),
+                ],
+            )
+
+    def test_joinedload_from_aliased_parent(self):
+        """test #13786"""
+
+        Parent, Child = self.classes("Parent", "Child")
+        pa = aliased(Parent)
+
+        sess = fixture_session()
+        eq_(
+            sess.scalars(
+                select(pa).order_by(pa.id).options(joinedload(pa.latest_child))
+            ).all(),
+            [
+                Parent(id=1, latest_child=Child(id=2)),
+                Parent(id=2, latest_child=Child(id=3)),
+            ],
+        )
+
+    def test_nested_joinedload_wrapped(self):
+        """test #13783, #13786"""
+
+        Parent, Child, Link = self.classes("Parent", "Child", "Link")
+
+        sess = fixture_session()
+        eq_(
+            sess.scalars(
+                select(Parent)
+                .join(Parent.links)
+                .order_by(Parent.id)
+                .limit(5)
+                .options(
+                    joinedload(Parent.links).joinedload(Link.latest_child)
+                )
+            )
+            .unique()
+            .all(),
+            [
+                Parent(id=1, links=[Link(id=1, latest_child=Child(id=2))]),
+                Parent(
+                    id=2,
+                    links=[
+                        Link(id=2, latest_child=Child(id=3)),
+                        Link(id=3, latest_child=Child(id=3)),
+                    ],
+                ),
+            ],
+        )
+
+    @testing.variation("loader", ["selectin", "subquery", "select"])
+    def test_enclosing_query_selects_own_from(self, loader):
+        """test #13786; the enclosing query selects from "child" as well,
+        which the auto-correlating LATERAL selects from on its own.  It
+        is not correlated to the "child" within the enclosing query"""
+
+        Child, Link = self.classes("Child", "Link")
+
+        def join_lateral_clause(param):
+            return (
+                "JOIN LATERAL (SELECT child.id AS id, "
+                "child.parent_id AS parent_id, "
+                f"child.x AS x FROM child WHERE child.parent_id = {param} "
+                "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+                f"ON anon_1.parent_id = {param}"
+            )
+
+        if loader.selectin:
+            opt = selectinload(Link.latest_child)
+            load_sql = CompiledSQL(
+                "SELECT link_1.id, anon_1.id, anon_1.parent_id, anon_1.x "
+                "FROM link AS link_1 "
+                f"{join_lateral_clause('link_1.parent_id')} "
+                "WHERE link_1.id IN (__[POSTCOMPILE_primary_keys])",
+                [{"primary_keys": [1], "param_1": 1}],
+            )
+        elif loader.subquery:
+            opt = subqueryload(Link.latest_child)
+            load_sql = CompiledSQL(
+                "SELECT anon_1.id AS anon_1_id, "
+                "anon_1.parent_id AS anon_1_parent_id, anon_1.x AS anon_1_x, "
+                "anon_2.link_parent_id AS anon_2_link_parent_id "
+                "FROM (SELECT DISTINCT link.parent_id AS link_parent_id "
+                "FROM link JOIN child ON child.parent_id = link.parent_id "
+                "WHERE child.x > :x_1) AS anon_2 "
+                f"{join_lateral_clause('anon_2.link_parent_id')}",
+                [{"x_1": 4, "param_1": 1}],
+            )
+        elif loader.select:
+            opt = lazyload(Link.latest_child)
+            load_sql = CompiledSQL(
+                "SELECT anon_1.id, anon_1.parent_id, anon_1.x "
+                "FROM link AS link_1 "
+                f"{join_lateral_clause('link_1.parent_id')} "
+                "WHERE anon_1.parent_id = :param_2",
+                [{"param_1": 1, "param_2": 1}],
+            )
+        else:
+            loader.fail()
+
+        sess = fixture_session()
+        with self.sql_execution_asserter(testing.db) as asserter:
+            eq_(
+                sess.scalars(
+                    select(Link)
+                    .join(Child, Child.parent_id == Link.parent_id)
+                    .where(Child.x > 4)
+                    .order_by(Link.id)
+                    .options(opt)
+                )
+                .unique()
+                .all(),
+                [Link(id=1, latest_child=Child(id=2))],
+            )
+
+        asserter.assert_(
+            CompiledSQL(
+                "SELECT link.id, link.parent_id, link.data FROM link "
+                "JOIN child ON child.parent_id = link.parent_id "
+                "WHERE child.x > :x_1 ORDER BY link.id",
+                [{"x_1": 4}],
+            ),
+            load_sql,
+        )
+
+    def test_selectinload_sql(self):
+        """test #13786; the join form is used, as the target can't be
+        selected without the parent"""
+
+        Parent, Child = self.classes("Parent", "Child")
+
+        sess = fixture_session()
+        with self.sql_execution_asserter(testing.db) as asserter:
+            sess.scalars(
+                select(Parent)
+                .order_by(Parent.id)
+                .options(selectinload(Parent.latest_child))
+            ).all()
+
+        asserter.assert_(
+            CompiledSQL("SELECT parent.id FROM parent ORDER BY parent.id", []),
+            CompiledSQL(
+                "SELECT parent_1.id, anon_1.id, anon_1.parent_id, anon_1.x "
+                "FROM parent AS parent_1 JOIN LATERAL "
+                "(SELECT child.id AS id, child.parent_id AS parent_id, "
+                "child.x AS x FROM child WHERE child.parent_id = parent_1.id "
+                "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+                "ON anon_1.parent_id = parent_1.id "
+                "WHERE parent_1.id IN (__[POSTCOMPILE_primary_keys])",
+                [{"primary_keys": [1, 2], "param_1": 1}],
+            ),
+        )
+
+    def test_lazyload_sql(self):
+        """test #13786; the target is selected from an alias of the
+        parent"""
+
+        Parent, Child = self.classes("Parent", "Child")
+
+        sess = fixture_session()
+        p1 = sess.get(Parent, 1)
+
+        with self.sql_execution_asserter(testing.db) as asserter:
+            eq_(p1.latest_child, Child(id=2))
+
+        asserter.assert_(
+            CompiledSQL(
+                "SELECT anon_1.id, anon_1.parent_id, anon_1.x "
+                "FROM parent AS parent_1 JOIN LATERAL "
+                "(SELECT child.id AS id, child.parent_id AS parent_id, "
+                "child.x AS x FROM child WHERE child.parent_id = parent_1.id "
+                "ORDER BY child.x DESC LIMIT :param_1) AS anon_1 "
+                "ON anon_1.parent_id = parent_1.id "
+                "WHERE anon_1.parent_id = :param_2",
+                [{"param_1": 1, "param_2": 1}],
+            ),
+        )

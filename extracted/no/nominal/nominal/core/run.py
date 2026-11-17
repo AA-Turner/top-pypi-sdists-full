@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
+from functools import partial
 from typing import TYPE_CHECKING, Iterable, Mapping, Protocol, Self, Sequence, cast
 
 from typing_extensions import deprecated
 
+from nominal.core import _display
 from nominal.core._checklist_types import Priority
 from nominal.core._dataset_scope_ingest import _DatasetScopeIngestMixin
 from nominal.core._event_types import EventType, SearchEventOriginType
@@ -19,16 +21,17 @@ from nominal.core._utils.api_tools import (
     rid_from_instance_or_string,
 )
 from nominal.core._utils.api_types import NominalProperties
-from nominal.core._utils.frontend_urls import run_url
+from nominal.core._utils.frontend_urls import asset_url, run_url
 from nominal.core._utils.grpc_tools import translate_grpc_errors
 from nominal.core._utils.properties import properties_from_proto, typed_properties_to_proto, typed_property_update
 from nominal.core._utils.query_tools import ArchiveStatusFilter, AssetMatch
-from nominal.core.attachment import Attachment, _get_accessible_attachments
+from nominal.core.attachment import Attachment, _attachments_section, _get_accessible_attachments
 from nominal.core.comment import Comment
-from nominal.core.dataset import Dataset
+from nominal.core.dataset import Dataset, _data_scope_nodes, _data_scopes_section
 from nominal.core.event import Event, _create_event, _search_events
 from nominal.core.video import Video
-from nominal.core.workbook import Workbook, _search_workbooks
+from nominal.core.workbook import Workbook, _create_blank_workbook, _search_workbooks, _workbook_title
+from nominal.core.workspace import Workspace
 from nominal.exceptions import LegacyVideoDeprecationWarning, NominalDataScopeNotFoundError
 from nominal.protos.asset.v2 import asset_pb2_grpc
 from nominal.protos.comments.v1 import comments_pb2, comments_pb2_grpc
@@ -59,6 +62,8 @@ class Run(HasRid, RefreshableGrpcMixin[run_service_pb2.Run], _DatasetScopeIngest
 
     _clients: _Clients = field(repr=False)
     author_rid: str | None = field(default=None, repr=False)
+    is_locked: bool = False
+    """Whether the run is locked, which exempts its time range from dataset retention."""
 
     class _Clients(
         Attachment._Clients,
@@ -81,6 +86,79 @@ class Run(HasRid, RefreshableGrpcMixin[run_service_pb2.Run], _DatasetScopeIngest
     def nominal_url(self) -> str:
         """Returns a link to the page for this Run in the Nominal app"""
         return run_url(self._clients, self.rid)
+
+    @_display.card
+    def _repr_html_(self) -> str | None:
+        if self.end is None:
+            time_fields = [("Start", _display.timestamp(self.start)), ("End", "ongoing")]
+        else:
+            time_fields = [
+                ("Start", _display.timestamp(self.start)),
+                ("End", _display.timestamp(self.end)),
+                ("Duration", _display.duration(self.end - self.start)),
+            ]
+        # The assets and datasets load once, for their sections and for the diagram.
+        assets = _display.start(self.list_assets)
+        datasets = _display.start(self.list_datasets)
+        # With loading off, the asset RIDs the run already holds still link to their pages.
+        assets_section = _display.fetched_from("Assets", assets, self._assets_section) or _display.Section(
+            "Assets",
+            [[_display.identifier(rid, partial(asset_url, self._clients, rid))] for rid in self.assets],
+        )
+        return _display.render(
+            kind="Run",
+            title=f"#{self.run_number} {self.name}",
+            fallback=repr(self),
+            fields=[
+                ("RID", _display.identifier(self.rid)),
+                ("Description", _display.escape(self.description) if self.description else None),
+                *time_fields,
+                ("Created", _display.timestamp(self.created_at)),
+                ("Labels", _display.labels(self.labels) if self.labels else None),
+            ],
+            properties=self.properties,
+            sections=[
+                assets_section,
+                _display.fetched_from("Datasets", datasets, _data_scopes_section),
+                _display.fetched("Attachments", lambda: _attachments_section(self._iter_list_attachments())),
+                _display.Section(
+                    "Links",
+                    [[_display.link(link["url"], link.get("title") or link["url"])] for link in self.links],
+                ),
+            ],
+            archived=self.is_archived,
+            url=lambda: self.nominal_url,
+            graph=lambda: (
+                self._graph(_display.wait(assets), _display.wait(datasets))
+                if assets is not None and datasets is not None
+                else None
+            ),
+        )
+
+    def _assets_section(self, assets: Sequence[Asset]) -> _display.Section:
+        return _display.Section(
+            "Assets",
+            [[_display.named(asset.name, asset.rid, partial(asset_url, self._clients, asset.rid))] for asset in assets],
+        )
+
+    def _graph(self, assets: Sequence[Asset], datasets: Sequence[tuple[str, Dataset]]) -> _display.Graph:
+        """The run's assets below it, and its datasets below its asset.
+
+        With several assets, which asset each dataset belongs to isn't loaded, so the datasets join the run.
+        """
+        node = _display.Node("Run", self.name, self.rid, lambda: self.nominal_url)
+        asset_nodes = [
+            _display.Node("Asset", asset.name, asset.rid, partial(asset_url, self._clients, asset.rid))
+            for asset in assets
+        ]
+        datasets_to = asset_nodes[0] if len(asset_nodes) == 1 else node
+        return _display.Graph(
+            node,
+            [
+                _display.Group("Assets", asset_nodes, node),
+                _display.Group("Datasets", _data_scope_nodes(datasets), datasets_to),
+            ],
+        )
 
     def _get_latest_api(self) -> run_service_pb2.Run:
         return _get_run(self._clients.run, self.rid)
@@ -579,6 +657,49 @@ class Run(HasRid, RefreshableGrpcMixin[run_service_pb2.Run], _DatasetScopeIngest
             archive_status=archive_status,
         )
 
+    def create_workbook(
+        self,
+        *,
+        title: str | None = None,
+        description: str | None = None,
+        labels: Sequence[str] | None = None,
+        properties: Mapping[str, str] | None = None,
+        is_draft: bool = False,
+        workspace: Workspace | str | None = None,
+    ) -> Workbook:
+        """Create a blank workbook scoped to this run.
+
+        The workbook has no panels yet: open its `Workbook.nominal_url` to add them in the Nominal app. To start from
+        existing panels instead, use `WorkbookTemplate.create_workbook` or `Workbook.clone`.
+
+        Args:
+            title: Title of the workbook. Defaults to "Workbook for {name}", with this run's name.
+            description: Description of the workbook. Defaults to no description.
+            labels: Labels to attach to the workbook.
+            properties: Properties to attach to the workbook.
+            is_draft: Whether to create the workbook as a draft. Defaults to False.
+            workspace: Workspace or workspace RID for the workbook. Defaults to the client's default workspace.
+
+        Returns:
+            The created workbook.
+
+        Example:
+            ```python
+            workbook = run.create_workbook()
+            print(workbook.nominal_url)
+            ```
+        """
+        return _create_blank_workbook(
+            self._clients,
+            title=_workbook_title([self.name]) if title is None else title,
+            run_rids=[self.rid],
+            description=description,
+            labels=labels,
+            properties=properties,
+            is_draft=is_draft,
+            workspace=workspace,
+        )
+
     def archive(self) -> None:
         """Archive this run.
         Archived runs are not deleted, but are hidden from the UI.
@@ -604,6 +725,52 @@ class Run(HasRid, RefreshableGrpcMixin[run_service_pb2.Run], _DatasetScopeIngest
         with translate_grpc_errors():
             self._clients.run.UnarchiveRun(run_service_pb2.UnarchiveRunRequest(rid=self.rid))
 
+    def lock(self) -> None:
+        """Lock this run, exempting its time range from retention on every dataset of its assets.
+
+        Locking creates a retention exemption on each dataset, with this run's RID as the exemption's source ID,
+        covering the run's start to end time.
+
+        Note:
+            Requires organization admin access, a run with an end time, and dataset retention to be enabled for
+            your organization. Datasets added to the run's assets afterward are not covered; lock again to
+            include them.
+
+        Note:
+            This does not update the instance in place; call `refresh()` to see the change reflected.
+
+        Raises:
+            NominalPermissionDeniedError: If you lack permission to delete data from every dataset of the run's assets.
+            NominalFailedPreconditionError: If the run has no end time, or dataset retention is not enabled for
+                your organization.
+            NominalError: If the request fails.
+        """
+        self._update_lock_status(run_service_pb2.LOCK_STATUS_LOCKED)
+
+    def unlock(self) -> None:
+        """Unlock this run, removing the retention exemptions that locking it created.
+
+        Note:
+            Requires organization admin access, a run with an end time, and dataset retention to be enabled for
+            your organization.
+
+        Note:
+            This does not update the instance in place; call `refresh()` to see the change reflected.
+
+        Raises:
+            NominalPermissionDeniedError: If you lack permission to delete data from every dataset of the run's assets.
+            NominalFailedPreconditionError: If the run has no end time, or dataset retention is not enabled for
+                your organization.
+            NominalError: If the request fails.
+        """
+        self._update_lock_status(run_service_pb2.LOCK_STATUS_UNLOCKED)
+
+    def _update_lock_status(self, lock_status: run_service_pb2.LockStatus.ValueType) -> None:
+        with translate_grpc_errors():
+            self._clients.run.UpdateLockStatus(
+                run_service_pb2.UpdateLockStatusRequest(rid=self.rid, lock_status=lock_status)
+            )
+
     @classmethod
     def _from_proto(cls, clients: _Clients, run: run_service_pb2.Run) -> Self:
         return cls(
@@ -624,6 +791,7 @@ class Run(HasRid, RefreshableGrpcMixin[run_service_pb2.Run], _DatasetScopeIngest
             is_archived=run.is_archived,
             _clients=clients,
             author_rid=run.author_rid if run.HasField("author_rid") else None,
+            is_locked=run.lock_status == run_service_pb2.LOCK_STATUS_LOCKED,
         )
 
 
@@ -661,6 +829,17 @@ def _create_run(
     with translate_grpc_errors():
         response = clients.run.CreateRun(request)
     return Run._from_proto(clients, response.run)
+
+
+def _get_runs(clients: Run._Clients, rids: Sequence[str]) -> Mapping[str, run_service_pb2.Run]:
+    """The runs with the given rids, keyed by rid. Rids that do not resolve are absent from the result.
+
+    Raises:
+        NominalError: If the retrieval request fails.
+    """
+    with translate_grpc_errors():
+        response = clients.run.GetRuns(run_service_pb2.GetRunsRequest(rids=list(rids)))
+    return dict(response.runs)
 
 
 def _get_run(service: run_service_pb2_grpc.RunServiceStub, rid: str) -> run_service_pb2.Run:

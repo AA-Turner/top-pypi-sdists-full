@@ -70,7 +70,7 @@ class NotificationManager(System.Object):
     @overload
     def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: typing.List[int], port: typing.Optional[int] = None) -> bool:
         """
-        Send a file to the FTP specified server using password authentication over unsecure FTP.
+        Send a file to the FTP specified server using password authentication over insecure FTP.
         
         :param hostname: FTP server hostname
         :param username: The FTP server username
@@ -84,7 +84,7 @@ class NotificationManager(System.Object):
     @overload
     def ftp(self, hostname: str, username: str, password: str, file_path: str, file_content: str, port: typing.Optional[int] = None) -> bool:
         """
-        Send a file to the FTP specified server using password authentication over unsecure FTP.
+        Send a file to the FTP specified server using password authentication over insecure FTP.
         
         :param hostname: FTP server hostname
         :param username: The FTP server username

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from importlib.metadata import EntryPoint
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '39b151e11075f1d0029f8fc411a42334775fb3e7'
+_SKYPILOT_COMMIT_SHA = '7ef9b59955c56a4450a3ec4d568e5194ead1d4c1'
 
 
 def _get_git_commit():
@@ -45,7 +45,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '0.14.2'
+__version__ = '0.14.3'
 __root_dir__ = directory_utils.get_sky_dir()
 
 
@@ -106,6 +106,7 @@ from sky.client.sdk import api_status
 from sky.client.sdk import api_stop
 from sky.client.sdk import autostop
 from sky.client.sdk import cancel
+from sky.client.sdk import cluster_job_spec
 from sky.client.sdk import cost_report
 from sky.client.sdk import create_debug_dump
 from sky.client.sdk import down
@@ -115,6 +116,7 @@ from sky.client.sdk import endpoints
 from sky.client.sdk import exec  # pylint: disable=redefined-builtin
 from sky.client.sdk import get
 from sky.client.sdk import get_user_workspace
+from sky.client.sdk import impersonate
 from sky.client.sdk import job_status
 from sky.client.sdk import launch
 from sky.client.sdk import optimize
@@ -237,6 +239,7 @@ __all__ = [
     'tail_logs',
     'download_logs',
     'job_status',
+    'cluster_job_spec',
     # core APIs Storage Management
     'storage_ls',
     'storage_delete',
@@ -252,6 +255,7 @@ __all__ = [
     'api_start',
     'api_stop',
     'api_server_logs',
+    'impersonate',
     # Debug Dump
     'create_debug_dump',
     'download_debug_dump',

@@ -43,3 +43,14 @@ def wrap_extractor_code(code: str, indices: list[int]) -> str:
         "  return (typeof __v === 'boolean' ? String(__v) : __v);\n"
         "}"
     )
+
+
+async def evaluate_wrapped(page, wrapped: str, handles: list):
+    """Run ``wrapped`` with ``handles`` in the frame that owns them.
+
+    A handle belongs to its frame's execution context, so an element inside an
+    iframe (a locator through ``internal:control=enter-frame``) cannot be
+    passed to ``page.evaluate`` of the main frame.
+    """
+    owner = await handles[0].owner_frame() if handles else None
+    return await (owner or page).evaluate(wrapped, handles)

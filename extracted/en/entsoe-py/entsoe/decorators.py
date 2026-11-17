@@ -3,6 +3,7 @@ from functools import wraps
 from socket import gaierror
 from time import sleep
 from http.client import RemoteDisconnected
+import re
 import pandas as pd
 import requests
 
@@ -11,32 +12,59 @@ from .misc import day_blocks, year_blocks, month_blocks
 
 logger = logging.getLogger(__name__)
 
+SECURITY_TOKEN_PATTERN = re.compile(r'(securityToken=)[^&\s\'"]+')
+
+
+def _mask_security_token(text: str) -> str:
+    """
+    Replace the value of any securityToken parameter in a string with a
+    placeholder, so that API keys do not end up in logs or error messages.
+    """
+    return SECURITY_TOKEN_PATTERN.sub(r'\1<hidden>', text)
+
 
 def retry(func):
-    """Catches connection errors, waits and retries"""
+    """Retries connection errors and HTTP 527/599, masking API keys in exceptions."""
 
     @wraps(func)
     def retry_wrapper(*args, **kwargs):
         self = args[0]
         error = None
-        for _ in range(self.retry_count):
-            try:
-                result = func(*args, **kwargs)
-            # Apart from common (ConnectionError and gaierror) errors, in certain
-            # cases (e.g. with scheduled commercial exchanges), the connection with
-            # ENTSO-e's can break with a RemoteDisconnected exception
-            except (requests.ConnectionError, gaierror, RemoteDisconnected) as e:
-                error = e
-                logger.warning(
-                    "Connection Error, "
-                    f"retrying in {self.retry_delay} seconds"
-                )
-                sleep(self.retry_delay)
-                continue
+        try:
+            for attempt in range(self.retry_count):
+                try:
+                    result = func(*args, **kwargs)
+                # Apart from common (ConnectionError and gaierror) errors, in certain
+                # cases (e.g. with scheduled commercial exchanges), the connection with
+                # ENTSO-e's can break with a RemoteDisconnected exception
+                except (requests.ConnectionError, gaierror, RemoteDisconnected,
+                        requests.HTTPError) as e:
+                    if isinstance(e, requests.HTTPError):
+                        if e.response is None or e.response.status_code not in (527, 599):
+                            raise
+                        reason = f"HTTP {e.response.status_code}"
+                    else:
+                        reason = "Connection Error"
+                    error = e
+                    if attempt + 1 < self.retry_count:
+                        logger.warning(
+                            "%s, retrying in %s seconds",
+                            reason, self.retry_delay
+                        )
+                        sleep(self.retry_delay)
+                    continue
+                else:
+                    return result
             else:
-                return result
-        else:
-            raise error
+                raise error
+        except requests.RequestException as error:
+            message = _mask_security_token(str(error))
+            if message == str(error):
+                raise
+            # Mask non-retryable errors too, without exposing the original
+            # message through exception chaining.
+            raise type(error)(message, request=error.request,
+                              response=error.response) from None
 
     return retry_wrapper
 
@@ -121,28 +149,31 @@ def year_limited(func):
                 'Please use a timezoned pandas object for start and end'
             )
 
-        blocks = year_blocks(start, end)
+        blocks = list(year_blocks(start, end))
         frames = []
-        is_first_frame = True  # Assumes blocks are sorted
-        for _start, _end in blocks:
+        for block_number, (_start, _end) in enumerate(blocks):
             try:
                 frame = func(*args, start=_start, end=_end, **kwargs)
                 if func.__name__ != '_query_unavailability' and isinstance(frame.index, pd.DatetimeIndex):
                     # Due to partial matching func may return data indexed by
                     # timestamps outside _start and _end. In order to avoid
-                    # (unintentionally) repeating records, frames are truncated to
-                    # left-open intervals (or closed interval in the case of the
-                    # earliest block).
+                    # (unintentionally) repeating records, frames are truncated
+                    # to right-open intervals [_start, _end) (the last block
+                    # keeps _end, and the earliest block keeps pre-_start
+                    # records). The API treats the requested end as exclusive,
+                    # so the previous block never contains this block's _start
+                    # instant; a left-open mask would silently drop it (#531,
+                    # #536).
                     #
                     # If there are repeating records in a single frame (e.g. due
                     # to corrections) then the result will also have them.
-                    if is_first_frame:
+                    is_last_frame = block_number == len(blocks) - 1
+                    if is_last_frame:
                         interval_mask = frame.index <= _end
                     else:
-                        interval_mask = (
-                            (frame.index <= _end)
-                            & (frame.index > _start)
-                        )
+                        interval_mask = frame.index < _end
+                    if block_number > 0:
+                        interval_mask &= frame.index >= _start
                     frame = frame.loc[interval_mask]
             except NoMatchingDataError:
                 logger.debug(
@@ -150,7 +181,6 @@ def year_limited(func):
                 )
                 frame = None
             frames.append(frame)
-            is_first_frame = False
 
         if sum([f is None for f in frames]) == len(frames):
             # All the data returned are void

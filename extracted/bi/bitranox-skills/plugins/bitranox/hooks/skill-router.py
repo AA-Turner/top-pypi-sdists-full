@@ -33,6 +33,7 @@ Jev's answers on those keep being logged without nudging anything. Each decide
 prompt appends one shadow-log row saying which path nudged, so `classifier_eval.py report` reads
 decide sessions like shadow ones.
 """
+import functools
 import json
 import os
 import re
@@ -93,9 +94,27 @@ def _hit_count(keywords, text):
     also "config", "package.json" also "json"), so one distinctive identifier clears MIN_HITS on
     its own. That is kept on purpose: a replay of 1,311 typed prompts found no false nudge from it,
     while counting such a token once dropped real ones ("do we have lib_layered_config implemented
-    here ?" lost coding-python-layered-config)."""
+    here ?" lost coding-python-layered-config).
+
+    A keyword the text does not contain as a substring cannot match at a word boundary either, so
+    the plain `in` test settles almost every keyword before any regex runs. The shipped map holds
+    about 950 distinct keywords against the re module's 512-pattern cache, so a bare re.search per
+    keyword compiled every pattern afresh on every prompt; `_keyword_pattern` keeps each compiled
+    pattern for the life of the process instead.
+    """
     return sum(1 for k in set(keywords)
-               if k and re.search("(?<!%s)%s(?!%s)" % (_WORD_CHAR, re.escape(k), _WORD_CHAR), text))
+               if k and k in text and _keyword_pattern(k).search(text))
+
+
+# Room for the whole shipped trigger map (about 950 keywords) several times over, yet a bound:
+# a caller scoring with a map of its own (an eval replay) cannot grow it without limit.
+_PATTERN_CACHE_SIZE = 4096
+
+
+@functools.lru_cache(maxsize=_PATTERN_CACHE_SIZE)
+def _keyword_pattern(keyword):
+    """The word-bounded pattern for one keyword, compiled once per process."""
+    return re.compile("(?<!%s)%s(?!%s)" % (_WORD_CHAR, re.escape(keyword), _WORD_CHAR))
 
 
 def match(prompt, triggers, min_hits=MIN_HITS, max_skills=MAX_SKILLS):
@@ -194,7 +213,7 @@ def _router_request(prompt, sid, triggers, transcript, cwd):
 def _decides(cfg, prompt):
     """True when decide mode acts on this turn: a typed prompt, or the notification of a failed
     background command. Every other turn goes the way it does with the site off."""
-    return (classifier.site_mode(cfg, "skill_router") == "decide"
+    return (classifier.site_mode(cfg, "skill_router") is classifier.SiteMode.DECIDE
             and (prompt_text.typed_by_a_person(prompt)
                  or prompt_text.failed_background_command(prompt)))
 
@@ -205,8 +224,9 @@ def _shadows(cfg, prompt):
     act on those kinds can rest on - with decide switching the shadow off, it would stop growing
     the day decide was turned on."""
     mode = classifier.site_mode(cfg, "skill_router")
-    return mode == "shadow" or (mode == "decide" and bool(prompt_text.notification_fields(prompt))
-                                and not prompt_text.failed_background_command(prompt))
+    return mode is classifier.SiteMode.SHADOW or (
+        mode is classifier.SiteMode.DECIDE and bool(prompt_text.notification_fields(prompt))
+        and not prompt_text.failed_background_command(prompt))
 
 
 def _shadow_skill_router(prompt, sid, triggers, transcript="", cwd=""):

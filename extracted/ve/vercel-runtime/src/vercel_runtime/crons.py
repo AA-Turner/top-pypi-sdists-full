@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import hmac
 import importlib
 import inspect
@@ -9,6 +8,7 @@ import os
 import traceback
 from typing import TYPE_CHECKING, Any, cast
 
+from vercel_runtime import allio
 from vercel_runtime.asgi import ASGI, drain_body, get_header, send_json_response
 from vercel_runtime.utils import run_entrypoint_as_main
 
@@ -146,7 +146,7 @@ def _make_multi_cron_asgi_app(
             if is_async:
                 await cast("AsyncCronHandler", run_job)()
             else:
-                await asyncio.to_thread(cast("SyncCronHandler", run_job))
+                await allio.to_thread(cast("SyncCronHandler", run_job))
         except Exception:
             traceback.print_exc()
             await send_json_response(send, 500, {"error": "internal"})

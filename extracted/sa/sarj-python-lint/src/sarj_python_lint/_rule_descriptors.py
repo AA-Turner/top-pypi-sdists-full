@@ -9,6 +9,15 @@ from sarj_python_lint.rule_metadata import RuleDescriptor
 SCHEMA_VERSION = 1
 DESCRIPTORS: tuple[RuleDescriptor, ...] = (
     RuleDescriptor(
+        rule_id=RuleId("no-nonlocal-statement"),
+        module="sarj_python_lint.rules.no_nonlocal_statement",
+        class_name="NoNonlocalStatement",
+        code="SARJ578",
+        description="Reject `nonlocal` statements; pass state explicitly or give it a typed owner.",
+        aliases=(),
+        enabled_by_default=True,
+    ),
+    RuleDescriptor(
         rule_id=RuleId("no-unscoped-async-client-factory"),
         module="sarj_python_lint.rules.no_unscoped_async_client_factory",
         class_name="NoUnscopedAsyncClientFactory",
@@ -112,7 +121,7 @@ DESCRIPTORS: tuple[RuleDescriptor, ...] = (
         module="sarj_python_lint.rules.prefer_coordinated_state_owner",
         class_name="PreferCoordinatedStateOwner",
         code="SARJ565",
-        description="Review dictionaries with repeated same-key writes and removals for one typed owner.",
+        description="Review coordinated dictionary entries and ownership-guarded scalar state for one typed owner.",
         aliases=(),
         enabled_by_default=True,
     ),

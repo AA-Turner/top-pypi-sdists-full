@@ -207,6 +207,43 @@ def test_format_empty_error_uses_exception_type(error: RuntimeError) -> None:
     assert format_cli_error_for_telemetry(error) == "RuntimeError"
 
 
+def test_format_html_api_error_uses_type_and_status() -> None:
+    import httpx
+
+    from together import NotFoundError
+
+    html = "<!DOCTYPE html><html><body><h1>Page not found</h1></body></html>"
+    response = httpx.Response(
+        404,
+        headers={"content-type": "text/html"},
+        text=html,
+        request=httpx.Request("GET", "https://api.together.ai/v1/v3/whoami"),
+    )
+    err = NotFoundError(html, response=response, body=html)
+
+    out = format_cli_error_for_telemetry(err)
+    assert out == "NotFoundError: Error code: 404 - received unexpected HTML response"
+    assert "<!DOCTYPE" not in out
+
+
+def test_format_api_status_error_includes_type_and_status() -> None:
+    import httpx
+
+    from together import NotFoundError
+
+    response = httpx.Response(
+        404,
+        headers={"content-type": "application/json"},
+        json={"error": {"message": "missing", "type": "not_found_error"}},
+        request=httpx.Request("GET", "https://api.together.ai/v1/v3/whoami"),
+    )
+    err = NotFoundError("Error code: 404 - missing", response=response, body=response.json())
+
+    out = format_cli_error_for_telemetry(err)
+    assert out.startswith("NotFoundError(404):")
+    assert "missing" in out
+
+
 def test_telemetry_env_opt_out_only_explicit_values(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("TOGETHER_TELEMETRY_DISABLED", raising=False)
     assert is_tracking_enabled() is True
@@ -482,3 +519,26 @@ def test_telemetry_status_no_api_key(monkeypatch: pytest.MonkeyPatch, cli_runner
     result = cli_runner.invoke(["telemetry", "status"])
     assert result.exit_code == 0
     assert "Telemetry:" in result.output
+
+
+def test_parse_command_and_flags_models_configs_implicit_retrieve() -> None:
+    from together.lib.cli import app
+    from together.lib.cli.utils._preparse_tokens import preparse_tokens
+
+    cmd, flags, is_beta, argv = preparse_tokens(app, ["models", "configs", "cr_1", "--json"])
+    assert cmd == "models configs retrieve"
+    assert "id" in flags
+    assert is_beta is False
+    assert argv == ["models", "configs", "retrieve", "cr_1", "--json"]
+
+
+def test_parse_command_and_flags_models_configs_default_is_list() -> None:
+    from together.lib.cli import app
+    from together.lib.cli.utils._preparse_tokens import preparse_tokens
+
+    # `tg models configs <model>` keeps listing, so the model ID is not rewritten.
+    cmd, flags, is_beta, argv = preparse_tokens(app, ["models", "configs", "ml_1"])
+    assert cmd == "models configs list"
+    assert "model" in flags
+    assert is_beta is False
+    assert argv == ["models", "configs", "ml_1"]

@@ -24,7 +24,6 @@ from hugpy_core.testfire.testfire import (
     _REG_LOCK,
     _archived_keys,
     _blocked_keys,
-    _cancel_request,
     _catalog,
     _get_worker,
     _history,
@@ -47,6 +46,24 @@ def _clamp(value, default, lo, hi):
         return default
 
 
+def _drop_blocked_pairs(worker_id, selected, skipped):
+    """Move (model, worker) pairs the DB blocks — the Wrapper's automatic-fit
+    feasibility verdict (auto_blocked) or an operator block — out of ``selected``
+    into ``skipped`` with their reason. An impossible model is auto-blocked to
+    the worker, so the test fire never calls it (operator 2026-11-16)."""
+    blocks = testfire.worker_blocked_reasons(worker_id)
+    if not blocks:
+        return selected, skipped
+    keep = []
+    for s in selected:
+        why = testfire.blocked_pair_reason(blocks, s["model_key"])
+        if why:
+            skipped = skipped + [{"model_key": s["model_key"], "reason": why}]
+        else:
+            keep.append(s)
+    return keep, skipped
+
+
 # ── /fleet/workers/test-fire/start  (was POST /fleet/workers/<worker_id>/test-fire) ─
 def start(worker_id=None, **body):
     worker = _get_worker(worker_id)
@@ -65,22 +82,29 @@ def start(worker_id=None, **body):
     selected, skipped = select_text_gen_models(selection_worker, listing,
                                                blocked=_blocked_keys(),
                                                archived=_archived_keys(), grade=opts["grade"])
+    if opts["worker_drive_only"]:     # only what is already on the worker's own drives: no run waits on a copy
+        from hugpy_core.testfire.testfire import on_worker_drive, worker_drive_models
+        on_drive = worker_drive_models(worker)
+        skipped += [{"model_key": s["model_key"], "reason": "not on this worker's drives (central only)"}
+                    for s in selected if not on_worker_drive(s["model_key"], on_drive)]
+        selected = [s for s in selected if on_worker_drive(s["model_key"], on_drive)]
+    selected, skipped = _drop_blocked_pairs(worker_id, selected, skipped)   # auto-blocked (infeasible) / operator-blocked
     if not selected:
         return {"ok": False,
-                "error": ("no models with an installed grading suite on this worker"
-                          if opts["grade"] else "no text-generation models on this worker"),
+                "error": ("no models with an installed grading suite" if opts["grade"] else "no text-generation models")
+                         + (" on this worker's drives" if opts["worker_drive_only"] else " on this worker"),
                 "skipped": skipped}
     job = start_job(worker_id, worker.get("name") or worker_id, selected,
-                    rounds=opts["rounds"], concurrency=opts["concurrency"],
+                    rounds=opts["rounds"],
                     max_tokens=opts["max_tokens"], seed=opts["seed"], skipped=skipped,
-                    grade=opts["grade"], chaos=opts["chaos"], storage_managed=opts["grade"])
-    logger.info("test-fire %s: worker=%s models=%d rounds=%s concurrency=%d chaos=%s max_tokens=%d",
+                    grade=opts["grade"])
+    logger.info("test-fire %s: worker=%s models=%d rounds=%s max_tokens=%d",
                 job.job_id, job.worker_name, len(job.models), job.rounds or "∞",
-                job.concurrency, job.chaos, job.max_tokens)
+                job.max_tokens)
     return {"ok": True, "job_id": job.job_id, "worker_id": worker_id,
             "models": job.models, "skipped": skipped,
-            "rounds": job.rounds, "concurrency": job.concurrency,
-            "max_tokens": job.max_tokens, "grade": job.grade, "chaos": job.chaos,
+            "rounds": job.rounds,
+            "max_tokens": job.max_tokens, "grade": job.grade,
             "total_planned": job.total_planned}
 
 
@@ -136,11 +160,10 @@ def resume(worker_id=None, job_id=None, **_):
     if not plan:
         return {"ok": False, "error": "nothing left to run in that test fire"}
     job = start_job(worker_id, run.get("worker_name") or worker_id, list(run.get("models") or []),
-                    rounds=plan["rounds"], concurrency=int(run.get("concurrency") or 1),
+                    rounds=plan["rounds"],
                     max_tokens=int(run.get("max_tokens") or DEFAULT_MAX_TOKENS),
                     skipped=run.get("skipped") or [], first_order=plan["first_order"],
-                    resumed_from=job_id, call_fn=fire_one, grade=bool(run.get("grade", False)),
-                    chaos=bool(run.get("chaos", False)), storage_managed=bool(run.get("grade", False)))
+                    resumed_from=job_id, call_fn=fire_one, grade=bool(run.get("grade", False)))
     logger.info("test-fire %s: RESUMES %s on %s — first %s, %d model(s) left in the round, rounds=%s",
                 job.job_id, job_id, job.worker_name, plan["first_order"][0],
                 len(plan["first_order"]), plan["rounds"] or "∞")
@@ -176,7 +199,10 @@ def stop(worker_id=None, job_id=None, **_):
     job.request_stop("operator")
     with job._lock:
         in_flight = list(job.in_flight.keys())
-    cancelled = [rid for rid in in_flight if _cancel_request(rid, "test-fire stop")]
+    # a stop ends dispatch AND actively cancels the in-flight calls: shut each
+    # call's socket down so the Wrapper sees the disconnect and cancels its
+    # queued row. The run ends on its own once these close (no read timeout).
+    cancelled = job.cancel_in_flight("test fire stopped")
     return {"ok": True, "job_id": job.job_id, "was_running": was_running,
             "in_flight": len(in_flight), "cancelled": cancelled}
 
@@ -211,21 +237,21 @@ def test_fire_start(worker_id=None, **body):
     selected, skipped = testfire.select_text_gen_models(selection_worker, listing,
                                                         blocked=testfire._blocked_keys(),
                                                         archived=testfire._archived_keys(), grade=opts["grade"])
+    selected, skipped = _drop_blocked_pairs(worker_id, selected, skipped)   # auto-blocked (infeasible) / operator-blocked
     if not selected:
         return {"ok": False, "error": "no models with an installed grading suite on this worker" if opts["grade"] else "no text-generation models on this worker",
                 "skipped": skipped}, 400
     job = testfire.start_job(worker_id, worker.get("name") or worker_id, selected,
-                             rounds=opts["rounds"], concurrency=opts["concurrency"],
+                             rounds=opts["rounds"],
                              max_tokens=opts["max_tokens"], seed=opts["seed"], skipped=skipped,
-                             grade=opts["grade"], chaos=opts["chaos"], storage_managed=opts["grade"])
-    testfire.logger.info("test-fire %s: worker=%s models=%d rounds=%s concurrency=%d chaos=%s max_tokens=%d",
+                             grade=opts["grade"])
+    testfire.logger.info("test-fire %s: worker=%s models=%d rounds=%s max_tokens=%d",
                          job.job_id, job.worker_name, len(job.models), job.rounds or "∞",
-                         job.concurrency, getattr(job, "chaos", False), job.max_tokens)
+                         job.max_tokens)
     return {"ok": True, "job_id": job.job_id, "worker_id": worker_id,
             "models": job.models, "skipped": skipped,
-            "rounds": job.rounds, "concurrency": job.concurrency,
+            "rounds": job.rounds,
             "max_tokens": job.max_tokens, "grade": job.grade,
-            "chaos": job.chaos,
             "total_planned": job.total_planned}, 202
 
 
@@ -278,11 +304,10 @@ def test_fire_resume(worker_id=None, job_id=None, **_):
     if not plan:
         return {"ok": False, "error": "nothing left to run in that test fire"}, 409
     job = testfire.start_job(worker_id, run.get("worker_name") or worker_id, list(run.get("models") or []),
-                             rounds=plan["rounds"], concurrency=int(run.get("concurrency") or 1),
+                             rounds=plan["rounds"],
                              max_tokens=int(run.get("max_tokens") or testfire.DEFAULT_MAX_TOKENS),
                              skipped=run.get("skipped") or [], first_order=plan["first_order"],
-                             resumed_from=job_id, call_fn=testfire.fire_one, grade=bool(run.get("grade", False)),
-                             chaos=bool(run.get("chaos", False)), storage_managed=bool(run.get("grade", False)))
+                             resumed_from=job_id, call_fn=testfire.fire_one, grade=bool(run.get("grade", False)))
     testfire.logger.info("test-fire %s: RESUMES %s on %s — first %s, %d model(s) left in the round, rounds=%s",
                          job.job_id, job_id, job.worker_name, plan["first_order"][0],
                          len(plan["first_order"]), plan["rounds"] or "∞")
@@ -315,7 +340,10 @@ def test_fire_stop(worker_id=None, job_id=None, **_):
     job.request_stop("operator")
     with job._lock:
         in_flight = list(job.in_flight.keys())
-    cancelled = [rid for rid in in_flight if testfire._cancel_request(rid, "test-fire stop")]
+    # a stop ends dispatch AND actively cancels the in-flight calls: shut each
+    # call's socket down so the Wrapper sees the disconnect and cancels its
+    # queued row. The run ends on its own once these close (no read timeout).
+    cancelled = job.cancel_in_flight("test fire stopped")
     return {"ok": True, "job_id": job.job_id, "was_running": was_running,
             "in_flight": len(in_flight), "cancelled": cancelled}
 

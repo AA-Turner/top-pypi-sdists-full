@@ -178,6 +178,8 @@ from .literals import (
     InferenceExecutionModeType,
     InferenceExperimentStatusType,
     InferenceExperimentStopDesiredStateType,
+    InferenceRouterRoutingPreferenceType,
+    InferenceRouterStatusType,
     InputModeType,
     InstanceGroupStatusType,
     InstanceTypeType,
@@ -295,6 +297,7 @@ from .literals import (
     ResourceTypeType,
     RetentionTypeType,
     RootAccessType,
+    RoutingStatusType,
     RoutingStrategyType,
     RStudioServerProAccessStatusType,
     RStudioServerProUserGroupType,
@@ -768,6 +771,8 @@ __all__ = (
     "CreateInferenceExperimentResponseTypeDef",
     "CreateInferenceRecommendationsJobRequestTypeDef",
     "CreateInferenceRecommendationsJobResponseTypeDef",
+    "CreateInferenceRouterInputTypeDef",
+    "CreateInferenceRouterOutputTypeDef",
     "CreateJobRequestTypeDef",
     "CreateJobResponseTypeDef",
     "CreateLabelingJobRequestTypeDef",
@@ -841,6 +846,7 @@ __all__ = (
     "CreateWorkforceResponseTypeDef",
     "CreateWorkteamRequestTypeDef",
     "CreateWorkteamResponseTypeDef",
+    "CrossRegionTrafficConfigTypeDef",
     "CustomFileSystemConfigTypeDef",
     "CustomFileSystemTypeDef",
     "CustomImageTypeDef",
@@ -909,6 +915,7 @@ __all__ = (
     "DeleteEdgeDeploymentStageRequestTypeDef",
     "DeleteEndpointConfigInputTypeDef",
     "DeleteEndpointInputTypeDef",
+    "DeleteEndpointPolicyRequestTypeDef",
     "DeleteExperimentRequestTypeDef",
     "DeleteExperimentResponseTypeDef",
     "DeleteFeatureGroupRequestTypeDef",
@@ -923,6 +930,7 @@ __all__ = (
     "DeleteInferenceComponentInputTypeDef",
     "DeleteInferenceExperimentRequestTypeDef",
     "DeleteInferenceExperimentResponseTypeDef",
+    "DeleteInferenceRouterInputTypeDef",
     "DeleteJobRequestTypeDef",
     "DeleteMlflowAppRequestTypeDef",
     "DeleteMlflowAppResponseTypeDef",
@@ -1060,6 +1068,8 @@ __all__ = (
     "DescribeInferenceExperimentResponseTypeDef",
     "DescribeInferenceRecommendationsJobRequestTypeDef",
     "DescribeInferenceRecommendationsJobResponseTypeDef",
+    "DescribeInferenceRouterInputTypeDef",
+    "DescribeInferenceRouterOutputTypeDef",
     "DescribeJobRequestTypeDef",
     "DescribeJobResponseTypeDef",
     "DescribeJobSchemaVersionRequestTypeDef",
@@ -1144,6 +1154,7 @@ __all__ = (
     "DescribeWorkteamRequestTypeDef",
     "DescribeWorkteamResponseTypeDef",
     "DesiredWeightAndCapacityTypeDef",
+    "DestinationTypeDef",
     "DetachClusterNodeVolumeRequestTypeDef",
     "DetachClusterNodeVolumeResponseTypeDef",
     "DeviceDeploymentSummaryTypeDef",
@@ -1251,6 +1262,8 @@ __all__ = (
     "GenerativeAiSettingsTypeDef",
     "GetDeviceFleetReportRequestTypeDef",
     "GetDeviceFleetReportResponseTypeDef",
+    "GetEndpointPolicyRequestTypeDef",
+    "GetEndpointPolicyResponseTypeDef",
     "GetLineageGroupPolicyRequestTypeDef",
     "GetLineageGroupPolicyResponseTypeDef",
     "GetModelPackageGroupPolicyInputTypeDef",
@@ -1353,6 +1366,7 @@ __all__ = (
     "InferenceRecommendationTypeDef",
     "InferenceRecommendationsJobStepTypeDef",
     "InferenceRecommendationsJobTypeDef",
+    "InferenceRouterSummaryTypeDef",
     "InferenceSpecificationOutputTypeDef",
     "InferenceSpecificationTypeDef",
     "InferenceSpecificationUnionTypeDef",
@@ -1553,6 +1567,9 @@ __all__ = (
     "ListInferenceRecommendationsJobsRequestPaginateTypeDef",
     "ListInferenceRecommendationsJobsRequestTypeDef",
     "ListInferenceRecommendationsJobsResponseTypeDef",
+    "ListInferenceRoutersInputPaginateTypeDef",
+    "ListInferenceRoutersInputTypeDef",
+    "ListInferenceRoutersOutputTypeDef",
     "ListJobSchemaVersionsRequestPaginateTypeDef",
     "ListJobSchemaVersionsRequestTypeDef",
     "ListJobSchemaVersionsResponseTypeDef",
@@ -1957,6 +1974,8 @@ __all__ = (
     "PropertyNameSuggestionTypeDef",
     "ProvisioningParameterTypeDef",
     "PublicWorkforceTaskPriceTypeDef",
+    "PutEndpointPolicyRequestTypeDef",
+    "PutEndpointPolicyResponseTypeDef",
     "PutModelPackageGroupPolicyInputTypeDef",
     "PutModelPackageGroupPolicyOutputTypeDef",
     "QualityCheckStepMetadataTypeDef",
@@ -2018,6 +2037,13 @@ __all__ = (
     "RoleGroupAssignmentTypeDef",
     "RollingDeploymentPolicyTypeDef",
     "RollingUpdatePolicyTypeDef",
+    "RoutingTargetAsyncInferenceClientConfigTypeDef",
+    "RoutingTargetAsyncInferenceConfigTypeDef",
+    "RoutingTargetAsyncInferenceNotificationConfigTypeDef",
+    "RoutingTargetAsyncInferenceOutputConfigTypeDef",
+    "RoutingTargetOutputTypeDef",
+    "RoutingTargetTypeDef",
+    "RoutingTargetUnionTypeDef",
     "S3DataSourceOutputTypeDef",
     "S3DataSourceTypeDef",
     "S3DataSourceUnionTypeDef",
@@ -2268,6 +2294,8 @@ __all__ = (
     "UpdateInferenceComponentRuntimeConfigOutputTypeDef",
     "UpdateInferenceExperimentRequestTypeDef",
     "UpdateInferenceExperimentResponseTypeDef",
+    "UpdateInferenceRouterInputTypeDef",
+    "UpdateInferenceRouterOutputTypeDef",
     "UpdateMlflowAppRequestTypeDef",
     "UpdateMlflowAppResponseTypeDef",
     "UpdateMlflowTrackingServerRequestTypeDef",
@@ -3246,6 +3274,10 @@ class EdgeDeploymentModelConfigTypeDef(TypedDict):
     ModelHandle: str
     EdgePackagingJobName: str
 
+class CrossRegionTrafficConfigTypeDef(TypedDict):
+    MaxInvocationsPerSecondPerInstance: int
+    MaxCrossRegionPercentPerEndpoint: int
+
 class MetricsConfigTypeDef(TypedDict):
     EnableEnhancedMetrics: NotRequired[bool]
     EnableDetailedObservability: NotRequired[bool]
@@ -3698,6 +3730,9 @@ class DeleteEndpointConfigInputTypeDef(TypedDict):
 class DeleteEndpointInputTypeDef(TypedDict):
     EndpointName: str
 
+class DeleteEndpointPolicyRequestTypeDef(TypedDict):
+    EndpointName: str
+
 class DeleteExperimentRequestTypeDef(TypedDict):
     ExperimentName: str
 
@@ -3740,6 +3775,9 @@ class DeleteInferenceComponentInputTypeDef(TypedDict):
 
 class DeleteInferenceExperimentRequestTypeDef(TypedDict):
     Name: str
+
+class DeleteInferenceRouterInputTypeDef(TypedDict):
+    InferenceRouterName: str
 
 class DeleteJobRequestTypeDef(TypedDict):
     JobName: str
@@ -4123,6 +4161,9 @@ class InferenceExperimentScheduleOutputTypeDef(TypedDict):
 class DescribeInferenceRecommendationsJobRequestTypeDef(TypedDict):
     JobName: str
 
+class DescribeInferenceRouterInputTypeDef(TypedDict):
+    InferenceRouterName: str
+
 class DescribeJobRequestTypeDef(TypedDict):
     JobName: str
     JobCategory: JobCategoryType
@@ -4440,6 +4481,10 @@ class ProductionVariantServerlessUpdateConfigTypeDef(TypedDict):
     MaxConcurrency: NotRequired[int]
     ProvisionedConcurrency: NotRequired[int]
 
+class DestinationTypeDef(TypedDict):
+    ResourceArn: str
+    RoutingStatus: NotRequired[RoutingStatusType]
+
 class DetachClusterNodeVolumeRequestTypeDef(TypedDict):
     ClusterArn: str
     NodeId: str
@@ -4681,6 +4726,9 @@ class ForEachSelectorResultTypeDef(TypedDict):
 class GetDeviceFleetReportRequestTypeDef(TypedDict):
     DeviceFleetName: str
 
+class GetEndpointPolicyRequestTypeDef(TypedDict):
+    EndpointName: str
+
 class GetLineageGroupPolicyRequestTypeDef(TypedDict):
     LineageGroupName: str
 
@@ -4885,6 +4933,12 @@ class InferenceRecommendationsJobTypeDef(TypedDict):
     SamplePayloadUrl: NotRequired[str]
     ModelPackageVersionArn: NotRequired[str]
 
+class InferenceRouterSummaryTypeDef(TypedDict):
+    InferenceRouterName: str
+    InferenceRouterArn: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+
 class InstanceGroupHealthCheckConfigurationTypeDef(TypedDict):
     InstanceGroupName: str
     DeepHealthChecks: Sequence[DeepHealthCheckTypeType]
@@ -5021,6 +5075,10 @@ class ListInferenceRecommendationsJobStepsRequestTypeDef(TypedDict):
     JobName: str
     Status: NotRequired[RecommendationJobStatusType]
     StepType: NotRequired[Literal["BENCHMARK"]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListInferenceRoutersInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -5627,6 +5685,10 @@ class USDTypeDef(TypedDict):
     Cents: NotRequired[int]
     TenthFractionsOfACent: NotRequired[int]
 
+class PutEndpointPolicyRequestTypeDef(TypedDict):
+    EndpointName: str
+    ResourcePolicy: str
+
 class PutModelPackageGroupPolicyInputTypeDef(TypedDict):
     ModelPackageGroupName: str
     ResourcePolicy: str
@@ -5693,6 +5755,13 @@ class ReservedCapacityOfferingTypeDef(TypedDict):
 
 class ResourceConfigForUpdateTypeDef(TypedDict):
     KeepAlivePeriodInSeconds: int
+
+class RoutingTargetAsyncInferenceClientConfigTypeDef(TypedDict):
+    MaxTimeInBacklogSeconds: NotRequired[int]
+
+class RoutingTargetAsyncInferenceNotificationConfigTypeDef(TypedDict):
+    SuccessTopic: NotRequired[str]
+    ErrorTopic: NotRequired[str]
 
 class VisibilityConditionsTypeDef(TypedDict):
     Key: NotRequired[str]
@@ -6293,6 +6362,10 @@ class CreateInferenceRecommendationsJobResponseTypeDef(TypedDict):
     JobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateInferenceRouterOutputTypeDef(TypedDict):
+    InferenceRouterArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateJobResponseTypeDef(TypedDict):
     JobArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -6579,6 +6652,12 @@ class DisassociateTrialComponentResponseTypeDef(TypedDict):
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetEndpointPolicyResponseTypeDef(TypedDict):
+    EndpointName: str
+    EndpointArn: str
+    ResourcePolicy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class GetLineageGroupPolicyResponseTypeDef(TypedDict):
     LineageGroupArn: str
     ResourcePolicy: str
@@ -6616,6 +6695,10 @@ class ListAliasesResponseTypeDef(TypedDict):
     SageMakerImageVersionAliases: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+class PutEndpointPolicyResponseTypeDef(TypedDict):
+    EndpointArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class PutModelPackageGroupPolicyOutputTypeDef(TypedDict):
     ModelPackageGroupArn: str
@@ -6769,6 +6852,10 @@ class UpdateInferenceComponentRuntimeConfigOutputTypeDef(TypedDict):
 
 class UpdateInferenceExperimentResponseTypeDef(TypedDict):
     InferenceExperimentArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateInferenceRouterOutputTypeDef(TypedDict):
+    InferenceRouterArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateMlflowAppResponseTypeDef(TypedDict):
@@ -8760,6 +8847,9 @@ class ListInferenceRecommendationsJobsRequestPaginateTypeDef(TypedDict):
     ModelPackageVersionArnEquals: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListInferenceRoutersInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListJobSchemaVersionsRequestPaginateTypeDef(TypedDict):
     JobCategory: JobCategoryType
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -10039,6 +10129,11 @@ class ListInferenceRecommendationsJobsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListInferenceRoutersOutputTypeDef(TypedDict):
+    InferenceRouters: list[InferenceRouterSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 InstanceGroupHealthCheckConfigurationUnionTypeDef = Union[
     InstanceGroupHealthCheckConfigurationTypeDef, InstanceGroupHealthCheckConfigurationOutputTypeDef
 ]
@@ -10570,6 +10665,12 @@ class TrainingPlanOfferingTypeDef(TypedDict):
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
     ReservedCapacityOfferings: NotRequired[list[ReservedCapacityOfferingTypeDef]]
+
+class RoutingTargetAsyncInferenceOutputConfigTypeDef(TypedDict):
+    S3OutputPath: str
+    S3FailurePath: str
+    KmsKeyId: NotRequired[str]
+    NotificationConfig: NotRequired[RoutingTargetAsyncInferenceNotificationConfigTypeDef]
 
 class SelectiveExecutionConfigOutputTypeDef(TypedDict):
     SelectedSteps: list[SelectedStepTypeDef]
@@ -12035,6 +12136,10 @@ class SearchTrainingPlanOfferingsResponseTypeDef(TypedDict):
     TrainingPlanExtensionOfferings: list[TrainingPlanExtensionOfferingTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
+class RoutingTargetAsyncInferenceConfigTypeDef(TypedDict):
+    OutputConfig: RoutingTargetAsyncInferenceOutputConfigTypeDef
+    ClientConfig: NotRequired[RoutingTargetAsyncInferenceClientConfigTypeDef]
+
 class DescribePipelineExecutionResponseTypeDef(TypedDict):
     PipelineArn: str
     PipelineExecutionArn: str
@@ -13102,6 +13207,18 @@ class DescribeLabelingJobResponseTypeDef(TypedDict):
 
 HumanTaskConfigUnionTypeDef = Union[HumanTaskConfigTypeDef, HumanTaskConfigOutputTypeDef]
 
+class RoutingTargetOutputTypeDef(TypedDict):
+    Name: str
+    Destinations: list[DestinationTypeDef]
+    AsyncInferenceConfig: NotRequired[RoutingTargetAsyncInferenceConfigTypeDef]
+    RoutingPreference: NotRequired[InferenceRouterRoutingPreferenceType]
+
+class RoutingTargetTypeDef(TypedDict):
+    Name: str
+    Destinations: Sequence[DestinationTypeDef]
+    AsyncInferenceConfig: NotRequired[RoutingTargetAsyncInferenceConfigTypeDef]
+    RoutingPreference: NotRequired[InferenceRouterRoutingPreferenceType]
+
 class StartPipelineExecutionRequestTypeDef(TypedDict):
     PipelineName: str
     ClientRequestToken: str
@@ -13502,6 +13619,7 @@ class DescribeEndpointConfigOutputTypeDef(TypedDict):
     VpcConfig: VpcConfigOutputTypeDef
     EnableNetworkIsolation: bool
     MetricsConfig: MetricsConfigTypeDef
+    CrossRegionTrafficConfig: CrossRegionTrafficConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 ExplainerConfigUnionTypeDef = Union[ExplainerConfigTypeDef, ExplainerConfigOutputTypeDef]
@@ -13922,6 +14040,7 @@ class DescribeEndpointOutputTypeDef(TypedDict):
     ExplainerConfig: ExplainerConfigOutputTypeDef
     ShadowProductionVariants: list[ProductionVariantSummaryTypeDef]
     MetricsConfig: MetricsConfigTypeDef
+    CrossRegionTrafficConfig: CrossRegionTrafficConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFlowDefinitionRequestTypeDef(TypedDict):
@@ -13944,6 +14063,18 @@ class CreateLabelingJobRequestTypeDef(TypedDict):
     StoppingConditions: NotRequired[LabelingJobStoppingConditionsTypeDef]
     LabelingJobAlgorithmsConfig: NotRequired[LabelingJobAlgorithmsConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+
+class DescribeInferenceRouterOutputTypeDef(TypedDict):
+    InferenceRouterName: str
+    InferenceRouterArn: str
+    RoutingTargets: list[RoutingTargetOutputTypeDef]
+    Status: InferenceRouterStatusType
+    StatusReason: str
+    CreationTime: datetime
+    LastModifiedTime: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+RoutingTargetUnionTypeDef = Union[RoutingTargetTypeDef, RoutingTargetOutputTypeDef]
 
 class DescribeSpaceResponseTypeDef(TypedDict):
     DomainId: str
@@ -14125,6 +14256,7 @@ class CreateEndpointConfigInputTypeDef(TypedDict):
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     EnableNetworkIsolation: NotRequired[bool]
     MetricsConfig: NotRequired[MetricsConfigTypeDef]
+    CrossRegionTrafficConfig: NotRequired[CrossRegionTrafficConfigTypeDef]
 
 class CreateInferenceComponentInputTypeDef(TypedDict):
     InferenceComponentName: str
@@ -14316,6 +14448,16 @@ class MonitoringScheduleConfigTypeDef(TypedDict):
     MonitoringJobDefinition: NotRequired[MonitoringJobDefinitionTypeDef]
     MonitoringJobDefinitionName: NotRequired[str]
     MonitoringType: NotRequired[MonitoringTypeType]
+
+class CreateInferenceRouterInputTypeDef(TypedDict):
+    InferenceRouterName: str
+    RoutingTargets: Sequence[RoutingTargetUnionTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+class UpdateInferenceRouterInputTypeDef(TypedDict):
+    InferenceRouterName: str
+    RoutingTargets: Sequence[RoutingTargetUnionTypeDef]
 
 class CreateSpaceRequestTypeDef(TypedDict):
     DomainId: str

@@ -13,11 +13,9 @@ from typing import TYPE_CHECKING, Concatenate, Final, Generic, Literal, ParamSpe
 
 import pytest
 
-from filelock import Timeout
-from filelock._soft_rw._async import AsyncSoftReadWriteLock
+from filelock import AsyncSoftReadWriteLock, SoftReadWriteLock, Timeout
 from filelock._soft_rw._protocol import GenerationLog, Snapshot
 from filelock._soft_rw._storage import OsFiles
-from filelock._soft_rw._sync import SoftReadWriteLock
 from tests.capability_marks import XFAIL_WITHOUT_COROUTINE_CANCELLATION
 
 if TYPE_CHECKING:
@@ -27,7 +25,7 @@ if TYPE_CHECKING:
 
     from pytest_mock import MockerFixture
 
-    from filelock._lease import LeaseCompromise
+    from filelock import LeaseCompromise
 
 pytestmark: Final[pytest.MarkDecorator] = pytest.mark.requires_hard_links
 
@@ -50,7 +48,8 @@ async def test_async_lock_context_manager(tmp_path: Path, mode: Literal["read", 
     lock = _make(tmp_path)
     try:
         async with getattr(lock, f"{mode}_lock")(timeout=2):
-            pass
+            assert lock.generation is not None
+        assert lock.generation is None
     finally:
         await lock.close()
 
@@ -233,9 +232,26 @@ async def test_async_write_release_lands_on_another_executor_thread(tmp_path: Pa
         finally:
             gate.set()
             await parked
-        async with lock.write_lock(timeout=2):
-            pass
+        assert lock.generation is None
+        assert await asyncio.to_thread(_writer_gets_in, tmp_path)
         await lock.close()
+
+
+def _writer_gets_in(tmp_path: Path) -> bool:
+    contender: Final = _make_sync(tmp_path)
+    try:
+        contender.acquire_write(blocking=False)
+    except Timeout:
+        return False
+    finally:
+        contender.close()
+    return True
+
+
+def _make_sync(tmp_path: Path) -> SoftReadWriteLock:
+    return SoftReadWriteLock(
+        str(tmp_path / "foo.lock"), is_singleton=False, heartbeat_interval=0.1, stale_threshold=0.5
+    )
 
 
 @pytest.mark.asyncio
@@ -244,6 +260,8 @@ async def test_async_release_force(tmp_path: Path) -> None:
     try:
         await lock.acquire_read(timeout=2)
         await lock.release(force=True)
+        assert lock.generation is None
+        assert await asyncio.to_thread(_writer_gets_in, tmp_path)
     finally:
         await lock.close()
 
@@ -258,6 +276,7 @@ async def test_async_release_and_close_skip_when_pid_differs(tmp_path: Path, moc
         await lock.release(force=True)
         await lock.close()
         mocker.stopall()
+        assert not await asyncio.to_thread(_writer_gets_in, tmp_path)
         await lock.release()
     finally:
         mocker.stopall()
@@ -605,7 +624,7 @@ async def test_async_soft_close_after_a_sync_end_of_the_shared_singleton_returns
 
     await lock.close()
 
-    assert _members(tmp_path, "foo.lock") == []
+    assert _members(tmp_path) == []
 
 
 @pytest.mark.asyncio
@@ -635,23 +654,6 @@ async def test_async_soft_read_arriving_during_close_is_refused(tmp_path: Path, 
 async def _read_and_probe(lock: AsyncSoftReadWriteLock) -> bool:
     async with lock.read_lock(timeout=_TASK_WAIT):
         return await asyncio.to_thread(_writer_gets_in, Path(lock.lock_file).parent)
-
-
-def _writer_gets_in(tmp_path: Path) -> bool:
-    contender: Final = _make_sync(tmp_path)
-    try:
-        contender.acquire_write(blocking=False)
-    except Timeout:
-        return False
-    finally:
-        contender.close()
-    return True
-
-
-def _make_sync(tmp_path: Path) -> SoftReadWriteLock:
-    return SoftReadWriteLock(
-        str(tmp_path / "foo.lock"), is_singleton=False, heartbeat_interval=0.1, stale_threshold=0.5
-    )
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: glocaltokens
-Version: 2.0.0
+Version: 2.1.0
 Summary: Tool to extract Google device local authentication tokens in Python
 Project-URL: Homepage, https://github.com/leikoilja/glocaltokens
 Project-URL: Bug Tracker, https://github.com/leikoilja/glocaltokens/issues
@@ -20,7 +20,7 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.12
 Requires-Dist: aiohttp>=3.14.4
 Requires-Dist: ghome-foyer-api<4,>=3.1.0
-Requires-Dist: gpsoauth>=2.0.0
+Requires-Dist: gpsoauth>=3.0.1
 Requires-Dist: grpcio>=1.83.1
 Requires-Dist: requests>=2.34.2
 Provides-Extra: discovery
@@ -52,6 +52,10 @@ Store the master token, not your password: with the master token alone, glocalto
 ## Installation
 
 glocaltokens requires Python 3.12 or newer.
+
+It also requires gpsoauth 3.0.1 or newer. If you use Google Keep Sync in the same Home Assistant installation,
+update it to [version 1.2.0 or newer](https://github.com/watkins-matt/home-assistant-google-keep-sync/releases/tag/1.2.0) before updating glocaltokens.
+Google Keep Sync 1.1.0 pins gpsoauth to 2.0.0, which conflicts with this version of glocaltokens.
 
 To fill in the IP address and port of each device, glocaltokens looks for your devices on the local network.
 That needs the `discovery` extra, which installs zeroconf.

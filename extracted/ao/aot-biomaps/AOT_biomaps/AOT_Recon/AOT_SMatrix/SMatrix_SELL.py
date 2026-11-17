@@ -1438,6 +1438,13 @@ class SMatrix_SELL(SMatrix):
         # No spatial truncation: full extent
         return [x0f, x1f, z1f, z0f]
     
+    def _transfer_gpu(self, arr, target_dtype):
+        """Transfert CPU->GPU sans copie superflue si le dtype est déjà correct."""
+        g = cp.asarray(arr)
+        if g.dtype != target_dtype:
+            g = g.astype(target_dtype)
+        return g
+
     def to_gpu(self, gpu_index=0):
         """
         Transfer the SELL matrix from CPU RAM to GPU VRAM (reversible with to_cpu).
@@ -1455,17 +1462,23 @@ class SMatrix_SELL(SMatrix):
         self.load_module()
         cp_dtype = self._get_cp_dtype()
         with cp.cuda.Device(self.gpu_index):
-            # Force the exact dtypes expected by the CUDA kernels
-            self.sell_values_gpu = cp.asarray(self.sell_values).astype(cp_dtype)
-            self.sell_colinds_gpu = cp.asarray(self.sell_colinds).astype(cp.uint32)
-            self.slice_ptr_gpu = cp.asarray(self.slice_ptr).astype(cp.int64)
-            self.slice_len_gpu = cp.asarray(self.slice_len).astype(cp.int32)
-            self.row_perm_gpu = cp.asarray(self.row_perm).astype(cp.int32)
-            self.inv_row_perm_gpu = cp.asarray(self.inv_row_perm).astype(cp.int32)
+            # Force the exact dtypes expected by the CUDA kernels.
+            # _transfer_gpu avoids the extra .astype() copy when the dtype
+            # already matches (peak VRAM ≈ final size instead of ~1.5x),
+            # and _release_pool() between big transfers returns the pool
+            # blocks of freed temporaries to the driver.
+            self.sell_values_gpu = self._transfer_gpu(self.sell_values, cp_dtype)
+            self._release_pool()
+            self.sell_colinds_gpu = self._transfer_gpu(self.sell_colinds, cp.uint32)
+            self._release_pool()
+            self.slice_ptr_gpu = self._transfer_gpu(self.slice_ptr, cp.int64)
+            self.slice_len_gpu = self._transfer_gpu(self.slice_len, cp.int32)
+            self.row_perm_gpu = self._transfer_gpu(self.row_perm, cp.int32)
+            self.inv_row_perm_gpu = self._transfer_gpu(self.inv_row_perm, cp.int32)
             if self.norm_factor_inv is not None:
                 self.norm_factor_inv_gpu = cp.asarray(self.norm_factor_inv)
             self._release_pool()
-        
+
         self._invalidate_cpu_csr_cache() # Invalidate the CSR cache since the matrix has been moved to GPU
 
     def to_cpu(self):

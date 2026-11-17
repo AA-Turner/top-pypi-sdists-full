@@ -211,8 +211,8 @@ def compute_per_hour(prices: dict, gpu: str, cpu_cores: float | None = None,
     guessing.
     WHY: a worker pays its card(s) and, apart, its cores and GiB, and one that declares no GPU pays no card at all - so
     an estimate at the card's price alone left the CPU and memory out, and a CPU policy's read the old per-hour figure
-    the list sent for it, the default card's (L4's $0.96). {prod 10-16 GET /V1/PRICING: "COMPUTE_BILLED TRUE |
-    CPU_USD_PER_HOUR 0.96", ('L4', 0.96), CPU {"USD_PER_CORE_HOUR": 0.1703, "SERVING_USD_PER_CORE_HOUR": 0.0568}}
+    the list sent for it, the default card's (L4's $0.96).
+
     One price
     a card wherever it runs."""
     from seq.capacity_cli import billed_machine, serving_rates
@@ -477,8 +477,8 @@ def estimate(gpu: str | None, *, min_workers: int = 0, hours_per_day: float | No
 def evals(name: str, *, limit: int | None = None, cursor: str | None = None, base_url: str | None = None,
           echo=print) -> dict:
     """`seq eval ls <name> [--limit N] [--cursor C]`: one page of a deployed policy's evals over time, newest first,
-    then where the page sits. Its eval schedules went with the feature (the user 10-17,
-    "delete schedule as well")."""
+    then where the page sits. Its eval schedules went with the feature
+."""
     from seq.listing import _footer, _metric, _metric_head
 
     out = _call("GET", f"/v1/deployments/{segment(name)}/evals{page_query(limit, cursor)}", base_url)

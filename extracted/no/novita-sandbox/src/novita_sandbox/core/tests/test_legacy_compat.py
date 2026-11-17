@@ -1554,14 +1554,6 @@ def test_sandbox_set_network_raises_on_legacy():
         Sandbox.set_network("sandbox-id", domain="sandbox.novita.ai")
 
 
-def test_sandbox_hotplug_memory_raises_on_legacy(monkeypatch):
-    # hotplug_memory is instance-only, but its _cls_hotplug_memory should raise
-    from novita_sandbox.core.sandbox_sync.sandbox_api import SandboxApi
-
-    with pytest.raises(NotImplementedError, match="hotplug_memory"):
-        SandboxApi._cls_hotplug_memory("sandbox-id", domain="sandbox.novita.ai")
-
-
 def test_sandbox_mount_volume_raises_on_legacy():
     from novita_sandbox.core.sandbox_sync.sandbox_api import SandboxApi
 

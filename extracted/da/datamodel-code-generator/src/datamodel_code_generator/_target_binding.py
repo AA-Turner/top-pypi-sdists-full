@@ -36,14 +36,15 @@ from datamodel_code_generator._container_kinds import (
 )
 from datamodel_code_generator._document_reader import MISSING, as_mapping, descend, document_statuses, string_key
 from datamodel_code_generator._generation_contract import AttemptId
-from datamodel_code_generator._json_pointer import reference_tokens
+from datamodel_code_generator._json_pointer import pointer_tokens, reference_tokens
 from datamodel_code_generator._module_paths import written_path
 from datamodel_code_generator._mro import collect_members, linearize
 from datamodel_code_generator._openapi_paths import inherited_security
+from datamodel_code_generator._openapi_wire_plan import EVENT_STREAM, FORMS, message_codec, message_kind
 from datamodel_code_generator._paths import file_uri
 from datamodel_code_generator._python_syntax import subscript_text
 from datamodel_code_generator._runtime.model_codecs.media import media_kind, normalized
-from datamodel_code_generator._site_facts import ANNOTATION_KEYWORDS
+from datamodel_code_generator._site_facts import ANNOTATION_KEYWORDS, site_facts_of
 from datamodel_code_generator._target_contract import (
     WRAPPER_KINDS,
     BackendFieldFacts,
@@ -154,7 +155,7 @@ from datamodel_code_generator.reference import (
     location_of,
     type_origin_of,
 )
-from datamodel_code_generator.types import DataType, Types, reference_names_nullable
+from datamodel_code_generator.types import DataType, Types, reference_names_nullable, written_type_name
 
 FieldKind: TypeAlias = Literal[
     "property", "required_only", "additional_properties", "root_value", "discriminator_synthetic"
@@ -172,7 +173,6 @@ _ALIASES: Final = frozenset({TypeAliasModel, TypeAliasTypeBackport, TypeStatemen
 _ROOTS: Final = frozenset({pydantic_v2.RootModel, pydantic_v2.RootModelTypeAlias})
 _BUILTINS: Final[dict[str, BuiltinType]] = {name: BuiltinType(name) for name in get_args(BuiltinName)}
 _FILE_TYPES: Final = frozenset({"bytes", "str"})
-_FORMS: Final = frozenset({"form", "multipart"})
 _TEXT_MEDIA: Final = frozenset({"json", "form", "text"})
 _RAW_MEDIA: Final = frozenset({"json", "text", "binary"})
 _HEADER_ROLES: Final[frozenset[TypeUseRole]] = frozenset({
@@ -248,7 +248,6 @@ _SLOT: Final = "\x00"
 _BOUND: Final = {"websocket": "ws", "sse": "http"}
 """The binding of a channel that gives its handshake inputs, by how a client opens the channel."""
 _STREAM_STATUS: Final = "200"
-_EVENT_STREAM: Final = "text/event-stream"
 _STYLE: Final = ("use_union_operator", "use_standard_collections", "use_generic_container", "python_version")
 _UNCHECKED: Final[frozenset[BackendName | None]] = frozenset({"dataclass", "typeddict"})
 _ALONE: Final[dict[str, object]] = {
@@ -420,6 +419,35 @@ class _TargetRecording(OpenAPIParser):
         self.document_versions: dict[str, OpenAPIVersion] = {}
         super().__init__(source, config=config)
 
+    def _reads_ref_siblings_at(self, location: SchemaLocation) -> bool:
+        """Return whether the models read the keywords beside a ``$ref`` at a location with the schema it names.
+
+        They do in every version, unless --ignore-ref-siblings-by-schema-version reads the ``$ref`` alone where the
+        version of the location ignores them (``reads_ref_alone``).
+        """
+        return not self._ignores_ref_siblings_at(location)
+
+    def ref_annotations(
+        self, declaration: SchemaLocation, site_of: Callable[[SchemaLocation], SiteFacts]
+    ) -> dict[str, YamlValue]:
+        """Return the documentation keywords and default a schema gives its values, through its reference chain.
+
+        The schema a chain leads to gives its own, and the keywords beside each reference that the models read add
+        theirs, the nearer one's first (``_reads_ref_siblings_at``). A chain that loops back leads to no schema: the
+        keywords beside its references are all it gives. ``site_of`` reads the site of each location.
+        """
+        location, site = declaration, site_of(declaration)
+        seen = {declaration}
+        found: dict[str, YamlValue] = {}
+        while (target := site.ref) is not None:
+            if self._reads_ref_siblings_at(location):
+                found = {**site.annotations, **found}
+            if target in seen:
+                return found
+            seen.add(target)
+            location, site = target, site_of(target)
+        return {**site.annotations, **found}
+
     def _record_schema_object(self, reference: Reference, obj: JsonSchemaObject) -> None:
         """Record what a model's schema says of its other and pattern properties, as the parser reads them.
 
@@ -572,39 +600,9 @@ class TargetApiOpenAPIParser(_TargetRecording, ApiOpenAPIParser):
         self._callback_origin: SchemaLocation | None = None
         super().__init__(source, config=config)
 
-    def _reads_ref_siblings_at(self, location: SchemaLocation) -> bool:
-        """Return whether the models read the keywords beside a ``$ref`` at a location with the schema it names.
-
-        They do in every version, unless --ignore-ref-siblings-by-schema-version reads the ``$ref`` alone where the
-        version of the location ignores them (``reads_ref_alone``).
-        """
-        return not self._ignores_ref_siblings_at(location)
-
-    def _ref_annotations(self, declaration: SchemaLocation) -> dict[str, YamlValue]:
-        """Return the documentation keywords and default a schema gives its values, through its reference chain.
-
-        The schema a chain leads to gives its own, and the keywords beside each reference that the models read add
-        theirs, the nearer one's first (``_reads_ref_siblings_at``). A chain that loops back leads to no schema: the
-        keywords beside its references are all it gives. Each location is read by its site (``_site_facts``).
-        """
-        location, site = declaration, self._site_facts(declaration)
-        seen = {declaration}
-        found: dict[str, YamlValue] = {}
-        while (target := site.ref) is not None:
-            if self._reads_ref_siblings_at(location):
-                found = {**site.annotations, **found}
-            if target in seen:
-                return found
-            seen.add(target)
-            location, site = target, self._site_facts(target)
-        return {**site.annotations, **found}
-
     def _schema_record(self, declaration: SchemaLocation, role: TypeUseRole) -> _SchemaRecord:
         """Record what an acquired parameter schema says that its model types do not: its default and keywords."""
-        if role != "parameter":
-            return _UNRECORDED
-        annotations = self._ref_annotations(declaration)
-        return _SchemaRecord(_default(annotations.get("default")), _keywords(annotations))
+        return _UNRECORDED if role != "parameter" else _record(self.ref_annotations(declaration, self._site_facts))
 
     def _resolve_local_ref_path(self, path: Path, ref: str) -> Path:
         """Refuse a local file that a served source document would publish, before reading it.
@@ -972,6 +970,11 @@ def _keywords(
             with suppress(_UnsupportedError):
                 found.append((key, _freeze_literal(raw[key], set())))
     return tuple(found)
+
+
+def _record(annotations: Mapping[str, YamlValue]) -> _SchemaRecord:
+    """Return the record of a schema's default and documentation keywords (``ref_annotations``)."""
+    return _SchemaRecord(_default(annotations.get("default")), _keywords(annotations))
 
 
 _UNRECORDED: Final = _SchemaRecord(None, ())
@@ -1659,9 +1662,9 @@ class _Projector:
                 keywords = tuple((name, _freeze_argument(value)) for name, value in data_type.kwargs.items())
                 return ConstructorType(imported, keywords, self.hints.leaf(data_type), _constrained_base(data_type))
             return imported
-        if data_type.type is None:
+        if (name := written_type_name(data_type)) is None:
             return None
-        return NoneType() if data_type.type == "None" else _BUILTINS[data_type.type]
+        return NoneType() if name == "None" else _BUILTINS[name]
 
     @staticmethod
     def _literal(value: object) -> LiteralScalar:
@@ -1936,10 +1939,11 @@ def _constructor_keywords(field: DataModelFieldBase, backend: BackendName) -> tu
     keywords: list[tuple[str, TypeArgument]] = []
     match field:
         case PydanticField() if backend in {"pydantic", "pydantic_dataclass"}:
-            data, factory = field._get_field_data_and_default_factory()  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
-            items = sorted((name, value) for name, value in data.items() if value is not None)
-            if factory:
-                keywords.append(("default_factory", SourceExpression(str(factory))))
+            if (call := field._render_plan().call) is None:  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
+                return ()
+            items = sorted((argument.name, argument.value) for argument in call.kwargs)
+            if call.factory is not None:
+                keywords.append(("default_factory", SourceExpression(str(call.factory.value))))
         case DataclassField() | MsgspecField() if backend in {"dataclass", "msgspec"}:
             items = list(field._get_field_data().items())  # pyright: ignore[reportPrivateUsage] # ruff: ignore[private-member-access]
             if len(items) == 1 and items[0][0] == "default":
@@ -2789,7 +2793,7 @@ class _SchemaUses(_Models):
         """Bind a use whose id `use_id` built to the type the models give the schema it reads in its direction."""
         role, media, projection, direction = use.role, use.media, use.projection, use.direction
         locate = self.documents.location
-        form = media is not None and _media_kind(media) in _FORMS
+        form = media is not None and _media_kind(media) in FORMS
         nullable = role != "schema" and not form
         projected = self.projection(schema, projection, direction, nullable=nullable)
         held = (
@@ -3786,8 +3790,8 @@ class _Contracts(_Octets):
         item = schema.tokens[-1] == "itemSchema"
         for use in uses:
             binding = self.uses[use]
-            if text or kind in _FORMS:
-                self.texts[use] = kind in _FORMS
+            if text or kind in FORMS:
+                self.texts[use] = kind in FORMS
             with self.bound(schema, use.projection) as node:
                 parts, refused = self.parts(binding, node, schema) if multipart else (None, None)
                 octets, partly, checked, read = (
@@ -4095,7 +4099,11 @@ class _Contracts(_Octets):
         locate = self.documents.location
         for document in self.documents.walked:
             if document in self.parser._api_roots:  # pyright: ignore[reportPrivateUsage] # noqa: SLF001
-                found = read(self.documents.documents[document], partial(self.loaded_schema, document))
+                found = read(
+                    self.documents.documents[document],
+                    partial(self.loaded_schema, document),
+                    partial(self.handshake_members, document),
+                )
                 contracts.extend(
                     self.channel(document, channel, len(contracts) + index)
                     for index, channel in enumerate(found.channels)
@@ -4127,22 +4135,25 @@ class _Contracts(_Octets):
         """Bind one channel: its handshake, a GET of its address on its servers, and its messages.
 
         The handshake of a server-sent event stream declares a 200 response of `text/event-stream`, which its events
-        are read from, as a stream answers the GET that opens it.
+        are read from, as a stream answers the GET that opens it. A message travels as its payload's models decide
+        (`message_codec`); one no codec carries leaves the channel out.
         """
         locate = self.documents.location
         use_site = SchemaLocation(document, read.use_site)
         declaration = SchemaLocation(document, read.declaration)
         identity = OperationId(locate(use_site, "use"), "channel")
-        messages = tuple(
-            MessageContract(
-                locate(SchemaLocation(document, message.declaration), "declaration"),
-                message.action,
-                message.codec,
-                self.payload(document, message.payload, message.payload_ref),
-            )
-            for message in read.messages
-        )
-        skips = tuple(starmap(ChannelSkip, read.skips))
+        found: list[MessageContract] = []
+        refused: list[ChannelSkip] = []
+        for message in read.messages:
+            declared = locate(SchemaLocation(document, message.declaration), "declaration")
+            payload = self.payload(document, message.payload, message.payload_ref)
+            if (codec := self._message_codec(message.media, payload, stream=read.kind == "sse")) is None:
+                why = f"message {declared.pointer} has content type {message.media}"
+                refused.append(ChannelSkip("message_content_types", why))
+            else:
+                found.append(MessageContract(declared, message.action, codec, locate(payload, "schema")))
+        messages = tuple(found)
+        skips = (*starmap(ChannelSkip, read.skips), *refused)
         if read.address is None:
             return ChannelContract(locate(use_site, "use"), read.name, None, messages, skips, kind=read.kind)
         raw = as_mapping(self.documents.borrow(declaration))
@@ -4198,16 +4209,25 @@ class _Contracts(_Octets):
         declared = DeclarationId(locate(declaration, "declaration"))
         response = use_site.child("responses", _STREAM_STATUS)
         media = WireDeclaration(
-            "media", _EVENT_STREAM, declared, locate(response.child("content", _EVENT_STREAM), "use"), ()
+            "media", EVENT_STREAM, declared, locate(response.child("content", EVENT_STREAM), "use"), ()
         )
         return WireDeclaration("response", _STREAM_STATUS, declared, locate(response, "use"), (), children=(media,))
 
-    def payload(self, document: str, tokens: tuple[str, ...], ref: str | None) -> SourceLocation | None:
-        """Return the location of the schema a message's payload binds as: that a lone `$ref` names, or its own."""
-        if ref is None:
-            return self.documents.location(SchemaLocation(document, tokens), "schema")
-        target = self.loaded_target(document, ref)
-        return None if target is None else self.documents.location(target, "schema")
+    def payload(self, document: str, tokens: tuple[str, ...], ref: str | None) -> SchemaLocation:
+        """Return the schema a message's payload binds as: the one a lone `$ref` names, which resolves, or its own."""
+        return (
+            SchemaLocation(document, tokens)
+            if ref is None
+            else cast("SchemaLocation", self.loaded_target(document, ref))
+        )
+
+    def _message_codec(self, media: str, payload: SchemaLocation, *, stream: bool) -> MessageCodec | None:
+        """Return how a message of a media type travels, by the models' type of its payload's value (``whole``)."""
+        with self.bound(payload, "value") as node:
+            octets, _, _, text = self.whole(node, "neutral", message_kind(media))
+            value = None if node is None else self.view(node, "neutral")
+        string = self.tables.lexical_kind(value) == "string"
+        return message_codec(media, octets=octets, text=text, string=string, stream=stream)
 
     def address_parameter(
         self,
@@ -4233,6 +4253,7 @@ class _Contracts(_Octets):
             facts["description"] = parameter.description
         if parameter is not None and parameter.schema is not None:
             schema = SchemaLocation(channel.document, parameter.schema)
+            self._recorded(schema)
             use = self.use_id(owner, "parameter", declared, used, schema, location="path", name=name)
             schemas = self.media_facts((self.use(use, schema),), schema, "parameter", None)
         else:
@@ -4249,71 +4270,79 @@ class _Contracts(_Octets):
             schemas,
         )
 
+    def handshake_members(self, document: str, tokens: tuple[str, ...]) -> tuple[ReadMember, ...] | str:
+        """Return the properties the models hold of an object schema a handshake's binding writes, or why none.
+
+        The object's model, or the one a root model or alias of it holds, has a field for each property, its own or
+        one it inherits, declared where the members of a use of the schema are (``members_at``). A mapping has none:
+        like the other properties of a model, its keys stand for no parameter. A schema no model types, or one the
+        models type otherwise, such as a string, gives no parameters.
+        """
+        from datamodel_code_generator._asyncapi_connections import ReadMember  # noqa: PLC0415
+
+        location = SchemaLocation(document, tokens)
+        if self.bound_node(location, "value") is None:
+            return "has no model"
+        value = self.projection(location, "value", "request").value
+        if (symbol := self.held(value)) is None or self.symbol_table[symbol].kind != "model":
+            return () if self.tables.contained(value, "values") is not None else "is not an object of properties"
+        found: list[ReadMember] = []
+        for member in self.members_at(symbol, location, "request"):
+            if member.member_kind != "property" or (slot := member.slot) is None or member.model_facts is None:
+                continue
+            schema = cast("SourceLocation", member.schema)
+            declared = SchemaLocation(self.documents.walked[schema.document], pointer_tokens(schema.pointer))
+            found.append(
+                ReadMember(
+                    cast("str", member.wire_name),
+                    member.model_facts.required,
+                    self.tables.fixed(member.model_facts.type),
+                    self.binder.models[slot.symbol].fields[slot.index].data_type,
+                    member.model_facts.type,
+                    declared,
+                    self.documents.borrow(declared),
+                )
+            )
+        return tuple(found)
+
     def handshake_parameter(
         self, owner: OperationId, use_site: SchemaLocation, parameter: ReadHandshakeParameter, binding: str
     ) -> WireDeclaration:
         """Bind a query or header parameter of a channel's handshake, typed as the models type its property.
 
         The binding's object is a model, so each of its properties is a field, whose type is the parameter's, as a
-        model gives an OpenAPI parameter's schema its type, and whose default and keywords are the parameter's. It is
-        used at the channel's binding of its protocol, `binding`.
+        model gives an OpenAPI parameter's schema its type, and whose default, description and keywords, through its
+        reference chain, are the parameter's. It is used at the channel's binding of its protocol, `binding`.
         """
-        declared = SchemaLocation(use_site.document, parameter.schema)
-        self.binder.declaration_types.setdefault(declared, self.property_type(declared))
-        written = self._referenced(declared)
-        self.parser.schema_records.setdefault(
-            declared, _SchemaRecord(_default(written.get("default")), _keywords(written))
-        )
-        used = use_site.child("bindings", binding, parameter.location, parameter.name)
-        use = self.use_id(
-            owner, "parameter", declared, used, declared, location=parameter.location, name=parameter.name
-        )
-        facts: dict[str, YamlValue] = {"name": parameter.name, "in": parameter.location, "required": parameter.required}
-        if parameter.description is not None:
-            facts["description"] = parameter.description
+        member = parameter.member
+        declared = member.schema
+        self.binder.declaration_types.setdefault(declared, member.type)
+        written = self._recorded(declared)
+        used = use_site.child("bindings", binding, parameter.location, member.name)
+        use = self.use_id(owner, "parameter", declared, used, declared, location=parameter.location, name=member.name)
+        facts: dict[str, YamlValue] = {"name": member.name, "in": parameter.location, "required": member.required}
+        if isinstance(description := written.get("description"), str):
+            facts["description"] = description
         return WireDeclaration(
             "parameter",
-            parameter.name,
+            member.name,
             DeclarationId(self.documents.location(declared, "declaration")),
             self.documents.location(used, "use"),
             _facts(facts, _PARAMETER_FACTS, declared),
             self.media_facts((self.use(use, declared),), declared, "parameter", None),
         )
 
-    def _referenced(self, declared: SchemaLocation) -> dict[str, YamlValue]:
-        """Return the keywords a schema says through its reference chain, the nearer schema's first.
+    def _recorded(self, declared: SchemaLocation) -> dict[str, YamlValue]:
+        """Record the default and keywords a schema of a channel gives through its reference chain, and return them.
 
-        A chain that loops back, or leaves the loaded documents, ends where it does.
+        Each location is read from its loaded document (``site_facts_of``), its reference resolved as the parser
+        resolves it (``loaded_target``).
         """
-        found: dict[str, YamlValue] = {}
-        location, seen = declared, {declared}
-        while True:
-            written = as_mapping(self.documents.borrow(location))
-            found = {**written, **found}
-            if (
-                not isinstance(ref := written.get("$ref"), str)
-                or (target := self.loaded_target(location.document, ref)) is None
-                or target in seen
-            ):
-                return found
-            seen.add(location := target)
-
-    def property_type(self, declared: SchemaLocation) -> DataType:
-        """Return the type of the field the models hold a property of an object schema in.
-
-        The object's model holds a field for each property, its own or one it inherits, as a model that reuse made
-        holds those of the model it stands for.
-        """
-        node = self.bound_node(SchemaLocation(declared.document, declared.tokens[:-2]), "value")
-        node = cast("Reference", node.reference if isinstance(node, DataType) else node)
-        symbol = self.binder.symbols[id(cast("Reference", self.binder.final(node)).source)]
-        slots = {
-            member.wire_name: member.slot
-            for member in self.members[symbol]
-            if member.member_kind == "property" and member.slot is not None
-        }
-        slot = slots[declared.tokens[-1]]
-        return self.binder.models[slot.symbol].fields[slot.index].data_type
+        written = self.parser.ref_annotations(
+            declared, lambda location: site_facts_of(self.documents.borrow(location), location, self.loaded_target)
+        )
+        self.parser.schema_records.setdefault(declared, _record(written))
+        return written
 
     def security_schemes(self) -> tuple[WireDeclaration, ...]:
         """Bind the security schemes of the documents the walk loaded, loading the documents they reference."""
@@ -4443,6 +4472,7 @@ if TYPE_CHECKING:
     from datamodel_code_generator._asyncapi_connections import (
         ReadChannel,
         ReadHandshakeParameter,
+        ReadMember,
         ReadParameter,
         ReadServer,
     )
@@ -4450,13 +4480,14 @@ if TYPE_CHECKING:
     from datamodel_code_generator._python_type_annotation import PythonTypeExpr
     from datamodel_code_generator._python_type_binding import BoundPythonType
     from datamodel_code_generator._runtime.model_codecs.media import LexicalKind, MediaKind
-    from datamodel_code_generator._site_facts import Projection, TypeUseRole
+    from datamodel_code_generator._site_facts import Projection, SiteFacts, TypeUseRole
     from datamodel_code_generator._source import YamlValue
     from datamodel_code_generator._target_contract import (
         BackendName,
         BackendValue,
         DefaultKind,
         FrozenLiteral,
+        MessageCodec,
         TypeArgument,
         TypeProjectionReason,
         TypeView,

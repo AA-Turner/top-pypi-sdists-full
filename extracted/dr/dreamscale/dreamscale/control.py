@@ -3,9 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
+import time
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -14,6 +17,8 @@ from dreamscale.config import API_KEY_ENV
 from dreamscale.model_names import internal_model
 from dreamscale.policy.config import RTC_KINDS, OptimizationConfig, ResolvedOptimizationConfig
 from dreamscale.policy.deployment import CLIENT_FEATURES, in_use_session_id
+
+log = logging.getLogger(__name__)
 
 _DELETE_ATTEMPTS = 3
 _GATEWAY_STATUSES = frozenset({502, 503, 504})
@@ -90,8 +95,7 @@ class Session:
     # A deployment session: its deployment's keep-warm (off, 10m … always); None from a
     # control plane that doesn't say. Kept warm, the policy skips its idle release.
     deployment_keep_warm: str | None = None
-    # Praxis-1 (experimental): the engine the session asked for, echoed when it asked
-    # ("standard" or "lightning"), and why standard serves it when it does ("unavailable").
+    # Kept for compatibility: what the server says of the session's engine, if anything.
     engine: str | None = None
     engine_reason: str | None = None
 
@@ -272,20 +276,43 @@ class ControlPlaneClient:
         # Retry attachment to this exact allocation; never create another lease
         # or retry authentication/protocol failures. Bound subscription as well
         # as the HTTP upgrade, which the transport bounds independently.
+        # Each attempt says where it stopped (DSL-438: the transport's ``progress`` step, the
+        # tunnel's host): logged as it happens and named in the error once all three have.
+        tunnel = urlparse(session.data_plane.url).hostname or "the unit's tunnel"
+        stopped: list[str] = []
         for attempt in range(3):
+            progress = {"step": "opening"}
+            started = time.monotonic()
             try:
                 async with asyncio.timeout(10):
                     return await client_type.connect(
                         session.data_plane.url,
                         session_id=session.session_id,
                         session_token=session.session_token,
+                        progress=progress,
                         **transport_options,
                         **codec_options,
                     )
-            except (TimeoutError, ConnectionError):
+            except (TimeoutError, ConnectionError) as error:
+                stopped.append(f"attempt {attempt + 1} stopped {progress['step']} after "
+                               f"{time.monotonic() - started:.1f} s ({type(error).__name__})")
+                log.warning("data plane %s for session %s: %s", tunnel,
+                               session.session_id, stopped[-1])
                 if attempt == 2:
+                    detail = f"the data plane at {tunnel} did not connect: " + "; ".join(stopped)
+                    if isinstance(error, TimeoutError):
+                        raise TimeoutError(detail) from error
+                    error.add_note(detail)
                     raise
                 await asyncio.sleep(0.25 * (attempt + 1))
+            except Exception as error:  # not retried (a refusal, a bad status, a DNS failure)
+                stopped.append(f"attempt {attempt + 1} stopped {progress['step']} after "
+                               f"{time.monotonic() - started:.1f} s ({type(error).__name__})")
+                log.warning("data plane %s for session %s: %s", tunnel,
+                            session.session_id, stopped[-1])
+                error.add_note(f"the data plane at {tunnel} did not connect: "
+                               + "; ".join(stopped))
+                raise
         raise AssertionError("unreachable")
 
     async def report_transport(
@@ -332,13 +359,10 @@ class ControlPlaneClient:
         optimization_config: OptimizationConfig | dict[str, Any] | None = None,
         speed: str | None = None,
         checkpoint: str | None = None,
-        engine: str | None = None,
     ) -> Session:
         fast = speed == "fast"
         if speed not in (None, "standard", "fast"):
             raise ValueError('speed must be "standard" or "fast"')
-        if engine not in (None, "standard", "lightning"):
-            raise ValueError('engine must be "standard" or "lightning"')
         if fast and (model, "speed:fast") not in self._provider_capabilities:
             # Older servers ignore unknown fields; never let one bill or route a
             # fast request as standard without acknowledging it first.
@@ -368,8 +392,6 @@ class ControlPlaneClient:
             body["provider"] = provider
         if fast:
             body["speed"] = "fast"
-        if engine is not None:
-            body["engine"] = engine
         if preferred_region:
             body["preferred_region"] = preferred_region
         if region_pin:
@@ -449,11 +471,6 @@ class ControlPlaneClient:
         if fast and session.speed != "fast":
             await self.delete_session(session.session_id)
             raise RuntimeError('control plane did not apply speed="fast"')
-        if engine == "lightning" and session.engine is None:
-            # Older control planes ignore `engine`: never run a lightning request on standard
-            # without the server saying so.
-            await self.delete_session(session.session_id)
-            raise errors.catalog("engine_unavailable")
         return session
 
     async def probe_candidates(
@@ -598,7 +615,6 @@ class ControlPlaneClient:
         source_format: str | None = None,
         region_fallback: bool | None = None,
         official: str | None = None,
-        engine: str | None = None,
     ) -> dict[str, Any]:
         """Create a deployment (your weights + the embodiment they serve, in a region).
         ``official``: one of the base family's own published checkpoints by name (Verne V0.5:
@@ -609,9 +625,6 @@ class ControlPlaneClient:
         a local folder's is its complete ``upload_id`` (no repo) and the ``source_format``
         Detect found. ``region_fallback``: whether a server may start in the next-closest
         region when the deployment's own is full (None: the server's default, on).
-        ``engine``: what its units serve, where its base offers a choice (Praxis-1: "standard",
-        the server's default, or "lightning", experimental); the answer's ``engine`` says what
-        it got (an older control plane ignores the field and sends none).
         """
         body: dict[str, Any] = {"model": model}
         for key, value in (
@@ -621,7 +634,6 @@ class ControlPlaneClient:
             ("embodiment", embodiment), ("region", region), ("source_path", source_path),
             ("rtc_method", rtc_method), ("rtc_max_delay", rtc_max_delay),
             ("keep_warm", keep_warm), ("slug", slug), ("region_fallback", region_fallback),
-            ("engine", engine),
         ):
             if value is not None:
                 body[key] = value
@@ -797,24 +809,6 @@ class ControlPlaneClient:
             raise errors.catalog("region_fallback_unavailable")
         return _deployment_response(resp)
 
-    async def set_deployment_engine(self, checkpoint_id: str, engine: str) -> dict[str, Any]:
-        """What the deployment's units serve, where its base offers a choice (Praxis-1:
-        "standard" or "lightning", experimental): its next server runs it; one already running
-        keeps its engine. No rebuild."""
-        resp = await self._client.patch(
-            f"{DEPLOYMENTS_PATH}/{checkpoint_id}", json={"engine": engine}
-        )
-        _raise_for_auth(resp)
-        if (
-            resp.status_code == 405
-            or (resp.status_code == 404 and not _error_code(resp))
-            or (resp.status_code == 422 and "engine" in _error_problem(resp)
-                and "not permitted" in _error_problem(resp))
-        ):
-            # Older control planes forbid fields they don't know on this PATCH.
-            raise errors.catalog("deployment_engine_unavailable")
-        return _deployment_response(resp)
-
     async def rename_deployment(
         self, checkpoint_id: str, name: str | None = None, *, slug: str | None = None
     ) -> dict[str, Any]:
@@ -904,12 +898,10 @@ class ControlPlaneClient:
     async def deploy_training(
         self, run_id: str, *, step: int | None = None, region: str | None = None,
         region_fallback: bool | None = None, executed_actions: int | None = None,
-        engine: str | None = None,
     ) -> dict[str, Any]:
         """A Deployment of one of the run's checkpoints (default the latest); 1-based step.
         ``region_fallback`` as for ``add_checkpoint`` (None: the server's default, on).
-        ``executed_actions``: the rows the robot executes per chunk (None: the run's).
-        ``engine`` where its base offers a choice (None: the default, standard)."""
+        ``executed_actions``: the rows the robot executes per chunk (None: the run's)."""
         body: dict[str, Any] = {
             key: value for key, value in (("step", step), ("region", region)) if value
         }
@@ -917,8 +909,6 @@ class ControlPlaneClient:
             body["region_fallback"] = region_fallback
         if executed_actions is not None:
             body["executed_actions"] = executed_actions
-        if engine is not None:
-            body["engine"] = engine
         return await self._training_call(
             "POST", f"{TRAININGS_PATH}/{run_id}/deploy", run_id=run_id, json=body
         )

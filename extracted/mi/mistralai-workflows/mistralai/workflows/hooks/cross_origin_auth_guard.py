@@ -1,3 +1,5 @@
+from collections.abc import Iterable
+
 import httpx
 
 
@@ -15,22 +17,25 @@ def _same_origin(request_url: httpx.URL, trusted: httpx.URL) -> bool:
 
 
 class _CrossOriginAuthGuard:
-    """Drops the Authorization header when a request leaves the trusted origin.
+    """Drops credential headers when a request leaves the trusted origin.
 
-    httpx strips Authorization on cross-origin redirects, but request event hooks re-run on every
-    redirect hop, so a token-setting hook would re-add it on the foreign host. This guard reverses
-    that by removing the header again whenever the request origin does not match the trusted server.
+    httpx strips Authorization on cross-origin redirects but copies every other header, and request
+    event hooks re-run on every redirect hop, so a credential-setting hook would re-add its headers on
+    the foreign host. This guard removes Authorization and the given credential headers whenever the
+    request origin does not match the trusted server.
 
     MUST be registered as the LAST request hook so it runs after every token-setting hook; placed
     earlier, a later hook would re-add the header it just removed.
     """
 
-    def __init__(self, trusted_origin: str | None) -> None:
+    def __init__(self, trusted_origin: str | None, credential_headers: Iterable[str] = ()) -> None:
         self._trusted_origin = _parse_origin(trusted_origin)
+        self._credential_headers = {"Authorization", *credential_headers}
 
     def _strip_if_cross_origin(self, request: httpx.Request) -> None:
         if self._trusted_origin is not None and not _same_origin(request.url, self._trusted_origin):
-            request.headers.pop("Authorization", None)
+            for name in self._credential_headers:
+                request.headers.pop(name, None)
 
 
 class CrossOriginAuthGuardHook(_CrossOriginAuthGuard):

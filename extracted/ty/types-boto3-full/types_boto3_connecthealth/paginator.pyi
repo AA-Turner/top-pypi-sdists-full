@@ -12,6 +12,7 @@ Usage::
 
     from types_boto3_connecthealth.client import ConnectHealthClient
     from types_boto3_connecthealth.paginator import (
+        ListDatasetsPaginator,
         ListDomainsPaginator,
         ListSubscriptionsPaginator,
     )
@@ -19,6 +20,7 @@ Usage::
     session = Session()
     client: ConnectHealthClient = session.client("connecthealth")
 
+    list_datasets_paginator: ListDatasetsPaginator = client.get_paginator("list_datasets")
     list_domains_paginator: ListDomainsPaginator = client.get_paginator("list_domains")
     list_subscriptions_paginator: ListSubscriptionsPaginator = client.get_paginator("list_subscriptions")
     ```
@@ -32,6 +34,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListDatasetsInputPaginateTypeDef,
+    ListDatasetsOutputTypeDef,
     ListDomainsInputPaginateTypeDef,
     ListDomainsOutputTypeDef,
     ListSubscriptionsInputPaginateTypeDef,
@@ -43,7 +47,25 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import Unpack
 
-__all__ = ("ListDomainsPaginator", "ListSubscriptionsPaginator")
+__all__ = ("ListDatasetsPaginator", "ListDomainsPaginator", "ListSubscriptionsPaginator")
+
+if TYPE_CHECKING:
+    _ListDatasetsPaginatorBase = Paginator[ListDatasetsOutputTypeDef]
+else:
+    _ListDatasetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListDatasetsPaginator(_ListDatasetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/paginator/ListDatasets.html#ConnectHealth.Paginator.ListDatasets)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/paginators/#listdatasetspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListDatasetsInputPaginateTypeDef]
+    ) -> PageIterator[ListDatasetsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connecthealth/paginator/ListDatasets.html#ConnectHealth.Paginator.ListDatasets.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connecthealth/paginators/#listdatasetspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListDomainsPaginatorBase = Paginator[ListDomainsOutputTypeDef]

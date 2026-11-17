@@ -516,6 +516,7 @@ __all__ = (
     "DeactivateEvaluationFormResponseTypeDef",
     "DecimalConditionTypeDef",
     "DefaultVocabularyTypeDef",
+    "DeleteAllEntitySessionsRequestTypeDef",
     "DeleteAttachedFileRequestTypeDef",
     "DeleteContactDataRequestTypeDef",
     "DeleteContactEvaluationRequestTypeDef",
@@ -2762,6 +2763,11 @@ class DefaultVocabularyTypeDef(TypedDict):
     LanguageCode: VocabularyLanguageCodeType
     VocabularyId: str
     VocabularyName: str
+
+class DeleteAllEntitySessionsRequestTypeDef(TypedDict):
+    InstanceId: str
+    EntityId: str
+    EntityType: Literal["USER"]
 
 class DeleteAttachedFileRequestTypeDef(TypedDict):
     InstanceId: str

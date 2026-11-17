@@ -8,6 +8,22 @@ from .kyc import (
     KYCResourceWithStreamingResponse,
     AsyncKYCResourceWithStreamingResponse,
 )
+from .mfa import (
+    MfaResource,
+    AsyncMfaResource,
+    MfaResourceWithRawResponse,
+    AsyncMfaResourceWithRawResponse,
+    MfaResourceWithStreamingResponse,
+    AsyncMfaResourceWithStreamingResponse,
+)
+from .earn import (
+    EarnResource,
+    AsyncEarnResource,
+    EarnResourceWithRawResponse,
+    AsyncEarnResourceWithRawResponse,
+    EarnResourceWithStreamingResponse,
+    AsyncEarnResourceWithStreamingResponse,
+)
 from .users import (
     UsersResource,
     AsyncUsersResource,
@@ -26,6 +42,12 @@ from .external_fiat_accounts import (
 )
 
 __all__ = [
+    "EarnResource",
+    "AsyncEarnResource",
+    "EarnResourceWithRawResponse",
+    "AsyncEarnResourceWithRawResponse",
+    "EarnResourceWithStreamingResponse",
+    "AsyncEarnResourceWithStreamingResponse",
     "ExternalFiatAccountsResource",
     "AsyncExternalFiatAccountsResource",
     "ExternalFiatAccountsResourceWithRawResponse",
@@ -38,6 +60,12 @@ __all__ = [
     "AsyncKYCResourceWithRawResponse",
     "KYCResourceWithStreamingResponse",
     "AsyncKYCResourceWithStreamingResponse",
+    "MfaResource",
+    "AsyncMfaResource",
+    "MfaResourceWithRawResponse",
+    "AsyncMfaResourceWithRawResponse",
+    "MfaResourceWithStreamingResponse",
+    "AsyncMfaResourceWithStreamingResponse",
     "UsersResource",
     "AsyncUsersResource",
     "UsersResourceWithRawResponse",

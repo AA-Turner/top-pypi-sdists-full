@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: deadcode
-Version: 2.6.3
+Version: 2.7.0
 Summary: Find and fix unused Python code using command line.
 Project-URL: homepage, https://github.com/albertas/deadcode
 Project-URL: documentation, https://deadcode.readthedocs.io/
@@ -152,7 +152,7 @@ Create a `.pre-commit-config.yaml` file in the root of your project directory, i
 # See https://pre-commit.com/hooks.html for more hooks
 repos:
   - repo: https://github.com/albertas/deadcode
-    rev: v2.6.3
+    rev: v2.7.0
     hooks:
       - id: deadcode
 ```
@@ -168,7 +168,7 @@ run the same hook while developing deadcode itself, use `make pre-commit`.
 |`--dry`                                    | -    | Show changes which would be made in files. |
 |`--only`                                   | list | Filenames (or path expressions), that will be reflected in the output (and modified if needed). |
 |`--exclude`                                | list | Filenames (or path expressions), which will be completely skipped without being analysed. |
-|`--ignore`                                 | list | Ignores findings (and fixes) for the provided rule codes for the whole run. |
+|`--ignore-rules`                           | list | Ignores findings (and fixes) for the provided rule codes for the whole run. |
 |`--ignore-names`                           | list | Removes provided list of names from the output. Glob expressions to match multiple names can also be provided, e.g. `*Mixin` will match all classes ending with `Mixin`. |
 |`--ignore-names-in-files`                  | list | Ignores unused names in files, which filenames match provided path expressions. |
 |`--ignore-names-if-inherits-from`          | list | Ignores names of classes which inherit from any of the provided class names. The class name may be a plain name, a dotted path such as `graphene.ObjectType`, or a glob such as `*.ObjectType`; a dotted base also matches its final component (`ObjectType`). Only the class name is suppressed; its members and body are controlled by `--ignore-bodies-if-inherits-from` and `--ignore-definitions-if-inherits-from`. |
@@ -263,17 +263,17 @@ A comment on the first decorator line is still accepted.
 | DC    | ignore-expression    | Do not show any findings for an expression, which starts on current line (this code can only be used in `# noqa: DC` comments)
 
 ## Ignoring rules globally
-Use `--ignore` to suppress findings for one or more rule codes for the whole run:
+Use `--ignore-rules` to suppress findings for one or more rule codes for the whole run:
 
 ```shell
-deadcode . --ignore DC12
+deadcode . --ignore-rules DC12
 ```
 
 The same option can be set in `pyproject.toml`:
 
 ```toml
 [tool.deadcode]
-ignore = ["DC12"]
+ignore_rules = ["DC12"]
 ```
 
 A pre-commit hook can pass the option through `args`:
@@ -281,10 +281,10 @@ A pre-commit hook can pass the option through `args`:
 ```yaml
 repos:
   - repo: https://github.com/albertas/deadcode
-    rev: v2.6.3
+    rev: v2.7.0
     hooks:
       - id: deadcode
-        args: [--ignore, DC12]
+        args: [--ignore-rules, DC12]
 ```
 
 ## Ignoring unittest lifecycle methods
@@ -335,8 +335,11 @@ which are not used in a whole code base.
 There is an alternative [vulture](https://pypi.org/project/vulture/) package.
 
 ## Known limitations
-In case there are several definitions using the same name - they all wont be
-reported if at least one usage of that name is being detected.
+Definitions that are used only by other definitions which are themselves reported unused are reported in the same run (cascading dead code, [DEP 3](enhancement_proposals/dep_3.md)), so repeated runs of `deadcode` are no longer needed to uncover such chains. Cascading findings respect the same anchors as regular findings: dynamic usages and ignore-protected definitions still keep their targets alive.
+
+Definitions with the same name in different files are distinguished when a usage of that name resolves through the definition's own module or through a statically known `from ... import` path. A usage that cannot be resolved this way (for example a bare name that is neither defined nor imported in the using module, an ambiguous resolution, or a dynamic usage like attribute loads, `getattr` strings, or format-string names) still suppresses all same-named definitions.
+
+Modules with the same basename in different packages are treated as one module, so a usage may resolve ambiguously between their same-named definitions; ambiguous resolutions also suppress all same-named definitions.
 
 Files with syntax errors will be ignored, because `deadcode` uses `ast` to
 build abstract syntax tree for name usage detection.
@@ -358,15 +361,15 @@ A checked entry is implemented on `main` and is included in the next release; pu
 - [x] Add a check for empty python files.
 - [x] Split error codes into DC01, DC02, DC03 for variables, functions, class.
     - [x] Should have different codes for ignoring name and ignoring whole definition (reserved DCxx0 - ignore name, DCxx1 - ignore definition).
-    - [ ] Allow to disable each check separately using:
-        - [ ] inline comment.
-        - [ ] pyproject.toml file
+    - [x] Allow to disable each check separately using:
+        - [x] inline comment.
+        - [x] pyproject.toml file
 - [x] Add a check for code in comments.
 - [x] DC06: detect an unused name.
 - [x] DC09: report an unreachable body, e.g. an `if` or `while` block that cannot run.
 - [ ] Add target python version option, if specified it will be used for code base check.
 - [ ] Add a `--depth` parameter to ignore nested code.. (To only check global scope use 0).
-- [ ] Add options:
+- [x] Add options:
     - [x] --ignore-definitions
     - [x] --ignore-definitions-if-inherits-from
     - [x] --ignore-definitions-if-decorated-with
@@ -377,17 +380,17 @@ A checked entry is implemented on `main` and is included in the next release; pu
     - [x] --ignore-bodies-if-inherits-from
         - Question: would it be possible to ignore only certain types of checks for a body, e.g. only variable attributes of TypedDict and still check usage of methods and properties?
         - What expression would allow this type of precission?
-- [ ] Distinguish between definitions with same name, but different files.
-- [ ] Repeated application of `deadcode` till the output stops changing.
+- [x] Distinguish between definitions with same name, but different files.
+- [x] Repeated application of `deadcode` till the output stops changing. (Implemented by [DEP 3](enhancement_proposals/dep_3.md): cascading findings are reported and removed in a single run.)
 - [x] Unreachable code detection and fixing: this should only be scoped for if statements and only limited to primitive variables.
 - [ ] Benchmarking performance with larger projects (time, CPU and memory consumption) in order to optimize.
 - [ ] `--fix` could accept a list of filenames as well (only those files would be changed, but the summary could would be full).
     (This might be confusing, because filenames, which have to be considered are provided without any flag, --fix is expected to not accept arguments)
-- [ ] pre-commit-hook.
+- [x] pre-commit-hook.
 - [ ] language server.
 - [x] DC13: remove code after terminal statements like `raise`, `return`, `break`, `continue` and comes in the same scope.
 - [ ] Add `ignore` and `per-file-ignores` command line and pyproject.toml options, which allows to skip some rules.
-- [ ] Make sure that all rules are being skipped by `noqa` comment and all rules react to `noqa: rule_id` comments.
+- [x] Make sure that all rules are being skipped by `noqa` comment and all rules react to `noqa: rule_id` comments.
 - [ ] Include package names into code item scope (dot-separated path), e.g. "package1.package2.module.class.method.variable".
 - [ ] All options should be able to accept dot-separated path or a generic name, e.g. "marshmallow.Schema" vs "Schema",
   documentation should cleary demonstrate the behaviour/example that "Schema" means "*.Schema".
@@ -396,6 +399,19 @@ A checked entry is implemented on `main` and is included in the next release; pu
 - [ ] Investigate ways of extracting and backporting Python3.10+ `ast` implementation to lower Python versions.
 
 ## Release notes
+- **v2.7.0** `2026-11-16`:
+    - Features:
+        - Report dead-code cascades: definitions used only by other unused definitions are now found in a single run; Remove cascading dead code in one pass with --fix or --dry
+        - Rename the --ignore option to --ignore-rules
+        - DEP 1 now proposes type-aware scope tracking for usage detection, with a generic-name fallback for usages whose types cannot be resolved statically
+        - DEP 2 now proposes validated removal of unused code fragments, with import, empty-block and blank-line cleanups applied during the removal step
+        - DEP 3 now proposes detecting cascading dead code in a single run through a definition-anchored usage graph and a reachability pass
+        - Add a performance page reviewing the implementation's efficiency and explaining how the analysis cost grows with the input in O notation
+        - Add a documentation page describing the planned Rust integration, package build, and PyPI release flow
+    - Bugfixes:
+        - Distinguish definitions with the same name in different files when a usage resolves through the definition's own module or a statically known from-import path
+        - The README feature-requests checklist now marks already-implemented entries as done: per-check disabling, --ignore options, the pre-commit hook, and noqa coverage of all rules
+        - Refine DEP 1 to Proposed status with a type-aware scope tracking solution
 - **v2.6.3** `2026-11-13`:
     - Bugfixes:
         - Normalize paths to forward slashes in findings, discovery, fix grouping, and pattern matching

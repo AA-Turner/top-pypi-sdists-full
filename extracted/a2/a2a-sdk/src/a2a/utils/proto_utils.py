@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any, TypeVar, TypedDict, cast
 
 from google.api.field_behavior_pb2 import FieldBehavior, field_behavior
 from google.protobuf.descriptor import FieldDescriptor
-from google.protobuf.json_format import Parse, ParseDict
+from google.protobuf.json_format import Parse, ParseDict, ParseError
 from google.protobuf.message import Message as ProtobufMessage
 from google.rpc import error_details_pb2
 
@@ -67,9 +67,26 @@ def parse_lenient(
 
     Returns:
         The parsed message.
+
+    Raises:
+        ParseError: If the data is not valid ProtoJSON, including bytes that
+            are not valid UTF-8 and decoded values that are not objects.
     """
-    if isinstance(data, str | bytes):
+    if isinstance(data, bytes):
+        try:
+            data = data.decode('utf-8')
+        except UnicodeDecodeError as e:
+            raise ParseError(f'Failed to load JSON: {e}.') from e
+    if isinstance(data, str):
         return Parse(data, message, ignore_unknown_fields=True)
+    # A message is a JSON object. With ignore_unknown_fields, ParseDict reads
+    # an empty list as an empty message (it iterates the value as if it were
+    # the object's keys), and raises TypeError for null or a number.
+    if not isinstance(data, dict):
+        raise ParseError(
+            f'Expected a JSON object for {message.DESCRIPTOR.name}, '
+            f'got {type(data).__name__}.'
+        )
     return ParseDict(data, message, ignore_unknown_fields=True)
 
 
@@ -225,6 +242,10 @@ def parse_params(params: QueryParams, message: ProtobufMessage) -> None:
             if raw_val is not None:
                 parsed_val: Any = raw_val
                 if field.type == field.TYPE_BOOL and isinstance(raw_val, str):
+                    if raw_val.lower() not in ('true', 'false'):
+                        raise ParseError(
+                            f'Invalid boolean query parameter {k}: expected "true" or "false".'
+                        )
                     parsed_val = raw_val.lower() == 'true'
                 processed[k] = parsed_val
 

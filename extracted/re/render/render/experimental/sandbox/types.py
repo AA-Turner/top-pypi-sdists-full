@@ -104,7 +104,13 @@ class SandboxGroupList:
 
 @dataclass
 class Snapshot:
-    """A snapshot of a sandbox, as returned by snapshots.create, from_id, and list."""
+    """A snapshot of a sandbox, as returned by snapshots.create, from_id, and list.
+
+    expires_at is when the snapshot can no longer be restored. Each restore moves
+    it forward. ttl_seconds is how long the snapshot lives after its last use. 0
+    means the snapshot never expires. It is None when the API sends none, for a
+    snapshot that was created before snapshots had a TTL.
+    """
 
     id: str
     sandbox_group_id: str
@@ -118,6 +124,7 @@ class Snapshot:
     captured_at: datetime | None = None
     size_bytes: int | None = None
     error: str | None = None
+    ttl_seconds: int | None = None
 
 
 @dataclass
@@ -162,6 +169,14 @@ class Image:
 
 
 @dataclass
+class ImageList:
+    """A page of images with an optional pagination cursor."""
+
+    images: list[Image] = field(default_factory=list)
+    next_cursor: str | None = None
+
+
+@dataclass
 class RegistryCredentials:
     """Credentials for pulling an image from a private registry.
 
@@ -176,6 +191,59 @@ class RegistryCredentials:
 Build = Image
 BuildSource = ImageSource
 RegistryCredential = RegistryCredentials
+
+
+@dataclass
+class CredentialInjection:
+    """How a credential is added to a sandbox request that matches it.
+
+    type is ``header``, ``cookie``, ``query`` or ``basic``. name is the header,
+    cookie or query parameter to set; it is required for every type but
+    ``basic``, which rejects it. template wraps the secret, like
+    ``Bearer ${SECRET}``, with 1 to 5 occurrences of ``${SECRET}``; omit it to
+    send the secret as is. ``basic`` expects the secret, after the template,
+    in ``username:password`` form.
+    """
+
+    type: str
+    name: str | None = None
+    template: str | None = None
+
+
+@dataclass
+class CredentialVersion:
+    """One saved configuration of a credential.
+
+    fingerprint covers the routing, injection and secret value, so two
+    versions in the same sandbox group with the same fingerprint are
+    equivalent. restored_from_version_id is set when restore created this
+    version.
+    """
+
+    id: int
+    updated_at: datetime
+    updated_by: str
+    fingerprint: str
+    restored_from_version_id: int | None = None
+
+
+@dataclass
+class Credential:
+    """A credential that Render adds to matching requests from a group's sandboxes.
+
+    Sandboxes never see the secret value, and the API never returns it.
+    domain is the exact hostname the credential applies to. methods and paths
+    narrow which requests match; an empty list matches any. In paths, ``*``
+    matches one path segment and ``**`` one or more.
+    """
+
+    id: str
+    domain: str
+    enabled: bool
+    methods: list[str]
+    paths: list[str]
+    injection: CredentialInjection
+    version: CredentialVersion | None = None
 
 
 @dataclass

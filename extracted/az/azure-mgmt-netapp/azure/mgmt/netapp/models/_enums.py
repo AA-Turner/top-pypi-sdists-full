@@ -303,17 +303,6 @@ class DesiredRansomwareProtectionState(str, Enum, metaclass=CaseInsensitiveEnumM
     """Advanced Ransomware Protection is enabled."""
 
 
-class EnableSubvolumes(str, Enum, metaclass=CaseInsensitiveEnumMeta):
-    """Flag indicating whether subvolume operations are enabled on the volume Deprecated. This type
-    will be removed in a future API version.
-    """
-
-    ENABLED = "Enabled"
-    """subvolumes are enabled."""
-    DISABLED = "Disabled"
-    """subvolumes are not enabled."""
-
-
 class EnableWriteBackState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """Flag indicating whether writeback is enabled for the cache."""
 
@@ -466,8 +455,8 @@ class LdapServerType(str, Enum, metaclass=CaseInsensitiveEnumMeta):
 
     ACTIVE_DIRECTORY = "ActiveDirectory"
     """The volume should use Active Directory for LDAP connections."""
-    OPEN_LDAP = "OpenLDAP"
-    """The volume should use OpenLDAP for LDAP connections."""
+    OPEN_LDAP = "OpenLdap"
+    """The volume should use OpenLdap for LDAP connections."""
 
 
 class LdapState(str, Enum, metaclass=CaseInsensitiveEnumMeta):
@@ -771,6 +760,17 @@ class SmbNonBrowsable(str, Enum, metaclass=CaseInsensitiveEnumMeta):
     """smbNonBrowsable share setting is disabled."""
     ENABLED = "Enabled"
     """smbNonBrowsable share setting is enabled."""
+
+
+class SmbOplocks(str, Enum, metaclass=CaseInsensitiveEnumMeta):
+    """SMB opportunistic-lock setting shared by volume and cache resources. Omit the property when
+    unspecified.
+    """
+
+    DISABLED = "Disabled"
+    """SMB opportunistic locks share setting is disabled."""
+    ENABLED = "Enabled"
+    """SMB opportunistic locks share setting is enabled."""
 
 
 class VolumeBackupRelationshipStatus(str, Enum, metaclass=CaseInsensitiveEnumMeta):

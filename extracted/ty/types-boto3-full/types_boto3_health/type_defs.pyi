@@ -30,6 +30,10 @@ from .literals import (
     EventTypeActionabilityType,
     EventTypeCategoryType,
     EventTypePersonaType,
+    OrganizationTagTypeType,
+    TagKeyStatusType,
+    TagsOnboardingStatusForOrganizationType,
+    TagsOnboardingStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -39,7 +43,14 @@ else:
 
 __all__ = (
     "AccountEntityAggregateTypeDef",
+    "AccountEntityTypeDef",
+    "AccountTagTypeDef",
+    "AffectedAccountFilterTypeDef",
     "AffectedEntityTypeDef",
+    "ConfigureTagsForOrganizationRequestTypeDef",
+    "ConfigureTagsForOrganizationResponseTypeDef",
+    "ConfigureTagsRequestTypeDef",
+    "ConfigureTagsResponseTypeDef",
     "DateTimeRangeTypeDef",
     "DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef",
     "DescribeAffectedAccountsForOrganizationRequestTypeDef",
@@ -74,8 +85,20 @@ __all__ = (
     "DescribeServiceLifecycleRequestPaginateTypeDef",
     "DescribeServiceLifecycleRequestTypeDef",
     "DescribeServiceLifecycleResponseTypeDef",
+    "DescribeTagKeysForOrganizationResponseTypeDef",
+    "DescribeTagKeysResponseTypeDef",
+    "DescribeTagsForOrganizationFilterTypeDef",
+    "DescribeTagsForOrganizationRequestPaginateTypeDef",
+    "DescribeTagsForOrganizationRequestTypeDef",
+    "DescribeTagsForOrganizationResponseTypeDef",
+    "DescribeTagsOnboardingStatusForOrganizationResponseTypeDef",
+    "DescribeTagsOnboardingStatusResponseTypeDef",
+    "DescribeTagsRequestPaginateTypeDef",
+    "DescribeTagsRequestTypeDef",
+    "DescribeTagsResponseTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EntityAccountFilterTypeDef",
+    "EntityAggregateFilterTypeDef",
     "EntityAggregateTypeDef",
     "EntityFilterTypeDef",
     "EventAccountFilterTypeDef",
@@ -89,15 +112,20 @@ __all__ = (
     "EventTypeTypeDef",
     "LifecycleEventTypeDef",
     "OrganizationAffectedEntitiesErrorItemTypeDef",
+    "OrganizationEntityAggregateFilterTypeDef",
     "OrganizationEntityAggregateTypeDef",
     "OrganizationEventDetailsErrorItemTypeDef",
     "OrganizationEventDetailsTypeDef",
     "OrganizationEventFilterTypeDef",
     "OrganizationEventTypeDef",
+    "OrganizationTagKeyTypeDef",
+    "OrganizationTagTypeDef",
     "PaginatorConfigTypeDef",
+    "ResourceTagKeyTypeDef",
     "ResponseMetadataTypeDef",
     "ServiceLifecycleFilterTypeDef",
     "ServiceLifecycleTypeDef",
+    "TagKeyForOrganizationTypeDef",
     "TimestampTypeDef",
 )
 
@@ -105,6 +133,23 @@ class AccountEntityAggregateTypeDef(TypedDict):
     accountId: NotRequired[str]
     count: NotRequired[int]
     statuses: NotRequired[dict[EntityStatusCodeType, int]]
+
+class AccountEntityTypeDef(TypedDict):
+    accountId: NotRequired[str]
+    accountTags: NotRequired[dict[str, str]]
+
+AccountTagTypeDef = TypedDict(
+    "AccountTagTypeDef",
+    {
+        "key": NotRequired[str],
+        "value": NotRequired[str],
+        "type": NotRequired[Literal["ACCOUNT_RESOURCE_TAG"]],
+    },
+)
+
+class AffectedAccountFilterTypeDef(TypedDict):
+    eventArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, Sequence[str]]]
 
 class AffectedEntityTypeDef(TypedDict):
     entityArn: NotRequired[str]
@@ -114,20 +159,14 @@ class AffectedEntityTypeDef(TypedDict):
     awsAccountId: NotRequired[str]
     lastUpdatedTime: NotRequired[datetime]
     statusCode: NotRequired[EntityStatusCodeType]
+    resourceTags: NotRequired[dict[str, str]]
+    accountTags: NotRequired[dict[str, str]]
     tags: NotRequired[dict[str, str]]
     entityMetadata: NotRequired[dict[str, str]]
 
-TimestampTypeDef = Union[datetime, str]
-
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
-
-class DescribeAffectedAccountsForOrganizationRequestTypeDef(TypedDict):
-    eventArn: str
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
+class TagKeyForOrganizationTypeDef(TypedDict):
+    key: NotRequired[str]
+    enabledForEventBridge: NotRequired[bool]
 
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
@@ -136,10 +175,23 @@ class ResponseMetadataTypeDef(TypedDict):
     RetryAttempts: int
     HostId: NotRequired[str]
 
+class ResourceTagKeyTypeDef(TypedDict):
+    key: NotRequired[str]
+    enabledForEventBridge: NotRequired[bool]
+    status: NotRequired[TagKeyStatusType]
+
+TimestampTypeDef = Union[datetime, str]
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
 class EntityAccountFilterTypeDef(TypedDict):
     eventArn: str
     awsAccountId: NotRequired[str]
     statusCodes: NotRequired[Sequence[EntityStatusCodeType]]
+    tags: NotRequired[Mapping[str, Sequence[str]]]
 
 class EventAccountFilterTypeDef(TypedDict):
     eventArn: str
@@ -151,12 +203,11 @@ class OrganizationAffectedEntitiesErrorItemTypeDef(TypedDict):
     errorName: NotRequired[str]
     errorMessage: NotRequired[str]
 
-class DescribeEntityAggregatesForOrganizationRequestTypeDef(TypedDict):
-    eventArns: Sequence[str]
-    awsAccountIds: NotRequired[Sequence[str]]
+class OrganizationEntityAggregateFilterTypeDef(TypedDict):
+    tags: NotRequired[Mapping[str, Sequence[str]]]
 
-class DescribeEntityAggregatesRequestTypeDef(TypedDict):
-    eventArns: NotRequired[Sequence[str]]
+class EntityAggregateFilterTypeDef(TypedDict):
+    tags: NotRequired[Mapping[str, Sequence[str]]]
 
 class EntityAggregateTypeDef(TypedDict):
     eventArn: NotRequired[str]
@@ -228,6 +279,27 @@ class EventTypeDef(TypedDict):
 class ServiceLifecycleFilterTypeDef(TypedDict):
     service: NotRequired[str]
 
+class OrganizationTagKeyTypeDef(TypedDict):
+    key: NotRequired[str]
+    enabledForEventBridge: NotRequired[bool]
+    status: NotRequired[TagKeyStatusType]
+
+class DescribeTagsForOrganizationFilterTypeDef(TypedDict):
+    tagTypes: NotRequired[Sequence[OrganizationTagTypeType]]
+
+OrganizationTagTypeDef = TypedDict(
+    "OrganizationTagTypeDef",
+    {
+        "key": NotRequired[str],
+        "value": NotRequired[str],
+        "type": NotRequired[OrganizationTagTypeType],
+    },
+)
+
+class DescribeTagsRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
 class EventDescriptionTypeDef(TypedDict):
     latestDescription: NotRequired[str]
 
@@ -244,20 +316,26 @@ class OrganizationEntityAggregateTypeDef(TypedDict):
     statuses: NotRequired[dict[EntityStatusCodeType, int]]
     accounts: NotRequired[list[AccountEntityAggregateTypeDef]]
 
-DateTimeRangeTypeDef = TypedDict(
-    "DateTimeRangeTypeDef",
+DescribeAffectedAccountsForOrganizationRequestTypeDef = TypedDict(
+    "DescribeAffectedAccountsForOrganizationRequestTypeDef",
     {
-        "from": NotRequired[TimestampTypeDef],
-        "to": NotRequired[TimestampTypeDef],
+        "eventArn": str,
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+        "filter": NotRequired[AffectedAccountFilterTypeDef],
     },
 )
 
-class DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef(TypedDict):
-    eventArn: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+class ConfigureTagsForOrganizationRequestTypeDef(TypedDict):
+    tagKeys: Sequence[TagKeyForOrganizationTypeDef]
+
+class ConfigureTagsForOrganizationResponseTypeDef(TypedDict):
+    configuredTagKeys: list[TagKeyForOrganizationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeAffectedAccountsForOrganizationResponseTypeDef(TypedDict):
     affectedAccounts: list[str]
+    affectedAccountEntities: list[AccountEntityTypeDef]
     eventScopeCode: EventScopeCodeType
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -271,8 +349,51 @@ class DescribeHealthServiceStatusForOrganizationResponseTypeDef(TypedDict):
     healthServiceAccessStatusForOrganization: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class DescribeTagsOnboardingStatusForOrganizationResponseTypeDef(TypedDict):
+    status: TagsOnboardingStatusForOrganizationType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeTagsOnboardingStatusResponseTypeDef(TypedDict):
+    status: TagsOnboardingStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeTagsResponseTypeDef(TypedDict):
+    tags: list[AccountTagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class EmptyResponseMetadataTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ConfigureTagsRequestTypeDef(TypedDict):
+    tagKeys: Sequence[ResourceTagKeyTypeDef]
+
+class ConfigureTagsResponseTypeDef(TypedDict):
+    configuredTagKeys: list[ResourceTagKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeTagKeysResponseTypeDef(TypedDict):
+    keys: list[ResourceTagKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+DateTimeRangeTypeDef = TypedDict(
+    "DateTimeRangeTypeDef",
+    {
+        "from": NotRequired[TimestampTypeDef],
+        "to": NotRequired[TimestampTypeDef],
+    },
+)
+DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef = TypedDict(
+    "DescribeAffectedAccountsForOrganizationRequestPaginateTypeDef",
+    {
+        "eventArn": str,
+        "filter": NotRequired[AffectedAccountFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+
+class DescribeTagsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeAffectedEntitiesForOrganizationRequestPaginateTypeDef(TypedDict):
     organizationEntityFilters: NotRequired[Sequence[EventAccountFilterTypeDef]]
@@ -296,6 +417,22 @@ class DescribeAffectedEntitiesForOrganizationResponseTypeDef(TypedDict):
     failedSet: list[OrganizationAffectedEntitiesErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+DescribeEntityAggregatesForOrganizationRequestTypeDef = TypedDict(
+    "DescribeEntityAggregatesForOrganizationRequestTypeDef",
+    {
+        "eventArns": Sequence[str],
+        "awsAccountIds": NotRequired[Sequence[str]],
+        "filter": NotRequired[OrganizationEntityAggregateFilterTypeDef],
+    },
+)
+DescribeEntityAggregatesRequestTypeDef = TypedDict(
+    "DescribeEntityAggregatesRequestTypeDef",
+    {
+        "eventArns": NotRequired[Sequence[str]],
+        "filter": NotRequired[EntityAggregateFilterTypeDef],
+    },
+)
 
 class DescribeEntityAggregatesResponseTypeDef(TypedDict):
     entityAggregates: list[EntityAggregateTypeDef]
@@ -355,6 +492,31 @@ DescribeServiceLifecycleRequestTypeDef = TypedDict(
     },
 )
 
+class DescribeTagKeysForOrganizationResponseTypeDef(TypedDict):
+    keys: list[OrganizationTagKeyTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+DescribeTagsForOrganizationRequestPaginateTypeDef = TypedDict(
+    "DescribeTagsForOrganizationRequestPaginateTypeDef",
+    {
+        "filter": NotRequired[DescribeTagsForOrganizationFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+DescribeTagsForOrganizationRequestTypeDef = TypedDict(
+    "DescribeTagsForOrganizationRequestTypeDef",
+    {
+        "filter": NotRequired[DescribeTagsForOrganizationFilterTypeDef],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
+class DescribeTagsForOrganizationResponseTypeDef(TypedDict):
+    tags: list[OrganizationTagTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class EventDetailsTypeDef(TypedDict):
     event: NotRequired[EventTypeDef]
     eventDescription: NotRequired[EventDescriptionTypeDef]
@@ -382,7 +544,7 @@ class EntityFilterTypeDef(TypedDict):
     entityArns: NotRequired[Sequence[str]]
     entityValues: NotRequired[Sequence[str]]
     lastUpdatedTimes: NotRequired[Sequence[DateTimeRangeTypeDef]]
-    tags: NotRequired[Sequence[Mapping[str, str]]]
+    tags: NotRequired[Mapping[str, Sequence[str]]]
     statusCodes: NotRequired[Sequence[EntityStatusCodeType]]
 
 class EventFilterTypeDef(TypedDict):
@@ -398,7 +560,7 @@ class EventFilterTypeDef(TypedDict):
     entityArns: NotRequired[Sequence[str]]
     entityValues: NotRequired[Sequence[str]]
     eventTypeCategories: NotRequired[Sequence[EventTypeCategoryType]]
-    tags: NotRequired[Sequence[Mapping[str, str]]]
+    tags: NotRequired[Mapping[str, Sequence[str]]]
     eventStatusCodes: NotRequired[Sequence[EventStatusCodeType]]
     personas: NotRequired[Sequence[EventPersonaType]]
 
@@ -416,6 +578,7 @@ class OrganizationEventFilterTypeDef(TypedDict):
     eventTypeCategories: NotRequired[Sequence[EventTypeCategoryType]]
     eventStatusCodes: NotRequired[Sequence[EventStatusCodeType]]
     personas: NotRequired[Sequence[EventPersonaType]]
+    tags: NotRequired[Mapping[str, Sequence[str]]]
 
 class DescribeEventDetailsResponseTypeDef(TypedDict):
     successfulSet: list[EventDetailsTypeDef]

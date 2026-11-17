@@ -5,6 +5,7 @@ from typing_extensions import Literal
 
 from ..._models import BaseModel
 from .failure_reason import FailureReason
+from ..currency_amount import CurrencyAmount
 from .tvm_wallet_action_step_status import TvmWalletActionStepStatus
 
 __all__ = ["TvmTransactionWalletActionStep"]
@@ -26,3 +27,12 @@ class TvmTransactionWalletActionStep(BaseModel):
 
     failure_reason: Optional[FailureReason] = None
     """A description of why a wallet action (or a step within a wallet action) failed."""
+
+    gas_credits_charged: Optional[CurrencyAmount] = None
+    """A monetary value with its currency denomination."""
+
+    gas_credits_charged_usd: Optional[str] = None
+    """
+    Deprecated, use `gas_credits_charged` instead; gas credits charged in USD for
+    this step, if sponsored, as a decimal string.
+    """

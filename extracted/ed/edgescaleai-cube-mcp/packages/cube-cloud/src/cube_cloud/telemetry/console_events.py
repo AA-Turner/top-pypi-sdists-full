@@ -85,6 +85,13 @@ CONSOLE_ROUTES: dict[str, str | None] = {
     # The landing page's map, fetched only when a viewer switches to it: its own
     # intent, not a satellite of the list, which never fetches it.
     "/console/api/gps": "console.view_map",
+    # The staff-only Manage section's Products tab (§4.30): its own URL, one fetch per view.
+    "/console/api/manage/products": "console.manage_products",
+    # A satellite of the session, asked on every page load by a staff address: counting
+    # it would count page loads, not anyone deciding to manage something.
+    "/console/api/manage/access": None,
+    # A satellite of the Products tab, fetched with it where edits are offered.
+    "/console/api/manage/companies": None,
     "/console/api/cubes/{cube}": "console.view_cube",
     # Satellites of view_cube — fetched alongside the detail payload, not on
     # their own intent. Counting them multiplies one page view by seven.
@@ -121,6 +128,14 @@ CONSOLE_ROUTES: dict[str, str | None] = {
     "/console/api/feedback": "console.feedback",
     "/console/api/cubes/{cube}/ai/deploy": "console.ai_deploy",
     "/console/api/cubes/{cube}/ai/remove": "console.ai_remove",
+    "/console/api/cubes/{cube}/ai/vision/uploads": "console.vision_upload",
+    "/console/api/cubes/{cube}/ai/vision/registrations": "console.vision_register",
+    # The Products tab's tag edits (§4.30).
+    "/console/api/manage/products/owner": "console.manage_set_owner",
+    "/console/api/manage/products/share": "console.manage_share",
+    "/console/api/manage/products/unshare": "console.manage_unshare",
+    # The page polls this every few seconds while a registration runs: a satellite.
+    "/console/api/cubes/{cube}/ai/vision/registrations/{reg_id}": None,
 }
 
 COUNTED_EVENTS: frozenset[str] = frozenset(v for v in CONSOLE_ROUTES.values() if v)

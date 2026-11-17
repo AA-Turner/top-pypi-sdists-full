@@ -15,6 +15,7 @@ import time
 
 from testmu_helper.evaluation import _compare, apply_transforms
 
+from testmu._v4._helpers.textual_analyzer.extractor import evaluate_wrapped
 from testmu._v4._helpers.textual_analyzer.heal import run_heal
 from testmu._v4._helpers.textual_analyzer.variables import fill_code, fill_text
 
@@ -130,7 +131,7 @@ async def textual_analyzer(
 
     # Happy path — every recorded locator visible.
     if not reprobe and not stale and len(handles) == len(locators):
-        value = await page.evaluate(wrapped_js, handles)
+        value = await evaluate_wrapped(page, wrapped_js, handles)
         return await _settle(page, value, wrapped_js, locators, expected_value, operator,
                              transforms, query)
 
@@ -194,7 +195,7 @@ async def _settle(page, value, wrapped_js, locators, expected_value, operator, t
         if stale or len(handles) != len(locators):
             continue
         try:
-            value = await page.evaluate(wrapped_js, handles)
+            value = await evaluate_wrapped(page, wrapped_js, handles)
         except Exception as e:  # noqa: BLE001 — a re-read that throws keeps the last answer
             _log.debug("[textual_analyzer] re-read failed: %s", e)
             continue

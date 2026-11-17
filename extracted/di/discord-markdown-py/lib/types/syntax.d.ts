@@ -40,7 +40,7 @@ export declare const Syntax: {
 	readonly LIST: number;
 	readonly QUOTE: number;
 	readonly MULTILINE_QUOTE: number;
-	readonly SMALL: number;
+	readonly SUBTEXT: number;
 	readonly DEV_LINKS: number;
 	readonly EMOJI: number;
 	readonly LINKS: number;

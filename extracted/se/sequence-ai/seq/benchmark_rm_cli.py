@@ -4,8 +4,8 @@
 A deleted benchmark is gone for good, at once: what it stores goes, its name and its place in your account's quota are free,
 a build in flight stops, and nothing can bring it back. The evals that ran it keep their reports and recordings, the
 recordings billed as storage until those evals are deleted. An eval running or waiting
-on it refuses the delete unless --force cancels it; --dry-run says what it would touch and does nothing. {the user 11-01:
-"delete is permanent no save"} `seq benchmark rm <name>@vN` deletes that version alone, the benchmark and its other
+on it refuses the delete unless --force cancels it; --dry-run says what it would touch and does nothing.
+ `seq benchmark rm <name>@vN` deletes that version alone, the benchmark and its other
 versions staying: every version is kept until you delete it.
 """
 from __future__ import annotations

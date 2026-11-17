@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: piper
-Version: 0.15.1
+Version: 0.15.2
 Summary: A lightweight python toolkit for gluing together restartable, robust command line pipelines
 Project-URL: Homepage, https://github.com/databio/pypiper/
 Author: Nathan Sheffield, Johanna Klughammer, Andre Rendeiro

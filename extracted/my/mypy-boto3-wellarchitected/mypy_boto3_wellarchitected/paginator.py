@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_wellarchitected.paginator import (
         ListAgentContextsPaginator,
         ListAgentGoalsPaginator,
+        ListAgentOrganizationalReportsPaginator,
         ListAgentProfilesPaginator,
         ListAgentRecommendationGenerationsPaginator,
         ListAgentRecommendationItemsPaginator,
@@ -25,6 +26,7 @@ Usage::
 
     list_agent_contexts_paginator: ListAgentContextsPaginator = client.get_paginator("list_agent_contexts")
     list_agent_goals_paginator: ListAgentGoalsPaginator = client.get_paginator("list_agent_goals")
+    list_agent_organizational_reports_paginator: ListAgentOrganizationalReportsPaginator = client.get_paginator("list_agent_organizational_reports")
     list_agent_profiles_paginator: ListAgentProfilesPaginator = client.get_paginator("list_agent_profiles")
     list_agent_recommendation_generations_paginator: ListAgentRecommendationGenerationsPaginator = client.get_paginator("list_agent_recommendation_generations")
     list_agent_recommendation_items_paginator: ListAgentRecommendationItemsPaginator = client.get_paginator("list_agent_recommendation_items")
@@ -44,6 +46,8 @@ from .type_defs import (
     ListAgentContextsResponseTypeDef,
     ListAgentGoalsRequestPaginateTypeDef,
     ListAgentGoalsResponseTypeDef,
+    ListAgentOrganizationalReportsRequestPaginateTypeDef,
+    ListAgentOrganizationalReportsResponseTypeDef,
     ListAgentProfilesRequestPaginateTypeDef,
     ListAgentProfilesResponseTypeDef,
     ListAgentRecommendationGenerationsRequestPaginateTypeDef,
@@ -63,6 +67,7 @@ else:
 __all__ = (
     "ListAgentContextsPaginator",
     "ListAgentGoalsPaginator",
+    "ListAgentOrganizationalReportsPaginator",
     "ListAgentProfilesPaginator",
     "ListAgentRecommendationGenerationsPaginator",
     "ListAgentRecommendationItemsPaginator",
@@ -109,6 +114,29 @@ class ListAgentGoalsPaginator(_ListAgentGoalsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/paginator/ListAgentGoals.html#WellArchitected.Paginator.ListAgentGoals.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/paginators/#listagentgoalspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListAgentOrganizationalReportsPaginatorBase = Paginator[
+        ListAgentOrganizationalReportsResponseTypeDef
+    ]
+else:
+    _ListAgentOrganizationalReportsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListAgentOrganizationalReportsPaginator(_ListAgentOrganizationalReportsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/paginator/ListAgentOrganizationalReports.html#WellArchitected.Paginator.ListAgentOrganizationalReports)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/paginators/#listagentorganizationalreportspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAgentOrganizationalReportsRequestPaginateTypeDef]
+    ) -> PageIterator[ListAgentOrganizationalReportsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/paginator/ListAgentOrganizationalReports.html#WellArchitected.Paginator.ListAgentOrganizationalReports.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/paginators/#listagentorganizationalreportspaginator)
         """
 
 

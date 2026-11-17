@@ -19,6 +19,10 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
     The key may arrive two ways:
       * ``Authorization: Bearer <key>`` — accepted on every host. This is the
         MCP / agent path and is the ONLY accepted form on ``/mcp`` + ``/tunnel``.
+        On an app-subdomain host only a ``cmcp_`` Bearer is treated as ours: any
+        other Bearer token is the in-cube app's own credential, so the request
+        authenticates by the cookie and the header goes to the app
+        (:func:`session_cookie.select_credential`).
       * a parent-domain session cookie — accepted on app-subdomain hosts (the
         browser app proxy front door) and, on the apex, ONLY under the explicit
         :data:`COOKIE_ALLOWED_APEX_PREFIXES` allowlist. The cookie is the
@@ -52,6 +56,7 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
       - key_description: str (human label for the key)
       - user_domain: str | None (email domain of the key's owner, when known)
       - user_email_hash: str | None (SHA-256 of the owner's email, when known)
+      - key_expires_at: int | None (epoch; set only on console keys)
     """
 
     # Paths that skip auth (health checks, browser login/logout).
@@ -128,13 +133,15 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
             or self._under_prefix(path, self._apex_cookie_prefixes())
         )
 
-        # Bearer always wins; cookie is a fallback only where permitted.
-        raw_key: str | None = None
-        auth_header = request.headers.get("authorization", "")
-        if auth_header.startswith("Bearer "):
-            raw_key = auth_header[7:]  # strip "Bearer "
-        elif cookie_allowed:
-            raw_key = request.cookies.get(session_cookie.SESSION_COOKIE_NAME)
+        # A cmcp_ Bearer key wins; the cookie is the fallback only where
+        # permitted. On an app subdomain a Bearer token that is not ours is the
+        # in-cube app's own, so it is left for the app (session_cookie.select_credential).
+        raw_key, _ = session_cookie.select_credential(
+            request.headers.get("authorization", ""),
+            request.cookies.get(session_cookie.SESSION_COOKIE_NAME),
+            host=host,
+            cookie_allowed=cookie_allowed,
+        )
 
         if not raw_key:
             return self._reject(request, cookie_allowed)
@@ -166,6 +173,9 @@ class APIKeyMiddleware(BaseHTTPMiddleware):
         request.state.key_description = item.get("description", "")
         request.state.user_domain = item.get("user_domain")
         request.state.user_email_hash = item.get("user_email_hash")
+        # Absent on every non-console key. `api_keys.console_user_email` needs it to
+        # tell a console key (whose address is verified) from an older one.
+        request.state.key_expires_at = item.get("expires_at")
         # actor_type ('user'/'bot'/'test') + bot_name (service label) are derived from
         # the key here so every telemetry row is self-describing — no join back
         # to the keys table needed to separate people from service agents.

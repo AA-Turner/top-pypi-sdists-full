@@ -206,6 +206,7 @@ class TestModels:
             project_id="projectId",
             after="after",
             limit=0,
+            order_by="orderBy",
             organization_id="organizationId",
             visibility="VISIBILITY_PRIVATE",
         )
@@ -360,6 +361,7 @@ class TestModels:
             organization_id="organizationId",
             after="after",
             limit=0,
+            order_by="orderBy",
         )
         assert_matches_type(SyncCursorPagination[Model], model, path=["response"])
 
@@ -478,6 +480,54 @@ class TestModels:
             assert_matches_type(SyncCursorPagination[SupportedModel], model, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_method_retrieve_org_model(self, client: Together) -> None:
+        model = client.models.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        )
+        assert_matches_type(Model, model, path=["response"])
+
+    @parametrize
+    def test_raw_response_retrieve_org_model(self, client: Together) -> None:
+        response = client.models.with_raw_response.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        model = response.parse()
+        assert_matches_type(Model, model, path=["response"])
+
+    @parametrize
+    def test_streaming_response_retrieve_org_model(self, client: Together) -> None:
+        with client.models.with_streaming_response.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            model = response.parse()
+            assert_matches_type(Model, model, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    def test_path_params_retrieve_org_model(self, client: Together) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `organization_id` but received ''"):
+            client.models.with_raw_response.retrieve_org_model(
+                organization_id="",
+                model_id="modelId",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `model_id` but received ''"):
+            client.models.with_raw_response.retrieve_org_model(
+                organization_id="organizationId",
+                model_id="",
+            )
 
     @parametrize
     def test_method_retrieve_supported(self, client: Together) -> None:
@@ -705,6 +755,7 @@ class TestAsyncModels:
             project_id="projectId",
             after="after",
             limit=0,
+            order_by="orderBy",
             organization_id="organizationId",
             visibility="VISIBILITY_PRIVATE",
         )
@@ -859,6 +910,7 @@ class TestAsyncModels:
             organization_id="organizationId",
             after="after",
             limit=0,
+            order_by="orderBy",
         )
         assert_matches_type(AsyncCursorPagination[Model], model, path=["response"])
 
@@ -977,6 +1029,54 @@ class TestAsyncModels:
             assert_matches_type(AsyncCursorPagination[SupportedModel], model, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_method_retrieve_org_model(self, async_client: AsyncTogether) -> None:
+        model = await async_client.models.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        )
+        assert_matches_type(Model, model, path=["response"])
+
+    @parametrize
+    async def test_raw_response_retrieve_org_model(self, async_client: AsyncTogether) -> None:
+        response = await async_client.models.with_raw_response.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        model = await response.parse()
+        assert_matches_type(Model, model, path=["response"])
+
+    @parametrize
+    async def test_streaming_response_retrieve_org_model(self, async_client: AsyncTogether) -> None:
+        async with async_client.models.with_streaming_response.retrieve_org_model(
+            organization_id="organizationId",
+            model_id="modelId",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            model = await response.parse()
+            assert_matches_type(Model, model, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @parametrize
+    async def test_path_params_retrieve_org_model(self, async_client: AsyncTogether) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `organization_id` but received ''"):
+            await async_client.models.with_raw_response.retrieve_org_model(
+                organization_id="",
+                model_id="modelId",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `model_id` but received ''"):
+            await async_client.models.with_raw_response.retrieve_org_model(
+                organization_id="organizationId",
+                model_id="",
+            )
 
     @parametrize
     async def test_method_retrieve_supported(self, async_client: AsyncTogether) -> None:

@@ -7,6 +7,8 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    FiniteFloat,
+    NonNegativeInt,
     PositiveFloat,
     PositiveInt,
     field_validator,
@@ -15,11 +17,25 @@ from pydantic import (
 
 from ..base import Base, LowercaseStrEnum, round_float
 from ..conformers import ConformerGenSettingsUnion, OpenConfSettings
-from ..pdb import PDB
+from ..pdb import PDB, ResidueAtomRef
 from ..types import UUID, ProteinUUID, Vector3D
 from .workflow import MoleculeWorkflow, ProteinStructureWorkflow
 
 CalculationUUID: TypeAlias = UUID
+
+
+def _validate_atom_ref(reference: int | ResidueAtomRef) -> int | ResidueAtomRef:
+    """Require named-atom references to identify an atom."""
+    if isinstance(reference, ResidueAtomRef):
+        residue = reference.residue
+        if not residue.key or (residue.entity_type == "polymer" and not residue.residue_key):
+            raise ValueError("Atom reference must identify a residue")
+        if not reference.atom_name.strip():
+            raise ValueError("Atom name must not be empty")
+    return reference
+
+
+AtomRef: TypeAlias = Annotated[NonNegativeInt | ResidueAtomRef, AfterValidator(_validate_atom_ref)]
 
 
 class Score(Base):
@@ -84,15 +100,15 @@ class GninaSettings(DockingSettings):
         covalent_ligand_atom_index: 0-based all-atom index of the reacting ligand atom
             (includes hydrogens)
 
-        covalent_protein_atom_index: 0-based all-atom index of the reacting protein atom
-            (in PDB file order, includes hydrogens)
+        covalent_protein_atom_index: zero-based all-atom index of the reacting protein atom
+            (in PDB file order, includes hydrogens), or named-atom reference resolved during preparation
     """
 
     settings_type: Literal["gnina"] = "gnina"
     exhaustiveness: int = 8
     scoring_function: Literal["gnina_cnn", "vina"] = "gnina_cnn"
     covalent_ligand_atom_index: int | None = None
-    covalent_protein_atom_index: int | None = None
+    covalent_protein_atom_index: AtomRef | None = None
 
     @model_validator(mode="after")
     def check_covalent_fields(self) -> Self:
@@ -128,6 +144,9 @@ class InducedFitSettings(BaseModel):
 class VinaSettings(DockingSettings):
     """Controls how AutoDock Vina is run.
 
+    `executable="heron"` uses Heron's fixed private-state search, as does
+    `HeronSettings`.
+
     Attributes:
         settings_type: docking-settings discriminator, fixed to `vina`
         max_poses: inherited maximum number of poses generated per input molecule
@@ -150,6 +169,97 @@ class VinaSettings(DockingSettings):
         if self.executable == "heron" and self.scoring_function != "vinardo":
             raise ValueError("Heron implements Vinardo scoring only.")
         return self
+
+
+class DockingDistanceRestraint(BaseModel):
+    """Harmonic distance restraint between a ligand atom and a protein atom.
+
+    Preparation resolves named protein atoms before calling the docking engine.
+
+    Attributes:
+        type: restraint discriminator
+        ligand_atom_index: zero-based all-atom index in the separately supplied ligand, including hydrogens
+        protein_atom_index: zero-based all-atom index in the separately supplied protein, including hydrogens,
+            or named-atom reference in that protein
+        target: target distance in Å
+        force_constant: spring constant in kcal/mol/Å² for `0.5*k*(r-target)^2`
+    """
+
+    type: Literal["distance"] = "distance"
+    ligand_atom_index: NonNegativeInt
+    protein_atom_index: AtomRef
+    target: Annotated[FiniteFloat, Field(ge=0)]
+    force_constant: Annotated[FiniteFloat, Field(ge=0)] = 10
+
+
+class DockingPositionRestraint(BaseModel):
+    """Harmonic tether of one ligand atom to an absolute position.
+
+    Attributes:
+        type: restraint discriminator
+        ligand_atom_index: zero-based all-atom ligand index, including hydrogens
+        position: target Cartesian position in Å in the receptor coordinate frame
+        force_constant: spring constant in kcal/mol/Å² for `0.5*k*|r-position|²`
+    """
+
+    type: Literal["position"] = "position"
+    ligand_atom_index: NonNegativeInt
+    position: tuple[FiniteFloat, FiniteFloat, FiniteFloat]
+    force_constant: Annotated[FiniteFloat, Field(ge=0)] = 10
+
+
+DockingRestraint: TypeAlias = Annotated[DockingDistanceRestraint | DockingPositionRestraint, Field(discriminator="type")]
+
+
+class HeronSettings(DockingSettings):
+    """Configure Heron docking with Vinardo scoring and optional harmonic restraints.
+
+    Ordinary search uses four serial 250,000-call chunks and retains at most five poses.
+    Both covalent atom indices together select prepared-product covalent docking;
+    they identify the attachment and do not define missing product chemistry.
+    `max_poses` limits delivered poses without changing the search budget.
+    Exhaustiveness, scoring overrides and custom weights are unsupported.
+    Local optimization and score-only operations use the same Vinardo objective.
+
+    Attributes:
+        settings_type: docking-settings discriminator, fixed to `heron`
+        max_poses: maximum number of delivered poses per input molecule
+        seed: deterministic search seed in Heron's public seed domain
+        restraints: harmonic protein–ligand distance restraints and ligand position
+            tethers, phased in during local search
+        covalent_ligand_atom_index: zero-based reacting ligand atom index, including hydrogens
+        covalent_protein_atom_index: zero-based reacting protein atom index in PDB file order, including hydrogens,
+            or named-atom reference resolved during preparation
+    """
+
+    settings_type: Literal["heron"] = "heron"
+    seed: Annotated[int, Field(ge=1, le=2147483647)] = 1
+
+    restraints: list[DockingRestraint] = []
+    covalent_ligand_atom_index: NonNegativeInt | None = None
+    covalent_protein_atom_index: AtomRef | None = None
+
+    @model_validator(mode="after")
+    def check_covalent_fields(self) -> Self:
+        """Require both reacting atom indices together."""
+        if (self.covalent_ligand_atom_index is None) != (self.covalent_protein_atom_index is None):
+            raise ValueError("Both covalent atom indices must be supplied together")
+        return self
+
+    @property
+    def is_covalent(self) -> bool:
+        """Return whether covalent docking is selected."""
+        return self.covalent_ligand_atom_index is not None
+
+    @property
+    def executable(self) -> Literal["heron"]:
+        """Return the fixed executable identifier."""
+        return "heron"
+
+    @property
+    def scoring_function(self) -> Literal["vinardo"]:
+        """Return the fixed scoring function."""
+        return "vinardo"
 
 
 class TurboDockPreset(LowercaseStrEnum):
@@ -216,7 +326,7 @@ _TURBODOCK_PRESETS = {
 }
 
 
-DockingSettingsUnion = Annotated[VinaSettings | GninaSettings, Field(discriminator="settings_type")]
+DockingSettingsUnion = Annotated[VinaSettings | HeronSettings | GninaSettings, Field(discriminator="settings_type")]
 
 
 class DockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
@@ -366,7 +476,7 @@ class AnalogueDockingWorkflow(MoleculeWorkflow, ProteinStructureWorkflow):
     num_conformers_per_analogue: PositiveInt = 20
     require_posebusters: bool = False
     run_local_optimization: bool = False
-    docking_settings: VinaSettings = VinaSettings()
+    docking_settings: Annotated[VinaSettings | HeronSettings, Field(discriminator="settings_type")] = VinaSettings()
 
     analogue_scores: dict[str, list[Score]] = {}
 

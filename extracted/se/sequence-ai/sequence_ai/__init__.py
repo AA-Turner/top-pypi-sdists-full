@@ -59,7 +59,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable
-from typing import Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator
 
 from ._core.names import segment
 
@@ -87,6 +87,9 @@ from ._core import mock_gate
 
 
 from . import gpu
+
+if TYPE_CHECKING:
+    from .network.link import Link
 from ._core.reporting import INGEST_PATH, Reporter, connect_record, latency_record, run_record
 from .errors import (
     AuthError,
@@ -236,9 +239,10 @@ def connect(
     on_resume: Callable[[Stale], None] | None = None,
     teleop: Any = None,
     hold: Any = None,
-) -> Policy | TeleopHandle | tuple[Policy | TeleopHandle, ...]:
+) -> Policy | TeleopHandle | Link | tuple[Policy | TeleopHandle, ...]:
     """
-    Open a connection to one policy, or to several at once - or to teleop, alone or among them.
+    Open a connection to one policy, or to several at once - or to teleop, alone or among them - or to a policy server
+    of your own, by its address.
 
     What `act()` returns is what the deployment's own act function returned: the
     platform converts nothing. What they mean — joint velocities, deltas, absolute targets — is the
@@ -249,6 +253,11 @@ def connect(
                 for a robot a person drives, which needs no policy and no machine. Each name must be on this robot's list
                 (`seq robot set <robot> policies=…`); one off the list is refused. A robot is picked out by its key, so
                 you never write the robot's name here.
+                Or the address of a policy server of your own, `connect("http://your-gpu:8000")`: the connection goes
+                straight to it with the network components on it (sequence_ai.network.connect) and nothing of the
+                platform in between - no key, no robot, nothing billed. What comes back is a sequence_ai.network.Link,
+                with the same two calls, observe() and act(). An address is given alone, and of the options below
+                only timeout_s applies to it.
     *more       more names to connect to in the same call, each also on the robot's list: `connect("pick_user",
                 "place_user", "teleop")`. One name returns one handle, as before; several return a tuple of handles in
                 that order, each policy its own connection on its own worker (each billed, so connect only the ones you
@@ -297,7 +306,7 @@ def connect(
                 steps, each list empty, each dict's values emptied alike, any other value (a string, a number) None -
                 {} before one.
 
-    With "teleop" among the names (it needs sequence-ai[teleop], Python 3.10 or later: pip install
+    With "teleop" among the names (it needs sequence-ai[teleop], Python 3.11 or later: pip install
     'sequence-ai[teleop]'), a person can watch and drive this robot from a console holding its key
     (sequence_ai.teleop), connected straight to it. Its observe() sends every step to its consoles; while a person
     drives it, act() - of any handle of this connect - hands back the newest chunk they sent at once, with no network
@@ -333,6 +342,8 @@ def connect(
         raise InvalidRequest(TELEOP_NAMED)
     if policy is not None:
         raise InvalidRequest(PLANNERS_GONE)
+    if "://" in model:
+        return _own_server(model, more, timeout_s)
     names = (model, *more)
     drives = _teleop_link.NAME in names
     if hold is not None and not drives:
@@ -360,6 +371,15 @@ def connect(
     return handles[0] if not more else tuple(handles)
 
 
+def _own_server(url: str, more: tuple, timeout_s: float | None) -> Link:
+    """connect()'s way to a policy server of your own: its address in place of a policy's name, the network components
+    on one connection to it (sequence_ai.network.connect), and nothing of the platform asked or told."""
+    if more:
+        raise InvalidRequest(f"a policy server of your own is connected to alone: connect({url!r}) takes no other name")
+    from .network import link as _link
+    return _link.connect(url) if timeout_s is None else _link.connect(url, timeout=timeout_s)
+
+
 def teleop(policy: Any = None, *, key: str | None = None, operator: str | None = None, base_url: str | None = None,
            timeout_s: float | None = None) -> Teleop:
     """
@@ -379,7 +399,7 @@ def teleop(policy: Any = None, *, key: str | None = None, operator: str | None =
     base_url    defaults to $SEQUENCES_BASE_URL, then the platform's gateway
     timeout_s   how long the platform's answers may take, 10 s unset; meeting the robot takes 15 s at least
 
-    It needs sequence-ai[teleop] (Python 3.10 or later): pip install 'sequence-ai[teleop]'. The robot must be connected,
+    It needs sequence-ai[teleop] (Python 3.11 or later): pip install 'sequence-ai[teleop]'. The robot must be connected,
     with "teleop" among its names: Conflict while it is not (details.reason "robot_not_connected"), and for a robot whose
     list does not name teleop ("teleop_not_listed"). Unavailable, saying why, where the two cannot reach each other
     (details.reason "direct_failed": both behind symmetric NAT, a network that lets no UDP out...): nothing goes any

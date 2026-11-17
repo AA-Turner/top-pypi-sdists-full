@@ -52,6 +52,7 @@ from pytest_gremlins import (
     node_id_args,
     process_tree,
 )
+from pytest_gremlins.addopts import inherited_addopts_tokens
 from pytest_gremlins.argument_files import expand_argument_files
 from pytest_gremlins.cache.hasher import ContentHasher
 from pytest_gremlins.cache.incremental import (
@@ -1150,7 +1151,6 @@ def pytest_configure(config: pytest.Config) -> None:
     xdist_active = xdist_numprocesses not in (None, 0)
 
     rootdir = _get_rootdir(config)
-    _reject_argument_files_gremlin_runs_cannot_read(config, rootdir)
 
     cli_max_pardons_pct, cli_max_pardons = _read_validated_pardon_limits(config)
 
@@ -1434,6 +1434,7 @@ def pytest_collection_finish(session: pytest.Session) -> None:
     source_files = _discover_source_files(session, gremlin_session)
     gremlin_session.source_files = source_files
     if source_files:
+        _reject_argument_files_gremlin_runs_cannot_read(session.config, rootdir)
         tests = [(item.path, node_id) for item, node_id in zip(session.items, normalized_node_ids, strict=True)]
         _reject_node_ids_gremlin_runs_cannot_resolve(tests, rootdir)
 
@@ -2796,6 +2797,7 @@ def _rebuild_state_from_xdist_workers(
     source_files = _discover_source_files(session, gremlin_session)
     gremlin_session.source_files = source_files
     if source_files:
+        _reject_argument_files_gremlin_runs_cannot_read(session.config, rootdir)
         _reject_node_ids_gremlin_runs_cannot_resolve(_xdist_tests_by_claimed_file(normalized, rootdir), rootdir)
     _hash_sources_and_tests_for_cache(
         gremlin_session,
@@ -3195,15 +3197,14 @@ def _arguments_gremlin_runs_inherit(config: pytest.Config) -> list[str]:
 
 def _unexpanded_inherited_arguments(config: pytest.Config) -> list[str]:
     """Return the ``addopts`` and ``PYTEST_ADDOPTS`` tokens, with each ``@file`` argument still unexpanded."""
-    try:
-        pytest_addopts_args = shlex.split(os.environ.get('PYTEST_ADDOPTS', ''))
-    except ValueError:
-        pytest_addopts_args = []
-    return [*config.getini('addopts'), *pytest_addopts_args]
+    return [*config.getini('addopts'), *inherited_addopts_tokens(os.environ)]
 
 
 def _reject_argument_files_gremlin_runs_cannot_read(config: pytest.Config, rootdir: Path) -> None:
-    """Stop the run when an inherited relative ``@file`` exists only from the session's starting directory (#686)."""
+    """Stop a run that has sources to mutate when an inherited relative ``@file`` exists only from the session's start.
+
+    The file is looked up from the directory the session started in and from the rootdir (#686, #973).
+    """
     session_dir = config.invocation_params.dir
     unreadable = argument_files_only_the_session_can_read(_unexpanded_inherited_arguments(config), session_dir, rootdir)
     if unreadable:
@@ -4490,7 +4491,7 @@ def _print_dropped_tests(dropped: list[str], runnable_candidates: list[str]) -> 
     print(f'  Covering minus selected ({len(dropped)} dropped):')
     for key in dropped:
         print(f'    dropped    : {key!r}')
-        print(f'    stripped   : {_drop_bracketed_suffix(key)!r}')
+        print(f'    stripped   : {strip_marker_suffix(key)!r}')
         print(f'    close match: {_close_matches_display(key, runnable_candidates)}')
 
 
@@ -4573,23 +4574,6 @@ def _format_cache_report(*, cache_hits: int, settled_without_running: int, to_te
     """
     settled = f', {settled_without_running} settled without running' if settled_without_running else ''
     return f'pytest-gremlins: {cache_hits} gremlins from cache{settled}, {to_test} to test'
-
-
-def _drop_bracketed_suffix(nodeid: str) -> str:
-    """Return ``nodeid`` with a trailing ``' [...]'`` marker suffix removed.
-
-    Shares its rule (:func:`strip_marker_suffix`) with the coverage subprocess
-    bootstrap (`_strip_nodeid_markers`).  Used only by
-    :func:`_emit_selection_explainer` to show the reader the shape the
-    subprocess would record for a drifted key.
-
-    Examples:
-        >>> _drop_bracketed_suffix('tests/test_foo.py::test_bar [SMALL]')
-        'tests/test_foo.py::test_bar'
-        >>> _drop_bracketed_suffix('tests/test_foo.py::test_bar')
-        'tests/test_foo.py::test_bar'
-    """
-    return strip_marker_suffix(nodeid)
 
 
 def _run_mutation_testing(
@@ -4699,23 +4683,11 @@ def _run_gremlins_one_by_one(
 def _node_id_for_test(test_name: str, gremlin_session: GremlinSession) -> str:
     """Resolve a selected test name to its node id, or '' when it has none.
 
-    Test names can be in different formats (simple function, module.function, TestClass.method), so this
-    tries variations to find the corresponding node ID.
+    Every caller passes the selection :func:`_select_tests_for_gremlin_prioritized` already filtered to keys of
+    ``test_node_ids`` (#571), so no fallback to a bare or dotted name is needed (#589). A name that is not a key
+    still resolves to '', which keeps its gremlin out of the cache.
     """
-    node_id = gremlin_session.test_node_ids.get(test_name, '')
-    if not node_id:
-        simple_name = test_name.rsplit('.', maxsplit=1)[-1]
-        node_id = gremlin_session.test_node_ids.get(simple_name, '')
-    if not node_id:
-        # Coverage map may use bare function names (old-format dynamic_context)
-        # while test_node_ids is keyed by full node ID.  Use the reverse index
-        # for O(1) lookup instead of O(n) linear suffix scan.
-        candidates = gremlin_session.test_name_to_node_ids.get(test_name, [])
-        if not candidates:
-            candidates = gremlin_session.test_name_to_node_ids.get(test_name.rsplit('.', maxsplit=1)[-1], [])
-        if candidates:
-            node_id = candidates[0]
-    return node_id
+    return gremlin_session.test_node_ids.get(test_name, '')
 
 
 def _build_test_hashes_for_gremlin(

@@ -676,7 +676,7 @@ def check_skills_index(root):
             in_section = line.startswith("## Skills Span Every Domain")
             continue
         if in_section and line.lstrip().startswith("- "):
-            listed.update(re.findall(r"`([a-z][a-z0-9-]+)`", line))
+            listed.update(_BACKTICKED_NAME_RX.findall(line))
     dirs = {d.name for d in skills_dir.iterdir() if d.is_dir() and (d / "SKILL.md").is_file()}
     dirs.discard("meta-using-bitranox-skills")
     stale = sorted(listed - dirs)
@@ -686,6 +686,8 @@ def check_skills_index(root):
     return []
 
 
+#: a backtick-quoted skill name on a roster bullet line
+_BACKTICKED_NAME_RX = re.compile(r"`([a-z][a-z0-9-]+)`")
 _CREDIT_RX = re.compile(r"(?m)^>\s*Adapted from .+\(.+\)\.")
 _NOTICE_HEADING_RX = re.compile(r"(?m)^###\s+([a-z][a-z0-9-]+)\s*$")
 
@@ -800,6 +802,26 @@ def _denylist_terms(root):
     return []
 
 
+#: the largest tracked file the secret scan reads; a bigger one is skipped unscanned
+_SECRET_SCAN_CAP = 2_000_000
+
+
+def _read_capped(path, cap):
+    """The bytes of `path`, or None when it cannot be read or holds more than `cap` bytes.
+
+    The size is decided before the content is loaded: a skipped file must not cost its whole
+    size in memory first, and reading cap + 1 bytes still catches a file that grew after the
+    stat."""
+    try:
+        with open(path, "rb") as fh:
+            if os.fstat(fh.fileno()).st_size > cap:
+                return None
+            raw = fh.read(cap + 1)
+    except OSError:
+        return None
+    return None if len(raw) > cap else raw
+
+
 def check_secrets(root):
     """Block credentials, private keys, sensitive files, and (locally) denylisted infra terms.
     Runs on every commit and PR, so the credential class of leak can never land. The judgment
@@ -812,13 +834,9 @@ def check_secrets(root):
     for rel in paths:
         if _SENSITIVE_NAME_RX.search(rel):
             findings.append(f"  {rel}: sensitive filename")
-        fp = root / rel
-        try:
-            raw = fp.read_bytes()
-        except OSError:
-            continue
-        if b"\x00" in raw[:4096] or len(raw) > 2_000_000:
-            continue  # binary or oversized
+        raw = _read_capped(root / rel, _SECRET_SCAN_CAP)
+        if raw is None or b"\x00" in raw[:4096]:
+            continue  # unreadable, oversized or binary
         text = raw.decode("utf-8", "replace")
         # The credential formats and the real-key-block rule live in secret_patterns, shared
         # with recall and the classifier's egress redaction.
@@ -1014,7 +1032,17 @@ def _launcher_lacks(launcher, root, modules, run):
 PYTEST_SLACK = 0.02
 BASELINE_FILE = "pytest_baseline.json"
 
-_PYTEST_SUMMARY_RX = re.compile(r"^\d+ (passed|failed).*", re.MULTILINE)
+#: pytest's closing count line ("2 failed, 1 passed in 0.1s", "1 error in 0.1s"). Matched on text
+#: with ANSI escapes removed (`_without_ansi`): pytest colours a pipe too under FORCE_COLOR, which
+#: the Claude Code harness exports, and the commit hook runs there.
+_PYTEST_SUMMARY_RX = re.compile(
+    r"^\d+ (?:failed|passed|skipped|deselected|xfailed|xpassed|warnings?|errors?)\b.*", re.MULTILINE)
+_ANSI_RX = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
+
+
+def _without_ansi(text):
+    """``text`` with its ANSI escape sequences removed."""
+    return _ANSI_RX.sub("", text)
 
 
 def expected_collected(root):
@@ -1084,6 +1112,94 @@ def floor_problems(report, baseline):
     return []
 
 
+#: How many failing tests a failed run lists one by one; the rest are counted, never dropped.
+PYTEST_FAILURES_SHOWN = 60
+#: The longest first error line shown per failure, in characters.
+_FAILURE_LINE_MAX = 300
+
+
+def _junit_node_id(case):
+    """The pytest node id of a junit (xunit1) `testcase`, rebuilt from its file, classname and name."""
+    file, classname, name = case.get("file") or "", case.get("classname") or "", case.get("name") or ""
+    if not file:
+        return "%s::%s" % (classname, name) if classname else name
+    module = re.sub(r"\.py$", "", file.replace("\\", "/")).replace("/", ".")
+    inner = classname[len(module) + 1:] if classname.startswith(module + ".") else ""
+    return "::".join([file.replace("\\", "/"), *([inner.replace(".", "::")] if inner else []), name])
+
+
+def _first_error_line(element):
+    """The first `E ` line of a junit failure or error, else the first line of its message."""
+    for line in (element.text or "").splitlines():
+        if line.startswith("E ") and line[1:].strip():
+            return line[1:].strip()[:_FAILURE_LINE_MAX]
+    message = (element.get("message") or "").strip()
+    return (message.splitlines()[0] if message else element.tag)[:_FAILURE_LINE_MAX]
+
+
+def _junit_testcases(report):
+    """Yield each `testcase` element of a junit report as it is parsed, then drop it.
+
+    A testcase is removed from its parent once yielded, so memory holds the element being read,
+    not every testcase seen so far: `clear()` alone leaves each emptied element attached to its
+    testsuite (about 90 bytes apiece, 17 MB at 200,000 cases). Raises OSError or ET.ParseError."""
+    stack = []
+    for event, element in ET.iterparse(str(report), events=("start", "end")):
+        if event == "start":
+            stack.append(element)
+            continue
+        stack.pop()
+        if element.tag == "testcase":
+            yield element
+            element.clear()
+            if stack:
+                stack[-1].remove(element)
+
+
+def failure_report(report, text=""):
+    """Lines naming every failed or errored test of a junit report, or [] when it cannot be read.
+
+    The run's output tail used to be the whole report: measured 2026-11-17, a run with 69 failures
+    in two directories showed 14 FAILED ids from one of them and no error text, so a second
+    ten-minute run was needed to learn what else had failed. Every failing test is counted in a
+    per-directory tally; the first `PYTEST_FAILURES_SHOWN` are listed with their first `E` line,
+    labelled FAILED for a `<failure>` and ERROR for an `<error>` (setup, teardown, collection), and
+    the rest counted. Streamed (`_junit_testcases`), so memory holds the listed lines and the
+    tally, never the report: a growth-ratio test pins it.
+    """
+    shown, tally, counts = [], {}, {"failure": 0, "error": 0}
+    try:
+        for case in _junit_testcases(report):
+            bad = next((child for child in case if child.tag in ("failure", "error")), None)
+            if bad is None:
+                continue
+            counts[bad.tag] += 1
+            node = _junit_node_id(case)
+            directory = node.split("::", 1)[0].rpartition("/")[0] or "."
+            tally[directory] = tally.get(directory, 0) + 1
+            if len(shown) < PYTEST_FAILURES_SHOWN:
+                label = "FAILED" if bad.tag == "failure" else "ERROR"
+                shown.append("  %s %s - %s" % (label, node, _first_error_line(bad)))
+    except (OSError, ET.ParseError):
+        return []
+    total = counts["failure"] + counts["error"]
+    if not total:
+        return []
+    summaries = [match.group(0) for match in _PYTEST_SUMMARY_RX.finditer(_without_ansi(text))]
+    counted = ", ".join(part for part in (
+        "%d failed" % counts["failure"] if counts["failure"] else "",
+        "%d error%s" % (counts["error"], "" if counts["error"] == 1 else "s") if counts["error"] else "",
+    ) if part)
+    head = "pytest failed: %s" % (summaries[-1].strip() if summaries else counted)
+    by_count = sorted(tally.items(), key=lambda item: (-item[1], item[0]))
+    lines = [head, "  failures per directory: " + ", ".join("%s %d" % pair for pair in by_count)]
+    lines += shown
+    if total > len(shown):
+        lines.append("  ... and %d more failure(s), counted in the per-directory tally above."
+                     % (total - len(shown)))
+    return lines
+
+
 def check_pytest(root, paths, baseline=0, launcher=None):
     target = [p for p in paths if p.exists()]
     if not target:
@@ -1094,7 +1210,9 @@ def check_pytest(root, paths, baseline=0, launcher=None):
 
 
 def _check_pytest_run(root, target, report, baseline, launcher=None):
-    cmd = pytest_argv(root, target, launcher) + ["--junitxml=" + str(report)]
+    # xunit1 adds each test's `file`, which `failure_report` needs to rebuild the node id.
+    cmd = pytest_argv(root, target, launcher) + ["--junitxml=" + str(report),
+                                                 "-o", "junit_family=xunit1"]
     try:
         # encoding is explicit because text=True alone decodes with the machine locale codec,
         # which is cp1252 on a German Windows and corrupts any non-ASCII test output.
@@ -1110,14 +1228,15 @@ def _check_pytest_run(root, target, report, baseline, launcher=None):
     if out.returncode != 0:
         tail = [f"  {ln}" for ln in text.strip().splitlines()[-15:]]
         if out.returncode == 1:
-            return ["pytest failed:"] + tail  # tests ran and some failed: a finding
+            # tests ran and some failed: a finding. Named from the junit report, every one of them.
+            return failure_report(report, text) or ["pytest failed:"] + tail
         # 2 interrupted (a module that cannot be imported lands here), 3 internal error, 4 usage
         # error, negative a signal: pytest produced no test result to judge.
         return could_not_run(["pytest did not complete (exit %d):" % out.returncode] + tail)
     problems = floor_problems(report, baseline)
     if problems:
         return problems
-    summary = _PYTEST_SUMMARY_RX.search(text)
+    summary = _PYTEST_SUMMARY_RX.search(_without_ansi(text))
     if summary:  # the gate used to discard this, leaving CI with no evidence any test ran
         print("  pytest: " + summary.group(0).strip())
     return []
@@ -1749,6 +1868,8 @@ MIRRORED_SKILLS = mirrored_skills.MIRRORED_SKILLS
 #: against a whole blockquote rather than one line, because it wraps over several and a
 #: line-at-a-time rule leaves the continuation behind and reports it as drift.
 _SELF_INSTALL_RX = re.compile(r"/plugin marketplace add|/plugin install", re.I)
+#: a trailing parenthetical on an H1, the per-repo part of a mirrored skill's title
+_H1_PAREN_RX = re.compile(r"\s*\([^()]*\)\s*$")
 
 
 def _public_tree(root):
@@ -1802,7 +1923,7 @@ def normalise_mirror(text):
         if line.startswith("name:"):
             lines.append("name: <per-repo>")
         elif line.startswith("# "):
-            lines.append(re.sub(r"\s*\([^()]*\)\s*$", " (<per-repo>)", line))
+            lines.append(_H1_PAREN_RX.sub(" (<per-repo>)", line))
         else:
             lines.append(line)
     # A dropped blockquote leaves a blank line behind on the side that carried it.
@@ -2260,8 +2381,10 @@ _UNSTAGED_MARK = "is modified but not staged"
 def _unstaged_message(name, skill_dir, differing, stage):
     """The refusal for a commit whose mirror fix is on disk but not in what the commit takes."""
     named = isinstance(stage, CommitSelection) and stage.mode in ("only", "include")
+    # "Earlier" because the gate judges the whole command before any of it runs: a `git add` in
+    # the same command as the commit is not in the index the gate reads.
     remedy = ("name it among the commit's paths too - this commit takes only the paths it names"
-              if named else "git add it and commit again")
+              if named else "git add it in an earlier, separate command, then commit again")
     return ("skills/%s: %s %s in %s - the file on disk already matches its twin, but what this "
             "commit takes does not. Nothing needs regenerating: %s."
             % (name, ", ".join(differing[:6]), _UNSTAGED_MARK, skill_dir, remedy))
@@ -2353,14 +2476,56 @@ def mirror_failures(root, names, committing=None, stage=STAGE_INDEX, notices=Non
         dirs = {"marketplace": here_dir, "twin": twin_dir}
         notes = stale_ref_notes([dirs[side] for side in from_published])
         between = "\n    %s\n    " % "\n    ".join(notes) if notes else " "
+        shown, against = differing, ""
+        if committing == "marketplace":
+            closest = _closest_twin_checkout(twin_dir, mine_files, (differing, sample), lenient)
+            if closest is not None:
+                # Header and lines from ONE reading, so the lines never name a file the header omits.
+                where, kind, (shown, near_sample) = closest
+                against = "; against its closest checkout %s, at its %s text" % (where, kind)
+                detail = ("\n      ".join(near_sample[:6]) if near_sample
+                          else "\n      ".join(shown[:6]))
         fails.append(
-            "skills/%s has drifted from its twin at %s (%d differing file(s): %s). Regenerate the "
+            "skills/%s has drifted from its twin at %s (%d differing file(s)%s: %s). Regenerate the "
             "stale side from the other, re-apply only the three divergences (the `name:` line, a "
             "trailing `(<name>)` on the H1 - the H1 text before it must match - and the "
             "self-install blockquote), and bump that repo's plugin.json.%sFirst lines:\n      %s"
-            % (name, relative, len(differing), ", ".join(differing[:6]), between, detail)
+            % (name, relative, len(shown), against, ", ".join(shown[:6]), between, detail)
         )
     return fails
+
+
+def _difference_size(differences):
+    """How far apart two readings are: (differing files, changed SKILL.md lines), smaller is closer."""
+    differing, sample = differences
+    return len(differing), len(sample)
+
+
+def _closest_twin_checkout(twin_dir, mine_files, published, lenient):
+    """(checkout, reading, differences) of the tool-repo checkout CLOSER to the marketplace text
+    than the twin's published reading ``published``, or None when none is.
+
+    A drift message's "First lines" diff against the published twin shows the change both sides
+    made when the twin edit sits in a linked worktree of the tool repo, and hides the residue that
+    actually blocks. Measured 2026-11-17 shipping 11.10.2: the twin's gate reformatted a code
+    example in a worktree, and three refusals showed the shared edit, never the blank line and the
+    comment spacing that differed. Every checkout of the twin counts: the one at ``twin_dir`` (whose
+    committed text ``published`` already is) and every other one `_tool_worktrees` names, each at
+    its committed text and, on a commit (``lenient``), at its uncommitted text too - the readings a
+    commit accepts (`_twin_held_in_tool_worktree`, `_matches_uncommitted_other_side`)."""
+    best, best_size = None, _difference_size(published)
+    candidates = [(twin_dir, None)] + [(other, published_files(other)) for other in _tool_worktrees(twin_dir)]
+    for other, committed in candidates:
+        readings = [] if committed is None else [("committed", committed)]
+        if lenient:
+            readings.append(("uncommitted", mirror_files(other)))
+        for kind, files in readings:
+            if not files:
+                continue
+            differences = _mirror_differences(mine_files, files)
+            if _difference_size(differences) < best_size:
+                best, best_size = (other, kind, differences), _difference_size(differences)
+    return best
 
 
 def _tool_worktrees(twin_dir):
@@ -3539,10 +3704,11 @@ def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=Fals
                 unpushed.add(name)
                 fails.append(_unpushed_message(name, *held))
             else:
-                fails += refusals[0][0]  # the checkout a push would read is the one to report
+                reported, records = _refusal_to_report(refusals)
+                fails += reported
                 # Its decision refusals only: every checkout read refuses alike, and a refusal of
                 # one the gate passed through never blocked anything.
-                for record in refusals[0][1]:
+                for record in records:
                     log(record)
     if not fails:
         _say_context(notices)
@@ -3575,6 +3741,21 @@ def gate_tool_repo_mirror(root, stage=STAGE_INDEX, guessed=False, publishes=Fals
     if guessed:
         lines.append(_FALLBACK_NOTE % root)
     return shell_text.refuse("\n".join(lines))
+
+
+def _refusal_to_report(refusals):
+    """The (failures, decision records) of one marketplace checkout's refusal, the one to show.
+
+    The checkout a push would read (the first) by default. But when another checkout refused only
+    because the tool repo's fix sits on disk unstaged (`_UNSTAGED_MARK`), that is the one to show:
+    staging the file makes the commit pass against it, while the first checkout's refusal says
+    regenerate and bump, text that is already right. Measured 2026-11-17 (lib_layered_config
+    9670b44): the matching marketplace text sat committed in a linked worktree, the main
+    checkout's refusal was shown, and staging SKILL.md made the identical commit pass."""
+    for failures, records in refusals:
+        if any(_UNSTAGED_MARK in failure for failure in failures):
+            return failures, records
+    return refusals[0]
 
 
 def _unpushed_holder(marketplace, name, stage, twins, mirrors):

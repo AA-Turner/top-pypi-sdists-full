@@ -38,10 +38,9 @@ from typing import Any, Literal, cast
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
-    from typing import Final, TypeAlias, TypedDict
+    from typing import Final, Self, TypeAlias, TypedDict
 
     from _typeshed import SupportsRichComparison
-    from typing_extensions import Self
 
     class OptionsType(TypedDict):
         title: str | None
@@ -178,6 +177,25 @@ class ObservableDict(dict[str, Any]):
         if self.callback is not None and old_value != value:
             self.callback(key, old_value, value)
         super().__setitem__(key, value)
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> Self:
+        """Return a deep copy without triggering the callback.
+
+        The default deepcopy sets the callback before restoring the items, so
+        each item would trigger the callback on a table that is only partly
+        copied.
+
+        Arguments:
+            memo: The memo dictionary passed by copy.deepcopy
+        """
+        import copy
+
+        new = type(self)()
+        memo[id(self)] = new
+        for key, value in self.items():
+            dict.__setitem__(new, copy.deepcopy(key, memo), copy.deepcopy(value, memo))
+        new.callback = copy.deepcopy(self.callback, memo)
+        return new
 
 
 @lru_cache
@@ -2956,9 +2974,12 @@ class PrettyTable:
             wanted_fields = self._field_names
 
         wanted_alignments = [self._align[field] for field in wanted_fields]
-        if options["border"] and options["vrules"] == VRuleStyle.ALL:
-            alignment_str = "|".join(wanted_alignments)
-        elif not options["border"] and options["preserve_internal_border"]:
+        if (
+            options["border"]
+            and options["vrules"] == VRuleStyle.ALL
+            or not options["border"]
+            and options["preserve_internal_border"]
+        ):
             alignment_str = "|".join(wanted_alignments)
         else:
             alignment_str = "".join(wanted_alignments)
@@ -3200,8 +3221,7 @@ def _make_table_handler():
             for row in self.rows:
                 if len(row[0]) < self.max_row_width:
                     appends = self.max_row_width - len(row[0])
-                    for i in range(1, appends):
-                        row[0].append("-")
+                    row[0].extend(["-"] * appends)
 
                 if row[1]:
                     self.make_fields_unique(row[0])

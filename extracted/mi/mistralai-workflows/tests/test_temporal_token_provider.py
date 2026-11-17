@@ -15,6 +15,7 @@ from pydantic import SecretStr
 from temporalio.runtime import Runtime
 
 from mistralai.workflows.core.auth import FileTokenProvider, StaticTokenProvider, TokenWithMaxAge
+from mistralai.workflows.core.auth.startup_read import CREDENTIALS_STARTUP_READ_ATTEMPTS
 from mistralai.workflows.core.config.config import AppConfig
 from mistralai.workflows.core.temporal import temporal_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowError, WorkflowsException
@@ -217,7 +218,7 @@ class TestReadTemporalToken:
         provider = self._FlakyProvider(failures=99)
         with pytest.raises(WorkflowError):
             await temporal_client._read_temporal_token(provider)
-        assert provider.calls == temporal_client._TEMPORAL_TOKEN_STARTUP_READ_ATTEMPTS
+        assert provider.calls == CREDENTIALS_STARTUP_READ_ATTEMPTS
 
 
 class TestTemporalTokenRefresh:

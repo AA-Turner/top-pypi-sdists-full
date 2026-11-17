@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, Union
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -15,17 +17,19 @@ T = TypeVar("T", bound="SandboxBuildPOST")
 
 @_attrs_define
 class SandboxBuildPOST:
-    """
+    """The source container image and settings for the sandbox build.
+
     Attributes:
-        name (str): Names the image. Every build of an image shares it.
-        source_image (str): The image to convert, by tag or digest. Example: python:3.13.
-        registry_credential (Union[Unset, SandboxBuildPOSTRegistryCredential]): Pulls `sourceImage` from a private
-            registry. Used for this build only and never stored.
+        name (str): The name used to select this image when creating a sandbox, between 1 and 255 characters. Can't
+            start with `sbb-`, the prefix reserved for build IDs. Multiple builds can share a name.
+        source_image (str): The container image to convert, specified by tag or digest. Example: python:3.13.
+        registry_credential (SandboxBuildPOSTRegistryCredential | Unset): Credentials used to pull `sourceImage` from a
+            private registry for this build.
     """
 
     name: str
     source_image: str
-    registry_credential: Union[Unset, "SandboxBuildPOSTRegistryCredential"] = UNSET
+    registry_credential: SandboxBuildPOSTRegistryCredential | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -33,7 +37,7 @@ class SandboxBuildPOST:
 
         source_image = self.source_image
 
-        registry_credential: Union[Unset, dict[str, Any]] = UNSET
+        registry_credential: dict[str, Any] | Unset = UNSET
         if not isinstance(self.registry_credential, Unset):
             registry_credential = self.registry_credential.to_dict()
 
@@ -52,7 +56,7 @@ class SandboxBuildPOST:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.sandbox_build_post_registry_credential import SandboxBuildPOSTRegistryCredential
+        from ..models.sandbox_build_post_registry_credential import SandboxBuildPOSTRegistryCredential  # noqa: PLC0415
 
         d = dict(src_dict)
         name = d.pop("name")
@@ -60,7 +64,7 @@ class SandboxBuildPOST:
         source_image = d.pop("sourceImage")
 
         _registry_credential = d.pop("registryCredential", UNSET)
-        registry_credential: Union[Unset, SandboxBuildPOSTRegistryCredential]
+        registry_credential: SandboxBuildPOSTRegistryCredential | Unset
         if isinstance(_registry_credential, Unset):
             registry_credential = UNSET
         else:

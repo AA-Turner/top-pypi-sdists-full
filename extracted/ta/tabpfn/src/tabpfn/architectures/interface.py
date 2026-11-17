@@ -200,6 +200,7 @@ class Architecture(nn.Module, ABC):
         categorical_inds: list[list[int]] | None = None,
         performance_options: PerformanceOptions | None = None,
         task_type: str | None = None,
+        estimator_ids: list[int] | None = None,
     ) -> Tensor: ...
 
     @overload
@@ -213,6 +214,7 @@ class Architecture(nn.Module, ABC):
         categorical_inds: list[list[int]] | None = None,
         performance_options: PerformanceOptions | None = None,
         task_type: str | None = None,
+        estimator_ids: list[int] | None = None,
     ) -> dict[str, Tensor]: ...
 
     @abstractmethod
@@ -226,6 +228,7 @@ class Architecture(nn.Module, ABC):
         categorical_inds: list[list[int]] | None = None,
         performance_options: PerformanceOptions | None = None,
         task_type: str | None = None,
+        estimator_ids: list[int] | None = None,
     ) -> Tensor | dict[str, Tensor]:
         """Perform a forward pass.
 
@@ -254,6 +257,8 @@ class Architecture(nn.Module, ABC):
             performance_options: Performance and memory options for this forward pass.
                 If None, uses defaults (no memory saving, no recomputation).
             task_type: The type of task, typically "classification" or "regression".
+            estimator_ids: Zero-based ensemble positions, one per batch element.
+                These stay fixed across batching, cache construction, and prediction.
 
         Returns:
             If `only_return_standard_out`, then a Tensor of shape
@@ -288,6 +293,20 @@ class Architecture(nn.Module, ABC):
         e.g. ``"int8"``.
         """
         return ("auto",)
+
+    def get_supported_sample_weight_modes(self) -> tuple[str, ...]:
+        """The `SAMPLE_WEIGHT_MODE` values this architecture supports.
+
+        An architecture that lists any mode takes two more keyword arguments in
+        `forward`, passed only when `fit` was given per-row weights:
+        `row_weights_NB2`, a tensor of shape `(train rows, batch size, 2)` in the
+        dtype of `x`, holding `(sample_weight, label_reliability)` per train
+        row with 1 as neutral, and `sample_weight_mode`, one of the listed
+        modes. A cached
+        predict passes them again, for a mode that acts in the decoder.
+        Supporting `"learned"` also means taking `label_reliability`.
+        """
+        return ()
 
     @property
     def estimator_batch_budget(self) -> EstimatorBatchBudget:

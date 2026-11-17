@@ -2,8 +2,9 @@
 
 import base64
 import contextlib
+import dataclasses
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import pytest
@@ -38,10 +39,14 @@ from render.workflows._models.task import (
     TaskErrorReason,
 )
 from render.workflows._models.wire import parse_time
+from render.workflows._utils import clock
 from render.workflows.app import Workflows
 from render.workflows.client import CallbackRequest, Status, UDSClient
 from render.workflows.context import FlowRunMetadata
-from render.workflows.durable_context import DurableFlowContext
+from render.workflows.durable_context import (
+    DurableFlowContext,
+    _current_step_context,
+)
 from render.workflows.executor import TaskExecutor
 from render.workflows.flow import FlowDefinition
 from render.workflows.runner import register_async
@@ -462,7 +467,11 @@ def test_step_attempt_response_requires_applied():
 
 
 @pytest.mark.parametrize("applied", [True, False], ids=["applied", "duplicate"])
-def test_retry_records_each_failure_before_retrying(ctx, mock_client, sleeps, applied):
+def test_retry_records_each_failure_before_retrying(
+    ctx, mock_client, sleeps, mocker, applied
+):
+    now = datetime(2026, 1, 2, 3, 4, 5, tzinfo=timezone.utc)
+    mocker.patch.object(clock, "now", return_value=now)
     received = []
 
     def flaky(values):
@@ -487,7 +496,38 @@ def test_retry_records_each_failure_before_retrying(ctx, mock_client, sleeps, ap
         request for request in requests(mock_client) if request["kind"] == "attempt"
     ]
     assert [a["attempt"] for a in attempts] == [0, 1]
+    assert [parse_time(a["retry_at"]) - now for a in attempts] == [
+        timedelta(milliseconds=100),
+        timedelta(milliseconds=200),
+    ]
     assert [call.args[0] for call in sleeps.call_args_list] == [0.1, 0.2]
+
+
+def test_step_function_sees_its_step_context(ctx, sleeps):
+    seen = []
+
+    def flaky():
+        step = _current_step_context()
+        seen.append((step.name, step.step_key.seq, step.attempt))
+        if step.attempt == 0:
+            raise ConnectionError("timeout")
+
+    ctx.step("first", lambda: None)
+    ctx.step("flaky", flaky, retry=Retry(max_retries=1, wait_duration_ms=0))
+
+    assert seen == [("flaky", 1, 0), ("flaky", 1, 1)]
+    assert _current_step_context() is None
+
+
+def test_step_context_is_read_only(ctx):
+    def tamper():
+        step = _current_step_context()
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            step.attempt = 5
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            step.retry.wait_duration_ms = 0
+
+    ctx.step("tamper", tamper, retry=Retry(max_retries=1, wait_duration_ms=100))
 
 
 def unencodable_arg(arg):
@@ -800,6 +840,7 @@ def test_inline_step_fails_once_its_retries_max_out(ctx, mock_client, sleeps):
     ]
     assert writes[-1]["outcome"]["final_attempt"]["attempt"] == 2
     assert final_error(writes[-1])["message"] == "timeout 2"
+    assert "retry_at" not in writes[-1]["outcome"]["final_attempt"]
 
 
 def test_terminal_flow_error_is_an_execution_error():

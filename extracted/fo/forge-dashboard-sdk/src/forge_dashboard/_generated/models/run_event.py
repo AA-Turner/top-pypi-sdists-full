@@ -47,6 +47,10 @@ class RunEvent:
             status (CheckStatus | Unset): How far one job has got, as a fact. The page works out what to show
                 from it and `conclusion`.
 
+                "unknown" is a status the forge sent that the server cannot grade, a
+                word added after the server was written. It is not queued and has not
+                failed, and the page shows it as unknown.
+
                 "waiting" is a GitHub workflow run held until a maintainer approves
                 it. It has no jobs yet, so it is not queued and has not failed; its
                 `url` is the run's page, where the approve button is. A check run
@@ -61,7 +65,8 @@ class RunEvent:
                 the job (`success`, `failure`, `cancelled`, `skipped`). A legacy
                 commit status, which has no conclusion, is sent as `success` or
                 `failure`. A client decides what each word means and what to do
-                with one it doesn't know.
+                with one it doesn't know: the page shows it as unknown, not as a
+                failure.
 
                 `startup_failure` is a workflow run that never started. It has no
                 jobs, so the check carries the workflow's name, `url` is the run's

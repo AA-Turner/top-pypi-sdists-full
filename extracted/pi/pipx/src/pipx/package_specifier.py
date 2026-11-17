@@ -4,11 +4,10 @@ __lazy_modules__ = [
     "packaging.specifiers",
     "packaging.utils",
     "pathlib",
-    "pipx.backends._base",
+    "pipx.backends",
     "pipx.redact",
     "pipx.util",
     "pipx.wrap",
-    "re",
     "tomllib",
     "urllib.parse",
 ]
@@ -22,12 +21,13 @@ import tomllib
 import urllib.parse
 from dataclasses import dataclass, replace
 from pathlib import Path
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, TypeAlias
 
 from packaging.specifiers import SpecifierSet
 from packaging.utils import InvalidName, canonicalize_name
 
-from pipx.backends._base import PIP
+from pipx.backends import PIP
 from pipx.emojis import HAZARD
 from pipx.redact import redact_url_credentials
 from pipx.util import PipxError
@@ -38,7 +38,19 @@ if TYPE_CHECKING:
 
     from packaging.requirements import Requirement
 
+    from pipx.result import JsonValue
+
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
+_INDEX_NAME: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9._-]+")
+_METADATA_PATH: Final[re.Pattern[str]] = re.compile(r"[^/]+\.dist-info/METADATA")
+_TRAILING_EXTRAS: Final[re.Pattern[str]] = re.compile(
+    r"""
+    (?P<path>.+)                # the path
+    (?P<extras>\[[^\[\]]+\])  # one trailing [extras] group
+    $
+    """,
+    re.VERBOSE,
+)
 
 _PIP_LONG_FLAGS: Final[frozenset[str]] = frozenset({
     "--break-system-packages",
@@ -202,17 +214,25 @@ _PIP_SOURCE_PATH_OPTIONS: Final[frozenset[str]] = frozenset({
     "--project",
 })
 # value-taking options a recorded snapshot may carry, as their (uv, pip) spellings
-_VALUE_OPTION_SPELLINGS: Final[dict[str, tuple[str, str]]] = {
+_VALUE_OPTION_SPELLINGS: Final[MappingProxyType[str, tuple[str, str]]] = MappingProxyType({
     **dict.fromkeys(("--default-index", "--index-url", "-i"), ("--default-index", "--index-url")),
     **dict.fromkeys(("--index", "--extra-index-url"), ("--index", "--extra-index-url")),
     **dict.fromkeys(("--find-links", "-f"), ("--find-links", "--find-links")),
     **dict.fromkeys(("--constraints", "--constraint", "-c"), ("--constraints", "--constraint")),
     **dict.fromkeys(("--allow-insecure-host", "--trusted-host"), ("--allow-insecure-host", "--trusted-host")),
     **{option: (option, option) for option in ("--keyring-provider", "--index-strategy", "--prerelease")},
-}
+})
 
 
 def parse_specifier_for_install(package_spec: str, pip_args: list[str]) -> tuple[str, list[str]]:
+    """Split a package spec into the package or URL to install and the pip arguments.
+
+    Drops ``--editable`` with a warning when the spec is not a local path.
+
+    :param package_spec: the package spec, a name, a path, a URL or a requirement.
+    :param pip_args: the pip arguments of the install.
+    :returns: the package or URL to install, and the pip arguments.
+    """
     pip_args = pip_args.copy()
     parsed_package: Final[_ParsedPackage] = _parse_specifier(package_spec)
     package_or_url: Final[str] = _parsed_package_to_package_or_url(parsed_package, remove_version_specifiers=False)
@@ -246,7 +266,11 @@ def _parse_specifier(package_spec: str) -> _ParsedPackage:
         # keep the extras as typed so the bare and ./ spellings store the same spec
         return _LocalPath(path=f"{package_path.resolve()}{_split_path_extras(package_spec.strip())[1]}")
 
-    parsed_url: Final[urllib.parse.SplitResult] = urllib.parse.urlsplit(package_spec)
+    try:
+        parsed_url: Final[urllib.parse.SplitResult] = urllib.parse.urlsplit(package_spec)
+    except ValueError:
+        msg = f"Unable to parse package spec: {redact_url_credentials(package_spec)}"
+        raise PipxError(msg) from None
     if parsed_url.scheme and (
         parsed_url.netloc or (parsed_url.scheme in {"file", "git+file", "hg+file"} and parsed_url.path.startswith("/"))
     ):
@@ -290,38 +314,12 @@ def _is_archive_name(name: str) -> bool:
     ))
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _Pep508:
-    requirement: Requirement
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _Url:
-    url: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _LocalPath:
-    path: str
-
-
-_ParsedPackage: TypeAlias = _Pep508 | _Url | _LocalPath
-
-
 def _split_path_extras(package_spec: str) -> tuple[str, str]:
     # a bracket can be part of a directory name, so only a trailing group on a path that does not exist is extras
     if Path(package_spec).expanduser().exists():
         return package_spec, ""
-    if extras_match := re.search(
-        r"""
-        (.+)           # the path
-        (\[[^\[\]]+\])  # one trailing [extras] group
-        $
-        """,
-        package_spec,
-        re.VERBOSE,
-    ):
-        return extras_match.group(1), extras_match.group(2)
+    if extras_match := _TRAILING_EXTRAS.search(package_spec):
+        return extras_match["path"], extras_match["extras"]
     return package_spec, ""
 
 
@@ -361,6 +359,12 @@ def _package_or_url_from_pep508(requirement: Requirement, *, remove_version_spec
 
 
 def absolute_path_pip_args(pip_args: list[str], base: Path) -> list[str]:
+    """Make the local paths in pip arguments absolute, relative to a base directory.
+
+    :param pip_args: the pip arguments.
+    :param base: the directory that relative paths are resolved against.
+    :returns: the pip arguments with absolute paths.
+    """
     return _render(_absolute_paths(_parse_pip_args(pip_args), base))
 
 
@@ -381,8 +385,13 @@ def _absolute_paths(arguments: list[_PipArgument], base: Path) -> list[_PipArgum
 
 
 def _absolute_path_value(value: str, base: Path) -> str:
+    try:
+        scheme: Final[str] = urllib.parse.urlsplit(value).scheme
+    except ValueError:
+        msg = f"Unable to parse pip argument: {redact_url_credentials(value)}"
+        raise PipxError(msg) from None
     # pip writes --report - to stdout
-    if value == "-" or urllib.parse.urlsplit(value).scheme:
+    if value == "-" or scheme:
         return value
     return str((base / Path(value).expanduser()).resolve())
 
@@ -413,20 +422,6 @@ def _long_option(argument: str, arguments: Iterator[str]) -> _PipArgument:
     if separator:
         return _PipArgument(name=name, value=value, separator=separator)
     return _PipArgument(name=name, value=next(arguments, None))
-
-
-def _unresolved_long_option(argument: str, arguments: Iterator[str]) -> _PipArgument:
-    spelled, separator, value = argument.partition("=")
-    # an older pip, with fewer options, can take a prefix this table finds ambiguous, so keep it as typed, with the
-    # value the option it names there takes; a prefix that could also name a flag, as --b could
-    # --break-system-packages, may take none, so the next argument stays its own
-    candidates: Final[frozenset[str]] = _prefixed_options(spelled, _PIP_VALUE_OPTIONS | _PIP_LONG_FLAGS)
-    if separator and candidates & _PIP_VALUE_OPTIONS:
-        return _PipArgument(name=spelled, value=value, separator=separator)
-    if candidates and candidates <= _PIP_VALUE_OPTIONS:
-        return _PipArgument(name=spelled, value=next(arguments, None))
-    # pip rejects an unknown option, so keep it as typed
-    return _PipArgument(name=argument)
 
 
 def _long_option_name(spelled: str) -> str | None:
@@ -488,20 +483,18 @@ def _prefixed_options(spelled: str, options: frozenset[str]) -> frozenset[str]:
     return frozenset(option for option in options if option.startswith(spelled)) if spelled != "--" else frozenset()
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _PipArgument:
-    name: str
-    value: str | None = None
-    # "=" or "" when the value shares the option's token, None when the value is a token of its own
-    separator: str | None = None
-
-    @property
-    def tokens(self) -> list[str]:
-        if self.value is None:
-            return [self.name]
-        if self.separator is None:
-            return [self.name, self.value]
-        return [f"{self.name}{self.separator}{self.value}"]
+def _unresolved_long_option(argument: str, arguments: Iterator[str]) -> _PipArgument:
+    spelled, separator, value = argument.partition("=")
+    # an older pip, with fewer options, can take a prefix this table finds ambiguous, so keep it as typed, with the
+    # value the option it names there takes; a prefix that could also name a flag, as --b could
+    # --break-system-packages, may take none, so the next argument stays its own
+    candidates: Final[frozenset[str]] = _prefixed_options(spelled, _PIP_VALUE_OPTIONS | _PIP_LONG_FLAGS)
+    if separator and candidates & _PIP_VALUE_OPTIONS:
+        return _PipArgument(name=spelled, value=value, separator=separator)
+    if candidates and candidates <= _PIP_VALUE_OPTIONS:
+        return _PipArgument(name=spelled, value=next(arguments, None))
+    # pip rejects an unknown option, so keep it as typed
+    return _PipArgument(name=argument)
 
 
 def _short_options(argument: str, arguments: Iterator[str]) -> list[_PipArgument]:
@@ -523,7 +516,46 @@ def _short_options(argument: str, arguments: Iterator[str]) -> list[_PipArgument
     return [_PipArgument(name=argument)]
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _PipArgument:
+    name: str
+    value: str | None = None
+    # "=" or "" when the value shares the option's token, None when the value is a token of its own
+    separator: str | None = None
+
+    @property
+    def tokens(self) -> list[str]:
+        if self.value is None:
+            return [self.name]
+        if self.separator is None:
+            return [self.name, self.value]
+        return [f"{self.name}{self.separator}{self.value}"]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Pep508:
+    requirement: Requirement
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _Url:
+    url: str
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _LocalPath:
+    path: str
+
+
+_ParsedPackage: TypeAlias = _Pep508 | _Url | _LocalPath
+
+
 def install_specs(install_args: list[str]) -> list[tuple[str, bool]]:
+    """Return the install specs that pip arguments name, such as requirement files and editable paths.
+
+    :param install_args: the pip arguments of the install.
+    :returns: each spec, with whether it is editable.
+    """
     specs: Final[list[tuple[str, bool]]] = []
     for argument in _parse_pip_args(install_args):
         if argument.name in {"-e", "--editable"} and argument.value is not None:
@@ -534,6 +566,11 @@ def install_specs(install_args: list[str]) -> list[tuple[str, bool]]:
 
 
 def recordable_pip_args(pip_args: list[str]) -> list[str]:
+    """Return the pip arguments to record for a package, without the options that only apply to one install.
+
+    :param pip_args: the pip arguments of the install.
+    :returns: the pip arguments to record.
+    """
     return _render(_without_one_shot(_parse_pip_args(pip_args)))
 
 
@@ -552,12 +589,25 @@ def _may_name(argument: _PipArgument, options: frozenset[str]) -> bool:
 
 
 def replayable_pip_args(pip_args: list[str], venv_dir: Path) -> list[str]:
+    """Return the recorded pip arguments to replay, with relative paths resolved in the environment.
+
+    :param pip_args: the recorded pip arguments.
+    :param venv_dir: the directory of the environment that the paths are resolved against.
+    :returns: the pip arguments to replay.
+    """
     # the record's installer ran in the venv root, so a relative path resolves there, never against the caller's
     # working directory, which another account may control
     return _render(_absolute_paths(_without_one_shot(_parse_pip_args(pip_args)), venv_dir))
 
 
 def trusted_recorded_pip_args(pip_args: list[str], venv_dir: Path) -> list[str]:
+    """Return the recorded pip arguments when none of them names a location another account can change.
+
+    :param pip_args: the recorded pip arguments.
+    :param venv_dir: the directory of the environment.
+    :returns: the pip arguments to replay.
+    :raises PipxError: when a recorded argument names a location another account can change.
+    """
     if (source := changeable_recorded_source(pip_args, venv_dir)) is not None:
         msg: Final[str] = (
             f"{venv_dir.name}: refusing to replay {source}, and with it what gets installed. Move the file or "
@@ -570,6 +620,12 @@ def trusted_recorded_pip_args(pip_args: list[str], venv_dir: Path) -> list[str]:
 
 
 def changeable_recorded_source(pip_args: list[str], venv_dir: Path) -> str | None:
+    """Return the first recorded argument that names a location another account can change.
+
+    :param pip_args: the recorded pip arguments.
+    :param venv_dir: the directory of the environment.
+    :returns: a description of the argument and its location, or None when no argument is changeable.
+    """
     for argument in _parse_pip_args(pip_args):
         if (location := _changeable_source(argument, venv_dir)) is not None:
             recorded: Final[str] = " ".join(map(redact_url_credentials, argument.tokens))
@@ -590,7 +646,7 @@ def _changeable_source(argument: _PipArgument, base: Path) -> Path | None:
         # index options whose value can be a local directory, with pip reading uv's --extra as --extra-index-url; uv
         # takes a named index as name=url
         name, separator, url = argument.value.partition("=")
-        values = {argument.value, url} if separator and re.fullmatch(r"[A-Za-z0-9._-]+", name) else {argument.value}
+        values = {argument.value, url} if separator and _INDEX_NAME.fullmatch(name) else {argument.value}
     else:
         return None
     return next(filter(None, (_changeable_by_others(value, base) for value in sorted(values))), None)
@@ -605,6 +661,11 @@ def _changeable_by_others(value: str, base: Path) -> Path | None:
 
 
 def changeable_by_others(path: Path) -> Path | None:
+    """Return the first directory on the path of a location that another account can change.
+
+    :param path: the location to check.
+    :returns: the changeable directory, or None when none on the path is changeable or on Windows.
+    """
     if sys.platform == "win32":
         return None
     trusted: Final[set[int]] = {0, os.geteuid()}
@@ -624,6 +685,14 @@ def changeable_by_others(path: Path) -> Path | None:
 
 
 def translate_pip_args(pip_args: list[str], backend: str, environment: str) -> tuple[list[str], list[str]]:
+    """Translate pip arguments into the options of the backend that installs them.
+
+    :param pip_args: the pip arguments to translate.
+    :param backend: the backend that installs the packages.
+    :param environment: the name of the environment, for the error message.
+    :returns: the translated arguments, and the arguments dropped because the backend has no equivalent.
+    :raises PipxError: when a recorded index option has no equivalent in the backend.
+    """
     # keeping the recorded index stops a snapshot moved to the other backend from installing from PyPI instead
     to_pip: Final[bool] = backend == PIP
     translated: Final[list[str]] = []
@@ -642,7 +711,7 @@ def translate_pip_args(pip_args: list[str], backend: str, environment: str) -> t
             case "--index":
                 # uv takes a named index as name=url, and the name means nothing to pip
                 name, _, url = value.partition("=")
-                translated.extend([spelling[to_pip], url if url and re.fullmatch(r"[A-Za-z0-9._-]+", name) else value])
+                translated.extend([spelling[to_pip], url if url and _INDEX_NAME.fullmatch(name) else value])
             case "--find-links":
                 # uv splits a --find-links value on commas, pip takes it as one location
                 translated.extend(
@@ -684,30 +753,38 @@ def _expand_pip_abbreviation(argument: str) -> str:
 
 
 def resolve_local_path(package_spec: str) -> str:
+    """Return the local path of a package spec, or the spec itself when it names no local path.
+
+    :param package_spec: the spec, which may name a local path that the path form resolves.
+    :returns: the path or the spec.
+    """
     return parsed.path if isinstance(parsed := _parse_specifier(package_spec), _LocalPath) else package_spec
 
 
 def parse_specifier_for_metadata(package_spec: str) -> str:
+    """Return the package spec as it is recorded in the metadata, keeping its version specifiers.
+
+    :param package_spec: the spec as the user wrote it, before it is recorded.
+    :returns: the recorded form of the spec.
+    """
     return _parsed_package_to_package_or_url(_parse_specifier(package_spec), remove_version_specifiers=False)
 
 
 def parse_specifier_for_upgrade(package_spec: str) -> str:
+    """Return the package spec with its version specifiers removed, for upgrades.
+
+    :param package_spec: the spec whose version specifiers are dropped.
+    :returns: the spec without version specifiers.
+    """
     return _parsed_package_to_package_or_url(_parse_specifier(package_spec), remove_version_specifiers=True)
 
 
-def get_extras(package_spec: str) -> set[str]:
-    match _parse_specifier(package_spec):
-        case _Pep508(requirement=requirement):
-            return requirement.extras
-        case _LocalPath(path=path):
-            from packaging.requirements import Requirement  # ruff:ignore[import-outside-top-level]  # parser slows startup
-
-            return Requirement(f"notapackage{_split_path_extras(path)[1]}").extras
-        case _Url():
-            return set()
-
-
 def source_without_extras(package_spec: str) -> str:
+    """Return the package spec without its extras.
+
+    :param package_spec: the spec whose extras are dropped.
+    :returns: the spec without extras.
+    """
     match _parse_specifier(package_spec):
         case _Pep508(requirement=requirement):
             requirement.extras = set()
@@ -719,17 +796,52 @@ def source_without_extras(package_spec: str) -> str:
 
 
 def add_extras(package_or_url: str, package_name: str, extras: set[str]) -> str:
+    """Return the package spec with extras added to it.
+
+    :param package_or_url: the package or URL to add the extras to.
+    :param package_name: the name of the package, used when the spec is a URL.
+    :param extras: the extras to add.
+    :returns: the spec with the extras.
+    """
     parsed_package: Final[_ParsedPackage] = _parse_specifier(package_or_url)
     if isinstance(parsed_package, _Pep508):
-        parsed_package.requirement.extras |= extras
+        parsed_package.requirement.extras = _merge_extras(parsed_package.requirement.extras, extras)
         return str(parsed_package.requirement)
-    merged: Final[str] = ",".join(sorted(get_extras(package_or_url) | extras))
+    merged: Final[str] = ",".join(sorted(_merge_extras(get_extras(package_or_url), extras)))
     if isinstance(parsed_package, _Url):
         return f"{package_name}[{merged}] @ {parsed_package.url}"
     return f"{_split_path_extras(parsed_package.path)[0]}[{merged}]"
 
 
+def _merge_extras(current: set[str], added: set[str]) -> set[str]:
+    # extras names compare case-insensitively and treat - _ . alike (PEP 685), so Jupyter_Extra and jupyter-extra match
+    known: Final[set[str]] = {canonicalize_name(extra) for extra in current}
+    return current | {extra for extra in added if canonicalize_name(extra) not in known}
+
+
+def get_extras(package_spec: str) -> set[str]:
+    """Return the extras of a package spec.
+
+    :param package_spec: the spec whose extras are read.
+    :returns: the extras, empty when there are none.
+    """
+    match _parse_specifier(package_spec):
+        case _Pep508(requirement=requirement):
+            return requirement.extras
+        case _LocalPath(path=path):
+            from packaging.requirements import Requirement  # ruff:ignore[import-outside-top-level]  # parser slows startup
+
+            return Requirement(f"notapackage{_split_path_extras(path)[1]}").extras
+        case _Url():
+            return set()
+
+
 def valid_pypi_name(package_spec: str) -> str | None:
+    """Return the normalized name of a PyPI package spec, or None when the name has to come from the package.
+
+    :param package_spec: the spec whose name is normalized.
+    :returns: the normalized name, or None when it has to come from the package itself.
+    """
     if (package_req := _requirement(package_spec)) is None:
         return None
     # a URL spec can name a package other than the one it points at, and an archive-like name can be a local file;
@@ -740,6 +852,11 @@ def valid_pypi_name(package_spec: str) -> str | None:
 
 
 def local_project_name(package_spec: str) -> str | None:
+    """Return the name of the project at a local path, from its ``pyproject.toml`` or its wheel.
+
+    :param package_spec: the package spec, which may be a local path.
+    :returns: the normalized project name, or None when the spec is not a local project.
+    """
     # Path() reads a URL as a relative path (http://host/x is http:/host/x), so files below the working directory could
     # otherwise name the environment for a remote spec
     if not isinstance(parsed := _parse_specifier(package_spec), _LocalPath):
@@ -748,6 +865,11 @@ def local_project_name(package_spec: str) -> str | None:
 
 
 def static_project_name(package_spec: str) -> str | None:
+    """Return the name of a local project from its ``pyproject.toml``, without building it.
+
+    :param package_spec: the path of the project.
+    :returns: the normalized project name, or None when the file has no static name.
+    """
     try:
         with (Path(_split_path_extras(package_spec)[0]) / "pyproject.toml").open("rb") as file:
             pyproject: Final = tomllib.load(file)
@@ -764,7 +886,7 @@ def static_project_name(package_spec: str) -> str | None:
     return _valid_name(name)
 
 
-def _backend_reads_project_table(build_system: object) -> bool:
+def _backend_reads_project_table(build_system: JsonValue) -> bool:
     # older poetry-core, setuptools and flit-core build from their own tables and ignore [project]
     minimum_versions: Final[dict[str, tuple[str, str | None]]] = {
         "flit_core.buildapi": ("flit-core", "3.2"),
@@ -816,6 +938,11 @@ def _valid_name(name: str) -> str | None:
 
 
 def wheel_project_name(package_spec: str) -> str | None:
+    """Return the name of a wheel from its metadata, without installing it.
+
+    :param package_spec: the path of the wheel.
+    :returns: the normalized project name, or None when the file is not a readable wheel.
+    """
     if (wheel := Path(_split_path_extras(package_spec)[0])).suffix != ".whl":
         return None
     import zipfile  # ruff:ignore[import-outside-top-level]  # slows startup
@@ -823,7 +950,7 @@ def wheel_project_name(package_spec: str) -> str | None:
 
     try:
         with zipfile.ZipFile(wheel) as archive:
-            match [entry for entry in archive.namelist() if re.fullmatch(r"[^/]+\.dist-info/METADATA", entry)]:
+            match [entry for entry in archive.namelist() if _METADATA_PATH.fullmatch(entry)]:
                 case [metadata]:
                     name: Final = BytesHeaderParser().parsebytes(archive.read(metadata))["Name"]
                 case _:
@@ -835,6 +962,14 @@ def wheel_project_name(package_spec: str) -> str | None:
 
 
 def package_spec_satisfied(package_spec: str, package_name: str, installed_version: str, installed_spec: str) -> bool:
+    """Return whether an installed package already satisfies a package spec.
+
+    :param package_spec: the package spec to check.
+    :param package_name: the name of the installed package.
+    :param installed_version: the version of the installed package.
+    :param installed_spec: the spec the installed package was installed from, for its extras.
+    :returns: whether the installed package satisfies the spec.
+    """
     if (requirement := _requirement(package_spec)) is None or (
         installed_requirement := _requirement(installed_spec)
     ) is None:
@@ -842,12 +977,19 @@ def package_spec_satisfied(package_spec: str, package_name: str, installed_versi
     return (
         requirement.url is None
         and canonicalize_name(requirement.name) == canonicalize_name(package_name)
-        and requirement.extras.issubset(installed_requirement.extras)
+        and {canonicalize_name(extra) for extra in requirement.extras}.issubset(
+            canonicalize_name(extra) for extra in installed_requirement.extras
+        )
         and requirement.specifier.contains(installed_version)
     )
 
 
 def extract_index_options(pip_args: list[str]) -> list[str]:
+    """Return the index options of pip arguments.
+
+    :param pip_args: the pip arguments.
+    :returns: the index options.
+    """
     return _split_index_options(pip_args)[0]
 
 
@@ -879,10 +1021,22 @@ def _split_index_options(pip_args: list[str]) -> tuple[list[str], list[str]]:
 
 
 def replace_index_options(pip_args: list[str], index_args: list[str]) -> list[str]:
+    """Replace the index options of pip arguments with other ones.
+
+    :param pip_args: the pip arguments.
+    :param index_args: the index options to use instead.
+    :returns: the pip arguments with the new index options.
+    """
     return [*_split_index_options(pip_args)[1], *index_args]
 
 
 def fix_package_name(package_or_url: str, package_name: str) -> str:
+    """Return the package spec with the name that the package declares, when the spec names another package.
+
+    :param package_or_url: the package spec or URL.
+    :param package_name: the name the package is expected to have.
+    :returns: the spec with the corrected name.
+    """
     if (package_req := _requirement(package_or_url)) is None:
         return package_or_url
 

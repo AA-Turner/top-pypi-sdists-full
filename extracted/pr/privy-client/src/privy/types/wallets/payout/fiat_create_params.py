@@ -6,7 +6,9 @@ from typing_extensions import Required, Annotated, TypedDict
 
 from ...._utils import PropertyInfo
 from ...payout_source_param import PayoutSourceParam
+from ...developer_fee_percent import DeveloperFeePercent
 from ...payout_destination_param import PayoutDestinationParam
+from ...payout_travel_rule_param import PayoutTravelRuleParam
 
 __all__ = ["FiatCreateParams"]
 
@@ -17,6 +19,15 @@ class FiatCreateParams(TypedDict, total=False):
 
     source: Required[PayoutSourceParam]
     """The source crypto asset, chain, and amount for a payout."""
+
+    developer_fee_percent: DeveloperFeePercent
+    """A developer fee as a percentage string from 0 up to (not including) 100, e.g.
+
+    "1.5" for 1.5%.
+    """
+
+    travel_rule: PayoutTravelRuleParam
+    """Travel rule information about who receives a payout."""
 
     privy_authorization_signature: Annotated[str, PropertyInfo(alias="privy-authorization-signature")]
     """Request authorization signature.

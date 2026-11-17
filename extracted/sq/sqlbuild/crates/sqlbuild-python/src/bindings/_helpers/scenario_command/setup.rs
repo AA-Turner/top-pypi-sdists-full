@@ -1,5 +1,6 @@
 //! Shared `sqb scenario` preparation: project, namespace, adapters, compile and selection.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::path::PathBuf;
 
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
@@ -21,28 +22,27 @@ use sqlbuild_core::scenario_command::models::{
 };
 use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::build_progress::progress_reporters::PlanningProgressReporter;
-use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::pipeline_entries::run_compile_only_pipeline;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_scenario_config;
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::discovery::guidance::sql_analysis_guidance;
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::boundary::main::within::within;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
 use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::replaced_keywords::replaced_keywords;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::run_compile_only_pipeline::run_compile_only_pipeline;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::contracts::main::resolve_effective_scenario_config::resolve_effective_scenario_config;
+use sqlbuild_python_front::discovery::main::failures::sql_analysis_guidance::sql_analysis_guidance;
+use sqlbuild_python_output::build_progress::main::write_execution_header::write_execution_header;
+use sqlbuild_python_output::build_progress::models::PlanningProgressReporter;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
 
 const METADATA_MODULE: &str = "importlib.metadata";
 const DISTRIBUTION_NAME: &str = "sqlbuild";
@@ -58,16 +58,12 @@ pub(crate) fn optional_text<'py>(py: Python<'py>, value: Option<&str>) -> Bound<
 
 /// `CliUserError(message, code=..., help=...)`.
 pub(crate) fn cli_user_error(py: Python<'_>, error: ScenarioCommandError) -> PyErr {
-    let raised: PyResult<Bound<'_, PyAny>> = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", error.code)?;
-        options.set_item("help", error.help)?;
-        error_class(py, ErrorId::CliUser)?.call((error.message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        &error.message,
+        (Some(error.code), error.help.as_deref()),
+    )
 }
 
 /// The progress stream: `write` then `flush`.

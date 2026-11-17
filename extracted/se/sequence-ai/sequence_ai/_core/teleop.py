@@ -126,9 +126,9 @@ class Teleop:
         (this side's addresses and NAT), offer (the platform took the offer), answer (the robot's came), open (the
         direct connection and its channels), said (the robot's first word on it).
         The platform's connection is made while this side gathers, where the offer waited after the gathering for a new
-        connection's handshake. {worker 3 11-12, r28 on prod: the console's first request reached the platform 8.05 s
-        after teleop() began; on that network a new HTTPS connection took 0.27-2.1 s, dev's POST of the offer 1.32-2.08 s
-        of which the platform's own 0.2 s}
+        connection's handshake.
+
+ 
 """
         end = time.monotonic() + timeout_s
         link = self._link

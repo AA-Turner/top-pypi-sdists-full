@@ -118,6 +118,11 @@ def apply_patches():
     # remove once the fix lands in the pinned ClickHouse submodule.
     apply_patch("patches/ColumnVectorTryInsert.patch")
 
+    # Resolve the serialization of the exact variant instead of the whole Variant type for every value
+    # in Dynamic text serialization (JSON columns written as strings serialize every path through it).
+    # Backport of ClickHouse 1b8d8b29fb8 and 176451d8f5e; remove once the fix lands in the pinned ClickHouse submodule.
+    apply_patch("patches/DynamicTextSerialization.patch")
+
     # Keep TTL result validation compatible with ClickHouse versions before 25.8:
     # DateTime64 and Date32 results must remain rejected until all servers migrate.
     apply_patch("patches/ttl_result_type_compat.patch")

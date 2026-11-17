@@ -33,7 +33,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Awaitable, Callable, NamedTuple
 
-from cube_common.apollo_queries import ENVIRONMENTS_PAGE_SIZE
+from cube_common.apollo_queries import ENVIRONMENTS_PAGE_SIZE, LIST_PRODUCTS, PRODUCTS_PAGE_SIZE
 
 logger = logging.getLogger(__name__)
 
@@ -83,10 +83,11 @@ def _identity(item: dict) -> str:
 
     `id` first because it is Apollo's own key; `rid` and `name` are fallbacks so a
     payload missing `id` still de-duplicates rather than silently disabling the
-    guard. An item with none of the three is kept as-is (keyed by its position),
-    since dropping rows is the failure this module exists to prevent.
+    guard. `productId` is a product's only key (`LIST_PRODUCTS` selects no other).
+    An item with none of them is kept as-is (keyed by its position), since dropping
+    rows is the failure this module exists to prevent.
     """
-    for key in ("id", "rid", "name"):
+    for key in ("id", "rid", "name", "productId"):
         value = item.get(key)
         if value:
             return f"{key}:{value}"
@@ -269,5 +270,35 @@ async def fetch_all_environments(
         fetch_page,
         items_key="environments",
         what="Apollo environments",
+        max_pages=max_pages,
+    )
+
+
+async def fetch_all_products(
+    client: Any,
+    *,
+    page_size: int = PRODUCTS_PAGE_SIZE,
+    max_pages: int = MAX_PAGES,
+) -> PagedResult:
+    """Every Apollo product (`LIST_PRODUCTS`: id and labels), across every page.
+
+    The console's Products page reads through this. `tools/products.py` and
+    `tools/acr.py` still each run their own unbounded loop; they move onto this when
+    the MCP tools start filtering products (AGENTS.md rule 3).
+    """
+
+    async def fetch_page(token: str | None) -> dict | None:
+        # `None` for an absent envelope, never `{}`, for `fetch_all_environments`' reason.
+        data = await client.graphql(LIST_PRODUCTS, {"pageSize": page_size, "pageToken": token})
+        apollo = (data or {}).get("apollo")
+        if not isinstance(apollo, dict):
+            return None
+        page = apollo.get("products")
+        return page if isinstance(page, dict) else None
+
+    return await drain_pages(
+        fetch_page,
+        items_key="products",
+        what="Apollo products",
         max_pages=max_pages,
     )

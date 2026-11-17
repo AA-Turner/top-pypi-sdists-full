@@ -31,7 +31,7 @@ class OptionExerciseModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[Qua
         """
         Creates a new instance
         
-        :param model: The python model to wrapp
+        :param model: The python model to wrap
         """
         ...
 

@@ -27,7 +27,11 @@ from requests.adapters import HTTPAdapter
 
 from bitfab.compress import PreparedRequest, prepare_request_body
 from bitfab.constants import DEFAULT_SERVICE_URL, __version__
-from bitfab.git_state import is_empty_git_state, resolved_git_state
+from bitfab.git_state import (
+    is_empty_git_state,
+    resolve_agent_session_id,
+    resolved_git_state,
+)
 from bitfab.otel import _MAX_EXPORT_CONCURRENCY
 from bitfab.payload_budget import (
     MAX_COMPRESSIBLE_SPAN_CARRIER_BYTES,
@@ -1110,6 +1114,7 @@ class HttpClient:
         experiment_group_id: str | None = None,
         experiment_group_name: str | None = None,
         baseline_experiment_id: str | None = None,
+        skip_experiment_group: bool = False,
         include_db_branch_lease: bool = False,
         include_original_metadata: bool = False,
         dataset_ids: list[str] | None = None,
@@ -1122,6 +1127,7 @@ class HttpClient:
         experimental_selective_replay: dict[str, Any] | None = None,
         dry_run: bool = False,
         invocation: ReplayInvocation | None = None,
+        agent_session_id: str | None = None,
     ) -> dict[str, Any]:
         """Start a replay session by fetching historical traces.
 
@@ -1133,7 +1139,7 @@ class HttpClient:
                 ``trace_ids`` (the ID list determines the count and the field
                 is omitted from the request).
             trace_ids: Optional list of trace IDs to filter which traces are replayed
-            name: What this run is testing, in a few words, such as
+            name: What this run changes, in a few words, such as
                 'baseline' or 'shorter system prompt'. Bitfab records the
                 commit, branch, tree state, datasets, and who ran it with every
                 experiment, so do not repeat them here.
@@ -1153,10 +1159,12 @@ class HttpClient:
                 change, each as ``{"path": str, "before": str, "after": str}``.
                 Use empty strings for newly created (``before``) or deleted
                 (``after``) files.
-            experiment_group_id: Optional UUID that groups multiple replay runs
-                into a single experiment batch. The run joins that group, and an
-                ID no group has yet creates it. The experiments page can stream
-                results live by filtering on this ID.
+            experiment_group_id: UUID of the experiment group this run belongs
+                to: one series of experiments testing one thing. The run joins
+                that group, and an ID no group has yet creates it. The request
+                says a group is required unless ``skip_experiment_group`` is
+                set, so the server refuses a run that is not a dry run and has
+                no group.
             experiment_group_name: Optional name for the experiment group, sent
                 only when set. Applied when this replay creates the group or the
                 group has no name yet. A group that already has a name keeps it.
@@ -1164,6 +1172,9 @@ class HttpClient:
             baseline_experiment_id: Optional UUID of an earlier experiment to
                 compare this run against, sent only when set. The server
                 refuses an experiment outside the caller's organization.
+            skip_experiment_group: Runs without an experiment group, for
+                scripts and schedules whose runs should not be grouped. The
+                request then leaves out ``requireExperimentGroup``.
             include_db_branch_lease: When True, the server resolves each root
                 span's ``db_snapshot_ref`` into a per-item ``dbBranchLease``
                 (Neon snapshot + restore) before returning. Set when the caller
@@ -1198,14 +1209,18 @@ class HttpClient:
             dry_run: When True, the server selects the items and creates no
                 experiment, answering with a null experimentId and
                 experimentUrl (sent only when True).
+            agent_session_id: The coding agent session that launched this run,
+                stored on the experiment. When not given, read from
+                ``CLAUDE_CODE_SESSION_ID``, ``CODEX_THREAD_ID`` or
+                ``AGENT_SESSION_ID``, and sent only when one is known.
 
         Returns:
             Dict with experimentId, experimentUrl, and items array
             (each item has traceId and spanId)
         """
-        payload: dict[str, Any] = {
-            "traceFunctionKey": trace_function_key,
-        }
+        payload: dict[str, Any] = {"traceFunctionKey": trace_function_key}
+        if not skip_experiment_group:
+            payload["requireExperimentGroup"] = True
         if limit is not None:
             payload["limit"] = limit
         if trace_ids is not None:
@@ -1256,6 +1271,9 @@ class HttpClient:
             payload["dryRun"] = True
         if invocation is not None:
             payload["invocation"] = invocation
+        resolved_agent_session_id = resolve_agent_session_id(agent_session_id)
+        if resolved_agent_session_id is not None:
+            payload["agentSessionId"] = resolved_agent_session_id
         git_state = resolved_git_state()
         if git_state is not None and not is_empty_git_state(git_state):
             payload["git"] = git_state

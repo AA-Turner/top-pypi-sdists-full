@@ -18,7 +18,7 @@ from packaging.utils import canonicalize_name
 
 from pipx.commands.common import package_name_from_spec
 from pipx.commands.transaction import preserve_venv, runs_from_venv
-from pipx.options import BackendOptions, ExposureOptions
+from pipx.options import BackendOptions
 from pipx.package_specifier import absolute_path_pip_args, extract_index_options, install_specs, replace_index_options
 from pipx.util import PipxError
 from pipx.venv import Venv
@@ -28,6 +28,15 @@ if TYPE_CHECKING:
 
 
 def run_pip(package: str, venv_dir: Path, pip_args: list[str], *, verbose: bool) -> ExitCode:
+    """Run pip inside the environment of a package.
+
+    :param package: the name of the package, for the error message.
+    :param venv_dir: the directory of the environment.
+    :param pip_args: the arguments to pass to pip.
+    :param verbose: show the output of pip.
+    :returns: the exit code of pip.
+    :raises PipxError: when the environment has no interpreter.
+    """
     venv: Final[Venv] = Venv(venv_dir, verbose=verbose)
     if not venv.python_path.exists():
         msg = f"pipx has no venv for {package!r}; run 'pipx list' to see the installed packages"
@@ -61,7 +70,7 @@ def _sync_main_package_metadata_after_runpip_install(venv: Venv, pip_args: list[
             package_name=main_package.package,
             package_or_url=package_spec,
             pip_args=_updated_main_package_pip_args(main_package.pip_args, pip_args, editable=editable),
-            exposure=ExposureOptions.recorded(main_package),
+            exposure=main_package.exposure,
             is_main_package=True,
             pinned=main_package.pinned,
         )

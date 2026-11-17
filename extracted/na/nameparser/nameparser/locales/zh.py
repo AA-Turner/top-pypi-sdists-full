@@ -15,8 +15,21 @@ Data sources: single-character surnames are the top-100 of the 2020
 PRC census, plus the union of two rankings' top 300 (#695): Taiwan's
 Ministry of the Interior surname ranking (內政部戶政司, 2023, used under
 the Open Government Data License, version 1) and Wikidata's Chinese
-family names ranked by bearers (CC0). tools/zh_surnames.py derives
-that block and writes it below; do not edit it by hand. Five mainland
+family names ranked by bearers (CC0), with the simplified form of a
+traditional surname from the simplified-Chinese labels of Wikidata's
+family-name items (CC0), and, where those labels give a ranked
+traditional form none, six simplified forms entered by hand as facts
+of the script (买, 盖, 篮, 诸, 谌 and 芈, of 買, 蓋, 籃, 諸, 諶 and 羋):
+five a pairing that the PRC's 通用规范汉字表 (2013, 附件1) and
+简化字总表 (1986) state, and 芈 a standard character of the 2013 table
+whose traditional printed shape is 羋, each cited in the tool's
+BY_HAND. tools/zh_surnames.py
+derives that block and writes it below; do not edit it by hand. 2.5.0
+to 3.0.1 took the simplified forms from the Unicode Consortium's Unihan
+variant table instead, under the Unicode License v3; no Unihan data
+ships since 3.1, and one form it gave that neither the labels nor the
+standards write (厐, of 龎) left the list
+(decisions/shipped-data-licences, 2026-11-16 #1445). Five mainland
 surnames that neither ranking reaches are added by hand at the census
 block's tail (#952), each annotated there with its mainland rank.
 Traditional-script variant forms are included for names written in
@@ -25,9 +38,9 @@ hand-curated (see the note above _COMPOUND), never generated, since a
 married double surname like 李林 would cut 李林伟 into 李林 + 伟. A
 coverage floor, not a census roster: extend by giving
 parser_for a base whose lexicon already carries the additions --
-``parser_for(locales.ZH, base=Parser(lexicon=Lexicon.default().add(
-surnames={...})))``. (Adding to the finished parser's lexicon instead
-is a silent no-op: Lexicon is frozen, so ``.add`` returns a NEW
+``parser_for(locales.ZH, base=Parser(lexicon=Lexicon.default() |
+Lexicon(surnames={...})))``. (Changing the finished parser's lexicon
+instead is a silent no-op: Lexicon is frozen, so ``|`` returns a NEW
 lexicon that no parser is holding.)
 
 Declared deviations (mechanisms.md#LOCALE-PACKS-PURE-DATA): the
@@ -101,36 +114,36 @@ _SINGLE_RANKED = (
     "洪", "賴", "赖", "庄", "莊", "简", "簡", "鐘", "锺", "游",
     "詹", "施", "顏", "颜", "柯", "翁", "阮", "卓", "裴", "释",
     "釋", "俞", "温", "溫", "蓝", "藍", "古", "章", "紀", "纪",
-    "连", "連", "欧", "歐", "汤", "湯", "康", "尤", "巫", "塗",
-    "涂", "柳", "元", "窦", "竇", "童", "凃", "伍", "倪", "丘",
-    "駱", "骆", "葛", "樊", "甘", "官", "邢", "鮑", "鲍", "牛",
-    "文", "祝", "粘", "饒", "饶", "左", "闕", "阙", "乔", "喬",
-    "凌", "淩", "齊", "齐", "舒", "姬", "翟", "辛", "华", "華",
-    "辜", "魯", "鲁", "盛", "成", "易", "殷", "池", "耿", "褚",
-    "卫", "衛", "衞", "麥", "麦", "路", "毕", "畢", "庞", "龐",
-    "焦", "管", "关", "關", "包", "虞", "項", "项", "梅", "聂",
-    "聶", "利", "房", "全", "佘", "花", "費", "费", "安", "喻",
-    "霍", "申", "穆", "应", "應", "瞿", "蒲", "柴", "谷", "臧",
+    "连", "連", "欧", "歐", "汤", "湯", "康", "尤", "巫", "涂",
+    "柳", "元", "窦", "竇", "童", "凃", "伍", "倪", "丘", "駱",
+    "骆", "葛", "樊", "甘", "官", "邢", "鮑", "鲍", "牛", "文",
+    "祝", "粘", "饒", "饶", "左", "闕", "阙", "乔", "喬", "凌",
+    "淩", "齊", "齐", "舒", "姬", "翟", "辛", "华", "華", "辜",
+    "魯", "鲁", "盛", "成", "易", "殷", "池", "耿", "褚", "卫",
+    "衛", "衞", "麥", "麦", "路", "毕", "畢", "庞", "龐", "焦",
+    "管", "关", "關", "包", "虞", "項", "项", "梅", "聂", "聶",
+    "利", "房", "全", "佘", "花", "費", "费", "安", "喻", "霍",
+    "塗", "申", "穆", "应", "應", "瞿", "蒲", "柴", "谷", "臧",
     "季", "練", "练", "苗", "边", "邊", "邬", "鄔", "查", "阳",
-    "陽", "楼", "樓", "岳", "符", "尚", "解", "屠", "繆", "缪",
-    "宗", "屈", "乐", "樂", "单", "單", "曲", "篮", "籃", "閔",
-    "闵", "滕", "戚", "靳", "留", "桂", "鄞", "諸", "诸", "卜",
-    "厐", "龎", "車", "车", "艾", "郎", "封", "鹿", "𡍼", "岑",
-    "商", "时", "時", "买", "買", "卞", "祁", "力", "景", "云",
-    "雲", "郁", "吉", "席", "茅", "仇", "巴", "牟", "荆", "荊",
-    "司", "晏", "甄", "幸", "來", "来", "寇", "晁", "諶", "谌",
-    "邝", "鄺", "南", "储", "儲", "沙", "談", "谈", "栾", "欒",
-    "狄", "奚", "宫", "宮", "榮", "荣", "敬", "刁", "桑", "权",
-    "權", "和", "师", "師", "支", "松", "佟", "柏", "宁", "寧",
-    "甯", "祖", "冉", "麻", "隋", "冷", "風", "风", "子", "聞",
-    "闻", "鄂", "髙", "浦", "仲", "裘", "燕", "庾", "湛", "迟",
-    "遲", "东", "東", "米", "劳", "勞", "匡", "昌", "党", "兰",
-    "蘭", "阴", "陰", "娄", "婁", "敖", "惠", "戈", "羊", "伊",
-    "盖", "蓋", "茹", "強", "强", "平", "丛", "叢", "蒙", "羋",
-    "芈", "桓", "区", "區", "源", "偕", "栗", "初", "恽", "阿",
-    "兵", "冀", "計", "计", "索", "明", "蔺", "藺", "危", "鞠",
-    "廉", "茆", "雍", "蹇", "苻", "宣", "盘", "盤", "𨶒", "厉",
-    "厲", "机", "归", "歸",
+    "陽", "楼", "樓", "岳", "符", "尚", "解", "屠", "繆", "宗",
+    "屈", "乐", "樂", "单", "單", "曲", "篮", "籃", "閔", "闵",
+    "滕", "戚", "靳", "留", "桂", "鄞", "諸", "诸", "卜", "缪",
+    "龎", "車", "车", "艾", "郎", "封", "鹿", "𡍼", "岑", "商",
+    "时", "時", "买", "買", "卞", "祁", "力", "景", "云", "雲",
+    "郁", "吉", "席", "茅", "仇", "巴", "牟", "荆", "荊", "司",
+    "晏", "甄", "幸", "來", "来", "寇", "晁", "諶", "谌", "邝",
+    "鄺", "南", "储", "儲", "沙", "談", "谈", "栾", "欒", "狄",
+    "奚", "宫", "宮", "榮", "荣", "敬", "刁", "桑", "权", "權",
+    "和", "师", "師", "支", "松", "佟", "柏", "宁", "寧", "甯",
+    "祖", "冉", "麻", "隋", "冷", "風", "风", "子", "聞", "闻",
+    "鄂", "髙", "浦", "仲", "裘", "燕", "庾", "湛", "迟", "遲",
+    "东", "東", "米", "劳", "勞", "匡", "昌", "党", "兰", "蘭",
+    "阴", "陰", "娄", "婁", "敖", "惠", "戈", "羊", "伊", "盖",
+    "蓋", "茹", "強", "强", "平", "丛", "叢", "蒙", "羋", "芈",
+    "桓", "区", "區", "源", "偕", "栗", "初", "恽", "阿", "兵",
+    "冀", "計", "计", "索", "明", "蔺", "藺", "危", "鞠", "廉",
+    "茆", "雍", "蹇", "苻", "宣", "盘", "盤", "𨶒", "厉", "厲",
+    "机", "归", "歸",
 )
 # -- END generated --
 # Two-character surnames, simplified. The first 34 rows are the
@@ -178,15 +191,10 @@ ZH = Locale(
     policy=PolicyPatch(segment_scripts=frozenset({Script.HAN})),
 )
 
-# Compiled by _policy's factory from the shared codepoint table, so
-# the pack carries no Han spans of its own to drift out of sync.
-_has_han = _script_matcher(Script.HAN)
-
-
-def DEVIATES(name: str) -> bool:
-    """True when this pack may parse `name` differently from the
-    default parser (the declared-deviation predicate the
-    non-interference gate consumes): any Han-bearing name -- see the
-    module docstring's declared-deviations note for why over-declaring
-    is safe."""
-    return _has_han(name)
+#: True when this pack may parse a name differently from the default
+#: parser (the declared-deviation predicate the non-interference gate
+#: consumes): any Han-bearing name -- see the module docstring's
+#: declared-deviations note for why over-declaring is safe. Compiled by
+#: _policy's factory from the shared codepoint table, so the pack
+#: carries no Han spans of its own to drift out of sync.
+DEVIATES = _script_matcher(Script.HAN)

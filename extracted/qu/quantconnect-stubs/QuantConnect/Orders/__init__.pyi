@@ -2859,7 +2859,7 @@ class OrderPosition(IntEnum):
 
 
 class ApiOrderResponse(QuantConnect.Api.StringRepresentation):
-    """Api order and order events reponse"""
+    """Api order and order events response"""
 
     @property
     def symbol(self) -> QuantConnect.Symbol:
@@ -3283,7 +3283,7 @@ class MarketOnCloseOrder(QuantConnect.Orders.Order):
     @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
-        Intiializes a new instance of the MarketOnCloseOrder class.
+        Initializes a new instance of the MarketOnCloseOrder class.
         
         :param symbol: The security's symbol being ordered
         :param quantity: The number of units to order
@@ -3295,7 +3295,7 @@ class MarketOnCloseOrder(QuantConnect.Orders.Order):
 
     @overload
     def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnCloseOrder class."""
+        """Initializes a new instance of the MarketOnCloseOrder class."""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:
@@ -4521,7 +4521,7 @@ class MarketOnOpenOrder(QuantConnect.Orders.Order):
     @overload
     def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], quantity: float, time: typing.Union[datetime.datetime, datetime.date], tag: str = ..., properties: QuantConnect.Interfaces.IOrderProperties = None) -> None:
         """
-        Intiializes a new instance of the MarketOnOpenOrder class.
+        Initializes a new instance of the MarketOnOpenOrder class.
         
         :param symbol: The security's symbol being ordered
         :param quantity: The number of units to order
@@ -4533,7 +4533,7 @@ class MarketOnOpenOrder(QuantConnect.Orders.Order):
 
     @overload
     def __init__(self) -> None:
-        """Intiializes a new instance of the MarketOnOpenOrder class."""
+        """Initializes a new instance of the MarketOnOpenOrder class."""
         ...
 
     def clone(self) -> QuantConnect.Orders.Order:

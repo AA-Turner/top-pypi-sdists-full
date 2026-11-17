@@ -15,12 +15,16 @@ use tracing::{debug, error, instrument};
 
 use crate::coalesce::{BufferedCall, CoalescingQueue};
 use crate::python_bridge::{CallerInput, PythonHandler};
+use crate::ServingState;
 
 /// Maximum total size of accumulated request bytes (32 MB).
 const MAX_REQUEST_SIZE: usize = 32 * 1024 * 1024;
 
 pub struct RemoteCallServiceImpl {
     pub python_handler: Arc<PythonHandler>,
+    /// Optional model serving readiness/admission state. None preserves the
+    /// legacy always-serving behavior.
+    pub serving_state: Option<Arc<ServingState>>,
     /// Optional coalescing queue. When `Some`, incoming calls are buffered and
     /// dispatched as a single batched handler invocation.
     pub coalescing_queue: Option<Arc<CoalescingQueue>>,
@@ -38,8 +42,17 @@ impl RemoteCallService for RemoteCallServiceImpl {
         &self,
         request: Request<Streaming<CallFunctionRequest>>,
     ) -> Result<Response<Self::CallFunctionStream>, Status> {
+        if self
+            .serving_state
+            .as_ref()
+            .is_some_and(|state| !state.is_serving())
+        {
+            return Err(Status::unavailable("model is not ready"));
+        }
+
         // Extract metadata from request
         let metadata = extract_metadata(request.metadata());
+        self.python_handler.check_admission(&metadata)?;
         let peer = request
             .remote_addr()
             .map(|a| a.to_string())
@@ -74,6 +87,14 @@ impl RemoteCallService for RemoteCallServiceImpl {
             return Err(Status::internal(format!(
                 "Failed to decode Arrow IPC stream: {e}"
             )));
+        }
+
+        if self
+            .serving_state
+            .as_ref()
+            .is_some_and(|state| !state.is_serving())
+        {
+            return Err(Status::unavailable("model is not ready"));
         }
 
         let (tx, rx) = tokio::sync::mpsc::channel(32);
@@ -144,7 +165,7 @@ impl RemoteCallService for RemoteCallServiceImpl {
                             "Python handler error: {}",
                             e.details()
                         );
-                        let _ = error_tx.send(Err(Status::unknown(e.to_string()))).await;
+                        let _ = error_tx.send(Err(e.status())).await;
                     }
                 }
             }

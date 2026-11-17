@@ -627,8 +627,17 @@ class Browser:
         ⛔ THE ORDER IS THE POINT. The browser holds a lock on its profile
         until it is gone, and removing the directory first fails on Windows -
         silently, because a removal must never raise. And the browser is not
-        the last process: `SessionFiles.remove` ends the children that outlive
+        the last process: the launch's reaper ends the children that outlive
         it before it removes anything (B223).
+
+        ⛔ IT RETURNS WHEN THE BROWSER HAS EXITED, not when its sender of the
+        shutdown pings has: that process leaves by itself within a second and
+        nobody who closed a browser is waiting for it. The reaper (a thread
+        that is not a daemon, `Connection.reaper`) waits for it, ends it only
+        after the grace of `SessionFiles`, and then takes the directories
+        away; the end of the interpreter waits for it too. `wait_reaped()` is
+        the wait for all of it, for a caller that wants the guarantee at a
+        point of its own.
 
         Idempotent: an adapter may reach this from more than one way out.
         """
@@ -639,16 +648,37 @@ class Browser:
             self.conn.close()
         except Exception:
             pass
-        if self._files is not None:
+        if self._files is None:
+            return
+        reaper = getattr(self.conn, "reaper", None)
+        if reaper is None:               # a connection with no tree of its own: nothing to wait for
             self._files.remove()
+        else:
+            reaper.then(self._files.remove)
 
     async def aclose(self) -> None:
-        """`close()` for an event loop: the wait for the browser's processes and
-        the removal of the session's directories run in a thread of their own,
-        and the loop goes on serving whatever else it serves (other browsers of
-        this process, among them). It returns when `close()` has: the processes
-        are gone and the profile is removed."""
+        """`close()` for an event loop: the wait for the browser's exit runs in a
+        thread of its own, and the loop goes on serving whatever else it serves
+        (other browsers of this process, among them). It returns when `close()`
+        has: the browser has exited; the rest is the reaper's
+        (`await_reaped()`)."""
         await off_the_loop(self.close)
+
+    def wait_reaped(self, timeout: Optional[float] = None) -> bool:
+        """Waits for everything that follows the browser's exit: the processes
+        that outlive it have finished or been ended, the launch is released and
+        the session's directories are gone. True when it is all done, False at
+        `timeout`. Costs nothing when nothing was left: the wait is on the tree
+        being empty, not on a time. Only after `close()`."""
+        reaper = getattr(self.conn, "reaper", None)
+        if reaper is None:
+            return True
+        reaper.join(timeout)
+        return reaper.finished
+
+    async def await_reaped(self, timeout: Optional[float] = None) -> bool:
+        """`wait_reaped()` for an event loop, in a thread of its own."""
+        return await off_the_loop(self.wait_reaped, timeout)
 
 
 # ── context ─────────────────────────────────────────────────────────────────

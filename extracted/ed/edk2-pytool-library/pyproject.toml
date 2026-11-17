@@ -39,22 +39,22 @@ issues = "https://github.com/tianocore/edk2-pytool-library/issues/"
 
 [project.optional-dependencies]
 dev = [
-    "ruff == 0.15.21",
+    "ruff == 0.17.5",
     "pytest == 9.1.1",
     "coverage == 7.15.4",
     "pre-commit == 4.6.2",
 ]
 publish = [
-    "setuptools == 84.0.0",
-    "build == 1.5.1",
-    "twine == 6.2.0",
+    "setuptools == 84.1.0",
+    "build == 1.6.1",
+    "twine == 7.0.0",
 ]
 docs = [
-    "black==26.5.1",
-    "mkdocs==1.6.1",
-    "mkdocs-material==9.7.6",
-    "mkdocstrings[python]==1.0.6",
-    "mkdocstrings-python==2.0.5",
+    "black==26.10.1",
+    "properdocs==1.6.7",
+    "mkdocs-material==9.7.7",
+    "mkdocstrings[python]==1.0.7",
+    "mkdocstrings-python==2.0.9",
     "markdown-include==0.8.1",
     "mkdocs-gen-files==0.6.1",
     "mkdocs-exclude==1.0.2",
@@ -73,8 +73,7 @@ include = ["edk2toollib/*"]
 src = ["edk2toollib"]
 line-length = 120
 
-[lint]
-ignore = ["ANN101"]
+[tool.ruff.lint]
 select = [
     "E", # Pycodestyle errors
     "W", # Pycodestyle warnings
@@ -84,11 +83,20 @@ select = [
     "PIE", # flake8 - PIEpip
     "ANN",
 ]
+ignore = [
+    "ANN001", # Missing parameter annotations
+    "ANN002", # Missing *args annotations
+    "ANN003", # Missing **kwargs annotations
+    "ANN204", # Missing special-method return annotations
+]
 
-[lint.flake8-annotations]
+[tool.ruff.lint.per-file-ignores]
+"tests.unit/**" = ["ANN", "D"]
+
+[tool.ruff.lint.flake8-annotations]
 allow-star-arg-any = true
 
-[lint.pydocstyle]
+[tool.ruff.lint.pydocstyle]
 convention = "google"
 
 [tool.pytest.ini_options]

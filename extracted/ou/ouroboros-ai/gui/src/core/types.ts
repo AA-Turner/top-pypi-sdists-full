@@ -337,9 +337,23 @@ export interface ChatMessage {
   kind: "text" | "question" | "note" | "error" | "seed" | "run" | "result" | "log";
   text: string;
   ts: number;
+  /** A fixed sentence the page translates (`chat.note.<key>`); `text` is its English. */
+  key?: string;
+  vars?: Record<string, string | number>;
   ambiguity?: number | null;
-  ready?: boolean;
+  /** How a user answer was given, when Ouroboros drafted it from the repository or a default. */
+  via?: "auto_confirmed" | "repo_confirmed" | "suggested";
+  /** For an auto-confirmed answer: the manifest or config file it was read from. For a result: "auto". */
+  source?: string;
+  evidence?: string[];
+  /** The question an auto-confirmed or confirmed answer answered. */
+  question?: string;
+  corrected?: boolean;
+  corrects?: string;
   model?: string | null;
+  /** For a reply whose model is the "default" sentinel: which agent's default, and its configured model. */
+  model_backend?: string | null;
+  model_default?: string | null;
   acceptance_criteria?: string[];
   constraints?: string[];
   seed_yaml?: string;
@@ -354,6 +368,21 @@ export interface ChatMessage {
   files?: string[];
   file_count?: number;
   uncommitted?: number;
+  /** An Auto result: how it ended, the run status it reported, and the folder it worked in. */
+  outcome?: "completed" | "failed" | "stopped" | "unverified";
+  handoff_status?: string | null;
+  folder?: string;
+  in_repo?: boolean;
+}
+
+export type GitKind = "ready" | "no_commits" | "not_repo" | "unreadable" | "no_git";
+
+/** GET /api/chat/folder: whether a folder exists and is a git repository with a commit. */
+export interface FolderProbe {
+  path: string;
+  exists: boolean;
+  git: GitKind | null;
+  detail?: string;
 }
 
 export interface Suggestion {
@@ -363,7 +392,34 @@ export interface Suggestion {
   source?: "repo" | "model";
   evidence?: string[];
   error?: string;
+  /** Started by Ouroboros for a question the server marked as answerable from code. */
+  auto?: boolean;
+  repo_checked?: boolean;
 }
+
+/** One per-dimension floor of the server's completion gate. */
+export interface ReadinessDimension {
+  key: string;
+  label: string;
+  floor: number;
+  clarity: number | null;
+  met: boolean;
+}
+
+/** The interview's completion gate as the server evaluates it. The page holds no thresholds. */
+export interface Readiness {
+  score: number;
+  threshold: number;
+  score_ok: boolean | null;
+  dimensions: ReadinessDimension[];
+  qualified: boolean | null;
+  streak: number;
+  streak_required: number;
+  complete: boolean;
+  brownfield: boolean;
+}
+
+export type ChatProject = "new" | "existing";
 
 export interface ChatSessionRow {
   id: string;
@@ -381,7 +437,9 @@ export interface ChatSession extends ChatSessionRow {
   goal: string;
   version: number;
   messages: ChatMessage[];
+  project?: ChatProject | null;
   ambiguity?: number | null;
+  readiness?: Readiness | null;
   seed_ready?: boolean;
   last_question?: string | null;
   interview_session_id?: string;

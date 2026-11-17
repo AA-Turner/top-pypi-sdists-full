@@ -14,6 +14,7 @@ use tracing::{debug, error, instrument, warn};
 
 use crate::python_bridge::{ChunkBuffer, PythonHandler};
 use crate::service::extract_metadata;
+use crate::ServingState;
 
 /// How often the orphan sweeper runs.
 const SWEEP_INTERVAL: Duration = Duration::from_secs(30);
@@ -88,6 +89,7 @@ pub struct AsyncRemoteCallServiceImpl {
     /// rather than silently calling the handler with the wrong shape.
     batching_enabled: bool,
     is_remote_function: bool,
+    serving_state: Option<Arc<ServingState>>,
 }
 
 impl AsyncRemoteCallServiceImpl {
@@ -95,6 +97,7 @@ impl AsyncRemoteCallServiceImpl {
         python_handler: Arc<PythonHandler>,
         batching_enabled: bool,
         is_remote_function: bool,
+        serving_state: Option<Arc<ServingState>>,
     ) -> Self {
         let registry: Registry = Arc::new(Mutex::new(HashMap::new()));
         // Runs inside the server's tokio runtime (the service is constructed
@@ -106,6 +109,7 @@ impl AsyncRemoteCallServiceImpl {
             next_id: AtomicU64::new(1),
             batching_enabled,
             is_remote_function,
+            serving_state,
         }
     }
 }
@@ -134,6 +138,13 @@ impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
         &self,
         request: Request<EnqueueRemoteCallRequest>,
     ) -> Result<Response<EnqueueRemoteCallResponse>, Status> {
+        if self
+            .serving_state
+            .as_ref()
+            .is_some_and(|state| !state.is_serving())
+        {
+            return Err(Status::unavailable("model is not ready"));
+        }
         if self.batching_enabled {
             return Err(Status::unimplemented(
                 "async enqueue/poll is not supported when request coalescing is enabled",
@@ -141,6 +152,7 @@ impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
         }
 
         let metadata = extract_metadata(request.metadata());
+        self.python_handler.check_admission(&metadata)?;
         let peer = request
             .remote_addr()
             .map(|a| a.to_string())
@@ -166,6 +178,14 @@ impl AsyncRemoteCallService for AsyncRemoteCallServiceImpl {
             }
             None => Vec::new(),
         };
+
+        if self
+            .serving_state
+            .as_ref()
+            .is_some_and(|state| !state.is_serving())
+        {
+            return Err(Status::unavailable("model is not ready"));
+        }
 
         // Pod-scoped id: the registry only knows about calls accepted by this
         // pod, so a monotonic per-process counter is sufficient for uniqueness.

@@ -20,7 +20,9 @@ The BaseApiClient is intended to be a private module and is subject to change.
 """
 
 import asyncio
+from collections.abc import AsyncIterable
 from collections.abc import Generator
+from collections.abc import Iterable
 import copy
 from dataclasses import dataclass
 import inspect
@@ -176,8 +178,20 @@ def get_env_api_key() -> Optional[str]:
   return env_google_api_key or env_gemini_api_key or None
 
 
+def collapse_header_case_variants(
+    headers: dict[str, str], header_key: str
+) -> None:
+  """Merges every case variant of `header_key` into the lowercase key."""
+  variant_keys = [k for k in headers if k.lower() == header_key]
+  if variant_keys:
+    values = dict.fromkeys(headers.pop(k) for k in variant_keys)
+    headers[header_key] = ' '.join(values)
+
+
 def append_library_version_headers(headers: dict[str, str]) -> None:
   """Appends the telemetry header to the headers dict."""
+  collapse_header_case_variants(headers, 'user-agent')
+  collapse_header_case_variants(headers, 'x-goog-api-client')
   library_label = f'google-genai-sdk/{version.__version__}'
   language_label = 'gl-python/' + sys.version.split()[0]
   version_header_value = f'{library_label} {language_label}'
@@ -389,6 +403,128 @@ class HttpRequest:
   timeout: Optional[float] = None
 
 
+class _RawJsonLineBuffer:
+  """Buffers raw JSON lines until their braces balance outside strings."""
+
+  def __init__(self) -> None:
+    self._lines: list[str] = []
+    self._depth = 0
+    self._in_string = False
+    self._escaped = False
+
+  def add_line(self, line: str) -> Optional[str]:
+    """Adds a line and returns the buffered chunk once it is complete."""
+    for c in line:
+      if self._in_string:
+        if self._escaped:
+          self._escaped = False
+        elif c == '\\':
+          self._escaped = True
+        elif c == '"':
+          self._in_string = False
+      elif c == '"':
+        self._in_string = True
+      elif c == '{':
+        self._depth += 1
+      elif c == '}':
+        self._depth -= 1
+    self._lines.append(line)
+    if self._depth == 0:
+      return self.flush()
+    return None
+
+  def flush(self) -> str:
+    """Returns all buffered lines and resets the buffer."""
+    chunk = ''.join(self._lines)
+    self._lines = []
+    self._depth = 0
+    self._in_string = False
+    self._escaped = False
+    return chunk
+
+
+class _SseLineDecoder:
+  """Splits a byte stream into lines at CR, LF or CRLF only.
+
+  The SSE format allows no other line terminators. str.splitlines(), which
+  httpx and requests use, also breaks at U+2028, U+2029 and U+0085, and these
+  may appear unescaped inside JSON strings.
+  """
+
+  def __init__(self) -> None:
+    self._buffer: list[bytes] = []
+    self._trailing_cr = False
+
+  def decode(self, chunk: bytes) -> list[str]:
+    """Returns the lines that `chunk` completes."""
+    if self._trailing_cr:
+      chunk = b'\r' + chunk
+      self._trailing_cr = False
+    # Hold a trailing CR until the next chunk shows whether LF follows.
+    if chunk.endswith(b'\r'):
+      self._trailing_cr = True
+      chunk = chunk[:-1]
+    if not chunk:
+      return []
+
+    # bytes.splitlines() breaks only at \r, \n and \r\n.
+    lines = chunk.splitlines()
+    tail = None if chunk.endswith((b'\r', b'\n')) else lines.pop()
+    if lines:
+      self._buffer.append(lines[0])
+      lines[0] = b''.join(self._buffer)
+      self._buffer = []
+    if tail is not None:
+      self._buffer.append(tail)
+    return [line.decode('utf-8', errors='replace') for line in lines]
+
+  def flush(self) -> list[str]:
+    """Returns the buffered line at the end of the stream, if any."""
+    if not self._buffer and not self._trailing_cr:
+      return []
+    line = b''.join(self._buffer)
+    self._buffer = []
+    self._trailing_cr = False
+    return [line.decode('utf-8', errors='replace')]
+
+
+def _iter_sse_lines(chunks: Iterable[bytes]) -> Iterator[str]:
+  """Yields the lines of an SSE byte stream."""
+  decoder = _SseLineDecoder()
+  for chunk in chunks:
+    yield from decoder.decode(chunk)
+  yield from decoder.flush()
+
+
+async def _aiter_sse_lines(
+    chunks: AsyncIterable[bytes],
+) -> AsyncIterator[str]:
+  """Yields the lines of an async SSE byte stream."""
+  decoder = _SseLineDecoder()
+  async for chunk in chunks:
+    for line in decoder.decode(chunk):
+      yield line
+  for line in decoder.flush():
+    yield line
+
+
+async def _aiter_aiohttp_lines(
+    content: 'aiohttp.StreamReader',
+) -> AsyncIterator[bytes]:
+  """Yields newline-terminated lines from an aiohttp stream, of any length."""
+  buffer = bytearray()
+  async for data in content.iter_any():
+    scan_start = len(buffer)
+    buffer += data
+    line_start = 0
+    while (newline_pos := buffer.find(b'\n', scan_start)) != -1:
+      yield bytes(buffer[line_start : newline_pos + 1])
+      line_start = scan_start = newline_pos + 1
+    del buffer[:line_start]
+  if buffer:
+    yield bytes(buffer)
+
+
 class HttpResponse:
 
   def __init__(
@@ -508,13 +644,15 @@ class HttpResponse:
           f'but got {type(self.response_stream).__name__}.'
       )
 
-    chunk = ''
-    balance = 0
+    raw_buffer = _RawJsonLineBuffer()
     data_buffer: list[str] = []
     if isinstance(self.response_stream, _HTTPX_RESPONSE_TYPES):
-      response_stream = self.response_stream.iter_lines()
+      response_stream = _iter_sse_lines(self.response_stream.iter_bytes())
     else:
-      response_stream = self.response_stream.iter_lines(decode_unicode=True)
+      # 512 bytes is the chunk size requests' iter_lines() reads.
+      response_stream = _iter_sse_lines(
+          self.response_stream.iter_content(chunk_size=512)
+      )
     for line in response_stream:
       if not line:
         if data_buffer:
@@ -530,21 +668,15 @@ class HttpResponse:
 
       # When API returns an error message, it comes line by line. So we buffer
       # the lines until a complete JSON string is read. A complete JSON string
-      # is found when the balance is 0.
-      for c in line:
-        if c == '{':
-          balance += 1
-        elif c == '}':
-          balance -= 1
-
-      chunk += line
-      if balance == 0:
+      # is found when the braces balance, ignoring braces inside strings.
+      chunk = raw_buffer.add_line(line)
+      if chunk is not None:
         yield chunk
-        chunk = ''
 
     # If there is any remaining chunk, yield it.
-    if chunk:
-      yield chunk
+    remaining = raw_buffer.flush()
+    if remaining:
+      yield remaining
     if data_buffer:
       yield '\n'.join(data_buffer)
 
@@ -562,14 +694,13 @@ class HttpResponse:
           f' {type(self.response_stream).__name__}.'
       )
 
-    chunk = ''
-    balance = 0
+    raw_buffer = _RawJsonLineBuffer()
     data_buffer: list[str] = []
     # httpx.Response has a dedicated async line iterator.
     if isinstance(self.response_stream, _HTTPX_RESPONSE_TYPES):
       try:
         response_stream: Any = self.response_stream
-        async for line in response_stream.aiter_lines():
+        async for line in _aiter_sse_lines(response_stream.aiter_bytes()):
           if not line:
             if data_buffer:
               yield '\n'.join(data_buffer)
@@ -583,20 +714,14 @@ class HttpResponse:
 
           # When API returns an error message, it comes line by line. So we buffer
           # the lines until a complete JSON string is read. A complete JSON string
-          # is found when the balance is 0.
-          for c in line:
-            if c == '{':
-              balance += 1
-            elif c == '}':
-              balance -= 1
-
-          chunk += line
-          if balance == 0:
+          # is found when the braces balance, ignoring braces inside strings.
+          chunk = raw_buffer.add_line(line)
+          if chunk is not None:
             yield chunk
-            chunk = ''
         # If there is any remaining chunk, yield it.
-        if chunk:
-          yield chunk
+        remaining = raw_buffer.flush()
+        if remaining:
+          yield remaining
         if data_buffer:
           yield '\n'.join(data_buffer)
       finally:
@@ -608,18 +733,9 @@ class HttpResponse:
         self.response_stream, aiohttp.ClientResponse
     ):
       try:
-        while True:
-          # Read a line from the stream. This returns bytes.
-          try:
-            line_bytes = await self.response_stream.content.readline(
-                max_line_length=READ_BUFFER_SIZE  # type: ignore[call-arg]
-            )
-          except TypeError:
-            # Ensure backwards compatibility with older versions of
-            # aiohttp that do not support max_line_length.
-            line_bytes = await self.response_stream.content.readline()
-          if not line_bytes:
-            break
+        async for line_bytes in _aiter_aiohttp_lines(
+            self.response_stream.content
+        ):
           # Decode the bytes and remove trailing whitespace and newlines.
           line = line_bytes.decode('utf-8').rstrip()
           if not line:
@@ -636,20 +752,15 @@ class HttpResponse:
 
           # When API returns an error message, it comes line by line. So we
           # buffer the lines until a complete JSON string is read. A complete
-          # JSON strings found when the balance is 0.
-          for c in line:
-            if c == '{':
-              balance += 1
-            elif c == '}':
-              balance -= 1
-
-          chunk += line
-          if balance == 0:
+          # JSON string is found when the braces balance, ignoring braces
+          # inside strings.
+          chunk = raw_buffer.add_line(line)
+          if chunk is not None:
             yield chunk
-            chunk = ''
         # If there is any remaining chunk, yield it.
-        if chunk:
-          yield chunk
+        remaining = raw_buffer.flush()
+        if remaining:
+          yield remaining
         if data_buffer:
           yield '\n'.join(data_buffer)
       finally:
@@ -742,6 +853,91 @@ if TYPE_CHECKING:
     """Async httpx2 client."""
 
 else:
+
+  class _PerLoopAsyncClientMixin:
+    """Keeps one connection pool per event loop for an async httpx client.
+
+    Pooled connections are bound to the loop that opened them, so reusing them
+    from another loop fails with `RuntimeError: Event loop is closed`. Requests
+    are therefore sent through one inner client per running loop. The inner
+    clients are built from the construction-time kwargs and share the outer
+    client's cookie jar. Headers, params, cookies and timeout set on the outer
+    client later still apply, because the outer `build_request` adds them to
+    each request, but later changes to its `auth` or `event_hooks` do not reach
+    the inner clients.
+
+    Subclasses set `_inner_client_cls` and list this mixin before the httpx or
+    httpx2 `AsyncClient` base.
+    """
+
+    _inner_client_cls: Any
+
+    def __init__(self, **kwargs: Any) -> None:
+      """Initializes the client."""
+      kwargs.setdefault('follow_redirects', True)
+      # In per-loop mode the transport and pool built here are never used: the
+      # outer client only builds requests and holds the shared cookie jar.
+      super().__init__(**kwargs)
+      self._client_kwargs = kwargs
+      # A caller-supplied transport owns its pool.
+      self._per_loop = 'transport' not in kwargs and 'mounts' not in kwargs
+      self._loop_clients: dict[asyncio.AbstractEventLoop, Any] = {}
+      self._loop_clients_lock = threading.Lock()
+
+    def _client_for_running_loop(self) -> Any:
+      """Returns the running loop's inner client, creating it if needed."""
+      loop = asyncio.get_running_loop()
+      with self._loop_clients_lock:
+        BaseApiClient._discard_closed_loop_entries(self._loop_clients)
+        client = self._loop_clients.get(loop)
+        if client is None:
+          client = self._inner_client_cls(
+              **{**self._client_kwargs, 'cookies': self.cookies.jar}
+          )
+          self._loop_clients[loop] = client
+        return client
+
+    async def send(self, request: Any, **kwargs: Any) -> Any:
+      """Sends the request through the running loop's connection pool."""
+      if not self._per_loop:
+        return await super().send(request, **kwargs)
+      if self.is_closed:
+        raise RuntimeError(
+            'Cannot send a request, as the client has been closed.'
+        )
+      return await self._client_for_running_loop().send(request, **kwargs)
+
+    async def aclose(self) -> None:
+      """Closes the connection pools of every loop that is still running."""
+      with self._loop_clients_lock:
+        loop_clients, self._loop_clients = self._loop_clients, {}
+      try:
+        current_loop = asyncio.get_running_loop()
+      except RuntimeError:
+        current_loop = None
+      for loop, client in loop_clients.items():
+        if loop is current_loop:
+          await client.aclose()
+        elif loop.is_running():
+          try:
+            asyncio.run_coroutine_threadsafe(client.aclose(), loop)
+          except RuntimeError:
+            pass  # The loop closed during the call.
+        # Otherwise the close cannot run: a closed loop never runs again, and
+        # an idle loop cannot be run from this thread while `current_loop` is
+        # running. As in `_discard_closed_loop_entries`, dropping the client
+        # lets the garbage collector release its sockets.
+      await super().aclose()
+
+    async def __aexit__(self, *args: Any, **kwargs: Any) -> None:
+      """Closes every loop's connection pool, like the base class's aclose().
+
+      The base `__aexit__` only closes the unused outer transport, so `async
+      with` would otherwise leak the inner per-loop pools.
+      """
+      del args, kwargs
+      await self.aclose()
+
   if httpx is not None:
 
     class SyncHttpxClient(httpx.Client):
@@ -765,13 +961,10 @@ else:
           pass
 
 
-    class AsyncHttpxClient(httpx.AsyncClient):
-      """Async httpx client."""
+    class AsyncHttpxClient(_PerLoopAsyncClientMixin, httpx.AsyncClient):
+      """Async httpx client that keeps one connection pool per event loop."""
 
-      def __init__(self, **kwargs: Any) -> None:
-        """Initializes the httpx client."""
-        kwargs.setdefault('follow_redirects', True)
-        super().__init__(**kwargs)
+      _inner_client_cls = httpx.AsyncClient
 
       def __del__(self) -> None:
         try:
@@ -812,13 +1005,10 @@ else:
           pass
 
 
-    class AsyncHttpx2Client(httpx2.AsyncClient):
-      """Async httpx2 client."""
+    class AsyncHttpx2Client(_PerLoopAsyncClientMixin, httpx2.AsyncClient):
+      """Async httpx2 client that keeps one connection pool per event loop."""
 
-      def __init__(self, **kwargs: Any) -> None:
-        """Initializes the httpx2 client."""
-        kwargs.setdefault('follow_redirects', True)
-        super().__init__(**kwargs)
+      _inner_client_cls = httpx2.AsyncClient
 
       def __del__(self) -> None:
         try:
@@ -2741,7 +2931,7 @@ class BaseApiClient:
             break
           delay_seconds = INITIAL_RETRY_DELAY * (DELAY_MULTIPLIER**retry_count)
           retry_count += 1
-          time.sleep(delay_seconds)
+          await asyncio.sleep(delay_seconds)
 
         offset += chunk_size
         if (
@@ -2947,6 +3137,20 @@ class BaseApiClient:
           except RuntimeError:
             pass  # Handle case where the loop was closed during the call
 
+  def _async_resources_are_closed(self) -> bool:
+    """Returns True when no async resource needs an awaited close."""
+    if (
+        self._async_httpx_client is not None
+        and not self._http_options.httpx_async_client
+        and not self._async_httpx_client.is_closed
+    ):
+      return False
+    if self._aiohttp_sessions and not self._http_options.aiohttp_client:
+      for session in self._aiohttp_sessions.values():
+        if not self._is_session_closed(session):
+          return False
+    return True
+
   def __del__(self) -> None:
     """Closes the API client when the object is garbage collected.
 
@@ -2961,6 +3165,8 @@ class BaseApiClient:
       pass
 
     try:
+      if self._async_resources_are_closed():
+        return
       asyncio.get_running_loop().create_task(self.aclose())
     except Exception:  # pylint: disable=broad-except
       pass

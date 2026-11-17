@@ -61,6 +61,7 @@ __all__ = (
     "OriginTypeType",
     "PaginatorName",
     "RegionName",
+    "ResourceOwnerTypeType",
     "ResourceServiceName",
     "RotationTypeType",
     "ServiceName",
@@ -235,6 +236,7 @@ MacAlgorithmSpecType = Literal["HMAC_SHA_224", "HMAC_SHA_256", "HMAC_SHA_384", "
 MessageTypeType = Literal["DIGEST", "EXTERNAL_MU", "RAW"]
 MultiRegionKeyTypeType = Literal["PRIMARY", "REPLICA"]
 OriginTypeType = Literal["AWS_CLOUDHSM", "AWS_KMS", "EXTERNAL", "EXTERNAL_KEY_STORE"]
+ResourceOwnerTypeType = Literal["OTHER_ACCOUNTS_VIA_RAM", "SELF"]
 RotationTypeType = Literal["AUTOMATIC", "ON_DEMAND"]
 SigningAlgorithmSpecType = Literal[
     "ECDSA_SHA_256",
@@ -363,6 +365,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -547,6 +550,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -614,6 +618,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

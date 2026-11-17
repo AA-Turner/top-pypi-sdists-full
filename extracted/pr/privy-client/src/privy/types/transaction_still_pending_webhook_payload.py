@@ -18,6 +18,12 @@ class TransactionStillPendingWebhookPayload(BaseModel):
     mainnet).
     """
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     transaction_hash: str
     """The blockchain transaction hash."""
 
@@ -27,7 +33,7 @@ class TransactionStillPendingWebhookPayload(BaseModel):
     transaction_request: UnsignedStandardEthereumTransaction
     """An unsigned standard Ethereum transaction object.
 
-    Supports EVM transaction types 0, 1, 2, and 4.
+    Supports EVM transaction types 0, 2, and 4.
     """
 
     type: Literal["transaction.still_pending"]

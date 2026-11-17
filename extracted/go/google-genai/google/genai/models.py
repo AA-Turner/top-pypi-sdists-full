@@ -810,6 +810,13 @@ def _EmbedContentConfig_to_vertex(
           ['embedContentConfig', 'taskType'],
           getv(from_object, ['task_type']),
       )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['task_type']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'taskType'],
+          getv(from_object, ['task_type']),
+      )
 
   discriminator = getv(root_object, ['embedding_api_type'])
   if discriminator is None:
@@ -824,6 +831,13 @@ def _EmbedContentConfig_to_vertex(
       setv(
           parent_object,
           ['embedContentConfig', 'title'],
+          getv(from_object, ['title']),
+      )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['title']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'title'],
           getv(from_object, ['title']),
       )
 
@@ -842,6 +856,13 @@ def _EmbedContentConfig_to_vertex(
       setv(
           parent_object,
           ['embedContentConfig', 'outputDimensionality'],
+          getv(from_object, ['output_dimensionality']),
+      )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['output_dimensionality']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'outputDimensionality'],
           getv(from_object, ['output_dimensionality']),
       )
 
@@ -873,6 +894,13 @@ def _EmbedContentConfig_to_vertex(
           ['embedContentConfig', 'autoTruncate'],
           getv(from_object, ['auto_truncate']),
       )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['auto_truncate']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'autoTruncate'],
+          getv(from_object, ['auto_truncate']),
+      )
 
   discriminator = getv(root_object, ['embedding_api_type'])
   if discriminator is None:
@@ -884,6 +912,13 @@ def _EmbedContentConfig_to_vertex(
           ['embedContentConfig', 'documentOcr'],
           getv(from_object, ['document_ocr']),
       )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['document_ocr']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'documentOcr'],
+          getv(from_object, ['document_ocr']),
+      )
 
   discriminator = getv(root_object, ['embedding_api_type'])
   if discriminator is None:
@@ -893,6 +928,13 @@ def _EmbedContentConfig_to_vertex(
       setv(
           parent_object,
           ['embedContentConfig', 'audioTrackExtraction'],
+          getv(from_object, ['audio_track_extraction']),
+      )
+  elif discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['audio_track_extraction']) is not None:
+      setv(
+          parent_object,
+          ['requests[]', 'embedContentConfig', 'audioTrackExtraction'],
           getv(from_object, ['audio_track_extraction']),
       )
 
@@ -928,6 +970,12 @@ def _EmbedContentParametersPrivate_to_mldev(
   if getv(from_object, ['content']) is not None:
     _Content_to_mldev(
         t.t_content(getv(from_object, ['content'])), to_object, root_object
+    )
+
+  if getv(from_object, ['batch_contents']) is not None:
+    raise ValueError(
+        'batch_contents parameter is only supported in Gemini Enterprise Agent'
+        ' Platform mode, not in Gemini Developer API mode.'
     )
 
   if getv(from_object, ['config']) is not None:
@@ -986,6 +1034,20 @@ def _EmbedContentParametersPrivate_to_vertex(
               to_object,
               root_object,
           ),
+      )
+
+  discriminator = getv(root_object, ['embedding_api_type'])
+  if discriminator is None:
+    discriminator = 'PREDICT'
+  if discriminator == 'BATCH_EMBED_CONTENTS':
+    if getv(from_object, ['batch_contents']) is not None:
+      setv(
+          to_object,
+          ['requests[]', 'content'],
+          [
+              _Content_to_vertex(item, to_object, root_object)
+              for item in t.t_contents(getv(from_object, ['batch_contents']))
+          ],
       )
 
   if getv(from_object, ['config']) is not None:
@@ -1073,6 +1135,17 @@ def _EmbedContentResponse_from_vertex(
         stats['truncated'] = truncated
       embedding['statistics'] = stats
       setv(to_object, ['embeddings'], [embedding])
+  elif getv(root_object, ['embedding_api_type']) == 'BATCH_EMBED_CONTENTS':
+    embeddings = getv(from_object, ['embeddings'])
+    if embeddings is not None:
+      setv(
+          to_object,
+          ['embeddings'],
+          [
+              _ContentEmbedding_from_vertex(item, to_object, root_object)
+              for item in embeddings
+          ],
+      )
 
   return to_object
 
@@ -1166,6 +1239,31 @@ def _FunctionResponsePart_to_vertex(
         'media_processing parameter is only supported in Gemini Developer API'
         ' mode, not in Gemini Enterprise Agent Platform mode.'
     )
+
+  if getv(from_object, ['media_resolution']) is not None:
+    setv(
+        to_object, ['mediaResolution'], getv(from_object, ['media_resolution'])
+    )
+
+  if getv(from_object, ['video_metadata']) is not None:
+    setv(to_object, ['videoMetadata'], getv(from_object, ['video_metadata']))
+
+  if getv(from_object, ['document_metadata']) is not None:
+    setv(
+        to_object,
+        ['documentMetadata'],
+        getv(from_object, ['document_metadata']),
+    )
+
+  if getv(from_object, ['spreadsheet_metadata']) is not None:
+    setv(
+        to_object,
+        ['spreadsheetMetadata'],
+        getv(from_object, ['spreadsheet_metadata']),
+    )
+
+  if getv(from_object, ['audio_metadata']) is not None:
+    setv(to_object, ['audioMetadata'], getv(from_object, ['audio_metadata']))
 
   return to_object
 
@@ -3109,6 +3207,23 @@ def _Part_to_mldev(
   if getv(from_object, ['speech_metadata']) is not None:
     setv(to_object, ['speechMetadata'], getv(from_object, ['speech_metadata']))
 
+  if getv(from_object, ['document_metadata']) is not None:
+    setv(
+        to_object,
+        ['documentMetadata'],
+        getv(from_object, ['document_metadata']),
+    )
+
+  if getv(from_object, ['spreadsheet_metadata']) is not None:
+    setv(
+        to_object,
+        ['spreadsheetMetadata'],
+        getv(from_object, ['spreadsheet_metadata']),
+    )
+
+  if getv(from_object, ['audio_metadata']) is not None:
+    setv(to_object, ['audioMetadata'], getv(from_object, ['audio_metadata']))
+
   return to_object
 
 
@@ -3199,6 +3314,23 @@ def _Part_to_vertex(
 
   if getv(from_object, ['speech_metadata']) is not None:
     setv(to_object, ['speechMetadata'], getv(from_object, ['speech_metadata']))
+
+  if getv(from_object, ['document_metadata']) is not None:
+    setv(
+        to_object,
+        ['documentMetadata'],
+        getv(from_object, ['document_metadata']),
+    )
+
+  if getv(from_object, ['spreadsheet_metadata']) is not None:
+    setv(
+        to_object,
+        ['spreadsheetMetadata'],
+        getv(from_object, ['spreadsheet_metadata']),
+    )
+
+  if getv(from_object, ['audio_metadata']) is not None:
+    setv(to_object, ['audioMetadata'], getv(from_object, ['audio_metadata']))
 
   return to_object
 
@@ -4597,6 +4729,9 @@ class Models(_api_module.BaseModule):
           Union[types.ContentUnion, types.ContentUnionDict]
       ] = None,
       embedding_api_type: Optional[types.EmbeddingApiType] = None,
+      batch_contents: Optional[
+          Union[types.ContentListUnion, types.ContentListUnionDict]
+      ] = None,
       config: Optional[types.EmbedContentConfigOrDict] = None,
   ) -> types.EmbedContentResponse:
     """Calculates embeddings for the given contents. Only text is supported.
@@ -4627,6 +4762,7 @@ class Models(_api_module.BaseModule):
         contents=contents,
         content=content,
         embedding_api_type=embedding_api_type,
+        batch_contents=batch_contents,
         config=config,
     )
 
@@ -4637,7 +4773,18 @@ class Models(_api_module.BaseModule):
           self._api_client, parameter_model, None, parameter_model
       )
       request_url_dict = request_dict.get('_url')
-      endpoint_url = '{model}:embedContent' if t.t_is_vertex_embed_content_model(parameter_model.model) else '{model}:predict'  # type: ignore[arg-type]
+      if (
+          parameter_model.embedding_api_type
+          == types.EmbeddingApiType.BATCH_EMBED_CONTENTS
+      ):
+        endpoint_url = '{model}:batchEmbedContents'
+      elif (
+          parameter_model.embedding_api_type
+          == types.EmbeddingApiType.EMBED_CONTENT
+      ):
+        endpoint_url = '{model}:embedContent'
+      else:
+        endpoint_url = '{model}:predict'
       if request_url_dict:
         path = endpoint_url.format_map(request_url_dict)
       else:
@@ -5845,20 +5992,26 @@ class Models(_api_module.BaseModule):
       )
     """
     if not self._api_client.vertexai:
-      if 'gemini-embedding-2' in model:
+      if t.t_is_multimodal_embedding_model(model):
         contents = t.t_contents(contents)  # type: ignore[assignment]
       return self._embed_content(model=model, contents=contents, config=config)
 
     if t.t_is_vertex_embed_content_model(model):
-      normalized_contents = t.t_contents(contents)
+      normalized_contents = t.t_embed_contents(model, contents)
       if len(normalized_contents) > 1:
-        raise ValueError(
-            'The embedContent API for this model only supports one content at a'
-            ' time.'
+        if t.t_is_vertex_maas_model(model):
+          raise ValueError(
+              'The embedContent API for this model only supports one content at'
+              ' a time.'
+          )
+        return self._embed_content(
+            model=model,
+            batch_contents=normalized_contents,
+            embedding_api_type=types.EmbeddingApiType.BATCH_EMBED_CONTENTS,
+            config=config,
         )
       return self._embed_content(
           model=model,
-          contents=None,
           content=normalized_contents[0],
           embedding_api_type=types.EmbeddingApiType.EMBED_CONTENT,
           config=config,
@@ -5866,7 +6019,6 @@ class Models(_api_module.BaseModule):
     else:
       return self._embed_content(
           model=model,
-          content=None,
           contents=contents,
           embedding_api_type=types.EmbeddingApiType.PREDICT,
           config=config,
@@ -6868,6 +7020,9 @@ class AsyncModels(_api_module.BaseModule):
           Union[types.ContentUnion, types.ContentUnionDict]
       ] = None,
       embedding_api_type: Optional[types.EmbeddingApiType] = None,
+      batch_contents: Optional[
+          Union[types.ContentListUnion, types.ContentListUnionDict]
+      ] = None,
       config: Optional[types.EmbedContentConfigOrDict] = None,
   ) -> types.EmbedContentResponse:
     """Calculates embeddings for the given contents. Only text is supported.
@@ -6898,6 +7053,7 @@ class AsyncModels(_api_module.BaseModule):
         contents=contents,
         content=content,
         embedding_api_type=embedding_api_type,
+        batch_contents=batch_contents,
         config=config,
     )
 
@@ -6908,7 +7064,18 @@ class AsyncModels(_api_module.BaseModule):
           self._api_client, parameter_model, None, parameter_model
       )
       request_url_dict = request_dict.get('_url')
-      endpoint_url = '{model}:embedContent' if t.t_is_vertex_embed_content_model(parameter_model.model) else '{model}:predict'  # type: ignore[arg-type]
+      if (
+          parameter_model.embedding_api_type
+          == types.EmbeddingApiType.BATCH_EMBED_CONTENTS
+      ):
+        endpoint_url = '{model}:batchEmbedContents'
+      elif (
+          parameter_model.embedding_api_type
+          == types.EmbeddingApiType.EMBED_CONTENT
+      ):
+        endpoint_url = '{model}:embedContent'
+      else:
+        endpoint_url = '{model}:predict'
       if request_url_dict:
         path = endpoint_url.format_map(request_url_dict)
       else:
@@ -9034,21 +9201,27 @@ class AsyncModels(_api_module.BaseModule):
       )
     """
     if not self._api_client.vertexai:
-      if 'gemini-embedding-2' in model:
+      if t.t_is_multimodal_embedding_model(model):
         contents = t.t_contents(contents)  # type: ignore[assignment]
       return await self._embed_content(
           model=model, contents=contents, config=config
       )
     if t.t_is_vertex_embed_content_model(model):
-      normalized_contents = t.t_contents(contents)
+      normalized_contents = t.t_embed_contents(model, contents)
       if len(normalized_contents) > 1:
-        raise ValueError(
-            'The embedContent API for this model only supports one content at a'
-            ' time.'
+        if t.t_is_vertex_maas_model(model):
+          raise ValueError(
+              'The embedContent API for this model only supports one content at'
+              ' a time.'
+          )
+        return await self._embed_content(
+            model=model,
+            batch_contents=normalized_contents,
+            embedding_api_type=types.EmbeddingApiType.BATCH_EMBED_CONTENTS,
+            config=config,
         )
       return await self._embed_content(
           model=model,
-          contents=contents,
           content=normalized_contents[0],
           embedding_api_type=types.EmbeddingApiType.EMBED_CONTENT,
           config=config,

@@ -83,8 +83,14 @@ DEFER_TO_DEFAULT = "prod"
 DEFER_LOG_LEVEL_DEFAULT = "off"
 FRESHNESS_TOLERANCE_DEFAULT = 2700  # 45 minutes
 METADATA_CACHE_TTL_DEFAULT = 0  # infinite (cache never expires)
-API_CLIENT_TIMEOUT_DEFAULT = 60  # seconds
+API_CLIENT_TIMEOUT_DEFAULT = 30  # seconds
 API_CLIENT_MAX_ATTEMPTS_DEFAULT = 3  # total attempts per request on transient (UNAVAILABLE) errors
+API_CLIENT_MAX_CONSECUTIVE_FAILURES_DEFAULT = (
+    3  # failed requests before State is disabled for the run
+)
+API_CLIENT_MIN_FAILURE_SPAN_DEFAULT = 30  # seconds
+"""How long failed requests must keep happening before State is disabled for the run, so a short
+blip of fast failures (e.g. during a server deploy) doesn't disable State for the whole run"""
 CLIENT_ID_DEFAULT = "2fd87cd5-69a6-4c5f-9097-747a58f0edf6"
 
 
@@ -234,6 +240,10 @@ class RunCacheConfig:
         default=API_CLIENT_TIMEOUT_DEFAULT, metadata={"parser": _parse_time}
     )
     api_client_max_attempts: int = API_CLIENT_MAX_ATTEMPTS_DEFAULT
+    api_client_max_consecutive_failures: int = API_CLIENT_MAX_CONSECUTIVE_FAILURES_DEFAULT
+    api_client_min_failure_span: int = field(
+        default=API_CLIENT_MIN_FAILURE_SPAN_DEFAULT, metadata={"parser": _parse_time}
+    )
     oauth_client_id: str = field(default=CLIENT_ID_DEFAULT, metadata={"sensitive": True})
     oauth_client_secret: t.Optional[str] = field(default=None, metadata={"sensitive": True})
     dbt_platform_tokens: t.List[DbtPlatformToken] = field(
@@ -674,7 +684,7 @@ class RunCacheConfig:
         return shared_models.StaleUpstreamPolicy.ANY
 
     def resolve_ignore_external_modifications(
-        self, node_config: t.Union[ModelConfig, SnapshotConfig, TestConfig]
+        self, node_config: t.Union[ModelConfig, SnapshotConfig, SeedConfig, TestConfig]
     ) -> bool:
         value = self._get_node_config_state_value(node_config, "ignore_external_modifications")
         if value is None:

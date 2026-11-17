@@ -108,6 +108,7 @@ __all__ = (
     "WorkspaceImageIngestionProcessType",
     "WorkspaceImageRequiredTenancyType",
     "WorkspaceImageStateType",
+    "WorkspaceOSUserModeType",
     "WorkspaceStateType",
     "WorkspaceTypeType",
     "WorkspacesPoolErrorCodeType",
@@ -368,6 +369,7 @@ WorkspaceImageIngestionProcessType = Literal[
 ]
 WorkspaceImageRequiredTenancyType = Literal["DEDICATED", "DEFAULT"]
 WorkspaceImageStateType = Literal["AVAILABLE", "ERROR", "PENDING"]
+WorkspaceOSUserModeType = Literal["DOMAIN_JOIN", "ENTRA_JOIN", "LOCAL_USER", "SELF_MANAGED"]
 WorkspaceStateType = Literal[
     "ADMIN_MAINTENANCE",
     "AVAILABLE",
@@ -543,6 +545,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -727,6 +730,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -794,6 +798,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

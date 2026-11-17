@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-networkx"
-version = "3.6.1.20261114"
+version = "3.6.1.20261117"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for networkx"
@@ -28,10 +28,10 @@ This package was tested with the following type checkers:
 * [mypy](https://www.mypy-lang.org/) 2.4.1
 * [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.98
+* [ty](https://docs.astral.sh/ty/) 0.0.99
 
 It was generated from typeshed commit
-[`39bd2d6f741797abc8c88e75817fbc33425fb715`](https://github.com/python/typeshed/commit/39bd2d6f741797abc8c88e75817fbc33425fb715).
+[`f0512c2d5d5d319570d2517d74419633c0174ec2`](https://github.com/python/typeshed/commit/f0512c2d5d5d319570d2517d74419633c0174ec2).
 
 ## Optional dependencies
 

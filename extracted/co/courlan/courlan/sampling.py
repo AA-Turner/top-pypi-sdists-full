@@ -3,8 +3,6 @@ Utilities dedicated to URL sampling
 """
 
 import logging
-
-# from functools import cmp_to_key
 from random import sample
 
 from .urlstore import UrlStore
@@ -17,15 +15,14 @@ def _make_sample(
     samplesize: int,
     exclude_min: int | None,
     exclude_max: int | None,
+    verbose: bool = False,
 ) -> list[str]:
     "Iterate through the hosts in store and draw samples."
     output_urls = []
+    # WARNING shows without logging setup
+    level = logging.WARNING if verbose else logging.INFO
     for domain in urlstore.urldict:  # key=cmp_to_key(locale.strcoll)
-        urlpaths = [
-            p.path()
-            for p in urlstore._load_urls(domain)
-            if p.urlpath not in (b"/", None)
-        ]
+        urlpaths = [p.path() for p in urlstore._load_urls(domain) if p.urlpath != b"/"]
         # too few or too many URLs
         if (
             not urlpaths
@@ -34,7 +31,7 @@ def _make_sample(
             or exclude_max is not None
             and len(urlpaths) > exclude_max
         ):
-            LOGGER.warning("discarded (size): %s\t\turls: %s", domain, len(urlpaths))
+            LOGGER.log(level, "discarded (size): %s\t\turls: %s", domain, len(urlpaths))
             continue
         # sample
         if len(urlpaths) > samplesize:
@@ -60,13 +57,8 @@ def sample_urls(
     verbose: bool = False,
 ) -> list[str]:
     """Sample a list of URLs by domain name, optionally using constraints on their number"""
-    # logging
-    if verbose:
-        LOGGER.setLevel(logging.DEBUG)
-    else:
-        LOGGER.setLevel(logging.ERROR)
     # store
     urlstore = UrlStore(compressed=True, language=None, strict=strict, verbose=verbose)
     urlstore.add_urls(input_urls)
     # return gathered URLs
-    return _make_sample(urlstore, samplesize, exclude_min, exclude_max)
+    return _make_sample(urlstore, samplesize, exclude_min, exclude_max, verbose)

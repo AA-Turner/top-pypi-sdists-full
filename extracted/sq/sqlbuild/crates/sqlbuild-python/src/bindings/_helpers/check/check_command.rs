@@ -1,24 +1,10 @@
 //! `sqb check`: run the selected Python checks after their Python dependencies.
 
 use sqlbuild_host::entries::models::{ExecutorHost, UserCodeHost};
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 
-use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
-use crate::bindings::_helpers::compile_driver::pipeline_entries::build_static_pipeline_result;
-use crate::bindings::_helpers::compile_driver::relation_targets::build_project_relation_targets;
-use crate::bindings::_helpers::compile_driver::relation_targets::build_python_relation_targets;
 use crate::bindings::_helpers::compile_driver::static_context::compile_static_command_context;
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::discovery::provider_secrets::{
-    consumer_uses, require_used_secrets, sink_uses,
-};
-use crate::bindings::_helpers::graph::algorithms::transitive_closure_many;
-use crate::bindings::_helpers::graph::execution_gates::sql_ref_key;
-use crate::bindings::_helpers::graph::python_lifecycle::build_python_sql_run_lifecycle;
-use crate::bindings::_helpers::planner_entries::command_plans::build_relation_command_plan;
-use crate::bindings::_helpers::planner_phases::objects::object;
-use crate::bindings::_helpers::planner_selection::selectors::parse_project_selector;
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use pyo3::prelude::{
     Bound, Py, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
 };
@@ -36,6 +22,24 @@ use sqlbuild_python_base::native_host::main::connection_failure::connection_fail
 use sqlbuild_python_base::records::main::construct::enum_member::enum_member;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::construct::record_class::record_class;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_relation_targets::build_project_relation_targets;
+use sqlbuild_python_compile::compile_driver::main::setup::build_python_relation_targets::build_python_relation_targets;
+use sqlbuild_python_compile::compile_driver::main::setup::build_static_pipeline_result::build_static_pipeline_result;
+use sqlbuild_python_compile::compile_driver::main::setup::model_free_locations::model_free_locations;
+use sqlbuild_python_compile::compile_driver::main::setup::project_target_settings::project_target_settings;
+use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
+use sqlbuild_python_front::discovery::main::sources::consumer_uses::consumer_uses;
+use sqlbuild_python_front::discovery::main::sources::require_used_secrets::require_used_secrets;
+use sqlbuild_python_front::discovery::main::sources::sink_uses::sink_uses;
+use sqlbuild_python_output::build_progress::main::write_execution_header::write_execution_header;
+use sqlbuild_python_output::result_output::main::results::write_execution_json_output::write_execution_json_output;
+use sqlbuild_python_planner::planner_entries::main::plans::build_relation_command_plan::build_relation_command_plan;
+use sqlbuild_python_project::graph::main::nodes::sql_ref_key::sql_ref_key;
+use sqlbuild_python_project::graph::main::nodes::transitive_closure_many::transitive_closure_many;
+use sqlbuild_python_project::graph::main::python_nodes::build_python_sql_run_lifecycle::build_python_sql_run_lifecycle;
+use sqlbuild_python_project::planner_phases::main::object::object;
+use sqlbuild_python_project::planner_selection::main::parse_project_selector::parse_project_selector;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
 
 use crate::bindings::_helpers::check::check_core::{
     ReadSideInputs, load_results_by_loader_name, record_python_run_state_results,
@@ -45,16 +49,15 @@ use crate::bindings::_helpers::check::check_results::{
     check_result_text, results_json, write_results,
 };
 use crate::bindings::_helpers::command_runtime::invocation::resolve_reported_command_invocation;
-use crate::bindings::_helpers::compile_outputs::runtime_target::write_python_check_runtime_target;
-use crate::bindings::_helpers::graph::python_node_graph::python_node_graph;
-use crate::bindings::_helpers::graph::python_selection::python_node_names;
-use crate::bindings::_helpers::result_output::event_writer::ExecutionEventWriter;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_outputs::main::write_python_check_runtime_target::write_python_check_runtime_target;
+use sqlbuild_python_output::result_output::models::ExecutionEventWriter;
+use sqlbuild_python_project::graph::main::python_nodes::python_node_graph::python_node_graph;
+use sqlbuild_python_project::graph::main::python_nodes::python_node_names::python_node_names;
 
 const GRAPH_OPERATOR_CODE: &str = "C681";
 const GRAPH_OPERATOR_MESSAGE: &str = "sqb check selectors do not support graph operators; \
@@ -70,19 +73,12 @@ struct Prepared<'py> {
     relation_targets: Bound<'py, PyAny>,
     relation_refs: Bound<'py, PyAny>,
     defaults: (Bound<'py, PyAny>, Bound<'py, PyAny>),
+    target_config: TargetSettingsValues,
     project_relations: Bound<'py, PyAny>,
 }
 
 fn user_error(py: Python<'_>, (code, message): (&str, &str)) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", code)?;
-        error_class(py, ErrorId::CliUser)?.call((message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(py, ErrorId::CliUser, message, (Some(code), None))
 }
 
 fn selection_error(py: Python<'_>, error: &CheckSelectionError) -> PyErr {
@@ -276,19 +272,6 @@ fn compile_pipeline<'py>(
     )
 }
 
-fn target_default<'py>(
-    project: &Bound<'py, PyAny>,
-    adapter: &Bound<'py, PyAny>,
-    (field, fallback): (&str, &str),
-) -> PyResult<Bound<'py, PyAny>> {
-    let value: Bound<'py, PyAny> = native_field(project, field)?;
-    if value.is_none() {
-        adapter.call_method0(fallback)
-    } else {
-        Ok(value)
-    }
-}
-
 /// The discovered Python graph, after refusing unit-test selectors, and the selected checks.
 fn python_selection<'py>(
     request: &Bound<'py, PyAny>,
@@ -354,23 +337,18 @@ fn prepare<'py>(
             )?),
         )?,
     )?;
+    let target_config: TargetSettingsValues = project_target_settings(
+        &discovered,
+        &project,
+        (&native_field(invocation, "connection_config")?, &adapter),
+    )?;
     Ok(Prepared {
+        target_config,
         check_functions: PyTuple::new(py, check_functions)?.into_any(),
         lifecycle_plan,
         relation_targets,
         relation_refs,
-        defaults: (
-            target_default(
-                &project,
-                &adapter,
-                ("effective_target_database", "default_database"),
-            )?,
-            target_default(
-                &project,
-                &adapter,
-                ("effective_target_schema", "default_schema"),
-            )?,
-        ),
+        defaults: model_free_locations(&project, |method| adapter.call_method0(method))?,
         project_relations: object(
             py,
             build_project_relation_targets(
@@ -405,6 +383,7 @@ fn node_runtime<'py>(
         ("target", native_field(&project, "effective_target_name")?),
         ("vars", native_field(&project, "effective_vars")?),
         ("is_reload", PyBool::new(py, false).to_owned().into_any()),
+        ("target_config", prepared.target_config.record(py)?),
         ("default_database", prepared.defaults.0.clone()),
         ("default_schema", prepared.defaults.1.clone()),
         ("relation_targets", prepared.relation_targets.clone()),
@@ -493,6 +472,7 @@ fn run_checks<'py>(
         validation_refs: prepared.relation_refs.clone(),
         project_relations: prepared.project_relations.clone(),
         providers: providers.clone(),
+        target_config: Some(prepared.target_config.clone()),
     })?;
     record_run_state(
         invocation,
@@ -673,10 +653,13 @@ pub(crate) fn run_check_command(py: Python<'_>, request: &Bound<'_, PyAny>) -> P
     require_used_secrets(&discovered, &uses)?;
     let session: Bound<'_, PyAny> = call_with(
         &host_entry(py, UserCodeHost::BuildProviderSession)?,
-        &[(
-            "discovered_providers",
-            native_field(&invocation, "discovered_inputs")?.getattr("providers")?,
-        )],
+        &[
+            (
+                "discovered_providers",
+                native_field(&invocation, "discovered_inputs")?.getattr("providers")?,
+            ),
+            ("setup_context", prepared.target_config.setup_context(py)?),
+        ],
     )?;
     let outcome: PyResult<i32> = (|| {
         let results: Vec<Bound<'_, PyAny>> = execute(

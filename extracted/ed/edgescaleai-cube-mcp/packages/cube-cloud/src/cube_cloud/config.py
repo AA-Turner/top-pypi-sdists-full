@@ -152,6 +152,10 @@ class Settings(BaseSettings):
     # case Apollo RBAC on the caller's own credentials is the only check. Starts with
     # the unscoped admin profile only and is widened deliberately.
     console_ai_write_profiles: str = "admin"
+    # Custom vision models uploaded from the console (reactor/vision_upload.py). The
+    # model-tools base image a registration build runs FROM, as
+    # <registry>/<repo>:<tag>@sha256:<digest>; empty turns uploads off.
+    vision_tools_image: str = ""
     # Secrets Manager id holding the
     # HMAC secret the CSRF token is derived from. Secret value JSON:
     # {"secret": "<random>"}. Absent ⇒ no token is minted and mutating console
@@ -338,6 +342,39 @@ class Settings(BaseSettings):
     # widen what a scoped tenant pulls: a tenant authorized for 3 cubes is below any
     # sensible threshold and always takes the per-cube path.
     inventory_fleet_sweep_threshold: int = 0
+
+    # The RBAC service (rbac_service/): EdgeScale's decision-only authorization service,
+    # which holds each Apollo product's owner tag and its shares. Not the Apollo/Teleport
+    # layer `auth/apollo_rbac.py` and docs/rbac-architecture.md call "RBAC"; hence the
+    # `rbac_service` name everywhere in this repo.
+    #
+    # Master switch, DEFAULT FALSE like inventory: merging to main ships the code, and a
+    # stack opts in from its tfvars. Off, the console's Manage section and its session
+    # field disappear and nothing calls the service.
+    rbac_service_enabled: bool = False
+    # The HTTP API's base URL, e.g. https://<id>.execute-api.us-west-2.amazonaws.com.
+    # No default, like `inventory_api_base`: an unset value must fail loudly.
+    rbac_service_api_base: str = ""
+    # Secrets Manager id holding THIS stack's key, as {"api_key": "..."}. No default:
+    # each stack has its own key under `<name_prefix>/rbac-service/` (secrets.tf), so
+    # a dev stack can never read prod's. Terraform passes the name.
+    rbac_service_key_secret: str = ""
+    # LOCAL DEVELOPMENT ONLY: the key inline, bypassing Secrets Manager. Terraform must
+    # never set this, for `inventory_token`'s reason; `_load_key` warns when it is used.
+    rbac_service_key: str = ""
+    # Per-request timeout. Short: the service answers from DynamoDB in tens of ms, and
+    # every console caller of it fails closed, so a slow answer is a refusal anyway.
+    rbac_service_timeout_seconds: float = 5.0
+    # How long one person's catalog answer (their scope plus every tag) is reused.
+    # Each `*` read writes an audit row on the service, so a page that re-renders must
+    # not re-ask; short, so a grant removed on the service takes effect within it.
+    rbac_service_cache_ttl_seconds: float = 30.0
+    # Whether the Manage section offers tag edits (owner, shares). DEFAULT FALSE, and on
+    # only where this stack's key holds `products:write`: the service is prod-only, so
+    # a stack's key decides which real tags it can change. On dev only until access enforcement work begins
+    # (environments/dev.tfvars says why).
+    # Off, the edit controls are not drawn and the write routes answer 404.
+    rbac_service_writes_enabled: bool = False
 
     # Cube GPS location (ic2/): each cube router's latest GPS position from Peplink
     # InControl2, joined to the cube through inventory's router serial. Off by

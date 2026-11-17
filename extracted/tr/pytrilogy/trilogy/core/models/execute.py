@@ -131,6 +131,23 @@ def _spells(side: BuildConcept, spellings: set[str]) -> bool:
     return bool(({side.address} | set(side.pseudonyms)) & spellings)
 
 
+def _computed_over(
+    concept: BuildConcept, targets: set[str], materialized: set[str]
+) -> bool:
+    """`concept` is computed, through values no source column holds, off one
+    of `targets`."""
+    if not targets or concept.lineage is None:
+        return False
+    return any(
+        arg.address in targets
+        or (
+            arg.address not in materialized
+            and _computed_over(arg, targets, materialized)
+        )
+        for arg in concept.concept_arguments
+    )
+
+
 @dataclass
 class CTE:
     name: str
@@ -513,9 +530,12 @@ class CTE:
             if not isinstance(join, Join) or join.join_type is not JoinType.INNER:
                 continue
             for group in coalesced_key_groups(
-                pair
-                for pair in join.pairs or []
-                if _spells(pair.left, spellings) and _spells(pair.right, spellings)
+                (
+                    pair
+                    for pair in join.pairs or []
+                    if _spells(pair.left, spellings) and _spells(pair.right, spellings)
+                ),
+                _pair_side,
             ):
                 out.add(join.right.name)
                 names = {pair.node.name for pair in group}
@@ -711,6 +731,14 @@ class CTE:
             if self.group_to_grain
             else set()
         )
+        # so is an atom reading a value computed here off one
+        # (`count(id) by city / count(id)` over a re-summed count)
+        aggregated |= {
+            c.address
+            for c in self.output_columns
+            if c.address not in materialized
+            and _computed_over(c, aggregated, materialized)
+        }
         where: BoolExpr | None = None
         having: BoolExpr | None = None
         qualify: BoolExpr | None = None
@@ -1175,13 +1203,31 @@ def pair_matches_nulls(
 PairT = TypeVar("PairT", bound=ConceptPair)
 
 
-def coalesced_key_groups(pairs: Iterable[PairT]) -> list[list[PairT]]:
+def _pair_side(pair: ConceptPair) -> str:
+    return _node_name(pair.node)
+
+
+def coalesced_key_groups(
+    pairs: Iterable[PairT], side: Callable[[PairT], str]
+) -> list[list[PairT]]:
     """Pairs by the key they equate: several left sides of one key render
-    `coalesce(a.k, b.k) = c.k`, any one of which may be the padded NULL."""
-    groups: dict[tuple[str, str], list[PairT]] = {}
+    `coalesce(a.k, b.k) = c.k`, any one of which may be the padded NULL. The
+    sides may spell it differently (`c.ck`, `w.wk` beside `s.sk`, members of
+    one `union` relation) when each side spells it once; a side equating two
+    of its columns to the key holds two keys."""
+    by_right: dict[str, dict[str, list[PairT]]] = {}
     for pair in pairs:
-        groups.setdefault((pair.right.address, pair.left.address), []).append(pair)
-    return list(groups.values())
+        by_right.setdefault(pair.right.address, {}).setdefault(
+            pair.left.address, []
+        ).append(pair)
+    groups: list[list[PairT]] = []
+    for by_left in by_right.values():
+        sides = [side(pair) for group in by_left.values() for pair in group]
+        if len(by_left) > 1 and len(sides) == len(set(sides)):
+            groups.append([pair for group in by_left.values() for pair in group])
+        else:
+            groups.extend(by_left.values())
+    return groups
 
 
 def preserved_key_pairs(
@@ -1190,7 +1236,7 @@ def preserved_key_pairs(
     """Each coalesced key read off one side no earlier join pads, which equals
     the key on every row; with every side padded the coalesce IS the key."""
     out: list[PairT] = []
-    for group in coalesced_key_groups(pairs):
+    for group in coalesced_key_groups(pairs, source):
         preserved = [pair for pair in group if source(pair) not in padded]
         if len(group) == 1 or not preserved:
             out.extend(group)
@@ -1365,6 +1411,15 @@ class Join(Generic[NodeT]):
                 for p in self.pairs
             )
             return f"{self.join_type.value} join {'&'.join(partners)} on {','.join(pair_keys)}{guard}"
+        if (
+            self.join_type == JoinType.INNER
+            and not self.pairs
+            and not self.concepts
+            and self.left is not None
+        ):
+            # a keyless INNER is a cross product, whichever side it starts from
+            partners = sorted({_node_name(self.left), self.right_name})
+            return f"{self.join_type.value} join {'&'.join(partners)} on {guard}"
         if not self.pairs:
             return str(self) + guard
         pair_keys = sorted(
@@ -2394,7 +2449,8 @@ def _null_extended_sides(join: SourceJoin) -> list[str]:
     if join.join_type == JoinType.RIGHT_OUTER:
         return left
     if join.join_type == JoinType.FULL:
-        return left + right
+        # pads both sides, so `a FULL JOIN b` and `b FULL JOIN a` are one
+        return sorted({*left, *right})
     return []
 
 
@@ -2556,7 +2612,8 @@ def _null_extended_names(join: Join) -> list[str]:
     if join.join_type == JoinType.RIGHT_OUTER:
         return left
     if join.join_type == JoinType.FULL:
-        return left + right
+        # pads both sides, so `a FULL JOIN b` and `b FULL JOIN a` are one
+        return sorted({*left, *right})
     return []
 
 

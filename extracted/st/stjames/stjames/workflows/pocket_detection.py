@@ -97,11 +97,13 @@ class MixMDPocketDiagnostics(Base):
         density_center: density-weighted position, in Å
         peak_enrichment: maximum voxel density relative to bulk solvent
         integrated_excess_density: excess probe count integrated over the pocket
+        receptor_uuid: representative receptor aligned to the pocket coordinates
     """
 
     density_center: Vector3D
     peak_enrichment: NonNegativeFloat
     integrated_excess_density: NonNegativeFloat
+    receptor_uuid: ProteinUUID | None = None
 
 
 class MixMDReplicaDiagnostics(Base):

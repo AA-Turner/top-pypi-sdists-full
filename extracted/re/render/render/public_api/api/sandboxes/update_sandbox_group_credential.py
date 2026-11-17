@@ -1,7 +1,8 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -21,7 +22,10 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "patch",
-        "url": f"/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}",
+        "url": "/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}".format(
+            sandbox_group_id=quote(str(sandbox_group_id), safe=""),
+            credential_id=quote(str(credential_id), safe=""),
+        ),
     }
 
     _kwargs["json"] = body.to_dict()
@@ -33,8 +37,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Error, SandboxCredential]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Error | SandboxCredential | None:
     if response.status_code == 200:
         response_200 = SandboxCredential.from_dict(response.json())
 
@@ -87,8 +91,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Error, SandboxCredential]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Response[Error | SandboxCredential]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -101,41 +105,45 @@ def sync_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SandboxCredentialUpdate,
-) -> Response[Union[Error, SandboxCredential]]:
+) -> Response[Error | SandboxCredential]:
     """Update sandbox group credential
 
-     Admins may update configuration. Developers may update injection,
-    method/path filters, and enabled state; destination or value changes
-    require an admin. Assigning a value creates a new version; omitting it
-    preserves the value. Other omitted fields are preserved; empty methods
-    or paths arrays clear their filters. The group's serialized current
-    credentials must remain within 200 KiB (204800 bytes). A successful
-    response means desired state was saved; runtime reconciliation may still
-    be pending. A temporary synchronization conflict returns 429.
+     Update a credential. Developers can change `injection`, `methods`, `paths`, and `enabled`. Changing
+    `domain` or `value` requires an admin.
+
+    Omitted top-level fields keep their current values. Providing `injection` replaces the entire
+    object. Its `template` defaults to `${SECRET}` when omitted. An empty `methods` or `paths` list
+    removes that filter. Providing `value` creates a new version. The combined serialized size of
+    current credential settings and secret values in the group must remain within 200 KiB (204800
+    bytes).
+
+    The response confirms the configuration was saved. It does not confirm that credential injection is
+    active for a particular sandbox.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
-        body (SandboxCredentialUpdate): Omitted fields retain their existing values. Empty methods
-            or paths arrays
-            clear those filters. Developers may update injection, methods, paths, and
-            enabled state. Changing the destination requires an admin and otherwise
-            returns 403. Overwriting a value requires an admin; omitting it has no effect.
-            Changes to routing, injection, or enabled state create a new configuration version.
-            Overwriting the value also creates a version, even when the value is unchanged.
-            The credential ID is immutable.
+        body (SandboxCredentialUpdate): The credential settings to update. Omitted top-level
+            fields keep their current values. Providing `injection` replaces the entire object. Its
+            `template` defaults to `${SECRET}` when omitted. Empty `methods` or `paths` lists remove
+            those filters. Developers can update `injection`, `methods`, `paths`, and `enabled`.
+            Changing `domain` or `value` requires an admin.
+
+            Changes to routing, injection, or enabled state create a new version. Setting `value`
+            creates a new version even if the secret value is unchanged. The credential ID cannot be
+            changed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, SandboxCredential]]
+        Response[Error | SandboxCredential]
     """
 
     kwargs = _get_kwargs(
@@ -155,41 +163,45 @@ def sync(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SandboxCredentialUpdate,
-) -> Optional[Union[Error, SandboxCredential]]:
+) -> Error | SandboxCredential | None:
     """Update sandbox group credential
 
-     Admins may update configuration. Developers may update injection,
-    method/path filters, and enabled state; destination or value changes
-    require an admin. Assigning a value creates a new version; omitting it
-    preserves the value. Other omitted fields are preserved; empty methods
-    or paths arrays clear their filters. The group's serialized current
-    credentials must remain within 200 KiB (204800 bytes). A successful
-    response means desired state was saved; runtime reconciliation may still
-    be pending. A temporary synchronization conflict returns 429.
+     Update a credential. Developers can change `injection`, `methods`, `paths`, and `enabled`. Changing
+    `domain` or `value` requires an admin.
+
+    Omitted top-level fields keep their current values. Providing `injection` replaces the entire
+    object. Its `template` defaults to `${SECRET}` when omitted. An empty `methods` or `paths` list
+    removes that filter. Providing `value` creates a new version. The combined serialized size of
+    current credential settings and secret values in the group must remain within 200 KiB (204800
+    bytes).
+
+    The response confirms the configuration was saved. It does not confirm that credential injection is
+    active for a particular sandbox.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
-        body (SandboxCredentialUpdate): Omitted fields retain their existing values. Empty methods
-            or paths arrays
-            clear those filters. Developers may update injection, methods, paths, and
-            enabled state. Changing the destination requires an admin and otherwise
-            returns 403. Overwriting a value requires an admin; omitting it has no effect.
-            Changes to routing, injection, or enabled state create a new configuration version.
-            Overwriting the value also creates a version, even when the value is unchanged.
-            The credential ID is immutable.
+        body (SandboxCredentialUpdate): The credential settings to update. Omitted top-level
+            fields keep their current values. Providing `injection` replaces the entire object. Its
+            `template` defaults to `${SECRET}` when omitted. Empty `methods` or `paths` lists remove
+            those filters. Developers can update `injection`, `methods`, `paths`, and `enabled`.
+            Changing `domain` or `value` requires an admin.
+
+            Changes to routing, injection, or enabled state create a new version. Setting `value`
+            creates a new version even if the secret value is unchanged. The credential ID cannot be
+            changed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, SandboxCredential]
+        Error | SandboxCredential
     """
 
     return sync_detailed(
@@ -204,41 +216,45 @@ async def asyncio_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SandboxCredentialUpdate,
-) -> Response[Union[Error, SandboxCredential]]:
+) -> Response[Error | SandboxCredential]:
     """Update sandbox group credential
 
-     Admins may update configuration. Developers may update injection,
-    method/path filters, and enabled state; destination or value changes
-    require an admin. Assigning a value creates a new version; omitting it
-    preserves the value. Other omitted fields are preserved; empty methods
-    or paths arrays clear their filters. The group's serialized current
-    credentials must remain within 200 KiB (204800 bytes). A successful
-    response means desired state was saved; runtime reconciliation may still
-    be pending. A temporary synchronization conflict returns 429.
+     Update a credential. Developers can change `injection`, `methods`, `paths`, and `enabled`. Changing
+    `domain` or `value` requires an admin.
+
+    Omitted top-level fields keep their current values. Providing `injection` replaces the entire
+    object. Its `template` defaults to `${SECRET}` when omitted. An empty `methods` or `paths` list
+    removes that filter. Providing `value` creates a new version. The combined serialized size of
+    current credential settings and secret values in the group must remain within 200 KiB (204800
+    bytes).
+
+    The response confirms the configuration was saved. It does not confirm that credential injection is
+    active for a particular sandbox.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
-        body (SandboxCredentialUpdate): Omitted fields retain their existing values. Empty methods
-            or paths arrays
-            clear those filters. Developers may update injection, methods, paths, and
-            enabled state. Changing the destination requires an admin and otherwise
-            returns 403. Overwriting a value requires an admin; omitting it has no effect.
-            Changes to routing, injection, or enabled state create a new configuration version.
-            Overwriting the value also creates a version, even when the value is unchanged.
-            The credential ID is immutable.
+        body (SandboxCredentialUpdate): The credential settings to update. Omitted top-level
+            fields keep their current values. Providing `injection` replaces the entire object. Its
+            `template` defaults to `${SECRET}` when omitted. Empty `methods` or `paths` lists remove
+            those filters. Developers can update `injection`, `methods`, `paths`, and `enabled`.
+            Changing `domain` or `value` requires an admin.
+
+            Changes to routing, injection, or enabled state create a new version. Setting `value`
+            creates a new version even if the secret value is unchanged. The credential ID cannot be
+            changed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, SandboxCredential]]
+        Response[Error | SandboxCredential]
     """
 
     kwargs = _get_kwargs(
@@ -256,41 +272,45 @@ async def asyncio(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     body: SandboxCredentialUpdate,
-) -> Optional[Union[Error, SandboxCredential]]:
+) -> Error | SandboxCredential | None:
     """Update sandbox group credential
 
-     Admins may update configuration. Developers may update injection,
-    method/path filters, and enabled state; destination or value changes
-    require an admin. Assigning a value creates a new version; omitting it
-    preserves the value. Other omitted fields are preserved; empty methods
-    or paths arrays clear their filters. The group's serialized current
-    credentials must remain within 200 KiB (204800 bytes). A successful
-    response means desired state was saved; runtime reconciliation may still
-    be pending. A temporary synchronization conflict returns 429.
+     Update a credential. Developers can change `injection`, `methods`, `paths`, and `enabled`. Changing
+    `domain` or `value` requires an admin.
+
+    Omitted top-level fields keep their current values. Providing `injection` replaces the entire
+    object. Its `template` defaults to `${SECRET}` when omitted. An empty `methods` or `paths` list
+    removes that filter. Providing `value` creates a new version. The combined serialized size of
+    current credential settings and secret values in the group must remain within 200 KiB (204800
+    bytes).
+
+    The response confirms the configuration was saved. It does not confirm that credential injection is
+    active for a particular sandbox.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
-        body (SandboxCredentialUpdate): Omitted fields retain their existing values. Empty methods
-            or paths arrays
-            clear those filters. Developers may update injection, methods, paths, and
-            enabled state. Changing the destination requires an admin and otherwise
-            returns 403. Overwriting a value requires an admin; omitting it has no effect.
-            Changes to routing, injection, or enabled state create a new configuration version.
-            Overwriting the value also creates a version, even when the value is unchanged.
-            The credential ID is immutable.
+        body (SandboxCredentialUpdate): The credential settings to update. Omitted top-level
+            fields keep their current values. Providing `injection` replaces the entire object. Its
+            `template` defaults to `${SECRET}` when omitted. Empty `methods` or `paths` lists remove
+            those filters. Developers can update `injection`, `methods`, `paths`, and `enabled`.
+            Changing `domain` or `value` requires an admin.
+
+            Changes to routing, injection, or enabled state create a new version. Setting `value`
+            creates a new version even if the secret value is unchanged. The credential ID cannot be
+            changed.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, SandboxCredential]
+        Error | SandboxCredential
     """
 
     return (

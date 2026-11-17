@@ -55,12 +55,17 @@ from collections.abc import Callable, Iterable, Sequence, Set
 from typing import Literal
 
 from nameparser._lexicon import (
-    FULL_STOPS, Lexicon, _VOCAB_FIELDS, _normalize, _spells_an_initial,
+    FULL_STOPS, Lexicon, _HYPHEN_CHARS, _VOCAB_FIELDS, _normalize,
+    _spells_an_initial,
 )
-from nameparser._policy import (CapsSuffixes, Policy, Script, _JA_SCRIPTS, _NO_INITIALS,
-                                _SCRIPT_RANGES, _script_matcher)
+from nameparser._policy import (
+    CapsSuffixes, Policy, Script, _CASELESS_LETTERS, _EAST_ASIAN_SCRIPTS,
+    _JA_SCRIPTS, _NO_ABBREVIATION_RANGES, _NO_INITIAL_RANGES, _SCRIPT_RANGES,
+    _SPELLED_INITIAL_RANGES, _ranges_matcher, _ranges_pattern, _script_matcher,
+)
 from nameparser._pipeline._state import (
-    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, COMMA_CHARS,
+    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, CAPITALS_FAMILY_TAG,
+    COMMA_CHARS, COMMA_STRIP,
     CREDENTIAL_WORD_TAG, Deferred, GENERATION_WORD_TAG,
     GIVEN_ABBREVIATION_TAG, HONORIFIC_WORD_TAG, PATRONYMIC_TAG, SHAPE_ACRONYM_TAG,
     TITLE_AMBIGUOUS_TAG, PendingReading, ReadingKind, ReadingSource, Role, WorkToken,
@@ -111,6 +116,26 @@ _SCRIPT_MATCHERS: dict[Script, Callable[[str], bool]] = {
     script: _script_matcher(script, whole=True)
     for script in _SCRIPT_RANGES
 }
+#: The East Asian matchers _classify tries in turn, and the characters a
+#: Cyrillic word can open with: a token opening with none of them is no
+#: Cyrillic, which a C-level membership test says without the matcher's
+#: frame, so a non-ASCII Latin word pays nothing for Cyrillic (#1237)
+_EAST_ASIAN_MATCHERS = tuple((script, _SCRIPT_MATCHERS[script])
+                             for script in _EAST_ASIAN_SCRIPTS)
+_CYRILLIC_LETTERS = frozenset(chr(c) for lo, hi in _SCRIPT_RANGES[Script.CYRILLIC]
+                              for c in range(lo, hi + 1))
+
+#: The joiners a name word is written with inside it: hyphens and the
+#: apostrophes a surname writes (`O'BRIEN`, `ALLIOT-MARIE`) and
+#: Ukrainian and Belarusian write (`Оюун-Эрдэнэ`, `Мар'яна`). Read by
+#: rules/O9's capitals word (`is_capitals_word`) and by the Cyrillic
+#: order key, which deletes them from the classified copy of a word that
+#: neither opens nor ends with one, so a hyphenated Cyrillic word keys a
+#: declared Cyrillic order as a plain one does (#1237); the shared table
+#: stays letters only, since the East Asian readers of it never see
+#: these.
+_NAME_JOINERS = "-\u2010\u2011'\u2019\u02bc"
+_DROP_NAME_JOINERS = str.maketrans("", "", _NAME_JOINERS)
 
 # The whole-token matcher over _policy's _JA_SCRIPTS union, backing
 # effective_script's kana license.
@@ -149,18 +174,25 @@ def _drop_kana_voicing_marks(text: str) -> str:
         kept.append(ch)
     return "".join(kept)
 
-# The repertoire half of is_initial (_policy._NO_INITIALS), kept apart
+# The repertoire half of is_initial (_policy._SCRIPT_PROPERTIES'
+# writes_initials), kept apart
 # from _INITIAL's SHAPE half so the pattern itself stays v1-verbatim
 # and _render's copy stays pinned to it by tests/v2/test_regex_sync.py.
 # contains-any, not whole=True: the shape half has already admitted the
 # trailing period, so the text reaching here is '씨.' rather than '씨'
 # and a wholly-of match would be False for every case this exists for.
-# The second caller, is_title_shaped below, admits two or more
+_has_initialless_char = _ranges_matcher(_NO_INITIAL_RANGES, whole=False)
+# The period-abbreviation repertoire veto (_SCRIPT_PROPERTIES'
+# period_abbreviations), read through in_unabbreviating_script by H2's
+# shape (is_title_shaped and _pieces.is_leading_title), S3's split
+# pair (split_pair) and S3's joined shape (period_joined_vocab).
+# is_title_shaped admits two or more
 # characters, so contains-any there means one CJK character anywhere
 # vetoes the whole word -- 'Kim김.' is refused as a title along with
 # '田中.' -- and that is deliberate: a word carrying a script with no
 # abbreviations is not wearing an abbreviation's period.
-_has_initialless_char = _script_matcher(*_NO_INITIALS, whole=False)
+_has_unabbreviating_char = _ranges_matcher(_NO_ABBREVIATION_RANGES,
+                                           whole=False)
 
 
 def in_initialless_script(text: str) -> bool:
@@ -171,6 +203,16 @@ def in_initialless_script(text: str) -> bool:
     matcher's frame, as the callers' own `isascii()` gates do."""
     return (not text.isascii()
             and _has_initialless_char(unicodedata.normalize("NFC", text)))
+
+
+def in_unabbreviating_script(text: str) -> bool:
+    """Whether TEXT holds a character of a script that writes no period
+    abbreviation (rules/H2, #323; rules/S3's split and joined shapes),
+    asked of the composed spelling as
+    `in_initialless_script` is, the two being separate questions that
+    the four East Asian rows answer alike (#1256)."""
+    return (not text.isascii()
+            and _has_unabbreviating_char(unicodedata.normalize("NFC", text)))
 
 
 # H2's own shape, text-level: an unlisted period-marked abbreviation,
@@ -189,8 +231,8 @@ def in_initialless_script(text: str) -> bool:
 #
 # v1's "period_abbreviation" shape, composed from `_LETTER` below, so
 # the text is v1's plus the marks. This is the only definition:
-# `_pieces._PERIOD_ABBREV` and `_assemble._PERIOD_ABBREV` are imports
-# of it, which tests/v2/test_regex_sync.py declares as such.
+# `_pieces._PERIOD_ABBREV` is an import of it, which
+# tests/v2/test_regex_sync.py declares as such.
 
 # `_LETTER` is the letter every shape regex in this module spells
 # (`_PERIOD_ABBREV`, `_DOTTED`, `_CHUNKED`, `_PAIRED_INITIALS`): one
@@ -206,14 +248,33 @@ _MARKS = '[\u0300-\u036f\u1ab0-\u1aff\u1dc0-\u1dff\u20d0-\u20ff\ufe20-\ufe2f]'
 _LETTER = r'[^\W\d_]' + _MARKS + '*'
 _PERIOD_ABBREV = re.compile(r'^(?:' + _LETTER + r'){2,}\.$')
 
-#: The hyphens and the dashes that join two family names in one written
+# rules/H2: "A word in one of the ten Brahmic scripts from Devanagari
+# to Sinhala" "never reads as a title by shape, even where it is a run
+# of letters" -- the rows of _policy._SCRIPT_PROPERTIES whose
+# spells_initials holds, U+0900 to U+0DFF. A vowel sign
+# already breaks `_LETTER`'s run, but a spelled initial written with
+# none (एम. for M., এম., ਐਮ.) is a run of two letters, and the shape
+# read it as a title; these scripts write initials, so the veto is the
+# title shape's alone and not `is_initial`'s (decisions/H2, #1191).
+# Searched on the raw text: a nukta letter decomposes inside the range.
+_SPELLED_INITIAL = _ranges_pattern(_SPELLED_INITIAL_RANGES)
+
+# rules/H2: "A transliteration digraph" "never reads as a title by
+# shape" -- the digraphs that Except names, lowercase and periodless,
+# so the test is a C-level membership of the word less its period;
+# the Except itself names the digraphs it leaves out (Ts, Ch, Sh) --
+# decisions/H2 (#1136).
+_DIGRAPH_INITIALS = frozenset({"yu", "ya", "ye", "yo", "zh", "kh",
+                               "shch", "dzh"})
+
+#: `_lexicon._HYPHEN_CHARS`, defined once there, matched as a class:
+#: the hyphens and the dashes that join two family names in one written
 #: word (rules/O6), and the parts of an abbreviation written hyphenated
 #: (rules/H5, 'Dipl.‐Ing.' as a word processor writes it): hyphen-minus,
 #: hyphen, non-breaking hyphen, figure dash, en dash, minus sign (a word
 #: processor's substitute), and the small and fullwidth hyphen-minus.
 #: The em dashes are punctuation between words, not joiners, and are
 #: left out. Hyphen-minus first, so it is literal inside a class.
-_HYPHEN_CHARS = "-\u2010\u2011\u2012\u2013\u2212\ufe63\uff0d"
 _HYPHENS = re.compile("[" + _HYPHEN_CHARS + "]")
 
 # rules/H5: "A word that ends in a period and is written with a
@@ -247,10 +308,13 @@ def is_title_shaped(text: str, lexicon: Lexicon) -> bool:
     being a separate lookup at each caller's own site
     (is_title_piece/lexicon._sets.titles), and the one vocabulary read here
     the given name written short, which outranks the shape (rules/H2,
-    #789: 'Chas.' is no title). `name_word_count` and `title_readings`
-    below are its callers; `_pieces.is_leading_title` asks the same question
-    but keeps this body inline, its path being hot (every leading
-    piece of every parse) where this one is cold (comma names only)
+    #789: 'Chas.' is no title). `name_word_count`, `title_readings`
+    (classify's rules/H9 phrase test) and `_assemble`'s source of a
+    title no vocabulary tags are its callers; `_pieces.is_leading_title`
+    asks the same question but keeps this body inline, its path being
+    hot (every leading piece of every parse) where these run only on a
+    comma name, a name holding a contested title or modifier, or an
+    untagged title token
     -- the measured figure lives at that inline copy and is not
     restated here, two homes for one measurement being how they come
     to disagree. Touch one, touch both:
@@ -260,19 +324,33 @@ def is_title_shaped(text: str, lexicon: Lexicon) -> bool:
     (mechanisms.md#ONE-PREDICATE-PER-QUESTION).
 
     The shape reads a Latin convention: a period marks an
-    abbreviation. Scripts with no initials have no period
-    abbreviations either (_policy._NO_INITIALS, the #320 veto
-    is_initial carries), so a CJK word wearing a period is a name
-    word, not a title -- a lone '田中.' is the family name (#323).
+    abbreviation, and a script that writes no period abbreviations
+    (_policy._SCRIPT_PROPERTIES' period_abbreviations) has nothing for
+    one to mark, so a CJK word wearing a period is a name word, not a
+    title -- a lone '田中.' is the family name (#323). The four East
+    Asian rows write no initials either; Thai writes no initials but
+    writes its titles short, so the two are separate columns (#1256).
     `_PERIOD_ABBREV` stays ASCII-period only: a word wearing '。' never
     matches it, and the veto is what makes the ASCII spelling agree.
-    ASCII text can carry no _NO_INITIALS character (every range sits
-    above U+3000), so the C-level test declines before the regex
+    ASCII text can carry no such character (every range sits
+    above U+007F), so the C-level test declines before the regex
     search runs -- four frames per unlisted-abbreviation opener per
     parse, this running four times per piece.
+
+    A word holding a letter of the ten Brahmic scripts from Devanagari
+    to Sinhala is refused too (`_SPELLED_INITIAL`, rules/H2's Except,
+    #1191): those scripts write initials, and spell a Latin one out by
+    its sound with no vowel sign (एम. for M.), a run of letters the
+    shape would misread. Its search is C-level, so it costs no frame.
+
+    A transliteration digraph (`Yu.`, `Zh.`, `Kh.`, `_DIGRAPH_INITIALS`)
+    declines the shape too, being the initial of one Cyrillic letter
+    (rules/H2's transliteration-digraph Except, #1136).
     """
     return (bool(_PERIOD_ABBREV.match(text))
-            and (text.isascii() or not in_initialless_script(text))
+            and (text.isascii() or not (_SPELLED_INITIAL.search(text)
+                                        or in_unabbreviating_script(text)))
+            and text[:-1].lower() not in _DIGRAPH_INITIALS
             and _normalize(text) not in lexicon._sets.given_name_abbreviations)
 
 
@@ -283,7 +361,7 @@ def is_initial_shaped(text: str) -> bool:
     Callers asking whether a token is STRUCTURALLY part of an initial
     run want this; callers asking whether it can really stand in for a
     name want is_initial (#320). The two answers differ only inside
-    _NO_INITIALS scripts, where '씨.' is initial-SHAPED but is not an
+    scripts that write no initials, where '씨.' is initial-SHAPED but is not an
     initial -- see assign's roman-numeral fork, the shape caller, for
     what picking the wrong one costs.
 
@@ -318,7 +396,7 @@ _EAST_SLAVIC_CYR = re.compile(
     r"(ович|овна|евич|евна|ична|ильич|кузьмич|лукич|фомич|фокич|никитич|саввич)$",
     re.I)
 _TURKIC = re.compile(
-    r"^(oglu|oğlu|ogly|ogli|o['’ʻ]g['’ʻ]li"
+    r"^(oglu|oğlu|ogly|ogli|o['’ʻ‘ʼ`]g['’ʻ‘ʼ`]li"
     r"|qizi|qızı|kizi|kyzy|gyzy|uly|uulu)$", re.I)
 _TURKIC_CYR = re.compile(
     r"^(оглу|оглы|оғлу|ўғли|угли|кызы|гызы|қызы|қизи|улы|ұлы|уулу)$", re.I)
@@ -334,8 +412,26 @@ def has_patronymic_ending(text: str) -> bool:
 def is_patronymic_marker(text: str) -> bool:
     """Whether `text` is a standalone Turkic patronymic marker ("oglu",
     "кызы"): rules/O2's test and, under `PatronymicRule.TURKIC`,
-    rules/R9's."""
+    rules/R9's. Asked of the word NFC-composed (#1316): `oğlu` written
+    with a combining breve is the same marker, the vocabulary path's fold
+    applied to a shape test; the fold is inline behind `isascii()` so a
+    plain word costs no frame."""
+    if not text.isascii():
+        text = unicodedata.normalize("NFC", text)
     return bool(_TURKIC.match(text) or _TURKIC_CYR.match(text))
+
+
+# rules/O1: "whose last name word carries a patronymic ending and whose
+# middle name word does not reads as family-first" -- the word test of
+# the rotation, shared with the group suggester (nameparser/_suggest.py),
+# which counts a patronymic vote where this rule can read one
+# (decisions/group-suggestion)
+def east_slavic_rotates(middle: str, last: str) -> bool:
+    """Whether the middle and last of three name words have rules/O1's
+    family-first shape: the ending on the last word and not on the
+    middle one. The word count and the initials beside it are the
+    caller's."""
+    return has_patronymic_ending(last) and not has_patronymic_ending(middle)
 
 
 # rules/S10: "the numeral reads as the generation: the numerals the
@@ -442,7 +538,7 @@ def dotted_member(word: str, lexicon: Lexicon) -> bool:
     ambiguous class (S4) written with a period inside it ('M.A',
     'M.A.'), a comma the clause keeps on it left off (rules/N1). A
     period ending the clause is extract's escape, not this."""
-    bare = word.strip(",")
+    bare = word.strip(COMMA_STRIP)
     return ("." in bare.strip(".")
             and _normalize(bare).replace(".", "")
             in lexicon._sets.suffix_acronyms_ambiguous)
@@ -467,7 +563,7 @@ def set_apart_kind(word: str, lexicon: Lexicon,
     None where the vocabulary reads it as a name or not at
     all. A comma the clause keeps on its word is no part of it
     (rules/N1)."""
-    bare = word.strip(",")
+    bare = word.strip(COMMA_STRIP)
     folded = _normalize(bare)
     acronym = folded.replace(".", "")
     sets = lexicon._sets
@@ -540,7 +636,7 @@ def reads_as_initials(word: str, kind: SetApartKind,
     ('PhD/NP-C' is 'PhD', 'NP-C', as `_joined_chunks` cuts it). A
     chunk is asked as the word it is, with no further cut by this
     function, so its loop is one level deep."""
-    bare = word.strip(",")
+    bare = word.strip(COMMA_STRIP)
     # a credential the vocabulary lists whole ('NP-C', 'SHRM-CP') is one
     # word, not two S3 joins, and has no other spelling written apart
     if kind == "suffix" and ("/" in bare or "-" in bare) and not (
@@ -599,7 +695,7 @@ def set_apart(words: Sequence[str],
     word in front of the clause was read as a suffix, which extract,
     running before any word is read, passes as False."""
     sets = lexicon._sets
-    folded = [_normalize(w.strip(",")) for w in words]
+    folded = [_normalize(w.strip(COMMA_STRIP)) for w in words]
     if all(f in sets.title_modifiers or f in sets.title_styles
            for f in folded):
         return False
@@ -729,7 +825,7 @@ def is_one_case(texts: Sequence[str]) -> bool:
     name never reaches a decision this gates, and "one case" is the
     honest verdict for text that has only one.
     """
-    joined = " ".join(texts)
+    joined = " ".join(texts).translate(_CASELESS_LETTERS)
     return joined in (joined.upper(), joined.lower())
 
 
@@ -795,8 +891,11 @@ def ambiguous_lean(text: str, one_case: bool,
     """
     if one_case or cue == "none":
         return None
-    if text.upper() == text.lower():     # caseless: no contrast to read
-        return None
+    # a script the table gives no case is caseless here too (#1222); no
+    # default vocabulary member is written in one, so only a caller's
+    # lexicon reaches this with a Georgian word
+    if (cased := text.translate(_CASELESS_LETTERS)).upper() == cased.lower():
+        return None                      # caseless: no contrast to read
     if text.isupper():
         return "credential" if cue == "acronym" else None
     if text.islower():
@@ -815,6 +914,26 @@ def lexicon_cue(n: str, lexicon: Lexicon) -> Cue:
 
 
 _DOTTED = re.compile(r"(?:" + _LETTER + r"\.)+")
+# rules/T7: "a run of single letters joined by full stops" -- two or
+# more letters, each closed by a stop but the last, whose stop is
+# optional ('E.T.', 'J.R.R', #1296), and the same run rules/H10 reads as
+# a title ('U.S.', 'U.S', the closing stop optional as
+# `period_joined_vocab`'s shape verdict lets it be); _RUN_LETTER is one letter of it
+# with its stop. _render holds a copy of each (tests/v2/test_regex_sync.py)
+_LETTER_RUN = re.compile(r"(?:" + _LETTER + r"\.)+" + _LETTER + r"\.?")
+
+
+_RUN_LETTER = re.compile(_LETTER + r"\.?")
+
+
+def is_letter_run(text: str) -> bool:
+    """Two or more single letters joined by full stops ('J.P.', 'J.R.R'),
+    the way a person's initials are written run together: rules/T7's
+    run, and the shape rules/C16 reads as a name after the comma behind
+    one name word whatever it spells (#1238)."""
+    return _LETTER_RUN.fullmatch(text) is not None
+
+
 # #544: the CHUNKED spelling -- two or more runs of letters, each
 # closed by a period ('M.Eng.', 'L.Ac.'). Both callers compare the
 # period-free letters against the listed member, so the chunks must
@@ -834,6 +953,286 @@ def _dotted(text: str) -> bool:
     was "any period", and 'Smith, Ms.' passed it as the degree."""
     return (_DOTTED.fullmatch(text) is not None
             or _CHUNKED.fullmatch(text) is not None)
+
+
+# rules/T8: "glued to the next at its full stop" -- the shapes
+# `glued_cuts` reads (decisions/T8 (#1230, #1235)): one chunk of letters
+# closed by a stop with something after it
+_GLUED_CHUNK = re.compile(r"((?:" + _LETTER + r")+)\.(?=\S)")
+# a run of two or more single letters closed by stops, a letter after
+# it (the name is `glued_cuts`' to find)
+_GLUED_RUN = re.compile(r"(?:" + _LETTER + r"\.){2,}(?=[^\W\d_])")
+#: a letter (its marks with it, so NFD text passes), a full stop and a
+#: letter: the C-level test `_script_segment` asks before `glued_cuts`
+GLUED_SHAPE = re.compile(_LETTER + r"\.[^\W\d_]")
+# the Thai vowel and tone marks (Mn), which `_LETTER` does not count:
+# nearly every Thai name writes one ('สุดา', 'ใจดี'), so without them the
+# name after a Thai title's stop is never found (#1166)
+_THAI_MARKS = "[\u0e31\u0e34-\u0e3a\u0e47-\u0e4e]"
+# one word of letters, apostrophes and hyphens: what can follow a chunk
+# and be a name
+_GLUED_WORD = re.compile(
+    r"(?:" + _LETTER + r")(?:" + _LETTER + "|" + _THAI_MARKS + r"|['’\-])*")
+
+
+def _is_cased_letter(chunk: str) -> bool:
+    """One letter in a script with case: the initial T8 reads alone
+    (rules/T8); a single letter in a script without case is read alone
+    only where it is listed, as a title or a given name written short."""
+    return len(chunk) == 1 and chunk.upper() != chunk.lower()
+
+
+def _reads_alone(chunk: str, lexicon: Lexicon) -> bool:
+    """A chunk the parser reads on its own before a full stop: one
+    letter in a script with case, a transliteration digraph rules/H2
+    names, a listed title that is no saint particle, or a listed given
+    name written short (decisions/period-joined-words, #1255). A single
+    letter in a script without case is read alone only where it is
+    listed (Thai 'ศ.', #1166); a run of them is T7's run in any script."""
+    chunk = unicodedata.normalize("NFC", chunk)
+    if _is_cased_letter(chunk):
+        return True
+    n = _normalize(chunk)
+    sets = lexicon._sets
+    if n in _DIGRAPH_INITIALS or n in sets.given_name_abbreviations:
+        return True
+    return is_title_chunk(chunk, lexicon)
+
+
+def _claimed_after_the_stop(w: str, lexicon: Lexicon) -> bool:
+    """Whether the folded word W after a glued full stop is an
+    unambiguous title or suffix word, and so no name (rules/T8): the
+    one test `glued_cuts` and `glued_saint_cut` ask of it."""
+    sets = lexicon._sets
+    return w in sets.titles or (
+        w in sets.suffix_acronyms
+        and w not in sets.suffix_acronyms_ambiguous) or (
+        (w in sets.suffix_words or w in sets.credential_words)
+        and w not in sets.suffix_words_ambiguous)
+
+
+def glued_cuts(text: str, lexicon: Lexicon) -> tuple[int, ...]:
+    """Where a word glued to the next at a full stop divides (T8,
+    #1230, #1235): the offset after each stop at which a chunk the
+    parser reads alone (`_reads_alone`) meets a name, so the word reads
+    as it does with a space there ('Dr.John' as 'Dr. John',
+    'Ц.Сандаг-Очир' as 'Ц. Сандаг-Очир', 'Yu.A.Chibrikova' as 'Yu. A.
+    Chibrikova'). A run of single letters stays one chunk before the name
+    ('J.R.Smith' as 'J.R. Smith', rules/T7), while titles glued to each
+    other divide at each stop, as they read written apart ('Lt.Gov.John'
+    as 'Lt. Gov. John'). Empty where the vocabulary reads the word whole
+    (a suffix spelled without its stops, 'M.Sc', 'M.Sc.'; a title listed
+    whole), and wherever the
+    word does not divide through to its end: at a word in lower case
+    ('Dr.med', 'G.ppe'), at one closed by its own stop or followed by
+    another chunk ('Dr.Med.', 'J.Smith.', 'Dr.John.Smith'), and at an
+    unambiguous title or credential after the stop ('Dr.MD')."""
+    # a run of single letters alone is the walk's first answer below,
+    # `titled` being false there ('J.R.R.'), asked before the fold's frame
+    if _LETTER_RUN.fullmatch(text):
+        return ()
+    sets = lexicon._sets
+    n = _normalize(text)
+    bare = n.replace(".", "")
+    # a title listed whole is read whole, as a suffix spelled without its
+    # stops is: with its stops, or without them where no initial ends it
+    # ('Dr.Ma' where a caller lists 'drma'; 'Dr.A.' divides, 'dra' being
+    # the title and the initial T8 reads behind one)
+    if (bare in sets.suffix_acronyms or n in sets.titles
+            or bare in sets.titles and len(unicodedata.normalize(
+                "NFC", n.rsplit(".", 1)[-1])) > 1):
+        return ()
+    low = text.lower()
+    dotted = _dotted_titles(sets.titles)
+    if len(low) != len(text):
+        # offsets in `low` would not be the text's
+        dotted = ()
+    cuts: list[int] = []
+    at = 0
+    titled = False
+    # the cuts stand only where the word divides through to its end: a
+    # name closing it ('Yu.A.Chibrikova'), or initials closing one a
+    # title opens ('Dr.J.', 'Dr.J.R.'); never initials alone ('Kim
+    # Yu.A.', the surname-first initials #1254 asks about), an initial
+    # opening a chunk that stays whole ('Q.R.ST.'), nor a word holding a
+    # delimiter or a digit, which no chunk or name matches ('M.D./Ph.D.')
+    while True:
+        if _LETTER_RUN.fullmatch(text, at):
+            return tuple(cuts) if titled else ()
+        d = (dotted_title_end(low, at, dotted)
+             if dotted and low.startswith(dotted, at) else None)
+        if d is not None and (
+                (run := _GLUED_RUN.match(text, at)) is not None
+                and run.end() > d):
+            # a run of single letters running past the title is T7's
+            # run of initials ('พ.ต.ส.สมชาย')
+            d = None
+        if d is not None:
+            # a title listed with its stops is one chunk, read alone
+            # (#1319: 'พล.ต.ต.สุรศักดิ์', 'พ.อ.หญิงวาสนา')
+            titled = titled or not cuts
+            if d == len(text):
+                return tuple(cuts)
+            nxt = _GLUED_CHUNK.match(text, d)
+            if (low.startswith(dotted, d)
+                    and dotted_title_end(low, d, dotted) is not None) or (
+                    nxt is not None and is_title_chunk(nxt.group(1), lexicon)):
+                cuts.append(d)
+                at = d
+                continue
+            end, letter = d, False
+        elif (run := _GLUED_RUN.match(text, at)) is not None:
+            # a run of initials before the name stays one word (T7)
+            end, letter = run.end(), True
+        else:
+            m = _GLUED_CHUNK.match(text, at)
+            if m is None or not _reads_alone(m.group(1), lexicon):
+                return ()
+            end = m.end()
+            letter = _is_cased_letter(
+                unicodedata.normalize("NFC", m.group(1)))
+            if not letter and is_title_chunk(m.group(1), lexicon):
+                titled = titled or not cuts
+                nxt = _GLUED_CHUNK.match(text, end)
+                if nxt is not None and is_title_chunk(nxt.group(1), lexicon):
+                    # titles glued to each other divide at each stop, as
+                    # the titles written apart read ('Lt.Gov.John',
+                    # 'Maj.Gen.John', a phrase H9 reads)
+                    cuts.append(end)
+                    at = end
+                    continue
+        word = _GLUED_WORD.match(text, end)
+        # its first letter with case, so a modifier letter opening it
+        # ('m.ʿali') does not hide a word in lower case; a script with
+        # no case gives none, and divides
+        if word is None or next(
+                (c.islower() for c in word.group() if c.upper() != c.lower()),
+                False):
+            return ()
+        initial = len(unicodedata.normalize("NFC", word.group())) == 1
+        tail = text[word.end():]
+        # a word closed by its own stop is a field or a name closed by
+        # one ('Dr.Med.', 'J.Smith.'), save an initial behind a title
+        # ('Dr.J.'); one followed by another chunk stays whole
+        # ('Dr.John.Smith'), save an initial opening the next division
+        # ('Yu.A.Chibrikova')
+        if tail == "." and not (initial and not letter):
+            return ()
+        if len(tail) > 1 and not initial:
+            return ()
+        w = _normalize(word.group())
+        if _claimed_after_the_stop(w, lexicon):
+            return ()
+        cuts.append(end)
+        at = end
+        if word.end() == len(text) or tail == ".":
+            return tuple(cuts) if titled or not initial else ()
+
+
+@functools.lru_cache(maxsize=16)
+def _dotted_titles(titles: frozenset[str]) -> tuple[str, ...]:
+    """The titles of a script without case listed with a full stop
+    inside ('พ.ต.อ', 'พ.อ.หญิง'), longest first: one tuple per
+    vocabulary, so a word opening with none of them is told by a C-level
+    `startswith` alone. A cased title written with its stops ('dr.c',
+    'mgr.a') is left out: glued, it keeps the reading decisions/T8's
+    #1305 entry decided, a title and the initial behind it
+    ('Dr.C.Meera'), where a caseless script writes no initials."""
+    return tuple(sorted((t for t in titles if "." in t and t == t.upper()),
+                        key=len, reverse=True))
+
+
+@functools.lru_cache(maxsize=16)
+def title_prefixes(titles: frozenset[str]) -> tuple[str, ...]:
+    """Every listed title, a tuple for a C-level `startswith`: what may
+    stand behind a title only in a phrase glued in front (rules/W6)."""
+    return tuple(titles)
+
+
+def dotted_title_end(low: str, at: int,
+                     dotted: tuple[str, ...]) -> int | None:
+    """Where a title listed with its stops, opening `low` at `at`, ends
+    as a word of its own: past its own full stop, or, where its last
+    chunk is more than one letter ('พ.อ.หญิง'), right before a letter
+    of a script without case. A last chunk of one letter needs its
+    stop, being the initial it spells otherwise ('น.สมชาย' is no
+    'น.ส' + 'มชาย', 'พ.ต.อนุชา' no 'พ.ต.อ' + 'นุชา'), and a letter with
+    case after a longer chunk goes on the word ('Lt.Colin', not 'Lt.Col'
+    + 'in'); None where none does (#1319)."""
+    for t in dotted:
+        if not low.startswith(t, at):
+            continue
+        end = at + len(t)
+        if end == len(low):
+            return end
+        if low[end] == ".":
+            return end + 1
+        c = low[end]
+        last = t.rsplit(".", 1)[-1]
+        if len(unicodedata.normalize("NFC", last)) > 1 and c.isalpha() and (
+                c.upper() == c.lower()):
+            return end
+    return None
+
+
+def glued_saint_cut(text: str, lexicon: Lexicon) -> int | None:
+    """The offset after the stop where a listed saint particle is glued
+    to the name it opens ('Sta.Ana', 'St.John', 'STE.MARIE'): the
+    particle, one full stop and one name word whose first letter with
+    case is a capital, nothing after it; None for any other word
+    (rules/T8, #1071). The word is one name word wherever it stands,
+    and divides here only as the last word of a part (`_script_segment`
+    asks that)."""
+    # the C-level matches first, which turn away nearly every word
+    # ('J.R.R.', 'Lt.Gov.'), before the fold's frame
+    m = _GLUED_CHUNK.match(text)
+    if m is None:
+        return None
+    word = _GLUED_WORD.fullmatch(text, m.end())
+    if (word is None
+            or _normalize(m.group(1)) not in lexicon._sets.saint_particles
+            or next(
+                (c.islower() for c in word.group()
+                 if c.upper() != c.lower()),
+                True)):
+        return None
+    # an unambiguous title or suffix word after the stop is no name
+    # ('St.MD', 'St.Jr')
+    if _claimed_after_the_stop(_normalize(word.group()), lexicon):
+        return None
+    return m.end()
+
+
+def is_initial_chunk(chunk: str) -> bool:
+    """Initials before a full stop, as T8's report asks of the chunks it
+    cut (rules/T8): one letter in a script with case, a run of them
+    ('J.R'), or a transliteration digraph rules/H2 names ('Yu'), and no
+    title or given name written short."""
+    parts = chunk.split(".")
+    if len(parts) == 1 and _normalize(chunk) in _DIGRAPH_INITIALS:
+        return True
+    return all(_is_cased_letter(unicodedata.normalize("NFC", part))
+               for part in parts)
+
+
+def is_title_chunk(chunk: str, lexicon: Lexicon) -> bool:
+    """A listed title that is no saint particle, read as a chunk before
+    a full stop (rules/T8; a saint particle glued to a name is one name
+    word, `glued_saint_cut`)."""
+    sets = lexicon._sets
+    n = _normalize(chunk)
+    return n not in sets.saint_particles and (
+        n in sets.titles or n in sets.titles_ambiguous
+        or n in sets.title_modifiers or n in sets.title_styles)
+
+
+def is_dotted_title(text: str, n: str, lexicon: Lexicon) -> bool:
+    """A run of single letters joined by full stops ('U.S.', 'P.D.')
+    whose spelling without them is a title written `dotted`
+    (`Lexicon.dotted_titles`, rules/H10, #490); `n` is the folded
+    text, which both callers already have."""
+    return (n.replace(".", "") in lexicon._sets.dotted_titles
+            and _LETTER_RUN.fullmatch(text) is not None)
 
 
 # #563: exactly two single letters, each closed by a period -- the way
@@ -938,7 +1337,7 @@ def split_pair(first: str, second: str, lexicon: Lexicon) -> str | None:
             or is_cased_paired_initials(first + second)
             # a script that writes no abbreviations is not wearing an
             # abbreviation's periods, as rules/S3 reads it joined
-            or in_initialless_script(first + second)):
+            or in_unabbreviating_script(first + second)):
         return None
     fold = _normalize(a + b)
     if (fold in lexicon._sets.suffix_acronyms_ambiguous
@@ -1026,7 +1425,7 @@ def settles_a_member(word: str, lexicon: Lexicon) -> bool:
     (a member its periods settle, 'M.A.', included) and is no
     generation, no honorific and no title. A joined word not listed
     whole is one where a chunk of its cut is ('PhD/Jr', not 'Jr/Sr')."""
-    bare = word.strip(",")
+    bare = word.strip(COMMA_STRIP)
     if ("/" in bare or "-" in bare) and not _listed_whole(bare, lexicon):
         return any(_settles(c, lexicon)
                    for c in _joined_chunks(bare, lexicon) or ())
@@ -1058,7 +1457,7 @@ def member_word(word: str, lexicon: Lexicon) -> bool:
     """Whether a word of a delimited clause, a comma the clause keeps
     on it left off (rules/N1), is a member of the ambiguous class (S4),
     however written."""
-    return _member(word.strip(","), lexicon)
+    return _member(word.strip(COMMA_STRIP), lexicon)
 
 
 def _listed_whole(word: str, lexicon: Lexicon) -> bool:
@@ -1275,7 +1674,7 @@ def period_member(word: str, lexicon: Lexicon) -> bool:
     a period-joined credential (`period_joined_credential`) holding a
     member of the ambiguous class ('Msc.Ed'): `joined_member`'s
     question for a word the periods join (rules/S3, #1131)."""
-    bare = word.strip(",")
+    bare = word.strip(COMMA_STRIP)
     folded = _normalize(bare)
     return ("." in folded
             and folded.replace(".", "") not in lexicon._sets.suffix_acronyms
@@ -1478,7 +1877,8 @@ def period_joined_vocab(
     alphabetic in the shipped lexicon, so this narrows only the
     previously-unclaimed "shape" answer, never the "suffix" one.
 
-    The INITIALLESS-SCRIPT guard is a second, independent narrowing of
+    The UNABBREVIATING-SCRIPT guard (the script-property table's
+    period_abbreviations, #1256) is a second, independent narrowing of
     the same verdict, on the same reasoning `is_title_shaped` already
     gives its own period-abbreviation inference (#323): a script with
     no period abbreviations at all has nothing for interior periods to
@@ -1495,13 +1895,18 @@ def period_joined_vocab(
     """
     if not _PERIOD_NOT_AT_END.match(text):
         return None
+    # rules/T8: "a saint particle glued to a name is one name word" --
+    # no title chunk claims it and no dotted shape reads it
+    # (decisions/T8 (#1071))
+    if glued_saint_cut(text, lexicon) is not None:
+        return None
     chunks = [_normalize(c) for c in text.split(".") if c]
     if any(c in lexicon._sets.titles for c in chunks):
         return "title"
     if period_joined_credential(text, lexicon):
         return "suffix"
     if (len(chunks) >= 2 and all(c.isalpha() for c in chunks)
-            and (text.isascii() or not in_initialless_script(text))):
+            and (text.isascii() or not in_unabbreviating_script(text))):
         return "shape"
     return None
 
@@ -1528,7 +1933,9 @@ def ambiguous_class_member(text: str, lexicon: Lexicon) -> bool:
     Cheaper than `suffix_as_written(n, text, lexicon) or ...` would be
     here, and provably the same answer for UNDOTTED text: the Lexicon
     invariant that an ambiguous acronym is never also a suffix WORD
-    (`__post_init__`'s gate_bypassed check) and is never counted
+    (one suffix kind per word: the vocabulary build's check 4, which
+    `_lexicon._check_pool` runs on a caller's reading too) and is never
+    counted
     without periods once it IS one (`suffix_as_written`'s own
     exclusion) together kill that predicate's two disjuncts once text
     is known to hold no period. One frame (`_normalize`) on the common
@@ -1740,6 +2147,48 @@ _NON_NAME_FIELDS = tuple(f for f in _LISTED_FIELDS
                          if f not in ("surnames", "bound_given_names"))
 
 
+def is_capitals_word(text: str) -> bool:
+    """Whether TEXT is a name written in capitals, as rules/O9 reads
+    one: two or more letters in capitals ending the word, after any
+    lowercase prefix glued in front (`DUPONT`, `O'BRIEN`, `McDONALD`,
+    `d'ESTAING`), with nothing in it but letters, their combining marks
+    and `_NAME_JOINERS`. Single letters joined by a hyphen are
+    initials (`J-P`), and a word whose capitals are one letter is a
+    name in mixed case (`PhD`, `McD`). A combining mark is passed over
+    in the letter's run, so a capital typed as its base and an accent
+    (NFD) reads as its composed spelling does (#652). A
+    lowercase letter whose capital is not one character (`ß`) counts as
+    written in capitals, as `written_as_a_name` reads it."""
+    word = text
+    # a joiner at either end is a quotation mark or a dash, not a name
+    # written with one inside it ('MBA', -AB)
+    if not word or word[0] in _NAME_JOINERS or word[-1] in _NAME_JOINERS:
+        return False
+    chunk = longest = 0
+    i = len(word)
+    while i:
+        i -= 1
+        ch = word[i]
+        if ch.isupper() or ch.islower() and len(ch.upper()) != 1:
+            chunk += 1
+            continue
+        if ch.islower():
+            break  # the prefix glued in front: McDONALD, d'ESTAING
+        if ch in _NAME_JOINERS:
+            longest = max(longest, chunk)
+            chunk = 0
+            continue
+        if unicodedata.category(ch) in ("Mn", "Mc", "Me"):
+            continue
+        return False  # a full stop, slash, digit, bracket or caseless letter
+    # i is 0 where no lowercase prefix stopped the walk
+    if i and not all(c.isalpha() or c in _NAME_JOINERS
+                     or unicodedata.category(c) in ("Mn", "Mc", "Me")
+                     for c in word[:i]):
+        return False
+    return max(longest, chunk) >= 2
+
+
 def written_as_a_name(text: str) -> bool:
     """Whether TEXT is written the way a name is written in mixed case:
     it holds a capital (or titlecase letter) and its last LETTER is
@@ -1938,7 +2387,10 @@ def unit_ends(tags: Sequence[Set[str]], chain: bool = True) -> list[int]:
 
 
 #: The facts rules/C3's count before a comma reads (#575): a
-#: particle starts a surname unit, and a suffix word stops it. A word
+#: particle starts a surname unit, and a suffix word stops it -- any
+#: suffix word, a wider stop than group's particle chain makes, which
+#: a suffix word ends only where a suffix run would start at it
+#: (decisions/P2, #1177). A word
 #: that is ALSO title vocabulary ('Freiherr', 'St') LEADING the part is
 #: not a particle here: in front of a name it reads as the title it
 #: also is (rules/H1), so 'Freiherr von Berg, PhD' keeps its title,
@@ -2204,6 +2656,19 @@ def name_word_count(texts: Sequence[str], lexicon: Lexicon,
     lead_suffix = False
     # map, not a comprehension, which is a frame of its own on 3.11
     folded = list(map(_normalize, texts))
+    # rules/H10: "the run reads as that title where a title the run
+    # keeps stands behind it" -- the run read as the title it spells, so
+    # the title test and H9's phrase test below see it. Unlike classify's
+    # fold, which runs only where the name already holds a word H9
+    # reads, this one always runs, so a run alone brings the phrase test
+    # in. The set test first, C-level, so a dotted word that spells no
+    # marked title pays no frame
+    dotted: set[int] = set()
+    for i, n in enumerate(folded):
+        if ("." in n and n.replace(".", "") in lexicon._sets.dotted_titles
+                and is_dotted_title(texts[i], n, lexicon)):
+            folded[i] = n.replace(".", "")
+            dotted.add(i)
     # rules/H9: "the word is a title only inside a title phrase" -- the
     # part before the comma is the head of the name, read as classify
     # reads it
@@ -2213,6 +2678,19 @@ def name_word_count(texts: Sequence[str], lexicon: Lexicon,
     for i, n in enumerate(folded):
         text = texts[i]
         title = n in lexicon._sets.titles if titled is None else titled[i]
+        if title and i in dotted:
+            # a title only opening the part (behind any titles), and only
+            # with a title, listed or by H2's shape, behind it and a word
+            # of any kind behind that: H6 leaves the part's last word to
+            # the family, so a title ending the part is not kept and the
+            # run is given back ('U.S. Senator, Ed'); H3's floor is not
+            # modelled here (decisions/H10)
+            nxt = i + 1
+            title = (lead is None and nxt < len(folded)
+                     and ((folded[nxt] in lexicon._sets.titles
+                           if titled is None else titled[nxt])
+                          or is_title_shaped(texts[nxt], lexicon))
+                     and nxt + 1 < len(folded))
         if n in lexicon._sets.particles:
             has_particle = True
         suffix = (is_suffix_lenient(text, lexicon) if lenient
@@ -2631,11 +3109,13 @@ def _normalized_for_script(text: str) -> str | None:
     fell back to positional ('양 지훈.' lost family-first), and the
     segmenter's neighbour precondition missed a writer-drawn boundary
     ('山田太郎 田中.' consulted the segmenter on 山田太郎 as if it stood
-    alone). The scripts this classifies -- every _SCRIPT_RANGES entry,
-    which today coincide with _policy._NO_INITIALS (#320), a
-    coincidence _policy says a new member must not inherit -- have no
+    alone). The East Asian scripts this classifies (_policy's
+    _EAST_ASIAN_SCRIPTS, the four East Asian rows of _policy._SCRIPT_PROPERTIES, #320) have no
     initials and no period abbreviations, so a stop on such a token
-    carries no information about the word; ASCII text is stripped too,
+    carries no information about the word; on a Cyrillic word it is an
+    initial's stop (`Б.`), dropped all the same, deliberately: the
+    classification keys only a declared Cyrillic order (#1237), under
+    which an initial is a word of the name in its script; ASCII text is stripped too,
     but the guard below returns None for it regardless, so 'Smith.'
     never classifies. TRAILING only, matching the surname site's own
     rstrip in _script_segment (the same arithmetic, not a shared
@@ -2694,10 +3174,15 @@ def _normalized_for_script(text: str) -> str | None:
 def _classify(normalized: str) -> Script | None:
     """The FIRST _SCRIPT_MATCHERS entry covering all of `normalized`
     (already NFC, via _normalized_for_script), else None. Shared by
-    both public classifiers so each of them normalizes exactly once."""
-    for script, matcher in _SCRIPT_MATCHERS.items():
+    both public classifiers so each of them normalizes exactly once.
+    The East Asian scripts first, then CYRILLIC, asked only of a word
+    that opens with a Cyrillic letter."""
+    for script, matcher in _EAST_ASIAN_MATCHERS:
         if matcher(normalized):
             return script
+    if (normalized[0] in _CYRILLIC_LETTERS
+            and _SCRIPT_MATCHERS[Script.CYRILLIC](normalized)):
+        return Script.CYRILLIC
     return None
 
 
@@ -2725,7 +3210,9 @@ def effective_script(text: str) -> Script | None:
     (single_script's answer): a lone katakana token may be a
     transcribed foreign name or a Japanese reading, and the script
     cannot say which, so nothing defaults on it. Halfwidth kana is
-    katakana by the table (#594), so 山田ﾀﾛｳ is licensed too."""
+    katakana by the table (#594), so 山田ﾀﾛｳ is licensed too. Last, a
+    Cyrillic word with a hyphen or an apostrophe inside it is CYRILLIC
+    (#1237), which only a declared Cyrillic order reads."""
     # None for both shapes _wholly_ja could never match anyway (empty
     # text, or all-ASCII text): real work, not a leftover "if text"
     # guard, since the ASCII case is one a bare emptiness check would
@@ -2739,6 +3226,13 @@ def effective_script(text: str) -> Script | None:
         return script
     if _wholly_ja(normalized):
         return Script.HIRAGANA
+    # a Cyrillic word with a hyphen or an apostrophe inside it (#1237);
+    # translate is C-level, so a token with no joiner costs no frame
+    joined = normalized.translate(_DROP_NAME_JOINERS)
+    if (joined != normalized and normalized[0] in _CYRILLIC_LETTERS
+            and normalized[-1] not in _NAME_JOINERS
+            and _SCRIPT_MATCHERS[Script.CYRILLIC](joined)):
+        return Script.CYRILLIC
     return None
 
 
@@ -2840,6 +3334,10 @@ def name_source(tags: Set[str]) -> ReadingSource:
     where a derived marker says so, and by position where nothing
     does. `name_reading`'s source, which assemble also asks of a word
     the parse read as a name (`Token.reading`)."""
+    # rules/O9: "the capitals settle the field" -- read by the word's
+    # shape, the reading taken being the family its capitals named
+    if CAPITALS_FAMILY_TAG in tags:
+        return ReadingSource.SHAPE
     # classify writes the ambiguous class's tag on a word admitted by
     # its shape too, so the shape tag says no list declared it
     if (not tags.isdisjoint(_DECLARED_NAME_TAGS)

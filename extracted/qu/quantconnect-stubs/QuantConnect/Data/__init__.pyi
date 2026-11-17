@@ -272,7 +272,7 @@ class SubscriptionDataConfig(System.Object, System.IEquatable[QuantConnect_Data_
 
     @property
     def consolidators(self) -> System.Collections.Generic.ISet[QuantConnect.Data.Consolidators.IDataConsolidator]:
-        """Consolidators that are registred with this subscription"""
+        """Consolidators that are registered with this subscription"""
         ...
 
     @property
@@ -519,7 +519,7 @@ class DataQueueHandlerSubscriptionManager(System.Object, System.IDisposable, met
         
         :param symbols: Symbols to subscribe
         :param tick_type: Type of tick data
-        :returns: Returns true if subsribed; otherwise false.
+        :returns: Returns true if subscribed; otherwise false.
         """
         ...
 
@@ -1095,7 +1095,7 @@ class LeanDataWriter(System.Object):
         :param tick_type: The tick type
         :param data_cache_provider: The data cache provider to use
         :param write_policy: The file write policy to use
-        :param map_symbol: True if the symbol should be mapped while writting the data
+        :param map_symbol: True if the symbol should be mapped while writing the data
         """
         ...
 
@@ -1651,7 +1651,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
     @overload
     def __getitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Any:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -1726,7 +1726,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
     @overload
     def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: typing.Any) -> None:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -1838,7 +1838,7 @@ class Slice(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, typing.Any], ty
         Gets the data associated with the specified symbol
         
         :param symbol: The symbol we want data for
-        :param data: The data for the specifed symbol, or null if no data was found
+        :param data: The data for the specified symbol, or null if no data was found
         :returns: True if data was found, false otherwise.
         """
         ...
@@ -3224,7 +3224,7 @@ class DynamicData(QuantConnect.Data.BaseData, IDynamicMetaObjectProvider, metacl
 
     def get_property(self, name: str) -> System.Object:
         """
-        Gets the property's value with the specified name. This is a case-insensitve search.
+        Gets the property's value with the specified name. This is a case-insensitive search.
         
         :param name: The property name to access
         :returns: object value of BaseData.
@@ -3236,14 +3236,14 @@ class DynamicData(QuantConnect.Data.BaseData, IDynamicMetaObjectProvider, metacl
         Gets the storage dictionary
         Python algorithms need this information since DynamicMetaObject does not work
         
-        :returns: Dictionary that stores the paramenters names and values.
+        :returns: Dictionary that stores the parameters names and values.
         """
         ...
 
     def has_property(self, name: str) -> bool:
         """
         Gets whether or not this dynamic data instance has a property with the specified name.
-        This is a case-insensitve search.
+        This is a case-insensitive search.
         
         :param name: The property name to check for
         :returns: True if the property exists, false otherwise.
@@ -3252,7 +3252,7 @@ class DynamicData(QuantConnect.Data.BaseData, IDynamicMetaObjectProvider, metacl
 
     def set_property(self, name: str, value: typing.Any) -> System.Object:
         """
-        Sets the property with the specified name to the value. This is a case-insensitve search.
+        Sets the property with the specified name to the value. This is a case-insensitive search.
         
         :param name: The property name to set
         :param value: The new property value

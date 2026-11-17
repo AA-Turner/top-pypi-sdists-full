@@ -20,8 +20,8 @@ _AMBIGUITY_TRIGGERS: dict[AmbiguityKind, str | None] = {
     AmbiguityKind.SUFFIX_OR_NAME: "John Smith Ma",
     AmbiguityKind.GIVEN_OR_FAMILY: "Andrew",
     AmbiguityKind.TITLE_OR_NAME: "Lord Chancellor",
-    # no emitter yet -- arrives with locale-pack order detection (2.x)
-    AmbiguityKind.ORDER: None,
+    # one name word and initials, read given-first by default (#1254)
+    AmbiguityKind.ORDER: "Kavitha S",
     # 남 and 남궁 are both shipped surnames, so longest-first picks
     # between two vocabulary-supported splits
     AmbiguityKind.SEGMENTATION: "남궁민수",
@@ -154,7 +154,7 @@ def test_every_vocabulary_constant_is_frozen() -> None:
 
     import nameparser.config
 
-    # The mapping constant, EXEMPT and named rather than dropped by the
+    # The mapping constants, EXEMPT and named rather than dropped by the
     # isinstance filter without comment (REGEXES, the other until 3.0,
     # left with its module, #1008). CAPITALIZATION_EXCEPTIONS is
     # vocabulary-shaped and is a decided, in-scope exemption, which
@@ -163,6 +163,19 @@ def test_every_vocabulary_constant_is_frozen() -> None:
     # down here and in AGENTS.md so it does not read as covered.
     exempt_mappings = {
         "_compiled.CAPITALIZATION_EXCEPTIONS",
+        # group -> word -> full forms, private since it compiled, read
+        # once into each Lexicon's own frozen `_same_as`: the same live
+        # hazard, recorded beside the other in AGENTS.md
+        "_compiled.SAME_AS",
+        # group -> the words of SAME_AS that are a name of their own too,
+        # read once into each Lexicon's `_same_as_named` beside it
+        "_compiled.SAME_AS_NAMED",
+        # a familiar form -> the given names it stands for, read once
+        # into each Lexicon's `_familiar` beside them, by the match alone
+        "_compiled.FAMILIAR",
+        # a given name -> the given names it is another spelling of,
+        # read once into each Lexicon's `_alternate` beside them
+        "_compiled.ALTERNATE_SPELLINGS",
     }
 
     config_dir = pathlib.Path(nameparser.config.__file__).parent

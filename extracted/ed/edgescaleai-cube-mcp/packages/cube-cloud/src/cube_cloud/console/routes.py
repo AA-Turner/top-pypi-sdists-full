@@ -21,8 +21,9 @@ from starlette.responses import FileResponse, JSONResponse, Response
 
 from cube_common.apollo_client import ApolloClient, ApolloError
 from cube_cloud._request_context import current_request
-from cube_cloud import ic2
+from cube_cloud import ic2, manage, rbac_service
 from cube_cloud.auth import session_cookie
+from cube_cloud.auth.api_keys import console_user_email
 from cube_cloud.config import settings
 from cube_cloud.auth.app_companies import app_companies, combinable_companies, reads_stored_sets
 from cube_cloud.console import csrf, reads, utilization, writes
@@ -105,20 +106,27 @@ def _shell_headers(*, allow_inline_style: bool = False) -> dict[str, str]:
     * `frame-ancestors 'none'` — the console must never be framed; combined with
       the legacy `X-Frame-Options` for older agents.
     * `connect-src 'self'` — the JSON API only. An exfiltration attempt to a
-      foreign host is blocked even if script execution were achieved.
+      foreign host is blocked even if script execution were achieved. ONE exception,
+      on a stack where custom vision model uploads are configured: the build-context
+      bucket's own origin (`vision_upload.upload_origin()`), because the browser POSTs
+      the model file there directly so it never crosses cube-cloud. That widens the
+      allowlist to a host where writing needs a POST policy cube-cloud signed (size-capped,
+      one key) and public reads are blocked, so it is not a general exfiltration channel.
 
     Deliberately NOT applied globally: the `/auth/*` pages carry inline `<style>`
     blocks and would break under `style-src 'self'`. Scoping this to the console
     shell keeps that decision explicit rather than a middleware side effect.
     """
     style = "'self' 'unsafe-inline'" if allow_inline_style else "'self'"
+    from cube_cloud.reactor import vision_upload
+    connect = "'self'" + (f" {vision_upload.upload_origin()}" if vision_upload.available() else "")
     csp = "; ".join([
         "default-src 'none'",
         "script-src 'self'",
         f"style-src {style}",
         "img-src 'self' data:",
         "font-src 'self'",
-        "connect-src 'self'",
+        f"connect-src {connect}",
         "base-uri 'none'",
         "form-action 'none'",
         "frame-ancestors 'none'",
@@ -493,6 +501,17 @@ async def session(request: Request) -> Response:
         # offer its List / Map switch without fetching the map route (an inventory read
         # plus an InControl2 refresh). The flag only: nothing upstream is touched here.
         "gps_enabled": ic2.is_enabled(),
+        # Whether to offer the Manage section (spec §4.30): the stack serves it and the
+        # signed-in address is a verified EdgeScale one. A hint for the sidebar ONLY,
+        # computed without calling the rbac-service (this route runs on every page
+        # load for every user); each Manage read asks the service and is what decides.
+        "manage_offered": manage.is_offered(console_user_email(state)),
+        # Whether this stack's Products tab could offer tag edits: the section might be
+        # offered and `rbac_service_writes_enabled`. Both are prefilters made without a
+        # call: the page asks `/api/manage/access` (the rbac-service's answer for this
+        # person) before it draws the Manage link or an Edit button, and each read and
+        # write asks the service again.
+        "manage_writes": manage.writes_offered(console_user_email(state)),
     })
 
 
@@ -649,6 +668,187 @@ async def fleet_gps(request: Request) -> Response:
         return _json({"error": "Could not read the cube locations."}, status_code=500)
 
     return _json(payload)
+
+
+async def manage_products(request: Request) -> Response:
+    """`GET /console/api/manage/products` — the Manage section's Products tab (spec §4.30).
+
+    A surface over `manage.list_products`, which owns the authorization (a verified
+    EdgeScale address, then the rbac-service's scope `*`) and the read; an MCP tool for
+    the same people is meant to call the same function. Here: the stack flag, the read
+    contract, and turning its outcomes into responses. A refusal is 404 rather than
+    403, as `_disabled_response` explains: it must not advertise that the page exists.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_read(request)) is not None:
+        return blocked
+
+    state = request.state
+    profile = getattr(state, "profile", "?")
+    email = console_user_email(state)
+    # Checked here as well as inside `list_products` so a non-staff caller costs no
+    # Apollo token exchange: the client below is opened before the operation runs.
+    if not manage.is_offered(email):
+        return _disabled_response(request.url.path)
+    # `?fresh=1`: the page asks for the tags as the service holds them now, after an edit
+    # (another ECS task may still cache the old ones). Bounded per person in `manage`.
+    fresh = request.query_params.get("fresh") == "1"
+    try:
+        async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
+            payload = await manage.list_products(client, profile, email, fresh=fresh)
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except rbac_service.RbacServiceError as e:
+        # The message names a status code or a config gap, never a response body.
+        logger.warning("console manage/products: rbac-service refused or failed for profile=%s: %s", profile, e)
+        return _json({"error": "Could not read product tags."}, status_code=502)
+    except ApolloError as e:
+        logger.warning("console manage/products: Apollo read failed for profile=%s: %s", profile, e)
+        return _json({"error": "Could not read the product list from Apollo."}, status_code=502)
+    except Exception:
+        logger.exception("console manage/products errored for profile=%s", profile)
+        return _json({"error": "Could not read the product list."}, status_code=500)
+    return _json(payload)
+
+
+async def manage_access(request: Request) -> Response:
+    """`GET /console/api/manage/access` — `{view, edit}`: whether to offer this person the
+    Manage section and its tag edits, as the rbac-service answers (spec §4.30).
+
+    Separate from `/api/session` on purpose: the session gates every page, so it never
+    waits on the rbac-service. The page asks this only when the session's
+    `manage_offered` prefilter (a verified EdgeScale address, no call) says it might.
+    A hint like those: the reads and writes ask the service again. "Could not ask" is
+    `{view: false, edit: false}` (hide), never an error, so an outage hides a link and
+    nothing else. Someone not offered management gets the section's usual 404.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_read(request)) is not None:
+        return blocked
+    try:
+        return _json(await manage.offer(console_user_email(request.state)))
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except Exception:
+        logger.exception("console manage/access errored for profile=%s", getattr(request.state, "profile", "?"))
+        return _json({"view": False, "edit": False})
+
+
+async def manage_companies(request: Request) -> Response:
+    """`GET /console/api/manage/companies` — `{companies: [{company, display_name}]}`: the
+    enabled customers a tag edit picks from, as the rbac-service lists them for this
+    person (spec §4.30). Served only where tag edits are, and 404 like the rest of the
+    section otherwise. A failure is a 502 the page shows in place of the picker; the
+    product list does not depend on it.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_read(request)) is not None:
+        return blocked
+    profile = getattr(request.state, "profile", "?")
+    email = console_user_email(request.state)
+    if not manage.writes_offered(email):
+        return _disabled_response(request.url.path)
+    try:
+        return _json(await manage.list_companies(email))
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except rbac_service.KeyRefused as e:
+        # Most likely this stack's key lacks `customers:read` (secrets.tf).
+        logger.warning("console manage/companies: rbac-service refused this stack's key for profile=%s: %s",
+                       profile, e)
+        return _json({"error": "Could not read the company list: the RBAC service refused this site's key."},
+                     status_code=502)
+    except rbac_service.RbacServiceError as e:
+        logger.warning("console manage/companies: rbac-service failed for profile=%s: %s", profile, e)
+        return _json({"error": "Could not read the company list."}, status_code=502)
+    except Exception:
+        logger.exception("console manage/companies errored for profile=%s", profile)
+        return _json({"error": "Could not read the company list."}, status_code=500)
+
+
+async def _manage_tag_write(request: Request, action: str) -> Response:
+    """The three tag edits on the Products tab (spec §4.30): `owner`, `share`, `unshare`.
+
+    Gate order as on every console mutation: the flags, `guard_write()` (origin and
+    CSRF) before the body is read, then `manage.writes_offered` before any Apollo or
+    rbac-service work, so a cross-site, token-less or non-staff attempt costs nothing.
+    A refused caller gets the same 404 as the read. The `manage` operation then checks
+    staff access, the fields, and makes the write as the caller.
+
+    A write the service refuses or turns down is 200 with `ok: false` and its message,
+    as `unexpose_app` does: the request was well-formed, and the outcome is data the
+    page shows on the row.
+    """
+    if not is_enabled() or not rbac_service.is_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_write(request)) is not None:
+        return blocked
+
+    try:
+        body = await request.json()
+    except Exception:
+        return _json({"error": "Expected a JSON body."}, status_code=400)
+    if not isinstance(body, dict):
+        return _json({"error": "Expected a JSON object."}, status_code=400)
+
+    state = request.state
+    profile = getattr(state, "profile", "?")
+    email = console_user_email(state)
+    if not manage.writes_offered(email):
+        return _disabled_response(request.url.path)
+    # Enumerated fields only (console rule 2): nothing else in the body is passed on.
+    pid, company = body.get("productId"), body.get("company")
+    try:
+        async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
+            if action == "owner":
+                payload = await manage.set_owner(client, profile, email, pid, company, body.get("expected"))
+            elif action == "share":
+                payload = await manage.share(client, profile, email, pid, company, body.get("role"))
+            else:
+                payload = await manage.unshare(client, profile, email, pid, company)
+    except manage.NotPermitted:
+        return _disabled_response(request.url.path)
+    except manage.InvalidInput as e:
+        return _json({"error": str(e)}, status_code=400)
+    except rbac_service.KeyRefused as e:
+        # A definite answer, unlike a timeout: the service acted on nothing. Most likely
+        # this stack's key lacks `products:write` (secrets.tf), which only an operator fixes.
+        logger.warning("console manage/%s: rbac-service refused this stack's key for profile=%s: %s",
+                       action, profile, e)
+        return _json({"error": "The RBAC service refused this site's key, so nothing was changed. "
+                               "Tag edits need an operator to fix the key."}, status_code=502)
+    except rbac_service.RbacServiceError as e:
+        # The message names a status code or a config gap, never a response body.
+        logger.warning("console manage/%s: rbac-service refused or failed for profile=%s: %s", action, profile, e)
+        # A timeout can follow a write the service made, so the page is told to look.
+        return _json({"error": "The RBAC service did not answer. Reload to see whether the tag changed."},
+                     status_code=502)
+    except ApolloError as e:
+        logger.warning("console manage/%s: Apollo read failed for profile=%s: %s", action, profile, e)
+        return _json({"error": "Could not read the product list, so nothing was changed."}, status_code=502)
+    except Exception:
+        logger.exception("console manage/%s errored for profile=%s", action, profile)
+        return _json({"error": "Could not change the tag."}, status_code=500)
+    return _json(payload)
+
+
+async def manage_set_owner(request: Request) -> Response:
+    """`POST /console/api/manage/products/owner` — `{productId, company, expected}`, where
+    `expected` is the owner the page showed (refused if it has changed since)."""
+    return await _manage_tag_write(request, "owner")
+
+
+async def manage_share(request: Request) -> Response:
+    """`POST /console/api/manage/products/share` — `{productId, company, role}`."""
+    return await _manage_tag_write(request, "share")
+
+
+async def manage_unshare(request: Request) -> Response:
+    """`POST /console/api/manage/products/unshare` — `{productId, company}`."""
+    return await _manage_tag_write(request, "unshare")
 
 
 async def cube_detail(request: Request, cube: str) -> Response:
@@ -1437,6 +1637,67 @@ async def ai_remove(request: Request, cube: str) -> Response:
     """`POST /console/api/cubes/{name}/ai/remove` — body `{model}`. Only a model the
     console deployed (its gateway entry carries the Edgeport marker) can be removed."""
     return await _ai_write(request, cube, "remove")
+
+
+async def _vision_upload_call(request: Request, cube: str, what: str, op) -> Response:
+    """Shared body of the three custom-model routes: the AI flag, then `guard_write`
+    BEFORE the body is read or Apollo is dialed; a refusal or a form error is a 4xx the
+    page shows; anything else is logged by class only."""
+    from cube_cloud.reactor.vision_upload import FormError
+
+    if not ai_enabled():
+        return _disabled_response(request.url.path)
+    if (blocked := guard_write(request)) is not None:
+        return blocked
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        return _json({"error": "Expected a JSON object."}, status_code=400)
+    state = request.state
+    profile = getattr(state, "profile", "?")
+    try:
+        async with ApolloClient(state.apollo_client_id, state.apollo_client_secret) as client:
+            payload = await op(client, profile, body)
+    except writes.VisionUploadRefused as e:
+        return _json({"error": str(e)}, status_code=403)
+    except FormError as e:
+        return _json({"error": str(e)}, status_code=400)
+    except ApolloError as e:
+        _log_write_failure(what, profile, cube, e)
+        return _json({"error": "Apollo rejected the change."}, status_code=502)
+    except Exception as e:
+        _log_write_failure(what, profile, cube, e)
+        return _json({"error": "Could not complete that step. Try again."}, status_code=500)
+    if payload is None:
+        return _json({"error": "Not found."}, status_code=404)
+    return _json(payload)
+
+
+async def vision_upload(request: Request, cube: str) -> Response:
+    """`POST /console/api/cubes/{name}/ai/vision/uploads` — body `{size}`. A presigned S3
+    POST for one ONNX file, capped by S3 itself; the file never crosses this route."""
+    return await _vision_upload_call(
+        request, cube, "vision upload",
+        lambda client, profile, body: writes.vision_upload_prepare(client, profile, cube, body.get("size")))
+
+
+async def vision_register(request: Request, cube: str) -> Response:
+    """`POST /console/api/cubes/{name}/ai/vision/registrations` — the registration form
+    (reactor/vision_upload.parse_form): starts the validate-and-build job."""
+    return await _vision_upload_call(
+        request, cube, "vision register",
+        lambda client, profile, body: writes.vision_register_start(client, profile, cube, body))
+
+
+async def vision_registration(request: Request, cube: str, reg_id: str) -> Response:
+    """`POST /console/api/cubes/{name}/ai/vision/registrations/{id}` — advance and report
+    one registration. A POST, not a GET, because it can write the gateway entry when the
+    build has finished (console rule 1a: no state-changing GET)."""
+    return await _vision_upload_call(
+        request, cube, "vision registration",
+        lambda client, profile, body: writes.vision_register_poll(client, profile, cube, reg_id))
 
 
 async def submit_feedback(request: Request) -> Response:

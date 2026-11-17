@@ -265,7 +265,7 @@ class IOptionAssignmentModel(metaclass=abc.ABCMeta):
 
     def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
         """
-        Get's the option assignments to generate if any
+        Gets the option assignments to generate if any
         
         :param parameters: The option assignment parameters data transfer class
         :returns: The option assignment result.
@@ -832,7 +832,7 @@ class ConstantQLUnderlyingVolatilityEstimator(System.Object, QuantConnect.Securi
 
     @property
     def is_ready(self) -> bool:
-        """Indicates whether volatility model has been warmed ot not"""
+        """Indicates whether volatility model has been warmed or not"""
         ...
 
     def estimate(self, security: QuantConnect.Securities.Security, slice: QuantConnect.Data.Slice, contract: QuantConnect.Data.Market.OptionContract) -> float:
@@ -1095,7 +1095,7 @@ class OptionMarginModel(QuantConnect.Securities.SecurityMarginModel):
 
     def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
         """
-        Gets the margin currently alloted to the specified holding
+        Gets the margin currently allotted to the specified holding
         
         :param parameters: An object containing the security
         :returns: The maintenance margin required for the provided holdings quantity/cost/value.
@@ -1369,7 +1369,7 @@ class NullOptionAssignmentModel(System.Object, QuantConnect.Securities.Option.IO
 
     def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
         """
-        Get's the option assignments to generate if any
+        Gets the option assignments to generate if any
         
         :param parameters: The option assignment parameters data transfer object
         :returns: The option assignment result.
@@ -2093,7 +2093,7 @@ class DefaultOptionAssignmentModel(System.Object, QuantConnect.Securities.Option
 
     def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
         """
-        Get's the option assignments to generate if any
+        Gets the option assignments to generate if any
         
         :param parameters: The option assignment parameters data transfer class
         :returns: The option assignment result.
@@ -2295,7 +2295,7 @@ class FuturesOptionsMarginModel(QuantConnect.Securities.Future.FutureMarginModel
 
     def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
         """
-        Gets the margin currently alloted to the specified holding.
+        Gets the margin currently allotted to the specified holding.
         
         :param parameters: An object containing the security
         :returns: The maintenance margin required for the option.
@@ -2305,7 +2305,7 @@ class FuturesOptionsMarginModel(QuantConnect.Securities.Future.FutureMarginModel
     @staticmethod
     def get_margin_requirement(option: QuantConnect.Securities.Option.Option, underlying_requirement: float, position_side: QuantConnect.PositionSide = ...) -> int:
         """
-        Get's the margin requirement for a future option based on the underlying future margin requirement and the position side to trade.
+        Gets the margin requirement for a future option based on the underlying future margin requirement and the position side to trade.
         FOPs margin requirement is an 'S' curve based on the underlying requirement around it's current price, see https://en.wikipedia.org/wiki/Logistic_function
         
         :param option: The future option contract to trade

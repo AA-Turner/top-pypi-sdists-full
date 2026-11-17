@@ -204,27 +204,31 @@ class DurableSync:
         *,
         full_state: bool = False,
         newly_joined_room: str | None = None,
-    ) -> tuple[SyncResponse | SlidingSyncResponse, TransientSections]:
+    ) -> TransientSections:
         # A local join/leave must not overtake input being decoded for capture.
         # Only parsing runs in the worker; projection and SQLite stay on the loop.
         async with self._local_lock:
             self._assert_active()
             generation = self._sliding.generation if self._sliding is not None else 0
-            response = await asyncio.to_thread(self._decode_response, body)
+            response, transients = await asyncio.to_thread(self._decode_response, body)
             self._assert_active()
-            with self._store.transaction():
-                self._store.capture(body)
-                self._store.save_continuation(
+            if self._sliding is not None:
+                self._sliding.accepted_generation = generation
+            # Capture commits with preparation. Until that commit the previous
+            # cursor stays authoritative, so a failure or crash before it
+            # leaves this response's interval to be fetched again.
+            await self._prepare_pending(
+                response,
+                new_input=(
+                    body,
                     {
                         "full_state": full_state,
                         "newly_joined_room": newly_joined_room,
                         "transport": "sliding" if self._sliding else "classic",
-                    }
-                )
-            self._recovery.response = response[0]
-            if self._sliding is not None:
-                self._sliding.accepted_generation = generation
-            return response
+                    },
+                ),
+            )
+            return transients
 
     async def _accept_response(
         self,
@@ -233,10 +237,9 @@ class DurableSync:
         full_state: bool = False,
         newly_joined_room: str | None = None,
     ) -> None:
-        response, transients = await self._capture_response(
+        transients = await self._capture_response(
             body, full_state=full_state, newly_joined_room=newly_joined_room
         )
-        await self._prepare_pending(response)
         await deliver_transients(self.client, transients)
 
     def _change_membership(self, room_id: str, membership: str) -> OwnMembership | None:
@@ -333,10 +336,19 @@ class DurableSync:
         return room
 
     async def _prepare_pending(
-        self, response: SyncResponse | SlidingSyncResponse | None = None
+        self,
+        response: SyncResponse | SlidingSyncResponse | None = None,
+        *,
+        new_input: tuple[bytes, dict[str, Any]] | None = None,
     ) -> None:
         self._assert_active()
-        await self._recovery.prepare(response)
+        await self._recovery.prepare(response, new_input=new_input)
+
+    def _complete_input(self) -> None:
+        """Retire prepared input and publish its sync completion marker."""
+        self._store.finish_input()
+        self._recovery.response = None
+        self._store.publish((), completes_sync=True)
 
     def _save_rooms(
         self, rooms: dict[str, MatrixRoom], members: set[tuple[str, str]]
@@ -426,13 +438,16 @@ class DurableSync:
         await self._outbound.maintain()
 
     async def run(self) -> None:
-        """Run one Classic source, draining committed batches between responses."""
+        """Run the configured source, draining committed batches between responses."""
         self._assert_active()
         if self._running is not None:
             raise LocalProtocolError("durable sync runner is already active")
         running = asyncio.current_task()
         assert running is not None
         self._running = running
+        # Polls use timeout 0 until this run accepts a response, so a started
+        # or restarted client is ready without waiting out a quiet long poll.
+        accepted = False
         try:
             while not self._closed:
                 self._assert_active()
@@ -449,9 +464,7 @@ class DurableSync:
                         continue
                     await self._maintain_crypto()
                     with self._store.transaction():
-                        self._store.finish_input()
-                        self._recovery.response = None
-                        self._store.publish((), completes_sync=True)
+                        self._complete_input()
                     self._changed.set()
                     continue
                 if (
@@ -486,13 +499,14 @@ class DurableSync:
                     and self._recovery.needs_full_state()
                 )
                 request_body = None
+                timeout = self.config.sync_timeout_ms if accepted else 0
                 if self._sliding is not None:
-                    method, path, request_body = self._sliding.request()
+                    method, path, request_body = self._sliding.request(timeout)
                 else:
                     method, path = Api.sync(
                         "",
                         self.cursor,
-                        self.config.sync_timeout_ms,
+                        timeout,
                         (
                             None
                             if full_state or newly_joined_room
@@ -547,6 +561,7 @@ class DurableSync:
                 await self._accept_response(
                     body, full_state=full_state, newly_joined_room=newly_joined_room
                 )
+                accepted = True
         finally:
             self._running = None
             self._changed.set()

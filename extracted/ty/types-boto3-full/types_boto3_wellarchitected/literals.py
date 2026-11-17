@@ -25,6 +25,7 @@ else:
 __all__ = (
     "AccountJiraIssueManagementStatusType",
     "AdditionalResourceTypeType",
+    "AgentOrganizationalReportCompletedWaiterName",
     "AnswerReasonType",
     "ApplicationTypeType",
     "CheckFailureReasonType",
@@ -40,6 +41,7 @@ __all__ = (
     "EffortType",
     "FeedbackCategoryType",
     "GenerationStatusType",
+    "GenerationTypeType",
     "ImpactCategoryType",
     "ImportLensStatusType",
     "IntegratingServiceType",
@@ -51,6 +53,7 @@ __all__ = (
     "LensTypeType",
     "ListAgentContextsPaginatorName",
     "ListAgentGoalsPaginatorName",
+    "ListAgentOrganizationalReportsPaginatorName",
     "ListAgentProfilesPaginatorName",
     "ListAgentRecommendationGenerationsPaginatorName",
     "ListAgentRecommendationItemsPaginatorName",
@@ -58,12 +61,18 @@ __all__ = (
     "MetricTypeType",
     "NotificationTypeType",
     "OrganizationSharingStatusType",
+    "OrganizationalReportFormatType",
+    "OrganizationalReportStateType",
     "PaginatorName",
     "PermissionTypeType",
     "PillarType",
+    "PreferenceKeyType",
+    "PreferenceStateType",
+    "PreferenceStatusType",
     "PriorityType",
     "ProfileNotificationTypeType",
     "ProfileOwnerTypeType",
+    "ProfileTypeType",
     "QuestionPriorityType",
     "QuestionType",
     "QuestionTypeType",
@@ -86,6 +95,7 @@ __all__ = (
     "ShareResourceTypeType",
     "ShareStatusType",
     "TrustedAdvisorIntegrationStatusType",
+    "WaiterName",
     "WellArchitectedServiceName",
     "WorkloadEnvironmentType",
     "WorkloadImprovementStatusType",
@@ -95,6 +105,7 @@ __all__ = (
 
 AccountJiraIssueManagementStatusType = Literal["DISABLED", "ENABLED"]
 AdditionalResourceTypeType = Literal["HELPFUL_RESOURCE", "IMPROVEMENT_PLAN"]
+AgentOrganizationalReportCompletedWaiterName = Literal["agent_organizational_report_completed"]
 AnswerReasonType = Literal[
     "ARCHITECTURE_CONSTRAINTS", "BUSINESS_PRIORITIES", "NONE", "OTHER", "OUT_OF_SCOPE"
 ]
@@ -124,6 +135,7 @@ FeedbackCategoryType = Literal[
     "RESOURCE_TYPE_NOT_IMPORTANT",
 ]
 GenerationStatusType = Literal["COMPLETED", "ERROR", "IN_PROGRESS", "QUEUED"]
+GenerationTypeType = Literal["BASIC", "ONDEMAND", "SCHEDULED"]
 ImpactCategoryType = Literal["HIGH", "LOW", "MEDIUM"]
 ImportLensStatusType = Literal["COMPLETE", "ERROR", "IN_PROGRESS"]
 IntegratingServiceType = Literal["JIRA"]
@@ -135,6 +147,7 @@ LensStatusTypeType = Literal["ALL", "DRAFT", "PUBLISHED"]
 LensTypeType = Literal["AWS_OFFICIAL", "CUSTOM_SELF", "CUSTOM_SHARED"]
 ListAgentContextsPaginatorName = Literal["list_agent_contexts"]
 ListAgentGoalsPaginatorName = Literal["list_agent_goals"]
+ListAgentOrganizationalReportsPaginatorName = Literal["list_agent_organizational_reports"]
 ListAgentProfilesPaginatorName = Literal["list_agent_profiles"]
 ListAgentRecommendationGenerationsPaginatorName = Literal["list_agent_recommendation_generations"]
 ListAgentRecommendationItemsPaginatorName = Literal["list_agent_recommendation_items"]
@@ -142,13 +155,21 @@ ListAgentRecommendationsPaginatorName = Literal["list_agent_recommendations"]
 MetricTypeType = Literal["WORKLOAD"]
 NotificationTypeType = Literal["LENS_VERSION_DEPRECATED", "LENS_VERSION_UPGRADED"]
 OrganizationSharingStatusType = Literal["DISABLED", "ENABLED"]
+OrganizationalReportFormatType = Literal["CSV", "JSON", "PARQUET"]
+OrganizationalReportStateType = Literal[
+    "AGGREGATING", "COMPLETED", "COMPRESSING", "DELETING", "DISCOVERING", "FAILED", "SNAPSHOTTING"
+]
 PermissionTypeType = Literal["CONTRIBUTOR", "READONLY"]
 PillarType = Literal[
     "COST_OPTIMIZATION", "OPERATIONAL_EXCELLENCE", "PERFORMANCE", "RESILIENCE", "SECURITY"
 ]
+PreferenceKeyType = Literal["ORG_INTEGRATION"]
+PreferenceStateType = Literal["DISABLED", "ENABLED"]
+PreferenceStatusType = Literal["DISABLED", "ENABLED", "FAILED"]
 PriorityType = Literal["HIGH", "LOW", "MEDIUM"]
 ProfileNotificationTypeType = Literal["PROFILE_ANSWERS_UPDATED", "PROFILE_DELETED"]
 ProfileOwnerTypeType = Literal["SELF", "SHARED"]
+ProfileTypeType = Literal["BASIC", "ORGANIZATIONAL", "STANDARD"]
 QuestionPriorityType = Literal["NONE", "PRIORITIZED"]
 QuestionType = Literal["ANSWERED", "UNANSWERED"]
 QuestionTypeType = Literal["NON_PRIORITIZED", "PRIORITIZED"]
@@ -292,6 +313,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -476,6 +498,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -543,6 +566,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -626,11 +650,13 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_agent_contexts",
     "list_agent_goals",
+    "list_agent_organizational_reports",
     "list_agent_profiles",
     "list_agent_recommendation_generations",
     "list_agent_recommendation_items",
     "list_agent_recommendations",
 ]
+WaiterName = Literal["agent_organizational_report_completed"]
 RegionName = Literal[
     "ap-east-1",
     "ap-northeast-1",

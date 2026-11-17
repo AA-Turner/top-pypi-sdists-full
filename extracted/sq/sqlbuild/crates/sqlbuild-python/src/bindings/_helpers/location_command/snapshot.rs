@@ -1,6 +1,6 @@
 //! Location publication assembles catalog data and planner-owned local identities.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use pyo3::exceptions::PyValueError;
@@ -14,30 +14,27 @@ use sqlbuild_discovery::orchestration_files::models::OrchestrationInventory;
 use sqlbuild_discovery::project_validation::main::validate_orchestration_names::validate_orchestration_names;
 use sqlbuild_orchestration::snapshots::models::{SnapshotInput, SnapshotNode};
 
-use crate::bindings::_helpers::compiled_project::snapshot::NativeOrchestrationSnapshot;
-use crate::bindings::_helpers::compiled_project::snapshot_declarations::{
-    compile_declarations, python_declarations,
-};
-use crate::bindings::_helpers::compiled_project::snapshot_models::model_nodes;
-use crate::bindings::_helpers::compiled_project::snapshot_resources::resource_nodes;
-use crate::bindings::_helpers::compiled_project::snapshot_roles::compile_project_roles;
-use crate::bindings::_helpers::compiled_views::project_view::NativeProjectView;
-use crate::bindings::_helpers::discovery::orchestration_files::orchestration_declarations;
-use crate::bindings::_helpers::discovery::project_facts::{named_node_rows, project_facts};
-use crate::bindings::_helpers::discovery::project_validation::validation_error;
-use crate::bindings::_helpers::graph::python_selection::ProjectSelection;
 use crate::bindings::_helpers::location_command::snapshot_lineage::column_lineage_document;
 use crate::bindings::_helpers::location_command::snapshot_providers::providers_document;
-use crate::bindings::_helpers::planner_identity::graph::execution_deps;
-use crate::bindings::_helpers::planner_identity::identities::direct_model_version_identities;
-use crate::bindings::_helpers::planner_scope::scope::build_planner_scope;
-use crate::bindings::_helpers::planner_scope::values::project_graph;
 use sqlbuild_python_base::boundary::models::KeywordArguments;
 use sqlbuild_python_base::orchestration_reads::main::environment_hash::environment_hash;
 use sqlbuild_python_base::records::main::fields::field::field;
-
-/// The Python node kind whose functions load sources.
-const LOADER_KIND: &str = "loader";
+use sqlbuild_python_front::discovery::main::project::named_node_rows::named_node_rows;
+use sqlbuild_python_front::discovery::main::project::project_facts::project_facts;
+use sqlbuild_python_front::discovery::main::project::validation_error::validation_error;
+use sqlbuild_python_front::discovery::main::sources::orchestration_declarations::orchestration_declarations;
+use sqlbuild_python_planner::planner_identity::main::direct_model_version_identities::direct_model_version_identities;
+use sqlbuild_python_project::compiled_views::models::NativeProjectView;
+use sqlbuild_python_project::graph::models::ProjectSelection;
+use sqlbuild_python_project::planner_identity::main::execution_deps::execution_deps;
+use sqlbuild_python_project::planner_scope::main::build_planner_scope::build_planner_scope;
+use sqlbuild_python_project::planner_scope::main::project_graph::project_graph;
+use sqlbuild_python_project::project_snapshot::main::compile_declarations::compile_declarations;
+use sqlbuild_python_project::project_snapshot::main::compile_project_roles::compile_project_roles;
+use sqlbuild_python_project::project_snapshot::main::model_nodes::model_nodes;
+use sqlbuild_python_project::project_snapshot::main::python_declarations::python_declarations;
+use sqlbuild_python_project::project_snapshot::main::resource_nodes::resource_nodes;
+use sqlbuild_python_project::project_snapshot::models::NativeOrchestrationSnapshot;
 
 /// Compile catalog nodes and identities in the location, never in the server.
 #[pyfunction]
@@ -156,34 +153,17 @@ fn python_nodes(
             tags.entry(name.as_str()).or_default().push(tag.as_str());
         }
     }
-    let upstream: BTreeMap<&str, &[String]> = graph
-        .upstream
-        .iter()
-        .map(|(name, names)| (name.as_str(), names.as_slice()))
-        .collect();
     let mut outputs: Vec<(String, SnapshotNode)> = Vec::new();
-    for node in &graph.nodes {
-        let key = format!("{}:{}", node.kind, node.name);
+    for (node, (key, deps)) in graph.nodes.iter().zip(selected.node_deps()) {
         let Some(published) = nodes.get_mut(&key) else {
             return Err(PyValueError::new_err(format!(
                 "Python node {key} is missing from the snapshot"
             )));
         };
-        let deps: BTreeSet<String> = upstream
-            .get(node.name.as_str())
-            .into_iter()
-            .flat_map(|names| names.iter())
-            .filter_map(|name| selected.node_key(name))
-            .chain(
-                node.sql_deps
-                    .iter()
-                    .map(|(kind, name)| format!("{kind}:{name}")),
-            )
-            .collect();
         published.definition["deps"] = json!(deps);
         published.definition["tags"] =
             json!(tags.get(node.name.as_str()).cloned().unwrap_or_default());
-        if node.kind == LOADER_KIND && selected.intermediate_loader(&node.name) {
+        if let Some(source) = selected.intermediate_source(&node.kind, &node.name) {
             let mut definition = json!({
                 "name": node.name,
                 "entry": {"loader": node.name},
@@ -194,7 +174,7 @@ fn python_nodes(
                 definition["path"] = path.clone();
             }
             outputs.push((
-                format!("source:{}", node.name),
+                source,
                 SnapshotNode {
                     kind: "source".into(),
                     definition,

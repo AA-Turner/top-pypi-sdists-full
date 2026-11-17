@@ -41,7 +41,10 @@ from sklearn.base import (
 from sklearn.pipeline import Pipeline
 from tqdm.auto import tqdm
 
-from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
+from tabpfn.architectures.shared.bar_distribution import (
+    FullSupportBarDistribution,
+    expected_value,
+)
 from tabpfn.base import (
     ModelSpecs,
     create_inference_engine,
@@ -52,8 +55,10 @@ from tabpfn.base import (
     initialize_model_variables_helper,
     reject_categoricals_for_differentiable_input,
     resolve_categorical_features_indices,
+    resolved_average_before_softmax,
     resolved_n_estimators,
     resolved_softmax_temperature,
+    transform_columns,
 )
 from tabpfn.constants import (
     REGRESSION_CONSTANT_TARGET_BORDER_EPSILON,
@@ -66,13 +71,15 @@ from tabpfn.downsample_correction import (
 from tabpfn.errors import TabPFNValidationError, handle_oom_errors
 from tabpfn.inference import (
     InferenceEngineBatchedNoPreprocessing,
+    InferenceEngineExplicitKVCache,
     _maybe_run_gpu_preprocessing,
 )
 from tabpfn.inference_tuning import (
     RegressorEvalMetrics,
     RegressorTuningConfig,
+    find_mean_calibration_scale,
     find_regression_optimal_temperature,
-    get_tuning_splits,
+    get_tuning_split_indices,
     resolve_tuning_config,
 )
 from tabpfn.model_loading import (
@@ -90,27 +97,35 @@ from tabpfn.preprocessing import (
     clean_data,
     generate_regression_ensemble_configs,
 )
-from tabpfn.preprocessing.clean import clean_data_transform
+from tabpfn.preprocessing.clean import clean_data_transform, may_overwrite_fit_input
 from tabpfn.preprocessing.datamodel import Feature, FeatureModality, FeatureSchema
 from tabpfn.preprocessing.datetimes import DateTransformer
 from tabpfn.preprocessing.ensemble import (
     TabPFNEnsemblePreprocessor,
     scale_n_estimators_for_feature_coverage,
 )
+from tabpfn.preprocessing.group_aggregates import GroupAggregator, pool_rows
 from tabpfn.preprocessing.group_ids import (
     GroupIdEncoder,
     as_group_feature,
     reject_group_col,
 )
 from tabpfn.preprocessing.modality_detection import detect_feature_modalities
+from tabpfn.preprocessing.row_weights import (
+    resolve_sample_weight_mode,
+    tuning_metric_row_weights,
+    validate_row_weights,
+)
 from tabpfn.preprocessing.steps import (
     get_all_reshape_feature_distribution_preprocessors,
 )
 from tabpfn.preprocessing.target_transform import (
+    ZERO_INFLATED_TARGET_TRANSFORMS,
     StandardizeTarget,
     make_target_transform,
 )
 from tabpfn.preprocessing.text import TextTransformer
+from tabpfn.settings import settings
 from tabpfn.utils import (
     DevicesSpecification,
     convert_batch_of_cat_ix_to_schema,
@@ -140,6 +155,7 @@ if TYPE_CHECKING:
     from tabpfn.constants import MemorySavingMode, XType, YType
     from tabpfn.inference import InferenceEngine
     from tabpfn.inference_config import InferenceConfig
+    from tabpfn.preprocessing.row_weights import SampleWeightMode
     from tabpfn.preprocessing.steps.preprocessing_helpers import (
         OrderPreservingColumnTransformer,
     )
@@ -291,6 +307,10 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
     """The encoder that replaced the `group_col` columns with one categorical
     feature, holding the key-to-code mapping fitted on the training rows."""
 
+    group_aggregator_: GroupAggregator
+    """Appends the per-group aggregates (`APPEND_GROUP_AGGREGATES`) and decides
+    whether predictions are pooled per group (`POOL_GROUP_PREDICTIONS`)."""
+
     group_feature_index_: int | None
     """Where the encoded group feature sits in the cleaned input, or `None`
     without `group_col`."""
@@ -313,6 +333,18 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
     """The resolved per-estimator `softmax_temperature`, i.e. the one the checkpoint
     declares unless it was overridden."""
 
+    average_before_softmax_: bool
+    """The resolved `average_before_softmax`, i.e. the one the checkpoint declares
+    unless it was overridden."""
+
+    mean_calibration_scale_: float
+    """The constant that multiplies the `"mean"` output, fitted with
+    `RegressorTuningConfig.calibrate_mean`. This is `1.0`, a no-op, otherwise."""
+
+    y_train_max_: float
+    """The largest training target, above which the "nonnegative_and_capped" readout
+    drops the predicted mass."""
+
     def __init__(  # noqa: PLR0913
         self,
         *,
@@ -321,7 +353,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         categorical_features_indices: Sequence[int] | None = None,
         group_col: str | list[str] | None = None,
         softmax_temperature: float | Literal["auto"] = "auto",
-        average_before_softmax: bool = False,
+        average_before_softmax: bool | Literal["auto"] = "auto",
         model_path: str
         | Path
         | list[str]
@@ -412,9 +444,13 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 The codes are fitted on the training rows alone, every group
                 keeping its own; a key `fit` did not see becomes a missing
                 value. When set, `fit` and `predict` take a DataFrame holding
-                those columns and raise `ValueError` otherwise.
+                those columns, without missing values, and raise `ValueError`
+                otherwise.
                 Combining it with `tuning_config`, `differentiable_input=True`
                 or `fit_from_preprocessed` raises `ValueError` too.
+
+                `APPEND_GROUP_AGGREGATES` and `POOL_GROUP_PREDICTIONS` in
+                `inference_config` add transductive modes for grouped data.
 
             softmax_temperature:
                 The temperature for the softmax function. This is used to control the
@@ -441,6 +477,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                   softmax.
                 - If `False`, the softmax function is applied to each set of logits.
                   Then, we average the resulting probabilities of each forward pass.
+                - If `"auto"` (the default), the value is taken from the checkpoint
+                  (`InferenceConfig.AVERAGE_BEFORE_SOFTMAX`), which is `False`
+                  unless the checkpoint sets it. Passing a bool overrides the
+                  checkpoint; it cannot be combined with an
+                  `AVERAGE_BEFORE_SOFTMAX` in `inference_config`, which is the other
+                  way of naming one.
 
             model_path:
                 The path to the TabPFN model file, i.e., the pre-trained weights.
@@ -620,6 +662,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 `n_estimators > 1`, the estimators are preprocessed on that many
                 threads, which speeds up the fit on large tables. Threads beyond
                 `n_estimators` are unused.
+                With `APPEND_GROUP_AGGREGATES`, the aggregates are also selected
+                on that many threads. `-1` uses all cores.
 
             inference_config:
                 For advanced users, additional advanced arguments that adjust the
@@ -885,6 +929,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         byte_size: int,
         n_preprocessing_jobs: int,
         inference_mode: bool,
+        row_weights: np.ndarray | None,
+        sample_weight_mode: SampleWeightMode | None,
     ) -> None:
         """Build ``self.ensemble_preprocessor_`` and ``self.executor_``.
 
@@ -917,6 +963,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             X_train=X,
             y_train=y,
             task_type=self.estimator_type,
+            row_weights=row_weights,
+            sample_weight_mode=sample_weight_mode,
         )
         self.executor_ = create_inference_engine(
             fit_mode=self.fit_mode,
@@ -935,6 +983,27 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             kv_cache_precision=self.kv_cache_precision,
             inference_mode=inference_mode,
         )
+
+    def _resolve_row_weights(
+        self,
+        sample_weight: npt.ArrayLike | None,
+        label_reliability: npt.ArrayLike | None,
+        *,
+        n_samples: int,
+    ) -> tuple[np.ndarray | None, SampleWeightMode | None]:
+        """Validate the per-row weights of `fit` against the models."""
+        if sample_weight is None and label_reliability is None:
+            return None, None
+        mode = resolve_sample_weight_mode(
+            self.models_,
+            self.inference_config_.SAMPLE_WEIGHT_MODE,
+            uses_label_reliability=label_reliability is not None,
+            task_type="regression",
+        )
+        row_weights = validate_row_weights(
+            sample_weight, label_reliability, n_samples=n_samples
+        )
+        return row_weights, mode
 
     def _initialize_for_differentiable_input(
         self,
@@ -1026,6 +1095,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # not the wider frame expansion can make of it, so they come off the raw
         # input here, before any conversion.
         self.feature_names_in_, self.n_features_in_ = extract_input_shape(X)
+        X_given = X
 
         categorical_indices = resolve_categorical_features_indices(
             X, self.categorical_features_indices
@@ -1033,7 +1103,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # Before the expansion below, so each group key is read as the caller
         # passed it rather than as the features a date or text column becomes.
         self.group_encoder_ = GroupIdEncoder(group_col=self.group_col)
-        X = self.group_encoder_.fit_transform(X)
+        groups = self.group_encoder_.fit(X).row_groups(X)
+        X = self.group_encoder_.transform(X)
         categorical_indices = self.group_encoder_.output_indices(categorical_indices)
         X, date_transformer, text_transformer, feature_names, categorical_indices = (
             expand_dates_and_text(
@@ -1042,6 +1113,21 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 inference_config=self.inference_config_,
             )
         )
+        self.group_aggregator_ = GroupAggregator(
+            append=self.inference_config_.APPEND_GROUP_AGGREGATES,
+            pool=self.inference_config_.POOL_GROUP_PREDICTIONS is not None,
+            n_jobs=self.n_preprocessing_jobs,
+            # float64 is needed, which MPS lacks; on CPU pandas is faster.
+            device=self.devices_[0]
+            if self.inference_config_.ENABLE_GPU_PREPROCESSING
+            and self.devices_[0].type == "cuda"
+            else None,
+        )
+        X = self.group_aggregator_.fit_transform(
+            X, y, groups, exclude=self.group_encoder_.feature_name_
+        )
+        if feature_names is not None:
+            feature_names = [*feature_names, *self.group_aggregator_.names_]
 
         X, y, _ = ensure_compatible_fit_inputs(
             X,
@@ -1077,6 +1163,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             X=X,
             feature_schema=feature_schema,
             passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
+            overwrite_input=may_overwrite_fit_input(X, X_given),
         )
         feature_schema = as_group_feature(
             feature_schema, self.group_feature_index_, FeatureModality.CATEGORICAL
@@ -1105,6 +1192,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     "The '1_plus_log' regression target transform requires raw targets "
                     "greater than -1. Use 'safepower' or None for targets <= -1."
                 )
+            if preset in ZERO_INFLATED_TARGET_TRANSFORMS and np.any(y < 0):
+                raise ValueError(
+                    f"The '{preset}' regression target transform requires "
+                    "nonnegative raw targets (y >= 0). Use 'safepower' or None for "
+                    "negative targets."
+                )
             if preset == "exp":
                 overflow_threshold = np.log(np.finfo(np.float32).max)
                 overflow_count = np.count_nonzero(y >= overflow_threshold)
@@ -1126,6 +1219,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     (preset, possible_target_transforms[preset]),
                 ]
             )
+        possible_target_transforms.update(
+            {
+                name: transform()
+                for name, transform in ZERO_INFLATED_TARGET_TRANSFORMS.items()
+            }
+        )
         # Each member fits its target pipeline on raw targets.
         target_preprocessors: list[Pipeline] = [
             make_target_transform(
@@ -1279,6 +1378,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             _, _, byte_size = determine_precision(
                 self.inference_precision, self.devices_
             )
+        if self._readout() != "default":
+            raise NotImplementedError(
+                "fit_from_preprocessed supports only "
+                "REGRESSION_READOUT='default'; the 'nonnegative_and_capped' readout "
+                "needs the largest training target. Use fit instead."
+            )
 
         feature_schema = convert_batch_of_cat_ix_to_schema(
             batch_of_cat_indices=cat_ix,
@@ -1356,6 +1461,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # Mirror classifier.py: re-assert n_estimators_ from cached
             # configs so a subsequent call after pickling restores it.
             self.n_estimators_ = len(ensemble_configs)
+        if self._readout() != "default":
+            raise NotImplementedError(
+                "fit_with_differentiable_input supports only "
+                "REGRESSION_READOUT='default'; the 'nonnegative_and_capped' readout "
+                "needs the largest training target. Use fit instead."
+            )
 
         # Refresh target stats and rebuild the raw-space bardist on every
         # call so they track the current fit data; cached state is only the
@@ -1408,6 +1519,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             byte_size=byte_size,
             n_preprocessing_jobs=1,
             inference_mode=False,
+            row_weights=None,
+            sample_weight_mode=None,
         )
         # `y` is z-normalized by now; histogramming on the raw-space borders
         # needs the original target values.
@@ -1418,22 +1531,43 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         return self
 
     @config_context(transform_output="default")  # type: ignore
-    def fit(self, X: XType, y: YType) -> Self:
+    def fit(
+        self,
+        X: XType,
+        y: YType,
+        sample_weight: npt.ArrayLike | None = None,
+        label_reliability: npt.ArrayLike | None = None,
+    ) -> Self:
         """Fit the model.
 
         Args:
             X: The input data.
             y: The target variable.
+            sample_weight: Experimental. One non-negative weight per training row,
+                roughly saying how many rows it stands for. Only relative values
+                matter: scaling every weight changes nothing, and a weight of 2
+                is not the same as the row appearing twice. Rows with weight 0
+                stay in the context. Raises unless the model supports per-row
+                weights, see `InferenceConfig.SAMPLE_WEIGHT_MODE`.
+            label_reliability: Experimental. One value in [0, 1] per training row:
+                how much to trust that row's target, from 1 (known to be right)
+                to 0 (carries no information). Raises unless the model
+                supports `SAMPLE_WEIGHT_MODE="learned"`.
+
+        With `tuning_config`, each tuning fold is fit with the weights of its
+        rows, and a holdout row counts in the tuned metric in proportion to
+        `sample_weight * label_reliability`.
 
         Returns:
             self
         """
         # Validate eval_metric here instead of in __init__ as per sklearn convention
         self.eval_metric_ = _validate_eval_metric(self.eval_metric)
-        # Set here as well as in `_maybe_calibrate_ensemble_temperature` below, so
-        # that the constant-target fit, which returns before calibration, still
-        # exposes the attribute.
+        # Set here as well as in `_maybe_tune_on_holdout` below, so that the
+        # constant-target fit, which returns before calibration, still exposes the
+        # attributes.
         self.ensemble_softmax_temperature_ = 1.0
+        self.mean_calibration_scale_ = 1.0
         self.downsample_correction_log_weights_ = None
 
         if self.differentiable_input:
@@ -1457,6 +1591,15 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         )
         self.znorm_space_bardist_ = znorm_space_bardist
         self.ensemble_configs_ = ensemble_configs
+        self.y_train_max_ = float(np.max(y))
+        if self._readout() == "nonnegative_and_capped" and np.any(y < 0):
+            raise TabPFNValidationError(
+                "The 'nonnegative_and_capped' readout requires nonnegative targets "
+                "(y >= 0)."
+            )
+        row_weights, sample_weight_mode = self._resolve_row_weights(
+            sample_weight, label_reliability, n_samples=len(y)
+        )
 
         assert len(ensemble_configs) == self.n_estimators_
 
@@ -1482,7 +1625,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             return self
 
         # Each tuning fold must derive its target statistics from its own raw targets.
-        self._maybe_calibrate_ensemble_temperature(X=X, y=y)
+        self._maybe_tune_on_holdout(
+            X=X, y=y, sample_weight=sample_weight, label_reliability=label_reliability
+        )
 
         y_raw = np.asarray(y, dtype=np.float64)
         # Shared aggregation frame; each member standardizes raw targets separately.
@@ -1499,6 +1644,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             n_preprocessing_jobs=self.n_preprocessing_jobs,
             # TODO: Standard fit usually uses inference_mode=True, before it was enabled
             inference_mode=True,
+            row_weights=row_weights,
+            sample_weight_mode=sample_weight_mode,
         )
         self._compute_downsample_correction(y_raw=y_raw)
 
@@ -1558,6 +1705,10 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 Determines the type of output to return.
 
                 - If `"mean"`, we return the mean over the predicted distribution.
+                    With `RegressorTuningConfig.calibrate_mean`, the
+                    mean is multiplied by `mean_calibration_scale_`, also in `"main"`
+                    and `"full"`. The predicted distribution is not rescaled, so
+                    the median, mode, quantiles and logits stay as they are.
                 - If `"median"`, we return the median over the predicted distribution.
                 - If `"mode"`, we return the mode over the predicted distribution.
                 - If `"quantiles"`, we return the quantiles of the predicted
@@ -1574,6 +1725,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 quantiles are returned. The predictions per quantile match
                 the input order.
 
+        With `fit_mode="fit_with_cache"`, test sets larger than the
+        `TABPFN_MAX_REGRESSOR_PREDICT_ROWS` setting are predicted block by
+        block, so peak memory does not grow with the number of test rows.
+        `output_type="full"` and predictions pooled per group always run in one
+        pass.
+
         Returns:
             The prediction, which can be a numpy array, a list of arrays (for
             quantiles), or a dictionary with detailed outputs.
@@ -1582,9 +1739,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
 
         # TODO: Move these at some point to InferenceEngine
         check_input_shape_matches(X, estimator=self)
-        X = self.group_encoder_.transform(X)
-        X = self.date_transformer_.transform(X)
-        X = self.text_transformer_.transform(X)
+        X, groups = transform_columns(self, X)
         X = ensure_compatible_predict_input_sklearn(X, self)
 
         check_is_fitted(self)
@@ -1602,62 +1757,96 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         if hasattr(self, "is_constant_target_") and self.is_constant_target_:
             return self._handle_constant_target(X.shape[0], output_type, quantiles)
 
-        logits = self._compute_aggregated_logits(X)
-
-        # Determine and return intended output type
-        logit_to_output = partial(
-            _logits_to_output,
-            logits=logits,
+        decode = partial(
+            _decode_logits,
+            output_type=output_type,
+            quantiles=quantiles,
             znorm_space_bardist=self.znorm_space_bardist_,
+            raw_space_bardist=self.raw_space_bardist_,
             y_mean=self.y_train_mean_,
             y_std=self.y_train_std_,
-            quantiles=quantiles,
+            truncate_above=self._truncate_above(),
+            # `getattr` keeps models pickled before this attribute existed loadable.
+            mean_scale=getattr(self, "mean_calibration_scale_", 1.0),
         )
-        if output_type in ["full", "main"]:
-            # Create a dictionary of outputs with proper typing via TypedDict
-            # Get individual outputs with proper typing
-            mean_out = typing.cast("np.ndarray", logit_to_output(output_type="mean"))
-            median_out = typing.cast(
-                "np.ndarray", logit_to_output(output_type="median")
+        block_rows = settings.tabpfn.max_regressor_predict_rows
+        use_blocks = (
+            block_rows > 0
+            and output_type != "full"
+            and X.shape[0] > block_rows
+            and isinstance(self.executor_, InferenceEngineExplicitKVCache)
+            # Pooling needs all rows of a group in one pass.
+            and groups is None
+        )
+        if not use_blocks:
+            logits = pool_rows(
+                self._compute_aggregated_logits(X),
+                groups,
+                logits=True,
+                geometric=self.inference_config_.POOL_GROUP_PREDICTIONS
+                == "geometric_mean",
             )
-            mode_out = typing.cast("np.ndarray", logit_to_output(output_type="mode"))
-            quantiles_out = typing.cast(
-                "list[np.ndarray]",
-                logit_to_output(output_type="quantiles"),
+            return decode(logits)
+
+        # Each test row only attends to the cached training context, and every
+        # later step is per row, so blocks give the same result as one call.
+        # Decoding each block keeps the [rows, n_buckets] tensors block-sized.
+        X_clean = self._clean_predict_input(X)
+        parts: list[RegressionResultType] = []
+        speed_metrics = self.executor_._speed_metrics
+        forward_seconds = 0.0
+        for start in tqdm(
+            range(0, X_clean.shape[0], block_rows),
+            desc="TabPFN inference",
+            unit="block",
+            disable=not self.show_progress_bar,
+        ):
+            logits = self._aggregate_cleaned_logits(
+                X_clean[start : start + block_rows], show_progress_bar=False
             )
+            parts.append(decode(logits))
+            del logits
+            # Each block overwrites the metric, so accumulate the per-block time.
+            forward_seconds += speed_metrics.get("predict_model_forward_seconds", 0.0)
+        speed_metrics["predict_model_forward_seconds"] = forward_seconds
+        return _concat_block_outputs(parts, output_type)
 
-            main_outputs = MainOutputDict(
-                mean=mean_out,
-                median=median_out,
-                mode=mode_out,
-                quantiles=quantiles_out,
-            )
+    def _truncate_above(self) -> float | None:
+        """The largest training target for the "nonnegative_and_capped" readout, or
+        None.
+        """
+        return (
+            self.y_train_max_ if self._readout() == "nonnegative_and_capped" else None
+        )
 
-            if output_type == "full":
-                # Return full output with criterion and logits
-                return FullOutputDict(
-                    **main_outputs,
-                    criterion=self.raw_space_bardist_,
-                    logits=logits,
-                )
+    def _readout(self) -> str:
+        # `getattr` keeps models pickled before this field existed loadable.
+        return getattr(self.inference_config_, "REGRESSION_READOUT", "default")
 
-            return main_outputs
-
-        return logit_to_output(output_type=output_type)
-
-    def _maybe_calibrate_ensemble_temperature(self, X: XType, y: YType) -> None:
-        """If a `tuning_config` was given, calibrate the ensemble temperature.
+    def _maybe_tune_on_holdout(
+        self,
+        X: XType,
+        y: YType,
+        sample_weight: npt.ArrayLike | None,
+        label_reliability: npt.ArrayLike | None,
+    ) -> None:
+        """If a `tuning_config` was given, calibrate on holdout folds.
 
         The regressor analogue of the classifier's
         `_maybe_calibrate_temperature_and_tune_decision_thresholds`. Fits
         throwaway regressors on cross-validation splits of `X`/`y`, sweeps the
         temperature against `eval_metric_` on their pooled holdout rows, and
         stores the winner in `ensemble_softmax_temperature_`, which
-        `_compute_aggregated_logits` applies to every prediction.
+        `_compute_aggregated_logits` applies to every prediction. With
+        `calibrate_mean`, it then fits `mean_calibration_scale_` on
+        the holdout means, with the temperature applied.
 
         `y` must be the *raw* target: each fold's regressor performs its own
         z-normalisation, and passing an already-normalised `y` would normalise
         it twice.
+
+        `sample_weight` and `label_reliability` are the validated arguments of
+        `fit`, aligned with the rows of `X`.
 
         Unlike the classifier's counterpart there are no metric-specific
         warnings, as NLL is the only supported metric and calibrating the
@@ -1665,10 +1854,11 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         """
         assert self.eval_metric_ is not None
 
-        # Always set this, so the attribute exists on every fitted estimator
+        # Always set these, so the attributes exist on every fitted estimator
         # regardless of whether tuning runs (sklearn compatibility). 1.0 is a
         # no-op, leaving predictions bit-identical to an uncalibrated fit.
         self.ensemble_softmax_temperature_ = 1.0
+        self.mean_calibration_scale_ = 1.0
 
         tuning_config_resolved = resolve_tuning_config(
             tuning_config=self.tuning_config,
@@ -1678,8 +1868,18 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         if tuning_config_resolved is None:
             return
 
-        if not tuning_config_resolved.calibrate_temperature:
+        assert isinstance(tuning_config_resolved, RegressorTuningConfig)
+        calibrate_mean = tuning_config_resolved.calibrate_mean
+        if not (tuning_config_resolved.calibrate_temperature or calibrate_mean):
             return
+
+        if calibrate_mean and np.min(y) < 0:
+            raise TabPFNValidationError(
+                "`calibrate_mean` with `mean_calibration_mode='tweedie'` minimizes "
+                "a Tweedie deviance, which needs nonnegative targets, but the "
+                "smallest target is "
+                f"{np.min(y)}."
+            )
 
         if self.group_encoder_.group_columns_:
             raise TabPFNValidationError(
@@ -1693,14 +1893,70 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             y=y,
             holdout_frac=float(tuning_config_resolved.tuning_holdout_frac),
             n_folds=int(tuning_config_resolved.tuning_n_folds),
+            sample_weight=sample_weight,
+            label_reliability=label_reliability,
         )
 
-        # Falls back to the current no-op temperature if every fold was
-        # dropped, e.g. because each training split had a constant target.
-        self.ensemble_softmax_temperature_ = find_regression_optimal_temperature(
-            holdout_folds=holdout_folds,
-            metric_name=self.eval_metric_,
-            current_default_temperature=self.ensemble_softmax_temperature_,
+        if tuning_config_resolved.calibrate_temperature:
+            # Falls back to the current no-op temperature if every fold was
+            # dropped, e.g. because each training split had a constant target.
+            self.ensemble_softmax_temperature_ = find_regression_optimal_temperature(
+                holdout_folds=[fold[:5] for fold in holdout_folds],
+                metric_name=self.eval_metric_,
+                current_default_temperature=self.ensemble_softmax_temperature_,
+            )
+
+        # Keeps the no-op scale if every fold was dropped.
+        if calibrate_mean and holdout_folds:
+            y_holdout = (
+                torch.cat([y_fold for _, _, y_fold, *_ in holdout_folds]).cpu().numpy()
+            )
+            row_weights = np.concatenate(
+                [
+                    np.ones(len(fold[2])) if fold[4] is None else fold[4].cpu().numpy()
+                    for fold in holdout_folds
+                ]
+            )
+            if not np.any((y_holdout > 0) & (row_weights > 0)):
+                # The fitted constant would be 0 and zero out every mean.
+                warnings.warn(
+                    "`calibrate_mean` found no tuning holdout row with a "
+                    "positive target and a positive weight, and leaves the mean "
+                    "unscaled.",
+                    UserWarning,
+                    stacklevel=3,
+                )
+                return
+            self.mean_calibration_scale_ = find_mean_calibration_scale(
+                y_true=y_holdout,
+                mean=np.concatenate(
+                    [self._holdout_mean(fold) for fold in holdout_folds]
+                ),
+                power=tuning_config_resolved.mean_calibration_power,
+                sample_weight=row_weights,
+            )
+
+    def _holdout_mean(self, fold: _HoldoutFold) -> np.ndarray:
+        """The mean `predict` returns for one fold's holdout rows, before the
+        mean calibration.
+        """
+        logits, raw_space_bardist, _, log_weights, _, truncate_above = fold
+        # `raw_space_bardist` is already in target units.
+        return typing.cast(
+            "np.ndarray",
+            _logits_to_output(
+                output_type="mean",
+                logits=temper_and_correct_logits(
+                    logits,
+                    temperature=self.ensemble_softmax_temperature_,
+                    log_weights=log_weights,
+                ),
+                znorm_space_bardist=raw_space_bardist,
+                y_mean=0.0,
+                y_std=1.0,
+                quantiles=[],
+                truncate_above=truncate_above,
+            ),
         )
 
     def _compute_holdout_validation_data(
@@ -1709,14 +1965,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         y: YType,
         holdout_frac: float,
         n_folds: int,
-    ) -> list[
-        tuple[
-            torch.Tensor,
-            FullSupportBarDistribution,
-            torch.Tensor,
-            torch.Tensor | None,
-        ]
-    ]:
+        sample_weight: npt.ArrayLike | None = None,
+        label_reliability: npt.ArrayLike | None = None,
+    ) -> list[_HoldoutFold]:
         """Compute holdout validation data, one entry per cross-validation fold.
 
         Folds are kept separate rather than concatenated: every
@@ -1724,37 +1975,56 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         every fold's `raw_space_bardist_` has its own borders and only scores that
         fold's own logits correctly.
 
+        Each fold is fit with the `sample_weight` and `label_reliability` of its
+        training rows.
+
         Returns:
-            One `(logits, raw_space_bardist, y_holdout, log_weights)` tuple per
-            usable fold. `logits` has shape `[n_holdout_samples, n_buckets]` and
-            carries no temperature and no downsampling correction; `log_weights`
-            is the fold's own per-bar correction (or `None`), kept separate so the
-            temperature sweep can compose the two exactly as prediction does.
+            One `(logits, raw_space_bardist, y_holdout, log_weights, row_weights,
+            truncate_above)` tuple per usable fold. `logits` has shape
+            `[n_holdout_samples, n_buckets]` and carries no temperature and no
+            downsampling correction; `log_weights` is the fold's own per-bar
+            correction (or `None`), kept separate so the temperature sweep can
+            compose the two exactly as prediction does.
             `y_holdout` has shape `[n_holdout_samples]` in the *original* units
             of the target, to match the borders of the fold's `raw_space_bardist`.
-            Folds whose training target turned out to be constant are omitted,
-            so the list may be shorter than `n_folds` and may be empty.
+            `row_weights` has shape `[n_holdout_samples]` and holds the weight of
+            each holdout row in the tuned metric, `sample_weight *
+            label_reliability`, or is `None` when neither was given.
+            `truncate_above` is the fold regressor's largest training target for
+            the "nonnegative_and_capped" readout, or `None`.
+            Folds whose training target turned out to be constant, or whose
+            training rows all have `sample_weight` 0, are omitted, so the list
+            may be shorter than `n_folds` and may be empty.
         """
-        splits = get_tuning_splits(
-            X=copy.deepcopy(X),
-            y=copy.deepcopy(y),
+        X = copy.deepcopy(X)
+        y = copy.deepcopy(y)
+        split_indices = get_tuning_split_indices(
+            X=X,
+            y=y,
             holdout_frac=holdout_frac,
             random_state=self.random_state,
             n_splits=n_folds,
             task_type="regressor",
         )
+        if sample_weight is not None:
+            sample_weight = np.asarray(sample_weight, dtype=np.float64)
+        if label_reliability is not None:
+            label_reliability = np.asarray(label_reliability, dtype=np.float64)
+        row_weights = tuning_metric_row_weights(sample_weight, label_reliability)
 
-        holdout_folds: list[
-            tuple[
-                torch.Tensor,
-                FullSupportBarDistribution,
-                torch.Tensor,
-                torch.Tensor | None,
-            ]
-        ] = []
+        holdout_folds: list[_HoldoutFold] = []
         # suffixes: Nt=num_train_samples, F=num_features, Nh=num_holdout_samples,
         # B=num buckets
-        for X_train_NtF, X_holdout_NhF, y_train_Nt, y_holdout_Nh in splits:
+        for train_indices, holdout_indices in split_indices:
+            X_train_NtF, y_train_Nt = X[train_indices], y[train_indices]
+            X_holdout_NhF, y_holdout_Nh = X[holdout_indices], y[holdout_indices]
+            fit_kwargs: dict[str, np.ndarray] = {}
+            if sample_weight is not None:
+                fit_kwargs["sample_weight"] = sample_weight[train_indices]
+                if not fit_kwargs["sample_weight"].any():
+                    continue
+            if label_reliability is not None:
+                fit_kwargs["label_reliability"] = label_reliability[train_indices]
             tuning_regressor = self._get_tuning_regressor()
             with warnings.catch_warnings():
                 # Filter expected warnings during tuning
@@ -1763,7 +2033,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     message=".*haven't specified any tuning configuration*",
                     category=UserWarning,
                 )
-                tuning_regressor.fit(X_train_NtF, y_train_Nt)
+                tuning_regressor.fit(X_train_NtF, y_train_Nt, **fit_kwargs)
 
             if tuning_regressor.is_constant_target_:
                 # This fold's training split is single-valued, so its regressor
@@ -1775,16 +2045,8 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # are the untempered aggregated logits, with the per-estimator
             # `softmax_temperature` correctly still applied.
             check_input_shape_matches(X_holdout_NhF, estimator=tuning_regressor)
-            X_holdout_NhF = tuning_regressor.group_encoder_.transform(  # noqa: PLW2901
-                X_holdout_NhF
-            )
-            X_holdout_NhF = tuning_regressor.date_transformer_.transform(  # noqa: PLW2901
-                X_holdout_NhF
-            )
-            X_holdout_NhF = tuning_regressor.text_transformer_.transform(  # noqa: PLW2901
-                X_holdout_NhF
-            )
-            X_holdout_NhF = ensure_compatible_predict_input_sklearn(  # noqa: PLW2901
+            X_holdout_NhF, _ = transform_columns(tuning_regressor, X_holdout_NhF)
+            X_holdout_NhF = ensure_compatible_predict_input_sklearn(
                 X_holdout_NhF, tuning_regressor
             )
             logits_NhB = tuning_regressor._compute_aggregated_logits(
@@ -1806,6 +2068,14 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     raw_space_bardist,
                     y_holdout_Nh_tensor,
                     tuning_regressor.downsample_correction_log_weights_,
+                    None
+                    if row_weights is None
+                    else torch.as_tensor(
+                        row_weights[holdout_indices],
+                        dtype=raw_space_bardist.borders.dtype,
+                        device=logits_NhB.device,
+                    ),
+                    tuning_regressor._truncate_above(),
                 )
             )
 
@@ -1821,7 +2091,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         (before or after the softmax, per `average_before_softmax` flat),
         and returned in log space.
 
-        Shared by `predict` and `_maybe_calibrate_ensemble_temperature`.
+        Shared by `predict` and `_compute_holdout_validation_data`.
 
         `X` must already have passed `ensure_compatible_predict_input_sklearn`;
         the remaining dtype/NA preprocessing happens here. Constant-target
@@ -1839,18 +2109,43 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             `znorm_space_bardist_` buckets, with the calibrated
             `ensemble_softmax_temperature_` applied.
         """
+        return self._aggregate_cleaned_logits(
+            self._clean_predict_input(X),
+            apply_downsample_correction=apply_downsample_correction,
+        )
+
+    def _clean_predict_input(self, X: XType) -> np.ndarray:
+        """Apply the fit-time dtype fixing and ordinal encoding to predict input."""
         cat_indices = self.inferred_feature_schema_.indices_for(
             FeatureModality.CATEGORICAL
         )
-        X = clean_data_transform(
+        return clean_data_transform(
             X,
             cat_indices=cat_indices,
             ord_encoder=getattr(self, "ordinal_encoder_", None),
             passthrough_inf=self.get_inference_config().PASSTHROUGH_INF,
         )
 
+    def _aggregate_cleaned_logits(
+        self,
+        X: np.ndarray,
+        *,
+        apply_downsample_correction: bool = True,
+        show_progress_bar: bool | None = None,
+    ) -> torch.Tensor:
+        """`_compute_aggregated_logits` for input `_clean_predict_input` returned.
+
+        Args:
+            X: The cleaned input data.
+            apply_downsample_correction: As in `_compute_aggregated_logits`.
+            show_progress_bar: Show the per-estimator progress bar. `None` uses
+                `self.show_progress_bar`.
+        """
+        if show_progress_bar is None:
+            show_progress_bar = self.show_progress_bar
         n_estimators = 0
         accumulated_logits: torch.Tensor | None = None
+        average_before_softmax = resolved_average_before_softmax(self)
         with handle_oom_errors(
             self.devices_,
             X,
@@ -1862,7 +2157,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 total=self.n_estimators_,
                 desc="TabPFN inference",
                 unit="estimator",
-                disable=not self.show_progress_bar,
+                disable=not show_progress_bar,
             ):
                 transformed = translate_probs_across_borders(
                     output,
@@ -1870,7 +2165,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                     to=self.znorm_space_bardist_.borders.to(output.device),
                 )
 
-                if self.average_before_softmax:
+                if average_before_softmax:
                     transformed = transformed.log()
 
                 if accumulated_logits is None:
@@ -1913,7 +2208,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             A `[n_samples, n_buckets]` tensor of log-probabilities with
             `ensemble_softmax_temperature_` applied.
         """
-        if self.average_before_softmax:
+        if resolved_average_before_softmax(self):
             logits = (accumulated_logits / n_estimators).softmax(dim=-1)
         else:
             logits = accumulated_logits / n_estimators
@@ -2018,6 +2313,12 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 "correction is fitted per dataset. Score datasets individually "
                 "with predict."
             )
+        if self.get_inference_config().REGRESSION_READOUT != "default":
+            raise NotImplementedError(
+                "predict_batched supports only REGRESSION_READOUT='default'; the "
+                "'nonnegative_and_capped' readout needs each dataset's largest target. "
+                "Score datasets individually with predict."
+            )
         if self.tuning_config is not None:
             raise NotImplementedError(
                 "predict_batched does not support tuning_config (ensemble "
@@ -2090,9 +2391,7 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             # Clean X_test as the standard predict path does, so DataFrames,
             # categoricals and NaNs behave identically.
             check_input_shape_matches(X_test, estimator=worker)
-            X_test = worker.group_encoder_.transform(X_test)  # noqa: PLW2901
-            X_test = worker.date_transformer_.transform(X_test)  # noqa: PLW2901
-            X_test = worker.text_transformer_.transform(X_test)  # noqa: PLW2901
+            X_test, _ = transform_columns(worker, X_test)  # noqa: PLW2901
             X_test = ensure_compatible_predict_input_sklearn(X_test, worker)  # noqa: PLW2901
             X_test = clean_data_transform(  # noqa: PLW2901
                 X_test,
@@ -2267,7 +2566,9 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
             frm=torch.as_tensor(borders_t, device=out_d.device),
             to=znorm_borders.to(out_d.device),
         )
-        return transformed.log() if self.average_before_softmax else transformed
+        return (
+            transformed.log() if resolved_average_before_softmax(self) else transformed
+        )
 
     def _decode_batched_dataset(
         self,
@@ -2292,31 +2593,19 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
         # here is always the 1.0 no-op; the call is shared with `predict` so the
         # two reductions cannot drift apart again.
         logits = self._reduce_accumulated_logits(accumulated_logits, n_estimators)
-
-        logit_to_output = partial(
-            _logits_to_output,
-            logits=logits,
+        return _decode_logits(
+            logits,
+            output_type=output_type,
+            quantiles=quantiles,
             znorm_space_bardist=znorm_space_bardist,
+            raw_space_bardist=raw_space_bardist,
             y_mean=y_mean,
             y_std=y_std,
-            quantiles=quantiles,
+            # `predict_batched` rejects the "nonnegative_and_capped" readout.
+            truncate_above=None,
+            # `predict_batched` rejects `tuning_config`, which fits the scale.
+            mean_scale=1.0,
         )
-        if output_type in _OUTPUT_TYPES_COMPOSITE:
-            main_outputs = MainOutputDict(
-                mean=typing.cast("np.ndarray", logit_to_output(output_type="mean")),
-                median=typing.cast("np.ndarray", logit_to_output(output_type="median")),
-                mode=typing.cast("np.ndarray", logit_to_output(output_type="mode")),
-                quantiles=typing.cast(
-                    "list[np.ndarray]", logit_to_output(output_type="quantiles")
-                ),
-            )
-            if output_type == "full":
-                return FullOutputDict(
-                    **main_outputs, criterion=raw_space_bardist, logits=logits
-                )
-            return main_outputs
-
-        return logit_to_output(output_type=output_type)
 
     def _iter_forward_executor(
         self,
@@ -2573,6 +2862,19 @@ class TabPFNRegressor(RegressorMixin, BaseEstimator):
                 )
 
 
+_HoldoutFold = tuple[
+    torch.Tensor,
+    FullSupportBarDistribution,
+    torch.Tensor,
+    torch.Tensor | None,
+    torch.Tensor | None,
+    float | None,
+]
+"""`(logits, raw_space_bardist, y_holdout, log_weights, row_weights,
+truncate_above)` of one tuning fold, see
+`TabPFNRegressor._compute_holdout_validation_data`."""
+
+
 def _place_raw_space_bardist(
     bardist: FullSupportBarDistribution, device: torch.device | str
 ) -> FullSupportBarDistribution:
@@ -2580,6 +2882,81 @@ def _place_raw_space_bardist(
     if torch.device(device).type == "mps":
         return bardist.float().to(device)
     return bardist.to(device)
+
+
+def _decode_logits(
+    logits: torch.Tensor,
+    *,
+    output_type: OutputType,
+    quantiles: list[float],
+    znorm_space_bardist: FullSupportBarDistribution,
+    raw_space_bardist: FullSupportBarDistribution,
+    y_mean: float,
+    y_std: float,
+    truncate_above: float | None,
+    mean_scale: float,
+) -> RegressionResultType:
+    """Turn aggregated log-probabilities into the output `predict` returns.
+
+    The mean is multiplied by `mean_scale`. `raw_space_bardist` is only
+    returned, as the criterion of `output_type="full"`.
+    """
+    logit_to_output = partial(
+        _logits_to_output,
+        logits=logits,
+        znorm_space_bardist=znorm_space_bardist,
+        y_mean=y_mean,
+        y_std=y_std,
+        quantiles=quantiles,
+        truncate_above=truncate_above,
+    )
+
+    def read_mean() -> np.ndarray:
+        return mean_scale * typing.cast(
+            "np.ndarray", logit_to_output(output_type="mean")
+        )
+
+    if output_type == "mean":
+        return read_mean()
+    if output_type not in _OUTPUT_TYPES_COMPOSITE:
+        return logit_to_output(output_type=output_type)
+
+    main_outputs = MainOutputDict(
+        mean=read_mean(),
+        median=typing.cast("np.ndarray", logit_to_output(output_type="median")),
+        mode=typing.cast("np.ndarray", logit_to_output(output_type="mode")),
+        quantiles=typing.cast(
+            "list[np.ndarray]", logit_to_output(output_type="quantiles")
+        ),
+    )
+    if output_type == "full":
+        return FullOutputDict(
+            **main_outputs, criterion=raw_space_bardist, logits=logits
+        )
+    return main_outputs
+
+
+def _concat_block_outputs(
+    parts: list[RegressionResultType], output_type: OutputType
+) -> RegressionResultType:
+    """Join the outputs `predict` decoded for consecutive blocks of test rows."""
+    if output_type in _OUTPUT_TYPES_BASIC:
+        return np.concatenate(typing.cast("list[np.ndarray]", parts))
+    if output_type == "quantiles":
+        lists = typing.cast("list[list[np.ndarray]]", parts)
+        return [np.concatenate(per_q) for per_q in zip(*lists, strict=True)]
+    if output_type == "main":
+        dicts = typing.cast("list[MainOutputDict]", parts)
+        return MainOutputDict(
+            mean=np.concatenate([d["mean"] for d in dicts]),
+            median=np.concatenate([d["median"] for d in dicts]),
+            mode=np.concatenate([d["mode"] for d in dicts]),
+            quantiles=[
+                np.concatenate(per_q)
+                for per_q in zip(*(d["quantiles"] for d in dicts), strict=True)
+            ],
+        )
+    raise ValueError(f"Cannot join block outputs of output_type={output_type!r}.")
 
 
 def _logits_to_output(
@@ -2590,33 +2967,67 @@ def _logits_to_output(
     y_mean: float,
     y_std: float,
     quantiles: list[float],
+    truncate_above: float | None,
 ) -> np.ndarray | list[np.ndarray]:
     """Converts raw model logits to the desired prediction format.
 
     Decodes in z-normalised space and undoes the normalisation in float64, so
     the decode never has to resolve the target's magnitude.
+
+    With `truncate_above`, every output is read from the distribution of
+    max(Y, 0) given Y <= `truncate_above`. The buckets that start at or above
+    `truncate_above` are dropped; the bucket that holds it is kept whole. The
+    grid bucket that holds 0 and every bucket below it are read as a point at 0:
+    `translate_probs_across_borders` moves a member's mass at 0 into that bucket.
+    If 0 lies below the grid, no bucket is read at 0 and outputs are clipped at 0.
     """
     criterion = znorm_space_bardist
 
     def to_raw(output: torch.Tensor) -> np.ndarray:
         return output.cpu().detach().numpy().astype(np.float64) * y_std + y_mean
 
+    if truncate_above is not None:
+        raw_borders = to_raw(criterion.borders)
+        # The buckets that start at or below 0 are read at 0. Outputs at or below
+        # the upper border of the last of them read 0.
+        n_zero = int(np.searchsorted(raw_borders, 0.0, side="right"))
+        zero_cut = raw_borders[n_zero] if n_zero > 0 else 0.0
+        above = raw_borders[:-1] >= truncate_above
+        logits = logits.masked_fill(
+            torch.as_tensor(above, device=logits.device), float("-inf")
+        )
+        # The kept buckets end where the first dropped one starts. With none
+        # dropped, the last bucket keeps its unbounded half-normal tail.
+        upper = raw_borders[above.argmax()] if above.any() else np.inf
+
+    def decode(output: torch.Tensor) -> np.ndarray:
+        raw = to_raw(output)
+        if truncate_above is None:
+            return raw
+        # `icdf` returns inf for the quantile 1 without reading the logits.
+        return np.minimum(np.where(raw <= zero_cut, 0.0, raw), upper)
+
     if output_type == "quantiles":
-        return [to_raw(criterion.icdf(logits, q)) for q in quantiles]
+        return [decode(criterion.icdf(logits, q)) for q in quantiles]
 
     # TODO: support
     #   "pi": criterion.pi(logits, np.max(self.y)),
     #   "ei": criterion.ei(logits),
     if output_type == "mean":
-        output = criterion.mean(logits)
-    elif output_type == "median":
+        if truncate_above is None:
+            return to_raw(criterion.mean(logits))
+        # In target units, so the buckets read at 0 add exactly 0.
+        values = torch.as_tensor(to_raw(criterion.bucket_means()))
+        values[:n_zero] = 0.0
+        return expected_value(logits.detach().cpu(), values).numpy()
+    if output_type == "median":
         output = criterion.median(logits)
     elif output_type == "mode":
         output = criterion.mode(logits)
     else:
         raise ValueError(f"Invalid output type: {output_type}")
 
-    return to_raw(output)
+    return decode(output)
 
 
 def _validate_eval_metric(

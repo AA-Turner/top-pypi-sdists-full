@@ -92,10 +92,11 @@ pub fn parse_lossless<'data>(
 /// Parse `input`, handing the result to `finish`.
 ///
 /// Modifiers are parsed as delimiters and resolved into the tree once the whole message is in; see
-/// `range`. An opener read before block syntax that then matches nothing was not an opener, and
-/// its line is a paragraph, so `finish` rejects it and the input is parsed again without it. Each
-/// round settles at least one, and the rounds share one fuel tank. Past the last, whatever is left
-/// stays where it stands.
+/// `range`. A delimiter run that the parse could only guess at and that then matches nothing was
+/// not a delimiter, so `finish` rejects it and the input is parsed again knowing that: an opener
+/// read before block syntax leaves its line a paragraph, and a run straight after a detected URL
+/// is the end of that URL. Each round settles at least one, and the rounds share one fuel tank.
+/// Past the last, whatever is left stays where it stands.
 fn parse_rounds<'data, S: Span, T>(
 	input: &Input<'data>,
 	options: Options,
@@ -103,11 +104,11 @@ fn parse_rounds<'data, S: Span, T>(
 ) -> Result<T, Error> {
 	const ROUNDS: usize = 4;
 
-	let mut disabled = HashSet::new();
+	let mut unmatched_delims = HashSet::new();
 	let mut context = Context::new(options);
 
 	for round in 1..=ROUNDS {
-		context = context.with_disabled_openers(&disabled);
+		context = context.with_unmatched_delims(&unmatched_delims);
 		let mut rest = *input;
 		let parsed = match node::block::block(&mut rest, &context) {
 			Ok(parsed) if rest.is_empty() => parsed,
@@ -122,7 +123,7 @@ fn parse_rounds<'data, S: Span, T>(
 		};
 		match finish(parsed, unmatched) {
 			Ok(finished) => return Ok(finished),
-			Err(unmatched) => disabled.extend(unmatched),
+			Err(unmatched) => unmatched_delims.extend(unmatched),
 		}
 	}
 

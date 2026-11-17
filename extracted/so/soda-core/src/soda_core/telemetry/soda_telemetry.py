@@ -10,6 +10,7 @@ from opentelemetry.semconv.resource import ResourceAttributes
 from soda_core.__version__ import SODA_CORE_VERSION
 from soda_core.common.data_source_impl import DataSourceImpl
 from soda_core.common.env_config_helper import EnvConfigHelper
+from soda_core.common.logging_constants import soda_logger
 from soda_core.contracts.contract_verification import ContractVerificationSessionResult
 from soda_core.contracts.impl.scope import count_scopes_and_checks
 from soda_core.telemetry.memory_span_exporter import MemorySpanExporter
@@ -26,6 +27,8 @@ class SodaTelemetry:
     """
 
     ENDPOINT = "https://collect.soda.io/v1/traces"
+    # OTLP's 10 s default, spent twice by its one connection retry, holds each exit for 20 s when the collector is unreachable.
+    EXPORT_TIMEOUT_SECONDS = 2
     __instance = None
 
     def __new__(cls):
@@ -68,7 +71,7 @@ class SodaTelemetry:
             self.__provider.add_span_processor(BatchSpanProcessor(SodaConsoleSpanExporter()))
 
         if not local_debug_mode:
-            otlp_exporter = SodaOTLPSpanExporter(endpoint=self.ENDPOINT)
+            otlp_exporter = SodaOTLPSpanExporter(endpoint=self.ENDPOINT, timeout=self.EXPORT_TIMEOUT_SECONDS)
             otlp_processor = BatchSpanProcessor(otlp_exporter)
             self.__provider.add_span_processor(otlp_processor)
 
@@ -113,6 +116,14 @@ class SodaTelemetry:
                 "result__unscoped_checks_count": contract_verification_session_result.number_of_unscoped_checks,
             }
         )
+        # The type, never the name: data source names are customer data.
+        try:
+            results = contract_verification_session_result.results
+            if results and results[0].data_source:
+                self.set_attribute("result__data_source_type", results[0].data_source.type)
+        except Exception as e:
+            # The verification already ran, so telemetry must never fail it.
+            soda_logger.debug(f"Could not read the data source type for telemetry: {e}")
 
     def ingest_contract_publication(self, contract_yamls: list["ContractYaml"]) -> None:
         """Counts of the published contracts' scopes and checks, summed, under the names verify and test use.

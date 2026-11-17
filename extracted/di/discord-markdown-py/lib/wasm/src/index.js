@@ -15,7 +15,7 @@ export function* iter(nodes) {
 				break;
 			case "spoiler":
 			case "heading":
-			case "small":
+			case "subtext":
 				yield* iter(node.value.content);
 				break;
 			case "list":

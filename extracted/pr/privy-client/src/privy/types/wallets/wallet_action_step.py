@@ -10,6 +10,8 @@ from .tvm_transaction_wallet_action_step import TvmTransactionWalletActionStep
 from .evm_user_operation_wallet_action_step import EvmUserOperationWalletActionStep
 from .external_transaction_wallet_action_step import ExternalTransactionWalletActionStep
 from .custodian_transaction_wallet_action_step import CustodianTransactionWalletActionStep
+from .tempo_zone_settlement_wallet_action_step import TempoZoneSettlementWalletActionStep
+from .wisdom_tree_settlement_wallet_action_step import WisdomTreeSettlementWalletActionStep
 
 __all__ = ["WalletActionStep"]
 
@@ -21,6 +23,8 @@ WalletActionStep: TypeAlias = Annotated[
         TvmTransactionWalletActionStep,
         ExternalTransactionWalletActionStep,
         CustodianTransactionWalletActionStep,
+        TempoZoneSettlementWalletActionStep,
+        WisdomTreeSettlementWalletActionStep,
     ],
     PropertyInfo(discriminator="type"),
 ]

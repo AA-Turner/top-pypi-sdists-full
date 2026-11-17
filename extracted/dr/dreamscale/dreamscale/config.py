@@ -56,6 +56,21 @@ def env_with_legacy(name: str, legacy: str) -> str | None:
     return value
 
 
+# Praxis-1 has one engine, its fast one. Code and scripts written for older SDKs may still pass
+# `engine=` or `--engine`: accepted, never sent, with this notice.
+ENGINE_NOT_NEEDED = "is no longer needed: Praxis-1 always runs its fast engine"
+
+
+def warn_engine_ignored(engine: object, *, stacklevel: int = 2) -> None:
+    """One DeprecationWarning when older code still passes ``engine`` (any value but None), at
+    ``stacklevel`` counted from the public function that took it (2: its caller)."""
+    if engine is not None:
+        warnings.warn(
+            f"engine= {ENGINE_NOT_NEEDED}, so it is ignored; remove it.",
+            DeprecationWarning, stacklevel=stacklevel + 1,
+        )
+
+
 def legacy_home_in_use() -> Path | None:
     """The pre-rename ~/.dropbear, when it is used in place of ~/.dreamscale."""
     home = Path(DEFAULT_HOME).expanduser()

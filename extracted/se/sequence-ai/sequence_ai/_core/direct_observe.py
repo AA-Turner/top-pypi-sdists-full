@@ -92,8 +92,8 @@ class _ObservationStream:
     def _observed(self) -> list:
         """Under the lock: the worker-side ids of the episodes observed and not ended here - what close() ends with the
         connection. An episode a person drove from its first step reached its worker in observations alone, and its
-        worker's copy held it from the next robot for up to its 300 s. {dev 11-10: a worker's second robot, "all replicas
-        bound to active episodes (1): a replica frees when its episode ends (episode_end) or has had no act for 300 s"}"""
+        worker's copy held it from the next robot for up to its 300 s.
+"""
         return [self._worker_episode if e == self._caller_episode and self._worker_episode else e for e in self._numbers]
 
     def teleop_place(self, episode_id: str) -> tuple:
@@ -134,8 +134,8 @@ class _ObservationStream:
         """For an act of an episode (L0): (the next number, which it takes none of, and the frames held for it): the
         observations before it are the episode's every one so far - and, the episode gone on anew since the robot's latest
         observation (its connect here reached another worker: _rotate_episode), that observation first, sent again as
-        its step 0, as _own_anew sends it. {dev acceptance 10-27, the preempt signal: the reconnect waited in line, and
-        the next act, numbered 0 on the worker it moved to, was refused "episode f1a44379… has no observation yet"}"""
+        its step 0, as _own_anew sends it.
+"""
         self._ensure_connected()
         replay = self._replayed(episode_id) if self._unobserved(episode_id) else None
         with self._lock:

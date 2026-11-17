@@ -1227,7 +1227,7 @@ class Compile(QuantConnect.Api.RestResponse):
 
     @property
     def compile_id(self) -> str:
-        """Compile Id for a sucessful build"""
+        """Compile Id for a successful build"""
         ...
 
     @compile_id.setter
@@ -1500,7 +1500,7 @@ class Backtest(QuantConnect.Api.BasicBacktest):
 
     @property
     def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
+        """Server status information, including CPU/RAM usage, etc..."""
         ...
 
     @server_statistics.setter
@@ -1870,7 +1870,7 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
 
     @property
     def status(self) -> str:
-        """Indicates the status of the algorihtm, i.e. 'Running', 'Stopped'"""
+        """Indicates the status of the algorithm, i.e. 'Running', 'Stopped'"""
         ...
 
     @status.setter
@@ -1987,7 +1987,7 @@ class LiveAlgorithmResults(QuantConnect.Api.RestResponse):
 
     @property
     def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
+        """Server status information, including CPU/RAM usage, etc..."""
         ...
 
     @server_statistics.setter
@@ -2983,7 +2983,7 @@ class Optimization(QuantConnect.Api.BaseOptimization):
 
 
 class BasicObjectStore(System.Object):
-    """Class contining basic store properties present in the REST response from QC API"""
+    """Class containing basic store properties present in the REST response from QC API"""
 
     @property
     def key(self) -> str:
@@ -4048,7 +4048,7 @@ class LiveAlgorithmApiSettingsWrapper(System.Object):
         :param data_providers: Dictionary with data providers credentials. Each data provider requires certain credentials
                                 in order to retrieve data from their API. Each key in this dictionary describes a data provider name
                                 and its corresponding value is another dictionary with the required key-value pairs of credential
-                                names and values. For example: "data_providers: {InteractiveBrokersBrokerage : { "id": 12345, "environement" : "paper",
+                                names and values. For example: "data_providers: {InteractiveBrokersBrokerage : { "id": 12345, "environment" : "paper",
                                 "username": "testUsername", "password": "testPassword"}}"
         :param parameters: Dictionary to specify the parameters for the live algorithm
         :param notification: Dictionary with the lists of events and targets
@@ -4157,7 +4157,7 @@ class CreatedNode(QuantConnect.Api.RestResponse):
 class NodeType(IntEnum):
     """
     NodeTypes enum for all possible options of target environments
-    Used in conjuction with SKU class as a NodeType is a required parameter for SKU
+    Used in conjunction with SKU class as a NodeType is a required parameter for SKU
     """
 
     BACKTEST = 0

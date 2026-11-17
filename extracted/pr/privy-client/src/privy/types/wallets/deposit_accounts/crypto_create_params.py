@@ -7,6 +7,7 @@ from typing_extensions import Literal, Required, Annotated, TypeAlias, TypedDict
 
 from ...._utils import PropertyInfo
 from ...crypto_deposit_asset_param import CryptoDepositAssetParam
+from ...crypto_deposit_address_strategy import CryptoDepositAddressStrategy
 from ...crypto_deposit_asset_filter_param import CryptoDepositAssetFilterParam
 
 __all__ = [
@@ -20,6 +21,13 @@ class CreateCryptoDepositAccountWithConfigRequestBody(TypedDict, total=False):
     deposit_config_id: Required[str]
 
     type: Required[Literal["deposit_config"]]
+
+    deposit_address_strategy: CryptoDepositAddressStrategy
+    """How deposit source wallets are chosen.
+
+    Omission uses `dedicated`. Destination reuse applies only to the destination's
+    own chain type.
+    """
 
     privy_authorization_signature: Annotated[str, PropertyInfo(alias="privy-authorization-signature")]
     """Request authorization signature.
@@ -45,7 +53,7 @@ class CreateCryptoDepositAccountWithRouteRequestBody(TypedDict, total=False):
     destination: Required[CryptoDepositAssetParam]
     """An asset on a chain.
 
-    Uses a human-readable alias (usdc, base) when one is on file, otherwise the raw
+    Uses a human-readable alias (usdc, tempo) when one is on file, otherwise the raw
     asset address and CAIP-2.
     """
 
@@ -56,6 +64,13 @@ class CreateCryptoDepositAccountWithRouteRequestBody(TypedDict, total=False):
     """
 
     type: Required[Literal["inline_route"]]
+
+    deposit_address_strategy: CryptoDepositAddressStrategy
+    """How deposit source wallets are chosen.
+
+    Omission uses `dedicated`. Destination reuse applies only to the destination's
+    own chain type.
+    """
 
     privy_authorization_signature: Annotated[str, PropertyInfo(alias="privy-authorization-signature")]
     """Request authorization signature.

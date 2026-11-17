@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dbt-athena
-Version: 1.11.1
+Version: 1.11.2
 Summary: The athena adapter plugin for dbt (data build tool)
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-athena
 Project-URL: Documentation, https://docs.getdbt.com
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10.0
 Requires-Dist: boto3-stubs[athena,glue,lakeformation,sts]>=1.28
 Requires-Dist: boto3>=1.28
-Requires-Dist: dbt-adapters<2.0,>=1.24.1
+Requires-Dist: dbt-adapters<2.0,>=1.24.6
 Requires-Dist: dbt-common<2.0,>=1.0.0
 Requires-Dist: dbt-core<2.0,>=1.8.0rc1
 Requires-Dist: mmh3<4.2.0,>=4.0.1

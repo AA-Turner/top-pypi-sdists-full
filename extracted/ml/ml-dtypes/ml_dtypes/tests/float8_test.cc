@@ -16,6 +16,7 @@ limitations under the License.
 #include "ml_dtypes/include/float8.h"
 
 #include <cmath>
+#include <cstdint>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -50,6 +51,8 @@ struct Float8TestParamNames {
       return "float8_e4m3fnuz";
     } else if constexpr (std::is_same_v<TypeParam, float8_e5m2fnuz>) {
       return "float8_e5m2fnuz";
+    } else if constexpr (std::is_same_v<TypeParam, float8_e5m3fnu>) {
+      return "float8_e5m3fnu";
     } else if constexpr (std::is_same_v<TypeParam, float8_e8m0fnu>) {
       return "float8_e8m0fnu";
     }
@@ -60,7 +63,7 @@ struct Float8TestParamNames {
 using Float8Types =
     ::testing::Types<float8_e3m4, float8_e4m3, float8_e4m3fn, float8_e5m2,
                      float8_e4m3b11fnuz, float8_e4m3fnuz, float8_e5m2fnuz,
-                     float8_e8m0fnu>;
+                     float8_e5m3fnu, float8_e8m0fnu>;
 TYPED_TEST_SUITE(Float8Test, Float8Types, Float8TestParamNames);
 
 TEST(Float8E3m4Test, NumericLimits) {
@@ -296,6 +299,50 @@ TEST(Float8E5m2fnuzTest, NumericLimits) {
   EXPECT_EQ(std::numeric_limits<float8_e5m2fnuz>::has_signaling_NaN, false);
 }
 
+TEST(Float8E5m3fnuTest, NumericLimits) {
+  using limits = std::numeric_limits<float8_e5m3fnu>;
+  EXPECT_FALSE(limits::is_signed);
+  EXPECT_TRUE(Eigen::numext::isnan(limits::quiet_NaN()));
+  EXPECT_TRUE(Eigen::numext::isnan(limits::signaling_NaN()));
+  // No infinity, represented as NaN.
+  EXPECT_TRUE(Eigen::numext::isnan(limits::infinity()));
+  EXPECT_EQ(static_cast<float>(limits::min()), std::exp2(-14));
+  EXPECT_EQ(static_cast<float>(limits::max()), 114688);
+  EXPECT_EQ(static_cast<float>(limits::lowest()), 0);
+  EXPECT_EQ(static_cast<float>(limits::epsilon()), 0.125);
+  EXPECT_EQ(static_cast<float>(limits::round_error()), 0.5);
+  EXPECT_EQ(static_cast<float>(limits::denorm_min()), std::exp2(-17));
+  EXPECT_EQ(limits::digits, 4);
+  EXPECT_EQ(limits::digits10, 0);
+  EXPECT_EQ(limits::max_digits10, 3);
+  EXPECT_EQ(limits::min_exponent, -13);
+  EXPECT_EQ(limits::min_exponent10, -4);
+  EXPECT_EQ(limits::max_exponent, 17);
+  EXPECT_EQ(limits::max_exponent10, 5);
+  EXPECT_EQ(limits::is_iec559, false);
+  EXPECT_EQ(limits::has_infinity, false);
+  EXPECT_EQ(limits::has_quiet_NaN, true);
+  EXPECT_EQ(limits::has_signaling_NaN, false);
+}
+
+TEST(Float8E5m3fnuTest, NegativeInput) {
+  using Float8 = float8_e5m3fnu;
+  std::vector<float> inputs = {
+      -std::fabs(std::numeric_limits<float>::quiet_NaN()),
+      -std::numeric_limits<float>::infinity(),
+      std::numeric_limits<float>::lowest(),
+      -1.0f,
+      -std::numeric_limits<float>::min(),
+      -std::numeric_limits<float>::denorm_min(),
+  };
+  for (float input : inputs) {
+    Float8 f8 = Float8::template ConvertFrom</*kSaturate=*/false,
+                                             /*kTruncate=*/false>(input);
+    EXPECT_TRUE(Eigen::numext::isnan(f8)) << "input: " << input;
+  }
+  EXPECT_EQ(Float8(-0.0f).rep(), 0x00);
+}
+
 TEST(Float8E8m0fnuTest, NumericLimits) {
   using limits = std::numeric_limits<float8_e8m0fnu>;
   EXPECT_FALSE(limits::is_signed);
@@ -395,8 +442,10 @@ TYPED_TEST(Float8Test, UpCasts) {
     } else {
       EXPECT_EQ(f64, f32);
       EXPECT_EQ(f32, bf16);
-      // E8M0 exponent range doesn't fit F16 type.
-      if (!std::is_same_v<Float8, float8_e8m0fnu>) {
+      // E8M0 exponent range doesn't fit F16 type, and the largest E5M3FNU
+      // values overflow it.
+      if (!std::is_same_v<Float8, float8_e8m0fnu> &&
+          f32 <= static_cast<float>(std::numeric_limits<Eigen::half>::max())) {
         EXPECT_EQ(bf16, f16);
       }
     }
@@ -422,8 +471,10 @@ TYPED_TEST(Float8Test, DownCasts) {
       EXPECT_EQ(f64.rep(), i) << i;
       EXPECT_EQ(f32.rep(), i) << i;
       EXPECT_EQ(bf16.rep(), i) << i;
-      // E8M0 exponent range doesn't fit F16 type.
-      if (!std::is_same_v<Float8, float8_e8m0fnu>) {
+      // E8M0 exponent range doesn't fit F16 type, and the largest E5M3FNU
+      // values overflow it.
+      if (!std::is_same_v<Float8, float8_e8m0fnu> &&
+          x <= static_cast<float>(std::numeric_limits<Eigen::half>::max())) {
         EXPECT_EQ(f16.rep(), i) << i;
       }
     }
@@ -584,6 +635,119 @@ TYPED_TEST(Float8Test, DoubleRound) {
       std::numeric_limits<long double>::max());
   EXPECT_EQ(max, saturated);
 #endif
+}
+
+// Integers are converted by narrowing them to float first. Check that this does
+// not round twice: integers next to a rounding boundary that are too wide to be
+// exactly representable as floats must round as if they were converted
+// directly.
+TYPED_TEST(Float8Test, ConvertFromIntegerRoundsOnce) {
+  using Float8 = TypeParam;
+  // Conversions from double round once, and are exact for the integers below.
+  auto check = [](auto i) {
+    const double d = static_cast<double>(i);
+    EXPECT_EQ(Float8(i).rep(), Float8(d).rep()) << i;
+    EXPECT_EQ(
+        (Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/false>(
+             i)
+             .rep()),
+        (Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/false>(
+             d)
+             .rep()))
+        << i;
+    EXPECT_EQ(
+        (Float8::template ConvertFrom</*kSaturate=*/false, /*kTruncate=*/true>(
+             i)
+             .rep()),
+        (Float8::template ConvertFrom</*kSaturate=*/false, /*kTruncate=*/true>(
+             d)
+             .rep()))
+        << i;
+    EXPECT_EQ(
+        (Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/true>(i)
+             .rep()),
+        (Float8::template ConvertFrom</*kSaturate=*/true, /*kTruncate=*/true>(d)
+             .rep()))
+        << i;
+  };
+  constexpr int kDigits = std::numeric_limits<Float8>::digits;
+  for (int exponent = kDigits; exponent < std::numeric_limits<double>::digits;
+       ++exponent) {
+    // Halfway between 2^exponent and the next larger float8 value.
+    const int64_t halfway =
+        (int64_t{1} << exponent) + (int64_t{1} << (exponent - kDigits));
+    for (int64_t i : {halfway - 1, halfway, halfway + 1}) {
+      check(i);
+      check(-i);
+      check(static_cast<uint64_t>(i));
+      if (i <= std::numeric_limits<int32_t>::max()) {
+        check(static_cast<int32_t>(i));
+        check(static_cast<int32_t>(-i));
+        check(static_cast<uint32_t>(i));
+      }
+    }
+  }
+  // These are exactly representable as doubles.
+  check(std::numeric_limits<int64_t>::min());
+  check(std::numeric_limits<int32_t>::min());
+  check(std::numeric_limits<int32_t>::max());
+  check(std::numeric_limits<uint32_t>::max());
+}
+
+TEST(Float8E8m0fnuTest, ConvertFromWideIntegers) {
+  // 2^24 + 2^23 - 1 rounds to 2^24 + 2^23 as a float, which is halfway between
+  // 2^24 and 2^25.
+  EXPECT_EQ(static_cast<float>(float8_e8m0fnu(int32_t{0x17F'FFFF})), 0x1p24);
+  EXPECT_EQ(static_cast<float>(float8_e8m0fnu(int32_t{0x180'0001})), 0x1p25);
+  EXPECT_EQ(static_cast<float>(float8_e8m0fnu(uint64_t{0xBFFF'FFFF'FFFF'FFFF})),
+            0x1p63);
+  EXPECT_EQ(
+      static_cast<float>(float8_e8m0fnu(std::numeric_limits<uint64_t>::max())),
+      0x1p64);
+  // Truncation must not be affected by rounding up when narrowing to float.
+  EXPECT_EQ(static_cast<float>(float8_e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                                           /*kTruncate=*/true>(
+                std::numeric_limits<int64_t>::max())),
+            0x1p62);
+  EXPECT_EQ(static_cast<float>(float8_e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                                           /*kTruncate=*/true>(
+                std::numeric_limits<uint64_t>::max())),
+            0x1p63);
+}
+
+TEST(Float8E8m0fnuTest, ConvertFromLowestBinade) {
+  // 2^-127 is the smallest value, not a subnormal: inputs below the midpoint of
+  // [2^-127, 2^-126] round down, and positive inputs below 2^-127 saturate to
+  // 2^-127.
+  const std::vector<std::pair<float, uint8_t>> cases = {
+      {0x1p-149f, 0x00},        {0x1.fffff8p-128f, 0x00}, {0x1p-127f, 0x00},
+      {0x1.000004p-127f, 0x00}, {0x1.1p-127f, 0x00},      {0x1.4p-127f, 0x00},
+      {0x1.7ffffcp-127f, 0x00}, {0x1.8p-127f, 0x01},      {0x1.4p-126f, 0x01},
+      {0x1.8p-126f, 0x02},
+  };
+  for (const auto& [input, rep] : cases) {
+    EXPECT_EQ(float8_e8m0fnu(input).rep(), rep) << "input: " << input;
+    EXPECT_EQ((float8_e8m0fnu::ConvertFrom</*kSaturate=*/true>(input)).rep(),
+              rep)
+        << "input: " << input;
+    EXPECT_EQ(float8_e8m0fnu(static_cast<double>(input)).rep(), rep)
+        << "input: " << input;
+    const Eigen::bfloat16 bf16_input(input);
+    if (static_cast<float>(bf16_input) == input) {
+      EXPECT_EQ(float8_e8m0fnu(bf16_input).rep(), rep) << "input: " << input;
+    }
+  }
+  EXPECT_EQ(float8_e8m0fnu(0x1p-1022).rep(), 0x00);
+  EXPECT_EQ(float8_e8m0fnu(0x1.7ffffffffffffp-127).rep(), 0x00);
+  EXPECT_EQ(float8_e8m0fnu(0x1.8p-127).rep(), 0x01);
+  EXPECT_EQ((float8_e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                         /*kTruncate=*/true>(0x1.cp-127f))
+                .rep(),
+            0x00);
+  EXPECT_EQ((float8_e8m0fnu::ConvertFrom</*kSaturate=*/false,
+                                         /*kTruncate=*/true>(0x1.cp-126f))
+                .rep(),
+            0x01);
 }
 
 TEST(Float8Test, Float8E5m2_To_Float8E4m3fn) {
@@ -1059,15 +1223,16 @@ struct Float8CastTestParamNames {
       std::pair<Type, float8_e3m4>, std::pair<Type, float8_e4m3>,          \
       std::pair<Type, float8_e4m3fn>, std::pair<Type, float8_e4m3b11fnuz>, \
       std::pair<Type, float8_e4m3fnuz>, std::pair<Type, float8_e5m2fnuz>,  \
-      std::pair<Type, float8_e5m2>, std::pair<Type, float8_e8m0fnu>,       \
-      std::pair<Type, bool>, std::pair<Type, int32_t>,                     \
-      std::pair<Type, int64_t>
+      std::pair<Type, float8_e5m2>, std::pair<Type, float8_e5m3fnu>,       \
+      std::pair<Type, float8_e8m0fnu>, std::pair<Type, bool>,              \
+      std::pair<Type, int32_t>, std::pair<Type, int64_t>
 
 #define GEN_TYPE_PAIRS()                                                 \
   GEN_DEST_TYPES(float8_e3m4), GEN_DEST_TYPES(float8_e4m3),              \
       GEN_DEST_TYPES(float8_e4m3fn), GEN_DEST_TYPES(float8_e4m3b11fnuz), \
       GEN_DEST_TYPES(float8_e5m2), GEN_DEST_TYPES(float8_e4m3fnuz),      \
-      GEN_DEST_TYPES(float8_e5m2fnuz), GEN_DEST_TYPES(float8_e8m0fnu)
+      GEN_DEST_TYPES(float8_e5m2fnuz), GEN_DEST_TYPES(float8_e5m3fnu),   \
+      GEN_DEST_TYPES(float8_e8m0fnu)
 
 using Float8CastTypePairs = ::testing::Types<GEN_TYPE_PAIRS()>;
 

@@ -2,8 +2,8 @@
 What a Policy waits for before an act or an observation goes - a worker that is starting, a place in line for a slot,
 the connection to the worker - and how a stop ends the wait (`Interrupted`). A mixin `Policy` inherits
 (sequence_ai/act/policy.py): act() waits out a starting worker on every call, observe() its first connect, and
-wait_until_ready() opens the connection to the worker before the robot is told to go. run() and the Player went with
-train br: when to ask for the next answer, and how to play it, is the caller's own code.
+wait_until_ready() opens the connection to the worker before the robot is told to go. run() and the Player are
+gone: when to ask for the next answer, and how to play it, is the caller's own code.
 
 """
 from __future__ import annotations
@@ -288,7 +288,7 @@ class _Waits:
     def _post_interruptible(self, payload: dict[str, Any], rid: str, metrics: Any) -> Any:
         """One act - a call, or of your own inputs - that a stop can still cut through: its POST on the act's thread, the
         caller's watching for interrupt(). Before, it ran on the caller's thread, and a stop waited out a slow answer.
-        {worker 1's README pass 10-24, train br: act() is the robot's one call now}"""
+        """
         return self._watched(self._ensure_pool().submit(lambda: self._t.post("/v1/act", payload, rid=rid,
                                                                              metrics=metrics)))
 

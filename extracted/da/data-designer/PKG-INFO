@@ -1,8 +1,9 @@
 Metadata-Version: 2.5
 Name: data-designer
-Version: 0.10.0
+Version: 1.0.0
 Summary: General framework for synthetic data generation
 License-Expression: Apache-2.0
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
@@ -14,12 +15,12 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Requires-Python: >=3.11
-Requires-Dist: data-designer-config==0.10.0
-Requires-Dist: data-designer-engine==0.10.0
+Requires-Dist: data-designer-config==1.0.0
+Requires-Dist: data-designer-engine==1.0.0
 Requires-Dist: huggingface-hub<2,>=1.0.1
-Requires-Dist: opentelemetry-api<1.46,>=1.45.1
+Requires-Dist: opentelemetry-api<1.46,>=1.45.2
 Requires-Dist: opentelemetry-exporter-prometheus<0.67,>=0.66b1
-Requires-Dist: opentelemetry-sdk<1.46,>=1.45.1
+Requires-Dist: opentelemetry-sdk<1.46,>=1.45.2
 Requires-Dist: packaging<27,>=25
 Requires-Dist: pandas<4,>=2.3.3
 Requires-Dist: prometheus-client<1,>=0.24
@@ -29,6 +30,8 @@ Requires-Dist: pydantic<3,>=2.9.2
 Requires-Dist: pyyaml<7,>=6.0.1
 Requires-Dist: rich<15,>=13.7.1
 Requires-Dist: typer<1,>=0.12.0
+Provides-Extra: slurm
+Requires-Dist: data-designer-slurm==1.0.0; extra == 'slurm'
 Description-Content-Type: text/markdown
 
 # 🎨 NeMo Data Designer
@@ -77,9 +80,9 @@ pip install data-designer
 > With uv, use `uv pip install` or `uv add` with the same `-c` URL. See [dependency security](https://docs.nvidia.com/nemo/datadesigner/concepts/security#dependency-security) for details.
 
 > [!NOTE]
-> This project will download and install additional third-party open source
-> software projects. Review the license terms of these open source projects
-> before use.
+> This project will download and install additional third-party open source software projects. Review the license terms of these open source projects before use.
+>
+> NOTICE AND DISCLAIMER: This software automatically retrieves, accesses or interacts with external materials. Those retrieved materials are not distributed with this software and are governed solely by separate terms, conditions and licenses. You are solely responsible for finding, reviewing and complying with all applicable terms, conditions, and licenses, and for verifying the security, integrity and suitability of any retrieved materials for your specific use case. This software is provided "AS IS", without warranty of any kind. The author makes no representations or warranties regarding any retrieved materials, and assumes no liability for any losses, damages, liabilities or legal consequences from your use or inability to use this software or any retrieved materials. Use this software and the retrieved materials at your own risk.
 
 Or install from source:
 
@@ -233,7 +236,7 @@ _Last updated on October 27, 2026_
 
 ## License
 
-Apache License 2.0 – see [LICENSE](LICENSE) for details.
+Apache License 2.0 – see [LICENSE](LICENSE) for details. Each separately published Python package includes an identical copy of this license. In particular, `packages/data-designer-slurm/LICENSE` is retained to accompany the independently distributed Slurm package.
 
 ---
 

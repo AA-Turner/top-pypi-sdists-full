@@ -619,7 +619,7 @@ class Universe(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
     def prefilter_using(self, first: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
         """
         Creates a new universe that restricts the universe selection data to symbols that passed the
-        first universe's selection critera
+        first universe's selection criteria
         
         NOTE: The second universe instance provided to this method should not be manually
         added to the algorithm. The first should still be manually (assuming no other changes).
@@ -913,7 +913,7 @@ class _Typed_BaseFundamentalDataProvider_GetDefault(typing.Generic[QuantConnect_
     @overload
     def __call__(self) -> QuantConnect_Data_UniverseSelection_BaseFundamentalDataProvider_GetDefault_T:
         """
-        Get's the default value for the given T type
+        Gets the default value for the given T type
         
         :returns: The default value.
         """
@@ -1758,7 +1758,7 @@ class UniverseExtensions(System.Object):
     def prefilter_using(second: QuantConnect.Data.UniverseSelection.Universe, first: QuantConnect.Data.UniverseSelection.Universe) -> QuantConnect.Data.UniverseSelection.Universe:
         """
         Creates a new universe that restricts the universe selection data to symbols that passed the
-        first universe's selection critera
+        first universe's selection criteria
         
         NOTE: The second universe instance provided to this method should not be manually
         added to the algorithm. The first should still be manually (assuming no other changes).

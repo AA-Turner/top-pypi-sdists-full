@@ -138,3 +138,61 @@ def runtime_contract(resolved, deployment):
         measured_state_steps=ACTION_HORIZON,
         min_replan_steps=MIN_REPLAN_STEPS,
     )
+
+
+# `dreamscale run xarm7`: a Praxis-1 export of bimanual xArm 7 recordings, 16 joint targets aft
+# arm first (seven radians and a 0–1 gripper per arm; the rig's state reads each gripper in
+# radians, 0 open to 0.85 closed, as the recordings do). Its cameras by role: the rig's top
+# (scene) camera is the base tile, its left (fore wrist) the left wrist, its right (aft wrist)
+# the right wrist. Each frame is letterboxed to 224 x 224 as the recordings stored it.
+XARM7_ROLES = {"top": "base", "left": "left_wrist", "right": "right_wrist"}
+XARM7_WIDTH = 16
+
+
+def _get(value, key):
+    from collections.abc import Mapping
+
+    return value.get(key) if isinstance(value, Mapping) else getattr(value, key, None)
+
+
+def xarm7_camera_keys(deployment) -> dict[str, str] | None:
+    """The deployment's camera key for each of the xArm 7 rig's cameras (top, left = fore
+    wrist, right = aft wrist), by the roles its export trained, when `dreamscale run xarm7`
+    drives it, else None: sixteen joint targets in radians with 0–1 grippers, one camera per
+    role. ``deployment`` is a deployment row's ``embodiment`` or a session's
+    Praxis1SessionDeployment."""
+    cameras = tuple(_get(deployment, "cameras") or ())
+    by_role = {str(_get(camera, "role")): str(_get(camera, "key")) for camera in cameras}
+    if (
+        _get(deployment, "action_space") != "absolute_joint_position"
+        or _get(deployment, "joint_unit") != "rad"
+        or _get(deployment, "gripper_unit") not in (None, "normalized")
+        or not _get(deployment, "state_dim") == _get(deployment, "action_dim") == XARM7_WIDTH
+        or len(cameras) != len(XARM7_ROLES)
+        or set(by_role) != set(XARM7_ROLES.values())
+    ):
+        return None
+    return {rig: by_role[role] for rig, role in XARM7_ROLES.items()}
+
+
+def xarm7_deployment_observe(rig, runner):
+    """`dreamscale run xarm7`'s observe for a Praxis-1 deployment: the rig's frames under the
+    connected deployment's keys, letterboxed as recorded, and the rig's state as read.
+    ``runner``: () -> the task runner."""
+    from dreamscale import errors
+    from dreamscale.policy.flux3_deployment import xarm7_observation
+
+    def observe(ctx=None):
+        keys = xarm7_camera_keys(getattr(runner().policy, "deployment", None))
+        if keys is None:
+            raise errors.DreamscaleError(errors.ErrorInfo(
+                code="invalid_deployment",
+                problem="this deployment isn't bimanual xArm 7 joint targets from base, left "
+                "wrist and right wrist cameras",
+                cause="`dreamscale run xarm7` drives Praxis-1 deployments of bimanual xArm 7 "
+                "recordings only",
+                fix="drive it from Python: dreamscale.connect(...), then policy.next_action(...)",
+            ))
+        return xarm7_observation(rig.observe(ctx), keys)
+
+    return observe

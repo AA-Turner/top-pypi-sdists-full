@@ -7,7 +7,7 @@ import pytest
 
 from nameparser import (
     FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST, Lexicon, Locale, Parser,
-    Policy, parse,
+    Policy, PolicyPatch, parse,
 )
 from nameparser._types import (
     STABLE_TAGS, Ambiguity, AmbiguityKind, ParsedName, Reading, Role,
@@ -599,6 +599,25 @@ def test_types_pickle_round_trip() -> None:
     assert pickle.loads(pickle.dumps(reading)).languages == ("en",)
 
 
+def test_suggestion_types_pickle_round_trip() -> None:
+    # Suggestion holds its base Parser, which pickles iff its segmenter
+    # does; a default parser has none
+    import pickle
+
+    from nameparser import Parser
+    s = Parser().suggest(["Smith Mary", "Kim Minjun", "Jason Smith",
+                          "Сидоров Иван Петрович"])
+    loaded = pickle.loads(pickle.dumps(s))
+    assert loaded == s
+    assert loaded.patch == s.patch
+    assert loaded.parser.policy == s.parser.policy
+    assert [n.text for n in loaded.disagreeing()] == \
+        [n.text for n in s.disagreeing()]
+    for evidence in (*s.evidence, *s.names):
+        assert pickle.loads(pickle.dumps(evidence)) == evidence
+    assert pickle.loads(pickle.dumps(s.names[0])).votes == s.names[0].votes
+
+
 def test_span_add_is_blocked() -> None:
     # NamedTuple + would concatenate into a 4-tuple, the natural but
     # wrong spelling of "covering span" (a real cover() arrives with the
@@ -797,6 +816,37 @@ _REFUSED_SKEWS = [
                                            "second_surname", "surname2"),
                  "unexpected fields: surname2",
                  id="renamed-second-surname"),
+    # Policy.initials_as_family and PolicyPatch's (3.1, rules/O8) beside
+    # the shipped fields they must not excuse
+    pytest.param(Policy, lambda: _without(dict(Policy().__getstate__()),
+                                          "initials_as_family", "strip_bidi"),
+                 "missing fields: strip_bidi;",
+                 id="policy-missing-shipped-field-beside-missing-initials"),
+    pytest.param(Policy, lambda: _renamed(dict(Policy().__getstate__()),
+                                          "initials_as_family",
+                                          "initials_family"),
+                 "unexpected fields: initials_family",
+                 id="policy-renamed-initials-as-family"),
+    pytest.param(PolicyPatch, lambda: _renamed(
+        dict(PolicyPatch().__getstate__()), "initials_as_family",
+        "initials_family"),
+                 "unexpected fields: initials_family",
+                 id="patch-renamed-initials-as-family"),
+    # Policy.capitals_as_family and PolicyPatch's (3.1, rules/O9)
+    pytest.param(Policy, lambda: _without(dict(Policy().__getstate__()),
+                                          "capitals_as_family", "strip_bidi"),
+                 "missing fields: strip_bidi;",
+                 id="policy-missing-shipped-field-beside-missing-capitals"),
+    pytest.param(Policy, lambda: _renamed(dict(Policy().__getstate__()),
+                                          "capitals_as_family",
+                                          "caps_family"),
+                 "unexpected fields: caps_family",
+                 id="policy-renamed-capitals-as-family"),
+    pytest.param(PolicyPatch, lambda: _renamed(
+        dict(PolicyPatch().__getstate__()), "capitals_as_family",
+        "caps_family"),
+                 "unexpected fields: caps_family",
+                 id="patch-renamed-capitals-as-family"),
     # and Reading.first_surname (3.0, rules/R11)
     pytest.param(Reading, lambda: _renamed(_reading_state(),
                                            "first_surname", "surname1"),
@@ -1134,7 +1184,8 @@ _TR = Parser(policy=Policy(patronymic_rules={"turkic"}))  # type: ignore[arg-typ
      "Ali bin Ahmad Hasan Musa", "bin Ahmad Hasan Musa", "bin Ahmad Hasan Musa"),
     # the Turkic arm: a marker and the name word before it, in its part
     (_TR, "Ali Ahmad Vali oglu", "Vali oglu", "Ali"),
-    (_TR, "Ali Ahmad oglu", "Ahmad oglu", "oglu"),
+    # three name words: the father and the marker are the family (O2, #1187)
+    (_TR, "Ali Ahmad oglu", "Ahmad oglu", "Ahmad oglu"),
     (_TR, "Ali (Bob) oglu", "Ali oglu", "oglu"),
     (_TR, "oglu Ali", "", "Ali"),
     (_TR, "Aliyev, oglu", "", "Aliyev"),
@@ -1168,8 +1219,15 @@ _MAF = Policy(middle_as_family=True)
     # P6 attaching two particles: the family's own words, not the
     # other folded particle, are the parent's name
     (Policy(name_order=FAMILY_FIRST), "Ahmad Ahmad de bin", "bin Ahmad"),
-    # a suffix ends the run, so a family word behind it is not in it
-    (Policy(), "bin Ahmad Jr. Hasan, Ali", "bin Ahmad"),
+    # a suffix ends the run, so a word behind it is not in it: S8's
+    # run in the given part takes the generation and the word behind it
+    (Policy(), "Hasan, Ali bin Ahmad Jr. Smith", "bin Ahmad"),
+    # a suffix word S8 starts no run at or declines for its writing,
+    # with a family word behind it, stays in the family behind a
+    # particle (rules/P2, #1177), and so in the run
+    (Policy(), "bin Ahmad Jr. Hasan, Ali", "bin Ahmad Jr. Hasan"),
+    (Policy(), "Mariam binti Md Salleh", "binti Md Salleh"),
+    (Policy(), "Mariam binti Haji Abd Talib", "binti Haji Abd Talib"),
     # P6 attaching a patronymic particle with another particle after
     # it: the attached words and the family they attach to, the second
     # review's D1
@@ -1560,7 +1618,9 @@ def test_the_surname1_views_read_the_first_unit_o6_read(
 def test_the_surname1_views_leave_out_a_fold_without_two_units() -> None:
     """rules/R11's O3 Except (#1022): the fold's middles are in neither
     unit where O6 read none, so the first surname is the family as it
-    stood before the fold, and a Turkic father's reading keeps it."""
+    stood before the fold; and where rules/O2 read a three-word Turkic
+    name's father and marker as the family, O6 finds no middle, so the
+    family is one unit (#1187)."""
     folded = Parser(policy=Policy(middle_as_family=True)).parse(
         "Ana María García López")
     assert (folded.family, folded.surname1, folded.surname1_base) == (
@@ -1581,7 +1641,14 @@ def test_the_surname1_views_leave_out_a_fold_without_two_units() -> None:
         two_family_names=True,
         patronymic_rules=frozenset({PatronymicRule.TURKIC}))).parse(
             "Ali Hasan oglu")
-    assert (turkic.surname1, turkic.surname2) == ("Hasan", "oglu")
+    assert (turkic.surname1, turkic.surname2) == ("Hasan oglu", "")
+    # five name words keep the positional reading, so O6 still divides
+    # the family it reads there (the father's name and the marker)
+    five = Parser(policy=Policy(
+        two_family_names=True,
+        patronymic_rules=frozenset({PatronymicRule.TURKIC}))).parse(
+            "Ali Ahmad Vali Hasan oglu")
+    assert (five.surname1, five.surname2) == ("Hasan", "oglu")
 
 
 def test_the_surname1_views_are_render_keys_and_not_fields() -> None:

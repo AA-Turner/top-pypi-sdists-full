@@ -202,6 +202,8 @@ __all__ = (
     "InferenceExperimentStatusType",
     "InferenceExperimentStopDesiredStateType",
     "InferenceExperimentTypeType",
+    "InferenceRouterRoutingPreferenceType",
+    "InferenceRouterStatusType",
     "InputModeType",
     "InstanceGroupStatusType",
     "InstanceTypeType",
@@ -265,6 +267,7 @@ __all__ = (
     "ListInferenceRecommendationsJobStepsPaginatorName",
     "ListInferenceRecommendationsJobsPaginatorName",
     "ListInferenceRecommendationsJobsSortByType",
+    "ListInferenceRoutersPaginatorName",
     "ListJobSchemaVersionsPaginatorName",
     "ListJobsPaginatorName",
     "ListLabelingJobsForWorkteamPaginatorName",
@@ -426,6 +429,7 @@ __all__ = (
     "ResourceTypeType",
     "RetentionTypeType",
     "RootAccessType",
+    "RoutingStatusType",
     "RoutingStrategyType",
     "RuleEvaluationStatusType",
     "S3DataDistributionType",
@@ -1388,6 +1392,8 @@ InferenceExperimentStatusType = Literal[
 ]
 InferenceExperimentStopDesiredStateType = Literal["Cancelled", "Completed"]
 InferenceExperimentTypeType = Literal["ShadowMode"]
+InferenceRouterRoutingPreferenceType = Literal["InstancePoolOrder", "LocalRegionFirst"]
+InferenceRouterStatusType = Literal["Creating", "Deleting", "Failed", "InService", "Updating"]
 InputModeType = Literal["File", "Pipe"]
 InstanceGroupStatusType = Literal[
     "Creating", "Degraded", "Deleting", "Failed", "InService", "SystemUpdating", "Updating"
@@ -1584,23 +1590,37 @@ InstanceTypeType = Literal[
     "ml.trn1n.32xlarge",
 ]
 IsTrackingServerActiveType = Literal["Active", "Inactive"]
-JobCategoryType = Literal["AgentRFT", "AgentRFTEvaluation"]
+JobCategoryType = Literal[
+    "AgentRFT",
+    "AgentRFTEvaluation",
+    "DataQualityEvaluation",
+    "DataTransformation",
+    "SyntheticDataGeneration",
+]
 JobSecondaryStatusType = Literal[
     "Completed",
     "DeleteFailed",
     "Deleting",
     "Downloading",
     "Evaluating",
+    "Executing",
     "Failed",
+    "Finalizing",
+    "Generating",
     "Interrupted",
     "MaxRuntimeExceeded",
+    "PartialGeneration",
     "Pending",
+    "Preparing",
+    "Publishing",
     "Restarting",
     "Starting",
     "Stopped",
     "Stopping",
     "Training",
+    "Transforming",
     "Uploading",
+    "Validating",
 ]
 JobStatusType = Literal[
     "Completed", "DeleteFailed", "Deleting", "Failed", "InProgress", "Stopped", "Stopping"
@@ -1669,6 +1689,7 @@ ListInferenceRecommendationsJobStepsPaginatorName = Literal[
 ]
 ListInferenceRecommendationsJobsPaginatorName = Literal["list_inference_recommendations_jobs"]
 ListInferenceRecommendationsJobsSortByType = Literal["CreationTime", "Name", "Status"]
+ListInferenceRoutersPaginatorName = Literal["list_inference_routers"]
 ListJobSchemaVersionsPaginatorName = Literal["list_job_schema_versions"]
 ListJobsPaginatorName = Literal["list_jobs"]
 ListLabelingJobsForWorkteamPaginatorName = Literal["list_labeling_jobs_for_workteam"]
@@ -2542,7 +2563,8 @@ ResourceTypeType = Literal[
 ]
 RetentionTypeType = Literal["Delete", "Retain"]
 RootAccessType = Literal["Disabled", "Enabled"]
-RoutingStrategyType = Literal["LEAST_OUTSTANDING_REQUESTS", "PREFIX_AWARE", "RANDOM"]
+RoutingStatusType = Literal["Routable", "Unknown", "Unroutable"]
+RoutingStrategyType = Literal["KV_AWARE", "LEAST_OUTSTANDING_REQUESTS", "PREFIX_AWARE", "RANDOM"]
 RuleEvaluationStatusType = Literal[
     "Error", "InProgress", "IssuesFound", "NoIssuesFound", "Stopped", "Stopping"
 ]
@@ -3209,6 +3231,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -3393,6 +3416,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -3460,6 +3484,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -3585,6 +3610,7 @@ PaginatorName = Literal[
     "list_inference_experiments",
     "list_inference_recommendations_job_steps",
     "list_inference_recommendations_jobs",
+    "list_inference_routers",
     "list_job_schema_versions",
     "list_jobs",
     "list_labeling_jobs",

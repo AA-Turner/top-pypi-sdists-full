@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -37,10 +38,28 @@ from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 
 import yaml
+from prod_docs_common import (
+    CLI_NAV_TREE_REL,
+    COMMAND_REF_URL,
+    COMMAND_REFERENCE_REL,
+    command_group_dir,
+    group_list_label,
+    group_title,
+    insert_nav_child,
+    nav_has_path,
+    nav_page_label,
+    nav_parent_for_page,
+    nav_path_for,
+    read_nav_tree,
+    render_template,
+)
 
 DOCS_REPO_ENV = "SNOWFLAKE_PROD_DOCS"
 CLI_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MAPPING = Path(__file__).resolve().parent / "command_docs_paths.yaml"
+GROUP_OVERVIEW_TEMPLATE_PATH = (
+    Path(__file__).resolve().parent / "group_overview_template.mdx"
+)
 PAGES_DIR = Path("gen_docs") / "pages"
 
 GeneratePages = Callable[[Path], Path]
@@ -88,7 +107,25 @@ def run(
     docs_repo = resolve_docs_repo(args.docs_repo, environ)
     mapping = load_mapping(args.mapping)
     pages_root = generate(cli_root)
+    dests = [dest for _, dest in mapping]
     changed = copy_mapped_pages(pages_root, docs_repo, mapping, dry_run=args.dry_run)
+    overview_changed, new_overviews = ensure_group_overviews(
+        docs_repo, dests, dry_run=args.dry_run
+    )
+    for path in overview_changed:
+        if path not in changed:
+            changed.append(path)
+    written = [path for path in changed if path.suffix == ".mdx"]
+    source_by_dest = {dest: source for source, dest in mapping}
+    for path in ensure_command_nav(
+        docs_repo,
+        [*new_overviews, *dests],
+        dry_run=args.dry_run,
+        sources=source_by_dest,
+        required=written,
+    ):
+        if path not in changed:
+            changed.append(path)
     if not changed:
         print("No command-reference pages changed.")
         return []
@@ -190,8 +227,6 @@ def copy_mapped_pages(
         dest = docs_repo / dest_rel
         if not source.is_file():
             _die(f"Generated page is missing: {source}")
-        if not dest.parent.is_dir():
-            _die(f"Docs destination directory does not exist: {dest.parent}")
         planned.append((source_rel, dest_rel, source, dest))
 
     changed: list[Path] = []
@@ -200,9 +235,232 @@ def copy_mapped_pages(
             continue
         print(f"{source_rel} -> {dest_rel}")
         if not dry_run:
+            dest.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, dest)
         changed.append(dest_rel)
     return changed
+
+
+_TOP_OVERVIEW_BLOCK = """\
+- {label}
+  - []({command_ref}/{group}/overview)
+"""
+
+_TOP_OVERVIEW_LINK_RE = re.compile(
+    rf"- \[\]\({re.escape(COMMAND_REF_URL)}/([^/]+)/overview\)"
+)
+
+
+def ensure_group_overviews(
+    docs_repo: Path,
+    dests: Sequence[Path],
+    *,
+    dry_run: bool,
+) -> tuple[list[Path], list[Path]]:
+    """Create missing group overview.mdx files. Existing overviews are not edited.
+
+    Returns ``(changed, created)``. Both lists are the overviews (and top-index
+    bullets) written for groups that had no overview file.
+    """
+    changed: list[Path] = []
+    created: list[Path] = []
+    by_group: dict[Path, list[Path]] = {}
+    for dest_rel in dests:
+        group = command_group_dir(dest_rel)
+        if group is None:
+            continue
+        by_group.setdefault(group, []).append(dest_rel)
+    for group, group_dests in by_group.items():
+        overview_rel = group / "overview.mdx"
+        if not _create_group_overview(
+            docs_repo / overview_rel,
+            group,
+            group_dests,
+            dry_run=dry_run,
+        ):
+            continue
+        created.append(overview_rel)
+        changed.append(overview_rel)
+        top_rel = COMMAND_REFERENCE_REL / "overview.mdx"
+        if _ensure_top_overview_bullet(docs_repo / top_rel, group, dry_run=dry_run):
+            if top_rel not in changed:
+                changed.append(top_rel)
+    return changed, created
+
+
+def _create_group_overview(
+    path: Path, group: Path, dests: Sequence[Path], *, dry_run: bool
+) -> bool:
+    if path.is_file():
+        return False
+    body = render_group_overview_template(
+        title=group_title(group), bullets=_group_command_bullets(dests)
+    )
+    if not dry_run:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body, encoding="utf-8")
+    print(
+        f"group overview created -> {group.name}/overview.mdx "
+        f"(from {GROUP_OVERVIEW_TEMPLATE_PATH.name})"
+    )
+    return True
+
+
+def render_group_overview_template(*, title: str, bullets: str) -> str:
+    """Fill the in-repo group overview template for ``title`` and ``bullets``."""
+    return render_template(
+        GROUP_OVERVIEW_TEMPLATE_PATH,
+        "Group overview",
+        {"__TITLE__": title, "__BULLETS__": bullets},
+    )
+
+
+def _group_command_bullets(dests: Sequence[Path]) -> str:
+    lines: list[str] = []
+    for dest in sorted(
+        {d for d in dests if d.name != "overview.mdx"}, key=lambda p: p.as_posix()
+    ):
+        url = "/" + dest.relative_to("content/en").with_suffix("").as_posix()
+        lines.append(f"- []({url})")
+    return "\n".join(lines)
+
+
+def _ensure_top_overview_bullet(path: Path, group: Path, *, dry_run: bool) -> bool:
+    if not path.is_file():
+        return False
+    content = path.read_text(encoding="utf-8")
+    if f"{COMMAND_REF_URL}/{group.name}/" in content:
+        return False
+    block = _TOP_OVERVIEW_BLOCK.format(
+        label=group_list_label(group),
+        command_ref=COMMAND_REF_URL,
+        group=group.name,
+    )
+    updated = _insert_top_overview_block(content, group.name, block)
+    if updated == content:
+        return False
+    if not dry_run:
+        path.write_text(updated, encoding="utf-8")
+    print(f"command-reference overview -> + {group.name}")
+    return True
+
+
+def _insert_top_overview_block(content: str, group_name: str, block: str) -> str:
+    block = block.rstrip() + "\n"
+    last = None
+    for match in _TOP_OVERVIEW_LINK_RE.finditer(content):
+        if match.group(1) > group_name:
+            # Insert before this group's bullet (the "- Label" line two lines up).
+            line_start = content.rfind("\n", 0, match.start())
+            bullet_start = content.rfind("\n", 0, line_start) + 1
+            return content[:bullet_start] + block + "\n" + content[bullet_start:]
+        last = match
+    if last is None:
+        return content.rstrip() + "\n\n" + block
+    after = content.find("\n", last.end())
+    if after < 0:
+        return content.rstrip() + "\n\n" + block
+    after += 1
+    if after < len(content) and content[after] == "\n":
+        after += 1
+    return content[:after] + "\n" + block + content[after:]
+
+
+_COMMAND_REF_NAV_PARENT = "developer-guide/snowflake-cli/command-reference/overview"
+
+
+def ensure_command_nav(
+    docs_repo: Path,
+    dests: Sequence[Path],
+    *,
+    dry_run: bool,
+    sources: Mapping[Path, Path] | None = None,
+    required: Sequence[Path] = (),
+) -> list[Path]:
+    """Insert PAGE nodes for dests whose path is not already in snowflake-cli-v3.ts.
+
+    Does not edit snowflake-cli.ts. Skips (prints) when the tree file or a parent
+    node is missing. ``required`` dests (pages written this run) must have a node
+    afterwards or publish dies. Command-page labels come from ``sources``
+    (dest → generated page path) when that dest is mapped.
+    """
+    tree = docs_repo / CLI_NAV_TREE_REL
+    content = read_nav_tree(docs_repo, CLI_NAV_TREE_REL)
+    original = content
+    if not dests:
+        _require_nav_nodes(content, required)
+        return []
+    if content is None:
+        _require_nav_nodes(content, required)
+        return []
+    overviews: list[tuple[Path, Path]] = []
+    pages: list[tuple[Path, Path | None]] = []
+    for dest_rel in dests:
+        if dest_rel.suffix != ".mdx":
+            continue
+        group = command_group_dir(dest_rel)
+        if group is not None and dest_rel.name == "overview.mdx":
+            overviews.append((dest_rel, group))
+        else:
+            pages.append((dest_rel, group))
+    for dest_rel, group in overviews:
+        content = insert_nav_child(
+            content,
+            parent_path=_COMMAND_REF_NAV_PARENT,
+            path=nav_path_for(dest_rel),
+            label=group_list_label(group),
+            translated=True,
+            children="\n",
+        )
+
+    def _page_label(dest_rel: Path) -> str:
+        source = None if sources is None else sources.get(dest_rel)
+        if source is not None:
+            return nav_page_label(source)
+        return dest_rel.stem
+
+    for dest_rel, group in pages:
+        page_path = nav_path_for(dest_rel)
+        if group is None:
+            content = insert_nav_child(
+                content,
+                parent_path=_COMMAND_REF_NAV_PARENT,
+                path=page_path,
+                label=_page_label(dest_rel),
+                translated=True,
+            )
+            continue
+        parent = nav_parent_for_page(dest_rel, content)
+        if parent is None:
+            print(f"nav insert skipped: no overview ancestor for {page_path!r}")
+            continue
+        content = insert_nav_child(
+            content,
+            parent_path=parent,
+            path=page_path,
+            label=_page_label(dest_rel),
+            translated=False,
+        )
+    changed: list[Path] = []
+    if content != original:
+        if not dry_run:
+            tree.write_text(content, encoding="utf-8")
+        print(f"cli nav -> {CLI_NAV_TREE_REL}")
+        changed = [CLI_NAV_TREE_REL]
+    _require_nav_nodes(content, required)
+    return changed
+
+
+def _require_nav_nodes(content: str | None, required: Sequence[Path]) -> None:
+    missing = [
+        dest
+        for dest in required
+        if dest.suffix == ".mdx"
+        and (content is None or not nav_has_path(content, nav_path_for(dest)))
+    ]
+    if missing:
+        paths = ", ".join(nav_path_for(dest) for dest in missing)
+        _die(f"CLI nav is missing nodes for pages written this run: {paths}")
 
 
 def _die(message: str, code: int = 1) -> None:

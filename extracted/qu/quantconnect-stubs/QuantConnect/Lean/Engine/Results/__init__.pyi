@@ -169,7 +169,7 @@ class IResultHandler(QuantConnect.Statistics.IStatisticsService, metaclass=abc.A
     @abc.abstractmethod
     def is_active(self) -> bool:
         """
-        Boolean flag indicating the result hander thread is busy.
+        Boolean flag indicating the result handler thread is busy.
         False means it has completely finished and ready to dispose.
         """
         ...
@@ -1218,7 +1218,7 @@ class BaseResultsHandler(System.Object, metaclass=abc.ABCMeta):
 
     def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
         """
-        Set the Algorithm instance for ths result.
+        Set the Algorithm instance for this result.
         
         :param algorithm: Algorithm we're working on.
         :param starting_portfolio_value: Algorithm starting capital for statistics calculations
@@ -1536,7 +1536,7 @@ class BacktestingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
 
     def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:
         """
-        Set the Algorithm instance for ths result.
+        Set the Algorithm instance for this result.
         
         :param algorithm: Algorithm we're working on.
         :param starting_portfolio_value: Algorithm starting capital for statistics calculations
@@ -1718,7 +1718,7 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         ...
 
     def security_type(self, types: typing.List[QuantConnect.SecurityType]) -> None:
-        """Send list of security asset types the algortihm uses to browser."""
+        """Send list of security asset types the algorithm uses to browser."""
         ...
 
     def set_algorithm(self, algorithm: QuantConnect.Interfaces.IAlgorithm, starting_portfolio_value: float) -> None:

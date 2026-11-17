@@ -11,7 +11,7 @@ from functools import partial
 from operator import itemgetter
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias, cast, get_args
 
-from datamodel_code_generator import SchemaParseError
+from datamodel_code_generator import SchemaParseError, is_swagger_2
 from datamodel_code_generator._constraint_applicability import (
     LENGTH_KEYWORDS,
     NUMBER_BOUND_KEYWORDS,
@@ -22,8 +22,7 @@ from datamodel_code_generator._document_reader import (
     CHANNEL_OPERATIONS,
     as_mapping,
     descend,
-    is_multi_format_schema_object,
-    schema_format_media_type,
+    held_schema,
     string_key,
     string_keys,
 )
@@ -105,6 +104,7 @@ SignalName: TypeAlias = Literal[
     "boolean_exclusive_bounds",
     "coercible_scalars",
     "formats",
+    "formats_needing_extras",
     "integer_range_formats",
     "decimal_formats",
     "ref_siblings_read_as_draft_07",
@@ -138,6 +138,8 @@ _CONSTRAINT_ONLY_KEYWORDS = frozenset({"type", "properties", "required", "descri
 _COERCIBLE_TYPES = frozenset({"integer", "number", "boolean"})
 _PROPERTY_COUNTS = frozenset({"minProperties", "maxProperties"})
 _INTEGER_RANGE_FORMATS = ("int32", "int64")
+_FORMATS_NEEDING_EXTRAS = ("email", "idn-email", "ulid", "password")
+"""The formats whose Pydantic types need a package Pydantic does not install to import, or dump a mask."""
 _NORMALIZE = re.compile(r"[^a-z0-9]")
 _EXAMPLE_LIMIT = 4
 _TAG_REFERENCE_DEPTH = 5
@@ -291,18 +293,16 @@ class _ConvertedDocument(dict[str, Any]):  # noqa: FURB189
 def _unwrap(node: object, schema_format: object = None) -> object:
     """Return the schema of an AsyncAPI value as generation reads it: in JSON Schema, from a multi-format object too.
 
-    The ``schemaFormat`` of a multi-format object, or else the one it inherits (a message's, for its payload), selects
-    the format; generation converts an Avro schema to a JSON Schema document of its own, and so does this.
+    The format ``held_schema`` reads a multi-format object in, or the inherited one, selects how; generation converts
+    an Avro schema to a JSON Schema document of its own, and so does this.
     """
-    if is_multi_format_schema_object(node):
-        wrapper = as_mapping(node)
-        schema_format = wrapper.get("schemaFormat") or schema_format
-        node = wrapper.get("schema")
+    if (held := held_schema(node, schema_format)) is not None:
+        node, schema_format = held
     if node is None or not isinstance(schema_format, str):
         return node
-    from datamodel_code_generator.parser.asyncapi import SCHEMA_FORMAT_KIND_BY_MEDIA_TYPE  # noqa: PLC0415
+    from datamodel_code_generator.parser.asyncapi import schema_format_kind  # noqa: PLC0415
 
-    if SCHEMA_FORMAT_KIND_BY_MEDIA_TYPE.get(schema_format_media_type(schema_format)) != "avro":
+    if schema_format_kind(schema_format) != "avro":
         return node
     from datamodel_code_generator.parser.avro import convert_avro_schema_data  # noqa: PLC0415
 
@@ -549,7 +549,7 @@ def _count_operations(
 
 
 def _schema_label(document: Mapping[str, Any], kind: SchemaKind) -> str:
-    if "swagger" in document:
+    if is_swagger_2(document):
         return f"Swagger {document['swagger']}"
     if kind == "jsonschema":
         schema_uri = document.get("$schema")
@@ -963,7 +963,7 @@ def measure_signals(
     document: Mapping[str, Any],
     kind: SchemaKind,
     *,
-    openapi_scopes: AbstractSet[str] = frozenset({"schemas"}),
+    openapi_scopes: AbstractSet[str],
     include_paths: Sequence[str] = (),
     skip_path_extension_keys: bool = False,
 ) -> Signals:
@@ -1028,6 +1028,7 @@ def measure_signals(
     counts["dotted_namespace_reference_cycles"] = _reference_cycles(walker.references) if dotted else 0
     counts["formats"] = walker.formats.total()
     counts["integer_range_formats"] = sum(walker.formats[name] for name in _INTEGER_RANGE_FORMATS)
+    counts["formats_needing_extras"] = sum(walker.formats[name] for name in _FORMATS_NEEDING_EXTRAS)
     counts["decimal_formats"] = walker.formats["decimal"]
     counts["estimated_models"] = (
         counts["components"] + counts["inline_objects"] + counts["inline_enums"] + counts["inline_union_variants"]

@@ -260,7 +260,7 @@ def _graph_join_plan(
         for ds, addresses in linked.items()
     }
     names = sorted(scans)
-    return PlannedPairs(
+    return PlannedPairs.over_scans(
         {id(node): frozenset({ds}) for ds, node in scans.items()},
         {
             frozenset({a, b}): frozenset(
@@ -271,6 +271,7 @@ def _graph_join_plan(
             for i, a in enumerate(names)
             for b in names[i + 1 :]
         },
+        pruned.datasources,
     )
 
 
@@ -293,7 +294,12 @@ def _joint_plan(searches: Sequence[SourcedScans]) -> PlannedPairs:
                 for pair, pairs in search.plan.keys.items()
             }
         )
-    return PlannedPairs(sides, keys)
+    order = tuple(
+        f"{index}:{name}"
+        for index, search in enumerate(searches)
+        for name in search.plan.order
+    )
+    return PlannedPairs(sides, keys, order=order)
 
 
 def _source_concepts_via_graph(

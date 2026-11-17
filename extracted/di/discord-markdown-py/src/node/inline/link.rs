@@ -16,6 +16,7 @@ use crate::{
 	input::token,
 	lossless::TokenKind,
 	node::{Element, Elements, Sequence},
+	range::delim,
 	scope::Scope,
 	span::{Span, Spanned, Trace},
 };
@@ -383,6 +384,13 @@ fn link_chars_run(input: &mut Input, context: &Context, reach: usize) -> PResult
 			continue;
 		}
 
+		if input
+			.attempt(|input| unmatched_delim(input, context))?
+			.is_some()
+		{
+			continue;
+		}
+
 		let inside_parens = !opens.is_empty();
 		let non_terminal = if inside_parens {
 			non_terminal_link_chars_no_close_paren
@@ -414,6 +422,19 @@ fn link_chars_run(input: &mut Input, context: &Context, reach: usize) -> PResult
 		Err(Fail::NoMatch)
 	} else {
 		Ok(())
+	}
+}
+
+/// Consume a delimiter run that an earlier round left out of a URL and then found to match
+/// nothing. Trailing punctuation only stays out of a URL in case it closes a modifier, as in
+/// `_https://example.com_`, so a run that closes nothing is the URL's after all: a path can end
+/// in `_`.
+fn unmatched_delim(input: &mut Input, context: &Context) -> PResult<()> {
+	let delim = delim::delim(input, context.syntaxes)?;
+	if context.matched_nothing(delim.start) {
+		Ok(())
+	} else {
+		Err(Fail::NoMatch)
 	}
 }
 
@@ -923,5 +944,132 @@ mod test {
 	#[test]
 	fn app_paths_are_sorted() {
 		assert!(super::APP_PATHS.is_sorted());
+	}
+
+	/// A delimiter run at the end of a URL that closes nothing is part of the URL, as a path
+	/// ending in `_` is.
+	#[test]
+	fn unmatched_trailing_delimiter_stays_in_the_url() {
+		use super::Link;
+		use crate::node::Inline;
+		use crate::test_utils::inline_content;
+		use crate::{link, spanned_vec, text};
+
+		for s in [
+			"https://example.com/abc_",
+			"https://example.com/abc__",
+			"https://example.com/abc*",
+			"https://example.com/abc**",
+			"https://example.com/abc~~",
+			"https://example.com/abc||",
+			"https://example.com/a_b_",
+		] {
+			let expected = Inline::Link(Link {
+				url: s.parse().unwrap(),
+				text: None,
+				title: None,
+			});
+			assert_eq!(inline_content(s), spanned_vec![expected], "{s}");
+		}
+
+		assert_eq!(
+			inline_content("see https://example.com/abc_ here"),
+			spanned_vec![
+				text!("see "),
+				link!("https://example.com/abc_"),
+				text!(" here")
+			]
+		);
+		assert_eq!(
+			inline_content("discord.com/channels/1/2_"),
+			spanned_vec![link!(
+				"https://discord.com/channels/1/2_",
+				[text!("discord.com/channels/1/2_")]
+			)]
+		);
+		// an invite code cannot hold a `_`, so this is no invite at all, as `discord.gg/abc$` is
+		// not, rather than a link to a different one
+		assert_eq!(
+			inline_content("discord.gg/abc_"),
+			spanned_vec![text!("discord.gg/abc_")]
+		);
+		// the run is the URL's, and the punctuation after it still is not
+		assert_eq!(
+			inline_content("https://example.com/abc_."),
+			spanned_vec![link!("https://example.com/abc_"), text!(".")]
+		);
+		// a run after a URL opens nothing, so two URLs on a line keep theirs rather than wrapping
+		// what is between them
+		assert_eq!(
+			inline_content("https://example.com/a_ https://example.com/b_"),
+			spanned_vec![
+				link!("https://example.com/a_"),
+				text!(" "),
+				link!("https://example.com/b_")
+			]
+		);
+	}
+
+	/// A delimiter run after a URL that does close something still closes it.
+	#[test]
+	fn trailing_delimiter_that_closes_a_modifier_leaves_the_url() {
+		use crate::test_utils::inline_content;
+		use crate::{bold, italic, link, spanned_vec, spoiler, strikethrough, text, underline};
+
+		for (s, expected) in [
+			(
+				"_https://example.com/abc_",
+				spanned_vec![italic!(link!("https://example.com/abc"))],
+			),
+			(
+				"__https://example.com/abc__",
+				spanned_vec![underline!(link!("https://example.com/abc"))],
+			),
+			(
+				"**https://example.com/abc**",
+				spanned_vec![bold!(link!("https://example.com/abc"))],
+			),
+			(
+				"~~https://example.com/abc~~",
+				spanned_vec![strikethrough!(link!("https://example.com/abc"))],
+			),
+			(
+				"||https://example.com/abc||",
+				spanned_vec![spoiler!(link!("https://example.com/abc"))],
+			),
+			(
+				"_see https://example.com/abc_ here",
+				spanned_vec![
+					italic!(text!("see "), link!("https://example.com/abc")),
+					text!(" here")
+				],
+			),
+			// one `_` closes the italic, and the other is left over as text rather than taken back
+			(
+				"_https://example.com/abc__",
+				spanned_vec![italic!(link!("https://example.com/abc")), text!("_")],
+			),
+			// the URL's own run is not taken for an opener, so the italic still closes after it
+			(
+				"_https://example.com/abc_ b_",
+				spanned_vec![italic!(link!("https://example.com/abc")), text!(" b_")],
+			),
+		] {
+			assert_eq!(inline_content(s), expected, "{s}");
+		}
+	}
+
+	/// The lossless tree takes the run into the URL too, and still writes back what was written.
+	#[test]
+	fn unmatched_trailing_delimiter_round_trips_losslessly() {
+		use crate::{Options, parse_lossless};
+
+		for s in [
+			"https://example.com/abc_",
+			"see https://example.com/abc__ and _https://example.com/x_",
+		] {
+			let node = parse_lossless(s, Options::default()).expect("unable to parse");
+			assert_eq!(node.to_string(), s);
+		}
 	}
 }

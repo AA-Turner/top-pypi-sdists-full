@@ -2,41 +2,53 @@
 
 from __future__ import annotations
 
+import _thread
+import atexit
 import contextlib
+import contextvars
+import functools
+import gc
 import hashlib
 import logging
 import mimetypes
 import os.path
+import sys
 import threading
 import time
-import traceback
-from collections.abc import Callable, Mapping
-from concurrent.futures import FIRST_EXCEPTION, Future, as_completed, wait
+import warnings
+from collections.abc import Callable, Generator, Iterable, Mapping
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import datetime
+from glob import has_magic
 from io import BytesIO
-from multiprocessing import cpu_count
-from typing import Any, BinaryIO, cast
+from typing import TYPE_CHECKING, Any, BinaryIO, ClassVar, cast
 from urllib.parse import unquote_plus
 
-import botocore.exceptions
+import fsspec
 from boto3 import Session
 from botocore import UNSIGNED
 from botocore.client import BaseClient, Config
 from fsspec import AbstractFileSystem
 from fsspec.callbacks import _DEFAULT_CALLBACK, Callback
 from fsspec.compression import compr
+from fsspec.config import apply_config
 from fsspec.core import get_compression
 from fsspec.implementations.local import LocalFileSystem, make_path_posix, trailing_sep
 from fsspec.spec import AbstractBufferedFile
-from fsspec.utils import check_contained, isfilelike, tokenize
+from fsspec.utils import check_contained, isfilelike, other_paths, stringify_path, tokenize
 
 import pyathena
-from pyathena.connection import Connection
 from pyathena.filesystem.s3_core import S3Core, S3DeleteBatch, S3DeleteResult
 from pyathena.filesystem.s3_errors import S3ClientError
-from pyathena.filesystem.s3_executor import S3Executor, S3ThreadPoolExecutor
+from pyathena.filesystem.s3_executor import (
+    ItemT,
+    S3Executor,
+    S3MapResult,
+    S3ThreadPool,
+    T,
+    _S3PoolScope,
+)
 from pyathena.filesystem.s3_object import (
     S3Metadata,
     S3MultipartUpload,
@@ -49,9 +61,36 @@ from pyathena.filesystem.s3_object import (
 from pyathena.filesystem.s3_path import S3Path
 from pyathena.filesystem.s3_path_pairing import S3PathPairing
 from pyathena.filesystem.s3_writer import _S3WriteSession
-from pyathena.util import RetryConfig, override, stop_retries_on
+from pyathena.util import RetryConfig, override, raise_if_stopped, unstoppable_retries
+
+if TYPE_CHECKING:
+    from pyathena.connection import Connection
 
 _logger = logging.getLogger(__name__)
+
+# The message of the TypeError that a filesystem with an injected client, and
+# the files that it opens for reading, raise when they are pickled.
+_UNPICKLABLE_CLIENT_MESSAGE = (
+    "{cls} built with client= or connection= cannot be pickled, as its boto3 client "
+    "cannot be. To pickle it, for example to send it to Dask, Ray, or multiprocessing "
+    "workers, build it from s3fs-style arguments such as profile=, region_name=, or "
+    "key=, secret=, and token=."
+)
+# The DeprecationWarning of the connection argument of the filesystems.
+_CONNECTION_DEPRECATION_MESSAGE = (
+    "The connection argument of {cls} is deprecated and will be removed in the next "
+    "major version. Use pyathena.filesystem.s3_filesystem(connection), or pass "
+    "client=connection.s3_client and retry_config=connection.retry_config."
+)
+
+# Whether the cyclic garbage collector runs in a thread, and the closes of
+# files that it handed over (S3File._track_collection).
+_collecting = threading.local()
+
+# The ends of the closes that run in threads of the _thread module, which an
+# exit waits for (S3File._wait_for_handed_over_closes), and whether it has.
+_handed_over_closes: set[threading.Event] = set()
+_handed_over_closes_waited = False
 
 # The request parameters on which the authorization of a lookup (HeadObject,
 # HeadBucket, or ListObjectsV2) depends.
@@ -103,6 +142,162 @@ class CompressedBuffer(BytesIO):
         with compr[compression](buffer, mode="w") as f:
             f.write(value)
         return buffer.getvalue()
+
+
+class _S3LockedCallback(Callback):
+    """A progress callback whose uses, and those of its branches, are serialized.
+
+    The per-object calls of a batch operation run in parallel threads and
+    update the callback of the operation and the branches that it creates.
+    fsspec does not require a callback to be thread-safe, nor its branches to
+    be independent of it, so every use goes through one lock.
+
+    Args:
+        callback: The callback of the operation, or a branch of it.
+        lock: The lock of the operation.
+    """
+
+    def __init__(self, callback: Callback, lock: threading.Lock) -> None:
+        super().__init__()
+        self._callback = callback
+        self._lock = lock
+
+    def __enter__(self) -> _S3LockedCallback:
+        """Enter the callback.
+
+        Returns:
+            This callback, or a proxy of the callback that the wrapped one
+            returned from ``__enter__()``, if that is another one.
+        """
+        with self._lock:
+            entered = self._callback.__enter__()
+        if entered is self._callback:
+            return self
+        return _S3LockedCallback(entered, self._lock)
+
+    def __exit__(self, *exc_args: Any) -> Any:
+        """Exit the callback.
+
+        Args:
+            *exc_args: The exception of the block, if any.
+
+        Returns:
+            What the callback's ``__exit__()`` returns.
+        """
+        with self._lock:
+            return self._callback.__exit__(*exc_args)
+
+    def close(self) -> None:
+        """Close the callback."""
+        with self._lock:
+            self._callback.close()
+
+    def branched(self, path_1, path_2, **kwargs) -> Callback:
+        """Return a branch of the callback for the transfer of one file.
+
+        Args:
+            path_1: The source of the transfer.
+            path_2: The destination of the transfer.
+            **kwargs: Passed to the callback's ``branched()``.
+
+        Returns:
+            The branch, whose uses take the lock of this callback.
+        """
+        with self._lock:
+            return _S3LockedCallback(self._callback.branched(path_1, path_2, **kwargs), self._lock)
+
+    def set_size(self, size) -> None:
+        """Set the size of the callback.
+
+        Args:
+            size: The total.
+        """
+        with self._lock:
+            self._callback.set_size(size)
+
+    def absolute_update(self, value) -> None:
+        """Set the progress of the callback.
+
+        Args:
+            value: The progress.
+        """
+        with self._lock:
+            self._callback.absolute_update(value)
+
+    def relative_update(self, inc=1) -> None:
+        """Advance the progress of the callback.
+
+        Args:
+            inc: The increment.
+        """
+        with self._lock:
+            self._callback.relative_update(inc)
+
+    def call(self, hook_name=None, **kwargs) -> Any:
+        """Run the hooks of the callback.
+
+        Args:
+            hook_name: The hook to run, or None for all of them.
+            **kwargs: Passed to the hooks.
+
+        Returns:
+            What the callback's ``call()`` returns.
+        """
+        with self._lock:
+            return self._callback.call(hook_name, **kwargs)
+
+
+class _S3TreeListing:
+    """The listings of one ``tree()`` of an ``S3FileSystem``.
+
+    fsspec's ``tree()`` lists each directory with ``ls()`` of its name, which
+    a version ID query or an empty segment at the end of the name changes.
+    This object runs fsspec's ``tree()`` in place of the filesystem: a
+    directory that a listing of the same ``tree()`` returned is listed by
+    its key prefix (see :meth:`S3FileSystem._directory_prefix`), and any
+    other path with ``ls()``.
+    """
+
+    def __init__(self, fs: S3FileSystem) -> None:
+        """Initialize the listings with no listed directory.
+
+        Args:
+            fs: The filesystem to list.
+        """
+        self._fs = fs
+        self._directories: dict[str, S3Object] = {}
+
+    def ls(self, path: str, detail: bool = True) -> list[S3Object]:
+        """List a path as ``S3FileSystem.ls(detail=True)`` does.
+
+        Args:
+            path: The path, or the name of a directory listed before.
+            detail: Unused; the entries are always returned, as fsspec's
+                ``tree()`` asks for them.
+
+        Returns:
+            A new list of the entries, which fsspec's ``tree()`` sorts in place.
+        """
+        directory = self._directories.get(path)
+        if directory is None:
+            files = cast(list[S3Object], self._fs.ls(path, detail=True))
+        else:
+            files = self._fs._ls_directory(directory)
+        for f in files:
+            if f.type == S3ObjectType.S3_OBJECT_TYPE_DIRECTORY:
+                self._directories[f.name] = f
+        return files
+
+    def tree(self, **kwargs: Any) -> str:
+        """Run fsspec's ``tree()`` with these listings.
+
+        Args:
+            **kwargs: The arguments of ``tree()``.
+
+        Returns:
+            The tree as a string.
+        """
+        return cast(str, AbstractFileSystem.tree(self, **kwargs))
 
 
 class S3FileSystem(AbstractFileSystem):
@@ -164,27 +359,78 @@ class S3FileSystem(AbstractFileSystem):
 
     protocol = ("s3", "s3a")
     _extra_tokenize_attributes = ("default_block_size",)
+    # The boto3 session arguments of the client that the filesystem builds.
+    _SESSION_PASSING_ARGS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "aws_access_key_id",
+            "aws_secret_access_key",
+            "aws_session_token",
+            "region_name",
+            "botocore_session",
+            "profile_name",
+        }
+    )
+    # The arguments of ``Session.client()`` taken from ``client_kwargs``.
+    _CLIENT_PASSING_ARGS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "aws_access_key_id",
+            "aws_secret_access_key",
+            "aws_session_token",
+            "api_version",
+            "use_ssl",
+            "verify",
+            "endpoint_url",
+            "region_name",
+            "config",
+        }
+    )
+    # The arguments from which the filesystem builds its client, which an
+    # injected client (``client`` or ``connection``) does not take.
+    _CLIENT_BUILDING_ARGS: ClassVar[frozenset[str]] = _SESSION_PASSING_ARGS | {
+        "key",
+        "username",
+        "secret",
+        "password",
+        "token",
+        "profile",
+        "anon",
+        "use_ssl",
+        "endpoint_url",
+        "connect_timeout",
+        "read_timeout",
+        "client_kwargs",
+        "config_kwargs",
+    }
 
     def __init__(
         self,
         connection: Connection[Any] | None = None,
         default_block_size: int | None = None,
         default_cache_type: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        max_workers: int | None = None,
         s3_additional_kwargs=None,
         allow_bucket_creation: bool = False,
         allow_bucket_deletion: bool = False,
         version_aware: bool = False,
         *args,
+        batch_size: int | None = None,
+        client: BaseClient | None = None,
+        retry_config: RetryConfig | None = None,
         **kwargs,
     ) -> None:
         """Create a filesystem for Amazon S3.
 
+        The filesystem sends its requests with the boto3 S3 client given as
+        ``client``, or with a client that it builds from s3fs-compatible
+        arguments in ``kwargs``. :func:`pyathena.filesystem.s3_filesystem`
+        creates one with the S3 client and retry policy of a PyAthena
+        connection.
+
         Args:
-            connection: A PyAthena connection whose S3 client
-                (``Connection.s3_client``) and retry policy the filesystem uses.
-                Without one, the client is built from s3fs-compatible arguments
-                in ``kwargs``.
+            connection: Deprecated; use ``client`` and ``retry_config``, or
+                :func:`pyathena.filesystem.s3_filesystem`. A PyAthena connection
+                whose S3 client (``Connection.s3_client``) and retry policy the
+                filesystem uses, with a ``DeprecationWarning``.
             default_block_size: The block size for reads and writes; defaults to
                 ``DEFAULT_BLOCK_SIZE``.
             default_cache_type: The fsspec cache type for reads, the name of a
@@ -197,45 +443,172 @@ class S3FileSystem(AbstractFileSystem):
                 read; ``"blockcache"``, which requests whole blocks and keeps
                 the most recently used ones; and ``"background"``, which is like
                 ``"blockcache"`` and also reads the next block in a thread.
-            max_workers: The number of threads for parallel transfers.
+            max_workers: The number of threads of the request pool of the
+                filesystem, which its files and parallel operations share,
+                and the default number of parallel requests of a file. If
+                None, the ``max_pool_connections`` of the S3 client (10
+                unless configured). A client that the filesystem builds gets
+                ``max_pool_connections`` from ``max_workers`` unless
+                ``config_kwargs`` sets it; the connection pool of a given
+                ``client`` keeps its size.
             s3_additional_kwargs: Extra arguments for the object requests of
-                ``open()`` and ``pipe_file()``; listings and other requests do
-                not use them. Each request receives those that its operation
-                accepts, and the parameters of a call take precedence.
+                ``open()``, ``pipe_file()`` and ``put_file()``. Their
+                authorization parameters (``RequestPayer``,
+                ``ExpectedBucketOwner`` and ``SSECustomer*``) are sent with
+                every request, listings and copies included; a copy also
+                sends them for its source (``ExpectedSourceBucketOwner`` and
+                ``CopySourceSSECustomer*``). Each request receives those that
+                its operation accepts, and the parameters of a call take
+                precedence.
             allow_bucket_creation: Whether ``mkdir``/``makedirs`` may create a
                 bucket.
             allow_bucket_deletion: Whether ``rmdir`` may delete a bucket.
             version_aware: Whether reads pin the object version observed at open
                 time.
             *args: Passed to ``fsspec.AbstractFileSystem``.
-            **kwargs: Passed to ``fsspec.AbstractFileSystem``; without a
-                ``connection``, also s3fs-compatible client arguments.
-                ``requester_pays=True`` sends requester-pays requests with
-                the operations that accept ``RequestPayer``.
+            batch_size: The number of per-object calls of a batch operation
+                (``cat``, ``get``, ``put``, ``copy``, and the like) that run at
+                once, and of DeleteObjects requests of ``rm``, unless the call
+                gives its own. None or -1 is ``max_workers``.
+            client: The boto3 S3 client that the filesystem sends its requests
+                with. The filesystem does not close it. A filesystem with a
+                given client cannot be pickled.
+            retry_config: The retry policy of the requests; defaults to
+                ``RetryConfig()``. A policy with the default ``exceptions``
+                also retries the transient S3 error codes
+                (:attr:`~pyathena.filesystem.s3_core.S3Core.RETRY_ERROR_CODES`).
+            **kwargs: Passed to ``fsspec.AbstractFileSystem``; without
+                ``client`` or ``connection``, also s3fs-compatible client
+                arguments. ``requester_pays=True`` sends requester-pays
+                requests with the operations that accept ``RequestPayer``.
+
+        Raises:
+            ValueError: If ``batch_size`` is neither positive, -1, nor None.
+            TypeError: If ``connection`` is given with ``client`` or
+                ``retry_config``, or ``client`` or ``connection`` with an
+                argument from which the filesystem builds a client, such as
+                ``key``, ``profile``, ``anon``, ``endpoint_url``,
+                ``client_kwargs``, or ``region_name``, other than one that
+                fsspec's configuration supplies.
         """
         super().__init__(*args, **kwargs)
-        if connection:
-            client = connection.s3_client
-            retry_config = connection.retry_config
-        else:
-            client = self._get_client_compatible_with_s3fs(**kwargs)
-            retry_config = RetryConfig()
+        self.batch_size = self._check_batch_size(batch_size)
+        self._client_injected = client is not None or connection is not None
+        client, retry_config = self._resolve_injected_client(
+            type(self), connection, client, retry_config, kwargs
+        )
+        if client is None:
+            client = self._get_client_compatible_with_s3fs(max_workers=max_workers, **kwargs)
         self.default_block_size = (
             default_block_size if default_block_size else self.DEFAULT_BLOCK_SIZE
         )
         self.default_cache_type = default_cache_type if default_cache_type else "bytes"
-        self.max_workers = max_workers
+        # The requests of the files and parallel operations of the
+        # filesystem run in this pool, at most max_workers at once.
+        self._request_pool = S3ThreadPool(
+            max_workers if max_workers is not None else client.meta.config.max_pool_connections
+        )
+        self.max_workers: int = self._request_pool.max_workers
         self.s3_additional_kwargs = s3_additional_kwargs if s3_additional_kwargs else {}
         self.allow_bucket_creation = allow_bucket_creation
         self.allow_bucket_deletion = allow_bucket_deletion
         self.version_aware = version_aware
 
         requester_pays = kwargs.pop("requester_pays", False)
+        # The parameters that authorize the access to the objects, sent with
+        # every request that accepts them, and with a copy for its source.
+        request_kwargs = self._get_lookup_kwargs(self.s3_additional_kwargs)
+        if requester_pays:
+            request_kwargs.setdefault("RequestPayer", "requester")
         self._core = S3Core(
             client,
-            retry_config=retry_config,
-            request_kwargs={"RequestPayer": "requester"} if requester_pays else None,
+            retry_config=retry_config if retry_config is not None else RetryConfig(),
+            request_kwargs={**request_kwargs, **S3Core.copy_from_source_params(request_kwargs)},
         )
+
+    @classmethod
+    def _resolve_injected_client(
+        cls,
+        filesystem_class: type[AbstractFileSystem],
+        connection: Connection[Any] | None,
+        client: BaseClient | None,
+        retry_config: RetryConfig | None,
+        kwargs: Mapping[str, Any],
+    ) -> tuple[BaseClient | None, RetryConfig | None]:
+        """Check the injected client of a filesystem and resolve it from a connection.
+
+        Warns that ``connection`` is deprecated, and rejects the arguments that
+        conflict with an injected client before the client of the connection is
+        used. ``AioS3FileSystem`` resolves its arguments with it too.
+
+        Args:
+            filesystem_class: The class of the filesystem being created, whose
+                name the warning shows and whose fsspec configuration applies.
+            connection: The deprecated ``connection`` argument.
+            client: The ``client`` argument.
+            retry_config: The ``retry_config`` argument.
+            kwargs: The other keyword arguments of the filesystem, merged with
+                fsspec's configuration for the protocol.
+
+        Returns:
+            The injected client and retry policy, or the given ones if
+            ``connection`` is None.
+
+        Raises:
+            TypeError: If the arguments conflict with an injected client.
+        """
+        if connection is not None:
+            message = _CONNECTION_DEPRECATION_MESSAGE.format(cls=filesystem_class.__name__)
+            if sys.version_info >= (3, 12):
+                # Attributed to the first caller outside fsspec and the filesystems,
+                # such as through fsspec.filesystem() or a subclass.
+                warnings.warn(
+                    message,
+                    DeprecationWarning,
+                    skip_file_prefixes=(
+                        os.path.dirname(fsspec.__file__) + os.sep,
+                        os.path.dirname(__file__) + os.sep,
+                    ),
+                )
+            else:
+                # Past this method, __init__, and fsspec's metaclass.
+                warnings.warn(message, DeprecationWarning, stacklevel=4)
+            if client is not None or retry_config is not None:
+                raise TypeError("connection cannot be combined with client or retry_config.")
+        if client is not None or connection is not None:
+            # The settings of fsspec's configuration for the protocol, such as
+            # the FSSPEC_S3_* environment variables, apply to every filesystem
+            # and are ignored instead.
+            configured = apply_config(filesystem_class, {})
+            building_args = sorted(
+                k
+                for k in cls._CLIENT_BUILDING_ARGS
+                if kwargs.get(k) is not None and (k not in configured or kwargs[k] != configured[k])
+            )
+            if building_args:
+                raise TypeError(
+                    f"{', '.join(building_args)} cannot be combined with client or "
+                    "connection, whose client the filesystem uses as it is."
+                )
+        if connection is not None:
+            return connection.s3_client, connection.retry_config
+        return client, retry_config
+
+    @override
+    def __reduce__(self) -> tuple[Any, ...]:
+        """Reduce the filesystem for pickling, as fsspec does.
+
+        Returns:
+            The reduction of ``fsspec.AbstractFileSystem``, which creates the
+            filesystem again from its arguments.
+
+        Raises:
+            TypeError: If the filesystem was built with ``client`` or
+                ``connection``, whose boto3 client cannot be pickled.
+        """
+        if self._client_injected:
+            raise TypeError(_UNPICKLABLE_CLIENT_MESSAGE.format(cls=type(self).__name__))
+        return cast(tuple[Any, ...], super().__reduce__())
 
     @property
     def core(self) -> S3Core:
@@ -256,12 +629,32 @@ class S3FileSystem(AbstractFileSystem):
     def request_kwargs(self) -> dict[str, Any]:
         """The parameters sent with every operation that accepts them.
 
-        ``{"RequestPayer": "requester"}`` with ``requester_pays=True``; see
-        ``core.request_kwargs``.
+        ``{"RequestPayer": "requester"}`` with ``requester_pays=True``, and
+        the authorization parameters of ``s3_additional_kwargs``, also under
+        the names of a copy source; see ``core.request_kwargs``.
         """
         return self._core.request_kwargs
 
-    def _get_client_compatible_with_s3fs(self, **kwargs) -> BaseClient:
+    def close(self) -> None:
+        """Release the threads of the request pool, which stays usable, once they are idle.
+
+        See :meth:`S3ThreadPool.release()
+        <pyathena.filesystem.s3_executor.S3ThreadPool.release>`. The calls in
+        progress, including the requests of open files, run to their end, and
+        a call after the release creates new threads.
+        """
+        self._request_pool.release()
+
+    def __enter__(self) -> S3FileSystem:
+        """Return the filesystem, whose threads the end of the block releases."""
+        return self
+
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
+        self.close()
+
+    def _get_client_compatible_with_s3fs(
+        self, max_workers: int | None = None, **kwargs
+    ) -> BaseClient:
         """Build a boto3 S3 client from s3fs-compatible constructor arguments.
 
         Accepts the constructor arguments that s3fs users pass through fsspec
@@ -273,6 +666,9 @@ class S3FileSystem(AbstractFileSystem):
         is used as ``profile_name`` when ``profile_name`` is not given.
 
         Args:
+            max_workers: The size of the request pool of the filesystem, which
+                becomes the ``max_pool_connections`` of the client unless
+                ``config_kwargs`` sets it; None keeps botocore's default.
             **kwargs: The filesystem constructor arguments.
 
         Returns:
@@ -280,6 +676,8 @@ class S3FileSystem(AbstractFileSystem):
         """
         config_kwargs = deepcopy(kwargs.pop("config_kwargs", {}))
         client_kwargs = deepcopy(kwargs.pop("client_kwargs", {}))
+        if max_workers is not None:
+            config_kwargs.setdefault("max_pool_connections", max_workers)
 
         user_agent_extra = config_kwargs.pop("user_agent_extra", None)
         if user_agent_extra and pyathena.user_agent_extra not in user_agent_extra:
@@ -312,13 +710,11 @@ class S3FileSystem(AbstractFileSystem):
         if profile := kwargs.pop("profile", None):
             kwargs.setdefault("profile_name", profile)
 
-        session = Session(
-            **{k: v for k, v in kwargs.items() if k in Connection._SESSION_PASSING_ARGS}
-        )
+        session = Session(**{k: v for k, v in kwargs.items() if k in self._SESSION_PASSING_ARGS})
         return session.client(
             "s3",
             config=Config(**config_kwargs),
-            **{k: v for k, v in client_kwargs.items() if k in Connection._CLIENT_PASSING_ARGS},
+            **{k: v for k, v in client_kwargs.items() if k in self._CLIENT_PASSING_ARGS},
         )
 
     @staticmethod
@@ -469,56 +865,105 @@ class S3FileSystem(AbstractFileSystem):
         path: str,
         prefix: str = "",
         delimiter: str = "/",
-        next_token: str | None = None,
-        max_keys: int | None = None,
         refresh: bool = False,
     ) -> list[S3Object]:
-        """List the objects and common prefixes under a path.
+        """List the objects and common prefixes under a bucket or key path.
 
-        A complete, non-empty listing of the path is cached under
-        ``(path, delimiter)``, and an empty one evicts it.
-        ``invalidate_cache`` drops it when the path or a path under it is
-        invalidated.
+        Lists the directory that the path names, as :meth:`_ls_prefix`
+        describes.
 
         Args:
-            path: The bucket or directory path to list.
+            path: The bucket or key path to list, without the protocol or a
+                trailing slash.
             prefix: Key prefix to filter by, relative to the path. A prefixed
                 listing is neither read from nor written to the cache.
             delimiter: Delimiter to group keys by; ``""`` lists recursively.
-            next_token: Continuation token to start listing from. A listing
-                that starts from a token is neither read from nor written to
-                the cache.
-            max_keys: Maximum number of keys per ListObjectsV2 request.
             refresh: If True, bypass the cache and list from S3.
 
         Returns:
             The listed directories and files.
         """
         s3_path = S3Path.parse(path)
-        use_cache = not prefix and not next_token
-        if s3_path.key:
-            prefix = f"{s3_path.key}/{prefix if prefix else ''}"
+        return self._ls_prefix(
+            self._directory_object(s3_path.bucket, s3_path.key),
+            prefix=prefix,
+            delimiter=delimiter,
+            refresh=refresh,
+        )
 
-        cache_key = (path, delimiter)
+    @staticmethod
+    def _directory_prefix(directory: S3Object) -> str:
+        """Return the key prefix that a listed directory or bucket lists.
+
+        A directory is named after its common prefix without the final
+        delimiter, which may leave the name with a version ID query or with
+        trailing slashes. The prefix is taken from its key instead, so that
+        the directory is listed as it was listed.
+
+        Args:
+            directory: A directory or bucket entry of a listing.
+
+        Returns:
+            The key prefix: ``""`` for a bucket, and otherwise the key of the
+            directory followed by ``/``.
+        """
+        return "" if directory.key is None else f"{directory.key}/"
+
+    def _ls_prefix(
+        self,
+        directory: S3Object,
+        prefix: str = "",
+        delimiter: str = "/",
+        refresh: bool = False,
+    ) -> list[S3Object]:
+        """List the objects and common prefixes under the key prefix of a directory.
+
+        A complete, non-empty listing of the directory is cached under
+        ``(name, delimiter)``, with the name of the directory, and an empty
+        one, or a listing that raises FileNotFoundError because the bucket
+        does not exist, evicts it. ``invalidate_cache`` drops it when the
+        path or a path under it is invalidated.
+
+        A common prefix is named after its prefix without the final
+        delimiter, so the common prefix ``dir//`` of a key with an empty
+        segment, such as ``dir//x``, is the directory ``bucket/dir/``, and
+        ``/`` at the top of the bucket is ``bucket/``. Its key is the prefix
+        without the final delimiter (see :meth:`_directory_prefix`).
+
+        Args:
+            directory: The bucket or directory to list, as a listing or
+                :meth:`_directory_object` returns it.
+            prefix: Key prefix to filter by, relative to the directory. A
+                prefixed listing is neither read from nor written to the
+                cache.
+            delimiter: Delimiter to group keys by; ``""`` lists recursively.
+            refresh: If True, bypass the cache and list from S3.
+
+        Returns:
+            The listed directories and files.
+        """
+        bucket = directory.bucket
+        use_cache = not prefix
+        cache_key = (directory.name, delimiter)
         cached = self.dircache.get(cache_key) if use_cache and not refresh else None
         if cached is not None:
             return cast(list[S3Object], cached)
 
         files: list[S3Object] = []
-        for page in self.core.list_objects(
-            s3_path.bucket,
-            prefix=prefix,
-            delimiter=delimiter,
-            max_keys=max_keys,
-            continuation_token=next_token,
-        ):
-            files.extend(
-                self._directory_object(
-                    s3_path.bucket, c.prefix[:-1].rstrip("/"), s3_path.version_id
+        try:
+            for page in self.core.list_objects(
+                bucket,
+                prefix=self._directory_prefix(directory) + prefix,
+                delimiter=delimiter,
+            ):
+                files.extend(
+                    self._directory_object(bucket, c.prefix[:-1]) for c in page.common_prefixes
                 )
-                for c in page.common_prefixes
-            )
-            files.extend(S3Object.from_summary(o) for o in page.objects)
+                files.extend(S3Object.from_summary(o) for o in page.objects)
+        except FileNotFoundError:
+            # The bucket does not exist, so the cached listing is stale.
+            self._evict_cache(cache_key)
+            raise
         if use_cache:
             if files:
                 self.dircache[cache_key] = files
@@ -527,7 +972,7 @@ class S3FileSystem(AbstractFileSystem):
         return files
 
     def ls(
-        self, path: str, detail: bool = False, refresh: bool = False, **kwargs
+        self, path: str | os.PathLike[str], detail: bool = False, refresh: bool = False, **kwargs
     ) -> list[S3Object] | list[str]:
         """List contents of an S3 path.
 
@@ -547,6 +992,12 @@ class S3FileSystem(AbstractFileSystem):
         Returns:
             List of S3Object instances (if detail=True) or paths as strings (if detail=False).
 
+        Raises:
+            FileNotFoundError: If the bucket does not exist, or if a key path
+                is neither an object nor a directory, a path that some key
+                starts with followed by ``/``, or if HeadObject reports the
+                version that a key path with a version ID names missing.
+
         Example:
             >>> fs = S3FileSystem()
             >>> fs.ls("s3://my-bucket")  # List objects in bucket
@@ -560,33 +1011,63 @@ class S3FileSystem(AbstractFileSystem):
         path = self._strip_protocol(path).rstrip("/")
         if path in ["", "/"]:
             files = self._ls_buckets(refresh)
-        elif versions:
-            files = self._ls_object_versions(path)
         else:
-            files = self._ls_dirs(path, refresh=refresh)
-            if not files and "/" in path:
-                file = self._head_object(path, refresh=refresh)
-                if file:
-                    files = [file]
+            s3_path = S3Path.parse(path)
+            key = s3_path.key
+            if key and s3_path.version_id:
+                files = self._ls_version(s3_path, refresh=refresh)
+            elif versions:
+                files = self._ls_object_versions(path)
+            else:
+                files = self._ls_dirs(path, refresh=refresh)
+                if not files and key:
+                    file = self._head_object(path, refresh=refresh)
+                    if file:
+                        files = [file]
+            # An empty bucket lists nothing, while a missing bucket raises
+            # from the listing.
+            if not files and key:
+                raise FileNotFoundError(path)
         return list(files) if detail else [f.name for f in files]
+
+    def _ls_version(self, s3_path: S3Path, refresh: bool = False) -> list[S3Object]:
+        """List the object version that a key path with a version ID names.
+
+        A version names one object, which has nothing below it, so no
+        directory is listed. The entry is named as ``ls(versions=True)``
+        names a version.
+
+        Args:
+            s3_path: The key path with a version ID.
+            refresh: If True, bypass the cache and call HeadObject.
+
+        Returns:
+            The entry of the version, or an empty list if it does not exist.
+        """
+        file = self._head_object(str(s3_path), refresh=refresh)
+        if not file:
+            return []
+        if s3_path.version_id != "null":
+            # The cached entry of the lookup is named without the version.
+            file = file.copy()
+            file.name = str(s3_path)
+        return [file]
 
     def _ls_object_versions(self, path: str) -> list[S3Object]:
         """List a prefix including all versions of the objects.
 
         The listing is always fetched from S3 and is not cached, because the
-        dircache stores the current view of a path.
+        dircache stores the current view of a path. A key path with nothing
+        under it lists the versions of its object.
+
+        Args:
+            path: The bucket or key path, without the protocol.
+
+        Returns:
+            The listed directories and versions.
         """
         s3_path = S3Path.parse(path)
-        prefix = f"{s3_path.key}/" if s3_path.key else ""
-
-        files: list[S3Object] = []
-        for page in self.core.list_object_versions(s3_path.bucket, prefix=prefix, delimiter="/"):
-            files.extend(
-                self._directory_object(s3_path.bucket, c.prefix[:-1].rstrip("/"))
-                for c in page.common_prefixes
-            )
-            files.extend(S3Object.from_version(v) for v in page.versions)
-
+        files = self._ls_prefix_versions(self._directory_object(s3_path.bucket, s3_path.key))
         if not files and s3_path.key:
             # The path may point at an object rather than a key prefix.
             files = [
@@ -599,7 +1080,55 @@ class S3FileSystem(AbstractFileSystem):
             ]
         return files
 
-    def info(self, path: str, **kwargs) -> S3Object:
+    def _ls_prefix_versions(self, directory: S3Object) -> list[S3Object]:
+        """List the common prefixes and the versions of the objects under a directory.
+
+        Args:
+            directory: The bucket or directory to list (see
+                :meth:`_directory_prefix`).
+
+        Returns:
+            The listed directories and versions, not cached.
+        """
+        bucket = directory.bucket
+        files: list[S3Object] = []
+        for page in self.core.list_object_versions(
+            bucket, prefix=self._directory_prefix(directory), delimiter="/"
+        ):
+            files.extend(
+                self._directory_object(bucket, c.prefix[:-1]) for c in page.common_prefixes
+            )
+            files.extend(S3Object.from_version(v) for v in page.versions)
+        return files
+
+    def _ls_directory(
+        self, directory: S3Object, refresh: bool = False, versions: bool = False
+    ) -> list[S3Object]:
+        """List a listed directory or bucket by its key prefix, as ``ls()`` lists a path.
+
+        Args:
+            directory: A directory or bucket entry of a listing (see
+                :meth:`_directory_prefix`).
+            refresh: If True, bypass the cache and list from S3.
+            versions: Whether to list all versions of the objects, as
+                ``ls(versions=True)`` does.
+
+        Returns:
+            A new list of the listed directories and files.
+
+        Raises:
+            FileNotFoundError: If nothing is listed under a directory, such as
+                one whose keys have been deleted since it was listed.
+        """
+        if versions:
+            files = self._ls_prefix_versions(directory)
+        else:
+            files = self._ls_prefix(directory, refresh=refresh)
+        if not files and directory.key is not None:
+            raise FileNotFoundError(directory.name)
+        return list(files)
+
+    def info(self, path: str | os.PathLike[str], **kwargs) -> S3Object:
         """Return information about an S3 path.
 
         Uses the directory cache first: a cached entry for the path is
@@ -730,7 +1259,7 @@ class S3FileSystem(AbstractFileSystem):
         raise FileNotFoundError(path)
 
     def _extract_parent_directories(
-        self, files: list[S3Object], bucket: str, base_key: str | None
+        self, files: list[S3Object], bucket: str, base_prefix: str
     ) -> list[S3Object]:
         """Extract parent directory objects from file paths.
 
@@ -740,39 +1269,28 @@ class S3FileSystem(AbstractFileSystem):
         Args:
             files: List of S3Object instances representing files.
             bucket: S3 bucket name.
-            base_key: Base key path to calculate relative paths from.
+            base_prefix: The key prefix below which the directories are
+                derived: ``""``, or a prefix that ends in ``/``, such as
+                ``a//`` for the keys ``a//x/y``.
 
         Returns:
             List of S3Object instances representing directories.
         """
         dirs = set()
-        base_key = base_key.rstrip("/") if base_key else ""
-
         for f in files:
-            if f.key and f.type == S3ObjectType.S3_OBJECT_TYPE_FILE:
-                # Extract directory paths from file paths
-                f_key = f.key
-                if base_key and f_key.startswith(base_key + "/"):
-                    relative_path = f_key[len(base_key) + 1 :]
-                elif not base_key:
-                    relative_path = f_key
-                else:
-                    continue
-
-                # Get all parent directories
-                parts = relative_path.split("/")
+            if (
+                f.key
+                and f.type == S3ObjectType.S3_OBJECT_TYPE_FILE
+                and f.key.startswith(base_prefix)
+            ):
+                parts = f.key[len(base_prefix) :].split("/")
                 for i in range(1, len(parts)):
-                    if base_key:
-                        dir_path = base_key + "/" + "/".join(parts[:i])
-                    else:
-                        dir_path = "/".join(parts[:i])
-                    dirs.add(dir_path)
-
+                    dirs.add(base_prefix + "/".join(parts[:i]))
         return [self._directory_object(bucket, dir_path) for dir_path in dirs]
 
     def _find(
         self,
-        path: str,
+        path: str | os.PathLike[str],
         maxdepth: int | None = None,
         withdirs: bool | None = None,
         **kwargs,
@@ -802,21 +1320,29 @@ class S3FileSystem(AbstractFileSystem):
         prefix = kwargs.pop("prefix", "")
         refresh = kwargs.pop("refresh", False)
 
+        if s3_path.key and s3_path.version_id:
+            return self._ls_version(s3_path, refresh=refresh)
         if maxdepth is not None:
             # The entries listed with the prefix lie as many levels further
             # below the path as the prefix has slashes.
             files = self._find_levels(
-                path, maxdepth - prefix.count("/"), prefix=prefix, refresh=refresh
+                self._directory_object(s3_path.bucket, s3_path.key),
+                maxdepth - prefix.count("/"),
+                prefix=prefix,
+                refresh=refresh,
             )
         else:
-            files = self._ls_dirs(path, prefix=prefix, delimiter="", refresh=refresh)
+            directory = self._directory_object(s3_path.bucket, s3_path.key)
+            files = self._ls_prefix(directory, prefix=prefix, delimiter="", refresh=refresh)
             # S3 doesn't return directory entries without a delimiter, so the
             # directories are derived from the listed keys, below the last
-            # slash of the prefix, as with maxdepth.
+            # slash of the listed key prefix, as with maxdepth.
             if withdirs:
-                base_key = "/".join(k for k in (s3_path.key, prefix.rpartition("/")[0]) if k)
+                listed = self._directory_prefix(directory) + prefix
                 # Build a new list; files may be the cached listing.
-                files = files + self._extract_parent_directories(files, s3_path.bucket, base_key)
+                files = files + self._extract_parent_directories(
+                    files, s3_path.bucket, listed[: listed.rfind("/") + 1]
+                )
 
         if files:
             # Something is listed below the path, so the path is a directory,
@@ -837,15 +1363,18 @@ class S3FileSystem(AbstractFileSystem):
         return files
 
     def _find_levels(
-        self, path: str, maxdepth: int, prefix: str = "", refresh: bool = False
+        self, directory: S3Object, maxdepth: int, prefix: str = "", refresh: bool = False
     ) -> list[S3Object]:
-        """List the entries below a path level by level with ``Delimiter="/"``.
+        """List the entries below a directory level by level with ``Delimiter="/"``.
+
+        Each listed directory is listed by its key prefix, never by parsing
+        its name (see :meth:`_directory_prefix`).
 
         Args:
-            path: S3 path to search under.
+            directory: The bucket or directory to search under.
             maxdepth: Number of levels to list.
-            prefix: Key prefix, relative to the path, to filter the first
-                level by.
+            prefix: Key prefix, relative to the directory, to filter the
+                first level by.
             refresh: If True, bypass the cache and list from S3.
 
         Returns:
@@ -854,15 +1383,15 @@ class S3FileSystem(AbstractFileSystem):
         if maxdepth < 1:
             return []
         result: list[S3Object] = []
-        for item in self._ls_dirs(path, prefix=prefix, delimiter="/", refresh=refresh):
+        for item in self._ls_prefix(directory, prefix=prefix, delimiter="/", refresh=refresh):
             result.append(item)
             if item.type == S3ObjectType.S3_OBJECT_TYPE_DIRECTORY:
-                result.extend(self._find_levels(item.name, maxdepth - 1, refresh=refresh))
+                result.extend(self._find_levels(item, maxdepth - 1, refresh=refresh))
         return result
 
     def find(
         self,
-        path: str,
+        path: str | os.PathLike[str],
         maxdepth: int | None = None,
         withdirs: bool | None = None,
         detail: bool = False,
@@ -875,7 +1404,9 @@ class S3FileSystem(AbstractFileSystem):
         with delimiter handling for performance. As in fsspec, the result
         includes the path itself if withdirs is True and objects exist below
         it, unless it is a bucket, or if it is an object and nothing is listed
-        below it.
+        below it. A key path with a version ID names that version of the
+        object: the result is the version, named as ``ls(versions=True)``
+        names it, or empty if HeadObject reports it missing.
 
         Args:
             path: S3 path to search under (e.g., "s3://bucket/prefix").
@@ -907,6 +1438,297 @@ class S3FileSystem(AbstractFileSystem):
         if detail:
             return {f.name: f for f in files}
         return [f.name for f in files]
+
+    def walk(self, path, maxdepth=None, topdown=True, on_error="omit", **kwargs):
+        """Walk the directories below a path, as fsspec's ``walk()`` does.
+
+        Unlike fsspec, a listed directory is listed by its key prefix rather
+        than by its name (see :meth:`_directory_prefix`), so a directory whose
+        name ends in a version ID query or in an empty segment is walked as
+        it was listed. Its name in the listing of its parent is the part of
+        its name after the parent's name, such as ``""`` for the directory
+        ``bucket/dir/`` of the keys ``dir//x`` in ``bucket/dir``, and it is
+        walked under its name as listed.
+
+        Args:
+            path: The path to walk.
+            maxdepth: Maximum number of levels to walk, at least 1 (None for
+                unlimited).
+            topdown: Whether to yield a directory before the directories
+                below it. When True, removing names from the yielded
+                directory names skips their directories.
+            on_error: For the listing of the path, ``"omit"`` to yield
+                nothing if it fails, ``"raise"`` to raise its error, or a
+                callable that receives the error. As in fsspec, a directory
+                below the path whose listing fails is skipped.
+            **kwargs: Additional arguments passed to ``ls()``, such as
+                ``refresh`` and ``versions``; ``detail=True`` yields the
+                entries by name instead of the names.
+
+        Yields:
+            Tuples of a directory path, its directories, and its files.
+
+        Raises:
+            ValueError: If ``maxdepth`` is less than 1.
+        """
+        yield from self._walk_tree(
+            self._strip_protocol(path),
+            maxdepth=maxdepth,
+            topdown=topdown,
+            on_error=on_error,
+            **kwargs,
+        )
+
+    def _walk_tree(
+        self,
+        path: str,
+        maxdepth: int | None = None,
+        topdown: bool = True,
+        on_error: Any = "omit",
+        directory: S3Object | None = None,
+        yield_failed: bool = False,
+        **kwargs,
+    ) -> Generator[tuple[str, Any, Any], None, None]:
+        """Walk a path, or a listed directory by its key prefix, as :meth:`walk` describes.
+
+        Args:
+            path: The path to walk, without the protocol, or the name of
+                ``directory``.
+            maxdepth: Maximum number of levels to walk, at least 1.
+            topdown: Whether to yield a directory before those below it.
+            on_error: What to do with an error of the listing of the path,
+                as in :meth:`walk`.
+            directory: The listed directory to walk, or None to list
+                ``path`` with ``ls()``.
+            yield_failed: Whether to yield a directory whose listing failed
+                with no entries, as fsspec's ``_walk()`` does.
+            **kwargs: Additional arguments passed to ``ls()``, as in
+                :meth:`walk`.
+
+        Yields:
+            Tuples of a directory path, its directories, and its files.
+
+        Raises:
+            ValueError: If ``maxdepth`` is less than 1.
+        """
+        if maxdepth is not None and maxdepth < 1:
+            raise ValueError("maxdepth must be at least 1")
+        detail = kwargs.pop("detail", False)
+        try:
+            listing = self._walk_listing(path, directory, **kwargs)
+        except (FileNotFoundError, OSError) as e:
+            if on_error == "raise":
+                raise
+            if callable(on_error):
+                on_error(e)
+            if yield_failed:
+                yield path, {} if detail else [], {} if detail else []
+            return
+        dirs, files = self._walk_entries(path, listing)
+        names: Any = dirs if detail else list(dirs)
+        listed: Any = files if detail else list(files)
+
+        if topdown:
+            yield path, names, listed
+        if maxdepth is not None:
+            maxdepth -= 1
+            if maxdepth < 1:
+                if not topdown:
+                    yield path, names, listed
+                return
+        for d in names:
+            # As in fsspec, on_error applies to the path itself, and the
+            # failed listings of the directories below it are skipped.
+            yield from self._walk_tree(
+                dirs[d].name,
+                maxdepth=maxdepth,
+                topdown=topdown,
+                directory=dirs[d],
+                yield_failed=yield_failed,
+                detail=detail,
+                **kwargs,
+            )
+        if not topdown:
+            yield path, names, listed
+
+    def _walk_listing(self, path: str, directory: S3Object | None, **kwargs) -> list[S3Object]:
+        """List a directory of a walk.
+
+        Args:
+            path: The path to list, without the protocol, when ``directory``
+                is None.
+            directory: The listed directory to list by its key prefix, or
+                None.
+            **kwargs: Additional arguments passed to ``ls()``, of which a
+                listed directory uses ``refresh`` and ``versions``.
+
+        Returns:
+            The entries of the directory.
+
+        Raises:
+            FileNotFoundError: If nothing exists at the path, or nothing is
+                listed under the directory.
+        """
+        if directory is None:
+            return cast(list[S3Object], self.ls(path, detail=True, **kwargs))
+        return self._ls_directory(
+            directory, refresh=kwargs.get("refresh", False), versions=kwargs.get("versions", False)
+        )
+
+    @staticmethod
+    def _walk_entries(
+        path: str, listing: list[S3Object]
+    ) -> tuple[dict[str, S3Object], dict[str, S3Object]]:
+        """Name the directories and files of a walked directory.
+
+        An entry named below the path is named by the rest of its name, which
+        an empty segment, or the folder marker of the path (its key followed
+        by ``/``), leaves empty. Another entry, such as the object that
+        ``ls()`` returns for the path itself, is named as fsspec's ``walk()``
+        names it.
+
+        Args:
+            path: The path of the walked directory.
+            listing: The entries of the directory.
+
+        Returns:
+            The directories and the files, by name.
+        """
+        dirs: dict[str, S3Object] = {}
+        files: dict[str, S3Object] = {}
+        for info in listing:
+            name = info.name
+            is_directory = info.type == S3ObjectType.S3_OBJECT_TYPE_DIRECTORY
+            if name.startswith(path + "/"):
+                (dirs if is_directory else files)[name[len(path) + 1 :]] = info
+                continue
+            pathname = name.rstrip("/")
+            if is_directory and pathname != path:
+                dirs[pathname.rsplit("/", 1)[-1]] = info
+            elif pathname == path:
+                files[""] = info
+            else:
+                files[pathname.rsplit("/", 1)[-1]] = info
+        return dirs, files
+
+    def glob(self, path, maxdepth=None, **kwargs):
+        """Find the paths that match a glob pattern.
+
+        As fsspec's ``glob()``, except that only the keys that start with the
+        part of the last path component before the first wildcard are listed,
+        as with fsspec's asynchronous ``_glob()``.
+
+        Args:
+            path: S3 glob pattern, as a string or an ``os.PathLike``.
+            maxdepth: Maximum depth of the paths below the literal part of the
+                pattern, at least 1.
+            **kwargs: Additional arguments passed to ``find``, such as
+                ``detail``.
+
+        Returns:
+            The matching paths, or a dictionary of them and their objects with
+            ``detail=True``.
+        """
+        stripped = self._strip_protocol(path)
+        wildcards = [i for i in (stripped.find(c) for c in "*?[") if i >= 0]
+        stem = stripped[: min(wildcards)].rpartition("/")[2] if wildcards else ""
+        if stem and "prefix" not in kwargs:
+            kwargs["prefix"] = stem
+        return super().glob(stringify_path(path), maxdepth=maxdepth, **kwargs)
+
+    def tree(
+        self,
+        path: str | os.PathLike[str] = "/",
+        recursion_limit: int = 2,
+        max_display: int = 25,
+        display_size: bool = False,
+        prefix: str = "",
+        is_last: bool = True,
+        first: bool = True,
+        indent_size: int = 4,
+    ) -> str:
+        """Return a tree of the paths below a path, as fsspec's ``tree()`` does.
+
+        Unlike fsspec, a listed directory is listed by its key prefix rather
+        than by its name, as in :meth:`walk`.
+
+        Args:
+            path: The root path, as a string or an ``os.PathLike``.
+            recursion_limit: Maximum depth of the tree.
+            max_display: Maximum number of entries shown per directory.
+            display_size: Whether to show the sizes of the files.
+            prefix: The prefix of each line.
+            is_last: Whether the path is the last entry of its directory.
+            first: Whether the path is the root of the tree.
+            indent_size: Number of spaces per level.
+
+        Returns:
+            The tree as a string.
+        """
+        return _S3TreeListing(self).tree(
+            path=stringify_path(path),
+            recursion_limit=recursion_limit,
+            max_display=max_display,
+            display_size=display_size,
+            prefix=prefix,
+            is_last=is_last,
+            first=first,
+            indent_size=indent_size,
+        )
+
+    def get_mapper(
+        self,
+        root: str | os.PathLike[str] = "",
+        check: bool = False,
+        create: bool = False,
+        missing_exceptions=None,
+    ):
+        """Return a key/value store at a path, as fsspec's ``get_mapper()`` does.
+
+        Args:
+            root: The root path of the store, as a string or an ``os.PathLike``.
+            check: Whether to check that the root is writable.
+            create: Whether to create the root if it does not exist.
+            missing_exceptions: The exceptions that mean a missing key.
+
+        Returns:
+            The ``fsspec.mapping.FSMap`` of the root.
+        """
+        return super().get_mapper(
+            stringify_path(root),
+            check=check,
+            create=create,
+            missing_exceptions=missing_exceptions,
+        )
+
+    def unstrip_protocol(self, name: str | os.PathLike[str]) -> str:
+        """Add the protocol to a path, as fsspec's ``unstrip_protocol()`` does.
+
+        Args:
+            name: The path, as a string or an ``os.PathLike``.
+
+        Returns:
+            The path with the ``s3://`` protocol.
+        """
+        return cast(str, super().unstrip_protocol(stringify_path(name)))
+
+    @staticmethod
+    def _stringify_paths(path: Any) -> Any:
+        """Convert an ``os.PathLike`` path, or those of a list, to strings.
+
+        The paths are converted with fsspec's ``stringify_path``, as
+        ``_strip_protocol()`` converts them, but their slashes are kept.
+
+        Args:
+            path: A path or a list of paths.
+
+        Returns:
+            The converted path, or a new list of the converted paths.
+            Strings are returned unchanged.
+        """
+        if isinstance(path, list):
+            return [stringify_path(p) for p in path]
+        return stringify_path(path)
 
     def expand_path(self, path, recursive=False, maxdepth=None, **kwargs) -> list[str]:
         """Expand glob patterns and directories into the paths they match.
@@ -960,10 +1782,13 @@ class S3FileSystem(AbstractFileSystem):
             self._strip_protocol(p)
             for p in ([path] if isinstance(path, (str, os.PathLike)) else path)
         ]
-        versions = [p for p in paths if S3Path.split_version_id(p)[1]]
-        return versions, [p for p in paths if p not in versions]
+        versions: list[str] = []
+        others: list[str] = []
+        for p in paths:
+            (versions if S3Path.has_version_id(p) else others).append(p)
+        return versions, others
 
-    def exists(self, path: str, **kwargs) -> bool:
+    def exists(self, path: str | os.PathLike[str], **kwargs) -> bool:
         """Check if an S3 path exists.
 
         Determines whether a bucket, object, or prefix exists in S3.
@@ -982,6 +1807,11 @@ class S3FileSystem(AbstractFileSystem):
         Returns:
             True if the path exists, False otherwise. A bucket that HeadBucket
             denies access to (403) exists.
+
+        Raises:
+            PermissionError: If the lookup of an object is denied (403).
+                Without ``s3:ListBucket`` on the bucket, S3 also answers 403
+                for a key that does not exist.
 
         Example:
             >>> fs = S3FileSystem()
@@ -1015,7 +1845,7 @@ class S3FileSystem(AbstractFileSystem):
             return True
         return bool(file)
 
-    def rm_file(self, path: str, **kwargs) -> None:
+    def rm_file(self, path: str | os.PathLike[str], **kwargs) -> None:
         """Delete an S3 object with DeleteObject.
 
         Does nothing for a bucket path. If the path has a version ID, that
@@ -1023,24 +1853,26 @@ class S3FileSystem(AbstractFileSystem):
 
         Args:
             path: S3 path (s3://bucket/key) of the object to delete.
-            **kwargs: Accepted for fsspec compatibility; not used in the
-                request.
+            **kwargs: Additional parameters passed to the DeleteObject API,
+                such as ``RequestPayer``. Those that it does not accept are
+                ignored, for fsspec compatibility.
 
         Raises:
             TypeError: If kwargs has ``bucket``, ``key`` or ``version_id``,
-                which the path gives.
+                or ``Bucket``, ``Key`` or ``VersionId``, which the path gives.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             return
-        for name in ("bucket", "key", "version_id"):
+        for name in ("bucket", "key", "version_id", "Bucket", "Key", "VersionId"):
             if name in kwargs:
                 raise TypeError(f"rm_file() got multiple values for keyword argument '{name}'")
         _logger.debug(f"Delete object: {s3_path.uri}")
-        self.core.delete_object(s3_path)
+        self.core.delete_object(s3_path, **self.core.operation_params("delete_object", kwargs))
         self.invalidate_cache(path)
 
-    def rm(self, path, recursive=False, maxdepth=None, **kwargs) -> None:
+    def rm(self, path, recursive=False, maxdepth=None, batch_size=None, **kwargs) -> None:
         """Delete objects with DeleteObjects requests.
 
         Expands the paths with ``expand_path`` and deletes the matched objects
@@ -1052,15 +1884,49 @@ class S3FileSystem(AbstractFileSystem):
             path: S3 path (s3://bucket/key) or list of paths to delete.
             recursive: Whether to delete all objects below the paths.
             maxdepth: Maximum depth to expand when ``recursive`` is True.
+            batch_size: Number of DeleteObjects requests to send at the same
+                time. By default the ``batch_size`` of the filesystem; None or
+                -1 there is ``max_workers``. ``max_workers`` is a deprecated
+                alias.
             **kwargs: Additional parameters passed to the DeleteObjects API.
                 ``Quiet`` (default True) sets the quiet mode of the requests.
 
         Raises:
-            ValueError: If a path is a bucket.
+            ValueError: If a path is a bucket, or ``batch_size`` is neither
+                positive, -1, nor None.
+            TypeError: If both ``batch_size`` and ``max_workers`` are given.
             OSError: If S3 could not delete some of the objects.
         """
+        path = self._stringify_paths(path)
+        max_workers = self._delete_batch_limit(batch_size, kwargs)
         paths = self._delete_paths(path, recursive=recursive, maxdepth=maxdepth)
-        self._delete_objects(paths, **kwargs)
+        self._delete_objects(paths, max_workers=max_workers, **kwargs)
+
+    def _delete_batch_limit(self, batch_size: int | None, kwargs: dict[str, Any]) -> int:
+        """Return the number of DeleteObjects requests of ``rm()`` to send at once.
+
+        Args:
+            batch_size: The ``batch_size`` argument of ``rm()``.
+            kwargs: The other arguments of ``rm()``, from which its deprecated
+                alias ``max_workers`` is removed.
+
+        Returns:
+            The number of requests.
+
+        Raises:
+            ValueError: If the number is neither positive, -1, nor None.
+            TypeError: If both ``batch_size`` and ``max_workers`` are given.
+        """
+        if "max_workers" in kwargs:
+            if batch_size is not None:
+                raise TypeError("rm() got both batch_size and its alias max_workers.")
+            warnings.warn(
+                "The max_workers argument of rm() is deprecated; use batch_size.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
+            batch_size = kwargs.pop("max_workers")
+        return self._batch_limit(batch_size)
 
     def _delete_paths(
         self, path: str | list[str], recursive: bool = False, maxdepth: int | None = None
@@ -1087,19 +1953,155 @@ class S3FileSystem(AbstractFileSystem):
             unversioned_paths, recursive=recursive, maxdepth=maxdepth
         )
 
-    def _create_executor(self, max_workers: int) -> S3Executor:
-        """Create an executor strategy for parallel operations.
+    def _create_executor(self, max_workers: int) -> _S3PoolScope:
+        """Create the executor of the parallel requests of a file or an operation.
 
-        Subclasses can override to provide alternative execution strategies
-        (e.g., asyncio-based execution).
+        The files of ``S3FileSystem`` and ``AioS3FileSystem`` and the
+        parallel operations of both take their executors from this method.
+        The requests run in the request pool of the filesystem, which they
+        share, at most ``max_workers`` of those of the executor at once;
+        shutting the executor down waits for its own requests only, and
+        leaves the pool running.
 
         Args:
-            max_workers: Maximum number of parallel workers.
+            max_workers: The maximum number of requests of the executor in
+                the request pool at once.
 
         Returns:
-            An S3Executor instance.
+            An executor on the request pool of the filesystem.
+
+        Raises:
+            ValueError: If ``max_workers`` is not positive.
         """
-        return S3ThreadPoolExecutor(max_workers=max_workers)
+        return _S3PoolScope(self._request_pool, max_workers)
+
+    def _map(
+        self,
+        fn: Callable[[ItemT], T],
+        items: Iterable[ItemT],
+        max_workers: int | None = None,
+        **kwargs: Any,
+    ) -> S3MapResult[T]:
+        """Run the parallel requests of an operation in a scope of their own.
+
+        See :meth:`S3Executor.map() <pyathena.filesystem.s3_executor.S3Executor.map>`.
+        The scope is shut down without another wait, since the map has waited
+        for the calls that it started, unless a second interrupt stopped it.
+
+        Args:
+            fn: The request to run for each item.
+            items: The items.
+            max_workers: Maximum number of parallel requests. Defaults to
+                ``self.max_workers``.
+            **kwargs: The options of ``S3Executor.map()``.
+
+        Returns:
+            The outcomes of the requests.
+        """
+        executor = self._create_executor(max_workers=max_workers or self.max_workers)
+        try:
+            return executor.map(fn, items, **kwargs)
+        finally:
+            executor.shutdown(wait=False)
+
+    @staticmethod
+    def _check_batch_size(batch_size: int | None) -> int | None:
+        """Check a ``batch_size`` argument.
+
+        Args:
+            batch_size: The argument.
+
+        Returns:
+            The argument.
+
+        Raises:
+            ValueError: If it is neither positive, -1, nor None.
+        """
+        if batch_size is not None and batch_size != -1 and batch_size <= 0:
+            raise ValueError("batch_size must be a positive integer, -1, or None.")
+        return batch_size
+
+    def _batch_limit(self, batch_size: int | None) -> int:
+        """Return the number of calls of a batch operation that may run at once.
+
+        Args:
+            batch_size: The ``batch_size`` of the call. None takes that of the
+                filesystem; None or -1 there is ``max_workers``, the size of
+                the request pool.
+
+        Returns:
+            The number of calls.
+
+        Raises:
+            ValueError: If ``batch_size`` is neither positive, -1, nor None.
+        """
+        batch_size = self._check_batch_size(batch_size)
+        if batch_size is None:
+            batch_size = self.batch_size
+        if batch_size is None or batch_size == -1:
+            return self.max_workers
+        return batch_size
+
+    def _batch_kwargs(self, concurrency: int, kwargs: dict[str, Any]) -> dict[str, Any]:
+        """Return the arguments of the per-object calls of a batch operation.
+
+        With several calls at once, each object gets ``max_workers //
+        concurrency`` parallel requests, at least one, so that a batch keeps
+        about ``max_workers`` requests in the request pool. A ``max_workers``
+        of the caller is capped at that; None or 0 takes it.
+
+        Args:
+            concurrency: The number of calls that run at once.
+            kwargs: The arguments that the caller gave the operation.
+
+        Returns:
+            The arguments of each call.
+        """
+        if concurrency <= 1:
+            return kwargs
+        window = max(1, self.max_workers // concurrency)
+        given = kwargs.get("max_workers")
+        return {**kwargs, "max_workers": min(given, window) if given else window}
+
+    def _run_batch(
+        self,
+        fn: Callable[[ItemT], T],
+        items: list[ItemT],
+        concurrency: int,
+        counts: Callable[[BaseException], bool] | None = None,
+    ) -> S3MapResult[T]:
+        """Run the per-object calls of a batch operation.
+
+        The calls are composite: each one waits for requests of its object in
+        the request pool. They run in threads of a pool of their own, at most
+        ``concurrency`` at once, and never in the request pool. A single
+        item runs in the calling thread. See :meth:`S3Executor.map()
+        <pyathena.filesystem.s3_executor.S3Executor.map>` for the failures,
+        interrupts, and ``counts``.
+
+        Args:
+            fn: The call to run for each item.
+            items: The items, in the order of the outcomes.
+            concurrency: The number of calls that run at once.
+            counts: Whether a failure stops the batch, by default every one.
+
+        Returns:
+            The outcomes of the calls.
+        """
+        if len(items) == 1:
+            try:
+                return S3MapResult([fn(items[0])], None)
+            except Exception as e:
+                if counts is None or counts(e):
+                    raise
+                return S3MapResult([e], None)
+        executor = S3ThreadPool(max_workers=concurrency)
+        try:
+            return executor.map(fn, items, counts=counts)
+        finally:
+            # The map has waited for the calls that it started, unless a
+            # second interrupt stopped it.
+            executor.shutdown(wait=False)
 
     def _delete_objects(self, paths: list[str], max_workers: int | None = None, **kwargs) -> None:
         """Delete objects with DeleteObjects requests grouped by bucket.
@@ -1119,11 +2121,15 @@ class S3FileSystem(AbstractFileSystem):
         if not batches:
             return
 
-        max_workers = max_workers if max_workers else self.max_workers
-        with self._create_executor(max_workers=max_workers) as executor:
-            fs = [executor.submit(self._delete_batch, batch, **params) for batch in batches]
-        # The executor has waited for every request, also after a failure.
-        self._raise_delete_errors([f.exception() or f.result() for f in fs])
+        # Every request runs also after another failed, and an interrupt
+        # cancels those that have not started.
+        results = self._map(
+            functools.partial(self._delete_batch, **params),
+            batches,
+            max_workers=max_workers,
+            stop_on_failure=False,
+        )
+        self._raise_delete_errors(results.outcomes)
 
     @staticmethod
     def _delete_batches(paths: list[str], **kwargs) -> tuple[list[S3DeleteBatch], dict[str, Any]]:
@@ -1196,7 +2202,7 @@ class S3FileSystem(AbstractFileSystem):
         if message:
             raise OSError(message)
 
-    def mkdir(self, path: str, create_parents: bool = True, **kwargs) -> None:
+    def mkdir(self, path: str | os.PathLike[str], create_parents: bool = True, **kwargs) -> None:
         """Create an S3 bucket.
 
         S3 has no real directories below the bucket level; creating a key
@@ -1217,6 +2223,9 @@ class S3FileSystem(AbstractFileSystem):
                 acl: Canned ACL to apply to the bucket.
                 region_name: Region to create the bucket in. Defaults to the
                     client's region.
+                Other parameters that the CreateBucket API accepts, such as
+                ``ObjectLockEnabledForBucket``, are passed to it; the others
+                are ignored, for fsspec compatibility.
 
         Raises:
             FileExistsError: If the path is a bucket that already exists.
@@ -1224,7 +2233,8 @@ class S3FileSystem(AbstractFileSystem):
                 ``create_parents`` is False.
             PermissionError: If the bucket would be created but bucket
                 creation is not enabled on this filesystem instance.
-            ValueError: If the ACL is invalid or the path is empty.
+            ValueError: If the ACL is invalid, the path is empty, or
+                botocore rejects the parameters of the CreateBucket request.
         """
         path = self._strip_protocol(path).rstrip("/")
         if not path:
@@ -1241,14 +2251,12 @@ class S3FileSystem(AbstractFileSystem):
                     "Bucket creation is disabled. "
                     "Set allow_bucket_creation=True on the filesystem to enable it."
                 )
-            try:
-                self.core.create_bucket(
-                    s3_path.bucket,
-                    acl=kwargs.pop("acl", None),
-                    region_name=kwargs.pop("region_name", None),
-                )
-            except botocore.exceptions.ParamValidationError as e:
-                raise ValueError(f"Bucket create failed {s3_path.bucket!r}: {e}") from e
+            self.core.create_bucket(
+                s3_path.bucket,
+                acl=kwargs.pop("acl", None),
+                region_name=kwargs.pop("region_name", None),
+                **self.core.operation_params("create_bucket", kwargs),
+            )
             # invalidate_cache of the bucket keeps the cached bucket
             # listing, so evict it directly.
             self._evict_cache("")
@@ -1258,7 +2266,7 @@ class S3FileSystem(AbstractFileSystem):
             # and it is not requested to be created.
             raise FileNotFoundError(s3_path.bucket)
 
-    def makedirs(self, path: str, exist_ok: bool = False) -> None:
+    def makedirs(self, path: str | os.PathLike[str], exist_ok: bool = False) -> None:
         """Recursively create a directory, creating the bucket if necessary.
 
         Creating the bucket requires ``allow_bucket_creation=True`` on the
@@ -1281,7 +2289,7 @@ class S3FileSystem(AbstractFileSystem):
             if not exist_ok:
                 raise
 
-    def rmdir(self, path: str) -> None:
+    def rmdir(self, path: str | os.PathLike[str]) -> None:
         """Remove an S3 bucket, which must be empty.
 
         S3 has no real directories below the bucket level, so only bucket
@@ -1322,27 +2330,35 @@ class S3FileSystem(AbstractFileSystem):
         # so evict it directly.
         self._evict_cache("")
 
-    def touch(self, path: str, truncate: bool = True, **kwargs) -> dict[str, Any]:
+    def touch(
+        self, path: str | os.PathLike[str], truncate: bool = True, **kwargs
+    ) -> dict[str, Any]:
         """Create an empty object with PutObject.
 
         Args:
             path: S3 path (s3://bucket/key) of the object.
             truncate: If True, replace an existing object with an empty one;
-                if False, raise if the object exists.
-            **kwargs: Additional parameters passed to the PutObject API.
+                if False, raise if the object exists. A key that is only a
+                prefix of other keys has no object.
+            **kwargs: Additional parameters passed to the PutObject API,
+                except ``Body``: the object is empty.
 
         Returns:
             The PutObject response as a dictionary (see
             :meth:`S3PutObject.to_dict`).
 
         Raises:
+            TypeError: If kwargs has ``Body``.
             ValueError: If the path has a version ID, is a bucket, or exists
                 while ``truncate`` is False.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if s3_path.version_id:
             raise ValueError("Cannot touch the file with the version specified.")
-        if not truncate and self.exists(path):
+        if "Body" in kwargs:
+            raise TypeError("touch() creates an empty object; use pipe_file() to write data.")
+        if not truncate and self._key_exists(s3_path, self._get_lookup_kwargs(kwargs)):
             raise ValueError("Cannot touch the existing file without specifying truncate.")
         if not s3_path.key:
             raise ValueError("Cannot touch the bucket.")
@@ -1353,7 +2369,7 @@ class S3FileSystem(AbstractFileSystem):
         self.invalidate_cache(path)
         return object_.to_dict()
 
-    def mv(self, path1, path2, recursive=False, maxdepth=None, **kwargs) -> None:
+    def mv(self, path1, path2, recursive=False, maxdepth=None, batch_size=None, **kwargs) -> None:
         """Move files from one S3 location to another.
 
         Copies the files to the destinations that ``copy()`` gives them, and
@@ -1373,29 +2389,66 @@ class S3FileSystem(AbstractFileSystem):
         requires ``s3:GetBucketVersioning``. The result is not cached across
         moves. Directory buckets do not support versioning and need no lookup.
 
+        The files are copied in parallel as ``copy()`` copies them, and are
+        deleted once every copy has succeeded; nothing is deleted after a
+        failed copy.
+
         Args:
             path1: Source S3 path, glob pattern, or list of paths.
             path2: Destination S3 path, or list of paths when ``path1`` is a
                 list.
             recursive: Whether to move the directories with their contents.
             maxdepth: Maximum depth of a recursive move.
+            batch_size: Number of copies to run at the same time, as in
+                ``copy()``.
             **kwargs: Additional S3 copy parameters passed to ``cp_file()``.
+                The lookups and the deletion of the sources receive
+                ``RequestPayer`` and the source's expected bucket owner (see
+                :meth:`S3Core.copy_source_params`); the lookups also receive
+                the source's SSE-C parameters.
 
         Raises:
             ValueError: If two sources have the same destination, or a
                 destination is another source, including one left in place,
                 which is checked before anything is copied. A directory with
                 no object at its key, which is not copied, does not conflict.
+                Also if ``batch_size`` is neither positive, -1, nor None.
             OSError: If bucket versioning cannot be read.
         """
+        path1, path2 = self._stringify_paths(path1), self._stringify_paths(path2)
         if path1 == path2:
             return
-        copied = [
-            p1
-            for p1, p2 in self._move_pairs(path1, path2, recursive=recursive, maxdepth=maxdepth)
-            if self._copy_file(p1, p2, **kwargs)
-        ]
-        self._delete_objects(copied)
+        limit = self._batch_limit(batch_size)
+        source_params = self.core.copy_source_params(kwargs)
+        pairs = self._move_pairs(
+            path1,
+            path2,
+            recursive=recursive,
+            maxdepth=maxdepth,
+            source_params=source_params,
+        )
+        if not pairs:
+            return
+        concurrency = min(limit, len(pairs))
+        call_kwargs = self._batch_kwargs(concurrency, kwargs)
+
+        def copy_pair(pair: tuple[str, str]) -> bool:
+            """Copy a pair of the move.
+
+            Args:
+                pair: The source and its destination.
+
+            Returns:
+                Whether the source was copied, as ``_copy_file()`` returns it.
+            """
+            return self._copy_file(*pair, **call_kwargs)
+
+        # Every copy has ended, and succeeded, before anything is deleted.
+        copied = self._run_batch(copy_pair, pairs, concurrency).outcomes
+        self._delete_objects(
+            [p1 for (p1, _), c in zip(pairs, copied, strict=True) if c],
+            **self.core.operation_params("delete_objects", source_params),
+        )
 
     def _move_pairs(
         self,
@@ -1403,6 +2456,7 @@ class S3FileSystem(AbstractFileSystem):
         path2: str | list[str],
         recursive: bool = False,
         maxdepth: int | None = None,
+        source_params: Mapping[str, Any] | None = None,
     ) -> list[tuple[str, str]]:
         """Pair and check the paths of a move (see :meth:`S3PathPairing.move_pairs`).
 
@@ -1412,6 +2466,9 @@ class S3FileSystem(AbstractFileSystem):
                 list.
             recursive: Whether to include the contents of the directories.
             maxdepth: Maximum depth of the expansion.
+            source_params: The parameters of the requests that read the
+                sources (see :meth:`S3Core.copy_source_params`), sent with
+                the lookups of the sources.
 
         Returns:
             The sources and destinations that are moved.
@@ -1422,6 +2479,38 @@ class S3FileSystem(AbstractFileSystem):
         """
         pairing = S3PathPairing(path1, path2, recursive=recursive, maxdepth=maxdepth)
         pairs = self._copy_pairs(pairing)
+        missing, versioned_buckets = self._conflict_lookups(pairing, pairs, source_params)
+        return pairing.move_pairs(
+            pairs, missing=missing, versioning_enabled_buckets=versioned_buckets
+        )
+
+    def _conflict_lookups(
+        self,
+        pairing: S3PathPairing,
+        pairs: list[tuple[str, str]],
+        source_params: Mapping[str, Any] | None = None,
+        copy: bool = False,
+    ) -> tuple[set[str], set[str]]:
+        """Look up what the conflict checks of a move or a copy need.
+
+        See :meth:`S3PathPairing.conflict_candidates`.
+
+        Args:
+            pairing: The paths of the move or the copy.
+            pairs: The pairs of the paths.
+            source_params: The parameters of the requests that read the
+                sources (see :meth:`S3Core.copy_source_params`), sent with
+                the lookups of the sources.
+            copy: Whether the pairs are those of a copy.
+
+        Returns:
+            The conflict candidates with no object at their key, and the
+            buckets whose versioning is enabled among those with a ``null``
+            version and its unversioned key in the pairs.
+
+        Raises:
+            OSError: If bucket versioning cannot be read.
+        """
         paths = {p: S3Path.parse(p) for pair in pairs for p in pair}
         unversioned = {p.name for p in paths.values() if not p.version_id}
         buckets = {
@@ -1432,19 +2521,21 @@ class S3FileSystem(AbstractFileSystem):
         versioned_buckets = {
             bucket for bucket in buckets if self.core.get_bucket_versioning(bucket) == "Enabled"
         }
+        lookup_kwargs = self._get_lookup_kwargs(source_params or {})
         missing = {
             source
             for source in pairing.conflict_candidates(
-                pairs, versioning_enabled_buckets=versioned_buckets
+                pairs, versioning_enabled_buckets=versioned_buckets, copy=copy
             )
-            if self._head_object(source) is None
+            if self._head_object(source, lookup_kwargs=lookup_kwargs) is None
         }
-        return pairing.move_pairs(
-            pairs, missing=missing, versioning_enabled_buckets=versioned_buckets
-        )
+        return missing, versioned_buckets
 
     def _copy_pairs(
-        self, pairing: S3PathPairing, isdir: Callable[[str], bool] | None = None
+        self,
+        pairing: S3PathPairing,
+        isdir: Callable[[str], bool] | None = None,
+        **kwargs: Any,
     ) -> list[tuple[str, str]]:
         """Expand and pair the paths of a copy (see :meth:`S3PathPairing.copy_pairs`).
 
@@ -1454,6 +2545,8 @@ class S3FileSystem(AbstractFileSystem):
             pairing: The paths of the copy.
             isdir: Whether the destination is a directory, by default
                 ``self.isdir``; ``get()`` passes the local filesystem's.
+            **kwargs: Passed to ``expand_path()``, as fsspec's ``get()`` passes
+                its keyword arguments.
 
         Returns:
             The sources and their destinations.
@@ -1461,7 +2554,7 @@ class S3FileSystem(AbstractFileSystem):
         if not pairing.expands:
             return pairing.copy_pairs()
         sources = self.expand_path(
-            pairing.path1, recursive=pairing.recursive, maxdepth=pairing.maxdepth
+            pairing.path1, recursive=pairing.recursive, maxdepth=pairing.maxdepth, **kwargs
         )
         if pairing.skips_directories:
             sources = [p for p in sources if not (trailing_sep(p) or self.isdir(p))]
@@ -1473,13 +2566,30 @@ class S3FileSystem(AbstractFileSystem):
         )
         return pairing.copy_pairs(sources, destination_is_dir)
 
-    def copy(self, path1, path2, recursive=False, maxdepth=None, on_error=None, **kwargs) -> None:
+    def copy(
+        self,
+        path1,
+        path2,
+        recursive=False,
+        maxdepth=None,
+        on_error=None,
+        batch_size=None,
+        **kwargs,
+    ) -> None:
         """Copy files within S3.
 
         As fsspec's ``copy()``, except that a source with a version ID copies
         that version of the object to a destination named after its key, as
         :meth:`~pyathena.filesystem.s3_path_pairing.S3PathPairing.copy_pairs`
-        pairs them.
+        pairs them, and that the files are copied in parallel, ``batch_size``
+        at a time. Pairs that would depend on the order of the copies raise
+        before anything is copied (see
+        :meth:`~pyathena.filesystem.s3_path_pairing.S3PathPairing.check_copy_pairs`).
+
+        An error that ``on_error`` does not ignore starts no further copy,
+        stops the running ones before their next request where it can (a
+        multipart copy sends no further part and is aborted), and is raised
+        once they have ended. Copies that ended before it stay in place.
 
         Args:
             path1: Source S3 path, glob pattern, or list of them.
@@ -1490,60 +2600,174 @@ class S3FileSystem(AbstractFileSystem):
             on_error: ``"raise"`` or ``"ignore"`` for a missing source; by
                 default ``"ignore"`` with ``recursive`` and ``"raise"``
                 otherwise.
+            batch_size: Number of copies to run at the same time. By default
+                the ``batch_size`` of the filesystem; None or -1 there is
+                ``max_workers``. With ``n`` copies at once, the smaller of
+                ``batch_size`` and the number of pairs, each multipart copy
+                sends at most ``max(1, max_workers // n)`` parts at once.
             **kwargs: Additional S3 copy parameters passed to ``cp_file()``.
+
+        Raises:
+            ValueError: If two sources have the same destination, or a
+                destination is another source, except for a directory with no
+                object at its key, which is not copied. Also if
+                ``batch_size`` is neither positive, -1, nor None.
+            OSError: If bucket versioning cannot be read for the checks.
         """
-        sources = [path1] if isinstance(path1, (str, os.PathLike)) else path1
-        if isinstance(path2, str) and any(S3Path.has_version_id(p) for p in sources):
-            pairs = self._copy_pairs(
-                S3PathPairing(path1, path2, recursive=recursive, maxdepth=maxdepth)
-            )
-            if not pairs:
-                return
-            path1, path2 = [p1 for p1, _ in pairs], [p2 for _, p2 in pairs]
-        super().copy(
-            path1, path2, recursive=recursive, maxdepth=maxdepth, on_error=on_error, **kwargs
+        path1, path2 = self._stringify_paths(path1), self._stringify_paths(path2)
+        if on_error is None:
+            on_error = "ignore" if recursive else "raise"
+        limit = self._batch_limit(batch_size)
+        pairing = S3PathPairing(path1, path2, recursive=recursive, maxdepth=maxdepth)
+        pairs = self._copy_pairs(pairing)
+        if not pairs:
+            return
+        missing, versioned_buckets = self._conflict_lookups(
+            pairing, pairs, self.core.copy_source_params(kwargs), copy=True
+        )
+        pairing.check_copy_pairs(
+            pairs, missing=missing, versioning_enabled_buckets=versioned_buckets
+        )
+        concurrency = min(limit, len(pairs))
+        call_kwargs = self._batch_kwargs(concurrency, kwargs)
+
+        def copy_pair(pair: tuple[str, str]) -> None:
+            """Copy a pair.
+
+            Args:
+                pair: The source and its destination.
+            """
+            self.cp_file(*pair, **call_kwargs)
+
+        self._run_batch(
+            copy_pair,
+            pairs,
+            concurrency,
+            counts=None if on_error == "raise" else lambda e: not isinstance(e, FileNotFoundError),
         )
 
     def get(
-        self, rpath, lpath, recursive=False, callback=_DEFAULT_CALLBACK, maxdepth=None, **kwargs
+        self,
+        rpath,
+        lpath,
+        recursive=False,
+        callback=_DEFAULT_CALLBACK,
+        maxdepth=None,
+        batch_size=None,
+        **kwargs,
     ) -> None:
         """Copy files from S3 to the local filesystem.
 
         As fsspec's ``get()``, except that a source with a version ID
         downloads that version of the object to a local path named after its
         key, as :meth:`~pyathena.filesystem.s3_path_pairing.S3PathPairing.copy_pairs`
-        pairs them. Those destinations are checked to lie under ``lpath``.
+        pairs them, and that the files are downloaded in parallel, as with
+        ``copy()``. The destinations named after the sources are checked to
+        lie under ``lpath``. With ``outfile``, the files are written to it
+        one after another, in order.
+
+        A failed download starts no further one, the running ones read and
+        write no further block, and the error is raised once they have ended.
 
         Args:
             rpath: Source S3 path, glob pattern, or list of them.
-            lpath: Local destination path, or list of paths when ``rpath`` is
-                a list.
+            lpath: Local destination path, or list of paths or file-like
+                objects when ``rpath`` is a list.
             recursive: Whether to copy the directories with their contents.
-            callback: Progress callback.
+            callback: Progress callback. It and its branches for the files
+                are used from the threads that download them, one at a time.
             maxdepth: Maximum depth of a recursive copy.
+            batch_size: Number of downloads to run at the same time, as in
+                ``copy()``.
             **kwargs: Additional parameters passed to ``get_file()``.
 
         Raises:
-            ValueError: If a source with a version ID is paired, and a
-                destination lies outside ``lpath``.
+            ValueError: If a destination named after a source lies outside
+                ``lpath``, two sources have the same destination, or
+                ``batch_size`` is neither positive, -1, nor None.
         """
-        sources = [rpath] if isinstance(rpath, (str, os.PathLike)) else rpath
-        if isinstance(lpath, (str, os.PathLike)) and any(S3Path.has_version_id(p) for p in sources):
-            root = make_path_posix(lpath)
-            pairs = self._copy_pairs(
-                S3PathPairing(rpath, root, recursive=recursive, maxdepth=maxdepth),
-                isdir=LocalFileSystem().isdir,
-            )
-            rpath, lpath = [p1 for p1, _ in pairs], [p2 for _, p2 in pairs]
-            check_contained(root, lpath)
-            if not rpath:
-                return
-        super().get(
-            rpath, lpath, recursive=recursive, callback=callback, maxdepth=maxdepth, **kwargs
+        rpath = self._stringify_paths(rpath)
+        limit = self._batch_limit(batch_size)
+        root = make_path_posix(lpath) if isinstance(lpath, (str, os.PathLike)) else lpath
+        pairs = self._copy_pairs(
+            S3PathPairing(rpath, root, recursive=recursive, maxdepth=maxdepth),
+            isdir=LocalFileSystem().isdir,
+            **kwargs,
         )
+        if isinstance(root, str):
+            check_contained(root, [lp for _, lp in pairs])
+        if not pairs:
+            return
+        # get_file() writes to an outfile instead of the local paths.
+        outfile = kwargs.get("outfile") is not None
+        if not outfile:
+            self._check_local_destinations([lp for _, lp in pairs])
+        concurrency = 1 if outfile else min(limit, len(pairs))
+        call_kwargs = self._batch_kwargs(concurrency, kwargs)
+        locked = _S3LockedCallback(callback, threading.Lock())
+
+        def get_pair(pair: tuple[str, Any]) -> None:
+            """Download a pair with a branch of the callback.
+
+            Args:
+                pair: The S3 source and its local destination.
+            """
+            rp, lp = pair
+            with locked.branched(rp, lp) as child:
+                self.get_file(rp, lp, callback=child, **call_kwargs)
+            locked.relative_update(1)
+
+        locked.set_size(len(pairs))
+        if outfile:
+            # One after another, in order, in the calling thread, which may
+            # own the stream.
+            for pair in pairs:
+                get_pair(pair)
+            return
+        self._run_batch(get_pair, pairs, concurrency)
+
+    @staticmethod
+    def _check_local_destinations(destinations: list[Any]) -> None:
+        """Check that no two downloads of a batch write the same local file.
+
+        Destinations are compared by the object for file-like ones, by the
+        file for existing paths, such as hard links to one file, and by the
+        resolved path otherwise.
+
+        Args:
+            destinations: The local paths or file-like objects.
+
+        Raises:
+            ValueError: If two destinations write the same file.
+        """
+        seen: set[tuple[Any, ...]] = set()
+        for destination in destinations:
+            key: tuple[Any, ...]
+            if isfilelike(destination):
+                key = ("object", id(destination))
+            else:
+                path = os.fspath(destination)
+                try:
+                    stat = os.stat(path)
+                except OSError:
+                    key = ("path", os.path.normcase(os.path.realpath(path)))
+                else:
+                    if os.path.isdir(path):
+                        # Directories are created, not written.
+                        continue
+                    key = ("file", stat.st_dev, stat.st_ino)
+            if key in seen:
+                raise ValueError("Cannot get several paths to the same destination.")
+            seen.add(key)
 
     def cp_file(
-        self, path1: str, path2: str, recursive=False, maxdepth=None, on_error=None, **kwargs
+        self,
+        path1: str | os.PathLike[str],
+        path2: str | os.PathLike[str],
+        recursive=False,
+        maxdepth=None,
+        on_error=None,
+        **kwargs,
     ):
         """Copy an S3 object to another S3 location.
 
@@ -1559,7 +2783,11 @@ class S3FileSystem(AbstractFileSystem):
             on_error: Unused parameter for fsspec compatibility.
             **kwargs: Additional S3 copy parameters (e.g., metadata, storage
                 class). The ``block_size`` and ``max_workers`` parameters
-                control a multipart copy and are not sent to S3.
+                control a multipart copy and are not sent to S3. The lookup
+                of the source receives ``RequestPayer``, and the source's
+                expected bucket owner and SSE-C parameters under the names of
+                the requests that read it (see
+                :meth:`S3Core.copy_source_params`).
 
         Raises:
             ValueError: If trying to copy to a versioned file or copy buckets,
@@ -1574,6 +2802,7 @@ class S3FileSystem(AbstractFileSystem):
             A directory ``path1``, which recursive ``copy()`` passes along
             with the files under it, is skipped.
         """
+        path1, path2 = stringify_path(path1), stringify_path(path2)
         self._copy_file(path1, path2, **kwargs)
 
     def _copy_file(self, path1: str, path2: str, **kwargs) -> bool:
@@ -1601,7 +2830,9 @@ class S3FileSystem(AbstractFileSystem):
         if not source.key or not destination.key:
             raise ValueError("Cannot copy buckets.")
 
-        info1 = self.info(path1)
+        # Looked up with the parameters that authorize the access to the
+        # source, such as its customer-provided key.
+        info1 = self.info(path1, **self.core.copy_source_params(kwargs))
         if info1.get("type") == S3ObjectType.S3_OBJECT_TYPE_DIRECTORY:
             # Recursive copy() passes the directories too; S3 has no object
             # to copy for them.
@@ -1609,6 +2840,7 @@ class S3FileSystem(AbstractFileSystem):
         size1 = info1.get("size", 0)
         try:
             if size1 <= self.core.MULTIPART_UPLOAD_MAX_PART_SIZE:
+                raise_if_stopped(f"copy {source.uri} to {destination.uri}")
                 self.core.copy_object(source, destination, **kwargs)
             else:
                 self._copy_object_with_multipart_upload(
@@ -1645,7 +2877,11 @@ class S3FileSystem(AbstractFileSystem):
         interrupts while the creation is waited for are suppressed; one while
         the part copies are waited for or the upload is aborted stops the
         cleanup, and the upload ID is logged. A failed annotation copy is
-        raised and leaves the destination in place. If HeadObject reports a
+        raised and leaves the destination in place. The annotations are
+        copied, retries included, also once an enclosing stop scope, such as
+        that of a batch operation, has been stopped, since the destination is
+        committed; until then, a stop sends no further part or completion
+        and the upload is aborted. If HeadObject reports a
         size that fits in a single CopyObject request, the reported version is
         copied with CopyObject instead.
 
@@ -1668,6 +2904,7 @@ class S3FileSystem(AbstractFileSystem):
             # The size that the caller found, which may come from a cached
             # listing, was larger than the copied version, which fits in a
             # single CopyObject request.
+            raise_if_stopped(f"copy {plan.source.uri} to {plan.destination.uri}")
             self.core.copy_object(plan.source, plan.destination, **kwargs)
             return
         with self._create_executor(max_workers=max_workers) as executor:
@@ -1711,18 +2948,70 @@ class S3FileSystem(AbstractFileSystem):
                         f"to s3://{upload.bucket}/{upload.key}."
                     )
                 raise
-        for name in plan.annotations:
-            self.core.copy_object_annotation(
-                name,
-                plan.source,
-                plan.destination,
-                completed.version_id,
-                completed.etag,
-                **kwargs,
-            )
+        # The destination is committed, so its annotations are copied to the
+        # end also when an enclosing batch has stopped.
+        with unstoppable_retries():
+            for name in plan.annotations:
+                self.core.copy_object_annotation(
+                    name,
+                    plan.source,
+                    plan.destination,
+                    completed.version_id,
+                    completed.etag,
+                    **kwargs,
+                )
+
+    def pipe(self, path, value=None, batch_size=None, **kwargs) -> None:
+        """Write bytes into one or more paths.
+
+        As fsspec's ``pipe()``, except that the values of a dict are written
+        in parallel with ``pipe_file()``, as ``copy()`` copies its files.
+
+        Args:
+            path: S3 path to write ``value`` to, or a dict of the values to
+                write by path.
+            value: The bytes to write to a single path; ignored with a dict.
+            batch_size: Number of writes to run at the same time, as in
+                ``copy()``.
+            **kwargs: Additional parameters passed to ``pipe_file()``.
+
+        Raises:
+            ValueError: If ``path`` is neither a string nor a dict, two paths
+                of a dict name the same object, or ``batch_size`` is neither
+                positive, -1, nor None.
+        """
+        if not isinstance(path, dict):
+            path = stringify_path(path)
+        limit = self._batch_limit(batch_size)
+        if isinstance(path, str):
+            self.pipe_file(self._strip_protocol(path), value, **kwargs)
+            return
+        if not isinstance(path, dict):
+            raise ValueError("path must be str or dict")
+        items = [(self._strip_protocol(k), v) for k, v in path.items()]
+        if len({k for k, _ in items}) != len(items):
+            raise ValueError("Cannot pipe several values to the same destination.")
+        if not items:
+            return
+        concurrency = min(limit, len(items))
+        call_kwargs = self._batch_kwargs(concurrency, kwargs)
+
+        def pipe_item(item: tuple[str, Any]) -> None:
+            """Write a value.
+
+            Args:
+                item: The path and its value.
+            """
+            self.pipe_file(*item, **call_kwargs)
+
+        self._run_batch(pipe_item, items, concurrency)
 
     def pipe_file(
-        self, path: str, value: bytes | bytearray | memoryview, mode: str = "overwrite", **kwargs
+        self,
+        path: str | os.PathLike[str],
+        value: bytes | bytearray | memoryview,
+        mode: str = "overwrite",
+        **kwargs,
     ) -> None:
         """Write bytes into the path.
 
@@ -1791,7 +3080,7 @@ class S3FileSystem(AbstractFileSystem):
         if mode == "create":
             # Checked up front, as open() does in "xb" mode, and with
             # IfNoneMatch for an object created since.
-            if self.exists(path, **self._get_lookup_kwargs(request_kwargs)):
+            if self._object_exists(path, self._get_lookup_kwargs(request_kwargs)):
                 raise FileExistsError(path)
             request_kwargs["IfNoneMatch"] = "*"
         if not isinstance(value, bytes):
@@ -1799,11 +3088,132 @@ class S3FileSystem(AbstractFileSystem):
             # buffered path does.
             value = bytes(value)
 
+        raise_if_stopped(f"put {s3_path.uri}")
         self.core.put_object(s3_path, value, **request_kwargs)
         self.invalidate_cache(path)
 
+    def cat(self, path, recursive=False, on_error="raise", batch_size=None, **kwargs):
+        """Read the contents of one or more paths.
+
+        As fsspec's ``cat()``, except that the objects are read in parallel
+        with ``cat_file()``, as ``copy()`` copies its files. With
+        ``on_error="raise"``, an error starts no further read and is raised
+        once the running reads have ended.
+
+        Args:
+            path: S3 path, glob pattern, or list of them.
+            recursive: Whether to read the files below the directories.
+            on_error: ``"raise"`` to raise an error of a read, ``"omit"`` to
+                leave out the paths whose read failed, or ``"return"`` to
+                return the error in place of their contents.
+            batch_size: Number of reads to run at the same time, as in
+                ``copy()``.
+            **kwargs: Additional parameters passed to ``expand_path()`` and
+                ``cat_file()``.
+
+        Returns:
+            The contents of the path, or a dict of the contents by path if
+            there are several paths or the path was expanded.
+
+        Raises:
+            ValueError: If ``batch_size`` is neither positive, -1, nor None.
+        """
+        limit = self._batch_limit(batch_size)
+        paths = self.expand_path(path, recursive=recursive, **kwargs)
+        if not (len(paths) > 1 or isinstance(path, list) or paths[0] != self._strip_protocol(path)):
+            return self.cat_file(paths[0], **kwargs)
+        outcomes: list[Any] | None = None
+        contents: dict[str, Any] | None = None
+        outcome = None
+        try:
+            outcomes = self._run_batch(
+                functools.partial(self.cat_file, **kwargs),
+                paths,
+                min(limit, len(paths)),
+                counts=None if on_error == "raise" else lambda e: False,
+            ).outcomes
+            contents = {}
+            for p, outcome in zip(paths, outcomes, strict=True):
+                if on_error != "omit" or not isinstance(outcome, Exception):
+                    contents[p] = outcome
+            return contents
+        except BaseException:
+            # Not kept by this frame, which the traceback of an interrupt
+            # keeps (F5).
+            contents = outcomes = outcome = None
+            raise
+
+    def cat_ranges(
+        self, paths, starts, ends, max_gap=None, on_error="return", batch_size=None, **kwargs
+    ) -> list[bytes | Exception]:
+        """Read byte ranges of one or more paths.
+
+        As fsspec's ``cat_ranges()``, except that the ranges are read in
+        parallel with ``cat_file()``, as ``copy()`` copies its files. Unless
+        ``on_error`` is ``"return"``, an error starts no further read and is
+        raised once the running reads have ended.
+
+        Args:
+            paths: The S3 paths, one per range.
+            starts: The start offset of each range, or one for all of them.
+            ends: The end offset of each range, or one for all of them.
+            max_gap: Not supported; must be None.
+            on_error: ``"return"`` to return the error of a read in place of
+                its bytes; otherwise the error is raised.
+            batch_size: Number of reads to run at the same time, as in
+                ``copy()``.
+            **kwargs: Additional parameters passed to ``cat_file()``.
+
+        Returns:
+            The bytes of each range, or the error of its read.
+
+        Raises:
+            NotImplementedError: If ``max_gap`` is given.
+            TypeError: If ``paths`` is not a list.
+            ValueError: If the numbers of paths, starts, and ends differ, or
+                if ``batch_size`` is neither positive, -1, nor None.
+        """
+        if max_gap is not None:
+            raise NotImplementedError
+        if not isinstance(paths, list):
+            raise TypeError
+        if not isinstance(starts, list):
+            starts = [starts] * len(paths)
+        if not isinstance(ends, list):
+            ends = [ends] * len(paths)
+        if len(starts) != len(paths) or len(ends) != len(paths):
+            raise ValueError
+        limit = self._batch_limit(batch_size)
+        if not paths:
+            return []
+
+        def cat_range(item: tuple[str, int | None, int | None]) -> bytes:
+            """Read a range.
+
+            Args:
+                item: The path, start, and end.
+
+            Returns:
+                The bytes of the range.
+            """
+            return self.cat_file(*item, **kwargs)
+
+        return cast(
+            list[bytes | Exception],
+            self._run_batch(
+                cat_range,
+                list(zip(paths, starts, ends, strict=True)),
+                min(limit, len(paths)),
+                counts=None if on_error != "return" else lambda e: False,
+            ).outcomes,
+        )
+
     def cat_file(
-        self, path: str, start: int | None = None, end: int | None = None, **kwargs
+        self,
+        path: str | os.PathLike[str],
+        start: int | None = None,
+        end: int | None = None,
+        **kwargs,
     ) -> bytes:
         """Read the contents of an S3 object with GetObject.
 
@@ -1833,6 +3243,7 @@ class S3FileSystem(AbstractFileSystem):
             FileNotFoundError: If the path has no key or the key does not
                 exist.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             raise FileNotFoundError(path)
@@ -1870,19 +3281,113 @@ class S3FileSystem(AbstractFileSystem):
         try:
             return self.core.get_object(s3_path.with_version_id(version_id), ranges, **kwargs)
         except OSError as e:
-            if (
-                ranges
-                and isinstance(e.__cause__, botocore.exceptions.ClientError)
-                and S3ClientError(e.__cause__).code == "InvalidRange"
-            ):
+            if ranges and S3ClientError.code_of(e) == "InvalidRange":
                 # The range starts at or past the end of the object.
                 return b""
             raise
 
+    def put(
+        self,
+        lpath,
+        rpath,
+        recursive=False,
+        callback=_DEFAULT_CALLBACK,
+        maxdepth=None,
+        batch_size=None,
+        **kwargs,
+    ) -> None:
+        """Copy files from the local filesystem to S3.
+
+        As fsspec's ``put()``, except that the files are uploaded in parallel
+        with ``put_file()``, as ``copy()`` copies its files. A failed upload
+        starts no further one, the running ones send no further part and do
+        not commit, and the error is raised once they have ended.
+
+        Args:
+            lpath: Local source path, glob pattern, or list of them.
+            rpath: S3 destination path, or list of paths when ``lpath`` is a
+                list.
+            recursive: Whether to copy the directories with their contents.
+            callback: Progress callback. It and its branches for the files
+                are used from the threads that upload them, one at a time.
+            maxdepth: Maximum depth of a recursive copy.
+            batch_size: Number of uploads to run at the same time, as in
+                ``copy()``.
+            **kwargs: Additional parameters passed to ``put_file()``.
+
+        Raises:
+            ValueError: If two sources have the same destination, or
+                ``batch_size`` is neither positive, -1, nor None.
+        """
+        lpath, rpath = self._stringify_paths(lpath), self._stringify_paths(rpath)
+        limit = self._batch_limit(batch_size)
+        pairs = self._put_pairs(lpath, rpath, recursive=recursive, maxdepth=maxdepth, **kwargs)
+        if not pairs:
+            return
+        if len({rp for _, rp in pairs}) != len(pairs):
+            raise ValueError("Cannot put several paths to the same destination.")
+        concurrency = min(limit, len(pairs))
+        call_kwargs = self._batch_kwargs(concurrency, kwargs)
+        locked = _S3LockedCallback(callback, threading.Lock())
+
+        def put_pair(pair: tuple[str, str]) -> None:
+            """Upload a pair with a branch of the callback.
+
+            Args:
+                pair: The local source and its S3 destination.
+            """
+            lp, rp = pair
+            with locked.branched(lp, rp) as child:
+                self.put_file(lp, rp, callback=child, **call_kwargs)
+            locked.relative_update(1)
+
+        locked.set_size(len(pairs))
+        self._run_batch(put_pair, pairs, concurrency)
+
+    def _put_pairs(
+        self, lpath, rpath, recursive=False, maxdepth=None, **kwargs
+    ) -> list[tuple[str, str]]:
+        """Pair the local sources of ``put()`` with their S3 destinations as fsspec does.
+
+        Args:
+            lpath: Local source path, glob pattern, or list of them.
+            rpath: S3 destination path, or list of paths when ``lpath`` is a
+                list.
+            recursive: Whether to include the directories with their contents.
+            maxdepth: Maximum depth of a recursive copy.
+            **kwargs: Additional arguments passed to the ``expand_path()`` of
+                the local filesystem.
+
+        Returns:
+            The local paths, including the directories of a recursive copy,
+            with their destinations without the protocol.
+        """
+        if isinstance(lpath, list) and isinstance(rpath, list):
+            return [(lp, self._strip_protocol(rp)) for lp, rp in zip(lpath, rpath, strict=False)]
+        source_is_str = isinstance(lpath, str)
+        if source_is_str:
+            lpath = make_path_posix(lpath)
+        local = LocalFileSystem()
+        lpaths = local.expand_path(lpath, recursive=recursive, maxdepth=maxdepth, **kwargs)
+        if source_is_str and (not recursive or maxdepth is not None):
+            # A string source without recursion does not copy directories.
+            lpaths = [p for p in lpaths if not (trailing_sep(p) or local.isdir(p))]
+            if not lpaths:
+                return []
+        dest_is_dir = isinstance(rpath, str) and (trailing_sep(rpath) or self.isdir(rpath))
+        # A list of destinations or one path, also path-like, as in fsspec.
+        rpath = self._strip_protocol(rpath)
+        exists = source_is_str and (
+            (has_magic(lpath) and len(lpaths) == 1)
+            or (not has_magic(lpath) and dest_is_dir and not trailing_sep(lpath))
+        )
+        rpaths = other_paths(lpaths, rpath, exists=exists, flatten=not source_is_str)
+        return list(zip(lpaths, rpaths, strict=True))
+
     def put_file(
         self,
-        lpath: str,
-        rpath: str,
+        lpath: str | os.PathLike[str],
+        rpath: str | os.PathLike[str],
         callback=_DEFAULT_CALLBACK,
         mode: str = "overwrite",
         **kwargs,
@@ -1919,6 +3424,7 @@ class S3FileSystem(AbstractFileSystem):
             the method returns without performing any operation. Bucket-only
             destinations (without key) are also not supported.
         """
+        rpath = stringify_path(rpath)
         if os.path.isdir(lpath):
             # No support for directory uploads.
             return
@@ -1952,11 +3458,30 @@ class S3FileSystem(AbstractFileSystem):
 
         self.invalidate_cache(rpath)
 
-    def get_file(self, rpath: str, lpath=None, callback=_DEFAULT_CALLBACK, outfile=None, **kwargs):
+    def get_file(
+        self,
+        rpath: str | os.PathLike[str],
+        lpath=None,
+        callback=_DEFAULT_CALLBACK,
+        outfile=None,
+        **kwargs,
+    ):
         """Download an S3 file to local filesystem.
 
-        Downloads a file from S3 to the local filesystem with progress tracking.
-        Reads the file in chunks to handle large files efficiently.
+        The object is read in waves of parallel range requests of the block
+        size, at most ``max_workers`` of them at once, but no more than the
+        request pool of the filesystem runs, and the bodies of each wave are
+        written in order before the next wave is read, so that the download
+        holds at most one wave of bodies; a thread of the pool that has just
+        read a range drops its body when its call returns (see
+        :meth:`S3File._download`). The reads are
+        conditional on the version and the ETag of the object looked up when
+        the download starts, as with ``open()``, so that an object replaced
+        during the download fails it instead of mixing two objects, unless
+        the download reads a version other than ``null``, which a
+        replacement does not change. A failed
+        download leaves the part written so far in a local file ``lpath``,
+        as fsspec's ``AbstractFileSystem.get_file()`` does.
 
         As with fsspec's ``AbstractFileSystem.get_file()``, a directory
         ``rpath`` creates the local directory ``lpath``, and the parent
@@ -1966,9 +3491,18 @@ class S3FileSystem(AbstractFileSystem):
             rpath: S3 source path (s3://bucket/key).
             lpath: Local destination path, or a file-like object to write to.
                 Not needed when ``outfile`` is given.
-            callback: Progress callback for tracking download progress.
+            callback: Progress callback for tracking download progress, with
+                the size of the object.
             outfile: A file-like object to write to instead of ``lpath``.
-            **kwargs: Additional S3 parameters passed to open().
+            **kwargs: The arguments of ``open()``, such as ``block_size``,
+                ``max_workers``, ``version_id``, and ``s3_additional_kwargs``,
+                and additional S3 parameters. ``cache_type`` and
+                ``cache_options`` are not used. With ``compression``, the
+                object is decompressed into the destination, read in order
+                through ``open()`` with a block cache, whose block size, if
+                not positive, is that of the filesystem, or
+                ``DEFAULT_BLOCK_SIZE`` if that is not positive either, and the
+                size of the callback is unknown.
         """
         path_version_id = S3Path.parse(self._strip_protocol(rpath)).version_id
         if outfile is None and isfilelike(lpath):
@@ -1984,21 +3518,50 @@ class S3FileSystem(AbstractFileSystem):
             os.makedirs(lpath, exist_ok=True)
             return
 
+        # The codec, if any, as fsspec's open() resolves it, with "infer"
+        # from the key without the version.
+        codec = get_compression(
+            S3Path.parse(self._strip_protocol(rpath)).key or "", kwargs.pop("compression", None)
+        )
+        # Not the caller's cache: one such as "all" would read the whole
+        # object when the file is opened, and "background" reads outside
+        # the stop scopes of the caller. Without a codec, the object is read
+        # in ranges without a cache; with one, the decompressor's small reads
+        # go through a block cache, which needs a positive block size.
+        kwargs.pop("cache_options", None)
+        kwargs["cache_type"] = "none" if codec is None else "bytes"
+        if codec is not None and not (
+            isinstance(kwargs.get("block_size"), int) and kwargs["block_size"] > 0
+        ):
+            kwargs["block_size"] = (
+                self.default_block_size if self.default_block_size > 0 else self.DEFAULT_BLOCK_SIZE
+            )
         # The remote file is opened first so that no local file is created
         # when open() finds no object at the path.
         with contextlib.ExitStack() as stack:
             remote = stack.enter_context(self.open(rpath, "rb", **kwargs))
+            reader: Any = None
+            if codec is not None:
+                # As fsspec's open() wraps the file, but closed with it.
+                reader = stack.enter_context(compr[codec](remote, mode="r"))
             if outfile is None:
                 # Not abspath(), which would resolve ".." before symlinks.
                 if parent := os.path.dirname(lpath):
                     os.makedirs(parent, exist_ok=True)
                 outfile = stack.enter_context(open(lpath, "wb"))
-            callback.set_size(remote.size)
-            while data := remote.read(remote.blocksize):
+            if reader is None:
+                callback.set_size(remote.size)
+                remote._download(outfile, callback)
+                return
+            # The size of the decompressed data is unknown.
+            callback.set_size(None)
+            while data := reader.read(remote.blocksize):
+                # A block read when the stop came is not written.
+                raise_if_stopped(f"write the contents of {rpath}")
                 outfile.write(data)
                 callback.relative_update(len(data))
 
-    def checksum(self, path: str, **kwargs):
+    def checksum(self, path: str | os.PathLike[str], **kwargs):
         """Get checksum for S3 object or directory.
 
         Computes a checksum for the specified S3 path. For individual objects,
@@ -2023,7 +3586,7 @@ class S3FileSystem(AbstractFileSystem):
             return int(info.get("etag").strip('"').split("-")[0], 16)
         return int(tokenize(info), 16)
 
-    def sign(self, path: str, expiration: int = 3600, **kwargs):
+    def sign(self, path: str | os.PathLike[str], expiration: int = 3600, **kwargs):
         """Generate a presigned URL for S3 object access.
 
         Creates a presigned URL that allows temporary access to an S3 object
@@ -2052,12 +3615,13 @@ class S3FileSystem(AbstractFileSystem):
             ...     client_method="put_object"
             ... )
         """
+        path = stringify_path(path)
         client_method = kwargs.pop("client_method", "get_object")
         return self.core.generate_presigned_url(
             S3Path.parse(path), client_method, expiration, **kwargs
         )
 
-    def metadata(self, path: str, **kwargs) -> S3Metadata:
+    def metadata(self, path: str | os.PathLike[str], **kwargs) -> S3Metadata:
         """Return the metadata of the path.
 
         Args:
@@ -2070,13 +3634,14 @@ class S3FileSystem(AbstractFileSystem):
             system-defined metadata (content type, encryption settings,
             etc.) as typed properties.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             raise ValueError("Cannot get metadata of a bucket.")
         _logger.debug(f"Head object metadata: {s3_path.uri}")
         return self.core.head_object(s3_path, **kwargs)
 
-    def getxattr(self, path: str, attr_name: str, **kwargs) -> str | None:
+    def getxattr(self, path: str | os.PathLike[str], attr_name: str, **kwargs) -> str | None:
         """Get an attribute from the user-defined metadata of the path.
 
         Args:
@@ -2089,7 +3654,9 @@ class S3FileSystem(AbstractFileSystem):
         """
         return self.metadata(path, **kwargs).get(attr_name)
 
-    def setxattr(self, path: str, copy_kwargs: dict[str, Any] | None = None, **kw_args) -> None:
+    def setxattr(
+        self, path: str | os.PathLike[str], copy_kwargs: dict[str, Any] | None = None, **kw_args
+    ) -> None:
         """Set the user-defined metadata of the path.
 
         S3 does not allow updating the metadata of an existing object in
@@ -2108,7 +3675,11 @@ class S3FileSystem(AbstractFileSystem):
             copy_kwargs: Additional parameters to use for the underlying
                 CopyObject API call. They take precedence over the kept
                 system-defined metadata and storage class. Any encryption
-                parameter replaces all kept encryption settings.
+                parameter replaces all kept encryption settings. The lookup
+                of the object receives ``RequestPayer``, and the source's
+                expected bucket owner and SSE-C parameters (e.g.,
+                ``CopySourceSSECustomerKey``) under the names of HeadObject
+                (see :meth:`S3Core.copy_source_params`).
             **kw_args: Key-value pairs to set, where the values must be
                 strings. The keys are used as-is; names that are not valid
                 Python identifiers (e.g., containing hyphens) can be passed
@@ -2124,22 +3695,26 @@ class S3FileSystem(AbstractFileSystem):
         Raises:
             ValueError: If the path is a bucket or has a version ID.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             raise ValueError("Cannot set metadata of a bucket.")
         if s3_path.version_id:
             raise ValueError("Cannot set metadata of a version.")
-        head = self.metadata(path)
+        copy_kwargs = copy_kwargs or {}
+        # Looked up with the parameters that authorize the access to the
+        # object as the source of the copy, such as its customer-provided key.
+        head = self.metadata(path, **self.core.copy_source_params(copy_kwargs))
         metadata = dict(head)
         for k, v in kw_args.items():
             if v is None:
                 metadata.pop(k, None)
             else:
                 metadata[k] = v
-        self.core.replace_object_metadata(s3_path, head, metadata, **(copy_kwargs or {}))
+        self.core.replace_object_metadata(s3_path, head, metadata, **copy_kwargs)
         self.invalidate_cache(path)
 
-    def get_tags(self, path: str) -> dict[str, str]:
+    def get_tags(self, path: str | os.PathLike[str]) -> dict[str, str]:
         """Retrieve the tag key/values for the given path.
 
         Args:
@@ -2148,12 +3723,13 @@ class S3FileSystem(AbstractFileSystem):
         Returns:
             Dictionary mapping tag keys to tag values.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             raise ValueError("Cannot get tags of a bucket.")
         return self.core.get_object_tagging(s3_path)
 
-    def put_tags(self, path: str, tags: dict[str, str], mode: str = "o") -> None:
+    def put_tags(self, path: str | os.PathLike[str], tags: dict[str, str], mode: str = "o") -> None:
         """Set the tags for the given existing key.
 
         Tags are a str:str mapping that can be attached to any key, distinct
@@ -2169,6 +3745,7 @@ class S3FileSystem(AbstractFileSystem):
                 'm' will merge in new tags with existing tags, which incurs
                 two remote calls.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         if not s3_path.key:
             raise ValueError("Cannot put tags of a bucket.")
@@ -2180,7 +3757,9 @@ class S3FileSystem(AbstractFileSystem):
             raise ValueError(f"Mode must be {{'o', 'm'}}, not {mode}.")
         self.core.put_object_tagging(s3_path, new_tags)
 
-    def chmod(self, path: str, acl: str, recursive: bool = False, **kwargs) -> None:
+    def chmod(
+        self, path: str | os.PathLike[str], acl: str, recursive: bool = False, **kwargs
+    ) -> None:
         """Set the Access Control on a bucket/key.
 
         See https://docs.aws.amazon.com/AmazonS3/latest/userguide/acl-overview.html#canned-acl
@@ -2189,12 +3768,14 @@ class S3FileSystem(AbstractFileSystem):
             path: S3 path (s3://bucket or s3://bucket/key) to set the ACL on.
             acl: The value of the canned ACL to apply.
             recursive: Whether to apply the ACL to all keys below the given
-                path too. The keys are updated in parallel; once one fails, the
-                updates that have not started are cancelled, and the running
-                ones make no further attempt.
+                path too, and to the object at the key, if any. The keys are
+                updated in parallel; once one fails, the updates that have not
+                started are cancelled, and the running ones make no further
+                attempt. A path with a version ID updates that version only.
             **kwargs: Additional parameters passed to the PutObjectAcl or
                 PutBucketAcl API.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         # Validate before any ACL is applied so that a recursive call cannot
         # partially apply object ACLs and then fail on the bucket ACL.
@@ -2202,43 +3783,43 @@ class S3FileSystem(AbstractFileSystem):
             raise ValueError(f"ACL not in {self.core.BUCKET_ACLS}.")
         if s3_path.key and acl not in self.core.OBJECT_ACLS:
             raise ValueError(f"ACL not in {self.core.OBJECT_ACLS}.")
-        if recursive:
-            paths = self.find(path, withdirs=False)
-            # Set on failure, so that the running requests make no further attempt.
-            stop = threading.Event()
-            with self._create_executor(max_workers=self.max_workers) as executor:
-                futures: list[Future[None]] = []
-                try:
-                    with stop_retries_on(stop):
-                        for p in paths:
-                            # Tracked before it is scheduled, so that an
-                            # interrupt while it is being scheduled still lets
-                            # it be cancelled.
-                            future: Future[None] = Future()
-                            futures.append(future)
-                            executor.submit_to(
-                                future, self.chmod, p, acl, recursive=False, **kwargs
-                            )
-                    for future in as_completed(futures):
-                        future.result()
-                except BaseException:
-                    # No more ACL is applied after one failed. The updates that
-                    # have not started are cancelled before the stop, which
-                    # would let a thread that it frees take one of them.
-                    for future in futures:
-                        future.cancel()
-                    stop.set()
-                    raise
+        if recursive and not (s3_path.key and s3_path.version_id):
+            found = self.find(path, withdirs=False)
+            items = [(p, False) for p in found]
+            name = self._strip_protocol(path)
+            # The key of the path as find() names it ("bucket//" is the bucket).
+            if S3Path.parse(name).key and found and name not in found:
+                # Objects lie below the key, so find() has not looked the key
+                # itself up; it may be an object too, which is skipped if missing.
+                items.append((name, True))
+            self._map(lambda item: self._chmod_object(*item, acl, **kwargs), items)
             if s3_path.key:
-                # A key prefix is not an object itself; only the objects
-                # below it have ACLs.
                 return
         if s3_path.key:
             self.core.put_object_acl(s3_path, acl, **kwargs)
         else:
             self.core.put_bucket_acl(s3_path.bucket, acl, **kwargs)
 
-    def list_multipart_uploads(self, path: str) -> list[S3MultipartUpload]:
+    def _chmod_object(self, path: str, missing_ok: bool, acl: str, **kwargs) -> None:
+        """Apply a canned ACL to an object in a recursive ``chmod``.
+
+        Args:
+            path: S3 path of the object.
+            missing_ok: Whether to skip the object if it does not exist.
+            acl: The canned ACL, one of ``OBJECT_ACLS``.
+            **kwargs: Additional parameters passed to the PutObjectAcl API.
+
+        Raises:
+            FileNotFoundError: If the object does not exist and ``missing_ok``
+                is False.
+        """
+        try:
+            self.core.put_object_acl(S3Path.parse(path), acl, **kwargs)
+        except FileNotFoundError:
+            if not missing_ok:
+                raise
+
+    def list_multipart_uploads(self, path: str | os.PathLike[str]) -> list[S3MultipartUpload]:
         """List in-progress (incomplete) multipart uploads in a bucket.
 
         Incomplete multipart uploads continue to accrue storage costs until
@@ -2256,6 +3837,7 @@ class S3FileSystem(AbstractFileSystem):
             List of S3MultipartUpload instances describing the in-progress
             multipart uploads.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         # S3 matches Prefix as a plain string, so the uploads are filtered to
         # the key itself and the keys under it.
@@ -2271,7 +3853,7 @@ class S3FileSystem(AbstractFileSystem):
         ]
 
     def object_version_info(
-        self, path: str, delete_markers: bool = False, **kwargs
+        self, path: str | os.PathLike[str], delete_markers: bool = False, **kwargs
     ) -> list[S3ObjectVersion]:
         """List the versions of the object or of the objects under the path.
 
@@ -2293,6 +3875,7 @@ class S3FileSystem(AbstractFileSystem):
         Returns:
             List of S3ObjectVersion instances describing the versions.
         """
+        path = stringify_path(path)
         s3_path = S3Path.parse(path)
         # S3 matches Prefix as a plain string, so the versions are filtered to
         # the key itself or the keys under it.
@@ -2324,7 +3907,7 @@ class S3FileSystem(AbstractFileSystem):
             selected = [v for v, k in zip(versions, keys, strict=True) if k.startswith(prefix)]
         return [v for v in selected if delete_markers or not v.is_delete_marker]
 
-    def clear_multipart_uploads(self, path: str) -> None:
+    def clear_multipart_uploads(self, path: str | os.PathLike[str]) -> None:
         """Abort any incomplete multipart uploads in the bucket.
 
         Uploads completed or aborted after listing are already cleared.
@@ -2339,32 +3922,32 @@ class S3FileSystem(AbstractFileSystem):
         uploads = self.list_multipart_uploads(path)
         if not uploads:
             return
-        error: Exception | None = None
-        with self._create_executor(max_workers=self.max_workers) as executor:
-            futures = [
-                executor.submit(
-                    self.core.abort_multipart_upload,
-                    upload,
-                )
-                for upload in uploads
-            ]
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as e:
-                    cause = e.__cause__
-                    if (
-                        isinstance(e, FileNotFoundError)
-                        and isinstance(cause, botocore.exceptions.ClientError)
-                        and S3ClientError(cause).code == "NoSuchUpload"
-                    ):
-                        continue
-                    if error is None:
-                        error = e
-        if error is not None:
-            raise error
+        # Every abort runs also after another failed, and an interrupt cancels
+        # those that have not started.
+        results = self._map(
+            self.core.abort_multipart_upload,
+            uploads,
+            stop_on_failure=False,
+            counts=self._is_not_no_such_upload,
+        )
+        if results.failure is not None:
+            raise results.failure
 
-    def created(self, path: str) -> datetime:
+    @staticmethod
+    def _is_not_no_such_upload(error: BaseException) -> bool:
+        """Return whether an error of an abort is other than an upload that no longer exists.
+
+        Args:
+            error: The error of ``abort_multipart_upload``.
+
+        Returns:
+            False for the ``FileNotFoundError`` of a ``NoSuchUpload`` error.
+        """
+        return not (
+            isinstance(error, FileNotFoundError) and S3ClientError.code_of(error) == "NoSuchUpload"
+        )
+
+    def created(self, path: str | os.PathLike[str]) -> datetime:
         """Return the creation time of the path.
 
         Returns the same value as :meth:`modified`.
@@ -2377,7 +3960,7 @@ class S3FileSystem(AbstractFileSystem):
         """
         return self.modified(path)
 
-    def modified(self, path: str) -> datetime:
+    def modified(self, path: str | os.PathLike[str]) -> datetime:
         """Return the last-modified time of the path.
 
         Args:
@@ -2390,7 +3973,7 @@ class S3FileSystem(AbstractFileSystem):
         info = self.info(path)
         return cast(datetime, info.get("last_modified"))
 
-    def invalidate_cache(self, path: str | None = None) -> None:
+    def invalidate_cache(self, path: str | os.PathLike[str] | None = None) -> None:
         """Remove the cached entries of the path and its parent paths.
 
         The cached bucket listing is removed only by the root path (``""``,
@@ -2399,39 +3982,65 @@ class S3FileSystem(AbstractFileSystem):
         spelling that :meth:`S3Path.parse <pyathena.filesystem.s3_path.S3Path.parse>`
         accepts, and also the object path without the version, because deleting
         or copying a version can change the
-        current version of the object.
+        current version of the object. Only the path itself is parsed for a
+        version: its parent paths are directories, named as they are listed,
+        such as ``bucket/a/dir?versionId=v1`` for the key
+        ``a/dir?versionId=v1/x``.
+        A path that ends in slashes is invalidated both with and without
+        them, since lookups strip them while a key such as ``dir//`` is
+        listed in the directory ``bucket/dir/``.
 
         Args:
             path: The path to invalidate. If None, clear the whole cache.
         """
         if path is None:
             self.dircache.clear()
-        else:
-            path = self._strip_protocol(path)
-            if not path:
-                self._evict_cache("")
-            while path:
-                base, version_id = S3Path.split_version_id(path)
-                cache_paths = [path]
-                if version_id:
-                    cache_paths.extend(
-                        f"{base}?{name}={version_id}"
-                        for name in ("versionId", "versionID", "versionid", "version_id")
-                    )
-                for cache_path in cache_paths:
-                    # _ls_dirs caches listings under (path, delimiter), and
-                    # lookups with parameters are cached under
-                    # (path, _LOOKUPS_CACHE_KEY).
-                    for cache_key in (
-                        cache_path,
-                        (cache_path, "/"),
-                        (cache_path, ""),
-                        (cache_path, _LOOKUPS_CACHE_KEY),
-                    ):
-                        self._evict_cache(cache_key)
-                # A version-qualified path continues with the path without
-                # the version.
-                path = self._strip_protocol(base) if version_id else self._parent(path)
+            return
+        raw = stringify_path(path)
+        stripped = self._strip_protocol(raw)
+        if not stripped:
+            self._evict_cache("")
+            return
+        self._invalidate_path(stripped)
+        trailing = len(raw) - len(raw.rstrip("/"))
+        if trailing:
+            self._invalidate_path(stripped + "/" * trailing)
+
+    def _invalidate_path(self, path: str) -> None:
+        """Remove the cached entries of a path and its parent paths.
+
+        Args:
+            path: The path without the protocol, as described in
+                :meth:`invalidate_cache`.
+        """
+        base, version_id = S3Path.split_version_id(path)
+        cache_paths: list[str] = []
+        if version_id:
+            cache_paths.extend(
+                f"{base}?{name}={version_id}"
+                for name in ("versionId", "versionID", "versionid", "version_id")
+            )
+            # Continue with the path without the version, keeping a trailing
+            # slash of its key.
+            path = base
+        # Only the path itself may name a version. Its parents are
+        # directories, named as they are listed, such as
+        # "bucket/a/dir?versionId=v1" for the key "a/dir?versionId=v1/x", so
+        # one segment is removed at a time without parsing them; _parent()
+        # would also strip the slash of "bucket/dir/" (from "dir//x").
+        while path:
+            cache_paths.append(path)
+            path = path.rpartition("/")[0]
+        for cache_path in cache_paths:
+            # _ls_prefix caches listings under (name, delimiter), and lookups
+            # with parameters are cached under (path, _LOOKUPS_CACHE_KEY).
+            for cache_key in (
+                cache_path,
+                (cache_path, "/"),
+                (cache_path, ""),
+                (cache_path, _LOOKUPS_CACHE_KEY),
+            ):
+                self._evict_cache(cache_key)
 
     def _evict_cache(self, key: str | tuple[str, str]) -> None:
         """Remove a dircache entry if it exists.
@@ -2448,6 +4057,48 @@ class S3FileSystem(AbstractFileSystem):
         """
         with contextlib.suppress(KeyError):
             del self.dircache[key]
+
+    def _key_exists(self, path: S3Path, lookup_kwargs: Mapping[str, Any]) -> bool:
+        """Check whether an object exists at the key of the path as written.
+
+        Unlike :meth:`_object_exists`, a key that ends in a slash, such as a
+        folder marker, is looked up as it is, for a write of that key.
+
+        Args:
+            path: The path of the object.
+            lookup_kwargs: The lookup parameters (see ``_get_lookup_kwargs``)
+                to send with the requests.
+
+        Returns:
+            True if an object exists at the key.
+        """
+        if not (path.key or "").endswith("/"):
+            return self._object_exists(path.uri, lookup_kwargs)
+        try:
+            self.core.head_object(path, **lookup_kwargs)
+        except FileNotFoundError:
+            return False
+        return True
+
+    def _object_exists(self, path: str, lookup_kwargs: Mapping[str, Any]) -> bool:
+        """Check whether an object exists at the path, for a write that must not replace one.
+
+        A key that is only a prefix of other keys has no object, as when
+        reading.
+
+        Args:
+            path: S3 path (s3://bucket/key).
+            lookup_kwargs: The lookup parameters (see ``_get_lookup_kwargs``)
+                to send with the requests.
+
+        Returns:
+            True if an object exists at the path.
+        """
+        try:
+            info = self.info(path, **lookup_kwargs)
+        except FileNotFoundError:
+            return False
+        return bool(info.get("type") != S3ObjectType.S3_OBJECT_TYPE_DIRECTORY)
 
     @staticmethod
     def _get_lookup_kwargs(kwargs: Mapping[str, Any]) -> dict[str, Any]:
@@ -2649,6 +4300,26 @@ class S3FileSystem(AbstractFileSystem):
         return self._core.call(method, **kwargs)
 
 
+# The parameters of the encryption of a written object, kept from an appended
+# object as a whole.
+_ENCRYPTION_PARAMS = frozenset(
+    [
+        "ServerSideEncryption",
+        "SSEKMSKeyId",
+        "SSEKMSEncryptionContext",
+        "BucketKeyEnabled",
+        "SSECustomerAlgorithm",
+        "SSECustomerKey",
+        "SSECustomerKeyMD5",
+    ]
+)
+# The object lock of an appended object, which the rewritten object does not
+# keep.
+_OBJECT_LOCK_PARAMS = frozenset(
+    ["ObjectLockMode", "ObjectLockRetainUntilDate", "ObjectLockLegalHoldStatus"]
+)
+
+
 @dataclass
 class S3FileTarget:
     """The object that a file reads or writes, resolved when it is opened.
@@ -2669,8 +4340,12 @@ class S3FileTarget:
         key: The key of the object.
         version_id: The version that is read, if any.
         request_kwargs: The parameters of the S3 requests of the file, with
-            the conditions above and, in append mode, the metadata of the
-            existing object, which the rewritten object keeps.
+            the conditions above and, in append mode, the attributes of the
+            existing object that the request parameters (those of the call
+            and of the filesystem) do not give, which the rewritten object
+            keeps: its system-defined and user-defined metadata, storage
+            class, and encryption, unless they give any encryption
+            parameter. Its object lock is not kept.
         details: The object that is read or appended, or an empty dictionary.
         size: The size of the object that is read, if known.
         appended: The existing object in append mode, if any.
@@ -2785,7 +4460,9 @@ class S3FileTarget:
                     # the methods of the file use it too.
                     path = f"{path}?versionId={version_id}"
             if etag := info.get("etag"):
-                kwargs.update({"IfMatch": etag})
+                # A caller's condition is sent as given, so that a read of
+                # another object fails as S3 answers it (412).
+                kwargs.setdefault("IfMatch", etag)
             details = info
             if size is None:
                 size = info.get("size")
@@ -2794,18 +4471,45 @@ class S3FileTarget:
             # which a cached listing entry lacks, so look up the object.
             with contextlib.suppress(FileNotFoundError):
                 appended = fs.info(path, refresh=True, **lookup_kwargs)
+            if (
+                appended is not None
+                and appended.get("type") == S3ObjectType.S3_OBJECT_TYPE_DIRECTORY
+            ):
+                # A prefix has no object to append to, as when reading.
+                appended = None
             if appended is not None:
+                etag = appended.get("etag")
                 if appended.get("size", 0) < fs.core.MULTIPART_UPLOAD_MIN_PART_SIZE:
                     # Too small to be a part of a multipart upload: rewritten
-                    # from the buffer. Only the lookup parameters are sent, so
-                    # that the whole object is read.
-                    append_data = fs.cat_file(path, **lookup_kwargs)
-                kwargs.update(appended.to_api_repr())
+                    # from the buffer. Only the lookup parameters, and the
+                    # condition on the object looked up, are sent, so that
+                    # the whole object is read, and an object replaced since
+                    # is not.
+                    condition = {"IfMatch": etag} if etag else {}
+                    append_data = fs.cat_file(path, **condition, **lookup_kwargs)
+                # The attributes of the object looked up are kept where the
+                # caller gives none: the encryption as a whole, so that its
+                # fields are not combined with another encryption, and
+                # without the object lock, which the caller sets.
+                inherited = appended.to_api_repr()
+                if _ENCRYPTION_PARAMS.intersection(kwargs):
+                    inherited = {k: v for k, v in inherited.items() if k not in _ENCRYPTION_PARAMS}
+                for k, v in inherited.items():
+                    if k not in _OBJECT_LOCK_PARAMS:
+                        kwargs.setdefault(k, v)
+                # The part copies read the object looked up, with the
+                # parameters that authorize the access to it under the names
+                # of the copy source; a caller's values are kept.
+                copy_source = fs.core.copy_from_source_params(lookup_kwargs)
+                if etag:
+                    copy_source["CopySourceIfMatch"] = etag
+                for k, v in copy_source.items():
+                    kwargs.setdefault(k, v)
                 details = appended
         elif "x" in mode:
             # Checked up front so that no data is uploaded for an existing
             # object, and on commit with IfNoneMatch for one created since.
-            if fs.exists(path, **lookup_kwargs):
+            if fs._object_exists(path, lookup_kwargs):
                 raise FileExistsError(path)
             kwargs.update({"IfNoneMatch": "*"})
         return cls(
@@ -2836,7 +4540,7 @@ class S3File(AbstractBufferedFile):
         path: str,
         mode: str = "rb",
         version_id: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        max_workers: int | None = None,
         executor: S3Executor | None = None,
         block_size: int = S3FileSystem.DEFAULT_BLOCK_SIZE,
         cache_type: str = "bytes",
@@ -2865,13 +4569,13 @@ class S3File(AbstractBufferedFile):
             version_id: The version ID to read. Must match the version ID in
                 the path if both are given. A version cannot be given, in
                 either form, for writing or appending.
-            max_workers: The number of parallel workers for range reads, part
-                copies, and part uploads. A write keeps at most
+            max_workers: The number of parallel requests of the file: range
+                reads, part copies, and part uploads. A write keeps at most
                 ``max_workers`` parts, including the part copies of an append,
                 in flight, waiting for one of them to finish before it submits
-                another.
-            executor: The executor for parallel operations. If None, a new
-                ``S3ThreadPoolExecutor`` is created.
+                another. If None, the ``max_workers`` of the filesystem.
+            executor: The executor for parallel operations. If None, one on
+                the request pool of the filesystem (``fs._create_executor()``).
             block_size: The block size for reads and writes. Must be between
                 ``S3Core.MULTIPART_UPLOAD_MIN_PART_SIZE`` and
                 ``S3Core.MULTIPART_UPLOAD_MAX_PART_SIZE``, inclusive, unless reading.
@@ -2896,8 +4600,15 @@ class S3File(AbstractBufferedFile):
             ValueError: If the path has no key, the version IDs do not match,
                 a version is given for writing, or the block size is not
                 between ``S3Core.MULTIPART_UPLOAD_MIN_PART_SIZE`` and
-                ``S3Core.MULTIPART_UPLOAD_MAX_PART_SIZE`` for writing.
+                ``S3Core.MULTIPART_UPLOAD_MAX_PART_SIZE`` for writing, or
+                ``max_workers`` is not positive.
         """
+        if max_workers is None:
+            max_workers = fs.max_workers
+        if max_workers <= 0:
+            raise ValueError("max_workers must be greater than 0")
+        # The process that opened the file; a forked child rejects it.
+        self._pid = os.getpid()
         self.max_workers = max_workers
         # The arguments are validated, and the objects looked up, before the
         # base class initializer: a file that fails here is never opened, so
@@ -2917,7 +4628,7 @@ class S3File(AbstractBufferedFile):
         self.s3_additional_kwargs: dict[str, Any] = target.request_kwargs
         self._details: S3Object | dict[str, Any] = target.details
 
-        self._executor: S3Executor = executor or S3ThreadPoolExecutor(max_workers=max_workers)
+        self._executor: S3Executor = executor or fs._create_executor(max_workers=max_workers)
         # The requests and the state of the write; None when reading.
         self._session: _S3WriteSession | None = None
         if mode != "rb":
@@ -2940,16 +4651,23 @@ class S3File(AbstractBufferedFile):
             cache_type=cache_type,
             cache_options=cache_options,
             size=target.size,
+            # Kept as ``self.kwargs``, which fsspec passes to open() when it
+            # reopens the file (e.g., when it is unpickled): the parameters
+            # of the requests, including the condition on the object looked
+            # up, so that the reopened file reads the same object or fails.
+            **(target.request_kwargs if mode == "rb" else {}),
         )
 
         self.append_block = False
+        # The size of the appended object, as looked up when opening.
+        self._append_size = 0
         if target.appended is not None:
             if target.append_data is not None:
                 self.write(target.append_data)
             else:
                 # Copied with UploadPartCopy as the leading part(s).
                 self.append_block = True
-            self.loc = target.appended.get("size", 0)
+            self._append_size = self.loc = target.appended.get("size", 0)
 
     def _get_request_kwargs(self, method: str) -> dict[str, Any]:
         """Select the parameters of the file that an S3 operation accepts.
@@ -2964,12 +4682,305 @@ class S3File(AbstractBufferedFile):
         return self.fs.core.operation_params(method, self.s3_additional_kwargs)
 
     def close(self) -> None:
-        """Close the file, flushing any written data, and shut down its executor."""
+        """Close the file, flushing any written data, and shut down its executor.
+
+        In a forked child process, a file that the parent opened is only
+        marked closed: its data is neither flushed nor committed, and its
+        upload is not aborted, since they belong to the parent. Called by
+        another finalizer while the cyclic garbage collector runs in this
+        thread, such as that of a ``TextIOWrapper``, the file is closed in a
+        new thread once the collection has ended (see :meth:`__del__`), and
+        this returns before that. A close handed over to another thread is
+        waited for, except during a collection or in a thread of an
+        :class:`S3ThreadPool`, where this returns without waiting.
+        """
+        if self._inherited():
+            self.closed = True
+            return
+        if not self.closed and S3File._in_collection():
+            self._close_later()
+            return
+        if self._wait_for_close_later():
+            self._close()
+
+    def _close(self) -> None:
+        """Close the file in this thread, flushing any written data, and shut down its executor."""
         try:
             super().close()
         finally:
             # The executor is shut down even if the final flush fails.
             self._executor.shutdown()
+
+    def __del__(self) -> None:
+        """Close the file when it is finalized without having been closed.
+
+        A file whose last reference is dropped in a user thread is closed
+        here. A file that the cyclic garbage collector finalizes, or that is
+        finalized in a thread of an :class:`S3ThreadPool`, is closed in a new
+        thread instead, since a wait here could last forever (T1): the
+        requests of the file may be queued behind this thread or include the
+        one that runs the collection, and this thread may hold a lock that
+        the close takes. During a collection, the thread starts once the
+        collection has ended, after the other finalizers of the collection,
+        such as that of a ``TextIOWrapper``, have written to the file.
+        """
+        if getattr(self, "closed", True) or self._inherited():
+            # The upload of a file inherited across a fork is the parent's.
+            return
+        if S3ThreadPool.in_pool_thread():
+            self._close_later()
+        else:
+            # Hands the close over itself during a collection.
+            self.close()
+
+    @staticmethod
+    def _track_collection(phase: str, info: dict[str, int]) -> None:
+        """Record whether the cyclic garbage collector runs in this thread.
+
+        Registered in ``gc.callbacks``, which the collector calls in the
+        thread that runs it. When the collection stops, the closes that it
+        handed over start.
+
+        Args:
+            phase: ``"start"`` or ``"stop"``.
+            info: The details of the collection, which are not used.
+        """
+        _collecting.active = phase == "start"
+        pending = getattr(_collecting, "pending", None)
+        if not _collecting.active and pending:
+            _collecting.pending = []
+            for file, complete in pending:
+                file._start_close(complete)
+
+    @staticmethod
+    def _in_collection() -> bool:
+        """Whether the cyclic garbage collector runs in this thread.
+
+        Returns:
+            True while a collection runs in the calling thread.
+        """
+        return getattr(_collecting, "active", False)
+
+    def _close_later(self) -> None:
+        """Close the file in a new thread, once.
+
+        The written data is copied first: the collector finalizes every
+        object that it found unreachable before it checks whether a
+        finalizer has made it reachable again, and finalizing the buffer
+        closes it. If the buffer is already closed, the data is incomplete,
+        so the write is discarded instead of committed. During a collection,
+        the thread starts once the collection has ended, so that the other
+        finalizers of the collection can still write to the file.
+        """
+        if getattr(self, "_closing_later", False):
+            return
+        self._closing_later = True
+        self._closed_later = threading.Event()
+        complete = True
+        if self.mode != "rb" and self.buffer is not None:
+            if self.buffer.closed:
+                complete = False
+            else:
+                buffer = BytesIO(self.buffer.getvalue())
+                buffer.seek(self.buffer.tell())
+                self.buffer = buffer
+        _handed_over_closes.add(self._closed_later)
+        if S3File._in_collection():
+            if not hasattr(_collecting, "pending"):
+                _collecting.pending = []
+            _collecting.pending.append((self, complete))
+        else:
+            self._start_close(complete)
+
+    def _start_close(self, complete: bool) -> None:
+        """Start the close that :meth:`_close_later` handed over.
+
+        The file is closed in a thread of the ``_thread`` module, since
+        ``Thread.start()`` takes locks of the ``threading`` module, which this
+        thread, in which a finalizer or the collector runs, may hold, and
+        waits for the new thread, which may take another. The interpreter
+        does not join such a thread, so an exit waits for the close instead
+        (see :meth:`_wait_for_handed_over_closes`). The thread runs with an
+        empty context, so that the stop scopes of the finalizing thread do
+        not stop the requests of the file. During interpreter finalization,
+        and once the exit has waited for the handed-over closes, the file is
+        closed in this thread without starting one, since no thread started
+        during finalization runs, and none started afterwards is waited for.
+        No other thread runs requests then, and the pools take no more
+        calls, so the close does not wait for a part queued behind it. If no
+        thread can be started otherwise, the file is left unclosed rather
+        than closed in this thread, where it could wait forever, until a
+        later :meth:`close`, :meth:`commit`, or :meth:`discard` closes it
+        (see :meth:`_wait_for_close_later`).
+
+        Args:
+            complete: Whether the written data is complete.
+        """
+        if self._inherited():
+            # Handed over in the parent, which forked before the collection
+            # ended. Its event, whose lock the fork may have copied held, is
+            # left alone.
+            self.closed = True
+            return
+        if sys.is_finalizing() or _handed_over_closes_waited:
+            self._close_collected(complete)
+            return
+        try:
+            _thread.start_new_thread(contextvars.Context().run, (self._close_collected, complete))
+        except Exception:
+            # Such as RuntimeError, when no more threads can be started.
+            _logger.warning(
+                f"s3://{self.bucket}/{self.key} was not closed, and no thread could be "
+                "started to close it when it was finalized; its data was not committed."
+            )
+            self._unstarted_close: bool | None = complete
+            _handed_over_closes.discard(self._closed_later)
+            # Wakes the callers that wait for it, which then close the file.
+            self._closed_later.set()
+
+    def _close_collected(self, complete: bool) -> None:
+        """Close a finalized file, logging a failure instead of raising it.
+
+        Args:
+            complete: Whether the written data is complete. If not, the
+                write is discarded instead of committed.
+        """
+        self._closer_ident = threading.get_ident()
+        try:
+            if complete:
+                self._close()
+            else:
+                _logger.warning(
+                    f"s3://{self.bucket}/{self.key} was not closed, and its buffer was "
+                    "finalized before it; its data was not committed."
+                )
+                self._close_without_commit()
+            if getattr(self, "_discard_later", False):
+                self.discard()
+        except Exception:
+            _logger.exception(f"Failed to close s3://{self.bucket}/{self.key}.")
+        finally:
+            self._end_close_later()
+
+    def _end_close_later(self) -> None:
+        """Mark the close that :meth:`_close_later` handed over as ended."""
+        _handed_over_closes.discard(self._closed_later)
+        self._closed_later.set()
+
+    @staticmethod
+    def _wait_for_handed_over_closes() -> None:
+        """Wait for the closes that run in threads of the ``_thread`` module.
+
+        Registered with :mod:`atexit`, since the interpreter does not join
+        these threads when it exits. Also waits for the closes that are
+        handed over while it waits; later ones, such as in an exit handler
+        that runs after it, are closed in the finalizing thread.
+        """
+        global _handed_over_closes_waited
+        while _handed_over_closes:
+            for closed in list(_handed_over_closes):
+                closed.wait()
+        _handed_over_closes_waited = True
+
+    def _wait_for_close_later(self) -> bool:
+        """Wait for a close that :meth:`_close_later` handed over to end.
+
+        It is not waited for in the thread that runs it, during a
+        collection, whose end starts it, or in a thread of an
+        :class:`S3ThreadPool`, since it may wait for a request queued behind
+        that thread. A close for which no thread could be started is run
+        here instead, where it can be waited for.
+
+        Returns:
+            False if a handed-over close has not ended and cannot be waited
+            for in this thread; otherwise True.
+        """
+        closed_later = getattr(self, "_closed_later", None)
+        if closed_later is None or getattr(self, "_closer_ident", None) == threading.get_ident():
+            return True
+        unsafe = S3File._in_collection() or S3ThreadPool.in_pool_thread()
+        if not closed_later.is_set():
+            if unsafe:
+                return False
+            closed_later.wait()
+        if getattr(self, "_unstarted_close", None) is not None:
+            if unsafe:
+                return False
+            unstarted, self._unstarted_close = self._unstarted_close, None
+            self._close_collected(cast(bool, unstarted))
+        return True
+
+    def _raise_unless_closed_later(self) -> None:
+        """Wait for a handed-over close to end, or raise if it cannot be waited for here.
+
+        Raises:
+            RuntimeError: If a close of the file was handed over to another
+                thread and runs, and this is called during a collection or
+                in a thread of an :class:`S3ThreadPool`.
+        """
+        if not self._wait_for_close_later():
+            raise RuntimeError(
+                f"s3://{self.bucket}/{self.key} is being closed in another thread, which "
+                "cannot be waited for during a garbage collection or in a thread of an "
+                "S3ThreadPool."
+            )
+
+    def read(self, length: int = -1) -> bytes:
+        """Read bytes from the file.
+
+        Args:
+            length: The number of bytes to read; -1 reads to the end.
+
+        Returns:
+            The bytes read.
+
+        Raises:
+            RuntimeError: In a forked child process of the process that
+                opened the file.
+            ValueError: If the file is closed or not open for reading.
+        """
+        self._check_process()
+        data: bytes = super().read(length)
+        return data
+
+    def flush(self, force: bool = False) -> None:
+        """Upload the buffered data as a part once a block is full, or all of it with ``force``.
+
+        Args:
+            force: Whether to upload the remaining data and commit the file,
+                after which it cannot be written.
+
+        Raises:
+            RuntimeError: In a forked child process of the process that
+                opened the file.
+            ValueError: If ``force`` is given again after a forced flush.
+        """
+        self._check_process()
+        super().flush(force=force)
+
+    def _inherited(self) -> bool:
+        """Whether this process is a forked child of the process that opened the file.
+
+        Returns:
+            True in a forked child process of the process that opened the
+            file.
+        """
+        # Compared with the process ID, not a count that an at-fork hook
+        # updates, since hooks registered before it may close the file.
+        return getattr(self, "_pid", os.getpid()) != os.getpid()
+
+    def _check_process(self) -> None:
+        """Reject the use of a file that the parent of a forked process opened.
+
+        Raises:
+            RuntimeError: In a forked child process of the process that
+                opened the file.
+        """
+        if self._inherited():
+            raise RuntimeError(
+                f"s3://{self.bucket}/{self.key} was opened by the parent of this forked "
+                "process and cannot be used here; open it again in this process."
+            )
 
     def write(self, data: bytes | bytearray | memoryview) -> int:
         """Write data to the buffer, uploading each full block as a part.
@@ -2984,9 +4995,12 @@ class S3File(AbstractBufferedFile):
             BaseException: The error of a request of the write that failed
                 since the last write, after which the file is closed without
                 committing it.
+            RuntimeError: In a forked child process of the process that
+                opened the file.
             S3MultipartStateError: If the write was discarded.
             ValueError: If the file is not open for writing.
         """
+        self._check_process()
         if self._session is not None and not self.closed:
             try:
                 self._session.check()
@@ -3012,7 +5026,12 @@ class S3File(AbstractBufferedFile):
         self.buffer = None
         self.closed = True
         try:
-            self.discard()
+            if self._wait_for_close_later():
+                self.discard()
+            else:
+                # The handed-over close, which cannot be waited for here,
+                # discards the write once it ends.
+                self._discard_later = True
         except Exception:
             upload_id = cast(S3MultipartUpload, self.multipart_upload).upload_id
             _logger.exception(
@@ -3081,15 +5100,10 @@ class S3File(AbstractBufferedFile):
             # Raises the failure of the creation.
             session.check()
             if self.append_block:
-                whole_source = self.tell() <= self.fs.core.MULTIPART_UPLOAD_MAX_PART_SIZE
-                size = self.tell()
-                if not whole_source:
-                    info = self.fs.info(
-                        self.path,
-                        version_id=self.version_id,
-                        **self.fs._get_lookup_kwargs(self.s3_additional_kwargs),
-                    )
-                    size = info.get("size", 0)
+                # The size of the object looked up when opening, which the
+                # part copies are conditional on.
+                size = self._append_size
+                whole_source = size <= self.fs.core.MULTIPART_UPLOAD_MAX_PART_SIZE
                 source = S3Path(self.bucket, self.key)
                 for part_number, range_ in session.iter_copy_parts(size):
                     # The part copies count toward max_workers, as the parts do.
@@ -3169,15 +5183,26 @@ class S3File(AbstractBufferedFile):
         the file is closed without committing it, and its upload is aborted;
         if the abort also fails, the upload is kept so that :meth:`discard`
         can abort it. Committing again after a successful commit sends no
-        request. Invalidates the cache of the path afterwards.
+        request. Invalidates the cache of the path afterwards. Does nothing
+        for a file opened for reading. Waits first for a close of the file
+        that was handed over to another thread (see :meth:`close`).
 
         Raises:
             FileExistsError: If an object was created at the path after the
                 file was opened in exclusive-create mode.
+            RuntimeError: In a forked child process of the process that
+                opened the file, or if a close of the file that was handed
+                over to another thread runs and this is called during a
+                garbage collection or in a thread of an :class:`S3ThreadPool`.
             S3MultipartStateError: If the write was discarded, or the write
                 or an earlier commit failed.
         """
-        session = cast(_S3WriteSession, self._session)
+        self._check_process()
+        self._raise_unless_closed_later()
+        if self._session is None:
+            # A file opened for reading has nothing to commit.
+            return
+        session = self._session
         if not session.multipart:
             body = None
             if self.buffer is not None and self.tell():
@@ -3205,65 +5230,126 @@ class S3File(AbstractBufferedFile):
         interrupted, the upload is kept, and calling this again retries the
         abort. Afterwards, :meth:`commit` raises
         :class:`~pyathena.filesystem.s3_writer.S3MultipartStateError`. Does
-        nothing for a committed file or a file opened for reading.
+        nothing for a committed file or a file opened for reading. Waits
+        first for a close of the file that was handed over to another thread
+        (see :meth:`close`).
+
+        Raises:
+            RuntimeError: In a forked child process of the process that
+                opened the file, or if a close of the file that was handed
+                over to another thread runs and this is called during a
+                garbage collection or in a thread of an :class:`S3ThreadPool`.
         """
+        self._check_process()
+        self._raise_unless_closed_later()
         if self._session is not None:
             self._session.abort()
+
+    def _lookup_kwargs(self) -> dict[str, Any]:
+        """Select the parameters of the file on which the access to its object depends.
+
+        Returns:
+            The lookup parameters of the file (see
+            ``S3FileSystem._get_lookup_kwargs``), such as ``RequestPayer`` or
+            the ``SSECustomer*`` parameters of an object encrypted with a
+            customer-provided key.
+        """
+        return self.fs._get_lookup_kwargs(self.s3_additional_kwargs)
 
     def url(self, expiration: int = 3600, **kwargs) -> str:
         """Generate a presigned HTTP URL to read this file (if it already exists).
 
+        The URL is signed with the lookup parameters of the file that the
+        signed operation accepts, such as ``RequestPayer`` or the
+        ``SSECustomer*`` parameters, whose headers the request with the URL
+        must then send.
+
         Args:
             expiration: URL expiration time in seconds. Defaults to 3600 (1 hour).
-            **kwargs: Additional parameters passed to :meth:`S3FileSystem.sign`.
+            **kwargs: Additional parameters passed to :meth:`S3FileSystem.sign`,
+                which take precedence over those of the file.
 
         Returns:
             Presigned URL string that provides temporary access to the S3 object.
         """
-        return cast(str, self.fs.sign(self.path, expiration=expiration, **kwargs))
+        # Only the parameters of the file that the signed operation accepts.
+        params = self.fs.core.operation_params(
+            kwargs.get("client_method", "get_object"), self._lookup_kwargs()
+        )
+        return cast(str, self.fs.sign(self.path, expiration=expiration, **{**params, **kwargs}))
 
     def metadata(self, **kwargs) -> S3Metadata:
         """Return the metadata of the file.
 
-        See :meth:`S3FileSystem.metadata`.
+        See :meth:`S3FileSystem.metadata`. The HeadObject request receives the
+        lookup parameters of the file, such as ``RequestPayer`` or the
+        ``SSECustomer*`` parameters.
 
         Args:
-            **kwargs: Additional parameters passed to the HeadObject API.
+            **kwargs: Additional parameters passed to the HeadObject API,
+                which take precedence over those of the file.
 
         Returns:
             S3Metadata, which behaves as a read-only mapping of the
             user-defined metadata and exposes the system-defined metadata
             as typed properties.
         """
-        return self.fs.metadata(self.path, **kwargs)
+        return self.fs.metadata(self.path, **{**self._lookup_kwargs(), **kwargs})
 
     def getxattr(self, xattr_name: str, **kwargs) -> str | None:
         """Get an attribute from the user-defined metadata of the file.
 
-        See :meth:`S3FileSystem.getxattr`.
+        See :meth:`S3FileSystem.getxattr`, and :meth:`metadata` for the
+        parameters of the request.
 
         Args:
             xattr_name: The name of the attribute.
-            **kwargs: Additional parameters passed to the HeadObject API.
+            **kwargs: Additional parameters passed to the HeadObject API,
+                which take precedence over those of the file.
 
         Returns:
             The value of the attribute, or None if the attribute is not set.
         """
-        return self.fs.getxattr(self.path, xattr_name, **kwargs)
+        return self.fs.getxattr(self.path, xattr_name, **{**self._lookup_kwargs(), **kwargs})
 
     def setxattr(self, copy_kwargs: dict[str, Any] | None = None, **kwargs) -> None:
         """Set the user-defined metadata of the file.
 
-        See :meth:`S3FileSystem.setxattr`.
+        See :meth:`S3FileSystem.setxattr`. The copy of the object onto itself
+        receives the lookup parameters of the file both for its source and
+        for its destination: ``RequestPayer``, the expected bucket owner as
+        ``ExpectedSourceBucketOwner`` and ``ExpectedBucketOwner``, and the
+        ``SSECustomer*`` parameters also as ``CopySourceSSECustomer*``, so
+        that an object encrypted with a customer-provided key keeps it. A
+        ``ServerSideEncryption`` in ``copy_kwargs`` replaces the
+        ``SSECustomer*`` parameters of the file for the destination; those
+        in the ``s3_additional_kwargs`` of the filesystem are still sent.
 
         Args:
             copy_kwargs: Additional parameters to use for the underlying
-                CopyObject API call.
+                CopyObject API call, which take precedence over those of the
+                file.
             **kwargs: Key-value pairs of metadata to set.
         """
         if self.writable():
             raise NotImplementedError("Cannot update metadata while the file is open for writing.")
-        self.fs.setxattr(self.path, copy_kwargs=copy_kwargs, **kwargs)
+        copy_kwargs = copy_kwargs or {}
+        lookup_kwargs = self._lookup_kwargs()
+        destination = lookup_kwargs
+        if "ServerSideEncryption" in copy_kwargs:
+            # Another encryption of the copy replaces the customer-provided key.
+            destination = {
+                k: v for k, v in lookup_kwargs.items() if not k.startswith("SSECustomer")
+            }
+        self.fs.setxattr(
+            self.path,
+            copy_kwargs={
+                **destination,
+                **self.fs.core.copy_from_source_params(lookup_kwargs),
+                **copy_kwargs,
+            },
+            **kwargs,
+        )
 
     def _fetch_range(self, start: int, end: int) -> bytes:
         """Read a byte range of the object for the fsspec cache.
@@ -3272,9 +5358,13 @@ class S3File(AbstractBufferedFile):
         may request a range that is empty or reaches past the end of the
         object. S3 would answer the former with the whole object and a range
         starting past the end with an ``InvalidRange`` error. A range larger
-        than the block size is read with parallel requests; when one fails,
-        those that have not started are cancelled, the running ones make no
-        further attempt, and its error is raised.
+        than the block size is read with parallel requests (see
+        :meth:`S3Executor.map() <pyathena.filesystem.s3_executor.S3Executor.map>`);
+        when one fails, those that have not started are cancelled, the running
+        ones make no further attempt, and its error is raised once they have
+        ended. Once an enclosing stop scope is stopped, such as that of a
+        batch operation after another object failed, no further request is
+        sent (see :func:`~pyathena.util.raise_if_stopped`).
 
         Args:
             start: The offset of the first byte to read.
@@ -3282,6 +5372,10 @@ class S3File(AbstractBufferedFile):
 
         Returns:
             The bytes read, empty if the clamped range is empty.
+
+        Raises:
+            concurrent.futures.CancelledError: If an enclosing stop scope has
+                been stopped.
         """
         end = min(end, self.size)
         if start >= end:
@@ -3292,46 +5386,107 @@ class S3File(AbstractBufferedFile):
         path = S3Path(self.bucket, self.key, self.version_id)
         request_kwargs = self._get_request_kwargs("get_object")
         if len(ranges) > 1:
-            # Set on failure, so that the running reads make no further attempt.
-            stop = threading.Event()
-            futures: list[Future[bytes]] = []
-            try:
-                with stop_retries_on(stop):
-                    for r in ranges:
-                        # Tracked before it is scheduled, so that an interrupt
-                        # while it is being scheduled still lets it be
-                        # cancelled; not by a variable, which would keep it in
-                        # this frame, which the traceback of an error keeps.
-                        futures.append(Future())
-                        self._executor.submit_to(
-                            futures[-1], self.fs.core.get_object, path, r, **request_kwargs
-                        )
-                done = wait(futures, return_when=FIRST_EXCEPTION).done
-            except BaseException as e:
-                # The reads are cancelled with the read of the range, as below,
-                # and the frames of the wait, which keep their futures, are
-                # cleared; clear_frames() skips this frame, which is executing.
-                traceback.clear_frames(e.__traceback__)
-                while futures:
-                    futures.pop().cancel()
-                # After the cancellation, which a thread that it frees could
-                # otherwise precede by taking a queued read.
-                stop.set()
-                raise
-            failed = next(
-                (f for f in done if not f.cancelled() and f.exception() is not None), None
+            # Not kept by a variable of this frame, which the traceback of an
+            # interrupt keeps (F5).
+            return b"".join(
+                cast(
+                    list[bytes],
+                    self._executor.map(
+                        functools.partial(self._get_range, path, **request_kwargs),
+                        ranges,
+                    ).outcomes,
+                )
             )
-            if failed is not None:
-                # The reads that have not started are cancelled, and the
-                # futures of the others are dropped, so that this frame, which
-                # the traceback of the error keeps, does not keep their data.
-                while futures:
-                    futures.pop().cancel()
-                stop.set()
-                done.clear()
-                failed.result()
-            return b"".join(f.result() for f in futures)
-        return self.fs.core.get_object(path, ranges[0], **request_kwargs)
+        return self._get_range(path, ranges[0], **request_kwargs)
+
+    def _get_range(self, path: S3Path, range_: tuple[int, int], **kwargs: Any) -> bytes:
+        """Read a byte range with GetObject unless the read has been stopped.
+
+        A range that waited behind other requests checks the stop scopes of
+        its context when it starts, since the retry stop does not cover the
+        first attempt.
+
+        Args:
+            path: The object, with its version ID, if any.
+            range_: The range, with an exclusive end.
+            **kwargs: The GetObject parameters.
+
+        Returns:
+            The bytes of the range.
+
+        Raises:
+            concurrent.futures.CancelledError: If an enclosing stop scope has
+                been stopped.
+        """
+        raise_if_stopped(f"read {path.uri}")
+        return self.fs.core.get_object(path, range_, **kwargs)
+
+    def _download(self, outfile: Any, callback: Callback) -> None:
+        """Write the whole object into a writable file with parallel range reads.
+
+        The object is read in waves of ranges of the block size, or in one
+        range if the block size is not positive, one wave of at most
+        ``max_workers`` ranges at a time, but no more than the request pool
+        of the filesystem runs at once, since the others would only wait
+        with their bodies held. Each wave is read with :meth:`S3Executor.map()
+        <pyathena.filesystem.s3_executor.S3Executor.map>`, and its bodies are
+        written in order, each dropped once written, before the next wave is
+        read, so that the download holds at most one wave of bodies; a thread
+        of the pool that has just returned a body drops it when its call
+        returns. The reads carry the version and the conditions of the file,
+        and each checks the stop scopes when it starts; a body read when a
+        stop came is not written.
+
+        A failure or an interrupt while a wave is read is raised as
+        :meth:`S3Executor.map()` raises it. One while its bodies are written,
+        including a failure of the write or of the callback, drops the bodies
+        first, also from the completed frames of its traceback (see
+        :meth:`S3MapResult.release()
+        <pyathena.filesystem.s3_executor.S3MapResult.release>`).
+
+        Args:
+            outfile: The writable file-like object.
+            callback: Progress callback, updated with the size of each body
+                once it is written.
+
+        Raises:
+            concurrent.futures.CancelledError: If an enclosing stop scope has
+                been stopped.
+        """
+        size = cast(int, self.size)
+        # A block size that is not positive reads the rest of the object,
+        # as read() does.
+        block = self.blocksize if self.blocksize > 0 else max(size, 1)
+        window = min(self.max_workers, self.fs._request_pool.max_workers)
+        path = S3Path(self.bucket, self.key, self.version_id)
+        read = functools.partial(self._get_range, path, **self._get_request_kwargs("get_object"))
+        wave = window * block
+        result: S3MapResult[bytes] | None = None
+        try:
+            for wave_start in range(0, size, wave):
+                wave_end = min(size, wave_start + wave)
+                # Assigned within the try block, so that an interrupt right
+                # after the wave was read still drops its bodies.
+                result = self._executor.map(
+                    read,
+                    [
+                        (start, min(start + block, wave_end))
+                        for start in range(wave_start, wave_end, block)
+                    ],
+                )
+                bodies = result.outcomes
+                for i in range(len(bodies)):
+                    # A body read when the stop came is not written.
+                    raise_if_stopped(f"write the contents of {self.path}")
+                    length = len(cast(bytes, bodies[i]))
+                    outfile.write(bodies[i])
+                    # Not kept while the next one is written or read.
+                    bodies[i] = b""
+                    callback.relative_update(length)
+        except BaseException as e:
+            if result is not None:
+                result.release(e)
+            raise
 
     @staticmethod
     def _get_ranges(
@@ -3353,3 +5508,10 @@ class S3File(AbstractBufferedFile):
         else:
             ranges.append((start, end))
         return ranges
+
+
+gc.callbacks.append(S3File._track_collection)
+atexit.register(S3File._wait_for_handed_over_closes)
+if hasattr(os, "register_at_fork"):
+    # The closes of the parent do not run in a child.
+    os.register_at_fork(after_in_child=_handed_over_closes.clear)

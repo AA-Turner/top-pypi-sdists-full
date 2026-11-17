@@ -9,6 +9,7 @@ from multimark import (
     markdown_to_man,
     markdown_to_commonmark,
     markdown_to_xml,
+    markdown_to_plaintext,
     VALID_EXTENSIONS,
 )
 
@@ -18,6 +19,7 @@ RENDERERS = {
     "man": markdown_to_man,
     "commonmark": markdown_to_commonmark,
     "xml": markdown_to_xml,
+    "plaintext": markdown_to_plaintext,
 }
 
 
@@ -44,14 +46,19 @@ RENDERERS = {
     "extensions",
     multiple=True,
     type=click.Choice(sorted(VALID_EXTENSIONS), case_sensitive=False),
-    help="Enable a GFM extension (repeatable).",
+    help="Enable an extension (repeatable).",
 )
 @click.option("--smart", is_flag=True, help="Use smart punctuation.")
 @click.option("--unsafe", is_flag=True, help="Allow raw HTML and dangerous URLs.")
 @click.option("--hardbreaks", is_flag=True, help="Render softbreaks as hard line breaks.")
 @click.option("--sourcepos", is_flag=True, help="Include source position attributes (html/xml only).")
 @click.option("--footnotes", is_flag=True, help="Enable footnote parsing.")
-@click.option("--width", type=int, default=0, help="Wrap output at this column width (latex/man/commonmark only).")
+@click.option(
+    "--width",
+    type=int,
+    default=0,
+    help="Wrap output at this column width (latex/man/commonmark/plaintext only).",
+)
 @click.version_option(__version__, prog_name="multimark")
 def main(
     file,
@@ -85,8 +92,8 @@ def main(
     if format in ("html", "xml"):
         kwargs["sourcepos"] = sourcepos
 
-    # width is only supported by latex, man, and commonmark renderers
-    if format in ("latex", "man", "commonmark"):
+    # HTML and XML have no width parameter.
+    if format in ("latex", "man", "commonmark", "plaintext"):
         kwargs["width"] = width
 
     result = renderer(text, **kwargs)

@@ -26,6 +26,7 @@ from datamodel_code_generator.base_config import (
     _schema_validator_base_class_name_error,
     _validate_additional_import_paths,
     validate_named_paths,
+    validate_untyped_value_type,
 )
 from datamodel_code_generator.enums import (
     DEFAULT_SHARED_MODULE_NAME,
@@ -49,6 +50,7 @@ from datamodel_code_generator.enums import (
     OpenAPIAsDefinitions,
     OpenAPIScope,
     OpenAPIVersion,
+    OpenEnums,
     ProtobufVersion,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
@@ -261,6 +263,8 @@ class ParserConfig(BaseModel):
     encoding: str = DEFAULT_ENCODING
     enum_field_as_literal: LiteralType | None = None
     enum_field_as_literal_map: dict[str, str] | None = None
+    open_enums: OpenEnums | None = None
+    open_enum_base_class_map: dict[str, str] | None = None
     ignore_enum_constraints: bool = False
     set_default_enum_member: bool = False
     use_subclass_enum: bool = False
@@ -285,6 +289,7 @@ class ParserConfig(BaseModel):
     use_title_as_name: bool = False
     infer_union_variant_names: bool = False
     use_tag_as_union_variant_name: bool = False
+    infer_union_discriminators: bool = False
     name_allof_union_members_after_branches: bool = False
     use_operation_id_as_name: bool = False
     use_unique_items_as_set: bool = False
@@ -353,7 +358,10 @@ class ParserConfig(BaseModel):
     read_schema_version_per_document: bool = False
     read_escaped_ref_pointers: bool = False
     read_dynamic_anchors_in_document_order: bool = False
+    read_ids_with_empty_fragment: bool = False
+    read_single_allof_refs_in_their_documents: bool = False
     ignore_ref_siblings_by_schema_version: bool = False
+    read_yaml_1_1_numbers_as_text: bool = False
     use_msgspec_tagged_unions: bool = False
     tag_msgspec_by_payload_name: bool = False
     use_msgspec_nullable_enum_alias: bool = False
@@ -362,13 +370,16 @@ class ParserConfig(BaseModel):
     use_typed_map_values_beside_other_types: bool = False
     use_single_dict_for_object_maps: bool = False
     read_unevaluated_properties: bool = False
+    read_kubernetes_extensions: bool = False
     use_single_value_enum_as_const: bool = False
     read_const_beside_enum: bool = False
+    read_format_as_annotation: bool = False
     filter_literal_values: bool = False
     intersect_allof_keywords: bool = False
     intersect_combined_schema_keywords: bool = False
     distribute_allof_over_unions: bool = False
     read_allof_parents_in_mro_order: bool = False
+    read_inherited_property_schemas_in_mro_order: bool = False
     read_nullable_beside_type_list: bool = False
     keep_field_defaults_off_branch_roots: bool = False
     keep_enum_member_values: bool = False
@@ -378,6 +389,7 @@ class ParserConfig(BaseModel):
     use_pendulum: bool = False
     use_standard_primitive_types: bool = False
     use_object_type: bool = False
+    untyped_value_type: str | None = None
     http_query_parameters: Sequence[tuple[str, str]] | None = None
     treat_dot_as_module: bool | None = None
     strict_dotted_module_names: bool = False
@@ -407,6 +419,7 @@ class ParserConfig(BaseModel):
     type_overrides: dict[str, str] | None = None
     type_overrides_replace_whole_type: bool = False
     use_x_python_type_as_written: bool = False
+    use_x_python_import_for_every_ref: bool = False
     use_bytes_for_content_media_type: bool = False
     use_bounds_for_float_const: bool = False
     read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = None
@@ -424,6 +437,7 @@ class ParserConfig(BaseModel):
         return _validate_additional_import_paths(value, NEWEST_TARGET)
 
     _validate_named_paths = field_validator(*_NAMED_PATHS)(validate_named_paths)
+    _validate_untyped_value_type = field_validator("untyped_value_type")(validate_untyped_value_type)
     _validate_schema_validator_base_class_name = field_validator("schema_validator_base_class_name")(
         validate_schema_validator_base_class_name
     )

@@ -273,6 +273,8 @@ namespace sogen
         const device_registry device_registry_;
         bool setup_completed_{false};
 
+        void initialize_process_manager();
+
         // Host threads owned by the process, such as audio streams, signal the guest through these, so they have to
         // outlive it.
         std::mutex idle_wakeup_mutex_{};
@@ -520,6 +522,12 @@ namespace sogen
             return this->active_vcpu().thread();
         }
 
+        // The same thread, or null where none runs (before process setup).
+        emulator_thread* active_thread() const
+        {
+            return this->active_vcpu().active_thread;
+        }
+
         // The CPU of the vCPU currently dispatching a handler on the calling host thread (see
         // scoped_dispatch). emu() is only the facade/vCPU 0, so handlers that inspect the faulting
         // register state must go through here to observe the right vCPU when vcpu_count > 1.
@@ -622,6 +630,7 @@ namespace sogen
         void mark_process_setup_completed()
         {
             this->setup_completed_ = true;
+            this->initialize_process_manager();
         }
 
         void wake_idle_vcpu();

@@ -872,18 +872,20 @@ namespace sogen
                        ? registry_manager{emulation_root.empty() ? settings.registry_directory : emulation_root / "registry"}
                        : registry_manager{}),
           mod_manager(memory, file_sys, this->callbacks, guest_architecture_of(*this->emu_)),
-          process(*this->emu_, memory, *this->clock_, this->callbacks, settings.intercept_kusd, guest_architecture_of(*this->emu_),
-                  [this]() -> std::optional<native_tsc> {
-                      // vCPUs share one TSC; the guest reads it natively only without RDTSC interception.
-                      const auto frequency = this->native_timestamp_counter_frequency();
-                      const auto value = frequency ? this->emu_->get_guest_cpu(0).read_native_timestamp_counter() : std::nullopt;
-                      if (!value)
-                      {
-                          return std::nullopt;
-                      }
+          process(
+              *this->emu_, memory, *this->clock_, this->callbacks, settings.intercept_kusd, guest_architecture_of(*this->emu_),
+              [this]() -> std::optional<native_tsc> {
+                  // vCPUs share one TSC; the guest reads it natively only without RDTSC interception.
+                  const auto frequency = this->native_timestamp_counter_frequency();
+                  const auto value = frequency ? this->emu_->get_guest_cpu(0).read_native_timestamp_counter() : std::nullopt;
+                  if (!value)
+                  {
+                      return std::nullopt;
+                  }
 
-                      return native_tsc{.value = *value, .frequency = *frequency};
-                  }),
+                  return native_tsc{.value = *value, .frequency = *frequency};
+              },
+              this->process_manager_),
           use_relative_time_(settings.use_relative_time),
           // Instruction precision runs through a global execution hook; backends that only count instructions
           // (single-stepping) cannot provide it.
@@ -972,6 +974,29 @@ namespace sogen
         this->process.abandon_shared_mutants();
     }
 
+    void windows_emulator::initialize_process_manager()
+    {
+        if (this->process_manager_ && this->setup_completed_)
+        {
+            this->process_manager_->initialize_current_process(
+                {.process_id = this->process.process_id,
+                 .parent_process_id = this->process.parent_process_id,
+                 .native_environment = this->process.peb64.value(),
+                 .compatibility_environment = this->process.peb32 ? this->process.peb32->value() : 0},
+                this->process.initial_thread_id);
+            for (const auto& thread : this->process.threads | std::views::values)
+            {
+                if (thread.id != this->process.initial_thread_id)
+                {
+                    if (const auto allocated = this->process_manager_->allocate_thread_id(thread.id); allocated && !*allocated)
+                    {
+                        throw std::runtime_error("Registering a restored guest thread failed");
+                    }
+                }
+            }
+        }
+    }
+
     void windows_emulator::setup_process_if_necessary()
     {
         if (this->setup_completed_)
@@ -982,6 +1007,7 @@ namespace sogen
         this->setup_completed_ = true;
 
         this->setup_process();
+        this->initialize_process_manager();
     }
 
     void windows_emulator::setup_process()
@@ -1960,6 +1986,13 @@ namespace sogen
         this->last_stop_detail_.clear();
         this->setup_process_if_necessary();
 
+        const auto report_exit = utils::finally([this] {
+            if (this->process_manager_ && this->process.exit_status)
+            {
+                this->process_manager_->notify_current_process_exit(static_cast<uint32_t>(*this->process.exit_status));
+            }
+        });
+
         this->debugger_.begin_emulation();
         const auto end_debugger_emulation = utils::finally([this] { this->debugger_.end_emulation(); });
         this->report_debugger_process_start();
@@ -2492,6 +2525,11 @@ namespace sogen
                 const auto top = static_cast<int32_t>(clip->top);
                 cursor_x = std::clamp(cursor_x, left, std::max(left, static_cast<int32_t>(clip->right) - 1));
                 cursor_y = std::clamp(cursor_y, top, std::max(top, static_cast<int32_t>(clip->bottom) - 1));
+            }
+            else if (!event.cursor_target)
+            {
+                cursor_x = std::clamp(cursor_x, 0, std::max(0, static_cast<int32_t>(this->process.display_width) - 1));
+                cursor_y = std::clamp(cursor_y, 0, std::max(0, static_cast<int32_t>(this->process.display_height) - 1));
             }
         }
         else if (const auto origin = get_client_origin_relative_to_ancestor(this->process, event.window, 0))
@@ -3216,6 +3254,7 @@ namespace sogen
         this->idle_secondary_vcpus();
         this->process.section_views.deserialize(buffer);
         this->process.restore_after_state_restore(*this);
+        this->initialize_process_manager();
         this->thread_stacks_committed_in_full_ = false;
         this->commit_thread_stacks_without_guarded_growth();
         // A state saved while vCPU 0 was idle, without prepare_serialization, has no running thread.
@@ -3326,7 +3365,8 @@ namespace sogen
     }
 
     // The guest's ClipCursor is process-wide; the host confines whichever window is in the foreground, in relative mode while
-    // the guest cursor is hidden.
+    // the guest cursor is hidden. Raw mouse input reports device motion wherever the cursor is, but the host only reports
+    // motion while its cursor is over the window, so a hidden cursor read through raw input is captured as well.
     void windows_emulator::apply_cursor_capture()
     {
         std::optional<ui_rect> clip{};
@@ -3339,7 +3379,9 @@ namespace sogen
         // reaches the guest then, just as with a hidden cursor.
         const bool hidden = this->process.cursor_show_count < 0 || !this->process.cursor_shape_visible;
         const bool pinned = clip && clip->right - clip->left <= 2 && clip->bottom - clip->top <= 2;
-        this->ui().set_cursor_clip(this->process.foreground_window, clip, clip.has_value() && (hidden || pinned));
+        const auto* raw_mouse = this->process.raw_mouse_registration();
+        const bool raw_mouse_look = hidden && raw_mouse && (raw_mouse->flags & RIDEV_EXMODEMASK) != RIDEV_EXCLUDE;
+        this->ui().set_cursor_clip(this->process.foreground_window, clip, (clip.has_value() && (hidden || pinned)) || raw_mouse_look);
     }
 
     void windows_emulator::save_snapshot()
@@ -3415,6 +3457,7 @@ namespace sogen
         this->idle_secondary_vcpus();
         this->process.section_views.deserialize(buffer);
         this->process.restore_after_state_restore(*this);
+        this->initialize_process_manager();
         this->thread_stacks_committed_in_full_ = false;
         this->commit_thread_stacks_without_guarded_growth();
         this->apply_cursor_shape();

@@ -137,7 +137,7 @@ class Conflict(SequencesError):
 class NewVersion(Conflict):
     """409. A new version of the policy went live, or a rollback made another serve: that ended this connection, whatever
     it was doing, and it does not go on on the version that serves by itself. Every call on it raises this. connect()
-    again reaches that version. `.version` names it. {the user 11-05: "we dont route it", "user should jsut reconnect"}"""
+    again reaches that version. `.version` names it."""
 
     @property
     def version(self) -> Optional[int]:

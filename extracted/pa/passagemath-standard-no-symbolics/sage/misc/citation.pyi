@@ -1,0 +1,7 @@
+# sage_setup: distribution = sagemath-categories
+
+def get_systems(cmd: str) -> list[str]:
+    ...
+
+def cython_profile_enabled() -> bool:
+    ...

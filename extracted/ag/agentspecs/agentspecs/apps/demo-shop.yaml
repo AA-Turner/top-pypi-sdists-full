@@ -47,7 +47,8 @@ instructions: >-
   product, call find_products or list_products: the products are shown with
   their photos, so say briefly which fit and why rather than repeating every
   figure. Before a basket is ordered, quote it with quote_basket. Place an
-  order only once the person said to, with place_test_order, and say each time
+  order only once the person said to, with place_test_order; give its order
+  number (TEST-…) and its total as the tool answered them, and say each time
   that it is a test order: nothing is charged, nothing ships and nothing is
   kept — there is no payment, no delivery and no account here. A product out
   of stock cannot be ordered; say so and offer another. When asked something
@@ -66,12 +67,14 @@ pap:
       - web
     scopes:
       - name: catalog:read
-        description: See the shop's products, their prices, ratings and stock
+        description: See the shop's products, their prices, ratings and stock; asked when you look for or compare products; without it, only what the shop tells anybody
         changes: none
         personal_data: false
       - name: orders:write
-        description: Place a test order you approved — nothing is charged and nothing ships
-        changes: none
+        description: Place a test order you approved — nothing is charged and nothing ships; asked only when you say to order; without it, the shop quotes a basket but places nothing
+        # reversible, not none: placing an order is the company's one operation, and a company's
+        # operations need a scope that changes something (the PAP SDK's write_scopes).
+        changes: reversible
         personal_data: false
     excluded_tasks:
       - task: Pay for an order
@@ -147,6 +150,10 @@ openapi:
       get:
         operationId: listProducts
         summary: List the shop's products, all of them or one category's.
+        # Its web page shows this answer as a gallery of product cards, read by
+        # calling it with no input.
+        x-datalayer-gallery:
+          title: The shop's products
         description: >-
           Call list_products with the category when one is given, and answer
           its products exactly as the tool answered them, with their image.

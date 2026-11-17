@@ -9,6 +9,8 @@ use pyo3::types::{PyBytes, PyDict, PyList};
 use tokio::sync::{mpsc, Notify};
 use tonic::Status;
 
+use crate::{AdmissionRejection, ServingPermit, ServingState, REQUIRED_TARGET_HEADER};
+
 thread_local! {
     // This value belongs only to its OS thread, including its destructor.
     static THREAD_ATTACHMENT: OnceCell<ThreadAttachment> = const { OnceCell::new() };
@@ -59,6 +61,7 @@ pub struct PythonHandler {
     process_fn: Py<PyAny>,
     /// Optional column names from CHALK_INPUT_ARGS.
     arg_names: Option<Vec<String>>,
+    serving_state: Option<Arc<ServingState>>,
 }
 
 /// One caller's input: request bytes + function name + gRPC metadata + peer address.
@@ -72,12 +75,53 @@ pub struct CallerInput {
 }
 
 impl PythonHandler {
-    pub fn new(handler: Py<PyAny>, process_fn: Py<PyAny>, arg_names: Option<Vec<String>>) -> Self {
+    pub fn new(
+        handler: Py<PyAny>,
+        process_fn: Py<PyAny>,
+        arg_names: Option<Vec<String>>,
+        serving_state: Option<Arc<ServingState>>,
+    ) -> Self {
         Self {
             handler,
             process_fn,
             arg_names,
+            serving_state,
         }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn requires_target(&self) -> bool {
+        self.serving_state
+            .as_ref()
+            .is_some_and(|state| state.require_target)
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn is_serving(&self) -> bool {
+        self.serving_state
+            .as_ref()
+            .is_none_or(|state| state.is_serving())
+    }
+
+    pub(crate) fn check_admission(
+        &self,
+        metadata: &HashMap<String, String>,
+    ) -> Result<(), AdmissionRejection> {
+        match &self.serving_state {
+            Some(state) => state.check(metadata.get(REQUIRED_TARGET_HEADER).map(String::as_str)),
+            None => Ok(()),
+        }
+    }
+
+    fn admit(
+        &self,
+        metadata: &HashMap<String, String>,
+    ) -> Result<Option<ServingPermit>, PythonError> {
+        self.serving_state
+            .as_ref()
+            .map(|state| state.admit(metadata.get(REQUIRED_TARGET_HEADER).map(String::as_str)))
+            .transpose()
+            .map_err(PythonError::admission)
     }
 
     /// Run the handler on a blocking thread, building the per-call emitter via
@@ -98,8 +142,13 @@ impl PythonHandler {
     {
         // GIL acquisition can block, so only clone the Rust owner on the runtime worker.
         let owner = Arc::clone(self);
+        let permit = self.admit(&metadata)?;
         tokio::task::spawn_blocking(move || {
-            Python::attach(|py| -> Result<(), PythonError> {
+            let mut permit = permit;
+            if let Some(permit) = &mut permit {
+                permit.start();
+            }
+            let result = Python::attach(|py| -> Result<(), PythonError> {
                 retain_thread_state(py);
                 let handler = owner.handler.clone_ref(py);
                 let process_fn = &owner.process_fn;
@@ -115,7 +164,13 @@ impl PythonHandler {
                     .call1(py, (py_bytes, handler, py_arg_names, py_ctx, emitter))
                     .map_err(|e| into_python_error(py, e))?;
                 Ok(())
-            })
+            });
+            if result.is_ok() {
+                if let Some(permit) = &mut permit {
+                    permit.complete();
+                }
+            }
+            result
         })
         .await
         .map_err(|e| PythonError::new(format!("Task join error: {e}")))?
@@ -165,8 +220,16 @@ impl PythonHandler {
     ) -> Result<Vec<Vec<u8>>, PythonError> {
         // GIL acquisition can block, so only clone the Rust owner on the runtime worker.
         let owner = Arc::clone(self);
+        let permits = callers
+            .iter()
+            .map(|caller| self.admit(&caller.metadata))
+            .collect::<Result<Vec<_>, _>>()?;
         tokio::task::spawn_blocking(move || {
-            Python::attach(|py| -> Result<Vec<Vec<u8>>, PythonError> {
+            let mut permits = permits;
+            for permit in permits.iter_mut().flatten() {
+                permit.start();
+            }
+            let result = Python::attach(|py| -> Result<Vec<Vec<u8>>, PythonError> {
                 retain_thread_state(py);
                 let handler = &owner.handler;
                 let process_fn = &owner.process_fn;
@@ -190,7 +253,13 @@ impl PythonHandler {
                     py_arg_names,
                     py_contexts.into_any().unbind(),
                 )
-            })
+            });
+            if result.is_ok() {
+                for permit in permits.iter_mut().flatten() {
+                    permit.complete();
+                }
+            }
+            result
         })
         .await
         .map_err(|e| PythonError::new(format!("Task join error: {e}")))?
@@ -368,6 +437,7 @@ fn invoke_process_fn(
 pub struct PythonError {
     details: String,
     wire_message: String,
+    admission_rejected: bool,
 }
 
 impl PythonError {
@@ -375,6 +445,34 @@ impl PythonError {
         Self {
             details: message.clone(),
             wire_message: message,
+            admission_rejected: false,
+        }
+    }
+
+    fn admission(rejection: AdmissionRejection) -> Self {
+        let status: Status = rejection.into();
+        Self {
+            details: status.message().into(),
+            wire_message: status.message().into(),
+            admission_rejected: true,
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn is_admission_rejected(&self) -> bool {
+        self.admission_rejected
+    }
+
+    pub(crate) fn status(&self) -> Status {
+        if self.admission_rejected {
+            let mut status = Status::unavailable(self.wire_message.clone());
+            status.metadata_mut().insert(
+                "x-chalk-model-admission-rejected",
+                tonic::metadata::MetadataValue::from_static("1"),
+            );
+            status
+        } else {
+            Status::unknown(self.wire_message.clone())
         }
     }
 
@@ -383,6 +481,17 @@ impl PythonError {
     }
 
     pub fn chalk_error(&self) -> ChalkError {
+        if self.admission_rejected {
+            return ChalkError {
+                message: self.wire_message.clone(),
+                exception: Some(ChalkException {
+                    kind: "ModelWeightTargetUnavailable".into(),
+                    message: self.wire_message.clone(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            };
+        }
         let exception = serde_json::from_str::<serde_json::Value>(&self.wire_message)
             .ok()
             .and_then(|payload| {
@@ -422,6 +531,7 @@ fn into_python_error(py: Python<'_>, err: PyErr) -> PythonError {
     PythonError {
         details,
         wire_message,
+        admission_rejected: false,
     }
 }
 
@@ -459,6 +569,7 @@ mod tests {
                 py.eval(pyo3::ffi::c_str!("lambda *args: []"), None, None)
                     .unwrap()
                     .unbind(),
+                None,
                 None,
             ));
             let (polled_tx, polled_rx) = std::sync::mpsc::channel();

@@ -4,11 +4,13 @@ import contextlib
 import csv
 import errno
 import hashlib
+import io
 import logging
 import os
 import sys
 import zipfile
 from base64 import urlsafe_b64encode
+from importlib.metadata import PathDistribution
 from pathlib import Path
 from stat import S_IREAD, S_IWGRP, S_IWOTH, S_IWUSR
 from subprocess import Popen, check_call, run
@@ -17,12 +19,12 @@ from typing import TYPE_CHECKING, Final
 
 import pytest
 from python_discovery import PythonInfo
-from python_discovery import _cached_py_info as cached_py_info
+from python_discovery import _cached_py_info as cached_py_info  # ruff:ignore[import-private-name]  # simplint: ignore[private-import-path]  # disk cache  # fmt: skip
 
-from virtualenv.info import fs_supports_symlink
+from virtualenv.info import IS_PYPY, fs_supports_symlink
 from virtualenv.run import cli_run
-from virtualenv.seed.embed.via_app_data.pip_install.base import _safe_extract_zip
 from virtualenv.seed.embed.via_app_data.pip_install.copy import CopyPipInstall
+from virtualenv.seed.embed.via_app_data.pip_install.symlink import SymlinkPipInstall
 from virtualenv.seed.wheels.embed import BUNDLE_FOLDER, BUNDLE_SUPPORT
 from virtualenv.util.path import safe_delete
 
@@ -33,28 +35,30 @@ if TYPE_CHECKING:
 
     from virtualenv.run.session import Session
 
+_SCRIPTS_DIR: Final[str] = "Scripts" if os.name == "nt" else "bin"
+_PIP_EXE: Final[str] = "pip.exe" if os.name == "nt" else "pip"
+
 
 @pytest.mark.parametrize(
-    "source",
+    ("config_text", "extra_env", "extra_args"),
     [
-        pytest.param("environment", id="environment"),
-        pytest.param("configuration", id="configuration"),
-        pytest.param("command-line", id="command-line"),
+        pytest.param("", {"VIRTUALENV_SYMLINK_APP_DATA": "true"}, [], id="environment"),
+        pytest.param("[virtualenv]\nsymlink_app_data = true\n", {}, [], id="configuration"),
+        pytest.param("", {}, ["--symlink-app-data"], id="command-line"),
     ],
 )
-def test_transient_seed_survives_cache_cleanup(tmp_path: Path, source: str, unusable_cache: Path) -> None:
+def test_transient_seed_survives_cache_cleanup(
+    tmp_path: Path, config_text: str, extra_env: dict[str, str], extra_args: list[str], unusable_cache: Path
+) -> None:
     config: Final = tmp_path / "virtualenv.ini"
-    config.write_text("[virtualenv]\nsymlink_app_data = true\n" if source == "configuration" else "", encoding="utf-8")
+    config.write_text(config_text, encoding="utf-8")
     env: Final = {
         **os.environ,
         "VIRTUALENV_CONFIG_FILE": str(config),
         "VIRTUALENV_OVERRIDE_APP_DATA": str(unusable_cache),
+        **extra_env,
     }
-    if source == "environment":
-        env["VIRTUALENV_SYMLINK_APP_DATA"] = "true"
-    args: Final = [str(tmp_path / "env"), "--no-periodic-update", "--no-setuptools"]
-    if source == "command-line":
-        args.append("--symlink-app-data")
+    args: Final = [str(tmp_path / "env"), "--no-periodic-update", "--no-setuptools", *extra_args]
     session: Final = cli_run(args, env=env)
     assert (
         session.creator.app_data.transient,
@@ -234,7 +238,7 @@ def test_seed_metadata_keeps_reseeding_supported(
         "--pip",
         "embed",
         "--no-periodic-update",
-        *(["--symlink-app-data"] if linked else []),
+        *{True: ["--symlink-app-data"], False: []}[linked],
     ]
     cli_run(args, setup_logging=False)
     session: Final = cli_run(args, setup_logging=False)
@@ -258,6 +262,7 @@ def test_reseed_over_read_only_environment(tmp_path: Path) -> None:
     assert (session.creator.purelib / "pip" / "__init__.py").is_file()
 
 
+@pytest.mark.skipif(IS_PYPY, reason="quoting does not depend on the interpreter, the CPython jobs run this matrix")
 @pytest.mark.parametrize(
     "name",
     [
@@ -284,6 +289,8 @@ def test_console_script_preserves_interpreter_path(
     tmp_path: Path, current_fastest: str, name: str, via_python: bool, seeder: str
 ) -> None:
     destination: Final = os.path.join(str(tmp_path), name, "env")
+    # GraalPy on a busy macOS runner takes over a minute to create and seed an environment, so the timeouts only guard
+    # against a hang.
     run(
         [
             sys.executable,
@@ -303,20 +310,20 @@ def test_console_script_preserves_interpreter_path(
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=60,
+        timeout=300,
         check=True,
     )
-    scripts: Final = os.path.join(destination, "Scripts" if os.name == "nt" else "bin")
+    scripts: Final = os.path.join(destination, _SCRIPTS_DIR)
     result: Final = run(
         [
-            *([os.path.join(scripts, "python")] if via_python else []),
-            os.path.join(scripts, "pip.exe" if os.name == "nt" else "pip"),
+            *{True: [os.path.join(scripts, "python")], False: []}[via_python],
+            os.path.join(scripts, _PIP_EXE),
             "--version",
         ],
         capture_output=True,
         text=True,
         encoding="utf-8",
-        timeout=30,
+        timeout=120,
         check=True,
     )
     assert os.path.normcase(destination) in os.path.normcase(result.stdout)
@@ -343,9 +350,8 @@ def test_seed_link_via_app_data(tmp_path, coverage_env, current_fastest, copies)
         "--creator",
         current_fastest,
         "-vv",
+        *{True: [], False: ["--symlink-app-data"]}[copies],
     ]
-    if not copies:
-        create_cmd.append("--symlink-app-data")
     result = cli_run(create_cmd)
     coverage_env()
     assert result
@@ -391,8 +397,7 @@ def test_seed_link_via_app_data(tmp_path, coverage_env, current_fastest, copies)
 
     # install a different setuptools to test that virtualenv removes this before installing new
     version = f"setuptools<{bundle_ver['setuptools'].split('-')[1]}"
-    install_cmd = [str(result.creator.script("pip")), "--verbose", "--disable-pip-version-check", "install", version]
-    process = Popen(install_cmd)
+    process = Popen([str(result.creator.script("pip")), "--verbose", "--disable-pip-version-check", "install", version])
     process.communicate()
     assert not process.returncode
     assert site_package.exists()
@@ -413,30 +418,11 @@ def test_seed_link_via_app_data(tmp_path, coverage_env, current_fastest, copies)
     _, __ = process.communicate()
     assert not process.returncode
     # pip is greedy here, removing all packages removes the site-package too
-    if site_package.exists():
-        purelib = result.creator.purelib
-        patch_files = {purelib / f"{'_virtualenv'}.{i}" for i in ("py", "pyc", "pth")}
-        patch_files.add(purelib / "__pycache__")
-        post_run = set(site_package.iterdir()) - patch_files
-        assert not post_run, "\n".join(str(i) for i in post_run)
-
-
-@contextlib.contextmanager
-def read_only_dir(d):
-    write = S_IWUSR | S_IWGRP | S_IWOTH
-    for root, _, filenames in os.walk(str(d)):
-        os.chmod(root, os.stat(root).st_mode & ~write)
-        for filename in filenames:
-            name = os.path.join(root, filename)
-            os.chmod(name, os.stat(name).st_mode & ~write)
-    try:
-        yield
-    finally:
-        for root, _, filenames in os.walk(str(d)):
-            os.chmod(root, os.stat(root).st_mode | write)
-            for filename in filenames:
-                name = os.path.join(root, filename)
-                os.chmod(name, os.stat(name).st_mode | write)
+    purelib = result.creator.purelib
+    patch_files = {purelib / f"{'_virtualenv'}.{i}" for i in ("py", "pyc", "pth")}
+    patch_files.add(purelib / "__pycache__")
+    post_run = set(site_package.glob("*")) - patch_files
+    assert not post_run, "\n".join(str(i) for i in post_run)
 
 
 @pytest.fixture
@@ -446,12 +432,29 @@ def read_only_app_data(temp_app_data):
         yield temp_app_data
 
 
+@contextlib.contextmanager
+def read_only_dir(directory):
+    write = S_IWUSR | S_IWGRP | S_IWOTH
+    for root, _, filenames in os.walk(str(directory)):
+        os.chmod(root, os.stat(root).st_mode & ~write)
+        for filename in filenames:
+            name = os.path.join(root, filename)
+            os.chmod(name, os.stat(name).st_mode & ~write)
+    try:
+        yield
+    finally:
+        for root, _, filenames in os.walk(str(directory)):
+            os.chmod(root, os.stat(root).st_mode | write)
+            for filename in filenames:
+                name = os.path.join(root, filename)
+                os.chmod(name, os.stat(name).st_mode | write)
+
+
 @pytest.mark.slow
 @pytest.mark.skipif(sys.platform == "win32", reason="Windows only applies R/O to files")
 @pytest.mark.usefixtures("read_only_app_data")
 def test_base_bootstrap_link_via_app_data_not_writable(tmp_path, current_fastest) -> None:
-    dest = tmp_path / "venv"
-    result = cli_run(["--seeder", "app-data", "--creator", current_fastest, "-vv", str(dest)])
+    result = cli_run(["--seeder", "app-data", "--creator", current_fastest, "-vv", str(tmp_path / "venv")])
     assert result
 
 
@@ -472,7 +475,7 @@ def test_populated_read_only_cache_and_symlinked_app_data(tmp_path, current_fast
     assert cli_run(cmd)
     check_call((str(dest.joinpath("bin/python")), "-c", "import pip"))
 
-    cached_py_info._CACHE.clear()  # ruff:ignore[private-member-access]  # necessary to re-trigger py info discovery
+    cached_py_info._CACHE.clear()  # ruff:ignore[private-member-access]  # preserve the disk cache for the read-only test
     safe_delete(dest)
 
     # should succeed with special flag when read-only
@@ -498,7 +501,7 @@ def test_populated_read_only_cache_and_copied_app_data(tmp_path, current_fastest
 
     assert cli_run(cmd)
 
-    cached_py_info._CACHE.clear()  # ruff:ignore[private-member-access]  # necessary to re-trigger py info discovery
+    cached_py_info._CACHE.clear()  # ruff:ignore[private-member-access]  # preserve the disk cache for the read-only test
     safe_delete(dest)
 
     # should succeed with special flag when read-only
@@ -510,8 +513,7 @@ def test_populated_read_only_cache_and_copied_app_data(tmp_path, current_fastest
 @pytest.mark.parametrize("pkg", ["pip", "setuptools"])
 @pytest.mark.usefixtures("session_app_data", "current_fastest", "coverage_env")
 def test_base_bootstrap_link_via_app_data_no(tmp_path, pkg) -> None:
-    create_cmd = [str(tmp_path), "--seeder", "app-data", f"--no-{pkg}", "--setuptools", "bundle"]
-    result = cli_run(create_cmd)
+    result = cli_run([str(tmp_path), "--seeder", "app-data", f"--no-{pkg}", "--setuptools", "bundle"])
     assert not (result.creator.purelib / pkg).exists()
     for key in {"pip", "setuptools"} - {pkg}:
         assert (result.creator.purelib / key).exists()
@@ -523,26 +525,15 @@ def test_app_data_parallel_ok(tmp_path) -> None:
     assert not exceptions, "\n".join(exceptions)
 
 
-@pytest.mark.usefixtures("temp_app_data")
-def test_app_data_parallel_fail(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch("virtualenv.seed.embed.via_app_data.pip_install.base.PipInstall.build_image", side_effect=RuntimeError)
-    exceptions = _run_parallel_threads(tmp_path)
-    assert len(exceptions) == 2
-    for exception in exceptions:
-        assert exception.startswith("failed to build image pip because:\nTraceback")
-        assert "RuntimeError" in exception, exception
-
-
 def _run_parallel_threads(tmp_path):
     exceptions = []
 
     def _run(name) -> None:
         try:
-            cmd = ["--seeder", "app-data", str(tmp_path / name), "--no-setuptools"]
-            cli_run(cmd)
+            cli_run(["--seeder", "app-data", str(tmp_path / name), "--no-setuptools"])
+        # every seeder failure is collected, so the test asserts on all of them together
         except Exception as exception:  # ruff:ignore[blind-except]
-            as_str = str(exception)
-            exceptions.append(as_str)
+            exceptions.append(str(exception))
 
     threads = [Thread(target=_run, args=(f"env{i}",)) for i in range(1, 3)]
     for thread in threads:
@@ -552,7 +543,37 @@ def _run_parallel_threads(tmp_path):
     return exceptions
 
 
-_DISK_FULL: Final = OSError(errno.ENOSPC, "No space left on device")
+@pytest.mark.usefixtures("temp_app_data")
+def test_app_data_parallel_fail(tmp_path: Path, mocker: MockerFixture) -> None:
+    mocker.patch(
+        "virtualenv.seed.embed.via_app_data.pip_install.base.PipInstall.build_image",
+        side_effect=RuntimeError,
+        autospec=True,
+    )
+    exceptions = _run_parallel_threads(tmp_path)
+    assert len(exceptions) == 2
+    for exception in exceptions:
+        assert exception.startswith("failed to build image pip because:\nTraceback")
+        assert "RuntimeError" in exception, exception
+
+
+@pytest.mark.usefixtures("temp_app_data")
+def test_seed_reports_wheel_lookup_failure(
+    tmp_path: Path, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+) -> None:
+    mocker.patch(
+        "virtualenv.seed.embed.via_app_data.via_app_data.get_wheel",
+        side_effect=RuntimeError("lookup offline"),
+        autospec=True,
+    )
+
+    with pytest.raises(RuntimeError, match="seed failed due to failing to download wheels pip"):
+        cli_run([str(tmp_path / "env"), "--no-setuptools", "--no-periodic-update"], setup_logging=False)
+
+    assert "lookup offline" in caplog.text
+
+
+_DISK_FULL: Final[OSError] = OSError(errno.ENOSPC, "No space left on device")
 
 
 def _fail_during_extraction(zip_ref: zipfile.ZipFile, target_dir: Path) -> None:
@@ -604,13 +625,15 @@ def test_seed_image_build_failure_leaves_no_partial_image(
         str(cache),
         "--no-periodic-update",
         "--no-setuptools",
-        *(["--symlink-app-data"] if linked else []),
+        *{True: ["--symlink-app-data"], False: []}[linked],
     ]
-    patched: Final = mocker.patch(f"virtualenv.seed.embed.via_app_data.pip_install.{target}", side_effect=failure)
+    patched: Final = mocker.patch(
+        f"virtualenv.seed.embed.via_app_data.pip_install.{target}", side_effect=failure, autospec=True
+    )
     with pytest.raises(RuntimeError, match="No space left on device"):
         cli_run(args, setup_logging=False)
     mocker.stop(patched)
-    installer: Final = "SymlinkPipInstall" if linked else "CopyPipInstall"
+    installer: Final = {True: "SymlinkPipInstall", False: "CopyPipInstall"}[linked]
     images: Final = next(cache.glob("wheel/*/image/1"))
     left: Final = sorted(i.name for i in [*images.iterdir(), *(images / installer).iterdir()] if i.is_dir())
     purelib: Final = cli_run(args, setup_logging=False).creator.purelib
@@ -656,53 +679,208 @@ def test_seed_image_build_direct_call(tmp_path: Path) -> None:
     ) == (["CopyPipInstall"], True, True)
 
 
-def _write_zip_with_entry(zip_path: Path, entry_name: str) -> None:
-    with zipfile.ZipFile(str(zip_path), "w") as archive:
-        archive.writestr(entry_name, "payload")
+def test_seed_image_without_metadata_fails(no_seed_session: Session, tmp_path: Path) -> None:
+    image = tmp_path / "image"
+    image.mkdir()
+    (image / "unexpected").touch()
+    installer = CopyPipInstall(tmp_path / "example-1-py3-none-any.whl", no_seed_session.creator, image)
 
-
-def test_safe_extract_zip_allows_normal_entry(tmp_path: Path) -> None:
-    archive = tmp_path / "ok.zip"
-    _write_zip_with_entry(archive, "pkg/inner.txt")
-    target = tmp_path / "out"
-    target.mkdir()
-
-    with zipfile.ZipFile(str(archive)) as zip_ref:
-        _safe_extract_zip(zip_ref, target)
-
-    assert (target / "pkg" / "inner.txt").read_text(encoding="utf-8") == "payload"
-
-
-def test_safe_extract_zip_rejects_parent_traversal(tmp_path: Path) -> None:
-    archive = tmp_path / "evil.zip"
-    _write_zip_with_entry(archive, "../escape.txt")
-    target = tmp_path / "out"
-    target.mkdir()
-
-    with zipfile.ZipFile(str(archive)) as zip_ref, pytest.raises(RuntimeError, match="escaping target directory"):
-        _safe_extract_zip(zip_ref, target)
-
-    assert not (tmp_path / "escape.txt").exists()
+    with pytest.raises(RuntimeError, match=r"no \.dist-info at .*image, has unexpected"):
+        installer.install(no_seed_session.interpreter.version_info)
 
 
 @pytest.mark.parametrize(
-    "entry",
+    "ending", [pytest.param(b"", id="no-newline"), pytest.param(b"\n", id="lf"), pytest.param(b"\r\n", id="crlf")]
+)
+def test_copy_seed_preserves_record_rows(tmp_path: Path, copy_seed_record: tuple[Path, list[list[str]]]) -> None:
+    session: Final = cli_run([str(tmp_path / "env"), "--no-seed"], setup_logging=False)
+    wheel, original_rows = copy_seed_record
+    image: Final = tmp_path / "image" / "CopyPipInstall" / wheel.stem
+    installer: Final = CopyPipInstall(wheel, session.creator, image)
+    installer.build_image()
+    installer.install(session.interpreter.version_info)
+
+    dist_info: Final = next(session.creator.purelib.glob("pip-*.dist-info"))
+    with (dist_info / "RECORD").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    assert rows[: len(original_rows)] == original_rows
+    files: Final = PathDistribution(dist_info).files
+    assert files is not None
+    assert f"{dist_info.name}/INSTALLER" in {Path(file).as_posix() for file in files}
+
+
+@pytest.fixture(
+    params=[
+        pytest.param("data,one.py", id="comma"),
+        pytest.param(
+            'data"one.py', id="quote", marks=pytest.mark.skipif(os.name == "nt", reason="unsupported filename")
+        ),
+        pytest.param("data\none.py", id="lf", marks=pytest.mark.skipif(os.name == "nt", reason="unsupported filename")),
+        pytest.param("data\rone.py", id="cr", marks=pytest.mark.skipif(os.name == "nt", reason="unsupported filename")),
+    ]
+)
+def record_filename(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+def test_seed_uninstall_reads_quoted_record_paths(
+    tmp_path: Path, no_seed_session: Session, record_filename: str
+) -> None:
+    purelib = no_seed_session.creator.purelib
+    dist_info = purelib / "example-1.0.dist-info"
+    dist_info.mkdir(parents=True)
+    installed = purelib / record_filename
+    installed.write_text("old package data", encoding="utf-8")
+    unrelated = purelib / "keep.py"
+    unrelated.write_text("keep", encoding="utf-8")
+    with (dist_info / "RECORD").open("w", encoding="utf-8", newline="") as stream:
+        writer = csv.writer(stream)
+        writer.writerow([record_filename, "", ""])
+        writer.writerow([f"{dist_info.name}/RECORD", "", ""])
+
+    image = tmp_path / "image"
+    new_dist_info = image / "example-2.0.dist-info"
+    new_dist_info.mkdir(parents=True)
+    (new_dist_info / "RECORD").touch()
+    installer = CopyPipInstall(tmp_path / "example-2.0-py3-none-any.whl", no_seed_session.creator, image)
+    installer.install(no_seed_session.interpreter.version_info)
+
+    assert (installed.exists(), dist_info.exists(), unrelated.read_text(encoding="utf-8")) == (False, False, "keep")
+
+
+@pytest.fixture
+def wheel_with_record_filename(tmp_path: Path, no_seed_session: Session, record_filename: str) -> Path:
+    bundled = BUNDLE_FOLDER / BUNDLE_SUPPORT[no_seed_session.interpreter.version_release_str]["pip"]
+    wheel = tmp_path / bundled.name
+    row = io.StringIO(newline="")
+    csv.writer(row).writerow([record_filename, "", ""])
+    with zipfile.ZipFile(bundled) as source, zipfile.ZipFile(wheel, "w") as target:
+        for info in source.infolist():
+            content = source.read(info)
+            if info.filename.endswith(".dist-info/RECORD"):
+                content += row.getvalue().encode("utf-8")
+            target.writestr(info, content)
+        target.writestr(record_filename, "value = 42\n")
+    return wheel
+
+
+@pytest.mark.parametrize(
+    "installer_class",
     [
-        pytest.param("/tmp/evil.txt", id="posix"),  # ruff:ignore[hardcoded-temp-file]
-        pytest.param("C:/Windows/System32/evil.txt", id="windows"),
+        pytest.param(CopyPipInstall, id="copy"),
+        pytest.param(
+            SymlinkPipInstall,
+            id="symlink",
+            marks=pytest.mark.skipif(not fs_supports_symlink(), reason="requires symlinks"),
+        ),
     ],
 )
-def test_safe_extract_zip_rejects_absolute_entry(tmp_path: Path, entry: str) -> None:
-    archive = tmp_path / "abs.zip"
-    _write_zip_with_entry(archive, entry)
-    target = tmp_path / "out"
-    target.mkdir()
+def test_seed_records_quote_generated_paths(
+    tmp_path: Path,
+    no_seed_session: Session,
+    wheel_with_record_filename: Path,
+    record_filename: str,
+    installer_class: type[CopyPipInstall | SymlinkPipInstall],
+) -> None:
+    image = tmp_path / "image" / installer_class.__name__ / wheel_with_record_filename.stem
+    installer = installer_class(wheel_with_record_filename, no_seed_session.creator, image)
+    installer.build_image()
+    installer.install(no_seed_session.interpreter.version_info)
 
-    with zipfile.ZipFile(str(archive)) as zip_ref, pytest.raises(RuntimeError, match="absolute path"):
-        _safe_extract_zip(zip_ref, target)
+    dist_info = next(no_seed_session.creator.purelib.glob("pip-*.dist-info"))
+    with (dist_info / "RECORD").open(encoding="utf-8", newline="") as stream:
+        rows = list(csv.reader(stream))
+    names = {Path(row[0]).name for row in rows}
+    compiled = {name for name in names if name.startswith(f"{record_filename[:-3]}.") and name.endswith(".pyc")}
+    assert ({len(row) for row in rows}, record_filename in names, len(compiled)) == ({3}, True, 1)
 
 
-def test_seed_entry_points_preserve_case_and_last_duplicate(tmp_path: Path) -> None:
+@pytest.fixture
+def copy_seed_record(tmp_path: Path, ending: bytes) -> tuple[Path, list[list[str]]]:
+    bundled: Final = BUNDLE_FOLDER / BUNDLE_SUPPORT[PythonInfo.current_system().version_release_str]["pip"]
+    wheel: Final = tmp_path / bundled.name
+    original_rows: list[list[str]] = []
+    with zipfile.ZipFile(bundled) as source, zipfile.ZipFile(wheel, "w") as target:
+        for info in source.infolist():
+            content = source.read(info)
+            if info.filename.endswith(".dist-info/RECORD"):
+                content = content.rstrip(b"\r\n") + ending
+                original_rows = list(csv.reader(io.StringIO(content.decode("utf-8"))))
+            target.writestr(info, content)
+
+    return wheel, original_rows
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows path limits")
+@pytest.mark.parametrize(
+    ("entry", "shortened"),
+    [
+        pytest.param("{file}", 0, id="file-fits"),
+        pytest.param("{file}f", 1, id="file-too-long"),
+        pytest.param("{folder}/x", 0, id="dir-fits"),
+        pytest.param("{folder}d/x", 1, id="dir-too-long"),
+    ],
+)
+def test_seed_image_short_path_limits(
+    tmp_path: Path, mocker: MockerFixture, no_seed_session: Session, entry: str, shortened: int
+) -> None:
+    image: Final = tmp_path / "image"
+    image.mkdir()
+    (image / "content").touch()
+    # the longest file name that fits under MAX_PATH, which also counts the separator and the terminating null
+    room: Final = 258 - len(str(image))
+    wheel: Final = tmp_path / "pkg.whl"
+    with zipfile.ZipFile(str(wheel), "w") as archive:
+        archive.writestr(entry.format(file="f" * room, folder="d" * (room - 12)), "payload")
+    shorten: Final = mocker.patch("virtualenv.util.path.get_short_path_name", autospec=True, return_value=str(image))
+    assert (CopyPipInstall(wheel, no_seed_session.creator, image).has_image(), shorten.call_count) == (True, shortened)
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows path limits")
+def test_seed_image_read_through_short_path(tmp_path: Path, mocker: MockerFixture, no_seed_session: Session) -> None:
+    wheel: Final = BUNDLE_FOLDER / BUNDLE_SUPPORT[no_seed_session.interpreter.version_release_str]["pip"]
+    image: Final = tmp_path / "image" / "CopyPipInstall" / wheel.stem
+    # an upper case name stands in for the short one, Windows opens the same directory through either
+    mocker.patch(
+        "virtualenv.seed.embed.via_app_data.pip_install.base.PipInstall._short_path_if_needed",
+        autospec=True,
+        side_effect=lambda _zip_ref, folder: folder.with_name(folder.name.upper()),
+    )
+    synced: Final = mocker.spy(CopyPipInstall, "_sync")
+    built: Final = CopyPipInstall(wheel, no_seed_session.creator, image)
+    built.build_image()
+    built.install(no_seed_session.interpreter.version_info)
+    read_after_build: Final = {str(call.args[1].parent) for call in synced.call_args_list}
+    synced.reset_mock()
+    reused: Final = CopyPipInstall(wheel, no_seed_session.creator, image)
+    found: Final = reused.has_image()
+    reused.install(no_seed_session.interpreter.version_info)
+    read_on_reuse: Final = {str(call.args[1].parent) for call in synced.call_args_list}
+    short: Final = str(image.with_name(image.name.upper()))
+    assert (read_after_build, found, read_on_reuse) == ({short}, True, {short})
+
+
+def _read_windows_launcher(script: Path) -> bytes:
+    with zipfile.ZipFile(script) as archive:
+        return archive.read("__main__.py")
+
+
+@pytest.mark.parametrize(
+    "read_source",
+    [
+        pytest.param(
+            Path.read_bytes, id="posix", marks=pytest.mark.skipif(sys.platform == "win32", reason="POSIX script")
+        ),
+        pytest.param(
+            _read_windows_launcher,
+            id="windows",
+            marks=pytest.mark.skipif(sys.platform != "win32", reason="Windows launcher is an executable"),
+        ),
+    ],
+)
+def test_seed_entry_points_preserve_case_and_last_duplicate(
+    tmp_path: Path, read_source: Callable[[Path], bytes]
+) -> None:
     session = cli_run([str(tmp_path / "env"), "--no-seed"])
     image = tmp_path / "image"
     metadata = image / "example-1.dist-info"
@@ -713,13 +891,7 @@ def test_seed_entry_points_preserve_case_and_last_duplicate(tmp_path: Path) -> N
     CopyPipInstall(tmp_path / "example-1-py3-none-any.whl", session.creator, image).install(
         session.interpreter.version_info
     )
-    script = session.creator.script("MyTool")
-    if sys.platform == "win32":
-        with zipfile.ZipFile(script) as archive:
-            source = archive.read("__main__.py")
-    else:
-        source = script.read_bytes()
-    assert b"from example import main" in source
+    assert b"from example import main" in read_source(session.creator.script("MyTool"))
 
 
 @pytest.mark.parametrize(
@@ -794,6 +966,33 @@ def test_symlink_seed_compiles_with_empty_local_module(tmp_path: Path, monkeypat
 
 
 @pytest.mark.skipif(not fs_supports_symlink(), reason="requires symlinks")
+@pytest.mark.skipif(sys.implementation.name != "cpython", reason="only CPython rejects an invalid PYTHONHOME")
+def test_symlink_seed_uses_explicit_environment(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    env = os.environ.copy()
+    env.pop("PYTHONHOME", None)
+    monkeypatch.setenv("PYTHONHOME", str(tmp_path / "missing-home"))
+    session = cli_run(
+        [
+            str(tmp_path / "env"),
+            "--creator",
+            "builtin",
+            "--symlink-app-data",
+            "--pip",
+            "embed",
+            "--setuptools",
+            "none",
+            "--app-data",
+            str(tmp_path / "cache"),
+            "--no-download",
+            "--no-periodic-update",
+            "--activators=",
+        ],
+        env=env,
+    )
+    assert list((session.creator.purelib / "pip" / "__pycache__").glob("__init__*.pyc"))
+
+
+@pytest.mark.skipif(not fs_supports_symlink(), reason="requires symlinks")
 def test_symlink_seed_reports_compilation_failure(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch(
         "virtualenv.seed.embed.via_app_data.pip_install.symlink.run_cmd",
@@ -829,6 +1028,6 @@ def test_pip_launcher_record_matches_contents(tmp_path: Path, name: str, via_she
     content: Final = (session.creator.script_dir / "pip").read_bytes()
     assert content.startswith(b"#!/bin/sh\n") is via_shell
     assert row[1:] == [
-        "sha256=" + urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b"=").decode("ascii"),
+        f"sha256={urlsafe_b64encode(hashlib.sha256(content).digest()).rstrip(b'=').decode('ascii')}",
         str(len(content)),
     ]

@@ -38,6 +38,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._container_kinds import ContainerKind, ContainerSlot
     from datamodel_code_generator._runtime.model_codecs.media import LexicalKind
+    from datamodel_code_generator._runtime.model_codecs.parameters import ParameterPlan
     from datamodel_code_generator._target_contract import (
         FieldUseBinding,
         FinalModelSymbol,
@@ -57,6 +58,7 @@ __all__ = [
     "opened",
     "present",
     "sole_present",
+    "styled_without_none",
     "type_identity",
     "without_none",
 ]
@@ -135,6 +137,17 @@ def without_none(value: TypeView) -> TypeView:
         return value
     members = present(value)
     return members[0] if len(members) == 1 else replace(value, members=members, hint=None)
+
+
+def styled_without_none(value: TypeView, plan: ParameterPlan | None) -> TypeView | None:
+    """Return the type of a required parameter its plan writes by its style without None, or None where None stays.
+
+    A query string, header, cookie or path has no spelling for None, so such a parameter never receives it; one with a
+    content media type, an optional one and a type without None keep their type.
+    """
+    if plan is None or not plan.required or plan.content_media_type is not None:
+        return None
+    return without_none(members) if admits_none(members := opened(value)) else None
 
 
 def type_identity(value: TypeView) -> tuple[str | None, str]:
@@ -286,6 +299,41 @@ class TypeTables:
         kinds none of which reads text as it is, have no kind.
         """
         return _one_kind(set(self._leaves(value, frozenset())), mixed=True)
+
+    def fixed(self, value: TypeView) -> tuple[object, ...] | None:
+        """Return the values a type admits where it admits literal values alone, None aside, else None.
+
+        A literal admits the values its items stand for (``scalar``), and an enum the values of its members, through
+        aliases and root models (``wrapper_chain``), and a union they stand for the values of its members, read the
+        same way; any other type, such as a scalar or a model, admits values of its own, and so does an alias or root
+        model the union's members reach again.
+        """
+        return self._fixed(value, frozenset())
+
+    def _fixed(self, value: TypeView, seen: frozenset[SymbolId]) -> tuple[object, ...] | None:
+        found: list[object] = []
+        for present_member in present(value):
+            member, named = self.wrapper_chain(present_member)
+            if isinstance(member, LiteralType):
+                found.extend(None if (item := self.scalar(entry)) is None else item.value for entry in member.values)
+            elif isinstance(member, GeneratedSymbolType) and (symbol := self.symbols[member.symbol]).kind == "enum":
+                found.extend(None if item is None else item.value for item in symbol.values)
+            elif (
+                isinstance(member, UnionType)
+                and seen.isdisjoint(named)
+                and (values := self._fixed(member, seen.union(named))) is not None
+            ):
+                found.extend(values)
+            else:
+                return None
+        return tuple(found)
+
+    def scalar(self, item: LiteralScalar | GeneratedEnumMember) -> LiteralScalar | None:
+        """Return the value a literal's item stands for: its own, or that of the enum member it names (None aside)."""
+        if not isinstance(item, GeneratedEnumMember):
+            return item
+        symbol = self.symbols[item.symbol]
+        return next(value for slot, value in zip(symbol.fields, symbol.values, strict=True) if slot.field == item.field)
 
     def _leaves(self, value: TypeView | None, seen: frozenset[SymbolId]) -> Iterator[LexicalKind | None]:
         match value:

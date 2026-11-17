@@ -592,7 +592,10 @@ class AmbiguityKind(StrEnum):
     its fork occurs (the comma's structure decision reports no
     reading by design, except where it decides a member of the
     ambiguous credential class, where since 2.4 that decision is
-    reported either way -- #289; an attachment decided AFTER a
+    reported either way -- #289 -- and where it reads a credential
+    that is also a given name written short as the given name, as in
+    "Rahman, Md Abdul", which since 3.1 reports SUFFIX_OR_NAME, the
+    credential its alternative -- #1393; an attachment decided AFTER a
     family comma is a separate fork and has reported on its own
     since 2.3, e.g. "Berg, Jan vd"; the two structural kinds above
     were never covered by either silence), and coverage grows over
@@ -600,10 +603,22 @@ class AmbiguityKind(StrEnum):
     a signal to act on; an empty one is not a guarantee of
     certainty."""
 
-    #: Reserved: the name's field order itself is uncertain (e.g. a
-    #: two-word name under a non-default name_order). Not yet
-    #: emitted. A lone name word is GIVEN_OR_FAMILY's, not
-    #: this.
+    #: The name's field order itself is uncertain: one name word followed
+    #: by nothing but initials, read given-first by the default order,
+    #: is also a byline written family name first ("Armitage J. O.",
+    #: "Gomes A.R.S.", "Kavitha S") and, with two or more letters, the
+    #: South Asian name whose letters are its family ("Lakshmi R S",
+    #: rules/O4, rules/O8). ``alternative`` is None: the other reading
+    #: lays out the whole name (the word in front the family, the
+    #: letters the given and middle initials), which no one word's
+    #: other role names, so the detail says it in words and a caller
+    #: reads it with ``name_order=FAMILY_FIRST``. Reported only under the given-first order, with
+    #: no family comma and ``Policy.initials_as_family`` off; never
+    #: for capitals written as one word with no full stops ("Armitage
+    #: JO"), which are written as a short surname is ("Zhi LI"), nor for
+    #: a particle in front, PARTICLE_OR_GIVEN's fork, nor a word written
+    #: in a script with no initials. Reserved from 2.0 and emitted since
+    #: 3.1 (#1254). A lone name word is GIVEN_OR_FAMILY's, not this.
     ORDER = "order"
     #: Delimited content is an ambiguous suffix acronym, so it reads
     #: plausibly as either a post-nominal or a nickname -- "JEFFREY
@@ -824,7 +839,9 @@ class AmbiguityKind(StrEnum):
     #: A letter with no name word after it in its part -- nothing
     #: before a comma, a clause or the end, or only post-nominals and
     #: titles, as in "JOSE E", "rovira, i" or "jose e phd" -- connects
-    #: nothing, so it is read as an initial and not reported. Where
+    #: nothing, so it is read as an initial and not reported as this
+    #: kind (a name ending in one may still carry an ORDER report,
+    #: rules/O4, #1254). Where
     #: such a letter is a roman numeral at the end of the name the
     #: numeral fork reports it instead (SUFFIX_OR_NAME: "HENRY I",
     #: "john i phd"); one ending a comma part reports nothing
@@ -1091,7 +1108,9 @@ class Ambiguity:
     #: call gone the other way (the first token's field, for a report on
     #: more than one). None where the kind reports no fork between two
     #: readings of a word (comma-structure, unbalanced-delimiter,
-    #: segmentation; ``order`` is reserved), and where the parse cannot
+    #: segmentation), for ORDER, whose other reading lays out the whole
+    #: name rather than moving one word (its detail says it in words),
+    #: and where the parse cannot
     #: place the other reading in any field: a connective letter
     #: opening its part ("E JOHN SMITH"), with no word before it to
     #: join, or a chained particle whose piece ends in a title a
@@ -1802,9 +1821,11 @@ class ParsedName:
         one directly after the other both in the name as written and
         in that layout keep the separator written between them,
         normalized: nothing stays nothing, any whitespace becomes one
-        space, an interpunct or nakaguro the parse divided at stands
-        alone, and one comma is written ', ' (ASCII), '، ' (Arabic)
-        or '，' (full-width). Every other pair takes a space, or the
+        space, an interpunct, fullwidth full stop, nakaguro or Ethiopic
+        wordspace the parse divided at stands alone, and one comma is written ', '
+        (ASCII), '، ' (Arabic), '፣ ' (Ethiopic), '၊ ' (Burmese), with
+        a space after it in any other script whose comma the parse
+        reads, or '，' (full-width). Every other pair takes a space, or the
         layout's quotes and parentheses where those stand between the
         two fields, and suffixes not written side by side are joined
         with ', ' as the ``suffix`` field joins them."""

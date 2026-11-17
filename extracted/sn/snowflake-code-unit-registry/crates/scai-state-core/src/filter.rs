@@ -223,7 +223,6 @@ fn eval_expr(expr: &Expr, value: &JsonValue) -> EvalValue {
             negated,
             expr: field,
             pattern,
-            escape_char: _,
             ..
         } => {
             let field_val = eval_expr(field, value);
@@ -242,7 +241,6 @@ fn eval_expr(expr: &Expr, value: &JsonValue) -> EvalValue {
             negated,
             expr: field,
             pattern,
-            escape_char: _,
             ..
         } => {
             let field_val = eval_expr(field, value);

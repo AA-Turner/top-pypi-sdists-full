@@ -1087,7 +1087,7 @@ class TradeBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @property
     def period(self) -> datetime.timedelta:
-        """The period of this trade bar, (second, minute, daily, ect...)"""
+        """The period of this trade bar, (second, minute, daily, etc...)"""
         ...
 
     @period.setter
@@ -1740,7 +1740,7 @@ class QuoteBar(QuantConnect.Data.BaseData, QuantConnect.Data.Market.IBaseDataBar
 
     @property
     def period(self) -> datetime.timedelta:
-        """The period of this quote bar, (second, minute, daily, ect...)"""
+        """The period of this quote bar, (second, minute, daily, etc...)"""
         ...
 
     @period.setter
@@ -3513,7 +3513,7 @@ class BaseRenkoBar(QuantConnect.Data.Market.TradeBar, QuantConnect.Data.Market.I
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reader Method :: using set of arguements we specify read out type. Enumerate
+        Reader Method :: using set of arguments we specify read out type. Enumerate
         until the end of the data stream or file. E.g. Read CSV file line by line and convert
         into data types.
         

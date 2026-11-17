@@ -249,6 +249,7 @@ from .type_defs import (
     CreateWorkspaceResponseTypeDef,
     DeactivateEvaluationFormRequestTypeDef,
     DeactivateEvaluationFormResponseTypeDef,
+    DeleteAllEntitySessionsRequestTypeDef,
     DeleteAttachedFileRequestTypeDef,
     DeleteContactDataRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
@@ -1610,6 +1611,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/deactivate_evaluation_form.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#deactivate_evaluation_form)
+        """
+
+    def delete_all_entity_sessions(
+        self, **kwargs: Unpack[DeleteAllEntitySessionsRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes all active sessions for the specified entity in the specified Connect
+        Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_all_entity_sessions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#delete_all_entity_sessions)
         """
 
     def delete_attached_file(

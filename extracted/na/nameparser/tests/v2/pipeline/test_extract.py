@@ -2,7 +2,7 @@ import dataclasses
 
 import pytest
 
-from nameparser import parse
+from nameparser import Parser, parse
 from nameparser._lexicon import Lexicon
 from nameparser._pipeline._extract import extract_delimited
 from nameparser._pipeline._state import ParseState
@@ -257,3 +257,171 @@ def test_unbalanced_delimiter_points_at_its_token(
     # string, which is not an API
     (amb,) = parse(text).ambiguities
     assert [t.text for t in amb.tokens] == [expected]
+
+
+@pytest.mark.parametrize("text", [
+    # #1241: an apostrophe opening a listed particle ('t, nl.toml) is
+    # part of the word, so it opens no quote and reports nothing
+    "Pieter 't Hart", "Pieter van 't Hof", "Hart, Pieter 't",
+    "Gerard 't Hooft", "'t Hooft, Gerard", "Pieter 'T Hart",
+    "Pieter 't, Hart", "Pieter 't. Hart",
+    # the word ends where tokenize ends it: a zero-width space, a
+    # nakaguro, the Ethiopic wordspace, a stripped bidi mark or emoji
+    "Pieter 't\u200bHart", "Pieter 't\u30fbHart", "Pieter 't\u1361Hart",
+    "Pieter 't\u200f Hart", "Pieter 't\U0001F600 Hart",
+    # 's (des) is listed too, spaced and hyphened to its surname, and a
+    # listed particle hyphened to a word opens no quote either
+    "Jan 's Jacob", "Willem Jacob 's Gravesande", "'s Gravesande, Willem",
+    "Storm van 's-Gravesande", "G.H. 's-Gravesande", "Pieter 't-Hart",
+    "'s-Gravesande, Arent", "Gravesande, Willem 's",
+    # the head is cut at the FIRST hyphen
+    "Storm van 's-Graven-Hage", "Arent van 's-Gravesande-Smith",
+])
+def test_apostrophe_opening_a_listed_particle_reports_nothing(
+        text: str) -> None:
+    assert parse(text).ambiguities == ()
+
+
+@pytest.mark.parametrize("text", [
+    # the cases the check refused before #1241, and still refuses: an
+    # unlisted word ('Bob, 'x), a word the listed 't only begins ('tje),
+    # an unlisted word before a hyphen ('tje-, 'x-), and a double
+    # quote; the empty-lexicon case is the test below. Jan 's Jacob,
+    # Storm van 's-Gravesande and Pieter 't-Hart stood here until 's
+    # was listed and a hyphen ended the particle (decisions/N2)
+    "'Bob Smith", "Pieter 'x Hart", "Pieter 'tje Hart",
+    "Pieter 'tje-Hart", "Pieter 'x-Hart", 'Jon "Nick Smith',
+    # a listed particle, spaced or hyphened to a word, still opens
+    # where the next same character stands after a non-space, a
+    # possible close: a close the punctuation after it refuses, and d'
+    # or O' (accepted, no measured name writes the pair)
+    "Aaron 'T-Bone'. Walker", "Aaron 'T-Bone'; Walker",
+    "Arent van 's-Gravesande d'Ancona", "Maria 's-Gravesande O'Neill",
+    "Gerard 't Hooft d'Hondt",
+    # in another delimiter's clause too: the nickname is read, and the
+    # report comes back as in 3.0.1
+    'Jan \'t Hart "Jan\'s"',
+    # after any non-space, a bracket included
+    "Jan 's-Gravesande ('Jantje')",
+])
+def test_apostrophe_opening_an_unlisted_word_still_reports(text: str) -> None:
+    kinds = [a.kind for a in parse(text).ambiguities]
+    assert kinds == [AmbiguityKind.UNBALANCED_DELIMITER]
+
+
+_CURLY = Policy(nickname_delimiters=frozenset(
+    {("\u2019", "\u2019"), ('"', '"'), ("'", "'")}))
+
+
+@pytest.mark.parametrize("text, nickname", [
+    # the curly \u2019t is listed too, so a caller who quotes with the
+    # curly apostrophe gets the same reading (the family guard)
+    ("Pieter \u2019t Hart", ""),
+    ("Jan van \u2019t Hof \u2019Jantje\u2019", "Jantje"),
+    ("Willem \u2019s Gravesande", ""),
+    ("Arent van \u2019s-Gravesande", ""),
+    ("Aaron \u2019T-Bone\u2019 Walker", "T-Bone"),
+])
+def test_curly_apostrophe_particle_under_a_curly_quote(text: str,
+                                                       nickname: str) -> None:
+    name = Parser(policy=_CURLY).parse(text)
+    assert name.nickname == nickname
+    assert name.ambiguities == ()
+
+
+def test_curly_particle_before_a_curly_possible_close_still_reports() -> None:
+    # the curly twin takes the same possible-close test: a later curly
+    # apostrophe inside a word is one (decisions/N2's accepted class)
+    name = Parser(policy=_CURLY).parse("Jan \u2019t Hart O\u2019Neill")
+    assert [a.kind for a in name.ambiguities] == [
+        AmbiguityKind.UNBALANCED_DELIMITER]
+
+
+def test_listed_particle_check_reads_the_parses_lexicon() -> None:
+    # the vocabulary decides, not the shape: without 't listed the
+    # word-initial apostrophe opens a candidate quote as before
+    out = extract_delimited(_state("Pieter 't Hart"))
+    assert [a.kind for a in out.ambiguities] == [
+        AmbiguityKind.UNBALANCED_DELIMITER]
+
+
+@pytest.mark.parametrize("text, nickname", [
+    # with the particle's apostrophe no open, a quote after it pairs
+    # with its own close (1.4.0's reading) instead of opening at 't
+    ("Jan van 't Hof 'Jantje'", "Jantje"),
+    ("Pieter 'Piet' van 't Hof", "Piet"),
+    # a quoted word closes itself, so a listed particle hyphened inside
+    # it still opens: the nickname is kept ('T-Bone'), and a quoted 's
+    # is no particle at all
+    ("Aaron 'T-Bone' Walker", "T-Bone"),
+    ("Bob 'T-Bone Jones' Smith", "T-Bone Jones"),
+    ("Bob 'S-Man Jr' Smith", "S-Man Jr"),
+    ("Bob 's' Smith", "s"),
+    # a quote after a hyphened particle pairs with its own close
+    ("Jan van 's-Gravesande 'Jantje'", "Jantje"),
+    ("Pieter 't-Hart 'Piet'", "Piet"),
+    # a quote opening at a listed particle, spaced, is still one where
+    # the next apostrophe can close it: a quoted clause opening with
+    # the bare letter T or S, and 't itself (as before #1241)
+    ("Bob 'T Bone' Smith", "T Bone"),
+    ("John 'S Dog' Smith", "S Dog"),
+    ("Pieter 't Hart' Smith", "t Hart"),
+    # accepted: a quote with no possible close opening at 'T- is the
+    # word, and reports nothing (decisions/N2)
+    ("Aaron 'T-Bone Walker", ""),
+])
+def test_quote_beside_a_listed_apostrophe_particle(text: str,
+                                                   nickname: str) -> None:
+    name = parse(text)
+    assert name.nickname == nickname
+    assert name.ambiguities == ()
+
+
+def test_only_the_next_apostrophe_is_asked_as_a_close() -> None:
+    # the next apostrophe opens 'Ace', so the hyphened 'T- is the word
+    # (master: nickname "T-Bone Walker 'Ace"); 'Ace' is also a suffix
+    # word, a report this test does not read
+    name = parse("Aaron 'T-Bone Walker 'Ace'")
+    assert name.nickname == "Ace"
+    assert name.middle == "'T-Bone"
+    assert AmbiguityKind.UNBALANCED_DELIMITER not in [
+        a.kind for a in name.ambiguities]
+
+
+def test_maiden_quote_opening_at_a_listed_particle_with_a_close() -> None:
+    # as for the nickname pair: the configured maiden quote opening at
+    # 't is still one where its close follows
+    name = Parser(policy=Policy(maiden_delimiters=frozenset({("'", "'")}))
+                  ).parse("Anna 't Hart' Jansen")
+    assert name.maiden == "t Hart"
+    assert name.family == "Jansen"
+
+
+
+@pytest.mark.parametrize("text, token", [
+    # the bulk pass that records every remaining open once a pair has no
+    # close asks the same test: an unmatched quote before the particle
+    # is reported once, the particle not at all
+    ("'Bob 't Hart", "'Bob"),
+    ("Jan 'Piet van 't Hof", "'Piet"),
+])
+def test_unmatched_quote_before_a_listed_particle_reports_once(
+        text: str, token: str) -> None:
+    ambiguities = parse(text).ambiguities
+    assert [a.kind for a in ambiguities] == [AmbiguityKind.UNBALANCED_DELIMITER]
+    assert [t.text for t in ambiguities[0].tokens] == [token]
+
+
+def test_a_particle_a_caller_adds_opens_no_quote() -> None:
+    name = Parser(lexicon=Lexicon.default().add("'s", kind="particle")
+                  ).parse("Jan 's Jacob")
+    assert name.ambiguities == ()
+    assert name.family == "'s Jacob"
+
+
+def test_a_whole_quoted_particle_is_still_a_nickname() -> None:
+    # the scan reads the word with its closing quote, "'t'", which is
+    # no listed particle, so the pair quotes as before
+    name = parse("Jan 't' Smith")
+    assert name.nickname == "t"
+    assert name.ambiguities == ()

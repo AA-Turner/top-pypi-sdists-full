@@ -34,7 +34,7 @@ class SMatrix(ABC):
     # Class-level cache for compiled CUDA module shared across all matrix types
     _compiled_module = None
 
-    def __init__(self, experiment, isComplexSMatrix: bool = False, device: Optional[str] = None):
+    def __init__(self, experiment=None, isComplexSMatrix: bool = False, device: Optional[str] = None):
         """
         Initialize base matrix parameters.
 
@@ -66,15 +66,22 @@ class SMatrix(ABC):
         else:
             print("[AOT-biomaps] Using real SMatrix representation (float32).")
 
-        # Standard dimensions from AcousticFields
-        if self.isComplexSMatrix:
-            self.N = len(experiment.AcousticFields_demodulated) if experiment.AcousticFields_demodulated is not None else None
-        else:
-            self.N = len(experiment.AcousticFields) if experiment.AcousticFields is not None else None
-                
-        self.T = experiment.AcousticFields[0].field.shape[0] if experiment.AcousticFields is not None else None
-        self.Z = experiment.AcousticFields[0].field.shape[1] if experiment.AcousticFields is not None else None
-        self.X = experiment.AcousticFields[0].field.shape[2] if experiment.AcousticFields is not None else None
+        if experiment is None:
+            warnings.warn("[AOT-biomaps] No experiment provided. SMatrix will not be initialized with AcousticFields.")
+            self.N = None
+            self.T = None
+            self.Z = None
+            self.X = None
+        else:  
+            # Standard dimensions from AcousticFields
+            if self.isComplexSMatrix:
+                self.N = len(experiment.AcousticFields_demodulated) if experiment.AcousticFields_demodulated is not None else None
+            else:  
+                self.N = len(experiment.AcousticFields) if experiment.AcousticFields is not None else None
+
+            self.T = experiment.AcousticFields[0].field.shape[0] if experiment.AcousticFields is not None else None
+            self.Z = experiment.AcousticFields[0].field.shape[1] if experiment.AcousticFields is not None else None
+            self.X = experiment.AcousticFields[0].field.shape[2] if experiment.AcousticFields is not None else None
         
         # Common attributes
         self.norm_factor_inv = None

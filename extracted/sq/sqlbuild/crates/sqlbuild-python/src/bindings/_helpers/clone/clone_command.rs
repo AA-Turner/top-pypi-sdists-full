@@ -1,5 +1,6 @@
 //! `sqb clone`: copy or clone selected relations from an origin target into a destination target.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::collections::BTreeSet;
 use std::time::Instant;
 
@@ -19,22 +20,13 @@ use sqlbuild_core::clone_text::main::validate_clone_target_names::validate_clone
 use sqlbuild_core::clone_text::models::CloneItemText;
 use sqlbuild_host::entries::models::ExecutorHost;
 
-use crate::bindings::_helpers::build_progress::progress_reporters::PlanningProgressReporter;
 use crate::bindings::_helpers::clone::clone_execution::{
     destination_entry_count, execute_clone_plan, resource_types_by_name,
 };
 use crate::bindings::_helpers::clone::clone_pipeline::{ClonePipeline, timed_clone_pipeline};
 use crate::bindings::_helpers::clone::clone_progress::{clone_item_text, write_line};
 use crate::bindings::_helpers::command_runtime::connection::resolve_target_connection_config;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_target_config;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_target_name;
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::planner_entries::clone_plans::PhaseTimings;
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::result_output::documents::format_clone_execution_json;
-use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::imported::imported;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
@@ -43,11 +35,19 @@ use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cl
 use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
 use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::contracts::main::resolve_target_config::resolve_target_config;
+use sqlbuild_python_front::contracts::main::resolve_target_name::resolve_target_name;
+use sqlbuild_python_output::build_progress::models::PlanningProgressReporter;
+use sqlbuild_python_output::result_output::main::results::format_clone_execution_json::format_clone_execution_json;
+use sqlbuild_python_output::result_output::main::results::write_execution_json_output::write_execution_json_output;
+use sqlbuild_python_planner::planner_entries::types::PhaseTimings;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
 
 const CLONE_LOGGER: &str = "sqlbuild.clone";
 /// The clone phase that copies relations into the destination.
@@ -72,15 +72,7 @@ pub(crate) struct Invocation<'py> {
 }
 
 fn user_error(py: Python<'_>, (code, message): (&str, &str)) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", code)?;
-        error_class(py, ErrorId::CliUser)?.call((message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(py, ErrorId::CliUser, message, (Some(code), None))
 }
 
 fn target_error(py: Python<'_>, error: CloneTargetError) -> PyErr {

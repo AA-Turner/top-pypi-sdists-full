@@ -91,6 +91,17 @@ export type Session = {
   /** Whether this stack has the GPS feature on. The landing page offers its List / Map
    *  switch only when true; absent (a server predating it) reads as off. */
   gps_enabled?: boolean
+  /** As the server sends it: whether the Manage section MIGHT be offered (the stack
+   *  serves it and the address is an EdgeScale one), worked out without asking the RBAC
+   *  service. App.tsx then asks `/api/manage/access` and replaces this with the
+   *  service's answer before anything reads it, so the sidebar and pages see whether
+   *  this person can view. Absent (a server predating it) reads as off. */
+  manage_offered?: boolean
+  /** As the server sends it: whether this stack could offer tag edits (it may write).
+   *  On dev only until access enforcement work begins. App.tsx replaces it with the RBAC service's answer for this person
+   *  (`edit`), so the Products tab draws its edits only for someone who can make them.
+   *  Each edit is still decided by the service. Absent reads as off. */
+  manage_writes?: boolean
 }
 
 export type AppCompanies = {
@@ -100,6 +111,23 @@ export type AppCompanies = {
 }
 
 export const fetchSession = () => getJson<Session>('/api/session')
+
+/** Whether to offer the signed-in person the Manage section (`view`) and its tag edits
+ *  (`edit`), as the RBAC service answers. A hint: every read and write asks again. The
+ *  server answers "could not ask" as both false; a 404 means not offered at all. */
+export type ManageAccess = { view: boolean; edit: boolean }
+
+export const fetchManageAccess = () => getJson<ManageAccess>('/api/manage/access')
+
+/** The session with its Manage hints replaced by the RBAC service's answer (`access`),
+ *  or turned off while there is none: nothing is offered before the service says so. */
+export function withManageAccess(session: Session, access: ManageAccess | null): Session {
+  return {
+    ...session,
+    manage_offered: session.manage_offered === true && access?.view === true,
+    manage_writes: session.manage_writes === true && access?.view === true && access.edit === true,
+  }
+}
 
 /** Inventory facts for one cube, from `edgescale-inventory` rather than Apollo
  *  (docs/console-spec.md §4.13, closing OI-2). Every field is a plain string and
@@ -214,6 +242,91 @@ export type FleetApps = {
 }
 
 export const fetchFleetApps = () => getJson<FleetApps>('/api/apps')
+
+/** A customer a product is shared with beyond its owner. `role` is "read" or
+ *  "developer"; any other value is shown as written. */
+export type ProductShare = { company: string; role: string }
+
+/** One product on the Manage section's Products tab (docs/console-spec.md §4.30): an
+ *  Apollo product joined to its tag in the RBAC service. */
+export type Product = {
+  productId: string
+  /** "app" | "platform": whether the product is on the console's hand-maintained list
+   *  of platform components, the same classification as the cube page's `App.kind`.
+   *  Not an RBAC fact; it decides nothing about who sees the product. */
+  kind: string
+  /** A customer company key, "shared" (every customer sees it) or "internal" (EdgeScale
+   *  only). An untagged product reads "internal", because that is how the RBAC service
+   *  treats a product it has no row for. */
+  owner: string
+  /** Who set the tag: "declared" (a person) or "derived" (an automatic guess, known to
+   *  be unreliable, so it needs review). Null when the RBAC service has NO row for the
+   *  product, i.e. untagged. Any other value is shown as written. */
+  source: string | null
+  shares: ProductShare[]
+  /** False when the RBAC service has a tag for a product Apollo did not return: stale,
+   *  unless the Apollo read was cut short (`truncated`). */
+  in_apollo: boolean
+}
+
+export type ProductCatalog = { products: Product[]; count: number; truncated: boolean }
+
+/** 404s for anyone who is not EdgeScale staff, and on a stack that does not serve the
+ *  page, so `NotFound` here means "no such page", never "no products". `fresh` asks for
+ *  the tags as the RBAC service holds them now rather than a cached copy, for a read
+ *  soon after an edit; the server honors it at most every few seconds per person. */
+export const fetchProducts = (fresh = false) =>
+  getJson<ProductCatalog>(`/api/manage/products${fresh ? '?fresh=1' : ''}`)
+
+/** A share's two roles: `read` lets the customer see and install the product,
+ *  `developer` also lets them publish to it. */
+export type ShareRole = 'read' | 'developer'
+
+/** The outcome of one tag edit. `ok: false` is the RBAC service refusing or turning the
+ *  request down, with its reason in `message`; the request itself worked. The product
+ *  list after a successful edit rides along, except when re-reading it failed (then read
+ *  it again). A refusal carries no list, since nothing changed, except when the page's
+ *  view was out of date (the owner changed since it loaded): then the current list. */
+export type TagEdit = { ok: boolean; message: string } & Partial<ProductCatalog>
+
+async function postTagEdit(action: 'owner' | 'share' | 'unshare', body: object, csrfToken: string): Promise<TagEdit> {
+  const res = await fetch(`${CONSOLE_BASE}/api/manage/products/${action}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Console-CSRF': csrfToken },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new SessionExpired()
+  // As for the read: not staff, or a stack that does not edit tags.
+  if (res.status === 404) throw new NotFound()
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null)
+    throw new Error(detail?.error ?? `Request failed (${res.status})`)
+  }
+  return res.json() as Promise<TagEdit>
+}
+
+/** A company a tag edit can name: one of the RBAC service's enabled customers. */
+export type Company = { company: string; display_name: string }
+
+/** The companies a tag edit picks from, as the RBAC service lists them for this person,
+ *  sorted by key. Never `shared` or `internal`, which the page offers itself. Served
+ *  only where tag edits are: 404 elsewhere. */
+export const fetchCompanies = () =>
+  getJson<{ companies: Company[] }>('/api/manage/companies').then(r => r.companies)
+
+/** Make `company` (a customer key, `shared` or `internal`) the owner, as a declared tag,
+ *  if the owner is still `expected` (the one the page showed); refused otherwise.
+ *  Setting the owner it already has confirms a derived or missing tag. */
+export const setProductOwner = (productId: string, company: string, expected: string, csrfToken: string) =>
+  postTagEdit('owner', { productId, company, expected }, csrfToken)
+
+/** Share with `company` at `role`; sharing again changes the role. */
+export const shareProduct = (productId: string, company: string, role: ShareRole, csrfToken: string) =>
+  postTagEdit('share', { productId, company, role }, csrfToken)
+
+export const unshareProduct = (productId: string, company: string, csrfToken: string) =>
+  postTagEdit('unshare', { productId, company }, csrfToken)
 
 export type App = {
   id: string
@@ -1006,7 +1119,102 @@ export type AiGateway = {
   ready: boolean
 }
 
+/** A computer-vision model in the vision catalog, and where it stands on this cube.
+ *  Unlike an LLM it is not its own app: it is an entry in the cube's one vision gateway,
+ *  which serves every model by `id` (docs/ai-reactor-deploy-spec.md §12). */
+export type VisionModel = {
+  id: string
+  display_name: string
+  description: string
+  /** `face-embedding` turns faces a detector found into vectors (POST /v1/vision/embed). */
+  task: 'detection' | 'face-embedding'
+  /** What it finds, in words, e.g. "faces" or "people, bicycles, cars". */
+  detects: string
+  backend: 'onnx' | 'hf'
+  device: 'cpu' | 'gpu'
+  status:
+    | 'available'
+    | 'submitted'
+    | 'installing'
+    /** In the gateway's config, and the gateway is loading it (or has not restarted yet). */
+    | 'starting'
+    | 'ready'
+    /** The gateway says it could not load it; `error` is the gateway's own words. */
+    | 'failed'
+    /** In the gateway's config, but the gateway itself could not be asked. */
+    | 'configured'
+    | 'installed_outside'
+  owner: 'edgeport' | 'outside' | null
+  actions: Array<'deploy' | 'remove'>
+  error: string
+  /** What the gateway runs it on, as it reports, e.g. "OpenVINO". Empty until it says. */
+  runtime: string
+  /** What it finds, as tags: its class list, or the catalog's own words as one tag.
+   *  Absent from a server predating them. */
+  tags?: string[]
+}
+
+/** A model the vision gateway serves that is not a catalog card: a registered custom model,
+ * one added by hand, or a console entry whose catalog model was withdrawn. Shown, never
+ * acted on: the console only changes entries it wrote. */
+export type VisionOtherModel = {
+  /** The model name apps call. */
+  name: string
+  /** The model's own name for itself, from its card; may be empty. */
+  display_name: string
+  status: 'ready' | 'starting' | 'failed' | 'configured'
+  source: 'registered' | 'outside' | 'edgeport'
+  /** The console uploaded it (`uploadedBy: edgeport`), so it may remove it. A model an operator
+   *  registered on the cube is `registered` too, but never removable here. */
+  removable: boolean
+  /** What it finds, from its own labels, e.g. "person, car and 3 more"; may be empty. */
+  detects: string
+  device: string
+  runtime: string
+  /** The gateway's own words when it could not load it. */
+  error: string
+  /** The model image it was delivered in (`<ref>@sha256:...`), when it has one. */
+  image: string
+  /** The first of its labels, as tags, and how many more it has. Absent from a server
+   *  predating them. */
+  tags?: string[]
+  tags_more?: number
+}
+
+export type VisionGateway = {
+  status: 'absent' | 'manageable' | 'read_only' | 'unknown'
+  reason: string | null
+  lifecycle: string
+  health: string
+  ready: boolean
+  console_installed: boolean
+}
+
+export type CubeVision =
+  | { available: false }
+  | {
+      available: true
+      can_write: boolean
+      saturated: boolean
+      /** Where apps on the cube call it, e.g. http://esai-vision-gateway.default.svc.cluster.local:8080 */
+      endpoint: string
+      /** Whether the gateway answered for its own models this read. */
+      live_available: boolean
+      gateway: VisionGateway
+      models: VisionModel[]
+      /** Models on the gateway outside the catalog. Absent from a server predating them. */
+      others?: VisionOtherModel[]
+      /** Cameras the gateway is streaming detections for, as counts; null when its stream
+       *  list was not read (which is not "no cameras"). Absent from an older server. */
+      streams?: { cameras: number; subscriptions: number } | null
+      /** Whether this caller may add a custom model here (uploads configured on this
+       *  stack, and allowed to write AI models). Absent from an older server. */
+      upload_available?: boolean
+    }
+
 export type CubeAi = {
+  /** Vision models. Absent from a server predating them. */
+  vision?: CubeVision
   cube: string
   /** Whether this profile may deploy or remove (`console_ai_write_profiles`). */
   can_write: boolean
@@ -1062,9 +1270,93 @@ async function postAi(
 export const deployAiModel = (cube: string, model: string, csrfToken: string, replace?: string) =>
   postAi(cube, 'deploy', replace ? { model, replace } : { model }, csrfToken)
 
-/** Remove a model the console deployed. */
+/** Remove a model the console deployed, or a custom model registered through the
+ *  upload flow (by its name). */
 export const removeAiModel = (cube: string, model: string, csrfToken: string) =>
   postAi(cube, 'remove', { model }, csrfToken)
+
+// --- Custom vision models (reactor/vision_upload.py) ---------------------------------
+
+/** Where a registration has got to. `failed` carries the validator's or the gateway's
+ *  own words in `errors`. */
+export type VisionRegistration = {
+  id: string
+  name: string
+  state: 'building' | 'adding' | 'loading' | 'ready' | 'failed'
+  message: string
+  errors: string[]
+  warnings: string[]
+  notes: string[]
+  image: string
+  /** While building: the remote build's own state (PENDING, RUNNING, PINNING). */
+  building?: string
+}
+
+/** The registration form (`vision_upload.parse_form` checks every field). */
+export type VisionRegistrationForm = {
+  name: string
+  source: 'onnx' | 'hf'
+  upload_id?: string
+  hf?: string
+  display_name?: string
+  labels?: string[]
+  preprocess?: Record<string, string | number | number[]>
+  input_size?: [number, number]
+  classes?: string[]
+  score_threshold?: number
+  device?: 'cpu' | 'gpu'
+}
+
+/** A refusal the person can act on (a 400 or 403 with the server's words). */
+export class VisionUploadError extends Error {}
+
+async function postVision<T>(cube: string, path: string, body: unknown, csrfToken: string): Promise<T> {
+  const res = await fetch(`${CONSOLE_BASE}/api/cubes/${encodeURIComponent(cube)}/ai/vision/${path}`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-Console-CSRF': csrfToken },
+    body: JSON.stringify(body),
+  })
+  if (res.status === 401) throw new SessionExpired()
+  if (!res.ok) {
+    const detail = await res.json().catch(() => null)
+    const text = detail?.error ?? `Request failed (${res.status})`
+    throw res.status === 400 || res.status === 403 ? new VisionUploadError(text) : new Error(text)
+  }
+  return res.json() as Promise<T>
+}
+
+export const prepareVisionUpload = (cube: string, size: number, csrfToken: string) =>
+  postVision<{ upload_id: string; url: string; fields: Record<string, string>; max_bytes: number }>(
+    cube, 'uploads', { size }, csrfToken)
+
+export const startVisionRegistration = (cube: string, form: VisionRegistrationForm, csrfToken: string) =>
+  postVision<VisionRegistration>(cube, 'registrations', form, csrfToken)
+
+/** Advance and report one registration (a POST: finishing a build writes the gateway). */
+export const pollVisionRegistration = (cube: string, id: string, csrfToken: string) =>
+  postVision<VisionRegistration>(cube, `registrations/${encodeURIComponent(id)}`, {}, csrfToken)
+
+/** POST the file to the presigned S3 form, reporting progress (0..1). XHR rather than
+ *  fetch: fetch cannot report upload progress. S3 enforces the size cap itself. */
+export function uploadToPresignedPost(
+  url: string, fields: Record<string, string>, file: Blob, onProgress?: (fraction: number) => void,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const form = new FormData()
+    for (const [k, v] of Object.entries(fields)) form.append(k, v)
+    form.append('file', file)                      // S3 requires the file field LAST
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', url)
+    xhr.upload.onprogress = e => { if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total) }
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300
+      ? resolve()
+      : reject(new VisionUploadError(xhr.status === 400 ? 'The storage service refused the file (is it too large?).'
+        : `The upload failed (${xhr.status}).`)))
+    xhr.onerror = () => reject(new VisionUploadError('The upload could not reach the storage service.'))
+    xhr.send(form)
+  })
+}
 
 /** GPS positions for every cube the viewer can see, for the landing page's map
  *  (`reads.fleet_gps`). Fetched only when the viewer chooses Map.

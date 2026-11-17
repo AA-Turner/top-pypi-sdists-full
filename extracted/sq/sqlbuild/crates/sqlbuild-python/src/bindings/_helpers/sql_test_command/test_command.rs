@@ -3,6 +3,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::time::Instant;
 
 use pyo3::prelude::{
     Bound, Py, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
@@ -24,30 +25,16 @@ use sqlbuild_host::models::{SqlTestExecutionResult, SqlTestOutcome};
 use sqlbuild_host::types::ResultEnum;
 use sqlbuild_orchestration::runs::models::NodeOutcome;
 
-use crate::bindings::_helpers::build_progress::nested_progress::NestedCommandProgressCallbacks;
-use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::build_progress::progress_text::{
-    format_expectation_detail, format_expectation_name, write_execution_header,
-};
-use crate::bindings::_helpers::build_progress::result_text::{test_label, test_result_label};
 use crate::bindings::_helpers::change_selection::base_snapshot::{
     BaseComparison, base_comparison, base_variant,
 };
 use crate::bindings::_helpers::change_selection::selection::{
     ChangedProject, changed_project, tests_and_models, with_since_section,
 };
-use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_reported_command_invocation;
-use crate::bindings::_helpers::compile_driver::pipeline_entries::build_static_pipeline_result;
 use crate::bindings::_helpers::compile_driver::static_context::compile_static_command_context;
-use crate::bindings::_helpers::compile_outputs::runtime_target::write_test_runtime_target;
-use crate::bindings::_helpers::compiled_project::snapshot_execution::{VerifiedRun, WorkerBuild};
 use crate::bindings::_helpers::dbt_interop::reference_resolver::resolve_external_sql_reference_resolver;
-use crate::bindings::_helpers::planner_entries::command_plans::build_test_command_plan;
-use crate::bindings::_helpers::result_output::documents::test_execution_json;
-use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
-use crate::bindings::_helpers::result_output::event_writer::ExecutionEventWriter;
-use crate::bindings::_helpers::result_output::resource_ids::sql_test_identity;
+use crate::bindings::_helpers::native_host::statement_report::StatementReport;
 use crate::bindings::_helpers::sql_test_command::python_tests::{
     PYTHON_TESTS_INPUT_CODE, names_python_node, python_test_modules, run_python_tests,
     selected_python_tests, selective, with_python_section,
@@ -58,18 +45,35 @@ use crate::bindings::_helpers::sql_test_command::timeouts::{
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::boundary::models::KeywordArguments;
+use sqlbuild_python_base::build_command::main::emit::emit;
 use sqlbuild_python_base::build_progress::main::progress::current_native_progress_projector::current_native_progress_projector;
 use sqlbuild_python_base::build_progress::main::transient_status::status_reporter::status_reporter;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
 use sqlbuild_python_base::native_host::types::ReadResult;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
-use sqlbuild_python_base::records::main::construct::new_helped_error::new_helped_error;
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::construct::record_class::record_class;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::replaced::replaced;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::build_static_pipeline_result::build_static_pipeline_result;
+use sqlbuild_python_compile::compile_outputs::main::write_test_runtime_target::write_test_runtime_target;
+use sqlbuild_python_front::command_runtime::main::resolve_concurrency::resolve_concurrency;
+use sqlbuild_python_output::build_progress::main::format_expectation_detail::format_expectation_detail;
+use sqlbuild_python_output::build_progress::main::format_expectation_name::format_expectation_name;
+use sqlbuild_python_output::build_progress::main::test_label::test_label;
+use sqlbuild_python_output::build_progress::main::test_result_label::test_result_label;
+use sqlbuild_python_output::build_progress::main::write_execution_header::write_execution_header;
+use sqlbuild_python_output::build_progress::models::ConnectionProgressReporter;
+use sqlbuild_python_output::build_progress::models::NestedCommandProgressCallbacks;
+use sqlbuild_python_output::result_output::main::events::sql_test_identity::sql_test_identity;
+use sqlbuild_python_output::result_output::main::results::test_execution_json::test_execution_json;
+use sqlbuild_python_output::result_output::main::results::write_execution_json_output::write_execution_json_output;
+use sqlbuild_python_output::result_output::models::ExecutionEventWriter;
+use sqlbuild_python_planner::planner_entries::main::plans::build_test_command_plan::build_test_command_plan;
+use sqlbuild_python_project::project_snapshot::models::WorkerBuild;
+use sqlbuild_python_project::project_snapshot::types::VerifiedRun;
 
 /// Why `--since` selected each test, by inspection label.
 type SelectionReasons = HashMap<String, Vec<String>>;
@@ -297,15 +301,12 @@ impl TestCallbackRelay {
 }
 
 fn unknown_case(py: Python<'_>, message: String) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", UNKNOWN_CASE_CODE)?;
-        error_class(py, ErrorId::PlannerInput)?.call((message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::PlannerInput,
+        &message,
+        (Some(UNKNOWN_CASE_CODE), None),
+    )
 }
 
 /// Compile the selected tests and refuse a `--case` that matched none of them.
@@ -656,6 +657,7 @@ pub(crate) fn timeout_record<'py>(
 fn complete(
     invocation: &Bound<'_, PyAny>,
     (results, since_json): (&[SqlTestExecutionResult<Bound<'_, PyAny>>], Option<&str>),
+    started: Instant,
 ) -> PyResult<(i32, String)> {
     let py: Python<'_> = invocation.py();
     let mut failures: Vec<TestFailure> = Vec::new();
@@ -675,18 +677,19 @@ fn complete(
     let style: CliStyle = CliStyle {
         use_color: invocation.getattr("use_color")?.is_truthy()?,
     };
-    stream.call_method1(
-        "write",
-        (render_test_completion(
-            (passed, results.len()),
-            &failures,
-            style,
-        ),),
-    )?;
-    stream.call_method0("flush")?;
+    let completion: String = render_test_completion((passed, results.len()), &failures, style);
+    emit(&stream, &completion)?;
+    let report: Option<StatementReport> = StatementReport::of_invocation(invocation, started)?;
+    if let Some(line) = report.as_ref().and_then(StatementReport::line) {
+        emit(&stream, &format!("\n{line}\n"))?;
+    }
+    let payload: String = with_since_section(test_execution_json(py, results)?, since_json)?;
     Ok((
         test_exit_code(passed, results.len()),
-        with_since_section(test_execution_json(py, results)?, since_json)?,
+        match report {
+            Some(report) => report.with_section(&payload)?,
+            None => payload,
+        },
     ))
 }
 
@@ -706,28 +709,30 @@ pub(crate) fn run_test<'py>(
     let (worker, discovered) = verified.unzip();
     let inspect_only: bool = native_field(request, "inspect")?.is_truthy()?;
     if native_field(request, "python_only")?.is_truthy()? && worker.is_some() {
-        return Err(new_helped_error(
+        return Err(new_error(
             py,
             ErrorId::PlannerInput,
+            "--python cannot run on a server location",
             (
-                "--python cannot run on a server location".to_owned(),
-                PYTHON_TESTS_INPUT_CODE,
+                Some(PYTHON_TESTS_INPUT_CODE),
+                Some(
+                    "runs on a server location run SQL tests only; run `sqb test --python` locally",
+                ),
             ),
-            Some("runs on a server location run SQL tests only; run `sqb test --python` locally"),
         ));
     }
     if native_field(request, "python_only")?.is_truthy()?
         && (inspect_only || !native_field(request, "since")?.is_none())
     {
-        return Err(new_helped_error(
+        return Err(new_error(
             py,
             ErrorId::PlannerInput,
+            "--python cannot be combined with --inspect or --since",
             (
-                "--python cannot be combined with --inspect or --since".to_owned(),
-                PYTHON_TESTS_INPUT_CODE,
-            ),
-            Some(
-                "--inspect and --since apply to SQL tests only; run `sqb test --python` without them",
+                Some(PYTHON_TESTS_INPUT_CODE),
+                Some(
+                    "--inspect and --since apply to SQL tests only; run `sqb test --python` without them",
+                ),
             ),
         ));
     }
@@ -800,6 +805,7 @@ fn run_sql_tests<'py>(
     (modules, resolve): (Option<Vec<String>>, bool),
 ) -> PyResult<(i32, Vec<String>, Option<String>)> {
     let py: Python<'py> = request.py();
+    let started: Instant = Instant::now();
     let inspect_only: bool = native_field(request, "inspect")?.is_truthy()?;
     let stream: Bound<'_, PyAny> = invocation.getattr("progress_stream")?;
     let project_dir: Bound<'_, PyAny> = native_field(invocation, "effective_project_dir")?;
@@ -894,7 +900,8 @@ fn run_sql_tests<'py>(
         &pipeline.getattr("plan_output")?,
         &results,
     )?;
-    let (code, payload): (i32, String) = complete(invocation, (&results, since_json.as_deref()))?;
+    let (code, payload): (i32, String) =
+        complete(invocation, (&results, since_json.as_deref()), started)?;
     Ok((code, python_tests, Some(payload)))
 }
 

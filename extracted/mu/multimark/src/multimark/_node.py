@@ -318,6 +318,16 @@ class Node:
         if rc == 0:
             raise ValueError("Cannot set fence info on this node type")
 
+    @property
+    def math_display(self) -> bool:
+        """Whether a `math` node is display math (`$$...$$`).
+
+        `False` for inline math (`$...$`) and for all other node types. A math node's
+        TeX source is the `literal` of its single text child.
+        """
+        self._check_alive()
+        return bool(lib.cmark_gfm_extensions_get_math_display(self._ptr))
+
     # -- Source positions --
 
     @property
@@ -491,6 +501,22 @@ class Node:
         lib.free(result_ptr)
         return result
 
+    def render_plaintext(self, *, width: int = 0) -> str:
+        """Render this subtree as plain text using `markdown_to_plaintext` rules.
+
+        `width` sets the approximate wrapping column; `0` disables automatic
+        wrapping. Parsing options such as smart punctuation and extensions must
+        be set when creating the tree. Output includes a trailing newline.
+        """
+        self._check_alive()
+        result_ptr = lib.cmark_render_plaintext(self._ptr, 0, width)
+        if result_ptr == ffi.NULL:
+            raise MemoryError("Failed to render")
+        try:
+            return ffi.string(result_ptr).decode("utf-8", errors="replace")
+        finally:
+            lib.free(result_ptr)
+
     # -- Dunder methods --
 
     def __repr__(self) -> str:
@@ -549,7 +575,7 @@ def parse(
     footnotes
         Enable footnote syntax. Default `False`.
     extensions
-        GFM extensions to enable.
+        Extensions to enable (e.g., `["table", "math"]`).
     options
         Raw `Options` bitmask.
 

@@ -58,6 +58,7 @@ __all__ = (
     "FeedbackValueTypeType",
     "IdentityProviderTypeTypeType",
     "InboundFederationLambdaVersionTypeType",
+    "IssuedTokenTypeIdentifierTypeType",
     "IssuerTypeType",
     "LimitClassType",
     "ListGroupsPaginatorName",
@@ -70,6 +71,7 @@ __all__ = (
     "LogLevelType",
     "MessageActionTypeType",
     "OAuthFlowTypeType",
+    "OAuthTokenTypeTypeType",
     "PaginatorName",
     "PasswordHashingAlgorithmTypeType",
     "PreTokenGenerationLambdaVersionTypeType",
@@ -90,6 +92,7 @@ __all__ = (
     "TermsEnforcementTypeType",
     "TermsSourceTypeType",
     "TimeUnitsTypeType",
+    "TokenTypeIdentifierTypeType",
     "UpdateReplicaStatusTypeType",
     "UserImportJobStatusTypeType",
     "UserPoolMfaTypeType",
@@ -182,6 +185,8 @@ ExplicitAuthFlowsTypeType = Literal[
     "ALLOW_ADMIN_USER_PASSWORD_AUTH",
     "ALLOW_CUSTOM_AUTH",
     "ALLOW_REFRESH_TOKEN_AUTH",
+    "ALLOW_TOKEN_EXCHANGE_DELEGATION",
+    "ALLOW_TOKEN_EXCHANGE_IMPERSONATION",
     "ALLOW_USER_AUTH",
     "ALLOW_USER_PASSWORD_AUTH",
     "ALLOW_USER_SRP_AUTH",
@@ -194,6 +199,7 @@ IdentityProviderTypeTypeType = Literal[
     "Facebook", "Google", "LoginWithAmazon", "OIDC", "SAML", "SignInWithApple"
 ]
 InboundFederationLambdaVersionTypeType = Literal["V1_0"]
+IssuedTokenTypeIdentifierTypeType = Literal["ACCESS_TOKEN", "ID_TOKEN"]
 IssuerTypeType = Literal["ORIGINAL", "UPDATED"]
 LimitClassType = Literal["API_CATEGORY"]
 ListGroupsPaginatorName = Literal["list_groups"]
@@ -206,6 +212,7 @@ ListUsersPaginatorName = Literal["list_users"]
 LogLevelType = Literal["ERROR", "INFO"]
 MessageActionTypeType = Literal["RESEND", "SUPPRESS"]
 OAuthFlowTypeType = Literal["client_credentials", "code", "implicit"]
+OAuthTokenTypeTypeType = Literal["Bearer", "N_A"]
 PasswordHashingAlgorithmTypeType = Literal["ARGON2ID", "BCRYPT", "PBKDF2_SHA256", "SCRYPT"]
 PreTokenGenerationLambdaVersionTypeType = Literal["V1_0", "V2_0", "V3_0"]
 PreventUserExistenceErrorTypesType = Literal["ENABLED", "LEGACY"]
@@ -222,6 +229,7 @@ StatusTypeType = Literal["Disabled", "Enabled"]
 TermsEnforcementTypeType = Literal["NONE"]
 TermsSourceTypeType = Literal["LINK"]
 TimeUnitsTypeType = Literal["days", "hours", "minutes", "seconds"]
+TokenTypeIdentifierTypeType = Literal["ACCESS_TOKEN", "ID_TOKEN", "SAML2"]
 UpdateReplicaStatusTypeType = Literal["ACTIVE", "INACTIVE"]
 UserImportJobStatusTypeType = Literal[
     "Created", "Expired", "Failed", "InProgress", "Pending", "Stopped", "Stopping", "Succeeded"
@@ -356,6 +364,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -540,6 +549,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -607,6 +617,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -11,14 +11,21 @@ from privy import PrivyAPI, AsyncPrivyAPI
 from privy.types import (
     IntentResponse,
     RpcIntentResponse,
-    PolicyIntentResponse,
     WalletIntentResponse,
+    RawSignIntentResponse,
     TransferIntentResponse,
-    KeyQuorumIntentResponse,
     RuleDeleteIntentResponse,
     RuleMutateIntentResponse,
+    PolicyDeleteIntentResponse,
+    PolicyUpdateIntentResponse,
+    KeyQuorumDeleteIntentResponse,
+    KeyQuorumUpdateIntentResponse,
+    ConditionSetDeleteIntentResponse,
+    ConditionSetItemDeleteIntentResponse,
+    ConditionSetItemMutateIntentResponse,
 )
 from tests.utils import assert_matches_type
+from privy._utils import parse_datetime
 from privy.pagination import SyncCursor, AsyncCursor
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
@@ -40,8 +47,8 @@ class TestIntents:
             created_by_id="created_by_id",
             current_user_has_signed="true",
             cursor="x",
-            intent_type="KEY_QUORUM",
-            limit=100,
+            intent_type="CONDITION_SET",
+            limit=1,
             pending_member_id="pending_member_id",
             resource_id="resource_id",
             sort_by="created_at_desc",
@@ -70,6 +77,117 @@ class TestIntents:
             assert_matches_type(SyncCursor[IntentResponse], intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_authorize(self, client: PrivyAPI) -> None:
+        intent = client.intents._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        )
+        assert_matches_type(IntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_authorize(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(IntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_authorize(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(IntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_authorize(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `intent_id` but received ''"):
+            client.intents.with_raw_response._authorize(
+                intent_id="",
+                signature="signature",
+                timestamp=0,
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_create_condition_set_items(self, client: PrivyAPI) -> None:
+        intent = client.intents.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_create_condition_set_items_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[
+                {
+                    "value": "x",
+                    "name": "x",
+                }
+            ],
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_create_condition_set_items(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_create_condition_set_items(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_create_condition_set_items(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            client.intents.with_raw_response.create_condition_set_items(
+                condition_set_id="",
+                condition_set_items_request_body=[{"value": "x"}],
+            )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -179,6 +297,221 @@ class TestIntents:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    def test_method_delete_condition_set(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_condition_set_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_delete_condition_set(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_delete_condition_set(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_delete_condition_set(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            client.intents.with_raw_response.delete_condition_set(
+                condition_set_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_condition_set_item(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_condition_set_item_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_delete_condition_set_item(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_delete_condition_set_item(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_delete_condition_set_item(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            client.intents.with_raw_response.delete_condition_set_item(
+                condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+                condition_set_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_item_id` but received ''"):
+            client.intents.with_raw_response.delete_condition_set_item(
+                condition_set_item_id="",
+                condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_key_quorum(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        )
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_key_quorum_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_delete_key_quorum(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_delete_key_quorum(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_delete_key_quorum(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key_quorum_id` but received ''"):
+            client.intents.with_raw_response.delete_key_quorum(
+                key_quorum_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_policy(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_policy(
+            policy_id="policy_id",
+        )
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_delete_policy_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.delete_policy(
+            policy_id="policy_id",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_delete_policy(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.delete_policy(
+            policy_id="policy_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_delete_policy(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.delete_policy(
+            policy_id="policy_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_delete_policy(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            client.intents.with_raw_response.delete_policy(
+                policy_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     def test_method_delete_policy_rule(self, client: PrivyAPI) -> None:
         intent = client.intents.delete_policy_rule(
             rule_id="rule_id",
@@ -279,6 +612,62 @@ class TestIntents:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `intent_id` but received ''"):
             client.intents.with_raw_response.get(
                 "",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_raw_sign(self, client: PrivyAPI) -> None:
+        intent = client.intents.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        )
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_raw_sign_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_raw_sign(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_raw_sign(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_raw_sign(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            client.intents.with_raw_response.raw_sign(
+                wallet_id="",
+                params={"hash": "string"},
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -2769,8 +3158,8 @@ class TestIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         )
         assert_matches_type(TransferIntentResponse, intent, path=["response"])
@@ -2786,12 +3175,35 @@ class TestIntents:
                 "chain": "chain",
             },
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
                 "amount": "10.5",
             },
             amount="10.5",
             amount_type="exact_input",
+            custody_options={
+                "initiation": {
+                    "attestations": {
+                        "sca": {
+                            "outcome": "not_applicable",
+                            "auth_factors": [
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "possession",
+                                    "reference": "auth_event_123",
+                                },
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "knowledge",
+                                    "reference": "auth_event_456",
+                                },
+                            ],
+                        }
+                    },
+                    "channel": "other_mobile_payment",
+                    "subchannel": "remote",
+                }
+            },
             fee_configuration={
                 "type": "total_fee_bps",
                 "value": 50,
@@ -2810,8 +3222,8 @@ class TestIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         )
 
@@ -2827,8 +3239,8 @@ class TestIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         ) as response:
             assert not response.is_closed
@@ -2847,9 +3259,70 @@ class TestIntents:
                 wallet_id="",
                 destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
                 source={
-                    "asset": "usdc",
-                    "chain": "base",
+                    "asset": "ousd",
+                    "chain": "tempo",
                 },
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_condition_set_items(self, client: PrivyAPI) -> None:
+        intent = client.intents.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_update_condition_set_items_with_all_params(self, client: PrivyAPI) -> None:
+        intent = client.intents.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[
+                {
+                    "value": "x",
+                    "name": "x",
+                }
+            ],
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_update_condition_set_items(self, client: PrivyAPI) -> None:
+        response = client.intents.with_raw_response.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = response.parse()
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_update_condition_set_items(self, client: PrivyAPI) -> None:
+        with client.intents.with_streaming_response.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = response.parse()
+            assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_update_condition_set_items(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            client.intents.with_raw_response.update_condition_set_items(
+                condition_set_id="",
+                condition_set_items_request_body=[{"value": "x"}],
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -2858,7 +3331,7 @@ class TestIntents:
         intent = client.intents.update_key_quorum(
             key_quorum_id="key_quorum_id",
         )
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2872,7 +3345,7 @@ class TestIntents:
             user_ids=["string"],
             privy_request_expiry="privy-request-expiry",
         )
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2884,7 +3357,7 @@ class TestIntents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         intent = response.parse()
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2896,7 +3369,7 @@ class TestIntents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             intent = response.parse()
-            assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+            assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -2914,7 +3387,7 @@ class TestIntents:
         intent = client.intents.update_policy(
             policy_id="policy_id",
         )
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2941,7 +3414,7 @@ class TestIntents:
             ],
             privy_request_expiry="privy-request-expiry",
         )
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2953,7 +3426,7 @@ class TestIntents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         intent = response.parse()
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2965,7 +3438,7 @@ class TestIntents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             intent = response.parse()
-            assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+            assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -3186,8 +3659,8 @@ class TestAsyncIntents:
             created_by_id="created_by_id",
             current_user_has_signed="true",
             cursor="x",
-            intent_type="KEY_QUORUM",
-            limit=100,
+            intent_type="CONDITION_SET",
+            limit=1,
             pending_member_id="pending_member_id",
             resource_id="resource_id",
             sort_by="created_at_desc",
@@ -3216,6 +3689,117 @@ class TestAsyncIntents:
             assert_matches_type(AsyncCursor[IntentResponse], intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_authorize(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        )
+        assert_matches_type(IntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_authorize(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(IntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_authorize(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response._authorize(
+            intent_id="intent_id",
+            signature="signature",
+            timestamp=0,
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(IntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_authorize(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `intent_id` but received ''"):
+            await async_client.intents.with_raw_response._authorize(
+                intent_id="",
+                signature="signature",
+                timestamp=0,
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_create_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_create_condition_set_items_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[
+                {
+                    "value": "x",
+                    "name": "x",
+                }
+            ],
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_create_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_create_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.create_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_create_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            await async_client.intents.with_raw_response.create_condition_set_items(
+                condition_set_id="",
+                condition_set_items_request_body=[{"value": "x"}],
+            )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -3325,6 +3909,221 @@ class TestAsyncIntents:
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
+    async def test_method_delete_condition_set(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_condition_set_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_delete_condition_set(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_delete_condition_set(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.delete_condition_set(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(ConditionSetDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_delete_condition_set(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            await async_client.intents.with_raw_response.delete_condition_set(
+                condition_set_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_condition_set_item(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_condition_set_item_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_delete_condition_set_item(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_delete_condition_set_item(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.delete_condition_set_item(
+            condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(ConditionSetItemDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_delete_condition_set_item(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            await async_client.intents.with_raw_response.delete_condition_set_item(
+                condition_set_item_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+                condition_set_id="",
+            )
+
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_item_id` but received ''"):
+            await async_client.intents.with_raw_response.delete_condition_set_item(
+                condition_set_item_id="",
+                condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_key_quorum(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        )
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_key_quorum_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_delete_key_quorum(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_delete_key_quorum(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.delete_key_quorum(
+            key_quorum_id="key_quorum_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(KeyQuorumDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_delete_key_quorum(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `key_quorum_id` but received ''"):
+            await async_client.intents.with_raw_response.delete_key_quorum(
+                key_quorum_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_policy(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_policy(
+            policy_id="policy_id",
+        )
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_delete_policy_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.delete_policy(
+            policy_id="policy_id",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_delete_policy(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.delete_policy(
+            policy_id="policy_id",
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_delete_policy(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.delete_policy(
+            policy_id="policy_id",
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(PolicyDeleteIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_delete_policy(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `policy_id` but received ''"):
+            await async_client.intents.with_raw_response.delete_policy(
+                policy_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
     async def test_method_delete_policy_rule(self, async_client: AsyncPrivyAPI) -> None:
         intent = await async_client.intents.delete_policy_rule(
             rule_id="rule_id",
@@ -3425,6 +4224,62 @@ class TestAsyncIntents:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `intent_id` but received ''"):
             await async_client.intents.with_raw_response.get(
                 "",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_raw_sign(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        )
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_raw_sign_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_raw_sign(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_raw_sign(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.raw_sign(
+            wallet_id="wallet_id",
+            params={"hash": "string"},
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(RawSignIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_raw_sign(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            await async_client.intents.with_raw_response.raw_sign(
+                wallet_id="",
+                params={"hash": "string"},
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -5915,8 +6770,8 @@ class TestAsyncIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         )
         assert_matches_type(TransferIntentResponse, intent, path=["response"])
@@ -5932,12 +6787,35 @@ class TestAsyncIntents:
                 "chain": "chain",
             },
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
                 "amount": "10.5",
             },
             amount="10.5",
             amount_type="exact_input",
+            custody_options={
+                "initiation": {
+                    "attestations": {
+                        "sca": {
+                            "outcome": "not_applicable",
+                            "auth_factors": [
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "possession",
+                                    "reference": "auth_event_123",
+                                },
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "knowledge",
+                                    "reference": "auth_event_456",
+                                },
+                            ],
+                        }
+                    },
+                    "channel": "other_mobile_payment",
+                    "subchannel": "remote",
+                }
+            },
             fee_configuration={
                 "type": "total_fee_bps",
                 "value": 50,
@@ -5956,8 +6834,8 @@ class TestAsyncIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         )
 
@@ -5973,8 +6851,8 @@ class TestAsyncIntents:
             wallet_id="wallet_id",
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
         ) as response:
             assert not response.is_closed
@@ -5993,9 +6871,70 @@ class TestAsyncIntents:
                 wallet_id="",
                 destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
                 source={
-                    "asset": "usdc",
-                    "chain": "base",
+                    "asset": "ousd",
+                    "chain": "tempo",
                 },
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_update_condition_set_items_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        intent = await async_client.intents.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[
+                {
+                    "value": "x",
+                    "name": "x",
+                }
+            ],
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_update_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.intents.with_raw_response.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        intent = await response.parse()
+        assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_update_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.intents.with_streaming_response.update_condition_set_items(
+            condition_set_id="xxxxxxxxxxxxxxxxxxxxxxxx",
+            condition_set_items_request_body=[{"value": "x"}],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            intent = await response.parse()
+            assert_matches_type(ConditionSetItemMutateIntentResponse, intent, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_update_condition_set_items(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `condition_set_id` but received ''"):
+            await async_client.intents.with_raw_response.update_condition_set_items(
+                condition_set_id="",
+                condition_set_items_request_body=[{"value": "x"}],
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -6004,7 +6943,7 @@ class TestAsyncIntents:
         intent = await async_client.intents.update_key_quorum(
             key_quorum_id="key_quorum_id",
         )
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6018,7 +6957,7 @@ class TestAsyncIntents:
             user_ids=["string"],
             privy_request_expiry="privy-request-expiry",
         )
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6030,7 +6969,7 @@ class TestAsyncIntents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         intent = await response.parse()
-        assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+        assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6042,7 +6981,7 @@ class TestAsyncIntents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             intent = await response.parse()
-            assert_matches_type(KeyQuorumIntentResponse, intent, path=["response"])
+            assert_matches_type(KeyQuorumUpdateIntentResponse, intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
@@ -6060,7 +6999,7 @@ class TestAsyncIntents:
         intent = await async_client.intents.update_policy(
             policy_id="policy_id",
         )
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6087,7 +7026,7 @@ class TestAsyncIntents:
             ],
             privy_request_expiry="privy-request-expiry",
         )
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6099,7 +7038,7 @@ class TestAsyncIntents:
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
         intent = await response.parse()
-        assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+        assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6111,7 +7050,7 @@ class TestAsyncIntents:
             assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
             intent = await response.parse()
-            assert_matches_type(PolicyIntentResponse, intent, path=["response"])
+            assert_matches_type(PolicyUpdateIntentResponse, intent, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 

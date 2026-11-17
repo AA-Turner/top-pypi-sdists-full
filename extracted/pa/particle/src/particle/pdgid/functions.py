@@ -435,6 +435,8 @@ def is_tetraquark(pdgid: PDGID_TYPE) -> bool:
     and incrementing with new additions.
     As for the standard scheme, nJ = 2J + 1 gives the spin.
     """
+    if _digit(pdgid, Location.N10) != 0 or _digit(pdgid, Location.N9) != 1:
+        return False
     if _digit(pdgid, Location.Nj) == 0:
         return False
     if _digit(pdgid, Location.Nq1) != 0:  # location 4
@@ -472,7 +474,7 @@ def is_pentaquark(pdgid: PDGID_TYPE) -> bool:
     and incrementing with new additions.
     As for the standard scheme, nJ = 2J + 1 gives the spin.
     """
-    if _digit(pdgid, Location.N9) != 1:
+    if _digit(pdgid, Location.N10) != 0 or _digit(pdgid, Location.N9) != 1:
         return False
     if _digit(pdgid, Location.Nj) == 0:
         return False
@@ -636,6 +638,26 @@ def is_SUSY(pdgid: PDGID_TYPE) -> bool:
     if _digit(pdgid, Location.Nr) != 0:
         return False
     return _fundamental_id(pdgid) != 0
+
+
+def is_squark(pdgid: PDGID_TYPE) -> bool:
+    """
+    Does this PDG ID correspond to a squark?
+
+    Squarks are the SUSY partners of the Standard Model quarks,
+    i.e. fundamental SUSY particles with fundamental ID 1-6.
+    """
+    return is_SUSY(pdgid) and 1 <= _fundamental_id(pdgid) <= 6
+
+
+def is_slepton(pdgid: PDGID_TYPE) -> bool:
+    """
+    Does this PDG ID correspond to a slepton?
+
+    Sleptons (including sneutrinos) are the SUSY partners of the Standard Model
+    leptons, i.e. fundamental SUSY particles with fundamental ID 11-16.
+    """
+    return is_SUSY(pdgid) and 11 <= _fundamental_id(pdgid) <= 16
 
 
 def is_technicolor(pdgid: PDGID_TYPE) -> bool:

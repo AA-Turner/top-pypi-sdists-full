@@ -189,8 +189,8 @@ pub struct Context {
 	/// the budget covers the parse as a whole rather than resetting per scope. See
 	/// [`Context::remaining_fuel`].
 	fuel: Fuel,
-	/// See [`Context::is_disabled_opener`].
-	disabled_openers: Rc<HashSet<Offset>>,
+	/// See [`Context::matched_nothing`].
+	unmatched_delims: Rc<HashSet<Offset>>,
 }
 
 impl Context {
@@ -205,26 +205,31 @@ impl Context {
 			list_depth: 0,
 			parents: ScopeSet::new(),
 			fuel: Fuel::new(options.fuel),
-			disabled_openers: Rc::new(HashSet::new()),
+			unmatched_delims: Rc::new(HashSet::new()),
 		}
 	}
 
 	#[must_use]
-	pub fn with_disabled_openers(self, disabled: &HashSet<Offset>) -> Self {
-		let disabled_openers = Rc::new(self.disabled_openers.union(disabled).copied().collect());
+	pub fn with_unmatched_delims(self, unmatched: &HashSet<Offset>) -> Self {
+		let unmatched_delims = Rc::new(self.unmatched_delims.union(unmatched).copied().collect());
 
 		Self {
-			disabled_openers,
+			unmatched_delims,
 			..self
 		}
 	}
 
-	/// Whether the delimiter run at `offset` is one that an earlier parse read before block syntax,
-	/// as in `*1. foo`, but that matched nothing. Its line is a paragraph; see
-	/// [`crate::range::delim::opener`].
+	/// Whether the delimiter run at `offset` is one that an earlier parse found to match nothing,
+	/// and so is not a delimiter at all. Only two kinds are ever recorded, which never start at the
+	/// same offset:
+	///
+	/// - a run read before block syntax, as in `*1. foo`, whose line is a paragraph; see
+	///   [`crate::range::delim::opener`];
+	/// - a run straight after a detected URL, as in `https://example.com/abc_`, which belongs to
+	///   that URL; see [`crate::node::inline::link`].
 	#[must_use]
-	pub fn is_disabled_opener(&self, offset: Offset) -> bool {
-		self.disabled_openers.contains(&offset)
+	pub fn matched_nothing(&self, offset: Offset) -> bool {
+		self.unmatched_delims.contains(&offset)
 	}
 
 	/// This parse's fuel tank, started at [`Options::fuel`]. The inline parser spends a unit per
@@ -300,7 +305,7 @@ impl Context {
 			list_depth: 0,
 			parents: ScopeSet::new(),
 			fuel: self.fuel.clone(),
-			disabled_openers: Rc::clone(&self.disabled_openers),
+			unmatched_delims: Rc::clone(&self.unmatched_delims),
 		}
 	}
 

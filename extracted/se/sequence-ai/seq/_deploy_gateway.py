@@ -8,8 +8,8 @@ selects the SDK's own test fixture instead (seq/_mock.py, in no package a user i
 else it is not for users).
 
 WHY the SDK never builds an image or pulls weights here: the payload carries a DECLARATIVE image (base +
-ordered steps) and a weights URI; the platform builds that into an image asynchronously (S3
-goal 4). The SDK's whole job is to emit the spec, submit it, and report the build's terminal state honestly
+ordered steps) and a weights URI; the platform builds that into an image asynchronously
+. The SDK's whole job is to emit the spec, submit it, and report the build's terminal state honestly
 — a failed build is a failure, a slow build times out with control returned, and every 4xx/5xx is surfaced,
 never swallowed as success.
 

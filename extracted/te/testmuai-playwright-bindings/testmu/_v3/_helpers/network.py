@@ -189,29 +189,6 @@ async def network_query(method, url, index, network_log_id="", polling_interval=
 
     _log.info("    [network_query] %s %s (index=%s)", method, url[:80], index)
 
-    if network_log_id:
-        try:
-            async with create_session() as session:
-                async with session.get(
-                    f"{_har_base}/logs/entry?id={network_log_id}",
-                    timeout=aiohttp.ClientTimeout(total=30),
-                ) as resp:
-                    if resp.status == 200:
-                        try:
-                            data = await resp.json(content_type=None)
-                            entry = data.get("entry", {}) if isinstance(data, dict) else {}
-                            if entry:
-                                _log.info("    [network_query] found by log_id=%s", network_log_id)
-                                return _decode_har_entry(entry)
-                        except (aiohttp.ContentTypeError, ValueError):
-                            pass
-                    _log.debug(
-                        "    [network_query] log_id %s not in HAR (status=%d), falling back to polling",
-                        network_log_id, resp.status,
-                    )
-        except Exception as e:
-            _log.debug("    [network_query] log_id lookup error: %s (falling back)", e)
-
     num_tries = 0
     max_tries = int(max_polling_time / polling_interval)
     poll_failures = 0
@@ -235,42 +212,42 @@ async def network_query(method, url, index, network_log_id="", polling_interval=
             _log.info("    [network_query] attempt %d/%d — %d HAR entries",
                       num_tries, max_tries, len(entries))
 
-            match_index = 0
+            matched = None
             for entry in entries:
                 req = entry.get("request", {})
                 if req.get("method") == method and req.get("url") == url:
-                    match_index += 1
-                    if match_index == int(index):
-                        entry_id = entry.get("_id", "")
-                        _log.info("    [network_query] matched at occurrence %d, entry_id=%r",
-                                  match_index, entry_id)
-                        if entry_id:
-                            # Best-effort enrichment via /logs/entry; fall through to listing entry on failure.
-                            try:
-                                async with create_session() as s2:
-                                    async with s2.get(
-                                        f"{_har_base}/logs/entry?id={entry_id}",
-                                        timeout=aiohttp.ClientTimeout(total=30),
-                                    ) as resp2:
-                                        if resp2.status == 200:
-                                            try:
-                                                full_data = await resp2.json(content_type=None)
-                                                full_entry = full_data.get("entry", {}) if isinstance(full_data, dict) else {}
-                                                if full_entry:
-                                                    return _decode_har_entry(full_entry)
-                                            except (aiohttp.ContentTypeError, ValueError):
-                                                pass
-                                        else:
-                                            _log.debug(
-                                                "    [network_query] entry-detail %s returned %d, using listing entry",
-                                                entry_id, resp2.status,
-                                            )
-                            except Exception as e:
-                                _log.debug(
-                                    "    [network_query] entry-detail fetch failed: %s, using listing entry",
-                                    e,
-                                )
-                        return _decode_har_entry(entry)
+                    matched = entry
+            if matched is not None:
+                entry_id = matched.get("_id", "")
+                _log.info("    [network_query] matched newest (method, url), entry_id=%r",
+                          entry_id)
+                if entry_id:
+                    # Best-effort enrichment via /logs/entry; fall through to listing entry on failure.
+                    try:
+                        async with create_session() as s2:
+                            async with s2.get(
+                                f"{_har_base}/logs/entry?id={entry_id}",
+                                timeout=aiohttp.ClientTimeout(total=30),
+                            ) as resp2:
+                                if resp2.status == 200:
+                                    try:
+                                        full_data = await resp2.json(content_type=None)
+                                        full_entry = full_data.get("entry", {}) if isinstance(full_data, dict) else {}
+                                        if full_entry:
+                                            return _decode_har_entry(full_entry)
+                                    except (aiohttp.ContentTypeError, ValueError):
+                                        pass
+                                else:
+                                    _log.debug(
+                                        "    [network_query] entry-detail %s returned %d, using listing entry",
+                                        entry_id, resp2.status,
+                                    )
+                    except Exception as e:
+                        _log.debug(
+                            "    [network_query] entry-detail fetch failed: %s, using listing entry",
+                            e,
+                        )
+                return _decode_har_entry(matched)
         except Exception as e:
             poll_failures += 1
             last_error = e

@@ -223,6 +223,10 @@ workspace_file:
   org_id: wildcard
   ws_id: wildcard
   env: wildcard
+workspace_config_file:
+  # write: can upload and delete config files
+  org_id: wildcard
+  ws_id: wildcard
 workspace_decision_history_api:
   # read: can fetch decisions from Decision History API
   org_id: wildcard

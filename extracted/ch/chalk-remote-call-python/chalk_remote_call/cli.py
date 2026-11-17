@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 import argparse
+import importlib
 import logging
 import os
 import sys
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from chalk_remote_call._native import ServingHandle
 
 from chalk_remote_call.handler_loader import load_function, load_handler
 from chalk_remote_call.logging import JsonFormatter
@@ -103,6 +108,11 @@ def _run() -> None:
         ),
     )
     parser.add_argument(
+        "--model-serving-bootstrap",
+        default=None,
+        help="Platform-projected static model serving bootstrap JSON",
+    )
+    parser.add_argument(
         "--log-level",
         default="INFO",
         choices=["DEBUG", "INFO", "WARNING", "ERROR"],
@@ -112,6 +122,26 @@ def _run() -> None:
 
     logging.getLogger().setLevel(args.log_level)
 
+    runtime = None
+    serving_handle = None
+    try:
+        # The fence exists before importing user code. Only managed mode loads SDK serving.
+        if args.model_serving_bootstrap is not None:
+            if len(args.model_serving_bootstrap.encode("utf-8")) > 64 * 1024:
+                raise ValueError("Model serving bootstrap exceeds size bound")
+            from chalk_remote_call import ServingHandle
+
+            serving_handle = ServingHandle(require_target=True)
+            runtime_class = importlib.import_module("chalkcompute.weights.serving.model_runtime").ManagedModelRuntime
+            runtime = runtime_class.from_bootstrap(args.model_serving_bootstrap, serving_handle)
+            runtime.start()
+        _load_and_serve(args, serving_handle)
+    finally:
+        if runtime is not None:
+            runtime.close()
+
+
+def _load_and_serve(args: argparse.Namespace, serving_handle: ServingHandle | None) -> None:
     from chalk_remote_call.input_transform import parse_input_args
 
     # Load handler
@@ -157,4 +187,6 @@ def _run() -> None:
         max_batching_size=args.max_batching_size,
         max_buffer_duration_ms=args.max_buffer_duration_ms,
         batching_mode=args.batching_mode,
+        serving_handle=serving_handle,
+        require_weight_fence=args.model_serving_bootstrap is not None,
     )

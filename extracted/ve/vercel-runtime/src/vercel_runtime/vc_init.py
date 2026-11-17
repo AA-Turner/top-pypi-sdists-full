@@ -566,8 +566,6 @@ if is_cron_service():
 
 _mark_phase(_PHASE_IMPORT_FN)
 
-_use_legacy_asyncio = sys.version_info < (3, 10)
-
 
 def format_headers(
     headers: Any,

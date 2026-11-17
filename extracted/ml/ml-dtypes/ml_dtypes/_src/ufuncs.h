@@ -16,20 +16,19 @@ limitations under the License.
 #ifndef ML_DTYPES_UFUNCS_H_
 #define ML_DTYPES_UFUNCS_H_
 
-// Must be included first
-// clang-format off
+#include <array>
+#include <cfenv>  // NOLINT(build/c++11)
+#include <cmath>
+#include <complex>
+#include <cstddef>
+#include <cstring>
+#include <limits>
+#include <type_traits>
+#include <utility>
+
+#include "ml_dtypes/_src/common.h"
 #include "ml_dtypes/_src/numpy.h"
-// clang-format on
-
-#include <array>    // NOLINT
-#include <cmath>    // NOLINT
-#include <complex>  // NOLINT
-#include <cstddef>  // NOLINT
-#include <limits>   // NOLINT
-#include <utility>  // NOLINT
-#include <vector>   // NOLINT
-
-#include "ml_dtypes/_src/common.h"  // NOLINT
+#include "ml_dtypes/include/complex_types.h"
 
 // Some versions of MSVC define a "copysign" macro which wreaks havoc.
 #if defined(_MSC_VER) && defined(copysign)
@@ -58,92 +57,141 @@ inline bool my_isnan(const T& value) {
          Eigen::numext::isnan(value.imag());
 }
 
+inline constexpr NPY_ARRAYMETHOD_FLAGS kNoMethodFlags =
+    static_cast<NPY_ARRAYMETHOD_FLAGS>(0);
+
+// Default ArrayMethod flags and reduction identity metadata for ufunc functors.
+template <typename Functor>
+struct UFuncTraits {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = kNoMethodFlags;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      nullptr;
+};
+
 template <typename Functor, typename OutType, typename... InTypes>
 struct UFunc {
-  static std::vector<int> Types() {
-    return {TypeDescriptor<InTypes>::Dtype()...,
-            TypeDescriptor<OutType>::Dtype()};
-  }
   static constexpr int kInputArity = sizeof...(InTypes);
+  static constexpr int kOutputArity = 1;
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = UFuncTraits<Functor>::kFlags;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      UFuncTraits<Functor>::kGetReductionInitial;
+
+  static std::array<PyArray_DTypeMeta*, kInputArity + kOutputArity> DTypes() {
+    return {DtypeTraits<InTypes>::DTypeMeta()...,
+            DtypeTraits<OutType>::DTypeMeta()};
+  }
 
   template <std::size_t... Is>
-  static void CallImpl(std::index_sequence<Is...>, char** args,
-                       const npy_intp* dimensions, const npy_intp* steps,
-                       void* data) {
-    std::array<const char*, kInputArity> inputs = {args[Is]...};
-    char* o = args[kInputArity];
-    for (npy_intp k = 0; k < *dimensions; k++) {
+  static int CallImpl(std::index_sequence<Is...>,
+                      PyArrayMethod_Context* /*context*/, char* const data[],
+                      const npy_intp dimensions[], const npy_intp strides[],
+                      NpyAuxData* /*auxdata*/) {
+    std::array<const char*, kInputArity> inputs = {data[Is]...};
+    char* o = data[kInputArity];
+    const npy_intp n = dimensions[0];
+    for (npy_intp k = 0; k < n; k++) {
       *reinterpret_cast<OutType*>(o) =
           Functor()(*reinterpret_cast<const InTypes*>(inputs[Is])...);
-      ([&]() { inputs[Is] += steps[Is]; }(), ...);
-      o += steps[kInputArity];
+      ([&]() { inputs[Is] += strides[Is]; }(), ...);
+      o += strides[kInputArity];
     }
+    return 0;
   }
-  static void Call(char** args, const npy_intp* dimensions,
-                   const npy_intp* steps, void* data) {
-    return CallImpl(std::index_sequence_for<InTypes...>(), args, dimensions,
-                    steps, data);
+
+  static int Call(PyArrayMethod_Context* context, char* const data[],
+                  const npy_intp dimensions[], const npy_intp strides[],
+                  NpyAuxData* auxdata) {
+    return CallImpl(std::index_sequence_for<InTypes...>(), context, data,
+                    dimensions, strides, auxdata);
   }
 };
 
 template <typename Functor, typename OutType, typename OutType2,
           typename... InTypes>
 struct UFunc2 {
-  static std::vector<int> Types() {
+  static constexpr int kInputArity = sizeof...(InTypes);
+  static constexpr int kOutputArity = 2;
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = UFuncTraits<Functor>::kFlags;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      nullptr;
+
+  static std::array<PyArray_DTypeMeta*, kInputArity + kOutputArity> DTypes() {
     return {
-        TypeDescriptor<InTypes>::Dtype()...,
-        TypeDescriptor<OutType>::Dtype(),
-        TypeDescriptor<OutType2>::Dtype(),
+        DtypeTraits<InTypes>::DTypeMeta()...,
+        DtypeTraits<OutType>::DTypeMeta(),
+        DtypeTraits<OutType2>::DTypeMeta(),
     };
   }
-  static constexpr int kInputArity = sizeof...(InTypes);
 
   template <std::size_t... Is>
-  static void CallImpl(std::index_sequence<Is...>, char** args,
-                       const npy_intp* dimensions, const npy_intp* steps,
-                       void* data) {
-    std::array<const char*, kInputArity> inputs = {args[Is]...};
-    char* o0 = args[kInputArity];
-    char* o1 = args[kInputArity + 1];
-    for (npy_intp k = 0; k < *dimensions; k++) {
+  static int CallImpl(std::index_sequence<Is...>,
+                      PyArrayMethod_Context* /*context*/, char* const data[],
+                      const npy_intp dimensions[], const npy_intp strides[],
+                      NpyAuxData* /*auxdata*/) {
+    std::array<const char*, kInputArity> inputs = {data[Is]...};
+    char* o0 = data[kInputArity];
+    char* o1 = data[kInputArity + 1];
+    const npy_intp n = dimensions[0];
+    for (npy_intp k = 0; k < n; k++) {
       std::tie(*reinterpret_cast<OutType*>(o0),
                *reinterpret_cast<OutType2*>(o1)) =
           Functor()(*reinterpret_cast<const InTypes*>(inputs[Is])...);
-      ([&]() { inputs[Is] += steps[Is]; }(), ...);
-      o0 += steps[kInputArity];
-      o1 += steps[kInputArity + 1];
+      ([&]() { inputs[Is] += strides[Is]; }(), ...);
+      o0 += strides[kInputArity];
+      o1 += strides[kInputArity + 1];
     }
+    return 0;
   }
-  static void Call(char** args, const npy_intp* dimensions,
-                   const npy_intp* steps, void* data) {
-    return CallImpl(std::index_sequence_for<InTypes...>(), args, dimensions,
-                    steps, data);
+
+  static int Call(PyArrayMethod_Context* context, char* const data[],
+                  const npy_intp dimensions[], const npy_intp strides[],
+                  NpyAuxData* auxdata) {
+    return CallImpl(std::index_sequence_for<InTypes...>(), context, data,
+                    dimensions, strides, auxdata);
   }
 };
 
-template <typename UFuncT, typename CustomT>
+template <typename UFuncT>
 bool RegisterUFunc(PyObject* numpy, const char* name) {
-  std::vector<int> types = UFuncT::Types();
-  PyUFuncGenericFunction fn =
-      reinterpret_cast<PyUFuncGenericFunction>(UFuncT::Call);
+  auto dtypes = UFuncT::DTypes();
   Safe_PyObjectPtr ufunc_obj = make_safe(PyObject_GetAttrString(numpy, name));
   if (!ufunc_obj) {
     return false;
   }
   PyUFuncObject* ufunc = reinterpret_cast<PyUFuncObject*>(ufunc_obj.get());
-  if (static_cast<int>(types.size()) != ufunc->nargs) {
+  if (UFuncT::kInputArity != ufunc->nin ||
+      UFuncT::kOutputArity != ufunc->nout) {
     PyErr_Format(PyExc_AssertionError,
-                 "ufunc %s takes %d arguments, loop takes %lu", name,
-                 ufunc->nargs, types.size());
+                 "ufunc %s has signature (%d->%d), loop has (%d->%d)", name,
+                 ufunc->nin, ufunc->nout, UFuncT::kInputArity,
+                 UFuncT::kOutputArity);
     return false;
   }
-  if (PyUFunc_RegisterLoopForType(ufunc, TypeDescriptor<CustomT>::Dtype(), fn,
-                                  const_cast<int*>(types.data()),
-                                  nullptr) < 0) {
-    return false;
+
+  PyType_Slot slots[3];
+  int slot_idx = 0;
+  slots[slot_idx++] = {NPY_METH_strided_loop,
+                       reinterpret_cast<void*>(&UFuncT::Call)};
+  if (UFuncT::kGetReductionInitial != nullptr) {
+    slots[slot_idx++] = {NPY_METH_get_reduction_initial,
+                         reinterpret_cast<void*>(UFuncT::kGetReductionInitial)};
   }
-  return true;
+  slots[slot_idx++] = {0, nullptr};
+
+  PyArrayMethod_Spec spec;
+  spec.name = name;
+  spec.nin = UFuncT::kInputArity;
+  spec.nout = UFuncT::kOutputArity;
+  spec.casting = NPY_NO_CASTING;
+  spec.flags = UFuncT::kFlags;
+  spec.dtypes = dtypes.data();
+  spec.slots = slots;
+
+  return PyUFunc_AddLoopFromSpec(ufunc_obj.get(), &spec) >= 0;
 }
+
+// Registers ufunc promoters for mixed-dtype operations involving ml_dtypes.
+bool RegisterUFuncPromoters(PyObject* numpy);
 
 namespace ufuncs {
 
@@ -209,11 +257,12 @@ struct Divmod {
 template <typename T>
 struct FloorDivide {
   template <typename U = T,
-            std::enable_if_t<TypeDescriptor<U>::is_integral, bool> = true>
+            std::enable_if_t<std::numeric_limits<U>::is_integer, bool> = true>
   T operator()(T x, T y) {
     if (y == T(0)) {
-      PyErr_WarnEx(PyExc_RuntimeWarning,
-                   "divide by zero encountered in floor_divide", 1);
+#ifdef FE_DIVBYZERO
+      std::feraiseexcept(FE_DIVBYZERO);
+#endif
       return T(0);
     }
     T v = x / y;
@@ -223,7 +272,7 @@ struct FloorDivide {
     return v;
   }
   template <typename U = T,
-            std::enable_if_t<TypeDescriptor<U>::is_floating, bool> = true>
+            std::enable_if_t<!std::numeric_limits<U>::is_integer, bool> = true>
   T operator()(T a, T b) {
     return T(divmod_impl(to_system(a), to_system(b)).first);
   }
@@ -231,11 +280,12 @@ struct FloorDivide {
 template <typename T>
 struct Remainder {
   template <typename U = T,
-            std::enable_if_t<TypeDescriptor<U>::is_integral, bool> = true>
+            std::enable_if_t<std::numeric_limits<U>::is_integer, bool> = true>
   T operator()(T x, T y) {
     if (y == 0) {
-      PyErr_WarnEx(PyExc_RuntimeWarning,
-                   "divide by zero encountered in remainder", 1);
+#ifdef FE_DIVBYZERO
+      std::feraiseexcept(FE_DIVBYZERO);
+#endif
       return T(0);
     }
     T v = x % y;
@@ -245,7 +295,7 @@ struct Remainder {
     return v;
   }
   template <typename U = T,
-            std::enable_if_t<TypeDescriptor<U>::is_floating, bool> = true>
+            std::enable_if_t<!std::numeric_limits<U>::is_integer, bool> = true>
   T operator()(T a, T b) {
     return T(divmod_impl(to_system(a), to_system(b)).second);
   }
@@ -335,6 +385,12 @@ struct CopySign {
     }
     auto [a_sign, a_abs_bits] = SignAndMagnitude(a);
     auto [b_sign, b_abs_bits] = SignAndMagnitude(b);
+    if (a_abs_bits == 0) {
+      // Negate instead of setting the sign bit: types without a negative zero
+      // (i.e. *fnuz) use that bit pattern for NaN, and their negation keeps +0.
+      T zero = Eigen::numext::bit_cast<T>(a_abs_bits);
+      return b_sign ? T(-zero) : zero;
+    }
     BitsType<T> rep = a_abs_bits | b_sign;
     return Eigen::numext::bit_cast<T>(rep);
   }
@@ -391,12 +447,11 @@ struct Heaviside {
     if (Eigen::numext::isnan(x)) {
       return x;
     }
-    auto [sign_x, abs_x] = SignAndMagnitude(x);
-    // x == 0
-    if (abs_x == 0) {
+    const float x_value = to_system(x);
+    if (x_value == 0.0f) {
       return h0;
     }
-    return sign_x ? T(0.0f) : T(1.0f);
+    return x_value < 0.0f ? T(0.0f) : T(1.0f);
   }
 };
 
@@ -440,9 +495,16 @@ struct IsNan {
   bool operator()(T a) { return my_isnan(a); }
 };
 
-template <typename T>
+template <typename T, typename ExpT = int>
 struct Ldexp {
-  T operator()(T a, int exp) { return T(std::ldexp(to_system(a), exp)); }
+  T operator()(T a, ExpT exp) {
+    constexpr ExpT kMinExp = std::numeric_limits<int>::min();
+    constexpr ExpT kMaxExp = std::numeric_limits<int>::max();
+    int clamped_exp = exp < kMinExp   ? std::numeric_limits<int>::min()
+                      : exp > kMaxExp ? std::numeric_limits<int>::max()
+                                      : static_cast<int>(exp);
+    return T(std::ldexp(to_system(a), clamped_exp));
+  }
 };
 template <typename T>
 struct Log {
@@ -549,7 +611,9 @@ struct Sign {
       return a;
     }
     auto [sign_a, abs_a] = SignAndMagnitude(a);
-    if (abs_a == 0) {
+    // Compare the value rather than the magnitude bits: in unsigned formats
+    // without a zero (e.g. E8M0), all-zero bits encode the smallest power of 2.
+    if (static_cast<float>(a) == 0.0f) {
       return a;
     }
     return sign_a ? T(-1) : T(1);
@@ -800,6 +864,179 @@ struct Spacing {
 };
 
 }  // namespace ufuncs
+
+template <typename T>
+int GetZeroReductionInitial(PyArrayMethod_Context* /*context*/,
+                            npy_bool reduction_is_empty, void* initial) {
+  if constexpr (is_complex_v<T>) {
+    using Real = typename T::value_type;
+    T val = reduction_is_empty ? T(Real(0.0f), Real(0.0f))
+                               : T(Real(-0.0f), Real(-0.0f));
+    std::memcpy(initial, &val, sizeof(T));
+    return 1;
+  } else if constexpr (std::numeric_limits<T>::is_integer) {
+    T val = T(0);
+    std::memcpy(initial, &val, sizeof(T));
+    return 1;
+  } else {
+    T val = T(0.0f);
+    if (my_isnan(val)) {
+      if (!reduction_is_empty) {
+        return 0;
+      }
+      std::memcpy(initial, &val, sizeof(T));
+      return 1;
+    }
+    if constexpr (std::numeric_limits<T>::is_iec559) {
+      if (!reduction_is_empty) {
+        val = T(-0.0f);
+      }
+    }
+    std::memcpy(initial, &val, sizeof(T));
+    return 1;
+  }
+}
+
+template <typename T>
+int GetOneReductionInitial(PyArrayMethod_Context* /*context*/,
+                           npy_bool /*reduction_is_empty*/, void* initial) {
+  T val = T(1);
+  std::memcpy(initial, &val, sizeof(T));
+  return 1;
+}
+
+template <typename T>
+int GetHypotReductionInitial(PyArrayMethod_Context* /*context*/,
+                             npy_bool reduction_is_empty, void* initial) {
+  T val = T(0.0f);
+  if (my_isnan(val) && !reduction_is_empty) {
+    return 0;
+  }
+  std::memcpy(initial, &val, sizeof(T));
+  return 1;
+}
+
+template <typename T>
+int GetMinusInfReductionInitial(PyArrayMethod_Context* /*context*/,
+                                npy_bool /*reduction_is_empty*/,
+                                void* initial) {
+  if constexpr (std::numeric_limits<T>::has_infinity &&
+                std::numeric_limits<T>::is_signed) {
+    T val = -std::numeric_limits<T>::infinity();
+    std::memcpy(initial, &val, sizeof(T));
+    return 1;
+  } else {
+    return 0;
+  }
+}
+
+template <typename T>
+struct UFuncTraits<ufuncs::Add<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =
+      static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_IS_REORDERABLE |
+                                         (std::numeric_limits<T>::is_integer
+                                              ? NPY_METH_NO_FLOATINGPOINT_ERRORS
+                                              : 0));
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      &GetZeroReductionInitial<T>;
+};
+
+template <typename T>
+struct UFuncTraits<ufuncs::Subtract<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =
+      std::numeric_limits<T>::is_integer ? NPY_METH_NO_FLOATINGPOINT_ERRORS
+                                         : kNoMethodFlags;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      nullptr;
+};
+
+template <typename T>
+struct UFuncTraits<ufuncs::Multiply<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =
+      static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_IS_REORDERABLE |
+                                         (std::numeric_limits<T>::is_integer
+                                              ? NPY_METH_NO_FLOATINGPOINT_ERRORS
+                                              : 0));
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      &GetOneReductionInitial<T>;
+};
+
+template <typename T>
+struct UFuncTraits<ufuncs::Hypot<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = NPY_METH_IS_REORDERABLE;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      &GetHypotReductionInitial<T>;
+};
+
+template <typename T>
+struct UFuncTraits<ufuncs::LogAddExp<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = NPY_METH_IS_REORDERABLE;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      &GetMinusInfReductionInitial<T>;
+};
+
+template <typename T>
+struct UFuncTraits<ufuncs::LogAddExp2<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags = NPY_METH_IS_REORDERABLE;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      &GetMinusInfReductionInitial<T>;
+};
+
+#define ML_DTYPES_REORDERABLE_NO_FPE_TRAIT(FunctorName)                        \
+  template <typename T>                                                        \
+  struct UFuncTraits<ufuncs::FunctorName<T>> {                                 \
+    static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =                            \
+        static_cast<NPY_ARRAYMETHOD_FLAGS>(NPY_METH_IS_REORDERABLE |           \
+                                           NPY_METH_NO_FLOATINGPOINT_ERRORS);  \
+    static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial = \
+        nullptr;                                                               \
+  }
+
+ML_DTYPES_REORDERABLE_NO_FPE_TRAIT(Maximum);
+ML_DTYPES_REORDERABLE_NO_FPE_TRAIT(Minimum);
+ML_DTYPES_REORDERABLE_NO_FPE_TRAIT(Fmax);
+ML_DTYPES_REORDERABLE_NO_FPE_TRAIT(Fmin);
+
+#undef ML_DTYPES_REORDERABLE_NO_FPE_TRAIT
+
+#define ML_DTYPES_NO_FPE_TRAIT(FunctorName)                                    \
+  template <typename T>                                                        \
+  struct UFuncTraits<ufuncs::FunctorName<T>> {                                 \
+    static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =                            \
+        NPY_METH_NO_FLOATINGPOINT_ERRORS;                                      \
+    static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial = \
+        nullptr;                                                               \
+  }
+
+ML_DTYPES_NO_FPE_TRAIT(Negative);
+ML_DTYPES_NO_FPE_TRAIT(Positive);
+ML_DTYPES_NO_FPE_TRAIT(Conjugate);
+ML_DTYPES_NO_FPE_TRAIT(CopySign);
+ML_DTYPES_NO_FPE_TRAIT(Eq);
+ML_DTYPES_NO_FPE_TRAIT(Ne);
+ML_DTYPES_NO_FPE_TRAIT(Lt);
+ML_DTYPES_NO_FPE_TRAIT(Gt);
+ML_DTYPES_NO_FPE_TRAIT(Le);
+ML_DTYPES_NO_FPE_TRAIT(Ge);
+ML_DTYPES_NO_FPE_TRAIT(LogicalNot);
+ML_DTYPES_NO_FPE_TRAIT(LogicalAnd);
+ML_DTYPES_NO_FPE_TRAIT(LogicalOr);
+ML_DTYPES_NO_FPE_TRAIT(LogicalXor);
+ML_DTYPES_NO_FPE_TRAIT(IsFinite);
+ML_DTYPES_NO_FPE_TRAIT(IsInf);
+ML_DTYPES_NO_FPE_TRAIT(IsNan);
+ML_DTYPES_NO_FPE_TRAIT(SignBit);
+
+#undef ML_DTYPES_NO_FPE_TRAIT
+
+template <typename T>
+struct UFuncTraits<ufuncs::Abs<T>> {
+  static constexpr NPY_ARRAYMETHOD_FLAGS kFlags =
+      is_complex_v<T> ? kNoMethodFlags : NPY_METH_NO_FLOATINGPOINT_ERRORS;
+  static constexpr PyArrayMethod_GetReductionInitial* kGetReductionInitial =
+      nullptr;
+};
+
 }  // namespace ml_dtypes
 
 #endif  // ML_DTYPES_UFUNCS_H_

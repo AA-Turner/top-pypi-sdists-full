@@ -1,5 +1,6 @@
 //! `sqb rename` and `sqb mv`: plan from compiler facts, verify in a scratch copy, then write.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
@@ -36,11 +37,7 @@ use sqlbuild_refactor::refactoring::models::{
 };
 use sqlbuild_refactor::refactoring::types::Originals;
 
-use crate::bindings::_helpers::lineage::lineage_index::lineage_key;
 use crate::bindings::_helpers::refactor::offline_compile::{OfflineCompile, compile_for_refactor};
-use crate::bindings::_helpers::refactor::refactor_facts::{
-    declaration_placement, model_facts, refactor_facts, unit_test_rebindings,
-};
 use sqlbuild_python_base::boundary::main::compiler_guard::compiler_guard;
 use sqlbuild_python_base::boundary::main::native_compiler_error::native_compiler_error;
 use sqlbuild_python_base::build_progress::main::transient_status::status_reporter::status_reporter;
@@ -49,6 +46,11 @@ use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::mapping_items::mapping_items;
 use sqlbuild_python_base::records::types::ErrorId;
+use sqlbuild_python_compile::lineage::main::lineage_key::lineage_key;
+use sqlbuild_python_front::refactor::main::declaration_placement::declaration_placement;
+use sqlbuild_python_front::refactor::main::model_facts::model_facts;
+use sqlbuild_python_front::refactor::main::refactor_facts::refactor_facts;
+use sqlbuild_python_front::refactor::main::unit_test_rebindings::unit_test_rebindings;
 
 const STAGING_PREFIX: &str = "sqb-refactor-";
 const MOVE_COMMAND: &str = "mv";
@@ -64,16 +66,12 @@ fn imported<'py>(py: Python<'py>, module: &str, name: &str) -> PyResult<Bound<'p
 
 /// `CliUserError(message, code=..., help=...)`.
 fn user_error(py: Python<'_>, (message, code, help): (String, &str, Option<String>)) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", code)?;
-        options.set_item("help", help)?;
-        error_class(py, ErrorId::CliUser)?.call((message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        &message,
+        (Some(code), help.as_deref()),
+    )
 }
 
 /// The Python exception a native refactoring failure becomes.

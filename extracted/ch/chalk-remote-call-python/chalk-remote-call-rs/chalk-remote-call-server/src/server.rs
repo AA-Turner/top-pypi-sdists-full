@@ -13,6 +13,7 @@ use crate::async_service::AsyncRemoteCallServiceImpl;
 use crate::coalesce::CoalescingQueue;
 use crate::python_bridge::PythonHandler;
 use crate::service::RemoteCallServiceImpl;
+use crate::ServingState;
 
 const MAX_MESSAGE_SIZE: usize = 32 * 1024 * 1024; // 32 MB
 
@@ -23,6 +24,7 @@ pub async fn run_server(
     port: u16,
     python_handler: Arc<PythonHandler>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
+    serving_state: Option<Arc<ServingState>>,
     #[cfg(target_os = "linux")] metrics: Option<Arc<CallMetrics>>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Parse host — ensure IPv6 addresses are bracketed for SocketAddr parsing
@@ -40,13 +42,67 @@ pub async fn run_server(
 
     // Health service
     let (mut health_reporter, health_service) = tonic_health::server::health_reporter();
+    // Subscribe before reading state so a Python update cannot be lost between
+    // publishing initial health and starting the watcher.
+    let health_changes = serving_state.as_ref().map(|state| state.subscribe());
+    let initially_serving = serving_state
+        .as_ref()
+        .is_none_or(|state| state.is_serving());
+    let initial_status = if initially_serving {
+        tonic_health::ServingStatus::Serving
+    } else {
+        tonic_health::ServingStatus::NotServing
+    };
     health_reporter
-        .set_serving::<RemoteCallServiceServer<RemoteCallServiceImpl>>()
+        .set_service_status("chalk.runtime.v1.RemoteCallService", initial_status)
         .await;
-    // Also set the empty-string service (convention for overall server health)
-    health_reporter
-        .set_service_status("", tonic_health::ServingStatus::Serving)
-        .await;
+    health_reporter.set_service_status("", initial_status).await;
+
+    let health_updates = serving_state
+        .as_ref()
+        .zip(health_changes)
+        .map(|(state, mut changes)| {
+            let state = state.clone();
+            tokio::spawn(async move {
+                let mut reported_serving = initially_serving;
+                loop {
+                    if state.is_serving() {
+                        if let Some(deadline) = state.deadline() {
+                            tokio::select! {
+                                result = changes.changed() => {
+                                    if result.is_err() { break; }
+                                    changes.borrow_and_update();
+                                }
+                                _ = tokio::time::sleep_until(deadline) => {}
+                            }
+                        } else if changes.changed().await.is_err() {
+                            break;
+                        } else {
+                            changes.borrow_and_update();
+                        }
+                    } else if changes.changed().await.is_err() {
+                        break;
+                    } else {
+                        changes.borrow_and_update();
+                    }
+
+                    let serving = state.is_serving();
+                    if serving == reported_serving {
+                        continue;
+                    }
+                    let status = if serving {
+                        tonic_health::ServingStatus::Serving
+                    } else {
+                        tonic_health::ServingStatus::NotServing
+                    };
+                    health_reporter
+                        .set_service_status("chalk.runtime.v1.RemoteCallService", status)
+                        .await;
+                    health_reporter.set_service_status("", status).await;
+                    reported_serving = serving;
+                }
+            })
+        });
 
     // Reflection service
     let reflection_service = tonic_reflection::server::Builder::configure()
@@ -69,7 +125,11 @@ pub async fn run_server(
         python_handler.clone(),
         batching_enabled,
         is_remote_function,
+        serving_state.clone(),
     );
+
+    #[cfg(target_os = "linux")]
+    let (shutdown_tx, shutdown_rx) = tokio::sync::watch::channel(false);
 
     // Self-consume the Redis fn queue when this pod was provisioned with a
     // Redis URL (gRPC-only otherwise). The self-consumer shares the gRPC
@@ -79,36 +139,46 @@ pub async fn run_server(
     // queue is `None` and the self-consumer dispatches per-call (streaming).
 
     #[cfg(target_os = "linux")]
-    if let Some(cfg) = crate::self_consumer::SelfConsumerConfig::from_env() {
+    let consumer_task = crate::self_consumer::SelfConsumerConfig::from_env().and_then(|cfg| {
+        let drain_on_shutdown = cfg.consumer_endpoint.is_some()
+            || cfg.queue_protocol == chalk_queue::QueueProtocol::StreamV1;
         // Share the synchronous gRPC server's function-call metrics pipeline.
         let consumer_handler = python_handler.clone();
         let consumer_metrics = metrics.clone();
         let consumer_coalescing = coalescing_queue.clone();
-        tokio::spawn(async move {
+        let task = tokio::spawn(async move {
             if let Err(e) = crate::self_consumer::run(
                 cfg,
                 consumer_handler,
                 consumer_metrics,
                 consumer_coalescing,
+                shutdown_rx,
             )
             .await
             {
                 tracing::error!(error = %e, "fnq self-consumer failed to start");
             }
         });
-    }
+        drain_on_shutdown.then_some(task)
+    });
 
     // Main service
     let svc = RemoteCallServiceImpl {
         python_handler,
         coalescing_queue,
+        serving_state,
         #[cfg(target_os = "linux")]
         metrics,
     };
 
     info!("Server starting on {}", addr);
 
-    Server::builder()
+    let shutdown = async {
+        shutdown_signal().await;
+        #[cfg(target_os = "linux")]
+        shutdown_tx.send_replace(true);
+    };
+    let result = Server::builder()
         .add_service(health_service)
         .add_service(reflection_service)
         .add_service(reflection_service_v1alpha)
@@ -122,8 +192,25 @@ pub async fn run_server(
                 .max_decoding_message_size(MAX_MESSAGE_SIZE)
                 .max_encoding_message_size(MAX_MESSAGE_SIZE),
         )
-        .serve_with_shutdown(addr, shutdown_signal())
-        .await?;
+        .serve_with_shutdown(addr, shutdown)
+        .await;
+
+    #[cfg(target_os = "linux")]
+    {
+        // Queue workers live outside tonic's request tasks. Keep the runtime
+        // and lease renewals alive until their results have been persisted.
+        shutdown_tx.send_replace(true);
+        if let Some(task) = consumer_task {
+            if let Err(error) = task.await {
+                tracing::error!(%error, "fnq self-consumer task failed during shutdown");
+            }
+        }
+    }
+    result?;
+
+    if let Some(task) = health_updates {
+        task.abort();
+    }
 
     info!("Server shut down");
     Ok(())

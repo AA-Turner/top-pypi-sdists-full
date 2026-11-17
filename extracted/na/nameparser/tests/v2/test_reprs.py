@@ -6,7 +6,9 @@ import pytest
 
 from nameparser._lexicon import Lexicon
 from nameparser._locale import Locale
-from nameparser._parser import Parser, parse
+from nameparser._match import Matching
+from nameparser import locales
+from nameparser._parser import Parser, parse, parser_for
 from nameparser._policy import FAMILY_FIRST, PatronymicRule, Policy, PolicyPatch
 from nameparser._types import (
     Ambiguity, AmbiguityKind, ParsedName, Reading, Role, Segmentation, Span,
@@ -131,6 +133,11 @@ def test_policy_patch_repr_shows_only_set_fields() -> None:
     Lexicon.empty(),
     Parser(),
     Parser(segmenter=functools.partial(_decline, blob="x" * 500)),
+    Matching(Parser()),
+    Matching(parser_for(locales.ES)),
+    Matching(Parser(segmenter=functools.partial(_decline, blob="x" * 500))),
+    Parser().suggest(["Smith Mary", "Kim Minjun", "Jason Smith"]),
+    Parser().suggest([]),
 ])
 def test_config_reprs_never_leak_the_unset_sentinel(obj: object) -> None:
     # Guard the whole family: every config type's repr is bounded and
@@ -157,6 +164,18 @@ def test_parser_repr_names_the_segmenter_without_its_contents() -> None:
 
     instance = repr(Parser(segmenter=Div()))
     assert "segmenter=Div" in instance and "0x" not in instance
+
+
+def test_matching_repr_is_its_deviation_and_its_parsers_bounded_repr() -> None:
+    # Matching names a non-default Parser by the Parser's own repr, so it
+    # is bounded as that is: a pack's lexicon by counts, a segmenter by
+    # its name, never its bound arguments
+    es = parser_for(locales.ES)
+    assert repr(Matching(es)) == f"Matching(default, parser={es!r})"
+    blob = Parser(segmenter=functools.partial(_decline, blob="x" * 500))
+    shown = repr(Matching(blob))
+    assert shown == f"Matching(default, parser={blob!r})"
+    assert "xxx" not in shown
 
 
 def test_policy_patch_repr_survives_unvalidated_name_order() -> None:
@@ -191,3 +210,14 @@ def test_order_repr_survives_smuggled_setstate_values() -> None:
                 # a smuggled string tuple must not render as the
                 # named constant it merely compares equal to
                 assert "GIVEN_FIRST" not in rendered
+
+
+def test_suggestion_repr_shows_the_patch_and_counts_never_the_names(
+        ) -> None:
+    s = Parser().suggest(["Smith Mary", "Kim Minjun", "Wang Xiaoming",
+                          "Jason Smith"])
+    assert repr(s) == ("Suggestion(PolicyPatch(name_order=FAMILY_FIRST), "
+                       "names=4, disagreeing=1)")
+    for evidence in s.evidence:
+        for text in ("Mary", "Kim", "Smith"):
+            assert text not in repr(evidence)

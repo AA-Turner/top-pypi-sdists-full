@@ -5,17 +5,13 @@ use std::path::Path;
 use pyo3::IntoPyObject;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyResult, Python};
-use pyo3::types::{PyBool, PyDict, PyDictMethods};
+use pyo3::types::{PyBool, PyDict, PyDictMethods, PyString};
 use sqlbuild_host::entries::models::UserCodeHost;
 use sqlbuild_orchestration::sensors::models::{
     CustomSensorOutcome, SensorCondition, SensorEvaluationRequest,
 };
 
-use crate::bindings::_helpers::compiled_project::snapshot_declarations::python_declarations;
-use crate::bindings::_helpers::discovery::imported_modules::{provider_by_name, provider_usages};
-use crate::bindings::_helpers::discovery::imported_providers::discover_provider_classes;
-use crate::bindings::_helpers::discovery::orchestration_files::orchestration_declarations;
-use crate::bindings::_helpers::discovery::provider_secrets::SecretPolicy;
+use crate::bindings::_helpers::native_host::setup_context::project_setup_context;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::imported::imported;
 use sqlbuild_python_base::boundary::main::within::within;
@@ -23,6 +19,12 @@ use sqlbuild_python_base::native_host::constants::SENSOR_CONTEXT_PARAMETER;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry as entry;
 use sqlbuild_python_base::orchestration_reads::main::callback_code_hash::callback_code_hash;
 use sqlbuild_python_base::orchestration_reads::main::orchestration_code_hash::orchestration_code_hash;
+use sqlbuild_python_front::discovery::main::python_files::discover_provider_classes::discover_provider_classes;
+use sqlbuild_python_front::discovery::main::python_files::provider_by_name::provider_by_name;
+use sqlbuild_python_front::discovery::main::python_files::provider_usages::provider_usages;
+use sqlbuild_python_front::discovery::main::sources::orchestration_declarations::orchestration_declarations;
+use sqlbuild_python_front::discovery::models::SecretPolicy;
+use sqlbuild_python_project::project_snapshot::main::python_declarations::python_declarations;
 
 pub(crate) fn evaluate_sensor(
     py: Python<'_>,
@@ -72,15 +74,19 @@ pub(crate) fn evaluate_sensor(
         .import("sqlbuild.orchestration")?
         .getattr("SensorContext")?
         .call((), Some(&fields))?;
-    let providers = discover_provider_classes(
-        imported(py, "pathlib", "Path")?.call1((project_dir,))?,
-        SecretPolicy::Defer.name(),
-    )?;
+    let project_path = imported(py, "pathlib", "Path")?.call1((project_dir,))?;
+    let providers = discover_provider_classes(project_path.clone(), SecretPolicy::Defer.name())?;
     let by_name = provider_by_name(&providers)?;
+    let target = (
+        &PyString::new(py, &evaluation.target).into_any(),
+        &py.None().into_bound(py),
+    );
+    let setup_context = project_setup_context((&project_path, &providers), target, true)?;
     let session = call_with(
         &entry(py, UserCodeHost::BuildProviderSession)?,
         &[
             ("discovered_providers", providers),
+            ("setup_context", setup_context),
             ("allow_shared", PyBool::new(py, false).to_owned().into_any()),
         ],
     )?;

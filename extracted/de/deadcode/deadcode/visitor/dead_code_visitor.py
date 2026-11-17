@@ -6,7 +6,6 @@ import re
 import string
 import sys
 import tokenize
-from logging import getLogger
 
 from pathlib import Path
 
@@ -19,6 +18,7 @@ from deadcode.visitor.utils import LoggingList, LoggingSet
 from deadcode.visitor import utils
 from deadcode.actions.parse_abstract_syntax_tree import parse_abstract_syntax_tree
 from deadcode.utils.nested_scopes import NestedScope
+from deadcode.visitor.usage_graph import compute_live_item_keys
 
 from deadcode.visitor import noqa
 from deadcode.utils.print_ast import print_ast as show  # noqa: F401
@@ -39,8 +39,6 @@ from deadcode.visitor.ignore import (
     _ignore_method,
     _ignore_variable,
 )
-
-logger = getLogger()
 
 TYPE_CHECKER_COMMENT_PATTERN = re.compile(r'^(?:(?:type|ty|pyright|pytype|mypy)\s*:|pyre-)', re.IGNORECASE)
 
@@ -79,6 +77,8 @@ class DeadCodeVisitor(ast.NodeVisitor):
         self.wildcard_imports: dict[str, set[str]] = {}
         self.explicit_imports: dict[str, set[str]] = {}
         self.qualified_imports: dict[str, dict[str, str]] = {}
+        self.import_edges: dict[str, dict[str, set[tuple[str, str]]]] = {}
+        self.module_definitions: dict[str, set[str]] = {}
 
         self.filename = Path()
         self.code: list[str] = []
@@ -93,6 +93,18 @@ class DeadCodeVisitor(ast.NodeVisitor):
 
         self.noqa_lines: dict[bytes, set[int]] = {}
         self.scopes = NestedScope()
+
+        # Usage-context stack: the innermost enclosing collected `CodeItem`, or `None`
+        # for an ignored definition or a root (module-level) context.
+        self._usage_context_stack: list[CodeItem | None] = []
+        # Ownership registry: usage sources `(module basename, used name)` mapped to the
+        # identity tokens (`id(code_item)`) of the definitions owning the usage site.
+        self._usage_owners: dict[tuple[str, str], set[int]] = {}
+        # Bare-usage sources with no owning definition: they execute at import time
+        # or belong to an ignore-protected definition, so they are live anchors.
+        self._root_usage_sources: set[tuple[str, str]] = set()
+        self._last_defined_item: CodeItem | None = None
+        self._live_item_keys: set[tuple[str, str]] | None = None
 
         self._assignment_nodes: list[ast.Assign | ast.AnnAssign | ast.AugAssign] = []
 
@@ -109,28 +121,101 @@ class DeadCodeVisitor(ast.NodeVisitor):
 
         if is_bare:
             self.bare_used_names.setdefault(self.module_name, set()).add(name)
+            source = (self.module_name, name)
+            usage_context = self._usage_context_stack[-1] if self._usage_context_stack else None
+            if usage_context is not None:
+                self._usage_owners.setdefault(source, set()).add(id(usage_context))
+            else:
+                self._root_usage_sources.add(source)
         else:
             self.used_names.add(name)
         self.scopes.mark_as_used(name, self.scope)
 
-    def is_name_used_in_module(self, name: str, module: str) -> bool:
-        if name in self.used_names:
-            return True
-        if name in self.bare_used_names.get(module, set()):
-            return True
-        for importer, names in self.bare_used_names.items():
-            if name not in names:
-                continue
-            if module not in self.wildcard_imports.get(importer, set()):
-                return True
-            exports = self.module_exports.get(module)
-            if exports is None or name in exports or name in self.explicit_imports.get(importer, set()):
-                return True
-        return False
+    def _resolve_bare_usage(self, name: str, importer: str) -> set[tuple[str, str]] | None:
+        """Resolve a bare usage of `name` in module `importer` to binding targets.
+
+        Returns the set of ``(module, name)`` pairs the usage can bind to, or ``None`` when
+        the usage is unresolvable or ambiguous (both fall back to the legacy suppression).
+        """
+        candidates: set[tuple[str, str]] = set()
+
+        if name in self.module_definitions.get(importer, set()):
+            candidates.add((importer, name))
+
+        visited: set[tuple[str, str]] = set()
+        expanded: set[tuple[str, str]] = set()
+        frontier = list(self.import_edges.get(importer, {}).get(name, set()))
+        while frontier:
+            pair = frontier.pop()
+            if pair in visited:
+                # A cycle makes the usage unresolvable.
+                return None
+            visited.add(pair)
+            edge_module, edge_name = pair
+            # Package `__init__` twin hop (D6): `from x import n` can bind either in
+            # `x.py` (module key `x`) or in `x/__init__.py` (module key `__init__`),
+            # so every hop target also contributes its `__init__` twin. For a target
+            # already keyed `__init__` the twin is the target itself. Twin candidates
+            # only widen suppression; the `expanded` bookkeeping keeps every hop
+            # target's out-edges enqueued once, so twin hops follow re-export chains
+            # without inventing phantom cycles.
+            for hop_module in {edge_module, '__init__'}:
+                if (hop_module, edge_name) in expanded:
+                    continue
+                expanded.add((hop_module, edge_name))
+                if edge_name in self.module_definitions.get(hop_module, set()):
+                    candidates.add((hop_module, edge_name))
+                frontier.extend(self.import_edges.get(hop_module, {}).get(edge_name, set()))
+
+        if not candidates:
+            for wildcard_module in self.wildcard_imports.get(importer, set()):
+                exports = self.module_exports.get(wildcard_module)
+                if exports is None:
+                    # Unknown exports make the usage unresolvable.
+                    return None
+                if name in exports:
+                    candidates.add((wildcard_module, name))
+
+        if len(candidates) == 1:
+            return candidates
+        # No candidate at all, or more than one candidate: unresolvable or ambiguous.
+        return None
 
     def _is_item_used(self, item: CodeItem) -> bool:
         module = os.path.splitext(os.path.basename(str(item.filename)))[0]
-        return self.is_name_used_in_module(item.name, module)
+        if self._live_item_keys is None:
+            self._live_item_keys = self._compute_live_item_keys()
+        return (module, item.name) in self._live_item_keys
+
+    def _compute_live_item_keys(self) -> set[tuple[str, str]]:
+        """Run the reachability pass once and memoize the live item keys."""
+        items = list(
+            chain(
+                self.defined_attrs,
+                self.defined_classes,
+                self.defined_funcs,
+                self.defined_imports,
+                self.defined_methods,
+                self.defined_props,
+                self.defined_vars,
+                self.defined_names,
+            )
+        )
+        owner_keys: dict[int, tuple[str, str]] = {
+            id(item): (os.path.splitext(os.path.basename(str(item.filename)))[0], item.name) for item in items
+        }
+
+        return compute_live_item_keys(
+            items,
+            self.used_names,
+            self._root_usage_sources,
+            self._usage_owners,
+            owner_keys,
+            self._resolve_bare_usage,
+            self.wildcard_imports,
+            self.module_exports,
+            self.explicit_imports,
+        )
 
     def _collect_module_exports(self) -> None:
         for file_path in self.filenames:
@@ -154,6 +239,8 @@ class DeadCodeVisitor(ast.NodeVisitor):
                 self.module_name = module_name
                 self.qualified_imports[self.module_name] = {}
                 self.scope_parts = [module_name]
+                self._usage_context_stack = []
+                self._last_defined_item = None
 
                 file_content = f.read()
                 if file_content.strip() or (filename.startswith('__') and filename.endswith('__.py')):
@@ -462,11 +549,20 @@ class DeadCodeVisitor(ast.NodeVisitor):
         )
 
         self.scopes.add(code_item)
+        self._last_defined_item = code_item
 
         if ignored((first_lineno, name_line, *ignore_linenos), type_=type_):
             self._log(f'Ignoring {type_} "{name}"')
+            # An ignored definition contributes no owner: usages inside its body
+            # stay root usages and keep their targets alive.
+            self._last_defined_item = None
         else:
             collection.append(code_item)
+            is_module_level_definition = any(
+                collection is c for c in (self.defined_funcs, self.defined_classes, self.defined_vars)
+            ) and self.scope_parts == [self.module_name]
+            if is_module_level_definition:
+                self.module_definitions.setdefault(self.module_name, set()).add(name)
 
     def _get_assignment_removal_node(self, target: ast.AST) -> ast.AST | None:
         if not self._assignment_nodes:
@@ -659,9 +755,13 @@ class DeadCodeVisitor(ast.NodeVisitor):
         if node.module != '__future__':
             if node.module is not None:
                 explicit_imports = self.explicit_imports.setdefault(self.module_name, set())
+                edges = self.import_edges.setdefault(self.module_name, {})
                 for name_and_alias in node.names:
                     if name_and_alias.name != '*':
                         explicit_imports.add(name_and_alias.asname or name_and_alias.name)
+                        edges.setdefault(name_and_alias.asname or name_and_alias.name, set()).add(
+                            (node.module.rpartition('.')[2], name_and_alias.name)
+                        )
                 if any(name_and_alias.name == '*' for name_and_alias in node.names):
                     wildcard_module = node.module.rpartition('.')[2]
                     self.wildcard_imports.setdefault(self.module_name, set()).add(wildcard_module)
@@ -736,6 +836,22 @@ class DeadCodeVisitor(ast.NodeVisitor):
                 self.should_ignore_new_definitions = True
                 should_turn_off_ignore_new_definitions = True
 
+        is_definition_node = isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+        if is_definition_node:
+            # Decorator expressions are root usages: they run at definition time and
+            # decorate names are conservative anchors, so they are visited before the
+            # definition's own usage context is pushed.
+            decorators: list[ast.expr] = getattr(node, 'decorator_list', [])
+            for decorator in decorators:
+                self._usage_context_stack.append(None)
+                try:
+                    self.visit(decorator)
+                finally:
+                    self._usage_context_stack.pop()
+            # A definition suppressed without `_define` (e.g. a decorator-whitelisted
+            # class) contributes no owner either.
+            self._last_defined_item = None
+
         method_name = 'visit_' + node.__class__.__name__
         visitor = getattr(self, method_name, None)
 
@@ -747,9 +863,11 @@ class DeadCodeVisitor(ast.NodeVisitor):
         if isinstance(node, ast.ClassDef):
             self.scope_parts.append(node.name)
             self.scope_kinds.append('class')
+            self._usage_context_stack.append(self._last_defined_item)
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
             self.scope_parts.append(node.name)
             self.scope_kinds.append('function')
+            self._usage_context_stack.append(self._last_defined_item)
         else:
             was_scope_increased = False
 
@@ -788,7 +906,10 @@ class DeadCodeVisitor(ast.NodeVisitor):
             self._assignment_nodes.append(node)
         try:
             if node:
-                for _, value in ast.iter_fields(node):
+                for field_name, value in ast.iter_fields(node):
+                    if is_definition_node and field_name == 'decorator_list':
+                        # Decorators have already been visited as root usages.
+                        continue
                     if isinstance(value, list):
                         self._handle_ast_list(value)
                         for item in value:
@@ -808,6 +929,7 @@ class DeadCodeVisitor(ast.NodeVisitor):
         if was_scope_increased:
             self.scope_parts.pop()
             self.scope_kinds.pop()
+            self._usage_context_stack.pop()
 
     def _handle_ast_list(self, ast_list: list[ast.AST]) -> None:
         """

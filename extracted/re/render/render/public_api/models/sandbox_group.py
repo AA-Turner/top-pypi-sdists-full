@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 import datetime
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union, cast
+from typing import Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
-from dateutil.parser import isoparse
 
 from ..types import UNSET, Unset
 
@@ -13,19 +14,22 @@ T = TypeVar("T", bound="SandboxGroup")
 
 @_attrs_define
 class SandboxGroup:
-    """
+    """A group of sandboxes in a workspace that share a region, concurrency limit, and credentials.
+
     Attributes:
-        id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
+        id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
         owner_id (str): The ID of the workspace this group belongs to. Example: tea-cph1rs3idesc73a2b2mg.
-        name (str): Human-friendly name for the group. Example: Default.
-        region (str): Render region the group operates in. Example: oregon.
-        is_default (bool): Whether this is the workspace's default group. Sandboxes are created
-            here unless a group is given.
-        concurrency_limit (int): The effective limit on active sandboxes in this group, capped by Render's limit for
-            this workspace.
-        created_at (datetime.datetime):  Example: 2026-07-02T18:30:00Z.
-        updated_at (datetime.datetime):  Example: 2026-07-02T18:30:00Z.
-        environment_id (Union[None, Unset, str]): Environment this group is bound to.
+        name (str): The sandbox group's name. Example: Default.
+        region (str): The Render region where the group's sandboxes run. Example: oregon.
+        is_default (bool): Whether this is the workspace's default sandbox group. Create requests that omit
+            `sandboxGroupId` use this group.
+        concurrency_limit (int): The maximum number of active sandboxes allowed in this group, capped by Render's limit
+            for the workspace.
+        created_at (datetime.datetime): The timestamp when the sandbox group was created, in ISO 8601 format. Example:
+            2026-07-02T18:30:00Z.
+        updated_at (datetime.datetime): The timestamp when the sandbox group was last updated, in ISO 8601 format.
+            Example: 2026-07-02T18:30:00Z.
+        environment_id (None | str | Unset): The ID of the environment this sandbox group belongs to, if any.
     """
 
     id: str
@@ -36,7 +40,7 @@ class SandboxGroup:
     concurrency_limit: int
     created_at: datetime.datetime
     updated_at: datetime.datetime
-    environment_id: Union[None, Unset, str] = UNSET
+    environment_id: None | str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -56,7 +60,7 @@ class SandboxGroup:
 
         updated_at = self.updated_at.isoformat()
 
-        environment_id: Union[None, Unset, str]
+        environment_id: None | str | Unset
         if isinstance(self.environment_id, Unset):
             environment_id = UNSET
         else:
@@ -96,16 +100,16 @@ class SandboxGroup:
 
         concurrency_limit = d.pop("concurrencyLimit")
 
-        created_at = isoparse(d.pop("createdAt"))
+        created_at = datetime.datetime.fromisoformat(d.pop("createdAt"))
 
-        updated_at = isoparse(d.pop("updatedAt"))
+        updated_at = datetime.datetime.fromisoformat(d.pop("updatedAt"))
 
-        def _parse_environment_id(data: object) -> Union[None, Unset, str]:
+        def _parse_environment_id(data: object) -> None | str | Unset:
             if data is None:
                 return data
             if isinstance(data, Unset):
                 return data
-            return cast(Union[None, Unset, str], data)
+            return cast(None | str | Unset, data)
 
         environment_id = _parse_environment_id(d.pop("environmentId", UNSET))
 

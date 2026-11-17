@@ -27,8 +27,9 @@ from ..process import TOKEN_VAR, SessionToken, reap_session
 PROFILE_PREFIX = "invisible_profile_"
 TMP_PREFIX = "invisible_tmp_"
 
-#: Seconds `SessionFiles.remove()` lets the session's surviving processes end
-#: by themselves before it ends them. What survives the browser is the
+#: Seconds `SessionFiles.remove()` and the launch's reaper (`process.Reaper`,
+#: started by `Connection.close`) let the session's surviving processes end
+#: by themselves before they end them. What survives the browser is the
 #: shutdown-ping sender (B266): measured at 0.6 s on Linux and 1.0 s on
 #: Windows, through a proxy and without. Past this the close stops waiting and
 #: the pings are lost, not leaked - the sender leaves by the session's road.

@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from dataclasses import dataclass, field
 from enum import Enum
+from functools import partial
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Iterable, Mapping, Protocol, Self, Sequence, overload
 
-from nominal_api import scout, scout_chartdefinition_api, scout_notebook_api, scout_workbookcommon_api
+from nominal_api import (
+    scout,
+    scout_chartdefinition_api,
+    scout_layout_api,
+    scout_notebook_api,
+    scout_workbookcommon_api,
+)
 
+from nominal.core import _display
 from nominal.core._clientsbunch import HasScoutParams
 from nominal.core._utils.api_tools import HasRid, RefreshableConjureMixin, rid_from_instance_or_string
-from nominal.core._utils.frontend_urls import workbook_url
+from nominal.core._utils.frontend_urls import asset_url, run_url, workbook_url
 from nominal.core._utils.pagination_tools import search_workbooks_paginated
 from nominal.core._utils.query_tools import ArchiveStatusFilter, create_search_workbooks_query
 from nominal.protos.run.v1 import run_service_pb2_grpc
@@ -132,6 +141,53 @@ class Workbook(
     def nominal_url(self) -> str:
         """Returns a link to the page for this Workbook in the Nominal app"""
         return workbook_url(self._clients, self.rid)
+
+    @_display.card
+    def _repr_html_(self) -> str | None:
+        kind = "Comparison workbook" if self.workbook_type == WorkbookType.COMPARISON_WORKBOOK else "Workbook"
+        return _display.render(
+            kind=kind,
+            title=self.title,
+            fallback=repr(self),
+            fields=[
+                ("RID", _display.identifier(self.rid)),
+                ("Description", _display.escape(self.description) if self.description else None),
+                ("Labels", _display.labels(self.labels) if self.labels else None),
+            ],
+            properties=self.properties,
+            sections=[
+                _display.Section(
+                    "Runs",
+                    [[_display.identifier(rid, partial(run_url, self._clients, rid))] for rid in self.run_rids or ()],
+                ),
+                _display.Section(
+                    "Assets",
+                    [
+                        [_display.identifier(rid, partial(asset_url, self._clients, rid))]
+                        for rid in self.asset_rids or ()
+                    ],
+                ),
+            ],
+            url=lambda: self.nominal_url,
+            graph=self._graph,
+        )
+
+    def _graph(self) -> _display.Graph:
+        """The runs or assets the workbook points at, below it.
+
+        A comparison workbook compares its runs. Any other workbook points at one run at a time, so its run edges
+        are dashed, as in the Nominal docs.
+        """
+        node = _display.Node("Workbook", self.title, self.rid, lambda: self.nominal_url)
+        runs = [_display.Node("Run", rid, rid, partial(run_url, self._clients, rid)) for rid in self.run_rids or ()]
+        assets = [
+            _display.Node("Asset", rid, rid, partial(asset_url, self._clients, rid)) for rid in self.asset_rids or ()
+        ]
+        one_at_a_time = self.workbook_type != WorkbookType.COMPARISON_WORKBOOK
+        return _display.Graph(
+            node,
+            [_display.Group("Runs", runs, node, dashed=one_at_a_time), _display.Group("Assets", assets, node)],
+        )
 
     def _get_latest_api(self) -> scout_notebook_api.Notebook:
         return self._clients.notebook.get(self._clients.auth_header, self.rid)
@@ -478,3 +534,63 @@ def _search_workbooks(
         archive_status=archive_status,
     )
     return list(_iter_search_workbooks(clients, query))
+
+
+def _blank_workbook_layout() -> scout_layout_api.WorkbookLayout:
+    """A layout with no tabs, as the app shows a new workbook before any panels are added."""
+    return scout_layout_api.WorkbookLayout(
+        v1=scout_layout_api.WorkbookLayoutV1(
+            root_panel=scout_layout_api.Panel(
+                tabbed=scout_layout_api.TabbedPanel(v1=scout_layout_api.TabbedPanelV1(id=str(uuid.uuid4()), tabs=[]))
+            )
+        )
+    )
+
+
+def _blank_workbook_content() -> scout_workbookcommon_api.WorkbookContent:
+    """Content with no channel variables and no charts."""
+    return scout_workbookcommon_api.WorkbookContent(channel_variables={}, charts={})
+
+
+def _workbook_title(names: Sequence[str]) -> str:
+    """The default title of a workbook scoped to resources with these names."""
+    if len(names) == 1:
+        return f"Workbook for {names[0]}"
+    if len(names) == 2:
+        return f"Workbook for {names[0]} and {names[1]}"
+    return f"Workbook for {names[0]}, {names[1]} and {len(names) - 2} more"
+
+
+def _create_blank_workbook(
+    clients: Workbook._Clients,
+    *,
+    title: str,
+    run_rids: Sequence[str] | None = None,
+    asset_rids: Sequence[str] | None = None,
+    description: str | None = None,
+    labels: Sequence[str] | None = None,
+    properties: Mapping[str, str] | None = None,
+    is_draft: bool = False,
+    workspace: Workspace | str | None = None,
+) -> Workbook:
+    """Create a workbook with no panels, scoped to the given runs or the given assets; callers pass exactly one."""
+    request = scout_notebook_api.CreateNotebookRequest(
+        title=title,
+        description=description if description is not None else "",
+        labels=None if labels is None else [*labels],
+        properties=None if properties is None else {**properties},
+        is_draft=is_draft,
+        state_as_json="{}",
+        data_scope=scout_notebook_api.NotebookDataScope(
+            run_rids=None if run_rids is None else [*run_rids],
+            asset_rids=None if asset_rids is None else [*asset_rids],
+        ),
+        layout=_blank_workbook_layout(),
+        content_v2=scout_workbookcommon_api.UnifiedWorkbookContent(workbook=_blank_workbook_content()),
+        event_refs=[],
+        workspace=clients.resolve_default_workspace_rid()
+        if workspace is None
+        else rid_from_instance_or_string(workspace),
+    )
+    raw_notebook = clients.notebook.create(clients.auth_header, request)
+    return Workbook._from_conjure(clients, raw_notebook)

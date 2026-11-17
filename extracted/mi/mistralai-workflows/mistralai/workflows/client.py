@@ -11,6 +11,11 @@ from mistralai.workflows._version import USER_AGENT
 from mistralai.workflows.core import _http_transport as http_transport
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import RunAs, TokenProvider, get_token_provider
+from mistralai.workflows.core.auth.header_files import (
+    get_deployment_header_names,
+    get_deployment_headers,
+    get_header_files,
+)
 from mistralai.workflows.core.config.config import config
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
@@ -30,6 +35,7 @@ from mistralai.workflows.hooks.executor_credentials_hook import (
     AsyncExecutorCredentialsHook,
     SyncExecutorCredentialsHook,
 )
+from mistralai.workflows.hooks.header_files_hook import AsyncRefreshHeaderFilesHook, RefreshHeaderFilesHook
 from mistralai.workflows.hooks.metadata_hook import inject_metadata, inject_metadata_async
 from mistralai.workflows.hooks.token_provider_hook import (
     AsyncTokenProviderHook,
@@ -46,7 +52,7 @@ def _get_headers(
     headers = (
         headers
         if isinstance(headers, http.Headers)
-        else http.Headers(headers if headers is not None else config.worker.mistral_api_headers or {})
+        else http.Headers(headers if headers is not None else get_deployment_headers())
     )
     # Authorization is set per-request by the auth/executor hook, never statically here.
     headers.setdefault("User-Agent", USER_AGENT)
@@ -67,6 +73,7 @@ class _HookVariants(NamedTuple):
     executor: type[AsyncExecutorCredentialsHook] | type[SyncExecutorCredentialsHook]
     guard: type[AsyncCrossOriginAuthGuardHook] | type[CrossOriginAuthGuardHook]
     default_identity_warning: Callable
+    refresh_header_files: type[AsyncRefreshHeaderFilesHook] | type[RefreshHeaderFilesHook]
 
 
 _ASYNC_HOOKS = _HookVariants(
@@ -75,6 +82,7 @@ _ASYNC_HOOKS = _HookVariants(
     executor=AsyncExecutorCredentialsHook,
     guard=AsyncCrossOriginAuthGuardHook,
     default_identity_warning=warn_default_identity_async,
+    refresh_header_files=AsyncRefreshHeaderFilesHook,
 )
 _SYNC_HOOKS = _HookVariants(
     metadata=inject_metadata,
@@ -82,6 +90,7 @@ _SYNC_HOOKS = _HookVariants(
     executor=SyncExecutorCredentialsHook,
     guard=CrossOriginAuthGuardHook,
     default_identity_warning=warn_default_identity,
+    refresh_header_files=RefreshHeaderFilesHook,
 )
 
 
@@ -124,9 +133,14 @@ def _get_hooks(
         request_hooks.append(hooks.auth(token_provider))
     if v4_default_identity_call_site is not None:
         request_hooks.append(hooks.default_identity_warning(v4_default_identity_call_site))
-    # Strip the bearer token on cross-origin redirect hops. MUST stay last so it runs after every
-    # token-setting hook above; otherwise a later hook would re-add the header it just removed.
-    request_hooks.append(hooks.guard(server_url or config.worker.server_url))
+    header_files = get_header_files()
+    if header_files is not None:
+        request_hooks.append(hooks.refresh_header_files(header_files))
+    # Strip credentials on cross-origin redirect hops. MUST stay last so it runs after every
+    # credential-setting hook above; otherwise a later hook would re-add the headers it just removed.
+    request_hooks.append(
+        hooks.guard(server_url or config.worker.server_url, credential_headers=get_deployment_header_names())
+    )
     return {"request": request_hooks}
 
 

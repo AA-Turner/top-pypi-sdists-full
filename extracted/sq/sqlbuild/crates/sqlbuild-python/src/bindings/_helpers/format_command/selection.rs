@@ -1,11 +1,12 @@
 //! Resolve `sqb format` selectors to the adapter, discovered inputs and selected files.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyErr, PyResult, Python};
-use pyo3::types::{PyBool, PyDict, PyFrozenSet, PyString, PyStringMethods, PyTuple};
+use pyo3::types::{PyBool, PyFrozenSet, PyString, PyStringMethods, PyTuple};
 use sqlbuild_core::format_command::errors::FormatSelectorError;
 use sqlbuild_core::format_command::main::exact_selector_names::exact_selector_names;
 use sqlbuild_core::format_command::main::lint_sql_paths::lint_sql_paths;
@@ -13,30 +14,28 @@ use sqlbuild_core::format_command::main::partition_lint_selectors::partition_lin
 use sqlbuild_core::format_command::main::resolve_lint_paths::resolve_lint_paths;
 use sqlbuild_rules::lint_text::main::scan_fixture_null_candidates::scan_fixture_null_candidates;
 
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::project::build_project_graph;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::discovery::declaration_records::discover_model_schema_files;
-use crate::bindings::_helpers::discovery::model_records::discover_model_files;
-use crate::bindings::_helpers::discovery::project_config::load_local_config_file;
-use crate::bindings::_helpers::discovery::project_config::load_project_config_file;
-use crate::bindings::_helpers::discovery::snapshot::directory_snapshot_scope;
-use crate::bindings::_helpers::discovery::sql_test_records::discover_test_files;
-use crate::bindings::_helpers::discovery::yaml_records::{
-    discover_schema_files, discover_source_files,
-};
-use crate::bindings::_helpers::planner_selection::selectors::select_project_graph;
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::boundary::main::value_error::value_error;
 use sqlbuild_python_base::boundary::main::within::within;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
 use sqlbuild_python_base::records::main::construct::enum_member::enum_member;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_graph::build_project_graph;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::discovery::main::project::load_local_config_file::load_local_config_file;
+use sqlbuild_python_front::discovery::main::project::load_project_config_file::load_project_config_file;
+use sqlbuild_python_front::discovery::main::records::discover_model_files::discover_model_files;
+use sqlbuild_python_front::discovery::main::records::discover_model_schema_files::discover_model_schema_files;
+use sqlbuild_python_front::discovery::main::records::discover_schema_files::discover_schema_files;
+use sqlbuild_python_front::discovery::main::records::discover_source_files::discover_source_files;
+use sqlbuild_python_front::discovery::main::records::discover_test_files::discover_test_files;
+use sqlbuild_python_front::discovery::main::snapshots::directory_snapshot_scope::directory_snapshot_scope;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
+use sqlbuild_python_project::planner_selection::main::select_project_graph::select_project_graph;
 
 const SELECTION_CODE: &str = "S007";
 
@@ -55,15 +54,7 @@ struct Scope<'a, 'py> {
 }
 
 fn planner_error(py: Python<'_>, message: &str, code: &str) -> PyErr {
-    let raised = (|| -> PyResult<Bound<'_, PyAny>> {
-        let keywords: Bound<'_, PyDict> = PyDict::new(py);
-        keywords.set_item("code", code)?;
-        error_class(py, ErrorId::PlannerInput)?.call((message,), Some(&keywords))
-    })();
-    match raised {
-        Ok(instance) => PyErr::from_value(instance),
-        Err(failure) => failure,
-    }
+    new_error(py, ErrorId::PlannerInput, message, (Some(code), None))
 }
 
 fn selector_error(py: Python<'_>, error: &FormatSelectorError) -> PyErr {

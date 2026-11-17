@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import dataclasses
 import re
+import unicodedata
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
 from enum import Enum, StrEnum, auto
-from typing import Any
+from types import MappingProxyType
+from typing import Any, Literal
 
 from nameparser._types import (
     ADDED_IN, FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST, Role,
@@ -51,7 +53,9 @@ class CapsSuffixes(StrEnum):
     #: After a comma and ending a name with no comma ("John Smith XYZ"
     #: gives suffix ``XYZ``), where the all-caps surname convention
     #: does write them -- "Jean Pierre DUPONT" then gives family
-    #: ``Pierre``, suffix ``DUPONT``.
+    #: ``Pierre``, suffix ``DUPONT``. Cannot be set with
+    #: ``Policy.capitals_as_family``, which reads that word as the
+    #: family.
     EVERYWHERE = "everywhere"
 
 
@@ -60,9 +64,11 @@ class Script(StrEnum):
     on: per-script name order (``Policy.script_orders``) and
     unspaced-name segmentation (``Policy.segment_scripts``). The rule
     that admits these (amendment 2026-07-27): script-conditional
-    behavior only where the script itself determines the convention --
-    Latin-script input is never affected. The codepoint table backing
-    these members is internal."""
+    DEFAULT behavior only where the script itself determines the
+    convention -- Latin-script input is never affected. A member no
+    default keys on (KATAKANA, CYRILLIC) is there for a caller's or a
+    pack's own entry, licensed by that choice (rules/W4). The codepoint
+    table backing these members is internal."""
 
     #: Chinese Hanzi -- and Japanese Kanji: a pure-Han string cannot
     #: say which language it is, which is fine for ORDER (both write
@@ -87,6 +93,15 @@ class Script(StrEnum):
     #: deliberately declines. A caller who knows their katakana is
     #: Japanese maps it to FAMILY_FIRST in script_orders.
     KATAKANA = "katakana"
+    #: Cyrillic. Written for many languages in both orders (Russian
+    #: given-first, Mongolian father's name first), so the script
+    #: settles no order and no default keys on it: it exists so a
+    #: caller's or a pack's script_orders entry can, as locales.MN's
+    #: does, licensed by the caller's choice of that pack (#1237). Not
+    #: among the scripts the interpunct and the two-family-names count
+    #: read (_EAST_ASIAN_SCRIPTS), and, having no row in
+    #: _SCRIPT_PROPERTIES, writes initials: Cyrillic names abbreviate.
+    CYRILLIC = "cyrillic"
 
 
 # Codepoint ranges per Script (#271). This integer table is the single
@@ -200,7 +215,20 @@ _SCRIPT_RANGES: dict[Script, tuple[tuple[int, int], ...]] = {
     Script.HANGUL: tuple(sorted((_HANGUL_SYLLABLES, *_CONJOINING_JAMO))),
     Script.HIRAGANA: ((0x3040, 0x309F),),
     Script.KATAKANA: ((0x30A0, 0x30FF), (0xFF65, 0xFF9F)),
+    # The Cyrillic block and Cyrillic Supplement, Extended-A, -B and -C
+    # (#1237); a decomposed letter is composed before classification
+    # (_vocab._normalized_for_script) where a precomposed form exists,
+    # so a stress mark with none (е́) leaves its word unclassified
+    Script.CYRILLIC: ((0x0400, 0x052F), (0x1C80, 0x1C8F), (0x2DE0, 0x2DFF),
+                      (0xA640, 0xA69F)),
 }
+
+#: The scripts whose characters rules/T3's interpunct flank and the
+#: two-family-names declaration's run count read as classified: the
+#: East Asian ones, every _SCRIPT_RANGES entry but CYRILLIC, which
+#: keys only a declared script order (#1237).
+_EAST_ASIAN_SCRIPTS = (Script.HAN, Script.HANGUL, Script.HIRAGANA,
+                       Script.KATAKANA)
 
 #: The Japanese repertoire: the three scripts Japanese names draw on.
 #: The kana license (_pipeline/_vocab.py's effective_script), the ja
@@ -208,40 +236,39 @@ _SCRIPT_RANGES: dict[Script, tuple[tuple[int, int], ...]] = {
 #: quantify over this one union (HANGUL simply omitted).
 _JA_SCRIPTS = (Script.HAN, Script.HIRAGANA, Script.KATAKANA)
 
-#: Scripts whose characters cannot BE an initial. The criterion is
-#: orthographic CONVENTION, not what a character is: does the writing
-#: tradition abbreviate a given name to ONE character plus a period,
-#: the way "J." stands in for "John"? Han, hangul and kana have no
-#: such convention, so a lone punctuated 씨/様/김 is not a shortened
-#: name and the veto has nothing to veto there. Do not restate that
-#: phonologically ("letters, not syllables") -- Devanagari is an
-#: abugida and Arabic an abjad, neither has letters in that sense, and
-#: both abbreviate, so should Script.CYRILLIC or Script.DEVANAGARI
-#: ever be added neither belongs here; their initials are real and
-#: pinned as such ("А. С. Пушкин", "م. الفارسي").
-#:
-#: Enumerated rather than derived from _SCRIPT_RANGES' keys: the
-#: Script enum admits a member so that SOME behavior may key on it
-#: (see Script), on assorted grounds -- KATAKANA is in it so the
-#: classifier can name what it deliberately declines, and neither
-#: DEFAULT_SCRIPT_ORDERS nor segment_scripts' default mentions it.
-#: Membership therefore settles nothing about abbreviation: the four
-#: coinciding today is what has been implemented, not a property of
-#: the enum, and a new member must not inherit this answer.
-#:
-#: Decide it from CLDR rather than from the script's typology: count
-#: the LOCALE-AUTHORED namePattern entries in common/main/<locale>.xml's
-#: personNames block that produce an initial. ja and ko author 29 and
-#: 32 patterns and use one in none of them; ru uses initials in 7 of 39
-#: ("{given-initial} {given2-initial} {surname}"); zh abbreviates but
-#: overrides initialPattern to "{0}", no period, which is why the
-#: period is part of the test above. Do NOT read initialPattern alone
-#: -- root defaults it to "{0}." and nearly every locale inherits it,
-#: so it reports a period convention for locales that have none.
-#: Measured 2026-08-02: th is 0 of 20, so Thai (#317) belongs here
-#: once it earns a member.
-_NO_INITIALS = (Script.HAN, Script.HANGUL, Script.HIRAGANA,
-                Script.KATAKANA)
+
+
+def _letter_units(text: str) -> list[int]:
+    """How many letters each run of letters in `text` holds, a combining
+    mark kept in the run of the letter it marks and every other
+    character dividing two runs."""
+    units, letters, in_run = [], 0, False
+    for ch in text:
+        if ch.isalpha():
+            letters += 1
+            in_run = True
+        elif in_run and unicodedata.category(ch) in ("Mn", "Mc", "Me"):
+            continue
+        elif in_run:
+            units.append(letters)
+            letters, in_run = 0, False
+    if in_run:
+        units.append(letters)
+    return units
+
+
+def initials_as_family_may_move(text: str) -> bool:
+    """Whether Policy.initials_as_family may move `text`: rules/O8 moves
+    only letters standing two or more in a row, so a name it moves holds
+    two runs in a row of one letter each, wherever they stand and
+    whatever divides them. Every character but a letter and a combining
+    mark divides a run here, wider than any separator the parse reads
+    (a zero-width character, `・`, a glued comma or bracket), so the
+    test over-declares, the safe direction, and never misses a name the
+    rule moves. locales.NE's DEVIATES and Parser.suggest's letter runs
+    both ask it."""
+    units = _letter_units(text)
+    return any(a == 1 == b for a, b in zip(units, units[1:]))
 
 
 def _script_matcher(*scripts: Script,
@@ -269,12 +296,30 @@ def _script_matcher(*scripts: Script,
     patterns)."""
     if not scripts:
         raise ValueError("_script_matcher needs at least one Script")
-    cls = "".join(f"\\U{lo:08x}-\\U{hi:08x}"
-                  for script in scripts
-                  for lo, hi in _SCRIPT_RANGES[script])
+    return _ranges_matcher(tuple(span for script in scripts
+                                 for span in _SCRIPT_RANGES[script]),
+                           whole=whole)
+
+
+def _ranges_pattern(ranges: Iterable[tuple[int, int]]) -> re.Pattern[str]:
+    """One or more characters of the union of `ranges`, compiled: the
+    pattern _ranges_matcher wraps, and the one a caller searches at C
+    level where a frame per call matters (_vocab's spelled-initial
+    veto)."""
+    cls = "".join(f"\\U{lo:08x}-\\U{hi:08x}" for lo, hi in ranges)
+    if not cls:
+        raise ValueError("_ranges_pattern needs at least one range")
+    return re.compile(f"[{cls}]+")
+
+
+def _ranges_matcher(ranges: Iterable[tuple[int, int]],
+                    whole: bool = False) -> Callable[[str], bool]:
+    """_script_matcher over codepoint spans rather than Script members:
+    the form the script-property table (_SCRIPT_PROPERTIES) is read
+    in, its rows not being keyed by Script."""
     # one pattern serves both modes: fullmatch of [cls]+ is wholly-of,
     # and search over [cls]+ is exactly contains-any
-    pattern = re.compile(f"[{cls}]+")
+    pattern = _ranges_pattern(ranges)
     match = pattern.fullmatch if whole else pattern.search
 
     def matcher(text: str) -> bool:
@@ -282,11 +327,164 @@ def _script_matcher(*scripts: Script,
     return matcher
 
 
-#: One character, or a string wholly, of a script the table classifies:
+#: One character, or a string wholly, of an East Asian script
+#: (_EAST_ASIAN_SCRIPTS):
 #: the question the interpunct's flank guard (rules/T3) and the
 #: two-family-names declaration's run count (_locale) both ask, defined
 #: once here because _locale may not import the pipeline (#1087).
-_classified_char = _script_matcher(*_SCRIPT_RANGES, whole=True)
+_classified_char = _script_matcher(*_EAST_ASIAN_SCRIPTS, whole=True)
+
+
+# ---------------------------------------------------------------------
+# The script-property table (#1256). Every rule that asks one of four
+# questions about a script's writing -- whether it has case for the
+# name-case contrast, whether it writes initials, whether it writes
+# period abbreviations, whether a bare run of its letters with a period
+# is a Latin initial spelled out -- reads its answer here, and nowhere
+# else (other script facts, the order a script settles or the marks a
+# Thai name writes, live with their rules), so that adding a script is one
+# row and a misjudged answer sits in one place. Private, and keyed by
+# a private name rather than by Script: that enum holds what a caller
+# can key a setting on, and membership there settles nothing about
+# case or initials. mechanisms.md#SCRIPT-PROPERTY-TABLE ("a reader selects the spans of the column that is ITS question")
+# names the pattern. Each answer is a writing CONVENTION, never the
+# script's typology: Devanagari is an abugida and Arabic an abjad,
+# and both abbreviate a name to a letter and a period ("म. गांधी",
+# "م. الفارسي"), as Cyrillic does ("А. С. Пушкин"). decisions/script-properties holds each row's
+# history and the recompute recipes, the CLDR count that decides
+# "writes initials" where a locale states it among them.
+
+@dataclass(frozen=True, slots=True)
+class _ScriptRow:
+    """One script's answers. `has_case` False: the name-case contrast
+    reads no case in it, though Unicode gives it one; None: Unicode's
+    case properties answer (a letter whose upper and lower case differ
+    has case). `writes_initials`: a letter of it with a period can
+    stand in for a name (rules/T5, R7). `period_abbreviations`: a run
+    of its letters with a period may be an abbreviation, and so a title
+    by shape (rules/H2). `spells_initials`: a bare run of its letters
+    with a period is a Latin initial spelled out (एम. for M.), never a
+    title by shape (rules/H2's Brahmic Except). `reason` and `source`
+    say why, in one line each."""
+
+    ranges: tuple[tuple[int, int], ...]
+    has_case: Literal[False] | None
+    writes_initials: bool
+    period_abbreviations: bool
+    spells_initials: bool
+    reason: str
+    source: str
+
+    __getstate__ = _guarded_getstate
+    __setstate__ = _guarded_setstate
+
+
+_SCRIPT_PROPERTIES: Mapping[str, _ScriptRow] = MappingProxyType({
+    "han": _ScriptRow(
+        _SCRIPT_RANGES[Script.HAN], None, False, False, False,
+        "no Chinese or Japanese writer shortens a name to one character "
+        "and a period, nor any word to a run of characters with one",
+        "CLDR zh's initialPattern is {0}, no period, and ja uses an "
+        "initial in 0 of 29 patterns (2026-08-02 and 2026-11-12; #320, "
+        "#323)"),
+    "hangul": _ScriptRow(
+        _SCRIPT_RANGES[Script.HANGUL], None, False, False, False,
+        "no Korean writer shortens a name or a word to a letter and a "
+        "period; the conjoining jamo a decomposed syllable is written in "
+        "are Hangul too",
+        "CLDR ko uses an initial in 0 of 32 patterns (2026-08-02 and "
+        "2026-11-12; #320, #1087)"),
+    "hiragana": _ScriptRow(
+        _SCRIPT_RANGES[Script.HIRAGANA], None, False, False, False,
+        "no Japanese writer shortens a name or a word to a kana and a "
+        "period",
+        "CLDR ja uses an initial in 0 of 29 patterns (2026-08-02 and "
+        "2026-11-12; #320)"),
+    "katakana": _ScriptRow(
+        _SCRIPT_RANGES[Script.KATAKANA], None, False, False, False,
+        "no Japanese writer shortens a name or a word to a kana and a "
+        "period",
+        "CLDR ja uses an initial in 0 of 29 patterns (2026-08-02 and "
+        "2026-11-12; #320)"),
+    "brahmic": _ScriptRow(
+        ((0x0900, 0x0DFF),), None, True, True, True,
+        "the ten Brahmic scripts from Devanagari to Sinhala write "
+        "initials, and spell a Latin one out by its sound with no vowel "
+        "sign (एम. for M.), a run of letters the title shape misreads",
+        "rules/H2's Brahmic Except, decisions/H2 (#1191)"),
+    "georgian": _ScriptRow(
+        ((0x10D0, 0x10FF), (0x1C90, 0x1CBF)), False, True, True, False,
+        "Mkhedruli has no capitals in use; Mtavruli, its upper case since "
+        "Unicode 11, is written only for a whole word in capitals, so no "
+        "letter's case is a choice made against the rest of the name, and "
+        "a name in Mtavruli repairs to Mkhedruli (rules/R4). The "
+        "ecclesiastical Asomtavruli and Nuskhuri, a pair that does write "
+        "initial capitals, are not in the row",
+        "#1222 (the contrast), #1223 (case repair); CLDR ka uses an "
+        "initial in 1 of 15 authored patterns (2026-11-12)"),
+    "myanmar": _ScriptRow(
+        ((0x1000, 0x109F), (0xA9E0, 0xA9FF), (0xAA60, 0xAA7F),
+         (0x116D0, 0x116FF)), None, False, True, False,
+        "no Burmese writer shortens a name to a letter and a period in "
+        "Burmese script (none in 2,604 Wikidata labels, #1234); whether "
+        "it writes period abbreviations is not decided, and reads as before",
+        "decided 2026-11-12 on #1256, by amendment, from the convention; "
+        "CLDR my's patterns are en's, equal in 42 of 42 by the copy test "
+        "(cldr main c0b65ae3, 2026-11-12), so the recipe does not answer"),
+    "thai": _ScriptRow(
+        ((0x0E00, 0x0E7F),), None, False, True, False,
+        "no Thai name is abbreviated to a letter and a period, but a title "
+        "is written short with periods between its consonants (ดร., "
+        "ร.ต.อ.), so it writes period abbreviations",
+        "CLDR th uses an initial in 0 of 20 authored patterns, a block of "
+        "its own (12 of 20 equal to en's by the copy test; 2026-08-02 "
+        "#320, re-run 2026-11-12, #1256)"),
+})
+
+
+def _ranges_where(column: str, value: object) -> tuple[tuple[int, int], ...]:
+    """Every span of the rows whose `column` holds `value`, in table
+    order: the one way a reader selects rows."""
+    return tuple(span for row in _SCRIPT_PROPERTIES.values()
+                 if getattr(row, column) == value for span in row.ranges)
+
+
+def _read_spans(column: str, value: object) -> tuple[tuple[int, int], ...]:
+    """`_ranges_where`, for a column a reader is built from at import:
+    no row selected would build a reader that matches nothing, so the
+    import fails naming the column and the fix."""
+    spans = _ranges_where(column, value)
+    if not spans:
+        raise ValueError(
+            f"no row of _policy._SCRIPT_PROPERTIES has {column}={value!r}, "
+            f"so the readers of that column would match nothing: add the "
+            f"row that answers it, or drop the readers")
+    return spans
+
+
+#: The scripts that write no initials (rules/T5, R7), as spans: read
+#: by _vocab's initial veto, _render's initials() and the name match.
+_NO_INITIAL_RANGES = _read_spans("writes_initials", False)
+#: The scripts that write no period abbreviation, so a word of theirs
+#: wearing a period is never a title by shape (rules/H2, #323).
+_NO_ABBREVIATION_RANGES = _read_spans("period_abbreviations", False)
+#: The scripts in which a bare run of letters with a period is a
+#: spelled Latin initial (rules/H2's Brahmic Except, #1191).
+_SPELLED_INITIAL_RANGES = _read_spans("spells_initials", True)
+#: The letters the name-case contrast reads no case in (rules/S6's "a
+#: script with no case to write in"), mapped to None so that
+#: `str.translate` drops them at C level before a contrast is read:
+#: _vocab.is_one_case, _vocab.ambiguous_lean, _render's R5 gate and
+#: S8's name word behind a credential (two predicates in _pieces); and
+#: _render._capitalize writes a first letter in it in its lower case (R4).
+#: Only the letters Unicode gives a case are listed, the others being
+#: caseless to the comparison already. Read-only, as the table is: the
+#: one sanctioned mutable global is the default parser (AGENTS.md).
+_CASELESS_LETTERS: Mapping[int, None] = MappingProxyType({
+    cp: None
+    for lo, hi in _read_spans("has_case", False)
+    for cp in range(lo, hi + 1)
+    if chr(cp).upper() != chr(cp).lower()})
 
 
 # Order-spec constants (#270), defined in _types beside Role since
@@ -318,6 +516,24 @@ def _order_repr(value: tuple[Role, ...]) -> str:
             return named
         return "(" + ", ".join(r.name for r in value) + ")"
     return repr(value)
+
+
+def _fields_repr(obj: Policy | PolicyPatch, name: str,
+                 skip: Callable[[dataclasses.Field[Any], object], bool]) -> str:
+    """`name(...)` over every field of `obj` that `skip` does not drop,
+    name_order through _order_repr: the one body Policy's and
+    PolicyPatch's bounded reprs share, so a field needing its own repr
+    is written once."""
+    parts = []
+    for f in dataclasses.fields(obj):
+        value = getattr(obj, f.name)
+        if skip(f, value):
+            continue
+        if f.name == "name_order":
+            parts.append(f"name_order={_order_repr(value)}")
+        else:
+            parts.append(f"{f.name}={value!r}")
+    return f"{name}({', '.join(parts)})"
 
 
 # Single source for the migration hint raised by both Policy and
@@ -421,17 +637,7 @@ def _validated_script(key: object) -> Script:
     shares. Single-sourced deliberately: script_orders and the
     script-keyed fields that follow it must not each grow their own
     wording for the same lookup."""
-    try:
-        # Enum lookup accepts ANY value at runtime and answers a
-        # non-member with ValueError -- which is the contract here, and
-        # the taxonomy's rule for a failed enum lookup whatever the
-        # input type was (stdlib EnumType precedent).
-        return Script(key)  # type: ignore[arg-type]
-    except ValueError:
-        valid = ", ".join(v.value for v in Script)
-        raise ValueError(
-            f"unknown script {key!r}; valid scripts: {valid}"
-        ) from None
+    return _coerce_enum(key, Script, "script", "scripts")
 
 
 def _validated_script_orders(
@@ -582,6 +788,8 @@ class Policy:
     #: locales.ZH for Chinese and locales.JA -- which activates
     #: Script.HIRAGANA alongside it, the kana license's carrier key --
     #: for Japanese.
+    #: Only the East Asian members divide anything: Script.CYRILLIC keys
+    #: a declared order alone, and listed here it is inert.
     #: Opt out with ``segment_scripts=frozenset()``; note a PolicyPatch unions
     #: rather than replaces, so a pack can only add scripts, never
     #: disable one.
@@ -675,7 +883,9 @@ class Policy:
     #: single letters each followed by a period in a script with
     #: capitals ("Ram Bahadur B.K." keeps family ``B.K.``) except
     #: right after a comma, where they are the given name unless
-    #: something in the part speaks for them. ``False`` reads such a token as
+    #: something in the part speaks for them, or a listed credential in
+    #: a later comma part where they stand alone in theirs ("Jane Doe,
+    #: B.M., PhD" gives suffix ``B.M., PhD``). ``False`` reads such a token as
     #: name material everywhere, as 2.3 did for a token no chunk
     #: claimed; the roman-chunk retirement (rules/S3) is not
     #: behind this switch, and still reports the fork.
@@ -697,7 +907,12 @@ class Policy:
     #: name word) and "García Márquez, MJ" keeps given ``MJ`` -- a lone
     #: two-letter word is how a person's initials are written, and two
     #: words before the comma may be one surname, the case #563 decides
-    #: for "M.J." too. The all-caps SURNAME convention ("Jean DUPONT",
+    #: for "M.J." too. Credentials behind the two letters make them one:
+    #: in their own part ("Jane Doe, BM PhD"), or a listed credential
+    #: in a later comma part where they stand alone in theirs ("Jane
+    #: Doe, BM, PhD"; "Jane Doe, B.M., PhD" too, which
+    #: ``unlisted_dotted_suffixes`` governs). The all-caps SURNAME
+    #: convention ("Jean DUPONT",
     #: "DUPONT, Jean") writes the capitals at the end of a name or
     #: before a comma, never after one behind a full name, which is why
     #: this position is on by default and the others are not.
@@ -788,6 +1003,66 @@ class Policy:
     #: the field followed name_order.
     lone_name_word: Role = field(
         default=Role.GIVEN, metadata={ADDED_IN: "3.0.0"})
+    #: Reads two or more single letters ending a name as its family
+    #: name, for data written in the South Asian convention where the
+    #: letters after the given name stand for the father's or the
+    #: family's name (rules/O8): "Lakshmi R S" gives given ``Lakshmi``,
+    #: family ``R S``, and "Ram Bahadur B K" gives given ``Ram``,
+    #: middle ``Bahadur``, family ``B K``. The letters are written as
+    #: initials are, a bare Latin capital or a letter and its period,
+    #: spaced and in a row, with a name word before them; one
+    #: letter, letters before the name or inside it, and the given part
+    #: after a family comma are left alone, and so is a name read in a
+    #: family-first order, which already places those letters. Off by
+    #: default: the same shape is a middle and a family initial in many
+    #: lists ("Melanie J D") and a byline written surname first in a
+    #: bibliography ("Huntley R P", for which name_order=FAMILY_FIRST
+    #: is the setting). locales.NE turns it on, and Parser.suggest
+    #: suggests it for a group whose names repeat one run of letters.
+    #: Added in 3.1.
+    initials_as_family: bool = field(
+        default=False, metadata={ADDED_IN: "3.1.0"})
+    #: Reads the words a name writes in capitals as its family name,
+    #: for data whose source writes every family name in capitals
+    #: (rules/O9): "DUPONT Marie" gives given ``Marie``, family
+    #: ``DUPONT``, "Ayla BURSALI AKSOY" gives family ``BURSALI AKSOY``,
+    #: and "Jeffrey LAM Kin-fung" gives given ``Jeffrey``, middle
+    #: ``Kin-fung``, family ``LAM``, wherever the capitals stand. The
+    #: other words keep their written order, the first that may be a
+    #: given name being the given name.
+    #:
+    #: A capitals word has two or more capital letters and nothing but
+    #: letters, apostrophes and hyphens ("O'BRIEN" and "McDONALD"
+    #: count, "DR.", "N/A" and "J-P" do not). Particles and
+    #: conjunctions join a run, a run of particles alone is none, and
+    #: where a name word divides two runs the last is the family. The
+    #: capitals outrank a credential or title reading ("Hugo LAC",
+    #: "DOYEN Hugo" give family ``LAC`` and ``DOYEN``), while a listed
+    #: credential or numeral in capitals ending the name still comes off
+    #: where a capitals word before it, no particle, conjunction,
+    #: numeral or marker, is left to be the family ("Marie GRAJALES
+    #: III", "DUPONT Marie MBA", but "Marie MA MBA" gives family
+    #: ``MA``), and a marker the patronymic rule in force reads is no
+    #: capitals word where another capitals word is left to be the
+    #: family ("ALIYEV Ilham Heydar OGLU"), though one that is the only
+    #: capitals word is the family ("ABRAMOVICH Roman").
+    #:
+    #: Only a name in mixed case is read, one where a word no run took,
+    #: other than a title, a suffix, or a particle or conjunction
+    #: written in lowercase, holds a lowercase letter ("MORRISON Van" is
+    #: read, "MARIE de DUPONT" is not), and only the part before its
+    #: first comma: after a family comma the comma, not the capitals,
+    #: names the family.
+    #:
+    #: Off by default: in data that does not write the convention,
+    #: capitals also write a given name ("ANNA Smith") or a credential
+    #: ("John Smith MD"); where one of ORCID's two boxes is wholly in
+    #: capitals it is the given box about one time in ten. Cannot be set with
+    #: ``unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE``, which reads
+    #: the same unlisted word as a credential. Parser.suggest suggests it
+    #: for a group whose names write the family in capitals. Added in 3.1.
+    capitals_as_family: bool = field(
+        default=False, metadata={ADDED_IN: "3.1.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -822,16 +1097,9 @@ class Policy:
                 f"{_PATRONYMIC_MIGRATION_HINT}"
             ) from None
         items = tuple(rule_iter)
-        rules = set()
-        for r in items:
-            try:
-                rules.add(PatronymicRule(r))
-            except ValueError:
-                valid = ", ".join(v.value for v in PatronymicRule)
-                raise ValueError(
-                    f"unknown patronymic rule {r!r}; valid rules: {valid}"
-                ) from None
-        object.__setattr__(self, "patronymic_rules", frozenset(rules))
+        object.__setattr__(self, "patronymic_rules", frozenset(
+            _coerce_enum(r, PatronymicRule, "patronymic rule", "rules")
+            for r in items))
         for pairs_name in ("nickname_delimiters", "maiden_delimiters"):
             _reject_str_and_mapping(getattr(self, pairs_name), pairs_name)
             pairs = tuple(_require_iterable(getattr(self, pairs_name), pairs_name))
@@ -904,6 +1172,20 @@ class Policy:
         object.__setattr__(self, "unlisted_caps_suffixes", _coerce_enum(
             caps, CapsSuffixes, "unlisted_caps_suffixes value",
             "values"))
+        # rules/O9: "the switch cannot be set with an unlisted capitals
+        # word read as a credential everywhere" -- the two read the same
+        # word ending a name with no comma opposite ways (#659)
+        if (self.capitals_as_family
+                and self.unlisted_caps_suffixes is CapsSuffixes.EVERYWHERE):
+            raise ValueError(
+                "capitals_as_family=True cannot be set with "
+                "unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE: the first "
+                "reads an unlisted word in capitals ending a name as the "
+                "family, the second reads it as a credential. Keep one: "
+                "leave capitals_as_family False, or set "
+                "unlisted_caps_suffixes to CapsSuffixes.AFTER_COMMA or "
+                "CapsSuffixes.OFF, e.g. Policy(capitals_as_family=True, "
+                "unlisted_caps_suffixes=CapsSuffixes.AFTER_COMMA)")
         lone = self.lone_name_word
         if not isinstance(lone, str):
             raise TypeError(
@@ -919,23 +1201,17 @@ class Policy:
     def __repr__(self) -> str:
         # Bounded: only fields that deviate from the default are shown
         # (design rule, see nameparser._types module docstring).
-        parts = []
-        for f in dataclasses.fields(self):
-            value = getattr(self, f.name)
-            if value == f.default:
-                continue
-            if f.name == "name_order":
-                parts.append(f"name_order={_order_repr(value)}")
-            else:
-                parts.append(f"{f.name}={value!r}")
-        return f"Policy({', '.join(parts)})"
+        return _fields_repr(self, "Policy",
+                            lambda f, value: value == f.default)
 
     # -- editing ------------------------------------------------------
 
     def patched(self, patch: PolicyPatch) -> Policy:
         """Fold a :class:`PolicyPatch` onto this Policy and return the
         combined Policy. Set-valued fields union with the patch's;
-        scalar fields are overridden by the patch; UNSET fields are
+        script_orders merges by script, the patch's entries replacing
+        the base's for their scripts; scalar fields are overridden by
+        the patch; UNSET fields are
         left alone. Patch VALUES are validated here (Policy's
         constructor re-runs on the result), not at patch construction
         -- see PolicyPatch. The maiden-wins canonicalization applies
@@ -970,13 +1246,16 @@ class _Unset(Enum):
 UNSET = _Unset.UNSET
 
 _UNION = {"compose": "union"}  # field metadata: set-valued -> union
+_BY_SCRIPT = {"compose": "by-script"}  # field metadata: merge per script
 
 
 @dataclass(frozen=True, slots=True)
 class PolicyPatch:
     """A partial Policy: one field per Policy field, all defaulting to
     UNSET. Composition per field is DECLARED via metadata -- set-valued
-    fields union, scalars override (later wins). Kept in lockstep with
+    fields union, script_orders merges by script (a patch's entry
+    replaces the base's entry for its script, the rest standing), and
+    scalars override (later wins). Kept in lockstep with
     Policy by the parity test in tests/v2/test_policy.py.
 
     Values are validated when the patch is applied (Policy's constructor
@@ -984,12 +1263,14 @@ class PolicyPatch:
     """
 
     name_order: tuple[Role, Role, Role] | _Unset = UNSET
-    #: Composes as a SCALAR (override, not merge) -- deliberate: nothing
-    #: shipped patches it today, so the simpler rule is the one to
-    #: defend; revisit if a pack ever needs to add one script's entry
-    #: without restating the rest.
+    #: Composes BY SCRIPT: each entry replaces the base's entry for its
+    #: script and the base's other entries stand, so a pack adds one
+    #: script's order without restating or erasing the rest, a caller's
+    #: own opt-outs included (locales.MN's Cyrillic entry; decisions/W4,
+    #: #1237).
     script_orders: tuple[
-        tuple[Script, tuple[Role, Role, Role]], ...] | _Unset = UNSET
+        tuple[Script, tuple[Role, Role, Role]], ...] | _Unset = field(
+        default=UNSET, metadata=_BY_SCRIPT)
     segment_scripts: frozenset[Script] | _Unset = field(
         default=UNSET, metadata=_UNION)
     patronymic_rules: frozenset[PatronymicRule] | _Unset = field(
@@ -1019,6 +1300,14 @@ class PolicyPatch:
     #: Added in 3.0.
     lone_name_word: Role | _Unset = field(
         default=UNSET, metadata={ADDED_IN: "3.0.0"})
+    #: Patches :attr:`Policy.initials_as_family`, a scalar (later
+    #: wins). Added in 3.1.
+    initials_as_family: bool | _Unset = field(
+        default=UNSET, metadata={ADDED_IN: "3.1.0"})
+    #: Patches :attr:`Policy.capitals_as_family`, a scalar (later
+    #: wins). Added in 3.1.
+    capitals_as_family: bool | _Unset = field(
+        default=UNSET, metadata={ADDED_IN: "3.1.0"})
 
     # in the class body so @dataclass(slots=True) keeps them
     __getstate__ = _guarded_getstate
@@ -1081,16 +1370,8 @@ class PolicyPatch:
         # Bounded: only fields the patch actually sets are shown; UNSET
         # fields are omitted (design rule, see nameparser._types module
         # docstring -- the sibling of Policy's deviation-only repr).
-        parts = []
-        for f in dataclasses.fields(self):
-            value = getattr(self, f.name)
-            if value is UNSET:
-                continue
-            if f.name == "name_order":
-                parts.append(f"name_order={_order_repr(value)}")
-            else:
-                parts.append(f"{f.name}={value!r}")
-        return f"PolicyPatch({', '.join(parts)})"
+        return _fields_repr(self, "PolicyPatch",
+                            lambda f, value: value is UNSET)
 
 
 def apply_patch(policy: Policy, patch: PolicyPatch) -> Policy:
@@ -1108,6 +1389,14 @@ def apply_patch(policy: Policy, patch: PolicyPatch) -> Policy:
             continue
         if f.metadata.get("compose") == "union":
             value = getattr(policy, f.name) | value
+        elif f.metadata.get("compose") == "by-script":
+            # a well-formed table merges into the base's; anything else
+            # (a bare string, an entry not a pair, an unhashable key)
+            # goes to Policy whole, whose messages quote it
+            try:
+                value = {**dict(getattr(policy, f.name)), **dict(value)}
+            except (TypeError, ValueError):
+                pass
         updates[f.name] = value
     if not updates:
         return policy

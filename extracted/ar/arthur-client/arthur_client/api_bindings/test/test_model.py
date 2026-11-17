@@ -102,7 +102,8 @@ class TestModel(unittest.TestCase):
                         gen_ai_enabled = True, 
                         discovery_source_test = True, ), ),
                 agent_id = '',
-                project_name = ''
+                project_name = '',
+                last_inference_or_trace_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f')
             )
         else:
             return Model(

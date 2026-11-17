@@ -324,7 +324,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         
         This Class is protected.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         """
         ...
 
@@ -336,7 +336,7 @@ class PeriodCountConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators
         
         This Class is protected.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
         """
         ...
@@ -1376,7 +1376,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         
         This Class is protected.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         """
         ...
 
@@ -1388,7 +1388,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         
         This Class is protected.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
         """
         ...
@@ -1543,7 +1543,7 @@ class MarketHourAwareConsolidator(QuantConnect.Data.Consolidators.ConsolidatorBa
 
     def initialize(self, data: QuantConnect.Data.IBaseData) -> None:
         """
-        Perform late initialization based on the datas symbol
+        Perform late initialization based on the data's symbol
         
         
         This Class is protected.
@@ -1852,7 +1852,7 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
         """
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         """
         ...
 
@@ -1861,7 +1861,7 @@ class DynamicDataConsolidator(QuantConnect.Data.Consolidators.TradeBarConsolidat
         """
         Creates a consolidator to produce a new 'TradeBar' representing the last count pieces of data or the period, whichever comes first.
         
-        :param max_count: The number of pieces to accept before emiting a consolidated bar
+        :param max_count: The number of pieces to accept before emitting a consolidated bar
         :param period: The minimum span of time before emitting a consolidated bar
         """
         ...

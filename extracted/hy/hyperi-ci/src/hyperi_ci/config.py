@@ -70,6 +70,10 @@ class OrgConfig:
     mirror_renovate_config: str = (
         "https://raw.githubusercontent.com/hyperi-io/renovate-config/HEAD/default.json"
     )
+    diagram_check_repo: str = "hyperi-ai"
+    diagram_check_path: str = "tools/diagram_check.py"
+    # The commit pin lives in org.yaml alone, so a bump is one line.
+    diagram_check_ref: str = ""
 
     @property
     def r2_endpoint(self) -> str:
@@ -282,6 +286,7 @@ def load_org_config(*, reload: bool = False) -> OrgConfig:
     ghcr = raw.get("ghcr", {})
     r2 = raw.get("r2", {})
     mirror = raw.get("mirror", {})
+    diagram = raw.get("diagram_check", {})
     fallback = OrgConfig()
 
     _org_cache = OrgConfig(
@@ -297,6 +302,9 @@ def load_org_config(*, reload: bool = False) -> OrgConfig:
         mirror_renovate_config=mirror.get(
             "renovate_config", fallback.mirror_renovate_config
         ),
+        diagram_check_repo=diagram.get("repo", fallback.diagram_check_repo),
+        diagram_check_path=diagram.get("path", fallback.diagram_check_path),
+        diagram_check_ref=diagram.get("ref", fallback.diagram_check_ref),
     )
     return _org_cache
 
@@ -422,30 +430,6 @@ def load_config(
                 f"{', '.join(VALID_PROJECT_STATUSES)} (or unset). "
                 f"Treating as unset for logging purposes."
             )
-
-    # A licence outside the allowed set warns rather than fails; extend the set
-    # via `license_allow`.
-    declared_license = config.get("license")
-    if isinstance(declared_license, str) and declared_license.strip():
-        from hyperi_ci import licenses
-
-        lic = declared_license.strip()
-        extra = config.get("license_allow")
-        if not isinstance(extra, list):
-            extra = []
-        if not licenses.is_allowed(lic, extra):
-            if licenses.is_recognised(lic):
-                allowed = ", ".join(sorted(licenses.allowed_licenses(extra)))
-                warn(
-                    f"Project licence '{lic}' is not in the allowed set "
-                    f"({allowed}). Add it to `license_allow` in "
-                    f".hyperi-ci.yaml to permit it."
-                )
-            else:
-                warn(
-                    f"Project licence '{lic}' is not a recognised SPDX id - "
-                    f"check the `license:` field in .hyperi-ci.yaml."
-                )
 
     resolved = _resolve_classification(config, project_dir)
 

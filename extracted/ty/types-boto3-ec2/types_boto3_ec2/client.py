@@ -259,6 +259,8 @@ from .type_defs import (
     AssociateIpamByoasnResultTypeDef,
     AssociateIpamResourceDiscoveryRequestTypeDef,
     AssociateIpamResourceDiscoveryResultTypeDef,
+    AssociateKmsKeyIdRequestTypeDef,
+    AssociateKmsKeyIdResultTypeDef,
     AssociateNatGatewayAddressRequestTypeDef,
     AssociateNatGatewayAddressResultTypeDef,
     AssociateNetworkingFlexCostAllocationPolicyRequestTypeDef,
@@ -504,6 +506,8 @@ from .type_defs import (
     CreateTransitGatewayMeteringPolicyResultTypeDef,
     CreateTransitGatewayMulticastDomainRequestTypeDef,
     CreateTransitGatewayMulticastDomainResultTypeDef,
+    CreateTransitGatewayNetworkFunctionAttachmentRequestTypeDef,
+    CreateTransitGatewayNetworkFunctionAttachmentResultTypeDef,
     CreateTransitGatewayPeeringAttachmentRequestTypeDef,
     CreateTransitGatewayPeeringAttachmentResultTypeDef,
     CreateTransitGatewayPolicyTableEntryRequestTypeDef,
@@ -688,6 +692,8 @@ from .type_defs import (
     DeleteTransitGatewayMeteringPolicyResultTypeDef,
     DeleteTransitGatewayMulticastDomainRequestTypeDef,
     DeleteTransitGatewayMulticastDomainResultTypeDef,
+    DeleteTransitGatewayNetworkFunctionAttachmentRequestTypeDef,
+    DeleteTransitGatewayNetworkFunctionAttachmentResultTypeDef,
     DeleteTransitGatewayPeeringAttachmentRequestTypeDef,
     DeleteTransitGatewayPeeringAttachmentResultTypeDef,
     DeleteTransitGatewayPolicyTableEntryRequestTypeDef,
@@ -1071,6 +1077,8 @@ from .type_defs import (
     DescribeTransitGatewayMeteringPoliciesResultTypeDef,
     DescribeTransitGatewayMulticastDomainsRequestTypeDef,
     DescribeTransitGatewayMulticastDomainsResultTypeDef,
+    DescribeTransitGatewayNetworkFunctionAttachmentsRequestTypeDef,
+    DescribeTransitGatewayNetworkFunctionAttachmentsResultTypeDef,
     DescribeTransitGatewayPeeringAttachmentsRequestTypeDef,
     DescribeTransitGatewayPeeringAttachmentsResultTypeDef,
     DescribeTransitGatewayPolicyTablesRequestTypeDef,
@@ -1209,6 +1217,8 @@ from .type_defs import (
     DisassociateIpamByoasnResultTypeDef,
     DisassociateIpamResourceDiscoveryRequestTypeDef,
     DisassociateIpamResourceDiscoveryResultTypeDef,
+    DisassociateKmsKeyIdRequestTypeDef,
+    DisassociateKmsKeyIdResultTypeDef,
     DisassociateNatGatewayAddressRequestTypeDef,
     DisassociateNatGatewayAddressResultTypeDef,
     DisassociateNetworkingFlexCostAllocationPolicyRequestTypeDef,
@@ -1587,6 +1597,8 @@ from .type_defs import (
     ModifyTransitGatewayAttachmentNatConfigurationResultTypeDef,
     ModifyTransitGatewayMeteringPolicyRequestTypeDef,
     ModifyTransitGatewayMeteringPolicyResultTypeDef,
+    ModifyTransitGatewayNetworkFunctionAttachmentRequestTypeDef,
+    ModifyTransitGatewayNetworkFunctionAttachmentResultTypeDef,
     ModifyTransitGatewayPolicyTableEntryRequestTypeDef,
     ModifyTransitGatewayPolicyTableEntryResultTypeDef,
     ModifyTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -2174,6 +2186,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_ipam_resource_discovery.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_ipam_resource_discovery)
+        """
+
+    def associate_kms_key_id(
+        self, **kwargs: Unpack[AssociateKmsKeyIdRequestTypeDef]
+    ) -> AssociateKmsKeyIdResultTypeDef:
+        """
+        Associates an additional KMS key with an encrypted Amazon EBS snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/associate_kms_key_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#associate_kms_key_id)
         """
 
     def associate_nat_gateway_address(
@@ -3476,6 +3498,17 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_transit_gateway_multicast_domain)
         """
 
+    def create_transit_gateway_network_function_attachment(
+        self, **kwargs: Unpack[CreateTransitGatewayNetworkFunctionAttachmentRequestTypeDef]
+    ) -> CreateTransitGatewayNetworkFunctionAttachmentResultTypeDef:
+        """
+        Creates a network function attachment that connects the specified transit
+        gateway to a Gateway Load Balancer endpoint service.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_transit_gateway_network_function_attachment.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_transit_gateway_network_function_attachment)
+        """
+
     def create_transit_gateway_peering_attachment(
         self, **kwargs: Unpack[CreateTransitGatewayPeeringAttachmentRequestTypeDef]
     ) -> CreateTransitGatewayPeeringAttachmentResultTypeDef:
@@ -4486,6 +4519,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_multicast_domain.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_transit_gateway_multicast_domain)
+        """
+
+    def delete_transit_gateway_network_function_attachment(
+        self, **kwargs: Unpack[DeleteTransitGatewayNetworkFunctionAttachmentRequestTypeDef]
+    ) -> DeleteTransitGatewayNetworkFunctionAttachmentResultTypeDef:
+        """
+        Deletes the specified network function attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/delete_transit_gateway_network_function_attachment.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#delete_transit_gateway_network_function_attachment)
         """
 
     def delete_transit_gateway_peering_attachment(
@@ -6491,6 +6534,16 @@ class EC2Client(BaseClient):
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_transit_gateway_multicast_domains)
         """
 
+    def describe_transit_gateway_network_function_attachments(
+        self, **kwargs: Unpack[DescribeTransitGatewayNetworkFunctionAttachmentsRequestTypeDef]
+    ) -> DescribeTransitGatewayNetworkFunctionAttachmentsResultTypeDef:
+        """
+        Describes one or more network function attachments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_transit_gateway_network_function_attachments.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#describe_transit_gateway_network_function_attachments)
+        """
+
     def describe_transit_gateway_peering_attachments(
         self, **kwargs: Unpack[DescribeTransitGatewayPeeringAttachmentsRequestTypeDef]
     ) -> DescribeTransitGatewayPeeringAttachmentsResultTypeDef:
@@ -7231,6 +7284,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disassociate_ipam_resource_discovery.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_ipam_resource_discovery)
+        """
+
+    def disassociate_kms_key_id(
+        self, **kwargs: Unpack[DisassociateKmsKeyIdRequestTypeDef]
+    ) -> DisassociateKmsKeyIdResultTypeDef:
+        """
+        Removes an associated KMS key from an Amazon EBS snapshot.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/disassociate_kms_key_id.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#disassociate_kms_key_id)
         """
 
     def disassociate_nat_gateway_address(
@@ -9228,6 +9291,17 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_metering_policy.html)
         [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_transit_gateway_metering_policy)
+        """
+
+    def modify_transit_gateway_network_function_attachment(
+        self, **kwargs: Unpack[ModifyTransitGatewayNetworkFunctionAttachmentRequestTypeDef]
+    ) -> ModifyTransitGatewayNetworkFunctionAttachmentResultTypeDef:
+        """
+        Adds Availability Zones to or removes Availability Zones from the specified
+        network function attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_network_function_attachment.html)
+        [Show types-boto3 documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#modify_transit_gateway_network_function_attachment)
         """
 
     def modify_transit_gateway_policy_table_entry(

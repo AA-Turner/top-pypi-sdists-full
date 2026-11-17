@@ -1388,7 +1388,7 @@ class StockDataFrame(pd.DataFrame):
         """
         n = meta.as_int
         moving_avg = self.sma(self.close, n)
-        moving_std = self.mov_std(self.close, n)
+        moving_std = self._rolling(self.close, n).std(ddof=0)
 
         self[meta.name] = moving_avg
         width = self.BOLL_STD_TIMES * moving_std
@@ -1691,7 +1691,8 @@ class StockDataFrame(pd.DataFrame):
         dividend = (self.close - self.open).values
         divisor = (self.high - self.low).values
         bop = np.divide(dividend, divisor,
-                        out=np.zeros_like(dividend), where=divisor != 0)
+                        out=np.zeros_like(dividend, dtype=float),
+                        where=divisor != 0)
         self[meta.name] = bop
 
     def _get_cmo(self, meta: _Meta):

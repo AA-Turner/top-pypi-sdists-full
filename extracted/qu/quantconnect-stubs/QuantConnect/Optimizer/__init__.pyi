@@ -803,7 +803,7 @@ class LeanOptimizer(System.Object, System.IDisposable, metaclass=abc.ABCMeta):
 
     def get_backtest_name(self, parameter_set: QuantConnect.Optimizer.Parameters.ParameterSet) -> str:
         """
-        Get's a new backtest name
+        Gets a new backtest name
         
         
         This Class is protected.

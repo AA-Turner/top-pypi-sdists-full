@@ -311,7 +311,7 @@ class BaseResultParameters(System.Object):
 
     @property
     def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
+        """Server status information, including CPU/RAM usage, etc..."""
         ...
 
     @server_statistics.setter
@@ -676,7 +676,7 @@ class Controls(System.Object):
 
     @property
     def backtesting_max_insights(self) -> int:
-        """Maximimum number of insights we'll store and score in a single backtest"""
+        """Maximum number of insights we'll store and score in a single backtest"""
         ...
 
     @backtesting_max_insights.setter
@@ -685,7 +685,7 @@ class Controls(System.Object):
 
     @property
     def backtesting_max_orders(self) -> int:
-        """Maximimum number of orders we'll allow in a backtest."""
+        """Maximum number of orders we'll allow in a backtest."""
         ...
 
     @backtesting_max_orders.setter
@@ -912,7 +912,7 @@ class AlgorithmNodePacket(QuantConnect.Packets.PythonEnvironmentPacket):
 
     @property
     def request_source(self) -> str:
-        """Request source - Web IDE or API - for controling result handler behaviour"""
+        """Request source - Web IDE or API - for controlling result handler behaviour"""
         ...
 
     @request_source.setter
@@ -1411,7 +1411,7 @@ class CompletedHistoryResult(QuantConnect.Packets.HistoryResult):
 
 
 class ErrorHistoryResult(QuantConnect.Packets.HistoryResult):
-    """Specfies an error message in a history result"""
+    """Specifies an error message in a history result"""
 
     @property
     def message(self) -> str:
@@ -1916,7 +1916,7 @@ class BacktestResultPacket(QuantConnect.Packets.Packet):
         :param results: Results class for the Backtest job
         :param end_date: The algorithms backtest end date
         :param start_date: The algorithms backtest start date
-        :param progress: Progress of the packet. For the packet we assume progess of 100%.
+        :param progress: Progress of the packet. For the packet we assume progress of 100%.
         """
         ...
 

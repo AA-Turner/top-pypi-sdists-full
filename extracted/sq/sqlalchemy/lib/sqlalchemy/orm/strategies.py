@@ -1058,6 +1058,14 @@ class _LazyLoader(
             _propagate_attrs=clauseelement._propagate_attrs,
             _compile_options=_ORMCompileState.default_compile_options,
         )
+        if self.parent_property._target_correlates_to_parent:
+            # the target, such as a LATERAL subquery, can't be selected
+            # without the parent present; select from an alias of the
+            # parent joined to the target
+            parent_alias = AliasedClass(self.parent.class_)
+            stmt = stmt.select_from(parent_alias).join(
+                getattr(parent_alias, self.key).of_type(self.entity)
+            )
         load_options = QueryContext.default_load_options
 
         load_options += {
@@ -1562,10 +1570,18 @@ class _SubqueryLoader(_PostLoader):
         leftmost_attr,
         leftmost_relationship,
         orig_entity,
+        options,
     ):
         # reformat the original query
         # to look only for significant columns
         q = orig_query._clone().correlate(None)
+
+        # use the same option objects as the outer statement; the columns
+        # of this query are replaced below so options with paths have
+        # no effect, however sharing them keeps the cache key of the
+        # outer statement the same whether or not the statement being
+        # invoked is the cached one
+        q._with_options = options
 
         # LEGACY: make a Query back from the select() !!
         # This suits at least two legacy cases:
@@ -1760,20 +1776,10 @@ class _SubqueryLoader(_PostLoader):
         context,
         q,
         subq_path,
-        rewritten_path,
-        orig_query,
+        new_options,
         effective_entity,
         loadopt,
     ):
-        # note that because the subqueryload object
-        # does not reuse the cached query, instead always making
-        # use of the current invoked query, while we have two queries
-        # here (orig and context.query), they are both non-cached
-        # queries and we can transfer the options as is without
-        # adjusting for new criteria.   Some work on #6881 / #6889
-        # brought this into question.
-        new_options = orig_query._with_options
-
         if loadopt and loadopt._extra_criteria:
             new_options += (
                 orm_util.LoaderCriteriaOption(
@@ -1783,8 +1789,10 @@ class _SubqueryLoader(_PostLoader):
             )
 
         # propagate loader options etc. to the new query.
-        # these will fire relative to subq_path.
-        q = q._with_current_path(rewritten_path)
+        # these will fire relative to subq_path.  rewritten_path is not
+        # used here, as its leading entity is from the statement being
+        # invoked and would not line up with the options
+        q = q._with_current_path(subq_path)
         q = q.options(*new_options)
 
         return q
@@ -1889,11 +1897,20 @@ class _SubqueryLoader(_PostLoader):
         else:
             effective_entity = self.entity
 
-        subq_path, rewritten_path = context.query._execution_options.get(
-            ("subquery_paths", None),
-            (orm_util.PathRegistry.root, orm_util.PathRegistry.root),
+        # rewritten_path is in terms of the statement being invoked, as it
+        # is used to locate the leftmost entity within orig_query below
+        rewritten_path = context.query._execution_options.get(
+            ("subquery_rewritten_path", None), None
         )
-        is_root = subq_path is orm_util.PathRegistry.root
+        is_root = rewritten_path is None
+        if is_root:
+            subq_path = rewritten_path = orm_util.PathRegistry.root
+        else:
+            # subq_path is in terms of the cached statement, the same as
+            # "path" and the loader options applied in _setup_options().
+            # the cached statement is a subquery load statement as well,
+            # whose current path is the subq_path it was created with
+            subq_path = compile_state.current_path
         subq_path = subq_path + path
         rewritten_path = rewritten_path + path
 
@@ -1946,6 +1963,12 @@ class _SubqueryLoader(_PostLoader):
 
         # generate a new Query from the original, then
         # produce a subquery from it.
+        # subq_path and effective_entity are given to us in terms of the
+        # cached statement, so options with paths need to come from the
+        # cached statement as well, rather than from orig_query;
+        # see QueryContext._loader_strategy_options() and #13779
+        new_options = context._loader_strategy_options()
+
         left_alias = self._generate_from_original_query(
             orig_compile_state,
             orig_query,
@@ -1953,6 +1976,7 @@ class _SubqueryLoader(_PostLoader):
             leftmost_attr,
             leftmost_relationship,
             entity,
+            new_options,
         )
 
         # generate another Query that will join the
@@ -1967,7 +1991,7 @@ class _SubqueryLoader(_PostLoader):
             context.execution_options,
             {
                 ("orig_query", _SubqueryLoader): orig_query,
-                ("subquery_paths", None): (subq_path, rewritten_path),
+                ("subquery_rewritten_path", None): rewritten_path,
             },
         )
 
@@ -1985,8 +2009,7 @@ class _SubqueryLoader(_PostLoader):
             context,
             q,
             subq_path,
-            rewritten_path,
-            orig_query,
+            new_options,
             effective_entity,
             loadopt,
         )
@@ -3021,6 +3044,9 @@ class _SelectInLoader(_PostLoader, util.MemoizedSlots):
 
         if self.parent_property.omit_join is not None:
             self.omit_join = self.parent_property.omit_join
+        elif self.parent_property._target_correlates_to_parent:
+            # the target can't be selected without the parent present
+            self.omit_join = False
         else:
             lazyloader = self.parent_property._get_strategy(
                 (("lazy", "select"),)
@@ -3325,58 +3351,14 @@ class _SelectInLoader(_PostLoader, util.MemoizedSlots):
 
         q = q.filter(in_expr.in_(sql.bindparam("primary_keys")))
 
-        # a test which exercises what these comments talk about is
-        # test_selectin_relations.py -> test_twolevel_selectin_w_polymorphic
-        #
         # effective_entity above is given to us in terms of the cached
-        # statement, namely this one:
-        orig_query = context.compile_state.select_statement
-
-        # the actual statement that was requested is this one:
-        #  context_query = context.user_passed_query
-        #
-        # that's not the cached one, however.  So while it is of the identical
-        # structure, if it has entities like AliasedInsp, which we get from
-        # aliased() or with_polymorphic(), the AliasedInsp will likely be a
-        # different object identity each time, and will not match up
-        # hashing-wise to the corresponding AliasedInsp that's in the
-        # cached query, meaning it won't match on paths and loader lookups
-        # and loaders like this one will be skipped if it is used in options.
-        #
-        # as it turns out, standard loader options like selectinload(),
-        # lazyload() that have a path need
-        # to come from the cached query so that the AliasedInsp etc. objects
-        # that are in the query line up with the object that's in the path
-        # of the strategy object. however other options like
-        # with_loader_criteria() that doesn't have a path (has a fixed entity)
-        # and needs to have access to the latest closure state in order to
-        # be correct, we need to use the uncached one.
-        #
-        # as of #8399 we let the loader option itself figure out what it
-        # wants to do given cached and uncached version of itself.
+        # statement, so options with paths need to come from the cached
+        # statement as well; see QueryContext._loader_strategy_options().
+        # a test which exercises this is
+        # test_selectin_relations.py -> test_twolevel_selectin_w_polymorphic
+        new_options = context._loader_strategy_options()
 
         effective_path = path[self.parent_property]
-
-        if orig_query is context.user_passed_query:
-            new_options = orig_query._with_options
-        else:
-            cached_options = orig_query._with_options
-            uncached_options = context.user_passed_query._with_options
-
-            # propagate compile state options from the original query,
-            # updating their "extra_criteria" as necessary.
-            # note this will create a different cache key than
-            # "orig" options if extra_criteria is present, because the copy
-            # of extra_criteria will have different boundparam than that of
-            # the QueryableAttribute in the path
-            new_options = [
-                orig_opt._adapt_cached_option_to_uncached_option(
-                    context, uncached_opt
-                )
-                for orig_opt, uncached_opt in zip(
-                    cached_options, uncached_options
-                )
-            ]
 
         if loadopt and loadopt._extra_criteria:
             new_options += (

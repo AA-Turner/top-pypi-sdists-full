@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: open-webui
-Version: 0.13.3
+Version: 0.13.4
 Summary: Open WebUI
 Author-email: Timothy Jaeryang Baek <tim@openwebui.com>
 License: Open WebUI License
@@ -76,6 +76,7 @@ Requires-Dist: anthropic==0.86.0
 Requires-Dist: argon2-cffi==25.1.0
 Requires-Dist: asgiref==3.11.1
 Requires-Dist: authlib==1.7.2
+Requires-Dist: av==14.0.1
 Requires-Dist: azure-ai-documentintelligence==1.0.2
 Requires-Dist: azure-identity==1.25.3
 Requires-Dist: azure-storage-blob==12.29.0
@@ -167,7 +168,7 @@ Requires-Dist: playwright==1.60.0; extra == 'all'
 Requires-Dist: preshed==3.0.13; extra == 'all'
 Requires-Dist: psycopg2-binary==2.9.12; extra == 'all'
 Requires-Dist: pymilvus==2.6.14; extra == 'all'
-Requires-Dist: qdrant-client==1.18.0; extra == 'all'
+Requires-Dist: qdrant-client==1.20.0; extra == 'all'
 Requires-Dist: unstructured==0.22.31; extra == 'all'
 Requires-Dist: weaviate-client==4.20.3; extra == 'all'
 Provides-Extra: mariadb

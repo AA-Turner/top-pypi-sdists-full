@@ -40,7 +40,6 @@ from .operations import (
     RansomwareReportsOperations,
     SnapshotPoliciesOperations,
     SnapshotsOperations,
-    SubvolumesOperations,
     VolumeGroupsOperations,
     VolumeQuotaRulesOperations,
     VolumesOperations,
@@ -104,8 +103,6 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes,do
      azure.mgmt.netapp.operations.BackupsUnderBackupVaultOperations
     :ivar backups_under_volume: BackupsUnderVolumeOperations operations
     :vartype backups_under_volume: azure.mgmt.netapp.operations.BackupsUnderVolumeOperations
-    :ivar subvolumes: SubvolumesOperations operations
-    :vartype subvolumes: azure.mgmt.netapp.operations.SubvolumesOperations
     :ivar net_app_resource: NetAppResourceOperations operations
     :vartype net_app_resource: azure.mgmt.netapp.operations.NetAppResourceOperations
     :ivar net_app_resource_usages: NetAppResourceUsagesOperations operations
@@ -119,7 +116,7 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes,do
     :keyword cloud_setting: The cloud setting for which to get the ARM endpoint. Default value is
      None.
     :paramtype cloud_setting: ~azure.core.AzureClouds
-    :keyword api_version: The API version to use for this operation. Known values are "2026-08-01"
+    :keyword api_version: The API version to use for this operation. Known values are "2026-09-01"
      and None. Default value is None. If not set, the operation's default API version will be used.
      Note that overriding this default value may result in unsupported behavior.
     :paramtype api_version: str
@@ -212,7 +209,6 @@ class NetAppManagementClient:  # pylint: disable=too-many-instance-attributes,do
         self.backups_under_volume = BackupsUnderVolumeOperations(
             self._client, self._config, self._serialize, self._deserialize
         )
-        self.subvolumes = SubvolumesOperations(self._client, self._config, self._serialize, self._deserialize)
         self.net_app_resource = NetAppResourceOperations(self._client, self._config, self._serialize, self._deserialize)
         self.net_app_resource_usages = NetAppResourceUsagesOperations(
             self._client, self._config, self._serialize, self._deserialize

@@ -132,14 +132,20 @@ def gateway_is_marked(overrides: dict) -> bool:
     return overrides.get(MARKER_KEY) == MARKER_VALUE
 
 
-def local_models(overrides: dict) -> list:
-    value = overrides.get("localModels")
+# The list a gateway's model entries live in. LiteLLM's chart calls it `localModels`;
+# the vision gateway's calls it `models` (cube_cloud/reactor/vision.py). Every function
+# below takes it as `key` so both gateways share one set of marker rules.
+LLM_MODELS_KEY = "localModels"
+
+
+def local_models(overrides: dict, key: str = LLM_MODELS_KEY) -> list:
+    value = overrides.get(key)
     return value if isinstance(value, list) else []
 
 
-def marked_names(overrides: dict) -> list[str]:
-    """Aliases of the Edgeport-marked `localModels` entries, in order."""
-    return [e.get("name") for e in local_models(overrides) if is_marked(e) and isinstance(e.get("name"), str)]
+def marked_names(overrides: dict, key: str = LLM_MODELS_KEY) -> list[str]:
+    """Aliases of the Edgeport-marked entries in `key`, in order."""
+    return [e.get("name") for e in local_models(overrides, key) if is_marked(e) and isinstance(e.get("name"), str)]
 
 
 def marked_entry(model: ModelSpec, namespace: str) -> dict:
@@ -154,6 +160,7 @@ def marked_entry(model: ModelSpec, namespace: str) -> dict:
 
 def with_models(
     overrides: dict, add: list[dict] | None = None, remove: list[str] | None = None,
+    key: str = LLM_MODELS_KEY,
 ) -> dict:
     """A copy of `overrides` with marked entries added or removed. Nothing else changes.
 
@@ -166,7 +173,7 @@ def with_models(
     remove = set(remove or [])
     if any(not is_marked(e) for e in add):
         raise ValueError("with_models only adds marked entries")
-    current = list(local_models(overrides))
+    current = list(local_models(overrides, key))
     for entry in add:
         if any(not is_marked(e) and isinstance(e, dict) and e.get("name") == entry["name"] for e in current):
             raise OverrideUnreadable("name_taken")
@@ -192,5 +199,5 @@ def with_models(
         if entry["name"] not in added:
             result.append(dict(entry))
     merged = dict(overrides)
-    merged["localModels"] = result
+    merged[key] = result
     return merged

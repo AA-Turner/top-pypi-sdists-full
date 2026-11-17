@@ -25,7 +25,7 @@ class BaseDataCollectionSubscriptionEnumeratorFactory(System.Object, QuantConnec
 
     def __init__(self, object_store: QuantConnect.Interfaces.IObjectStore) -> None:
         """
-        Instanciates a new BaseDataCollectionSubscriptionEnumeratorFactory
+        Instantiates a new BaseDataCollectionSubscriptionEnumeratorFactory
         
         :param object_store: The object store to use
         """

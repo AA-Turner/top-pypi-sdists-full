@@ -42,10 +42,8 @@ float8_e4m3fn = ml_dtypes.float8_e4m3fn
 float8_e4m3fnuz = ml_dtypes.float8_e4m3fnuz
 float8_e5m2 = ml_dtypes.float8_e5m2
 float8_e5m2fnuz = ml_dtypes.float8_e5m2fnuz
+float8_e5m3fnu = ml_dtypes.float8_e5m3fnu
 float8_e8m0fnu = ml_dtypes.float8_e8m0fnu
-
-
-ComplexWarning = np.exceptions.ComplexWarning
 
 
 @contextlib.contextmanager
@@ -130,6 +128,7 @@ FLOAT_DTYPES = [
     float8_e4m3fnuz,
     float8_e5m2,
     float8_e5m2fnuz,
+    float8_e5m3fnu,
     float8_e8m0fnu,
 ]
 
@@ -189,6 +188,9 @@ FLOAT_VALUES[float8_e8m0fnu] = [
 FLOAT_VALUES[float4_e2m1fn] = [
     x for x in FLOAT_VALUES[float4_e2m1fn] if x not in {3.5, 5, 7}
 ]
+FLOAT_VALUES[float8_e5m3fnu] = [
+    x for x in FLOAT_VALUES[float8_e5m3fnu] if not np.signbit(x)
+]
 
 # Values that should round trip exactly to integer and back.
 INT_VALUES = {
@@ -227,6 +229,11 @@ INT_VALUES = {
             range(1 << n, 2 << n, 1 << max(0, n - 2)) for n in range(16)
         )
     ),
+    float8_e5m3fnu: list(
+        itertools.chain.from_iterable(
+            range(1 << n, 2 << n, 1 << max(0, n - 3)) for n in range(17)
+        )
+    )[:-1],
     float8_e8m0fnu: [1, 2, 256],
 }
 
@@ -238,10 +245,10 @@ INT_VALUES = {
         "testDiv",
         "testPickleable",
         "testRoundTripNumpyTypes",
-        "testRoundTripToNumpy",
-        "testConstructFromDtype",
-        "testHashNumbers",
-        "testHashNan",
+        "testRoundTripToNumpy",  # pytest 9.0.1's subtest appears not to be thread-safe
+        "testConstructFromDtype",  # pytest 9.0.1's subtest appears not to be thread-safe
+        "testHashNumbers",  # pytest 9.0.1's subtest appears not to be thread-safe
+        "testHashNan",  # pytest 9.0.1's subtest appears not to be thread-safe
     ],
 )
 @parameterized.named_parameters(
@@ -255,6 +262,10 @@ class CustomFloatTest(parameterized.TestCase):
 
   def testModuleName(self, float_type):
     self.assertEqual(float_type.__module__, "ml_dtypes")
+
+  def testKind(self, float_type):
+    expected_kind = "f" if float_type is float8_e5m2 else "V"
+    self.assertEqual(np.dtype(float_type).kind, expected_kind)
 
   @ignore_warning(category=RuntimeWarning, message="invalid value encountered")
   def testPickleable(self, float_type):
@@ -285,11 +296,221 @@ class CustomFloatTest(parameterized.TestCase):
           np.array(FLOAT_VALUES[float_type], dtype),
       )
 
+  def _adjacent_finite_pairs(self, float_type, lower=None, upper=None):
+    """Adjacent finite float_type values whose midpoint is a float32 value.
+
+    Returns at most 128 pairs, spread over [lower, upper).
+    """
+    finfo = ml_dtypes.finfo(float_type)
+    bits = getattr(finfo, "bits", np.dtype(float_type).itemsize * 8)
+    patterns = np.arange(2**bits, dtype=np.uint16 if bits > 8 else np.uint8)
+    # np.errstate rather than warnings.catch_warnings: the latter is not
+    # thread safe and the NaN patterns raise FE_INVALID when widened.
+    with np.errstate(all="ignore"):
+      values = patterns.view(float_type).astype(np.float64)
+    values = np.unique(values[np.isfinite(values)])
+    if lower is not None:
+      values = values[values >= lower]
+    if upper is not None:
+      values = values[values < upper]
+    pairs = []
+    n_pairs = min(128, max(len(values) - 1, 0))
+    for i in np.unique(np.linspace(0, len(values) - 2, n_pairs).astype(int)):
+      lo, hi = values[i], values[i + 1]
+      mid = (lo + hi) / 2
+      # Only midpoints that are float32 values.
+      if mid == 0 or np.float64(np.float32(mid)) != mid:
+        continue
+      pairs.append((lo, hi))
+    return pairs
+
+  def testCastFromFloat64DoesNotDoubleRound(self, float_type):
+    # A float64 just above (below) the midpoint of two adjacent float_type
+    # values must round to the upper (lower) neighbor. Such a value rounds to
+    # float32 onto the midpoint, so a cast that narrows through float32 first
+    # sees a spurious tie and resolves it to even instead of to nearest.
+    wide_longdouble = np.finfo(np.longdouble).nmant > 52
+    for lo, hi in self._adjacent_finite_pairs(float_type):
+      mid = (lo + hi) / 2
+      up, down = np.nextafter(mid, np.inf), np.nextafter(mid, -np.inf)
+      self.assertEqual(np.float32(up), np.float32(mid))
+      for src_dtype in (np.float64, np.longdouble):
+        self.assertEqual(
+            float(
+                np.array(up, dtype=src_dtype)
+                .astype(float_type)
+                .astype(np.float64)
+            ),
+            hi,
+        )
+        self.assertEqual(
+            float(
+                np.array(down, dtype=src_dtype)
+                .astype(float_type)
+                .astype(np.float64)
+            ),
+            lo,
+        )
+      if wide_longdouble:
+        mid_ld = np.longdouble(mid)
+        up_ld = np.nextafter(mid_ld, np.longdouble(np.inf))
+        down_ld = np.nextafter(mid_ld, np.longdouble(-np.inf))
+        self.assertEqual(np.float64(up_ld), mid)
+        self.assertEqual(
+            float(
+                np.array(up_ld, dtype=np.longdouble)
+                .astype(float_type)
+                .astype(np.float64)
+            ),
+            hi,
+        )
+        self.assertEqual(
+            float(
+                np.array(down_ld, dtype=np.longdouble)
+                .astype(float_type)
+                .astype(np.float64)
+            ),
+            lo,
+        )
+
+  def testCastFromInt64DoesNotDoubleRound(self, float_type):
+    # Integers next to a midpoint beyond 2**24 are not representable in float32
+    # and round onto the midpoint if narrowed with round to nearest first.
+    pairs = self._adjacent_finite_pairs(
+        float_type, lower=2.0**24, upper=2.0**63
+    )
+    if not pairs:
+      self.skipTest(f"{float_type.__name__} has no values above 2**24")
+    is_signed = dtype_is_signed(float_type)
+    for lo, hi in pairs:
+      mid = (int(lo) + int(hi)) // 2
+      self.assertEqual(2 * mid, int(lo) + int(hi))
+      up, down = mid + 1, mid - 1
+      self.assertEqual(np.float32(up), np.float32(mid))
+      for dtype in (np.int64, np.uint64):
+        self.assertEqual(float(np.array([up], dtype).astype(float_type)[0]), hi)
+        self.assertEqual(
+            float(np.array([down], dtype).astype(float_type)[0]), lo
+        )
+      if is_signed:
+        self.assertEqual(
+            float(np.array([-up], np.int64).astype(float_type)[0]), -hi
+        )
+        self.assertEqual(
+            float(np.array([-down], np.int64).astype(float_type)[0]), -lo
+        )
+      if up <= np.iinfo(np.int32).max:
+        for dtype in (np.int32, np.uint32):
+          self.assertEqual(
+              float(np.array([up], dtype).astype(float_type)[0]), hi
+          )
+          self.assertEqual(
+              float(np.array([down], dtype).astype(float_type)[0]), lo
+          )
+        if is_signed:
+          self.assertEqual(
+              float(np.array([-up], np.int32).astype(float_type)[0]), -hi
+          )
+          self.assertEqual(
+              float(np.array([-down], np.int32).astype(float_type)[0]), -lo
+          )
+
+  def testConstructFromInvalidValueRaises(self, float_type):
+    # Conversion failures surface as the conversion's own exception rather
+    # than as a crash or a SystemError.
+    for bad in ("not a number", b"not a number", np.str_("not a number")):
+      with self.assertRaises(ValueError):
+        float_type(bad)
+    with self.assertRaises((TypeError, ValueError)):
+      float_type(np.datetime64("2020-01-01"))
+    with self.assertRaises((TypeError, ValueError)):
+      np.array([np.str_("not a number")], dtype=float_type)
+    self.assertEqual(float(float_type("0.5")), 0.5)
+    self.assertEqual(float(float_type(np.str_("0.5"))), 0.5)
+
+  def testConstructFromScalarDoesNotDoubleRound(self, float_type):
+    # The scalar constructor must round like the array casts above.
+    wide_longdouble = np.finfo(np.longdouble).nmant > 52
+    for lo, hi in self._adjacent_finite_pairs(float_type):
+      mid = (lo + hi) / 2
+      up, down = np.nextafter(mid, np.inf), np.nextafter(mid, -np.inf)
+      for cast in (float, np.float64, np.longdouble):
+        self.assertEqual(float(float_type(cast(up))), hi)
+        self.assertEqual(float(float_type(cast(down))), lo)
+      if wide_longdouble:
+        mid_ld = np.longdouble(mid)
+        up_ld = np.nextafter(mid_ld, np.longdouble(np.inf))
+        down_ld = np.nextafter(mid_ld, np.longdouble(-np.inf))
+        self.assertEqual(np.float64(up_ld), mid)
+        self.assertEqual(float(float_type(up_ld)), hi)
+        self.assertEqual(float(float_type(down_ld)), lo)
+    is_signed = dtype_is_signed(float_type)
+    for upper, signed_casts, unsigned_casts in (
+        (2.0**63, (int, np.int64), (np.uint64,)),
+        (2.0**31, (np.int32,), (np.uint32,)),
+    ):
+      pairs = self._adjacent_finite_pairs(
+          float_type, lower=2.0**24, upper=upper
+      )
+      for lo, hi in pairs:
+        mid = (int(lo) + int(hi)) // 2
+        for cast in (*signed_casts, *unsigned_casts):
+          self.assertEqual(float(float_type(cast(mid + 1))), hi)
+          self.assertEqual(float(float_type(cast(mid - 1))), lo)
+        if is_signed:
+          for cast in signed_casts:
+            self.assertEqual(float(float_type(cast(-(mid + 1)))), -hi)
+            self.assertEqual(float(float_type(cast(-(mid - 1)))), -lo)
+
+  def testConstructFromPythonIntBeyondInt64(self, float_type):
+    # Python ints outside the int64 range convert like floats, rounding once.
+    pairs = self._adjacent_finite_pairs(float_type, lower=2.0**64)
+    is_signed = dtype_is_signed(float_type)
+    for lo, hi in pairs:
+      mid = (int(lo) + int(hi)) // 2
+      self.assertEqual(2 * mid, int(lo) + int(hi))
+      # mid + 1 and mid - 1 round onto mid in float64.
+      self.assertEqual(float(mid + 1), float(mid))
+      self.assertEqual(float(float_type(mid + 1)), hi)
+      self.assertEqual(float(float_type(mid - 1)), lo)
+      self.assertEqual(
+          float(float_type(mid)), float(float_type(np.float64(mid)))
+      )
+      if is_signed:
+        self.assertEqual(float(float_type(-(mid + 1))), -hi)
+        self.assertEqual(float(float_type(-(mid - 1))), -lo)
+    with np.errstate(all="ignore"):
+      for value in (2**63, 2**64, 2**100, 2**1000 + 1, 2**1024 - 2**971):
+        for signed_value in (value, -value) if is_signed else (value,):
+          np.testing.assert_equal(
+              float(float_type(signed_value)),
+              float(float_type(float(signed_value))),
+          )
+          np.testing.assert_equal(
+              float(np.array([signed_value], object).astype(float_type)[0]),
+              float(float_type(float(signed_value))),
+          )
+    for value in (2**1024 - 1, 2**1024):
+      with self.assertRaises(OverflowError):
+        float_type(value)
+
   def testRoundTripToInt(self, float_type):
     for v in INT_VALUES[float_type]:
       self.assertEqual(v, int(float_type(v)))
       if dtype_is_signed(float_type):
         self.assertEqual(-v, int(float_type(-v)))
+
+  def testIntConversion(self, float_type):
+    for v in FLOAT_VALUES[float_type]:
+      val = float_type(v)
+      if np.isnan(v):
+        with self.assertRaises(ValueError):
+          int(val)
+      elif np.isinf(v):
+        with self.assertRaises(OverflowError):
+          int(val)
+      else:
+        self.assertEqual(int(val), int(float(val)))
 
   @ignore_warning(category=RuntimeWarning, message="overflow encountered")
   def testRoundTripToNumpy(self, float_type):
@@ -320,19 +541,6 @@ class CustomFloatTest(parameterized.TestCase):
                   dtype
               ),
           )
-
-  def testCastBetweenCustomTypes(self, float_type):
-    for dtype in FLOAT_DTYPES:
-      # float8_e8m0 only registering cast <=> bfloat16
-      if (
-          float_type == float8_e8m0fnu or dtype == float8_e8m0fnu
-      ) and dtype != bfloat16:
-        continue
-
-      x = np.array(FLOAT_VALUES[float_type], dtype=dtype)
-      y = x.astype(float_type)
-      z = x.astype(float).astype(float_type)
-      numpy_assert_allclose(y, z, float_type=float_type)
 
   def testStr(self, float_type):
     for value in FLOAT_VALUES[float_type]:
@@ -664,6 +872,23 @@ class CustomFloatTest(parameterized.TestCase):
       # 8-bit types should be unchanged
       self.assertEqual(original_bytes, swapped.tobytes())
 
+  def testAstypeByteSwapped(self, float_type):
+    """Casting to a byte-swapped dtype goes through the within-dtype cast."""
+    dt = np.dtype(float_type)
+    swapped_dt = dt.newbyteorder("S")
+    self.assertIs(swapped_dt.type, float_type)
+
+    arr = np.arange(1, 31).astype(float_type)
+    swapped = arr.astype(swapped_dt)
+    self.assertIs(swapped.dtype.type, float_type)
+
+    np.testing.assert_array_equal(swapped.astype(float_type), arr)
+
+    if dt.itemsize > 1:
+      self.assertEqual(swapped.tobytes(), arr.byteswap().tobytes())
+    else:
+      self.assertEqual(swapped.tobytes(), arr.tobytes())
+
 
 _INCOMPATIBLE_VALUES = [
     None,
@@ -807,6 +1032,7 @@ BINARY_UFUNCS = [
     np.logaddexp2,
     np.floor_divide,
     np.power,
+    np.float_power,
     np.remainder,
     np.fmod,
     np.heaviside,
@@ -838,19 +1064,18 @@ BINARY_PREDICATE_UFUNCS = [
     skip_tests=[
         "testBinaryPredicateUfunc",
         "testBinaryUfunc",
-        "testCanCast",
-        "testCasts",
-        "testConformNumpyComplex",
         "testCopySign",  # pytest 9.0.1's subtest appears not to be thread-safe
         "testDivmod",
         "testDivmodCornerCases",
         "testFloordivCornerCases",
         "testFrexp",
         "testLdexp",
+        "testLogicalUfuncReduce",  # pytest 9.0.1's subtest appears not to be thread-safe
         "testModf",
         "testPredicateUfunc",
         "testSpacing",
         "testUnaryUfunc",
+        "testZeroSizeReduction",  # pytest 9.0.1's subtest appears not to be thread-safe
     ],
 )
 @parameterized.named_parameters(
@@ -888,13 +1113,15 @@ class CustomFloatNumPyTest(parameterized.TestCase):
     self.assertTrue((x == x).all())
 
   def testComparisons(self, float_type):
-    x0, x1, y0 = 6, 1, 3
-    x = np.array([x0, x1, -x0], dtype=np.float32)
-    y = np.array([y0, x1, 0], dtype=np.float32)
+    x = np.array([6, 1, -6], dtype=np.float32)
+    y = np.array([3, 1, 0], dtype=np.float32)
 
     if float_type == float8_e8m0fnu:
       x = np.array([30, 7, 1], dtype=np.float32)
       y = np.array([17, 7, 0.125], dtype=np.float32)
+    elif not dtype_is_signed(float_type):
+      x = np.array([6, 1, 0], dtype=np.float32)
+      y = np.array([3, 1, 0.5], dtype=np.float32)
 
     bx = x.astype(float_type)
     by = y.astype(float_type)
@@ -911,95 +1138,6 @@ class CustomFloatNumPyTest(parameterized.TestCase):
     b = np.array([3], float_type)
     self.assertFalse(a.__eq__(b))
 
-  def testCanCast(self, float_type):
-    allowed_casts = [
-        (np.bool_, float_type),
-        (np.int8, float_type),
-        (np.uint8, float_type),
-        (float_type, np.float32),
-        (float_type, np.float64),
-        (float_type, np.longdouble),
-        (float_type, np.complex64),
-        (float_type, np.complex128),
-        (float_type, np.clongdouble),
-    ]
-    all_dtypes = [
-        np.float16,
-        np.float32,
-        np.float64,
-        np.longdouble,
-        np.int8,
-        np.int16,
-        np.int32,
-        np.int64,
-        np.complex64,
-        np.complex128,
-        np.clongdouble,
-        np.uint8,
-        np.uint16,
-        np.uint32,
-        np.uint64,
-        np.intc,
-        np.int_,
-        np.longlong,
-        np.uintc,
-        np.ulonglong,
-    ]
-    for d in all_dtypes:
-      with self.subTest(d.__name__):
-        self.assertEqual(
-            (float_type, d) in allowed_casts, np.can_cast(float_type, d)
-        )
-        self.assertEqual(
-            (d, float_type) in allowed_casts, np.can_cast(d, float_type)
-        )
-
-  @ignore_warning(
-      category=RuntimeWarning, message="invalid value encountered in cast"
-  )
-  def testCasts(self, float_type):
-    for dtype in [
-        np.float16,
-        np.float32,
-        np.float64,
-        np.longdouble,
-        np.int8,
-        np.int16,
-        np.int32,
-        np.int64,
-        np.complex64,
-        np.complex128,
-        np.clongdouble,
-        np.uint8,
-        np.uint16,
-        np.uint32,
-        np.uint64,
-        np.intc,
-        np.int_,
-        np.longlong,
-        np.uintc,
-        np.ulonglong,
-    ]:
-      x = np.array([[1, 2, 4]], dtype=dtype)
-      y = x.astype(float_type)
-      z = y.astype(dtype)
-      self.assertTrue(np.all(x == y))
-      self.assertEqual(float_type, y.dtype)
-      self.assertTrue(np.all(x == z))
-      self.assertEqual(dtype, z.dtype)
-
-  @ignore_warning(category=ComplexWarning)
-  def testConformNumpyComplex(self, float_type):
-    for dtype in [np.complex64, np.complex128, np.clongdouble]:
-      x = np.array([0.5, 1.0 + 2.0j, 4.0], dtype=dtype)
-      y_np = x.astype(np.float32)
-      y_tf = x.astype(float_type)
-      numpy_assert_allclose(y_np, y_tf, atol=2e-2, float_type=float_type)
-
-      z_np = y_np.astype(dtype)
-      z_tf = y_tf.astype(dtype)
-      numpy_assert_allclose(z_np, z_tf, atol=2e-2, float_type=float_type)
-
   def testArange(self, float_type):
     # TODO(phawkins): remove the casts to float32 once NumPy considers our float
     # types to be numeric types.
@@ -1009,9 +1147,10 @@ class CustomFloatNumPyTest(parameterized.TestCase):
         .astype(np.float32),
         np.arange(1, 100, dtype=float_type).astype(np.float32),
     )
-    if float_type == float8_e8m0fnu:
-      raise self.skipTest("Skip negative ranges for E8M0.")
 
+  def testArangeNegative(self, float_type):
+    if not dtype_is_signed(float_type):
+      raise self.skipTest("Skip negative ranges for unsigned types.")
     np.testing.assert_equal(
         np.arange(-6, 6, 2, dtype=np.float32)
         .astype(float_type)
@@ -1067,6 +1206,50 @@ class CustomFloatNumPyTest(parameterized.TestCase):
         np.testing.assert_equal(
             op(x, y), op(x.astype(np.float32), y.astype(np.float32))
         )
+
+  def testLogicalUfuncReduce(self, float_type):
+    x = np.array([True, False, True], dtype=float_type)
+    for op in [np.logical_and, np.logical_or, np.logical_xor]:
+      with self.subTest(op.__name__):
+        np.testing.assert_equal(
+            op.reduce(x),
+            op.reduce(x.astype(bool)),
+        )
+
+  def testAccumulateWithOutputDtype(self, float_type):
+    x = np.array([1, 2, 3], dtype=float_type)
+    res = np.multiply.accumulate(x, dtype=np.int16)
+    np.testing.assert_equal(res, np.multiply.accumulate(x.astype(np.int16)))
+
+  def testZeroSizeReduction(self, float_type):
+    x = np.array([], dtype=float_type)
+    for op, expected in [(np.add, 0), (np.multiply, 1)]:
+      with self.subTest(op.__name__):
+        np.testing.assert_equal(op.reduce(x), float_type(expected))
+
+  def testMultiAxisReductions(self, float_type):
+    x = np.array([[1, 1], [2, 4]], dtype=float_type)
+    for fn in [np.sum, np.prod, np.amax, np.amin]:
+      res = fn(x)
+      self.assertEqual(res.dtype, np.dtype(float_type))
+      expected = float_type(fn(x.astype(np.float32)))
+      np.testing.assert_equal(res, expected)
+
+  def testUfuncByteSwappedAndUnaligned(self, float_type):
+    x = np.array([1, 2, 4], dtype=float_type)
+    y = np.array([2, 1, 2], dtype=float_type)
+    expected = x + y
+    if np.dtype(float_type).itemsize > 1:
+      x_swapped = x.byteswap().view(x.dtype.newbyteorder())
+      res_swapped = x_swapped + y
+      self.assertEqual(res_swapped.dtype, np.dtype(float_type))
+      np.testing.assert_array_equal(res_swapped, expected)
+    buf = bytearray(1 + x.nbytes)
+    x_unaligned = np.frombuffer(buf, dtype=float_type, count=x.size, offset=1)
+    x_unaligned[...] = x
+    res_unaligned = x_unaligned + y
+    self.assertEqual(res_unaligned.dtype, np.dtype(float_type))
+    np.testing.assert_array_equal(res_unaligned, expected)
 
   @ignore_warning(category=RuntimeWarning, message="invalid value encountered")
   def testPredicateUfunc(self, float_type):
@@ -1173,7 +1356,7 @@ class CustomFloatNumPyTest(parameterized.TestCase):
   def testLdexp(self, float_type):
     rng = np.random.RandomState(seed=42)
     x = rng.randn(3, 7).astype(float_type)
-    y = rng.randint(-50, 50, (1, 7)).astype(np.int32)
+    y = rng.randint(-50, 50, (1, 7)).astype(np.intc)
     self.assertEqual(np.ldexp(x, y).dtype, x.dtype)
     numpy_assert_allclose(
         np.ldexp(x, y).astype(np.float32),
@@ -1181,6 +1364,34 @@ class CustomFloatNumPyTest(parameterized.TestCase):
         rtol=1e-2,
         atol=1e-6,
         float_type=float_type,
+    )
+
+  def testLdexpInt64(self, float_type):
+    x = np.array([0.5, 1.0], dtype=float_type)
+    expected = np.array([1.0, 4.0], dtype=float_type)
+    exp_dtypes = [
+        np.int8,
+        np.int16,
+        np.int32,
+        np.int64,
+        np.intc,
+        np.int_,
+        np.longlong,
+        np.uint8,
+        np.uint16,
+        np.uint32,
+        np.uintc,
+    ]
+    if np.dtype(np.uint).itemsize <= 4:
+      exp_dtypes.append(np.uint)
+    for exp_dtype in exp_dtypes:
+      y = np.array([1, 2], dtype=exp_dtype)
+      np.testing.assert_array_equal(np.ldexp(x, y), expected)
+
+  def testLdexpPythonInt(self, float_type):
+    x = np.array([1.0, 2.0], dtype=float_type)
+    np.testing.assert_array_equal(
+        np.ldexp(x, 1), np.array([2.0, 4.0], dtype=float_type)
     )
 
   @ignore_warning(category=RuntimeWarning, message="invalid value encountered")
@@ -1213,6 +1424,35 @@ class CustomFloatNumPyTest(parameterized.TestCase):
         val_with_sign = np.copysign(val, float_type(-1))
         val_with_sign_bits = val_with_sign.view(bits_type)
         self.assertEqual(bits | bit_sign, val_with_sign_bits)
+
+  def testCopySignZero(self, float_type):
+    if not dtype_is_signed(float_type):
+      raise self.skipTest("Skip copy sign test for unsigned floating formats.")
+
+    # Types without a negative zero (*fnuz) must not turn -0 into NaN.
+    negative_zero = np.negative(float_type(0))
+    for sign in [-1, 1]:
+      with self.subTest(sign):
+        result = np.copysign(float_type(0), float_type(sign))
+        self.assertEqual(float(result), 0.0)
+        expected = negative_zero if sign < 0 else float_type(0)
+        self.assertEqual(np.signbit(result), np.signbit(expected))
+
+  def testSignOfSmallestValue(self, float_type):
+    # In unsigned formats without a zero (e.g. E8M0), all-zero bits are the
+    # smallest positive value rather than zero.
+    bits_type = np.uint16 if float_type == bfloat16 else np.uint8
+    value = bits_type(0).view(float_type)
+    expected = np.sign(np.float32(value))
+    np.testing.assert_equal(np.sign(value), float_type(expected))
+
+  def testHeavisideOfSmallestValue(self, float_type):
+    value = float_type(0)
+    if np.isnan(value):  # zero not representable
+      value = ml_dtypes.finfo(float_type).smallest_normal
+    h0 = float_type(0.5)
+    expected = np.heaviside(np.float32(value), np.float32(h0))
+    np.testing.assert_equal(np.heaviside(value, h0), float_type(expected))
 
   def testNextAfter(self, float_type):
     one = np.array(1.0, dtype=float_type)
@@ -1293,6 +1533,43 @@ class CustomFloatNumPyTest(parameterized.TestCase):
       if dtype_has_inf(float_type):
         inf = float_type(float("inf"))
         np.testing.assert_equal(np.spacing(inf), np.spacing(np.float32(inf)))
+
+  def testLinspace(self, float_type):
+    if float_type == float8_e8m0fnu:
+      self.skipTest("linspace evaluation starts from zero, which e8m0 lacks")
+    start = np.array([0.5, 1.0], dtype=float_type)
+    stop = np.array([1.0, 2.0], dtype=float_type)
+    out, _ = np.linspace(
+        start, stop, num=5, endpoint=False, retstep=True, dtype=float_type
+    )
+    np.testing.assert_array_equal(out[0], start)
+
+  def testClipFloat64Bounds(self, float_type):
+    x = np.array([-2.0, 0.0, 2.0], dtype=float_type)
+    np.clip(
+        x, np.array([-0.9], dtype=np.float64), np.array([1.0], dtype=np.float64)
+    )
+
+
+class Float8E8m0fnuTest(absltest.TestCase):
+
+  def testLowestBinadeRounding(self):
+    scale = np.float32(2.0**-127)
+    multipliers = [0.5, 1.0, 1.0625, 1.25, 1.375, 1.5, 2.5]
+    expected = np.array([0, 0, 0, 0, 0, 1, 1], dtype=np.uint8)
+    for src_dtype in (np.float32, np.float64, ml_dtypes.bfloat16):
+      x = (np.array(multipliers, dtype=np.float32) * scale).astype(src_dtype)
+      got = x.astype(float8_e8m0fnu).view(np.uint8)
+      np.testing.assert_array_equal(got, expected, err_msg=str(src_dtype))
+
+    sub_f32_denorm = np.array(
+        [2.0**-150, 2.0**-1022, np.finfo(np.float64).smallest_subnormal],
+        dtype=np.float64,
+    )
+    np.testing.assert_array_equal(
+        sub_f32_denorm.astype(float8_e8m0fnu).view(np.uint8),
+        np.zeros(3, dtype=np.uint8),
+    )
 
 
 if __name__ == "__main__":

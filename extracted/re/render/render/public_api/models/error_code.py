@@ -1,7 +1,7 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class ErrorCode(str, Enum):
+class ErrorCode(StrEnum):
     BUILD_NOT_FOUND = "build_not_found"
     BUILD_NOT_SUCCEEDED = "build_not_succeeded"
     BUILD_SOURCE_REGION_MISMATCH = "build_source_region_mismatch"
@@ -9,6 +9,7 @@ class ErrorCode(str, Enum):
     CURSOR_ORIGIN_RECEIPT_INVALID = "cursor_origin_receipt_invalid"
     DEFAULT_SANDBOX_GROUP_NOT_DELETABLE = "default_sandbox_group_not_deletable"
     DUPLICATE_SAVED_SEARCH_NAME = "duplicate_saved_search_name"
+    IMAGE_IN_USE = "image_in_use"
     INSUFFICIENT_TOKEN_SCOPE = "insufficient_token_scope"
     INVALID_CURSOR = "invalid_cursor"
     INVALID_LIMIT = "invalid_limit"

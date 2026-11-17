@@ -28,7 +28,6 @@ from ...types import (
     WalletChainType,
     WalletEntityType,
     WalletActionNonce,
-    RawSignInputParams,
     WalletImportSupportedChains,
     wallet_get_params,
     wallet_rpc_params,
@@ -42,6 +41,8 @@ from ...types import (
     wallet_create_batch_params,
     wallet_assign_entity_params,
     wallet_submit_import_params,
+    wallet_attach_automations_params,
+    wallet_detach_automations_params,
     wallet_authenticate_with_jwt_params,
     wallet_get_wallet_by_address_params,
     wallet_create_wallets_with_recovery_params,
@@ -114,7 +115,7 @@ from ...types.policy_input_param import PolicyInputParam
 from ...types.wallet_entity_type import WalletEntityType
 from ...types.wallet_action_nonce import WalletActionNonce
 from ...types.wallet_rpc_response import WalletRpcResponse
-from ...types.raw_sign_input_params import RawSignInputParams
+from ...types.derivation_input_param import DerivationInputParam
 from ...types.fee_configuration_param import FeeConfigurationParam
 from ...types.signature_options_param import SignatureOptionsParam
 from ...types.rpc_sponsor_options_param import RpcSponsorOptionsParam
@@ -126,23 +127,28 @@ from .deposit_accounts.deposit_accounts import (
     DepositAccountsResourceWithStreamingResponse,
     AsyncDepositAccountsResourceWithStreamingResponse,
 )
+from ...types.raw_sign_input_params_param import RawSignInputParamsParam
 from ...types.token_transfer_source_param import TokenTransferSourceParam
 from ...types.wallet_export_response_body import WalletExportResponseBody
 from ...types.wallet_init_import_response import WalletInitImportResponse
+from ...types.swap_attachment_params_param import SwapAttachmentParamsParam
 from ...types.wallet_batch_create_response import WalletBatchCreateResponse
 from ...types.additional_signer_input_param import AdditionalSignerInputParam
 from ...types.wallet_batch_item_input_param import WalletBatchItemInputParam
 from ...types.private_key_export_input_param import PrivateKeyExportInputParam
 from ...types.seed_phrase_export_input_param import SeedPhraseExportInputParam
+from ...types.transfer_custody_options_param import TransferCustodyOptionsParam
 from ...types.wallet_import_supported_chains import WalletImportSupportedChains
 from ...types.token_transfer_destination_param import TokenTransferDestinationParam
 from ...types.wallets.transfer_action_response import TransferActionResponse
 from ...types.wallet_entity_assignment_response import WalletEntityAssignmentResponse
+from ...types.wallet_automation_success_response import WalletAutomationSuccessResponse
 from ...types.spark_transfer_rpc_input_params_param import SparkTransferRpcInputParamsParam
 from ...types.spark_withdraw_rpc_input_params_param import SparkWithdrawRpcInputParamsParam
 from ...types.wallet_authenticate_with_jwt_response import WalletAuthenticateWithJwtResponse
 from ...types.ethereum_send_calls_rpc_input_params_param import EthereumSendCallsRpcInputParamsParam
 from ...types.solana_sign_message_rpc_input_params_param import SolanaSignMessageRpcInputParamsParam
+from ...types.wallet_automation_attachment_list_response import WalletAutomationAttachmentListResponse
 from ...types.wallet_entity_assignment_request_body_param import WalletEntityAssignmentRequestBodyParam
 from ...types.spark_transfer_tokens_rpc_input_params_param import SparkTransferTokensRpcInputParamsParam
 from ...types.tron_send_transaction_rpc_input_params_param import TronSendTransactionRpcInputParamsParam
@@ -237,6 +243,7 @@ class WalletsResource(SyncAPIResource):
         *,
         chain_type: WalletChainType,
         additional_signers: AdditionalSignerInputParam | Omit = omit,
+        derivation: DerivationInputParam | Omit = omit,
         display_name: str | Omit = omit,
         entity: WalletEntityAssignmentRequestBodyParam | Omit = omit,
         external_id: str | Omit = omit,
@@ -258,6 +265,9 @@ class WalletsResource(SyncAPIResource):
           chain_type: The wallet chain types.
 
           additional_signers: Additional signers for the wallet.
+
+          derivation: Derives the new wallet from an existing HD root wallet so both share one seed
+              phrase.
 
           display_name: A human-readable label for the wallet.
 
@@ -293,6 +303,7 @@ class WalletsResource(SyncAPIResource):
                 {
                     "chain_type": chain_type,
                     "additional_signers": additional_signers,
+                    "derivation": derivation,
                     "display_name": display_name,
                     "entity": entity,
                     "external_id": external_id,
@@ -318,7 +329,7 @@ class WalletsResource(SyncAPIResource):
         entity_id: str | Omit = omit,
         external_id: str | Omit = omit,
         include_archived: bool | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         user_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -341,6 +352,8 @@ class WalletsResource(SyncAPIResource):
               be used together with user_id.
 
           chain_type: The wallet chain types.
+
+          cursor: Cursor returned by the previous page.
 
           entity_id: Filter wallets by the entity ID the wallet is attributed to.
 
@@ -382,6 +395,125 @@ class WalletsResource(SyncAPIResource):
                 ),
             ),
             model=Wallet,
+        )
+
+    def _attach_automations(
+        self,
+        wallet_id: str,
+        *,
+        automation_ids: SequenceNotStr[str],
+        params: SwapAttachmentParamsParam | Omit = omit,
+        privy_authorization_signature: str | Omit = omit,
+        privy_request_expiry: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> WalletAutomationAttachmentListResponse:
+        """
+        Attach one or more automations to a wallet.
+
+        Args:
+          wallet_id: ID of the wallet.
+
+          params: Per-attachment parameters for swap automations.
+
+          privy_authorization_signature: Request authorization signature. If multiple signatures are required, they
+              should be comma separated.
+
+          privy_request_expiry: Request expiry. Value is a Unix timestamp in milliseconds representing the
+              deadline by which the request must be processed.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not wallet_id:
+            raise ValueError(f"Expected a non-empty value for `wallet_id` but received {wallet_id!r}")
+        extra_headers = {
+            **strip_not_given(
+                {
+                    "privy-authorization-signature": privy_authorization_signature,
+                    "privy-request-expiry": privy_request_expiry,
+                }
+            ),
+            **(extra_headers or {}),
+        }
+        return self._post(
+            path_template("/v1/wallets/{wallet_id}/automations/attach", wallet_id=wallet_id),
+            body=maybe_transform(
+                {
+                    "automation_ids": automation_ids,
+                    "params": params,
+                },
+                wallet_attach_automations_params.WalletAttachAutomationsParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=WalletAutomationAttachmentListResponse,
+        )
+
+    def _detach_automations(
+        self,
+        wallet_id: str,
+        *,
+        automation_ids: SequenceNotStr[str],
+        privy_authorization_signature: str | Omit = omit,
+        privy_request_expiry: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> WalletAutomationSuccessResponse:
+        """
+        Detach one or more automations from a wallet.
+
+        Args:
+          wallet_id: ID of the wallet.
+
+          privy_authorization_signature: Request authorization signature. If multiple signatures are required, they
+              should be comma separated.
+
+          privy_request_expiry: Request expiry. Value is a Unix timestamp in milliseconds representing the
+              deadline by which the request must be processed.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not wallet_id:
+            raise ValueError(f"Expected a non-empty value for `wallet_id` but received {wallet_id!r}")
+        extra_headers = {
+            **strip_not_given(
+                {
+                    "privy-authorization-signature": privy_authorization_signature,
+                    "privy-request-expiry": privy_request_expiry,
+                }
+            ),
+            **(extra_headers or {}),
+        }
+        return self._post(
+            path_template("/v1/wallets/{wallet_id}/automations/detach", wallet_id=wallet_id),
+            body=maybe_transform(
+                {"automation_ids": automation_ids}, wallet_detach_automations_params.WalletDetachAutomationsParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=WalletAutomationSuccessResponse,
         )
 
     def _export(
@@ -571,7 +703,7 @@ class WalletsResource(SyncAPIResource):
         self,
         wallet_id: str,
         *,
-        params: RawSignInputParams,
+        params: RawSignInputParamsParam,
         privy_authorization_signature: str | Omit = omit,
         privy_idempotency_key: str | Omit = omit,
         privy_request_expiry: str | Omit = omit,
@@ -2225,6 +2357,7 @@ class WalletsResource(SyncAPIResource):
         source: TokenTransferSourceParam,
         amount: str | Omit = omit,
         amount_type: AmountType | Omit = omit,
+        custody_options: TransferCustodyOptionsParam | Omit = omit,
         fee_configuration: FeeConfigurationParam | Omit = omit,
         nonce: WalletActionNonce | Omit = omit,
         reference_id: str | Omit = omit,
@@ -2256,6 +2389,8 @@ class WalletsResource(SyncAPIResource):
               to receive. Takes precedence over source.amount when both are provided.
 
           amount_type: Whether the amount refers to the input token or output token.
+
+          custody_options: Options for a transfer from a custodial wallet.
 
           fee_configuration: Total fees assessed on a transfer, in BPS
 
@@ -2304,6 +2439,7 @@ class WalletsResource(SyncAPIResource):
                     "source": source,
                     "amount": amount,
                     "amount_type": amount_type,
+                    "custody_options": custody_options,
                     "fee_configuration": fee_configuration,
                     "nonce": nonce,
                     "reference_id": reference_id,
@@ -2494,6 +2630,7 @@ class WalletsResource(SyncAPIResource):
         encryption_type: Literal["HPKE"],
         recipient_public_key: str,
         user_jwt: str,
+        mfa_token: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -2514,6 +2651,9 @@ class WalletsResource(SyncAPIResource):
 
           user_jwt: The user's JWT, to be used to authenticate the user.
 
+          mfa_token: MFA token from a completed MFA verification, required on MFA-protected requests
+              for users with MFA enrolled.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -2522,6 +2662,7 @@ class WalletsResource(SyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"privy-mfa-token": mfa_token}), **(extra_headers or {})}
         return cast(
             WalletAuthenticateWithJwtResponse,
             self._post(
@@ -2771,6 +2912,7 @@ class AsyncWalletsResource(AsyncAPIResource):
         *,
         chain_type: WalletChainType,
         additional_signers: AdditionalSignerInputParam | Omit = omit,
+        derivation: DerivationInputParam | Omit = omit,
         display_name: str | Omit = omit,
         entity: WalletEntityAssignmentRequestBodyParam | Omit = omit,
         external_id: str | Omit = omit,
@@ -2792,6 +2934,9 @@ class AsyncWalletsResource(AsyncAPIResource):
           chain_type: The wallet chain types.
 
           additional_signers: Additional signers for the wallet.
+
+          derivation: Derives the new wallet from an existing HD root wallet so both share one seed
+              phrase.
 
           display_name: A human-readable label for the wallet.
 
@@ -2827,6 +2972,7 @@ class AsyncWalletsResource(AsyncAPIResource):
                 {
                     "chain_type": chain_type,
                     "additional_signers": additional_signers,
+                    "derivation": derivation,
                     "display_name": display_name,
                     "entity": entity,
                     "external_id": external_id,
@@ -2852,7 +2998,7 @@ class AsyncWalletsResource(AsyncAPIResource):
         entity_id: str | Omit = omit,
         external_id: str | Omit = omit,
         include_archived: bool | Omit = omit,
-        limit: Optional[float] | Omit = omit,
+        limit: int | Omit = omit,
         user_id: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
@@ -2875,6 +3021,8 @@ class AsyncWalletsResource(AsyncAPIResource):
               be used together with user_id.
 
           chain_type: The wallet chain types.
+
+          cursor: Cursor returned by the previous page.
 
           entity_id: Filter wallets by the entity ID the wallet is attributed to.
 
@@ -2916,6 +3064,125 @@ class AsyncWalletsResource(AsyncAPIResource):
                 ),
             ),
             model=Wallet,
+        )
+
+    async def _attach_automations(
+        self,
+        wallet_id: str,
+        *,
+        automation_ids: SequenceNotStr[str],
+        params: SwapAttachmentParamsParam | Omit = omit,
+        privy_authorization_signature: str | Omit = omit,
+        privy_request_expiry: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> WalletAutomationAttachmentListResponse:
+        """
+        Attach one or more automations to a wallet.
+
+        Args:
+          wallet_id: ID of the wallet.
+
+          params: Per-attachment parameters for swap automations.
+
+          privy_authorization_signature: Request authorization signature. If multiple signatures are required, they
+              should be comma separated.
+
+          privy_request_expiry: Request expiry. Value is a Unix timestamp in milliseconds representing the
+              deadline by which the request must be processed.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not wallet_id:
+            raise ValueError(f"Expected a non-empty value for `wallet_id` but received {wallet_id!r}")
+        extra_headers = {
+            **strip_not_given(
+                {
+                    "privy-authorization-signature": privy_authorization_signature,
+                    "privy-request-expiry": privy_request_expiry,
+                }
+            ),
+            **(extra_headers or {}),
+        }
+        return await self._post(
+            path_template("/v1/wallets/{wallet_id}/automations/attach", wallet_id=wallet_id),
+            body=await async_maybe_transform(
+                {
+                    "automation_ids": automation_ids,
+                    "params": params,
+                },
+                wallet_attach_automations_params.WalletAttachAutomationsParams,
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=WalletAutomationAttachmentListResponse,
+        )
+
+    async def _detach_automations(
+        self,
+        wallet_id: str,
+        *,
+        automation_ids: SequenceNotStr[str],
+        privy_authorization_signature: str | Omit = omit,
+        privy_request_expiry: str | Omit = omit,
+        # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
+        # The extra values given here take precedence over values defined on the client or passed to this method.
+        extra_headers: Headers | None = None,
+        extra_query: Query | None = None,
+        extra_body: Body | None = None,
+        timeout: float | httpx.Timeout | None | NotGiven = not_given,
+    ) -> WalletAutomationSuccessResponse:
+        """
+        Detach one or more automations from a wallet.
+
+        Args:
+          wallet_id: ID of the wallet.
+
+          privy_authorization_signature: Request authorization signature. If multiple signatures are required, they
+              should be comma separated.
+
+          privy_request_expiry: Request expiry. Value is a Unix timestamp in milliseconds representing the
+              deadline by which the request must be processed.
+
+          extra_headers: Send extra headers
+
+          extra_query: Add additional query parameters to the request
+
+          extra_body: Add additional JSON properties to the request
+
+          timeout: Override the client-level default timeout for this request, in seconds
+        """
+        if not wallet_id:
+            raise ValueError(f"Expected a non-empty value for `wallet_id` but received {wallet_id!r}")
+        extra_headers = {
+            **strip_not_given(
+                {
+                    "privy-authorization-signature": privy_authorization_signature,
+                    "privy-request-expiry": privy_request_expiry,
+                }
+            ),
+            **(extra_headers or {}),
+        }
+        return await self._post(
+            path_template("/v1/wallets/{wallet_id}/automations/detach", wallet_id=wallet_id),
+            body=await async_maybe_transform(
+                {"automation_ids": automation_ids}, wallet_detach_automations_params.WalletDetachAutomationsParams
+            ),
+            options=make_request_options(
+                extra_headers=extra_headers, extra_query=extra_query, extra_body=extra_body, timeout=timeout
+            ),
+            cast_to=WalletAutomationSuccessResponse,
         )
 
     async def _export(
@@ -3105,7 +3372,7 @@ class AsyncWalletsResource(AsyncAPIResource):
         self,
         wallet_id: str,
         *,
-        params: RawSignInputParams,
+        params: RawSignInputParamsParam,
         privy_authorization_signature: str | Omit = omit,
         privy_idempotency_key: str | Omit = omit,
         privy_request_expiry: str | Omit = omit,
@@ -4759,6 +5026,7 @@ class AsyncWalletsResource(AsyncAPIResource):
         source: TokenTransferSourceParam,
         amount: str | Omit = omit,
         amount_type: AmountType | Omit = omit,
+        custody_options: TransferCustodyOptionsParam | Omit = omit,
         fee_configuration: FeeConfigurationParam | Omit = omit,
         nonce: WalletActionNonce | Omit = omit,
         reference_id: str | Omit = omit,
@@ -4790,6 +5058,8 @@ class AsyncWalletsResource(AsyncAPIResource):
               to receive. Takes precedence over source.amount when both are provided.
 
           amount_type: Whether the amount refers to the input token or output token.
+
+          custody_options: Options for a transfer from a custodial wallet.
 
           fee_configuration: Total fees assessed on a transfer, in BPS
 
@@ -4838,6 +5108,7 @@ class AsyncWalletsResource(AsyncAPIResource):
                     "source": source,
                     "amount": amount,
                     "amount_type": amount_type,
+                    "custody_options": custody_options,
                     "fee_configuration": fee_configuration,
                     "nonce": nonce,
                     "reference_id": reference_id,
@@ -5028,6 +5299,7 @@ class AsyncWalletsResource(AsyncAPIResource):
         encryption_type: Literal["HPKE"],
         recipient_public_key: str,
         user_jwt: str,
+        mfa_token: str | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -5048,6 +5320,9 @@ class AsyncWalletsResource(AsyncAPIResource):
 
           user_jwt: The user's JWT, to be used to authenticate the user.
 
+          mfa_token: MFA token from a completed MFA verification, required on MFA-protected requests
+              for users with MFA enrolled.
+
           extra_headers: Send extra headers
 
           extra_query: Add additional query parameters to the request
@@ -5056,6 +5331,7 @@ class AsyncWalletsResource(AsyncAPIResource):
 
           timeout: Override the client-level default timeout for this request, in seconds
         """
+        extra_headers = {**strip_not_given({"privy-mfa-token": mfa_token}), **(extra_headers or {})}
         return cast(
             WalletAuthenticateWithJwtResponse,
             await self._post(
@@ -5260,6 +5536,12 @@ class WalletsResourceWithRawResponse:
         self.list = to_raw_response_wrapper(
             wallets.list,
         )
+        self._attach_automations = to_raw_response_wrapper(
+            wallets._attach_automations,
+        )
+        self._detach_automations = to_raw_response_wrapper(
+            wallets._detach_automations,
+        )
         self._export = to_raw_response_wrapper(
             wallets._export,
         )
@@ -5347,6 +5629,12 @@ class AsyncWalletsResourceWithRawResponse:
         )
         self.list = async_to_raw_response_wrapper(
             wallets.list,
+        )
+        self._attach_automations = async_to_raw_response_wrapper(
+            wallets._attach_automations,
+        )
+        self._detach_automations = async_to_raw_response_wrapper(
+            wallets._detach_automations,
         )
         self._export = async_to_raw_response_wrapper(
             wallets._export,
@@ -5436,6 +5724,12 @@ class WalletsResourceWithStreamingResponse:
         self.list = to_streamed_response_wrapper(
             wallets.list,
         )
+        self._attach_automations = to_streamed_response_wrapper(
+            wallets._attach_automations,
+        )
+        self._detach_automations = to_streamed_response_wrapper(
+            wallets._detach_automations,
+        )
         self._export = to_streamed_response_wrapper(
             wallets._export,
         )
@@ -5523,6 +5817,12 @@ class AsyncWalletsResourceWithStreamingResponse:
         )
         self.list = async_to_streamed_response_wrapper(
             wallets.list,
+        )
+        self._attach_automations = async_to_streamed_response_wrapper(
+            wallets._attach_automations,
+        )
+        self._detach_automations = async_to_streamed_response_wrapper(
+            wallets._detach_automations,
         )
         self._export = async_to_streamed_response_wrapper(
             wallets._export,

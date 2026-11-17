@@ -751,7 +751,7 @@ class CoarseFundamentalUniverseSelectionModel(QuantConnect.Algorithm.Framework.S
 
 class OpenInterestFutureUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.FutureUniverseSelectionModel):
     """
-    Selects contracts in a futures universe, sorted by open interest.  This allows the selection to identifiy current
+    Selects contracts in a futures universe, sorted by open interest.  This allows the selection to identify current
         active contract.
     """
 

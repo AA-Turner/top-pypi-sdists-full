@@ -21,7 +21,7 @@ from pydantic import ValidationError
 
 from datamodel_code_generator import DanglingRefWarning
 from datamodel_code_generator.__main__ import Exit
-from tests.conftest import assert_output
+from tests.conftest import MockHttpxResponse, assert_output
 from tests.main.conftest import (
     JSON_SCHEMA_DATA_PATH,
     OPEN_API_DATA_PATH,
@@ -35,6 +35,8 @@ from tests.main.conftest import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from pathlib import Path
+
+    from tests.conftest import HttpxGetMockFactory
 
 INPUT_PATH = OPEN_API_DATA_PATH / "external_ref_mapping_all_of"
 COMMON_ARGS = ("--disable-timestamp", "--formatters", "builtin")
@@ -534,4 +536,331 @@ def test_python_import_all_of_value_keywords(output_file: Path) -> None:
         output_path=output_file,
         input_file_type="jsonschema",
         extra_args=[*COMMON_ARGS],
+    )
+
+
+@pytest.mark.cli_doc(
+    options=["--use-x-python-import-for-every-ref"],
+    option_description="""Type every reference to a schema with `x-python-import` by the class it imports.
+
+A `$ref` to a schema with `x-python-import` at a field is typed by the class it imports. Without this option an allOf
+of such a schema and keywords that add no field, such as a `description`, is typed by the model of the schema where a
+JSON pointer into another document (`shared.json#/$defs/Amount`), a pointer into the input outside its definitions
+(`#/other/Code`) or a whole-document `$ref` (`tally.json`) names it, as in 0.96.0; with it the import types that
+allOf as it types the `$ref`, and the model stays written only where it has fields or a root type. Under
+`--read-only-write-only-model-type request-response` the option also leaves the readOnly and writeOnly properties of
+such a schema out of the request/response split: a model whose field the import types does not split for them, nor
+does a model whose allOf bases reach them through such a field.""",
+    input_schema="jsonschema/python_import_all_of_keywords_pointer_targets/order.json",
+    cli_args=["--use-x-python-import-for-every-ref"],
+    golden_output="main/openapi/external_ref_mapping_all_of/python_import_all_of_value_keywords_pointer_targets[on].py",
+    comparison_output=(
+        "main/openapi/external_ref_mapping_all_of/python_import_all_of_value_keywords_pointer_targets[off].py"
+    ),
+)
+@pytest.mark.parametrize("option_set", ["off", "on"])
+def test_python_import_all_of_value_keywords_pointer_targets(output_file: Path, option_set: str) -> None:
+    """Type an allOf of an x-python-import schema outside the input's definitions by its import, opt-in (#6797).
+
+    With --use-x-python-import-for-every-ref a definition of another document (``Amount``), the root of a document a
+    ``$ref`` names (``tally.json``, and ``ledger.json`` through ``#`` inside it) and a schema at a JSON pointer of the
+    input (``Code``) type the allOf of them and keywords that add no field as a field naming them is (``plain``), as a
+    definition of the input does. The model of each stays written where it has a root type, and the empty one leaves.
+    Without it the allOf is typed by that model, as in 0.96.0.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_import_all_of_keywords_pointer_targets" / "order.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=[*COMMON_ARGS, *(("--use-x-python-import-for-every-ref",) if option_set == "on" else ())],
+        force_exec_validation=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+        pytest.param(("--use-x-python-import-for-every-ref",), id="request-response-every-ref"),
+        pytest.param(
+            ("--dedupe-request-response-variants", "--use-x-python-import-for-every-ref"), id="dedupe-every-ref"
+        ),
+    ],
+)
+def test_python_import_all_of_value_keywords_request_response(options: tuple[str, ...], output_file: Path) -> None:
+    """Type an allOf of a schema an import types and keywords that add no field by the import under request-response.
+
+    ``Order`` and the other users of ``Pet`` come before its definition, which is not read yet, so the split names the
+    variants of ``Pet`` and the allOf of ``Order`` names them, as the plain users do: ``Basket`` and ``Orders`` split.
+    ``Toy`` of another document keeps its model, so its allOf names the variants of that model, as in 0.96.0. Under
+    --use-x-python-import-for-every-ref the import types every one, ``Pet``, ``Basket`` and ``Orders`` do not split,
+    and the model of ``Toy`` keeps its variants. Up to 0.96.0 generation failed with "A Parser can not resolve
+    classes" (#6799).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "python_import_all_of_request_response" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--read-only-write-only-model-type",
+            "request-response",
+            *options,
+            "--openapi-scopes",
+            "schemas",
+            "paths",
+            "parameters",
+            *COMMON_ARGS,
+        ],
+    )
+
+
+def test_python_import_all_of_definition_request_response(output_file: Path) -> None:
+    """Type an allOf of an x-python-import definition with a read-only property by the import under request-response.
+
+    ``Order`` comes before the definition ``Pet``, so its allOf names the variants of ``Pet``, as a plain field does
+    (#6799).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_import_all_of_definition_request_response.json",
+        output_path=output_file,
+        input_file_type="jsonschema",
+        extra_args=["--read-only-write-only-model-type", "request-response", *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_file_type", "input_path"),
+    [
+        pytest.param(
+            "openapi", OPEN_API_DATA_PATH / "python_import_back_reference_request_response" / "api.yaml", id="openapi"
+        ),
+        pytest.param(
+            "jsonschema",
+            JSON_SCHEMA_DATA_PATH / "python_import_back_reference_request_response" / "o.json",
+            id="jsonschema",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+    ],
+)
+def test_python_import_back_reference_request_response(
+    input_file_type: str, input_path: Path, options: tuple[str, ...], output_file: Path
+) -> None:
+    """Keep the variants of a definition that a referenced document points back at, as up to 0.96.0.
+
+    A ``$ref`` of ``common.yaml`` or ``other.json`` to the definition ``Pet`` with x-python-import parses it into a
+    model before the definitions of the input are read, so the allOf of ``Pet`` and a description names its variants.
+    """
+    run_main_and_assert(
+        input_path=input_path,
+        output_path=output_file,
+        input_file_type=input_file_type,
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+    ],
+)
+def test_python_import_definition_first_request_response(options: tuple[str, ...], output_file: Path) -> None:
+    """Type an allOf of an x-python-import definition by the import where the definition comes first.
+
+    The definitions read ``Pet`` as the class it imports before ``Visit``, which splits, names ``Kennel``, so the
+    import types the allOf of ``Pet`` and a description in ``Kennel``, which does not split (#6799).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "python_import_definition_first_request_response.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+    ],
+)
+def test_python_import_input_document_root_request_response(options: tuple[str, ...], output_dir: Path) -> None:
+    """Keep the variants of the root of an input document with x-python-import under request-response.
+
+    The root of an input document keeps its model, so the allOf of ``a.json`` and a description in ``b.json`` names
+    its variants, as up to 0.96.0, while the plain ``$ref`` is typed by the import.
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_import_input_root_request_response",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize("entrypoint", ["file", "stdin", "url"])
+def test_python_import_recursive_input_root_request_response(
+    entrypoint: str,
+    output_file: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mock_httpx_get: HttpxGetMockFactory,
+) -> None:
+    """Keep the variants of an input root with x-python-import that names itself, read from a file, stdin or a URL.
+
+    The allOf of ``#`` and a description names the variant of the root's model, as up to 0.96.0; the array items name
+    the import.
+    """
+    input_path = JSON_SCHEMA_DATA_PATH / "python_import_recursive_root_request_response.json"
+    args = ["--input-file-type", "jsonschema", "--read-only-write-only-model-type", "request-response", *COMMON_ARGS]
+    match entrypoint:
+        case "file":
+            run_main_and_assert(input_path=input_path, output_path=output_file, extra_args=args)
+        case "stdin":
+            run_main_and_assert(
+                stdin_path=input_path, monkeypatch=monkeypatch, output_path=output_file, extra_args=args
+            )
+        case _:
+            url = "https://example.com/schemas/tree.json"
+            mock_httpx_get(MockHttpxResponse(url, input_path))
+            run_main_with_args(["--url", url, "--output", str(output_file), *args])
+            assert_output(output_file.read_text(encoding="utf-8"))
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="off"),
+        pytest.param(("--use-x-python-import-for-every-ref",), id="on"),
+        pytest.param(("--openapi-scopes", "paths"), id="paths-scope"),
+    ],
+)
+def test_python_import_all_of_parse_order_request_response(options: tuple[str, ...], output_file: Path) -> None:
+    """Type an allOf of an x-python-import definition whichever $ref reads its document first, under request-response.
+
+    ``Visit`` names ``Dog``, a definition of the input parsed after it: the split names the variants of ``Dog`` before
+    it is read, so ``Visit`` splits and the allOf of ``Dog`` names them. ``Home`` reads ``pets.yaml`` through ``Cat``,
+    so its definitions read ``Pet`` as the class it imports, and the allOf of ``Pet`` in ``Order`` is typed by the
+    import.
+    ``Kennel`` names ``Bird`` before the allOf of ``Parrot``: its split names the variants of ``Parrot`` before
+    ``birds.yaml`` is read, so ``Parrot`` keeps the model its pointer gives it, as where the allOf comes first, and
+    ``Cage`` names those variants too; under --use-x-python-import-for-every-ref the import types every one. With the
+    paths scope alone the components are parsed where a ``$ref`` names them, so ``Dog`` keeps its model. Up to 0.96.0
+    each failed with "A Parser can not resolve classes" (#6799).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "python_import_order_request_response" / "api.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize(
+    ("input_name", "options"),
+    [
+        pytest.param("python_import_nested_request_response.yaml", (), id="request-response"),
+        pytest.param(
+            "python_import_nested_request_response.yaml", ("--dedupe-request-response-variants",), id="dedupe"
+        ),
+        pytest.param("python_import_nested_nullable_request_response.yaml", (), id="nullable-request-response"),
+        pytest.param(
+            "python_import_nested_nullable_request_response.yaml",
+            ("--dedupe-request-response-variants",),
+            id="nullable-dedupe",
+        ),
+        pytest.param(
+            "python_import_nested_nullable_request_response.yaml",
+            ("--intersect-combined-schema-keywords",),
+            id="nullable-intersect-combined-schema-keywords",
+        ),
+    ],
+)
+def test_python_import_nested_request_response(input_name: str, options: tuple[str, ...], output_file: Path) -> None:
+    """Leave out the variants of models that only a field an import types would split, under request-response.
+
+    ``Kennel`` names ``Animal``, whose x-python-import types it, by a plain ``$ref``, an allOf of it alone, with a
+    description, ``true`` or a member that is only ``nullable``, or beside ``minProperties``, ``type: object`` or
+    ``nullable``, by a ``$ref`` with a description, and a ``Tag`` that ``--external-ref-mapping`` maps by a plain
+    ``$ref``: the imports type the plain ``$ref`` and the forms the split does not name the variants of. ``Animal``
+    comes after ``Kennel``, so it is not read when the allOf of it and a description or a ``nullable`` member names its
+    variants, and ``Kennel`` splits, with the ``Ward`` that names it and the ``Visit`` that names both; the root model
+    ``Alias`` of a plain ``$ref`` writes no variants. A base (``Dog``), also by an allOf of it alone or beside
+    ``minProperties``, an inline allOf with properties and a ``$ref`` with ``minProperties`` still split ``Yard``. In
+    OpenAPI 3.0, ``Room`` names ``Patient`` the same way: the allOf of it and a ``nullable`` member names its variants,
+    the other forms are typed by the import. Under ``--intersect-combined-schema-keywords`` the allOf beside the
+    ``required`` name ``Patient`` lacks is a model of its own, which splits ``Room``. Up to 0.96.0 generation failed
+    with "A Parser can not resolve classes" (#6800).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / input_name,
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            "--read-only-write-only-model-type",
+            "request-response",
+            *options,
+            "--external-ref-mapping",
+            "python_import_nested_request_response_tags.yaml=shelter.tags",
+            *COMMON_ARGS,
+        ],
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+    ],
+)
+def test_python_import_nested_input_root_request_response(options: tuple[str, ...], output_dir: Path) -> None:
+    """Leave out the variants of a model whose fields an import types by an input document's root, nested.
+
+    ``Kennel`` names the root of ``animal.json``, which has x-python-import, by a plain ``$ref`` and by an allOf of it
+    alone: the import types both, so ``Kennel`` writes no variants. The allOf of it and a description in ``Pen`` names
+    the variants of the root's model, which keeps its model, as up to 0.96.0. Up to 0.96.0 generation failed with "A
+    Parser can not resolve classes" (#6800).
+    """
+    run_main_and_assert(
+        input_path=JSON_SCHEMA_DATA_PATH / "python_import_nested_input_root_request_response",
+        output_path=output_dir,
+        input_file_type="jsonschema",
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
+    )
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        pytest.param((), id="request-response"),
+        pytest.param(("--dedupe-request-response-variants",), id="dedupe"),
+        pytest.param(("--use-x-python-import-for-every-ref",), id="request-response-every-ref"),
+        pytest.param(
+            ("--dedupe-request-response-variants", "--use-x-python-import-for-every-ref"), id="dedupe-every-ref"
+        ),
+    ],
+)
+def test_python_import_inherited_request_response(options: tuple[str, ...], output_file: Path) -> None:
+    """Split a model for a base whose field an import types only without the option, under request-response.
+
+    ``Wrapper`` names ``Pet``, whose x-python-import types the field, so ``Wrapper`` does not split and ``Visit``,
+    which names it, writes no variants. ``Owner`` inherits ``Wrapper``: without --use-x-python-import-for-every-ref
+    the readOnly property of ``Pet`` still splits it and ``Holder``, which names it, as in 0.96.0; with it ``Owner``
+    is a subclass of ``Wrapper`` and ``Holder`` writes no variants. Up to 0.96.0 ``Visit`` failed with "A Parser can
+    not resolve classes" (#6800).
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "python_import_inherited_request_response.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=["--read-only-write-only-model-type", "request-response", *options, *COMMON_ARGS],
     )

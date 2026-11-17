@@ -11,11 +11,16 @@ import textwrap
 import types
 import warnings
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from chalk.ml.model_handler import CHALK_HANDLER_ARTIFACT_PATH
 from chalk.ml.utils import ModelEncoding, ModelType, model_encoding_from_proto, model_type_from_proto
-from chalk.utils._ast_extract import find_free_names, find_relative_imports, is_module_level_definition, names_bound_by
+from chalk.utils._ast_extract import (
+    find_relative_imports,
+    find_statement_free_names_with_context,
+    is_module_level_definition,
+    names_bound_by,
+)
 from chalk.utils.collections import FrozenOrderedSet
 
 _DEFAULT_PACKAGES: Dict[ModelType, List[str]] = {
@@ -438,62 +443,122 @@ def _write_temp(content: str, suffix: str = ".py") -> str:
     return fh.name
 
 
-def _reads_unbound(
-    node: ast.Assign | ast.AnnAssign,
-    targets: Sequence[ast.expr],
-    bound: set[str],
-    dropped: set[str],
-    has_star_import: bool,
-    annotations_are_deferred: bool,
-) -> bool:
-    free_names = find_free_names(node.value) if node.value is not None else set()
-    if isinstance(node, ast.AnnAssign) and not annotations_are_deferred:
-        free_names.update(find_free_names(node.annotation))
-    for target in targets:
-        free_names.update(find_free_names(target))
+def _mutation_roots_from_target(target: ast.expr) -> set[str]:
+    if isinstance(target, (ast.Tuple, ast.List)):
+        return set().union(*(_mutation_roots_from_target(element) for element in target.elts))
+    if isinstance(target, ast.Starred):
+        return _mutation_roots_from_target(target.value)
+    if not isinstance(target, (ast.Attribute, ast.Subscript)):
+        return set()
+    while isinstance(target, (ast.Attribute, ast.Subscript)):
+        target = target.value
+    if isinstance(target, ast.Name):
+        return {target.id}
+    return set()
 
-    if free_names & dropped:
-        return True
-    if has_star_import:
+
+def _mutation_roots(node: ast.stmt) -> set[str]:
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, (ast.AnnAssign, ast.AugAssign)):
+        targets = [node.target]
+    else:
+        return set()
+    return set().union(*(_mutation_roots_from_target(target) for target in targets))
+
+
+def _is_import_rooted_mutation(node: ast.stmt, imported_names: set[str]) -> bool:
+    if isinstance(node, ast.Assign):
+        targets = node.targets
+    elif isinstance(node, ast.AnnAssign):
+        targets = [node.target]
+    else:
         return False
-    return not free_names.issubset(bound)
+    return (
+        is_module_level_definition(node)
+        and bool(targets)
+        and all(
+            isinstance(target, (ast.Attribute, ast.Subscript)) and bool(_mutation_roots_from_target(target))
+            for target in targets
+        )
+        and _mutation_roots(node) <= imported_names
+    )
+
+
+def _format_dependency_lines(lines: set[int]) -> str:
+    ordered = sorted(lines)
+    if len(ordered) == 1:
+        return f"line {ordered[0]}"
+    return "lines " + ", ".join(str(line) for line in ordered[:-1]) + f" and {ordered[-1]}"
+
+
+def _format_dependency_error(
+    class_name: str, missing: Dict[str, set[int]], conditional_import_names: set[str]
+) -> ValueError:
+    dependencies = [
+        f"{name!r} ({_format_dependency_lines(lines)})"
+        for name, lines in sorted(missing.items(), key=lambda item: (min(item[1]), item[0]))
+    ]
+    details = dependencies[0] if len(dependencies) == 1 else ", ".join(dependencies[:-1]) + f" and {dependencies[-1]}"
+    guidance: List[str] = []
+    if conditional_import_names:
+        guidance.append(
+            "Move the import out of the conditional block and import it unconditionally at module level "
+            + "(Chalk does not ship module-level if/try/except blocks)"
+        )
+    other_names = set(missing) - conditional_import_names
+    if other_names:
+        verb = "create" if guidance else "Create"
+        guidance.append(
+            f"{verb} it inside the class (for example in `load_model`) or ship it as a file via `files=[...]`"
+        )
+    guidance.append("define the class in a regular module")
+    advice = "; ".join(guidance[:-1]) + f"; or {guidance[-1]}."
+    return ValueError(
+        f"@model_handler class {class_name!r} uses {details}, bound only by statements Chalk does not ship "
+        + "(module-level calls, control flow, try/except and similar statements are not run in the serving container). "
+        + advice
+    )
+
+
+def _conditional_imports_name(node: ast.stmt, name: str) -> bool:
+    if not isinstance(node, (ast.If, ast.Try)):
+        return False
+    for descendant in ast.walk(node):
+        if isinstance(descendant, ast.Import):
+            if any((alias.asname or alias.name.split(".", 1)[0]) == name for alias in descendant.names):
+                return True
+        elif isinstance(descendant, ast.ImportFrom):
+            if any(alias.name == "*" or (alias.asname or alias.name) == name for alias in descendant.names):
+                return True
+    return False
+
+
+def _star_import_may_bind(node: ast.ImportFrom, name: str) -> bool:
+    """Return whether a star import can provide ``name`` without importing it here."""
+    if node.level or node.module is None:
+        return True
+    module = sys.modules.get(node.module)
+    if module is None:
+        return True
+    namespace = vars(module)
+    exports = namespace.get("__all__")
+    if exports is not None:
+        return name in exports
+    return not name.startswith("_") and name in namespace
+
+
+_DependencyResolution = Tuple[bool, Tuple[ast.stmt, ...], Tuple[ast.stmt, ...]]
 
 
 def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
-    """Extract the module-level *definitions* from a script — imports, helpers,
-    constants, sibling classes, and the target class.
+    """Extract a target class and its module dependency closure from a script.
 
-    Used for the ``__main__`` staging path. The deployed container needs the
-    user's class to import cleanly, which means we have to ship not just the
-    class body but also any names it references at module scope: decorators,
-    type annotations, parent classes, module-level helper functions, and
-    module-level constants.
-
-    Module-level assignment values, eager annotations, and non-name targets are
-    checked for unbound names; class bodies, bases, decorators, and defaults are
-    not checked.
-
-    The unbound-name check drops a module-level statement only if shipping it
-    would raise ``NameError`` on import. Otherwise the output matches the
-    ``is_module_level_definition`` filter alone, including stale values left
-    behind when a reassignment is dropped.
-
-    Kept node types:
-      * ``Import``, ``ImportFrom`` — module-level imports
-      * ``FunctionDef``, ``AsyncFunctionDef`` — module-level helper functions
-      * ``ClassDef`` — the target class AND sibling classes (the user may have
-        a base class or registry class defined in the same script)
-      * ``Assign``, ``AnnAssign`` — module-level constants (only when the RHS
-        contains no ``Call``; see ``is_module_level_definition`` for why)
-
-    Dropped: ``If``/``For``/``While``/``Try``/``Expr`` and other side-effect
-    statements — so the script's ``main()`` call, training loop, and
-    ``ChalkClient()`` instantiation do not run inside the container.
-    ``Assign``/``AnnAssign`` whose RHS calls a function (e.g.
-    ``rf = RandomForestRegressor()``, ``client = ChalkClient()``,
-    ``result = client.register_model_version(...)``) are *also* dropped.
-    Notably, ``try: import torch except ImportError: ...`` patterns are
-    *also* dropped; a user relying on those should refactor to a real module.
+    Used for the ``__main__`` staging path. Only shippable definitions needed
+    transitively by the class are emitted, in source order. Every free name in
+    shipped code is a dependency. A name bound only by a dropped statement
+    raises ``ValueError``, except in annotations deferred by
+    ``from __future__ import annotations``.
 
     Returns ``None`` if the file can't be parsed or the target class isn't
     found at module scope; caller falls back to ``inspect.getsource(cls)``.
@@ -505,61 +570,268 @@ def _extract_main_class_source(src_file: str, class_name: str) -> Optional[str]:
     except (OSError, SyntaxError):
         return None
 
-    bound = set(dir(builtins))
-    bound.update(
-        {
-            "__name__",
-            "__file__",
-            "__doc__",
-            "__spec__",
-            "__package__",
-            "__loader__",
-            "__builtins__",
-            "__annotations__",
-        }
+    target = next(
+        (node for node in reversed(tree.body) if isinstance(node, ast.ClassDef) and node.name == class_name),
+        None,
     )
-    kept: List[ast.stmt] = []
-    found_class = False
-    has_star_import = False
+    if target is None:
+        return None
+    statement_indices = {id(node): index for index, node in enumerate(tree.body)}
+    target_index = statement_indices[id(target)]
+
     annotations_are_deferred = any(
         isinstance(node, ast.ImportFrom)
         and node.module == "__future__"
         and any(alias.name == "annotations" for alias in node.names)
         for node in tree.body
     )
-    dropped: set[str] = set()
+
+    shippable: Dict[int, bool] = {id(node): is_module_level_definition(node) for node in tree.body}
+    binders: Dict[str, List[ast.stmt]] = {}
+    mutations: Dict[str, List[ast.stmt]] = {}
+    star_imports: List[ast.ImportFrom] = []
+    future_imports: List[ast.ImportFrom] = []
+    imports = [node for node in tree.body if isinstance(node, (ast.Import, ast.ImportFrom))]
+    imported_names = set().union(*(names_bound_by(node) for node in imports))
+    import_rooted_mutations = [node for node in tree.body if _is_import_rooted_mutation(node, imported_names)]
     for node in tree.body:
-        node_bound = names_bound_by(node)
-        if isinstance(node, (ast.Assign, ast.AnnAssign)):
-            targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-            if not is_module_level_definition(node) or _reads_unbound(
-                node, targets, bound, dropped, has_star_import, annotations_are_deferred
-            ):
-                dropped.update(node_bound - bound)
-                continue
-            if node.value is not None or not annotations_are_deferred:
-                bound.update(node_bound)
-                dropped.difference_update(node_bound)
-            kept.append(node)
-            continue
-
-        if not is_module_level_definition(node):
-            dropped.update(node_bound - bound)
-            continue
-
+        for name in names_bound_by(node):
+            binders.setdefault(name, []).append(node)
+        if shippable[id(node)] or (
+            isinstance(node, ast.AugAssign)
+            and not any(isinstance(descendant, ast.Call) for descendant in ast.walk(node.value))
+        ):
+            for root in _mutation_roots(node):
+                mutations.setdefault(root, []).append(node)
         if isinstance(node, ast.ImportFrom) and any(alias.name == "*" for alias in node.names):
-            has_star_import = True
-            dropped.clear()
-        bound.update(node_bound)
-        dropped.difference_update(node_bound)
+            star_imports.append(node)
+        if isinstance(node, ast.ImportFrom) and node.module == "__future__":
+            future_imports.append(node)
 
-        kept.append(node)
-        if isinstance(node, ast.ClassDef) and node.name == class_name:
-            found_class = True
+    module_runtime_index = len(tree.body)
+    statement_free_names: Dict[int, Tuple[set[str], set[str], set[str]]] = {}
 
-    if not found_class:
-        return None
+    def free_names(node: ast.stmt) -> Tuple[set[str], set[str], set[str]]:
+        cached = statement_free_names.get(id(node))
+        if cached is None:
+            cached = find_statement_free_names_with_context(node, annotations_are_deferred)
+            statement_free_names[id(node)] = cached
+        return cached
 
+    def _dependency_keys(node: ast.stmt, soft: bool) -> List[Tuple[str, int, bool]]:
+        eager, late, deferred = free_names(node)
+        node_index = statement_indices[id(node)]
+        dependencies = [(name, node_index, False) for name in sorted(eager)]
+        dependencies.extend((name, module_runtime_index, soft) for name in sorted(late))
+        dependencies.extend((name, node_index, True) for name in sorted(deferred))
+        return dependencies
+
+    selected: set[int] = set()
+    expanded: set[Tuple[int, bool]] = set()
+    worklist: List[Tuple[str, int, bool]] = []
+
+    def add_dependencies(node: ast.stmt, soft: bool) -> None:
+        worklist.extend(_dependency_keys(node, soft))
+
+    def select(node: ast.stmt, soft: bool = False) -> None:
+        selected.add(id(node))
+        expansion = (id(node), soft)
+        if expansion in expanded:
+            return
+        expanded.add(expansion)
+        add_dependencies(node, soft)
+
+    for node in future_imports:
+        select(node)
+    for node in imports:
+        select(node)
+    select(target)
+    # The target's own name is needed by mutations such as M.THRESHOLD = 0.5.
+    worklist.append((class_name, target_index, False))
+
+    def applicable_star_imports(name: str, use_index: int, dropped_binders: List[ast.stmt]) -> List[ast.ImportFrom]:
+        candidates = [
+            node
+            for node in star_imports
+            if statement_indices[id(node)] < use_index and _star_import_may_bind(node, name)
+        ]
+        if not candidates:
+            return []
+        last_star_index = statement_indices[id(candidates[-1])]
+        if any(last_star_index < statement_indices[id(node)] < use_index for node in dropped_binders):
+            return []
+        return candidates
+
+    resolution_cache: Dict[Tuple[str, int, bool], _DependencyResolution] = {}
+
+    def resolve(name: str, use_index: int, soft: bool) -> _DependencyResolution:
+        key = (name, use_index, soft)
+        cached = resolution_cache.get(key)
+        if cached is not None:
+            return cached
+
+        resolved = True
+        root_providers: Tuple[ast.stmt, ...] = ()
+        root_dropped: Tuple[ast.stmt, ...] = ()
+        # Finish the whole closure before caching, so cycles never publish a
+        # provisional result that depends on traversal order.
+        pending = [key]
+        processed: set[Tuple[str, int, bool]] = set()
+        index = 0
+        while index < len(pending):
+            dependency_key = pending[index]
+            index += 1
+            if dependency_key in processed:
+                continue
+            processed.add(dependency_key)
+
+            dependency_name, dependency_index, dependency_soft = dependency_key
+            dependency_cached = resolution_cache.get(dependency_key)
+            if dependency_cached is not None:
+                resolved = resolved and dependency_cached[0]
+                continue
+
+            name_binders = [
+                node
+                for node in binders.get(dependency_name, [])
+                if statement_indices[id(node)] < dependency_index
+                and (dependency_name != class_name or statement_indices[id(node)] < target_index)
+            ]
+            shipped_binders = [node for node in name_binders if shippable[id(node)]]
+            dropped_binders = [node for node in name_binders if not shippable[id(node)]]
+            if shipped_binders:
+                for binder in shipped_binders:
+                    pending.extend(_dependency_keys(binder, dependency_soft))
+                providers: Tuple[ast.stmt, ...] = tuple(shipped_binders)
+                dropped: Tuple[ast.stmt, ...] = ()
+            else:
+                stars = applicable_star_imports(dependency_name, dependency_index, dropped_binders)
+                if stars:
+                    providers = tuple(stars)
+                    dropped = ()
+                elif dropped_binders and (
+                    not hasattr(builtins, dependency_name)
+                    or any(isinstance(node, (ast.Assign, ast.AnnAssign, ast.AugAssign)) for node in dropped_binders)
+                ):
+                    providers = ()
+                    dropped = tuple(dropped_binders)
+                    if not dependency_soft:
+                        resolved = False
+                else:
+                    # Unknown globals remain the user's runtime responsibility.
+                    providers = ()
+                    dropped = ()
+
+            if dependency_key == key:
+                root_providers = providers
+                root_dropped = dropped
+
+        result = (resolved, root_providers, root_dropped)
+        resolution_cache[key] = result
+        return result
+
+    def mutation_is_shippable(node: ast.stmt) -> bool:
+        return all(resolve(*dependency)[0] for dependency in _dependency_keys(node, False))
+
+    def optional_statement_dependency_resolves(
+        name: str, use_index: int, soft: bool, resolving: set[Tuple[str, int]]
+    ) -> bool:
+        if soft:
+            return True
+        resolved, providers, _ = resolve(name, use_index, False)
+        if not resolved:
+            return False
+        if not providers:
+            return name == class_name or hasattr(builtins, name)
+        key = (name, use_index)
+        if key in resolving:
+            return False
+        resolving.add(key)
+        try:
+            for provider in providers:
+                eager, _, _ = free_names(provider)
+                if not all(
+                    optional_statement_dependency_resolves(dependency, provider.lineno, False, resolving)
+                    for dependency in eager
+                ):
+                    return False
+        finally:
+            resolving.remove(key)
+        return True
+
+    def optional_statement_is_shippable(node: ast.stmt) -> bool:
+        return all(
+            optional_statement_dependency_resolves(name, use_index, soft, set())
+            for name, use_index, soft in _dependency_keys(node, False)
+        )
+
+    for node in import_rooted_mutations:
+        if optional_statement_is_shippable(node):
+            select(node)
+
+    decorated_definitions = [
+        node
+        for node in tree.body
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) and node.decorator_list
+    ]
+    for node in decorated_definitions:
+        if optional_statement_is_shippable(node):
+            select(node)
+
+    processed: set[Tuple[str, int, bool]] = set()
+    missing: Dict[str, set[int]] = {}
+    conditional_import_names: set[str] = set()
+    index = 0
+    while True:
+        while index < len(worklist):
+            name, use_index, soft = worklist[index]
+            index += 1
+            key = (name, use_index, soft)
+            if key in processed:
+                continue
+            processed.add(key)
+
+            for mutation in mutations.get(name, []):
+                if mutation_is_shippable(mutation):
+                    select(mutation)
+
+            resolved, providers, dropped_binders = resolve(name, use_index, soft)
+            if resolved or not soft:
+                for node in providers:
+                    select(node, soft)
+            if not resolved and dropped_binders:
+                missing.setdefault(name, set()).update(node.lineno for node in dropped_binders)
+                if any(_conditional_imports_name(node, name) for node in dropped_binders):
+                    conditional_import_names.add(name)
+
+        shipped_classes = {
+            name
+            for name, providers in binders.items()
+            if any(id(provider) in selected and isinstance(provider, ast.ClassDef) for provider in providers)
+        }
+        subclasses = [
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef)
+            and id(node) not in selected
+            and any(
+                isinstance(descendant, ast.Name) and descendant.id in shipped_classes
+                for base in node.bases
+                for descendant in ast.walk(base)
+            )
+            and optional_statement_is_shippable(node)
+        ]
+        if not subclasses:
+            break
+        for node in subclasses:
+            select(node)
+
+    if missing:
+        raise _format_dependency_error(class_name, missing, conditional_import_names)
+
+    future_ids = {id(node) for node in future_imports}
+    kept: List[ast.stmt] = list(future_imports)
+    kept.extend(node for node in tree.body if id(node) in selected and id(node) not in future_ids)
     module = ast.Module(body=kept, type_ignores=[])
     try:
         return ast.unparse(module)
@@ -667,7 +939,8 @@ def _stage_user_class(cls: type) -> Tuple[_StagedUserClass, str, List[str]]:
          — reconstruct a self-contained module from cell history via
          ``chalk.utils.notebook.assemble_module_for_class``.
       3. ``cls.__module__ == "__main__"`` and we're in a `.py` script — parse
-         the script, keep module-level definitions, drop side-effect statements.
+         the script and ship the class's dependency closure; fail clearly when
+         it depends on a value created by a dropped side-effect statement.
       4. Fallback: ``inspect.getsource(cls)`` (REPL, dynamic class). Helpers
          referenced by the methods are lost; class must be self-contained.
 

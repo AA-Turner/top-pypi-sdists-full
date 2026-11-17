@@ -78,7 +78,7 @@ class BaseCommand(System.Object, QuantConnect.Commands.ICommand, metaclass=abc.A
 
     def get_symbol(self, ticker: str, security_type: QuantConnect.SecurityType, market: str, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> QuantConnect.Symbol:
         """
-        Creats symbol using symbol properties.
+        Creates symbol using symbol properties.
         
         
         This Class is protected.
@@ -564,7 +564,7 @@ class Command(DynamicObject):
 
     def get_property(self, name: str) -> System.Object:
         """
-        Gets the property's value with the specified name. This is a case-insensitve search.
+        Gets the property's value with the specified name. This is a case-insensitive search.
         
         :param name: The property name to access
         :returns: object value of BaseData.
@@ -582,7 +582,7 @@ class Command(DynamicObject):
 
     def set_property(self, name: str, value: typing.Any) -> System.Object:
         """
-        Sets the property with the specified name to the value. This is a case-insensitve search.
+        Sets the property with the specified name to the value. This is a case-insensitive search.
         
         :param name: The property name to set
         :param value: The new property value

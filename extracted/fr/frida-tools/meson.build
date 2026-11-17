@@ -1,4 +1,4 @@
-project('frida-tools', 'c', version : '14.13.1', meson_version : '>=1.1.0')
+project('frida-tools', 'c', version : '14.13.2', meson_version : '>=1.1.0')
 
 meson.add_dist_script(find_program('python3'), files('set_dist_version.py'), meson.project_version())
 

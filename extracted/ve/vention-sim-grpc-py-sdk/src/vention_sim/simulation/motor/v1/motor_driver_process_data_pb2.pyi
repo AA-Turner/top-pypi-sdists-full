@@ -43,8 +43,7 @@ class _ModeOfOperationEnumTypeWrapper(_enum_type_wrapper._EnumTypeWrapper[_ModeO
 
 class ModeOfOperation(_ModeOfOperation, metaclass=_ModeOfOperationEnumTypeWrapper):
     """/ The drive's active mode. Values match the CiA 402 modes of operation the client already uses.
-    / Profile position is the only mode the simulation implements so far; the rest are planned, and
-    / until then a drive in one of them is refused with a reason rather than silently not moving.
+    / The simulation implements some of them so far, and drops and logs a setpoint in any other.
     """
 
 MODE_OF_OPERATION_UNSPECIFIED: ModeOfOperation.ValueType  # 0
@@ -92,8 +91,9 @@ class DriveOutput(_message.Message):
     NEW_SETPOINT_FIELD_NUMBER: _builtins.int
     mode: Global___ModeOfOperation.ValueType
     new_setpoint: _builtins.bool
-    """/ The go signal. The simulation plans on the false to true edge, from the position at that
-    / instant and the target the last PrepareMove stored.
+    """/ The go signal. On the false to true edge, the simulation plans the move the last PrepareMove
+    / stored, from the drive's state at that instant. It drops a setpoint whose mode is not the one
+    / that move runs in.
     """
     @_builtins.property
     def address(self) -> _ethercat_address_pb2.EthercatAddress: ...

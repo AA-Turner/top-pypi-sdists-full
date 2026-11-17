@@ -23,7 +23,7 @@ played off it; handed back twice, a chunk's first steps would be played again.
 
 WHY `hold` is by default the model's last answer emptied (each array's first axis cut to nothing, each list empty): a
 loop that plays out["actions"] plays nothing and stays where it is, its code and act()'s answer's form unchanged; {} before
-any. {the user 10-27: "just dot he way that is most cofirtable to teleoperator but not changing the act"}
+any.
 WHY an act's answer is held to who drove as it went (after): a stop, or a person's taking the robot, while an act is on
 its way reaches the robot first, and the answer that comes after it is no one's: act() hands back a person's chunk or
 `hold` in its place, a release since included.

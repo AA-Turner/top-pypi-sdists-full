@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: PyAthena
-Version: 4.2.1
+Version: 4.3.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://pyathena.dev/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
@@ -93,7 +93,7 @@ Extra packages:
 |---------------|-----------------------------------------|----------|
 | SQLAlchemy    | `pip install PyAthena[SQLAlchemy]`      | >=2.0.0  |
 | AioSQLAlchemy | `pip install PyAthena[AioSQLAlchemy]`   | >=2.0.0  |
-| Pandas        | `pip install PyAthena[Pandas]`          | >=3.0.0  |
+| pandas        | `pip install PyAthena[Pandas]`          | >=3.0.0  |
 | Arrow         | `pip install PyAthena[Arrow]`           | >=22.0.0 |
 | Polars        | `pip install PyAthena[Polars]`          | >=1.39.0 |
 

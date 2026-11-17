@@ -1,4 +1,5 @@
 import logging
+import operator
 
 from collections.abc import Callable, Sequence
 from types import EllipsisType
@@ -6,6 +7,7 @@ from typing import Any, Literal
 
 import numpy as np
 import pandas as pd
+import pymc as pm
 import pytensor
 import pytensor.tensor as pt
 
@@ -14,6 +16,7 @@ from pymc.util import RandomState
 from pytensor.graph.basic import Variable
 from pytensor.graph.replace import graph_replace
 from pytensor.graph.traversal import explicit_graph_inputs
+from pytensor.raise_op import Assert
 from rich.box import SIMPLE_HEAD
 from rich.console import Console
 from rich.table import Table
@@ -56,6 +59,7 @@ from pymc_extras.statespace.filters.kalman_filter import BaseFilter
 from pymc_extras.statespace.utils.constants import (
     FILTER_OUTPUT_DIMS,
     JITTER_DEFAULT,
+    LOGLIKELIHOOD_BURN_NAME,
     MISSING_FILL,
     OBS_STATE_DIM,
     OBSERVED_DATA_NAME,
@@ -104,6 +108,11 @@ def _validate_property(props, property_name, expected_type):
 # Every op a statespace model registers as its observation likelihood. A variable named ``obs``
 # is only ours if one of these produced it, so a user's own variable is never mistaken for it.
 LIKELIHOOD_OPS = (KalmanFilterRV, StationaryVARRV, InnovationsStateSpaceRV)
+
+assert_burn_leaves_periods_to_score = Assert(
+    "loglikelihood_burn must be non-negative and less than the number of periods in the observed "
+    "data."
+)
 
 
 def _has_statespace_graph(model: Model) -> bool:
@@ -178,14 +187,23 @@ class PyMCStateSpace:
         to all sampling methods.
 
     cov_jitter: float, optional
-        Value added to the diagonal of every covariance matrix at each filtering step, for numerical stability.
-        Post-estimation graphs -- ``forecast``, the conditional samplers, ``sample_filter_outputs`` -- are built
-        with this same value. Default 1e-8, or 1e-6 if ``pytensor.config.floatX`` is float32.
+        Value added to the diagonal of the observation noise covariance, and of any other covariance
+        matrix the filter or smoother factors, for systems where one can be singular.
+        Post-estimation graphs -- ``forecast``, the conditional samplers, ``sample_filter_outputs``
+        -- are built with this same value. Default 1e-8, or 1e-6 if ``pytensor.config.floatX`` is
+        float32.
 
     missing_fill_value: float, optional
         Sentinel used to mask missing observations, so PyMC's imputation machinery is not triggered. Set this only
         if your data legitimately contains the default sentinel. Post-estimation graphs are built with this same
         value. Default -9999.0.
+
+    use_joseph_form: bool, optional
+        If True, the filter updates the filtered covariance with the Joseph form, which is PSD by construction but
+        costs ``O(k_states^3)`` per step instead of ``O(k_states^2 k_endog)``. The default update carries rounding
+        error of order ``eps * max(P)``, so use this when ``Q`` and ``H`` are not large next to that, as with a
+        diffuse ``P0`` at float32. Only the "standard" and "convergent" filters take it. Post-estimation graphs are
+        built with this same form. Default False.
 
     Notes
     -----
@@ -314,6 +332,7 @@ class PyMCStateSpace:
         mode: str | None = None,
         cov_jitter: float = JITTER_DEFAULT,
         missing_fill_value: float = MISSING_FILL,
+        use_joseph_form: bool = False,
     ):
         self._needs_exog_data = False
         self._tensor_variable_info = SymbolicVariableInfo()
@@ -326,6 +345,7 @@ class PyMCStateSpace:
         self.mode = mode
         self.cov_jitter = cov_jitter
         self.missing_fill_value = missing_fill_value
+        self.use_joseph_form = use_joseph_form
 
         self._populate_properties()
 
@@ -342,6 +362,12 @@ class PyMCStateSpace:
 
         if filter_type == "single" and self.k_endog > 1:
             raise ValueError('Cannot use filter_type = "single" with multiple observed time series')
+
+        if use_joseph_form and not issubclass(FILTER_FACTORY[filter_type.lower()], StandardFilter):
+            raise ValueError(
+                f'use_joseph_form=True is not supported with filter_type = "{filter_type}". '
+                'Use "standard" or "convergent".'
+            )
 
         if smoother_type.lower() not in SMOOTHER_FACTORY.keys():
             raise NotImplementedError(
@@ -1004,20 +1030,26 @@ class PyMCStateSpace:
     def build_statespace_graph(
         self,
         data: np.ndarray | pd.DataFrame | pt.TensorVariable,
+        loglikelihood_burn: int = 0,
     ) -> None:
         """
         Given a parameter vector `theta`, constructs the full computational graph describing the state space model and
         the associated log probability of the data. Hidden states and log probabilities are computed via the Kalman
         Filter.
 
-        The filter is configured with the ``cov_jitter`` and ``missing_fill_value`` given to the model constructor,
-        which are also what post-estimation graphs use.
+        The filter is configured with the ``cov_jitter``, ``missing_fill_value`` and ``use_joseph_form`` given to the
+        model constructor, which are also what post-estimation graphs use.
+
+        Rebuilding into a model that already holds this graph only repoints it at ``data`` and ``loglikelihood_burn``.
 
         Parameters
         ----------
         data : numpy array, pandas DataFrame, or pytensor tensor
             The observed data used to fit the state space model. It can be a NumPy array, a Pandas DataFrame,
             or a Pytensor tensor variable.
+        loglikelihood_burn : int, optional
+            Number of initial periods the Kalman filter runs through without adding them to the log-likelihood, as
+            in statsmodels. Every later period is still scored conditional on them. Defaults to 0.
         """
         pm_mod = modelcontext(None)
 
@@ -1029,11 +1061,18 @@ class PyMCStateSpace:
             missing_fill_value=self.missing_fill_value,
         )
 
+        loglikelihood_burn = operator.index(loglikelihood_burn)
+        if not 0 <= loglikelihood_burn < len(filled_values):
+            raise ValueError(
+                f"loglikelihood_burn must be non-negative and less than the number of periods in data "
+                f"({len(filled_values)}), got {loglikelihood_burn}"
+            )
+
         if _has_statespace_graph(pm_mod):
-            self._reenter_statespace_graph(filled_values, index, missing)
+            self._reenter_statespace_graph(filled_values, index, missing, loglikelihood_burn)
             return
 
-        for name in (OBSERVED_DATA_NAME, OBSERVED_LIKELIHOOD_NAME):
+        for name in (OBSERVED_DATA_NAME, OBSERVED_LIKELIHOOD_NAME, LOGLIKELIHOOD_BURN_NAME):
             if name in pm_mod.named_vars:
                 raise ValueError(
                     f"The model already contains a variable named {name!r} that this state space "
@@ -1052,7 +1091,14 @@ class PyMCStateSpace:
         obs_dims = FILTER_OUTPUT_DIMS["predicted_observed_states"]
         obs_dims = obs_dims if all([dim in pm_mod.coords.keys() for dim in obs_dims]) else None
 
-        self.make_likelihood(data_variable, matrices, obs_dims, missing)
+        self.make_likelihood(
+            data_variable, matrices, obs_dims, missing, loglikelihood_burn=loglikelihood_burn
+        )
+        if loglikelihood_burn and LOGLIKELIHOOD_BURN_NAME not in pm_mod.named_vars:
+            raise ValueError(
+                f"{type(self).__name__}.make_likelihood registered a likelihood that ignores "
+                "loglikelihood_burn. Defer to super().make_likelihood when it is nonzero."
+            )
         self._register_additional_statespace_variables()
 
     def make_likelihood(
@@ -1061,6 +1107,7 @@ class PyMCStateSpace:
         matrices: list[pt.TensorVariable],
         dims: tuple[str, ...] | None,
         missing: np.ndarray,
+        loglikelihood_burn: int = 0,
     ) -> pt.TensorVariable:
         """
         Register the observation likelihood into the active model and return it.
@@ -1081,6 +1128,10 @@ class PyMCStateSpace:
             Boolean mask over ``data``, true where an observation was missing. The Kalman filter
             marginalizes those; a closed form generally cannot, so this is part of what decides
             whether one applies.
+        loglikelihood_burn : int, optional
+            Number of initial periods filtered but left out of the log-likelihood. An override
+            whose closed form cannot drop leading terms must defer to ``super()`` when this is
+            nonzero, or the build raises.
 
         Returns
         -------
@@ -1094,6 +1145,10 @@ class PyMCStateSpace:
         *_, observed_states = filter_outputs[:3]
         *_, observed_covariances = filter_outputs[3:]
 
+        burn = pm.Data(LOGLIKELIHOOD_BURN_NAME, np.int64(loglikelihood_burn))
+        logp = assert_burn_leaves_periods_to_score(logp, pt.ge(burn, 0), pt.lt(burn, data.shape[0]))
+        logp = pt.set_subtensor(logp[:burn], 0.0)
+
         return SequenceMvNormal(
             OBSERVED_LIKELIHOOD_NAME,
             mus=observed_states,
@@ -1104,13 +1159,18 @@ class PyMCStateSpace:
         )
 
     def _reenter_statespace_graph(
-        self, filled_values: np.ndarray, index: pd.Index | np.ndarray, missing: np.ndarray
+        self,
+        filled_values: np.ndarray,
+        index: pd.Index | np.ndarray,
+        missing: np.ndarray,
+        loglikelihood_burn: int,
     ) -> None:
         """
-        Point an already-built model at new data.
+        Point an already-built model at new data and a new log-likelihood burn.
 
         The filter graph is left as the first build made it, so re-entry cannot change how the
-        model is constructed -- only which observations it is fit against.
+        model is constructed -- only which observations it is fit against and how many leading
+        periods it leaves unscored.
 
         Parameters
         ----------
@@ -1120,6 +1180,8 @@ class PyMCStateSpace:
             Time index of the new data.
         missing : numpy array
             Boolean mask over the new data, true where an observation is missing.
+        loglikelihood_burn : int
+            Number of initial periods to leave out of the log-likelihood.
         """
         # Raises unless the model holds this template's parameters, so a template whose
         # specification has changed cannot silently inherit the graph another one built.
@@ -1127,8 +1189,27 @@ class PyMCStateSpace:
 
         self._verify_exogenous_data_spans(len(filled_values))
         self._verify_likelihood_accepts_missing(missing)
+        self._update_loglikelihood_burn(loglikelihood_burn)
 
         update_data_in_active_model(filled_values, index)
+
+    def _update_loglikelihood_burn(self, loglikelihood_burn: int) -> None:
+        """
+        Write ``loglikelihood_burn`` into the built likelihood.
+
+        A closed-form likelihood scores every period and holds no burn, so it accepts only zero.
+        """
+        pm_mod = modelcontext(None)
+        has_burn = LOGLIKELIHOOD_BURN_NAME in pm_mod.named_vars
+
+        if not has_burn and loglikelihood_burn:
+            raise ValueError(
+                "This model was built with a closed-form likelihood that scores every period, so "
+                "it cannot burn any. Build the model into a fresh pm.Model with loglikelihood_burn "
+                "set to have the Kalman filter chosen instead."
+            )
+        if has_burn:
+            pm_mod.set_data(LOGLIKELIHOOD_BURN_NAME, np.int64(loglikelihood_burn))
 
     def _verify_likelihood_accepts_missing(self, missing: np.ndarray) -> None:
         """
@@ -1207,11 +1288,16 @@ class PyMCStateSpace:
         kalman_smoother : DisturbanceSmoother or RTSSmoother
             Smoother carrying the same time-varying names and jitter.
         """
-        kalman_filter = FILTER_FACTORY[self.filter_type](
+        filter_class = FILTER_FACTORY[self.filter_type]
+        filter_kwargs = dict(
             time_varying_names=self.ssm.time_varying_names,
             cov_jitter=self.cov_jitter,
             missing_fill_value=self.missing_fill_value,
         )
+        if issubclass(filter_class, StandardFilter):
+            filter_kwargs["use_joseph_form"] = self.use_joseph_form
+
+        kalman_filter = filter_class(**filter_kwargs)
         smoother_class = SMOOTHER_FACTORY[self.smoother_type]
         smoother_kwargs = dict(
             time_varying_names=self.ssm.time_varying_names, cov_jitter=self.cov_jitter

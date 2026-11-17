@@ -9,6 +9,18 @@
 
 namespace sogen
 {
+    emulator_process make_emulator_process(const managed_process_identity& process)
+    {
+        emulator_process result{};
+        result.process = process.handle;
+        result.id = process.identity.process_id;
+        result.parent_id = process.identity.parent_process_id;
+        result.is_wow64_process = process.identity.compatibility_environment != 0;
+        result.native_environment = process.identity.native_environment;
+        result.compatibility_environment = process.identity.compatibility_environment;
+        return result;
+    }
+
     namespace
     {
         enum class wait_state
@@ -254,7 +266,7 @@ namespace sogen
 
                 if (const auto* process = c.processes.get_by_index(ref.index); process && process->process && win_emu.processes())
                 {
-                    const auto status = win_emu.processes()->exit_status(process->process);
+                    const auto status = win_emu.processes()->poll_exit_status(process->process);
                     if (status && status.status.has_value())
                     {
                         return wait_state::signaled;
@@ -266,7 +278,7 @@ namespace sogen
             case handle_types::managed_thread:
                 if (const auto* thread = c.managed_threads.get_by_index(ref.index); thread && win_emu.processes())
                 {
-                    const auto status = win_emu.processes()->exit_status(thread->process);
+                    const auto status = win_emu.processes()->poll_exit_status(thread->process);
                     if (status && status.status.has_value())
                     {
                         return wait_state::signaled;
@@ -508,7 +520,7 @@ namespace sogen
                     return std::nullopt;
                 }
 
-                const auto status = win_emu.processes()->exit_status(process->process);
+                const auto status = win_emu.processes()->poll_exit_status(process->process);
                 return status && status.status.has_value() ? std::optional{wait_state::signaled} : std::nullopt;
             }
 
@@ -519,7 +531,7 @@ namespace sogen
                     return std::nullopt;
                 }
 
-                const auto status = win_emu.processes()->exit_status(thread->process);
+                const auto status = win_emu.processes()->poll_exit_status(thread->process);
                 return status && status.status.has_value() ? std::optional{wait_state::signaled} : std::nullopt;
             }
 
@@ -1045,6 +1057,7 @@ namespace sogen
         this->await_io_completion = {};
         this->await_debug_event = {};
         this->await_file_io = {};
+        this->await_console_io = false;
         this->await_host_condition = {};
         this->awaits_restored_host_condition = false;
 
@@ -1600,6 +1613,11 @@ namespace sogen
             return complete_if_timed_out(STATUS_TIMEOUT);
         }
 
+        if (this->await_console_io)
+        {
+            return false;
+        }
+
         if (this->await_file_io)
         {
             const auto status = this->memory_ptr->read_memory<NTSTATUS>(*this->await_file_io);
@@ -1678,10 +1696,10 @@ namespace sogen
                 {
                     // NtRemoveIoCompletionEx stores its count of 0 under try as well. NtWaitForWorkViaWorkerFactory stores its
                     // count only when it succeeds (19041).
-                    const auto status =
-                        wait.type == io_completion_wait_type::remove_multiple && !wait.worker_factory
-                            ? io_completion_wait::write_entries(win_emu.memory, wait.completion_entries_ptr, wait.entries_removed_ptr, {})
-                            : STATUS_SUCCESS;
+                    const auto status = wait.type == io_completion_wait_type::remove_multiple && !wait.worker_factory
+                                            ? io_completion_wait::write_entries(win_emu.memory, this, wait.completion_entries_ptr,
+                                                                                wait.entries_removed_ptr, {})
+                                            : STATUS_SUCCESS;
                     this->mark_as_ready(status == STATUS_SUCCESS ? STATUS_TIMEOUT : status);
                     return true;
                 }
@@ -1701,7 +1719,7 @@ namespace sogen
                     return false;
                 }
 
-                this->mark_as_ready(io_completion_wait::write_message(win_emu.memory, wait.key_context_ptr, wait.apc_context_ptr,
+                this->mark_as_ready(io_completion_wait::write_message(win_emu.memory, this, wait.key_context_ptr, wait.apc_context_ptr,
                                                                       wait.io_status_block_ptr, message));
                 return true;
             }
@@ -1714,8 +1732,8 @@ namespace sogen
                     return false;
                 }
 
-                this->mark_as_ready(
-                    io_completion_wait::write_entries(win_emu.memory, wait.completion_entries_ptr, wait.entries_removed_ptr, messages));
+                this->mark_as_ready(io_completion_wait::write_entries(win_emu.memory, this, wait.completion_entries_ptr,
+                                                                      wait.entries_removed_ptr, messages));
                 return true;
             }
 

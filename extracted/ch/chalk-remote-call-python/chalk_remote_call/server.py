@@ -3,7 +3,10 @@ from __future__ import annotations
 import logging
 import os
 from collections.abc import Callable
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
+
+if TYPE_CHECKING:
+    from chalk_remote_call._native import ServingHandle
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +41,8 @@ def serve(
     max_batching_size: int | None = None,
     max_buffer_duration_ms: int | None = None,
     batching_mode: Literal["per_caller", "combined"] | None = None,
+    serving_handle: ServingHandle | None = None,
+    require_weight_fence: bool = False,
 ) -> None:
     """Start the gRPC server implementing RemoteCallService.
 
@@ -67,6 +72,15 @@ def serve(
             when max_batching_size > 0. Overrides the
             CHALK_REMOTE_CALL_BATCHING_MODE env var when set; otherwise the
             env var (or "per_caller") wins.
+        serving_handle: Optional native handle for model-serving integrations.
+            It starts not serving; call ``set_serving(True)`` only after the
+            exact model target has been applied, passing its absolute Unix
+            ``lease_expires_at`` timestamp. Native Rust enforces that deadline
+            independently of Python progress. Disabling admission rejects new
+            calls. Close it and call ``wait_drained(timeout_seconds)`` before
+            changing weights; the native permit tracks actual Python execution.
+        require_weight_fence: Require an exact per-request target fingerprint and
+            a target-fenced handle. Legacy handlers keep the default behavior.
     """
     # Keep package imports lightweight so the CLI can configure logging before dependency failures.
     from chalk_remote_call._native import start_server
@@ -75,6 +89,9 @@ def serve(
         process_batches_coalesced,
         process_batches_coalesced_combined,
     )
+
+    if require_weight_fence and (serving_handle is None or not serving_handle.requires_target):
+        raise ValueError("require_weight_fence needs a target-fenced ServingHandle")
 
     if on_startup is not None:
         logger.info("Running startup hook...")
@@ -110,6 +127,8 @@ def serve(
             arg_names=arg_names,
             max_batching_size=batch_size,
             max_buffer_duration_ms=duration_ms,
+            serving_handle=serving_handle,
+            require_weight_fence=require_weight_fence,
         )
     finally:
         if on_shutdown is not None:

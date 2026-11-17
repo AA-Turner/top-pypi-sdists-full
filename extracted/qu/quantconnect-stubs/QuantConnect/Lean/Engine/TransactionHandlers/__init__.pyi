@@ -144,7 +144,7 @@ class ITransactionHandler(QuantConnect.Securities.IOrderProcessor, QuantConnect.
         ...
 
     def exit(self) -> None:
-        """Signal a end of thread request to stop montioring the transactions."""
+        """Signal a end of thread request to stop monitoring the transactions."""
         ...
 
     def initialize(self, algorithm: QuantConnect.Interfaces.IAlgorithm, brokerage: QuantConnect.Interfaces.IBrokerage, result_handler: QuantConnect.Lean.Engine.Results.IResultHandler) -> None:

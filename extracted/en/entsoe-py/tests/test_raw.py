@@ -1,10 +1,12 @@
 from itertools import product
 import os
+import traceback
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from entsoe import EntsoeRawClient
 import pandas as pd
 import pytest
+import requests
 
 load_dotenv()
 
@@ -62,7 +64,7 @@ CROSSBORDER_QUERIES = [
 
 @pytest.mark.parametrize(
     "country_code, start, end, query",
-    product(COUNTRY_CODES, STARTS, ENDS, BASIC_QUERIES),
+    list(product(COUNTRY_CODES, STARTS, ENDS, BASIC_QUERIES)),
 )
 def test_basic_queries(client, query, country_code, start, end):
     if query == 'query_current_balancing_state' and country_code == 'DE_LU':
@@ -76,7 +78,7 @@ def test_basic_queries(client, query, country_code, start, end):
 
 @pytest.mark.parametrize(
     "country_code, start, end, query",
-    product(['BE', 'FR'], STARTS, ENDS, BASIC_QUERIES_ZIP),
+    list(product(['BE', 'FR'], STARTS, ENDS, BASIC_QUERIES_ZIP)),
 )
 def test_basic_queries_zip(client, query, country_code, start, end):
     result = getattr(client, query)(country_code, start, end)
@@ -85,7 +87,7 @@ def test_basic_queries_zip(client, query, country_code, start, end):
 
 @pytest.mark.parametrize(
     "country_code_from, country_code_to, start, end, query",
-    product(COUNTRY_CODES_FROM, COUNTRY_CODES_TO, STARTS, ENDS, CROSSBORDER_QUERIES),
+    list(product(COUNTRY_CODES_FROM, COUNTRY_CODES_TO, STARTS, ENDS, CROSSBORDER_QUERIES)),
 )
 def test_crossborder_queries(
     client, query, country_code_from, country_code_to, start, end
@@ -104,7 +106,7 @@ def test_query_aggregate_water_reservoirs_and_hydro_storage(client):
 
 @pytest.mark.parametrize(
     "country_code_from, country_code_to, start, end",
-    product(COUNTRY_CODES_FROM, COUNTRY_CODES_TO, STARTS, ENDS),
+    list(product(COUNTRY_CODES_FROM, COUNTRY_CODES_TO, STARTS, ENDS)),
 )
 def test_query_intraday_offered_capacity(client, country_code_from, country_code_to, start, end):
     result = client.query_intraday_offered_capacity(
@@ -116,7 +118,7 @@ def test_query_intraday_offered_capacity(client, country_code_from, country_code
 
 @pytest.mark.parametrize(
     "country_code, process_type, start, end",
-    product([x if x != 'DE_LU' else 'DE_AMPRION' for x in COUNTRY_CODES], ['A51', 'A52', 'A47'], STARTS, ENDS),
+    list(product([x if x != 'DE_LU' else 'DE_AMPRION' for x in COUNTRY_CODES], ['A51', 'A52', 'A47'], STARTS, ENDS)),
 )
 def test_query_contracted_reserve_prices_procured_capacity(client, country_code, process_type, start, end):
     # [O] A51 = Automatic frequency restoration reserve; A52 = Frequency containment reserve; A47 = Manual frequency restoration reserve; A46 = Replacement reserve
@@ -129,7 +131,7 @@ def test_query_contracted_reserve_prices_procured_capacity(client, country_code,
 
 @pytest.mark.parametrize(
     "country_code, start, end",
-    product(COUNTRY_CODES, STARTS, ENDS),
+    list(product(COUNTRY_CODES, STARTS, ENDS)),
 )
 def test_query_unavailability_of_generation_units(client, country_code, start, end):
     result = client.query_unavailability_of_generation_units(country_code, start, end, docstatus=None, periodstartupdate=None, periodendupdate=None)
@@ -138,7 +140,7 @@ def test_query_unavailability_of_generation_units(client, country_code, start, e
 
 @pytest.mark.parametrize(
     "country_code, start, end",
-    product([x for x in COUNTRY_CODES if x != 'BE'], STARTS, ENDS),
+    list(product([x for x in COUNTRY_CODES if x != 'BE'], STARTS, ENDS)),
 )
 def test_query_unavailability_of_production_units(client, country_code, start, end):
     result = client.query_unavailability_of_production_units(country_code, start, end, docstatus=None, periodstartupdate=None, periodendupdate=None)
@@ -146,7 +148,7 @@ def test_query_unavailability_of_production_units(client, country_code, start, e
 
 @pytest.mark.parametrize(
     "country_code_from, country_code_to, start, end",
-    product(COUNTRY_CODES_FROM, [x for x in COUNTRY_CODES_TO if x != 'DE_LU'], STARTS, ENDS),
+    list(product(COUNTRY_CODES_FROM, [x for x in COUNTRY_CODES_TO if x != 'DE_LU'], STARTS, ENDS)),
 )
 def test_query_unavailability_transmission(
     client, country_code_from, country_code_to, start, end
@@ -167,3 +169,21 @@ def test_query_unavailability_transmission(
 #         country_code, start, end,
 #     )
 #     assert isinstance(result, (bytes, bytearray))
+
+
+def test_invalid_key_is_not_leaked():
+    key = "not-a-real-key"
+    bad_client = EntsoeRawClient(api_key=key, retry_count=1)
+    with pytest.raises(requests.HTTPError) as excinfo:
+        bad_client.query_day_ahead_prices("NL", start=STARTS[0], end=ENDS[0])
+    assert key not in str(excinfo.value)
+    assert key not in "".join(traceback.format_exception(excinfo.value))
+
+
+def test_connection_error_does_not_leak_key():
+    key = "not-a-real-key"
+    # a tiny timeout makes the real connection to the API fail
+    bad_client = EntsoeRawClient(api_key=key, retry_count=1, retry_delay=0, timeout=0.001)
+    with pytest.raises(requests.ConnectionError) as excinfo:
+        bad_client.query_day_ahead_prices("NL", start=STARTS[0], end=ENDS[0])
+    assert key not in "".join(traceback.format_exception(excinfo.value))

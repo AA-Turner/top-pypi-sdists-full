@@ -2,12 +2,20 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from importlib.machinery import ModuleSpec
+
+__spec__ = cast("ModuleSpec", __spec__)
+
 __lazy_modules__ = [
     "filelock._error",
     "filelock._lease",
-    "filelock._soft_rw._protocol",
-    "filelock._soft_rw._storage",
+    "functools",
     "math",
+    f"{__spec__.parent}._protocol",
+    f"{__spec__.parent}._storage",
 ]
 
 import atexit
@@ -16,32 +24,62 @@ import threading
 import time
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass
+from functools import partial
 from math import isfinite
 from typing import TYPE_CHECKING, ClassVar, Final, NamedTuple
 from weakref import WeakValueDictionary
 
-from filelock._api import (
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
     AcquireReturnProxy,
-    _acquire_thread_lock,
-    _canonical,
-    _check_blocking,
-    _check_timeout_max,
-    _ensure_current_process,
-    _register_fork_class,
-    _register_fork_object,
-    _resolve_read_write_timeout,
-    _seconds,
-    _timeout_behavior,
 )
-from filelock._error import Timeout
-from filelock._lease import LeaseCompromise
-from filelock._soft_rw._protocol import GenerationLog, Ledger, Mode, Participant
-from filelock._soft_rw._storage import OsFiles
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    acquire_thread_lock as _acquire_thread_lock,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    canonical as _canonical,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    check_blocking as _check_blocking,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    check_timeout_max as _check_timeout_max,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    ensure_current_process as _ensure_current_process,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    path_key as _path_key,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    register_fork_class as _register_fork_class,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    register_fork_object as _register_fork_object,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    resolve_read_write_timeout as _resolve_read_write_timeout,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    seconds as _seconds,
+)
+from filelock._api import (  # simplint: ignore[private-import-path]  # shared parent helper
+    timeout_behavior as _timeout_behavior,
+)
+from filelock._error import Timeout  # simplint: ignore[private-import-path]  # internal dependency
+from filelock._lease import LeaseCompromise  # simplint: ignore[private-import-path]  # internal dependency
+
+from ._protocol import (
+    GenerationLog,
+    Ledger,
+    Mode,
+    Participant,
+)
+from ._storage import OsFiles
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
-    from filelock._lease import CompromiseReason
+    from filelock._lease import CompromiseReason  # simplint: ignore[private-import-path]  # internal dependency
 
 _ALL_INSTANCES: Final[WeakValueDictionary[int, SoftReadWriteLock]] = WeakValueDictionary()
 _ALL_INSTANCES_LOCK: threading.Lock = threading.Lock()
@@ -83,7 +121,7 @@ class _SoftRWMeta(type):
             )
 
         # Keyed like the log root, so one instance never spans two logs.
-        normalized = _canonical(lock_file)
+        normalized = _path_key(_canonical(lock_file))
         with cls._instances_lock:
             instance = cls._instances.get(normalized)
             if instance is None:
@@ -120,7 +158,7 @@ class _SoftRWMeta(type):
                     f" cannot be changed to timeout={timeout}, blocking={blocking}"
                 )
                 raise ValueError(msg)
-            elif on_compromise is not None and instance._on_compromise != on_compromise:  # ruff: ignore[private-member-access]  # the metaclass owns the singleton it compares
+            elif on_compromise is not None and instance._losses.callback != on_compromise:  # ruff: ignore[private-member-access]  # the metaclass owns the singleton it compares
                 # A tuning difference keeps the first caller's values; a different loss callback is a different safety
                 # contract, and returning the cached instance would silently drop it.
                 msg = f"Singleton lock created with a different on_compromise callback for {lock_file!s}"
@@ -223,14 +261,19 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
 
         # Resolved once: a relative lock path must keep naming the same log after the process changes directory. The
         # final component stays unresolved, as in 4.0.12, so every release shares one log on a symlinked lock path.
-        self._root = f"{_canonical(self.lock_file)}.rw"
-        self._files = OsFiles(self.lock_file)
-        self._ledger = Ledger(time.monotonic)
-        self._log = GenerationLog(self._files, self.lock_file, self._root)
-        self._on_compromise = on_compromise
+        root = f"{_canonical(self.lock_file)}.rw"
+        files = OsFiles(self.lock_file)
+        # The ledger and log outlive one acquisition, so every participant of this instance shares them.
+        self._new_participant: Final = partial(
+            Participant,
+            files,
+            root,
+            ledger=Ledger(time.monotonic),
+            log=GenerationLog(files, self.lock_file, root),
+        )
+        self._losses = _Losses(callback=on_compromise)
         self._locks = _Locks(internal=threading.Lock(), transaction=threading.Lock())
         self._hold: _Hold | None = None
-        self._compromise: LeaseCompromise | None = None
         self._closed: bool = False
 
         with _ALL_INSTANCES_LOCK:
@@ -288,7 +331,7 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
 
         """
         with self._locks.internal:
-            return self._compromise
+            return self._losses.latest
 
     @classmethod
     def _reset_class_after_fork(cls) -> None:  # pragma: forked child
@@ -408,8 +451,8 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
             raise RuntimeError(msg)
         # Publishing a hold clears the loss recorded for the one before, so a loss seen here is this hold's. Its
         # heartbeat has stopped and a peer may hold the lock, so a new level must not bypass the log.
-        if (compromise := self._compromise) is not None:
-            raise _lost_hold_error(self.lock_file, mode, compromise)
+        if (compromise := self._losses.latest) is not None:
+            raise lost_hold_error(self.lock_file, mode, compromise)
         if mode == "read":
             hold.read_depths[holder] = hold.read_depths.get(holder, 0) + 1
         hold.level += 1
@@ -427,15 +470,7 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
         with self._locks.internal:
             if self._hold is not None:
                 return self._validate_reentrant(mode, holder)
-        participant = Participant(
-            self._files,
-            self._root,
-            mode,
-            stale_threshold=self.stale_threshold,
-            clock=time.monotonic,
-            ledger=self._ledger,
-            log=self._log,
-        )
+        participant = self._new_participant(mode, stale_threshold=self.stale_threshold, clock=time.monotonic)
         participant.publish()
         try:
             self._wait_for(participant.advance, deadline=deadline, blocking=blocking, cancel_check=cancel_check)
@@ -473,7 +508,7 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
                 start_error = self._closed_error()
             else:
                 self._hold = hold
-                self._compromise = None
+                self._losses.latest = None
                 try:
                     hold.heartbeat_thread.start()
                 except BaseException as error:  # ruff:ignore[blind-except]  # clear the slot below and re-raise
@@ -536,9 +571,9 @@ class SoftReadWriteLock(metaclass=_SoftRWMeta):
             compromise = LeaseCompromise(
                 lock_file=self.lock_file, token=hold.participant.token, reason=reason, error=error
             )
-            self._compromise = compromise
-        if self._on_compromise is not None:
-            self._on_compromise(compromise)
+            self._losses.latest = compromise
+        if self._losses.callback is not None:
+            self._losses.callback(compromise)
 
     def release(self, *, force: bool = False) -> None:
         """
@@ -719,7 +754,7 @@ class _HeartbeatThread(threading.Thread):
             self._stop_event.set()
 
 
-def _lost_hold_error(lock_file: str, mode: Mode, compromise: LeaseCompromise) -> RuntimeError:
+def lost_hold_error(lock_file: str, mode: Mode, compromise: LeaseCompromise) -> RuntimeError:
     return RuntimeError(
         f"Cannot acquire {mode} lock on {lock_file}: the current hold was lost ({compromise.reason}), "
         "release it before acquiring again"
@@ -759,6 +794,13 @@ def _validate_intervals(heartbeat_interval: float, stale_threshold: float | None
     return _Intervals(heartbeat_interval, stale_threshold, poll_interval)
 
 
+@dataclass(slots=True, kw_only=True)
+class _Losses:
+    # The caller's handler for a lost hold and the latest loss, which stays readable until the next hold is published.
+    callback: Callable[[LeaseCompromise], None] | None
+    latest: LeaseCompromise | None = None
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class _Locks:
     internal: threading.Lock
@@ -787,7 +829,7 @@ class _Hold:
                 self.read_depths[owner] = depth
 
 
-def _cleanup_all_instances() -> None:  # pragma: no cover - runs from atexit at interpreter shutdown
+def _cleanup_all_instances() -> None:
     for instance in list(_ALL_INSTANCES.values()):
         with suppress(Exception):
             instance.release(force=True)
@@ -799,5 +841,5 @@ _register_fork_class(SoftReadWriteLock)
 
 __all__ = [
     "SoftReadWriteLock",
-    "_lost_hold_error",
+    "lost_hold_error",
 ]

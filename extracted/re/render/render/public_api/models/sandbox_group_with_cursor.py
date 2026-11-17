@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -13,14 +15,15 @@ T = TypeVar("T", bound="SandboxGroupWithCursor")
 
 @_attrs_define
 class SandboxGroupWithCursor:
-    """A sandbox group with a cursor
+    """A sandbox group with a cursor for fetching the next page of results.
 
     Attributes:
-        sandbox_group (SandboxGroup):
+        sandbox_group (SandboxGroup): A group of sandboxes in a workspace that share a region, concurrency limit, and
+            credentials.
         cursor (str):
     """
 
-    sandbox_group: "SandboxGroup"
+    sandbox_group: SandboxGroup
     cursor: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -42,7 +45,7 @@ class SandboxGroupWithCursor:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.sandbox_group import SandboxGroup
+        from ..models.sandbox_group import SandboxGroup  # noqa: PLC0415
 
         d = dict(src_dict)
         sandbox_group = SandboxGroup.from_dict(d.pop("sandboxGroup"))

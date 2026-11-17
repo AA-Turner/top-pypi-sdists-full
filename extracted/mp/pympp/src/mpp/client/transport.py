@@ -24,6 +24,7 @@ from mpp import AUTHORIZATION_HEADER, PAYMENT_AUTHORIZATION_HEADER, Challenge, C
 from mpp._defaults import DEFAULT_PAID_RETRY_TIMEOUT
 from mpp._parsing import MAX_AUTHORIZATION_SIZE, ParseError
 from mpp._typing import is_dict
+from mpp.client._identity import IdentityClient
 from mpp.errors import (
     InvalidChallengeError,
     NoMethodFoundError,
@@ -60,6 +61,8 @@ from mpp.x402._types import (
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
+
+    from mpp.identity import HeaderPairs, Prover
 
 
 _DEFAULT_MAX_PAYMENT_RETRIES = 3
@@ -127,6 +130,15 @@ def _is_zero_tempo_charge(challenge: Challenge) -> bool:
         return int(challenge.request["amount"]) == 0
     except (KeyError, TypeError, ValueError, OverflowError):
         return False
+
+
+def _is_realm_bound_tempo(challenge: Challenge) -> bool:
+    """Whether paying ``challenge`` signs for its realm: a zero-amount ``tempo/charge`` proof or
+    any ``tempo/session`` payment (mppx ``ProofRealm``). A foreign host could otherwise relay
+    another server's challenge and use the signed credential or channel there."""
+    return _is_zero_tempo_charge(challenge) or (
+        challenge.method == "tempo" and challenge.intent == "session"
+    )
 
 
 def _payment_origins(
@@ -271,6 +283,7 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         max_payment_retries: int = _DEFAULT_MAX_PAYMENT_RETRIES,
         paid_retry_timeout: float | None = _PAID_RETRY_TIMEOUT_UNSET,
         order_challenges: OrderChallenges | None = None,
+        identity: Sequence[Prover] | None = None,
     ) -> None:
         """Initialize the transport.
 
@@ -281,7 +294,8 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 amount and recipient limits separately. Challenge realms are not
                 authenticated origins and are not compared with this allowlist.
             trusted_tempo_realms: Explicit origin-to-realm pins for zero-amount
-                Tempo charges when a server uses a realm other than its hostname.
+                Tempo charges and Tempo session payments when a server uses a realm
+                other than its hostname.
             paid_retry_timeout: Timeout in seconds for the paid retry request,
                 used exactly when set. ``None`` inherits the request's timeout
                 unchanged. When unset, the inherited read timeout is raised to
@@ -289,6 +303,9 @@ class PaymentTransport(httpx.AsyncBaseTransport):
             order_challenges: Filters and sorts the payable challenges of a ``402``
                 before credential creation (mppx ``orderChallenges``); the first
                 returned candidate is paid. An empty result pays nothing.
+            identity: Identity provers (:class:`mpp.identity.Prover`) applied, in order,
+                to every request to their scope. They prepare proofs from a ``402``
+                before the paid retry, and may resend a rejected unpaid request once.
         """
         if (methods is None) == (runtime is None):
             raise TypeError("Provide exactly one of methods or runtime")
@@ -309,6 +326,26 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         self._order_challenges = order_challenges
         self._credential_keywords = _accepted_keywords(
             self._runtime.create_credential, ("request", "fetch", "attempt")
+        )
+        self._identity = IdentityClient(identity) if identity else None
+
+    async def _send(
+        self,
+        request: httpx.Request,
+        *,
+        challenge: Challenge | None = None,
+        carried: HeaderPairs = (),
+        replayable: bool = True,
+    ) -> tuple[httpx.Response, HeaderPairs]:
+        """Send one attempt through the inner transport, proved by the identity provers."""
+        if self._identity is None:
+            return await self._inner.handle_async_request(request), carried
+        return await self._identity.send(
+            self._inner.handle_async_request,
+            request,
+            challenge=challenge,
+            carried=carried,
+            replayable=replayable,
         )
 
     def on(self, name: str, handler: EventHandler) -> Unsubscribe:
@@ -335,6 +372,9 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         """Handle request, automatically retrying on 402 with credentials."""
         current_origin = _origin(request.url)
         original_origin = request.extensions.setdefault(_ORIGINAL_ORIGIN_EXTENSION, current_origin)
+        if self._identity is not None and current_origin != original_origin:
+            # Bearer identity proofs never follow a cross-origin redirect.
+            self._identity.strip_sensitive(request)
         supplied_payment = PAYMENT_SIGNATURE_HEADER in request.headers or any(
             request.headers.get(header, "").lower().startswith("payment ")
             for header in _CREDENTIAL_HEADERS
@@ -344,7 +384,9 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 raise PaymentError("Refusing to send payment credential across redirect")
             request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
         if supplied_payment or request.extensions.get(_PAYMENT_ATTEMPTED_EXTENSION):
-            return await self._inner.handle_async_request(request)
+            # A request already carrying a credential is a paid attempt: never resent.
+            response, _ = await self._send(request)
+            return response
 
         accept_payment = _accept_payment(self._runtime.methods)
         if accept_payment and "accept-payment" not in request.headers:
@@ -357,7 +399,7 @@ class PaymentTransport(httpx.AsyncBaseTransport):
         if replayable:
             await request.aread()
 
-        response = await self._inner.handle_async_request(request)
+        response, carried = await self._send(request, replayable=replayable)
         # The last credential sent, until the method settles its outcome (mppx Fetch).
         sent: _SentCredential | None = None
 
@@ -450,17 +492,18 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                     )
                     raise error
 
-                # A zero-amount Tempo proof signs the challenge realm. Do not let a
-                # different host obtain a proof that it can relay to the server
-                # named by that realm.
+                # A zero-amount Tempo proof or a Tempo session payment signs for the
+                # challenge realm. Do not let a different host obtain a credential that
+                # it can relay to the server named by that realm.
                 while (
-                    _is_zero_tempo_charge(challenge)
+                    _is_realm_bound_tempo(challenge)
                     and challenge.realm.lower() != request.url.host.lower()
                     and challenge.realm.lower() != request.url.raw_host.decode("ascii").lower()
                     and challenge.realm != self._trusted_tempo_realms.get(current_origin)
                 ):
+                    kind = "Session" if challenge.intent == "session" else "Zero-amount"
                     error = PaymentError(
-                        f"Zero-amount Tempo realm {challenge.realm!r} differs from "
+                        f"{kind} Tempo realm {challenge.realm!r} differs from "
                         f"request host {request.url.host!r}; configure trusted_tempo_realms "
                         "for a known server origin"
                     )
@@ -498,6 +541,11 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 # Release the pool connection before callbacks can make auxiliary requests.
                 with suppress(Exception):
                     await response.aclose()
+
+                if self._identity is not None:
+                    # Provers prepare proofs for the selected Challenge before it is paid, from
+                    # the 402's headers: its connection is free for any request they make.
+                    await self._identity.prepare(response, challenge, request.url)
 
                 reused: Credential | None = None
                 if sent is not None:
@@ -619,7 +667,9 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
                 retry_request.extensions[_PAYMENT_ATTEMPTED_EXTENSION] = True
                 try:
-                    payment_response = await self._inner.handle_async_request(retry_request)
+                    payment_response, _ = await self._send(
+                        retry_request, challenge=challenge, carried=carried
+                    )
                     response = payment_response
                     if payment_response.is_server_error:
                         # Release the connection before failure hooks can make auxiliary
@@ -727,8 +777,11 @@ class PaymentTransport(httpx.AsyncBaseTransport):
                 )
 
     async def _send_auxiliary(self, request: httpx.Request) -> httpx.Response:
-        """Send a request a payment method needs, without payment handling, and read it."""
-        response = await self._inner.handle_async_request(request)
+        """Send a request a payment method needs, without payment handling, and read it.
+
+        Identity provers still prove it, so a session's top-up carries the caller's identity.
+        """
+        response, _ = await self._send(request)
         try:
             await response.aread()
         finally:
@@ -820,6 +873,7 @@ class Mpp:
         max_payment_retries: int = _DEFAULT_MAX_PAYMENT_RETRIES,
         paid_retry_timeout: float | None = _PAID_RETRY_TIMEOUT_UNSET,
         order_challenges: OrderChallenges | None = None,
+        identity: Sequence[Prover] | None = None,
     ) -> None:
         self.payment_transport = PaymentTransport(
             methods,
@@ -829,6 +883,7 @@ class Mpp:
             max_payment_retries=max_payment_retries,
             paid_retry_timeout=paid_retry_timeout,
             order_challenges=order_challenges,
+            identity=identity,
         )
         self._client: httpx.AsyncClient | None = None
 

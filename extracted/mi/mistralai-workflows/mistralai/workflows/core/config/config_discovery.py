@@ -9,6 +9,7 @@ from httpx import HTTPStatusError
 from mistralai.workflows.client import translate_model
 from mistralai.workflows.core._logger import get_logger
 from mistralai.workflows.core.auth import get_token_provider
+from mistralai.workflows.core.auth.header_files import get_deployment_headers
 from mistralai.workflows.core.config.config import adopt_remote_default, apply_remote_defaults, config
 from mistralai.workflows.core.worker_client import get_worker_client
 from mistralai.workflows.exceptions import ErrorCode, WorkflowsException
@@ -34,7 +35,7 @@ async def _fetch_worker_runtime_config() -> WorkerRuntimeConfig:
     async with get_worker_client(
         base_url=config.worker.server_url,
         token_provider=get_token_provider(),
-        headers=config.worker.mistral_api_headers,
+        headers=get_deployment_headers(),
     ) as worker_client:
         result = await worker_client.whoami_async()
         response = translate_model(WorkerInfo, result)

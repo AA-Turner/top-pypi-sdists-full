@@ -169,7 +169,7 @@ def format_doctor(rep: dx.DoctorReport) -> str:
 def since_epoch(text, *, now: Optional[float] = None) -> float:
     """--since as epoch seconds: a span back from now ("90s", "30m", "2h", "1d") or an ISO-8601 time - and, from a
     script (seq.policy_logs(since=...)), a datetime (one with no zone in UTC) or epoch seconds as a number.
-    {worker 3 on dev 10-29: since=time.time() - 3600 raised TypeError from inside the time pattern}"""
+    """
     import time as _time
     from datetime import datetime, timezone
 

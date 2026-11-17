@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roc-validator
-Version: 0.13.1
+Version: 0.14.0
 Summary: A Python package to validate RO-Crates
 License: Apache-2.0
 License-File: LICENSE
@@ -40,7 +40,7 @@ Requires-Dist: requests-cache (>=1.2,<2.0)
 Requires-Dist: rich (>=13.9,<15.0)
 Requires-Dist: rich-click (>=1.8,<2.0)
 Requires-Dist: toml (>=0.10.2,<1.0)
-Project-URL: Documentation, https://github.com/crs4/rocrate-validator
+Project-URL: Documentation, https://rocrate-validator.readthedocs.io/en/latest/
 Project-URL: Homepage, https://github.com/crs4/rocrate-validator
 Project-URL: Repository, https://github.com/crs4/rocrate-validator
 Description-Content-Type: text/markdown

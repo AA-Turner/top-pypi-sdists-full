@@ -218,6 +218,17 @@ async def get_or_set(
         lock.release()
 
 
+def drop(profile: str, key: str) -> None:
+    """Drop one entry, so the next `get_or_set` for it fetches.
+
+    The lock stays: a caller may hold it mid-`produce()`, and replacing it would let a
+    second caller issue the same fetch. Like `invalidate`, nothing here bounds how often
+    it runs, so a caller that drops on a request's say-so must bound that itself
+    (`manage/access.require_staff` allows one per person per few seconds).
+    """
+    _entries.pop((profile, key), None)
+
+
 def invalidate(profile: str | None = None) -> None:
     """Drop cached entries for one profile, or all of them.
 

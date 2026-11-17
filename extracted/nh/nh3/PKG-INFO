@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nh3
-Version: 0.3.7
+Version: 0.3.8
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -9,7 +9,7 @@ License-File: LICENSE
 Summary: Python binding to Ammonia HTML sanitizer Rust crate
 Author-email: messense <messense@icloud.com>
 License: MIT
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Source Code, https://github.com/messense/nh3
 

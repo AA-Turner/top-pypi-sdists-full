@@ -93,47 +93,62 @@ def most_a_copy(listed: list[int]) -> str:
             "their requests, which no check times, is what would hold them up")
 
 
+def one_a_copy(spec: Any) -> str | None:
+    """Why a copy seats one robot where the policy's declarations alone make it so, in the words `seq deploy`'s seats
+    line and `seq policy status` say it: an episode that holds its copy; no @seq.concurrent, robots never taking turns
+    on a copy; or, of one that batches, no action_chunk_valid_len,
+    or its asks at its last valid step with no max_wait_for_batch, its robots waiting for every answer. None where its
+    seats are its batches' timing's. `spec`: a PolicySpec, or `seq policy status`'s stand-in of its fleet's `policy`
+    (the values a robot plays by now, a chunk length or the wait set live over the version's own).
+
+
+"""
+    if spec.episodes == "own":
+        return "one robot a copy: an episode holds its copy"
+    if not getattr(spec.concurrency, "sizes", None):
+
+        return ("one robot a copy: it declares no @seq.concurrent, so infer takes one act at a time, and robots never "
+                "take turns on a copy")
+    steps = wait_steps(spec.action_chunk_valid_len, spec.action_chunk_replan_at)
+    if steps is None:
+        return ("one robot a copy: it declares no action_chunk_valid_len, so nothing says how long its robots can wait "
+                "for a batch")
+    if not steps and getattr(spec, "max_wait_for_batch", None) is None:
+        return ("one robot a copy: it asks for each answer at its last valid step, so its robots wait for every answer "
+                "and none can wait for a batch - an action_chunk_replan_at below action_chunk_valid_len gives them the "
+                "time, or a max_wait_for_batch lets them wait that long for one")
+    return None
+
+
 def seats(spec: Any, bindings: dict) -> str:
     """How a worker seats robots on a copy: a policy whose infer takes a
     batch (@seq.concurrent(sizes=[...])) as many as the largest listed size whose batch answers within the time its
     robots can wait for an answer (wait_steps at hz), as long as, run together on a simulated clock, at least 95% of
     their answers are in time and their batches fill at most LOAD_MAX of the time between a robot's asks (its replan
     step at hz) - one that sets max_wait_for_batch by that wait and its load alone, off the clock - each size timed by
-    its version's build check, up to most_a_copy; one that
-    asks at its last valid step, or declares no action_chunk_valid_len, one robot a copy, its robots waiting for every
-    answer or nothing saying how long they can; any other one robot a copy - several robots never take turns on one
-    copy (the user 10-24: "We just want to do the batching").
+    its version's build check, up to most_a_copy; any other one robot a copy, and why (one_a_copy).
 
 
 """
-    listed = getattr(spec.concurrency, "sizes", None)
-    if spec.episodes == "own":
-        return "one robot a copy: an episode holds its copy"
-    if listed:
-        steps = wait_steps(spec.action_chunk_valid_len, spec.action_chunk_replan_at)
-        if steps is None:
-            return ("one robot a copy: it declares no action_chunk_valid_len, so nothing says how long its robots can "
-                    "wait for a batch")
-        wait = getattr(spec, "max_wait_for_batch", None)
-        if wait is not None:
-            ask = spec.action_chunk_valid_len - steps
-            return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that "
-                    f"answers within its max_wait_for_batch of {wait:g} s, each robot waiting up to that long for an "
-                    f"answer, as long as their batches fill at most {LOAD_MAX:.0%} of a robot's time between asks (its "
-                    f"{ask} steps at {spec.hz:g} Hz and its wait for the answer) - each warmed and timed on "
-                    f"{_timing(spec, bindings) or 'nothing'} before it serves{most_a_copy(listed)}")
-        if not steps:
-            return ("one robot a copy: it asks for each answer at its last valid step, so its robots wait for every "
-                    "answer and none can wait for a batch - an action_chunk_replan_at below action_chunk_valid_len "
-                    "gives them the time, or a max_wait_for_batch lets them wait that long for one")
-        ask = spec.action_chunk_valid_len - steps
-        return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that answers "
-                f"within {steps / spec.hz:.3g} s, the {steps} steps a robot plays between asking for an answer and "
-                f"needing it at {spec.hz:g} Hz, as long as, run together on a simulated clock, at least 95% of their "
-                f"answers are in time and their batches fill at most {LOAD_MAX:.0%} of the {ask / spec.hz:.3g} s "
-                f"between a robot's asks (its {ask} steps) - each timed on "
-                f"{_timing(spec, bindings) or 'nothing'} by its build check{most_a_copy(listed)}")
-    return "one robot a copy"
+    alone = one_a_copy(spec)
+    if alone is not None:
+        return alone
+    listed = spec.concurrency.sizes
+    steps = wait_steps(spec.action_chunk_valid_len, spec.action_chunk_replan_at)
+    ask = spec.action_chunk_valid_len - steps
+    wait = getattr(spec, "max_wait_for_batch", None)
+    if wait is not None:
+        return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that "
+                f"answers within its max_wait_for_batch of {wait:g} s, each robot waiting up to that long for an "
+                f"answer, as long as their batches fill at most {LOAD_MAX:.0%} of a robot's time between asks (its "
+                f"{ask} steps at {spec.hz:g} Hz and its wait for the answer) - each warmed and timed on "
+                f"{_timing(spec, bindings) or 'nothing'} before it serves{most_a_copy(listed)}")
+    return (f"as many robots a copy as the largest of its batches of {_and([str(n) for n in listed])} that answers "
+            f"within {steps / spec.hz:.3g} s, the {steps} steps a robot plays between asking for an answer and "
+            f"needing it at {spec.hz:g} Hz, as long as, run together on a simulated clock, at least 95% of their "
+            f"answers are in time and their batches fill at most {LOAD_MAX:.0%} of the {ask / spec.hz:.3g} s "
+            f"between a robot's asks (its {ask} steps) - each timed on "
+            f"{_timing(spec, bindings) or 'nothing'} by its build check{most_a_copy(listed)}")
 
 
 def names_sample(cls: type) -> bool:

@@ -7,10 +7,12 @@ from kgcl_schema.datamodel.kgcl import (
     EdgeCreation,
     EdgeDeletion,
     NewSynonym,
+    NewLabel,
     NewTextDefinition,
     NodeAnnotationChange,
     NodeCreation,
     NodeDeepening,
+    NodeShallowing,
     NodeDeletion,
     NodeMove,
     NodeObsoletion,
@@ -85,6 +87,13 @@ def render(kgcl_instance: Change) -> str:
             new = new + "@" + new_language
 
         return "rename " + subject + " from " + old + " to " + new
+
+    if type(kgcl_instance) is NewLabel:
+        subject = render_entity(kgcl_instance.about_node, "uri")
+        new = render_entity(kgcl_instance.new_value, "label")
+        if kgcl_instance.new_language is not None:
+            new = new + "@" + kgcl_instance.new_language
+        return "add label " + new + " to " + subject
 
     if type(kgcl_instance) is NodeAnnotationChange:
         subject = render_entity(
@@ -294,6 +303,12 @@ def render(kgcl_instance: Change) -> str:
         old_value = render_entity(kgcl_instance.old_value, "uri")
         new_value = render_entity(kgcl_instance.new_value, "uri")
         return "deepen " + subject + " from " + old_value + " to " + new_value
+
+    if type(kgcl_instance) is NodeShallowing:
+        subject = render_entity(kgcl_instance.about_edge.subject, "uri")
+        old_value = render_entity(kgcl_instance.old_value, "uri")
+        new_value = render_entity(kgcl_instance.new_value, "uri")
+        return "shallow " + subject + " from " + old_value + " to " + new_value
 
     if type(kgcl_instance) is NewTextDefinition:
         subject = render_entity(kgcl_instance.about_node, "uri")

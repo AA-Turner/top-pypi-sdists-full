@@ -31,7 +31,7 @@ const HEADING = 1 << 25;
 const LIST = 1 << 26;
 const QUOTE = 1 << 27;
 const MULTILINE_QUOTE = 1 << 28;
-const SMALL = 1 << 29;
+const SUBTEXT = 1 << 29;
 // Not a syntax: lets any link carry the `dev` scheme, e.g. `dev://branch/main`.
 const DEV_LINKS = 1 << 30;
 
@@ -65,7 +65,7 @@ export const Syntax = Object.freeze({
 	LIST,
 	QUOTE,
 	MULTILINE_QUOTE,
-	SMALL,
+	SUBTEXT,
 	DEV_LINKS,
 	EMOJI: CUSTOM_EMOJI | COLON_EMOJI | UNICODE_EMOJI,
 	LINKS: MASKED_LINK | DETECTED_LINK | AUTO_LINK | CONTACT_LINK,

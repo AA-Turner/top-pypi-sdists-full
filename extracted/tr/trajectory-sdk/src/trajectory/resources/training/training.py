@@ -195,7 +195,7 @@ class Training(APIResource):
     """Return supported training models and their authored option ranges.
 
     Args:
-      bench_id: Deprecated and ignored; run options are the same for every benchmark.
+      bench_id: Benchmark ID used to select compatible training algorithms.
 
       extra_headers: Send extra headers
 

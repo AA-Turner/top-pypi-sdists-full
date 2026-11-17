@@ -87,6 +87,7 @@ from trilogy.core.processing.v4_helper.condition_injection import condition_row_
 from trilogy.core.processing.v4_helper.constants import ROW_SHAPE_BARRIER_DERIVATIONS
 from trilogy.core.processing.v4_helper.functional_dependency import strict_fd_closure
 from trilogy.core.processing.v4_helper.history import V4History
+from trilogy.core.processing.v4_helper.models import pairing_keys
 from trilogy.core.processing.v4_helper.network_build import (
     absorbs_null,
     build_source_network,
@@ -2506,6 +2507,35 @@ def _filters_a_partial_derivation(request: SourceRequest, node: StrategyNode) ->
     return any(c.address in args for c in node.partial_concepts)
 
 
+def filters_above_a_resum(
+    conditions: BuildWhereClause, node: StrategyNode, environment: BuildEnvironment
+) -> bool:
+    """The WHERE reads a column that splits the groups `node` already re-summed
+    a summary's partials to (`city = 'B'` over counts summed by species):
+    filtered above, each kept group still counts the rows the WHERE rejects
+    (`Rollup.filter_above_resum_keeps_rejected`)."""
+    # a gate splits groups by its own grain; a total (`by *`) splits none
+    args = frozenset(
+        address
+        for c in condition_row_args(conditions)
+        for address in (
+            pairing_keys(c.grain.components) if c.is_aggregate else (c.address,)
+        )
+    )
+    stack = [node]
+    while stack:
+        current = stack.pop()
+        stack.extend(current.parents)
+        if not isinstance(current, GroupNode) and not current.force_group:
+            continue
+        resolved = current.resolve()
+        if resolved.rollup_concepts and not args <= strict_fd_closure(
+            environment, frozenset(resolved.grain.components)
+        ):
+            return True
+    return False
+
+
 def _emit_bridge(request: SourceRequest, bridge: BridgePlan) -> StrategyNode | None:
     # The search already priced partiality, so there is no escalation to do:
     # render at the request's own permissiveness and let the solution speak.
@@ -2563,9 +2593,10 @@ def _bridge_plan(
         for other in names - {name}:
             pair = frozenset({name, other})
             keys[pair] = keys.get(pair, frozenset()) | own
-    return PlannedPairs(
+    return PlannedPairs.over_scans(
         {id(parent): frozenset({sides[id(parent)]}) for parent in parents},
         keys,
+        bridge.graph.datasources,
         grain_paired=frozenset(
             name for name in names if name.startswith(CONNECTOR_NODE_PREFIX)
         ),

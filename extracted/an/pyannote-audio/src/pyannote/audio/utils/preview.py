@@ -21,8 +21,6 @@
 # SOFTWARE.
 
 
-from typing import Union
-
 try:
     from IPython.display import Audio as IPythonAudio
     from IPython.display import Video as IPythonVideo
@@ -47,7 +45,7 @@ except ImportError:
     MOVIEPY_INSTALLED = False
 
 
-from typing import Mapping, Optional
+from collections.abc import Mapping
 
 import torch
 from pyannote.core import (
@@ -64,7 +62,7 @@ from pyannote.audio.core.model import Model
 from pyannote.audio.utils.signal import Binarize
 
 
-def listen(audio_file: AudioFile, segment: Optional[Segment] = None) -> None:
+def listen(audio_file: AudioFile, segment: Segment | None = None) -> None:
     """listen to audio
 
     Allows playing of audio files. It will play the whole thing unless
@@ -83,15 +81,15 @@ def listen(audio_file: AudioFile, segment: Optional[Segment] = None) -> None:
         return
 
     if segment is None:
-        waveform, sr = Audio(mono="downmix")(audio_file)
+        waveform, sr = Audio()(audio_file)
     else:
-        waveform, sr = Audio(mono="downmix").crop(audio_file, segment)
-    return IPythonAudio(waveform.flatten(), rate=sr)
+        waveform, sr = Audio().crop(audio_file, segment)
+    return IPythonAudio(waveform.numpy(), rate=sr)
 
 
 def preview(
     audio_file: AudioFile,
-    segment: Optional[Segment] = None,
+    segment: Segment | None = None,
     zoom: float = 10.0,
     video_fps: int = 5,
     video_ext: str = "webm",
@@ -159,7 +157,7 @@ def preview(
     temp_dir = tempfile.mkdtemp(prefix="pyannote-audio-preview")
     video_path = f"{temp_dir}/{uri}.{video_ext}"
 
-    audio = Audio(sample_rate=16000, mono="downmix")
+    audio = Audio(sample_rate=16000)
 
     if segment is None:
         duration = audio.get_duration(audio_file)
@@ -262,7 +260,7 @@ def BROKEN_preview_training_samples(
     video_fps: int = 5,
     video_ext: str = "webm",
     display: bool = True,
-) -> Union[IPythonVideo, str]:
+) -> IPythonVideo | str:
     """Preview training samples of a given model
 
     Parameters
@@ -291,7 +289,7 @@ def BROKEN_preview_training_samples(
     """
 
     batch = next(iter(model.train_dataloader()))
-    batch_size, num_channels, num_samples = batch["X"].shape
+    batch_size, _num_channels, num_samples = batch["X"].shape
     batch_size, num_frames, num_speakers = batch["y"].shape
     sample_rate = model.audio.sample_rate
 

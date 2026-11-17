@@ -208,9 +208,9 @@ class StreamLink:
         """Whether the robot's stream has room for another observation post (worker_stream.WorkerStream.room), waited
         for up to `timeout_s`. None while it opens: the observations wait where they were handed over and go as it opens,
         in turn, the act behind them - as a post that opened nothing would. True with none open or opening: the post
-        opens it, or meets what stops it (post_observe). {dev 10-30, worker 4: an act right after a robot's first
-        observation took 6.2 s against 190 ms: that post, queued as the stream opened, waited for a word it was taken
-        that only the act's answer would bring, and the act waited for the post}"""
+        opens it, or meets what stops it (post_observe).
+
+"""
         stream = self._stream
         if stream is not None and stream.alive:
             return stream.room(timeout_s)

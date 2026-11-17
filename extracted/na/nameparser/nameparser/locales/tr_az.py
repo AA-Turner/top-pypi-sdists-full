@@ -21,6 +21,7 @@ machine-readable declaration the non-interference gate checks.
 from __future__ import annotations
 
 import re
+import unicodedata
 
 from nameparser._lexicon import Lexicon
 from nameparser._locale import Locale, rules_patch
@@ -40,7 +41,7 @@ TR_AZ = Locale(
 # fullmatch-shaped (^...$): the rule tests a single WHOLE token, so
 # DEVIATES below scans per-token rather than searching the whole name.
 _TURKIC = re.compile(
-    r"^(oglu|oğlu|ogly|ogli|o['’ʻ]g['’ʻ]li"
+    r"^(oglu|oğlu|ogly|ogli|o['’ʻ‘ʼ`]g['’ʻ‘ʼ`]li"
     r"|qizi|qızı|kizi|kyzy|gyzy|uly|uulu)$", re.I)
 _TURKIC_CYR = re.compile(
     r"^(оглу|оглы|оғлу|ўғли|угли|кызы|гызы|қызы|қизи|улы|ұлы|уулу)$", re.I)
@@ -50,5 +51,6 @@ def DEVIATES(name: str) -> bool:
     """True when this pack may parse `name` differently from the
     default parser (the declared-deviation predicate the
     non-interference gate consumes)."""
+    # NFC-composed, as the rule's predicate reads a word (#1316)
     return any(_TURKIC.match(tok) or _TURKIC_CYR.match(tok)
-               for tok in name.split())
+               for tok in unicodedata.normalize("NFC", name).split())

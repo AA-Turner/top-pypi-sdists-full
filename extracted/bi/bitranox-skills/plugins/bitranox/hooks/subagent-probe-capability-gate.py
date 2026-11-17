@@ -149,8 +149,9 @@ def _text_only_kind(prompt):
 
 
 # A NAMED dispatch of a PROBE type is refused whatever its prompt says, because the name alone
-# breaks both things a probe exists for. Its final text never reaches the caller (a named agent
-# delivers only by SendMessage, and an inert type has no such tool), and SubagentStart receives the
+# breaks both things a probe exists for. Its final text may not reach the caller (up to 2.1.268 a
+# named agent delivered only by SendMessage, which an inert type lacks; 2.1.325 carried it in the
+# idle notification's result field), and SubagentStart receives the
 # NAME as `agent_type`, so subagent-brief cannot recognise the probe and briefs it. Measured
 # 2026-09-11 on Claude Code 2.1.268 with one named and one unnamed baseline-probe: the unnamed
 # reply arrived within 6 s and its transcript held no brief; the named reply never arrived and its
@@ -163,8 +164,9 @@ def _text_only_kind(prompt):
 # tool-capable refusal, which never names the form that works.
 _DENY_NAMED_PROBE = (
     "NAMED PROBE. '{atype}' is dispatched with name='{name}', and naming a probe breaks both "
-    "things it exists for: its final text is not returned to you (a named agent delivers only by "
-    "SendMessage, which an inert probe type does not have), and SubagentStart sees the name "
+    "things it exists for: its final text may not reach you (older Claude Code builds deliver a "
+    "named agent's text only by SendMessage, which an inert probe type does not have), and "
+    "SubagentStart sees the name "
     "instead of the type, so the probe is briefed like an ordinary agent and its baseline is "
     "contaminated. Re-dispatch it UNNAMED, with the same subagent_type."
 )

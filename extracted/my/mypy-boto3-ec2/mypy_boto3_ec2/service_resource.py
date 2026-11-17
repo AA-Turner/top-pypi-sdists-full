@@ -93,6 +93,7 @@ from .type_defs import (
     AssociateAddressResultTypeDef,
     AssociateDhcpOptionsRequestDhcpOptionsAssociateWithVpcTypeDef,
     AssociateDhcpOptionsRequestVpcAssociateDhcpOptionsTypeDef,
+    AssociatedKmsKeyTypeDef,
     AssociateRouteTableRequestRouteTableAssociateWithSubnetTypeDef,
     AttachClassicLinkVpcRequestInstanceAttachClassicLinkVpcTypeDef,
     AttachClassicLinkVpcRequestVpcAttachClassicLinkInstanceTypeDef,
@@ -4270,6 +4271,7 @@ class Snapshot(ServiceResource):
     completion_duration_minutes: int
     completion_time: datetime
     full_snapshot_size_in_bytes: int
+    associated_kms_keys: list[AssociatedKmsKeyTypeDef]
     snapshot_id: str
     volume_id: str
     state: SnapshotStateType

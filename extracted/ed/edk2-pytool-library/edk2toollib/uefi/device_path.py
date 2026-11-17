@@ -5,23 +5,22 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause-Patent
 ##
-"""This is a python implementation of the UEFI Specification Device Paths
+"""This is a python implementation of the UEFI Specification Device Paths.
 
 C Implementations may be found here:
 https://github.com/tianocore/edk2/blob/00ccd99d46068c87e73e8e521afea09e19419885/MdePkg/Include/Protocol/DevicePath.h
 
 """
 
-from uuid import UUID
-from edk2toollib.uefi.uefi_types import UINT8
-from typing import List
-
+import base64
+import json
+import struct
 from collections import defaultdict
 from dataclasses import dataclass
+from typing import List
+from uuid import UUID
 
-import struct
-import json
-import base64
+from edk2toollib.uefi.uefi_types import UINT8
 
 # GUIDs
 EFI_DEVICE_PATH_PROTOCOL_GUID = UUID("{09576e91-6d3f-11d2-8e39-00a0c969723b}")
@@ -126,8 +125,7 @@ def _helper_get_device_path_type(type, subtype) -> tuple[str, str]:
 
 @dataclass
 class DevicePathHeader(object):
-    """
-    DevicePathHeader class represents the header of a device path in UEFI.
+    """DevicePathHeader class represents the header of a device path in UEFI.
 
     Attributes:
         dev_type (int): The type of the device path.
@@ -143,8 +141,7 @@ class DevicePathHeader(object):
 
 
 class EfiDevicePathProtocol(object):
-    """
-    Represents the EFI Device Path Protocol, which is used to describe the location of a device in the system.
+    """Represents the EFI Device Path Protocol, which is used to describe the location of a device in the system.
 
     Attributes:
         dev_type (int): The type of the device path.
@@ -157,28 +154,28 @@ class EfiDevicePathProtocol(object):
     _dp_struct_size = struct.calcsize(_dp_struct_format)
 
     def __init__(self, header: DevicePathHeader):
-        """
-        Initializes a DevicePath object with the given header.
+        """Initializes a DevicePath object with the given header.
+
         Args:
             header (DevicePathHeader): The header containing device path information.
         """
-
         self.dev_type = header.dev_type
         self.dev_subtype = header.dev_subtype
         self.dev_length = header.dev_length
         self.dev_data = header.dev_data
 
     def __str__(self):
+        """Return the device path's dictionary representation as indented JSON."""
         return json.dumps(self.__dict__(), indent=2)
 
     def __dict__(self):
+        """Return the device path type, subtype, and length as a dictionary."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {"type": device_type, "subtype": device_subtype, "length": self.dev_length}
 
     @staticmethod
     def decode(binary) -> "DevicePathHeader":
-        """
-        Decodes a binary representation of an EFI device path.
+        """Decodes a binary representation of an EFI device path.
 
         Args:
             binary (bytes): The binary data representing the EFI device path.
@@ -186,7 +183,6 @@ class EfiDevicePathProtocol(object):
         Returns:
             DevicePathHeader: An object containing the type, subtype, length, and data of the device path.
         """
-
         type, subtype, length = struct.unpack(
             EfiDevicePathProtocol._dp_struct_format, binary[: EfiDevicePathProtocol._dp_struct_size]
         )
@@ -198,8 +194,8 @@ class EfiDevicePathProtocol(object):
 
 
 class UnimplementedDevicePath(EfiDevicePathProtocol):
-    """
-    UnimplementedDevicePath class represents a device path node that is not implemented.
+    """UnimplementedDevicePath class represents a device path node that is not implemented.
+
     This class inherits from EfiDevicePathProtocol and provides a way to handle
     unimplemented device path nodes by storing the header and providing a dictionary
     representation of the device path type and subtype.
@@ -209,8 +205,7 @@ class UnimplementedDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header: DevicePathHeader):
-        """
-        Initializes the UnimplementedDevicePath instance with the given header.
+        """Initializes the UnimplementedDevicePath instance with the given header.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -218,6 +213,7 @@ class UnimplementedDevicePath(EfiDevicePathProtocol):
         super().__init__(header)
 
     def __dict__(self):
+        """Return a dictionary containing the header and base64-encoded payload."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -228,8 +224,7 @@ class UnimplementedDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: DevicePathHeader) -> "UnimplementedDevicePath":
-        """
-        Creates an UnimplementedDevicePath instance from a binary representation.
+        """Creates an UnimplementedDevicePath instance from a binary representation.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -237,7 +232,6 @@ class UnimplementedDevicePath(EfiDevicePathProtocol):
         Returns:
             UnimplementedDevicePath: An instance of UnimplementedDevicePath.
         """
-
         return cls(header)
 
 
@@ -247,8 +241,7 @@ class UnimplementedDevicePath(EfiDevicePathProtocol):
 
 
 class PciDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a PCI Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents a PCI Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         header (EfiDevicePathProtocol): The header of the device path.
@@ -257,8 +250,7 @@ class PciDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, function, device):
-        """
-        Initializes the PciDevicePath instance with the given header, function, and device.
+        """Initializes the PciDevicePath instance with the given header, function, and device.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -270,6 +262,7 @@ class PciDevicePath(EfiDevicePathProtocol):
         self.device = device
 
     def __dict__(self):
+        """Return a dictionary containing the header, PCI function, and device number."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -281,23 +274,29 @@ class PciDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "PciDevicePath":
+        """Create a PCI device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the function and device bytes.
+
+        Returns:
+            PciDevicePath: The decoded PCI device path.
+        """
         function, device = struct.unpack("<BB", header.dev_data[:2])
         return cls(header, function, device)
 
 
 class PccardDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a PC Card device path in the UEFI environment.
+    """Represents a PC Card device path in the UEFI environment.
 
     Attributes:
         function_number (UINT8): The function number of the PC Card device.
     """
 
     def __init__(self, header: DevicePathHeader, function_number: UINT8):
-        """
-        Initializes the PccardDevicePath instance with the given header and function number.
+        """Initializes the PccardDevicePath instance with the given header and function number.
 
-            Args:
+        Args:
                 header (DevicePathHeader): The header containing device path information.
                 function_number (UINT8): The function number of the PC Card device.
         """
@@ -305,6 +304,7 @@ class PccardDevicePath(EfiDevicePathProtocol):
         self.function_number = function_number
 
     def __dict__(self):
+        """Return a dictionary containing the header and PC Card function number."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {"Header": super().__dict__(), "FunctionNumber": self.function_number}
@@ -312,13 +312,20 @@ class PccardDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "PccardDevicePath":
+        """Create a PC Card device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the function number.
+
+        Returns:
+            PccardDevicePath: The decoded PC Card device path.
+        """
         function_number = struct.unpack("<B", header.data[:1])[0]
         return cls(header, function_number)
 
 
 class AcpiHidDevicePath(EfiDevicePathProtocol):
-    """
-    Represents an ACPI HID Device Path in the UEFI device path protocol.
+    """Represents an ACPI HID Device Path in the UEFI device path protocol.
 
     Attributes:
         header (EfiDevicePathProtocol): The EFI device path protocol header.
@@ -330,8 +337,7 @@ class AcpiHidDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header: EfiDevicePathProtocol, hid, uid):
-        """
-        Initializes the AcpiHidDevicePath instance with the given header, HID, and UID.
+        """Initializes the AcpiHidDevicePath instance with the given header, HID, and UID.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -343,6 +349,7 @@ class AcpiHidDevicePath(EfiDevicePathProtocol):
         self.uid = uid
 
     def __dict__(self):
+        """Return a dictionary containing the header and hexadecimal ACPI identifiers."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -354,13 +361,20 @@ class AcpiHidDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: EfiDevicePathProtocol) -> "AcpiHidDevicePath":
+        """Create an ACPI HID device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the hardware and unique identifiers.
+
+        Returns:
+            AcpiHidDevicePath: The decoded ACPI HID device path.
+        """
         hid, uid = struct.unpack("<II", header.dev_data[:8])
         return cls(header, hid, uid)
 
 
 class UsbDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a USB Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents a USB Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         header (EfiDevicePathProtocol): The header of the device path.
@@ -369,8 +383,7 @@ class UsbDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, parent_port_number, interface_number):
-        """
-        Initializes the UsbDevicePath instance with the given header, parent port number, and interface number.
+        """Initializes the UsbDevicePath instance with the given header, parent port number, and interface number.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -382,6 +395,7 @@ class UsbDevicePath(EfiDevicePathProtocol):
         self.interface_number = interface_number
 
     def __dict__(self):
+        """Return a dictionary containing the header, USB parent port, and interface number."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -393,36 +407,57 @@ class UsbDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "UsbDevicePath":
+        """Create a USB device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the parent port and interface numbers.
+
+        Returns:
+            UsbDevicePath: The decoded USB device path.
+        """
         parent_port_number, interface_number = struct.unpack("BB", header.dev_data[:2])
         return cls(header, parent_port_number, interface_number)
 
 
 class EfiMacAddress(object):
-    """
-    Represents a MAC address in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents a MAC address in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         addr (list): The MAC address for a network interface padded with 0s.
     """
 
     def __init__(self, addr):
+        """Initialize the MAC address from its byte values, including any padding.
+
+        Args:
+            addr (list[int]): The address bytes in display order.
+        """
         self.addr = addr
 
     def __str__(self) -> str:
+        """Return all address bytes as uppercase, colon-separated hexadecimal values."""
         return ":".join(f"{byte:02X}" for byte in self.addr)
 
     def __dict__(self):
+        """Return the formatted MAC address in a dictionary."""
         return {"Addr": str(self)}
 
     @classmethod
     def from_binary(cls, data: bytes) -> "EfiMacAddress":
+        """Create a MAC address from up to 32 bytes of binary data.
+
+        Args:
+            data: The binary address field, including any padding.
+
+        Returns:
+            EfiMacAddress: The address represented by the first 32 bytes.
+        """
         addr = list(data[:32])
         return cls(addr)
 
 
 class MacAddrDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a MAC Address Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents a MAC Address Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         header (EfiDevicePathProtocol): The header of the device path.
@@ -431,11 +466,19 @@ class MacAddrDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, mac_address, if_type):
+        """Initialize the MAC address device path.
+
+        Args:
+            header (DevicePathHeader): The decoded device path header.
+            mac_address (EfiMacAddress): The MAC address, including any padding.
+            if_type (int | tuple[int]): The network interface type, or the one-element tuple produced by the decoder.
+        """
         super().__init__(header)
         self.mac_address = mac_address
         self.if_type = if_type
 
     def __dict__(self):
+        """Return a dictionary containing the header, MAC address, and interface type."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -447,22 +490,28 @@ class MacAddrDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "MacAddrDevicePath":
+        """Create a MAC address device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the address and interface type.
+
+        Returns:
+            MacAddrDevicePath: The decoded MAC address device path.
+        """
         mac_address = EfiMacAddress.from_binary(header.dev_data[:32])
         if_type = struct.unpack("B", header.dev_data[32:33])
         return cls(header, mac_address, if_type)
 
 
 class EfiIpv4Address(object):
-    """
-    Represents an IPv4 address in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents an IPv4 address in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         addr (list): The IPv4 address.
     """
 
     def __init__(self, addr):
-        """
-        Initializes the EfiIpv4Address instance with the given address.
+        """Initializes the EfiIpv4Address instance with the given address.
 
         Args:
             addr (list): The IPv4 address.
@@ -470,20 +519,29 @@ class EfiIpv4Address(object):
         self.addr = addr
 
     def __dict__(self):
+        """Return the address octets in a dictionary."""
         return {"Addr": self.addr}
 
     @classmethod
     def from_binary(cls, data: bytes) -> "EfiIpv4Address":
+        """Create an IPv4 address from up to four bytes of binary data.
+
+        Args:
+            data: The binary IPv4 address field.
+
+        Returns:
+            EfiIpv4Address: The address represented by the first four bytes.
+        """
         addr = list(data[:4])
         return cls(addr)
 
     def __str__(self):
+        """Return the IPv4 address in dotted-decimal notation."""
         return ".".join(str(byte) for byte in self.addr)
 
 
 class Ipv4DevicePath(EfiDevicePathProtocol):
-    """
-    Represents an IPv4 Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents an IPv4 Device Path in the UEFI (Unified Extensible Firmware Interface) environment.
 
     Attributes:
         header (EfiDevicePathProtocol): The header of the device path.
@@ -509,10 +567,7 @@ class Ipv4DevicePath(EfiDevicePathProtocol):
         gateway_ip_address,
         subnet_mask,
     ):
-        """
-        Initializes the Ipv4DevicePath instance with the given header, local IP address,
-        remote IP address, local port, remote port, protocol, static IP address,
-        gateway IP address, and subnet mask.
+        """Initializes the IPv4 device path with the given header and network parameters.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -536,6 +591,7 @@ class Ipv4DevicePath(EfiDevicePathProtocol):
         self.subnet_mask = subnet_mask
 
     def __dict__(self):
+        """Return a dictionary containing the header and IPv4 network parameters."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -553,6 +609,14 @@ class Ipv4DevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "Ipv4DevicePath":
+        """Create an IPv4 device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the IPv4 network parameters.
+
+        Returns:
+            Ipv4DevicePath: The decoded IPv4 device path.
+        """
         local_ip_address = EfiIpv4Address.from_binary(header.dev_data[:4])
         remote_ip_address = EfiIpv4Address.from_binary(header.dev_data[4:8])
         local_port, remote_port, protocol = struct.unpack("HHH", header.dev_data[8:14])
@@ -573,8 +637,7 @@ class Ipv4DevicePath(EfiDevicePathProtocol):
 
 
 class SataDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a SATA Device Path.
+    """Represents a SATA Device Path.
 
     Attributes:
         hba_port_number (int): The HBA port number that facilitates the connection.
@@ -583,9 +646,7 @@ class SataDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, hba_port_number, port_multiplier_port_number, lun):
-        """
-        Initializes the SataDevicePath instance with the given header, HBA port number,
-        port multiplier port number, and LUN.
+        """Initializes the SATA device path with the given header and addressing information.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -599,6 +660,7 @@ class SataDevicePath(EfiDevicePathProtocol):
         self.lun = lun
 
     def __dict__(self):
+        """Return a dictionary containing the header, SATA port numbers, and logical unit number."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -611,6 +673,14 @@ class SataDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: EfiDevicePathProtocol) -> "SataDevicePath":
+        """Create a SATA device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the port numbers and logical unit number.
+
+        Returns:
+            SataDevicePath: The decoded SATA device path.
+        """
         hba_port_number = int.from_bytes(header.dev_data[:2], "little")
         port_multiplier_port_number = int.from_bytes(header.dev_data[2:4], "little")
         lun = int.from_bytes(header.dev_data[4:6], "little")
@@ -618,8 +688,7 @@ class SataDevicePath(EfiDevicePathProtocol):
 
 
 class NvmeOfNamespaceDevicePath(EfiDevicePathProtocol):
-    """
-    Represents an NVMe over Fabrics (NVMe-oF) Namespace Device Path.
+    """Represents an NVMe over Fabrics (NVMe-oF) Namespace Device Path.
 
     Attributes:
         namespace_id_type (int): The type of the namespace identifier.
@@ -628,9 +697,7 @@ class NvmeOfNamespaceDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, namespace_id_type, namespace_id, subsystem_nqn):
-        """
-        Initializes the NvmeOfNamespaceDevicePath instance with the given header, namespace ID type,
-        namespace ID, and subsystem NQN.
+        """Initializes the NVMe-oF device path with the given header, namespace, and subsystem NQN.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -644,6 +711,7 @@ class NvmeOfNamespaceDevicePath(EfiDevicePathProtocol):
         self.subsystem_nqn = subsystem_nqn
 
     def __dict__(self):
+        """Return a dictionary containing the header, namespace identifier, and subsystem NQN."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -656,6 +724,14 @@ class NvmeOfNamespaceDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: EfiDevicePathProtocol) -> "NvmeOfNamespaceDevicePath":
+        """Create an NVMe-oF namespace device path from its decoded header and binary payload.
+
+        Args:
+            header: The device path header containing the namespace identifier and subsystem NQN.
+
+        Returns:
+            NvmeOfNamespaceDevicePath: The decoded NVMe-oF namespace device path.
+        """
         namespace_id_type = header.dev_data[0]
         namespace_id = header.dev_data[1:17]
         subsystem_nqn = header.dev_data[17:].decode("utf-8").rstrip("\x00")
@@ -663,8 +739,7 @@ class NvmeOfNamespaceDevicePath(EfiDevicePathProtocol):
 
 
 class HardDriveDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a hard drive device path in the UEFI (Unified Extensible Firmware Interface) specification.
+    """Represents a hard drive device path in the UEFI (Unified Extensible Firmware Interface) specification.
 
     Attributes:
         partition_number (int): The partition number on the hard drive.
@@ -688,9 +763,7 @@ class HardDriveDevicePath(EfiDevicePathProtocol):
         MBR_type: int,
         signature_type: int,
     ):
-        """
-        Initializes the HardDriveDevicePath instance with the given header, partition number,
-        partition start, partition size, signature, MBR type, and signature type.
+        """Initializes the hard drive device path with the given header and partition information.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -701,7 +774,6 @@ class HardDriveDevicePath(EfiDevicePathProtocol):
             MBR_type (int): The type of MBR.
             signature_type (int): The type of signature used.
         """
-
         super().__init__(header)
         self.partition_number = partition_number
         self.partition_start = partition_start
@@ -711,6 +783,7 @@ class HardDriveDevicePath(EfiDevicePathProtocol):
         self.signature_type = signature_type
 
     def __dict__(self):
+        """Return a dictionary containing the header, partition geometry, and signature."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -726,8 +799,7 @@ class HardDriveDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "HardDriveDevicePath":
-        """
-        Creates a HardDriveDevicePath instance from a binary representation.
+        """Creates a HardDriveDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -739,16 +811,14 @@ class HardDriveDevicePath(EfiDevicePathProtocol):
 
 
 class FilepathDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a file path device path in the UEFI device path protocol.
+    """Represents a file path device path in the UEFI device path protocol.
 
     Attributes:
         path_name (str): The file path name associated with the device path.
     """
 
     def __init__(self, header: DevicePathHeader, path_name: str):
-        """
-        Initializes the FilepathDevicePath instance with the given header and path name.
+        """Initializes the FilepathDevicePath instance with the given header and path name.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -758,13 +828,13 @@ class FilepathDevicePath(EfiDevicePathProtocol):
         self.path_name = path_name
 
     def __dict__(self):
+        """Return a dictionary containing the header and file path name."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {f"{device_type} / {device_subtype}": {"Header": super().__dict__(), "PathName": self.path_name}}
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "FilepathDevicePath":
-        """
-        Creates a FilepathDevicePath instance from a binary representation.
+        """Creates a FilepathDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -778,16 +848,14 @@ class FilepathDevicePath(EfiDevicePathProtocol):
 
 
 class FwVolPathDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a Media Firmware Volume Path Device Path in the UEFI specification.
+    """Represents a Media Firmware Volume Path Device Path in the UEFI specification.
 
     Attributes:
         fv_name (UUID): The firmware volume name.
     """
 
     def __init__(self, header: DevicePathHeader, fv_name):
-        """
-        Initializes the FwVolPathDevicePath instance with the given header and firmware volume name.
+        """Initializes the FwVolPathDevicePath instance with the given header and firmware volume name.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -797,6 +865,7 @@ class FwVolPathDevicePath(EfiDevicePathProtocol):
         self.fv_name = fv_name
 
     def __dict__(self):
+        """Return a dictionary containing the header and firmware volume name."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {"Header": super().__dict__(), "FvName": str(self.fv_name).upper()}
@@ -804,8 +873,7 @@ class FwVolPathDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: EfiDevicePathProtocol) -> "FwVolPathDevicePath":
-        """
-        Creates a FwVolPathDevicePath instance from a binary representation.
+        """Creates a FwVolPathDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -821,16 +889,14 @@ MEDIA_PIWG_FW_VOL_DP = 0x07
 
 
 class MediaFwVolFilePathDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a Media Firmware Volume File Path Device Path in the UEFI specification.
+    """Represents a Media Firmware Volume File Path Device Path in the UEFI specification.
 
     Attributes:
         fv_file_name (UUID): The firmware volume file name.
     """
 
     def __init__(self, header: DevicePathHeader, fv_file_name):
-        """
-        Initializes the MediaFwVolFilePathDevicePath instance with the given header and firmware volume file name.
+        """Initializes the MediaFwVolFilePathDevicePath instance with the given header and firmware volume file name.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -840,6 +906,7 @@ class MediaFwVolFilePathDevicePath(EfiDevicePathProtocol):
         self.fv_file_name = fv_file_name
 
     def __dict__(self):
+        """Return a dictionary containing the header and firmware volume file name."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -850,8 +917,7 @@ class MediaFwVolFilePathDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: EfiDevicePathProtocol) -> "MediaFwVolFilePathDevicePath":
-        """
-        Creates a MediaFwVolFilePathDevicePath instance from a binary representation.
+        """Creates a MediaFwVolFilePathDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -867,8 +933,7 @@ MEDIA_RELATIVE_OFFSET_RANGE_DP = 0x08
 
 
 class MediaRelativeOffsetRangeDevicePath(EfiDevicePathProtocol):
-    """
-    Represents a MEDIA_RELATIVE_OFFSET_RANGE_DEVICE_PATH in the UEFI (Unified Extensible Firmware Interface) environment.
+    """Represents a relative offset range device path in the UEFI environment.
 
     Attributes:
         header (EfiDevicePathProtocol): The header of the device path.
@@ -878,9 +943,7 @@ class MediaRelativeOffsetRangeDevicePath(EfiDevicePathProtocol):
     """
 
     def __init__(self, header, reserved, starting_offset, ending_offset):
-        """
-        Initializes the MediaRelativeOffsetRangeDevicePath instance with the given header, reserved,
-        starting offset, and ending offset.
+        """Initializes the relative offset range device path with the given header and offsets.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -894,6 +957,7 @@ class MediaRelativeOffsetRangeDevicePath(EfiDevicePathProtocol):
         self.ending_offset = ending_offset
 
     def __dict__(self):
+        """Return a dictionary containing the header, reserved field, and byte offsets."""
         device_type, device_subtype = _helper_get_device_path_type(self.dev_type, self.dev_subtype)
         return {
             f"{device_type} / {device_subtype}": {
@@ -906,8 +970,7 @@ class MediaRelativeOffsetRangeDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "MediaRelativeOffsetRangeDevicePath":
-        """
-        Creates a MediaRelativeOffsetRangeDevicePath instance from a binary representation.
+        """Creates a MediaRelativeOffsetRangeDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathProtocol): The header containing device path information.
@@ -920,16 +983,14 @@ class MediaRelativeOffsetRangeDevicePath(EfiDevicePathProtocol):
 
 
 class EndOfHardwareDevicePath(EfiDevicePathProtocol):
-    """
-    EndOfHardwareDevicePath represents the end of a hardware device path in the UEFI specification.
+    """EndOfHardwareDevicePath represents the end of a hardware device path in the UEFI specification.
 
     Attributes:
         header (DevicePathHeader): The header of the device path.
     """
 
     def __init__(self, header: DevicePathHeader):
-        """
-        Initializes the EndOfHardwareDevicePath instance with the given header.
+        """Initializes the EndOfHardwareDevicePath instance with the given header.
 
         Args:
             header (DevicePathHeader): The header containing device path information.
@@ -938,8 +999,7 @@ class EndOfHardwareDevicePath(EfiDevicePathProtocol):
 
     @classmethod
     def from_binary(cls, header: "EfiDevicePathProtocol") -> "EndOfHardwareDevicePath":
-        """
-        Creates an EndOfHardwareDevicePath instance from a binary representation.
+        """Creates an EndOfHardwareDevicePath instance from a binary representation.
 
         Args:
             header (EfiDevicePathHeader): The header containing device path information.
@@ -1040,17 +1100,32 @@ DEVICE_PATH_SUBTYPES = defaultdict(
 
 
 class DevicePathFactory(object):
-    """
-    A factory class for creating device path objects from binary data.
-    """
+    """A factory class for creating device path objects from binary data."""
 
     def __init__(self):
-        pass
+        """Initialize the stateless device path factory."""
 
     @staticmethod
-    def _find_implementation(header: DevicePathHeader):
-        """
-        Finds the implementation class for a given DevicePathHeader.
+    def _find_implementation(
+        header: DevicePathHeader,
+    ) -> type[
+        UnimplementedDevicePath
+        | PciDevicePath
+        | PccardDevicePath
+        | AcpiHidDevicePath
+        | UsbDevicePath
+        | MacAddrDevicePath
+        | Ipv4DevicePath
+        | SataDevicePath
+        | NvmeOfNamespaceDevicePath
+        | HardDriveDevicePath
+        | FilepathDevicePath
+        | MediaFwVolFilePathDevicePath
+        | FwVolPathDevicePath
+        | MediaRelativeOffsetRangeDevicePath
+        | EndOfHardwareDevicePath
+    ]:
+        """Finds the implementation class for a given DevicePathHeader.
 
         Args:
             header (DevicePathHeader): The header containing the device type and subtype.
@@ -1058,14 +1133,12 @@ class DevicePathFactory(object):
         Returns:
             class: The implementation class corresponding to the device type and subtype.
         """
-
         class_impl = DEVICE_PATH_SUBTYPES[header.dev_type][header.dev_subtype][1]
         return class_impl
 
     @staticmethod
     def from_binary(binary: bytes) -> List["EfiDevicePathProtocol"]:
-        """
-        Parses a binary stream into a list of EfiDevicePathProtocol objects.
+        """Parses a binary stream into a list of EfiDevicePathProtocol objects.
 
         Args:
             binary (bytes): The binary data to parse.
@@ -1076,7 +1149,6 @@ class DevicePathFactory(object):
         Raises:
             ValueError: If an invalid header length is encountered.
         """
-
         device_paths = []
         offset = 0
 

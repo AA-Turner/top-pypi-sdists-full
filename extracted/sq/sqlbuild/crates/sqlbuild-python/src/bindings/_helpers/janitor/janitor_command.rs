@@ -24,14 +24,13 @@ use sqlbuild_core::janitor_text::main::render_janitor_completion::render_janitor
 use sqlbuild_core::janitor_text::main::render_janitor_plan::render_janitor_plan;
 use sqlbuild_core::janitor_text::main::validate_janitor_settings::validate_janitor_settings;
 use sqlbuild_core::janitor_text::models::{JanitorOutcome, JanitorPlanText, JanitorRunText};
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::time::Instant;
 
 use crate::bindings::_helpers::cli::machine_output::{
     report_machine_output_written, take_machine_output_written,
 };
 use crate::bindings::_helpers::command_runtime::preview_target::validate_preview_target;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_target_name;
 use crate::bindings::_helpers::diff_report::support::cli_error;
 use crate::bindings::_helpers::janitor::janitor_phases::{
     JanitorCompiled, build_janitor_execution_plan, close_janitor_warehouse,
@@ -39,14 +38,15 @@ use crate::bindings::_helpers::janitor::janitor_phases::{
 };
 use crate::bindings::_helpers::janitor::janitor_plan::{janitor_plan_text, janitor_result_counts};
 use crate::bindings::_helpers::janitor::janitor_progress::JanitorProgressPrinter;
-use crate::bindings::_helpers::planner_phases::objects::object;
 use crate::bindings::_helpers::scenario_command::setup::stream_isatty;
 use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::construct::new_record::new_record;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_target_name::resolve_target_name;
+use sqlbuild_python_project::planner_phases::main::object::object;
 
 const COMMAND_NAME: &str = "janitor";
 /// The code of a cleanup that needs a confirmation stdin cannot give.
@@ -72,15 +72,12 @@ fn keywords<'py>(
 }
 
 fn settings_error(py: Python<'_>, error: JanitorSettingsError) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", error.code)?;
-        error_class(py, ErrorId::CliUser)?.call((error.message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        error.message,
+        (Some(error.code), None),
+    )
 }
 
 fn write(stream: &Bound<'_, PyAny>, text: &str) -> PyResult<()> {

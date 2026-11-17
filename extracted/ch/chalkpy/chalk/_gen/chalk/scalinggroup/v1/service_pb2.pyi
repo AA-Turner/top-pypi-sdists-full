@@ -202,17 +202,30 @@ class CronScalingWindow(_message.Message):
     ) -> None: ...
 
 class ScalingGroupSpec(_message.Message):
-    __slots__ = ("container_spec", "scaling_spec")
+    __slots__ = ("container_spec", "scaling_spec", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[str] = ...
+        ) -> None: ...
+
     CONTAINER_SPEC_FIELD_NUMBER: _ClassVar[int]
     SCALING_SPEC_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     container_spec: _service_pb2.ChalkContainerSpec
     scaling_spec: ScalingSpec
+    metadata: _containers.ScalarMap[str, str]
     def __init__(
         self,
         container_spec: _Optional[
             _Union[_service_pb2.ChalkContainerSpec, _Mapping]
         ] = ...,
         scaling_spec: _Optional[_Union[ScalingSpec, _Mapping]] = ...,
+        metadata: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...
 
 class ScalingGroupResponse(_message.Message):

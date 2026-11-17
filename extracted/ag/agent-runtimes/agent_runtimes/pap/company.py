@@ -455,6 +455,12 @@ class _TicketsPlugin:
         )
 
 
+def agent_description(name: str, description: str = "") -> str:
+    """What an agent can help with, as its ``poppy.json`` says it (PAP 1.0 §3.1)."""
+    said = description.strip()
+    return said or f"Anything about {name}"
+
+
 def company_config(
     name: str,
     domain: str,
@@ -462,10 +468,16 @@ def company_config(
     *,
     device_page: str | None = None,
     web: bool = False,
+    description: str = "",
 ) -> CompanyConfig:
     """What a company publishes at ``domain``, from its Appspec's ``pap.company``:
     what :class:`PapCompanyCapability` serves and the ``poppy.json`` of an agent
-    that is a company (``agent_runtimes.addresses.poppy``)."""
+    that is a company (``agent_runtimes.addresses.poppy``).
+
+    ``description``: what its agent can help with, the Appspec's ``description``
+    (PAP 1.0 §3.1, §8.1: each ``agent.protocols`` entry says it); an application
+    that says nothing is said to help with anything about it.
+    """
     if not company.enabled:
         raise ValueError("The Appspec does not enable pap.company")
     if not company.scopes:
@@ -476,6 +488,7 @@ def company_config(
     return CompanyConfig(
         name=name,
         domain=domain,
+        agent_description=agent_description(name, description),
         # The one PAP version a runtime speaks (the newest its SDK implements): poppy.json
         # is its document and nothing else is served; a request in another is refused.
         protocol_versions=(pap_protocol_version(),),
@@ -489,12 +502,12 @@ def company_config(
         write_scopes=tuple(scope for scope in scopes if scope.endswith(":write")),
         device=True,
         direct=False,
-        # `auth.disabled` (PAP 0.3 as published §3.2, D4-08): it offers personal agents no sign-in.
+        # `auth.disabled` (PAP 0.3 as published §3.2): it offers personal agents no sign-in.
         sign_in_disabled=bool(company.sign_in_disabled),
         # Its website (§6): a browser joins the person's Session there when it offers `web`.
         web=web,
         web_unscoped=bool(company.web_unscoped) and web,
-        # `web.disabled` (PAP draft 0.4 §6, D5-09): agents are asked to use its agent and APIs.
+        # `web.disabled` (PAP draft 0.4 §6): agents are asked to use its agent and APIs.
         web_disabled=bool(company.web_disabled),
         operations="operations" in company.extensions,
         device_page=device_page,
@@ -524,6 +537,7 @@ class PapCompanyCapability:
         address_resolver: Any = resolve_addresses,
         hosted: bool = False,
         operations: Any = None,
+        description: str = "",
     ) -> None:
         """Configure the company's name, domain and application.
 
@@ -552,6 +566,7 @@ class PapCompanyCapability:
             company,
             device_page=device_page,
             web=hosted and "web" in interfaces,
+            description=description,
         )
         self.service: CompanyService = build_company(
             self.config,
@@ -597,5 +612,6 @@ __all__ = [
     "a2a_data",
     "a2a_parts",
     "a2a_texts",
+    "agent_description",
     "company_config",
 ]

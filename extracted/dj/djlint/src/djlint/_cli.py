@@ -327,8 +327,8 @@ class _SectionedHelpCommand(click.Command):
     help=(
         "Template language: html, django, jinja, nunjucks, handlebars, liquid, golang,"
         " angular, tera, askama, mako or all. It decides which linter rules run and how"
-        " template syntax is formatted. Without one, formatting follows all and linting"
-        " follows html."
+        " template syntax is formatted. Without one, formatting follows all and the"
+        " linter runs the rules of html."
     ),
 )
 @click.option(
@@ -341,7 +341,11 @@ class _SectionedHelpCommand(click.Command):
     is_flag=True,
     help="Lint the files. This is the default when neither --reformat nor --check is given.",
 )
-@click.option("--use-gitignore", is_flag=True, help="Also skip the paths that .gitignore lists.")
+@click.option(
+    "--use-gitignore",
+    is_flag=True,
+    help="Also skip the paths that the .gitignore in the project root lists.",
+)
 @click.option(
     "--allow-empty-input",
     is_flag=True,
@@ -489,14 +493,14 @@ class _SectionedHelpCommand(click.Command):
     type=str,
     default="",
     metavar="PATHS",
-    help="Paths to skip, comma-separated, in place of the default list.",
+    help="Regexes of the paths to skip, comma-separated, in place of the default list.",
 )
 @click.option(
     "--extend-exclude",
     type=str,
     default="",
     metavar="PATHS",
-    help="Paths to skip on top of the default list, comma-separated.",
+    help="Regexes of the paths to skip on top of the exclude list, comma-separated.",
 )
 @click.option(
     "--linter-output-format",
@@ -957,6 +961,7 @@ def _process_or_report(config: Config, this_file: Path) -> ProcessResult | tuple
 def process(config: Config, this_file: Path) -> ProcessResult:
     """Run linter or formatter."""
     output: ProcessResult = {}
+    config = config.for_file(this_file)
     if config.reformat or config.check:
         from djlint.reformat import reformat_file  # noqa: PLC0415
 
@@ -979,6 +984,8 @@ def process_stdin(config: Config, stdin_text: str) -> tuple[ProcessResult, str |
     html = stdin_text
     formatted_code = None
     stdin_filename = config.stdin_filename or "-"
+    if config.stdin_filename:
+        config = config.for_file(Path(config.stdin_filename))
 
     if config.reformat or config.check:
         from djlint.reformat import reformat_string  # noqa: PLC0415

@@ -4,25 +4,29 @@ from __future__ import annotations
 
 import copy
 import warnings
+from typing import Literal
 
 import numpy as np
 import pytest
 import torch
+from sklearn.metrics import mean_tweedie_deviance
 
 from tabpfn.architectures.shared.bar_distribution import FullSupportBarDistribution
 from tabpfn.inference_tuning import (
+    MEAN_CALIBRATION_MIN_MEAN_FRACTION,
     MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING,
     ClassifierEvalMetrics,
     ClassifierTuningConfig,
     RegressorEvalMetrics,
     RegressorTuningConfig,
     compute_regression_metric_to_minimize,
+    find_mean_calibration_scale,
     find_optimal_classification_threshold_single_class,
     find_optimal_classification_thresholds,
     find_optimal_temperature,
     find_regression_optimal_temperature,
     get_tuning_feature_flags,
-    get_tuning_splits,
+    get_tuning_split_indices,
     get_tuning_temperatures,
     resolve_tuning_config,
     select_robust_optimal_threshold,
@@ -360,6 +364,73 @@ def test__find_optimal_temperature__works_when_class_missing_from_holdout() -> N
     assert 0.6 <= temperature <= 1.4
 
 
+def test__find_optimal_temperature__follows_the_weighted_rows() -> None:
+    rng = np.random.default_rng(0)
+    n_samples = 400
+    y_true = rng.integers(0, 2, size=n_samples)
+    signed = np.where(y_true == 1, 1.0, -1.0)
+    # The first half is confidently right, the second half confidently wrong.
+    signed[n_samples // 2 :] *= -1
+    raw_logits = np.stack([np.zeros(n_samples), 2.0 * signed], axis=-1)[None]
+    first_half = (np.arange(n_samples) < n_samples // 2).astype(float)
+
+    def temperature(sample_weight: np.ndarray | None) -> float:
+        return find_optimal_temperature(
+            raw_logits=raw_logits,
+            y_true=y_true,
+            logits_to_probabilities_fn=_softmax_over_estimators,
+            current_default_temperature=1.0,
+            sample_weight=sample_weight,
+        )
+
+    temperatures = get_tuning_temperatures()
+    assert temperature(first_half) == temperatures.min()
+    assert temperature(1 - first_half) == temperatures.max()
+    assert temperature(np.zeros(n_samples)) == 1.0
+
+
+def test__find_optimal_classification_thresholds__follows_the_weighted_rows() -> None:
+    rng = np.random.default_rng(0)
+    n_samples = 400
+    y_true = rng.integers(0, 2, size=n_samples)
+    low = np.arange(n_samples) < n_samples // 2
+    # Class 1 separates at 0.2 in the first half and at 0.8 in the second.
+    centre = np.where(low, 0.2, 0.8)
+    proba_1 = centre + np.where(y_true == 1, 0.1, -0.1)
+    y_pred_probas = np.stack([1 - proba_1, proba_1], axis=-1)
+
+    def class_1_threshold(sample_weight: np.ndarray) -> float:
+        return find_optimal_classification_thresholds(
+            metric_name=ClassifierEvalMetrics.ACCURACY,
+            y_true=y_true,
+            y_pred_probas=y_pred_probas,
+            n_classes=2,
+            sample_weight=sample_weight,
+        )[1]
+
+    assert 0.1 < class_1_threshold(low.astype(float)) < 0.3
+    assert 0.7 < class_1_threshold((~low).astype(float)) < 0.9
+
+
+def test__find_optimal_classification_thresholds__zero_weight_class_is_neutral() -> (
+    None
+):
+    y_true = np.array([0, 0, 1, 1, 2, 2] * 10)
+    y_pred_probas = np.random.default_rng(0).dirichlet(np.ones(3), size=len(y_true))
+    sample_weight = (y_true != 2).astype(float)
+
+    with pytest.warns(UserWarning, match="1 of 3 classes"):
+        thresholds = find_optimal_classification_thresholds(
+            metric_name=ClassifierEvalMetrics.F1,
+            y_true=y_true,
+            y_pred_probas=y_pred_probas,
+            n_classes=3,
+            sample_weight=sample_weight,
+        )
+
+    assert thresholds[2] == pytest.approx(np.sqrt(thresholds[0] * thresholds[1]))
+
+
 def test__find_optimal_classification_threshold_single_class__all_negative() -> None:
     # One-vs-rest labels are all-negative when the class is absent from the holdout.
     y_true = np.zeros(20, dtype=int)
@@ -374,39 +445,35 @@ def test__find_optimal_classification_threshold_single_class__all_negative() -> 
     assert 0.0 < threshold < 1.0
 
 
-def test__get_tuning_splits__accepts_numpy_generator_random_state() -> None:
-    X = np.arange(100, dtype=np.float64).reshape(50, 2)
+@pytest.mark.parametrize("task_type", ["classifier", "regressor"])
+def test__get_tuning_split_indices__accepts_numpy_generator_random_state(
+    task_type: Literal["classifier", "regressor"],
+) -> None:
+    X = np.zeros((50, 2))
     y = np.array([0, 1] * 25)
 
-    splits = get_tuning_splits(
+    splits = get_tuning_split_indices(
         X=X,
         y=y,
         holdout_frac=0.2,
         n_splits=1,
         random_state=np.random.default_rng(0),
+        task_type=task_type,
     )
 
     assert len(splits) == 1
-    X_train, X_holdout, y_train, y_holdout = splits[0]
-    assert len(X_train) + len(X_holdout) == len(X)
-    assert len(y_train) + len(y_holdout) == len(y)
+    train_indices, holdout_indices = splits[0]
+    assert len(train_indices) + len(holdout_indices) == len(X)
 
 
-def _identity_X(n_samples: int) -> np.ndarray:
-    """X whose first column is the row index, so rows can be tracked across splits."""
-    return np.column_stack(
-        [np.arange(n_samples, dtype=np.float64), np.zeros(n_samples)]
-    )
-
-
-def test__get_tuning_splits__regression_accepts_continuous_target() -> None:
+def test__get_tuning_split_indices__regression_accepts_continuous_target() -> None:
     # StratifiedKFold rejects a continuous target, which is exactly why regression
     # needs its own splitter. Assert both halves so the parameter is shown to matter.
-    X = _identity_X(50)
+    X = np.zeros((50, 2))
     y_continuous = np.random.default_rng(0).normal(size=50)
 
     with pytest.raises(ValueError, match="Supported target types"):
-        get_tuning_splits(
+        get_tuning_split_indices(
             X=X,
             y=y_continuous,
             holdout_frac=0.2,
@@ -414,7 +481,7 @@ def test__get_tuning_splits__regression_accepts_continuous_target() -> None:
             task_type="classifier",
         )
 
-    splits = get_tuning_splits(
+    splits = get_tuning_split_indices(
         X=X,
         y=y_continuous,
         holdout_frac=0.2,
@@ -423,12 +490,8 @@ def test__get_tuning_splits__regression_accepts_continuous_target() -> None:
     )
 
     assert len(splits) == 1
-    X_train, X_holdout, y_train, y_holdout = splits[0]
-    assert len(X_train) + len(X_holdout) == len(X)
-    assert len(y_train) + len(y_holdout) == len(y_continuous)
-    # The continuous target must survive the split untouched, not be binned.
-    assert y_holdout.dtype == y_continuous.dtype
-    assert set(np.concatenate([y_train, y_holdout])) == set(y_continuous)
+    train_indices, holdout_indices = splits[0]
+    assert len(train_indices) + len(holdout_indices) == len(X)
 
 
 @pytest.mark.parametrize(
@@ -440,16 +503,16 @@ def test__get_tuning_splits__regression_accepts_continuous_target() -> None:
         (0.25, 1, 50),
     ],
 )
-def test__get_tuning_splits__regression_respects_frac_and_n_splits(
+def test__get_tuning_split_indices__regression_respects_frac_and_n_splits(
     holdout_frac: float,
     n_splits: int,
     expected_holdout_size: int,
 ) -> None:
     n_samples = 200
-    X = _identity_X(n_samples)
+    X = np.zeros((n_samples, 2))
     y = np.random.default_rng(0).normal(size=n_samples)
 
-    splits = get_tuning_splits(
+    splits = get_tuning_split_indices(
         X=X,
         y=y,
         holdout_frac=holdout_frac,
@@ -458,21 +521,21 @@ def test__get_tuning_splits__regression_respects_frac_and_n_splits(
     )
 
     assert len(splits) == n_splits
-    for X_train, X_holdout, y_train, y_holdout in splits:
-        assert len(X_holdout) == expected_holdout_size
-        assert len(X_train) == n_samples - expected_holdout_size
-        assert len(y_train) == len(X_train)
-        assert len(y_holdout) == len(X_holdout)
+    for train_indices, holdout_indices in splits:
+        assert len(holdout_indices) == expected_holdout_size
+        assert len(train_indices) == n_samples - expected_holdout_size
 
 
-def test__get_tuning_splits__regression_holdouts_are_disjoint_across_folds() -> None:
+def test__get_tuning_split_indices__regression_holdouts_are_disjoint_across_folds() -> (
+    None
+):
     # The K-fold structure exists so that no sample is held out twice; a plain
     # random shuffle split would not guarantee this.
     n_samples = 200
-    X = _identity_X(n_samples)
+    X = np.zeros((n_samples, 2))
     y = np.random.default_rng(0).normal(size=n_samples)
 
-    splits = get_tuning_splits(
+    splits = get_tuning_split_indices(
         X=X,
         y=y,
         holdout_frac=0.2,
@@ -480,45 +543,23 @@ def test__get_tuning_splits__regression_holdouts_are_disjoint_across_folds() -> 
         task_type="regressor",
     )
 
-    holdout_indices = [X_holdout[:, 0].astype(int) for _, X_holdout, _, _ in splits]
-    all_holdout_indices = np.concatenate(holdout_indices)
-
+    all_holdout_indices = np.concatenate([holdout for _, holdout in splits])
     assert len(all_holdout_indices) == len(set(all_holdout_indices.tolist()))
     assert set(all_holdout_indices.tolist()) == set(range(n_samples))
 
     # Each fold's train and holdout parts must be complementary.
-    for (X_train, _, _, _), holdout_idx in zip(splits, holdout_indices, strict=True):
-        train_idx = X_train[:, 0].astype(int)
-        assert set(train_idx.tolist()).isdisjoint(set(holdout_idx.tolist()))
-        assert set(train_idx.tolist()) | set(holdout_idx.tolist()) == set(
-            range(n_samples)
-        )
+    for train_indices, holdout_indices in splits:
+        train, holdout = set(train_indices.tolist()), set(holdout_indices.tolist())
+        assert train.isdisjoint(holdout)
+        assert train | holdout == set(range(n_samples))
 
 
-def test__get_tuning_splits__regression_accepts_numpy_generator_random_state() -> None:
-    X = _identity_X(50)
-    y = np.random.default_rng(0).normal(size=50)
-
-    splits = get_tuning_splits(
-        X=X,
-        y=y,
-        holdout_frac=0.2,
-        n_splits=1,
-        random_state=np.random.default_rng(0),
-        task_type="regressor",
-    )
-
-    assert len(splits) == 1
-    X_train, X_holdout, _, _ = splits[0]
-    assert len(X_train) + len(X_holdout) == len(X)
-
-
-def test__get_tuning_splits__regression_handles_constant_target() -> None:
+def test__get_tuning_split_indices__regression_handles_constant_target() -> None:
     # A constant target has no variation to stratify or bin on.
-    X = _identity_X(50)
+    X = np.zeros((50, 2))
     y = np.full(50, 3.0)
 
-    splits = get_tuning_splits(
+    splits = get_tuning_split_indices(
         X=X,
         y=y,
         holdout_frac=0.2,
@@ -527,37 +568,23 @@ def test__get_tuning_splits__regression_handles_constant_target() -> None:
     )
 
     assert len(splits) == 2
-    for X_train, X_holdout, _, _ in splits:
-        assert len(X_train) + len(X_holdout) == len(X)
+    for train_indices, holdout_indices in splits:
+        assert len(train_indices) + len(holdout_indices) == len(X)
 
 
-def test__get_tuning_splits__classification_is_unchanged_by_default() -> None:
-    # The default must stay stratified so existing classifier behaviour is untouched.
+def test__get_tuning_split_indices__classification_is_stratified() -> None:
     n_samples = 200
-    X = _identity_X(n_samples)
+    X = np.zeros((n_samples, 2))
     y = np.array([0] * 20 + [1] * 180)
 
-    default_splits = get_tuning_splits(X=X, y=y, holdout_frac=0.2, n_splits=5)
-    explicit_splits = get_tuning_splits(
-        X=X,
-        y=y,
-        holdout_frac=0.2,
-        n_splits=5,
-        task_type="classifier",
+    splits = get_tuning_split_indices(
+        X=X, y=y, holdout_frac=0.2, n_splits=5, task_type="classifier"
     )
 
-    assert len(default_splits) == len(explicit_splits) == 5
-    for default_split, explicit_split in zip(
-        default_splits, explicit_splits, strict=True
-    ):
-        for default_array, explicit_array in zip(
-            default_split, explicit_split, strict=True
-        ):
-            np.testing.assert_array_equal(default_array, explicit_array)
-
+    assert len(splits) == 5
     # Stratification keeps the rare class present in every holdout.
-    for _, _, _, y_holdout in default_splits:
-        assert (y_holdout == 0).sum() == 4
+    for _, holdout_indices in splits:
+        assert (y[holdout_indices] == 0).sum() == 4
 
 
 @pytest.mark.parametrize(
@@ -609,6 +636,126 @@ def test__regressor_tuning_config__has_no_classification_only_fields() -> None:
     # Threshold tuning is classification-only; a regression config must not expose it.
     assert not hasattr(RegressorTuningConfig(), "tune_decision_thresholds")
     assert RegressorTuningConfig().calibrate_temperature is False
+
+
+def test__regressor_tuning_config__calibrate_mean_is_off_by_default() -> None:
+    assert RegressorTuningConfig().calibrate_mean is False
+    assert RegressorTuningConfig().mean_calibration_mode == "tweedie"
+
+
+@pytest.mark.parametrize("power", [0.0, 0.99, 2.01])
+def test__regressor_tuning_config__rejects_mean_calibration_power_outside_1_2(
+    power: float,
+) -> None:
+    with pytest.raises(ValueError, match="must be in \\[1, 2\\]"):
+        RegressorTuningConfig(calibrate_mean=True, mean_calibration_power=power)
+
+
+@pytest.mark.parametrize("power", [1.0, 1.5, 2.0])
+def test__find_mean_calibration_scale__recovers_a_known_scale(power: float) -> None:
+    rng = np.random.default_rng(0)
+    # Shifted by 1, so no mean falls below the floor of the mean calibration.
+    mean = 1.0 + rng.gamma(shape=2.0, scale=3.0, size=10_000)
+    # Zero-inflated, multiplicative noise with mean 1: E[y] = 2.5 * mean.
+    y = 2.5 * mean * rng.binomial(1, 0.2, size=mean.size) * 5.0
+
+    scale = find_mean_calibration_scale(y_true=y, mean=mean, power=power)
+
+    assert scale == pytest.approx(2.5, rel=0.1)
+    # Without noise every power recovers the scale exactly.
+    assert find_mean_calibration_scale(
+        y_true=2.5 * mean, mean=mean, power=power
+    ) == pytest.approx(2.5, rel=1e-12)
+
+
+@pytest.mark.parametrize("power", [1.0, 1.5, 2.0])
+def test__find_mean_calibration_scale__minimizes_the_tweedie_deviance(
+    power: float,
+) -> None:
+    rng = np.random.default_rng(1)
+    # Shifted, so no mean falls below the floor of the mean calibration.
+    mean = 0.5 + rng.gamma(shape=2.0, scale=1.0, size=500)
+    # Not proportional to `mean`, so each power has a different minimizer.
+    y = rng.poisson(mean**2) + 1.0
+
+    scale = find_mean_calibration_scale(y_true=y, mean=mean, power=power)
+
+    def deviance(c: float) -> float:
+        return mean_tweedie_deviance(y, c * mean, power=power)
+
+    assert deviance(scale) < deviance(scale * 0.99)
+    assert deviance(scale) < deviance(scale * 1.01)
+
+
+@pytest.mark.parametrize("power", [1.0, 1.5, 2.0])
+def test__find_mean_calibration_scale__minimizes_the_weighted_tweedie_deviance(
+    power: float,
+) -> None:
+    rng = np.random.default_rng(2)
+    mean = rng.gamma(shape=2.0, scale=1.0, size=500)
+    y = rng.poisson(mean**2) + 1.0
+    # Tied to `mean`, so the weighted minimizer moves away from the plain one.
+    weight = rng.uniform(0.0, 1.0, size=mean.size) * mean**2
+
+    scale = find_mean_calibration_scale(
+        y_true=y, mean=mean, power=power, sample_weight=weight
+    )
+
+    def deviance(c: float) -> float:
+        return mean_tweedie_deviance(y, c * mean, power=power, sample_weight=weight)
+
+    assert deviance(scale) < deviance(scale * 0.99)
+    assert deviance(scale) < deviance(scale * 1.01)
+    assert scale != pytest.approx(
+        find_mean_calibration_scale(y_true=y, mean=mean, power=power), rel=1e-3
+    )
+
+
+def test__find_mean_calibration_scale__floors_non_positive_means() -> None:
+    y = np.array([0.0, 0.0, 4.0])
+    mean = np.array([-0.5, 0.0, 2.0])
+    floor = MEAN_CALIBRATION_MIN_MEAN_FRACTION * y.mean()
+
+    # p = 1 is sum(y) / sum(m) with the floored means.
+    assert find_mean_calibration_scale(y_true=y, mean=mean, power=1.0) == pytest.approx(
+        4.0 / (2.0 + 2 * floor)
+    )
+    assert np.isfinite(find_mean_calibration_scale(y_true=y, mean=mean, power=1.5))
+
+
+@pytest.mark.parametrize("power", [1.0, 1.5])
+def test__find_mean_calibration_scale__zero_weight_rows_do_not_move_the_floor(
+    power: float,
+) -> None:
+    y = np.array([0.0, 0.0, 4.0, 1e6])
+    mean = np.array([-0.5, 0.0, 2.0, 1.0])
+    weight = np.array([1.0, 1.0, 1.0, 0.0])
+
+    assert find_mean_calibration_scale(
+        y_true=y, mean=mean, power=power, sample_weight=weight
+    ) == pytest.approx(
+        find_mean_calibration_scale(y_true=y[:3], mean=mean[:3], power=power),
+        rel=1e-12,
+    )
+
+
+@pytest.mark.parametrize("power", [1.5, 2.0])
+def test__find_mean_calibration_scale__floors_relative_to_the_targets(
+    power: float,
+) -> None:
+    # 1000 rows with m = y = 100 give c = 1. One more row has y = 100 and m = 0.
+    # With an absolute floor of 1e-6 this row moves c to about 11 at p = 1.5 and
+    # about 1e5 at p = 2.
+    y = np.full(1001, 100.0)
+    mean = np.append(np.full(1000, 100.0), 0.0)
+
+    scale = find_mean_calibration_scale(y_true=y, mean=mean, power=power)
+
+    assert 1.0 < scale < 1.15
+    # The floor scales with the targets, so c does not depend on their units.
+    assert find_mean_calibration_scale(
+        y_true=1e-4 * y, mean=1e-4 * mean, power=power
+    ) == pytest.approx(scale, rel=1e-12)
 
 
 def test__regressor_eval_metrics__round_trips_from_string() -> None:
@@ -664,7 +811,10 @@ def test__resolve_tuning_config__keeps_a_config_instance_over_config_cls() -> No
             ClassifierTuningConfig(),
             "`calibrate_temperature=True` or `tune_decision_thresholds=True`",
         ),
-        (RegressorTuningConfig(), "`calibrate_temperature=True`"),
+        (
+            RegressorTuningConfig(),
+            "`calibrate_temperature=True` or `calibrate_mean=True`",
+        ),
     ],
 )
 def test__resolve_tuning_config__warns_about_the_options_the_config_has(
@@ -704,7 +854,8 @@ def test__get_tuning_feature_flags__lists_only_the_boolean_feature_fields() -> N
         ClassifierTuningConfig(calibrate_temperature=True, tuning_n_folds=3)
     ) == {"calibrate_temperature": True, "tune_decision_thresholds": False}
     assert get_tuning_feature_flags(RegressorTuningConfig()) == {
-        "calibrate_temperature": False
+        "calibrate_temperature": False,
+        "calibrate_mean": False,
     }
 
 
@@ -848,6 +999,23 @@ def test__find_regression_optimal_temperature__weights_folds_by_holdout_size() -
     pooled = _optimal_temperature([small_fold, big_fold])
 
     assert abs(pooled - big_only) < abs(pooled - small_only)
+
+
+def test__find_regression_optimal_temperature__follows_the_weighted_rows() -> None:
+    sharp_fold = _miscalibrated_fold(n_samples=400, target_temperature=0.8, seed=4)
+    wide_fold = _miscalibrated_fold(n_samples=400, target_temperature=1.3, seed=5)
+    ones, zeros = torch.ones(400), torch.zeros(400)
+
+    def temperature(sharp_weight: torch.Tensor, wide_weight: torch.Tensor) -> float:
+        return _optimal_temperature(
+            [(*sharp_fold, None, sharp_weight), (*wide_fold, None, wide_weight)]
+        )
+
+    assert temperature(ones, zeros) == _optimal_temperature([sharp_fold])
+    assert temperature(zeros, ones) == _optimal_temperature([wide_fold])
+    assert temperature(ones, ones) == _optimal_temperature([sharp_fold, wide_fold])
+    # No weight anywhere leaves nothing to tune on.
+    assert temperature(zeros, zeros) == 1.0
 
 
 def test__find_regression_optimal_temperature__is_invariant_to_target_units() -> None:

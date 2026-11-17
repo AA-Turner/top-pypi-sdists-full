@@ -9,10 +9,12 @@ rebased with conflicts, or re-applied by hand reads as unlanded, and a dirty wor
 uncommitted files are not commits at all. This answers it from content instead:
 
 * WORKTREE MODE (the target is a directory): each changed, deleted or untracked file is hashed
-  as git would store it (`git hash-object --path`, so line-ending filters apply) and compared
-  with the target's blob, then with the blob at every target commit since the merge-base that
-  touched the path - a file the target changed AGAIN after the work landed still counts. The
-  worktree's own commits are then checked as in branch mode.
+  as git would store it (`git hash-object --stdin-paths`, so line-ending filters apply) and
+  compared with the target's blob, then with the blob at every target commit since the
+  merge-base that touched the path - a file the target changed AGAIN after the work landed still
+  counts. The blob lookups go through one `git cat-file --batch-check` per pass, so the cost does
+  not grow with the target's history. The worktree's own commits are then checked as in branch
+  mode.
 * BRANCH MODE (the target is a ref): commits are first matched by patch-id, as `git cherry`
   does; then each line the branch ADDED (blank lines aside) is looked up in the target's copy of
   the file, as a multiset, so two added copies need two copies there. A branch is landed when
@@ -52,15 +54,39 @@ import shutil
 import subprocess
 import sys
 from collections import Counter
+from dataclasses import asdict, dataclass
+from enum import StrEnum
 from pathlib import Path
 
 __all__ = ["added_lines", "main", "versions_in"]
 
 DEFAULT_INTO = ("origin/HEAD", "origin/main", "origin/master", "main", "master")
-LANDED_FILE_STATES = frozenset({"in_target", "in_history", "deleted_in_target"})
+
+
+class FileStatus(StrEnum):
+    """Where one uncommitted worktree file stands against the target; the values are the wire form."""
+
+    IN_TARGET = "in_target"
+    IN_HISTORY = "in_history"
+    DELETED_IN_TARGET = "deleted_in_target"
+    DELETED_HERE_ONLY = "deleted_here_only"
+    DIFFERS = "differs"
+    ABSENT_IN_TARGET = "absent_in_target"
+
+
+LANDED_FILE_STATES = frozenset({FileStatus.IN_TARGET, FileStatus.IN_HISTORY,
+                                FileStatus.DELETED_IN_TARGET})
+
+
+@dataclass(frozen=True)
+class WorktreeFile:
+    path: str
+    status: FileStatus
 _SCOPING_VARS = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR")
 # Not part of a longer dotted number on either side; a sentence's closing period is allowed.
 _VERSION = re.compile(r"(?<![\d.])\d+\.\d+\.\d+(?!\.?\d)")
+# A cat-file --batch-check hit; a miss reads "<name> missing" (or "ambiguous").
+_BATCH_FOUND = re.compile(r"([0-9a-f]{40}|[0-9a-f]{64}) [a-z]+ \d+")
 _TIMEOUT = 120
 
 
@@ -79,14 +105,15 @@ def _git_env() -> dict[str, str]:
     return env
 
 
-def git(cwd: Path, *args: str, check: bool = True) -> subprocess.CompletedProcess[bytes]:
+def git(cwd: Path, *args: str, check: bool = True,
+        stdin: bytes | None = None) -> subprocess.CompletedProcess[bytes]:
     """Run git read-only in `cwd`; bytes out, because file content is compared exactly."""
     exe = shutil.which("git")
     if exe is None:
         raise CannotRun("git is not installed or not on PATH")
     done = subprocess.run(
         [exe, "--no-optional-locks", *args], cwd=str(cwd), capture_output=True,
-        timeout=_TIMEOUT, check=False, env=_git_env(),
+        timeout=_TIMEOUT, check=False, env=_git_env(), input=stdin,
     )
     if check and done.returncode != 0:
         err = done.stderr.decode("utf-8", "replace").strip()
@@ -106,6 +133,39 @@ def _resolve(cwd: Path, ref: str) -> str | None:
 def _blob(cwd: Path, rev: str, path: str) -> str | None:
     done = git(cwd, "rev-parse", "--verify", "-q", f"{rev}:{path}", check=False)
     return _text(done).strip() if done.returncode == 0 else None
+
+
+def _batchable(path: str) -> bool:
+    """Can `path` travel as one line of a batch? cat-file --batch-check and hash-object
+    --stdin-paths read newline-separated lines, strip a trailing CR, and hash-object unquotes a
+    line that starts with a double quote; the NUL-separated forms need git 2.43 or later."""
+    return "\n" not in path and "\r" not in path and not path.startswith('"')
+
+
+def _lines_out(done: subprocess.CompletedProcess[bytes], want: int, what: str) -> list[str]:
+    lines = _text(done).split("\n")[:want]
+    if len(lines) != want:
+        raise CannotRun(f"git {what} answered {len(lines)} of {want} lines")
+    return lines
+
+
+def _blobs(cwd: Path, specs: list[str]) -> list[str | None]:
+    """The object id each `<rev>:<path>` names (None = absent), in ONE git process."""
+    if not specs:
+        return []
+    feed = "".join(f"{spec}\n" for spec in specs).encode("utf-8")
+    done = git(cwd, "cat-file", "--batch-check", stdin=feed)
+    found = (_BATCH_FOUND.fullmatch(line) for line in _lines_out(done, len(specs), "cat-file"))
+    return [m.group(1) if m else None for m in found]
+
+
+def _hashes(cwd: Path, paths: list[str]) -> list[str]:
+    """Each worktree file's blob id as git would store it (filters applied), in ONE process."""
+    if not paths:
+        return []
+    feed = "".join(f"{path}\n" for path in paths).encode("utf-8")
+    done = git(cwd, "hash-object", "--stdin-paths", stdin=feed)
+    return [line.strip() for line in _lines_out(done, len(paths), "hash-object")]
 
 
 def _blob_text(cwd: Path, rev: str, path: str) -> str:
@@ -180,22 +240,56 @@ def _history_has(cwd: Path, base: str, into: str, path: str, sha: str | None) ->
     return any(_blob(cwd, rev, path) == sha for rev in revs)
 
 
-def _file_status(cwd: Path, xy: str, path: str, base: str, into: str) -> str:
+def _file_status(cwd: Path, xy: str, path: str, base: str, into: str) -> FileStatus:
     target_sha = _blob(cwd, into, path)
     if "D" in xy:
-        return "deleted_in_target" if target_sha is None else "deleted_here_only"
+        return FileStatus.DELETED_IN_TARGET if target_sha is None else FileStatus.DELETED_HERE_ONLY
     sha = _text(git(cwd, "hash-object", f"--path={path}", "--", path)).strip()
     if sha == target_sha:
-        return "in_target"
+        return FileStatus.IN_TARGET
     if _history_has(cwd, base, into, path, sha):
-        return "in_history"
-    return "differs" if target_sha is not None else "absent_in_target"
+        return FileStatus.IN_HISTORY
+    return FileStatus.DIFFERS if target_sha is not None else FileStatus.ABSENT_IN_TARGET
 
 
-def worktree_files(cwd: Path, base: str, into: str) -> list[dict[str, str]]:
+def _first_look(xy: str, sha: str | None, target_sha: str | None) -> FileStatus | None:
+    """The status decided without history, or None when the target's history must be asked."""
+    if "D" in xy:
+        return FileStatus.DELETED_IN_TARGET if target_sha is None else FileStatus.DELETED_HERE_ONLY
+    return FileStatus.IN_TARGET if sha == target_sha else None
+
+
+def _batched_statuses(cwd: Path, entries: list[tuple[str, str]], base: str,
+                      into: str) -> list[FileStatus]:
+    """`_file_status` for every entry, with a fixed number of git processes per batch plus one
+    rev-list per file that differs: never one process per (file, target commit) pair."""
+    targets = _blobs(cwd, [f"{into}:{path}" for _xy, path in entries])
+    live = [path for xy, path in entries if "D" not in xy]
+    hashed = dict(zip(live, _hashes(cwd, live), strict=True))
+    first = [_first_look(xy, hashed.get(path), target)
+             for (xy, path), target in zip(entries, targets, strict=True)]
+    asks: list[tuple[int, str]] = []
+    for i, (_xy, path) in enumerate(entries):
+        if first[i] is None:
+            revs = _text(git(cwd, "rev-list", f"{base}..{into}", "--", path)).split()
+            asks.extend((i, f"{rev}:{path}") for rev in revs)
+    blobs = _blobs(cwd, [spec for _i, spec in asks])
+    in_history = {i for (i, _spec), blob in zip(asks, blobs, strict=True)
+                  if blob == hashed[entries[i][1]]}
+    return [status if status is not None
+            else FileStatus.IN_HISTORY if i in in_history
+            else FileStatus.DIFFERS if targets[i] is not None
+            else FileStatus.ABSENT_IN_TARGET
+            for i, status in enumerate(first)]
+
+
+def worktree_files(cwd: Path, base: str, into: str) -> list[WorktreeFile]:
+    entries = _porcelain_entries(cwd)
+    batch = [entry for entry in entries if _batchable(entry[1])]
+    found = dict(zip(batch, _batched_statuses(cwd, batch, base, into), strict=True))
     return [
-        {"path": path, "status": _file_status(cwd, xy, path, base, into)}
-        for xy, path in _porcelain_entries(cwd)
+        WorktreeFile(path, found.get((xy, path)) or _file_status(cwd, xy, path, base, into))
+        for xy, path in entries
     ]
 
 
@@ -305,9 +399,9 @@ def report(target: str, into_ref: str | None, also_into: list[str] | None = None
     files = worktree_files(cwd, base, into) if mode == "worktree" else []
     branch = branch_report(cwd, base, head, into)
     branch_landed = branch.pop("landed") or any(c["contains"] for c in containers)
-    landed = branch_landed and all(f["status"] in LANDED_FILE_STATES for f in files)
+    landed = branch_landed and all(f.status in LANDED_FILE_STATES for f in files)
     return {"target": target, "mode": mode, "into": into,
-            "verdict": "landed" if landed else "not_landed", "files": files,
+            "verdict": "landed" if landed else "not_landed", "files": [asdict(f) for f in files],
             "also_into": containers, **branch}
 
 

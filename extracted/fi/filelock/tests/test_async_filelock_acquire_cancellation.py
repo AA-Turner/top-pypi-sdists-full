@@ -30,11 +30,11 @@ async def test_backend_cancellation_after_acquire_rolls_back(tmp_path: Path) -> 
     released = False
 
     class CancellingFileLock(BaseAsyncFileLock):
-        async def _acquire(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _acquire(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             self._context.lock_file_fd = 1
             raise backend_cancellation
 
-        async def _release(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _release(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             nonlocal released
             released = True
             self._context.lock_file_fd = None
@@ -83,11 +83,11 @@ def _lock_failing_rollback_once(
     fail_rollback = True
 
     class CancellingFileLock(BaseAsyncFileLock):
-        async def _acquire(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _acquire(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             self._context.lock_file_fd = 1
             raise backend_cancellation
 
-        async def _release(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _release(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             nonlocal fail_rollback
             if fail_rollback:
                 fail_rollback = False
@@ -126,13 +126,13 @@ async def test_caller_and_backend_cancellation_both_surface(tmp_path: Path) -> N
     backend_cancellation = asyncio.CancelledError("backend canceled")
 
     class CancellingFileLock(BaseAsyncFileLock):
-        async def _acquire(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _acquire(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             self._context.lock_file_fd = 1
             acquire_started.set()
             await finish_acquire.wait()
             raise backend_cancellation
 
-        async def _release(self) -> None:  # ty: ignore[invalid-method-override]  # coroutine backends are supported
+        async def _release(self) -> None:  # ty: ignore[incompatible-method-override]  # coroutine backends are supported
             self._context.lock_file_fd = None
 
     lock = CancellingFileLock(tmp_path / "a", run_in_executor=False, context_error_policy="group")
@@ -168,14 +168,14 @@ async def test_acquire_cancellation_before_executor_start_rolls_back(tmp_path: P
         release_executor.set()
         assert await asyncio.to_thread(second_started.wait, 5)
         # The resolved path wakes the task, which queues the directory job behind the second blocker.
-        await asyncio.sleep(0.05)  # simplint: ignore[SMP808]  # needs an executor-queue signal
+        await asyncio.sleep(0.05)  # simplint: ignore[sleep-in-test]  # needs an executor-queue signal
         third_started = threading.Event()
         release_third = threading.Event()
         third_blocker = executor.submit(_block_executor, third_started, release_third)
         release_second.set()
         assert await asyncio.to_thread(third_started.wait, 5)
         # The created directory wakes the task, which queues the attempt behind the third blocker.
-        await asyncio.sleep(0.05)  # simplint: ignore[SMP808]  # needs an executor-queue signal
+        await asyncio.sleep(0.05)  # simplint: ignore[sleep-in-test]  # needs an executor-queue signal
         assert (lock.lock_counter, acquired.is_set()) == (1, False)
         task.cancel()
         release_third.set()

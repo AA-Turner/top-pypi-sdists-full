@@ -2,7 +2,6 @@
 
 use pyo3::prelude::{Bound, PyModule, PyResult};
 
-use crate::bindings::_helpers::build_progress::{progress_reporters, progress_text};
 use crate::bindings::_helpers::cli::{argv, entry, namespace, observability, termination};
 use crate::bindings::_helpers::{
     audit_command, build_command, build_progress, change_selection, check, clone, command_runtime,
@@ -14,6 +13,8 @@ use crate::bindings::_helpers::{
 };
 use sqlbuild_python_base::build_progress::main::progress::register_progress::register_progress;
 use sqlbuild_python_base::cli::main::register_launch_state::register_launch_state;
+use sqlbuild_python_output::build_progress::main::register_progress_reporters::register_progress_reporters;
+use sqlbuild_python_output::build_progress::main::register_progress_text::register_progress_text;
 
 pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     argv::register(module)?;
@@ -23,15 +24,15 @@ pub(crate) fn register(module: &Bound<'_, PyModule>) -> PyResult<()> {
     observability::register(module)?;
     termination::register(module)?;
     register_progress(module)?;
-    progress_reporters::register(module)?;
-    progress_text::register(module)?;
+    register_progress_reporters(module)?;
+    register_progress_text(module)?;
     janitor::registration::register(module)?;
     plan_command::registration::register(module)?;
     freshness::registration::register(module)?;
-    crate::bindings::_helpers::native_host::consumption_state::register(module)?;
-    crate::bindings::_helpers::native_host::observations_state::register(module)?;
-    crate::bindings::_helpers::native_host::resource_costs_state::register(module)?;
-    crate::bindings::_helpers::native_host::audit_results_state::register(module)?;
+    sqlbuild_python_front::native_host::main::register_consumption_state::register_consumption_state(module)?;
+    sqlbuild_python_front::native_host::main::register_observations_state::register_observations_state(module)?;
+    sqlbuild_python_front::resource_costs::main::register_resource_costs_state::register_resource_costs_state(module)?;
+    sqlbuild_python_front::native_host::main::register_audit_results_state::register_audit_results_state(module)?;
     clone::registration::register(module)?;
     compute_logs::registration::register(module)?;
     execution_history::registration::register(module)?;

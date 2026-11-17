@@ -26,6 +26,8 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping
     from typing import TypeAlias
 
+    from typing_extensions import TypeForm
+
     from psygnal._group import EmissionInfo
     from psygnal._weak_callback import RefErrorChoice, WeakCallback
 
@@ -118,7 +120,7 @@ def _check_field_equality(
             return _check_field_equality(cls, name, before, after, _fail=True)
 
 
-def _pick_equality_operator(type_: type | None) -> EqOperator:
+def _pick_equality_operator(type_: TypeForm | None) -> EqOperator:
     """Get the default equality operator for a given type."""
     np = sys.modules.get("numpy", None)
     if getattr(type_, "__module__", "").startswith("dask"):
@@ -768,7 +770,7 @@ def connect_child_events(
     This is useful when you have a tree of objects, and you want to connect all
     events from the children to the parent.
 
-    Parameters.
+    Parameters
     ----------
     obj : object
         The object to connect events from.  If it is not evented, this function will

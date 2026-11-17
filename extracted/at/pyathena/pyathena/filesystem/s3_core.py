@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import contextlib
+import functools
 import logging
 import math
 import traceback
@@ -32,7 +33,14 @@ from pyathena.filesystem.s3_object import (
     S3PutObject,
 )
 from pyathena.filesystem.s3_path import S3Path
-from pyathena.util import RetryConfig, override, retry_api_call, unstoppable_retries
+from pyathena.util import (
+    THROTTLING_ERROR_CODES,
+    RetryConfig,
+    _with_exceptions,
+    override,
+    retry_api_call,
+    unstoppable_retries,
+)
 
 _logger = logging.getLogger(__name__)
 
@@ -489,6 +497,17 @@ class S3MultipartCopyPlan:
     fits_single_request: bool = False
 
 
+# The parameters of a copy that authorize the access to its source, and their
+# names in the requests that read the source.
+_COPY_SOURCE_PARAMS = {
+    "RequestPayer": "RequestPayer",
+    "ExpectedSourceBucketOwner": "ExpectedBucketOwner",
+    "CopySourceSSECustomerAlgorithm": "SSECustomerAlgorithm",
+    "CopySourceSSECustomerKey": "SSECustomerKey",
+    "CopySourceSSECustomerKeyMD5": "SSECustomerKeyMD5",
+}
+
+
 class S3Core:
     """Typed S3 operations on a boto3 S3 client.
 
@@ -500,7 +519,9 @@ class S3Core:
     :class:`~pyathena.filesystem.s3_errors.S3ClientError`): a missing bucket
     or multipart upload, or a missing object or version that an operation
     reads, raises ``FileNotFoundError``, and a denied request
-    ``PermissionError``.
+    ``PermissionError``. :meth:`copy_object` and :meth:`upload_part_copy`
+    with a source version that is a delete marker raise ``OSError`` with
+    ``EINVAL``.
     As in S3, deleting a missing key is not an error. Nothing is cached.
 
     Example:
@@ -559,6 +580,16 @@ class S3Core:
     BUCKET_ACLS: ClassVar[frozenset[str]] = frozenset(
         {"private", "public-read", "public-read-write", "authenticated-read"}
     )
+    # https://docs.aws.amazon.com/AmazonS3/latest/API/ErrorResponses.html
+    #: The S3 error codes of transient failures (status 503, 500, and 400),
+    #: which botocore's retry modes also retry. A retry policy with the
+    #: default codes retries them too.
+    RETRY_ERROR_CODES: ClassVar[tuple[str, ...]] = (
+        "SlowDown",
+        "ServiceUnavailable",
+        "InternalError",
+        "RequestTimeout",
+    )
 
     def __init__(
         self,
@@ -571,13 +602,38 @@ class S3Core:
         Args:
             client: The boto3 S3 client to send the requests with.
             retry_config: The retry policy of the requests; defaults to
-                ``RetryConfig()``.
+                ``RetryConfig()``. The requests are sent with the policy that
+                :meth:`resolve_retry_config` returns for it.
             request_kwargs: Parameters sent with every operation that accepts
                 them, such as ``{"RequestPayer": "requester"}``.
         """
         self._client = client
-        self._retry_config = retry_config if retry_config else RetryConfig()
+        self._retry_config = self.resolve_retry_config(
+            retry_config if retry_config else RetryConfig()
+        )
         self._request_kwargs = dict(request_kwargs) if request_kwargs else {}
+
+    @classmethod
+    def resolve_retry_config(cls, retry_config: RetryConfig) -> RetryConfig:
+        """Resolve the retry policy that S3 requests are sent with.
+
+        A policy whose ``exceptions`` are the default codes
+        (``THROTTLING_ERROR_CODES``), in any order, also retries
+        ``RETRY_ERROR_CODES``. A policy with other ``exceptions`` is used as
+        given.
+
+        Args:
+            retry_config: The retry policy.
+
+        Returns:
+            A copy of the policy that also retries ``RETRY_ERROR_CODES`` with
+            the same attempts and waits, or the policy itself.
+        """
+        if set(retry_config.exceptions) == set(THROTTLING_ERROR_CODES):
+            return _with_exceptions(
+                retry_config, (*retry_config.exceptions, *cls.RETRY_ERROR_CODES)
+            )
+        return retry_config
 
     @property
     def client(self) -> BaseClient:
@@ -586,7 +642,7 @@ class S3Core:
 
     @property
     def retry_config(self) -> RetryConfig:
-        """The retry policy of the requests."""
+        """The retry policy of the requests, with ``RETRY_ERROR_CODES`` if they were added."""
         return self._retry_config
 
     @property
@@ -620,7 +676,18 @@ class S3Core:
         """Send a request with the retry policy and translate its errors.
 
         ``request_kwargs`` that the operation accepts are added; a parameter
-        of the request takes precedence.
+        of the request takes precedence. The operation is identified by the
+        name of the method; a ``functools.partial`` is identified by the
+        method it wraps, and its bound keywords are parameters of the request.
+        A callable whose ``__name__`` is not that of a client method is sent
+        without them.
+
+        A ``Body`` that is a stream, given to the call or bound by a
+        ``functools.partial``, is sent from the position where the call found
+        it on each attempt of the policy. One whose position cannot be read
+        with ``tell()`` and restored with ``seek()`` is sent once, without the
+        retries of the policy, since a retry would send only the rest of the
+        stream.
 
         Args:
             method: The name of the client method, or the method itself.
@@ -630,6 +697,8 @@ class S3Core:
             The response.
 
         Raises:
+            ValueError: If botocore rejects the parameters of the request
+                (``ParamValidationError``), which is not sent.
             OSError: The translation of an S3 error response (see
                 :class:`~pyathena.filesystem.s3_errors.S3ClientError`).
 
@@ -640,17 +709,54 @@ class S3Core:
             retry state, which keeps the error in a reference cycle.
         """
         func = getattr(self._client, method) if isinstance(method, str) else method
+        # The keywords that the partials bind; those of an outer one win.
+        target = func
+        bound: dict[str, Any] = {}
+        while isinstance(target, functools.partial):
+            bound = {**target.keywords, **bound}
+            target = target.func
         if self._request_kwargs:
-            request = {**self.operation_params(func.__name__, self._request_kwargs), **request}
+            params = self.operation_params(getattr(target, "__name__", ""), self._request_kwargs)
+            request.update({k: v for k, v in params.items() if k not in request and k not in bound})
+        config, send = self._retry_config, func
+        body = request["Body"] if "Body" in request else bound.get("Body")
+        if body is not None and hasattr(body, "read"):
+            try:
+                position = body.tell()
+                body.seek(position)
+            except (AttributeError, OSError, ValueError):
+                config = _with_exceptions(config, ())
+            else:
+                # Each attempt calls the client again, which sends the stream
+                # from its current position, where the last attempt left it.
+                send = functools.partial(self._send_rewound, func, body, position)
         try:
-            response = retry_api_call(func, config=self._retry_config, logger=_logger, **request)
+            response = retry_api_call(send, config=config, logger=_logger, **request)
         except BaseException as e:
             # clear_frames() skips this frame, which is still executing.
             traceback.clear_frames(e.__traceback__)
             if isinstance(e, botocore.exceptions.ClientError):
                 raise S3ClientError(e).os_error from e
+            if isinstance(e, botocore.exceptions.ParamValidationError):
+                raise ValueError(str(e)) from e
             raise
         return cast(dict[str, Any], response)
+
+    @staticmethod
+    def _send_rewound(func: Callable[..., Any], body: Any, position: int, **request) -> Any:
+        """Rewind the stream body of a request and send the request.
+
+        Args:
+            func: The client method.
+            body: The stream that the request sends as its ``Body``.
+            position: The position to rewind the stream to.
+            **request: The request parameters.
+
+        Returns:
+            The response.
+        """
+        body.seek(position)
+        return func(**request)
 
     def head_object(self, path: S3Path, **params) -> S3Metadata:
         """Look up an object, or a version of it, with HeadObject.
@@ -1009,6 +1115,10 @@ class S3Core:
         Raises:
             ValueError: If the upload has no bucket, key, or upload ID, or the
                 source has no key.
+            FileNotFoundError: If the upload, or the source object or version,
+                does not exist.
+            OSError: With ``EINVAL`` for an invalid request, such as a source
+                version that is a delete marker.
         """
         request = self._multipart_upload_request(upload)
         if not source.key:
@@ -1115,8 +1225,10 @@ class S3Core:
 
         Returns:
             The ``(start, end)`` byte ranges, with an exclusive end, that
-            cover the whole object in order.
+            cover the whole object in order; empty for an empty object.
         """
+        if size == 0:
+            return []
         block_size = max(block_size, math.ceil(size / self.MULTIPART_UPLOAD_MAX_PARTS))
         starts = list(range(0, size, block_size))
         if len(starts) > 1 and size - starts[-1] < self.MULTIPART_UPLOAD_MIN_PART_SIZE:
@@ -1164,6 +1276,10 @@ class S3Core:
         Raises:
             ValueError: If the source or the destination has no key, or the
                 destination has a version ID, which a write cannot replace.
+            FileNotFoundError: If a bucket, or the source object or version,
+                does not exist.
+            OSError: With ``EINVAL`` for an invalid request, such as a source
+                version that is a delete marker.
         """
         if not source.key:
             raise ValueError(f"The source has no key: {source.uri}.")
@@ -1264,7 +1380,7 @@ class S3Core:
         if annotation_directive not in ("COPY", "EXCLUDE"):
             raise ValueError(f"Invalid AnnotationDirective: {annotation_directive}.")
 
-        source_params = self._copy_source_params(params)
+        source_params = self.copy_source_params(params)
         _logger.debug(f"Head object to copy: {source.uri}")
         head = self.head_object(source, **self.operation_params("head_object", source_params))
         if head.content_length is None:
@@ -1321,7 +1437,8 @@ class S3Core:
                 )
             )
             if annotation_directive == "COPY"
-            and "CopySourceSSECustomerAlgorithm" not in params
+            # The parameters of the copy, or the request_kwargs added to it.
+            and "CopySourceSSECustomerAlgorithm" not in {**self._request_kwargs, **params}
             and not source.is_directory_bucket
             else ()
         )
@@ -1387,6 +1504,10 @@ class S3Core:
         destination still has the ETag of the copy, so that it is not
         attached to an object written over the copy.
 
+        The payload of the annotation is read whole and then closed, also
+        when the read fails. As for :meth:`get_object`, a failure to read it
+        is neither translated nor retried: the botocore exception propagates.
+
         Args:
             name: The annotation name.
             source: The path of the copied object, with the version ID that
@@ -1418,15 +1539,16 @@ class S3Core:
         _logger.debug(f"Copy object annotation {name} from {source.uri} to {destination.uri}.")
         response = self.call(
             self._client.get_object_annotation,
-            **self.operation_params("get_object_annotation", self._copy_source_params(params)),
+            **self.operation_params("get_object_annotation", self.copy_source_params(params)),
             **get_request,
         )
         put_request: dict[str, Any] = {
             "Bucket": destination.bucket,
             "Key": destination.key,
             "AnnotationName": name,
-            "AnnotationPayload": response["AnnotationPayload"].read(),
         }
+        with contextlib.closing(response["AnnotationPayload"]) as payload:
+            put_request.update({"AnnotationPayload": payload.read()})
         if version_id:
             put_request.update({"VersionId": version_id})
         if etag:
@@ -1637,8 +1759,12 @@ class S3Core:
         )
 
     @staticmethod
-    def _copy_source_params(params: Mapping[str, Any]) -> dict[str, Any]:
+    def copy_source_params(params: Mapping[str, Any]) -> dict[str, Any]:
         """Map the parameters of a copy to those of the requests that read its source.
+
+        The source of a copy is looked up, read, or deleted (by a move) with
+        the parameters that authorize the access to it, which CopyObject
+        names apart from those of the destination.
 
         Args:
             params: The CopyObject parameters of the copy.
@@ -1648,14 +1774,33 @@ class S3Core:
             parameters under the names of the requests that read the source
             (``ExpectedBucketOwner`` and ``SSECustomer*``), where given.
         """
-        source_params = {
-            "RequestPayer": params.get("RequestPayer"),
-            "ExpectedBucketOwner": params.get("ExpectedSourceBucketOwner"),
-            "SSECustomerAlgorithm": params.get("CopySourceSSECustomerAlgorithm"),
-            "SSECustomerKey": params.get("CopySourceSSECustomerKey"),
-            "SSECustomerKeyMD5": params.get("CopySourceSSECustomerKeyMD5"),
+        return {
+            read: params[copy]
+            for copy, read in _COPY_SOURCE_PARAMS.items()
+            if params.get(copy) is not None
         }
-        return {k: v for k, v in source_params.items() if v is not None}
+
+    @staticmethod
+    def copy_from_source_params(params: Mapping[str, Any]) -> dict[str, Any]:
+        """Map the parameters of the requests that read an object to those of a copy from it.
+
+        The inverse of :meth:`copy_source_params`, for a copy whose source is
+        read with ``params``, such as the part copies of an append.
+
+        Args:
+            params: The parameters of the requests that read the object.
+
+        Returns:
+            ``RequestPayer``, and the expected bucket owner and SSE-C
+            parameters under the names of the copy source
+            (``ExpectedSourceBucketOwner`` and ``CopySourceSSECustomer*``),
+            where given.
+        """
+        return {
+            copy: params[read]
+            for copy, read in _COPY_SOURCE_PARAMS.items()
+            if params.get(read) is not None
+        }
 
     def list_objects_page(
         self,

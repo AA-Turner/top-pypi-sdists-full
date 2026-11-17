@@ -6,14 +6,21 @@ same role locales.ZH plays for Chinese: a pure-Han string cannot say
 which language it is written in (林 is Lin or Hayashi), so neither
 activation may be a default.
 
-Unlike zh, this pack ships NO vocabulary and NO order:
+Choosing it also chooses the language ``ja`` (#1194), which turns on
+nameparser/vocab/ja.toml's readings written ``default = false``: the
+honorific 君, the Diet's, which zh.toml keeps out of the default because
+王君 is a complete Chinese name. Glued (逢沢　一郎君) or spaced it then
+reads as the suffix's honorific.
+
+Unlike zh, this pack ships NO vocabulary of its own and NO order:
 
 * No vocabulary, because no surname list divides Japanese names. Family
   and given names draw on the same kanji, both sides run one to four
   characters, and the reading -- not the spelling -- is what settles
   most splits. That is what the pluggable segmenter is for, and it is
-  why this pack alone is inert: it activates a stage that then has
-  nothing to segment with.
+  why this pack alone divides nothing: it activates a stage that then
+  has nothing to segment with (its one vocabulary effect, 君, is the
+  choice of the language above).
 * No order, because a kana-bearing Japanese name already reads
   family-first by default (decisions/W4, the kana license:
   hiragana identifies
@@ -50,6 +57,8 @@ is NOT used (katakana division is out of scope; decisions/W1's
 kana-gating bullet).
 
 Declared deviations (mechanisms.md#LOCALE-PACKS-PURE-DATA): the
+choice of ``ja`` is derived (the one word it changes is 君, in the
+Han repertoire the declaration below covers anyway), and the
 pack sets
 one union policy field, self-selecting by script, so it can only change
 names containing characters of the Japanese repertoire -- DEVIATES
@@ -76,6 +85,7 @@ JA = Locale(
     lexicon=Lexicon.empty(),
     policy=PolicyPatch(
         segment_scripts=frozenset({Script.HAN, Script.HIRAGANA})),
+    languages=frozenset({"ja"}),
 )
 
 # Both compiled by _policy's factory from the shared codepoint table
@@ -92,6 +102,10 @@ JA = Locale(
 # any gate runs, and over-declaring is its safe direction by design.
 _has_japanese = _script_matcher(*_JA_SCRIPTS)
 _wholly_japanese = _script_matcher(*_JA_SCRIPTS, whole=True)
+#: The adapter's kanji guard (#1193): namedivider divides by kanji
+#: statistics, so a token holding no Han character gives it nothing to
+#: read.
+_has_han = _script_matcher(Script.HAN)
 
 
 #: How far outside [0, 1] a namedivider score may stray and still count
@@ -131,7 +145,9 @@ def ja_segmenter(*, gbdt: bool = False) -> Segmenter:
     The adapter declines -- returns None, leaving the token whole --
     for text outside the Japanese repertoire, for text bearing the
     shime mark 〆 (namedivider 0.4.x's rule path cuts it in the wrong
-    place), for text too short to divide, for any answer that fails
+    place), for text holding no kanji (namedivider divides by kanji
+    statistics, and cuts a hiragana name after its first character),
+    for text too short to divide, for any answer that fails
     to reconstruct its input, and for any score outside [0, 1] by
     more than float noise (a divider scoring 87.0 is broken, and its
     division is worth no more than its score). An answer that puts
@@ -146,7 +162,7 @@ def ja_segmenter(*, gbdt: bool = False) -> Segmenter:
     statistically divided name carries the report and every
     rule-divided one carries none. The two-character rule is the case
     to know about: dividing 原恵 one character each way is a
-    presumption Japanese practice makes, not a measurement (usage.rst
+    presumption Japanese practice makes, not a measurement (east-asian.rst
     says so), yet the 1.0 keeps it silent. That is namedivider's own
     stated certainty, taken as given here; ``DividedName.algorithm``
     names which rule answered and is the hook if presumption-reporting
@@ -189,6 +205,17 @@ def ja_segmenter(*, gbdt: bool = False) -> Segmenter:
         # a SEGMENTATION report -- swept in anyway, because decline is
         # the safe direction and mid-token 〆 is vanishingly rare.
         if "〆" in text:
+            return None
+        # A token with no kanji -- a name written wholly in hiragana,
+        # or in hiragana and katakana -- gives namedivider's kanji
+        # statistics nothing to read: its kanji_feature path returns the
+        # first character as the family (あいさわいちろう -> あ |
+        # いさわいちろう). Decline, a fact about the
+        # content as the repertoire and 〆 declines are, and the token
+        # stays whole as it does with no segmenter. A token holding a
+        # kanji is passed on: 山田たろう divides at the kana boundary by
+        # namedivider's rule path, and rightly (decisions/W1, #1193).
+        if not _has_han(text):
             return None
         result = divider.divide_name(text)
         if result.family + result.given != text:

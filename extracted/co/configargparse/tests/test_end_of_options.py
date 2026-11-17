@@ -5,7 +5,25 @@ import unittest
 import configargparse
 
 
-class TestEndOfOptions(unittest.TestCase):
+class TestCaseThatChecksParseArgsErrors(unittest.TestCase):
+    def parse_args_expecting_exit_and_return_error_line(self, parser, args, **kwargs):
+        """Runs parse_args, checks that it exits, and returns what it printed last.
+
+        Args:
+            parser: the parser to run.
+            args: the command line args.
+            **kwargs: passed on to parse_args.
+
+        Returns:
+            str: the last line written to stderr, which holds the error message.
+        """
+        stderr = io.StringIO()
+        with self.assertRaises(SystemExit), contextlib.redirect_stderr(stderr):
+            parser.parse_args(args, **kwargs)
+        return stderr.getvalue().strip().splitlines()[-1]
+
+
+class TestEndOfOptions(TestCaseThatChecksParseArgsErrors):
     def test_positional_option_names_do_not_override_other_sources(self):
         for source in ("environment", "config"):
             for prefix in ("-", "+"):
@@ -106,13 +124,21 @@ class TestEndOfOptions(unittest.TestCase):
                 {"env_vars": {"PAIR": '[["a", "--"]]'}},
             ),
         ):
-            with self.subTest(source=source):
-                parser = configargparse.ArgumentParser()
-                parser.add_argument("--items", nargs="+", env_var="ITEMS")
-                parser.add_argument("--pair", nargs=2, action="append", env_var="PAIR")
-                parser.add_argument("--level")
-                parser.add_argument("files", nargs="*")
-                stderr = io.StringIO()
-                with self.assertRaises(SystemExit), contextlib.redirect_stderr(stderr):
-                    parser.parse_args(["--level", "debug"], **kwargs)
-                self.assertIn("can't have '--' as a list element", stderr.getvalue())
+            # argparse ends option parsing at '--' whatever the prefix chars are
+            for prefix in ("-", "+"):
+                with self.subTest(source=source, prefix=prefix):
+                    parser = configargparse.ArgumentParser(prefix_chars=prefix)
+                    parser.add_argument(
+                        prefix * 2 + "items", nargs="+", env_var="ITEMS"
+                    )
+                    parser.add_argument(
+                        prefix * 2 + "pair", nargs=2, action="append", env_var="PAIR"
+                    )
+                    parser.add_argument(prefix * 2 + "level")
+                    parser.add_argument("files", nargs="*")
+                    self.assertIn(
+                        "can't have '--' as a list element",
+                        self.parse_args_expecting_exit_and_return_error_line(
+                            parser, [prefix * 2 + "level", "debug"], **kwargs
+                        ),
+                    )

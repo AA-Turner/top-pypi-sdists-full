@@ -12,6 +12,7 @@ import sys
 import time
 import uuid
 from pathlib import Path
+from typing import SupportsIndex
 
 import pytest
 
@@ -307,6 +308,88 @@ def test_a_symlinked_dir_is_never_followed(machine: Machine, tmp_path: Path) -> 
     assert link not in decisions(machine.config())
 
 
+_COMPARES: list[int] = [0]
+
+
+class _CountedPath(str):
+    """A held path that counts every comparison made against it, so a test can see how much
+    work one `held()` costs without reaching into the index."""
+
+    __hash__ = str.__hash__
+
+    def _tick(self) -> None:
+        _COMPARES[0] += 1
+
+    def __eq__(self, other: object) -> bool:
+        self._tick()
+        return str.__eq__(self, other)
+
+    def __ne__(self, other: object) -> bool:
+        self._tick()
+        return str.__ne__(self, other)
+
+    def __lt__(self, other: str) -> bool:
+        self._tick()
+        return str.__lt__(self, other)
+
+    def __le__(self, other: str) -> bool:
+        self._tick()
+        return str.__le__(self, other)
+
+    def __gt__(self, other: str) -> bool:
+        self._tick()
+        return str.__gt__(self, other)
+
+    def __ge__(self, other: str) -> bool:
+        self._tick()
+        return str.__ge__(self, other)
+
+    def startswith(
+        self,
+        prefix: str | tuple[str, ...],
+        start: SupportsIndex | None = None,
+        end: SupportsIndex | None = None,
+        /,
+    ) -> bool:
+        self._tick()
+        return str.startswith(self, prefix, start, end)
+
+
+def _index_of(tmp_path: Path, count: int) -> tuple[tmp_prune.HolderIndex, str]:
+    # Every held path appears three times, as one process's fd, cwd and maps lines often do.
+    base = os.path.realpath(tmp_path)
+    held = [_CountedPath(os.path.join(base, "held%05d" % i, "f.txt")) for i in range(count)]
+    return tmp_prune.HolderIndex("procfs", tuple(held * 3)), base
+
+
+def _compares_per_lookup(tmp_path: Path, count: int) -> int:
+    index, base = _index_of(tmp_path, count)
+    _COMPARES[0] = 0
+    for i in range(20):
+        assert index.held(Path(base) / ("free%02d" % i)) is False
+    return _COMPARES[0]
+
+
+def test_a_held_lookup_does_not_grow_with_the_number_of_held_paths(tmp_path: Path) -> None:
+    # held() runs once per candidate in plan() and again per pruned dir in apply(); a linear
+    # scan made each one cost every fd, cwd and maps line of every process (58788 measured).
+    small = _compares_per_lookup(tmp_path, 500)
+    large = _compares_per_lookup(tmp_path, 4000)
+    assert large <= 2 * small, (small, large)
+
+
+def test_the_holder_index_answers_exact_and_below_and_never_a_name_sharing_a_prefix(
+    tmp_path: Path,
+) -> None:
+    index, base = _index_of(tmp_path, 50)
+    assert len(index.paths) == len(set(index.paths)) == 50
+    assert index.held(Path(base) / "held00007") is True                 # a file below it is held
+    assert index.held(Path(base) / "held00007" / "f.txt") is True       # the held file itself
+    assert index.held(Path(base) / "held0000") is False                 # shares only a name prefix
+    assert index.held(Path(base) / "held00007" / "f.txt.old") is False
+    assert index.held(Path(base)) is True
+
+
 @pytest.mark.skipif(not ON_LINUX, reason="the /proc holder index is Linux-only")
 def test_a_oneoff_with_a_file_held_open_is_kept(machine: Machine) -> None:
     old = make_dir(machine.base / "held", days=8)
@@ -488,6 +571,44 @@ def test_the_cli_releases_the_slot_it_was_handed(machine: Machine) -> None:
     assert not (machine.state / tmp_prune.LOCK_NAME).exists()
 
 
+def test_the_cli_writes_each_kind_and_the_holder_check_as_their_plain_strings(machine: Machine) -> None:
+    machine.scratch(days=2)
+    make_dir(machine.base / "oneoff-old", days=9)
+    _rc, envelope = run_cli(machine)
+    data = envelope["data"]  # type: ignore[index]
+    assert sorted(entry["kind"] for entry in data["removed"]) == ["oneoff", "scratch"]  # type: ignore[index]
+    assert all(set(entry) == {"path", "kind", "inodes"} for entry in data["removed"])  # type: ignore[index]
+    assert data["holder_check"] in ("procfs", "lsof", "rename", "none")  # type: ignore[index]
+
+
+# ---- closed vocabularies --------------------------------------------------------------------
+
+
+def test_a_holder_index_refuses_a_method_it_does_not_know(tmp_path: Path) -> None:
+    # A misspelt "none" would answer "held by nobody" for every path and let a held dir be pruned.
+    with pytest.raises(ValueError, match="HolderMethod"):
+        tmp_prune.HolderIndex("nnone", (str(tmp_path),))
+
+
+def test_a_holder_index_takes_the_plain_method_string(tmp_path: Path) -> None:
+    index = tmp_prune.HolderIndex("procfs", (os.path.realpath(tmp_path),))
+    assert index.method is tmp_prune.HolderMethod.PROCFS
+    assert index.held(tmp_path) is True
+    assert tmp_prune.HolderIndex("none").held(tmp_path) is None
+
+
+def test_a_decision_refuses_a_kind_it_does_not_know(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="CandidateKind"):
+        tmp_prune.Decision(tmp_path, "scratchh", False, "dead", 1)  # type: ignore[arg-type]
+
+
+def test_the_age_limit_refuses_a_kind_it_does_not_know(machine: Machine) -> None:
+    # Unparsed, a typo fell through to the one-off limit, a week where a scratch dir gets a day.
+    with pytest.raises(ValueError, match="CandidateKind"):
+        machine.config().max_age("scratchh")  # type: ignore[arg-type]
+    assert machine.config().max_age("scratch") == DAY  # type: ignore[arg-type]
+
+
 # ---- the hook -------------------------------------------------------------------------------
 
 
@@ -535,3 +656,31 @@ def test_the_hook_survives_garbage_on_stdin(tmp_path: Path) -> None:
     tmp_prune_hook.run("not json", mode="on", state_dir=tmp_path, now=NOW, spawn=spawned)
     assert spawned.argv is not None
     assert "--keep-session" not in spawned.argv
+
+
+@pytest.mark.parametrize("typo", ["On", "dry_run", "", "yes"])
+def test_an_unknown_mode_is_reported_and_deletes_nothing(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], typo: str
+) -> None:
+    """A hand-edited mode outside the vocabulary is named on stderr and starts nothing: running it
+    as the documented default `on` would turn a typo meant as dry-run ('dry_run') into deletion."""
+    spawned = run_hook(tmp_path, mode=typo)
+    err = capsys.readouterr().err
+    assert repr(typo) in err and "tmp_prune" in err
+    assert spawned.argv is None
+
+
+def test_the_configured_mode_is_parsed_from_the_memory_settings(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    import self_improve_signals  # noqa: PLC0415 - imported where the hook imports it
+
+    home = tmp_path / "home"
+    (home / ".claude").mkdir(parents=True)
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("USERPROFILE", str(home))
+    self_improve_signals.save_config({"tmp_prune": "dry-run"})
+    assert tmp_prune_hook._configured_mode() is tmp_prune_hook.Mode.DRY_RUN
+    self_improve_signals.save_config({"tmp_prune": "Off"})
+    assert tmp_prune_hook._configured_mode() is tmp_prune_hook.Mode.OFF
+    assert "'Off'" in capsys.readouterr().err

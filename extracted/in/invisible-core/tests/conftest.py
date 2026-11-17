@@ -175,31 +175,30 @@ def _no_egress_discovery(monkeypatch, request):
     the defect itself. The callers already treat a failed discovery as their
     real code does: an explicit zone goes on without a position, "auto" raises.
 
-    The refusal sits on `_geo`'s OWN handle to the network, not on
-    `discover_egress_ip`: the tests of discovery itself stub
-    `_geo.requests.get` and must still reach the real function, and every
+    The refusal sits on `_geo`'s OWN seam to the network (`_geo._http_get`),
+    not on `discover_egress_ip`: the tests of discovery itself stub
+    `_geo._http_get` and must still reach the real function, and every
     other module's `requests` - the downloads, which `responses` mocks one
     layer lower - is left alone. A test that wants an exit stubs
-    `_geo.discover_egress_ip` or `_geo.requests.get`, which overrides this;
+    `_geo.discover_egress_ip` or `_geo._http_get`, which overrides this;
     an `e2e` test gets the network.
+
+    The direct exit is kept for two minutes per process (`_geo._egress_kept`),
+    so each test also starts with nothing kept and nothing in flight: an answer
+    one test chose must not be the answer of the next.
     """
     if request.node.get_closest_marker("e2e"):
         return
     from invisible_core import _geo
 
-    class _GeoNetwork:
-        def __init__(self, real):
-            self._real = real
+    def refuse(*a, **kw):
+        raise _ExitNotAskedInTests(
+            "a hermetic test asked the network for its exit address; "
+            "monkeypatch invisible_core._geo.discover_egress_ip to give it one")
 
-        def __getattr__(self, name):
-            return getattr(self._real, name)
-
-        def get(self, *a, **kw):
-            raise _ExitNotAskedInTests(
-                "a hermetic test asked the network for its exit address; "
-                "monkeypatch invisible_core._geo.discover_egress_ip to give it one")
-
-    monkeypatch.setattr(_geo, "requests", _GeoNetwork(_geo.requests))
+    monkeypatch.setattr(_geo, "_http_get", refuse)
+    monkeypatch.setattr(_geo, "_egress_kept", None)
+    monkeypatch.setattr(_geo, "_egress_flight", None)
 
 
 @pytest.fixture(autouse=True)

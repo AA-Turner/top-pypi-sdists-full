@@ -7,9 +7,9 @@ __lazy_modules__ = [
     "json",
     "pathlib",
     "pipx",
+    "pipx.paths",
     "pipx.util",
     "platform",
-    "re",
     "shutil",
     "tarfile",
     "urllib.request",
@@ -34,20 +34,39 @@ from time import sleep as _sleep
 from typing import TYPE_CHECKING, Final, TypedDict, cast
 from urllib.request import Request, urlopen
 
-from pipx import constants, paths
+from pipx import constants
 from pipx.animate import animate
+from pipx.paths import CTX
 from pipx.util import PipxError
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from typing import TypeIs
+    from http.client import HTTPResponse
+    from typing import BinaryIO, TypeIs
 
     from filelock import BaseFileLock
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
+_PYTHON_PREFIX: Final[re.Pattern[str]] = re.compile(r"[c]?python")
+_STANDALONE_VERSION: Final[re.Pattern[str]] = re.compile(
+    r"""
+    [0-9]+                 # major version
+    (?:\.[0-9]+){0,2}       # up to two more numeric parts
+    """,
+    re.VERBOSE,
+)
+_DOWNLOAD_VERSION: Final[re.Pattern[str]] = re.compile(
+    r"""
+    cpython-
+    (?P<version>\d+\.\d+\.\d+)
+    (?P<prerelease>(?:a|b|rc)\d+)?  # alpha, beta or release candidate, as in cpython-3.16.0a1
+    """,
+    re.VERBOSE,
+)
 
 # much of this module comes from https://github.com/tusharsadhwani/yen/blob/main/src/yen/github.py
 
+#: Download links of standalone Python builds, by operating system and then by machine.
 MACHINE_SUFFIX: Final[dict[str, dict[str, list[str] | dict[str, list[str]]]]] = {
     "Darwin": {
         "arm64": ["aarch64-apple-darwin-install_only.tar.gz"],
@@ -72,6 +91,7 @@ MACHINE_SUFFIX: Final[dict[str, dict[str, list[str] | dict[str, list[str]]]]] = 
     },
 }
 
+#: URL of the latest python-build-standalone release.
 GITHUB_API_URL: Final[str] = "https://api.github.com/repos/astral-sh/python-build-standalone/releases/latest"
 _URL_OPEN_TIMEOUT: Final[float] = 30
 # GitHub can also drop the connection mid-response (RemoteDisconnected is a ConnectionError, a truncated chunked body
@@ -85,15 +105,22 @@ _TRANSIENT_NETWORK_ERRORS: Final[tuple[type[Exception], ...]] = (
 
 
 def download_python_build_standalone(python_version: str, *, override: bool = False) -> str:
+    """Download a standalone Python build of a version into the cache, and return its interpreter.
+
+    :param python_version: the version to download, such as ``3.13`` or ``3.13.2``.
+    :param override: replace a cached build of the version.
+    :returns: the path of the interpreter.
+    :raises PipxError: when the version is malformed.
+    """
     # accept a command name such as python3.10 as well as the bare version 3.10
-    python_version = re.sub(r"[c]?python", "", python_version)
+    python_version = _PYTHON_PREFIX.sub("", python_version)
     # the version names the cache directory that a failed attempt is cleared from below, so a path, "." or ".." would
     # point that rmtree outside the cache; one to three numeric parts is all resolve_python_version can match anyway
-    if not re.fullmatch(r"[0-9]+(\.[0-9]+){0,2}", python_version):
+    if not _STANDALONE_VERSION.fullmatch(python_version):
         msg = f"Cannot fetch a standalone python build for {python_version!r}: expected a version such as '3.13'."
         raise PipxError(msg)
 
-    install_dir: Final[Path] = paths.CTX.standalone_python_cachedir / python_version
+    install_dir: Final[Path] = CTX.standalone_python_cachedir / python_version
     installed_python: Final[Path] = install_dir / "python.exe" if constants.WINDOWS else install_dir / "bin" / "python3"
 
     if not override and installed_python.exists():
@@ -117,7 +144,12 @@ def download_python_build_standalone(python_version: str, *, override: bool = Fa
             archive: Final[Path] = staging_dir / f"python-{full_version}.tar.gz"
             download_dir: Final[Path] = staging_dir / "download"
 
-            _download(full_version, download_link, archive)
+            with animate(f"Downloading python {full_version} build", do_animation=True):
+                try:
+                    _download_resuming(download_link, archive)
+                except _TRANSIENT_NETWORK_ERRORS as error:
+                    msg = f"Unable to download python {full_version} build."
+                    raise PipxError(msg) from error
             _unpack(full_version, archive, download_dir, digest)
             # the python installation we want is nested in the tarball under a directory named 'python'; only after it
             # is fully extracted do we swap it into place, so a failed download or unpack never destroys a working
@@ -135,6 +167,12 @@ def _version_lock(install_dir: Path) -> BaseFileLock:
 
 
 def resolve_python_version(requested_version: str) -> tuple[str, tuple[str, str]]:
+    """Return the first standalone build whose version starts with the requested one.
+
+    :param requested_version: the version, or its leading parts, such as ``3.13``.
+    :returns: the full version, and the download link and digest of its build.
+    :raises PipxError: when no build matches the requested version.
+    """
     requested_release: Final[list[str]] = requested_version.split(".")
 
     for full_version, download_link in list_pythons().items():
@@ -146,6 +184,12 @@ def resolve_python_version(requested_version: str) -> tuple[str, tuple[str, str]
 
 
 def list_pythons(*, use_cache: bool = True) -> dict[str, tuple[str, str]]:
+    """Return the standalone Python builds for this machine, by version.
+
+    :param use_cache: use the cached index when it is present.
+    :returns: the download link and the file name of each build, keyed by version.
+    :raises PipxError: when this machine has no builds or the index cannot be fetched.
+    """
     system, machine = platform.system(), platform.machine()
     try:
         download_link_suffixes = MACHINE_SUFFIX[system][machine]
@@ -171,10 +215,12 @@ def list_pythons(*, use_cache: bool = True) -> dict[str, tuple[str, str]]:
         for link, digest in python_releases:
             if not link.endswith(download_link_suffix):
                 continue
-            if (match := re.search(r"cpython-(\d+\.\d+\.\d+)", link)) is None:
+            if (match := _DOWNLOAD_VERSION.search(link)) is None:
                 msg = f"Could not parse a Python version from {link!r}."
                 raise PipxError(msg)
-            python_versions.setdefault(match[1], (link, digest))
+            # a prerelease (cpython-3.16.0a1) would otherwise stand in for the final release of the same version
+            if match["prerelease"] is None:
+                python_versions.setdefault(match["version"], (link, digest))
 
     return {
         version: python_versions[version]
@@ -183,7 +229,12 @@ def list_pythons(*, use_cache: bool = True) -> dict[str, tuple[str, str]]:
 
 
 def get_or_update_index(*, use_cache: bool = True) -> _PythonIndex:
-    index_file: Final[Path] = paths.CTX.standalone_python_cachedir / "index.json"
+    """Return the index of standalone Python builds, from the cache when allowed or from the network.
+
+    :param use_cache: use the cached index when it is present.
+    :returns: the index.
+    """
+    index_file: Final[Path] = CTX.standalone_python_cachedir / "index.json"
     if use_cache and (loaded := _load_cached_index(index_file)) is not None:
         return loaded
     index: Final[_PythonIndex] = {
@@ -226,17 +277,17 @@ def _is_valid_python_index(index: object) -> TypeIs[_PythonIndex]:
             return False
 
 
-class _PythonIndex(TypedDict):
-    fetched: float
-    releases: list[tuple[str, str]]
-
-
 def get_latest_python_releases() -> list[tuple[str, str]]:
+    """Return the download links and digests of the latest standalone Python releases.
+
+    :returns: the download link and the digest of each asset.
+    :raises PipxError: when the release data cannot be fetched.
+    """
     try:
         release_data: Final[dict[str, list[dict[str, str]]]] = _fetch_release_data()
-    except _TRANSIENT_NETWORK_ERRORS as e:
+    except _TRANSIENT_NETWORK_ERRORS as error:
         msg = f"Unable to fetch python-build-standalone release data (from {GITHUB_API_URL})."
-        raise PipxError(msg) from e
+        raise PipxError(msg) from error
 
     return [(asset["browser_download_url"], asset["digest"]) for asset in release_data["assets"]]
 
@@ -281,15 +332,6 @@ def _staging_dir(install_dir: Path) -> Generator[Path]:
         shutil.rmtree(staging_dir, ignore_errors=True)
 
 
-def _download(full_version: str, download_link: str, archive: Path) -> None:
-    with animate(f"Downloading python {full_version} build", do_animation=True):
-        try:
-            _download_resuming(download_link, archive)
-        except _TRANSIENT_NETWORK_ERRORS as e:
-            msg = f"Unable to download python {full_version} build."
-            raise PipxError(msg) from e
-
-
 def _download_resuming(url: str, archive: Path) -> None:
     archive.touch()
     attempt = 0
@@ -301,17 +343,25 @@ def _download_resuming(url: str, archive: Path) -> None:
             # the CDN to continue from the bytes already on disk instead of downloading everything again
             request = Request(url, headers={"Range": f"bytes={written}-"} if written else {})  # ruff:ignore[suspicious-url-open-usage]
             try:
-                with urlopen(request, timeout=_URL_OPEN_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]
-                    if written and response.status != HTTPStatus.PARTIAL_CONTENT:
-                        # the server ignored the range request and answered with the whole file
-                        file_handle.seek(0)
-                        file_handle.truncate()
-                    # 32KB chunks keep memory flat
-                    file_handle.writelines(iter(partial(response.read, 32768), b""))
+                with urlopen(request, timeout=_URL_OPEN_TIMEOUT) as response:  # ruff:ignore[suspicious-url-open-usage]  # the URL is from the pinned release index, not user input
+                    _write_body(response, file_handle, resumed=bool(written))
             except _TRANSIENT_NETWORK_ERRORS as error:
                 _backoff_or_raise(error, attempt, url)
             else:
                 return
+
+
+def _write_body(response: HTTPResponse, file_handle: BinaryIO, *, resumed: bool) -> None:
+    if resumed and response.status != HTTPStatus.PARTIAL_CONTENT:
+        # the server ignored the range request and answered with the whole file
+        file_handle.seek(0)
+        file_handle.truncate()
+    # 32KB chunks keep memory flat
+    file_handle.writelines(iter(partial(response.read, 32768), b""))
+    # read(amt) returns a body cut short of its Content-Length without raising (python/cpython#115997) and leaves the
+    # missing byte count in length, so raise a transient error to retry and resume from the bytes already on disk
+    if missing := getattr(response, "length", None):
+        raise http.client.IncompleteRead(partial=b"", expected=missing)
 
 
 def _unpack(full_version: str, archive: Path, download_dir: Path, expected_checksum: str) -> None:
@@ -364,17 +414,18 @@ def _reject_escape(member: tarfile.TarInfo, root: Path) -> None:
 
 def _escapes(root: Path, target: Path) -> bool:
     # members are extracted one at a time, so resolve the links unpacked so far for as much of the path as exists
-    for existing in (target, *target.parents):
+    existing = target
+    while True:
         try:
             # strict: a lenient realpath takes a link it cannot follow (a loop, an overlong chain) for a directory
             followed = os.path.realpath(existing, strict=True)
         except FileNotFoundError:
+            existing = existing.parent
             continue
         except OSError:
             return True
         resolved = Path(os.path.normpath(Path(followed, target.relative_to(existing))))
         return resolved != root and root not in resolved.parents
-    return True  # pragma: no cover  # target is below root, which exists, so the loop always returns
 
 
 def _extract_member(tar: tarfile.TarFile, member: tarfile.TarInfo, dest: Path) -> None:
@@ -412,6 +463,11 @@ def _install_atomically(source: Path, install_dir: Path) -> None:
         raise
     if replaced_existing:
         shutil.rmtree(backup_dir, ignore_errors=True)
+
+
+class _PythonIndex(TypedDict):
+    fetched: float
+    releases: list[tuple[str, str]]
 
 
 __all__ = [

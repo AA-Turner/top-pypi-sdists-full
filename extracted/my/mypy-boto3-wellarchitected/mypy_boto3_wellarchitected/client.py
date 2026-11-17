@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAgentContextsPaginator,
     ListAgentGoalsPaginator,
+    ListAgentOrganizationalReportsPaginator,
     ListAgentProfilesPaginator,
     ListAgentRecommendationGenerationsPaginator,
     ListAgentRecommendationItemsPaginator,
@@ -37,10 +38,16 @@ from .paginator import (
 from .type_defs import (
     AssociateLensesInputTypeDef,
     AssociateProfilesInputTypeDef,
+    CreateAgentBasicProfileRequestTypeDef,
+    CreateAgentBasicProfileResponseTypeDef,
     CreateAgentContextRequestTypeDef,
     CreateAgentContextResponseTypeDef,
     CreateAgentGoalRequestTypeDef,
     CreateAgentGoalResponseTypeDef,
+    CreateAgentOrganizationalProfileRequestTypeDef,
+    CreateAgentOrganizationalProfileResponseTypeDef,
+    CreateAgentOrganizationalReportRequestTypeDef,
+    CreateAgentOrganizationalReportResponseTypeDef,
     CreateAgentProfileRequestTypeDef,
     CreateAgentProfileResponseTypeDef,
     CreateLensShareInputTypeDef,
@@ -63,7 +70,10 @@ from .type_defs import (
     CreateWorkloadShareOutputTypeDef,
     DeleteAgentContextRequestTypeDef,
     DeleteAgentGoalRequestTypeDef,
+    DeleteAgentOrganizationalReportRequestTypeDef,
+    DeleteAgentProfilePolicyRequestTypeDef,
     DeleteAgentProfileRequestTypeDef,
+    DeleteAgentRecommendationPolicyRequestTypeDef,
     DeleteLensInputTypeDef,
     DeleteLensShareInputTypeDef,
     DeleteProfileInputTypeDef,
@@ -81,10 +91,19 @@ from .type_defs import (
     GetAgentContextResponseTypeDef,
     GetAgentGoalRequestTypeDef,
     GetAgentGoalResponseTypeDef,
+    GetAgentOrganizationalReportDataRequestTypeDef,
+    GetAgentOrganizationalReportDataResponseTypeDef,
+    GetAgentOrganizationalReportRequestTypeDef,
+    GetAgentOrganizationalReportResponseTypeDef,
+    GetAgentPreferencesResponseTypeDef,
+    GetAgentProfilePolicyRequestTypeDef,
+    GetAgentProfilePolicyResponseTypeDef,
     GetAgentProfileRequestTypeDef,
     GetAgentProfileResponseTypeDef,
     GetAgentRecommendationGenerationRequestTypeDef,
     GetAgentRecommendationGenerationResponseTypeDef,
+    GetAgentRecommendationPolicyRequestTypeDef,
+    GetAgentRecommendationPolicyResponseTypeDef,
     GetAgentRecommendationRequestTypeDef,
     GetAgentRecommendationResponseTypeDef,
     GetAnswerInputTypeDef,
@@ -119,6 +138,8 @@ from .type_defs import (
     ListAgentContextsResponseTypeDef,
     ListAgentGoalsRequestTypeDef,
     ListAgentGoalsResponseTypeDef,
+    ListAgentOrganizationalReportsRequestTypeDef,
+    ListAgentOrganizationalReportsResponseTypeDef,
     ListAgentProfilesRequestTypeDef,
     ListAgentProfilesResponseTypeDef,
     ListAgentRecommendationGenerationsRequestTypeDef,
@@ -165,7 +186,12 @@ from .type_defs import (
     ListWorkloadSharesOutputTypeDef,
     ListWorkloadsInputTypeDef,
     ListWorkloadsOutputTypeDef,
+    PutAgentPreferencesRequestTypeDef,
+    PutAgentProfilePolicyRequestTypeDef,
     PutAgentRecommendationFeedbackRequestTypeDef,
+    PutAgentRecommendationPolicyRequestTypeDef,
+    SendAgentOrganizationalReportDataToS3RequestTypeDef,
+    SendAgentOrganizationalReportDataToS3ResponseTypeDef,
     StartAgentRecommendationGenerationRequestTypeDef,
     StartAgentRecommendationGenerationResponseTypeDef,
     TagResourceInputTypeDef,
@@ -174,6 +200,8 @@ from .type_defs import (
     UpdateAgentContextResponseTypeDef,
     UpdateAgentGoalRequestTypeDef,
     UpdateAgentGoalResponseTypeDef,
+    UpdateAgentOrganizationalProfileRequestTypeDef,
+    UpdateAgentOrganizationalProfileResponseTypeDef,
     UpdateAgentProfileRequestTypeDef,
     UpdateAgentProfileResponseTypeDef,
     UpdateAgentRecommendationStatusRequestTypeDef,
@@ -201,6 +229,7 @@ from .type_defs import (
     UpgradeProfileVersionInputTypeDef,
     UpgradeReviewTemplateLensReviewInputTypeDef,
 )
+from .waiter import AgentOrganizationalReportCompletedWaiter
 
 if sys.version_info >= (3, 12):
     from typing import Literal, Unpack
@@ -277,6 +306,16 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#associate_profiles)
         """
 
+    def create_agent_basic_profile(
+        self, **kwargs: Unpack[CreateAgentBasicProfileRequestTypeDef]
+    ) -> CreateAgentBasicProfileResponseTypeDef:
+        """
+        Creates a Basic profile for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_basic_profile.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#create_agent_basic_profile)
+        """
+
     def create_agent_context(
         self, **kwargs: Unpack[CreateAgentContextRequestTypeDef]
     ) -> CreateAgentContextResponseTypeDef:
@@ -295,6 +334,28 @@ class WellArchitectedClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_goal.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#create_agent_goal)
+        """
+
+    def create_agent_organizational_profile(
+        self, **kwargs: Unpack[CreateAgentOrganizationalProfileRequestTypeDef]
+    ) -> CreateAgentOrganizationalProfileResponseTypeDef:
+        """
+        Creates an Organizational Profile for use with AWS Organizations integration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_organizational_profile.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#create_agent_organizational_profile)
+        """
+
+    def create_agent_organizational_report(
+        self, **kwargs: Unpack[CreateAgentOrganizationalReportRequestTypeDef]
+    ) -> CreateAgentOrganizationalReportResponseTypeDef:
+        """
+        Creates an Organizational Report, which is an asynchronously-materialized,
+        point-in-time snapshot of recommendations across all Agent Profiles within the
+        caller's AWS Organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/create_agent_organizational_report.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#create_agent_organizational_report)
         """
 
     def create_agent_profile(
@@ -416,6 +477,16 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#delete_agent_goal)
         """
 
+    def delete_agent_organizational_report(
+        self, **kwargs: Unpack[DeleteAgentOrganizationalReportRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes an Organizational Report and its associated artifacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_organizational_report.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#delete_agent_organizational_report)
+        """
+
     def delete_agent_profile(
         self, **kwargs: Unpack[DeleteAgentProfileRequestTypeDef]
     ) -> dict[str, Any]:
@@ -424,6 +495,26 @@ class WellArchitectedClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#delete_agent_profile)
+        """
+
+    def delete_agent_profile_policy(
+        self, **kwargs: Unpack[DeleteAgentProfilePolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the resource-based policy from an Agent Profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_profile_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#delete_agent_profile_policy)
+        """
+
+    def delete_agent_recommendation_policy(
+        self, **kwargs: Unpack[DeleteAgentRecommendationPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Removes the resource-based policy from an individual Agent Recommendation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/delete_agent_recommendation_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#delete_agent_recommendation_policy)
         """
 
     def delete_lens(self, **kwargs: Unpack[DeleteLensInputTypeDef]) -> EmptyResponseMetadataTypeDef:
@@ -553,6 +644,36 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_goal)
         """
 
+    def get_agent_organizational_report(
+        self, **kwargs: Unpack[GetAgentOrganizationalReportRequestTypeDef]
+    ) -> GetAgentOrganizationalReportResponseTypeDef:
+        """
+        Retrieves metadata and current state for a single Organizational Report.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_organizational_report.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_organizational_report)
+        """
+
+    def get_agent_organizational_report_data(
+        self, **kwargs: Unpack[GetAgentOrganizationalReportDataRequestTypeDef]
+    ) -> GetAgentOrganizationalReportDataResponseTypeDef:
+        """
+        Retrieves the data artifact for a completed Organizational Report as a
+        short-lived presigned S3 URL.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_organizational_report_data.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_organizational_report_data)
+        """
+
+    def get_agent_preferences(self) -> GetAgentPreferencesResponseTypeDef:
+        """
+        Returns the caller's complete set of Well-Architected Agent preferences with
+        their current states.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_preferences.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_preferences)
+        """
+
     def get_agent_profile(
         self, **kwargs: Unpack[GetAgentProfileRequestTypeDef]
     ) -> GetAgentProfileResponseTypeDef:
@@ -564,12 +685,22 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_profile)
         """
 
+    def get_agent_profile_policy(
+        self, **kwargs: Unpack[GetAgentProfilePolicyRequestTypeDef]
+    ) -> GetAgentProfilePolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy attached to an Agent Profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_profile_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_profile_policy)
+        """
+
     def get_agent_recommendation(
         self, **kwargs: Unpack[GetAgentRecommendationRequestTypeDef]
     ) -> GetAgentRecommendationResponseTypeDef:
         """
-        Retrieves detailed information about a specific optimization recommendation,
-        including its impact analysis, content, and implementation guidance.
+        <important> <p>Application-level recommendations are a new recommendation
+        format currently in beta.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_recommendation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_recommendation)
@@ -579,11 +710,22 @@ class WellArchitectedClient(BaseClient):
         self, **kwargs: Unpack[GetAgentRecommendationGenerationRequestTypeDef]
     ) -> GetAgentRecommendationGenerationResponseTypeDef:
         """
-        Retrieves information about a recommendation generation process, including its
-        status, progress, and results.
+        <important> <p>Application-level recommendations are a new recommendation
+        format currently in beta.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_recommendation_generation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_recommendation_generation)
+        """
+
+    def get_agent_recommendation_policy(
+        self, **kwargs: Unpack[GetAgentRecommendationPolicyRequestTypeDef]
+    ) -> GetAgentRecommendationPolicyResponseTypeDef:
+        """
+        Retrieves the resource-based policy attached to an individual Agent
+        Recommendation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_agent_recommendation_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_agent_recommendation_policy)
         """
 
     def get_answer(self, **kwargs: Unpack[GetAnswerInputTypeDef]) -> GetAnswerOutputTypeDef:
@@ -742,6 +884,17 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_agent_goals)
         """
 
+    def list_agent_organizational_reports(
+        self, **kwargs: Unpack[ListAgentOrganizationalReportsRequestTypeDef]
+    ) -> ListAgentOrganizationalReportsResponseTypeDef:
+        """
+        Lists Organizational Reports owned by the caller's account within the caller's
+        AWS Organization, ordered by most recently created first.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_organizational_reports.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_agent_organizational_reports)
+        """
+
     def list_agent_profiles(
         self, **kwargs: Unpack[ListAgentProfilesRequestTypeDef]
     ) -> ListAgentProfilesResponseTypeDef:
@@ -756,7 +909,8 @@ class WellArchitectedClient(BaseClient):
         self, **kwargs: Unpack[ListAgentRecommendationGenerationsRequestTypeDef]
     ) -> ListAgentRecommendationGenerationsResponseTypeDef:
         """
-        Lists recommendation generation processes for a specified profile.
+        <important> <p>Application-level recommendations are a new recommendation
+        format currently in beta.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendation_generations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_agent_recommendation_generations)
@@ -766,7 +920,8 @@ class WellArchitectedClient(BaseClient):
         self, **kwargs: Unpack[ListAgentRecommendationItemsRequestTypeDef]
     ) -> ListAgentRecommendationItemsResponseTypeDef:
         """
-        Lists recommendation items for a specific recommendation.
+        <important> <p>Application-level recommendations are a new recommendation
+        format currently in beta.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendation_items.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_agent_recommendation_items)
@@ -776,8 +931,8 @@ class WellArchitectedClient(BaseClient):
         self, **kwargs: Unpack[ListAgentRecommendationsRequestTypeDef]
     ) -> ListAgentRecommendationsResponseTypeDef:
         """
-        Lists active optimization recommendations for a specified profile with optional
-        filtering by state.
+        <important> <p>Application-level recommendations are a new recommendation
+        format currently in beta.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/list_agent_recommendations.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_agent_recommendations)
@@ -970,6 +1125,26 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#list_workloads)
         """
 
+    def put_agent_preferences(
+        self, **kwargs: Unpack[PutAgentPreferencesRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Creates or replaces the caller's Well-Architected Agent preferences.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/put_agent_preferences.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#put_agent_preferences)
+        """
+
+    def put_agent_profile_policy(
+        self, **kwargs: Unpack[PutAgentProfilePolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Attaches or replaces a resource-based policy on an Agent Profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/put_agent_profile_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#put_agent_profile_policy)
+        """
+
     def put_agent_recommendation_feedback(
         self, **kwargs: Unpack[PutAgentRecommendationFeedbackRequestTypeDef]
     ) -> dict[str, Any]:
@@ -981,12 +1156,33 @@ class WellArchitectedClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#put_agent_recommendation_feedback)
         """
 
+    def put_agent_recommendation_policy(
+        self, **kwargs: Unpack[PutAgentRecommendationPolicyRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Attaches or replaces a resource-based policy on an individual Agent
+        Recommendation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/put_agent_recommendation_policy.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#put_agent_recommendation_policy)
+        """
+
+    def send_agent_organizational_report_data_to_s3(
+        self, **kwargs: Unpack[SendAgentOrganizationalReportDataToS3RequestTypeDef]
+    ) -> SendAgentOrganizationalReportDataToS3ResponseTypeDef:
+        """
+        Writes the data artifact for a completed Organizational Report directly into a
+        caller-owned S3 bucket.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/send_agent_organizational_report_data_to_s3.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#send_agent_organizational_report_data_to_s3)
+        """
+
     def start_agent_recommendation_generation(
         self, **kwargs: Unpack[StartAgentRecommendationGenerationRequestTypeDef]
     ) -> StartAgentRecommendationGenerationResponseTypeDef:
         """
-        Initiates a new recommendation generation process for the specified
-        optimization profile.
+        Starts a recommendation generation process for the specified agent profile.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/start_agent_recommendation_generation.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#start_agent_recommendation_generation)
@@ -1026,6 +1222,16 @@ class WellArchitectedClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_goal.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#update_agent_goal)
+        """
+
+    def update_agent_organizational_profile(
+        self, **kwargs: Unpack[UpdateAgentOrganizationalProfileRequestTypeDef]
+    ) -> UpdateAgentOrganizationalProfileResponseTypeDef:
+        """
+        Updates an Organizational Profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/update_agent_organizational_profile.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#update_agent_organizational_profile)
         """
 
     def update_agent_profile(
@@ -1215,6 +1421,17 @@ class WellArchitectedClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_organizational_reports"]
+    ) -> ListAgentOrganizationalReportsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agent_profiles"]
     ) -> ListAgentProfilesPaginator:
         """
@@ -1255,4 +1472,14 @@ class WellArchitectedClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_paginator.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_paginator)
+        """
+
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["agent_organizational_report_completed"]
+    ) -> AgentOrganizationalReportCompletedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/wellarchitected/client/get_waiter.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_wellarchitected/client/#get_waiter)
         """

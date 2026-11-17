@@ -65,6 +65,8 @@ from .type_defs import (
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateIndexModeInputTypeDef,
+    UpdateMetadataConfigurationInputTypeDef,
+    UpdateMetadataConfigurationOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -285,8 +287,8 @@ class S3VectorsClient(BaseClient):
         self, **kwargs: Unpack[QueryVectorsInputTypeDef]
     ) -> QueryVectorsOutputTypeDef:
         """
-        Performs an approximate nearest neighbor search query in a vector index using a
-        query vector.
+        Returns matching vector keys from a vector index ranked by vector similarity,
+        full-text relevance, or both.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/query_vectors.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#query_vectors)
@@ -315,6 +317,16 @@ class S3VectorsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/update_index_mode.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#update_index_mode)
+        """
+
+    def update_metadata_configuration(
+        self, **kwargs: Unpack[UpdateMetadataConfigurationInputTypeDef]
+    ) -> UpdateMetadataConfigurationOutputTypeDef:
+        """
+        Adds or deletes text search configurations on a vector index.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3vectors/client/update_metadata_configuration.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_s3vectors/client/#update_metadata_configuration)
         """
 
     @overload  # type: ignore[override]

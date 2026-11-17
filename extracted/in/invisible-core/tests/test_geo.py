@@ -153,7 +153,7 @@ def test_discover_egress_ip_first_endpoint_wins(monkeypatch):
         calls.append(url)
         return _FakeResp("203.0.113.7\n")
 
-    monkeypatch.setattr(_geo.requests, "get", fake_get)
+    monkeypatch.setattr(_geo, "_http_get", fake_get)
     assert discover_egress_ip(SOCKS) == "203.0.113.7"
     assert len(calls) == 1  # stopped at the first success
 
@@ -165,7 +165,7 @@ def test_discover_egress_ip_falls_through_to_next_on_error(monkeypatch):
     def fake_get(url, **kw):
         return next(seq)
 
-    monkeypatch.setattr(_geo.requests, "get", fake_get)
+    monkeypatch.setattr(_geo, "_http_get", fake_get)
     assert discover_egress_ip(HTTP) == "198.51.100.42"
 
 
@@ -174,7 +174,7 @@ def test_discover_egress_ip_all_fail_raises(monkeypatch):
     def fake_get(url, **kw):
         raise OSError("connection refused")
 
-    monkeypatch.setattr(_geo.requests, "get", fake_get)
+    monkeypatch.setattr(_geo, "_http_get", fake_get)
     with pytest.raises(GeoTimezoneError):
         discover_egress_ip(SOCKS)
 
@@ -188,7 +188,7 @@ def test_discover_egress_ip_no_proxy_is_direct(monkeypatch):
         seen["proxies"] = kw.get("proxies", "MISSING")
         return _FakeResp("192.0.2.55")
 
-    monkeypatch.setattr(_geo.requests, "get", fake_get)
+    monkeypatch.setattr(_geo, "_http_get", fake_get)
     assert discover_egress_ip(None) == "192.0.2.55"
     assert seen["proxies"] is None
 
@@ -504,7 +504,7 @@ def test_a_single_endpoint_cannot_eat_the_whole_budget(monkeypatch):
         seen.append(kw.get("timeout"))
         raise RuntimeError("this endpoint stays silent")
 
-    monkeypatch.setattr(_geo.requests, "get", _get)
+    monkeypatch.setattr(_geo, "_http_get", _get)
 
     with pytest.raises(_geo.GeoTimezoneError):
         _geo.discover_egress_ip(None, timeout=10.0, budget=15.0)

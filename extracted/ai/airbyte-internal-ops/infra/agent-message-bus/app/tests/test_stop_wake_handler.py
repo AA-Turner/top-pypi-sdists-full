@@ -107,6 +107,37 @@ def test_not_hydra_session_is_ignored(monkeypatch: pytest.MonkeyPatch) -> None:
     api.assert_not_called()
 
 
+@pytest.mark.parametrize("tags", [[], ["airbyte-pr-123"], ["unrelated"]])
+def test_session_without_hydra_tags_is_ignored(
+    monkeypatch: pytest.MonkeyPatch, tags: list[str]
+) -> None:
+    result, api, _ = _handle_with(monkeypatch, session=_session(tags=tags))
+
+    assert result["outcome"] == "not_hydra"
+    api.assert_not_called()
+
+
+def test_internal_issues_session_dispatches_from_pull_request_url(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    session = _session(
+        tags=["ai-internal-issues"],
+        pull_requests=[{"pr_url": "https://github.com/airbytehq/airbyte/pull/93034"}],
+    )
+    api = MagicMock(side_effect=_dispatch_api_response)
+    monkeypatch.setattr(stop_wake_handler, "get_session", lambda session_id: session)
+    monkeypatch.setattr(stop_wake_handler, "_github_request", api)
+
+    result = stop_wake_handler.handle_stop_event(_event(), InMemoryStore())
+
+    assert result["outcome"] == "dispatched"
+    assert result["dispatch_request"]["client_payload"]["pr"] == 93034
+    assert api.call_args_list == [
+        call("GET", "/repos/airbytehq/airbyte/pulls/93034"),
+        call("POST", "/repos/airbytehq/airbyte/dispatches", json=result["dispatch_request"]),
+    ]
+
+
 def test_duplicate_event_is_not_processed(monkeypatch: pytest.MonkeyPatch) -> None:
     store = InMemoryStore()
     store.claim_event("session-1", "prompt-1")

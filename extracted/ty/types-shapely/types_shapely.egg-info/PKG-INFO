@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-shapely
-Version: 2.1.0.20261030
+Version: 2.2.0.20261117
 Summary: Typing stubs for shapely
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,10 +10,10 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy>=1.20
+Requires-Dist: numpy>=1.26
 Dynamic: license-file
 
 ## Typing stubs for shapely
@@ -22,7 +22,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`shapely`](https://github.com/shapely/shapely) package. It can be used by type checkers
 to check code that uses `shapely`. This version of
 `types-shapely` aims to provide accurate annotations for
-`shapely==2.1.*`.
+`shapely==2.2.*`.
 
 This package is part of the [typeshed project](https://github.com/python/typeshed).
 All fixes for types and metadata should be contributed there.
@@ -32,10 +32,10 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://www.mypy-lang.org/) 2.4.0
-* [pyrefly](https://pyrefly.org/) 1.4.0
+* [mypy](https://www.mypy-lang.org/) 2.4.1
+* [pyrefly](https://pyrefly.org/) 1.4.1
 * [pyright](https://microsoft.github.io/pyright/) 1.1.414
-* [ty](https://docs.astral.sh/ty/) 0.0.91
+* [ty](https://docs.astral.sh/ty/) 0.0.99
 
 It was generated from typeshed commit
-[`0bf68a8adc769b3ee7fc693f100139d2aaf76de8`](https://github.com/python/typeshed/commit/0bf68a8adc769b3ee7fc693f100139d2aaf76de8).
+[`f0512c2d5d5d319570d2517d74419633c0174ec2`](https://github.com/python/typeshed/commit/f0512c2d5d5d319570d2517d74419633c0174ec2).

@@ -10,6 +10,7 @@ from tests.checkout import ROOT
 
 import nameparser
 import nameparser._pipeline
+import nameparser.locales
 
 PKG = pathlib.Path(nameparser.__file__).parent
 
@@ -27,9 +28,7 @@ _MUST_EXIST = {"_types.py", "_lexicon.py", "_policy.py", "_locale.py",
                "_pipeline/_pieces.py",
                "_pipeline/_assign.py", "_pipeline/_post_rules.py",
                "_pipeline/_assemble.py", "_parser.py",
-               "locales/__init__.py", "locales/ja.py",
-               "locales/ru.py", "locales/tr_az.py", "locales/zh.py",
-               "locales/_es_given_names.py"}
+               "locales/__init__.py"}
 
 _PIPELINE_STAGE_ALLOWED = (
     "nameparser._types", "nameparser._lexicon", "nameparser._policy",
@@ -42,6 +41,9 @@ _PIPELINE_STAGE_ALLOWED = (
 # access (mechanisms.md#LOCALE-PACKS-PURE-DATA) -- one contract
 # shared by every pack, like
 # _PIPELINE_STAGE_ALLOWED above, so tightening it is a one-line edit.
+# No pack is keyed in ALLOWED: _locale_rules() gives every
+# nameparser/locales/*.py but __init__.py this rule, plus the pack's own
+# private data module, so a new pack is checked from its first commit.
 # _types joined the three in #272: the ja pack's segmenter factory
 # constructs a Segmentation, and _types is the bottom of the graph
 # (Locale itself imports it), so this widens the base types, not the
@@ -64,6 +66,26 @@ ALLOWED = {
     # Lexicon compiles its readings)
     "_lexicon.py": ("nameparser.config.", "nameparser._reading_index"),
     "_policy.py": ("nameparser._types",),
+    # name matching: the types, the lexicon's listed spellings, Policy
+    # (which its repr compares a parser's policy with), and from
+    # _pipeline/_vocab the pipeline's hyphens (_HYPHEN_CHARS, rules/O6's
+    # set, which the match reads every hyphen as, #1264) and the scripts
+    # that write no initials (in_initialless_script); _parser at
+    # call time only, in Matching's constructor, which requires a
+    # Parser, and its repr, which tells a Parser from a subclass (Parser
+    # imports this module at call time, in Parser.matching)
+    "_match.py": ("nameparser._types", "nameparser._lexicon",
+                  "nameparser._policy", "nameparser._parser",
+                  "nameparser._pipeline._vocab"),
+    # the group suggester: types, policy, the lexicon's particles and
+    # titles, the pipeline's patronymic, title, suffix and numeral
+    # predicates and its private word tables;
+    # _parser at call time only, in Suggestion.__post_init__, to check
+    # that the base is a Parser (Parser imports this module at call
+    # time, in Parser.suggest)
+    "_suggest.py": ("nameparser._types", "nameparser._policy",
+                    "nameparser._lexicon", "nameparser._pipeline",
+                    "nameparser.config.", "nameparser._parser"),
     # the shared compiler and the reading index's reader (#753, 3a): the
     # index, a config DATA module, and nothing else. That the import is
     # at call time only, nothing internal at module level, since
@@ -80,7 +102,7 @@ ALLOWED = {
                    "nameparser._policy", "nameparser.config._rules"),
     # _lexicon is needed at runtime: capitalized(lexicon=None) resolves
     # to Lexicon.default(); _policy for the scripts that write no
-    # initials (_NO_INITIALS), which initials() skips (#754)
+    # initials (_SCRIPT_PROPERTIES), which initials() skips (#754)
     "_render.py": ("nameparser._types", "nameparser._lexicon",
                    "nameparser._policy"),
     # every stage module: state + the three config/type modules
@@ -129,23 +151,19 @@ ALLOWED = {
     "_pipeline/_assemble.py": _PIPELINE_STAGE_ALLOWED + (
         "nameparser._reading_index",),
     # Parser sits on everything except _render; the reading index at
-    # call time only, where a choice of languages is applied (3b)
+    # call time only, where a choice of languages is applied (3b); _match
+    # at call time only, in Parser.matching(); _suggest at call time
+    # only, in Parser.suggest()
     "_parser.py": ("nameparser._types", "nameparser._lexicon",
                    "nameparser._policy", "nameparser._locale",
-                   "nameparser._pipeline", "nameparser._reading_index"),
+                   "nameparser._pipeline", "nameparser._reading_index",
+                   "nameparser._match", "nameparser._suggest"),
     # PEP 562 lazy loader: the only static import is _locale (for the
     # Locale return type); pack modules load via importlib.import_module
     # (a runtime string, invisible to the AST walker) -- the
     # "nameparser.locales." prefix documents that reach for humans even
     # though the walker never exercises it.
     "locales/__init__.py": ("nameparser._locale", "nameparser.locales."),
-    "locales/ja.py": _LOCALE_PACK_ALLOWED,
-    "locales/ru.py": _LOCALE_PACK_ALLOWED,
-    "locales/tr_az.py": _LOCALE_PACK_ALLOWED,
-    "locales/zh.py": _LOCALE_PACK_ALLOWED,
-    # a pack's data, no pack itself: rules/O6's given-name list (#959),
-    # which the es pack will carry as a lexicon fragment
-    "locales/_es_given_names.py": (),
     # the data modules' package: a docstring, no imports
     "config/__init__.py": (),
     # CLI: imports only the public package, same as
@@ -159,11 +177,32 @@ def _is_type_checking(test: ast.expr) -> bool:
         isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING")
 
 
-def _nameparser_imports(path: pathlib.Path) -> list[str]:
+def _package_of(path: pathlib.Path) -> str:
+    """The dotted package a module at `path` sits in: `nameparser` for
+    a file outside the package (a test's planted snippet)."""
+    try:
+        parts = path.resolve().relative_to(PKG.resolve()).parent.parts
+    except ValueError:
+        return "nameparser"
+    return ".".join(("nameparser", *parts))
+
+
+def _nameparser_imports(path: pathlib.Path,
+                        package: str | None = None) -> list[str]:
     """All nameparser-internal imports in the module, at any nesting
     depth, EXCEPT those under `if TYPE_CHECKING:` -- annotation-only
-    imports are not runtime dependencies."""
+    imports are not runtime dependencies.
+
+    A relative import is recorded by its absolute name, resolved against
+    `package` (by default the one `path` sits in): `from ._lexicon import
+    X` in `_suggest.py` is `nameparser._lexicon`, and `from .. import
+    _parser` in a pack is `nameparser._parser`, each name of a bare
+    `from <dots> import` being taken as a module. Until 3.1 the walker
+    read `node.module` alone, so a relative import was recorded as a
+    name the filter below dropped or not at all, and `_suggest.py`, which
+    imports nothing else, was checked by nothing."""
     found: list[str] = []
+    base = (package or _package_of(path)).split(".")
 
     def _record(node: ast.AST) -> None:
         # guard checked on EVERY node uniformly, so `elif TYPE_CHECKING:`
@@ -174,6 +213,12 @@ def _nameparser_imports(path: pathlib.Path) -> list[str]:
             return
         if isinstance(node, ast.Import):
             found.extend(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.level:
+            anchor = ".".join(base[:len(base) - node.level + 1])
+            if node.module:
+                found.append(f"{anchor}.{node.module}")
+            else:
+                found.extend(f"{anchor}.{a.name}" for a in node.names)
         elif isinstance(node, ast.ImportFrom) and node.module:
             found.append(node.module)
         for child in ast.iter_child_nodes(node):
@@ -196,8 +241,43 @@ def _permitted(imported: str, allowed: tuple[str, ...]) -> bool:
     return False
 
 
+def _locale_rules() -> dict[str, tuple[str, ...]]:
+    """The rule for every module in nameparser/locales/ but __init__.py.
+
+    A pack (`es.py`) may import _LOCALE_PACK_ALLOWED and its own
+    private data modules: `_es_given_names.py` belongs to `es.py`, the
+    pack with the LONGEST stem the data module's name opens with, so
+    `_es_ar_given_names.py` is `es_ar.py`'s and not `es.py`'s. A data
+    module (a leading underscore, rules/O6's given-name lists, #959)
+    imports nothing internal."""
+    locales_dir = pathlib.Path(nameparser.locales.__file__).parent
+    stems = sorted(p.stem for p in locales_dir.glob("*.py")
+                   if not p.stem.startswith("_"))
+    rules: dict[str, tuple[str, ...]] = {}
+    for path in sorted(locales_dir.glob("*.py")):
+        stem = path.stem
+        if stem == "__init__":
+            continue
+        if stem.startswith("_"):
+            rules[f"locales/{path.name}"] = ()
+            continue
+        own = tuple(
+            f"nameparser.locales.{data.stem}"
+            for data in sorted(locales_dir.glob("_*.py"))
+            if data.stem != "__init__"
+            and max((s for s in stems if data.stem.startswith(f"_{s}_")),
+                    key=len, default=None) == stem)
+        rules[f"locales/{path.name}"] = _LOCALE_PACK_ALLOWED + own
+    return rules
+
+
+def _checked() -> dict[str, tuple[str, ...]]:
+    """Every module test_layering_contract checks, with its rule."""
+    return {**_locale_rules(), **ALLOWED}
+
+
 def test_layering_contract() -> None:
-    for mod, allowed in ALLOWED.items():
+    for mod, allowed in _checked().items():
         path = PKG / mod
         if not path.exists():
             assert mod not in _MUST_EXIST, (
@@ -208,6 +288,32 @@ def test_layering_contract() -> None:
                 f"{mod} imports {imported}, which the layering contract "
                 f"forbids (allowed prefixes: {allowed or 'none'})"
             )
+
+
+@pytest.mark.parametrize("pack,data,allowed", [
+    ("es", "_es_given_names", True),
+    ("es_ar", "_es_ar_given_names", True),
+    # a data module is its longest-stemmed pack's alone
+    ("es", "_es_ar_given_names", False),
+    ("pt", "_es_given_names", False),
+])
+def test_a_pack_may_import_its_own_data_module_only(
+        pack: str, data: str, allowed: bool) -> None:
+    rule = _locale_rules()[f"locales/{pack}.py"]
+    assert _permitted(f"nameparser.locales.{data}", rule) is allowed
+
+
+def test_the_pack_rule_refuses_what_a_pack_may_not_import() -> None:
+    # the negative control: the rule every pack is held to refuses the
+    # pipeline, the parser, the config data and another pack
+    rule = _locale_rules()["locales/es.py"]
+    for imported in ("nameparser._pipeline._vocab", "nameparser._parser",
+                     "nameparser.config._compiled", "nameparser.locales.pt",
+                     "nameparser._reading_index"):
+        assert not _permitted(imported, rule), imported
+    for data in _locale_rules():
+        if pathlib.PurePath(data).stem.startswith("_"):
+            assert _locale_rules()[data] == ()
 
 
 def test_every_pipeline_module_is_keyed_in_allowed() -> None:
@@ -235,7 +341,7 @@ def test_every_pipeline_module_is_keyed_in_allowed() -> None:
     check measuring nothing, which is the shape of the bug it exists
     to prevent.
     """
-    keyed = set(ALLOWED)
+    keyed = set(_checked())
     pipeline_dir = pathlib.Path(nameparser._pipeline.__file__).parent
     shipped = {f"_pipeline/{p.name}" for p in pipeline_dir.glob("*.py")}
     assert "_pipeline/_group.py" in shipped, (
@@ -249,6 +355,41 @@ def test_every_pipeline_module_is_keyed_in_allowed() -> None:
         f"imports -- _PIPELINE_STAGE_ALLOWED for a stage, something "
         f"tighter for a leaf several stages sit on (see _pipeline/_pieces.py)"
     )
+
+
+def test_every_locales_module_is_checked() -> None:
+    """The same completeness check over nameparser/locales/, where no
+    pack is keyed by hand. Until 3.1 only four packs and one data module
+    were keyed, and the other seventeen packs, and
+    `_es_ar_given_names.py`, were checked by nothing.
+
+    _locale_rules() enumerates the folder with a `*.py` glob, so this
+    lists it another way, by what the import system finds there
+    (pkgutil), and holds each module to the rule its name calls for: a
+    pack to _LOCALE_PACK_ALLOWED and a data module to none. What it
+    catches: a module the glob does not reach (a subpackage,
+    `locales/xx/`), and a module given a rule other than its kind's.
+    What it cannot: a module neither the glob nor the import system
+    lists, which no import can load either."""
+    import pkgutil
+    rules = _checked()
+    found = {m.name: m.ispkg for m in pkgutil.iter_modules(
+        nameparser.locales.__path__)}
+    assert {"ja", "es", "_es_given_names"} <= set(found), (
+        f"the listing found no locale modules, so this check can no "
+        f"longer fail: {sorted(found)}")
+    missing = sorted(name for name, ispkg in found.items()
+                     if ispkg or f"locales/{name}.py" not in rules)
+    assert not missing, (
+        f"locale modules the layering contract does not check: {missing}")
+    for name in found:
+        rule = rules[f"locales/{name}.py"]
+        if name.startswith("_"):
+            assert rule == (), name
+        else:
+            assert rule[:len(_LOCALE_PACK_ALLOWED)] == _LOCALE_PACK_ALLOWED
+            assert all(extra.startswith(f"nameparser.locales._{name}_")
+                       for extra in rule[len(_LOCALE_PACK_ALLOWED):]), name
 
 
 def test_lexicon_never_imports_config_package_root_or_parser() -> None:
@@ -356,6 +497,47 @@ def test_type_checking_imports_do_not_count(tmp_path: pathlib.Path) -> None:
     assert _nameparser_imports(mod) == ["nameparser.util", "nameparser"]
 
 
+@pytest.mark.parametrize("package,source,expected", [
+    ("nameparser.locales", "from .. import _parser\n",
+     ["nameparser._parser"]),
+    ("nameparser.locales", "from ._es_given_names import GIVEN_NAMES\n",
+     ["nameparser.locales._es_given_names"]),
+    ("nameparser.locales", "from . import pt\n", ["nameparser.locales.pt"]),
+    ("nameparser", "from ._pipeline._vocab import x\n",
+     ["nameparser._pipeline._vocab"]),
+    ("nameparser._pipeline", "from .._parser import Parser\n",
+     ["nameparser._parser"]),
+])
+def test_a_relative_import_is_recorded_by_its_absolute_name(
+        tmp_path: pathlib.Path, package: str, source: str,
+        expected: list[str]) -> None:
+    mod = tmp_path / "snippet.py"
+    mod.write_text(source)
+    assert _nameparser_imports(mod, package) == expected
+
+
+def test_a_pack_s_relative_import_breaks_the_contract(
+        tmp_path: pathlib.Path) -> None:
+    # the planted violation the walker missed before it read node.level
+    mod = tmp_path / "pt.py"
+    mod.write_text("from .. import _parser\n"
+                   "from ._es_given_names import GIVEN_NAMES\n")
+    rule = _locale_rules()["locales/pt.py"]
+    refused = [m for m in _nameparser_imports(mod, "nameparser.locales")
+               if not _permitted(m, rule)]
+    assert refused == ["nameparser._parser",
+                       "nameparser.locales._es_given_names"]
+
+
+def test_the_walker_reaches_the_relative_imports_of_suggest() -> None:
+    # reachability: _suggest.py writes every internal import relatively,
+    # so an empty list here is a contract that checks nothing
+    imports = _nameparser_imports(PKG / "_suggest.py")
+    assert "nameparser._lexicon" in imports
+    assert "nameparser.config._order_names" in imports
+    assert "nameparser._parser" in imports  # the call-time one
+
+
 def test_every_frozen_dataclass_carries_the_pickle_guards() -> None:
     # Forgetting the two class-body assignments is SILENT --
     # @dataclass(slots=True) installs its own working pickle methods
@@ -366,15 +548,18 @@ def test_every_frozen_dataclass_carries_the_pickle_guards() -> None:
 
     import nameparser._lexicon
     import nameparser._locale
+    import nameparser._match
     import nameparser._parser
     import nameparser._policy
+    import nameparser._suggest
     import nameparser._types
     from nameparser._types import _guarded_getstate, _guarded_setstate
 
     # _pipeline internals (ParseState, WorkToken, ...) are exempt: they
     # are never pickled and are not public API.
     modules = (nameparser._types, nameparser._lexicon,
-               nameparser._policy, nameparser._locale, nameparser._parser)
+               nameparser._policy, nameparser._locale, nameparser._parser,
+               nameparser._match, nameparser._suggest)
     for module in modules:
         for _, cls in inspect.getmembers(module, inspect.isclass):
             if cls.__module__ != module.__name__:
@@ -643,8 +828,8 @@ def test_the_check_finds_a_tool_read_through_an_alias(
 #: The reads 4i-a moved, as the check counts them on today's sources
 #: with `._sets` taken out again: the recorded negative control over
 #: the real tree, so the check above cannot pass because its walk
-#: reaches nothing. The library's 134 on #1138's tree (139 since
-#: #1131's, below) were 125 attribute loads, 3 roster
+#: reaches nothing. The library's 134 on #1138's tree (140 since
+#: #1006's, below) were 125 attribute loads, 3 roster
 #: `getattr`s, all through `sets`, which the undone `sets = lexicon`
 #: makes a lexicon, and the 6 `sets =` bindings (#1000's Ph./D. gate
 #: added one binding and four of the loads; #999's gate
@@ -669,18 +854,62 @@ def test_the_check_finds_a_tool_read_through_an_alias(
 #: #1131's every-chunk reading of a word the periods join, the
 #: honorific tail, the titles and the acronyms its set-apart word
 #: asks first, its S11 guard and the initials test of a word the
-#: periods join, 134 -> 139);
-#: the tools' 19 are 17
+#: periods join, 134 -> 139; #1006's name matching dropping a hyphen
+#: half that is a listed particle, the particles, 139 -> 140;
+#: #1241's apostrophe opening a listed particle, the particles,
+#: 140 -> 141; case repair's opening `ter` and `der`, the particles
+#: before one, 141 -> 142; #490's C4 count asking for a title behind
+#: a dotted run, the titles, 142 -> 143; classify's gate on that
+#: run's fold, the contested titles and the modifiers, 143 -> 145;
+#: #1296's run of initials listed whole, its `sets =` binding and the
+#: roster `getattr` through it, 145 -> 147; #1230/#1235's glued word,
+#: the chunks read alone, the titles a chunk chains, the word after
+#: the stop and the end-of-name report's suffix and title tests,
+#: 147 -> 169; #1071's glued saint particle, the saint particles,
+#: 169 -> 170, and the maiden marker ending a part's own words, 170 ->
+#: 171; its review's suffix-word refusal after the stop, 171 -> 179;
+#: its fix-diff review's own name test for the saint division (titles
+#: of every kind, connectives), 179 -> 185; `_suggest`'s particle
+#: read, 185 -> 186; its leading title read, which reads a name's
+#: evidence past its titles, 186 -> 187; #317's front peel, the glued
+#: titles its gate and the peel read and the titles a site steps past,
+#: 187 -> 190, and its review dropping the peel's own titles test,
+#: 190 -> 188, its `sets =` binding and the titles read through it;
+#: #1319's dotted titles, T8's and the peel's titles, the peel's
+#: `sets =` binding and its modifiers, 188 -> 192, and its fix-commit
+#: review's dotted-chunk and modifier-head reads, 192 -> 194; #1323's
+#: review, the chunk test of a joined word behind the pair reading the
+#: generation and gated-word sets, 194 -> 196; #659's capitals peel,
+#: its `sets =` binding and the four suffix sets it reads, 196 -> 201,
+#: its review's conjunctions read for a run, 201 -> 202, and the
+#: ambiguous suffix halves dropped from the peel as subsets, 202 -> 200;
+#: #1369's capitals vote asking the base parse where a family word is
+#: a listed title, its `sets =` binding and the two title sets it
+#: reads, 200 -> 203; the 3.1 simplify pass folding T8's two copies
+#: of the unambiguous title-or-suffix test after a glued stop into
+#: `_vocab._claimed_after_the_stop`, 203 -> 198);
+#: the tools' first 20 are 18
 #: attribute loads, every tool scanned, and config_diff.py's
 #: `sets =` binding and the roster `getattr` through it (its
 #: `changed_words`, which compares two lexicons set by set), which
-#: with one of the loads moved the count from 16. 4i-a's own count was 114 (on
+#: with one of the loads moved the count from 16; the 18th load is
+#: tools/vocab/order_names.py reading `locales.ZH.lexicon._sets.surnames`
+#: (group suggestions); order_names.py's `listed_titles` adds four,
+#: its `sets =` binding and the three title sets it reads through it
+#: (the given names refusing a listed title, 2026-11-12), 20 -> 24;
+#: and tools/vocab/familiar_candidates.py reading the default's
+#: titles, to drop a title from a name before it pairs a familiar
+#: form, 24 -> 25; and order_names.py's `listed_suffixes`, its
+#: `sets =` binding and the two suffix sets it reads (the given names
+#: refusing a listed suffix, #1357), 25 -> 28 (`listed_titles`
+#: reading `title_abbreviations` too adds none, that set being no
+#: field of `_VOCAB_FIELDS`). 4i-a's own count was 114 (on
 #: that tree's sources), two of them `getattr`s in
 #: `_parser._apply_choice`, which read the sets through
 #: `_lexicon._fields_of` from 4i-b until 4i-c retired it.
 #: A reader added through `_sets` moves these, and they are re-taken
 #: then: they count what the check would refuse with the move undone.
-_UNGUARDED_READS = {"library": 139, "tools": 19}
+_UNGUARDED_READS = {"library": 198, "tools": 28}
 
 
 def test_the_check_refuses_every_read_4i_a_moved() -> None:

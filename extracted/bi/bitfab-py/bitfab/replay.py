@@ -26,9 +26,9 @@ from bitfab.constants import (
     _seed_context,
     replay_item_running,
 )
+from bitfab.default_sandboxes import default_sandboxes
 from bitfab.error_chain import describe_error, serialize_error
 from bitfab.git_command import run_git
-from bitfab.gmail_sandbox import default_sandboxes
 from bitfab.integration_fixture import extract_integration_fixtures
 from bitfab.mock_matching import MATCHER, span_id_of_tree_node
 from bitfab.mock_override import (
@@ -81,6 +81,36 @@ JUDGE_ASSERTIONS_DEPRECATION = (
     "skip_assertion_judging=True (--skip-assertion-judging) to turn it off."
 )
 _MAX_REPLAY_ATTEMPTS = 100
+_AGENT_SESSION_ID_MAX_LENGTH = 255
+
+
+def experiment_group_required_message(
+    group_id_option: str = "experiment_group_id",
+    group_name_option: str = "experiment_group_name",
+    skip_option: str = "skip_experiment_group=True",
+) -> str:
+    """The error shown when a replay that starts an experiment names no group."""
+    return (
+        f"{group_id_option} is required. An experiment group is one series of "
+        "experiments testing one thing. Reuse the id of the group whose runs "
+        f"test the same thing, or pass a new UUID with {group_name_option}, "
+        "named after what this run tests, to start a group. To run without a "
+        f"group, pass {skip_option}."
+    )
+
+
+def experiment_group_skip_conflict_message(
+    skip_option: str = "skip_experiment_group",
+    group_id_option: str = "experiment_group_id",
+    group_name_option: str = "experiment_group_name",
+) -> str:
+    """The error shown when a replay both skips and names an experiment group."""
+    return (
+        f"{skip_option} runs without an experiment group, so it cannot be "
+        f"combined with {group_id_option} or {group_name_option}."
+    )
+
+
 _DEFAULT_MAX_CONCURRENCY = 10
 _DEFAULT_PROCESS_MAX_CONCURRENCY = 4
 
@@ -962,6 +992,8 @@ def replay(
     experiment_group_id: str | None = None,
     experiment_group_name: str | None = None,
     baseline_experiment_id: str | None = None,
+    skip_experiment_group: bool = False,
+    agent_session_id: str | None = None,
     dataset_id: str | None = None,
     dataset_ids: list[str] | None = None,
     grader_ids: list[str] | None = None,
@@ -1030,7 +1062,7 @@ def replay(
             that selection replay, and the server rejects any ID none of those
             datasets contains. On its own it selects by ID with no dataset
             attribution.
-        name: What this run is testing, in a few words, such as
+        name: What this run changes, in a few words, such as
             'baseline' or 'shorter system prompt'. Bitfab records the
             commit, branch, tree state, datasets, and who ran it with every
             experiment, so do not repeat them here.
@@ -1074,19 +1106,31 @@ def replay(
             ``"release/2.3"``, or a commit SHA. A branch that exists only on
             the remote is read as ``origin/<name>``. A name git cannot resolve
             is refused.
-        experiment_group_id: Optional UUID that groups multiple replay runs
-            into a single experiment batch. The run joins that group, and an ID
-            no group has yet creates it. The experiments page can stream
+        experiment_group_id: UUID of the experiment group this run belongs
+            to. An experiment group is one series of experiments testing one
+            thing. Required, except for a dry run, a resume, or with
+            ``skip_experiment_group``: reuse the ID of the group whose runs
+            test the same thing, or pass a new UUID with
+            ``experiment_group_name`` to start a group. A replay without it is
+            refused before any request is sent. The experiments page can stream
             results live by filtering on this ID.
-        experiment_group_name: Optional name for the experiment group, 1 to
-            120 characters. Applied when this replay creates the group or the
-            group has no name yet. A group that already has a name keeps it.
-            Requires ``experiment_group_id``.
+        experiment_group_name: Name for the experiment group, 1 to 120
+            characters, named after what this run tests. Applied when this
+            replay creates the group or the group has no name yet. A group that
+            already has a name keeps it. Requires ``experiment_group_id``.
         baseline_experiment_id: Optional UUID of an earlier experiment to
             compare this run against. When set, the run's summary measures
             against that experiment instead of the first finished experiment
             in its group or the original traces. The server refuses an
             experiment outside your organization.
+        skip_experiment_group: Runs without an experiment group, for scripts
+            and schedules whose runs should not be grouped. Cannot be combined
+            with ``experiment_group_id`` or ``experiment_group_name``.
+        agent_session_id: ID of the coding agent session that launched this
+            run, 1 to 255 characters, stored on the experiment so runs can be
+            traced back to the session. When not given, the first non-empty of
+            ``CLAUDE_CODE_SESSION_ID``, ``CODEX_THREAD_ID`` and
+            ``AGENT_SESSION_ID`` is used, and nothing is sent when none is set.
         dataset_id: Optional UUID of the dataset this replay runs against.
             Mutually exclusive with ``dataset_ids``. Alone it replays the
             dataset's full membership, and with ``trace_ids`` it replays only
@@ -1150,8 +1194,8 @@ def replay(
             each item, keeping state for the length of the item so a write
             followed by a read sees the write (see :class:`~bitfab.Sandbox`).
             A sandbox that matches a call answers it before any mock override
-            or ``mock`` strategy. Built-in sandboxes (the Gmail sandbox) are
-            always on; passing one with the same name replaces it, for example
+            or ``mock`` strategy. Built-in sandboxes (the Gmail and GitHub
+            sandboxes) are always on; passing one with the same name replaces it, for example
             to change where its starting state comes from.
         experimental_selective_replay: Opt-in must_run manifest. The server
             protects required subtrees and ancestors, combining assertion targets
@@ -1258,6 +1302,10 @@ def replay(
         raise ValueError(
             "retry_errored only applies to resume: pass resume=<experiment ID>."
         )
+    if skip_experiment_group and (
+        experiment_group_id is not None or experiment_group_name is not None
+    ):
+        raise ValueError(experiment_group_skip_conflict_message())
     if experiment_group_name is not None and experiment_group_id is None:
         raise ValueError(
             "experiment_group_name names an experiment group, so it needs "
@@ -1265,6 +1313,10 @@ def replay(
         )
     if resume is not None and not resume.strip():
         raise ValueError("resume needs the experiment ID of the replay to continue.")
+    if agent_session_id is not None and not (
+        0 < len(agent_session_id.strip()) <= _AGENT_SESSION_ID_MAX_LENGTH
+    ):
+        raise ValueError("agent_session_id must be 1 to 255 characters.")
     if resume is not None:
         _refuse_selection_with_resume(
             resume,
@@ -1337,6 +1389,14 @@ def replay(
     # before it could report its resolved inputs.
     include_db_branch_lease = _db_branch_enabled(db_branch) and not dry_run
 
+    if (
+        resume is None
+        and not dry_run
+        and not skip_experiment_group
+        and (experiment_group_id is None or not experiment_group_id.strip())
+    ):
+        raise ValueError(experiment_group_required_message())
+
     resolved_code_change_description, resolved_code_change_files = _resolve_code_change(
         resolved_code_change_type,
         code_change_description,
@@ -1388,6 +1448,8 @@ def replay(
             experiment_group_id=experiment_group_id,
             experiment_group_name=experiment_group_name,
             baseline_experiment_id=baseline_experiment_id,
+            skip_experiment_group=skip_experiment_group,
+            agent_session_id=agent_session_id,
             include_db_branch_lease=include_db_branch_lease,
             include_original_metadata=adapt_inputs is not None,
             dataset_ids=resolved_dataset_ids,
@@ -2962,6 +3024,7 @@ def _sandbox_session(
         sandboxes=sandboxes,
         client=client,
         make_start_ctx=make_start_ctx,
+        trace_started_at=trace_started_at,
     )
 
 

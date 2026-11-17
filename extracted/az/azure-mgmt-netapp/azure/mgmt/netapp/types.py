@@ -34,7 +34,6 @@ if TYPE_CHECKING:
         CreatedByType,
         CredentialsStatus,
         DesiredRansomwareProtectionState,
-        EnableSubvolumes,
         EnableWriteBackState,
         EncryptionKeySource,
         EncryptionState,
@@ -67,6 +66,7 @@ if TYPE_CHECKING:
         SmbAccessBasedEnumeration,
         SmbEncryptionState,
         SmbNonBrowsable,
+        SmbOplocks,
         VolumeLanguage,
         VolumeReplicationRelationshipStatus,
         VolumeStorageToNetworkProximity,
@@ -1302,7 +1302,7 @@ class CacheProperties(TypedDict, total=False):
      "Disabled" and "Enabled".
     :vartype ldap: Union[str, "LdapState"]
     :ivar ldapServerType: Specifies the type of LDAP server for flexcache volume. Known values are:
-     "ActiveDirectory" and "OpenLDAP".
+     "ActiveDirectory" and "OpenLdap".
     :vartype ldapServerType: Union[str, "LdapServerType"]
     :ivar originClusterInformation: Origin cluster information. Required.
     :vartype originClusterInformation: "OriginClusterInformation"
@@ -1381,7 +1381,7 @@ class CacheProperties(TypedDict, total=False):
      and \"Enabled\"."""
     ldapServerType: Union[str, "LdapServerType"]
     """Specifies the type of LDAP server for flexcache volume. Known values are: \"ActiveDirectory\"
-     and \"OpenLDAP\"."""
+     and \"OpenLdap\"."""
     originClusterInformation: Required["OriginClusterInformation"]
     """Origin cluster information. Required."""
     cifsChangeNotifications: Union[str, "CifsChangeNotifyState"]
@@ -2741,6 +2741,9 @@ class SmbSettings(TypedDict, total=False):
     :ivar smbNonBrowsable: Enables non-browsable property for SMB Shares. Only applicable for
      SMB/DualProtocol cache. Known values are: "Disabled" and "Enabled".
     :vartype smbNonBrowsable: Union[str, "SmbNonBrowsable"]
+    :ivar smbOplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol cache. Known values are: "Disabled" and "Enabled".
+    :vartype smbOplocks: Union[str, "SmbOplocks"]
     """
 
     smbEncryption: Union[str, "SmbEncryptionState"]
@@ -2752,6 +2755,9 @@ class SmbSettings(TypedDict, total=False):
     smbNonBrowsable: Union[str, "SmbNonBrowsable"]
     """Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol cache.
      Known values are: \"Disabled\" and \"Enabled\"."""
+    smbOplocks: Union[str, "SmbOplocks"]
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol cache. Known values are: \"Disabled\" and \"Enabled\"."""
 
 
 class Snapshot(ProxyResource):
@@ -2914,78 +2920,6 @@ class SnapshotRestoreFiles(TypedDict, total=False):
     """List of files to be restored. Required."""
     destinationPath: str
     """Destination folder where the files will be restored."""
-
-
-class SubvolumeInfo(ProxyResource):
-    """Subvolume Information properties Deprecated. This resource type will be removed in a future API
-    version.
-
-    :ivar id: Fully qualified resource ID for the resource. Ex -
-     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
-    :vartype id: str
-    :ivar name: The name of the resource.
-    :vartype name: str
-    :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
-     "Microsoft.Storage/storageAccounts".
-    :vartype type: str
-    :ivar systemData: Azure Resource Manager metadata containing createdBy and modifiedBy
-     information.
-    :vartype systemData: "SystemData"
-    :ivar properties: Subvolume Properties.
-    :vartype properties: "SubvolumeProperties"
-    """
-
-    properties: "SubvolumeProperties"
-    """Subvolume Properties."""
-
-
-class SubvolumePatchParams(TypedDict, total=False):
-    """Parameters with which a subvolume can be updated.
-
-    :ivar size: Truncate subvolume to the provided size in bytes.
-    :vartype size: int
-    :ivar path: path to the subvolume.
-    :vartype path: str
-    """
-
-    size: Optional[int]
-    """Truncate subvolume to the provided size in bytes."""
-    path: str
-    """path to the subvolume."""
-
-
-class SubvolumePatchRequest(TypedDict, total=False):
-    """Subvolume Patch Request properties.
-
-    :ivar properties: Subvolume Properties.
-    :vartype properties: "SubvolumePatchParams"
-    """
-
-    properties: "SubvolumePatchParams"
-    """Subvolume Properties."""
-
-
-class SubvolumeProperties(TypedDict, total=False):
-    """This represents path associated with the subvolume.
-
-    :ivar path: Path to the subvolume.
-    :vartype path: str
-    :ivar size: Truncate subvolume to the provided size in bytes.
-    :vartype size: int
-    :ivar parentPath: parent path to the subvolume.
-    :vartype parentPath: str
-    :ivar provisioningState: Azure lifecycle management.
-    :vartype provisioningState: str
-    """
-
-    path: str
-    """Path to the subvolume."""
-    size: Optional[int]
-    """Truncate subvolume to the provided size in bytes."""
-    parentPath: Optional[str]
-    """parent path to the subvolume."""
-    provisioningState: str
-    """Azure lifecycle management."""
 
 
 class SystemData(TypedDict, total=False):
@@ -3356,6 +3290,9 @@ class VolumePatchProperties(TypedDict, total=False):
     :ivar smbNonBrowsable: Enables non-browsable property for SMB Shares. Only applicable for
      SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
     :vartype smbNonBrowsable: Union[str, "SmbNonBrowsable"]
+    :ivar smbOplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
+    :vartype smbOplocks: Union[str, "SmbOplocks"]
     """
 
     serviceLevel: Union[str, "ServiceLevel"]
@@ -3417,6 +3354,9 @@ class VolumePatchProperties(TypedDict, total=False):
     smbNonBrowsable: Union[str, "SmbNonBrowsable"]
     """Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol volume.
      Known values are: \"Disabled\" and \"Enabled\"."""
+    smbOplocks: Union[str, "SmbOplocks"]
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol volume. Known values are: \"Disabled\" and \"Enabled\"."""
 
 
 class VolumePatchPropertiesDataProtection(TypedDict, total=False):
@@ -3539,6 +3479,9 @@ class VolumeProperties(TypedDict, total=False):
     :ivar smbContinuouslyAvailable: Enables continuously available share property for smb volume.
      Only applicable for SMB volume.
     :vartype smbContinuouslyAvailable: bool
+    :ivar smbOplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
+    :vartype smbOplocks: Union[str, "SmbOplocks"]
     :ivar throughputMibps: Maximum throughput in MiB/s that can be achieved by this volume and this
      will be accepted as input only for manual qosType volume.
     :vartype throughputMibps: float
@@ -3556,6 +3499,9 @@ class VolumeProperties(TypedDict, total=False):
     :vartype keyVaultPrivateEndpointResourceId: str
     :ivar ldapEnabled: Specifies whether LDAP is enabled or not for a given NFS volume.
     :vartype ldapEnabled: bool
+    :ivar ldapServerType: Specifies the type of LDAP server for a given NFS volume. Known values
+     are: "ActiveDirectory" and "OpenLdap".
+    :vartype ldapServerType: Union[str, "LdapServerType"]
     :ivar coolAccess: Specifies whether Cool Access(tiering) is enabled for the volume.
     :vartype coolAccess: bool
     :ivar coolnessPeriod: Specifies the number of days after which data that is not accessed by
@@ -3625,10 +3571,6 @@ class VolumeProperties(TypedDict, total=False):
     :vartype encrypted: bool
     :ivar placementRules: Application specific placement rules for the particular volume.
     :vartype placementRules: list["PlacementKeyValuePairs"]
-    :ivar enableSubvolumes: Flag indicating whether subvolume operations are enabled on the volume
-     Deprecated. Subvolume operations and this flag will be removed in a future API version. Known
-     values are: "Enabled" and "Disabled".
-    :vartype enableSubvolumes: Union[str, "EnableSubvolumes"]
     :ivar provisionedAvailabilityZone: The availability zone where the volume is provisioned. This
      refers to the logical availability zone where the volume resides.
     :vartype provisionedAvailabilityZone: str
@@ -3721,6 +3663,9 @@ class VolumeProperties(TypedDict, total=False):
      Known values are: \"Disabled\" and \"Enabled\"."""
     smbContinuouslyAvailable: bool
     """Enables continuously available share property for smb volume. Only applicable for SMB volume."""
+    smbOplocks: Union[str, "SmbOplocks"]
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol volume. Known values are: \"Disabled\" and \"Enabled\"."""
     throughputMibps: Optional[float]
     """Maximum throughput in MiB/s that can be achieved by this volume and this will be accepted as
      input only for manual qosType volume."""
@@ -3736,6 +3681,9 @@ class VolumeProperties(TypedDict, total=False):
      volume. Only applicable if encryptionKeySource = 'Microsoft.KeyVault'."""
     ldapEnabled: bool
     """Specifies whether LDAP is enabled or not for a given NFS volume."""
+    ldapServerType: Union[str, "LdapServerType"]
+    """Specifies the type of LDAP server for a given NFS volume. Known values are: \"ActiveDirectory\"
+     and \"OpenLdap\"."""
     coolAccess: bool
     """Specifies whether Cool Access(tiering) is enabled for the volume."""
     coolnessPeriod: int
@@ -3798,10 +3746,6 @@ class VolumeProperties(TypedDict, total=False):
      2022-01-01."""
     placementRules: list["PlacementKeyValuePairs"]
     """Application specific placement rules for the particular volume."""
-    enableSubvolumes: Union[str, "EnableSubvolumes"]
-    """Flag indicating whether subvolume operations are enabled on the volume Deprecated. Subvolume
-     operations and this flag will be removed in a future API version. Known values are: \"Enabled\"
-     and \"Disabled\"."""
     provisionedAvailabilityZone: Optional[str]
     """The availability zone where the volume is provisioned. This refers to the logical availability
      zone where the volume resides."""

@@ -542,6 +542,7 @@ __all__ = (
     "PaymentOptionType",
     "PeriodTypeType",
     "PermissionGroupType",
+    "PermissionTypeType",
     "PhcSupportType",
     "PlacementGroupStateType",
     "PlacementGroupStrategyType",
@@ -3360,6 +3361,7 @@ PeriodTypeType = Literal[
     "fifteen-minutes", "five-minutes", "one-day", "one-hour", "one-week", "three-hours"
 ]
 PermissionGroupType = Literal["all"]
+PermissionTypeType = Literal["transit-gateway-attachment", "vpc-endpoint"]
 PhcSupportType = Literal["supported", "unsupported"]
 PlacementGroupStateType = Literal["available", "deleted", "deleting", "pending"]
 PlacementGroupStrategyType = Literal["cluster", "partition", "spread"]
@@ -4007,6 +4009,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -4191,6 +4194,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -4258,6 +4262,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

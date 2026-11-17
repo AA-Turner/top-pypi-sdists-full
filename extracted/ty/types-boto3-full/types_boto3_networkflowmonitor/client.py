@@ -27,29 +27,43 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    GetMonitorScopeSuggestionsPaginator,
     GetQueryResultsMonitorTopContributorsPaginator,
+    GetQueryResultsPerformanceMonitorPaginator,
     GetQueryResultsWorkloadInsightsTopContributorsDataPaginator,
     GetQueryResultsWorkloadInsightsTopContributorsPaginator,
     ListMonitorsPaginator,
+    ListPerformanceMonitorsPaginator,
     ListScopesPaginator,
 )
 from .type_defs import (
     CreateMonitorInputTypeDef,
     CreateMonitorOutputTypeDef,
+    CreatePerformanceMonitorInputTypeDef,
+    CreatePerformanceMonitorOutputTypeDef,
     CreateScopeInputTypeDef,
     CreateScopeOutputTypeDef,
     DeleteMonitorInputTypeDef,
+    DeletePerformanceMonitorInputTypeDef,
     DeleteScopeInputTypeDef,
     GetMonitorInputTypeDef,
     GetMonitorOutputTypeDef,
+    GetMonitorScopeSuggestionsInputTypeDef,
+    GetMonitorScopeSuggestionsOutputTypeDef,
+    GetPerformanceMonitorInputTypeDef,
+    GetPerformanceMonitorOutputTypeDef,
     GetQueryResultsMonitorTopContributorsInputTypeDef,
     GetQueryResultsMonitorTopContributorsOutputTypeDef,
+    GetQueryResultsPerformanceMonitorInputTypeDef,
+    GetQueryResultsPerformanceMonitorOutputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsDataInputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsDataOutputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsInputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsOutputTypeDef,
     GetQueryStatusMonitorTopContributorsInputTypeDef,
     GetQueryStatusMonitorTopContributorsOutputTypeDef,
+    GetQueryStatusPerformanceMonitorInputTypeDef,
+    GetQueryStatusPerformanceMonitorOutputTypeDef,
     GetQueryStatusWorkloadInsightsTopContributorsDataInputTypeDef,
     GetQueryStatusWorkloadInsightsTopContributorsDataOutputTypeDef,
     GetQueryStatusWorkloadInsightsTopContributorsInputTypeDef,
@@ -58,23 +72,30 @@ from .type_defs import (
     GetScopeOutputTypeDef,
     ListMonitorsInputTypeDef,
     ListMonitorsOutputTypeDef,
+    ListPerformanceMonitorsInputTypeDef,
+    ListPerformanceMonitorsOutputTypeDef,
     ListScopesInputTypeDef,
     ListScopesOutputTypeDef,
     ListTagsForResourceInputTypeDef,
     ListTagsForResourceOutputTypeDef,
     StartQueryMonitorTopContributorsInputTypeDef,
     StartQueryMonitorTopContributorsOutputTypeDef,
+    StartQueryPerformanceMonitorInputTypeDef,
+    StartQueryPerformanceMonitorOutputTypeDef,
     StartQueryWorkloadInsightsTopContributorsDataInputTypeDef,
     StartQueryWorkloadInsightsTopContributorsDataOutputTypeDef,
     StartQueryWorkloadInsightsTopContributorsInputTypeDef,
     StartQueryWorkloadInsightsTopContributorsOutputTypeDef,
     StopQueryMonitorTopContributorsInputTypeDef,
+    StopQueryPerformanceMonitorInputTypeDef,
     StopQueryWorkloadInsightsTopContributorsDataInputTypeDef,
     StopQueryWorkloadInsightsTopContributorsInputTypeDef,
     TagResourceInputTypeDef,
     UntagResourceInputTypeDef,
     UpdateMonitorInputTypeDef,
     UpdateMonitorOutputTypeDef,
+    UpdatePerformanceMonitorInputTypeDef,
+    UpdatePerformanceMonitorOutputTypeDef,
     UpdateScopeInputTypeDef,
     UpdateScopeOutputTypeDef,
 )
@@ -146,6 +167,18 @@ class NetworkFlowMonitorClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#create_monitor)
         """
 
+    def create_performance_monitor(
+        self, **kwargs: Unpack[CreatePerformanceMonitorInputTypeDef]
+    ) -> CreatePerformanceMonitorOutputTypeDef:
+        """
+        Create a performance monitor to monitor the traffic of the Amazon Virtual
+        Private Clouds (VPCs) that you specify as targets, to determine whether the
+        Amazon Web Services network is causing issues for your workloads.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/create_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#create_performance_monitor)
+        """
+
     def create_scope(self, **kwargs: Unpack[CreateScopeInputTypeDef]) -> CreateScopeOutputTypeDef:
         """
         In Network Flow Monitor, you specify a scope for the service to generate
@@ -161,6 +194,16 @@ class NetworkFlowMonitorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/delete_monitor.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#delete_monitor)
+        """
+
+    def delete_performance_monitor(
+        self, **kwargs: Unpack[DeletePerformanceMonitorInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Delete a performance monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/delete_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#delete_performance_monitor)
         """
 
     def delete_scope(self, **kwargs: Unpack[DeleteScopeInputTypeDef]) -> dict[str, Any]:
@@ -180,6 +223,29 @@ class NetworkFlowMonitorClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_monitor)
         """
 
+    def get_monitor_scope_suggestions(
+        self, **kwargs: Unpack[GetMonitorScopeSuggestionsInputTypeDef]
+    ) -> GetMonitorScopeSuggestionsOutputTypeDef:
+        """
+        Returns the accounts that are sending traffic to, or receiving traffic from,
+        resources in a monitor, but that aren't included in the monitoring scope for
+        the monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_monitor_scope_suggestions.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_monitor_scope_suggestions)
+        """
+
+    def get_performance_monitor(
+        self, **kwargs: Unpack[GetPerformanceMonitorInputTypeDef]
+    ) -> GetPerformanceMonitorOutputTypeDef:
+        """
+        Returns information about a performance monitor, including the resources that
+        it monitors, its status, and the tags for the monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_performance_monitor)
+        """
+
     def get_query_results_monitor_top_contributors(
         self, **kwargs: Unpack[GetQueryResultsMonitorTopContributorsInputTypeDef]
     ) -> GetQueryResultsMonitorTopContributorsOutputTypeDef:
@@ -188,6 +254,17 @@ class NetworkFlowMonitorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_query_results_monitor_top_contributors.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_query_results_monitor_top_contributors)
+        """
+
+    def get_query_results_performance_monitor(
+        self, **kwargs: Unpack[GetQueryResultsPerformanceMonitorInputTypeDef]
+    ) -> GetQueryResultsPerformanceMonitorOutputTypeDef:
+        """
+        Returns the results of a query for the Network Flow Monitor query interface,
+        for a specified query ID and performance monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_query_results_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_query_results_performance_monitor)
         """
 
     def get_query_results_workload_insights_top_contributors(
@@ -219,6 +296,17 @@ class NetworkFlowMonitorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_query_status_monitor_top_contributors.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_query_status_monitor_top_contributors)
+        """
+
+    def get_query_status_performance_monitor(
+        self, **kwargs: Unpack[GetQueryStatusPerformanceMonitorInputTypeDef]
+    ) -> GetQueryStatusPerformanceMonitorOutputTypeDef:
+        """
+        Returns the current status of a query for the Network Flow Monitor query
+        interface, for a specified query ID and performance monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_query_status_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_query_status_performance_monitor)
         """
 
     def get_query_status_workload_insights_top_contributors(
@@ -261,6 +349,16 @@ class NetworkFlowMonitorClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#list_monitors)
         """
 
+    def list_performance_monitors(
+        self, **kwargs: Unpack[ListPerformanceMonitorsInputTypeDef]
+    ) -> ListPerformanceMonitorsOutputTypeDef:
+        """
+        Returns a list of the performance monitors in an account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/list_performance_monitors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#list_performance_monitors)
+        """
+
     def list_scopes(self, **kwargs: Unpack[ListScopesInputTypeDef]) -> ListScopesOutputTypeDef:
         """
         List all the scopes for an account.
@@ -288,6 +386,17 @@ class NetworkFlowMonitorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/start_query_monitor_top_contributors.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#start_query_monitor_top_contributors)
+        """
+
+    def start_query_performance_monitor(
+        self, **kwargs: Unpack[StartQueryPerformanceMonitorInputTypeDef]
+    ) -> StartQueryPerformanceMonitorOutputTypeDef:
+        """
+        Create a query that you can use with the Network Flow Monitor query interface
+        to return the top paths for a performance monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/start_query_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#start_query_performance_monitor)
         """
 
     def start_query_workload_insights_top_contributors(
@@ -320,6 +429,17 @@ class NetworkFlowMonitorClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/stop_query_monitor_top_contributors.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#stop_query_monitor_top_contributors)
+        """
+
+    def stop_query_performance_monitor(
+        self, **kwargs: Unpack[StopQueryPerformanceMonitorInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Stop a query for the Network Flow Monitor query interface, for a specified
+        query ID and performance monitor.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/stop_query_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#stop_query_performance_monitor)
         """
 
     def stop_query_workload_insights_top_contributors(
@@ -368,6 +488,17 @@ class NetworkFlowMonitorClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#update_monitor)
         """
 
+    def update_performance_monitor(
+        self, **kwargs: Unpack[UpdatePerformanceMonitorInputTypeDef]
+    ) -> UpdatePerformanceMonitorOutputTypeDef:
+        """
+        Update a performance monitor, to add or remove the resources that the monitor
+        tracks network performance for.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/update_performance_monitor.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#update_performance_monitor)
+        """
+
     def update_scope(self, **kwargs: Unpack[UpdateScopeInputTypeDef]) -> UpdateScopeOutputTypeDef:
         """
         Update a scope to add or remove resources that you want to be available for
@@ -380,8 +511,30 @@ class NetworkFlowMonitorClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_monitor_scope_suggestions"]
+    ) -> GetMonitorScopeSuggestionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_query_results_monitor_top_contributors"]
     ) -> GetQueryResultsMonitorTopContributorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_query_results_performance_monitor"]
+    ) -> GetQueryResultsPerformanceMonitorPaginator:
         """
         Create a paginator for an operation.
 
@@ -415,6 +568,17 @@ class NetworkFlowMonitorClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_monitors"]
     ) -> ListMonitorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkflowmonitor/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_performance_monitors"]
+    ) -> ListPerformanceMonitorsPaginator:
         """
         Create a paginator for an operation.
 

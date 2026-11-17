@@ -400,8 +400,8 @@ def places(q: str = "", limit: int = 8, *, api_key: str | None = None,
     `also` is the other name a city was found by ("big apple" finds New York City as "Big Apple"), None
     where `q` starts its own. Pass one's `f"{lat},{lon}"` as `add(place=...)`. The list the console's
     City picker shows; `seq gpu places` prints it. Owner-scoped.
-    {the user 11-11: "a city drop down list and auto fill the long and lat"; the user 11-12: "we
-    shouldnt allow locaiton out of us"}
+
+
     """
     with _owned(api_key, base_url) as t:
         return t.get(f"/v1/gpus/places?{urlencode({'q': q, 'limit': int(limit)})}")["data"]

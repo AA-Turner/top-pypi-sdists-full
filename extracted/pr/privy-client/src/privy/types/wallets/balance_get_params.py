@@ -22,7 +22,22 @@ class BalanceGetParams(TypedDict, total=False):
     """
 
     asset: Union[
-        Literal["usdc", "usdc.e", "eth", "avax", "pol", "bnb", "usdt", "eurc", "usdb", "ousd", "pathusd", "sol", "trx"],
+        Literal[
+            "usdc",
+            "usdc.e",
+            "eth",
+            "avax",
+            "pol",
+            "bnb",
+            "mon",
+            "usdt",
+            "eurc",
+            "usdb",
+            "ousd",
+            "pathusd",
+            "sol",
+            "trx",
+        ],
         List[WalletAsset],
     ]
     """Named asset(s) to query (e.g.
@@ -46,6 +61,15 @@ class BalanceGetParams(TypedDict, total=False):
             "tron",
             "zksync_era",
             "robinhood",
+            "unichain",
+            "worldchain",
+            "ink",
+            "soneium",
+            "megaeth",
+            "hyperevm",
+            "hypercore",
+            "arc",
+            "monad",
             "tempo_testnet",
             "hoodi",
             "sepolia",
@@ -60,6 +84,7 @@ class BalanceGetParams(TypedDict, total=False):
             "solana_testnet",
             "tron_nile",
             "robinhood_testnet",
+            "ink_sepolia",
         ],
         str,
         List[WalletAssetChainNameInputParam],

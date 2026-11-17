@@ -375,9 +375,19 @@ def test_an_empty_head_reads_as_its_family_comma_twin() -> None:
             if empty == twin:
                 continue
             fields, kinds = twin
+            # the lone name word may be a run of single letters the
+            # twin parts into given and middle names (rules/T7, #1296):
+            # one written word all the same, which the empty head reads
+            # whole as the family
+            parted = (fields["middle"]
+                      and re.fullmatch(r"\w\.", fields["given"])
+                      and re.fullmatch(r"\w\.(?: \w\.?)*", fields["middle"]))
             if (fields["title"] and fields["given"]
-                    and not fields["middle"] and not fields["family"]):
-                moved = dict(fields, given="", family=fields["given"])
+                    and (not fields["middle"] or parted)
+                    and not fields["family"]):
+                moved = dict(fields, given="", middle="",
+                             family=fields["given"]
+                             + fields["middle"].replace(" ", ""))
                 if empty == (moved, kinds):
                     h1_rows[label] += 1
                     continue
@@ -1265,9 +1275,12 @@ def test_no_two_ambiguities_name_the_same_token_span() -> None:
     # of mixed case reports nothing (rules/S6), so the grid's capitals
     # spellings carry one report fewer (2,988 on the old grid), and the
     # 'Ma jd' tail added beside them restores the two-report shape.
-    assert multi == 3744, (
+    # 3,744 -> 3,780 on 2026-11-11 (#1254): a head of one name word and a
+    # dotted run of letters now reports the order beside the run's own
+    # report, a particle in front excepted (its own fork reports it).
+    assert multi == 3780, (
         f"{multi} of these parses carry more than one report, recorded "
-        f"as 3744 on 2026-10-25. A parse with one report cannot fail "
+        f"as 3780 on 2026-11-11. A parse with one report cannot fail "
         f"the check above, so this is what keeps the grid honest: move "
         f"the number deliberately, and never to 0")
     # 2,052 since 2026-10-04 (#601/#602), from 1,944: 216 parses left,
@@ -3346,7 +3359,7 @@ def test_the_case_only_walk_can_fail(
 # differently is set aside rather than compared: both views follow the
 # parse, so the comparison would report the parse, and the one class that does so is
 # unspaced hangul, which segmentation matches as written by decision
-# (docs/usage.rst, "Decomposed text"). The test below pins that filter.
+# (docs/east-asian.rst, "Decomposed text"). The test below pins that filter.
 
 def _hangul(text: str) -> bool:
     return any("가" <= c <= "힣"
@@ -3754,8 +3767,12 @@ _ONE_CASE_HEADS = (("john", "smith", "jones"), ("carod", "puig", "rovira"),
 #: order (#1111): an initial before a maiden marker, which M4 leaves to
 #: O5's convention, now reads given under the two family-first orders,
 #: where unguarded M4 makes the letter the family ('j nee smith', the
-#: three letters v, x and j behind three heads, 396 -> 414)
-_ONE_CASE_UNGUARDED = 414
+#: three letters v, x and j behind three heads, 396 -> 414); re-taken
+#: 2026-11-11 when one name word followed by nothing but initials began
+#: reporting the order (#1254): unguarded, a lower-case letter is no
+#: initial, so 'john v' reports none where 'JOHN V' reports it
+#: (414 -> 507)
+_ONE_CASE_UNGUARDED = 507
 _ONE_CASE_LETTER_IN_FRONT_UNGUARDED = 117
 _ONE_CASE_STRICT_VETO_UNGUARDED = 72
 
@@ -3892,6 +3909,13 @@ _ABBREVIATION_SLOTS = (
     "{} SMITH, XYZ", "John Smith, {}")
 
 
+#: The slots where a credential written short opens the part after a
+#: family comma behind no whole name (rules/C13's given-name Except,
+#: #1393); 'Smith, {}' only where it is written with a lower-case letter.
+_OPENS_THE_GIVEN_PART = frozenset({
+    "Smith, {}", "Smith, {} John", ", {} Smith", "Smith Jr., {} John"})
+
+
 def test_a_given_name_written_short_reads_as_a_given_name() -> None:
     """rules/H2's precedence bullet (#789): "an abbreviation the
     vocabulary reads as a given name written short is that given name".
@@ -3905,14 +3929,27 @@ def test_a_given_name_written_short_reads_as_a_given_name() -> None:
     report that reading draws after a comma. The bare spellings, which
     the shape never reads, must read exactly as with the set emptied in
     every slot, the capitals behind a comma included ('John Smith, JAS'
-    keeps suffix 'JAS', #789's review). Every slot must see the
+    keeps suffix 'JAS', #789's review), save a credential written short
+    opening the part after a family comma behind no whole name, which
+    reads as the plain given name does there (rules/C13, #1393). Every slot must see the
     shape fire somewhere, so a pass is not a grid the shape never
     reaches."""
     lexicon = Lexicon.default()
     abbreviations = sorted(lexicon._sets.given_name_abbreviations)
     # the set emptied: each word keeps its given reading, without the
-    # full name that makes it one written short
-    off = lexicon.add(*abbreviations, kind="given", same_as=None)
+    # full name that makes it one written short, save a word whose
+    # credential that reading leaves unambiguous (`md`, #1383): a plain
+    # given reading would make the credential ambiguous, which the word
+    # written short is not, so it is compared with its given reading
+    # gone, its credential reading after a comma as before (`Smith, Md.`
+    # suffix 'Md.')
+    credentials = [w for w in abbreviations
+                   if w in lexicon._sets.suffix_acronyms
+                   and w not in lexicon._sets.suffix_acronyms_ambiguous]
+    assert credentials == ["md"], credentials
+    off = lexicon.add(*(w for w in abbreviations if w not in credentials),
+                      kind="given", same_as=None).remove(
+                          *credentials, kind="given")
 
     def fields(name: ParsedName, plain: str = "", head: str = "") -> dict[str, str]:
         return {k: v.replace(plain, head) if plain else v
@@ -3941,8 +3978,20 @@ def test_a_given_name_written_short_reads_as_a_given_name() -> None:
                     text = slot.format(head)
                     got = fields(parser.parse(text))
                     unlisted = control.parse(text)
-                    if plain and (head in unlisted.title.split()
-                                  or slot.endswith(", Ed")):
+                    if (word in credentials and slot in _OPENS_THE_GIVEN_PART
+                            and (slot != "Smith, {}"
+                                 or not head.rstrip(".").isupper())):
+                        # rules/C13's given-name Except (#1393): the
+                        # credential written short opens the given part
+                        # behind no whole name, written with a lower-case
+                        # letter or with a name word behind it
+                        fired.add(slot)
+                        stand = ("JACK" if head.rstrip(".").isupper()
+                                 else "jack" if head.islower() else "Jack")
+                        want = fields(stand_in.parse(slot.format(stand)),
+                                      stand, head)
+                    elif plain and (head in unlisted.title.split()
+                                    or slot.endswith(", Ed")):
                         fired.add(slot)
                         want = fields(stand_in.parse(slot.format(plain)), plain, head)
                     else:
@@ -3955,3 +4004,64 @@ def test_a_given_name_written_short_reads_as_a_given_name() -> None:
     # comma the shape never fires (rules/H6)
     assert fired == set(_ABBREVIATION_SLOTS) - {"{} SMITH, XYZ"}, (
         set(_ABBREVIATION_SLOTS) - fired)
+
+
+# --- #1202: every script's comma reads as the ASCII comma does ------
+# The corpus names holding an ASCII comma, each with every ASCII comma
+# swapped for one other member of COMMA_CHARS, the member rotating by
+# the name's place, so each member is asked of a tenth of the names
+# (184 or 185 of 1,847 with ten members on 2026-11-08): the sites read the set, not one member, so one swap a name
+# keeps the walk at two parses a name (measured 2026-11-08 on py3.11
+# with five members: 1,847 names, about 2 s; all four non-ASCII members
+# on every name took 8 s). The twin is read with its comma written back
+# as ASCII, since a nickname, and so a clause S1 leaves alone, keeps
+# its text as written: its fields, each ambiguity's kind and words, and
+# str() but for the full-width comma, which R6 writes with no space
+# after it.
+
+def _other_comma_findings() -> list[str]:
+    from nameparser._pipeline._state import COMMA_CHARS
+    others = sorted(COMMA_CHARS - {","})
+    parser = Parser()
+
+    def reading(name: ParsedName, comma: str) -> tuple[object, ...]:
+        def ascii_(text: str) -> str:
+            return text.replace(comma, ",")
+        return ({field: ascii_(value)
+                 for field, value in name.as_dict().items()},
+                [(a.kind, [ascii_(t.text) for t in a.tokens])
+                 for a in name.ambiguities],
+                None if comma == "\uff0c" else ascii_(str(name)))
+
+    out: list[str] = []
+    for i, text in enumerate(t for t in _FORK_CORPUS if "," in t):
+        comma = others[i % len(others)]
+        got = reading(parser.parse(text.replace(",", comma)), comma)
+        want = reading(parser.parse(text), comma)
+        if comma == "\uff0c":
+            want = (*want[:2], None)
+        if got != want:
+            out.append(f"{text!r} with {comma!r}: {got} != {want}")
+    return out
+
+
+def test_every_comma_reads_as_the_ascii_comma_does() -> None:
+    """rules/C's Background as an invariant: "Which characters COUNT
+    as the comma is part of the rule", so a name reads alike whichever
+    member of COMMA_CHARS divides it, where it divides the name and
+    where it divides the words of a clause rules/S1 sets apart.
+
+    Recorded negative controls, measured 2026-11-08 on this walk with
+    eleven members in COMMA_CHARS. With every clause site put back to
+    the ASCII comma alone, as they stood before #1202's follow-up, it
+    fails on 24 names, every one inside a bracketed clause ('(PhD, Sr)
+    John Smith' reading a nickname rather than title 'Sr', suffix
+    'PhD'). With only `dotted_member`'s strip put back, which moves
+    only a report, it fails on 2 names ('(M.A., PhD)' and 'Jean
+    (M.A,) Smith', the members their place in the rotation gives them);
+    with render's space-before-comma reading the ASCII comma alone, on
+    2 ('Jane (née , Jones) Smith' and 'Jane (née ,Jones) Smith')."""
+    failures = _other_comma_findings()
+    assert not failures, (
+        f"{len(failures)} name(s) read differently with another comma:\n"
+        + "\n".join(failures[:10]))

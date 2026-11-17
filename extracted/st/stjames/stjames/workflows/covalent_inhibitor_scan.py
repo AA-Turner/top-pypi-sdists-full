@@ -54,7 +54,7 @@ class CovalentInhibitorScanSettings(Base):
             `None` disables these restraints.
         protein_restraint_constant: strength holding those Cα atoms near their starting positions, in kcal/mol/Å²
         restraints: additional MD restraints active during preparation and sampling
-        calc_settings: method and engine for the reactive region and its capping hydrogens
+        calc_settings: Orb calculation settings for the reactive region and its capping hydrogens
         frame_save_interval_ps: time between saved full-system DCD frames, in ps. Does not set the free-energy sampling interval.
         scan_coordinates: one or two distances or weighted distance combinations, with stiffness defaulting to 45 kcal/mol/Å²
         reactive_region: whole protein residues, ligand, and waters selected by residue references for `calc_settings`.
@@ -101,7 +101,9 @@ class CovalentInhibitorScanSettings(Base):
 
     @model_validator(mode="after")
     def validate_surface(self) -> Self:
-        """Validate region membership and independent coordinates."""
+        """Validate the Orb engine, region membership, and independent coordinates."""
+        if self.calc_settings.engine != Engine.ORB:
+            raise ValueError("Covalent inhibitor scans currently support only the Orb engine")
         selected = set(self.reactive_region)
         if self.ligand.entity_type != "non_polymer" or self.ligand not in selected:
             raise ValueError("The ligand must be a selected non-polymer residue")

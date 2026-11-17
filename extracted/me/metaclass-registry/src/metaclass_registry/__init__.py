@@ -5,7 +5,7 @@ This package provides a generic metaclass infrastructure for automatic plugin
 registration with lazy discovery, caching, and zero boilerplate.
 """
 
-__version__ = "0.4.1"
+__version__ = "0.5.0"
 
 from .cache import RegistryCacheManager
 from .core import (
@@ -37,8 +37,11 @@ from .exceptions import (
     DuplicateRegistryKeyError,
     RegistryError,
 )
+from .abstract_hooks import AbstractHooksMeta
+from .mro_dispatch import MroDispatch, handles
 
 __all__ = [
+    "AbstractHooksMeta",
     # Core
     "AutoRegisterMeta",
     "RegistryConfig",
@@ -62,6 +65,9 @@ __all__ = [
     "import_module_preserving_root_logging",
     # Cache
     "RegistryCacheManager",
+    # MRO dispatch
+    "MroDispatch",
+    "handles",
     # Exceptions
     "RegistryError",
     "DuplicateRegistryKeyError",

@@ -8,8 +8,8 @@ action and returning (observation, done, success), and declare its tasks, its se
 → `seq deploy` registers it → an eval resets each episode, hands every observation to the policy as a robot's own code
 would and steps the env with the actions that come back. The platform reads none of the observations or actions: they
 go to the policy, and come from it, as a robot's do.
-WHY a black box: "think from a black box perspective for the benchmarks as well, like the policies." (the user 10-24) -
-the platform has no types of its own for a benchmark's observations or actions.
+WHY a black box: the platform has no types of its own for a benchmark's observations or actions.
+
 
 Introspection → `BenchmarkRegistration` lives in `benchmark_registry.py`, symmetric to `registry.py` for policies.
 """

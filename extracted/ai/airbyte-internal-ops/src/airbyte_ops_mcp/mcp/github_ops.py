@@ -301,11 +301,8 @@ def request_pr_ai_review(
     )
 
 
-@mcp_tool(
-    read_only=False,
-    idempotent=False,
-    open_world=True,
-)
+# Not registered as an MCP tool: disabled during the Nov 2026 credential-compromise
+# incident. The `airbyte-ops gh workflow trigger` CLI still calls it directly.
 def trigger_ci_workflow(
     owner: Annotated[
         str,

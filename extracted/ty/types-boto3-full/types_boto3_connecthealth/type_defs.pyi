@@ -25,17 +25,25 @@ from botocore.eventstream import EventStream
 from botocore.response import StreamingBody
 
 from .literals import (
+    ChecklistItemStatusType,
     CustomTemplateBaseType,
+    DatasetStatusType,
     DomainStatusType,
+    EncounterTypeType,
     EncryptionTypeType,
+    FeedbackArtifactTypeType,
     JobStatusType,
     ManagedNoteTemplateType,
     MedicalScribeLanguageCodeType,
     MedicalScribeMediaEncodingType,
     MedicalScribeParticipantRoleType,
     MedicalScribeStreamStatusType,
+    PatientStatusType,
+    PeriodontalReviewReasonType,
+    PeriodontalSiteNameType,
     PostStreamArtifactGenerationStatusType,
     PronounsType,
+    SexType,
     SubscriptionStatusType,
 )
 
@@ -49,9 +57,13 @@ __all__ = (
     "ActivateSubscriptionOutputTypeDef",
     "ArtifactDetailsTypeDef",
     "BlobTypeDef",
+    "ChecklistItemTypeDef",
+    "ChecklistTypeDef",
     "ClinicalNoteGenerationResultTypeDef",
     "ClinicalNoteGenerationSettingsResponseTypeDef",
     "ClinicalNoteGenerationSettingsTypeDef",
+    "CreateDatasetInputTypeDef",
+    "CreateDatasetOutputTypeDef",
     "CreateDomainInputTypeDef",
     "CreateDomainOutputTypeDef",
     "CreateSubscriptionInputTypeDef",
@@ -59,8 +71,13 @@ __all__ = (
     "CreateWebAppConfigurationTypeDef",
     "CustomTemplateResponseTypeDef",
     "CustomTemplateTypeDef",
+    "DatasetArtifactsTypeDef",
+    "DatasetConfigTypeDef",
+    "DatasetSummaryTypeDef",
     "DeactivateSubscriptionInputTypeDef",
     "DeactivateSubscriptionOutputTypeDef",
+    "DeleteDatasetInputTypeDef",
+    "DeleteDatasetOutputTypeDef",
     "DeleteDomainInputTypeDef",
     "DeleteDomainOutputTypeDef",
     "DomainSummaryTypeDef",
@@ -68,8 +85,12 @@ __all__ = (
     "EncounterContextTypeDef",
     "EncryptionContextTypeDef",
     "FHIRServerTypeDef",
+    "GetDatasetInputTypeDef",
+    "GetDatasetOutputTypeDef",
     "GetDomainInputTypeDef",
     "GetDomainOutputTypeDef",
+    "GetMedicalCodingJobRequestTypeDef",
+    "GetMedicalCodingJobResponseTypeDef",
     "GetMedicalScribeListeningSessionInputTypeDef",
     "GetMedicalScribeListeningSessionOutputTypeDef",
     "GetPatientInsightsJobRequestTypeDef",
@@ -82,6 +103,9 @@ __all__ = (
     "InsightsContextTypeDef",
     "InsightsOutputTypeDef",
     "InternalServerExceptionTypeDef",
+    "ListDatasetsInputPaginateTypeDef",
+    "ListDatasetsInputTypeDef",
+    "ListDatasetsOutputTypeDef",
     "ListDomainsInputPaginateTypeDef",
     "ListDomainsInputTypeDef",
     "ListDomainsOutputTypeDef",
@@ -92,13 +116,25 @@ __all__ = (
     "ListTagsForResourceOutputTypeDef",
     "ManagedTemplateResponseTypeDef",
     "ManagedTemplateTypeDef",
+    "MedicalCodeGenerationResultTypeDef",
+    "MedicalCodeGenerationSettingsResponseTypeDef",
+    "MedicalCodeGenerationSettingsTypeDef",
+    "MedicalCodesEncounterContextTypeDef",
+    "MedicalCodesPatientContextTypeDef",
+    "MedicalCodingContextTypeDef",
+    "MedicalCodingDatasetArtifactsTypeDef",
+    "MedicalCodingDatasetConfigTypeDef",
+    "MedicalCodingOutputDataConfigTypeDef",
+    "MedicalCodingOutputTypeDef",
     "MedicalScribeAudioEventTypeDef",
     "MedicalScribeBinaryAudioEventTypeDef",
     "MedicalScribeChannelDefinitionTypeDef",
+    "MedicalScribeChecklistEventTypeDef",
     "MedicalScribeConfigurationEventTypeDef",
     "MedicalScribeInputStreamTypeDef",
     "MedicalScribeListeningSessionDetailsTypeDef",
     "MedicalScribeOutputStreamTypeDef",
+    "MedicalScribePeriodontalChartEventTypeDef",
     "MedicalScribePostStreamActionSettingsResponseTypeDef",
     "MedicalScribePostStreamActionSettingsTypeDef",
     "MedicalScribePostStreamActionsResultTypeDef",
@@ -111,12 +147,18 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PatientInsightsEncounterContextTypeDef",
     "PatientInsightsPatientContextTypeDef",
+    "PeriodontalReviewTypeDef",
+    "PeriodontalSiteTypeDef",
+    "PeriodontalToothTypeDef",
     "ResponseMetadataTypeDef",
     "S3SourceTypeDef",
+    "StartMedicalCodingJobRequestTypeDef",
+    "StartMedicalCodingJobResponseTypeDef",
     "StartMedicalScribeListeningSessionInputTypeDef",
     "StartMedicalScribeListeningSessionOutputTypeDef",
     "StartPatientInsightsJobRequestTypeDef",
     "StartPatientInsightsJobResponseTypeDef",
+    "SubmitFeedbackRequestTypeDef",
     "SubscriptionDescriptionTypeDef",
     "TagResourceInputTypeDef",
     "TemplateSectionInstructionTypeDef",
@@ -154,6 +196,10 @@ class ArtifactDetailsTypeDef(TypedDict):
 
 BlobTypeDef = Union[str, bytes, IO[Any], StreamingBody]
 
+class ChecklistItemTypeDef(TypedDict):
+    itemKey: str
+    status: ChecklistItemStatusType
+
 class CreateWebAppConfigurationTypeDef(TypedDict):
     ehrRole: str
     idcInstanceId: str
@@ -178,9 +224,34 @@ class TemplateSectionInstructionTypeDef(TypedDict):
     sectionHeader: str
     sectionInstruction: str
 
+class MedicalCodingDatasetArtifactsTypeDef(TypedDict):
+    evaluationS3Uri: NotRequired[str]
+
+class MedicalCodingDatasetConfigTypeDef(TypedDict):
+    s3InputPath: str
+    s3OutputPath: str
+
+DatasetSummaryTypeDef = TypedDict(
+    "DatasetSummaryTypeDef",
+    {
+        "arn": str,
+        "datasetId": str,
+        "name": str,
+        "type": Literal["MEDICAL_CODING"],
+        "status": DatasetStatusType,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "statusDetails": NotRequired[str],
+    },
+)
+
 class DeactivateSubscriptionInputTypeDef(TypedDict):
     domainId: str
     subscriptionId: str
+
+class DeleteDatasetInputTypeDef(TypedDict):
+    domainId: str
+    datasetId: str
 
 class DeleteDomainInputTypeDef(TypedDict):
     domainId: str
@@ -192,15 +263,48 @@ class DomainSummaryTypeDef(TypedDict):
     status: DomainStatusType
     createdAt: datetime
 
-class EncounterContextTypeDef(TypedDict):
-    unstructuredContext: NotRequired[str]
+class MedicalCodingContextTypeDef(TypedDict):
+    sex: NotRequired[SexType]
+    status: NotRequired[PatientStatusType]
+    dateOfBirth: NotRequired[str]
+    encounterType: NotRequired[EncounterTypeType]
+    encounterReason: NotRequired[str]
+    afterHours: NotRequired[bool]
+    encounterDate: NotRequired[str]
 
 class FHIRServerTypeDef(TypedDict):
     fhirEndpoint: str
     oauthToken: NotRequired[str]
 
+class GetDatasetInputTypeDef(TypedDict):
+    domainId: str
+    datasetId: str
+
 class GetDomainInputTypeDef(TypedDict):
     domainId: str
+
+class GetMedicalCodingJobRequestTypeDef(TypedDict):
+    domainId: str
+    jobId: str
+
+class MedicalCodesEncounterContextTypeDef(TypedDict):
+    encounterType: NotRequired[EncounterTypeType]
+    encounterReason: NotRequired[str]
+    afterHours: NotRequired[bool]
+    encounterDate: NotRequired[str]
+    encounterDurationMinutes: NotRequired[int]
+
+class MedicalCodesPatientContextTypeDef(TypedDict):
+    sex: NotRequired[SexType]
+    status: NotRequired[PatientStatusType]
+    dateOfBirth: NotRequired[str]
+    insurance: NotRequired[str]
+
+class MedicalCodingOutputDataConfigTypeDef(TypedDict):
+    s3OutputPath: str
+
+class MedicalCodingOutputTypeDef(TypedDict):
+    uri: str
 
 class GetMedicalScribeListeningSessionInputTypeDef(TypedDict):
     sessionId: str
@@ -248,6 +352,16 @@ class PaginatorConfigTypeDef(TypedDict):
     PageSize: NotRequired[int]
     StartingToken: NotRequired[str]
 
+ListDatasetsInputTypeDef = TypedDict(
+    "ListDatasetsInputTypeDef",
+    {
+        "domainId": str,
+        "type": NotRequired[Literal["MEDICAL_CODING"]],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+
 class ListDomainsInputTypeDef(TypedDict):
     status: NotRequired[DomainStatusType]
     maxResults: NotRequired[int]
@@ -267,6 +381,12 @@ class ManagedTemplateResponseTypeDef(TypedDict):
 class ManagedTemplateTypeDef(TypedDict):
     templateType: ManagedNoteTemplateType
 
+class MedicalCodeGenerationSettingsResponseTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+
+class MedicalCodeGenerationSettingsTypeDef(TypedDict):
+    enabled: bool
+
 class MedicalScribeChannelDefinitionTypeDef(TypedDict):
     channelId: int
     participantRole: MedicalScribeParticipantRoleType
@@ -281,6 +401,11 @@ MedicalScribeSessionControlEventTypeDef = TypedDict(
 class ValidationExceptionTypeDef(TypedDict):
     message: NotRequired[str]
 
+class PeriodontalReviewTypeDef(TypedDict):
+    reason: PeriodontalReviewReasonType
+    toothNumber: NotRequired[int]
+    sites: NotRequired[list[PeriodontalSiteNameType]]
+
 class MedicalScribeTranscriptSegmentTypeDef(TypedDict):
     segmentId: NotRequired[str]
     audioBeginOffset: NotRequired[float]
@@ -289,6 +414,23 @@ class MedicalScribeTranscriptSegmentTypeDef(TypedDict):
     channelId: NotRequired[str]
     content: NotRequired[str]
 
+class PeriodontalSiteTypeDef(TypedDict):
+    site: PeriodontalSiteNameType
+    probingDepth: NotRequired[int]
+    recession: NotRequired[int]
+    bleeding: NotRequired[bool]
+    suppuration: NotRequired[bool]
+
+class SubmitFeedbackRequestTypeDef(TypedDict):
+    domainId: str
+    artifactSourceId: str
+    artifactType: FeedbackArtifactTypeType
+    signedArtifactS3Uri: str
+    subscriptionId: NotRequired[str]
+    generatedArtifactS3Uri: NotRequired[str]
+    comments: NotRequired[str]
+    clientToken: NotRequired[str]
+
 class TagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tags: Mapping[str, str]
@@ -296,6 +438,18 @@ class TagResourceInputTypeDef(TypedDict):
 class UntagResourceInputTypeDef(TypedDict):
     resourceArn: str
     tagKeys: Sequence[str]
+
+CreateDatasetOutputTypeDef = TypedDict(
+    "CreateDatasetOutputTypeDef",
+    {
+        "arn": str,
+        "datasetId": str,
+        "type": Literal["MEDICAL_CODING"],
+        "status": DatasetStatusType,
+        "createdAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class CreateSubscriptionOutputTypeDef(TypedDict):
     domainId: str
@@ -306,6 +460,12 @@ class CreateSubscriptionOutputTypeDef(TypedDict):
     lastUpdatedAt: datetime
     activatedAt: datetime
     deactivatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class DeleteDatasetOutputTypeDef(TypedDict):
+    arn: str
+    datasetId: str
+    status: DatasetStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteDomainOutputTypeDef(TypedDict):
@@ -319,6 +479,12 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 
 class ListTagsForResourceOutputTypeDef(TypedDict):
     tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartMedicalCodingJobResponseTypeDef(TypedDict):
+    jobArn: str
+    jobId: str
+    creationTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartPatientInsightsJobResponseTypeDef(TypedDict):
@@ -349,11 +515,19 @@ class ClinicalNoteGenerationResultTypeDef(TypedDict):
     transcriptResult: NotRequired[ArtifactDetailsTypeDef]
     afterVisitSummaryResult: NotRequired[ArtifactDetailsTypeDef]
 
+class MedicalCodeGenerationResultTypeDef(TypedDict):
+    medicalCodesResult: NotRequired[ArtifactDetailsTypeDef]
+    jobId: NotRequired[str]
+
 class MedicalScribeAudioEventTypeDef(TypedDict):
     audioChunk: BlobTypeDef
 
 class MedicalScribeBinaryAudioEventTypeDef(TypedDict):
     audioChunk: BlobTypeDef
+
+class ChecklistTypeDef(TypedDict):
+    checklistId: str
+    items: list[ChecklistItemTypeDef]
 
 class CreateDomainInputTypeDef(TypedDict):
     name: str
@@ -390,10 +564,49 @@ class CustomTemplateTypeDef(TypedDict):
     templateType: CustomTemplateBaseType
     templateInstructions: Sequence[TemplateSectionInstructionTypeDef]
 
+class DatasetArtifactsTypeDef(TypedDict):
+    medicalCoding: NotRequired[MedicalCodingDatasetArtifactsTypeDef]
+
+class DatasetConfigTypeDef(TypedDict):
+    medicalCoding: NotRequired[MedicalCodingDatasetConfigTypeDef]
+
+class ListDatasetsOutputTypeDef(TypedDict):
+    items: list[DatasetSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
 class ListDomainsOutputTypeDef(TypedDict):
     domains: list[DomainSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class EncounterContextTypeDef(TypedDict):
+    unstructuredContext: NotRequired[str]
+    medicalCodingContext: NotRequired[MedicalCodingContextTypeDef]
+
+class StartMedicalCodingJobRequestTypeDef(TypedDict):
+    domainId: str
+    text: str
+    outputDataConfig: MedicalCodingOutputDataConfigTypeDef
+    patientContext: NotRequired[MedicalCodesPatientContextTypeDef]
+    encounterContext: NotRequired[MedicalCodesEncounterContextTypeDef]
+    datasetId: NotRequired[str]
+    clientToken: NotRequired[str]
+
+class GetMedicalCodingJobResponseTypeDef(TypedDict):
+    jobId: str
+    jobArn: str
+    jobStatus: JobStatusType
+    creationTime: datetime
+    updatedTime: datetime
+    text: str
+    patientContext: MedicalCodesPatientContextTypeDef
+    encounterContext: MedicalCodesEncounterContextTypeDef
+    outputDataConfig: MedicalCodingOutputDataConfigTypeDef
+    datasetId: str
+    medicalCodingOutput: MedicalCodingOutputTypeDef
+    statusDetails: str
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class InputDataConfigOutputTypeDef(TypedDict):
     fhirServer: NotRequired[FHIRServerTypeDef]
@@ -402,6 +615,15 @@ class InputDataConfigOutputTypeDef(TypedDict):
 class InputDataConfigTypeDef(TypedDict):
     fhirServer: NotRequired[FHIRServerTypeDef]
     s3Sources: NotRequired[Sequence[S3SourceTypeDef]]
+
+ListDatasetsInputPaginateTypeDef = TypedDict(
+    "ListDatasetsInputPaginateTypeDef",
+    {
+        "domainId": str,
+        "type": NotRequired[Literal["MEDICAL_CODING"]],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 
 class ListDomainsInputPaginateTypeDef(TypedDict):
     status: NotRequired[DomainStatusType]
@@ -418,12 +640,47 @@ class NoteTemplateSettingsResponseTypeDef(TypedDict):
 class MedicalScribeTranscriptEventTypeDef(TypedDict):
     transcriptSegment: NotRequired[MedicalScribeTranscriptSegmentTypeDef]
 
+class PeriodontalToothTypeDef(TypedDict):
+    toothNumber: int
+    missing: bool
+    mobility: NotRequired[int]
+    furcation: NotRequired[int]
+    sites: NotRequired[list[PeriodontalSiteTypeDef]]
+
 class MedicalScribePostStreamActionsResultTypeDef(TypedDict):
     clinicalNoteGenerationResult: NotRequired[ClinicalNoteGenerationResultTypeDef]
+    medicalCodeGenerationResult: NotRequired[MedicalCodeGenerationResultTypeDef]
+
+class MedicalScribeChecklistEventTypeDef(TypedDict):
+    snapshotVersion: int
+    checklists: list[ChecklistTypeDef]
 
 class NoteTemplateSettingsTypeDef(TypedDict):
     managedTemplate: NotRequired[ManagedTemplateTypeDef]
     customTemplate: NotRequired[CustomTemplateTypeDef]
+
+class CreateDatasetInputTypeDef(TypedDict):
+    domainId: str
+    name: str
+    config: DatasetConfigTypeDef
+    clientToken: NotRequired[str]
+
+GetDatasetOutputTypeDef = TypedDict(
+    "GetDatasetOutputTypeDef",
+    {
+        "arn": str,
+        "datasetId": str,
+        "name": str,
+        "type": Literal["MEDICAL_CODING"],
+        "config": DatasetConfigTypeDef,
+        "status": DatasetStatusType,
+        "statusDetails": str,
+        "artifacts": DatasetArtifactsTypeDef,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 class GetPatientInsightsJobResponseTypeDef(TypedDict):
     jobId: str
@@ -446,10 +703,10 @@ InputDataConfigUnionTypeDef = Union[InputDataConfigTypeDef, InputDataConfigOutpu
 class ClinicalNoteGenerationSettingsResponseTypeDef(TypedDict):
     noteTemplateSettings: NotRequired[NoteTemplateSettingsResponseTypeDef]
 
-class MedicalScribeOutputStreamTypeDef(TypedDict):
-    transcriptEvent: NotRequired[MedicalScribeTranscriptEventTypeDef]
-    internalFailureException: NotRequired[InternalServerExceptionTypeDef]
-    validationException: NotRequired[ValidationExceptionTypeDef]
+class MedicalScribePeriodontalChartEventTypeDef(TypedDict):
+    snapshotVersion: int
+    teeth: list[PeriodontalToothTypeDef]
+    reviewItems: NotRequired[list[PeriodontalReviewTypeDef]]
 
 class ClinicalNoteGenerationSettingsTypeDef(TypedDict):
     noteTemplateSettings: NoteTemplateSettingsTypeDef
@@ -467,21 +724,19 @@ class StartPatientInsightsJobRequestTypeDef(TypedDict):
 class MedicalScribePostStreamActionSettingsResponseTypeDef(TypedDict):
     outputS3Uri: str
     clinicalNoteGenerationSettings: ClinicalNoteGenerationSettingsResponseTypeDef
+    medicalCodeGenerationSettings: NotRequired[MedicalCodeGenerationSettingsResponseTypeDef]
 
-class StartMedicalScribeListeningSessionOutputTypeDef(TypedDict):
-    sessionId: str
-    domainId: str
-    subscriptionId: str
-    requestId: str
-    languageCode: MedicalScribeLanguageCodeType
-    mediaSampleRateHertz: int
-    mediaEncoding: MedicalScribeMediaEncodingType
-    responseStream: EventStream[MedicalScribeOutputStreamTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class MedicalScribeOutputStreamTypeDef(TypedDict):
+    transcriptEvent: NotRequired[MedicalScribeTranscriptEventTypeDef]
+    internalFailureException: NotRequired[InternalServerExceptionTypeDef]
+    validationException: NotRequired[ValidationExceptionTypeDef]
+    periodontalChartEvent: NotRequired[MedicalScribePeriodontalChartEventTypeDef]
+    checklistEvent: NotRequired[MedicalScribeChecklistEventTypeDef]
 
 class MedicalScribePostStreamActionSettingsTypeDef(TypedDict):
     outputS3Uri: str
     clinicalNoteGenerationSettings: ClinicalNoteGenerationSettingsTypeDef
+    medicalCodeGenerationSettings: NotRequired[MedicalCodeGenerationSettingsTypeDef]
 
 class MedicalScribeListeningSessionDetailsTypeDef(TypedDict):
     sessionId: NotRequired[str]
@@ -494,9 +749,21 @@ class MedicalScribeListeningSessionDetailsTypeDef(TypedDict):
     postStreamActionSettings: NotRequired[MedicalScribePostStreamActionSettingsResponseTypeDef]
     postStreamActionResult: NotRequired[MedicalScribePostStreamActionsResultTypeDef]
     encounterContextProvided: NotRequired[bool]
+    medicalCodingContextProvided: NotRequired[bool]
     streamStatus: NotRequired[MedicalScribeStreamStatusType]
     streamCreationTime: NotRequired[datetime]
     streamEndTime: NotRequired[datetime]
+
+class StartMedicalScribeListeningSessionOutputTypeDef(TypedDict):
+    sessionId: str
+    domainId: str
+    subscriptionId: str
+    requestId: str
+    languageCode: MedicalScribeLanguageCodeType
+    mediaSampleRateHertz: int
+    mediaEncoding: MedicalScribeMediaEncodingType
+    responseStream: EventStream[MedicalScribeOutputStreamTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class MedicalScribeConfigurationEventTypeDef(TypedDict):
     postStreamActionSettings: MedicalScribePostStreamActionSettingsTypeDef

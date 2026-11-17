@@ -22,18 +22,26 @@ from clickhouse_connect.cc_sqlalchemy import dialect_name, ischema_names
 from clickhouse_connect.cc_sqlalchemy._schema import COLUMN_OPTIONS, TABLE_OPTIONS
 from clickhouse_connect.cc_sqlalchemy.datatypes.base import (
     ChSqlaType,
-    _datetime64_bind_signature,
-    _datetime64_query_value,
-    _DateTime64QuerySignature,
+    _positional_signature,
+    _query_bind_signature,
+    _QueryValueSignature,
+    _typed_query_value,
 )
+from clickhouse_connect.cc_sqlalchemy.ddl.index import ClickHouseIndex
+from clickhouse_connect.cc_sqlalchemy.ddl.projection import ClickHouseProjection
 from clickhouse_connect.cc_sqlalchemy.inspector import (
     _INTERNAL_QUERY_OPTION,
     _INTERNAL_QUERY_SENTINEL,
     ChInspector,
     _database_name,
     _NoSuchTableError,
+    get_clickhouse_function_definition,
+    get_clickhouse_function_names,
+    get_clickhouse_indexes,
+    get_clickhouse_projections,
     get_columns,
     get_table_metadata,
+    get_view_definition,
     with_internal_query_formats,
 )
 from clickhouse_connect.cc_sqlalchemy.sql import full_table
@@ -352,26 +360,26 @@ class ClickHouseDialect(DefaultDialect):
         return _NativeInsertPlan(table_name, tuple(column_names), tuple(parameter_keys), settings)
 
     @staticmethod
-    def _ch_datetime64_parameter_plan(context: Any) -> dict[str, _DateTime64QuerySignature]:
+    def _ch_typed_parameter_plan(context: Any) -> dict[str, _QueryValueSignature]:
         compiled = getattr(context, "compiled", None)
         bind_names = getattr(compiled, "bind_names", None)
         if compiled is None or not bind_names or getattr(compiled.dialect, "server_side_params", False):
             return {}
         resolved = []
-        has_datetime64 = False
+        has_typed_values = False
         for bind, name in bind_names.items():
             types = bind.type.types if isinstance(bind.type, TupleType) else (bind.type,)
-            signatures = tuple(_datetime64_bind_signature(type_, compiled.dialect) for type_ in types)
+            signatures = tuple(_query_bind_signature(type_, compiled.dialect) for type_ in types)
             if isinstance(bind.type, TupleType) and not bind.expanding:
                 # Defensive handling for single-key tuple values at the dialect boundary.
                 signatures = (("tuple", signatures) if any(signatures) else False,)
-            has_datetime64 = has_datetime64 or any(signatures)
+            has_typed_values = has_typed_values or any(signatures)
             resolved.append((name, signatures))
-        if not has_datetime64:
+        if not has_typed_values:
             return {}
         escaped_names = compiled.escaped_bind_names or {}
         expanded = getattr(context, "_expanded_parameters", {})
-        parameter_types: dict[str, _DateTime64QuerySignature] = {}
+        parameter_types: dict[str, _QueryValueSignature] = {}
         conflicts: set[str] = set()
         for name, signatures in resolved:
             names = expanded.get(name)
@@ -380,20 +388,24 @@ class ClickHouseDialect(DefaultDialect):
             for index, key in enumerate(names):
                 signature = signatures[index % len(signatures)]
                 if key in parameter_types and signature != parameter_types[key]:
-                    conflicts.add(key)
+                    positional = _positional_signature(signature)
+                    if positional == _positional_signature(parameter_types[key]):
+                        signature = positional
+                    else:
+                        conflicts.add(key)
                 parameter_types[key] = signature
         # A shared key must remain valid for every occurrence, including DateTime.
         return {key: signature for key, signature in parameter_types.items() if signature and key not in conflicts}
 
     @staticmethod
-    def _ch_datetime64_parameters(parameters: Any, plan: dict[str, _DateTime64QuerySignature]) -> Any:
+    def _ch_typed_parameters(parameters: Any, plan: dict[str, _QueryValueSignature]) -> Any:
         if not plan or not isinstance(parameters, dict):
             return parameters
         result = parameters
         for key, signature in plan.items():
             if key not in parameters:
                 continue
-            value = _datetime64_query_value(signature, parameters[key])
+            value = _typed_query_value(signature, parameters[key])
             if value is not parameters[key]:
                 if result is parameters:
                     result = parameters.copy()
@@ -403,7 +415,7 @@ class ClickHouseDialect(DefaultDialect):
     def do_execute(self, cursor, statement, parameters, context=None):
         ch_cursor = cast(Cursor, cursor)
         if parameters:
-            parameters = self._ch_datetime64_parameters(parameters, self._ch_datetime64_parameter_plan(context))
+            parameters = self._ch_typed_parameters(parameters, self._ch_typed_parameter_plan(context))
         internal = self._ch_internal_query(context)
         result_columns = self._ch_result_column_provider(ch_cursor, statement, context)
         if internal or result_columns is not None:
@@ -435,9 +447,9 @@ class ClickHouseDialect(DefaultDialect):
         if native_plan is not None:
             ch_cursor._executemany_native(native_plan, parameters)
             return
-        datetime64_plan = self._ch_datetime64_parameter_plan(context)
-        if datetime64_plan:
-            parameters = [self._ch_datetime64_parameters(row, datetime64_plan) for row in parameters]
+        typed_plan = self._ch_typed_parameter_plan(context)
+        if typed_plan:
+            parameters = [self._ch_typed_parameters(row, typed_plan) for row in parameters]
         ch_cursor.executemany(
             statement,
             parameters,
@@ -536,7 +548,10 @@ class ClickHouseDialect(DefaultDialect):
         return []
 
     def get_view_definition(self, connection, view_name, schema=None, **kw):
-        raise NoSuchTableError(f"{schema}.{view_name}" if schema else view_name)
+        definition = get_view_definition(connection, view_name, schema)
+        if definition is None:
+            raise NoSuchTableError(f"{schema}.{view_name}" if schema else view_name)
+        return definition
 
     def get_table_comment(self, connection, table_name, schema=None, **kw):
         try:
@@ -547,6 +562,22 @@ class ClickHouseDialect(DefaultDialect):
 
     def get_indexes(self, connection, table_name, schema=None, **kw):
         return []
+
+    def get_clickhouse_function_names(self, connection: Connection) -> list[str]:
+        return get_clickhouse_function_names(connection)
+
+    def get_clickhouse_function_definition(self, connection: Connection, function_name: str) -> str:
+        return get_clickhouse_function_definition(connection, function_name)
+
+    def get_clickhouse_indexes(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kwargs: Any
+    ) -> list[ClickHouseIndex]:
+        return get_clickhouse_indexes(connection, table_name, schema)
+
+    def get_clickhouse_projections(
+        self, connection: Connection, table_name: str, schema: str | None = None, **kwargs: Any
+    ) -> list[ClickHouseProjection]:
+        return get_clickhouse_projections(connection, table_name, schema)
 
     def get_unique_constraints(self, connection, table_name, schema=None, **kw):
         return []

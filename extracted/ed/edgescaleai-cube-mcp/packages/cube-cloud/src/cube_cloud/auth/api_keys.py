@@ -129,9 +129,50 @@ def email_from_description(description: str) -> str | None:
     return email or None
 
 
+# Every cube-cloud API key starts with this. The app proxy relies on it to tell
+# our key apart from an in-cube app's own bearer token on an app subdomain
+# (session_cookie.select_credential), so it must stay the only key shape we mint.
+API_KEY_PREFIX = "cmcp_"
+
+
+def console_user_email(state: Any) -> str | None:
+    """The signed-in person's address, lowercased, when it can be trusted. Else None.
+
+    The identity every call to the RBAC service names (`rbac_service/`), so it must be
+    an address the person PROVED, not one they typed. Three checks, each closing a
+    distinct hole:
+
+    1. **The key expires** (`expires_at` is set). Only the console flow in
+       `login_flow.py` mints expiring keys, and before 2026-10-22 (674e5655) that flow
+       recorded the Cognito `email` claim whether or not it was verified — a user can
+       set their own `email` attribute. A console key lives `console_key_ttl_seconds`
+       (12h), so every live one was minted after the fix. App-proxy and agent keys
+       never expire, and one minted before the fix can still carry a typed address in
+       its description, so they are refused here outright.
+    2. **The description carries an address** (`"Browser login: unknown"` is the
+       fallback when there was none, hence the `@` test feedback.py also makes).
+    3. **It matches the stored hash.** `create_key` hashes the same verified address
+       it writes into the description; a key whose two disagree was not minted by
+       that path, so neither is believed.
+
+    `state` is `request.state` as `APIKeyMiddleware` fills it. Never log the result:
+    identity in logs stays domain + hash (`classify_actor`).
+    """
+    if getattr(state, "key_expires_at", None) is None:
+        return None
+    email = email_from_description(getattr(state, "key_description", "") or "")
+    if not email or "@" not in email:
+        return None
+    email = email.strip().lower()
+    stored = getattr(state, "user_email_hash", None)
+    if not stored or stored != hash_email(email):
+        return None
+    return email
+
+
 def generate_key() -> str:
     """Generate a new API key (prefix + random token)."""
-    return f"cmcp_{secrets.token_urlsafe(32)}"
+    return f"{API_KEY_PREFIX}{secrets.token_urlsafe(32)}"
 
 
 async def validate_key(raw_key: str) -> dict[str, Any] | None:

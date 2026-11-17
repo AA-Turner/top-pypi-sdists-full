@@ -21,6 +21,8 @@ from typing import (
 from boto3 import Session
 
 from pyathena import OperationalError
+from pyathena.cursor import Cursor
+from pyathena.filesystem.s3_core import S3Core, S3DeleteResult
 from pyathena.model import AthenaCompression
 from pyathena.util import RetryConfig, parse_output_location, retry_api_call
 
@@ -28,7 +30,6 @@ if TYPE_CHECKING:
     from pandas import DataFrame, Series
 
     from pyathena.connection import Connection
-    from pyathena.cursor import Cursor
 
 _logger = logging.getLogger(__name__)
 # The characters that pyarrow's Spark flavor replaces with "_" in column names, as
@@ -168,7 +169,10 @@ def to_parquet(
         df: The DataFrame to write.
         bucket_name: S3 bucket name.
         prefix: S3 key prefix (path within the bucket).
-        retry_config: Configuration for API call retries.
+        retry_config: The retry policy of the upload. It is resolved with
+            :meth:`~pyathena.filesystem.s3_core.S3Core.resolve_retry_config`, so a
+            policy with the default codes also retries the S3 error codes of
+            :attr:`~pyathena.filesystem.s3_core.S3Core.RETRY_ERROR_CODES`.
         session_kwargs: Arguments for creating a boto3 Session.
         client_kwargs: Arguments for creating the S3 client.
         compression: Parquet compression codec (e.g., "snappy", "gzip").
@@ -189,7 +193,7 @@ def to_parquet(
     pq.write_table(table, buf, compression=compression, flavor=flavor)
     response = retry_api_call(
         bucket.put_object,
-        config=retry_config,
+        config=S3Core.resolve_retry_config(retry_config),
         Body=buf.getvalue().to_pybytes(),
         Key=prefix + str(uuid.uuid4()),
     )
@@ -222,8 +226,24 @@ def to_sql(
 
     The S3 requests use the connection's ``s3_config`` and credentials. The
     upload workers resolve the credentials themselves, except for a connection
-    given a ``session`` and no explicit keys, whose session's credentials they
-    receive once, when the uploads start.
+    given a ``session`` and no explicit keys, or created with ``role_arn`` or
+    ``serial_number``, whose session's credentials they receive once, when the
+    uploads start. They are not refreshed during the uploads, so an upload
+    that runs past their expiry fails.
+
+    The S3 requests, the uploads and, with ``if_exists="replace"``, the listing
+    and the deletion of the existing objects, are retried with the connection's
+    retry policy, resolved as for the S3 filesystem
+    (:meth:`~pyathena.filesystem.s3_core.S3Core.resolve_retry_config`): a policy
+    with the default codes also retries the S3 error codes of
+    :attr:`~pyathena.filesystem.s3_core.S3Core.RETRY_ERROR_CODES`. The deletion
+    is retried as a whole: a retry lists the objects that remain and deletes them.
+
+    The SQL statements run on a ``pyathena.cursor.Cursor``, whatever the connection's
+    cursor class is, with the connection's query settings, such as ``work_group``,
+    except that the existence check never reuses a query result; the connection's
+    ``converter`` and the options of its cursor class, such as ``unload`` and
+    ``arraysize``, do not apply.
 
     Args:
         df: The DataFrame to write to Athena.
@@ -247,7 +267,12 @@ def to_sql(
     Raises:
         ValueError: If if_exists is invalid, compression is unsupported,
             or partition keys contain None values.
-        OperationalError: If if_exists="fail" and table already exists.
+        OperationalError: If if_exists="fail" and table already exists, or if
+            if_exists="replace" and S3 answers that it could not delete some
+            of the existing objects; this answer is not retried. The table has
+            been dropped then, and no data is written. A later call deletes the
+            objects under ``location`` only when the table exists, so delete the
+            remaining objects before calling it again.
     """
     if if_exists not in ("fail", "replace", "append"):
         raise ValueError(f"`{if_exists}` is not valid for if_exists")
@@ -272,50 +297,66 @@ def to_sql(
     bucket = conn.session.resource(
         "s3", region_name=conn.region_name, config=conn.s3_config, **conn._s3_client_kwargs
     ).Bucket(bucket_name)
-    cursor = conn.cursor()
 
     # Athena stores identifiers in lowercase and information_schema reports them
     # that way, so compare lowercase literals.
     schema_literal = schema.lower().replace("'", "''")
     name_literal = name.lower().replace("'", "''")
-    table = cursor.execute(
-        textwrap.dedent(
-            f"""
-            SELECT table_name
-            FROM information_schema.tables
-            WHERE table_schema = '{schema_literal}'
-            AND table_name = '{name_literal}'
-            """
-        )
-    ).fetchall()
-    if if_exists == "fail":
-        if table:
-            raise OperationalError(f"Table `{schema}.{name}` already exists.")
-    elif if_exists == "replace" and table:
-        cursor.execute(
+    with conn._internal_cursor(Cursor) as cursor:
+        # The answer decides whether to drop the table, so it must reflect the
+        # catalog now and query result reuse is off.
+        table = cursor.execute(
             textwrap.dedent(
                 f"""
-                DROP TABLE `{schema}`.`{name}`
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = '{schema_literal}'
+                AND table_name = '{name_literal}'
                 """
+            ),
+            result_reuse_enable=False,
+        ).fetchall()
+        if if_exists == "fail":
+            if table:
+                raise OperationalError(f"Table `{schema}.{name}` already exists.")
+        elif if_exists == "replace" and table:
+            cursor.execute(
+                textwrap.dedent(
+                    f"""
+                    DROP TABLE `{schema}`.`{name}`
+                    """
+                )
             )
-        )
-        objects = bucket.objects.filter(Prefix=key_prefix)
-        if list(objects.limit(1)):
-            objects.delete()
+            retry_config = S3Core.resolve_retry_config(conn._retry_config)
+            objects = bucket.objects.filter(Prefix=key_prefix)
+            if retry_api_call(lambda: list(objects.limit(1)), config=retry_config, logger=_logger):
+                responses = retry_api_call(objects.delete, config=retry_config, logger=_logger)
+                # DeleteObjects answers with success also when it cannot delete some
+                # of the objects, and lists them in its Errors.
+                errors = sorted(
+                    str(error)
+                    for response in responses
+                    for error in S3DeleteResult.from_response(bucket_name, response).errors
+                )
+                if errors:
+                    raise OperationalError(
+                        f"Failed to delete objects under {location}: {', '.join(errors)}"
+                    )
 
     if index:
         reset_index(df, index_label)
     with executor_class(max_workers=max_workers) as e:
         futures: list[concurrent.futures.Future[Any]] = []
         # The workers build their own sessions from these arguments, which
-        # resolve the connection's credentials again unless the connection was
-        # given its session. Then they get its credentials as of now, unless
-        # explicit keys or a botocore session, which boto3 would set them on,
-        # take precedence.
+        # resolve the connection's credentials again unless they come from its
+        # session alone: a given session, or refreshed STS credentials of
+        # role_arn or serial_number. Then they get its credentials as of now,
+        # unless explicit keys or a botocore session, which boto3 would set them
+        # on, take precedence.
         session_kwargs = deepcopy(conn._session_kwargs)
         session_kwargs.update({"profile_name": conn.profile_name})
         if (
-            conn._session_given
+            conn._credentials_from_session
             and not conn._s3_client_kwargs.get("aws_access_key_id")
             and not session_kwargs.get("botocore_session")
             and (credentials := conn.session.get_credentials())
@@ -391,17 +432,18 @@ def to_sql(
         flavor=flavor,
     )
     _logger.info(ddl)
-    cursor.execute(ddl)
-    if partitions and repair_table:
-        for partition in partition_prefixes:
-            add_partition = textwrap.dedent(
-                f"""
-                ALTER TABLE `{schema}`.`{name}`
-                ADD IF NOT EXISTS PARTITION ({partition[0]}) LOCATION '{partition[1]}'
-                """
-            )
-            _logger.info(add_partition)
-            cursor.execute(add_partition)
+    with conn._internal_cursor(Cursor) as cursor:
+        cursor.execute(ddl)
+        if partitions and repair_table:
+            for partition in partition_prefixes:
+                add_partition = textwrap.dedent(
+                    f"""
+                    ALTER TABLE `{schema}`.`{name}`
+                    ADD IF NOT EXISTS PARTITION ({partition[0]}) LOCATION '{partition[1]}'
+                    """
+                )
+                _logger.info(add_partition)
+                cursor.execute(add_partition)
 
 
 def get_column_names_and_types(df: DataFrame, type_mappings) -> OrderedDict[str, str]:

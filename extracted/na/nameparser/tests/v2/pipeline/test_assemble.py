@@ -1,3 +1,5 @@
+import unicodedata
+
 import pytest
 
 from nameparser import (
@@ -270,6 +272,10 @@ def test_a_field_tail_report_names_its_first_referent_s_field() -> None:
 #: names a reading by, so a branch that stops being reached, or starts
 #: naming another reading, fails here by name.
 _EXPECTED_READINGS = [
+    # rules/T7 parts a given name written as a run of initials: each
+    # letter is an initial by its shape, in its own field (#1296)
+    ("E.T. Smith", None, "E.", "initial", "shape"),
+    ("E.T. Smith", None, "T.", "initial", "shape"),
     ("Dr. Juan de la Vega III", None, "Dr.", "title", "vocabulary"),
     ("Insp. Jane Morse", None, "Insp.", "title", "shape"),
     ("Esq. Smith", None, "Esq.", "title", "shape"),
@@ -277,6 +283,19 @@ _EXPECTED_READINGS = [
      "vocabulary"),
     ("Member of Parliament John Smith", None, "Parliament", "title",
      "position"),
+    # a connective's object H2's shape refuses reads by its place, not
+    # by the shape: a given name written short (H2's Precedence), a
+    # Brahmic word (its Except) and a word in a script with no
+    # initials (its Accepted clause), beside an unlisted abbreviation
+    # the shape does take
+    ("Member of Xyz. John Smith", None, "Xyz.", "title", "shape"),
+    ("Member of Chas. John Smith", None, "Chas.", "title", "position"),
+    ("Member of 田中. John Smith", None, "田中.", "title", "position"),
+    ("Member of एम. John Smith", None, "एम.", "title", "position"),
+    # a script outside H2's refusals keeps the shape: Cyrillic, and Lao,
+    # an abugida beyond the ten Brahmic scripts H2 refuses
+    ("Member of Ивн. John Smith", None, "Ивн.", "title", "shape"),
+    ("Member of ດຣ. John Smith", None, "ດຣ.", "title", "shape"),
     ("Dr. Juan de la Vega III", None, "Juan", "name", "position"),
     ("Dr. Juan de la Vega III", None, "de", "particle", "vocabulary"),
     ("Dr. Juan de la Vega III", None, "III", "generation", "vocabulary"),
@@ -355,6 +374,14 @@ _EXPECTED_READINGS = [
      "oglu", "patronymic", "shape"),
     ("Ali Ahmad oglu", Policy(patronymic_rules={"turkic"}),  # type: ignore[arg-type]
      "Ahmad", "patronymic", "position"),
+    # rules/O9's switch: a family word in capitals reads by its shape, the
+    # capitals that named it, and a credential's capitals the switch
+    # outranks the same way; a particle the run took keeps its reading
+    ("Mary DUPONT", Policy(capitals_as_family=True), "DUPONT", "name",
+     "shape"),
+    ("Hugo LAC", Policy(capitals_as_family=True), "LAC", "name", "shape"),
+    ("Jean de LA FONTAINE", Policy(capitals_as_family=True), "de",
+     "particle", "vocabulary"),
 ]
 
 
@@ -366,6 +393,19 @@ def test_a_token_carries_the_reading_the_parse_took(
     pn = (Parser(policy=policy) if policy else Parser()).parse(text)
     (tok,) = [t for t in pn.tokens if t.text == word][:1]
     assert tok.reading == Reading(kind, tok.role, source)  # type: ignore[arg-type]
+
+
+def test_a_callers_given_name_written_short_reads_a_title_object_by_position(
+        ) -> None:
+    # the source asks the PARSE's lexicon, so a caller's own given name
+    # written short is no shape title either (decisions/A1, 2026-11-09)
+    lex = Lexicon.default().add("xyz", kind="given", same_as="xavier")
+    pn = Parser(lexicon=lex).parse("Member of Xyz. John Smith")
+    (tok,) = [t for t in pn.tokens if t.text == "Xyz."]
+    assert tok.reading == Reading("title", Role.TITLE, "position")  # type: ignore[arg-type]
+    plain = Parser().parse("Member of Xyz. John Smith")
+    (tok,) = [t for t in plain.tokens if t.text == "Xyz."]
+    assert tok.reading == Reading("title", Role.TITLE, "shape")  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize("case", CASES, ids=lambda c: c.id)
@@ -528,7 +568,9 @@ _EXPECTED_LANGUAGES = [
     ('John Smith Ph. "Bob" D.', "D.", ("mul",)),
     # a word joining listed words, by its parts; never divided at a
     # combining mark
-    ("John Smith, M.D./Ph.D.", "M.D./Ph.D.", ("en", "mul")),
+    ("John Smith, R.N./Ph.D.", "R.N./Ph.D.", ("en", "mul")),
+    # both halves in mul.toml since #1383's review moved `md` there
+    ("John Smith, M.D./Ph.D.", "M.D./Ph.D.", ("mul",)),
     ("Lt.Gov. John Smith", "Lt.Gov.", ("en",)),
     # a word the lexicon lists whole without its periods is read whole,
     # not by its parts
@@ -686,3 +728,39 @@ def test_every_particle_reads_patronymic_exactly_where_the_index_says(
             mismatched.append((word, tok.reading))
     assert not mismatched, mismatched[:10]
     assert {"bin", "binti", "ibn", "bar", "بن"} <= found
+
+
+def test_a_run_of_initials_the_lexicon_lists_whole_keeps_its_word() -> None:
+    # T7's listed-run exception: a vocabulary entry written with its
+    # stops keeps the run whole; the default lexicon lists none, so a
+    # caller's does (#1296)
+    listed = Parser(lexicon=Lexicon.default().add("h.c", kind="credential"))
+    assert listed.parse("H.C. Smith").given == "H.C."
+    assert Parser().parse("H.C. Smith").given == "H."
+
+
+def test_a_decomposed_run_of_initials_parts_as_its_composed_twin() -> None:
+    # nameparser/AGENTS.md's encoding sweep: the run's letter class
+    # reads a combining mark, so each part keeps its accent (#1296)
+    nfd = unicodedata.normalize("NFD", "É.Ñ. Smith")
+    name = parse(nfd)
+    assert [t.text for t in name.tokens] == [
+        unicodedata.normalize("NFD", w) for w in ("É.", "Ñ.", "Smith")]
+    assert (name.given, name.middle) == (
+        unicodedata.normalize("NFD", "É."), unicodedata.normalize("NFD", "Ñ."))
+    assert unicodedata.normalize("NFC", name.initials()) == "É. Ñ. S."
+
+
+@pytest.mark.parametrize("mask,given", [
+    (("h.c", "h.c"), "H.C."),   # keyed with stops, a lower-case letter
+    (("hc", "h.c"), "H.C."),    # keyed without, writing a stop
+    (("h.c", "H.C"), "H."),     # in capitals: the letters are initials
+    (("hc", "Hc"), "H."),       # no stop: a credential's mixed case
+])
+def test_a_case_mask_keeps_a_run_whole_only_where_it_writes_no_initials(
+        mask: tuple[str, str], given: str) -> None:
+    # T7's listed-run exception, read off a caller's case mask (#1296)
+    import dataclasses
+    lexicon = dataclasses.replace(Lexicon.default(),
+                                  capitalization_exceptions=(mask,))
+    assert Parser(lexicon=lexicon).parse("H.C. Smith").given == given

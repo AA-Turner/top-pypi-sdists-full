@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 __lazy_modules__ = [
+    "locale",
     "packaging.version",
     "pathlib",
-    "pipx",
     "pipx.fanout",
     "pipx.interpreter",
     "pipx.package_specifier",
+    "pipx.paths",
     "pipx.requires_python",
     "pipx.subprocess_runner",
     "pipx.util",
@@ -14,6 +15,7 @@ __lazy_modules__ = [
 ]
 
 import datetime as dt
+import locale
 import logging
 import os
 from contextlib import contextmanager
@@ -25,13 +27,13 @@ from typing import TYPE_CHECKING, Final
 
 from packaging.version import InvalidVersion, Version
 
-from pipx import paths
 from pipx.animate import animate
-from pipx.constants import WINDOWS
+from pipx.constants import PIPX_SHARED_PTH, WINDOWS
 from pipx.emojis import strtobool
 from pipx.fanout import in_turn
 from pipx.interpreter import get_default_python, read_pyvenv_cfg
 from pipx.package_specifier import absolute_path_pip_args
+from pipx.paths import CTX
 from pipx.requires_python import unsatisfied_by_interpreter
 from pipx.subprocess_runner import get_site_packages, run_subprocess, subprocess_post_check
 from pipx.util import PipxError, get_venv_paths
@@ -43,7 +45,9 @@ if TYPE_CHECKING:
     from filelock import BaseFileLock
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
+#: Age after which the shared libraries are upgraded automatically.
 SHARED_LIBS_MAX_AGE_SEC: Final[float] = dt.timedelta(days=30).total_seconds()
+#: Name of the environment variable that turns off the automatic upgrade of the shared libraries.
 DISABLE_SHARED_LIBS_AUTO_UPGRADE: Final[str] = "PIPX_DISABLE_SHARED_LIBS_AUTO_UPGRADE"
 _SKIP_MAINTENANCE: Final[ContextVar[bool]] = ContextVar("skip_maintenance", default=False)
 _COOLDOWN_DAYS: Final[ContextVar[int | None]] = ContextVar("cooldown_days", default=None)
@@ -53,6 +57,11 @@ _PIP_FLOOR: Final[str] = "26.2.2"
 
 @contextmanager
 def skip_shared_libs_maintenance(*, enabled: bool) -> Generator[None, None, None]:
+    """Skip the maintenance of the shared libraries for the enclosed block.
+
+    :param enabled: whether to skip the maintenance.
+    :yields: nothing, while the enclosed block runs.
+    """
     token: Final = _SKIP_MAINTENANCE.set(enabled)
     try:
         yield
@@ -62,6 +71,11 @@ def skip_shared_libs_maintenance(*, enabled: bool) -> Generator[None, None, None
 
 @contextmanager
 def shared_pip_cooldown(days: int | None) -> Generator[None]:
+    """Use the given cooldown in days for the pip installs of the shared libraries in the enclosed block.
+
+    :param days: the cooldown in days, or None to use none.
+    :yields: nothing, while the enclosed block runs.
+    """
     token: Final = _COOLDOWN_DAYS.set(days)
     try:
         yield
@@ -79,6 +93,54 @@ class _SharedLibs:
         self.has_been_updated_this_run = False
         self.has_been_logged_this_run = False
 
+    @property
+    def needs_upgrade(self) -> bool:
+        if self.has_been_updated_this_run:
+            return False
+
+        if not self.pip_path.is_file() or self._pip_below_floor():
+            return True
+
+        time_since_last_update_sec: Final[float] = _time() - self.pip_path.stat().st_mtime
+        if not self.has_been_logged_this_run:
+            _LOGGER.info(
+                "Time since last upgrade of shared libs, in seconds: %.0f. "
+                "Upgrade will be run by pipx if greater than %.0f.",
+                time_since_last_update_sec,
+                SHARED_LIBS_MAX_AGE_SEC,
+            )
+            self.has_been_logged_this_run = True
+        return time_since_last_update_sec > SHARED_LIBS_MAX_AGE_SEC
+
+    @property
+    def pip_path(self) -> Path:
+        bin_path, _, _ = get_venv_paths(self.root)
+        return bin_path / ("pip.exe" if WINDOWS else "pip")
+
+    @property
+    def root(self) -> Path:
+        return CTX.shared_libs
+
+    def _pip_below_floor(self) -> bool:
+        from importlib.metadata import distributions  # ruff:ignore[import-outside-top-level]  # slows startup
+
+        return any(
+            Version(dist.version) < Version(_PIP_FLOOR)
+            for dist in distributions(name="pip", path=[str(path) for path in self.site_packages])
+        )
+
+    @property
+    def site_packages(self) -> list[Path]:
+        if self.python_path not in self._site_packages:
+            self._site_packages[self.python_path] = get_site_packages(self.python_path)
+
+        return self._site_packages[self.python_path]
+
+    @property
+    def python_path(self) -> Path:
+        _, python_path, _ = get_venv_paths(self.root)
+        return python_path
+
     def create(self, pip_args: list[str], *, verbose: bool) -> None:
         with in_turn(lambda: self._is_valid is True), self._lock, self._maintenance_lock():
             self._create(pip_args, verbose=verbose)
@@ -88,10 +150,6 @@ class _SharedLibs:
 
         self.root.parent.mkdir(parents=True, exist_ok=True)
         return FileLock(self.root.with_name(f".{self.root.name}.lock"))
-
-    @property
-    def root(self) -> Path:
-        return paths.CTX.shared_libs
 
     def _create(self, pip_args: list[str], *, verbose: bool, reinstall_pip: bool | None = None) -> None:
         if not self.is_valid:
@@ -174,11 +232,6 @@ class _SharedLibs:
             )
         return compatible
 
-    @property
-    def python_path(self) -> Path:
-        _, python_path, _ = get_venv_paths(self.root)
-        return python_path
-
     @staticmethod
     def _base_interpreter_exists(python_path: Path) -> bool:
         # on Windows the venv's python.exe is a launcher that finds the base interpreter through pyvenv.cfg, so it
@@ -193,18 +246,6 @@ class _SharedLibs:
             _LOGGER.info("Shared libs venv references a missing Python interpreter: %s", original_python)
             return False
         return True
-
-    @property
-    def pip_path(self) -> Path:
-        bin_path, _, _ = get_venv_paths(self.root)
-        return bin_path / ("pip.exe" if WINDOWS else "pip")
-
-    @property
-    def site_packages(self) -> list[Path]:
-        if self.python_path not in self._site_packages:
-            self._site_packages[self.python_path] = get_site_packages(self.python_path)
-
-        return self._site_packages[self.python_path]
 
     def _install_pip(self, *, pip_args: list[str], verbose: bool, raises: bool, pythonpath: str | None = None) -> None:
         cooldown_days: Final[int | None] = _COOLDOWN_DAYS.get()
@@ -224,14 +265,6 @@ class _SharedLibs:
             verbose=verbose,
             raises=raises and not floor_first,
             pythonpath=pythonpath,
-        )
-
-    def _pip_below_floor(self) -> bool:
-        from importlib.metadata import distributions  # ruff:ignore[import-outside-top-level]  # slows startup
-
-        return any(
-            Version(dist.version) < Version(_PIP_FLOOR)
-            for dist in distributions(name="pip", path=[str(path) for path in self.site_packages])
         )
 
     def _run_pip_install(
@@ -324,34 +357,46 @@ class _SharedLibs:
             ).returncode
         )
 
-    @property
-    def needs_upgrade(self) -> bool:
-        if self.has_been_updated_this_run:
-            return False
-
-        if not self.pip_path.is_file() or self._pip_below_floor():
-            return True
-
-        time_since_last_update_sec: Final[float] = _time() - self.pip_path.stat().st_mtime
-        if not self.has_been_logged_this_run:
-            _LOGGER.info(
-                "Time since last upgrade of shared libs, in seconds: %.0f. "
-                "Upgrade will be run by pipx if greater than %.0f.",
-                time_since_last_update_sec,
-                SHARED_LIBS_MAX_AGE_SEC,
-            )
-            self.has_been_logged_this_run = True
-        return time_since_last_update_sec > SHARED_LIBS_MAX_AGE_SEC
-
     def upgrade(self, *, pip_args: list[str], verbose: bool, raises: bool = False) -> None:
         with in_turn(lambda: self.has_been_updated_this_run), self._lock, self._maintenance_lock():
             self._upgrade(pip_args=pip_args, verbose=verbose, raises=raises)
 
 
-SHARED_LIBS = _SharedLibs()
+#: The shared libraries that pipx's environments use.
+SHARED_LIBS: Final[_SharedLibs] = _SharedLibs()
+
+
+def write_shared_pth(venv_root: Path, purelib: Path) -> None:
+    """Point an environment at the shared libraries, in the encoding its Python reads ``.pth`` files with.
+
+    :param venv_root: the environment to point at the shared libraries.
+    :param purelib: the environment's site-packages directory.
+    """
+    data: Final[bytes] = "".join(f"{path}\n" for path in SHARED_LIBS.site_packages).encode(_pth_encoding(venv_root))
+    pth: Final[Path] = purelib / PIPX_SHARED_PTH
+    # an older pipx may have written the right paths in an encoding the environment's Python cannot read
+    if not pth.is_file() or pth.read_bytes() != data:
+        pth.write_bytes(data)
+
+
+def _pth_encoding(venv_root: Path) -> str:
+    config: Final[dict[str, str]] = read_pyvenv_cfg(venv_root / "pyvenv.cfg")
+    try:
+        release: Final[tuple[int, ...]] = Version(config.get("version") or config.get("version_info", "")).release
+    except InvalidVersion:
+        return "utf-8"
+    # site decodes .pth files as UTF-8 first since 3.12.4 and only in the locale encoding before; on 3.10 that encoding
+    # follows UTF-8 mode, which an app gets from the PYTHONUTF8 it inherits, not from the mode pipx runs in
+    if release >= (3, 12, 4) or (release < (3, 11) and os.environ.get("PYTHONUTF8") == "1"):
+        return "utf-8"
+    return locale.getencoding()
 
 
 def shared_libs_auto_upgrade_disabled() -> bool:
+    """Return whether the automatic upgrade of the shared libraries is turned off.
+
+    :returns: whether it is turned off, by the enclosed block or by its environment variable.
+    """
     return _SKIP_MAINTENANCE.get() or strtobool(os.getenv(DISABLE_SHARED_LIBS_AUTO_UPGRADE, "0"))
 
 
@@ -362,4 +407,5 @@ __all__ = [
     "shared_libs_auto_upgrade_disabled",
     "shared_pip_cooldown",
     "skip_shared_libs_maintenance",
+    "write_shared_pth",
 ]

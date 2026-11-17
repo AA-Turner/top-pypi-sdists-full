@@ -27,6 +27,7 @@ import numpy as np
 import dreamscale
 from dreamscale.hardware.xarm7_config import ARMS, ROLES, load_config
 from dreamscale.hardware.xarm7_rig import XArm7Rig
+from dreamscale.hardware.xarm7_runner import observe_for
 
 ARM_SIZE = 8  # seven joints, then the gripper
 
@@ -69,6 +70,9 @@ def run(deployment: str, labels: list[tuple[str, str]], *, first: int = 0) -> No
     typed = keys()
     index = first
     with dreamscale.connect(deployment) as policy:
+        # The rig's frames as `dreamscale run xarm7` sends them for this deployment (under
+        # its own camera names and size, when its model takes them so).
+        observe = observe_for(rig, policy)
         rig.open(attended=True)
         try:
             while 0 <= index < len(labels):
@@ -91,7 +95,7 @@ def run(deployment: str, labels: list[tuple[str, str]], *, first: int = 0) -> No
                         if key == "q":
                             index = len(labels)
                         break
-                    action = policy.next_action(rig.observe(None), label)
+                    action = policy.next_action(observe(), label)
                     rig.act(frozen(action, hold, active))
         finally:
             rig.stop()

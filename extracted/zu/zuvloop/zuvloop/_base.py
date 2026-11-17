@@ -12,6 +12,7 @@ import traceback
 import warnings
 import weakref
 from asyncio import events as _events
+from asyncio.base_events import _run_until_complete_cb  # type: ignore[attr-defined]
 from collections.abc import Callable
 from contextvars import Context
 from dataclasses import dataclass
@@ -104,37 +105,10 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
                 # unraisable; warning filters must not prevent cleanup.
                 pass
             if not self.is_running():
-                if self._signal_handlers and threading.current_thread() is not threading.main_thread():
-                    wakeup_fd = self._csock.fileno()
-                    try:
-                        self._defer_close(
-                            partial(
-                                _finish_deferred_signal_cleanup,
-                                tuple(self._signal_handlers),
-                                wakeup_fd,
-                                self._signal_owner,
-                            )
-                        )
-                    except BaseException:  # pragma: no cover - CPython pending-call queue exhaustion
-                        try:
-                            _warn(
-                                f"could not close signal-owning event loop {self!r} from the main thread",
-                                ResourceWarning,
-                                source=self,
-                            )
-                        except BaseException:
-                            pass
-                        return
-                    # Keep the descriptor installed in CPython alive until the
-                    # pending callback can disable it on the main thread.
-                    self._csock.detach()
-                    self._signal_handlers.clear()
-                    self._wakeup_fd_attached = False
                 try:
                     self.close()
                 except BaseException:
-                    # A partially initialized or externally damaged loop may
-                    # not have a fully usable self-pipe during finalization.
+                    # Explicit closure also owns deferred signal cleanup.
                     pass
 
     # -- lifecycle ---------------------------------------------------------
@@ -166,7 +140,8 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
         task = asyncio.ensure_future(future, loop=self)
         if new_task:
             task._log_destroy_pending = False
-        task.add_done_callback(_stop_when_done)
+        # AnyIO identifies the root task by this exact done callback.
+        task.add_done_callback(_run_until_complete_cb)
         try:
             self.run_forever()
         except BaseException:
@@ -174,7 +149,7 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
                 task.exception()
             raise
         finally:
-            task.remove_done_callback(_stop_when_done)
+            task.remove_done_callback(_run_until_complete_cb)
         if not task.done():
             raise RuntimeError("Event loop stopped before Future completed.")
         return task.result()
@@ -184,14 +159,32 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
             raise RuntimeError("Cannot close a running event loop")
         if self.is_closed():
             return
-        for sig in tuple(self._signal_handlers):
-            self.remove_signal_handler(sig)
-        self._teardown_self_pipe()
         executor = self._default_executor
         self._default_executor = None
         self._close()
-        if executor is not None:
-            executor.shutdown(wait=False)
+        self._signal_owner.finalized = True
+        try:
+            for sig in tuple(self._signal_handlers):
+                self.remove_signal_handler(sig)
+        finally:
+            try:
+                if self._signal_handlers or self._wakeup_fd_attached:
+                    # Wakeup ownership can outlive this loop's ownership of its signal handlers.
+                    wakeup_fd = self._csock.detach()
+                    signals = tuple(self._signal_handlers)
+                    self._signal_handlers.clear()
+                    self._wakeup_fd_attached = False
+                    cleanup = partial(_finish_deferred_signal_cleanup, signals, wakeup_fd, self._signal_owner)
+                    if threading.current_thread() is threading.main_thread():
+                        cleanup()
+                    else:
+                        self._defer_close(cleanup)
+            finally:
+                try:
+                    self._teardown_self_pipe()
+                finally:
+                    if executor is not None:
+                        executor.shutdown(wait=False)
 
     async def shutdown_asyncgens(self) -> None:
         self._asyncgens_shutdown_called = True
@@ -382,9 +375,13 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
         self.add_reader(self._ssock.fileno(), self._drain_self_pipe, self._ssock)
 
     def _teardown_self_pipe(self) -> None:
-        self.remove_reader(self._ssock.fileno())
-        self._ssock.close()
-        self._csock.close()
+        try:
+            self.remove_reader(self._ssock.fileno())
+        finally:
+            try:
+                self._ssock.close()
+            finally:
+                self._csock.close()
 
     def _attach_wakeup_fd(self) -> WakeupState | None:
         # Only the main thread may own the wakeup fd, and only it runs Python
@@ -493,22 +490,27 @@ class LoopBase(_zuvloop.Loop, asyncio.AbstractEventLoop):  # type: ignore[misc]
         self.call_soon(callback, *args, context=context)
 
 
-def _stop_when_done(future: asyncio.Future[Any]) -> None:
-    asyncio.futures._get_loop(future).stop()  # type: ignore[attr-defined]
-
-
 def _finish_deferred_signal_cleanup(signals: tuple[int, ...], wakeup_fd: int, owner: SignalOwner) -> None:
     global _wakeup_fd_owner
     owner.finalized = True
-    if _wakeup_fd_owner is owner:  # pragma: no cover - free-threaded pending-call tracing
+    if _wakeup_fd_owner is owner:
         signal.set_wakeup_fd(-1)
         _wakeup_fd_owner = None
+    failure: OSError | ValueError | None = None
     try:
         for sig in signals:
             if _signal_owners.get(sig) is owner:
-                del _signal_owners[sig]
                 handler = signal.default_int_handler if sig == signal.SIGINT else signal.SIG_DFL
-                signal.signal(sig, handler)
+                try:
+                    signal.signal(sig, handler)
+                except (OSError, ValueError) as exc:
+                    # A failed reset keeps its owner, so a later reset cannot lose the signal.
+                    failure = failure or exc
+                else:
+                    if _signal_owners.get(sig) is owner:
+                        del _signal_owners[sig]
+        if failure is not None:
+            raise failure
     finally:
         os.close(wakeup_fd)
 

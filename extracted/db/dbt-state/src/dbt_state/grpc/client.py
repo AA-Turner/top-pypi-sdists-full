@@ -31,7 +31,13 @@ from query_cache_protobuf.query_cache.services import (
 
 from dbt_state import events
 from dbt_state.auth import GrpcAuthPlugin, sso_auth
-from dbt_state.config import RunCacheConfig, get_env
+from dbt_state.config import (
+    API_CLIENT_MAX_CONSECUTIVE_FAILURES_DEFAULT,
+    API_CLIENT_MIN_FAILURE_SPAN_DEFAULT,
+    API_CLIENT_TIMEOUT_DEFAULT,
+    RunCacheConfig,
+    get_env,
+)
 from dbt_state.errors import (
     AuthenticationError,
     CertificateError,
@@ -41,6 +47,8 @@ from dbt_state.grpc.interceptors import (
     InvocationInfoInterceptor,
     OrgIdInterceptor,
     RequestIdInterceptor,
+    ServerUnavailableError,
+    ServerUnavailableInterceptor,
     SessionIdInterceptor,
     SubmittedAtEpochInterceptor,
     SystemInfoInterceptor,
@@ -68,7 +76,7 @@ class QueryCacheGrpcClient:
     def __init__(
         self,
         server_address: str,
-        timeout: float = 60.0,
+        timeout: float = float(API_CLIENT_TIMEOUT_DEFAULT),
         channel_credentials: t.Optional[grpc.ChannelCredentials] = None,
         session_id: t.Optional[str] = None,
         org_id: t.Optional[str] = None,
@@ -77,6 +85,8 @@ class QueryCacheGrpcClient:
         invocation_id: str = "",
         cloud_run_id: str = "",
         max_attempts: int = 3,
+        max_consecutive_failures: int = API_CLIENT_MAX_CONSECUTIVE_FAILURES_DEFAULT,
+        min_failure_span_seconds: float = API_CLIENT_MIN_FAILURE_SPAN_DEFAULT,
     ):
         """Initialize gRPC client.
 
@@ -92,13 +102,23 @@ class QueryCacheGrpcClient:
             cloud_run_id: dbt platform run ID, if running on the dbt platform (else empty)
             max_attempts: Total attempts per request when a transient (UNAVAILABLE)
                 transport error such as 'connection reset by peer' occurs
+            max_consecutive_failures: Failed requests (timeouts, unreachable or
+                unauthenticated) after which every later request fails immediately for the
+                rest of the run. 0 or less never gives up
+            min_failure_span_seconds: How long those failures must keep happening before
+                every later request fails immediately
         """
         self._session_id = session_id
         self.server_address = server_address
         self.timeout = timeout
 
+        self._server_unavailable_interceptor = ServerUnavailableInterceptor(
+            max_consecutive_failures=max_consecutive_failures,
+            min_failure_span_seconds=min_failure_span_seconds,
+        )
         interceptors: list[grpc.UnaryUnaryClientInterceptor] = [
             RequestIdInterceptor(),
+            self._server_unavailable_interceptor,
             SessionIdInterceptor(session_id=self._session_id),
             SubmittedAtEpochInterceptor(),
             SystemInfoInterceptor(system_user_id=system_user_id, os_name=os_name),
@@ -211,6 +231,8 @@ class QueryCacheGrpcClient:
             server_address=grpc_address,
             timeout=float(run_cache_config.api_client_timeout),
             max_attempts=run_cache_config.api_client_max_attempts,
+            max_consecutive_failures=run_cache_config.api_client_max_consecutive_failures,
+            min_failure_span_seconds=float(run_cache_config.api_client_min_failure_span),
             channel_credentials=channel_credentials,
             org_id=org_id,
             session_id=session_id,
@@ -220,8 +242,22 @@ class QueryCacheGrpcClient:
             cloud_run_id=cloud_run_id,
         )
 
+    @property
+    def is_server_available(self) -> bool:
+        """Whether the server is still considered available. Once repeated failed requests mark
+        it unavailable, this stays False for the rest of the run and every request fails
+        immediately with ServerUnavailableError.
+        """
+        return self._server_unavailable_interceptor.is_server_available
+
     def _check_channel_state(self, method_name: str) -> None:
-        """Check if channel is closed before making RPC call."""
+        """Check the channel is open and the server is still available before making an RPC call.
+
+        Raises:
+            RuntimeError: If the channel is closed
+            ServerUnavailableError: If the server was marked unavailable after repeated failed
+                requests
+        """
         if self._is_closed:
             error_msg = (
                 f"[CLIENT {self._session_id}] Attempted to call {method_name} on closed channel! "
@@ -232,6 +268,8 @@ class QueryCacheGrpcClient:
                 f"[CLIENT {self._session_id}] Call stack:\n{''.join(traceback.format_stack())}"
             )
             raise RuntimeError(error_msg)
+        if not self.is_server_available:
+            raise ServerUnavailableError()
 
     def submit_sql(
         self,

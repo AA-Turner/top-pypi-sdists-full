@@ -35,7 +35,7 @@ class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
 
 
 class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
-    """The responsability of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
     def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
         """
@@ -72,7 +72,7 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
 
     def get_maintenance_margin(self, parameters: QuantConnect.Securities.MaintenanceMarginParameters) -> QuantConnect.Securities.MaintenanceMargin:
         """
-        Gets the margin currently alloted to the specified holding.
+        Gets the margin currently allotted to the specified holding.
         
         :param parameters: An object containing the security
         :returns: The maintenance margin required for the option.

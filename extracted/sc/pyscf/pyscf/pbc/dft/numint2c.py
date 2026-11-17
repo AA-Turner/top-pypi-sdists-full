@@ -35,9 +35,11 @@ class NumInt2C(lib.StreamObject, numint.LibXCMixin):
     '''Numerical integration methods for 2-component basis (used by GKS)'''
     collinear         = numint2c.NumInt2C.collinear
     spin_samples      = numint2c.NumInt2C.spin_samples
+    # Retain these deprecated attributes for backward compatibility.
     collinear_thrd    = numint2c.NumInt2C.collinear_thrd
     collinear_samples = numint2c.NumInt2C.collinear_samples
 
+    reset = pnumint.NumInt.reset
     make_mask = lib.invalid_method('make_mask')
     eval_ao = staticmethod(pnumint.eval_ao)
     eval_rho = staticmethod(numint2c.eval_rho)
@@ -320,6 +322,11 @@ class NumInt2C(lib.StreamObject, numint.LibXCMixin):
     block_loop = pnumint.NumInt.block_loop
     _gen_rho_evaluator = pnumint.NumInt._gen_rho_evaluator
 
+    def to_gpu(self):
+        from gpu4pyscf.pbc.dft.numint2c import NumInt2C
+        return NumInt2C().set(
+            omega=self.omega, collinear=self.collinear, spin_samples=self.spin_samples)
+
     def _to_numint1c(self):
         '''Converts to the associated class to handle collinear systems'''
         return self.view(pnumint.NumInt)
@@ -554,6 +561,8 @@ class KNumInt2C(lib.StreamObject, numint.LibXCMixin):
         else:
             raise NotImplementedError(f'KNUMINT2C.get_vxc for functional {xc_code}')
 
+        if hermi:
+            vmat = vmat + vmat.conj().transpose(0,1,3,2)
         if dms.ndim == 3:
             vmat = vmat[0]
             nelec = nelec[0]
@@ -605,6 +614,8 @@ class KNumInt2C(lib.StreamObject, numint.LibXCMixin):
         else:
             raise NotImplementedError(f'numint2c.get_fxc for functional {xc_code}')
 
+        if hermi:
+            vmat = vmat + vmat.conj().transpose(0,1,3,2)
         if dms.ndim == 3:
             vmat = vmat[0]
         return vmat
@@ -638,6 +649,11 @@ class KNumInt2C(lib.StreamObject, numint.LibXCMixin):
     mcfun_eval_xc_adapter = numint2c.mcfun_eval_xc_adapter
     block_loop = pnumint.KNumInt.block_loop
     _gen_rho_evaluator = pnumint.KNumInt._gen_rho_evaluator
+
+    def to_gpu(self):
+        from gpu4pyscf.pbc.dft.numint2c import KNumInt2C
+        return KNumInt2C(self.kpts.copy()).set(
+            omega=self.omega, collinear=self.collinear, spin_samples=self.spin_samples)
 
     def _to_numint1c(self):
         '''Converts to the associated class to handle collinear systems'''

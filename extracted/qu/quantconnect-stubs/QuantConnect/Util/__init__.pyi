@@ -950,8 +950,8 @@ class TypeChangeJsonConverter(typing.Generic[QuantConnect_Util_TypeChangeJsonCon
         
         This Class is protected.
         
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param value: The input value to be converted before serialization
+        :returns: A new instance of TResult that is to be serialized.
         """
         ...
 
@@ -1672,7 +1672,7 @@ class LeanData(System.Object):
     @staticmethod
     def set_strict_end_times(base_data: QuantConnect.Data.IBaseData, exchange: QuantConnect.Securities.SecurityExchangeHours) -> bool:
         """
-        Helper method that if appropiate, will set the Time and EndTime of the given data point to it's daily strict times
+        Helper method that if appropriate, will set the Time and EndTime of the given data point to it's daily strict times
         
         :param base_data: The target data point
         :param exchange: The associated exchange hours
@@ -1772,7 +1772,7 @@ class LeanData(System.Object):
         Helper method to determine if we should use strict end time
         
         :param symbol: The associated symbol
-        :param increment: The datas time increment
+        :param increment: The data's time increment
         """
         ...
 
@@ -2485,7 +2485,7 @@ class LeanDataPathComponents(System.Object):
 
     @property
     def filename(self) -> str:
-        """Gets the file name, not inluding directory information"""
+        """Gets the file name, not including directory information"""
         ...
 
     @property
@@ -3275,7 +3275,7 @@ class CandlestickJsonConverter:
 
     @property
     def can_read(self) -> bool:
-        """This converter wont be used to read JSON. Will throw exception if manually called."""
+        """This converter won't be used to read JSON. Will throw exception if manually called."""
         ...
 
     def can_convert(self, object_type: typing.Type) -> bool:
@@ -3288,7 +3288,7 @@ class CandlestickJsonConverter:
         ...
 
     def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Json reader implementation which handles backwards compatiblity for old equity chart points"""
+        """Json reader implementation which handles backwards compatibility for old equity chart points"""
         ...
 
     def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
@@ -3381,7 +3381,7 @@ class NullStringValueConverter(typing.Generic[QuantConnect_Util_NullStringValueC
 
 class WorkerThread(System.Object, System.IDisposable):
     """
-    This worker tread is required to guarantee all python operations are
+    This worker thread is required to guarantee all python operations are
     executed by the same thread, to enable complete debugging functionality.
     We don't use the main thread, to avoid any chance of blocking the process
     """
@@ -3490,8 +3490,8 @@ class SecurityIdentifierJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[
         
         This Class is protected.
         
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param value: The input value to be converted before serialization
+        :returns: A new instance of TResult that is to be serialized.
         """
         ...
 
@@ -3591,7 +3591,7 @@ class Ref(typing.Generic[QuantConnect_Util_Ref_T], System.Object, QuantConnect.U
         """
         Returns a read-only version of this instance
         
-        :returns: A new instance with read-only semantics/gaurantees.
+        :returns: A new instance with read-only semantics/guarantees.
         """
         ...
 
@@ -3611,13 +3611,13 @@ class DoubleUnixSecondsDateTimeJsonConverter(QuantConnect.Util.TypeChangeJsonCon
     @overload
     def convert(self, value: typing.Optional[datetime.datetime]) -> typing.Optional[float]:
         """
-        Convert the input value to a value to be serialzied
+        Convert the input value to a value to be serialized
         
         
         This Class is protected.
         
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param value: The input value to be converted before serialization
+        :returns: A new instance of TResult that is to be serialized.
         """
         ...
 
@@ -3890,13 +3890,13 @@ class MarketHoursDatabaseJsonConverter(QuantConnect.Util.TypeChangeJsonConverter
     @overload
     def convert(self, value: QuantConnect.Securities.MarketHoursDatabase) -> QuantConnect.Util.MarketHoursDatabaseJsonConverter.MarketHoursDatabaseJson:
         """
-        Convert the input value to a value to be serialzied
+        Convert the input value to a value to be serialized
         
         
         This Class is protected.
         
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param value: The input value to be converted before serialization
+        :returns: A new instance of TResult that is to be serialized.
         """
         ...
 

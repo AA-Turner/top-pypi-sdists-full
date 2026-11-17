@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snappi
-Version: 1.63.0
+Version: 1.64.0
 Summary: The Snappi Open Traffic Generator Python Package
 Author-email: Keysight Technologies <andy.balogh@keysight.com>
 License-Expression: MIT
@@ -139,4 +139,5 @@ def test_quickstart():
         time.sleep(0.1)
 
 ```
+
 

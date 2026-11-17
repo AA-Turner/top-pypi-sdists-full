@@ -2,28 +2,53 @@
 #   py/services/hugpy_server/src/hugpy_server/app/routes/test_fire_routes.py
 #   — selection, error classification, TestFireJob, run_job, _guarded_call,
 #   _tok_per_s, the job registry, body parsing and every route: VERBATIM.
-# SWAPPED: fire_one (the in-process /v1 intake -> hugpy_core pick + worker_stream,
-#   pinned to the job's worker), _get_worker (registry), _catalog (routes.catalog_rows:
-#   discovery + hugpy.json over the DB rows), _cancel_request (relay.worker_cancel).
-# SWAPPED: persisted history = hugpy_core.test_fire_store (run metadata in
-#   test_fire_runs, per-call results read from the call log).
+# REWORKED 2026-11-16 (operator ruling): fire_one is now an ordinary HTTP POST to
+#   Core's OWN public /v1/chat/completions (self_base), pinned with the public
+#   ``alloc.worker`` steer and tagged with the job; the result is READ BACK from
+#   that call-log row. The test fire keeps NO call records, relay/stream path,
+#   station lease, or storage cycle of its own.
+# SWAPPED: _get_worker (registry), _catalog (routes.catalog_rows: discovery +
+#   hugpy.json over the DB rows).
+# SWAPPED: persisted history = hugpy_core.test_fire_store (per-call results read
+#   from the call log).
 # DROPPED: blocked/archived sets are empty.
-"""Per-worker TEST FIRE: complete cumulative grading by default.
+"""Per-worker TEST FIRE: call a model and assess its call log — nothing else.
 
-With grade=false, run the original random smoke-call rounds.
+Operator ruling (2026-11-16, verbatim): "test fire should literally be calling a
+model and assessing its calllog. it should not have any uniqueness to it other
+than its sequestering of the worker during the test fire execution".
 
-Operator ask (2026-09-29): "a test button where it starts to randomly call
-every model on that worker which does text gen". One background job per worker
-walks that worker's text-generation models in a fresh random order each round
-and sends each one a tiny prompt through the NORMAL /v1 intake — the same
-``_completion_kwargs`` + ``_v1_events`` path an OpenAI client (and the
-fire_keys.py harness) hits — with the request pinned to the worker via the
-existing ``alloc.worker`` steer, so placement resolves to that box or fails
-naming why (never silently reroutes).
+So a run has exactly ONE special behaviour: while it executes, Core's routing
+sequesters its worker (relay.pick) — no OTHER call is placed there; other
+traffic routes elsewhere or fails fast naming the test fire. Everything else is
+the ordinary public surface:
+
+  * each call is a plain HTTP POST to Core's own ``/v1/chat/completions``
+    (``local_base()``, Core's loopback listener) with ``model``, ``messages``,
+    ``max_tokens``, ``temperature``, pinned to the worker via the public
+    ``alloc.worker`` steer and carrying the job tag (``metadata.test_fire.job_id``)
+    so it passes the sequester. Core routes, serves and records it like any
+    client's call.
+  * assessment reads that call's OWN call-log row back (hugpy_core.calllog):
+    status, error, latency, tokens, tok/s and the reply text. Grading
+    (grader.check/record) checks the recorded reply and points the grade at the
+    call-log row. The test fire computes none of these itself and keeps no side
+    record.
+
+The test fire makes NO concurrency decision (operator 2026-11-16: "all testfire
+should have to do is make all calls in sequential order and the job should take
+care of itself"): it submits EVERY planned call in list order, each on its own
+thread, without waiting — the Wrapper's queue plans concurrency from the
+resources. ``MAX_IN_FLIGHT`` is only a safety ceiling on open threads/
+connections, never a pace.
+
+With grade=false, run random smoke-call rounds (same public call, no grade).
+Model selection, rounds, stop, the job registry and the call-log-backed history
+are unchanged.
 
 Routes (bare and under /api, like the rest of the worker surface):
 
-    POST /fleet/workers/<id>/test-fire                    {rounds?, concurrency?, max_tokens?, seed?}
+    POST /fleet/workers/<id>/test-fire                    {rounds?, max_tokens?, seed?, grade?}
                                                         -> {job_id, ...}   409 if one is already running
     GET  /fleet/workers/<id>/test-fire                    the worker's current/last job (or 404)
     GET  /fleet/workers/<id>/test-fire/current            same (explicit alias; never read as a job id)
@@ -55,7 +80,7 @@ import threading
 import time
 import uuid
 from collections import OrderedDict, deque
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from concurrent.futures import ThreadPoolExecutor
 from typing import Callable, Iterable, Optional
 
 from abstract_flask import get_bp
@@ -94,8 +119,18 @@ RESULT_RING = 200
 MAX_FINISHED = 20
 DEFAULT_MAX_TOKENS = 32
 MAX_MAX_TOKENS = 512
-MAX_CONCURRENCY = 8
 MAX_ROUNDS = 1000
+# Operator 2026-11-16: the test fire makes NO concurrency decision — it submits
+# every planned call in list order and lets the Wrapper's queue plan concurrency
+# from the resources. This bound only protects Core from an unbounded thread/
+# connection burst (a huge curriculum); it is a safety ceiling, never a pace.
+MAX_IN_FLIGHT = 1000
+# CONNECT timeout only: an unreachable Core fails fast. There is deliberately NO
+# read timeout — the Wrapper owns every call's outcome (serve it, or fail it with
+# a reason: never fits, copy failed, engine died), and the test fire waits for
+# that verdict however long the queue takes. A broken connection (Core/Wrapper
+# restart) surfaces as an immediate error, recorded as a failed call.
+CONNECT_TIMEOUT_S = 30
 
 
 def model_tasks(row: dict) -> set:
@@ -183,6 +218,56 @@ def unserveable_reason(row: dict) -> Optional[str]:
     if isinstance(extra, dict) and extra.get("serveable") is False:
         return str(extra.get("unserveable_reason") or "marked unserveable")
     return None
+
+
+def worker_blocked_reasons(worker_id: str) -> dict:
+    """{model_key: reason} for pairs blocked on this worker — an operator block or
+    the Wrapper's automatic-fit feasibility verdict (user_settings.auto_blocked,
+    set by intake from the Wrapper's possible=false report). Fail-open: a read
+    error never stops a run, it just leaves those pairs unskipped (routing's
+    blocked_worker_ids still refuses them)."""
+    try:
+        from hugpy_core.models.modeldb import worker_blocked_reasons as _reasons
+        return _reasons(worker_id)
+    except Exception:  # noqa: BLE001
+        logger.debug("test-fire: blocked-pair read failed for %s", worker_id, exc_info=True)
+        return {}
+
+
+def blocked_pair_reason(blocks: dict, model_key: str) -> Optional[str]:
+    """The block reason for ``model_key`` among a worker's blocked pairs, tolerant
+    of the owner~/owner/ /bare key spellings, or None when the pair is not blocked."""
+    reason = blocks.get(model_key)
+    if reason is not None:
+        return reason
+    from hugpy_core.models.keys import model_key_forms, serveable_match
+    wanted = model_key_forms(model_key)
+    for k, why in blocks.items():
+        if serveable_match(model_key, wanted, [k]):
+            return why
+    return None
+
+
+def worker_drive_models(worker: dict) -> dict:
+    """{model key: its weights files} of the complete copies on the worker's own serving drives (its worker and
+    immutable roots), from its storage survey. A run that calls only these never waits on a copy."""
+    out = {}
+    storage = worker.get("storage") or {}
+    for r in (storage.get("models") or []) if isinstance(storage, dict) else []:
+        if isinstance(r, dict) and r.get("role") in ("worker", "immutable") and r.get("complete") is not False \
+                and isinstance(r.get("model_key"), str):
+            out.setdefault(r["model_key"], set()).update(v for v in (r.get("variations") or []) if isinstance(v, str))
+    return out
+
+
+def on_worker_drive(key: str, on_drive: dict) -> bool:
+    """Whether model `key` ("org/name" or "org/name::file") has its copy among `on_drive` (worker_drive_models)."""
+    from fnmatch import fnmatch
+    repo, _, variation = key.partition("::")
+    files = on_drive.get(repo)
+    if files is None:
+        return False
+    return not variation or variation == "*" or not files or variation in files or any(fnmatch(variation, f) for f in files)
 
 
 def select_text_gen_models(worker: dict, catalog: dict,
@@ -286,15 +371,11 @@ class TestFireJob:
     """In-memory state for one test-fire run (thread-safe snapshot/record)."""
 
     def __init__(self, worker_id: str, worker_name: str, models: list, *,
-                 rounds: int = 1, concurrency: int = 1,
+                 rounds: int = 1,
                  max_tokens: int = DEFAULT_MAX_TOKENS, seed: Optional[int] = None,
                  skipped: Optional[list] = None, first_order: Optional[list] = None,
-                 resumed_from: Optional[str] = None, grade: bool = True,
-                 chaos: bool = False, storage_managed: bool = False):
+                 resumed_from: Optional[str] = None, grade: bool = True):
         self.job_id = uuid.uuid4().hex[:12]
-        self.storage_managed = bool(storage_managed and grade)
-        self.storage = {}
-        self.station_lease = None
         self.grade = bool(grade)   # complete the remaining cumulative curriculum
         self.grading = {}
         self.grading_planned = None
@@ -302,12 +383,8 @@ class TestFireJob:
         self.worker_name = worker_name
         self.model_tasks = {m["model_key"]: m.get("tasks", []) for m in models if isinstance(m, dict)}
         self.models = [m["model_key"] if isinstance(m, dict) else str(m) for m in models]
-        self.rounds = int(rounds)            # 0 = until stopped
-        self.concurrency = int(concurrency)
-        self.chaos = bool(chaos)
-        self.concurrency_current = 0 if self.chaos else self.concurrency
-        self.concurrency_changes = 0
-        self.concurrency_history = []
+        self.rounds = int(rounds)            # 0 = until stopped (smoke only)
+        self.submitted = 0                   # calls sent so far (the job paces nothing)
         self.max_tokens = int(max_tokens)
         self.seed = seed
         self.skipped = list(skipped or [])
@@ -336,16 +413,20 @@ class TestFireJob:
         self._stop = threading.Event()
         self._lock = threading.Lock()
         self.thread: Optional[threading.Thread] = None
+        # Open HTTP connections of in-flight calls, so a stop can shut them down
+        # (the Wrapper then cancels the queued rows). Guarded by its own lock.
+        self._conns: dict = {}      # client_request_id -> http.client connection
+        self._cancelled: dict = {}  # client_request_id -> cancel reason
+        self._cancelling = False
+        self._conn_lock = threading.Lock()
 
     def call_metadata(self):
         """The submitted run options travel on its calls, not a run side table."""
         from hugpy_core.brain.intent import GRADING, SMOKE_TEST
         return {"intent": GRADING if self.grade else SMOKE_TEST,
                 "test_fire": {"job_id": self.job_id, "worker_id": self.worker_id, "models": self.models,
-                "rounds": self.rounds, "concurrency": self.concurrency,
-                "concurrency_current": self.concurrency_current,
+                "rounds": self.rounds,
                 "max_tokens": self.max_tokens, "grade": self.grade,
-                "chaos": self.chaos, "storage_managed": self.storage_managed,
                 "resumed_from": self.resumed_from}}
 
     # ----- control
@@ -367,6 +448,42 @@ class TestFireJob:
             if self.stop_reason is None:
                 self.stop_reason = reason
         self._stop.set()
+
+    # ----- in-flight cancellation (stop ends the queued calls, no read timeout)
+    def register_conn(self, client_rid: str, conn) -> None:
+        """A call's live HTTP connection. If the job is already cancelling, shut
+        it down at once (this call was submitted just as stop arrived)."""
+        with self._conn_lock:
+            if self._cancelling:
+                self._cancelled[client_rid] = self._cancelled.get(client_rid) or "test fire stopped"
+                _shutdown_conn(conn)
+                return
+            self._conns[client_rid] = conn
+
+    def unregister_conn(self, client_rid: str) -> None:
+        with self._conn_lock:
+            self._conns.pop(client_rid, None)
+
+    def cancel_reason_for(self, client_rid: str) -> Optional[str]:
+        with self._conn_lock:
+            return self._cancelled.get(client_rid)
+
+    def cancel_in_flight(self, reason: str = "test fire stopped") -> list:
+        """Shut down every in-flight call's connection so the Wrapper cancels its
+        queued row; mark each cancelled with ``reason``. Returns the cancelled
+        calls (``{request_id, model_key}``). Late-starting calls self-cancel via
+        ``register_conn``. The run ends on its own once these connections close."""
+        with self._conn_lock:
+            self._cancelling = True
+            items = list(self._conns.items())
+            for rid, _conn in items:
+                self._cancelled[rid] = reason
+            self._conns.clear()
+        with self._lock:
+            models = dict(self.in_flight)
+        for _rid, conn in items:
+            _shutdown_conn(conn)
+        return [{"request_id": rid, "model_key": models.get(rid)} for rid, _conn in items]
 
     # ----- recording
     def mark_in_flight(self, request_id: Optional[str], model_key: str) -> None:
@@ -425,11 +542,7 @@ class TestFireJob:
             "running": self.running,
             "round": self.round,
             "rounds": self.rounds,
-            "concurrency": self.concurrency,
-            "chaos": self.chaos,
-            "concurrency_current": self.concurrency_current,
-                "concurrency_changes": self.concurrency_changes,
-            "concurrency_history": list(self.concurrency_history[-32:]),
+            "submitted": self.submitted,
             "max_tokens": self.max_tokens,
             "seed": self.seed,
             "grade": self.grade,
@@ -446,7 +559,6 @@ class TestFireJob:
             "started": self.started,
             "finished": self.finished,
             "brain_review": dict(self.brain_review),
-            "storage": dict(self.storage), "storage_managed": self.storage_managed,
             "results": results,
             "summary": {"ok": self.ok, "failed": self.failed,
                         "total": self.done_calls, "per_model": per_model},
@@ -471,34 +583,12 @@ def run_job(job: TestFireJob, call_fn: Callable[..., dict],
             job.request_stop("no eligible models")
             return
         if job.grade:
-            _run_grading(job, call_fn)
-            return
-        if job.chaos:
-            _run_chaos_smoke(job, call_fn, prompts, rng)
-            return
-        with ThreadPoolExecutor(max_workers=max(1, job.concurrency)) as pool:
-            while not job.stop_requested():
-                if job.rounds and job.round >= job.rounds:
-                    break
-                job.round += 1
-                if job.round == 1 and job.first_order:
-                    order = list(job.first_order)
-                else:
-                    order = list(job.models)
-                    rng.shuffle(order)
-                pending = []
-                for key in order:
-                    if job.stop_requested():
-                        break
-                    prompt, item = rng.choice(prompts), None
-                    fut = pool.submit(_test_call, call_fn, key, prompt, job)
-                    pending.append(fut)
-                    # concurrency=1 degenerates to strictly sequential calls so
-                    # a warm slot is never piled on (worker_busy contract).
-                    if len(pending) >= max(1, job.concurrency):
-                        pending.pop(0).result()
-                for fut in pending:
-                    fut.result()
+            _plan_grading(job)
+        _submit_all(job, call_fn, prompts, rng)
+        if job.grade:
+            _finalize_grading(job)
+        elif not job.stop_requested():
+            job.stop_reason = "complete"
     except Exception as exc:  # noqa: BLE001 — the loop must always finish
         logger.exception("test-fire %s: run loop failed", job.job_id)
         job.request_stop(f"loop error: {type(exc).__name__}: {exc}")
@@ -507,6 +597,9 @@ def run_job(job: TestFireJob, call_fn: Callable[..., dict],
         job.finished = time.time()
         if job.stop_reason is None:
             job.stop_reason = "complete"
+        # release the worker's sequester — other traffic may be placed there again
+        from hugpy_core.relay.pick import release
+        release(job.worker_id, job.job_id)
         _persist("save_run", job)
         if os.environ.get("HUGPY_TEST_FIRE_BRAIN", "1").strip().lower() not in ("0", "false", "off", "no"):
             try:
@@ -516,20 +609,14 @@ def run_job(job: TestFireJob, call_fn: Callable[..., dict],
                 logger.exception("test-fire %s: queueing brain review failed", job.job_id)
 
 
-def _run_grading(job: TestFireJob, call_fn) -> None:
-    """Drain unfinished curriculum per model; preserve grades and stop on faults.
-
-    Round limits belong to random smoke calls. Grading is complete only when
-    the persistent curriculum has no unanswered items. A transport/store fault
-    leaves the model incomplete for a later resume, without an endless retry.
-    """
+def _plan_grading(job: TestFireJob) -> None:
+    """Record per-model remaining curriculum (the grading view the console reads)
+    and the total planned call count, BEFORE any call is submitted."""
     from hugpy_core.grading import grader
     order = list(dict.fromkeys((job.first_order or []) + job.models))
     progress = {}
     catalog = _catalog() if any(not job.model_tasks.get(key) for key in order) else {}
     for key in order:
-        if job.stop_requested():
-            return
         tasks = job.model_tasks.get(key) or model_tasks(_catalog_row(catalog, key) or {})
         suites = grader.suites_for_tasks(tasks)
         remaining = [item for suite in suites for item in grader.pending_items(key, suite)]
@@ -541,245 +628,86 @@ def _run_grading(job: TestFireJob, call_fn) -> None:
     job.grading_planned = sum(row["remaining"] for row in job.grading.values())
     _persist("save_run", job)
 
-    if job.chaos and not job.storage_managed:
-        _run_chaos_grading(job, order, progress, grader, call_fn)
-        return
 
-    def complete_model(key):
-        state = job.grading[key]
-        attempted = set()
-        try:
-            while not job.stop_requested():
-                with grader.test_turn(key):
-                    item = next((pending for suite in state["suites"]
-                                 if (pending := grader.next_item(key, suite)) is not None), None)
-                    if item is None:
-                        state.update(status="complete", remaining=0)
-                        return
-                    identity = (item["suite"], item["category"], item["tier"])
-                    if identity in attempted:
-                        state.update(status="incomplete", error="Saved grade is not visible; resume to retry")
-                        return
-                    attempted.add(identity)
-                    # a stop must prevent any FURTHER item from being dispatched; the
-                    # in-flight item (if any) is marked stopped by _guarded_call.
+def _iter_calls(job: TestFireJob, prompts: tuple, rng: random.Random):
+    """Yield the planned calls as ``(model_key, prompt, item)`` in submission
+    order — the ONE thing the test fire decides. Grading drains every pending
+    curriculum item, model by model, in curriculum order. Smoke walks each
+    round's model order (round 1 = first_order when resuming, else shuffled;
+    rounds=0 = until stopped). The caller submits each without waiting."""
+    if job.grade:
+        from hugpy_core.grading import grader
+        for key in dict.fromkeys((job.first_order or []) + job.models):
+            state = job.grading.get(key) or {}
+            for suite in state.get("suites") or []:
+                for item in grader.pending_items(key, suite):
                     if job.stop_requested():
-                        state.update(status="interrupted")
                         return
-                    state.update(status="grading", suite=item["suite"], category=item["category"], tier=item["tier"])
-                    result = _guarded_call(call_fn, key, item["prompt"], job, item)
-                verdict = result.get("grade") or {}
-                if result.get("interrupted"):
-                    state.update(status="interrupted",
-                                 error=(verdict.get("why") or result.get("interrupted_why")
-                                        or "interrupted by unload/cancel"))
-                    return
-                if verdict.get("passed") is None:
-                    state.update(status="incomplete", error=result.get("grading_error") or
-                                 result.get("error") or "No grade was recorded; resume to retry")
-                    return
-                state["graded_this_run"] += 1
-                state["remaining"] = sum(len(grader.pending_items(key, suite)) for suite in state["suites"])
-            state["status"] = "interrupted"
-        except Exception as exc:
-            logger.exception("test-fire %s: grading failed for %s", job.job_id, key)
-            state.update(status="incomplete", error=f"{type(exc).__name__}: {exc}")
-
-    if job.storage_managed:
-        if not any(row["remaining"] for row in progress.values()):
-            job.stop_reason = "complete"
-            job.storage = {"phase":"not-needed","events":[],"errors":[]}
-            return
-        from .storage_cycle import StorageCycle
-        cycle = StorageCycle(job)
-        restored = False
-        try:
-            cycle.begin(progress)
-            pending = [k for k in order if progress[k]['remaining'] > 0]
-            while pending and not job.stop_requested():
-                window = cycle.fill(pending)
-                ready = window['ready']
-                for key,why in window['errors'].items():
-                    progress[key].update(status='incomplete',error=why)
-                    pending.remove(key)
-                if job.stop_requested():
-                    break
-                if not ready:
-                    for key in pending:
-                        progress[key].update(status='incomplete',error='No worker drive room remains after reclaiming completed models')
-                    break
-                if job.chaos:
-                    _run_chaos_grading(job,ready,progress,grader,call_fn)
-                else:
-                    for key in ready:
-                        if job.stop_requested():
-                            break
-                        complete_model(key)
-                for key in ready:
-                    if progress[key]['status'] == 'complete':
-                        try:
-                            cycle.complete(key)
-                        except Exception as exc:
-                            progress[key]['reap_note'] = str(exc)
-                    pending.remove(key)
-        finally:
-            restored = cycle.restore()
-        if not restored:
-            job.stop_reason = 'snapshot restoration incomplete'
-        elif not job.stop_requested():
-            job.stop_reason = 'complete' if all(r['status'] == 'complete' for r in progress.values()) else 'grading incomplete'
+                    yield key, item["prompt"], item
         return
-
-    with ThreadPoolExecutor(max_workers=max(1, job.concurrency)) as pool:
-        pending = []
+    while not job.stop_requested():
+        if job.rounds and job.round >= job.rounds:
+            return
+        job.round += 1
+        order = list(job.first_order) if (job.round == 1 and job.first_order) else list(job.models)
+        if not (job.round == 1 and job.first_order):
+            rng.shuffle(order)
         for key in order:
             if job.stop_requested():
+                return
+            yield key, rng.choice(prompts), None
+
+
+def _submit_all(job: TestFireJob, call_fn, prompts: tuple, rng: random.Random) -> None:
+    """Submit EVERY planned call in list order, each on its own thread, WITHOUT
+    waiting for earlier calls — the Wrapper's queue plans concurrency from the
+    resources. The only bound is MAX_IN_FLIGHT, a safety ceiling (a semaphore
+    caps outstanding submissions so a huge curriculum cannot open unbounded
+    threads/connections); it never paces a run that fits under it. A stop halts
+    submission; calls already sent finish or fail on their own."""
+    gate = threading.Semaphore(MAX_IN_FLIGHT)
+    futures = []
+    with ThreadPoolExecutor(max_workers=MAX_IN_FLIGHT, thread_name_prefix=f"tf-{job.job_id}") as pool:
+        def one(key, prompt, item):
+            try:
+                _guarded_call(call_fn, key, prompt, job, item)
+            finally:
+                gate.release()
+        for key, prompt, item in _iter_calls(job, prompts, rng):
+            if job.stop_requested():
                 break
-            if job.grading[key]["remaining"] == 0:
-                continue
-            pending.append(pool.submit(complete_model, key))
-            if len(pending) >= max(1, job.concurrency):
-                pending.pop(0).result()
-        for future in pending:
-            future.result()
-    if not job.stop_requested():
-        job.stop_reason = ("complete" if all(row["status"] == "complete" for row in job.grading.values())
-                           else "grading incomplete")
+            gate.acquire()
+            if job.stop_requested():
+                gate.release()
+                break
+            with job._lock:
+                job.submitted += 1
+            futures.append(pool.submit(one, key, prompt, item))
+        for fut in futures:
+            fut.result()
 
 
-def _run_chaos_grading(job: TestFireJob, order: list, progress: dict, grader, call_fn) -> None:
-    """Grade one item per scheduled model at a time, varying call concurrency."""
-    attempted = {key: set() for key in order}
-
-    def grade_one(key):
-        state = progress[key]
+def _finalize_grading(job: TestFireJob) -> None:
+    """After every grading call has been assessed, recompute each model's
+    remaining items and set its status + the run's stop_reason from the grades
+    the call log now holds (a fault leaves a model incomplete, for resume)."""
+    from hugpy_core.grading import grader
+    for key, state in job.grading.items():
+        if not state.get("suites"):
+            continue
         try:
-            with grader.test_turn(key):
-                item = next((pending for suite in state["suites"]
-                             if (pending := grader.next_item(key, suite)) is not None), None)
-                if item is None:
-                    state.update(status="complete", remaining=0)
-                    return key
-                identity = (item["suite"], item["category"], item["tier"])
-                if identity in attempted[key]:
-                    state.update(status="incomplete", error="Saved grade is not visible; resume to retry")
-                    return key
-                attempted[key].add(identity)
-                if job.stop_requested():
-                    state.update(status="interrupted")
-                    return key
-                state.update(status="grading", suite=item["suite"], category=item["category"], tier=item["tier"])
-                result = _guarded_call(call_fn, key, item["prompt"], job, item)
-            verdict = result.get("grade") or {}
-            if result.get("interrupted"):
-                state.update(status="interrupted",
-                             error=(verdict.get("why") or result.get("interrupted_why")
-                                    or "interrupted by unload/cancel"))
-                return key
-            if verdict.get("passed") is None:
-                state.update(status="incomplete", error=result.get("grading_error") or
-                             result.get("error") or "No grade was recorded; resume to retry")
-                return key
-            state["graded_this_run"] += 1
             state["remaining"] = sum(len(grader.pending_items(key, suite)) for suite in state["suites"])
-            state.update(status="pending" if state["remaining"] else "complete")
-        except Exception as exc:
-            logger.exception("test-fire %s: chaos grading failed for %s", job.job_id, key)
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("test-fire %s: grading recount failed for %s", job.job_id, key)
             state.update(status="incomplete", error=f"{type(exc).__name__}: {exc}")
-        return key
-
-    pending = deque(key for key in order if progress[key]["remaining"] > 0)
-    if not pending:
-        job.stop_reason = "complete"
-        return
-    with ThreadPoolExecutor(max_workers=max(1, job.concurrency)) as pool:
-        active = {}
-        rng = random.Random(job.seed)
-        cap = _change_chaos_cap(job, rng)
-
-        def dispatch():
-            while pending and len(active) < cap and not job.stop_requested():
-                key = pending.popleft()
-                active[pool.submit(grade_one, key)] = key
-
-        dispatch()
-        while active:
-            done, _ = wait(active, return_when=FIRST_COMPLETED)
-            for future in done:
-                active.pop(future, None)
-                key = future.result()
-                if job.stop_requested():
-                    continue
-                if progress[key]["status"] == "pending" and progress[key]["remaining"] > 0:
-                    pending.append(key)
-                cap = _change_chaos_cap(job, rng)
-                dispatch()
-    if job.stop_requested():
-        for state in progress.values():
-            if state["status"] == "grading":
-                state["status"] = "interrupted"
-        return
-    job.stop_reason = ("complete" if all(row["status"] == "complete" for row in progress.values())
-                       else "grading incomplete")
-
-
-def _change_chaos_cap(job: TestFireJob, rng: random.Random) -> int:
-    """Pick a new cap in [1, configured max], changing it at every transition."""
-    maximum = max(1, int(job.concurrency))
-    current = int(job.concurrency_current)
-    if current < 1 or current > maximum:
-        cap = rng.randint(1, maximum)
-        with job._lock:
-            job.concurrency_current = cap
-            job.concurrency_changes += 1
-            job.concurrency_history.append(cap)
-            del job.concurrency_history[:-32]
-        return cap
-    choices = [cap for cap in range(1, maximum + 1) if cap != current]
-    cap = rng.choice(choices) if choices else 1
-    with job._lock:
-        job.concurrency_current = cap
-        job.concurrency_changes += 1
-        job.concurrency_history.append(cap)
-        del job.concurrency_history[:-32]
-    return cap
-
-
-def _run_chaos_smoke(job: TestFireJob, call_fn, prompts: tuple, rng: random.Random) -> None:
-    """Run normal smoke rounds while changing the dispatch cap after each call."""
-    max_workers = max(1, job.concurrency)
-    with ThreadPoolExecutor(max_workers=max_workers) as pool:
-        while not job.stop_requested():
-            if job.rounds and job.round >= job.rounds:
-                break
-            job.round += 1
-            if job.round == 1 and job.first_order:
-                order = list(job.first_order)
-            else:
-                order = list(job.models)
-                rng.shuffle(order)
-            pending = deque((key, rng.choice(prompts)) for key in order)
-            active = {}
-            cap = _change_chaos_cap(job, rng)
-
-            def dispatch():
-                while pending and len(active) < cap and not job.stop_requested():
-                    key, prompt = pending.popleft()
-                    active[pool.submit(_test_call, call_fn, key, prompt, job)] = key
-
-            dispatch()
-            while active:
-                done, _ = wait(active, return_when=FIRST_COMPLETED)
-                completed = []
-                for future in done:
-                    active.pop(future, None)
-                    future.result()
-                    completed.append(future)
-                if job.stop_requested():
-                    continue
-                for _ in completed:
-                    cap = _change_chaos_cap(job, rng)
-                    dispatch()
+            continue
+        if job.stop_requested() and state["remaining"]:
+            state["status"] = "interrupted"
+        else:
+            state["status"] = "complete" if state["remaining"] == 0 else "incomplete"
+    if not job.stop_requested():
+        job.stop_reason = ("complete" if all(s.get("status") == "complete" for s in job.grading.values())
+                           else "grading incomplete")
 
 
 _ITEM: contextvars.ContextVar = contextvars.ContextVar("test_fire_item", default=None)
@@ -791,18 +719,6 @@ def _item_metadata() -> dict:
     (grader.fill_from_call_log), with no test-fire job left to remember it."""
     item = _ITEM.get()
     return {"intent": "grading", "grade": {k: item[k] for k in ("suite", "category", "tier")}} if item else {}
-
-
-def _test_call(call_fn, key, prompt, job) -> dict:
-    """Any test advances one unfinished grade before falling back to smoke."""
-    from hugpy_core.grading import grader
-    tasks = job.model_tasks.get(key) or model_tasks(_catalog_row(_catalog(), key) or {})
-    with grader.test_turn(key):
-        if job.stop_requested():
-            return {}
-        item = next((it for suite in grader.suites_for_tasks(tasks)
-                     if (it := grader.next_item(key, suite)) is not None), None)
-        return _guarded_call(call_fn, key, item["prompt"] if item else prompt, job, item)
 
 
 def _guarded_call(call_fn, key, prompt, job, item=None) -> dict:
@@ -876,120 +792,200 @@ def _grade(key: str, item: dict, res: dict) -> None:
         logger.exception("test-fire: grade record failed for %s", key)
 
 
-# ── the real call: hugpy_core's relay, pinned to the job's worker ───────────
-def fire_one(model_key: str, prompt: str, max_tokens: int, job: TestFireJob) -> dict:
-    """One tiny completion through hugpy_core's relay (pick with the job's worker
-    as the pin, then the worker's /infer/stream), drained like the non-streaming
-    route drains it. Result shape is legacy's."""
-    from hugpy_core.relay.pick import NoWorker, pick
-    from hugpy_core.relay.relay import WorkerHTTPError, worker_payload, worker_stream
-
-    request_id = f"tf-{job.job_id}-{uuid.uuid4().hex[:8]}"
-    job.mark_in_flight(request_id, model_key)
-    started = time.time()
-    text_parts: list = []
-    error_message = None
-    usage = None
-    timings = None
-    worker_seen = None
-    execution_id = None
-    finish_reason = None
-    from hugpy_core.calllog.call_record import start, finish, write
-    call_body = {"model_key": model_key, "request_id": request_id, "task": "text-generation",
-                 "messages": [{"role": "user", "content": prompt}], "max_new_tokens": int(max_tokens),
-                 "temperature": 0.0, "metadata": {**job.call_metadata(), **_item_metadata(),
-                                                "parent_request_id": request_id}}
-    call_row = start(call_body, "/infer/stream", request_id=request_id, caller="test-fire")
+# ── the call: Core's OWN public /v1/chat/completions, pinned + job-tagged ────
+def _shutdown_conn(conn) -> None:
+    """Break a blocked ``getresponse`` by shutting the socket down, then close it.
+    The far side (Core -> Wrapper) sees the client disconnect and cancels the
+    queued row."""
     try:
-        w = pick(model_key, pin=job.worker_id, source=("test-fire:" + job.job_id if job.storage_managed else "test-fire"))
-        worker_seen = w.get("name")
-        wp = worker_payload(call_body, w)
-        if job.station_lease:
-            wp["_station_lease"] = job.station_lease
-        call_row.update(forwarded_at=time.time(), worker=worker_seen)
-        write(call_row)
-        for ev in worker_stream(w, wp, timeout=600):
-            execution_id = ev.get("execution_request_id") or execution_id
-            t = ev.get("type")
-            if t == "token":
-                text_parts.append(ev.get("text") or "")
-            elif t == "done":
-                usage = ev.get("usage")
-                timings = ev.get("timings")
-                finish_reason = ev.get("finish_reason")
-            elif t == "error":
-                error_message = ev.get("message") or "error"
-                finish_reason = ev.get("finish_reason") or finish_reason
-    except (NoWorker, WorkerHTTPError) as exc:
-        error_message = str(exc)
-    except Exception as exc:  # noqa: BLE001 — a raised relay error is a result, not a crash
-        error_message = f"{type(exc).__name__}: {exc}"
-    latency = round(time.time() - started, 3)
+        sock = getattr(conn, "sock", None)
+        if sock is not None:
+            import socket as _socket
+            sock.shutdown(_socket.SHUT_RDWR)
+    except OSError:
+        pass
+    try:
+        conn.close()
+    except Exception:  # noqa: BLE001
+        pass
 
-    content = "".join(text_parts)
-    if "[error:" in content and not error_message:
-        error_message = content[:2000]
-    tokens = usage.get("completion_tokens") if isinstance(usage, dict) else None
-    # a thinking model can spend the whole (small) test budget reasoning: the
-    # answer text is empty but the model GENERATED tokens — that is a pass
-    # a call the box ended by cancel/unload/interrupt (relay maps the worker's
-    # finish reason to 'cancelled') is not a completion: it is never a pass on
-    # whatever partial text arrived before the cut.
+
+def _post_chat(payload: dict, job=None, client_rid=None) -> tuple:
+    """POST ``payload`` to this Core's own public ``/v1/chat/completions`` and
+    return ``(http_status, core_request_id, body, transport_error)``. The server
+    records the call like any client's; its row id rides back in
+    ``X-Hugpy-Request-Id``. Overridable in place so tests supply a fake endpoint.
+
+    CONNECT timeout only (``CONNECT_TIMEOUT_S``): an unreachable Core fails fast,
+    but the read has NO timeout — a queued call waits for the Wrapper's verdict
+    however long it takes. The socket timeout is cleared right after connect; a
+    dropped connection then surfaces as an immediate error, recorded as a failure."""
+    import http.client
+    import json
+    from urllib.parse import urlparse
+    from hugpy_core.imports.functions import local_base
+    # Core's OWN loopback listener, never the public proxy domain: an in-box call
+    # with no bearer/cookie passes guest_access straight through (no auth, no
+    # proxy timeout). See guest_access: a non-projected request falls through.
+    u = urlparse(local_base().rstrip("/") + "/v1/chat/completions")
+    conn_cls = http.client.HTTPSConnection if u.scheme == "https" else http.client.HTTPConnection
+    conn = conn_cls(u.hostname, u.port, timeout=CONNECT_TIMEOUT_S)
+    try:
+        conn.connect()
+        conn.sock.settimeout(None)   # read has no deadline: wait for the queue's verdict
+        # Register the live connection with the job so a stop can shut this
+        # socket down: the Wrapper then sees the client disconnect and cancels
+        # the queued row (there is still no read timeout). register_conn closes
+        # it at once if the job is already cancelling.
+        if job is not None and client_rid is not None:
+            job.register_conn(client_rid, conn)
+        conn.request("POST", u.path, body=json.dumps(payload).encode("utf-8"),
+                     headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        rid = resp.getheader("X-Hugpy-Request-Id")
+        raw = resp.read().decode("utf-8", "replace")
+        try:
+            body = json.loads(raw or "{}")
+        except ValueError:
+            body = {"error": raw[:2000]}
+        return resp.status, rid, body, None
+    except Exception as exc:  # noqa: BLE001 — a transport failure (incl. a stop's socket shutdown) is a result, not a crash
+        return None, None, None, f"{type(exc).__name__}: {exc}"
+    finally:
+        if job is not None and client_rid is not None:
+            job.unregister_conn(client_rid)
+        conn.close()
+
+
+def fire_one(model_key: str, prompt: str, max_tokens: int, job: TestFireJob) -> dict:
+    """One tiny completion through Core's OWN public /v1/chat/completions, pinned
+    to the job's worker (the public ``alloc.worker`` steer) and tagged with the
+    job so it passes the worker's sequester. Core routes, serves and RECORDS it
+    like any client's call; the result is then read back from that call-log row."""
+    client_rid = f"tf-{job.job_id}-{uuid.uuid4().hex[:8]}"
+    job.mark_in_flight(client_rid, model_key)
+    started = time.time()
+    payload = {
+        "model": model_key,
+        "messages": [{"role": "user", "content": prompt}],
+        "max_tokens": int(max_tokens),
+        "temperature": 0.0,
+        "stream": False,
+        "alloc": {"worker": job.worker_id},     # the same per-request worker steer any client uses
+        "metadata": {**job.call_metadata(), **_item_metadata()},   # carries test_fire.job_id + the grade item
+    }
+    status, core_request_id, body, transport_error = _post_chat(payload, job, client_rid)
+    return _assess_from_call_log(job, model_key, prompt, int(max_tokens), started,
+                                 client_rid, core_request_id, status, body, transport_error)
+
+
+def _assess_from_call_log(job, model_key, prompt, max_tokens, started, client_rid,
+                          core_request_id, http_status, http_body, transport_error) -> dict:
+    """Read this call's OWN call-log row back and shape the job's result from it:
+    status, error, latency, tokens, tok/s and the reply text. The call log is the
+    source; the HTTP body is used only when the row cannot be read."""
+    from hugpy_core.grading import grader
+    row = {}
+    if core_request_id:
+        try:
+            from hugpy_core.calllog.calllog import by_request_ids
+            row = by_request_ids([core_request_id]).get(core_request_id) or {}
+        except Exception:  # noqa: BLE001 — fall back to the HTTP result
+            logger.debug("test-fire: call-log read for %s failed", core_request_id, exc_info=True)
+    response_body = row.get("response_body")
+    if not isinstance(response_body, dict):
+        response_body = http_body if isinstance(http_body, dict) else {}
+    status = row.get("http_status") if row.get("http_status") is not None else http_status
+    error_message = row.get("error") or transport_error
+    if error_message is None and response_body.get("error"):
+        error_message = str(response_body.get("error"))
+
+    text = grader.reply_text(response_body) or ""
+    usage = response_body.get("usage") if isinstance(response_body.get("usage"), dict) else None
+    tokens = usage.get("completion_tokens") if usage else None
+    timings = response_body.get("timings") if isinstance(response_body.get("timings"), dict) else None
+    served = response_body.get("hugpy") if isinstance(response_body.get("hugpy"), dict) else {}
+    execution_id = served.get("execution_request_id")
+    worker_seen = row.get("worker") or served.get("worker")
+    latency = row.get("total_s")
+    latency = round(float(latency), 3) if latency is not None else round(time.time() - started, 3)
+
+    choices = response_body.get("choices") if isinstance(response_body.get("choices"), list) else []
+    finish_reason = choices[0].get("finish_reason") if choices and isinstance(choices[0], dict) else None
+    # a thinking model can spend the whole (small) test budget reasoning: empty
+    # answer text but tokens generated is a pass. A call the box ended by
+    # cancel/unload (finish 'cancelled') is never a pass on partial text.
     interrupted = finish_reason == "cancelled"
-    ok = error_message is None and not interrupted and (bool(content.strip()) or bool(tokens))
+    # A stop shut this call's socket down (the Wrapper cancels the queued row):
+    # it is never a completion, and carries the stop reason, whatever the
+    # transport error text was.
+    cancel_reason = job.cancel_reason_for(client_rid)
+    interrupted_why = None
+    if cancel_reason:
+        interrupted, error_message, interrupted_why = True, cancel_reason, cancel_reason
+    elif interrupted:
+        interrupted_why = "interrupted by unload/cancel"
+    ok = (status == 200) and error_message is None and not interrupted and (bool(text.strip()) or bool(tokens))
     if interrupted and error_message is None:
-        error_message = "interrupted by unload/cancel"
+        error_message = interrupted_why or "interrupted by unload/cancel"
     if not ok and error_message is None:
-        error_message = "empty completion (0 tokens generated)"
+        error_message = (f"HTTP {status}" if status and status != 200
+                         else "empty completion (0 tokens generated)")
 
     tok_s = _tok_per_s(timings, tokens, latency)
-    call_row["response_meta"] = {"execution_request_id": execution_id}
-    finish(call_row, 200 if ok else 499 if interrupted else 502, error_message)
-
     return {
         "model_key": model_key,
-        "request_id": execution_id or request_id,
-        "execution_request_id": execution_id, "client_request_id": request_id,
+        "request_id": execution_id or core_request_id or client_rid,
+        "execution_request_id": execution_id, "client_request_id": client_rid,
         "prompt": prompt,
         "started": started,
         "latency_s": latency,
         "ok": ok,
         "interrupted": interrupted,
-        "interrupted_why": "interrupted by unload/cancel" if interrupted else None,
-        "status": "interrupted" if interrupted else "ok" if ok else "fail",
+        "interrupted_why": interrupted_why,
+        "status": "cancelled" if cancel_reason else "interrupted" if interrupted else "ok" if ok else "fail",
         "tokens": tokens,
         "tok_s": tok_s,
         "worker": worker_seen,
-        "text": content[:20000],
-        "content80": content[:80] if content else
+        "text": text[:20000],
+        "content80": text[:80] if text else
                      (f"(reasoning only — {tokens} tokens of thinking hit the {int(max_tokens)}-token test limit)"
                       if ok else None),
         # answered = visible text; reasoning_only = a thinking model spent the
         # whole test budget reasoning (it works — it just did not reach an answer)
-        "outcome": ("answered" if (ok and content.strip()) else "reasoning_only" if ok else "fail"),
+        "outcome": ("answered" if (ok and text.strip()) else "reasoning_only" if ok else "fail"),
         "error": None if ok else str(error_message)[:2000],
         "error_kind": None if ok else classify_error(error_message),
     }
 
 
 def fire_media(model_key: str, item: dict, max_tokens: int, job: TestFireJob) -> dict:
-    """Use the installed suite fixture and the platform's actual worker routes."""
+    """Media grading item: the installed suite's worker-native request.
+
+    Core has no public OpenAI route that carries a media grading adapter's
+    worker-native ``/infer/stream`` / media request as-is, so (unlike fire_one)
+    this still relays through hugpy_core directly, pinned + job-tagged. It binds
+    its own call row so the pin passes the worker's sequester, and records that
+    one row for the call-log assessment. See the module docstring: converting
+    this to the public media surface is a grading-adapter change, reported."""
     import json
     import urllib.request
     from hugpy_core.grading import grader
     from hugpy_core.relay.pick import pick
     from hugpy_core.relay.relay import worker_payload, worker_stream
+    from hugpy_core.calllog.call_record import bound_call, start, finish, write
     adapter = grader.providers()[item["suite"]]
     request_id = f"tf-{job.job_id}-{uuid.uuid4().hex[:8]}"
     job.mark_in_flight(request_id, model_key)
     started = time.time()
     worker_name = None
     execution_id = None
-    from hugpy_core.calllog.call_record import start, finish, write
     call_row = start({"model": model_key, "metadata": {**job.call_metadata(), **_item_metadata()}}, "/test-fire/media",
                      request_id=request_id, caller="test-fire")
     try:
-        worker = pick(model_key, pin=job.worker_id, source=("test-fire:" + job.job_id if job.storage_managed else "test-fire"))
+        # the job tag on this row lets the pin through the worker's sequester
+        with bound_call(call_row):
+            worker = pick(model_key, pin=job.worker_id, source="test-fire")
         worker_name = worker.get("name")
         route, params = adapter["request"](item["spec"], max_tokens)
         params.update(model=model_key, model_key=model_key, request_id=request_id,
@@ -1001,9 +997,7 @@ def fire_media(model_key: str, item: dict, max_tokens: int, job: TestFireJob) ->
         if route == "/infer/stream":
             chunks, error, usage = [], None, None
             payload = worker_payload(params, worker)
-            if job.station_lease:
-                payload["_station_lease"] = job.station_lease
-            for event in worker_stream(worker, payload, timeout=600):
+            for event in worker_stream(worker, payload):        # waits as long as the queue needs, like any call
                 execution_id = event.get("execution_request_id") or execution_id
                 if event.get("type") == "token":
                     chunks.append(event.get("text") or "")
@@ -1015,10 +1009,9 @@ def fire_media(model_key: str, item: dict, max_tokens: int, job: TestFireJob) ->
                 raise RuntimeError(error)
             payload = {"text": "".join(chunks), "usage": usage}
         else:
-            lease_headers = {"X-Hugpy-Station-Lease":job.station_lease} if job.station_lease else {}
             req = urllib.request.Request(worker["url"].rstrip("/") + route,
                 data=json.dumps(params).encode(), method="POST",
-                headers={**lease_headers,"Content-Type": "application/json", "X-Task": params["task"],
+                headers={"Content-Type": "application/json", "X-Task": params["task"],
                          "X-Hugpy-Parent-Request-Id": request_id})
             with urllib.request.urlopen(req, timeout=1800) as response:
                 payload = json.load(response)
@@ -1098,17 +1091,21 @@ def _register(job: TestFireJob) -> None:
 
 
 def start_job(worker_id: str, worker_name: str, models: list, *, rounds=1,
-              concurrency=1, max_tokens=DEFAULT_MAX_TOKENS, seed=None,
+              max_tokens=DEFAULT_MAX_TOKENS, seed=None,
               skipped=None, call_fn: Callable[..., dict] = fire_one,
-              spawn: bool = True, first_order=None, resumed_from=None, grade=True,
-              chaos=False, storage_managed=False) -> TestFireJob:
+              spawn: bool = True, first_order=None, resumed_from=None, grade=True) -> TestFireJob:
     """Create + register + (by default) spawn the run thread. ``spawn=False``
-    leaves the job registered but not started (tests drive ``run_job``)."""
+    leaves the job registered but not started (tests drive ``run_job``).
+
+    Registration sequesters the worker in routing BEFORE the first call, so no
+    other traffic slips in during the gap; ``run_job`` releases it when done."""
     job = TestFireJob(worker_id, worker_name, models, rounds=rounds,
-                      concurrency=concurrency, max_tokens=max_tokens, seed=seed,
+                      max_tokens=max_tokens, seed=seed,
                       skipped=skipped, first_order=first_order, resumed_from=resumed_from,
-                      grade=grade, chaos=chaos, storage_managed=storage_managed)
+                      grade=grade)
     _register(job)
+    from hugpy_core.relay.pick import sequester
+    sequester(worker_id, job.job_id)
     if spawn:
         job.running = True   # visible as running before the thread's first tick
         job.thread = threading.Thread(target=run_job, args=(job, call_fn),
@@ -1143,23 +1140,6 @@ def _archived_keys() -> set:
     return set()
 
 
-def _cancel_request(request_id: str, reason: str) -> bool:
-    try:
-        from hugpy_core.registry import registry
-        from hugpy_core.relay.relay import worker_cancel
-        job_id = request_id.split("-")[1] if request_id.startswith("tf-") else None
-        with _REG_LOCK:
-            job = _JOBS.get(job_id) if job_id else None
-        w = registry.lookup_worker(job.worker_id) if job else None
-        if w is None:
-            return False
-        status, out = worker_cancel(w, request_id)
-        return bool((out or {}).get("cancelled"))
-    except Exception:  # noqa: BLE001 — best-effort; the loop still stops
-        logger.debug("test-fire: cancel %s failed", request_id, exc_info=True)
-        return False
-
-
 # ── body validation ──────────────────────────────────────────────────────────
 def _int_field(body: dict, name: str, default: int, lo: int, hi: int) -> int:
     v = body.get(name, default)
@@ -1177,22 +1157,23 @@ def _int_field(body: dict, name: str, default: int, lo: int, hi: int) -> int:
 
 
 def parse_start_body(body) -> dict:
-    """{rounds, concurrency, max_tokens, seed, grade, chaos} with defaults + bounds."""
+    """{rounds, max_tokens, seed, grade, worker_drive_only} with defaults + bounds.
+    The test fire makes NO concurrency decision (operator 2026-11-16: "all testfire
+    should have to do is make all calls in sequential order and the job should take
+    care of itself" — the Wrapper's queue plans concurrency). A run uses the models
+    already on the worker's own drives, so no call waits on a copy."""
     body = body if isinstance(body, dict) else {}
     out = {
         "rounds": _int_field(body, "rounds", 1, 0, MAX_ROUNDS),
-        "concurrency": _int_field(body, "concurrency", 1, 1, MAX_CONCURRENCY),
         "max_tokens": _int_field(body, "max_tokens", DEFAULT_MAX_TOKENS, 1, MAX_MAX_TOKENS),
         "seed": None,
         "grade": body.get("grade", True),
-        "chaos": body.get("chaos", False),
+        "worker_drive_only": body.get("worker_drive_only", True),
     }
+    if not isinstance(out["worker_drive_only"], bool):
+        raise ValueError("worker_drive_only must be a boolean")
     if not isinstance(out["grade"], bool):
         raise ValueError("grade must be a boolean")
-    if not isinstance(out["chaos"], bool):
-        raise ValueError("chaos must be a boolean")
-    if out["chaos"] and out["concurrency"] < 2:
-        raise ValueError("chaos mode requires a concurrency cap of at least 2")
     if body.get("seed") is not None:
         out["seed"] = _int_field(body, "seed", 0, -(2 ** 31), 2 ** 31 - 1)
     return out

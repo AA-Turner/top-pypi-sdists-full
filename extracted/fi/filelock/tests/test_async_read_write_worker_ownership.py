@@ -8,9 +8,7 @@ import pytest
 
 pytest.importorskip("sqlite3")
 
-from filelock import AsyncReadWriteLock, ReadWriteLock
-from filelock._soft_rw._async import AsyncSoftReadWriteLock
-from filelock._soft_rw._sync import SoftReadWriteLock
+from filelock import AsyncReadWriteLock, AsyncSoftReadWriteLock, ReadWriteLock, SoftReadWriteLock
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
@@ -23,9 +21,9 @@ def _clear_singleton_caches() -> Generator[None]:
     for cache in caches:
         cache.clear()
     yield
-    # One loop for both caches, so a platform where only one kind of lock runs still closes through it.
+    # SQLite variants close explicitly; only the soft variants can leave a live cache entry after a passing test.
     for lock in filter(None, [ref() for cache in caches for ref in list(cache.valuerefs())]):
-        lock.close()
+        lock.close()  # pragma: needs hard-link
     for cache in caches:
         cache.clear()
 

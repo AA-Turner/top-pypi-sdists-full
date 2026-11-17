@@ -7,9 +7,9 @@ from multimark._binding import ffi, lib
 # Register all built-in GFM extensions once at import time.
 lib.cmark_gfm_core_extensions_ensure_registered()
 
-# Valid extension names recognized by cmark-gfm.
+# Valid extension names: the GFM extensions plus multimark's TeX math extension.
 VALID_EXTENSIONS = frozenset(
-    ["table", "strikethrough", "autolink", "tagfilter", "tasklist"]
+    ["table", "strikethrough", "autolink", "tagfilter", "tasklist", "math"]
 )
 
 # Cache resolved extension pointers to avoid repeated C lookups.
@@ -94,8 +94,8 @@ def markdown_to_html(
     comment). Set `unsafe=True` to allow raw HTML passthrough.
 
     The parser is fully [CommonMark spec](https://spec.commonmark.org/) compliant. When
-    GFM extensions are enabled via `extensions=`, additional syntax is recognized
-    (tables, strikethrough, autolinks, tag filtering, and task lists).
+    extensions are enabled via `extensions=`, additional syntax is recognized
+    (tables, strikethrough, autolinks, tag filtering, task lists, and TeX math).
 
     Parameters
     ----------
@@ -133,8 +133,9 @@ def markdown_to_html(
         footnotes with backlinks. By default, this is `False`.
 
     extensions : Sequence[str]
-        A sequence of GFM extension names to enable during parsing. Valid names are
-        `"table"`, `"strikethrough"`, `"autolink"`, `"tagfilter"`, and `"tasklist"`.
+        A sequence of extension names to enable during parsing. Valid names are
+        `"table"`, `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and
+        `"math"`.
         An empty sequence (the default) parses standard CommonMark only.
 
     options : int
@@ -280,8 +281,8 @@ def markdown_to_xml(
         Enable footnote syntax parsing. By default, this is `False`.
 
     extensions : Sequence[str]
-        A sequence of GFM extension names to enable. Valid names are `"table"`,
-        `"strikethrough"`, `"autolink"`, `"tagfilter"`, and `"tasklist"`.
+        A sequence of extension names to enable. Valid names are `"table"`,
+        `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and `"math"`.
 
     options : int
         An integer bitmask of `Options` flags (e.g., `Options.SMART | Options.UNSAFE`).
@@ -391,8 +392,8 @@ def markdown_to_latex(
         Enable footnote syntax parsing. By default, this is `False`.
 
     extensions : Sequence[str]
-        A sequence of GFM extension names to enable. Valid names are `"table"`,
-        `"strikethrough"`, `"autolink"`, `"tagfilter"`, and `"tasklist"`.
+        A sequence of extension names to enable. Valid names are `"table"`,
+        `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and `"math"`.
 
     width : int
         The column at which to wrap output lines. Set to `0` (the default) to disable
@@ -519,8 +520,8 @@ def markdown_to_man(
         Enable footnote syntax parsing. By default, this is `False`.
 
     extensions : Sequence[str]
-        A sequence of GFM extension names to enable. Valid names are `"table"`,
-        `"strikethrough"`, `"autolink"`, `"tagfilter"`, and `"tasklist"`.
+        A sequence of extension names to enable. Valid names are `"table"`,
+        `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and `"math"`.
 
     width : int
         The column at which to wrap output lines. Set to `0` (the default) to disable
@@ -642,8 +643,8 @@ def markdown_to_commonmark(
         Enable footnote syntax parsing. By default, this is `False`.
 
     extensions : Sequence[str]
-        A sequence of GFM extension names to enable. Valid names are `"table"`,
-        `"strikethrough"`, `"autolink"`, `"tagfilter"`, and `"tasklist"`.
+        A sequence of extension names to enable. Valid names are `"table"`,
+        `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and `"math"`.
 
     width : int
         The column at which to wrap output lines. Set to `0` (the default) to disable
@@ -719,6 +720,130 @@ def markdown_to_commonmark(
             result = ffi.string(result_ptr).decode("utf-8", errors="replace")
             lib.free(result_ptr)
             return result
+        finally:
+            lib.cmark_node_free(node)
+
+
+def markdown_to_plaintext(
+    text: str,
+    *,
+    hardbreaks: bool = False,
+    smart: bool = False,
+    normalize: bool = False,
+    unsafe: bool = False,
+    footnotes: bool = False,
+    extensions: Sequence[str] = (),
+    width: int = 0,
+    options: int = 0,
+) -> str:
+    """Parse CommonMark/GFM and render as plain text.
+
+    Removes heading, emphasis, link, and code delimiters while preserving their
+    text. Link destinations and image URLs are omitted; image descriptions are
+    retained. Lists keep their markers and indentation, and paragraphs remain
+    separated by blank lines.
+
+    GFM tables retain pipe-table syntax, task lists retain checkbox markers, and
+    strikethrough text is surrounded by single tildes. Math keeps its TeX source
+    between `$` or `$$` delimiters. Enabled footnotes retain numbered references
+    and definitions. Raw HTML blocks, including their text, are omitted; inline
+    HTML tags are omitted without removing surrounding text.
+
+    Parameters
+    ----------
+    text : str
+        The Markdown string to parse and render. Must be a Python `str`.
+
+    hardbreaks : bool
+        Render soft line breaks as hard breaks (newlines). By default, this is
+        `False`. When enabled, width-based wrapping is disabled.
+
+    smart : bool
+        Convert straight quotes to curly quotes, `--` to en-dashes, `---` to em-dashes,
+        and `...` to ellipses. By default, this is `False`.
+
+    normalize : bool
+        Consolidate adjacent text nodes in the parsed AST. By default, this is `False`.
+
+    unsafe : bool
+        Raw HTML is always omitted, regardless of this flag. By default, this is
+        `False`.
+
+    footnotes : bool
+        Enable footnote syntax parsing. By default, this is `False`.
+
+    extensions : Sequence[str]
+        A sequence of extension names to enable. Valid names are `"table"`,
+        `"strikethrough"`, `"autolink"`, `"tagfilter"`, `"tasklist"`, and `"math"`.
+
+    width : int
+        The column at which to wrap output lines. Set to `0` (the default) to disable
+        line wrapping entirely and preserve soft line breaks. With a positive width,
+        soft line breaks become spaces before wrapping. Code blocks are not wrapped.
+        Ignored when `hardbreaks=True`.
+
+    options : int
+        An integer bitmask of `Options` flags (e.g., `Options.SMART | Options.UNSAFE`).
+        Merged via OR with any boolean keyword arguments set to `True`.
+        Defaults to `0`. `Options.NOBREAKS` converts soft line breaks to spaces and
+        disables automatic wrapping.
+
+    Keyword Arguments vs. Options Flags
+    ------------------------------------
+    The boolean keyword arguments (`smart`, `unsafe`, `hardbreaks`, etc.) are convenience
+    shortcuts for the most common `Options` flags. When both styles are provided, they
+    are merged via OR. See `markdown_to_html()` for a detailed explanation.
+
+    Returns
+    -------
+    str
+        The rendered text, including a trailing newline. Empty input returns
+        `"\\n"`. Output whitespace is not stripped.
+
+    Examples
+    --------
+    Remove inline formatting:
+
+    ```{python}
+    from multimark import markdown_to_plaintext
+
+    markdown_to_plaintext("**Hello**, *world*!")
+    ```
+
+    Wrap readable text at 72 columns:
+
+    ```{python}
+    markdown_to_plaintext("A paragraph with **bold** text. " * 5, width=72)
+    ```
+    """
+    opts = _build_options(options, hardbreaks, smart, normalize, False, unsafe, footnotes)
+    encoded = text.encode("utf-8")
+
+    if extensions:
+        node, parser = _parse_with_extensions(encoded, opts, extensions)
+        try:
+            result_ptr = lib.cmark_render_plaintext(node, opts, width)
+            if result_ptr == ffi.NULL:
+                raise MemoryError("Failed to render document")
+            try:
+                return ffi.string(result_ptr).decode("utf-8", errors="replace")
+            finally:
+                lib.free(result_ptr)
+        finally:
+            lib.cmark_node_free(node)
+            lib.cmark_parser_free(parser)
+    else:
+        node = lib.cmark_parse_document(encoded, len(encoded), opts)
+        if node == ffi.NULL:
+            raise MemoryError("Failed to parse document")
+        try:
+            result_ptr = lib.cmark_render_plaintext(node, opts, width)
+            if result_ptr == ffi.NULL:
+                raise MemoryError("Failed to render document")
+            try:
+                return ffi.string(result_ptr).decode("utf-8", errors="replace")
+            finally:
+                lib.free(result_ptr)
         finally:
             lib.cmark_node_free(node)
 

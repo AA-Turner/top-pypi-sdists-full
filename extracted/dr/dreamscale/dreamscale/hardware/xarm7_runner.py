@@ -3,13 +3,16 @@
 The arms run an organization's own deployments: fine-tunes on demonstrations recorded on
 this rig (per arm seven joints and a gripper, a scene camera and one on each wrist), and
 Hy-VLA deployments of the bimanual xArm 7 preset, whose end-effector pose chunks
-``hy_vla_xarm7`` turns into joint targets. Everything else is dreamscale.attended.
+``hy_vla_xarm7`` turns into joint targets. A FLUX 3 Action or Praxis-1 deployment gets the rig's
+frames under its own camera keys, letterboxed as the recordings stored them. Everything else
+is dreamscale.attended.
 """
 
 from __future__ import annotations
 
 import importlib
 from functools import partial
+from types import SimpleNamespace
 
 from dreamscale import deploy_bases, errors
 from dreamscale.attended.lifecycle import safe_printer
@@ -27,12 +30,12 @@ from .xarm7_config import ARMS, DEFAULT_CONFIG_PATH, load_config
 from .xarm7_rig import XArm7Rig
 from .xarm_arm import GRIPPER_LABELS
 
-__all__ = ["XArm7TaskRunner", "preflight_lines", "run_xarm7"]
+__all__ = ["XArm7TaskRunner", "observe_for", "preflight_lines", "run_xarm7"]
 
 
 def _runs_on_xarm7(model, checkpoint) -> bool:
-    """Deployments of the bases that run on this rig (DeployBase.robots: π0.5, LingBot-VLA 2.0
-    and Hy-VLA)."""
+    """Deployments of the bases that run on this rig (DeployBase.robots: π0.5, LingBot-VLA 2.0,
+    Hy-VLA, FLUX 3 Action and Praxis-1)."""
     base = deploy_bases.of_model(model)
     return (base is not None and XARM7.name in base.robots and bool(checkpoint)
             and checkpoint != "base")
@@ -44,6 +47,44 @@ def _adapter_module(model):
     base = deploy_bases.of_model(model)
     path = base.robot_adapters.get(XARM7.name) if base is not None else None
     return importlib.import_module(path) if path is not None else None
+
+
+def _deployment_observe(model):
+    """``(rig, runner) -> observe`` for a base whose deployments name their own cameras on this
+    rig (DeployBase.robot_observe), else None."""
+    base = deploy_bases.of_model(model)
+    path = base.robot_observe.get(XARM7.name) if base is not None else None
+    if path is None:
+        return None
+    module, _, name = path.partition(":")
+    return getattr(importlib.import_module(module), name)
+
+
+def _connected_base(policy):
+    """The base of a connected policy: by its model name, or (connected by a deployment's own
+    name) by the class its session's deployment block parsed into (ExportedBase.deployment)."""
+    base = deploy_bases.of_model(getattr(policy, "model", None))
+    deployment = getattr(policy, "deployment", None)
+    if base is not None or deployment is None:
+        return base
+    kind = f"{type(deployment).__module__}:{type(deployment).__name__}"
+    return next((candidate for candidate in deploy_bases.bases()
+                 if candidate.exported is not None and candidate.exported.deployment == kind),
+                None)
+
+
+def observe_for(rig, policy):
+    """``() -> observation`` of this rig for a connected deployment, as `dreamscale run xarm7`
+    observes for it: through its base's own step when its deployments name their own cameras
+    (DeployBase.robot_observe), else the rig's observation as it reads it."""
+    base = _connected_base(policy)
+    path = base.robot_observe.get(XARM7.name) if base is not None else None
+    if path is None:
+        return lambda: rig.observe(None)
+    module, _, name = path.partition(":")
+    hook = getattr(importlib.import_module(module), name)
+    observe = hook(rig, lambda: SimpleNamespace(policy=policy))
+    return lambda: observe(None)
 
 
 def _refuse(model):
@@ -72,6 +113,10 @@ class XArm7TaskRunner(AttendedTaskRunner):
             )
             # The session names the chunk; until it connects, the rig's 16 joints at 20 Hz.
             options.setdefault("execution_contract", adapter.provisional_contract())
+        elif (observe := _deployment_observe(model)) is not None:
+            # A deployment that names its own cameras (DeployBase.robot_observe: FLUX's and
+            # Praxis-1's): the rig's frames under its keys.
+            options["observe"] = options.get("observe") or observe(rig, lambda: self)
         super().__init__(
             rig, embodiment=XARM7, model=model, connect=connect,
             end_effector_adapter=end_effector_adapter, **options,

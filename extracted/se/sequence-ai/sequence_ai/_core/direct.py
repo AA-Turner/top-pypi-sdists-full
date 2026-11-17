@@ -141,8 +141,8 @@ def _moving_words(notice: dict, *, moved: bool = False) -> str:
     is moved whatever it is doing): its worker has served its hours - replaced by one started beside it, at a
     deployment's cap too -, a newer version serves, or its worker cannot answer it
     in time beside the robots nearer
-    it - and stays, for them. The latest it is moved by only when that is near. {worker 6, cl7 dev acceptance item 12 on
-    cl7a3 10-30: a far robot told over would have read "its worker is leaving"}"""
+    it - and stays, for them. The latest it is moved by only when that is near.
+"""
     reason = str(notice.get("reason"))
 
     why = {"rotate": "its worker has served its hours and is being replaced",
@@ -775,8 +775,8 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
 
     def _move_ask_now(self) -> bool:
         """Whether its worker has said it is leaving (X-Seq-Leaving) since the last keepalive was sent: the seat
-        keepalive asks at once, not seat._MOVE_ASK_S on - its notice an ask sooner. {dev 10-27 22:19:56.5Z on cl3a: its
-        worker told it was leaving, the robot asked 3.3 s on}"""
+        keepalive asks at once, not seat._MOVE_ASK_S on - its notice an ask sooner.
+"""
         heard = getattr(self._worker, "leaving_since", None)
         return heard is not None and (self._beat_mono is None or self._beat_mono < heard)
 
@@ -919,7 +919,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
         WHY: wait_until_ready() polls /v1/act/ready before its connects - the one that places the robot, the one that
         opens its connection once it is ready - and a trace begun in _connect left the robot's wait for a starting
         worker out of `seq policy status`'s "how fast to the first answer" - it read the connect and first act alone
-        (hbprobe waited to {"t": 106.8} yet status read p50 756 ms). Begun here, the wait is counted (cold_start /
+        . Begun here, the wait is counted (cold_start /
         queue) while a poll says a worker starts for the robot or it waits in line; _connect (place, connect_ahead, or
         the first act) reuses this same trace (self._trace, not done), so total_ms spans the first ask to the first act.
         A robot that gives up or is interrupted mid-wait ends it in the stage it waited in (connect_stopped,
@@ -1257,7 +1257,7 @@ When the answer asks it (`keepalive`), the place is kept alive while the Policy
                       stop: Optional[threading.Event] = None) -> Optional[NotOpen]:
         """
         Connect now, in the background, when nothing is connected - the platform connect, then the worker's connection
-        opened (prewarm) - so a first act after Policy.wait_until_ready() waits for neither: on dev a connect and the
+        opened (prewarm) - so a first act after Policy.wait_until_ready() waits for neither: measured, a connect and the
         handshake behind it took 2-4 s. Best effort: what fails here is the first act's to meet, as it would have been;
         an act that comes while this runs waits for it (_lock), never a second connect.
 

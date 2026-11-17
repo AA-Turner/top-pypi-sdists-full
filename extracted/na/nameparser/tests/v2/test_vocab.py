@@ -32,6 +32,7 @@ import pytest
 
 from tests.checkout import require_checkout
 
+from nameparser import parse
 from nameparser._lexicon import Lexicon
 
 from ._differential_fixtures import load_by_path
@@ -214,6 +215,128 @@ def test_a_suffix_word_beside_a_name_reading_is_gated_and_an_agnomen_by_the_coun
     # reading is refused (check 11), never left ungated
 
 
+def test_a_given_name_written_short_marks_no_clash_with_a_credential() -> None:
+    # #1383: a `given` reading carrying `same_as` is a name written
+    # short, read by rules/H2's yielding and the name match, so it makes
+    # no credential ambiguous (`md`, the medical degree and Muhammad
+    # written short); a plain name reading beside it still does (`ma`,
+    # a given name and a surname of its own)
+    c = _compile({"en.toml": _w(
+        '[[word]]\ntext = "zzt"\ngeneration = {}\n'
+        'given = { note = "x", same_as = "zachary" }\n\n'
+        '[[word]]\ntext = "zzq"\ncredential = {}\n'
+        'given = { note = "x", same_as = ["zachary", "zebedee"] }\n\n'
+        '[[word]]\ntext = "zzr"\ncredential = {}\ngiven = { note = "x" }\n\n'
+        '[[word]]\ntext = "zzs"\ncredential = {}\n'
+        'family = { note = "x" }\ngiven = { note = "x", same_as = "zachary" }')})
+    assert {"zzq", "zzr", "zzs"} <= c["SUFFIX_ACRONYMS"]
+    assert {"zzr", "zzs"} <= c["SUFFIX_ACRONYMS_AMBIGUOUS"]
+    assert "zzq" not in c["SUFFIX_ACRONYMS_AMBIGUOUS"]
+    assert "zzt" in c["SUFFIX_WORDS"]
+    assert "zzt" not in c["SUFFIX_WORDS_AMBIGUOUS"]
+    assert {"zzq", "zzs", "zzt"} <= c["GIVEN_NAME_ABBREVIATIONS"]
+    # a list compiles every word it names into the given group
+    assert c["SAME_AS"]["given"]["zzq"] == ("zachary", "zebedee")
+
+
+def test_a_chain_follows_the_first_word_a_same_as_list_names() -> None:
+    # check 10's order follows a spelling's head through the head's own
+    # same_as, and where that is a list, through its FIRST word (#1383's
+    # review: a mutant following the last word passed every test): `nn`
+    # is a spelling of `mm`, a spelling of `aa` and `zz`, so `nn` sorts
+    # under `aa`, before `zz`
+    def words(*texts: str) -> str:
+        entry = {"aa": "generation = {}",
+                 "mm": 'generation = { same_as = ["aa", "zz"] }',
+                 "nn": 'generation = { same_as = "mm" }',
+                 "zz": "generation = {}"}
+        return _w("\n\n".join(f'[[word]]\ntext = "{t}"\n{entry[t]}'
+                               for t in texts))
+    _compile({"en.toml": words("aa", "mm", "nn", "zz")})
+    with pytest.raises(build.VocabError, match="'zz' .* belongs after 'nn'"):
+        _compile({"en.toml": words("aa", "mm", "zz", "nn")})
+
+
+def test_a_given_name_written_short_still_forks_a_title_and_a_particle() -> None:
+    # #1383's exemption is the suffix markers' alone, by its reason: a
+    # credential stands at the END of a name, where a given name written
+    # short never does, so the short form contests nothing there; a
+    # title or a particle stands at the head, where the given name does,
+    # so the fork is real and the name reading still marks it (a title
+    # read only inside a phrase, rules/H9; a particle that may be a given
+    # name, rules/P1) (decisions/vocabulary-model, 2026-11-14)
+    c = _compile({"en.toml": _w(
+        '[[word]]\ntext = "zzu"\nsalutation = {}\n'
+        'given = { note = "x", same_as = "zachary" }\n\n'
+        '[[word]]\ntext = "zzv"\narticle = {}\n'
+        'given = { note = "x", same_as = "zachary" }')})
+    assert "zzu" in c["TITLES_AMBIGUOUS"]
+    assert "zzu" not in c["TITLES"]
+    assert "zzv" in c["PARTICLES"]
+    assert "zzv" not in c["NON_GIVEN_NAME_PARTICLES"]
+
+
+def test_the_shipped_short_forms_of_muhammad() -> None:
+    # #1383: `md` keeps its credential unambiguous beside its given
+    # reading, and `ma` (a given name and surname of its own) keeps its
+    # ambiguous; each short form names the long spellings of Muhammad
+    # written where it is
+    sets = Lexicon.default()._sets
+    assert "md" in sets.suffix_acronyms
+    assert "md" not in sets.suffix_acronyms_ambiguous
+    assert "ma" in sets.suffix_acronyms_ambiguous
+    assert {"md", "mohd", "moh"} <= sets.given_name_abbreviations
+    lexicon = Lexicon.default()
+    assert lexicon._headwords("md", "given") == {
+        "md", "muhammad", "mohammad", "mohammed", "muhammed", "mohamed"}
+    for word in ("mohd", "moh"):
+        assert lexicon._headwords(word, "given") == {
+            word, "muhammad", "mohamad", "mohammad", "mohammed", "mohamed"}
+
+
+#: The credential `md` in the shapes a plain given reading moved (#1383's
+#: measurement, the committed corpora and ClinicalTrials.gov), each read
+#: as on master 3dadc263 save the glued `MD.NOOR` (below), which is
+#: left wrong as before (#1394), and `Md` opening the part after a family
+#: comma, which #1393 reads as the given name (the case table's `md_*`
+#: rows, rules/C13).
+#: (Accepted, decisions/vocabulary-model 2026-11-13 #1383).
+_MD_KEEPS_ITS_CREDENTIAL = (
+    ("BERGER, MD", {"family": "BERGER", "suffix": "MD"}),
+    ("Bin Wang, MD & PhD", {"family": "Bin Wang", "suffix": "MD & PhD"}),
+    ("John Smith, MD \u2013 PhD",
+     {"given": "John", "family": "Smith", "suffix": "MD \u2013 PhD"}),
+    ("John Smith, MD;PhD",
+     {"given": "John", "family": "Smith", "suffix": "MD;PhD"}),
+    ("Smith, MD - PhD - FACS", {"family": "Smith", "suffix": "MD - PhD - FACS"}),
+    ("Washington Jr. MD, Franklin",
+     {"given": "Franklin", "family": "Washington", "suffix": "Jr. MD"}),
+    ("Dumas VI MD, Ed", {"given": "Ed", "family": "Dumas", "suffix": "VI MD"}),
+    ("John Smith MD Jones",
+     {"given": "John", "family": "Smith", "suffix": "MD Jones"}),
+    ("Dr. Pope MD", {"title": "Dr.", "family": "Pope", "suffix": "MD"}),
+    ("Md Rahman, PhD", {"given": "Md", "family": "Rahman", "suffix": "PhD"}),
+    # left wrong as before, not moved by #1383 (#1394)
+    ("SITI AMINAH MD.NOOR",
+     {"given": "SITI", "family": "AMINAH", "suffix": "MD. NOOR"}),
+)
+
+
+@pytest.mark.parametrize("text, fields", _MD_KEEPS_ITS_CREDENTIAL)
+def test_md_written_short_leaves_its_credential_reading(
+        text: str, fields: dict[str, str]) -> None:
+    # Negative control (2026-11-14, re-taken after #1393 moved
+    # `Rahman, Md.` and `RAHMAN, MD ABDUL` to the case table; 12 of 13
+    # on 2026-11-13): with `md` put back among the ambiguous acronyms
+    # (the plain given reading of #1383's shape (a)), 10 of the 11 rows
+    # move, all but `Md Rahman, PhD`; so do the case table's `John Smith
+    # Md` and `Smith (MD), John`. The glued `MD.NOOR` is the one shape
+    # the change moves (its stop now divides the word, the suffix still
+    # holding both halves)
+    got = {k: v for k, v in parse(text).as_dict().items() if v}
+    assert got == fields, text
+
+
 # ------------------------------------------------- one mutation per check
 OK = 'schema = 1\n\n[[word]]\ntext = "jr"\ngeneration = {}\n'
 
@@ -248,6 +371,8 @@ MUTATIONS = [
     ("rules-flag-default", {"ru.toml": _w('[rules]\ntwo_family_names = false')}, "is the default"),
     # 4g's flag (#704), refused as its default like O6's
     ("rules-two-given-names-default", {"ru.toml": _w('[rules]\ntwo_given_names = false')}, "is the default"),
+    # rules/O8's flag (#1254), refused as its default like O6's and O7's
+    ("rules-initials-as-family-default", {"ru.toml": _w('[rules]\ninitials_as_family = false')}, "is the default"),
     ("rules-order-default", {"ru.toml": _w('[rules]\nname_order = "given-first"')}, "is the default"),
     ("pack-file-without-rules", {"ru.toml": OK}, "locales.RU reads its policy patch"),
     # 1: schema, unknown keys, file names
@@ -280,6 +405,7 @@ MUTATIONS = [
     ("text-with-a-control-character", {"en.toml": _w('[[word]]\ntext = "dr\\u0007"\ntitle = {}')}, "invisible character U\\+0007"),
     ("text-with-an-emoji", {"en.toml": _w('[[word]]\ntext = "dr★"\ntitle = {}')}, "strips by default"),
     ("text-with-an-east-asian-interpunct", {"zh.toml": _w('[[word]]\ntext = "先·生"\nhonorific = {}')}, "rules/T3"),
+    ("text-with-an-east-asian-fullwidth-stop", {"zh.toml": _w('[[word]]\ntext = "先．生"\nhonorific = {}')}, "rules/T3"),
     ("phrase-word-with-an-edge-period", {"de.toml": _w('[[word]]\ntext = "dr. med"\ntitle = { addresses = "given" }')}, "write 'dr med'"),
     ("text-twice-in-a-file", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\n\n[[word]]\ntext = "jr"\nstatus = {}')}, "listed twice"),
     # 3: kinds, properties and values
@@ -309,6 +435,11 @@ MUTATIONS = [
     ("addresses-reserved-value-on-a-title-kind", {"en.toml": _w('[[word]]\ntext = "sir"\nnobility = { addresses = "full" }')}, "reserved for a later phase"),
     ("attached-on-an-acronym", {"und.toml": _w('[[word]]\ntext = "mba"\ncredential = { attached = { side = "after" } }')}, "needs a word reading"),
     ("attached-before", {"ja.toml": _w('[[word]]\ntext = "さん"\nhonorific = { attached = { side = "before" } }')}, "side = 'after'"),
+    # the glued-title peel's word (#317) takes side "before", one word
+    ("attached-after-on-a-title", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { attached = { side = "after" } }')}, "side = 'before'"),
+    ("attached-not-a-table-on-a-title", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { attached = "before" }')}, "attached must be a table"),
+    ("attached-unknown-key-on-a-title", {"th.toml": _w('[[word]]\ntext = "นาย"\nsalutation = { attached = { side = "before", zzq = 1 } }')}, "zzq"),
+    ("attached-on-a-title-phrase", {"th.toml": _w('[[word]]\ntext = "zz qq"\nsalutation = { addresses = "given", attached = { side = "before" } }')}, "one-word title"),
     ("may-be-initial-on-a-word", {"und.toml": _w('[[word]]\ntext = "and"\nconjunction = { may_be_initial = true }')}, "CASED single letter"),
     ("may-be-initial-caseless", {"ar.toml": _w('[[word]]\ntext = "و"\nconjunction = { may_be_initial = true }')}, "CASED single letter"),
     ("after-given-on-an-office", {"en.toml": _w('[[word]]\ntext = "king"\nnobility = { after_given = true }')}, "after_given is allowed on a salutation reading only"),
@@ -369,6 +500,9 @@ MUTATIONS = [
     ("name-reading-beside-a-professional-honorific", {"en.toml": _w('[[word]]\ntext = "zzt"\nprofessional_honorific = {}\nfamily = { note = "x" }')}, "gates nothing"),
     ("agnomen-as-an-acronym", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = { acronym = true }\nfamily = { note = "x" }')}, "an agnomen is a word"),
     ("agnomen-without-a-name-reading", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}')}, "an agnomen needs a `given` or `family` reading"),
+    # a given name written short gates nothing (#1383's review), so it is
+    # no name reading to this check
+    ("agnomen-whose-only-name-reading-is-written-short", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}\ngiven = { note = "x", same_as = "filipe" }')}, "an agnomen needs a `given` or `family` reading"),
     ("agnomen-whose-name-reading-is-elsewhere-only-as-an-exclusion", {"pt.toml": _w('[[word]]\ntext = "filho"\nagnomen = {}\nexcluded = { family = "x" }')}, "an agnomen needs a `given` or `family` reading"),
     # a name reading written default = false (3a) is held to the same
     # value check as any reading's `default`, gates nothing in the
@@ -443,6 +577,27 @@ MUTATIONS = [
     # a reason written as a table reaches the refusal too
     ("excluded-kind-with-a-table-reason", {"fr.toml": _w('[[word]]\ntext = "fils"\nexcluded = { generation = { reason = "TABLE REASON", issue = 684 } }'), "en.toml": _w('[[word]]\ntext = "fils"\ngeneration = {}')}, "TABLE REASON"),
     ("excluded-property-in-another-file", {"ja.toml": _w('[[word]]\ntext = "博士"\ncredential = { acronym = false, excluded = { attached = "Hiroshi" } }'), "zh.toml": _w('[[word]]\ntext = "博士"\ncredential = { acronym = false, attached = { side = "after" } }')}, "Hiroshi"),
+    # 3, a familiar reading (decisions/name-matching, 2026-11-08 FAMILIAR
+    # FORMS): its longer names, a note, and no spelling of its own
+    ("familiar-without-short-for", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { note = "x" }')}, "short_for must be a non-empty list"),
+    ("familiar-short-for-itself", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzq"], note = "x" }')}, "never the word itself"),
+    ("familiar-short-for-not-normalized", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["Zzr"], note = "x" }')}, "written normalized"),
+    ("familiar-without-note", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr"] }')}, "needs a `note`"),
+    ("familiar-with-same-as", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr"], note = "x", same_as = "zzr" }')}, "unknown key 'same_as'"),
+    ("familiar-short-for-a-string", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = "zzr", note = "x" }')}, "short_for must be a non-empty list"),
+    ("familiar-short-for-empty", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = [], note = "x" }')}, "short_for must be a non-empty list"),
+    ("familiar-short-for-twice", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr", "zzr"], note = "x" }')}, "each once"),
+    ("familiar-short-for-two-words", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zz r"], note = "x" }')}, "one word"),
+    ("familiar-unknown-key", {"en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr"], note = "x", expands = "y" }')}, "unknown key 'expands'"),
+    ("spelling-without-spelling-of", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { note = "x" }')}, "spelling_of must be a non-empty list"),
+    ("spelling-of-itself", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { spelling_of = ["zzq"], note = "x" }')}, "never the word itself"),
+    ("spelling-of-not-normalized", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { spelling_of = ["Zzr"], note = "x" }')}, "written normalized"),
+    ("spelling-without-note", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { spelling_of = ["zzr"] }')}, "a spelling reading needs a `note`"),
+    ("spelling-with-same-as", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { spelling_of = ["zzr"], note = "x", same_as = "zzr" }')}, "unknown key 'same_as'"),
+    ("spelling-with-short-for", {"en.toml": _w('[[word]]\ntext = "zzq"\nspelling = { spelling_of = ["zzr"], note = "x", short_for = ["zzr"] }')}, "unknown key 'short_for'"),
+    # check 13 is not suppressed by a familiar reading beside the
+    # mul.toml vocabulary reading
+    ("mul-word-with-a-familiar-reading-and-a-name-elsewhere", {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\nfamiliar = { short_for = ["zzr"], note = "x" }'), "en.toml": _w('[[word]]\ntext = "zzq"\ngiven = { note = "x" }')}, "en.toml: 'zzq' given: .* a strict choice reads where it drops"),
     # 7: same_as and cased
     ("same-as-missing-target", {"en.toml": _w('[[word]]\ntext = "jnr"\ngeneration = { same_as = "jr" }')}, "same_as 'jr'"),
     ("same-as-its-own-word", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { same_as = "jr" }')}, "names the word itself"),
@@ -511,12 +666,29 @@ MUTATIONS = [
     ("same-as-on-a-family-reading", {"en.toml": _w('[[word]]\ntext = "smyth"\nfamily = { note = "x", same_as = "smith" }')}, "only a `given` reading takes one"),
     ("same-as-on-a-given-reading-unnormalized", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = "Charles" }')}, "not in normalized form; write 'charles'"),
     ("same-as-on-a-given-reading-names-itself", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = "chas" }')}, "names the word itself"),
+    # a same_as list (#1383): each word it names is checked as a text is
+    ("same-as-list-empty", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = [] }')}, "same_as must be a text or a list of texts"),
+    ("same-as-list-not-texts", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = ["charles", 1] }')}, "same_as must be a text or a list of texts"),
+    ("same-as-list-twice", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = ["charles", "charles"] }')}, "same_as lists a word twice"),
+    ("same-as-list-unnormalized", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = ["charles", "Charlie"] }')}, "not in normalized form; write 'charlie'"),
+    ("same-as-list-names-itself", {"en.toml": _w('[[word]]\ntext = "chas"\ngiven = { note = "x", same_as = ["charles", "chas"] }')}, "names the word itself"),
+    ("same-as-list-missing-target", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\n\n[[word]]\ntext = "jnr"\ngeneration = { same_as = ["jr", "jrx"] }')}, "same_as 'jrx' has no suffix reading"),
+    ("same-as-list-cycle-through-a-later-word", {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = { same_as = ["sr", "jnr"] }\n\n[[word]]\ntext = "sr"\ngeneration = {}\n\n[[word]]\ntext = "jnr"\ngeneration = { same_as = "jr" }')}, "same_as loops"),
     # 3, the two name-reading properties the two-name switches read
     # (#704): each is true or unwritten, and after_particle names a
     # given name, so only a given reading takes it
     ("shared-not-true", {"pa.toml": _w('[[word]]\ntext = "kaur"\nfamily = { note = "x", shared = false }')}, "shared must be true, or left unwritten"),
     ("after-particle-not-true", {"es.toml": _w('[[word]]\ntext = "carmen"\ngiven = { note = "x", after_particle = 1 }')}, "after_particle must be true, or left unwritten"),
     ("after-particle-on-a-family-reading", {"es.toml": _w('[[word]]\ntext = "carmen"\nfamily = { note = "x", after_particle = true }')}, "only a `given` reading takes one"),
+    # rules/R4's capital_opening: true or unwritten, and a particle
+    # reading's alone (BEHAVIORAL), so any other refuses it as unknown
+    ("capital-opening-not-true", {"nl.toml": _w('[[word]]\ntext = "ter"\npreposition = { may_be_given = false, capital_opening = false }')}, "capital_opening must be true, or left unwritten"),
+    ("capital-opening-on-a-family-reading", {"hy.toml": _w('[[word]]\ntext = "ter"\nfamily = { note = "x", capital_opening = true }')}, "capital_opening"),
+    ("capital-opening-on-a-conjunction", {"nl.toml": _w('[[word]]\ntext = "en"\nconjunction = { capital_opening = true }')}, "capital_opening"),
+    # rules/H10's dotted: true or unwritten, and a title reading's alone
+    # (BEHAVIORAL), so any other refuses it as unknown
+    ("dotted-not-true", {"en.toml": _w('[[word]]\ntext = "us"\nmodifier = { dotted = false }')}, "dotted must be true, or left unwritten"),
+    ("dotted-on-a-suffix-reading", {"en.toml": _w('[[word]]\ntext = "zzq"\ncredential = { dotted = true }')}, "dotted"),
 ]
 
 
@@ -543,6 +715,13 @@ def test_every_mutation_starts_from_a_pool_the_checks_accept() -> None:
         {"en.toml": _w('[[word]]\ntext = "jr"\ngeneration = {}\n\n'
                        '[[word]]\ntext = "jnr"\ngeneration = { same_as = "jr" }')},
         {"und.toml": _w('[[word]]\ntext = "abu"\ngiven = { note = "x" }\nparticle = {}\nbound_given = {}')},
+        # check 13 exempts a familiar reading, which no parse reads: one
+        # in mul.toml beside a name reading elsewhere, and one elsewhere
+        # beside a mul.toml vocabulary reading, each build
+        {"mul.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr"], note = "x" }'),
+         "en.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\ngiven = { note = "x" }')},
+        {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}'),
+         "en.toml": _w('[[word]]\ntext = "zzq"\nfamiliar = { short_for = ["zzr"], note = "x" }')},
         # check 13 met: a mul.toml word's name reading in mul.toml itself,
         # as `ing`'s, and MUL_SHARED's `i` read by another file too
         {"mul.toml": _w('[[word]]\ntext = "zzq"\ncredential = {}\ngiven = { note = "x" }')},
@@ -744,12 +923,12 @@ def test_every_character_the_tokenizer_ignores_is_refused() -> None:
     # and the pins below hold only its constants
     from nameparser._pipeline import _tokenize
     from nameparser._pipeline._state import COMMA_CHARS, ParseState
-    from nameparser._policy import Policy, _SCRIPT_RANGES
+    from nameparser._policy import Policy, _EAST_ASIAN_SCRIPTS, _SCRIPT_RANGES
     assert build.DIVIDERS == COMMA_CHARS | _tokenize._NAME_DOT_SEPARATORS
     assert build.EMOJI_RANGES == _tokenize._EMOJI_RANGES
     assert build.EAST_ASIAN_RANGES == tuple(
-        span for spans in _SCRIPT_RANGES.values() for span in spans)
-    assert build.INTERPUNCT == _tokenize._INTERPUNCT
+        span for script in _EAST_ASIAN_SCRIPTS for span in _SCRIPT_RANGES[script])
+    assert build.TRANSCRIPTION_DOTS == _tokenize._TRANSCRIPTION_DOTS
     state = ParseState(original="", lexicon=Lexicon.default(), policy=Policy(),
                        segmenter=None)
     ignored = [chr(c) for c in range(0x110000)
@@ -1080,6 +1259,10 @@ def _sets_fed(kind: str, props: str = "{}", text: str = "zzq",
     name reading gets the note a count-less one carries."""
     if build.CATEGORY.get(kind) == "name" and props == "{}":
         props = '{ note = "probe" }'
+    if build.CATEGORY.get(kind) == "familiar" and props == "{}":
+        props = '{ short_for = ["zzr"], note = "probe" }'
+    if build.CATEGORY.get(kind) == "spelling" and props == "{}":
+        props = '{ spelling_of = ["zzr"], note = "probe" }'
     entry = f'{kind} = {props}'
     if build.CATEGORY.get(kind) == "particle" and "may_be_given" not in props:
         entry = 'given = { note = "probe" }\n' + entry
@@ -1089,10 +1272,13 @@ def _sets_fed(kind: str, props: str = "{}", text: str = "zzq",
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", build.VocabWarning)  # a name reading is inert
         compiled = build.compile_files(files)
-    # a word is in a set of phrases where it opens one (TITLE_PHRASES)
+    # a word is in a set of phrases where it opens one (TITLE_PHRASES),
+    # and in SAME_AS where a group of it holds the word
     return {name for name, value in compiled.items()
             if text in value or any(isinstance(v, str) and v.startswith(text + " ")
-                                    for v in value)}
+                                    for v in value)
+            or (isinstance(value, dict) and any(
+                isinstance(g, dict) and text in g for g in value.values()))}
 
 
 #: For each behavioral property, a reading that sets it away from its
@@ -1112,6 +1298,8 @@ _PROPERTY_PROBES = {
     "title_case_is_name": ("generation", "{ title_case_is_name = true }", "zzq"),
     "shared": ("family", '{ shared = true, note = "probe" }', "zzq"),
     "after_particle": ("given", '{ after_particle = true, note = "probe" }', "zzq"),
+    "capital_opening": ("preposition", "{ capital_opening = true }", "zzq"),
+    "dotted": ("modifier", "{ dotted = true }", "zzq"),
     "completed_by": ("bound_given", '{ completed_by = ["zzr"] }', "zzq"),
     # a phrase needs the head it attaches to: a second title word
     "attaches": ("office", '{ attaches = ["occupation"] }', "zzq",
@@ -1149,10 +1337,24 @@ def test_the_readme_lists_every_property_with_its_type_and_categories() -> None:
     stated = {p for ps in build.STATED.values() for p in ps}
     assert {_code(r[0])[0]: r[1] for r in rows} == (
         {p: "behavioral" for p in behavioral} | {p: "stated" for p in stated}
-        | {p: "descriptive" for p in build.DESCRIPTIVE})
-    assert len(rows) == len(behavioral | stated | build.DESCRIPTIVE)
+        | {p: "descriptive" for p in build.DESCRIPTIVE}
+        | {p: "matching" for p in build.MATCHING})
+    assert len(rows) == len(behavioral | stated | build.DESCRIPTIVE
+                            | build.MATCHING)
     for prop, kind_of, applies, *_ in rows:
         name = _code(prop)[0]
+        if kind_of == "matching":
+            # a matching property is one matching-only category's alone
+            assert set(_code(applies)) == {
+                c for c, (_, prop) in build._MATCHING_CATEGORIES.items()
+                if prop == name}, name
+            continue
+        # a familiar or spelling reading takes only the descriptive keys
+        # its table allows
+        if kind_of == "descriptive":
+            for category, (keys, _) in build._MATCHING_CATEGORIES.items():
+                assert (f"`{category}`" in applies) == (
+                    name not in keys), (name, category)
         if kind_of in ("behavioral", "stated"):
             table = build.BEHAVIORAL if kind_of == "behavioral" else build.STATED
             assert set(_code(applies)) == {
@@ -1162,13 +1364,24 @@ def test_the_readme_lists_every_property_with_its_type_and_categories() -> None:
             assert ("but `name`" in applies) == (name not in build.NAME_KEYS), name
 
 
+#: A property read in a second category feeds a second set there: each
+#: such probe, beside the property's own (`attached` before a title,
+#: rules/W6, #317).
+_OTHER_CATEGORY_PROBES = {
+    "attached": (("salutation", '{ attached = { side = "before" } }', "zzq"),),
+}
+
+
 def test_the_readme_states_each_behavioral_propertys_effect() -> None:
     rows = {_code(r[0])[0]: r[4] for r in _readme_table("## Properties") if r[1] == "behavioral"}
     assert set(_PROPERTY_PROBES) == set(rows)
-    for prop, (kind, props, text, *extra) in _PROPERTY_PROBES.items():
-        moved = (_sets_fed(kind, props, text, *extra)
-                 ^ _sets_fed(kind, "{}", text, *extra))
-        assert moved, prop  # a probe that moves nothing tests nothing
+    for prop, probe in _PROPERTY_PROBES.items():
+        moved: set[str] = set()
+        for kind, props, text, *extra in (probe, *_OTHER_CATEGORY_PROBES.get(prop, ())):
+            fed = (_sets_fed(kind, props, text, *extra)
+                   ^ _sets_fed(kind, "{}", text, *extra))
+            assert fed, prop  # a probe that moves nothing tests nothing
+            moved |= fed
         assert set(_code(rows[prop])) & set(build.CONSTANTS) == moved, prop
 
 
@@ -1200,7 +1413,22 @@ _MARKER_PROBES = {
     "possibly a name, a word": ("generation", "{}", "{}"),
     "possibly given": ("preposition", "{ may_be_given = false }", "{}"),
     "possibly a name, a title": ("office", "{}", "{}"),
+    # the clashing reading is a given name written short, so the plain
+    # given reading stands in a file of its own (a file holds one
+    # reading of a kind)
+    "a name of its own, a spelling": (
+        "given", '{ same_as = "zzr", note = "x" }', None),
 }
+
+
+def _holds(value: object, word: str) -> bool:
+    """`word` is in a compiled constant: a set, or a mapping keyed by
+    word, or one keyed by group whose groups are sets or mappings."""
+    assert isinstance(value, (frozenset, dict)), value
+    if isinstance(value, dict) and all(
+            isinstance(v, (frozenset, dict)) for v in value.values()):
+        return any(word in v for v in value.values())
+    return word in value
 
 
 def test_the_readme_states_each_derived_markers_effect() -> None:
@@ -1208,9 +1436,14 @@ def test_the_readme_states_each_derived_markers_effect() -> None:
     assert set(rows) == set(_MARKER_PROBES)
     for marker, (kind, without, with_) in _MARKER_PROBES.items():
         files = {"en.toml": _w(f'[[word]]\ntext = "zzq"\n{kind} = {without}')}
-        named = {"en.toml": _w(f'[[word]]\ntext = "zzq"\ngiven = {{ note = "x" }}\n{kind} = {with_}')}
+        if with_ is None:
+            named = {**files, "fil.toml": _w(
+                '[[word]]\ntext = "zzq"\ngiven = { note = "x" }')}
+        else:
+            named = {"en.toml": _w(f'[[word]]\ntext = "zzq"\ngiven = {{ note = "x" }}\n{kind} = {with_}')}
         a, b = build.compile_files(files), build.compile_files(named)
-        moved = {n for n in build.CONSTANTS if ("zzq" in a[n]) != ("zzq" in b[n])}
+        moved = {n for n in build.CONSTANTS
+                 if _holds(a[n], "zzq") != _holds(b[n], "zzq")}
         assert moved, marker
         assert set(_code(rows[marker])) & set(build.CONSTANTS) == moved, marker
 
@@ -1220,6 +1453,24 @@ def test_the_readme_names_every_compiled_constant() -> None:
     named = {name for heading in ("## Kinds", "## Properties", "### Derived markers")
              for row in _readme_table(heading) for cell in row[1:] for name in _code(cell)}
     assert set(build.CONSTANTS) <= named
+
+
+def test_only_a_name_written_short_beside_a_name_marks_a_spelling() -> None:
+    # SAME_AS_NAMED: a `given` reading's `same_as` beside a `given`
+    # reading with none, in any file; a bound given name's `same_as`, a
+    # spelling written without a period (ar `ابو` of `أبو`), beside a
+    # given reading marks nothing, nor does a short form alone
+    short = '[[word]]\ntext = "zzq"\ngiven = { same_as = "zzr", note = "x" }'
+    own = '[[word]]\ntext = "zzq"\ngiven = { note = "x" }'
+    bound = ('[[word]]\ntext = "zzr"\nbound_given = {}\n'
+             'given = { note = "x" }\n\n[[word]]\ntext = "zzq"\n'
+             'bound_given = { same_as = "zzr" }\ngiven = { note = "x" }')
+    assert _compile({"en.toml": _w(short), "fil.toml": _w(own)})[
+        "SAME_AS_NAMED"]["given"] == {"zzq"}
+    assert not _compile({"en.toml": _w(short)})["SAME_AS_NAMED"]["given"]
+    c = _compile({"ar.toml": _w(bound)})
+    assert c["SAME_AS"]["given"]["zzq"] == ("zzr",)
+    assert not c["SAME_AS_NAMED"]["given"]
 
 
 def test_the_readme_lists_the_name_reading_keys() -> None:
@@ -1408,5 +1659,15 @@ def test_the_pack_roster_names_shipped_packs_their_files_compile_into() -> None:
     assert set(build.PACK_RULES.values()) <= set(locales._REGISTRY)
     for tag, attr in build.PACK_RULES.items():
         assert getattr(locales, attr).policy == rules_patch(tag), attr
-    with pytest.raises(KeyError, match="no vocabulary file 'en' holds a \\[rules\\] table; the files that do: cs, es, ru, sk, tr"):
+    with pytest.raises(KeyError, match="no vocabulary file 'en' holds a \\[rules\\] table; the files that do: cs, es, ne, ru, sk, tr, vi"):
         rules_patch("en")
+
+
+def test_a_familiar_reading_feeds_no_set_but_familiar() -> None:
+    # no set a parse reads: the word is in FAMILIAR alone, and as a key
+    assert _sets_fed("familiar") == {"FAMILIAR"}
+    c = _compile({"en.toml": _w('[[word]]\ntext = "zzq"\n'
+                                'familiar = { short_for = ["zzr"], note = "x" }')})
+    assert c["FAMILIAR"] == {"zzq": ("zzr",)}
+    assert not any("zzr" in v for k, v in c.items()
+                   if k != "FAMILIAR" and isinstance(v, frozenset))

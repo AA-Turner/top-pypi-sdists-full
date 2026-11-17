@@ -10,6 +10,12 @@ from bitfab.git_command import run_git
 
 GIT_TIMEOUT_SECONDS = 30
 DISABLE_ENV = "BITFAB_DISABLE_GIT_STATE"
+AGENT_SESSION_ID_ENV_VARS = (
+    "CLAUDE_CODE_SESSION_ID",
+    "CODEX_THREAD_ID",
+    "AGENT_SESSION_ID",
+)
+AGENT_SESSION_ID_MAX_LENGTH = 255
 
 _SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 
@@ -82,3 +88,22 @@ def resolved_git_state() -> GitState | None:
         return resolve_git_state(os.getcwd())
     except Exception:
         return None
+
+
+def resolve_agent_session_id(explicit: str | None = None) -> str | None:
+    """Return the coding agent session that launched this run, if known.
+
+    An explicit value wins. Otherwise the first non-empty of
+    ``CLAUDE_CODE_SESSION_ID``, ``CODEX_THREAD_ID`` and ``AGENT_SESSION_ID``
+    is used. Values are trimmed, and one longer than 255 characters is skipped.
+    """
+    candidates = (
+        [explicit]
+        if explicit is not None
+        else [os.environ.get(name) for name in AGENT_SESSION_ID_ENV_VARS]
+    )
+    for candidate in candidates:
+        value = _text(candidate)
+        if value is not None and len(value) <= AGENT_SESSION_ID_MAX_LENGTH:
+            return value
+    return None

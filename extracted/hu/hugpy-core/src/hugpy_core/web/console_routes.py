@@ -231,6 +231,11 @@ def liveness_feed() -> list[dict]:
             "state_stale": view.get("state_stale"),
             "loaded_models": view.get("loaded_models") or [],
             "loading": view.get("loading") or [],
+            # The Wrapper's live resources report (residents, transfers, gpu_state, cards, host/cpu state)
+            # rides the per-beat liveness feed so the console's copy is never stale: the Serving rows and
+            # the GPU card render from the Wrapper's own facts — a downloading model (transfers) appears
+            # the beat the Wrapper reports it, without waiting on a roster rebuild (operator 2026-11-16).
+            "resources": view.get("resources"),
             "gpus": [{"index": g.get("index", i), "memory_free": g.get("memory_free")} for i, g in enumerate(view.get("gpus") or [])],
             "allocations": allocations, "pid_registry": view.get("pid_registry") or {},
             "cards": view.get("cards") or [], "gpu_policy": view.get("gpu_policy") or {},

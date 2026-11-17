@@ -1190,7 +1190,7 @@ class IFluentSchedulingTimeSpecifier(metaclass=abc.ABCMeta):
         ...
 
     def before_market_close(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], minute_before_close: float = 0, extended_market_close: bool = False) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:
-        """Creates events that fire a specified numer of minutes before market close"""
+        """Creates events that fire a specified number of minutes before market close"""
         ...
 
     def every(self, interval: datetime.timedelta) -> QuantConnect.Scheduling.IFluentSchedulingRunnable:

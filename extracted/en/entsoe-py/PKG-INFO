@@ -1,36 +1,17 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: entsoe-py
-Version: 0.8.1
+Version: 1.0.0
 Summary: A python API wrapper for ENTSO-E
-Home-page: https://github.com/EnergieID/entsoe-py
-Author: EnergieID.be, Frank Boerman
-Author-email: jan@energieid.be, frank@fboerman.nl
-License: MIT
-Keywords: ENTSO-E data api energy
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
-Classifier: Topic :: Scientific/Engineering
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: requests
-Requires-Dist: pytz
+Project-URL: Homepage, https://github.com/fboerman/entsoe-py
+Author-email: Frank Boerman-Lima <frank@fboerman.nl>, Jan Pecinovsky <jan@energieid.be>
+License-Expression: MIT
+License-File: LICENSE.md
+Requires-Python: >=3.12
 Requires-Dist: beautifulsoup4>=4.11.1
 Requires-Dist: pandas>=2.2.0
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
-Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
+Requires-Dist: pytz
+Requires-Dist: requests
+Description-Content-Type: text/markdown
 
 # entsoe-py
 Python client for the ENTSO-E API (european network of transmission system operators for electricity)

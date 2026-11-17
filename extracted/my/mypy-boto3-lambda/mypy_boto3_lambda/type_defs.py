@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_lambda.type_defs import AccountLimitTypeDef
+    from mypy_boto3_lambda.type_defs import AcceleratorConfigTypeDef
 
-    data: AccountLimitTypeDef = ...
+    data: AcceleratorConfigTypeDef = ...
     ```
 """
 
@@ -27,6 +27,7 @@ from botocore.response import StreamingBody
 from .literals import (
     ApplicationLogLevelType,
     ArchitectureType,
+    CapacityProviderPredefinedMetricTypeType,
     CapacityProviderScalingModeType,
     CapacityProviderStateType,
     CodeSigningPolicyType,
@@ -75,6 +76,7 @@ else:
 
 
 __all__ = (
+    "AcceleratorConfigTypeDef",
     "AccountLimitTypeDef",
     "AccountUsageTypeDef",
     "AddLayerVersionPermissionRequestTypeDef",
@@ -406,6 +408,10 @@ __all__ = (
 )
 
 
+class AcceleratorConfigTypeDef(TypedDict):
+    AcceleratorMemorySize: int
+
+
 class AccountLimitTypeDef(TypedDict):
     TotalCodeSize: NotRequired[int]
     CodeSizeUnzipped: NotRequired[int]
@@ -510,7 +516,7 @@ class CapacityProviderPermissionsConfigTypeDef(TypedDict):
 
 
 class TargetTrackingScalingPolicyTypeDef(TypedDict):
-    PredefinedMetricType: Literal["LambdaCapacityProviderAverageCPUUtilization"]
+    PredefinedMetricType: CapacityProviderPredefinedMetricTypeType
     TargetValue: float
 
 
@@ -2185,6 +2191,7 @@ class CreateFunctionRequestTypeDef(TypedDict):
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 
 class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
@@ -2210,6 +2217,7 @@ class UpdateFunctionConfigurationRequestTypeDef(TypedDict):
     CapacityProviderConfig: NotRequired[CapacityProviderConfigTypeDef]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 
 class InvokeWithResponseStreamResponseTypeDef(TypedDict):
@@ -2290,6 +2298,7 @@ class FunctionConfigurationResponseTypeDef(TypedDict):
     ConfigSha256: str
     DurableConfig: DurableConfigTypeDef
     RuntimeConfig: FunctionRuntimeConfigTypeDef
+    AcceleratorConfig: AcceleratorConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2335,6 +2344,7 @@ class FunctionConfigurationTypeDef(TypedDict):
     ConfigSha256: NotRequired[str]
     DurableConfig: NotRequired[DurableConfigTypeDef]
     RuntimeConfig: NotRequired[FunctionRuntimeConfigTypeDef]
+    AcceleratorConfig: NotRequired[AcceleratorConfigTypeDef]
 
 
 class EventTypeDef(TypedDict):

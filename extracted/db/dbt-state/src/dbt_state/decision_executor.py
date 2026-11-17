@@ -256,7 +256,10 @@ class DecisionExecutor:
         confirmed_execution_id: t.Optional[RequestId] = None
 
         try:
-            if response.clone_required_last_modified_epoch is not None:
+            if (
+                response.clone_required_last_modified_epoch is not None
+                and not self._run_cache_config.resolve_ignore_external_modifications(node.config)
+            ):
                 current_last_modified_epoch = self._freshness.get_last_modified_epoch(
                     exp.to_table(response.clone_source, dialect=self._node_resolution.dialect)
                 )

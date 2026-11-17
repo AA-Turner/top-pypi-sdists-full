@@ -32,6 +32,7 @@ from dreamscale_transport.websocket_client import (
 )
 
 from dreamscale import errors, region_hint, wire
+from dreamscale.config import warn_engine_ignored
 from dreamscale.model_names import internal_model, public_model
 from dreamscale.policy.calibration_cache import (
     load_session_calibration,
@@ -252,8 +253,7 @@ class AsyncRemotePolicy:
         self._target_key = connection.session.target_key
         # The server-confirmed hardware tier; "fast" only when the session echoed it.
         self.speed = getattr(connection.session, "speed", None) or "standard"
-        # Praxis-1 (experimental): the engine this session asked for (None when it didn't),
-        # and why standard serves it when it does ("unavailable").
+        # Kept for compatibility: what the server says of the session's engine, if anything.
         self.engine = getattr(connection.session, "engine", None)
         self.engine_reason = getattr(connection.session, "engine_reason", None)
         self.resolved_optimization_config = connection.session.resolved_optimization_config
@@ -459,7 +459,7 @@ class AsyncRemotePolicy:
 
         ``next_request_in``: the ticks until the loop's next request, which an async loop has
         already decided (its threshold changes only when an answer arrives). A server that
-        plans requests ahead (``next_request_v1``: Praxis-1 lightning) then gets that request's
+        plans requests ahead (``next_request_v1``: Praxis-1) then gets that request's
         episode step with the frames; others never see it.
         """
         history = self.observation_history
@@ -2474,7 +2474,7 @@ async def aconnect(
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
     region_fallback: bool | None = None,
-    engine: str | None = None,
+    engine: str | None = None,  # accepted from older code, ignored (one engine)
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2490,6 +2490,7 @@ async def aconnect(
     on_progress: Callable[[str], None] | None = print,
     steady_send: bool | int | None = None,
 ) -> AsyncRemotePolicy:
+    warn_engine_ignored(engine)
     return await _aconnect(
         model,
         acceleration=acceleration,
@@ -2498,7 +2499,6 @@ async def aconnect(
         calibration=calibration,
         region=region,
         **({"region_fallback": region_fallback} if region_fallback is not None else {}),
-        **({"engine": engine} if engine is not None else {}),
         provider=provider,
         speed=speed,
         idle_timeout=idle_timeout,
@@ -2525,7 +2525,7 @@ def connect(
     calibration: RequestedCalibration | None = "auto",
     region: RegionPreference = "auto",
     region_fallback: bool | None = None,
-    engine: str | None = None,
+    engine: str | None = None,  # accepted from older code, ignored (one engine)
     provider: ProviderPreference | None = None,
     speed: SpeedPreference | None = None,
     idle_timeout: int = DEFAULT_CONNECT_IDLE_TIMEOUT_S,
@@ -2541,6 +2541,7 @@ def connect(
     on_progress: Callable[[str], None] | None = print,
     steady_send: bool | int | None = None,
 ) -> RemotePolicy:
+    warn_engine_ignored(engine)
     runner = _LoopRunner()
     try:
         async_policy = runner.run(
@@ -2552,7 +2553,6 @@ def connect(
                 calibration=calibration,
                 region=region,
                 **({"region_fallback": region_fallback} if region_fallback is not None else {}),
-                **({"engine": engine} if engine is not None else {}),
                 provider=provider,
                 speed=speed,
                 idle_timeout=idle_timeout,

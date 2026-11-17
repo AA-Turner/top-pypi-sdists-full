@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openinference-instrumentation-dspy
-Version: 0.1.54
+Version: 0.1.55
 Summary: OpenInference DSPy Instrumentation
 Project-URL: Homepage, https://github.com/Arize-ai/openinference/tree/main/python/instrumentation/openinference-instrumentation-dspy
 Author-email: OpenInference Authors <oss@arize.com>

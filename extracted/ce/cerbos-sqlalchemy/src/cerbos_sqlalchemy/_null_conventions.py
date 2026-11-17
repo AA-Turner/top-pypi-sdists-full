@@ -6,10 +6,12 @@
 The plan is the same under either convention, so the caller declares it. See #302 and #308.
 """
 
+from collections.abc import Callable
 from typing import Any, Literal
 
 from sqlalchemy import and_, case, literal, not_, or_
 
+from cerbos_sqlalchemy._nullness import is_not_null, is_null
 from cerbos_sqlalchemy._operators import exact_pair, scalar_kind
 from cerbos_sqlalchemy._plan import Expr, Operand, Value, Variable
 from cerbos_sqlalchemy.errors import UnsupportedPlanError
@@ -28,6 +30,7 @@ def validate_representations(
     null_attribute_representation: Any,
     attribute_null_representation: dict[str, Any] | None,
     attr_map: dict[str, Any],
+    resolvable: Callable[[str], bool] = lambda _: False,
 ) -> dict[str, NullAttributeRepresentation]:
     """Validate both options and return the per-attribute declarations."""
     if null_attribute_representation not in _REPRESENTATIONS:
@@ -42,7 +45,7 @@ def validate_representations(
                 "attribute_null_representation values must be 'explicit' or "
                 f"'omitted', got {convention!r} for {attribute!r}"
             )
-        if attribute not in attr_map:
+        if attribute not in attr_map and not resolvable(attribute):
             raise ValueError(
                 f"attribute_null_representation names {attribute!r}, which is not "
                 "in the attribute column map"
@@ -137,7 +140,7 @@ def omitted_null_comparison(operator: str, column: Any, overridden: bool) -> Any
     """
     if overridden or not hasattr(column, "isnot"):
         raise _null_operand_error(operator)
-    return case((column.isnot(None), literal(operator == "ne")))
+    return case((is_not_null(column), literal(operator == "ne")))
 
 
 def definite_equality(
@@ -157,7 +160,7 @@ def definite_equality(
     left_kind, right_kind = scalar_kind(left_column), scalar_kind(right)
     if left_kind and right_kind and left_kind != right_kind:
         equality = (
-            and_(left_column.is_(None), right.is_(None))
+            and_(is_null(left_column), is_null(right))
             if left_explicit and right_explicit
             else literal(False)
         )
@@ -167,18 +170,18 @@ def definite_equality(
             (right, right_explicit),
         ):
             if not explicit and hasattr(operand, "is_"):
-                result = case((operand.isnot(None), result))
+                result = case((is_not_null(operand), result))
         return result
 
     present = []
     if left_explicit:
-        present.append(left_column.isnot(None))
+        present.append(is_not_null(left_column))
     if right_explicit:
-        present.append(right.isnot(None))
+        present.append(is_not_null(right))
     left_exact, right_exact = exact_pair(left_column, right)
     equality = and_(*present, left_exact == right_exact)
     if left_explicit and right_explicit:
-        equality = or_(and_(left_column.is_(None), right.is_(None)), equality)
+        equality = or_(and_(is_null(left_column), is_null(right)), equality)
     return not_(equality) if operator == "ne" else equality
 
 
@@ -198,7 +201,7 @@ def with_null_conventions(
     ``in`` only gains an ANDed presence guard, which composes with an override.
     """
     if operator == "in" and not left_explicit and hasattr(left, "is_"):
-        return case((left.isnot(None), plain))
+        return case((is_not_null(left), plain))
     if (left_explicit or right_explicit) and right is not None:
         if operator in ("eq", "ne"):
             if not overridden:
@@ -215,5 +218,5 @@ def with_null_conventions(
             # A null member already adds a definite `IS NULL` disjunct.
             and not any(member is None for member in right)
         ):
-            return and_(left.isnot(None), plain)
+            return and_(is_not_null(left), plain)
     return plain

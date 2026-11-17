@@ -6,7 +6,9 @@ from .._models import BaseModel
 from .wallet_entity import WalletEntity
 from .wallet_custodian import WalletCustodian
 from .wallet_chain_type import WalletChainType
+from .custodial_wallet_chain import CustodialWalletChain
 from .wallet_additional_signer import WalletAdditionalSigner
+from .attached_wallet_automation import AttachedWalletAutomation
 
 __all__ = ["Wallet"]
 
@@ -59,6 +61,12 @@ class Wallet(BaseModel):
     authorization_threshold: Optional[float] = None
     """The number of keys that must sign for an action to be valid."""
 
+    automations: Optional[List[AttachedWalletAutomation]] = None
+    """Automations attached to the wallet, including disabled ones."""
+
+    chain: Optional[CustodialWalletChain] = None
+    """The chain of the custodial wallet."""
+
     custody: Optional[WalletCustodian] = None
     """Information about the custodian managing this wallet."""
 
@@ -73,6 +81,12 @@ class Wallet(BaseModel):
 
     URL-safe characters only ([a-zA-Z0-9_-]), max 64 chars. Write-once: cannot be
     changed once set.
+    """
+
+    parent_wallet_id: Optional[str] = None
+    """
+    ID of the HD root wallet this wallet was derived from, or null if it was not
+    derived from another wallet.
     """
 
     public_key: Optional[str] = None

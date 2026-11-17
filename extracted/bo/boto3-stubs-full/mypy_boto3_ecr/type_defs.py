@@ -85,6 +85,7 @@ __all__ = (
     "DeletePullThroughCacheRuleRequestTypeDef",
     "DeletePullThroughCacheRuleResponseTypeDef",
     "DeleteRegistryPolicyResponseTypeDef",
+    "DeleteReplicationTypeDef",
     "DeleteRepositoryCreationTemplateRequestTypeDef",
     "DeleteRepositoryCreationTemplateResponseTypeDef",
     "DeleteRepositoryPolicyRequestTypeDef",
@@ -392,6 +393,10 @@ class DeleteLifecyclePolicyRequestTypeDef(TypedDict):
 class DeletePullThroughCacheRuleRequestTypeDef(TypedDict):
     ecrRepositoryPrefix: str
     registryId: NotRequired[str]
+
+
+class DeleteReplicationTypeDef(TypedDict):
+    enabled: bool
 
 
 class DeleteRepositoryCreationTemplateRequestTypeDef(TypedDict):
@@ -1378,11 +1383,13 @@ class RepositoryScanningConfigurationTypeDef(TypedDict):
 class ReplicationRuleOutputTypeDef(TypedDict):
     destinations: list[ReplicationDestinationTypeDef]
     repositoryFilters: NotRequired[list[RepositoryFilterTypeDef]]
+    deleteReplication: NotRequired[DeleteReplicationTypeDef]
 
 
 class ReplicationRuleTypeDef(TypedDict):
     destinations: Sequence[ReplicationDestinationTypeDef]
     repositoryFilters: NotRequired[Sequence[RepositoryFilterTypeDef]]
+    deleteReplication: NotRequired[DeleteReplicationTypeDef]
 
 
 class SigningRuleOutputTypeDef(TypedDict):

@@ -1,0 +1,1 @@
+import"./rolldown-runtime-CM1DJQSe.js";import{Ft as e,X as t}from"./vendor-vue-core-DyDHSBJn.js";var n=Symbol(`localAgentPanelPort`),r={enabled:e(!1),isOpening:e(!1),open:async()=>!1};function useLocalAgentPanelPort(){return t(n,r)}export{useLocalAgentPanelPort as n,n as t};

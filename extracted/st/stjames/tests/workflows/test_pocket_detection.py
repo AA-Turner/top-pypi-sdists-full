@@ -5,7 +5,16 @@ from typing import Any
 from pydantic import ValidationError
 from pytest import approx, mark, raises
 
-from stjames import Method, MixMDSettings, PocketDetectionWorkflow, PocketeerSettings, ProteinForceField, Solvent, WaterForceField
+from stjames import Method, MixMDPocketDiagnostics, MixMDSettings, PocketDetectionWorkflow, PocketeerSettings, ProteinForceField, Solvent, WaterForceField
+
+
+def test_mixmd_receptor_roundtrip_and_legacy_results() -> None:
+    """Preserve receptor references while accepting results without saved receptors."""
+    legacy = {"density_center": [1, 2, 3], "peak_enrichment": 20, "integrated_excess_density": 1}
+    assert MixMDPocketDiagnostics.model_validate(legacy).receptor_uuid is None
+    fields = legacy | {"receptor_uuid": "receptor-uuid"}
+    result = MixMDPocketDiagnostics.model_validate(fields)
+    assert MixMDPocketDiagnostics.model_validate_json(result.model_dump_json()).model_dump(mode="json") == fields
 
 
 @mark.parametrize(

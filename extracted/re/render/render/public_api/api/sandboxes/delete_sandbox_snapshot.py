@@ -1,7 +1,8 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union, cast
+from typing import Any, cast
+from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -13,7 +14,7 @@ def _get_kwargs(
     sandbox_group_id: str,
     snapshot_id: str,
     *,
-    owner_id: Union[Unset, str] = UNSET,
+    owner_id: str | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -23,16 +24,17 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "delete",
-        "url": f"/sandbox-groups/{sandbox_group_id}/snapshots/{snapshot_id}",
+        "url": "/sandbox-groups/{sandbox_group_id}/snapshots/{snapshot_id}".format(
+            sandbox_group_id=quote(str(sandbox_group_id), safe=""),
+            snapshot_id=quote(str(snapshot_id), safe=""),
+        ),
         "params": params,
     }
 
     return _kwargs
 
 
-def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Any, Error]]:
+def _parse_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Any | Error | None:
     if response.status_code == 204:
         response_204 = cast(Any, None)
         return response_204
@@ -83,9 +85,7 @@ def _parse_response(
         return None
 
 
-def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Any, Error]]:
+def _build_response(*, client: AuthenticatedClient | Client, response: httpx2.Response) -> Response[Any | Error]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -98,30 +98,25 @@ def sync_detailed(
     sandbox_group_id: str,
     snapshot_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    owner_id: Union[Unset, str] = UNSET,
-) -> Response[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+    owner_id: str | Unset = UNSET,
+) -> Response[Any | Error]:
     """Delete sandbox snapshot
 
-     Idempotent: returns 204 if the snapshot is already deleted or expired.
-    Sandboxes created from the snapshot are not affected. A snapshot that
-    belongs to another sandbox group returns 404.
-
-    400 with `code: invalid_sandbox_group_id` when `sandboxGroupId` is malformed.
-    400 with `code: invalid_snapshot_id` when `snapshotId` is malformed.
-    409 with `code: snapshot_creating` while the capture is in progress.
+     Delete a snapshot. Sandboxes created from it are not affected. Returns HTTP 204 if the snapshot is
+    already deleted or expired.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        snapshot_id (str):  Example: snp-cph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        snapshot_id (str): The ID of the sandbox snapshot. Example: snp-cph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error]]
+        Response[Any | Error]
     """
 
     kwargs = _get_kwargs(
@@ -141,30 +136,25 @@ def sync(
     sandbox_group_id: str,
     snapshot_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    owner_id: Union[Unset, str] = UNSET,
-) -> Optional[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+    owner_id: str | Unset = UNSET,
+) -> Any | Error | None:
     """Delete sandbox snapshot
 
-     Idempotent: returns 204 if the snapshot is already deleted or expired.
-    Sandboxes created from the snapshot are not affected. A snapshot that
-    belongs to another sandbox group returns 404.
-
-    400 with `code: invalid_sandbox_group_id` when `sandboxGroupId` is malformed.
-    400 with `code: invalid_snapshot_id` when `snapshotId` is malformed.
-    409 with `code: snapshot_creating` while the capture is in progress.
+     Delete a snapshot. Sandboxes created from it are not affected. Returns HTTP 204 if the snapshot is
+    already deleted or expired.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        snapshot_id (str):  Example: snp-cph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        snapshot_id (str): The ID of the sandbox snapshot. Example: snp-cph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error]
+        Any | Error
     """
 
     return sync_detailed(
@@ -179,30 +169,25 @@ async def asyncio_detailed(
     sandbox_group_id: str,
     snapshot_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    owner_id: Union[Unset, str] = UNSET,
-) -> Response[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+    owner_id: str | Unset = UNSET,
+) -> Response[Any | Error]:
     """Delete sandbox snapshot
 
-     Idempotent: returns 204 if the snapshot is already deleted or expired.
-    Sandboxes created from the snapshot are not affected. A snapshot that
-    belongs to another sandbox group returns 404.
-
-    400 with `code: invalid_sandbox_group_id` when `sandboxGroupId` is malformed.
-    400 with `code: invalid_snapshot_id` when `snapshotId` is malformed.
-    409 with `code: snapshot_creating` while the capture is in progress.
+     Delete a snapshot. Sandboxes created from it are not affected. Returns HTTP 204 if the snapshot is
+    already deleted or expired.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        snapshot_id (str):  Example: snp-cph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        snapshot_id (str): The ID of the sandbox snapshot. Example: snp-cph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Any, Error]]
+        Response[Any | Error]
     """
 
     kwargs = _get_kwargs(
@@ -220,30 +205,25 @@ async def asyncio(
     sandbox_group_id: str,
     snapshot_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    owner_id: Union[Unset, str] = UNSET,
-) -> Optional[Union[Any, Error]]:
+    client: AuthenticatedClient | Client,
+    owner_id: str | Unset = UNSET,
+) -> Any | Error | None:
     """Delete sandbox snapshot
 
-     Idempotent: returns 204 if the snapshot is already deleted or expired.
-    Sandboxes created from the snapshot are not affected. A snapshot that
-    belongs to another sandbox group returns 404.
-
-    400 with `code: invalid_sandbox_group_id` when `sandboxGroupId` is malformed.
-    400 with `code: invalid_snapshot_id` when `snapshotId` is malformed.
-    409 with `code: snapshot_creating` while the capture is in progress.
+     Delete a snapshot. Sandboxes created from it are not affected. Returns HTTP 204 if the snapshot is
+    already deleted or expired.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        snapshot_id (str):  Example: snp-cph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        snapshot_id (str): The ID of the sandbox snapshot. Example: snp-cph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Any, Error]
+        Any | Error
     """
 
     return (

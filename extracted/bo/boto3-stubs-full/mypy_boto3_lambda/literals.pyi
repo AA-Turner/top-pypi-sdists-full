@@ -101,7 +101,9 @@ __all__ = (
 
 ApplicationLogLevelType = Literal["DEBUG", "ERROR", "FATAL", "INFO", "TRACE", "WARN"]
 ArchitectureType = Literal["arm64", "x86_64"]
-CapacityProviderPredefinedMetricTypeType = Literal["LambdaCapacityProviderAverageCPUUtilization"]
+CapacityProviderPredefinedMetricTypeType = Literal[
+    "LambdaCapacityProviderAverageCPUUtilization", "LambdaCapacityProviderAverageGPUUtilization"
+]
 CapacityProviderScalingModeType = Literal["Auto", "Manual"]
 CapacityProviderStateType = Literal["Active", "Deleting", "Failed", "Pending"]
 CodeSigningPolicyType = Literal["Enforce", "Warn"]
@@ -178,6 +180,7 @@ LastUpdateStatusReasonCodeType = Literal[
     "FunctionError.TooManyExtensions",
     "ImageAccessDenied",
     "ImageDeleted",
+    "IncompatibleAcceleratorInstanceTypes",
     "InsufficientCapacity",
     "InsufficientRolePermissions",
     "InternalError",
@@ -324,6 +327,7 @@ StateReasonCodeType = Literal[
     "Idle",
     "ImageAccessDenied",
     "ImageDeleted",
+    "IncompatibleAcceleratorInstanceTypes",
     "InsufficientCapacity",
     "InsufficientRolePermissions",
     "InternalError",
@@ -465,6 +469,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -649,6 +654,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -716,6 +722,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -19,14 +19,14 @@ class IntrinioEconomicDataSources(System.Object):
         """
         This data represents the effective yield of the BofA Merrill Lynch US Corporate BBB Index, a subset of the BofA
             Merrill Lynch US Corporate Master Index tracking the performance of US dollar denominated investment grade rated
-            corporate debt publically issued in the US domestic market.
+            corporate debt publicly issued in the US domestic market.
         """
 
         US_CORPORATE_BBB_OPTION_ADJUSTED_SPREAD: str = "$BAMLC0A4CBBB"
         """
         This data represents the Option-Adjusted Spread (OAS) of the BofA Merrill Lynch US Corporate BBB Index, a subset of
             the BofA Merrill Lynch US Corporate Master Index tracking the performance of US dollar denominated investment grade
-            rated corporate debt publically issued in the US domestic market.
+            rated corporate debt publicly issued in the US domestic market.
         """
 
         US_CORPORATE_MASTER_OPTION_ADJUSTED_SPREAD: str = "$BAMLC0A0CM"
@@ -40,14 +40,14 @@ class IntrinioEconomicDataSources(System.Object):
         """
         This data represents the Option-Adjusted Spread (OAS) of the BofA Merrill Lynch US Corporate BB Index, a subset of
             the BofA Merrill Lynch US High Yield Master II Index tracking the performance of US dollar denominated below
-            investment grade rated corporate debt publically issued in the US domestic market.
+            investment grade rated corporate debt publicly issued in the US domestic market.
         """
 
         US_HIGH_YIELD_B_OPTION_ADJUSTED_SPREAD: str = "$BAMLH0A2HYB"
         """
         This data represents the Option-Adjusted Spread (OAS) of the BofA Merrill Lynch US Corporate B Index, a subset of
             the BofA Merrill Lynch US High Yield Master II Index tracking the performance of US dollar denominated below
-            investment grade rated corporate debt publically issued in the US domestic market. This subset includes all
+            investment grade rated corporate debt publicly issued in the US domestic market. This subset includes all
             securities with a given investment grade rating B.
         """
 
@@ -55,13 +55,13 @@ class IntrinioEconomicDataSources(System.Object):
         """
         This data represents the Option-Adjusted Spread (OAS) of the BofA Merrill Lynch US Corporate C Index, a subset of
             the BofA Merrill Lynch US High Yield Master II Index tracking the performance of US dollar denominated below
-            investment grade rated corporate debt publically issued in the US domestic market.
+            investment grade rated corporate debt publicly issued in the US domestic market.
         """
 
         US_HIGH_YIELD_EFFECTIVE_YIELD: str = "$BAMLH0A0HYM2EY"
         """
         This data represents the effective yield of the BofA Merrill Lynch US High Yield Master II Index, which tracks the
-            performance of US dollar denominated below investment grade rated corporate debt publically issued in the US
+            performance of US dollar denominated below investment grade rated corporate debt publicly issued in the US
             domestic market.
             Source: https://fred.stlouisfed.org/series/BAMLH0A0HYM2EY
         """
@@ -69,7 +69,7 @@ class IntrinioEconomicDataSources(System.Object):
         US_HIGH_YIELD_MASTER_II_TOTAL_RETURN_INDEX_VALUE: str = "$BAMLHYH0A0HYM2TRIV"
         """
         This data represents the BofA Merrill Lynch US High Yield Master II Index value, which tracks the performance of US
-            dollar denominated below investment grade rated corporate debt publically issued in the US domestic market.
+            dollar denominated below investment grade rated corporate debt publicly issued in the US domestic market.
         """
 
         US_HIGH_YIELD_OPTION_ADJUSTED_SPREAD: str = "$BAMLH0A0HYM2"
@@ -277,7 +277,7 @@ class IntrinioConfig(System.Object):
 
 
 class IntrinioDataTransformation(IntEnum):
-    """TRanformation available for the Economic data."""
+    """Transformation available for the Economic data."""
 
     ROC = 0
     """The rate of change"""

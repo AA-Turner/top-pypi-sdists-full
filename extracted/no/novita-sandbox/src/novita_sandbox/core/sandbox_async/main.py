@@ -13,9 +13,15 @@ from novita_sandbox.core.api.client.types import Unset
 from novita_sandbox.core.api.client_async import get_transport
 from novita_sandbox.core.compat import raise_if_legacy
 from novita_sandbox.core.connection_config import ApiParams, ConnectionConfig
-from novita_sandbox.core.envd.api import ENVD_API_HEALTH_ROUTE, ahandle_envd_api_exception
+from novita_sandbox.core.envd.api import (
+    ENVD_API_HEALTH_ROUTE,
+    ahandle_envd_api_exception,
+)
 from novita_sandbox.core.envd.versions import ENVD_DEBUG_FALLBACK
-from novita_sandbox.core.exceptions import SandboxException, format_request_timeout_error
+from novita_sandbox.core.exceptions import (
+    SandboxException,
+    format_request_timeout_error,
+)
 from novita_sandbox.core.sandbox.main import SandboxOpts
 from novita_sandbox.core.sandbox.sandbox_api import (
     McpServer,
@@ -25,6 +31,9 @@ from novita_sandbox.core.sandbox.sandbox_api import (
     SnapshotInfo,
     SandboxQuota,
     SandboxEventsResult,
+    SandboxResizeResult,
+    SandboxResourceTargets,
+    reject_unknown_resize_kwargs,
 )
 from novita_sandbox.core.sandbox.utils import class_method_variant
 from novita_sandbox.core.sandbox_async.commands.command import Commands
@@ -38,7 +47,9 @@ from novita_sandbox.core.template_async.main import AsyncTemplate
 from novita_sandbox.core.template.logger import default_build_logger
 from novita_sandbox.core.oci import normalize_oci_image, oci_fingerprint, oci_slug
 from novita_sandbox.core.exceptions import RegistryAuthenticationException
-from novita_sandbox.core.api.client.models import SandboxVolumeMount as SandboxVolumeMountAPI
+from novita_sandbox.core.api.client.models import (
+    SandboxVolumeMount as SandboxVolumeMountAPI,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +255,7 @@ class AsyncSandbox(SandboxApi):
         lifecycle: Optional[SandboxLifecycle] = None,
         volume_mounts: Optional[SandboxAsyncVolumeMount] = None,
         node_id: Optional[str] = None,
+        resources: Optional[SandboxResourceTargets] = None,
         **opts: Unpack[ApiParams],
     ) -> Self:
         """
@@ -275,8 +287,12 @@ class AsyncSandbox(SandboxApi):
             normalized = normalize_oci_image(image)
             build_opts = dict(build or {})
             registry = build_opts.pop("registry", None)
-            if registry is not None and (bool(registry.get("username")) != bool(registry.get("password"))):
-                raise RegistryAuthenticationException("registry username and password must be provided together")
+            if registry is not None and (
+                bool(registry.get("username")) != bool(registry.get("password"))
+            ):
+                raise RegistryAuthenticationException(
+                    "registry username and password must be provided together"
+                )
             on_build_logs = build_opts.pop("on_build_logs", None)
             if on_build_logs is None and build_opts.pop("build_logs", True):
                 on_build_logs = default_build_logger()
@@ -298,7 +314,9 @@ class AsyncSandbox(SandboxApi):
                     build_opts.pop(key, None)
                 if "no_cache" in build_opts:
                     build_opts["skip_cache"] = build_opts.pop("no_cache")
-                info = await AsyncTemplate.build(builder, name, on_build_logs=on_build_logs, **build_opts, **opts)
+                info = await AsyncTemplate.build(
+                    builder, name, on_build_logs=on_build_logs, **build_opts, **opts
+                )
                 template = info.template_id
 
         _raise_if_legacy_mcp(mcp, opts)
@@ -338,6 +356,7 @@ class AsyncSandbox(SandboxApi):
             ),
             volume_mounts=transformed_mounts,
             node_id=node_id,
+            resources=resources,
             **opts,
         )
 
@@ -946,49 +965,33 @@ class AsyncSandbox(SandboxApi):
             self._set_traffic_access_token(traffic_access_token)
         return success
 
-    async def hotplug_memory(
-        self,
-        requested_size_mib: int,
-        **opts: Unpack[ApiParams],
-    ) -> None:
-        """
-        Add hotplug memory to the running sandbox.
-
-        `requested_size_mib=512` adds 512 MiB of memory; it does not resize the
-        sandbox to a total of 512 MiB.
-
-        Deprecated: use `resize(memory_mib=...)` instead.
-        """
-        return await SandboxApi._cls_hotplug_memory(
-            sandbox_id=self.sandbox_id,
-            requested_size_mib=requested_size_mib,
-            **self.connection_config.get_api_params(**opts),
-        )
-
     async def resize(
         self,
         *,
-        memory_mib: Optional[int] = None,
+        cpu: Optional[int] = None,
+        memory_gib: Optional[float] = None,
+        disk_gib: Optional[float] = None,
         **opts: Unpack[ApiParams],
-    ) -> None:
-        """
-        Add hotplug memory to the running sandbox.
+    ) -> SandboxResizeResult:
+        """Increase this sandbox to absolute CPU, memory and disk totals.
 
-        `memory_mib=512` adds 512 MiB of memory; it does not resize the
-        sandbox to a total of 512 MiB.
+        ``memory_gib`` and ``disk_gib`` are converted to MiB for the API.
         """
-        if memory_mib is None:
-            raise ValueError("resize requires memory_mib")
-
-        return await self.hotplug_memory(memory_mib, **opts)
+        reject_unknown_resize_kwargs(opts)
+        return await SandboxApi._cls_resize(
+            self.sandbox_id,
+            cpu=cpu,
+            memory_gib=memory_gib,
+            disk_gib=disk_gib,
+            **self.connection_config.get_api_params(**opts),
+        )
 
     @overload
     async def commit(
         self,
         alias: Optional[str] = None,
         **opts: Unpack[ApiParams],
-    ):
-        ...
+    ): ...
 
     @overload
     @staticmethod
@@ -996,8 +999,7 @@ class AsyncSandbox(SandboxApi):
         sandbox_id: str,
         alias: Optional[str] = None,
         **opts: Unpack[ApiParams],
-    ):
-        ...
+    ): ...
 
     @class_method_variant("_cls_commit")
     async def commit(
@@ -1271,7 +1273,9 @@ class AsyncSandbox(SandboxApi):
             **self.connection_config.get_api_params(**opts),
         )
 
-    async def unmount_volume(self, path: str, force: bool = False, **opts: Unpack[ApiParams]):
+    async def unmount_volume(
+        self, path: str, force: bool = False, **opts: Unpack[ApiParams]
+    ):
         """
         Unmount a volume from this sandbox.
 
@@ -1353,6 +1357,7 @@ class AsyncSandbox(SandboxApi):
         lifecycle: Optional[SandboxLifecycle] = None,
         volume_mounts: Optional[list] = None,
         node_id: Optional[str] = None,
+        resources: Optional[SandboxResourceTargets] = None,
         **opts: Unpack[ApiParams],
     ) -> Self:
         extra_sandbox_headers = {}
@@ -1380,6 +1385,7 @@ class AsyncSandbox(SandboxApi):
                 lifecycle=lifecycle,
                 volume_mounts=volume_mounts,
                 node_id=node_id,
+                resources=resources,
                 **opts,
             )
 

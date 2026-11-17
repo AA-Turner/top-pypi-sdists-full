@@ -5,25 +5,32 @@ one_case, and tail_reads -- rules/S2's trailing run as group read it
 once, after P3's joins and before the particle chain (#614), which the
 main segment's placement takes rather than peeling again, save where
 group's joins left no name word in front of it; and interpunct_offsets,
-whose 间隔号 keeps a transcription in its declared order (rules/W4).
+whose 间隔号 keeps a transcription in its declared order (rules/W4);
+and extracted, whether a set-apart clause stands beside the name
+(N3's single-name rule and the sites that follow it).
 Produces: tokens with roles set on every main-stream token, and the
 folded-middle and attached tags on the particles P6's attachment joins
 to the family after a family comma (#613; the attached tag, 3.0's 4c,
 tells rules/R9 the attachment from O3's fold); and order, the order
 the positional read used, None where none happened (ParseState.order).
 Reads: Policy.name_order (#270), Policy.lone_name_word (rules/O5,
-the field a lone name word takes, #1111), is_suffix_lenient on the trailing
+the field a lone name word takes, #1111), Policy.initials_as_family
+(rules/O4's order report stands down under it, #1254), is_suffix_lenient on the trailing
 piece of a two-part comma name, and Policy.script_orders (#271, which
 overrides it when every name piece is written wholly in one script, or
 in the Han/Hiragana/Katakana repertoire the #272 kana license shares
-across pieces); token/piece tags; Lexicon only through tags already
-applied by classify (plus the leading-title period rule), and
+across pieces); token/piece tags; Lexicon through tags already
+applied by classify (plus the leading-title period rule), save the
+four suffix sets (suffix_words, suffix_acronyms and their ambiguous
+sets), which the walk over the given part after a family comma reads
+through _vocab.is_suffix_lenient (`_reads_as_a_trailing_suffix`), and
 Lexicon.given_name_titles, which an ambiguity's alternative asks for
 rules/P5's given-name-title licence; and Lexicon.title_phrases, titles
 and titles_ambiguous through _vocab.in_a_title_phrase, for rules/H9's
 TITLE_OR_NAME report on a contested word opening the name.
 
-Implements rules H2, H4, H5, H6, H7, H8, N3, O4, O5, S10, W4, and P6 after a family comma,
+Implements rules H2, H4, H5, H6, H7, H8, H9, H10, C9, N3, O4, O5, P9,
+S8, S10, S12, W4, and P6 after a family comma,
 of docs/design/rules/,
 each cited at its code below. Ports v1's assignment loops.
 NO_COMMA (per name_order):
@@ -99,12 +106,15 @@ joined unit carrying title vocabulary.
 """
 from __future__ import annotations
 
+import unicodedata
+
 from collections.abc import Sequence, Set
 from typing import NamedTuple
 
 from nameparser._lexicon import Lexicon, _run_addresses_by_given
 from nameparser._pipeline._vocab import (
-    _ROMAN, effective_script, in_a_title_phrase, is_initial_shaped,
+    _ROMAN, effective_script, in_a_title_phrase, in_initialless_script,
+    is_initial_shaped,
     TITLE_READING, is_listed_numeral, particle_reading,
     is_suffix_lenient, name_reading, suffix_reading,
     numeral_leans_to_the_name, numeral_settled_by_case,
@@ -118,15 +128,15 @@ from nameparser._pipeline._pieces import (
     Peel, TailRead, is_prefix_piece, is_suffix_piece, is_title_piece,
     leading_titles,
     particle_tail, listed_lean, peel_walk, settled_by_case,
-    starts_a_credential_run,
+    starts_a_credential_run, starts_the_run_here,
     tail_reading, trailing_titles,
 )
 from nameparser._pipeline._state import (
-    AMBIGUOUS_ACRONYM_TAG, ATTACHED_TAG, NAME_ROLES, TITLE_AMBIGUOUS_TAG, ParseState,
+    AMBIGUOUS_ACRONYM_TAG, ATTACHED_TAG, DOTTED_TITLE_TAG, NAME_ROLES, TITLE_AMBIGUOUS_TAG, ParseState,
     Beside, Deferred, PendingAmbiguity, PendingReading, Structure,
     WorkToken, _AMBIGUOUS_CREDENTIAL_TAGS, _NEVER_FLIPPED, copy_with,
 )
-from nameparser._policy import Policy, Script
+from nameparser._policy import _EAST_ASIAN_SCRIPTS, _JA_SCRIPTS, Policy, Script
 from nameparser._types import (FOLDED_TAG, SHAPE_ACRONYM_TAG, AmbiguityKind,
                                ReadingKind, ReadingSource, Role)
 
@@ -270,13 +280,19 @@ def _peel_leading_titles(pieces: tuple[tuple[int, ...], ...],
 
 class EffectiveOrder(NamedTuple):
     """What _effective_order made of a name's scripts. `order` is the
-    order the positional read uses; `by_script` says a script_orders
-    entry RESOLVED it, which is not the same as `order` happening to
+    order the positional read uses; `by_script` says an East Asian
+    script's script_orders entry RESOLVED it, which is not the same as
+    `order` happening to
     equal the declared name_order -- under a declared family-first
     order a Han name's W4 entry and the declaration agree, and only
     this flag distinguishes the script rule DECIDING the reading from
     the caller's declaration standing unopposed. O5's convention
-    report reads it (#449)."""
+    report reads it (#449). Set only for an East Asian script's entry:
+    Han, Hangul and kana, whose own convention settles the order (W4)
+    and so a lone word's field (O5's W4 Except), and a caller's own
+    katakana entry, which asserts the Japanese convention (#594): a Cyrillic entry, a pack's declared order
+    (locales.MN, #1237), orders a longer name and leaves a lone word to
+    O5's convention."""
 
     order: tuple[Role, Role, Role]
     by_script: bool
@@ -285,7 +301,10 @@ class EffectiveOrder(NamedTuple):
 # rules/W4: "a name written wholly in one East Asian script, or in
 # the kana-licensed Japanese repertoire, reads family-first whatever
 # order the caller declared; a wholly-katakana name keeps the declared
-# order" (history: decisions/W4)
+# order; and a name written wholly in a script a chosen locale pack
+# gives an order reads by that order" -- both clauses: the entry
+# answers for any script, its by_script only for an East Asian one
+# (history: decisions/W4)
 def _effective_order(policy: Policy,
                      pieces: Sequence[tuple[int, ...]],
                      name_pieces: Sequence[int],
@@ -323,7 +342,9 @@ def _effective_order(policy: Policy,
     parse (decisions/parse-cost).
 
     Returns an EffectiveOrder: the order triple, and `by_script` set only on
-    the one path where an entry answered. Every fallback below is a
+    the one path where an entry answered for an East Asian script (a
+    Cyrillic entry answers the order with `by_script` False, see
+    EffectiveOrder). Every fallback below is a
     script rule DECLINING, and reports it as such.
     """
     declared = EffectiveOrder(policy.name_order, by_script=False)
@@ -344,6 +365,17 @@ def _effective_order(policy: Policy,
             if script is None:
                 # Latin, mixed, or a script with no entry: never a key
                 return declared
+            if script not in _JA_SCRIPTS:
+                # A script outside the kana license resolves alone to
+                # itself or, beside any other, to None, so one with no
+                # entry decides the declared order now; this spares a
+                # Cyrillic name the rest of its words' classifying
+                # under a policy with no Cyrillic entry.
+                for keyed, _order in policy.script_orders:
+                    if keyed is script:
+                        break
+                else:
+                    return declared
             found.add(script)
     resolved = resolve_script_set(found)
     if resolved is None:
@@ -352,7 +384,8 @@ def _effective_order(policy: Policy,
         return declared
     for script, order in policy.script_orders:
         if script is resolved:
-            return EffectiveOrder(order, by_script=True)
+            return EffectiveOrder(
+                order, by_script=resolved in _EAST_ASIAN_SCRIPTS)
     # the resolved script has no entry: the declaration stands, and
     # nothing about the writing system decided the reading
     return declared
@@ -573,6 +606,63 @@ def _assign_main(seg_idx: int, state: ParseState,
     for piece_idx in suffix_pieces:
         _set_roles(tokens, pieces[piece_idx], Role.SUFFIX)
 
+    # rules/O4: "a name word followed by nothing but initials reports
+    # the order" -- the positional read takes the word as the given
+    # name, where a byline writes its family name first (`Armitage J
+    # O`); declared nowhere, so the default given-first order picked it
+    # (decisions/O4, #1254). Bare capitals (`Armitage JO`) are no
+    # initials here: they are written as a short surname is (`Zhi LI`).
+    # Inline and nested so a plain name exits at its second piece
+    # (the parse-cost band, decisions/parse-cost). No test of the comma
+    # or the segment is needed: assign calls this for segment 0 under
+    # no comma or a suffix comma alone. Nor of a script's order: one
+    # needs the name written wholly in Han, Hangul or kana, which hold
+    # no initial (rules/T5) for the walk below to find (#1348 review).
+    order_report: PendingAmbiguity | None = None
+    if (len(name_pieces) >= 2 and order[0] is Role.GIVEN
+            and not state.policy.initials_as_family):
+        first = pieces[name_pieces[0]]
+        # a particle in front is PARTICLE_OR_GIVEN's fork, reported
+        # there; an initial in front is refused below by its one letter
+        initialed = (len(first) == 1
+                     and "particle" not in tokens[first[0]].tags)
+        for k in name_pieces[1:]:
+            if not initialed:
+                break
+            piece = pieces[k]
+            letters = tokens[piece[0]]
+            # chunks of the composed spelling, as classify measures a
+            # letter (`composed_len`): a decomposed `É.S.` is one run;
+            # the shape tag is given only to letters (period_joined_vocab's
+            # alphabetic gate), so a chunk's length is the whole test
+            initialed = len(piece) == 1 and (
+                "initial" in letters.tags
+                or SHAPE_ACRONYM_TAG in letters.tags
+                and all(len(chunk) == 1
+                        for chunk in unicodedata.normalize(
+                            "NFC", letters.text).rstrip(".").split(".")))
+        text = unicodedata.normalize("NFC", tokens[first[0]].text)
+        # the word in front is a name word a byline could write first:
+        # no run of initials itself (rules/T7's `J.A.`), and in a script
+        # that writes initials, as no byline in Han or Hangul does
+        if (initialed and any(c.isalpha() for c in text)
+                and not all(len(chunk) == 1
+                            for chunk in text.rstrip(".").split("."))
+                and not in_initialless_script(text)):
+            order_report = PendingAmbiguity(
+                AmbiguityKind.ORDER,
+                f"{tokens[first[0]].text!r} is the only name word before "
+                f"initials, which a byline writes after the family name "
+                f"and a South Asian name writes as the family; read as ",
+                tuple(first),
+                # rules/A1: "the order (O4), whose other reading lays out
+                # the whole name rather than moving one word" -- so the
+                # report names none and says it in words (decisions/O4)
+                field_tail=(" by the given-first order; read family "
+                            "first (name_order=FAMILY_FIRST), the word in "
+                            "front is the family name and the letters "
+                            "the given and middle initials"))
+
     def as_a_name(i: int) -> PendingReading:
         # every other word read as the parse reads it -- the carve-out's
         # name word too -- the name word the reading declines would be
@@ -600,6 +690,10 @@ def _assign_main(seg_idx: int, state: ParseState,
         report = ambiguities[r]
         ambiguities[r] = copy_with(
             report, alternative=as_a_name(report.indices[0]))
+    # after the trailing reports are given their name reading, which
+    # the order report has none of
+    if order_report is not None:
+        ambiguities.append(order_report)
     # Both emitters below turn on the PEEL's count, so neither can
     # reach a name that kept two name pieces, and the two scans are
     # nested under the count rather than run beside it: they cost the
@@ -645,7 +739,10 @@ def _assign_main(seg_idx: int, state: ParseState,
         # above out of these branches. Title vocabulary in the unit makes
         # the doubt H4's or H7's (is the WORD a title), anything else
         # O5's (which FIELD it took, or N3's where a nickname decides
-        # it), so only the second reads `field_undecided`.
+        # it), so only the second reads `field_undecided`: a title or a
+        # maiden name beside a lone title word is placed by H1 or M4
+        # whatever N3 does here, and a script order never reaches this
+        # branch (#1169).
         if peeled.names == 1 and not resolved.by_script:
             # rules/H4: "an input whose only remaining name word
             # after the title peel is itself title vocabulary reads
@@ -662,6 +759,20 @@ def _assign_main(seg_idx: int, state: ParseState,
             if any("vocab:title" in tokens[i].tags for i in head):
                 text = " ".join(tokens[i].text for i in head)
                 lone = len(head) == 1
+                # rules/N3: "a name that is only a nickname and one name
+                # word reads that word as the family name, whatever
+                # suffix stands beside them" -- a title word left as
+                # that word too, its doubt (is it a title) still H4's
+                # report; the scan behind `state.extracted`, as at N3's
+                # other sites (decisions/N3, #1169)
+                # The word's own reading, as O5's clause below asks it:
+                # a title-particle ('St', 'Graf') or an initial keeps
+                # the reading it has, as N3's Except has it
+                if (lone and state.extracted
+                        and tokens[head[0]].tags.isdisjoint(
+                            _WORD_ALREADY_CLAIMED)
+                        and any(t.role is Role.NICKNAME for t in tokens)):
+                    _set_roles(tokens, head, Role.FAMILY)
                 ambiguities.append(PendingAmbiguity(
                     AmbiguityKind.TITLE_OR_NAME,
                     f"{text!r} is title vocabulary and the only name word "
@@ -871,7 +982,7 @@ def _reads_as_a_trailing_suffix(piece: Sequence[int],
     marks an abbreviation, is name material -- so 'Smith, John V.' is
     middle 'V.' where 'Smith, John V' stays suffix 'V' (v1 parity,
     #144). Only behind a NAME word: behind a suffix the credential run
-    owns it, and 'Smith, John PhD I.' keeps suffix 'PhD, I.'.
+    owns it, and 'Smith, John PhD I.' keeps suffix 'PhD I.'.
 
     The period is the whole carve-out. is_initial_shaped would be
     redundant beside it: the caller only consults this where
@@ -1652,7 +1763,7 @@ def assign(state: ParseState) -> ParseState:
             # reading now (#613), so the walk here never meets
             # either: a last piece
             # that is unambiguously suffix-shaped is a suffix, where v1
-            # made it the given ('Andrews, M.D.', 'Smith, Dr. Jr.';
+            # made it the given ('Smith, Dr. Jr.';
             # classified fix(comma-family)), a segment whose only
             # non-title piece is a suffix piece holding no name word;
             # and a credential opening the segment makes it the
@@ -1947,29 +2058,49 @@ def assign(state: ParseState) -> ParseState:
         # refuse the shape agree on what a title word is, save H5's
         # written-short clause, which this slot does not read
         # (decisions/H9, #999: 'Maj. Smith, John' keeps family 'Maj. Smith').
+        #
+        # rules/H10: "where a title the run keeps stands behind it" --
+        # a dotted run ('U.S. Senator Smith, John') counts as a title
+        # word here as in the leading run, and one the run ends on is
+        # given back ('U.S. Grant Smith, John' keeps family 'U.S. Grant
+        # Smith'), so the roles are set once the run is known.
         lead = 0
         floor = len(fam_pieces)
         # the length test and the tag test first, both C-level: a part
         # no title opens ('Smith, John', 'Smith Jones, John') pays no
-        # frame. The tags are the two arms `is_title_piece` answers yes
-        # from, so the predicate stays the one that answers
+        # frame. "title" and "vocab:title" are the two arms
+        # `is_title_piece` answers yes from, so for a listed title the
+        # predicate stays the one that answers; a lone piece carrying
+        # classify's DOTTED_TITLE_TAG is taken on the tag alone
+        # (rules/H10) and given back below unless a title the run keeps
+        # stands behind it
+        tags0 = tokens[fam_pieces[0][0]].tags if fam_pieces else frozenset()
         if (floor > 1
-                and ("title" in fam_tags[0]
-                     or "vocab:title" in tokens[fam_pieces[0][0]].tags)
-                and is_title_piece(fam_pieces[0], fam_tags[0], tokens)):
+                and ("title" in fam_tags[0] or "vocab:title" in tags0
+                     or DOTTED_TITLE_TAG in tags0)
+                and ((len(fam_pieces[0]) == 1 and DOTTED_TITLE_TAG in tags0)
+                     or is_title_piece(fam_pieces[0], fam_tags[0], tokens))):
             # where the trailing post-nominal run starts: walked once,
             # and only for a part a title opens
             while floor > 1 and is_suffix_piece(fam_pieces[floor - 1],
                                                 fam_tags[floor - 1],
                                                 tokens):
                 floor -= 1
-            # the first piece is a title, asked above
+            # the first piece is a title or a dotted run, asked above; a
+            # dotted run the run ends on is given back after the walk
             while (lead + 1 < floor
                    and (lead == 0 or is_title_piece(
-                       fam_pieces[lead], fam_tags[lead], tokens))
+                       fam_pieces[lead], fam_tags[lead], tokens)
+                        or (len(fam_pieces[lead]) == 1 and DOTTED_TITLE_TAG
+                            in tokens[fam_pieces[lead][0]].tags))
                    and "particle" not in tokens[fam_pieces[lead][0]].tags):
-                _set_roles(tokens, fam_pieces[lead], Role.TITLE)
                 lead += 1
+            while (lead and len(fam_pieces[lead - 1]) == 1
+                   and DOTTED_TITLE_TAG
+                   in tokens[fam_pieces[lead - 1][0]].tags):
+                lead -= 1
+            for k in range(lead):
+                _set_roles(tokens, fam_pieces[k], Role.TITLE)
         # rules/P9: "a particle that is also suffix vocabulary heads
         # the name word behind it" -- with a name piece behind it in
         # this part (vd, mc), it heads that name, as P2's join does,
@@ -1985,6 +2116,12 @@ def assign(state: ParseState) -> ParseState:
         # 0 is with no title ('Dr. PhD Smith, John' as 'PhD Smith, John').
         # A piece at or past the floor is already known to be a suffix
         # with nothing but suffixes behind it, so it is not asked again.
+
+        # Whether a particle read as family stands in front of the
+        # piece the loop is at, and whether the piece right in front was
+        # read as family, for P2's arm below.
+        chained = False
+        family_before = False
         for k in range(lead, len(fam_pieces)):
             piece = fam_pieces[k]
             if k >= floor:
@@ -2025,10 +2162,33 @@ def assign(state: ParseState) -> ParseState:
                              and "particle" in tokens[piece[0]].tags
                              and not is_suffix_piece(
                                  fam_pieces[k + 1], fam_tags[k + 1],
-                                 tokens))):
+                                 tokens))
+                    # rules/P2: "before a family comma the part keeps
+                    # either in the family behind a particle, as the
+                    # chain does" -- a suffix word S8 starts no run at
+                    # or declines for its writing, anything but
+                    # suffixes behind it ('bin Abd Rahman, Ahmad',
+                    # 'bin Md Rahman, Ahmad'); a particle that is suffix
+                    # vocabulary too is P9's (decisions/P2, #1177)
+                    and not (chained and family_before
+                             and "particle" not in tokens[piece[0]].tags
+                             and not all(
+                                 is_suffix_piece(fam_pieces[j], fam_tags[j],
+                                                 tokens)
+                                 for j in range(k + 1, len(fam_pieces)))
+                             and not starts_the_run_here(
+                                 k, fam_pieces, fam_tags, tokens,
+                                 state.one_case, False))):
                 _set_roles(tokens, piece, Role.SUFFIX)
             else:
                 _set_roles(tokens, piece, Role.FAMILY)
+                # the tag tests are is_prefix_piece's own arms, inline
+                # so a family word pays no frame
+                chained = chained or ("prefix" in fam_tags[k]
+                                      or len(piece) == 1
+                                      and "particle"
+                                      in tokens[piece[0]].tags)
+            family_before = tokens[piece[0]].role is Role.FAMILY
         tail = 2
     # rules/C2: segments past the structure's name segments are
     # consumed as suffixes, except "a word of the title vocabulary there

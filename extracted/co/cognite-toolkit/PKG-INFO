@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cognite_toolkit
-Version: 0.9.88
+Version: 0.9.91
 Summary: Official Cognite Data Fusion tool for project templates and configuration deployment
 Author: Cognite AS
 Author-email: Cognite AS <support@cognite.com>
@@ -86,6 +86,12 @@ pip install cognite-toolkit
 ```
 
 Then run `cdf --help` to get started with the interactive command-line tool.
+
+or to try it out without any installation (requires `uv`):
+
+```bash
+uvx --from cognite-toolkit cdf --version
+```
 
 ## For more information
 

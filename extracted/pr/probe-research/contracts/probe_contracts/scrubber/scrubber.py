@@ -111,6 +111,13 @@ class CredentialInPath(CredentialBlocked):
     this one, and a message is no contract to branch on."""
 
 
+class SourceUnreadable(CredentialBlocked):
+    """The file could not be opened, stat'd or read on this host (gone, a
+    permission, an I/O error): the host's condition, not what the file holds.
+    Its own type because a caller that retries may try this one again, while a
+    refusal of the path or the content answers the same every time."""
+
+
 class ArtifactInspectionWarning(RuntimeWarning):
     """Uploading bytes whose full contents could not be checked for credentials."""
 
@@ -197,6 +204,10 @@ def policy() -> ScanPolicy:
 def _refuse(reason: str) -> None:
     # Never interpolate a filename, content, archive member, or exception value.
     raise CredentialBlocked("Artifact upload refused: " + reason) from None
+
+
+def _refuse_unreadable() -> None:
+    raise SourceUnreadable("Artifact upload refused: upload source could not be inspected") from None
 
 
 #: Recorded when the key-name tier fires. Deliberately NOT a rule name from
@@ -788,10 +799,16 @@ def read_source(path) -> bytes:
     return _read_source(path, inspect=False)
 
 
+def has_credential_in_path(path) -> bool:
+    """Whether the path itself looks like it holds a credential: a caller that
+    stores a path it did not upload (a skipped file's name) asks this first."""
+    return any(_findings(os.fspath(path)))
+
+
 def _check_path(path) -> None:
     # A path is not content: it is echoed in rows, logs and errors, and there
     # is nothing to rewrite. This stays a refusal.
-    if any(_findings(os.fspath(path))):
+    if has_credential_in_path(path):
         raise CredentialInPath("Artifact upload refused: credential detected in source path") from None
 
 
@@ -812,7 +829,7 @@ def _read_source(path, *, scan_policy: ScanPolicy | None = None, inspect: bool) 
                 return _read_checked(stream, scan_policy=scan_policy)
             return _read_raw(stream, scan_policy=scan_policy)
     except OSError:
-        _refuse("upload source could not be inspected")
+        _refuse_unreadable()
 
 
 def read_upload_redacted(
@@ -980,7 +997,7 @@ def check_upload(path, *, force: bool = False, is_reference: bool = False) -> No
     try:
         info = os.stat(path)
     except OSError:
-        _refuse("upload source could not be inspected")
+        _refuse_unreadable()
     _check_source(info)
 
 

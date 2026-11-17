@@ -2,20 +2,20 @@
 
 use sqlbuild_host::entries::models::UserCodeHost;
 
-use crate::bindings::_helpers::compile_driver::deferral::build_deferred_locations;
-use crate::bindings::_helpers::compile_driver::deferral::gather_deferred_relations;
-use crate::bindings::_helpers::compile_driver::deferral::resolve_deferred_target_config;
-use crate::bindings::_helpers::compile_driver::pipeline_entries::build_project_graph_from_compiled_project;
-use crate::bindings::_helpers::compile_driver::python_plan_entries::{
-    build_python_run_plan_outputs, python_read_source_names_for,
-};
-use crate::bindings::_helpers::compiled_views::{project_reads, source_reads};
-use crate::bindings::_helpers::graph::keys::{KeyCache, native_key};
-use crate::bindings::_helpers::planner_entries::execution_plan::build_execution_plan;
-use crate::bindings::_helpers::planner_phases::objects::object;
+use sqlbuild_python_compile::compile_driver::main::stages::build_deferred_locations::build_deferred_locations;
+use sqlbuild_python_compile::compile_driver::main::stages::gather_deferred_relations::gather_deferred_relations;
+use sqlbuild_python_compile::compile_driver::main::stages::resolve_deferred_target_config::resolve_deferred_target_config;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_graph_from_compiled_project::build_project_graph_from_compiled_project;
+use sqlbuild_python_compile::compile_driver::main::setup::build_python_run_plan_outputs::build_python_run_plan_outputs;
+use sqlbuild_python_compile::compile_driver::main::setup::python_read_source_names_for::python_read_source_names_for;
 use sqlbuild_analysis::planner_scope::constants::SOURCE;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
+use sqlbuild_python_planner::planner_entries::main::plans::build_execution_plan::build_execution_plan;
+use sqlbuild_python_project::graph::main::nodes::native_key::native_key;
+use sqlbuild_python_project::graph::models::KeyCache;
+use sqlbuild_python_project::planner_phases::main::object::object;
+use sqlbuild_python_project::resource_views::main::source_reads::source_entry::source_entry;
 use std::collections::HashSet;
 
 use pyo3::exceptions::PyException;
@@ -23,13 +23,13 @@ use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyRes
 use pyo3::types::{PyDict, PyDictMethods, PyFrozenSet};
 use pyo3::{pyfunction, wrap_pyfunction};
 
-use crate::bindings::_helpers::compile_driver::phases::monotonic;
-use crate::bindings::_helpers::graph::python_node_graph::run_selection_from_inputs;
 use sqlbuild_python_base::boundary::models::KeywordArguments;
 use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::stages::monotonic::monotonic;
+use sqlbuild_python_project::graph::main::python_nodes::run_selection_from_inputs::run_selection_from_inputs;
 
 const SINGLE_CONNECTION: i64 = 1;
 
@@ -67,12 +67,17 @@ fn without_loaders<'py>(
         }
     }
     let mut sources: Vec<(String, String)> = Vec::new();
-    for source in project_reads::sources(project)?.try_iter()? {
+    for source in sqlbuild_python_project::compiled_views::main::project::sources::sources(project)?
+        .try_iter()?
+    {
         let source = source?;
-        let loader: Option<String> =
-            native_field(&source_reads::source_entry(&source)?, "loader")?.extract()?;
+        let loader: Option<String> = native_field(&source_entry(&source)?, "loader")?.extract()?;
         if loader.is_some_and(|loader| dropped.contains(&loader)) {
-            sources.push((SOURCE.to_owned(), source_reads::name(&source)?.extract()?));
+            sources.push((
+                SOURCE.to_owned(),
+                sqlbuild_python_project::resource_views::main::source_reads::name::name(&source)?
+                    .extract()?,
+            ));
         }
     }
     let mut selected: Vec<(String, String)> = sql_keys

@@ -21,7 +21,11 @@ import aiohttp
 from testmu._v4._helpers._dom_structured import capture_structured_dom
 from testmu._v4._helpers._http import create_session
 from testmu._v4._helpers._locator_enrichment import enrich_element_locator
-from testmu._v4._helpers.textual_analyzer.extractor import parse_el_references, wrap_extractor_code
+from testmu._v4._helpers.textual_analyzer.extractor import (
+    evaluate_wrapped,
+    parse_el_references,
+    wrap_extractor_code,
+)
 
 _log = logging.getLogger("testmu")
 
@@ -149,7 +153,7 @@ async def _attempt_heal(
 
     wrapped = wrap_extractor_code(code, indices)
     try:
-        value = await page.evaluate(wrapped, handles)
+        value = await evaluate_wrapped(page, wrapped, handles)
     except Exception as e:  # noqa: BLE001
         _log.warning("[textual_analyzer] heal evaluate failed: %s", e)
         return None

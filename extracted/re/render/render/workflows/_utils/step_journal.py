@@ -36,7 +36,7 @@ from render.workflows._utils import clock, serializers
 
 if TYPE_CHECKING:
     from render.workflows.client import UDSClient
-    from render.workflows.durable_context import RunningStep
+    from render.workflows.durable_context import StepContext
 
 
 class RunFailure:
@@ -129,7 +129,7 @@ class StepJournal:
         )
 
     def start(
-        self, step_ctx: RunningStep, encoded_input: str | None = None
+        self, step_ctx: StepContext, encoded_input: str | None = None
     ) -> datetime:
         """Record that the step started, returning when it did."""
         started_at = clock.now()
@@ -156,9 +156,16 @@ class StepJournal:
         return started_at
 
     def attempt_failed(
-        self, step_ctx: RunningStep, error: StepError, *, started_at: datetime
+        self,
+        step_ctx: StepContext,
+        error: StepError,
+        *,
+        started_at: datetime,
+        ended_at: datetime,
+        retry_at: datetime,
     ) -> None:
-        """Record a failed attempt that the step will retry locally."""
+        """Record a failed attempt that the step will retry locally, starting
+        the next attempt at retry_at."""
         self._history.record_attempt(
             StepAttemptRecord(
                 step_key=step_ctx.step_key,
@@ -167,7 +174,7 @@ class StepJournal:
                 # back from its own writes.
                 workflow_attempt=0,
                 error=error,
-                ended_at=clock.now(),
+                ended_at=ended_at,
                 started_at=started_at,
             )
         )
@@ -178,11 +185,12 @@ class StepJournal:
                     attempt=step_ctx.attempt,
                     error=error,
                     started_at=started_at.isoformat(),
+                    retry_at=retry_at.isoformat(),
                 )
             )
         )
 
-    def complete(self, step_ctx: RunningStep, output: str) -> None:
+    def complete(self, step_ctx: StepContext, output: str) -> None:
         """Complete the step with its encoded output."""
         completed_at = self._completed_at(step_ctx)
         self._history.record_complete(
@@ -205,7 +213,7 @@ class StepJournal:
 
     def create_failed_attempt(
         self,
-        step_ctx: RunningStep,
+        step_ctx: StepContext,
         error: StepError,
         *,
         started_at: datetime,
@@ -274,7 +282,7 @@ class StepJournal:
                     error = ExecutionError(str(e), type="flow")
             raise self._failure.stop(error) from e
 
-    def _completed_at(self, step_ctx: RunningStep) -> datetime:
+    def _completed_at(self, step_ctx: StepContext) -> datetime:
         """When the step completes: now, but never before it started."""
         now = clock.now()
         # A resumed step's start came from an earlier worker's clock, which can

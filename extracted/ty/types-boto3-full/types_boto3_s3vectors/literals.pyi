@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_s3vectors.literals import DataTypeType
+    from types_boto3_s3vectors.literals import AnalyzerStatusType
 
-    data: DataTypeType = "float32"
+    data: AnalyzerStatusType = "ACTIVE"
     ```
 """
 
@@ -22,9 +22,11 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AnalyzerStatusType",
     "DataTypeType",
     "DistanceMetricType",
     "IndexModeType",
+    "LanguageCodeType",
     "ListIndexesPaginatorName",
     "ListVectorBucketsPaginatorName",
     "ListVectorsPaginatorName",
@@ -36,9 +38,11 @@ __all__ = (
     "SseTypeType",
 )
 
+AnalyzerStatusType = Literal["ACTIVE", "BUILDING"]
 DataTypeType = Literal["float32"]
 DistanceMetricType = Literal["cosine", "euclidean"]
 IndexModeType = Literal["CLASSIC", "ENHANCED"]
+LanguageCodeType = Literal["de", "en", "es", "fr", "it", "ja", "ko", "nl", "pt", "zh"]
 ListIndexesPaginatorName = Literal["list_indexes"]
 ListVectorBucketsPaginatorName = Literal["list_vector_buckets"]
 ListVectorsPaginatorName = Literal["list_vectors"]
@@ -154,6 +158,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -338,6 +343,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -405,6 +411,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

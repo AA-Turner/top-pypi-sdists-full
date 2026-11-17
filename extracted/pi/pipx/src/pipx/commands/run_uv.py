@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 __lazy_modules__ = [
-    "pipx",
     "pipx.backends.uv",
+    "pipx.paths",
     "pipx.redact",
     "pipx.subprocess_runner",
     "pipx.util",
@@ -13,11 +13,12 @@ __lazy_modules__ = [
 import logging
 import os
 from shutil import which
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, NoReturn
 
-from pipx import paths
 from pipx.backends.uv import PIP_TO_UV_INDEX_FLAGS, UvBackend, resolve_uv_binary
 from pipx.emojis import HAZARD
+from pipx.paths import CTX
 from pipx.redact import redact_url_credentials
 from pipx.subprocess_runner import exec_app
 from pipx.util import PipxError
@@ -31,15 +32,22 @@ if TYPE_CHECKING:
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
-_UV_FORMAT_CONTROL_FLAG_MAP: Final[dict[str, tuple[str, str]]] = {
+_UV_FORMAT_CONTROL_FLAG_MAP: Final[MappingProxyType[str, tuple[str, str]]] = MappingProxyType({
     "--no-binary": ("--no-binary", "--no-binary-package"),
     "--only-binary": ("--no-build", "--no-build-package"),
-}
+})
 
 
 def run_via_uv_tool_run(app: str, package_or_url: str, options: RunOptions) -> NoReturn:
+    """Run an app through ``uv tool run``, replacing the current process.
+
+    :param app: the app name.
+    :param package_or_url: the package spec or URL to install.
+    :param options: the options of the run.
+    :raises PipxError: when venv arguments are given, which ``uv tool run`` cannot take.
+    """
     _reject_venv_args(options.venv_args)
-    if not options.no_path_check and (existing_app_path := which(app)):
+    if not options.lookup.no_path_check and (existing_app_path := which(app)):
         _LOGGER.warning(
             pipx_wrap(
                 f"""
@@ -53,8 +61,8 @@ def run_via_uv_tool_run(app: str, package_or_url: str, options: RunOptions) -> N
     cmd: list[str] = [str(resolve_uv_binary()), "tool", "run"]
     if package_or_url and package_or_url != app:
         cmd += ["--from", package_or_url]
-    if options.python:
-        cmd += ["--python", options.python]
+    if options.interpreter.python:
+        cmd += ["--python", options.interpreter.python]
     for dependency in options.dependencies:
         cmd += ["--with", dependency]
     if not options.use_cache:
@@ -81,6 +89,12 @@ def _reject_venv_args(venv_args: list[str]) -> None:
 
 
 def translate_pip_args_for_uv(pip_args: list[str]) -> list[str]:
+    """Translate pip install arguments into their uv equivalents.
+
+    :param pip_args: the pip arguments to translate.
+    :returns: the uv arguments.
+    :raises PipxError: when an argument has no uv equivalent, such as ``--editable``.
+    """
     translated_bool_flags: Final[dict[str, str]] = {
         "--pre": "--prerelease=allow",
         "--no-cache-dir": "--no-cache",
@@ -148,11 +162,18 @@ def _next_pip_arg(flag: str, iterator: Iterator[str]) -> str:
 
 
 def run_script_via_uv_run(script_path: Path, venv_dir: Path, options: RunOptions) -> NoReturn:
+    """Run a script through ``uv run``, replacing the current process.
+
+    :param script_path: the script to run, whose inline metadata may declare its requirements.
+    :param venv_dir: the directory of the environment, unused by uv.
+    :param options: the options of the run.
+    :raises PipxError: when venv arguments are given, which ``uv run`` cannot take.
+    """
     _reject_venv_args(options.venv_args)
     # uv searches for project config from --project, or else from the script's directory, which another account may own
-    cmd: list[str] = [str(resolve_uv_binary()), "run", "--active", "--script", "--project", str(paths.CTX.home)]
-    if options.python:
-        cmd += ["--python", options.python]
+    cmd: list[str] = [str(resolve_uv_binary()), "run", "--active", "--script", "--project", str(CTX.home)]
+    if options.interpreter.python:
+        cmd += ["--python", options.interpreter.python]
     if not options.use_cache:
         cmd.append("--no-cache")
     if options.refresh:

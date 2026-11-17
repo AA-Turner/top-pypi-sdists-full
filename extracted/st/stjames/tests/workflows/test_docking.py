@@ -1,15 +1,19 @@
 """Test docking behavior and validation."""
 
 from pydantic import TypeAdapter
-from pytest import fixture, raises
+from pytest import fixture, mark, raises
 
 from stjames import Molecule
-from stjames.pdb import PDB, read_pdb
+from stjames.pdb import PDB, ResidueAtomRef, ResidueRef, read_pdb
 from stjames.workflows.docking import (
     AnalogueDockingWorkflow,
+    DockingDistanceRestraint,
+    DockingPositionRestraint,
+    DockingRestraint,
     DockingSettingsUnion,
     DockingWorkflow,
     GninaSettings,
+    HeronSettings,
     InducedFitSettings,
     Score,
     VinaSettings,
@@ -229,3 +233,96 @@ def test_heron_settings_roundtrip_and_scoring_validation() -> None:
     assert adapter.validate_json(adapter.dump_json(settings)).executable == "heron"
     with raises(ValueError):
         VinaSettings(executable="heron", scoring_function="vina")
+
+
+def test_private_state_workflow_roundtrips(water: Molecule, gfp: PDB) -> None:
+    """Preserve dedicated Heron settings through docking and analogue JSON."""
+    settings = HeronSettings(max_poses=3, seed=71)
+    adapter = TypeAdapter(DockingSettingsUnion)
+    assert adapter.validate_json(adapter.dump_json(settings)).model_dump() == settings.model_dump()
+    workflow = DockingWorkflow(initial_molecule=water, protein=gfp, pocket=((0, 0, 0), (20, 20, 20)), docking_settings=settings)
+    assert DockingWorkflow.model_validate_json(workflow.model_dump_json()).docking_settings.model_dump() == settings.model_dump()
+    analogue = AnalogueDockingWorkflow(initial_molecule=water, protein=gfp, analogues=["CO"], docking_settings=settings)
+    assert AnalogueDockingWorkflow.model_validate_json(analogue.model_dump_json()).docking_settings.model_dump() == settings.model_dump()
+    with raises(ValueError):
+        DockingWorkflow.model_validate(workflow.model_dump() | {"induced_fit_settings": {}})
+
+
+@mark.parametrize("seed", [0, 2147483648])
+def test_private_state_rejects_invalid_seed(seed: int) -> None:
+    """Reject seeds outside the fixed recipe's public domain."""
+    with raises(ValueError):
+        HeronSettings(seed=seed)
+
+
+@mark.parametrize("indices", [(None, 0), (0, None), (-1, 0), (0, -1)])
+def test_heron_covalent_indices_require_a_valid_pair(indices: tuple[int | None, int | None]) -> None:
+    """Reject incomplete or negative covalent atom selections."""
+    with raises(ValueError):
+        HeronSettings(covalent_ligand_atom_index=indices[0], covalent_protein_atom_index=indices[1])
+
+
+def test_heron_covalent_restraints_roundtrip(water: Molecule, gfp: PDB) -> None:
+    """Preserve covalent index zero and both restraint variants through workflow JSON."""
+    settings = HeronSettings(
+        covalent_ligand_atom_index=0,
+        covalent_protein_atom_index=1,
+        restraints=[
+            DockingDistanceRestraint(ligand_atom_index=0, protein_atom_index=0, target=2.0),
+            DockingPositionRestraint(ligand_atom_index=0, position=(1, 2, 3), force_constant=25),
+        ],
+    )
+    workflow = DockingWorkflow(initial_molecule=water, protein=gfp, pocket=((0, 0, 0), (20, 20, 20)), docking_settings=settings)
+    restored = DockingWorkflow.model_validate_json(workflow.model_dump_json())
+    assert restored.docking_settings.model_dump() == settings.model_dump()
+    assert settings.is_covalent
+    assert settings.max_poses == VinaSettings().max_poses
+
+
+@mark.parametrize(
+    "value",
+    [
+        {"type": "distance", "ligand_atom_index": 0, "protein_atom_index": -1, "target": 1},
+        {"type": "distance", "ligand_atom_index": -1, "protein_atom_index": 0, "target": 1},
+        {"type": "distance", "ligand_atom_index": 0, "protein_atom_index": 0, "target": -1},
+        {"type": "distance", "ligand_atom_index": 0, "protein_atom_index": ResidueRef("polymer", "A"), "target": 1},
+        {"type": "distance", "ligand_atom_index": 0, "protein_atom_index": ResidueAtomRef(ResidueRef("polymer", "A", "A.12"), " "), "target": 1},
+        {"type": "position", "ligand_atom_index": -1, "position": [0, 0, 0]},
+        {"type": "position", "ligand_atom_index": 0, "position": [0, float("inf"), 0]},
+        {"type": "position", "ligand_atom_index": 0, "position": [0, 0, 0], "force_constant": float("nan")},
+    ],
+)
+def test_docking_restraints_reject_invalid_geometry(value: dict[str, object]) -> None:
+    """Reject invalid selections, distances, coordinates and spring constants."""
+    with raises(ValueError):
+        TypeAdapter(DockingRestraint).validate_python(value)
+
+
+@mark.parametrize("protein", [0, ResidueAtomRef(ResidueRef("polymer", "A", "A.12"), "SG")])
+def test_docking_distance_protein_selection_roundtrip(protein: int | ResidueAtomRef) -> None:
+    """Preserve independent index zero and named protein atoms through JSON."""
+    settings = HeronSettings(restraints=[DockingDistanceRestraint(ligand_atom_index=0, protein_atom_index=protein, target=3)])
+    restored = HeronSettings.model_validate_json(settings.model_dump_json())
+    assert restored.restraints == settings.restraints
+
+
+@mark.parametrize("settings_class", [HeronSettings, GninaSettings])
+@mark.parametrize("protein", [0, ResidueAtomRef(ResidueRef("polymer", "A", "A.12"), "SG")])
+def test_covalent_protein_atom_reference_roundtrip(settings_class: type[HeronSettings] | type[GninaSettings], protein: int | ResidueAtomRef) -> None:
+    """Preserve reacting protein indices and named atoms through the settings discriminator."""
+    options = {"scoring_function": "vina"} if settings_class is GninaSettings else {}
+    settings = settings_class(covalent_ligand_atom_index=0, covalent_protein_atom_index=protein, **options)
+    adapter = TypeAdapter(DockingSettingsUnion)
+    restored = adapter.validate_json(adapter.dump_json(settings))
+    assert restored == settings
+    assert restored.is_covalent
+    with raises(ValueError):
+        settings_class(covalent_protein_atom_index=protein, **options)
+
+
+@mark.parametrize("settings_class", [HeronSettings, GninaSettings])
+@mark.parametrize("protein", [-1, ResidueAtomRef(ResidueRef("polymer", "A"), "SG"), ResidueAtomRef(ResidueRef("polymer", "A", "A.12"), " ")])
+def test_covalent_protein_atom_reference_validation(settings_class: type[HeronSettings] | type[GninaSettings], protein: int | ResidueAtomRef) -> None:
+    """Reject negative indices and incomplete named atoms for both covalent engines."""
+    with raises(ValueError):
+        settings_class(covalent_ligand_atom_index=0, covalent_protein_atom_index=protein)

@@ -2409,6 +2409,42 @@ class TestSoprano(unittest.TestCase):
         self.assertEqual(clean_text("The 21st lap."), "the twenty first lap.")
         self.assertEqual(clean_text("It is 10K."), "it is ten thousand.")
 
+    def test_phone_numbers(self):
+        from mlx_audio.tts.models.soprano.text import clean_text
+
+        # Phone numbers are read digit by digit in three groups, as in Soprano's
+        # reference normalizer, instead of as three large numbers.
+        self.assertEqual(
+            clean_text("Call 555-123-4567 now."),
+            "call five five five, one two three, four five six seven now.",
+        )
+        self.assertEqual(
+            clean_text("Call (415) 555-0123 today."),
+            "call four one five, five five five, zero one two three today.",
+        )
+        self.assertEqual(
+            clean_text("Fax 555.123.4567."),
+            "fax five five five, one two three, four five six seven.",
+        )
+        # Digits inside a longer number are not a phone number.
+        self.assertEqual(
+            clean_text("Order 12345 678 9012 shipped."),
+            "order twelve thousand three hundred forty five six hundred seventy eight"
+            " nine thousand twelve shipped.",
+        )
+
+    def test_ascii_punctuation(self):
+        from mlx_audio.tts.models.soprano.text import clean_text
+
+        # Dashes and curly quotes have no NFKD form; they become ASCII punctuation
+        # instead of being dropped, as with the reference's unidecode.
+        self.assertEqual(clean_text("Wait\u2014what?"), "wait - what?")
+        self.assertEqual(clean_text("I don\u2019t know."), "i don't know.")
+        self.assertEqual(
+            clean_text("It\u2018s pages 10\u201320."), "it's pages ten-twenty."
+        )
+        self.assertEqual(clean_text("He said \u201chi\u201d."), "he said hi.")
+
     def test_expand_abbreviations(self):
         """Test abbreviation expansion."""
         from mlx_audio.tts.models.soprano.text import expand_abbreviations
@@ -2425,6 +2461,14 @@ class TestSoprano(unittest.TestCase):
         self.assertIn("and", expand_special_characters("&"))
         self.assertIn("percent", expand_special_characters("%"))
 
+    def test_comparison_operators(self):
+        from mlx_audio.tts.models.soprano.text import clean_text
+
+        self.assertEqual(clean_text("x <= 5"), "x less than or equal to five")
+        self.assertEqual(clean_text("y>=10."), "y greater than or equal to ten.")
+        self.assertEqual(clean_text("a < b"), "a less than b")
+        self.assertEqual(clean_text("1 = 1"), "one equals one")
+
     def test_collapse_whitespace(self):
         """Test whitespace collapsing."""
         from mlx_audio.tts.models.soprano.text import collapse_whitespace
@@ -2440,6 +2484,18 @@ class TestSoprano(unittest.TestCase):
         self.assertEqual(dedup_punctuation("hello...."), "hello.")
         self.assertEqual(dedup_punctuation("hello,,,,"), "hello,")
         self.assertEqual(dedup_punctuation("hello??!!"), "hello?")
+
+    def test_asterisks(self):
+        from mlx_audio.tts.models.soprano.text import clean_text
+
+        self.assertEqual(clean_text("2*3 is 6."), "two times three is six.")
+        self.assertEqual(clean_text("5 * 4 = 20"), "five times four equals twenty")
+        self.assertEqual(
+            clean_text("2*3*4 and 2.5*2"),
+            "two times three times four and two point five times two",
+        )
+        self.assertEqual(clean_text("This is **important**."), "this is important.")
+        self.assertEqual(clean_text("* first item"), "first item")
 
     def test_convert_to_ascii(self):
         """Test unicode to ASCII conversion."""
@@ -8691,6 +8747,35 @@ class TestMeloTTSText(unittest.TestCase):
             text_normalize("It costs 2.50 now."), "it costs two point five zero now."
         )
         self.assertEqual(text_normalize("1.05"), "one point zero five")
+
+    def test_text_normalize_ordinals(self):
+        from mlx_audio.tts.models.melotts.text import text_normalize
+
+        self.assertEqual(
+            text_normalize("The 21st century, my 3rd try."),
+            "the twenty first century, my third try.",
+        )
+        self.assertEqual(text_normalize("2nd place"), "second place")
+        self.assertEqual(text_normalize("the 12th"), "the twelfth")
+        self.assertEqual(text_normalize("the 40th"), "the fortieth")
+        self.assertEqual(text_normalize("the 100th"), "the one hundredth")
+        self.assertEqual(text_normalize("5 stars"), "five stars")
+
+    def test_text_normalize_currency(self):
+        from mlx_audio.tts.models.melotts.text import text_normalize
+
+        self.assertEqual(text_normalize("$5 each."), "five dollars each.")
+        self.assertEqual(
+            text_normalize("It costs $2.50."), "it costs two dollars fifty cents."
+        )
+        self.assertEqual(text_normalize("$1"), "one dollar")
+        self.assertEqual(text_normalize("$0.01"), "one cent")
+        self.assertEqual(
+            text_normalize("$1,250"), "one thousand two hundred fifty dollars"
+        )
+        self.assertEqual(text_normalize("£3"), "three pounds sterling")
+        self.assertEqual(text_normalize("€2.5"), "two euros fifty cents")
+        self.assertEqual(text_normalize("¥100"), "one hundred yen")
 
     def _require_g2p(self):
         try:

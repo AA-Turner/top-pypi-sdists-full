@@ -660,6 +660,45 @@ class Role2(StrEnum):
     companion = 'companion'
 
 
+class DecisionActorKind(StrEnum):
+    """
+    Who made the call, as a decision is served and stored.
+    """
+
+    person = 'person'
+    agent = 'agent'
+
+
+class DecisionAuthor(StrEnum):
+    """
+    Who made the call, as the body says it (`--by`).
+    """
+
+    researcher = 'researcher'
+    agent = 'agent'
+
+
+class DecisionEffect(StrEnum):
+    started = 'started'
+    stopped = 'stopped'
+    changed = 'changed'
+    based_on = 'based_on'
+
+
+class DecisionTargetType(StrEnum):
+    experiment = 'experiment'
+    run = 'run'
+
+
+class DecisionWriter(StrEnum):
+    """
+    Who wrote the record, from the credential: the session's agent, or the Probe daemon's key.
+    """
+
+    agent = 'agent'
+    daemon = 'daemon'
+
+
 class DeletionState(StrEnum):
     """
     `session_deletion_requests.state` (0411).
@@ -691,7 +730,7 @@ class Role3(StrEnum):
     member = 'member'
 
 
-class Decision(StrEnum):
+class Decision1(StrEnum):
     approve = 'approve'
     deny = 'deny'
 

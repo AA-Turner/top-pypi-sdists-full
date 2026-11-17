@@ -5,12 +5,13 @@ import os
 import tarfile
 from typing import cast
 
-import httpx
+import httpx2
 import pytest
 
 from render.client.errors import ClientError, RenderError
 from render.experimental.sandbox.client import SandboxClient
 from render.experimental.sandbox.errors import (
+    SandboxEndedError,
     SandboxExecError,
     SandboxExecStreamError,
     SandboxGroupDefaultNotDeletableError,
@@ -52,7 +53,7 @@ SANDBOX_GROUP_JSON = {
 
 
 def _sandbox_client(handler, *, default_owner_id="tea-test"):
-    transport = httpx.MockTransport(handler)
+    transport = httpx2.MockTransport(handler)
     internal = AuthenticatedClient(
         base_url="https://api.test/v1",
         token="test-token",
@@ -65,11 +66,11 @@ def _sandbox_client(handler, *, default_owner_id="tea-test"):
 async def test_create_sends_sandbox_post_and_returns_sandbox():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["method"] = request.method
         captured["path"] = request.url.path
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=SANDBOX_JSON)
+        return httpx2.Response(201, json=SANDBOX_JSON)
 
     client = _sandbox_client(handler)
     sandbox = await client.create(
@@ -96,9 +97,9 @@ async def test_create_sends_sandbox_post_and_returns_sandbox():
 async def test_create_sends_network_policy_type(policy):
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(
+        return httpx2.Response(
             201, json={**SANDBOX_JSON, "networkPolicy": {"type": policy}}
         )
 
@@ -113,9 +114,9 @@ async def test_create_sends_network_policy_type(policy):
 def test_sync_create_sends_network_policy_type(policy):
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(
+        return httpx2.Response(
             201, json={**SANDBOX_JSON, "networkPolicy": {"type": policy}}
         )
 
@@ -133,9 +134,9 @@ UNKNOWN_PLAN = "32c-64g"
 async def test_create_passes_a_plan_unknown_to_the_sdk_through():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json={**SANDBOX_JSON, "plan": UNKNOWN_PLAN})
+        return httpx2.Response(201, json={**SANDBOX_JSON, "plan": UNKNOWN_PLAN})
 
     client = _sandbox_client(handler)
     sandbox = await client.create(plan=UNKNOWN_PLAN)
@@ -147,9 +148,9 @@ async def test_create_passes_a_plan_unknown_to_the_sdk_through():
 def test_sync_create_passes_a_plan_unknown_to_the_sdk_through():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json={**SANDBOX_JSON, "plan": UNKNOWN_PLAN})
+        return httpx2.Response(201, json={**SANDBOX_JSON, "plan": UNKNOWN_PLAN})
 
     client = _sync_sandbox_client(handler)
     sandbox = client.create(plan=UNKNOWN_PLAN)
@@ -162,9 +163,9 @@ def test_sync_create_passes_a_plan_unknown_to_the_sdk_through():
 async def test_create_sends_the_name_and_returns_it():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
+        return httpx2.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
 
     client = _sandbox_client(handler)
     sandbox = await client.create(name="my-agent")
@@ -177,9 +178,9 @@ async def test_create_sends_the_name_and_returns_it():
 async def test_create_omits_the_name_when_none_is_given():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=SANDBOX_JSON)
+        return httpx2.Response(201, json=SANDBOX_JSON)
 
     client = _sandbox_client(handler)
     sandbox = await client.create()
@@ -191,9 +192,9 @@ async def test_create_omits_the_name_when_none_is_given():
 def test_sync_create_sends_the_name_and_returns_it():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
+        return httpx2.Response(201, json={**SANDBOX_JSON, "name": "my-agent"})
 
     client = _sync_sandbox_client(handler)
     sandbox = client.create(name="my-agent")
@@ -206,9 +207,9 @@ def test_sync_create_sends_the_name_and_returns_it():
 async def test_create_sends_env_in_post_body():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=SANDBOX_JSON)
+        return httpx2.Response(201, json=SANDBOX_JSON)
 
     client = _sandbox_client(handler)
     await client.create(env={"FOO": "bar", "BAZ": "qux"})
@@ -220,9 +221,9 @@ async def test_create_sends_env_in_post_body():
 async def test_create_sends_network_policy_type_shorthand():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=SANDBOX_JSON)
+        return httpx2.Response(201, json=SANDBOX_JSON)
 
     client = _sandbox_client(handler)
     await client.create(network_policy="deny-all")
@@ -244,9 +245,9 @@ async def test_create_sends_allow_list_rules_and_returns_them():
         },
     }
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=allow_list_json)
+        return httpx2.Response(201, json=allow_list_json)
 
     client = _sandbox_client(handler)
     sandbox = await client.create(
@@ -271,7 +272,7 @@ async def test_create_sends_allow_list_rules_and_returns_them():
 
 @pytest.mark.asyncio
 async def test_create_requires_owner_id():
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("handler should not be reached")
 
     client = _sandbox_client(handler, default_owner_id=None)
@@ -283,10 +284,10 @@ async def test_create_requires_owner_id():
 async def test_from_id_returns_sandbox():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["path"] = request.url.path
         captured["query"] = dict(request.url.params)
-        return httpx.Response(200, json=SANDBOX_JSON)
+        return httpx2.Response(200, json=SANDBOX_JSON)
 
     client = _sandbox_client(handler)
     sandbox = await client.from_id("sbx-abc")
@@ -298,8 +299,8 @@ async def test_from_id_returns_sandbox():
 
 @pytest.mark.asyncio
 async def test_from_id_raises_not_found_on_404():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "not found"})
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "not found"})
 
     client = _sandbox_client(handler)
     with pytest.raises(SandboxNotFoundError):
@@ -310,7 +311,7 @@ async def test_from_id_raises_not_found_on_404():
 async def test_list_returns_sandboxes_and_cursor():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["path"] = request.url.path
         captured["query"] = dict(request.url.params)
         captured["status_values"] = request.url.params.get_list("status")
@@ -318,7 +319,7 @@ async def test_list_returns_sandboxes_and_cursor():
             {"sandbox": SANDBOX_JSON, "cursor": "cur-1"},
             {"sandbox": {**SANDBOX_JSON, "id": "sbx-def"}, "cursor": "cur-2"},
         ]
-        return httpx.Response(200, json=body)
+        return httpx2.Response(200, json=body)
 
     client = _sandbox_client(handler)
     page = await client.list(status="running", limit=50)
@@ -335,14 +336,14 @@ async def test_list_returns_sandboxes_and_cursor():
 async def test_list_filters_by_name_and_returns_every_match():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["query"] = dict(request.url.params)
         named = {**SANDBOX_JSON, "name": "my-agent"}
         body = [
             {"sandbox": named, "cursor": "cur-1"},
             {"sandbox": {**named, "id": "sbx-def"}, "cursor": "cur-2"},
         ]
-        return httpx.Response(200, json=body)
+        return httpx2.Response(200, json=body)
 
     client = _sandbox_client(handler)
     page = await client.list(name="my-agent")
@@ -356,8 +357,8 @@ async def test_list_filters_by_name_and_returns_every_match():
 
 @pytest.mark.asyncio
 async def test_list_empty_has_no_cursor():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     page = await client.list()
@@ -369,9 +370,9 @@ async def test_list_empty_has_no_cursor():
 async def test_list_sends_one_status_query_param_per_value():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["status"] = request.url.params.get_list("status")
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     await client.list(status=["running", "creating"])
@@ -383,9 +384,9 @@ async def test_list_sends_one_status_query_param_per_value():
 async def test_list_sends_a_single_status_string_as_one_value():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["status"] = request.url.params.get_list("status")
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     await client.list(status="running")
@@ -397,9 +398,9 @@ async def test_list_sends_a_single_status_string_as_one_value():
 async def test_list_omits_status_when_no_filter_is_given():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["query"] = dict(request.url.params)
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
 
@@ -412,7 +413,7 @@ async def test_list_omits_status_when_no_filter_is_given():
 
 @pytest.mark.asyncio
 async def test_list_rejects_an_unknown_status():
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("handler should not be reached")
 
     client = _sandbox_client(handler)
@@ -428,12 +429,12 @@ async def test_list_rejects_an_unknown_status():
 async def test_list_groups_returns_groups_and_cursor():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["method"] = request.method
         captured["path"] = request.url.path
         captured["owner_id"] = request.url.params.get_list("ownerId")
         body = [{"sandboxGroup": SANDBOX_GROUP_JSON, "cursor": "cur-1"}]
-        return httpx.Response(200, json=body)
+        return httpx2.Response(200, json=body)
 
     client = _sandbox_client(handler)
     page = await client.list_groups()
@@ -459,9 +460,9 @@ async def test_list_groups_returns_groups_and_cursor():
 async def test_list_groups_uses_an_explicit_owner_id():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["owner_id"] = request.url.params.get_list("ownerId")
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     await client.list_groups(owner_id="tea-other")
@@ -471,8 +472,8 @@ async def test_list_groups_uses_an_explicit_owner_id():
 
 @pytest.mark.asyncio
 async def test_list_groups_empty_has_no_cursor():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     page = await client.list_groups()
@@ -483,7 +484,7 @@ async def test_list_groups_empty_has_no_cursor():
 
 @pytest.mark.asyncio
 async def test_list_groups_requires_owner_id():
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("handler should not be reached")
 
     client = _sandbox_client(handler, default_owner_id=None)
@@ -493,8 +494,8 @@ async def test_list_groups_requires_owner_id():
 
 @pytest.mark.asyncio
 async def test_list_groups_raises_client_error_on_404():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "workspace not found"})
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "workspace not found"})
 
     client = _sandbox_client(handler)
     with pytest.raises(ClientError, match="workspace not found"):
@@ -503,9 +504,9 @@ async def test_list_groups_raises_client_error_on_404():
 
 @pytest.mark.asyncio
 async def test_list_groups_reads_a_set_environment_id():
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         group = {**SANDBOX_GROUP_JSON, "environmentId": "evm-1"}
-        return httpx.Response(200, json=[{"sandboxGroup": group, "cursor": "cur-1"}])
+        return httpx2.Response(200, json=[{"sandboxGroup": group, "cursor": "cur-1"}])
 
     client = _sandbox_client(handler)
     page = await client.list_groups()
@@ -515,9 +516,9 @@ async def test_list_groups_reads_a_set_environment_id():
 
 @pytest.mark.asyncio
 async def test_list_groups_treats_an_omitted_environment_id_as_none():
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         group = {k: v for k, v in SANDBOX_GROUP_JSON.items() if k != "environmentId"}
-        return httpx.Response(200, json=[{"sandboxGroup": group, "cursor": "cur-1"}])
+        return httpx2.Response(200, json=[{"sandboxGroup": group, "cursor": "cur-1"}])
 
     client = _sandbox_client(handler)
     page = await client.list_groups()
@@ -531,7 +532,7 @@ def _sync_sandbox_client(handler, *, default_owner_id="tea-test"):
     internal = AuthenticatedClient(
         base_url="https://api.test/v1",
         token="test-token",
-        httpx_args={"transport": httpx.MockTransport(handler)},
+        httpx_args={"transport": httpx2.MockTransport(handler)},
     )
     return SyncSandboxClient(internal, default_owner_id=default_owner_id)
 
@@ -539,9 +540,9 @@ def _sync_sandbox_client(handler, *, default_owner_id="tea-test"):
 def test_sync_list_sends_one_status_query_param_per_value():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["status"] = request.url.params.get_list("status")
-        return httpx.Response(200, json=[{"sandbox": SANDBOX_JSON, "cursor": "cur-1"}])
+        return httpx2.Response(200, json=[{"sandbox": SANDBOX_JSON, "cursor": "cur-1"}])
 
     client = _sync_sandbox_client(handler)
     page = client.list(status=["running", "suspended"])
@@ -554,9 +555,9 @@ def test_sync_list_sends_one_status_query_param_per_value():
 def test_sync_list_sends_a_single_status_string_as_one_value():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["status"] = request.url.params.get_list("status")
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sync_sandbox_client(handler)
     client.list(status="running")
@@ -567,9 +568,9 @@ def test_sync_list_sends_a_single_status_string_as_one_value():
 def test_sync_list_omits_status_when_no_filter_is_given():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["query"] = dict(request.url.params)
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sync_sandbox_client(handler)
 
@@ -581,7 +582,7 @@ def test_sync_list_omits_status_when_no_filter_is_given():
 
 
 def test_sync_list_rejects_an_unknown_status():
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("handler should not be reached")
 
     client = _sync_sandbox_client(handler)
@@ -596,11 +597,11 @@ def test_sync_list_rejects_an_unknown_status():
 def test_sync_list_groups_returns_groups_and_cursor():
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["path"] = request.url.path
         captured["owner_id"] = request.url.params.get_list("ownerId")
         body = [{"sandboxGroup": SANDBOX_GROUP_JSON, "cursor": "cur-1"}]
-        return httpx.Response(200, json=body)
+        return httpx2.Response(200, json=body)
 
     client = _sync_sandbox_client(handler)
     page = client.list_groups()
@@ -612,8 +613,8 @@ def test_sync_list_groups_returns_groups_and_cursor():
 
 
 def test_sync_list_groups_empty_has_no_cursor():
-    def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(200, json=[])
 
     client = _sync_sandbox_client(handler)
     page = client.list_groups()
@@ -623,7 +624,7 @@ def test_sync_list_groups_empty_has_no_cursor():
 
 
 def test_sync_list_groups_requires_owner_id():
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         raise AssertionError("handler should not be reached")
 
     client = _sync_sandbox_client(handler, default_owner_id=None)
@@ -635,11 +636,11 @@ def test_sync_list_groups_requires_owner_id():
 async def test_terminate_posts_to_terminate_and_returns_none():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["method"] = request.method
         captured["path"] = request.url.path
         captured["query"] = dict(request.url.params)
-        return httpx.Response(204)
+        return httpx2.Response(204)
 
     client = _sandbox_client(handler)
     result = await client.terminate("sbx-abc")
@@ -652,8 +653,8 @@ async def test_terminate_posts_to_terminate_and_returns_none():
 
 @pytest.mark.asyncio
 async def test_terminate_raises_not_found_on_404():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "not found"})
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "not found"})
 
     client = _sandbox_client(handler)
     with pytest.raises(SandboxNotFoundError):
@@ -673,15 +674,15 @@ async def _collect(agen):
     return [event async for event in agen]
 
 
-async def _noop_handler(request: httpx.Request) -> httpx.Response:
+async def _noop_handler(request: httpx2.Request) -> httpx2.Response:
     raise AssertionError("the API client should not be called in this test")
 
 
 def _patch_proxy(mocker, handler):
-    """Patch the fresh httpx.AsyncClient that exec uses for the proxy stream."""
+    """Patch the fresh httpx2.AsyncClient that exec uses for the proxy stream."""
     mocker.patch(
-        "render.experimental.sandbox.api.httpx.AsyncClient",
-        return_value=httpx.AsyncClient(transport=httpx.MockTransport(handler)),
+        "render.experimental.sandbox.api.httpx2.AsyncClient",
+        return_value=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
     )
 
 
@@ -689,22 +690,20 @@ def _patch_proxy(mocker, handler):
 async def test_mint_run_token_requests_the_token_endpoint():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["method"] = request.method
         captured["path"] = request.url.path
         captured["query"] = dict(request.url.params)
-        captured["body"] = json.loads(request.content)
-        return httpx.Response(201, json=CONNECT_JSON)
+        captured["body"] = request.content
+        return httpx2.Response(201, json=CONNECT_JSON)
 
     client = _sandbox_client(handler)
-    connection = await client.api._mint_run_token(
-        "sbx-123", "tea-test", "stream", "ls -la"
-    )
+    connection = await client.api._mint_run_token("sbx-123", "tea-test", "stream")
 
     assert captured["method"] == "POST"
     assert captured["path"] == "/v1/sandboxes/sbx-123/runs/stream/token"
     assert captured["query"]["ownerId"] == "tea-test"
-    assert captured["body"] == {"command": "ls -la"}
+    assert captured["body"] == b""
     assert connection["token"] == "run-token-xyz"  # noqa: S105
     assert connection["uri"] == "https://proxy.test/runs/stream"
 
@@ -718,13 +717,13 @@ async def test_exec_streams_from_the_proxy_uri(mocker):
         b'event: exit\ndata: {"exit_code":7}\n\n'
     )
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
         proxy["method"] = request.method
         proxy["url"] = str(request.url)
         proxy["auth"] = request.headers.get("authorization")
         proxy["accept"] = request.headers.get("accept")
         proxy["body"] = json.loads(request.content)
-        return httpx.Response(
+        return httpx2.Response(
             200, content=sse, headers={"content-type": "text/event-stream"}
         )
 
@@ -752,8 +751,8 @@ async def test_exec_streams_from_the_proxy_uri(mocker):
 async def test_exec_error_event_raises_stream_error(mocker):
     sse = b'event: error\ndata: {"status":408,"message":"exec timed out"}\n\n'
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
             200, content=sse, headers={"content-type": "text/event-stream"}
         )
 
@@ -773,8 +772,8 @@ async def test_exec_error_event_raises_stream_error(mocker):
 async def test_exec_missing_terminal_event_raises(mocker):
     sse = b'event: output\ndata: {"stream":"stdout","data":"hi\\n"}\n\n'
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(
             200, content=sse, headers={"content-type": "text/event-stream"}
         )
 
@@ -790,8 +789,8 @@ async def test_exec_missing_terminal_event_raises(mocker):
 
 @pytest.mark.asyncio
 async def test_exec_proxy_non_2xx_raises_client_error(mocker):
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(400, text="sandbox not ready")
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(400, text="sandbox not ready")
 
     client = _sandbox_client(_noop_handler)
     mocker.patch.object(
@@ -805,8 +804,8 @@ async def test_exec_proxy_non_2xx_raises_client_error(mocker):
 
 @pytest.mark.asyncio
 async def test_exec_mint_404_raises_not_found():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "not found"})
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "not found"})
 
     client = _sandbox_client(handler)
     with pytest.raises(SandboxNotFoundError):
@@ -849,8 +848,8 @@ def test_sync_render_exposes_sandboxes(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_from_id_wraps_non_json_error_response():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="upstream boom")
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(500, text="upstream boom")
 
     client = _sandbox_client(handler)
     with pytest.raises(RenderError):
@@ -859,8 +858,8 @@ async def test_from_id_wraps_non_json_error_response():
 
 @pytest.mark.asyncio
 async def test_terminate_wraps_non_json_error_response():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="upstream boom")
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(500, text="upstream boom")
 
     client = _sandbox_client(handler)
     with pytest.raises(RenderError):
@@ -869,8 +868,8 @@ async def test_terminate_wraps_non_json_error_response():
 
 @pytest.mark.asyncio
 async def test_create_wraps_non_json_error_response():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(500, text="upstream boom")
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(500, text="upstream boom")
 
     client = _sandbox_client(handler)
     with pytest.raises(RenderError):
@@ -893,13 +892,13 @@ FILES_CONNECT_JSON = {
 
 
 def _capture_upload(captured):
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         # The body is a stream; it has to be read before .content is available.
         captured["body"] = await request.aread()
         captured["method"] = request.method
         captured["url"] = str(request.url)
         captured["headers"] = dict(request.headers)
-        return httpx.Response(204)
+        return httpx2.Response(204)
 
     return handler
 
@@ -908,11 +907,11 @@ def _capture_upload(captured):
 async def test_mint_file_token_requests_the_files_token_endpoint():
     captured = {}
 
-    async def handler(request: httpx.Request) -> httpx.Response:
+    async def handler(request: httpx2.Request) -> httpx2.Response:
         captured["method"] = request.method
         captured["path"] = request.url.path
         captured["query"] = dict(request.url.params)
-        return httpx.Response(201, json=FILES_CONNECT_JSON)
+        return httpx2.Response(201, json=FILES_CONNECT_JSON)
 
     client = _sandbox_client(handler)
     connection = await client.api._mint_file_token(
@@ -948,7 +947,7 @@ async def test_copy_to_file_puts_raw_bytes_with_a_length(mocker, tmp_path):
     assert captured["headers"]["content-type"] == "application/octet-stream"
     assert captured["headers"]["content-length"] == "14"
     assert "content-encoding" not in captured["headers"]
-    # An explicit length has to win over httpx's chunked default for an
+    # An explicit length has to win over httpx2's chunked default for an
     # iterator body, or the sandbox gets a body it cannot size.
     assert "transfer-encoding" not in captured["headers"]
     assert captured["body"] == b"hello sandbox\n"
@@ -989,9 +988,9 @@ async def test_copy_to_accepts_any_2xx(mocker, tmp_path):
     source = tmp_path / "hello.txt"
     source.write_text("hi\n")
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
         await request.aread()
-        return httpx.Response(200)
+        return httpx2.Response(200)
 
     client = _sandbox_client(_noop_handler)
     mocker.patch.object(
@@ -1009,9 +1008,9 @@ async def test_copy_to_proxy_non_2xx_raises_client_error(mocker, tmp_path):
     source = tmp_path / "hello.txt"
     source.write_text("hi\n")
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
         await request.aread()
-        return httpx.Response(409, text="path is a directory")
+        return httpx2.Response(409, text="path is a directory")
 
     client = _sandbox_client(_noop_handler)
     mocker.patch.object(
@@ -1030,8 +1029,8 @@ async def test_copy_to_mint_404_raises_not_found(tmp_path):
     source = tmp_path / "hello.txt"
     source.write_text("hi\n")
 
-    async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(404, json={"message": "not found"})
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        return httpx2.Response(404, json={"message": "not found"})
 
     client = _sandbox_client(handler)
     with pytest.raises(SandboxNotFoundError):
@@ -1140,10 +1139,10 @@ def test_sync_copy_to_sends_a_clean_path_to_the_token_endpoint(
     source.write_text("hi\n")
     captured = {}
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured["path"] = request.url.params["path"]
         # Stop at the mint: only the path it was asked for matters here.
-        return httpx.Response(400, json={"message": "stop"})
+        return httpx2.Response(400, json={"message": "stop"})
 
     with pytest.raises(RenderError):
         _sync_sandbox_client(handler).copy_to("sbx-123", source, remote_path)
@@ -1172,12 +1171,12 @@ async def test_copy_to_closes_the_body_when_the_request_fails(mocker, tmp_path):
 
     mocker.patch("render.experimental.sandbox.api.aiter_tar_gzip", tracked_archive)
 
-    async def proxy_handler(request: httpx.Request) -> httpx.Response:
+    async def proxy_handler(request: httpx2.Request) -> httpx2.Response:
         # Take a chunk so the body is genuinely in flight, then fail the way a
         # dropped connection does mid-upload.
-        stream = cast(httpx.AsyncByteStream, request.stream)
+        stream = cast(httpx2.AsyncByteStream, request.stream)
         await stream.__aiter__().__anext__()
-        raise httpx.ConnectError("connection reset")
+        raise httpx2.ConnectError("connection reset")
 
     client = _sandbox_client(_noop_handler)
     mocker.patch.object(
@@ -1191,8 +1190,8 @@ async def test_copy_to_closes_the_body_when_the_request_fails(mocker, tmp_path):
         await client.copy_to("sbx-123", tmp_path, "tree")
 
     # A failed upload must not leave the archive producer parked on its body.
-    # httpx happens to close it here too, so this guards the property rather
-    # than upload's own close; it would catch httpx changing that.
+    # httpx2 happens to close it here too, so this guards the property rather
+    # than upload's own close; it would catch httpx2 changing that.
     assert closed == [True]
 
 
@@ -1223,9 +1222,9 @@ async def test_create_preserves_allow_list_rules_in_both_clients(rules):
     }
     captured = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         captured.append(json.loads(request.content)["networkPolicy"])
-        return httpx.Response(201, json={**SANDBOX_JSON, "networkPolicy": policy_json})
+        return httpx2.Response(201, json={**SANDBOX_JSON, "networkPolicy": policy_json})
 
     policy = NetworkPolicy(type="allow-list", rules=rules)
     asynchronous = await _sandbox_client(handler).create(network_policy=policy)
@@ -1239,7 +1238,7 @@ async def test_create_preserves_allow_list_rules_in_both_clients(rules):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("policy_type", ["allow-all", "deny-all"])
 async def test_create_rejects_rules_for_other_policies_in_both_clients(policy_type):
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         pytest.fail("invalid policies must be rejected before sending a request")
 
     policy = NetworkPolicy(type=policy_type, rules=[EgressRule(domain="pypi.org")])
@@ -1256,10 +1255,10 @@ async def test_group_selection_and_pagination():
     async def handler(request):
         captured.append(request)
         if request.method == "POST":
-            return httpx.Response(
+            return httpx2.Response(
                 201, json={**SANDBOX_JSON, "sandboxGroupId": "sbg-other"}
             )
-        return httpx.Response(200, json=[])
+        return httpx2.Response(200, json=[])
 
     client = _sandbox_client(handler)
     sandbox = await client.create(sandbox_group_id="sbg-other")
@@ -1279,7 +1278,7 @@ async def test_group_management_returns_effective_limit():
 
     async def handler(request):
         captured.append(request)
-        return httpx.Response(
+        return httpx2.Response(
             201 if request.method == "POST" else 200, json=SANDBOX_GROUP_JSON
         )
 
@@ -1299,10 +1298,10 @@ def test_sync_group_selection_and_management():
     def handler(request):
         if request.url.path == "/v1/sandboxes":
             assert json.loads(request.content)["sandboxGroupId"] == "sbg-abc"
-            return httpx.Response(
+            return httpx2.Response(
                 201, json={**SANDBOX_JSON, "sandboxGroupId": "sbg-abc"}
             )
-        return httpx.Response(
+        return httpx2.Response(
             201 if request.method == "POST" else 200, json=SANDBOX_GROUP_JSON
         )
 
@@ -1319,7 +1318,7 @@ async def test_delete_group_sends_delete():
 
     async def handler(request):
         captured.append(request)
-        return httpx.Response(204)
+        return httpx2.Response(204)
 
     client = _sandbox_client(handler)
     assert await client.delete_group("sbg-abc") is None
@@ -1340,7 +1339,7 @@ async def test_delete_group_raises_a_typed_error_for_each_conflict_code(
     code, error_type
 ):
     async def handler(request):
-        return httpx.Response(409, json={"code": code, "message": "conflict"})
+        return httpx2.Response(409, json={"code": code, "message": "conflict"})
 
     client = _sandbox_client(handler)
     with pytest.raises(error_type, match="conflict") as exc:
@@ -1352,7 +1351,7 @@ async def test_delete_group_raises_a_typed_error_for_each_conflict_code(
 @pytest.mark.asyncio
 async def test_delete_group_raises_client_error_for_an_unknown_conflict_code():
     async def handler(request):
-        return httpx.Response(409, json={"code": "other", "message": "conflict"})
+        return httpx2.Response(409, json={"code": "other", "message": "conflict"})
 
     client = _sandbox_client(handler)
     with pytest.raises(ClientError) as exc:
@@ -1367,8 +1366,8 @@ def test_sync_delete_group_raises_a_typed_error_for_the_default_group():
         captured.append(request)
         if request.url.path.endswith("sbg-default"):
             body = {"code": "default_sandbox_group_not_deletable", "message": "x"}
-            return httpx.Response(409, json=body)
-        return httpx.Response(204)
+            return httpx2.Response(409, json=body)
+        return httpx2.Response(204)
 
     client = _sync_sandbox_client(handler)
     assert client.delete_group("sbg-abc") is None
@@ -1383,7 +1382,7 @@ async def test_set_default_group_returns_the_default_group():
 
     async def handler(request):
         captured.append(request)
-        return httpx.Response(200, json=SANDBOX_GROUP_JSON)
+        return httpx2.Response(200, json=SANDBOX_GROUP_JSON)
 
     client = _sandbox_client(handler)
     group = await client.set_default_group("sbg-abc")
@@ -1394,15 +1393,43 @@ async def test_set_default_group_returns_the_default_group():
     assert group.is_default is True
 
 
+async def _copy_to_missing_sandbox(client, tmp_path):
+    source = tmp_path / "hello.txt"
+    source.write_text("hi")
+    await client.copy_to("sbx-123", source, "/app/hello.txt")
+
+
+_SUSPENDED_GROUP_CALLS = {
+    "create": lambda client, tmp_path: client.create(),
+    "create from snapshot": lambda client, tmp_path: client.create(snapshot_id="snp-1"),
+    "create from image": lambda client, tmp_path: client.create(image="python"),
+    "snapshots.create": lambda client, tmp_path: client.snapshots.create("sbx-123"),
+    "images.import_": lambda client, tmp_path: client.images.import_(
+        sandbox_group_id="sbg-abc", name="python", source="python:3.13"
+    ),
+    "delete_group": lambda client, tmp_path: client.delete_group("sbg-abc"),
+    "set_default_group": lambda client, tmp_path: client.set_default_group("sbg-abc"),
+    "exec": lambda client, tmp_path: _collect(client.exec("sbx-123", "echo hi")),
+    "copy_to": _copy_to_missing_sandbox,
+    "copy_from": lambda client, tmp_path: client.copy_from(
+        "sbx-123", "/app/hello.txt", tmp_path / "out.txt"
+    ),
+}
+
+
 @pytest.mark.asyncio
-async def test_set_default_group_raises_sandbox_group_suspended_error():
+@pytest.mark.parametrize(
+    "call", _SUSPENDED_GROUP_CALLS.values(), ids=list(_SUSPENDED_GROUP_CALLS)
+)
+async def test_a_suspended_group_raises_sandbox_group_suspended_error(call, tmp_path):
     async def handler(request):
         body = {"code": "sandbox_group_suspended", "message": "group suspended"}
-        return httpx.Response(409, json=body)
+        return httpx2.Response(409, json=body)
 
     client = _sandbox_client(handler)
     with pytest.raises(SandboxGroupSuspendedError, match="group suspended") as exc:
-        await client.set_default_group("sbg-abc")
+        await call(client, tmp_path)
+    assert isinstance(exc.value, ClientError)
     assert exc.value.code == ErrorCode.SANDBOX_GROUP_SUSPENDED
     assert exc.value.status_code == 409
 
@@ -1410,7 +1437,7 @@ async def test_set_default_group_raises_sandbox_group_suspended_error():
 @pytest.mark.asyncio
 async def test_set_default_group_raises_client_error_for_an_unknown_conflict_code():
     async def handler(request):
-        return httpx.Response(409, json={"code": "other", "message": "conflict"})
+        return httpx2.Response(409, json={"code": "other", "message": "conflict"})
 
     client = _sandbox_client(handler)
     with pytest.raises(ClientError) as exc:
@@ -1423,8 +1450,72 @@ def test_sync_set_default_group_returns_the_default_group():
 
     def handler(request):
         captured.append(request)
-        return httpx.Response(200, json=SANDBOX_GROUP_JSON)
+        return httpx2.Response(200, json=SANDBOX_GROUP_JSON)
 
     client = _sync_sandbox_client(handler)
     assert client.set_default_group("sbg-abc").is_default is True
     assert captured[-1].url.path == "/v1/sandbox-groups/sbg-abc/set-default"
+
+
+def test_sync_create_in_a_suspended_group_raises_sandbox_group_suspended_error():
+    def handler(request):
+        body = {"code": "sandbox_group_suspended", "message": "group suspended"}
+        return httpx2.Response(409, json=body)
+
+    client = _sync_sandbox_client(handler)
+    with pytest.raises(SandboxGroupSuspendedError) as exc:
+        client.create()
+    assert exc.value.status_code == 409
+
+
+def _ended_sandbox_handler(status: str):
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.method == "POST" and request.url.path.endswith("/token"):
+            return httpx2.Response(
+                409,
+                json={
+                    "message": "sandbox is not running",
+                    "code": "sandbox_not_running",
+                },
+            )
+        if request.method == "GET" and request.url.path == "/v1/sandboxes/sbx-abc":
+            return httpx2.Response(
+                200,
+                json={
+                    **SANDBOX_JSON,
+                    "status": status,
+                    "terminatedAt": "2026-07-17T00:10:00Z",
+                },
+            )
+        raise AssertionError(f"unexpected request {request.method} {request.url}")
+
+    return handler
+
+
+@pytest.mark.asyncio
+async def test_exec_on_ended_sandbox_raises_sandbox_ended_error():
+    client = _sandbox_client(_ended_sandbox_handler("terminated"))
+
+    with pytest.raises(SandboxEndedError) as exc_info:
+        async for _ in client.exec("sbx-abc", "ls"):
+            pass
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.code == "sandbox_not_running"
+    assert exc_info.value.sandbox_status == "terminated"
+    assert "sandbox sbx-abc was terminated at 2026-07-17T00:10:00Z" in str(
+        exc_info.value
+    )
+
+
+@pytest.mark.asyncio
+async def test_copy_to_on_errored_sandbox_raises_sandbox_ended_error(tmp_path):
+    source = tmp_path / "hello.txt"
+    source.write_text("hi\n")
+    client = _sandbox_client(_ended_sandbox_handler("errored"))
+
+    with pytest.raises(SandboxEndedError) as exc_info:
+        await client.copy_to("sbx-abc", source, "/app/hello.txt")
+
+    assert exc_info.value.sandbox_status == "errored"
+    assert "sandbox sbx-abc errored at 2026-07-17T00:10:00Z" in str(exc_info.value)

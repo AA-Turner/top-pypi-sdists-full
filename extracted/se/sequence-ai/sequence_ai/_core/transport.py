@@ -260,7 +260,7 @@ class Transport:
         `timeout_s` overrides the client default for this one call. It exists for exactly one
         situation: a run's first act, whose worker may still compile the batch size it is first
         sent - a first forward at a size it has not run compiles there, past 30 s for pi05-droid
-        v19 on dev (10-15, p95 31469 ms). Against the 30 s default that is a timeout, so
+        v19 as measured (p95 31469 ms). Against the 30 s default that is a timeout, so
         `startup_timeout_s` would never get the chance to wait.
 
 

@@ -1,5 +1,6 @@
 //! `sqb freshness`: observe selected source freshness without writing state.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::collections::BTreeSet;
 
 use pyo3::exceptions::PyValueError;
@@ -15,27 +16,27 @@ use sqlbuild_host::entries::models::AdapterHost;
 use sqlbuild_orchestration::runs::models::NodeOutcome;
 
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::project::build_project_graph;
-use crate::bindings::_helpers::compiled_project::snapshot_execution::VerifiedRun;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::freshness::freshness_observe::{PreviousState, observe_freshness};
-use crate::bindings::_helpers::freshness::observation::Observer;
-use crate::bindings::_helpers::freshness::state_io::{StateRead, read_latest};
-use crate::bindings::_helpers::planner_selection::selectors::{
-    expand_project_upstream_keys, select_project_graph,
-};
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
 use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
 use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
 use sqlbuild_python_base::records::main::construct::enum_member::enum_member;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_graph::build_project_graph;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_output::result_output::main::results::write_execution_json_output::write_execution_json_output;
+use sqlbuild_python_planner::freshness::main::observe_freshness::observe_freshness;
+use sqlbuild_python_planner::freshness::main::read_latest::read_latest;
+use sqlbuild_python_planner::freshness::models::Observer;
+use sqlbuild_python_planner::freshness::models::PreviousState;
+use sqlbuild_python_planner::freshness::models::StateRead;
+use sqlbuild_python_project::planner_selection::main::expand_project_upstream_keys::expand_project_upstream_keys;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
+use sqlbuild_python_project::planner_selection::main::select_project_graph::select_project_graph;
+use sqlbuild_python_project::project_snapshot::types::VerifiedRun;
 
 use sqlbuild_core::constants::SOURCE_FRESHNESS_TABLE_NAME as STATE_TABLE_NAME;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 const STALE_REQUIRES_STATE_MESSAGE: &str = "freshness --fail-on-stale requires --state";
@@ -57,15 +58,7 @@ fn keywords<'py>(
 }
 
 fn user_error(py: Python<'_>, (message, code): (&str, &str)) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", code)?;
-        error_class(py, ErrorId::CliUser)?.call((message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(py, ErrorId::CliUser, message, (Some(code), None))
 }
 
 fn write(py: Python<'_>, text: &str) -> PyResult<()> {

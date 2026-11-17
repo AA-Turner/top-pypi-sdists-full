@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reme-ai
-Version: 0.4.2.2
+Version: 0.4.2.3
 Summary: Remember Me, Refine Me.
 Author-email: EconML team of Alibaba Tongyi Lab <jinli.yl@alibaba-inc.com>
 License-Expression: Apache-2.0
@@ -19,24 +19,26 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: aiofiles>=24.1.0
-Requires-Dist: croniter>=6.2.4
+Requires-Dist: croniter>=6.0.0
 Requires-Dist: fastapi>=0.162.0
-Requires-Dist: fastmcp<5,>=4.1.4
+Requires-Dist: fastmcp<5,>=3.4.4
 Requires-Dist: httpx[socks]>=0.28.1
 Requires-Dist: loguru>=0.7.3
-Requires-Dist: mcp<3,>=2.3.0
+Requires-Dist: mcp<3,>=1.28.1
 Requires-Dist: mistletoe>=1.6.0
 Requires-Dist: numpy>=2.4.6; python_version < "3.12"
 Requires-Dist: numpy>=2.5.4; python_version >= "3.12"
-Requires-Dist: openai>=2.33.0
+Requires-Dist: openai>=2.24.0
 Requires-Dist: psutil>=7.2.2
-Requires-Dist: pydantic>=2.14.1
+Requires-Dist: pydantic>=2.13.4
 Requires-Dist: python-frontmatter>=1.3.0
 Requires-Dist: pyyaml>=6.0.3
-Requires-Dist: rich>=15.0.0
+Requires-Dist: rich>=14.3.3
 Requires-Dist: uvicorn>=0.54.0
 Requires-Dist: watchfiles>=1.3.0
 Requires-Dist: zstandard>=0.25.0
+Provides-Extra: hermes
+Requires-Dist: agentscope[model-ollama]==2.0.10; extra == "hermes"
 Provides-Extra: as
 Requires-Dist: agentscope[model-ollama]==2.0.11; extra == "as"
 Provides-Extra: decision
@@ -47,6 +49,7 @@ Provides-Extra: core
 Requires-Dist: reme-ai[as]; extra == "core"
 Requires-Dist: dashscope>=1.26.0; extra == "core"
 Requires-Dist: pillow>=13.0.0; extra == "core"
+Requires-Dist: mss>=9.0.0; extra == "core"
 Requires-Dist: claude-agent-sdk>=0.2.174; extra == "core"
 Requires-Dist: openai-codex>=0.163.0; extra == "core"
 Requires-Dist: pproxy<3,>=2.7.9; extra == "core"
@@ -139,7 +142,10 @@ users retain control of the durable files.
   walkthrough, two live-model integration scenarios, and a 14-query fixed-summary Top-N benchmark with a forced Hermes summary baseline.
 - [2026.10] - **[ReMe Multimodal Memory](https://reme.agentscope.io/en/blog_20261009) update**: Auto Memory reads images
   with their conversation context and preserves image sources; Auto Resource turns image files into searchable daily
-  cards linked to the originals.
+  cards linked to the originals. With Qwen3.8-Max, ReMe Image scores
+  [72.49% on MemLens-256K](benchmark/memlens/docs/en/evaluation.md) and
+  [60.69% on MobileMem](benchmark/mobilemem/docs/en/evaluation.md) in LLM-Judge accuracy; the reports also cover Kimi
+  and DeepSeek.
 - [2026.10] - **[ReMe Studio Playground](https://reme.agentscope.io/studio/?lang=en) is live**: explore example memory
   files, edit Markdown, and browse linked memory graphs right in your browser—no installation or backend required.
   Everyone is welcome to [try it out](https://reme.agentscope.io/studio/?lang=en)!
@@ -448,7 +454,7 @@ BM25 through reciprocal rank fusion (RRF).
 
 ## 📊 Benchmarks
 
-ReMe evaluates multi-session and long-context memory with agentic search-and-read workflows. The figures below are the
+ReMe evaluates multi-session and long-context text and multimodal memory with agentic search-and-read workflows. The figures below are the
 published reference runs in this repository; model, prompt, dataset, and judging details are documented with each
 benchmark.
 
@@ -457,6 +463,8 @@ benchmark.
 | **[LongMemEval cleaned-s](https://reme.agentscope.io/en/benchmarks/longmemeval)** | **Overall**  |        **500 questions** |     **89.4%** | Cross-session retrieval, knowledge updates, and temporal reasoning |
 | [BEAM](https://reme.agentscope.io/en/benchmarks/beam)                             | 100K context | 20 cases / 400 questions |         66.1% | Ten types of long-context memory tasks                             |
 | [BEAM](https://reme.agentscope.io/en/benchmarks/beam)                             | 1M context   | 35 cases / 700 questions |         65.0% | Ultra-long conversation settings                                   |
+| [MemLens-256K](benchmark/memlens/docs/en/evaluation.md) | ReMe Image · Qwen3.8-Max | 189 / 195 questions | 72.49% | Multimodal long-history question answering |
+| [MobileMem-Omni](benchmark/mobilemem/docs/en/evaluation.md) | ReMe Image · Qwen3.8-Max | 20 users / 1,333 questions | 60.69% | Personal visual memory and reasoning |
 
 ReMe also achieved a **0.580 PROC score across five user personas** in the repository's
 [π-Bench evaluation](https://reme.agentscope.io/en/benchmarks/pibench), 2.4% above NanoBot under the same test-model configuration. PROC

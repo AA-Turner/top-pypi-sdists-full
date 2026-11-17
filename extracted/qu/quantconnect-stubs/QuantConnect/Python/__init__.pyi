@@ -1145,13 +1145,13 @@ class OptionAssignmentModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[Q
         """
         Creates a new instance
         
-        :param model: The python model to wrapp
+        :param model: The python model to wrap
         """
         ...
 
     def get_assignment(self, parameters: QuantConnect.Securities.Option.OptionAssignmentParameters) -> QuantConnect.Securities.Option.OptionAssignmentResult:
         """
-        Get's the option assignments to generate if any
+        Gets the option assignments to generate if any
         
         :param parameters: The option assignment parameters data transfer class
         :returns: The option assignment result.

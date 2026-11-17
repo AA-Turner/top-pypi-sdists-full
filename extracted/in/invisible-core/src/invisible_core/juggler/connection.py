@@ -44,7 +44,9 @@ from typing import Any, Callable, Optional
 
 from .. import _engine_env
 from .._offloop import off_the_loop
-from ..process import TOKEN_VAR, TREE_REFRESH, EngineTree, SessionToken, register_tree
+from .. import process as _process_module
+from ..process import TOKEN_VAR, TREE_REFRESH, EngineTree, Reaper, SessionToken, register_tree
+from . import _profile
 from .deadline import Deadline
 
 NUL = b"\x00"
@@ -498,6 +500,49 @@ def _is_a_closed_pipe(exc: OSError) -> bool:
     return _IS_WINDOWS and getattr(exc, "winerror", None) in (109, 232)
 
 
+#: Seconds `launch` waits for an engine that did not answer its first command to leave once its pipe is closed, before ending it:
+#: it never finished starting, so it is not a browser that is exiting (`process.BROWSER_EXIT_LIMIT` is for those).
+STARTUP_CLOSE_WAIT = 5.0
+
+
+class PendingReply:
+    """The reply of a command already written (`Connection.send_async`), waited on whenever the caller chooses."""
+
+    __slots__ = ("_connection", "method", "_msg_id", "_ready", "_box")
+
+    def __init__(self, connection: "Connection", method: str, msg_id: int, ready: threading.Event, box: list) -> None:
+        self._connection = connection
+        self.method = method
+        self._msg_id = msg_id
+        self._ready = ready
+        self._box = box
+
+    def wait(self, timeout: Optional[float] = 30.0) -> tuple:
+        """The result and the place of the reply (see `Connection.send_placed`), raising what `send` raises.
+
+        ``timeout=None`` waits without a bound of its own: it still ends, because a closed pipe wakes every waiter at once with
+        TargetClosedError."""
+        conn = self._connection
+        method, msg_id, ready, box = self.method, self._msg_id, self._ready, self._box
+        arrived = ready.wait(timeout)
+        if not arrived:
+            with conn._lock:
+                conn._pending.pop(msg_id, None)
+            raise ReplyTimeout(
+                "%s: no response in %.0fs. If this is the FIRST command, "
+                "look at the readiness signal before the pipe."
+                % (method, timeout))
+        response, place = box[0]
+        if "closed" in response:
+            raise conn._closed_error(method)
+        if "interrupted" in response:
+            raise Interrupted(*response["interrupted"])
+        if "error" in response:
+            e = response["error"]
+            raise ProtocolError("%s: %s" % (method, e.get("message", e)))
+        return response.get("result"), place
+
+
 class Connection(EventListeners):
     """A pipe to an already-launched Firefox."""
 
@@ -530,6 +575,10 @@ class Connection(EventListeners):
         # ignoring a command, not as an error here.
         self._write_lock = threading.Lock()
         self._closed = False
+        #: What follows the browser's exit (`close`): the launch's `process.Reaper`, or None before the close, and for
+        #: a connection that has no process of its own.
+        self.reaper: Optional[Reaper] = None
+        self._close_lock = threading.Lock()
         self._error: Optional[BaseException] = None
         #: The browser's own output, when this connection launched it. Read
         #: here only to say why the pipe closed.
@@ -690,6 +739,17 @@ class Connection(EventListeners):
         the page's process. The engine now ends that wait itself, inside the
         dispatch. [B230])
         """
+        return self.send_async(method, params, session).wait(timeout)
+
+    def send_async(self, method: str, params: Optional[dict] = None,
+                   session: Optional[str] = None) -> "PendingReply":
+        """Write a command and return at once, with the handle its reply is waited on later (`PendingReply.wait`).
+
+        ⛔ FOR A CALLER THAT SCHEDULES ON ITS OWN CLOCK (`_stroke.Stroke`): a command that must leave at an instant of its own plan
+        cannot wait for the reply of the one before it, because under load the engine answers late and everything behind the late
+        reply slips with it. `send` is this and the wait, in that order, and behaves exactly as it did; the wait of a handle that is
+        never waited on is simply not made (its pending entry is dropped with the reply, `_deliver`). A failure to write is raised
+        here, as in `send`; a closed pipe, an engine error or an interruption is raised by `wait`."""
         if self._closed:
             raise self._closed_error()
         with self._lock:
@@ -728,24 +788,7 @@ class Connection(EventListeners):
             with self._lock:
                 self._pending.pop(msg_id, None)
             raise self._closed_error()
-
-        arrived = ready.wait(timeout)
-        if not arrived:
-            with self._lock:
-                self._pending.pop(msg_id, None)
-            raise ReplyTimeout(
-                "%s: no response in %.0fs. If this is the FIRST command, "
-                "look at the readiness signal before the pipe."
-                % (method, timeout))
-        response, place = box[0]
-        if "closed" in response:
-            raise self._closed_error(method)
-        if "interrupted" in response:
-            raise Interrupted(*response["interrupted"])
-        if "error" in response:
-            e = response["error"]
-            raise ProtocolError("%s: %s" % (method, e.get("message", e)))
-        return response.get("result"), place
+        return PendingReply(self, method, msg_id, ready, box)
 
     def startup_send(self, method: str, params: Optional[dict] = None) -> Any:
         """A command that belongs to starting the browser: bounded by what is
@@ -864,8 +907,16 @@ class Connection(EventListeners):
                 return False
             time.sleep(0.01)
 
-    def close(self, timeout: float = 5.0) -> None:
+    def close(self, timeout: Optional[float] = None) -> None:
         """Closes the pipe and waits for the browser to exit on its own.
+
+        ⛔ A BROWSER THAT IS EXITING IS NEVER ENDED. `timeout=None` is
+        `process.BROWSER_EXIT_LIMIT`: the net for a browser that is stuck,
+        above the time Firefox gives its own shutdown before it crashes
+        itself, and not a measure of a close (with 5 s, 26 closes of 64 were
+        ended while they were still exiting, 4 browsers together on Windows;
+        every one of them exited by itself, in 5.8 s at the median). A caller
+        that passes a `timeout` keeps it.
 
         ⛔ Do NOT start from `terminate()`, and the reason is measured in
         this project: on Windows the pid that `Popen` returns is the
@@ -879,12 +930,25 @@ class Connection(EventListeners):
         the pipe IS the exit command. `terminate()` remains only as a
         last resort, for whatever did not die on its own.
 
+        ⛔ IT RETURNS WHEN THE BROWSER HAS EXITED: the engine and the
+        processes that belong to it (content, GPU, socket, rdd, utility,
+        forkserver), told from the launch's job or process group. It does
+        not wait for the shutdown-ping sender, the one process Firefox
+        starts to outlive itself (`process.outlives_the_browser`: by its
+        command line), and it never ends it. What is left of the tree, the
+        job and the session's directories are the launch's `reaper`'s
+        (`process.Reaper`, a thread that is not a daemon, so the end of the
+        interpreter waits for it): `reaper.join()` is the wait for all of
+        it.
+
         Idempotent, and only the first call releases anything: a session has
         more than one way out, and a later call must not close a number that
         now belongs to another pipe. The read end is not closed here at all:
         the reader releases it when the browser, told by this close, ends the
         pipe (see `__init__`).
         """
+        if timeout is None:
+            timeout = _process_module.BROWSER_EXIT_LIMIT
         self._closed = True
         # ⛔ THE TREE IS LISTED BEFORE THE PIPE CLOSES, while the engine can still say whose its children are
         # (POSIX: what a dead engine left is reparented). One pass over the parents of the machine's processes,
@@ -907,27 +971,36 @@ class Connection(EventListeners):
         deadline = time.monotonic() + timeout
         refreshed = time.monotonic()
         while p.poll() is None and time.monotonic() < deadline:
-            time.sleep(0.05)
+            time.sleep(0.01)
             if tree is not None and time.monotonic() - refreshed >= TREE_REFRESH:
                 tree.remember()
                 refreshed = time.monotonic()
         # ⛔ ON WINDOWS THE PROCESS THE SPAWN RETURNED MAY BE THE LAUNCHER STUB, which has exited while the
-        # browser is still shutting down, so its exit says nothing about the tree: the tree is waited for
-        # through the launch's own job (its count of live processes, nothing of the machine is read), up
-        # to the same deadline.
-        if tree is not None:
-            tree.wait_job_empty(deadline)
+        # browser is still shutting down, so its exit says nothing about the tree: the browser is waited for
+        # through the launch's own job (nothing of the machine is read), up to the same deadline.
+        gone = p.poll() is not None
+        if gone and tree is not None:
+            gone = tree.wait_browser_gone(deadline)
         if p.poll() is None:
             try:
                 p.terminate()
             except OSError:
                 pass
-        # Then the launch's job is ended and closed: what is left of THIS launch goes, and no other
-        # browser's, and `close` returns once the kernel has finished (`EngineTree.release`).
-        if tree is not None:
-            tree.release()
+        # What is left of THIS launch is the reaper's, and no other browser's: it waits for the sender to finish
+        # (`SENDER_GRACE`), ends what stays, releases the job (the kernel ends whatever is left of the tree) and runs
+        # what the owner of the session handed to `reaper.then`. A browser that did not exit in time is ended now.
+        with self._close_lock:
+            if self.reaper is not None:
+                return
+            if gone:
+                self.reaper = Reaper(tree, grace=_profile.SENDER_GRACE)
+            else:
+                # The browser did not exit within `timeout`: it is stuck and ended now. Once ended it is not exiting, so
+                # the reaper keeps its own default for what it is given to leave: the limit is only for the wait above.
+                self.reaper = Reaper(tree, grace=0.0)
+        self.reaper.start()
 
-    async def aclose(self, timeout: float = 5.0) -> None:
+    async def aclose(self, timeout: Optional[float] = None) -> None:
         """`close()` for an event loop: the waits happen in a thread of their own
         and the loop serves its other tasks meanwhile. Like `close()`, it returns
         once the browser's processes have exited (the contract does not change,
@@ -1477,7 +1550,9 @@ def launch(executable: str, profile_dir: str, *, headless: bool = True,
         else:
             c.startup_send("Browser.setNoBrowserProxy", {})
     except ReplyTimeout:
-        c.close()
+        # ⛔ AN ENGINE THAT NEVER ANSWERED IS NOT EXITING: it did not finish starting, so it is not waited for as a
+        # browser that exits. The ones that answered (below) are: they leave by their pipe (`BROWSER_EXIT_LIMIT`).
+        c.close(STARTUP_CLOSE_WAIT)
         raise
     except ProtocolError as exc:
         c.close()

@@ -23,6 +23,12 @@ retried on its own budget; the streak resets on any answered poll, and only a su
 ends the wait - reported as `error` with gh's own last message, never as a `timeout` that would
 blame CI for the API.
 
+One gh failure is not weather: a spent API rate limit (a 403 "API rate limit exceeded"). Retrying
+it spent the whole grace, about ten more calls, against a limit every session on the account
+shares. So after each failed call the quota is read (`gh api rate_limit`, which GitHub does not
+count against it), and when its `core` remaining is 0 the wait ends at once as `rate-limited`,
+exit 2, naming when it resets in local time and in UTC. A quota that cannot be read keeps the retry.
+
 An all-green answer is CONFIRMED before it is returned (`--settle`, 20 seconds), for the same
 reason one level up: the runs for a push are not all created at the same instant, so the first
 poll can see a SUBSET of them, and a subset that is entirely terminal is indistinguishable from
@@ -79,6 +85,12 @@ and a green run with an unfinished job is waited for. `--fail-on-failed-job` end
 `failed` as soon as such a job failed; it is off by default because a `continue-on-error` job
 fails without failing its run and the API does not say which jobs carry it.
 
+A poll line names only the jobs failed BY THAT POLL, and the verdict line names runs, not jobs, so
+neither says which cells a red push failed in. Measured: a reader quoted a poll's one failed macOS
+cell while the windows cell was still running, and windows failed too. So a `failed` wait reads
+every job of every run once more and prints them, failed ones first, as a block on stderr BEFORE
+the verdict line (JSON: `data.jobs`), leaving the verdict line last and unchanged.
+
 `--workflow NAME` counts only that workflow's runs (asked for server-side), for waiting on a
 release workflow without also waiting on CI. A `no-runs` verdict names its two live causes: a
 push to a branch the workflows' `on: push` filters exclude, and - when the local repository
@@ -115,11 +127,13 @@ Run: `uv run scripts/ci_wait.py --ref HEAD`
 Exit 0 = every counted run for that sha succeeded (or was skipped; scheduled runs are not counted
 unless `--event any`), 1 = at least one did not, 2 = could
 not tell (bad sha, a ref that does not resolve, a bad flag value, no runs for it, a run awaiting
-approval, a run stuck in the queue, every failed run refused by GitHub for account billing, timed out, `gh` failed, or the tool itself crashed). `--json` prints the envelope
-`{ok, command, data: {state, summary, runs, sha, not_counted}, skipped}` on every exit, a usage
-error included (`sha` is absent when the sha itself was refused; `not_counted`, the scheduled runs
-the default filter left out of the last answered poll, is present only under the default filter
-once a poll answered); `ok` is false exactly on exit 2, with `error` repeating the summary.
+approval, a run stuck in the queue, every failed run refused by GitHub for account billing, timed out, the API rate limit spent, `gh` failed, or the tool itself crashed). `--json` prints the envelope
+`{ok, command, data: {state, summary, runs, sha, not_counted, jobs}, skipped}` on every exit, a
+usage error included (`sha` is absent when the sha itself was refused; `not_counted`, the scheduled
+runs the default filter left out of the last answered poll, is present only under the default
+filter once a poll answered; `jobs`, every job of every run as
+`{databaseId, workflowName, state, jobs: [{name, status, conclusion}] or null}`, only on `failed`);
+`ok` is false exactly on exit 2, with `error` repeating the summary.
 """
 
 import argparse
@@ -133,9 +147,12 @@ import subprocess
 import sys
 import time
 import traceback
-from datetime import datetime
+from datetime import UTC, datetime, tzinfo
 from dataclasses import dataclass, replace
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from enum import StrEnum
+from types import MappingProxyType
+from typing import Final, TypeIs
 
 from _cli_envelope import EnvelopeArgumentParser, emit
 
@@ -185,8 +202,32 @@ _JOB_STARTED = frozenset({"in_progress", "completed"})
 _JOB_FAILED = frozenset({"failure", "timed_out"})
 #: `--repo` as gh takes it: OWNER/NAME, or HOST/OWNER/NAME for an enterprise host.
 _REPO_NAME_RE = re.compile(r"(?:[A-Za-z0-9.-]+/)?[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+")
-_EXIT_CODES = {"success": 0, "failed": 1, "timeout": 2, "no-runs": 2, "error": 2,
-               "pending-approval": 2, "stuck-queued": 2, "billing-blocked": 2}
+
+
+class CiState(StrEnum):
+    """What one look at the run list, or the whole wait, concluded. The values are the wire form
+    (`data.state` in JSON, the prefix of the stderr line), so they stay these exact strings."""
+
+    SUCCESS = "success"
+    FAILED = "failed"
+    BILLING_BLOCKED = "billing-blocked"
+    PENDING = "pending"
+    PENDING_APPROVAL = "pending-approval"
+    STUCK_QUEUED = "stuck-queued"
+    NO_RUNS = "no-runs"
+    TIMEOUT = "timeout"
+    RATE_LIMITED = "rate-limited"
+    ERROR = "error"
+
+
+#: Every state's exit code, total over CiState (pinned by a test): a state with no entry would
+#: otherwise have to fall back to some default, which is how a misspelt state used to exit 2
+#: without a word.
+_EXIT_CODES: Final[Mapping[CiState, int]] = MappingProxyType({
+    CiState.SUCCESS: 0, CiState.FAILED: 1, CiState.BILLING_BLOCKED: 2, CiState.PENDING: 2,
+    CiState.PENDING_APPROVAL: 2, CiState.STUCK_QUEUED: 2, CiState.NO_RUNS: 2,
+    CiState.TIMEOUT: 2, CiState.RATE_LIMITED: 2, CiState.ERROR: 2,
+})
 #: GitHub's annotation on a job it refused to start for billing. Matched on the text because
 #: nothing else separates it: the run concludes `failure` exactly like a real one, and the only
 #: structural sign, zero steps, is shared with jobs cancelled before a runner took them.
@@ -236,14 +277,19 @@ class Verdict:
 
     Attributes:
         state: ``success``, ``failed``, ``billing-blocked``, ``pending``, ``pending-approval``,
-            ``stuck-queued``, ``no-runs``, ``timeout`` or ``error``.
+            ``stuck-queued``, ``no-runs``, ``timeout``, ``rate-limited`` or ``error``.
         summary: One human line naming the runs that decided it.
         runs: The rows the verdict was computed from.
     """
 
-    state: str
+    state: CiState
     summary: str
     runs: tuple[dict[str, object], ...] = ()
+
+    def __post_init__(self) -> None:
+        # The constructor is the boundary: a plain string (a caller, a test) is parsed here, so a
+        # misspelt state raises ValueError instead of reaching exit_code_for as an unknown key.
+        object.__setattr__(self, "state", CiState(self.state))
 
 
 @dataclass(frozen=True)
@@ -297,6 +343,96 @@ def tally_jobs(jobs: Iterable[object]) -> JobTally:
         else:
             queued.append(name)
     return JobTally(done, running, len(queued), tuple(queued), tuple(running_names), tuple(failed))
+
+
+@dataclass(frozen=True)
+class JobOutcome:
+    """One job of a run as the closing report names it.
+
+    Attributes:
+        name: The job name, the matrix label included.
+        status: ``completed``, ``in_progress``, ``queued``, ...
+        conclusion: The job's conclusion, ``None`` while it is not completed.
+    """
+
+    name: str
+    status: str
+    conclusion: str | None
+
+    @property
+    def label(self) -> str:
+        """The conclusion of a completed job, else its status: what the job IS at report time."""
+        if self.status == _TERMINAL:
+            return str(self.conclusion)
+        return self.status
+
+    @property
+    def failed(self) -> bool:
+        return self.status == _TERMINAL and self.conclusion in _JOB_FAILED
+
+
+@dataclass(frozen=True)
+class RunJobs:
+    """Every job of one run, read once the wait ended ``failed``.
+
+    Attributes:
+        run_id: The run's ``databaseId``.
+        workflow: The run's workflow name.
+        state: The run's conclusion when it completed, else its status.
+        jobs: The jobs in the order the API listed them; ``None`` when they could not be read.
+    """
+
+    run_id: object
+    workflow: str
+    state: str
+    jobs: tuple[JobOutcome, ...] | None
+
+
+def read_run_jobs(runs: Iterable[dict[str, object]],
+                  read: Callable[[object], list[dict[str, object]] | None]) -> tuple[RunJobs, ...]:
+    """Every job of every run in ``runs``, read through ``read`` (one call per run).
+
+    The closing report needs this because the poll lines cannot stand in for it: a poll names only
+    the jobs that had failed BY THAT POLL, and the run-level verdict names none. Measured: a reader
+    quoted "failed: tests (macos-latest, py3.15)" from a poll while the windows cell was still
+    running, shipped a fix for macOS alone, and the windows cell failed too.
+    """
+    answers = []
+    for row in runs:
+        run_id = row.get("databaseId")
+        state = row.get("conclusion") if row.get("status") == _TERMINAL else row.get("status")
+        raw = read(run_id)
+        jobs = None if raw is None else tuple(
+            JobOutcome(str(j.get("name") or j.get("databaseId") or "?"), str(j.get("status")),
+                       None if j.get("conclusion") is None else str(j.get("conclusion")))
+            for j in raw if isinstance(j, dict))
+        answers.append(RunJobs(run_id, str(row.get("workflowName")), str(state), jobs))
+    return tuple(answers)
+
+
+def format_run_jobs(run: RunJobs) -> list[str]:
+    """The closing report's lines for one run: a header, then one line per job. PURE.
+
+    Failed jobs come first, then every other job that did not pass, then the rest, each group in
+    the API's order, so the cells a fix has to cover are at the top however long the matrix is.
+    """
+    head = f"jobs of run {run.run_id} ({run.workflow}, {run.state})"
+    if run.jobs is None:
+        return [f"{head}: not read (gh could not list them); see `gh run view {run.run_id}`"]
+    failed = sum(1 for job in run.jobs if job.failed)
+    ordered = sorted(run.jobs, key=lambda job: 0 if job.failed else 1 if job.label not in _PASSING else 2)
+    width = max((len(job.label) for job in ordered), default=0)
+    return [f"{head}: {failed} of {len(run.jobs)} failed",
+            *(f"  {job.label:<{width}}  {job.name}" for job in ordered)]
+
+
+def run_jobs_payload(runs: Iterable[RunJobs]) -> list[dict[str, object]]:
+    """The ``data.jobs`` field of the JSON envelope. PURE."""
+    return [{"databaseId": run.run_id, "workflowName": run.workflow, "state": run.state,
+             "jobs": None if run.jobs is None else [
+                 {"name": job.name, "status": job.status, "conclusion": job.conclusion}
+                 for job in run.jobs]}
+            for run in runs]
 
 
 def format_duration(seconds: float) -> str:
@@ -537,17 +673,19 @@ def verdict(runs: Sequence[dict[str, object]], *, event: str | None = None,
         beside one still reads ``failed``.
     """
     if not runs and workflow is not None:
-        return Verdict("no-runs", f"no runs of workflow {workflow!r} found for that sha (only that "
-                                  f"workflow is counted)")
+        return Verdict(CiState.NO_RUNS, f"no runs of workflow {workflow!r} found for that sha "
+                                        f"(only that workflow is counted)")
     if not runs:
         if event is None:
             excluded = ", ".join(sorted(_EXCLUDED_BY_DEFAULT))
-            return Verdict("no-runs", f"no runs found for that sha ({excluded} runs are not "
-                                      f"counted by default: pass --event any to see every run)")
+            return Verdict(CiState.NO_RUNS, f"no runs found for that sha ({excluded} runs are "
+                                            f"not counted by default: pass --event any to see "
+                                            f"every run)")
         if event != ANY_EVENT:
-            return Verdict("no-runs", f"no {event} runs found for that sha (runs of another event "
-                                      f"are not counted: pass --event any to see every run)")
-        return Verdict("no-runs", "no runs found for that sha")
+            return Verdict(CiState.NO_RUNS, f"no {event} runs found for that sha (runs of "
+                                            f"another event are not counted: pass --event any to "
+                                            f"see every run)")
+        return Verdict(CiState.NO_RUNS, "no runs found for that sha")
     unfinished = [r for r in runs if r.get("status") != _TERMINAL]
     bad = [r for r in runs if r.get("status") == _TERMINAL and r.get("conclusion") not in _PASSING]
     failed = [r for r in bad if r.get("conclusion") != _AWAITING_APPROVAL]
@@ -555,15 +693,15 @@ def verdict(runs: Sequence[dict[str, object]], *, event: str | None = None,
         # Before the pending check: a completed run's failure is final, so waiting for the runs
         # still going only turned a certain red into a timeout (exit 2) at the deadline.
         still = f" (still going: {_named(unfinished, 'status')})" if unfinished else ""
-        return Verdict("failed", _named(failed, "conclusion") + still, tuple(runs))
+        return Verdict(CiState.FAILED, _named(failed, "conclusion") + still, tuple(runs))
     if unfinished:
-        return Verdict("pending", _named(unfinished, "status"), tuple(runs))
+        return Verdict(CiState.PENDING, _named(unfinished, "status"), tuple(runs))
     if bad:
-        return Verdict("pending-approval", _named(bad, "conclusion")
+        return Verdict(CiState.PENDING_APPROVAL, _named(bad, "conclusion")
                        + " (awaiting a maintainer's approval; no wait resolves it)", tuple(runs))
     if not any(r.get("conclusion") == "success" for r in runs):
-        return Verdict("failed", _named(runs, "conclusion") + " (nothing ran)", tuple(runs))
-    return Verdict("success", _named(runs, "conclusion"), tuple(runs))
+        return Verdict(CiState.FAILED, _named(runs, "conclusion") + " (nothing ran)", tuple(runs))
+    return Verdict(CiState.SUCCESS, _named(runs, "conclusion"), tuple(runs))
 
 
 def _run_key(row: dict[str, object]) -> tuple[object, object]:
@@ -600,6 +738,7 @@ def wait_for(
     fail_on_failed_job: bool = False,
     workflow: str | None = None,
     run_billing_blocked: Callable[[object], bool | None] | None = None,
+    rate_limit_spent: Callable[[], str | None] | None = None,
 ) -> Verdict:
     """Poll ``fetch`` until every run is terminal, or a budget runs out.
 
@@ -700,10 +839,16 @@ def wait_for(
             billing (``True``), did not (``False``), or it could not be told (``None``). Asked
             for every failed run once the verdict is ``failed``; only when EVERY one answers
             ``True`` is the verdict ``billing-blocked`` instead. ``None`` here skips the check.
+        rate_limit_spent: Asked after every failed ``fetch``: the verdict line when the
+            account's API rate limit is spent, else ``None`` (not spent, or it could not be
+            read, which keeps the retry). A spent limit ends the wait at once as
+            ``rate-limited``: measured, a 403 "API rate limit exceeded" was retried for the whole
+            ``error_grace_s``, about ten more calls against an empty limit that every session on
+            the account shares, and the wait still ended in ``error``.
 
     Returns:
         The terminal verdict: ``success``, ``failed``, ``billing-blocked``, ``pending-approval``,
-        ``stuck-queued``, ``no-runs``, ``timeout`` or ``error``.
+        ``stuck-queued``, ``no-runs``, ``timeout``, ``rate-limited`` or ``error``.
 
     Raises:
         GhUnavailable: `gh` cannot be run here; no budget can fix that.
@@ -746,6 +891,9 @@ def wait_for(
         except GhFailed as exc:
             errors_seen += 1
             last_error = str(exc)
+            if rate_limit_spent is not None and (spent := rate_limit_spent()) is not None:
+                return Verdict(CiState.RATE_LIMITED, f"{spent}; last gh failure: {last_error}",
+                               tuple(last_rows))
             error_since = timer.now() if error_since is None else error_since
             if timer.now() - error_since >= error_grace_s:
                 return _gh_gave_up(errors_seen, last_error)
@@ -761,12 +909,12 @@ def wait_for(
         _track_queued(queued_since, rows, timer.now())
         current = verdict(rows, event=event, workflow=workflow)
         last_summary = current.summary
-        if current.state == "no-runs":
+        if current.state == CiState.NO_RUNS:
             empty_since = timer.now() if empty_since is None else empty_since
             if timer.now() - empty_since >= appear_grace_s:
                 return current
             report(f"{label(poll)}: no runs yet for that sha")
-        elif current.state == "success" and run_jobs is not None and (
+        elif current.state == CiState.SUCCESS and run_jobs is not None and (
                 unfinished_jobs := _jobs_not_finished(rows, run_jobs)):
             # GitHub can report a run completed/success while its jobs endpoint still shows jobs
             # queued or running (measured, 9 of 18). That is not a green to confirm yet.
@@ -775,7 +923,7 @@ def wait_for(
             last_success = None
             last_summary = f"{current.summary}; {unfinished_jobs}"
             report(f"{label(poll)}: {last_summary}")
-        elif current.state == "success":
+        elif current.state == CiState.SUCCESS:
             empty_since = None
             last_success = current
             seen = frozenset(_run_key(r) for r in rows)
@@ -791,9 +939,9 @@ def wait_for(
                 break
             pause(settle_s)
             continue
-        elif current.state == "failed":
+        elif current.state == CiState.FAILED:
             return _billing_blocked(current, run_billing_blocked)
-        elif current.state != "pending":
+        elif current.state != CiState.PENDING:
             return current
         else:
             empty_since = None
@@ -805,8 +953,9 @@ def wait_for(
             note, failed_jobs = ("", ()) if run_jobs is None else _job_progress(
                 rows, run_jobs, job_queued_since, timer.now())
             if fail_on_failed_job and failed_jobs:
-                return Verdict("failed", f"{current.summary}; job(s) already failed while the run "
-                                         f"is still going: {', '.join(failed_jobs)}", tuple(rows))
+                return Verdict(CiState.FAILED, f"{current.summary}; job(s) already failed while "
+                                               f"the run is still going: {', '.join(failed_jobs)}",
+                               tuple(rows))
             last_summary = current.summary + note
             report(f"{label(poll)}: {last_summary}")
         if not may_poll_again(poll):
@@ -825,11 +974,12 @@ def wait_for(
     if errors_seen and answered:
         # The deadline, not the error budget, ended this wait: the calls failing at the end were
         # often bounded by the seconds left, so the verdict is the timeout the last answer shows.
-        return Verdict("timeout", f"{last_summary} (deadline reached while gh was failing: "
-                                  f"{errors_seen} call(s), last: {last_error})", tuple(last_rows))
+        return Verdict(CiState.TIMEOUT, f"{last_summary} (deadline reached while gh was failing: "
+                                        f"{errors_seen} call(s), last: {last_error})",
+                       tuple(last_rows))
     if errors_seen:
         return _gh_gave_up(errors_seen, last_error)
-    return Verdict("timeout", last_summary, tuple(last_rows))
+    return Verdict(CiState.TIMEOUT, last_summary, tuple(last_rows))
 
 
 def _job_progress(rows: Sequence[dict[str, object]],
@@ -909,7 +1059,7 @@ def _billing_blocked(failed: Verdict,
     if not bad or not all(ask(r.get("databaseId")) is True for r in bad):
         return failed
     ids = ", ".join(str(r.get("databaseId")) for r in bad)
-    return Verdict("billing-blocked",
+    return Verdict(CiState.BILLING_BLOCKED,
                    f"no job ran: GitHub refused to start run(s) {ids} for account billing "
                    f"(recent account payments have failed or the spending limit is reached). No "
                    f"wait or retry fixes it; once billing is fixed, re-run with `gh run rerun <id>`",
@@ -970,7 +1120,7 @@ def _stuck_queued(rows: Sequence[dict[str, object]], since: dict[tuple[object, o
     finished = [r for r in rows if r.get("status") == _TERMINAL]
     if finished:
         parts.append("the other runs: " + _named(finished, "conclusion"))
-    return Verdict("stuck-queued", "; ".join(parts), tuple(rows))
+    return Verdict(CiState.STUCK_QUEUED, "; ".join(parts), tuple(rows))
 
 
 def _cut_settle_said(confirmed: Verdict, waited: float, settle_s: float) -> Verdict:
@@ -1008,12 +1158,16 @@ class _Timer:
 
 def _gh_gave_up(polls: int, message: str) -> Verdict:
     """The verdict for gh failing on every poll of its budget, naming gh's own last words."""
-    return Verdict("error", f"gh failed {polls} polls running: {message}")
+    return Verdict(CiState.ERROR, f"gh failed {polls} polls running: {message}")
 
 
-def exit_code_for(state: str) -> int:
-    """Map a verdict state to a POSIX exit code: 0 yes, 1 no, 2 could not tell."""
-    return _EXIT_CODES.get(state, 2)
+def exit_code_for(state: CiState | str) -> int:
+    """Map a verdict state to a POSIX exit code: 0 yes, 1 no, 2 could not tell.
+
+    Raises:
+        ValueError: ``state`` names no :class:`CiState`.
+    """
+    return _EXIT_CODES[CiState(state)]
 
 
 def gh_runs(
@@ -1102,22 +1256,55 @@ def gh_run_started(run_id: object, *, repo: str | None = None,
     answered something that is not a job list - an unknown, which the stuck check reads as
     "keep waiting", never as "nothing started".
     """
-    argv = ["gh", "run", "view", str(run_id), "--json", "jobs"]
-    if repo:
-        argv += ["--repo", repo]
-    try:
-        answer = _gh_json(argv, timeout_s)
-    except (GhFailed, GhUnavailable):
+    return jobs_started(_read_jobs(run_id, repo=repo, timeout_s=timeout_s))
+
+
+def jobs_started(jobs: list[dict[str, object]] | None) -> bool | None:
+    """Whether any of ``jobs`` was taken by a runner; ``None`` for a job list that was not read."""
+    if jobs is None:
         return None
-    jobs = answer.get("jobs") if isinstance(answer, dict) else None
-    if not isinstance(jobs, list):
-        return None
-    return any(isinstance(j, dict) and j.get("status") in _JOB_STARTED for j in jobs)
+    return any(j.get("status") in _JOB_STARTED for j in jobs)
+
+
+class _JobsPerPoll:
+    """One `gh run view <id> --json jobs` per run per poll, shared by every reader of the jobs.
+
+    The stuck check and the progress note both ask about the same run in the same poll; each asking
+    gh on its own spent two calls of the account-wide API budget on one answer. The memo is dropped
+    when the next poll's listing is fetched, so no answer outlives the poll it describes.
+    """
+
+    def __init__(self, read: Callable[[object], list[dict[str, object]] | None]) -> None:
+        self._read = read
+        self._answers: dict[object, list[dict[str, object]] | None] = {}
+
+    def jobs(self, run_id: object) -> list[dict[str, object]] | None:
+        if run_id not in self._answers:
+            self._answers[run_id] = self._read(run_id)
+        return self._answers[run_id]
+
+    def started(self, run_id: object) -> bool | None:
+        return jobs_started(self.jobs(run_id))
+
+    def clearing_on(self, fetch: Callable[[], list[dict[str, object]]]
+                    ) -> Callable[[], list[dict[str, object]]]:
+        """``fetch``, forgetting every job list first: each listing starts a new poll."""
+        def fresh() -> list[dict[str, object]]:
+            self._answers.clear()
+            return fetch()
+        return fresh
 
 
 def gh_run_jobs(run_id: object, *, repo: str | None = None,
                 timeout_s: float = GH_CALL_TIMEOUT_S) -> list[dict[str, object]] | None:
     """The jobs of run ``run_id`` (`gh run view <id> --json jobs`); ``None`` when not readable."""
+    return _read_jobs(run_id, repo=repo, timeout_s=timeout_s)
+
+
+def _read_jobs(run_id: object, *, repo: str | None,
+               timeout_s: float) -> list[dict[str, object]] | None:
+    """The one `gh run view <id> --json jobs` reader behind :func:`gh_run_jobs` and
+    :func:`gh_run_started`, so the two cannot drift apart in what they count as readable."""
     argv = ["gh", "run", "view", str(run_id), "--json", "jobs"]
     if repo:
         argv += ["--repo", repo]
@@ -1202,6 +1389,70 @@ def gh_run_billing_blocked(run_id: object, *, repo: str | None = None,
                 str(n.get("message") or "")) for n in notes):
             return True
     return False
+
+
+@dataclass(frozen=True)
+class RateLimit:
+    """The REST ``core`` quota, as `gh api rate_limit` reports it.
+
+    Attributes:
+        remaining: Requests left in the current window.
+        limit: Requests the window allows.
+        reset: When the window resets, in epoch seconds.
+    """
+
+    remaining: int
+    limit: int
+    reset: float
+
+
+def parse_rate_limit(answer: object) -> RateLimit | None:
+    """The ``resources.core`` quota of a `gh api rate_limit` answer, or ``None``. PURE.
+
+    ``core`` because every call this tool makes (`gh run list`, `gh run view`, the annotations) is
+    a REST call. Any other shape is an unknown, never a spent limit.
+    """
+    resources = answer.get("resources") if isinstance(answer, dict) else None
+    core = resources.get("core") if isinstance(resources, dict) else None
+    if not isinstance(core, dict):
+        return None
+    remaining, limit, reset = core.get("remaining"), core.get("limit"), core.get("reset")
+    if not (_is_count(remaining) and _is_count(limit) and _is_count(reset)):
+        return None
+    return RateLimit(remaining, limit, float(reset))
+
+
+def _is_count(value: object) -> TypeIs[int]:
+    """A JSON integer, never a bool (``True`` is an ``int`` to Python, never a count). PURE."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def gh_rate_limit(*, repo: str | None = None,
+                  timeout_s: float = GH_CALL_FLOOR_S) -> RateLimit | None:
+    """The account's REST quota (`gh api rate_limit`); ``None`` when it could not be read.
+
+    GitHub does not count this endpoint against the limit, so asking it after a failed call costs
+    none of the budget the question is about. An enterprise ``HOST/OWNER/NAME`` is asked on that
+    host: the quota is per host.
+    """
+    gh_api, _base = _gh_api_target(repo)
+    try:
+        return parse_rate_limit(_gh_json([*gh_api, "rate_limit"], timeout_s))
+    except (GhFailed, GhUnavailable):
+        return None
+
+
+def rate_limit_summary(spent: RateLimit, *, now: float, tz: tzinfo | None = None) -> str:
+    """The ``rate-limited`` verdict line, naming the reset in local time and in UTC. PURE.
+
+    ``tz`` is the local zone (``None``: the machine's), a parameter so a test pins the text.
+    """
+    utc = datetime.fromtimestamp(spent.reset, UTC)
+    local = utc.astimezone(tz)
+    return (f"the GitHub API rate limit is spent ({spent.remaining} of {spent.limit} core requests "
+            f"left); it resets at {local:%Y-%m-%d %H:%M:%S %Z} ({utc:%Y-%m-%d %H:%M:%S} UTC), in "
+            f"{format_duration(max(0.0, spent.reset - now))}. The limit is shared by every session "
+            f"on the account, so retrying before then only fails again")
 
 
 def _gh_api_target(repo: str | None) -> tuple[list[str], str]:
@@ -1449,7 +1700,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run(args)
     except Exception as exc:  # noqa: BLE001 - the boundary that keeps a crash off exit code 1
         traceback.print_exc(file=sys.stderr)
-        return _emit(Verdict("error", f"unexpected {type(exc).__name__}: {exc}"), as_json=args.json)
+        return _emit(Verdict(CiState.ERROR, f"unexpected {type(exc).__name__}: {exc}"),
+                     as_json=args.json)
 
 
 def _tolerant_streams() -> None:
@@ -1503,12 +1755,12 @@ def _run(args: argparse.Namespace) -> int:
     try:
         sha = _target_sha(args)
     except (BadRef, BadSha) as exc:
-        return _emit(Verdict("error", str(exc)), as_json=args.json)
+        return _emit(Verdict(CiState.ERROR, str(exc)), as_json=args.json)
     deadline = _Deadline(args.timeout)
     try:
         repo, local_dir = _repo_target(args.repo, args.timeout)
     except (BadRepo, GhFailed, GhUnavailable) as exc:
-        return _emit(Verdict("error", str(exc)), as_json=args.json, sha=sha)
+        return _emit(Verdict(CiState.ERROR, str(exc)), as_json=args.json, sha=sha)
     # One entry per ANSWERED poll, so the last one belongs to the rows the verdict was computed
     # from. Collected only under the default filter: that is the filter that drops runs silently.
     not_counted: list[int] = []
@@ -1540,6 +1792,20 @@ def _run(args: argparse.Namespace) -> int:
 
         def fetch() -> list[dict[str, object]]:
             return hold_older_attempts(seen_fetch(), args.min_attempt)
+    jobs_now = _JobsPerPoll(side_call(gh_run_jobs))
+    fetch = jobs_now.clearing_on(fetch)
+
+    def rate_spent() -> str | None:
+        bound = deadline.side_bound()
+        if bound is None:
+            return None
+        # The floor, not the full side bound: this is asked after EVERY failed poll, and a stalled
+        # API would otherwise double each failed poll's time.
+        quota = gh_rate_limit(repo=repo, timeout_s=min(GH_CALL_FLOOR_S, bound))
+        if quota is None or quota.remaining > 0:
+            return None
+        return rate_limit_summary(quota, now=time.time())
+
     try:
         result = wait_for(
             fetch,
@@ -1555,23 +1821,27 @@ def _run(args: argparse.Namespace) -> int:
             deadline_s=max(0.0, deadline.left()),
             clock=time.monotonic,
             event=args.event,
-            run_started=side_call(gh_run_started),
-            run_jobs=side_call(gh_run_jobs),
+            run_started=jobs_now.started,
+            run_jobs=jobs_now.jobs,
             fail_on_failed_job=args.fail_on_failed_job,
             workflow=args.workflow,
             run_billing_blocked=lambda run_id: gh_run_billing_blocked(
                 run_id, repo=repo, bound=deadline.side_bound),
+            rate_limit_spent=rate_spent,
         )
     except (GhFailed, GhUnavailable) as exc:
-        return _emit(Verdict("error", str(exc)), as_json=args.json, sha=sha)
-    if result.state == "no-runs":
+        return _emit(Verdict(CiState.ERROR, str(exc)), as_json=args.json, sha=sha)
+    # Every job of every run, read afresh once the wait ended red: the poll lines named only the
+    # jobs failed by each poll, and the verdict line names runs, not jobs.
+    jobs = read_run_jobs(result.runs, side_call(gh_run_jobs)) if result.state == CiState.FAILED else ()
+    if result.state == CiState.NO_RUNS:
         on_remote = sha_on_a_remote(sha, cwd=local_dir) if args.repo is None or local_dir else None
         result = replace(result, summary=result.summary + no_runs_hint(on_remote))
-    elif result.state == "timeout":
+    elif result.state == CiState.TIMEOUT:
         result = replace(result, summary=result.summary
                          + _usual_durations(result.runs, repo, deadline.side_bound))
     return _emit(result, as_json=args.json, sha=sha,
-                 not_counted=not_counted[-1] if not_counted else None)
+                 not_counted=not_counted[-1] if not_counted else None, jobs=jobs)
 
 
 class _Deadline:
@@ -1678,14 +1948,17 @@ def _resolve_repo_once(timeout_s: float) -> str | None:
 
 
 def _emit(result: Verdict, *, as_json: bool, sha: str | None = None,
-          not_counted: int | None = None) -> int:
+          not_counted: int | None = None, jobs: Sequence[RunJobs] = ()) -> int:
     """Print the verdict and return its exit code; diagnostics to stderr, never into the data.
 
     ``sha`` is the commit that was watched, once known, so a ``--ref`` caller learns what it
     resolved to; it is absent when the sha itself was refused. ``not_counted`` is how many runs
     the default event filter left out of the last answered poll (``None``: not measured). JSON
     carries it as its own field and leaves ``summary`` as it was, so a consumer matching the
-    summary is unaffected; the text line gets :func:`_not_counted_note` appended.
+    summary is unaffected; the text line gets :func:`_not_counted_note` appended. ``jobs`` (a
+    ``failed`` wait only) is every job of every run: JSON carries it as ``data.jobs``, text prints
+    it as a block on stderr BEFORE the verdict line, so the verdict stays the last line and keeps
+    its exact form for a caller reading it.
     """
     code = exit_code_for(result.state)
     if as_json:
@@ -1695,8 +1968,13 @@ def _emit(result: Verdict, *, as_json: bool, sha: str | None = None,
             data["sha"] = sha
         if not_counted is not None:
             data["not_counted"] = not_counted
+        if jobs:
+            data["jobs"] = run_jobs_payload(jobs)
         emit(code, "ci_wait", data, error=result.summary if code == 2 else None, indent=None)
         return code
+    for run in jobs:
+        for line in format_run_jobs(run):
+            print(line, file=sys.stderr)
     summary = result.summary + _not_counted_note(not_counted, result.state)
     if code == 0:
         print(summary)
@@ -1705,7 +1983,7 @@ def _emit(result: Verdict, *, as_json: bool, sha: str | None = None,
     return code
 
 
-def _not_counted_note(not_counted: int | None, state: str) -> str:
+def _not_counted_note(not_counted: int | None, state: CiState) -> str:
     """`` (N scheduled run(s) not counted; --event any counts it/them)``, or ``""``. PURE.
 
     Measured: "CodeQL=success CI=success" and exit 0, while a scheduled CI run on the same sha was
@@ -1713,7 +1991,7 @@ def _not_counted_note(not_counted: int | None, state: str) -> str:
     Skipped for ``no-runs``, whose summary already says scheduled runs are not counted, and for
     ``error``, whose summary is about gh or a crash rather than about the runs.
     """
-    if not not_counted or state in ("no-runs", "error"):
+    if not not_counted or state in (CiState.NO_RUNS, CiState.ERROR):
         return ""
     if not_counted == 1:
         return " (1 scheduled run not counted; --event any counts it)"

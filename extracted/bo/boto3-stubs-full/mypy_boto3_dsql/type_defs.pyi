@@ -69,6 +69,8 @@ __all__ = (
     "ListStreamsOutputTypeDef",
     "ListTagsForResourceInputTypeDef",
     "ListTagsForResourceOutputTypeDef",
+    "MetricGroupRequestTypeDef",
+    "MetricGroupResponseTypeDef",
     "MultiRegionPropertiesOutputTypeDef",
     "MultiRegionPropertiesTypeDef",
     "MultiRegionPropertiesUnionTypeDef",
@@ -90,10 +92,16 @@ class ClusterSummaryTypeDef(TypedDict):
     identifier: str
     arn: str
 
+class MetricGroupRequestTypeDef(TypedDict):
+    metricGroup: Literal["STATEMENT_STATISTICS"]
+
 class EncryptionDetailsTypeDef(TypedDict):
     encryptionType: EncryptionTypeType
     encryptionStatus: EncryptionStatusType
     kmsKeyArn: NotRequired[str]
+
+class MetricGroupResponseTypeDef(TypedDict):
+    metricGroup: Literal["STATEMENT_STATISTICS"]
 
 class MultiRegionPropertiesOutputTypeDef(TypedDict):
     witnessRegion: NotRequired[str]
@@ -197,6 +205,7 @@ class CreateClusterOutputTypeDef(TypedDict):
     encryptionDetails: EncryptionDetailsTypeDef
     deletionProtectionEnabled: bool
     endpoint: str
+    metricGroups: list[MetricGroupResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 CreateStreamOutputTypeDef = TypedDict(
@@ -245,6 +254,7 @@ class GetClusterOutputTypeDef(TypedDict):
     tags: dict[str, str]
     encryptionDetails: EncryptionDetailsTypeDef
     endpoint: str
+    metricGroups: list[MetricGroupResponseTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetClusterPolicyOutputTypeDef(TypedDict):
@@ -348,6 +358,7 @@ class CreateClusterInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     multiRegionProperties: NotRequired[MultiRegionPropertiesUnionTypeDef]
     policy: NotRequired[str]
+    metricGroups: NotRequired[Sequence[MetricGroupRequestTypeDef]]
     bypassPolicyLockoutSafetyCheck: NotRequired[bool]
 
 class UpdateClusterInputTypeDef(TypedDict):
@@ -356,3 +367,4 @@ class UpdateClusterInputTypeDef(TypedDict):
     kmsEncryptionKey: NotRequired[str]
     clientToken: NotRequired[str]
     multiRegionProperties: NotRequired[MultiRegionPropertiesUnionTypeDef]
+    metricGroups: NotRequired[Sequence[MetricGroupRequestTypeDef]]

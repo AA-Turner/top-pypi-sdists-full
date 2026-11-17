@@ -361,8 +361,8 @@ class SymbolProperties(System.Object):
     def strike_multiplier(self) -> float:
         """
         Scale factor for option's strike price. For some options, such as NQX, the strike price
-        is based on a fraction of the underlying, thus this paramater scales the strike price so
-        that it can be used in comparation with the underlying such as
+        is based on a fraction of the underlying, thus this parameter scales the strike price so
+        that it can be used in comparison with the underlying such as
         in OptionFilterUniverse.Strikes(int, int)
         """
         ...
@@ -872,7 +872,7 @@ class LocalMarketHours(System.Object):
         Determines if the exchange is open at the specified time
         
         :param time: The time of day to check
-        :param extended_market_hours: True to check exended market hours, false to check regular market hours
+        :param extended_market_hours: True to check extended market hours, false to check regular market hours
         :returns: True if the exchange is considered open, false otherwise.
         """
         ...
@@ -884,7 +884,7 @@ class LocalMarketHours(System.Object):
         
         :param start: The start time of the interval
         :param end: The end time of the interval
-        :param extended_market_hours: True to check exended market hours, false to check regular market hours
+        :param extended_market_hours: True to check extended market hours, false to check regular market hours
         :returns: True if the exchange is considered open, false otherwise.
         """
         ...
@@ -1439,7 +1439,7 @@ class DynamicSecurityData:
 
     def get_property(self, name: str) -> System.Object:
         """
-        Gets the property's value with the specified name. This is a case-insensitve search.
+        Gets the property's value with the specified name. This is a case-insensitive search.
         
         :param name: The property name to access
         :returns: object value of BaseData.
@@ -1458,7 +1458,7 @@ class DynamicSecurityData:
 
     def set_property(self, name: str, value: typing.Any) -> System.Object:
         """
-        Sets the property with the specified name to the value. This is a case-insensitve search.
+        Sets the property with the specified name to the value. This is a case-insensitive search.
         
         
         DynamicSecurityData is a view of the SecurityCache. It is readonly, properties can not be set
@@ -2929,7 +2929,7 @@ class CashBook(QuantConnect.ExtendedDictionary[str, QuantConnect.Securities.Cash
         
         :param symbol: The symbol.
         :param value: Value.
-        :returns: true, if get value was tryed, false otherwise.
+        :returns: true, if get value was tried, false otherwise.
         """
         ...
 
@@ -3098,7 +3098,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         Performs a lookup using the specified information and returns the data's time zone if found,
         if an entry is not found, an exception is thrown
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :returns: The raw data time zone for the specified security.
@@ -3110,7 +3110,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         """
         Gets the entry for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded (Symbol class)
         :param security_type: The security type of the symbol
         :returns: The entry matching the specified market/symbol/security-type.
@@ -3122,7 +3122,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         """
         Gets the entry for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :returns: The entry matching the specified market/symbol/security-type.
@@ -3134,7 +3134,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         """
         Convenience method for retrieving exchange hours from market hours database using a subscription config
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :returns: The exchange hours for the specified security.
@@ -3158,7 +3158,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         entries in market-hours-database.csv. At run time, the algorithm can update the market hours
         database via calls to AddData.
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :param exchange_hours: The exchange hours for the specified symbol
@@ -3173,7 +3173,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         Sets the entry for the specified symbol using SecurityExchangeHours.AlwaysOpen(time_zone)
         This sets the data time zone equal to the exchange time zone as well.
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :param time_zone: The time zone of the symbol's exchange and raw data
@@ -3186,7 +3186,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         """
         Tries to get the entry for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :param entry: The entry found if any
@@ -3199,7 +3199,7 @@ class MarketHoursDatabase(QuantConnect.Securities.BaseSecurityDatabase[QuantConn
         """
         Tries to get the entry for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         :param entry: The entry found if any
@@ -3250,7 +3250,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         """
         Gets the symbol properties for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded (Symbol class)
         :param security_type: The security type of the symbol
         :param default_quote_currency: Specifies the quote currency to be used when returning a default instance of an entry is not found in the database
@@ -3263,7 +3263,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         """
         Gets a list of symbol properties for the specified market/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param security_type: The security type of the symbol
         :returns: An IEnumerable of symbol properties matching the specified market/security-type.
         """
@@ -3274,7 +3274,7 @@ class SymbolPropertiesDatabase(QuantConnect.Securities.BaseSecurityDatabase[Quan
         """
         Gets a list of symbol properties for the specified market
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :returns: An IEnumerable of symbol properties matching the specified market.
         """
         ...
@@ -3441,7 +3441,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
     @overload
     def __getitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Securities.Security:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -3475,7 +3475,7 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
     @overload
     def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Securities.Security) -> None:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -4010,7 +4010,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         """
         Gets open orders matching the specified filter. However, this method can be confused with the
         override that takes a Symbol as parameter. For this reason it first checks if it can convert
-        the parameter into a symbol. If that conversion cannot be aplied it assumes the parameter is
+        the parameter into a symbol. If that conversion cannot be applied it assumes the parameter is
         a Python function object and not a Python representation of a Symbol.
         
         :param filter: Python function object used to filter the orders
@@ -4044,7 +4044,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         """
         Gets the remaining quantity to be filled from open orders, i.e. order size minus quantity filled
         However, this method can be confused with the override that takes a Symbol as parameter. For this reason
-        it first checks if it can convert the parameter into a symbol. If that conversion cannot be aplied it
+        it first checks if it can convert the parameter into a symbol. If that conversion cannot be applied it
         assumes the parameter is a Python function object and not a Python representation of a Symbol.
         
         :param filter: Filters the order tickets to be included in the aggregate quantity remaining to be filled
@@ -4077,7 +4077,7 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         """
         Gets an enumerable of opened OrderTicket matching the specified filter
         However, this method can be confused with the override that takes a Symbol as parameter. For this reason
-        it first checks if it can convert the parameter into a symbol. If that conversion cannot be aplied it
+        it first checks if it can convert the parameter into a symbol. If that conversion cannot be applied it
         assumes the parameter is a Python function object and not a Python representation of a Symbol.
         
         :param filter: The Python function filter used to find the required order tickets
@@ -4560,7 +4560,7 @@ class SecurityHolding(System.Object):
 
     @property
     def is_short(self) -> bool:
-        """BBoolean flag indicating we have a net negative holding of the security."""
+        """Boolean flag indicating we have a net negative holding of the security."""
         ...
 
     @property
@@ -4915,7 +4915,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
     @overload
     def __getitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Securities.SecurityHolding:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -4945,7 +4945,7 @@ class SecurityPortfolioManager(QuantConnect.ExtendedDictionary[QuantConnect.Symb
     @overload
     def __setitem__(self, key: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], value: QuantConnect.Securities.SecurityHolding) -> None:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -6272,7 +6272,7 @@ class SecurityDataFilterPythonWrapper(QuantConnect.Python.BasePythonWrapper[Quan
         """
         Creates a new instance
         
-        :param data_filter: The Python class to wrapp
+        :param data_filter: The Python class to wrap
         """
         ...
 
@@ -7373,7 +7373,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         """
         Check whether an entry exists for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded (Symbol class)
         :param security_type: The security type of the symbol
         """
@@ -7397,7 +7397,7 @@ class BaseSecurityDatabase(typing.Generic[QuantConnect_Securities_BaseSecurityDa
         """
         Check whether an entry exists for the specified market/symbol/security-type
         
-        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', ect...
+        :param market: The market the exchange resides in, i.e, 'usa', 'fxcm', etc...
         :param symbol: The particular symbol being traded
         :param security_type: The security type of the symbol
         """
@@ -7602,7 +7602,7 @@ class CompositeSecurityInitializer(System.Object, QuantConnect.Securities.ISecur
 
 
 class IMarginInterestRateModel(metaclass=abc.ABCMeta):
-    """The responsability of this model is to apply margin interest rate cash flows to the portfolio"""
+    """The responsibility of this model is to apply margin interest rate cash flows to the portfolio"""
 
     def apply_margin_interest_rate(self, margin_interest_rate_parameters: QuantConnect.Securities.MarginInterestRateParameters) -> None:
         """
@@ -7781,7 +7781,7 @@ class AdjustedPriceVariationModel(System.Object, QuantConnect.Securities.IPriceV
 
 
 class IContinuousSecurity(metaclass=abc.ABCMeta):
-    """A continuous security that get's mapped during his life"""
+    """A continuous security that gets mapped during his life"""
 
     @property
     @abc.abstractmethod
@@ -7813,7 +7813,7 @@ class SecurityDefinitionSymbolResolver(System.Object):
     @overload
     def cik(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> typing.Optional[int]:
         """
-        Get's the CIK value associated with the given Symbol
+        Gets the CIK value associated with the given Symbol
         
         :param symbol: The Lean Symbol
         :returns: The Central Index Key number (CIK) corresponding to the given Lean Symbol if any, else null.
@@ -8663,8 +8663,8 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         Sets universe of 2 call contracts with the same strike price and different expiration dates, with closest match to the criteria given
         
         :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
         :returns: Universe with filter applied.
         """
         ...
@@ -8874,8 +8874,8 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         Sets universe of 2 call and 2 put contracts with the same strike price and 2 expiration dates, with closest match to the criteria given
         
         :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
         :returns: Universe with filter applied.
         """
         ...
@@ -8954,8 +8954,8 @@ class BaseOptionFilterUniverse(typing.Generic[QuantConnect_Securities_BaseOption
         Sets universe of 2 put contracts with the same strike price and different expiration dates, with closest match to the criteria given
         
         :param strike_from_atm: The desire strike price distance from the current underlying price
-        :param min_near_days_till_expiry: The mininum days till expiry of the closer contract from the current time, closest expiry will be selected
-        :param min_far_days_till_expiry: The mininum days till expiry of the further conrtact from the current time, closest expiry will be selected
+        :param min_near_days_till_expiry: The minimum days till expiry of the closer contract from the current time, closest expiry will be selected
+        :param min_far_days_till_expiry: The minimum days till expiry of the further contract from the current time, closest expiry will be selected
         :returns: Universe with filter applied.
         """
         ...
@@ -9633,7 +9633,7 @@ class Futures(System.Object):
         """Russian Ruble Futures"""
 
         BRL: str = "6L"
-        """Brazillian Real Futures"""
+        """Brazilian Real Futures"""
 
         MXN: str = "6M"
         """Mexican Peso Futures"""

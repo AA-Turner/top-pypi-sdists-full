@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cg
-Version: 88.25.3
+Version: 88.25.5
 Summary: Clinical Genomics command center
 Requires-Python: >=3.11,<3.13
 Classifier: Programming Language :: Python
@@ -31,7 +31,6 @@ Requires-Dist: SQLAlchemy
 Requires-Dist: WTForms (==3.0.0)
 Requires-Dist: alembic
 Requires-Dist: blinker
-Requires-Dist: brotli (>=1.2.1)
 Requires-Dist: cachetools
 Requires-Dist: click
 Requires-Dist: coloredlogs

@@ -45,6 +45,7 @@ class Experiment(TypedDict):
     experimentGroupName: str | None
     baselineExperimentId: str | None
     baselineExperimentName: str | None
+    agentSessionId: NotRequired[str | None]
     datasetId: str | None
     datasetName: str | None
     datasetIds: list[str]
@@ -248,6 +249,7 @@ class ExperimentsClient:
         trace_function_key: str | None = None,
         git_branch: str | None = None,
         experiment_group_id: str | None = None,
+        agent_session_id: str | None = None,
         status: ExperimentStatus | None = None,
         metadata: dict[str, str] | None = None,
         created_after: datetime | str | None = None,
@@ -258,6 +260,8 @@ class ExperimentsClient:
         """List runs newest first, narrowed by every filter given.
 
         ``metadata`` matches runs carrying every pair given (1 to 10 pairs).
+        ``agent_session_id`` matches runs launched by that coding agent session
+        exactly.
         ``created_after`` is inclusive and ``created_before`` exclusive; a naive
         datetime is treated as UTC. An unfiltered call pages the whole
         organization, so ``limit=1`` fetches the latest run. Pass ``nextCursor``
@@ -272,6 +276,8 @@ class ExperimentsClient:
             params["gitBranch"] = git_branch
         if experiment_group_id is not None:
             params["experimentGroupId"] = experiment_group_id
+        if agent_session_id is not None:
+            params["agentSessionId"] = agent_session_id
         if status is not None:
             params["status"] = status
         if metadata is not None:

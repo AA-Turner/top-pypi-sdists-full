@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 
 from cube_common.apollo_client import ApolloClient
 from cube_cloud.auth.app_companies import app_companies, reads_stored_sets
@@ -914,15 +915,46 @@ async def submit_feedback(
 # AI tab: deploy and remove catalog models (docs/ai-reactor-deploy-spec.md §5)
 # ---------------------------------------------------------------------------
 
-def _ai_result(result, cube: str) -> dict:
-    """The response body for an AI write. Messages are composed in `reactor.service`;
-    no Apollo text ever reaches it."""
+# The whole of one AI write request, under the ALB's 60 s idle timeout. The write itself is
+# bounded by `reactor.service.CALL_BUDGET_SECONDS`; the other side's re-read below gets what is
+# left of this, so a slow read can never turn a write that landed into a 504 (the same rule as
+# `expose`'s one budget over the whole call, AGENTS.md).
+AI_WRITE_TOTAL_SECONDS = 55.0
+
+
+async def _bounded(coro, started: float):
+    """`coro`'s result, or None once the request's AI_WRITE_TOTAL_SECONDS are spent."""
+    try:
+        return await asyncio.wait_for(coro, timeout=max(1.0, AI_WRITE_TOTAL_SECONDS - (time.monotonic() - started)))
+    except asyncio.TimeoutError:
+        logger.warning("console ai: the other section's re-read ran out of the request budget")
+        return None
+
+
+async def _ai_result(client: ApolloClient, profile: str, env: dict, cube: str, result,
+                     *, vision_result: bool, started: float) -> dict:
+    """The response body for an AI write: the outcome, and the whole tab re-read so the
+    page settles without a refetch. A write returns the state of ITS side (LLM or vision);
+    the other side is read here, within what is left of the request's budget. Messages are
+    composed in `reactor`; no Apollo text ever reaches them."""
+    from cube_cloud.reactor import service as reactor
+    from cube_cloud.reactor import vision
+
+    can_write = reads.ai_can_write(profile)
+    ai = None
+    if vision_result:
+        llm = await _bounded(reactor._safe_state(client, env, reactor.load_catalog(), profile), started)
+        if llm is not None:
+            ai = reads.ai_payload(llm, cube, result.state)
+    elif result.state is not None:
+        ai = reads.ai_payload(result.state, cube,
+                              await _bounded(vision.safe_read_state(client, env, can_write, profile=profile), started))
     return {
         "ok": result.ok,
         "outcome": result.outcome,
         "message": result.message,
         "steps": list(result.steps),
-        "ai": reads.ai_payload(result.state, cube) if result.state is not None else None,
+        "ai": ai,
     }
 
 
@@ -937,33 +969,110 @@ async def ai_deploy(
     to guard against does not arise here.
     """
     from cube_cloud.reactor import service as reactor
+    from cube_cloud.reactor import vision
 
+    started = time.monotonic()
     env = await reads._ai_environment(client, profile, cube)
     if env is None:
         return None
-    result = await reactor.deploy(
-        client, env, model_id, replace=replace, can_write=reads.ai_can_write(profile),
-        profile=profile,
-    )
+    # A model id names exactly one catalog (test_vision_ids_never_collide_with_llm_ids),
+    # so the dispatch is by membership, never by anything else in the body.
+    is_vision = vision.load_vision_catalog().model(model_id) is not None
+    if is_vision and replace:
+        result = reactor._refused("Vision models are added alongside each other; there is nothing to replace.")
+    elif is_vision:
+        result = await vision.deploy(client, env, model_id, can_write=reads.ai_can_write(profile),
+                                     profile=profile)
+    else:
+        result = await reactor.deploy(
+            client, env, model_id, replace=replace, can_write=reads.ai_can_write(profile),
+            profile=profile,
+        )
     logger.info(
         "console ai deploy %s on %s by profile=%s: %s (%s)",
         model_id, cube, profile, result.outcome, ", ".join(result.steps) or "no steps",
     )
-    return _ai_result(result, cube)
+    return await _ai_result(client, profile, env, cube, result, vision_result=is_vision, started=started)
 
 
 async def ai_remove(client: ApolloClient, profile: str, cube: str, model_id: str) -> dict | None:
     """Remove an Edgeport-managed model from a cube. None when the caller cannot see it."""
     from cube_cloud.reactor import service as reactor
+    from cube_cloud.reactor import vision
 
+    started = time.monotonic()
     env = await reads._ai_environment(client, profile, cube)
     if env is None:
         return None
-    result = await reactor.remove(
-        client, env, model_id, can_write=reads.ai_can_write(profile), profile=profile,
-    )
+    is_vision = vision.load_vision_catalog().model(model_id) is not None
+    # A name no catalog lists may be a model registered through the upload flow
+    # (`registeredBy: model_tools`); only such an entry is removed by name.
+    if not is_vision and reactor.load_catalog().model(model_id) is None:
+        registered = vision.is_registered_here(
+            await vision.safe_read_state(client, env, reads.ai_can_write(profile), profile=profile), model_id)
+        if registered:
+            result = await vision.remove_registered(client, env, model_id, can_write=reads.ai_can_write(profile),
+                                                    profile=profile)
+            logger.info("console ai remove (registered) %s on %s by profile=%s: %s", model_id, cube, profile,
+                        result.outcome)
+            return await _ai_result(client, profile, env, cube, result, vision_result=True, started=started)
+    if is_vision:
+        result = await vision.remove(client, env, model_id, can_write=reads.ai_can_write(profile),
+                                     profile=profile)
+    else:
+        result = await reactor.remove(
+            client, env, model_id, can_write=reads.ai_can_write(profile), profile=profile,
+        )
     logger.info(
         "console ai remove %s on %s by profile=%s: %s (%s)",
         model_id, cube, profile, result.outcome, ", ".join(result.steps) or "no steps",
     )
-    return _ai_result(result, cube)
+    return await _ai_result(client, profile, env, cube, result, vision_result=is_vision, started=started)
+
+
+# ---------------------------------------------------------------------------
+# Custom vision models: upload, register, follow (reactor/vision_upload.py)
+# ---------------------------------------------------------------------------
+
+class VisionUploadRefused(Exception):
+    """The caller may not do this; the message is shown to them."""
+
+
+async def _vision_upload_env(client: ApolloClient, profile: str, cube: str) -> dict | None:
+    from cube_cloud.reactor import vision_upload
+
+    if not reads.ai_can_write(profile):
+        raise VisionUploadRefused("Your account can view this cube's AI models but not change them.")
+    if not vision_upload.available():
+        raise VisionUploadRefused("Uploading models is not set up on this console.")
+    return await reads._ai_environment(client, profile, cube)
+
+
+async def vision_upload_prepare(client: ApolloClient, profile: str, cube: str, size) -> dict | None:
+    """A presigned upload for one ONNX file. None when the caller cannot see the cube."""
+    from cube_cloud.reactor import vision_upload
+
+    env = await _vision_upload_env(client, profile, cube)
+    if env is None:
+        return None
+    return await vision_upload.prepare_upload(env, profile, size)
+
+
+async def vision_register_start(client: ApolloClient, profile: str, cube: str, body: dict) -> dict | None:
+    from cube_cloud.reactor import vision_upload
+
+    env = await _vision_upload_env(client, profile, cube)
+    if env is None:
+        return None
+    return await vision_upload.start(client, env, profile, body)
+
+
+async def vision_register_poll(client: ApolloClient, profile: str, cube: str, reg_id: str) -> dict | None:
+    """Advance and report one registration. None for one that is not this caller's."""
+    from cube_cloud.reactor import vision_upload
+
+    env = await _vision_upload_env(client, profile, cube)
+    if env is None:
+        return None
+    return await vision_upload.status(client, env, profile, reg_id)
+

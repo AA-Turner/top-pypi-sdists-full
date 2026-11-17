@@ -148,19 +148,23 @@ async def _redis_get(client: Redis, name: str) -> Any:
     return await client.get(name=name)
 
 
+async def _close_redis_client(client: Redis) -> None:
+    """Close clients from both redis-py 4.x and newer releases."""
+    aclose = getattr(client, "aclose", None)
+    if aclose is not None:
+        await aclose()
+    else:
+        await client.close()
+
+
 async def _redis_mget(client: Redis, keys: list[str]) -> list[Any]:
     """Get multiple values from Redis."""
     return await client.mget(keys=keys)
 
 
-async def _redis_set(client: Redis, name: str, value: str) -> None:
-    """Set a value in Redis without TTL."""
-    _ = await client.set(name=name, value=value)
-
-
-async def _redis_setex(client: Redis, name: str, time: int, value: str) -> None:
-    """Set a value in Redis with TTL."""
-    _ = await client.setex(name=name, time=time, value=value)
+async def _redis_set(client: Redis, name: str, value: str, *, expires_in: int | None = None) -> None:
+    """Set a value in Redis with an optional TTL."""
+    _ = await client.set(name=name, value=value, ex=expires_in)
 
 
 async def _redis_pipeline_execute(pipeline: Any) -> None:
@@ -359,7 +363,7 @@ class RedisStore(BaseDestroyStore, BaseEnumerateKeysStore, BaseContextManagerSto
             # Redis does not support <= 0 TTLs
             ttl = max(int(managed_entry.ttl), 1)
 
-            await _redis_setex(self._client, combo_key, ttl, json_value)
+            await _redis_set(self._client, combo_key, json_value, expires_in=ttl)
         else:
             await _redis_set(self._client, combo_key, json_value)
 
@@ -398,7 +402,7 @@ class RedisStore(BaseDestroyStore, BaseEnumerateKeysStore, BaseContextManagerSto
             combo_key: str = compound_key(collection=collection, key=key)
             json_value = self._adapter.dump_json(entry=managed_entry, key=key, collection=collection)
 
-            pipeline.setex(name=combo_key, time=ttl_seconds, value=json_value)
+            pipeline.set(name=combo_key, value=json_value, ex=ttl_seconds)
 
         await _redis_pipeline_execute(pipeline)
 
@@ -425,16 +429,26 @@ class RedisStore(BaseDestroyStore, BaseEnumerateKeysStore, BaseContextManagerSto
 
         pattern = compound_key(collection=collection, key="*")
 
-        # redis.asyncio scan returns tuple(cursor, keys)
-        _cursor, keys = await _redis_scan(self._client, cursor=0, match=pattern, count=limit)
-
-        return get_keys_from_compound_keys(compound_keys=keys, collection=collection)
+        cursor = 0
+        keys: list[str] = []
+        seen: set[str] = set()
+        while True:
+            # SCAN may return an empty page with a nonzero cursor, or repeat keys.
+            cursor, page = await _redis_scan(self._client, cursor=cursor, match=pattern, count=limit)
+            for key in get_keys_from_compound_keys(compound_keys=page, collection=collection):
+                if key not in seen:
+                    seen.add(key)
+                    keys.append(key)
+                    if len(keys) >= limit:
+                        return keys
+            if cursor == 0:
+                return keys
 
     @override
     async def _setup(self) -> None:
         """Register client cleanup if we own the client."""
         if not self._client_provided_by_user:
-            self._exit_stack.push_async_callback(self._client.aclose)
+            self._exit_stack.push_async_callback(_close_redis_client, self._client)
 
     @override
     async def _delete_store(self) -> bool:

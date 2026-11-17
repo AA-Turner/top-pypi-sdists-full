@@ -84,6 +84,7 @@ from enterprise.toggles import (
     ENTERPRISE_CUSTOMER_SUPPORT_TOOL,
     ENTERPRISE_LEARNER_BFF_ENABLED,
     FEATURE_PREQUERY_SEARCH_SUGGESTIONS,
+    PERSONALIZED_SEARCH_ENABLED,
     TOP_DOWN_ASSIGNMENT_REAL_TIME_LCM,
     USE_ALGOLIA_INDEX_V2,
 )
@@ -2084,62 +2085,62 @@ class TestEnterpriseCustomerViewSet(BaseTestEnterpriseAPIViews):
     @ddt.data(
         # Request missing required permissions query param.
         (True, False, [], {}, False, {'detail': 'User is not allowed to access the view.'},
-         False, False, False, False, False, False, False, False, False, False),
+         False, False, False, False, False, False, False, False, False, False, False),
         # Staff user that does not have the specified group permission.
         (True, False, [], {'permissions': ['enterprise_enrollment_api_access']},
          False,
          {'detail': 'User is not allowed to access the view.'},
-         False, False, False, False, False, False, False, False, False, False),
+         False, False, False, False, False, False, False, False, False, False, False),
         # Staff user that does have the specified group permission.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access']},
-         True, None, False, False, False, False, False, False, False, False, False, False),
+         True, None, False, False, False, False, False, False, False, False, False, False, False),
         # Non staff user that is not linked to the enterprise, nor do they have the group permission.
         (False, False, [], {'permissions': ['enterprise_enrollment_api_access']},
          False,
          {'detail': 'User is not allowed to access the view.'},
-         False, False, False, False, False, False, False, False, False, False),
+         False, False, False, False, False, False, False, False, False, False, False),
         # Non staff user that is not linked to the enterprise, but does have the group permission.
         (False, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access']},
-         False, None, False, False, False, False, False, False, False, False, False, False),
+         False, None, False, False, False, False, False, False, False, False, False, False, False),
         # Non staff user that is linked to the enterprise, but does not have the group permission.
         (False, True, [], {'permissions': ['enterprise_enrollment_api_access']},
          False,
          {'detail': 'User is not allowed to access the view.'},
-         False, False, False, False, False, False, False, False, False, False),
+         False, False, False, False, False, False, False, False, False, False, False),
         # Non staff user that is linked to the enterprise and does have the group permission
         (False, True, ['enterprise_enrollment_api_access'], {'permissions': ['enterprise_enrollment_api_access']},
-         True, None, False, False, False, False, False, False, False, False, False, False),
+         True, None, False, False, False, False, False, False, False, False, False, False, False),
         # Non staff user that is linked to the enterprise and has group permission and the request has passed
         # multiple groups to check.
         (False, True, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access', 'enterprise_data_api_access']}, True, None,
-         False, False, False, False, False, False, False, False, False, False),
+         False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on non existent enterprise id.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'enterprise_id': FAKE_UUIDS[1]}, False,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on enterprise id successfully.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'enterprise_id': FAKE_UUIDS[0]}, True,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on search param with no results.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'search': 'blah'}, False,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on search param with results.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'search': 'test'}, True,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on slug with results.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'slug': TEST_SLUG}, True,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permissions filtering on slug with no results.
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'slug': 'blah'}, False,
-         None, False, False, False, False, False, False, False, False, False, False),
+         None, False, False, False, False, False, False, False, False, False, False, False),
         # Staff user with group permission filtering on slug with results, with
         # top down assignment & real-time LCM feature enabled,
         # prequery search results enabled
@@ -2149,9 +2150,10 @@ class TestEnterpriseCustomerViewSet(BaseTestEnterpriseAPIViews):
         # enterprise admin onboarding enabled
         # ai pathways enabled
         # use_algolia_index_v2 enabled
+        # personalized search enabled
         (True, False, ['enterprise_enrollment_api_access'],
          {'permissions': ['enterprise_enrollment_api_access'], 'slug': TEST_SLUG}, True,
-         None, True, True, True, True, True, True, True, True, True, True),
+         None, True, True, True, True, True, True, True, True, True, True, True),
     )
     @ddt.unpack
     @mock.patch('enterprise.utils.get_logo_url')
@@ -2173,6 +2175,7 @@ class TestEnterpriseCustomerViewSet(BaseTestEnterpriseAPIViews):
             enterprise_edit_highlights_enabled,
             enterprise_ai_pathways_operator_enabled,
             use_algolia_index_v2_enabled,
+            enterprise_personalized_search_enabled,
             mock_get_logo_url,
     ):
         """
@@ -2290,6 +2293,13 @@ class TestEnterpriseCustomerViewSet(BaseTestEnterpriseAPIViews):
             response = client.get(
                 f"{settings.TEST_SERVER}{ENTERPRISE_CUSTOMER_WITH_ACCESS_TO_ENDPOINT}?{urlencode(query_params, True)}"
             )
+        with override_waffle_flag(
+            PERSONALIZED_SEARCH_ENABLED,
+            active=enterprise_personalized_search_enabled
+        ):
+            response = client.get(
+                f"{settings.TEST_SERVER}{ENTERPRISE_CUSTOMER_WITH_ACCESS_TO_ENDPOINT}?{urlencode(query_params, True)}"
+            )
         response = self.load_json(response.content)
         if has_access_to_enterprise:
             assert response['results'][0] == {
@@ -2369,6 +2379,7 @@ class TestEnterpriseCustomerViewSet(BaseTestEnterpriseAPIViews):
                     'enterprise_edit_highlights_enabled': enterprise_edit_highlights_enabled,
                     'enterprise_ai_pathways_operator_enabled': enterprise_ai_pathways_operator_enabled,
                     'use_algolia_index_v2': use_algolia_index_v2_enabled,
+                    'enterprise_personalized_search_enabled': enterprise_personalized_search_enabled,
                 }
             }
             assert response in (expected_error, mock_empty_200_success_response)
@@ -9570,6 +9581,51 @@ class TestEnterpriseCustomerSsoConfigurationViewSet(APITest):
         assert enterprise_sso_orchestration_config.configured_at is not None
         assert enterprise_sso_orchestration_config.is_pending_configuration() is False
         assert response.status_code == status.HTTP_200_OK
+
+    @ddt.data(
+        # First-time configuration that succeeds after a failed attempt: the record becomes active.
+        {'updating_existing_record': False, 'previously_configured': False, 'active': False, 'expected_active': True},
+        # Retrying an update to an existing record after a failed attempt: ``active`` is left unchanged.
+        {'updating_existing_record': True, 'previously_configured': True, 'active': False, 'expected_active': False},
+        {'updating_existing_record': True, 'previously_configured': True, 'active': True, 'expected_active': True},
+    )
+    @ddt.unpack
+    @mock.patch("enterprise.api_client.braze.BrazeAPIClient")
+    def test_sso_configuration_oauth_orchestration_complete_clears_previous_error(
+        self,
+        mock_braze_client,
+        updating_existing_record,
+        previously_configured,
+        active,
+        expected_active,
+    ):
+        """
+        Verify that a successful completion callback clears an error recorded by a previous configuration attempt,
+        both for first-time configurations and for updates to an existing record.
+        """
+        mock_braze_client.return_value.get_braze_client.return_value = mock.MagicMock()
+        self.set_jwt_cookie(ENTERPRISE_OPERATOR_ROLE, "*")
+        config_pk = uuid.uuid4()
+        enterprise_sso_orchestration_config = EnterpriseCustomerSsoConfigurationFactory(
+            uuid=config_pk,
+            enterprise_customer=self.enterprise_customer,
+            active=active,
+            configured_at=localized_utcnow() - timedelta(days=1) if previously_configured else None,
+            errored_at=localized_utcnow() - timedelta(minutes=5),
+            submitted_at=localized_utcnow(),
+        )
+        url = settings.TEST_SERVER + reverse(
+            self.SSO_CONFIGURATION_COMPLETE_ENDPOINT,
+            kwargs={'configuration_uuid': config_pk}
+        )
+        if updating_existing_record:
+            url += '?updating_existing_record=true'
+        response = self.client.post(url)
+        enterprise_sso_orchestration_config.refresh_from_db()
+        assert response.status_code == status.HTTP_200_OK
+        assert enterprise_sso_orchestration_config.configured_at is not None
+        assert enterprise_sso_orchestration_config.errored_at is None
+        assert enterprise_sso_orchestration_config.active is expected_active
 
     def test_sso_configuration_retrieve(self):
         """

@@ -12,7 +12,7 @@ use crate::{
 	span::{Span, Syntax, Trace},
 };
 
-pub use self::{heading::Heading, list::List, small::Small};
+pub use self::{heading::Heading, list::List, subtext::Subtext};
 
 use tracing::Level;
 
@@ -45,14 +45,14 @@ pub mod list;
 /// ```
 pub mod quote;
 
-/// Markdown small content.
+/// Markdown subtext content.
 ///
 /// For example
 ///
 /// ```md
 /// -# Hello world!
 /// ```
-pub mod small;
+pub mod subtext;
 
 /// A block of the finished tree. Its inline content is in [`Inline`]s, so no modifier can hold a
 /// block: one covering several blocks is split into a fragment inside each.
@@ -67,7 +67,7 @@ pub enum Block<'data, S: Span> {
 	List(List<S, Block<'data, S>>),
 	Paragraph(Inlines<'data, S>),
 	Quote(Blocks<'data, S>),
-	Small(Small<S, Inline<'data, S>>),
+	Subtext(Subtext<S, Inline<'data, S>>),
 	/// New line.
 	Empty,
 }
@@ -86,12 +86,12 @@ impl<'data, S: Span> Block<'data, S> {
 			.flat_map(|content| content.iter().map(|block| &block.value))
 	}
 
-	/// The inline content this block holds directly: that of a paragraph, heading or small.
+	/// The inline content this block holds directly: that of a paragraph, heading or subtext.
 	pub fn inlines(&self) -> impl Iterator<Item = &Inline<'data, S>> {
 		let content = match self {
 			Self::Paragraph(content)
 			| Self::Heading(Heading { content, .. })
-			| Self::Small(Small { content }) => Some(content),
+			| Self::Subtext(Subtext { content }) => Some(content),
 			_ => None,
 		};
 		content
@@ -146,7 +146,7 @@ fn line<'data, S: Span>(
 
 	if let Some(opened) = input.attempt(|input| {
 		let delim = input.spanned(|input| {
-			delim::opener(input, allowed, |start| context.is_disabled_opener(start))
+			delim::opener(input, allowed, |start| context.matched_nothing(start))
 				.map(Element::Delim)
 		})?;
 		let block = input.spanned_with_syntax(|input| context.allowed_block_syntax(input))?;

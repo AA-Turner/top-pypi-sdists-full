@@ -185,6 +185,35 @@ def so101_camera_keys(deployment: Any) -> tuple[str, str] | None:
 # left and right cameras (training_recipes.contract's slots).
 YAM_FEATURES = ("images.scene", "images.wrist", "images.right_wrist")
 YAM_ROLES = ("top", "left", "right")
+# A FLUX export of bimanual xArm 7 recordings has the same canvas: the scene camera, then the
+# fore wrist (the rig's left), then the aft wrist (its right); its 16 values are aft first.
+XARM7_FEATURES = YAM_FEATURES
+XARM7_ROLES = ("top", "left", "right")
+# How those recordings stored each camera: aspect-preserving bilinear resize into 224 x 224,
+# black bars (1280 x 720 becomes 224 x 126 with 49 rows above and below). The canvas squashes
+# whatever it is sent into a square cell, so the rig's frames are letterboxed the same way first.
+XARM7_FRAME = (224, 224)
+
+
+def _get(value: Any, key: str) -> Any:
+    return value.get(key) if isinstance(value, Mapping) else getattr(value, key, None)
+
+
+def _joint_camera_keys(deployment: Any, width: int, features, roles) -> dict[str, str] | None:
+    """The deployment's camera key for each of a rig's camera roles when it is joint targets
+    in radians with 0–1 grippers, ``width`` values wide, from ``features`` in order; else
+    None."""
+    cameras = tuple(_get(deployment, "cameras") or ())
+    gripper = _get(deployment, "gripper_unit")  # a deployment row's; a session's doesn't say
+    if (
+        _get(deployment, "action_space") != "absolute_joint_position"
+        or _get(deployment, "joint_unit") != "rad"
+        or gripper not in (None, "normalized")
+        or not _get(deployment, "state_dim") == _get(deployment, "action_dim") == width
+        or tuple(_get(camera, "feature") for camera in cameras) != features
+    ):
+        return None
+    return {role: str(_get(camera, "key")) for role, camera in zip(roles, cameras, strict=True)}
 
 
 def yam_camera_keys(deployment: Any) -> dict[str, str] | None:
@@ -193,18 +222,51 @@ def yam_camera_keys(deployment: Any) -> dict[str, str] | None:
     recordings: fourteen joint targets, six radians and a 0–1 gripper per arm, left then
     right. ``deployment`` is a deployment row's ``embodiment`` or a session's
     Flux3SessionDeployment."""
+    return _joint_camera_keys(deployment, 14, YAM_FEATURES, YAM_ROLES)
 
-    def get(value: Any, key: str) -> Any:
-        return value.get(key) if isinstance(value, Mapping) else getattr(value, key, None)
 
-    cameras = tuple(get(deployment, "cameras") or ())
-    gripper = get(deployment, "gripper_unit")  # a deployment row's; a session's doesn't say
-    if (
-        get(deployment, "action_space") != "absolute_joint_position"
-        or get(deployment, "joint_unit") != "rad"
-        or gripper not in (None, "normalized")
-        or not get(deployment, "state_dim") == get(deployment, "action_dim") == 14
-        or tuple(get(camera, "feature") for camera in cameras) != YAM_FEATURES
-    ):
-        return None
-    return {role: str(get(camera, "key")) for role, camera in zip(YAM_ROLES, cameras, strict=True)}
+def xarm7_camera_keys(deployment: Any) -> dict[str, str] | None:
+    """The deployment's camera key for each of the xArm 7 rig's cameras (top, left = fore
+    wrist, right = aft wrist) when `dreamscale run xarm7` drives it, else None. It drives a
+    FLUX export of bimanual xArm 7 recordings: sixteen joint targets, aft arm first, seven
+    radians and a 0–1 gripper per arm (the rig's state reads each gripper in radians, 0 open
+    to 0.85 closed, as the recordings do). ``deployment`` is a deployment row's
+    ``embodiment`` or a session's Flux3SessionDeployment."""
+    return _joint_camera_keys(deployment, 16, XARM7_FEATURES, XARM7_ROLES)
+
+
+def xarm7_observation(observation: Any, keys: Mapping[str, str]) -> Any:
+    """The xArm 7 rig's observation (dreamscale.robot, its cameras under the recording's
+    ``observation.images.<role>`` names) for a FLUX xArm 7 deployment: each camera
+    letterboxed as the recordings stored it, under the deployment's key for its role. The
+    state (aft first, grippers in radians) is the rig's own."""
+    import dataclasses
+
+    from dreamscale_transport.images import WireImage
+
+    letterbox = WireImage(*XARM7_FRAME, "letterbox", "bilinear")
+    frames = dict(observation.cameras)
+    return dataclasses.replace(observation, cameras=tuple(
+        (key, letterbox.apply(frames[f"observation.images.{role}"])) for role, key in keys.items()
+    ))
+
+
+def xarm7_deployment_observe(rig: Any, runner: Any):
+    """`dreamscale run xarm7`'s observe for a FLUX deployment: the rig's observation for the
+    connected deployment's cameras (xarm7_observation). ``runner``: () -> the task runner."""
+    from dreamscale import errors
+
+    def observe(ctx=None):
+        keys = xarm7_camera_keys(getattr(runner().policy, "deployment", None))
+        if keys is None:
+            raise errors.DreamscaleError(errors.ErrorInfo(
+                code="invalid_deployment",
+                problem="this deployment isn't bimanual xArm 7 joint targets from top, left "
+                "and right cameras",
+                cause="`dreamscale run xarm7` drives FLUX deployments of bimanual xArm 7 "
+                "recordings only",
+                fix="drive it from Python: dreamscale.connect(...), then policy.next_action(...)",
+            ))
+        return xarm7_observation(rig.observe(ctx), keys)
+
+    return observe

@@ -111,19 +111,167 @@ def test_a_traditional_form_gains_its_one_simplified_variant() -> None:
     assert _forms(tool.select(["關"], [], {"關": {"关"}})) == [{"關", "关"}]
 
 
+def _label(qid: str, lab: str, lang: str) -> dict[str, str]:
+    return {"item": f"http://www.wikidata.org/entity/{qid}", "lab": lab,
+            "lang": lang}
+
+
+def test_a_form_gains_the_simplified_labels_of_the_items_labelled_with_it() -> None:
+    variants = tool.read_scripts([
+        _label("Q1", "關", "zh-hant"), _label("Q1", "關", "zh"),
+        _label("Q1", "关", "zh-hans"), _label("Q1", "关", "zh-cn"),
+        # a label written "surname X" names the character
+        _label("Q2", "顏姓", "zh-tw"), _label("Q2", "颜姓", "zh-hans")])
+    assert variants == {"關": {"关"}, "关": {"关"}, "顏": {"颜"}, "颜": {"颜"}}
+    assert _forms(tool.select(["關"], [], variants)) == [{"關", "关"}]
+
+
 def test_a_supplementary_plane_variant_does_not_count_against_the_bmp_one() -> None:
-    # Unihan gives 蘭 both 兰 and a GB 18030 extension form; a name is
-    # typed with 兰, so 兰 is the one variant.
-    variants = tool.read_unihan("U+862D\tkSimplifiedVariant\tU+5170 U+2C795\n")
+    # A label may give 蘭 both 兰 and a GB 18030 extension form; a name
+    # is typed with 兰, so 兰 is the one variant.
+    variants = tool.read_scripts([
+        _label("Q1", "蘭", "zh-hant"), _label("Q1", "兰", "zh-hans"),
+        _label("Q1", "\U0002C795", "zh-cn")])
     assert _forms(tool.select(["蘭"], [], variants)) == [{"蘭", "兰"}]
 
 
+@pytest.mark.parametrize("second", [
+    # an item writing the form itself in simplified characters: Unihan
+    # listed 乾 among its own simplified variants, beside 干
+    ("乾", "zh-hans"),
+    ("亁", "zh-cn"),
+])
+def test_two_simplified_forms_leave_a_form_as_ranked(
+        second: tuple[str, str]) -> None:
+    variants = tool.read_scripts([
+        _label("Q1", "乾", "zh-hant"), _label("Q1", "干", "zh-hans"),
+        _label("Q2", "乾", "zh-tw"), _label("Q2", *second)])
+    assert len(variants["乾"]) == 2
+    assert _forms(tool.select(["乾"], [], variants)) == [{"乾"}]
+
+
 def test_a_simplified_form_never_gains_an_unattested_traditional_one() -> None:
-    # 余's traditional variants include 餘, which is no one's surname;
-    # only the simplified direction is read from Unihan.
-    variants = tool.read_unihan("U+4F59\tkTraditionalVariant\tU+4F59 U+9918\n"
-                                "U+9918\tkSimplifiedVariant\tU+4F59\n")
+    # 余's traditional forms include 餘, which is no one's surname; only
+    # the simplified labels are read, so a form written only in
+    # simplified labels gains nothing.
+    variants = tool.read_scripts([
+        _label("Q1", "余", "zh-hans"), _label("Q1", "余", "zh-cn")])
+    assert variants == {"余": {"余"}}
     assert _forms(tool.select(["余"], [], variants)) == [{"余"}]
+
+
+@pytest.mark.parametrize("variants", [
+    {},  # no item labels 諶
+    {"諶": set()},  # an item labels 諶 with no simplified label
+    {"諶": {"諶"}},  # an item writes 諶 the same in simplified labels
+    {"諶": {"谌", "諶"}},  # two forms: the rule gives none
+])
+def test_a_hand_entry_joins_where_the_rule_gives_none(
+        variants: dict[str, set[str]]) -> None:
+    surnames = tool.select(["諶", "陳"], [], variants, by_hand={"諶": "谌"})
+    assert _forms(surnames) == [{"諶", "谌"}, {"陳"}]
+
+
+@pytest.mark.parametrize("items, variants", [
+    # the simplified labels give the hand entry's form, or another
+    ([], {"諶": {"谌"}}),
+    ([], {"諶": {"沈"}}),
+    # a ranked item labelled with both joins the pair before the label
+    # rule runs, so the rule adds nothing, and the entry is still refused
+    (_item("Q1", 10, "諶", "谌"), {"諶": {"谌"}, "谌": {"谌"}}),
+    (_item("Q1", 10, "諶", "沈"), {"諶": {"沈"}, "沈": {"沈"}}),
+    # ... and so with no simplified label at all
+    (_item("Q1", 10, "諶", "沈"), {}),
+])
+def test_a_hand_entry_the_data_now_states_is_refused(
+        items: list[dict[str, str]], variants: dict[str, set[str]]) -> None:
+    # The same form or another: either way the data now speaks for the
+    # form, and the entry is to be removed, never to override it.
+    with pytest.raises(ValueError, match="already gives 諶"):
+        tool.select(["諶"], tool.read_wikidata(items), variants,
+                    by_hand={"諶": "谌"})
+
+
+def test_a_hand_entry_for_a_form_no_ranking_selects_is_refused() -> None:
+    with pytest.raises(ValueError, match="no ranking's top 1 selects"):
+        tool.select(["陳", "諶"], [], {}, top=1, by_hand={"諶": "谌"})
+
+
+def test_the_hand_entries_pair_a_traditional_form_with_another_character() -> None:
+    assert all(tool.is_han(t) and tool.is_han(s) and t != s
+               for t, s in tool.BY_HAND.items())
+    assert set(tool.BY_HAND.values()) <= set(zh._SINGLE_RANKED)
+    assert set(tool.BY_HAND) <= set(zh._SINGLE_RANKED)
+
+
+_W = "http://www.wikidata.org/entity/"
+
+
+def _answer(monkeypatch: pytest.MonkeyPatch,
+            rows: list[dict[str, str]]) -> list[str]:
+    """Answer every query with ``rows``; the list records each query."""
+    asked: list[str] = []
+
+    def sparql_csv(query: str) -> list[dict[str, str]]:
+        asked.append(query)
+        return [dict(r) for r in rows]
+    monkeypatch.setattr(tool.name_usage, "_sparql_csv", sparql_csv)
+    return asked
+
+
+def test_the_script_cache_answers_only_the_query_it_was_asked(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    asked = _answer(monkeypatch, [
+        {"item": _W + "Q1", "lab": "關", "lang": "zh-hant"},
+        {"item": _W + "Q1", "lab": "关", "lang": "zh-hans"}])
+    assert tool.load_scripts(["關"], False) == {"關": {"关"}, "关": {"关"}}
+    assert len(asked) == 1
+    tool.load_scripts(["關"], False)
+    assert len(asked) == 1  # the same query: the cache answers
+    tool.load_scripts(["關"], True)
+    assert len(asked) == 2  # --refresh asks again
+    # a SUBSET of the forms asked is another query, so it is asked too,
+    # and a query this code no longer writes would not match either
+    tool.load_scripts(["關", "王"], False)
+    tool.load_scripts(["王"], False)
+    assert len(asked) == 4
+
+
+def test_the_forms_are_asked_in_batches(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    asked = _answer(monkeypatch, [
+        {"item": _W + "Q1", "lab": "王", "lang": "zh"}])
+    forms = [chr(0x4E00 + i) for i in range(tool.BATCH + 1)]
+    tool.load_scripts(forms, False)
+    assert len(asked) == 2
+    assert all(any(f'"{form}"@zh ' in q for q in asked) for form in forms)
+
+
+@pytest.mark.parametrize("rows, fragment", [
+    ([], "returned no rows"),
+    # the service, cut off at its time limit, appends its error text
+    ([{"item": _W + "Q1", "lab": "王", "lang": "zh"},
+      {"item": "http:/SPARQL-QUERY: queryStr=", "lab": None, "lang": None}],
+     "not one"),
+    ([{"item": _W + "Q1", "lab": "", "lang": "zh"}], "not one"),
+])
+def test_a_cut_or_empty_answer_is_refused_and_not_cached(
+        monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
+        rows: list[dict[str, str]], fragment: str) -> None:
+    monkeypatch.setenv("NAMEPARSER_TOOLS_CACHE", str(tmp_path))
+    _answer(monkeypatch, rows)
+    with pytest.raises(ValueError, match=fragment):
+        tool.load_scripts(["王"], False)
+    assert not (tmp_path / tool.SCRIPTS_FILE).exists()
+
+
+def test_the_script_query_asks_each_form_in_each_label_language() -> None:
+    query = tool.scripts_query(["關", "王"])
+    assert all(f'"{form}"@{lang}' in query for form in "關王"
+               for lang in tool.SCRIPT_LANGUAGES)
+    assert "wd:Q101352" in query and "wd:Q1093580" in query
 
 
 def test_each_ranking_contributes_only_its_top() -> None:

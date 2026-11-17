@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -13,14 +15,14 @@ T = TypeVar("T", bound="SandboxBuildWithCursor")
 
 @_attrs_define
 class SandboxBuildWithCursor:
-    """A sandbox build with a cursor
+    """A sandbox build with a cursor for fetching the next page of results.
 
     Attributes:
-        build (SandboxBuild):
+        build (SandboxBuild): A build that converts a container image into an image that sandboxes can use.
         cursor (str):
     """
 
-    build: "SandboxBuild"
+    build: SandboxBuild
     cursor: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -42,7 +44,7 @@ class SandboxBuildWithCursor:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.sandbox_build import SandboxBuild
+        from ..models.sandbox_build import SandboxBuild  # noqa: PLC0415
 
         d = dict(src_dict)
         build = SandboxBuild.from_dict(d.pop("build"))

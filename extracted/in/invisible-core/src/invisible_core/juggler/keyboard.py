@@ -31,10 +31,12 @@ and rewritten.
 """
 from __future__ import annotations
 
+import contextlib
 import time
 from typing import Optional
 
 from .. import _floats
+from ._stroke import Stroke
 from .keylayout import LAYOUT
 from .keylayouts_windows import LOCALE_KEYBOARDS, LOCALE_KLID
 from .keylayouts_windows import LAYOUTS as WINDOWS_LAYOUTS
@@ -389,22 +391,13 @@ class Keyboard:
         #: (`_behaviour.InputLatency`, [B299]), drawn per key event; None
         #: sends none, and the engine hands the key over as it is born.
         self.latency = latency
-        #: When (`_now`) the last key event was SENT, stamped just before it goes out: the hold of a key and the floor under a late
-        #: event are measured from here, never from the reply (which the engine delays by the event's `latency`).
-        self._last_send = 0.0
-        #: ⛔ WHEN THE PAGE SAW THE LAST EVENT, as best the reply says (`_seen`): the floors under a late event are measured from here.
-        #: The engine answers after it has dispatched the event, so the reply bounds when the page saw it, and a delivery that was late
-        #: shows as a late reply. An event sent right behind a late one, as soon as its own plan allowed, would reach the page right
-        #: behind it too: the gap the page sees, compressed below the plan (keydown gaps of 117 ms asked for 150). The reply is not used
-        #: whole: it also carries the hold the engine was asked for (`latency`) and the round trip, which are there when nothing is late,
-        #: so the time the page saw an event is the reply minus the smallest round trip this action has seen (`_rtt0`).
-        self._last_visible = None
-        self._last_key_down_visible = None
-        self._rtt0 = None
-        #: The `latency` drawn for the next event before it is sent (`_peek_latency`), to know how long the page will wait for it.
-        self._pending_latency = None
-        #: The start of the action in `_now` terms, set by `type`; None outside it.
-        self._origin = None
+        #: ⛔ THE STROKE THE KEY EVENTS GO OUT IN (`_stroke.Stroke`), None outside one. Each event leaves at its planned instant on this
+        #: class's own clock and its reply is collected when the stroke ends: the schedule is never the engine's. `_at` is the instant
+        #: (ms from the start of the stroke) of the last event sent, `_mark` the earliest instant the next one may have: `_hold` and
+        #: `_due` only raise it, they do not sleep.
+        self._stroke = None
+        self._at = 0.0
+        self._mark = 0.0
 
     # ── the resolution ──────────────────────────────────────────────────────
     @property
@@ -560,7 +553,24 @@ class Keyboard:
         return bool(d and d.get("needs_altgr"))
 
     # ── the verbs ────────────────────────────────────────────────────────────
+    @contextlib.contextmanager
+    def _stroking(self):
+        """The stroke this event goes out in: the one running (a `type`, a `press`), or its own, ended with the event."""
+        if self._stroke is None:
+            self._at = self._mark = 0.0
+        with Stroke.within(self, self.c, self.session, now=_now, wait=_wait) as stroke:
+            yield stroke
+
+    def _emit(self, params: dict) -> None:
+        """Send one key event at its instant of the stroke: not before the mark, and never before the event sent last."""
+        self._at = self._mark = max(self._mark, self._at)
+        self._stroke.send("Page.dispatchKeyEvent", params, self._at)
+
     def down(self, key: str) -> None:
+        with self._stroking():
+            self._down(key)
+
+    def _down(self, key: str) -> None:
         # ⛔ A CHARACTER THAT ONLY EXISTS WITH SHIFT IS NEVER SENT WITHOUT IT
         # (B270). `press` and `type` hold Shift themselves, with the timing of
         # this hand; this is the floor under every other way in - a raw
@@ -597,11 +607,13 @@ class Keyboard:
                              "keyCode": d["keyCodeWithoutLocation"],
                              "location": d["location"], "repeat": repeat,
                              "text": text})
-        self._last_send = _now()
-        self.c.send("Page.dispatchKeyEvent", params, session=self.session, timeout=None)
-        self._seen(params, d["key"] not in MODIFIERS)
+        self._emit(params)
 
     def up(self, key: str) -> None:
+        with self._stroking():
+            self._up(key)
+
+    def _up(self, key: str) -> None:
         lower = key.lower()
         if (len(key) == 1 and key.isascii() and key.isupper()
                 and self._closure.get(lower, {}).get("code") in self._lowered):
@@ -616,9 +628,7 @@ class Keyboard:
         params = self._born({"type": "keyup", "key": d["key"], "code": d["code"],
                              "keyCode": d["keyCodeWithoutLocation"],
                              "location": d["location"], "repeat": False})
-        self._last_send = _now()
-        self.c.send("Page.dispatchKeyEvent", params, session=self.session, timeout=None)
-        self._seen(params, False)
+        self._emit(params)
         if d["code"] in self._implicit_shift:
             self._implicit_shift.discard(d["code"])
             self.up("Shift")
@@ -632,63 +642,28 @@ class Keyboard:
         over, so the page's handler runs after the event's birth as it does
         for a real keyboard ([B299]).
 
-        The draw is the one `_behaviour.born` makes, in the same order: `_peek_latency` only makes it earlier."""
+        The draw is the one `_behaviour.born` makes, in the same order."""
         if self.latency is not None:
-            params["latency"] = self._peek_latency()
-            self._pending_latency = None
+            params["latency"] = self.latency.draw(self.acts.next("latency"))
         return params
 
-    def _peek_latency(self) -> float:
-        """The `latency` the NEXT event will carry, in ms (0 with none), drawn now and kept for that event."""
-        if self.latency is None:
-            return 0.0
-        if self._pending_latency is None:
-            self._pending_latency = self.latency.draw(self.acts.next("latency"))
-        return self._pending_latency
-
-    def _seen(self, params: dict, typed_key: bool) -> None:
-        """The reply of the event just sent is in: when did the page see it? The reply minus the smallest round trip this action has
-        seen (reply minus send minus the hold asked for). When nothing is late that is the send plus the hold, exactly."""
-        hold = params.get("latency", 0.0)
-        now = _now()
-        trip = max(0.0, now - self._last_send - hold / 1000.0)
-        self._rtt0 = trip if self._rtt0 is None else min(self._rtt0, trip)
-        self._last_visible = now - self._rtt0
-        if typed_key:
-            self._last_key_down_visible = self._last_visible
-
     def _hold(self, ms: float) -> None:
-        """Keep a key (or Shift) down `ms` milliseconds counted from when its event was SENT.
+        """Keep a key (or Shift) down `ms` milliseconds: the next event is `ms` after the one sent last.
 
-        ⛔ NOT FROM ITS REPLY. The engine answers a key event after it has held it for its `latency` (PageAgent `_dispatchKeyEvent`), and
-        a loaded host answers later still; sleeping `ms` after the reply made every hold, and everything after it, that much longer."""
-        left = ms / 1000.0 - (_now() - self._last_send)
-        if left > 0.0:
-            _wait(left)
+        ⛔ ON THE PLAN, NOT ON ANY REPLY. The engine answers a key event after it has held it for its `latency` (PageAgent
+        `_dispatchKeyEvent`), and a loaded host answers later still; the hold counts from the instant the event was PLANNED, and
+        nothing here sleeps: the stroke does, on the client's clock, until the instant comes."""
+        self._mark = max(self._mark, self._at + ms)
 
-    def _due(self, planned_ms: float, *floors) -> None:
-        """Wait until the event planned `planned_ms` after the start of the action (`type`), and no longer.
+    def _due(self, planned_ms: float) -> None:
+        """The next event is at `planned_ms` after the start of the stroke, and no sooner.
 
-        The time is absolute: the start of the action plus the plan, so what an earlier reply cost is not paid again. If it has already
-        passed, nothing is slept: the event goes now, after the one before it (the calls are sequential, so the order is the plan's).
+        The instant is absolute (the start of the stroke plus the plan), so what an earlier reply cost is not paid again: no reply is
+        waited for. An instant already behind the last event sent leaves the next one right after it (the calls are sequential, so
+        the order is the plan's)."""
+        self._mark = max(self._mark, planned_ms)
 
-        ⛔ A LATE EVENT NEVER GOES CLOSER TO ANOTHER THAN THE PLAN ITSELF PRODUCES, AS THE PAGE SEES IT. Each floor is `(since, ms)`: the
-        event is not sent before `since` plus `ms`, where `since` is the `_now` of the REPLY of the event it must keep its distance from
-        (None skips it) and `ms` the SMALLEST such distance of this action's plan (the smallest keydown-to-keydown gap, the smallest
-        dwell, ...), computed from the plan, so it moves with the seed and the text. Measured from the send, an event right behind a
-        late reply went out at once and reached the page right behind the late one (keydown gaps of 117 ms asked for 150). In the usual
-        case the planned time is later than any floor and decides; only after a late delivery does a floor push, and lateness is paid
-        back only where the plan has more room than its minimum."""
-        due = self._origin + planned_ms / 1000.0
-        for since, ms in floors:
-            if since is not None:
-                due = max(due, since + ms / 1000.0)
-        left = due - _now()
-        if left > 0.0:
-            _wait(left)
-
-    def press(self, key: str, *, dwell_ms: Optional[float] = None,
-              _start_ms: Optional[float] = None, _keydown_floors=(), _min_dwell_ms: float = 0.0) -> None:
+    def press(self, key: str, *, dwell_ms: Optional[float] = None, _start_ms: Optional[float] = None) -> None:
         """`press("a")`, `press("Enter")`, `press("Control+Shift+KeyA")`.
 
         The modifiers are held down for the whole final key and released
@@ -703,6 +678,10 @@ class Keyboard:
         press by construction, so giving it a dwell of its own would be a
         second statement about the same duration.
         """
+        with self._stroking():
+            self._press(key, dwell_ms, _start_ms)
+
+    def _press(self, key: str, dwell_ms: Optional[float], _start_ms: Optional[float]) -> None:
         pieces = key.split("+")
         final, held = pieces[-1], pieces[:-1]
         # ⛔ A trailing `+` is the plus key, not a separator: `press("+")`
@@ -738,14 +717,13 @@ class Keyboard:
                 self._hold(lead_ms)
             try:
                 if _start_ms is not None:
-                    self._due(_start_ms, *_keydown_floors)
+                    self._due(_start_ms)
                 self.down(final)
                 if _start_ms is None:
                     self._hold(dwell_ms)
                 else:
-                    # The keyup is on its own deadline: the keydown's planned time plus its dwell, and never sooner than the smallest dwell
-                    # of the plan after the keydown's REPLY, so a late keydown keeps a dwell the plan itself can produce.
-                    self._due(_start_ms + dwell_ms, (self._last_key_down_visible, _min_dwell_ms - self._peek_latency()))
+                    # The keyup is on its own deadline: the keydown's planned time plus its dwell.
+                    self._due(_start_ms + dwell_ms)
                 self.up(final)
             finally:
                 for m, (_, lag_ms) in reversed(list(zip(holds, timings))):
@@ -815,52 +793,35 @@ class Keyboard:
                 lead_at[i], lag = next(timing)
             if ends[i]:
                 lag_at[i] = lag
-        # ⛔ EVERY EVENT IS SENT AT ITS PLANNED TIME FROM THE START OF THE ACTION, not at "the previous reply plus the gap". The engine
-        # holds the reply of a key event for its `latency` (about 11 ms, PageAgent `_dispatchKeyEvent`) and a loaded host answers later
-        # still: sleeping the plan after each reply made the last key of a 19-character address go 450-600 ms late on a quiet host and
-        # seconds on a busy one, so what a page read as the rhythm was the host's. Key i goes down at `start`, the sum of the plan's
-        # `dwell + gap` before it; its keyup at `start + dwell` (its own deadline, not "the dwell after the reply"); a Shift run's Shift
-        # goes down `lead` before its first key and up `lag` after the last keyup. An event whose time has passed goes at once and the
-        # next ones keep their own times (`_due`), but never closer to the event before than the SMALLEST such distance of this plan:
-        # keydown to keydown, keydown to keyup, Shift to its key, key to its Shift up.
-        spacings = [plan[i][0] + (delay_ms if delay_ms else plan[i][1]) for i in range(len(text) - 1)]
-        min_keydown_gap = min(spacings) if spacings else 0.0
-        min_dwell = min(d for d, _g in plan) if plan else 0.0
-        min_lead = min(lead_at.values()) if lead_at else 0.0
-        min_lag = min(lag_at.values()) if lag_at else 0.0
-        # The first key is at 0; a first Shift run's Shift goes down `lead` before it, so the clock starts that much later.
-        self._origin = _now() + (lead_at[0] / 1000.0 if starts and starts[0] else 0.0)
-        self._last_key_down_visible = None
-        self._last_visible = None
-        self._rtt0 = None
-        self._pending_latency = None
-        start = 0.0
-        try:
+        # ⛔ EVERY EVENT IS SENT AT ITS PLANNED TIME FROM THE START OF THE ACTION, on this client's clock, and none waits for the reply of
+        # another. The engine holds the reply of a key event for its `latency` (about 11 ms, PageAgent `_dispatchKeyEvent`) and a loaded
+        # host answers later still (1.7 s, measured, with the page already holding the key): sending the next key behind that reply
+        # made every key after it late, and what a page read as the rhythm was the host's. Key i goes down at `start`, the sum of the
+        # plan's `dwell + gap` before it; its keyup at `start + dwell`; a Shift run's Shift goes down `lead` before its first key and
+        # up `lag` after the last keyup. The instants are the stroke's (`_stroke.Stroke`): each command carries its own, and the
+        # replies are collected when the text is typed.
+        # The first key is at 0; a first Shift run's Shift goes down `lead` before it, so the plan starts that much later.
+        base = lead_at[0] if starts and starts[0] else 0.0
+        with self._stroking():
+            start = 0.0
             for i, ch in enumerate(text):
                 dwell_ms, gap_ms = plan[i]
                 wait_ms = delay_ms if delay_ms else gap_ms
-                # A keyboard switch (Alt+Shift, `_switch_to`) is not in the plan: it happens when this character's turn comes and, if it
-                # takes longer than the lead, the key is late by the difference, as it always was; the keys after it are not.
-                self._due(start - (lead_at[i] if starts[i] else 0.0))
+                # A keyboard switch (Alt+Shift, `_switch_to`) is not in the plan: its keys go at this character's turn, after the
+                # event before them, and the key is late by what they take, as it always was; the keys after it are not.
+                self._due(base + start - (lead_at[i] if starts[i] else 0.0))
                 self._switch_to(boards[i])
                 if starts[i]:
                     self.down("Shift")
-                # What the page waits for THIS key: its own hold is part of the gap the page sees, so the floor is taken off by it.
-                held = self._peek_latency()
-                floors = [(self._last_key_down_visible, min_keydown_gap - held)]
-                if starts[i]:
-                    floors.append((self._last_visible, min_lead - held))
                 if boards[i] is not None:
-                    self.press(ch, dwell_ms=dwell_ms, _start_ms=start, _keydown_floors=floors, _min_dwell_ms=min_dwell)
+                    self.press(ch, dwell_ms=dwell_ms, _start_ms=base + start)
                 else:
-                    self._due(start, *floors)
+                    self._due(base + start)
                     self.insert_text(ch)
                 if ends[i]:
-                    self._due(start + dwell_ms + lag_at[i], (self._last_visible, min_lag - self._peek_latency()))
+                    self._due(base + start + dwell_ms + lag_at[i])
                     self.up("Shift")
                 start += dwell_ms + wait_ms
-        finally:
-            self._origin = None
 
     def _dwell_ms(self) -> float:
         """How long ONE key stays down, for a press that is not part of typed
@@ -897,5 +858,11 @@ class Keyboard:
     def insert_text(self, text: str) -> None:
         """The text goes in without key events. This is what is needed for
         a character that is not on the layout."""
-        self.c.send("Page.insertText", {"text": text},
-                     session=self.session, timeout=None)
+        # No `stroke` and no `at`: the command does not declare them, and the protocol rejects what it does not declare. Inside a
+        # stroke it still goes at its instant, and its reply is collected with the others. The engine keeps it in the page's one
+        # order of input commands, so it never overtakes a key still waiting for its birth.
+        # ⛔ KNOWN LIMIT: an input event with no key (this one) is born at its delivery, not at the plan's instant: after a stall it
+        # carries the delivery's time, where a key of the same stroke carries the plan's.
+        with self._stroking():
+            self._at = self._mark = max(self._mark, self._at)
+            self._stroke.send("Page.insertText", {"text": text}, self._at, tagged=False)

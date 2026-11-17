@@ -31,6 +31,7 @@ OVERRIDABLE_FIELDS: dict[str, tuple[str, str]] = {
     # field -> (how to name several of them, the estimator argument that sets one)
     "SOFTMAX_TEMPERATURE": ("softmax temperatures", "softmax_temperature"),
     "N_ESTIMATORS": ("numbers of estimators", "n_estimators"),
+    "AVERAGE_BEFORE_SOFTMAX": ("ensemble averaging orders", "average_before_softmax"),
 }
 """Fields a user can set from the estimator interface, and which the checkpoints of
 one ensemble may therefore disagree on -- the user can break the tie. Every other
@@ -136,6 +137,46 @@ class InferenceConfig:
     `TabPFNClassifier(n_estimators=...)`; naming a count both ways at once is
     rejected. With neither, the value comes from the checkpoint, and an ensemble
     whose checkpoints declare different counts is rejected too."""
+
+    AVERAGE_BEFORE_SOFTMAX: bool = False
+    """Whether the logits of the estimators are averaged before the softmax, instead
+    of averaging the probabilities of each estimator.
+
+    The default is the value that shipped as the `average_before_softmax` argument
+    of `TabPFNClassifier`/`TabPFNRegressor` before this became a config field, so
+    checkpoints that predate the field keep their original behavior.
+
+    Setting this here overrides the checkpoint, as does
+    `TabPFNClassifier(average_before_softmax=...)`; naming it both ways at once is
+    rejected. With neither, the value comes from the checkpoint, and an ensemble
+    whose checkpoints declare different values is rejected too."""
+
+    APPEND_GROUP_AGGREGATES: bool = False
+    """Whether per-group aggregates of the features are appended for `group_col`
+    data. Up to 64 are kept, by their variance over the training rows, from the
+    mean, std, min, max and last value of numeric columns and the count, last
+    value and number of unique values of the others. Ignored with a warning when
+    no training group has more than one row.
+
+    This is transductive: at predict, a row's aggregates are computed over the
+    rows of its group in the predict input, so the other rows passed in change
+    its prediction. Predict all rows of a group in one call."""
+
+    POOL_GROUP_PREDICTIONS: Literal["mean", "geometric_mean"] | None = None
+    """How the rows of a group get one shared prediction, for `group_col` data
+    with one label per group: the target is constant within every training group
+    and some group has more than one row. Ignored with a warning otherwise.
+
+    - If `None`, every row keeps its own prediction.
+    - If `"mean"`, each row's predicted distribution, over the classes or over
+      the target, is replaced by the mean distribution of the rows of its group
+      in the predict input.
+    - If `"geometric_mean"`, by their geometric mean, normalised: the rows'
+      log-probabilities are averaged. This is sharper than `"mean"` when the
+      rows agree, and a class or value that one row finds very unlikely stays
+      unlikely for the group.
+
+    This is transductive too: predict all rows of a group in one call."""
 
     TRANSFORM_DATES: bool = False
     """Whether a column holding a genuine datetime dtype (`datetime64`, tz-aware,
@@ -267,10 +308,15 @@ class InferenceConfig:
     the model, which can be significantly faster for large datasets (>10 k rows).
     When ``False`` (default), all preprocessing runs on CPU / sklearn as before.
 
-    Only the ``quantile_uni*``, ``quantile_norm*``, ``squashing_scaler_*`` and
-    ``safepower`` transforms are accelerated.  Other transforms stay on CPU
-    regardless of this flag.  SVD and shuffle always move to GPU / torch when
-    this flag is set."""
+    Only the ``quantile_uni*``, ``quantile_norm*``, ``squashing_scaler_*``,
+    ``safepower`` and ``robust`` transforms are accelerated.  Other transforms stay
+    on CPU regardless of this flag.  SVD and shuffle always move to GPU / torch when
+    this flag is set.  With ``APPEND_GROUP_AGGREGATES``, the aggregates of the
+    numeric columns are also selected on the device when it is a CUDA device.
+
+    The GPU transforms read the table in float32, while the CPU ones compute in
+    float64. A column whose spread is small against its magnitude, such as a
+    timestamp or an ID, keeps fewer distinct values on the GPU."""
 
     FEATURE_SUBSAMPLING_METHOD: Literal[
         "balanced",
@@ -326,6 +372,8 @@ class InferenceConfig:
         - None: no preprocessing is done.
         - One of the options from
           `tabpfn.preprocessing.get_all_reshape_feature_distribution_preprocessors()`
+        - One of the options for nonnegative targets from
+          `tabpfn.preprocessing.target_transform.ZERO_INFLATED_TARGET_TRANSFORMS`.
     """
 
     REGRESSION_TARGET_SIGN_FLIP: bool = False
@@ -333,6 +381,18 @@ class InferenceConfig:
     combination of preprocessing and target transform, see the negated output of
     their target pipeline. Their predicted distributions are mirrored back. Ignored
     for classification."""
+
+    REGRESSION_READOUT: Literal["default", "nonnegative_and_capped"] = "default"
+    """How the regressor reads its outputs from the ensemble's averaged
+    distribution.
+
+    The options are:
+        - "default": the distribution as it is.
+        - "nonnegative_and_capped": the distribution of max(Y, 0) given Y <= y_max,
+          with y_max the largest training target. The mass above y_max is dropped,
+          and the grid bucket that holds 0 and every bucket below it are read at 0.
+          It needs y >= 0. The `"full"` output keeps the untruncated logits.
+    """
 
     USE_SKLEARN_16_DECIMAL_PRECISION: bool = False
     """Whether to round the probabilities to float 16 to match the precision of
@@ -371,6 +431,19 @@ class InferenceConfig:
     """Whether to pass infinite values through to the model instead of rejecting them.
     When True, +/-inf are temporarily replaced with NaN for preprocessing and restored
     afterwards; when False, infinities are rejected at input validation."""
+
+    SAMPLE_WEIGHT_MODE: Literal["learned", "head"] | None = None
+    """How the model applies the `sample_weight` passed to `fit`.
+
+    `"learned"` feeds the weights to the model as an input it was trained to read.
+    `"head"` scales each training row's vote in the decoder, for classification
+    only. `None` means the model takes no per-row weights, and `fit` raises if it
+    gets `sample_weight` or `label_reliability`. Checkpoints trained with per-row
+    weights set `"learned"`.
+
+    We generally recommend `"learned"`, but `"head"` can work better to weight a
+    few rows more strongly. In both, only the relative values matter, a weight of
+    m is not m copies of the row, and a weight of 0 does not remove it."""
 
     _REGRESSION_DEFAULT_OUTLIER_REMOVAL_STD: float | None = None
     _CLASSIFICATION_DEFAULT_OUTLIER_REMOVAL_STD: float = 12.0

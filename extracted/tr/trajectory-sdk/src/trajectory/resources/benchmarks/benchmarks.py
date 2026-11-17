@@ -384,6 +384,7 @@ class Benchmarks(APIResource):
     self,
     bench_id: str,
     *,
+    refresh: bool | Omit = omit,
     extra_headers: Headers | None = None,
     extra_query: dict[str, Any] | None = None,
     extra_body: dict[str, Any] | None = None,
@@ -394,6 +395,10 @@ class Benchmarks(APIResource):
     built. When it is not ready, the response identifies the remaining blockers.
 
     Args:
+      refresh: Check in-flight task environment builds with their provider and store the result
+        before answering. Set to false to answer from the stored status without changing
+        anything; a build that has just finished can then still be reported as building.
+
       extra_headers: Send extra headers
 
       extra_query: Add additional query parameters to the request
@@ -411,6 +416,11 @@ class Benchmarks(APIResource):
       ),
       cast_to=BenchmarkReadiness,
       options=make_request_options(
+        params=maybe_transform(
+          {
+            "refresh": refresh,
+          }
+        ),
         extra_headers=extra_headers,
         extra_query=extra_query,
         extra_body=extra_body,

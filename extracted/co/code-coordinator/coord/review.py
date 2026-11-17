@@ -7004,6 +7004,21 @@ def dispatch_scoped_review(
                 # #1476 audit trail.
                 review_scoped=True,
                 review_scope_base_sha=prior_review.review_head_sha,
+                # #4029: the work-like assignment this scoped review
+                # ACTUALLY reviews, as best known at dispatch time.
+                # `entry.assignment_id` usually names the branch's current
+                # work leg, but a request-changes bounce with a live queue
+                # entry can leave it keyed to an EARLIER round —
+                # `mq.refresh_entry_assignment` only re-keys the entry ON
+                # APPROVAL, after a scoped re-review has already dispatched
+                # against it. `propagate_review_verdict` treats this as one
+                # input, not the final answer: it composes it with the
+                # issue's newest done work leg rather than trusting it
+                # unconditionally. Deliberately NOT stored in
+                # `review_of_assignment_id` itself, which must keep carrying
+                # the #3310 claim key (`prior_review.review_of_assignment_id`)
+                # so this dispatch's claim still releases correctly.
+                review_scoped_work_id=entry.assignment_id,
             )
             board.active.append(review_assignment)
 

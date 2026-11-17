@@ -32,6 +32,7 @@ __all__ = (
     "ConnectionTypeType",
     "DataCatalogStatusType",
     "DataCatalogTypeType",
+    "DatabaseAttributesType",
     "EncryptionOptionType",
     "ExecutorStateType",
     "ExecutorTypeType",
@@ -55,6 +56,7 @@ __all__ = (
     "StatementTypeType",
     "SystemTableNameType",
     "SystemTableTypeType",
+    "TableAttributesType",
     "WorkGroupStateType",
 )
 
@@ -102,6 +104,7 @@ DataCatalogStatusType = Literal[
     "DELETE_IN_PROGRESS",
 ]
 DataCatalogTypeType = Literal["FEDERATED", "GLUE", "HIVE", "LAMBDA"]
+DatabaseAttributesType = Literal["NAME"]
 EncryptionOptionType = Literal["CSE_KMS", "SSE_KMS", "SSE_S3"]
 ExecutorStateType = Literal[
     "CREATED", "CREATING", "FAILED", "REGISTERED", "TERMINATED", "TERMINATING"
@@ -125,6 +128,7 @@ SessionStateType = Literal[
 StatementTypeType = Literal["DDL", "DML", "UTILITY"]
 SystemTableNameType = Literal["ALL"]
 SystemTableTypeType = Literal["QUERY_EXECUTIONS"]
+TableAttributesType = Literal["NAME", "TABLE_TYPE"]
 WorkGroupStateType = Literal["DISABLED", "ENABLED"]
 AthenaServiceName = Literal["athena"]
 ServiceName = Literal[
@@ -236,6 +240,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -420,6 +425,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -487,6 +493,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

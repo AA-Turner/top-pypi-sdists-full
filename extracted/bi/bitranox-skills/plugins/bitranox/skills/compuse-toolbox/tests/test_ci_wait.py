@@ -11,6 +11,7 @@ import os
 import subprocess
 import sys
 import time
+from datetime import timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -24,6 +25,7 @@ REAL_GH_RUN_JOBS = getattr(ci_wait, "gh_run_jobs", None)
 REAL_GH_TYPICAL_DURATION = getattr(ci_wait, "gh_typical_duration", None)
 REAL_SHA_ON_A_REMOTE = getattr(ci_wait, "sha_on_a_remote", None)
 REAL_BILLING_BLOCKED = getattr(ci_wait, "gh_run_billing_blocked", None)
+REAL_GH_RATE_LIMIT = getattr(ci_wait, "gh_rate_limit", None)
 #: The real loop, kept so a fake standing in for it can check each call against its signature.
 REAL_WAIT_FOR = ci_wait.wait_for
 
@@ -37,7 +39,7 @@ def _no_real_repo_lookup(monkeypatch):
     # The same for every other gh or git lookup main makes beside the run listing: a test that
     # fakes only the listing must not reach the network, and a subprocess-level fake written for
     # `gh run list` must not be handed a `gh run view` it cannot parse.
-    for name in ("gh_run_jobs", "gh_typical_duration", "sha_on_a_remote"):
+    for name in ("gh_run_jobs", "gh_typical_duration", "sha_on_a_remote", "gh_rate_limit"):
         if hasattr(ci_wait, name):
             monkeypatch.setattr(ci_wait, name, lambda *a, **kw: None)
     # A failed verdict asks each failed run's jobs whether GitHub refused them for billing; a
@@ -248,6 +250,23 @@ class TestExitCodes:
         assert ci_wait.exit_code_for("failed") == 1
         assert ci_wait.exit_code_for("timeout") == 2
         assert ci_wait.exit_code_for("no-runs") == 2
+
+    def test_a_misspelt_state_is_refused_not_mapped_to_could_not_tell(self):
+        # A typo in a state literal used to exit 2 ("could not tell") with nothing said, so a
+        # verdict meant to read `success` would silently become an unexplained failure.
+        with pytest.raises(ValueError, match="sucess"):
+            ci_wait.Verdict("sucess", "CI=success")
+        with pytest.raises(ValueError, match="sucess"):
+            ci_wait.exit_code_for("sucess")
+
+    def test_every_state_has_an_exit_code(self):
+        assert set(ci_wait._EXIT_CODES) == set(ci_wait.CiState)
+
+    def test_the_state_keeps_its_wire_string(self):
+        verdict = ci_wait.Verdict("no-runs", "none")
+        assert verdict.state is ci_wait.CiState.NO_RUNS
+        assert f"{verdict.state}" == "no-runs"
+        assert json.dumps({"state": verdict.state}) == '{"state": "no-runs"}'
 
 
 class TestGhRuns:
@@ -1584,7 +1603,7 @@ class TestARunNoRunnerPicksUpIsReportedNotWaitedOut:
     def test_the_cli_takes_the_flag_and_reports_the_state_in_the_envelope(self, monkeypatch, capsys):
         monkeypatch.setattr(ci_wait, "sha_is_known_locally", lambda sha, **kw: True)
         monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: [queued_row("release", 777)])
-        monkeypatch.setattr(ci_wait, "gh_run_started", lambda rid, **kw: False)
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", lambda rid, **kw: [{"status": "queued"}])
         monkeypatch.setattr(ci_wait.time, "sleep", lambda _s: None)
         clock = iter(range(0, 100000, 30))
         monkeypatch.setattr(ci_wait.time, "monotonic", lambda: next(clock))
@@ -1721,7 +1740,7 @@ class TestGhRunStarted:
         listing = [queued_row("ci", 39932914131, event="push")]
         monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: listing)
         monkeypatch.setattr(ci_wait, "gh_run", lambda rid, **kw: listing[0])
-        monkeypatch.setattr(ci_wait, "gh_run_started", lambda rid, **kw: True)
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", lambda rid, **kw: [{"status": "in_progress"}])
         monkeypatch.setattr(ci_wait.time, "sleep", lambda _s: None)
         clock = iter(range(0, 100000, 30))
         monkeypatch.setattr(ci_wait.time, "monotonic", lambda: next(clock))
@@ -1732,6 +1751,40 @@ class TestGhRunStarted:
         payload = json.loads(capsys.readouterr().out)
         assert rc == 2
         assert payload["data"]["state"] == "timeout"
+
+
+class TestOneJobsReadPerRunPerPoll:
+    """The stuck check (did any job start?) and the progress note (how many jobs are done?) both
+    read `gh run view <id> --json jobs`. Asking gh twice for the same run in one poll spends the
+    account-wide API budget for an answer the first call already gave."""
+
+    def test_a_queued_run_past_its_grace_is_read_once_per_poll(self, monkeypatch, capsys):
+        monkeypatch.setattr(ci_wait, "sha_is_known_locally", lambda sha, **kw: True)
+        listing = [queued_row("ci", 39932914131, event="push")]
+        monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: listing)
+        monkeypatch.setattr(ci_wait, "gh_run", lambda rid, **kw: listing[0])
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", REAL_GH_RUN_JOBS)
+        polls: list[int] = []
+        real_gh_runs = ci_wait.gh_runs
+
+        def counting_gh_runs(sha, **kw):
+            polls.append(1)
+            return real_gh_runs(sha, **kw)
+
+        monkeypatch.setattr(ci_wait, "gh_runs", counting_gh_runs)
+        calls: list[list[str]] = []
+        monkeypatch.setattr(ci_wait.subprocess, "run", jobs_gh(
+            [{"status": "in_progress", "name": "test"}], calls))
+        monkeypatch.setattr(ci_wait.time, "sleep", lambda _s: None)
+        clock = iter(range(0, 100000, 30))
+        monkeypatch.setattr(ci_wait.time, "monotonic", lambda: next(clock))
+
+        rc = ci_wait.main(["--sha", SHA, "--repo", "o/r", "--json", "--queued-grace", "60",
+                           "--timeout", "1200"])
+
+        assert rc == 2 and json.loads(capsys.readouterr().out)["data"]["state"] == "timeout"
+        job_reads = [c for c in calls if c[:3] == ["gh", "run", "view"] and "jobs" in c]
+        assert polls and len(job_reads) <= len(polls), (len(job_reads), len(polls))
 
 
 def vanishing_gh(listings: list[list[dict[str, object]]], by_id: dict[int, dict[str, object]],
@@ -2504,3 +2557,216 @@ class TestMinAttempt:
             ci_wait.main(["--sha", "a" * 40, "--min-attempt", value])
         assert info.value.code == 2
         assert "at least 1" in capsys.readouterr().err
+
+
+# --- a failed wait names every job of every run, not just what one poll saw ----------------------
+# A poll line names only the jobs failed BY THAT POLL and the verdict line names runs, so a reader
+# quoted one poll's failed macOS cell as the push's whole failure while the windows cell was still
+# running - and windows failed too, which cost a second release.
+
+MAC = "tests (macos-latest, py3.15)"
+WIN = "tests (windows-latest, py3.15)"
+LINUX = "tests (ubuntu-latest, py3.14)"
+
+
+def ci_row(status: str, conclusion: str | None) -> dict[str, object]:
+    return {"headSha": SHA, "workflowName": "ci", "status": status, "conclusion": conclusion,
+            "databaseId": 77, "event": "push"}
+
+
+class TestAFailedWaitNamesEveryJob:
+    def _cli(self, monkeypatch, capsys, argv=()):
+        """Poll 1: the run is going, macOS already failed, windows still running. Poll 2: the run
+        failed. The job reader answers the poll-1 state first and the final state after."""
+        polls = iter([[ci_row("in_progress", None)], [ci_row("completed", "failure")]])
+        early = [job(MAC, "completed", "failure"), job(WIN, "in_progress"),
+                 job(LINUX, "completed", "success")]
+        late = [job(LINUX, "completed", "success"), job(MAC, "completed", "failure"),
+                job(WIN, "completed", "failure")]
+        answers = iter([early, late])
+
+        monkeypatch.setattr(ci_wait, "sha_is_known_locally", lambda sha, **kw: True)
+        monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: next(polls))
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", lambda rid, **kw: next(answers))
+        monkeypatch.setattr(ci_wait.time, "sleep", lambda _s: None)
+        rc = ci_wait.main(["--sha", SHA, "--repo", "o/r", "--interval", "5", *argv])
+        return rc, capsys.readouterr()
+
+    def test_the_closing_block_names_the_cell_that_failed_after_the_poll(self, monkeypatch, capsys):
+        rc, out = self._cli(monkeypatch, capsys)
+        assert rc == 1
+        block = [line.strip() for line in out.err.splitlines()]
+        assert f"failure  {WIN}" in block, out.err
+        assert f"failure  {MAC}" in block, out.err
+        assert "jobs of run 77 (ci, failure): 2 of 3 failed" in block, out.err
+
+    def test_the_verdict_line_stays_last_and_unchanged(self, monkeypatch, capsys):
+        """A caller reading the last stderr line still finds the verdict in its old form."""
+        rc, out = self._cli(monkeypatch, capsys)
+        assert rc == 1
+        assert out.err.splitlines()[-1] == "failed: ci=failure"
+
+    def test_failed_jobs_come_first(self, monkeypatch, capsys):
+        _rc, out = self._cli(monkeypatch, capsys)
+        lines = out.err.splitlines()
+        head = lines.index("jobs of run 77 (ci, failure): 2 of 3 failed")
+        assert [line.split()[0] for line in lines[head + 1:head + 4]] == [
+            "failure", "failure", "success"], lines
+
+    def test_json_carries_every_job(self, monkeypatch, capsys):
+        rc, out = self._cli(monkeypatch, capsys, argv=("--json",))
+        payload = json.loads(out.out)
+        assert rc == 1
+        (entry,) = payload["data"]["jobs"]
+        assert entry["databaseId"] == 77 and entry["state"] == "failure"
+        assert {j["name"]: j["conclusion"] for j in entry["jobs"]} == {
+            LINUX: "success", MAC: "failure", WIN: "failure"}
+        assert payload["data"]["summary"] == "ci=failure"
+
+    def test_an_unreadable_job_list_is_said_and_the_exit_code_holds(self, monkeypatch, capsys):
+        monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: [ci_row("completed", "failure")])
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", lambda rid, **kw: None)
+        rc = ci_wait.main(["--sha", SHA, "--repo", "o/r"])
+        err = capsys.readouterr().err
+        assert rc == 1
+        assert "jobs of run 77 (ci, failure): not read" in err
+        assert err.splitlines()[-1] == "failed: ci=failure"
+
+    def test_a_green_wait_reads_no_jobs_for_the_report(self, monkeypatch, capsys):
+        """The extra read is for a red push only; a green one costs no further API call."""
+        reads: list[object] = []
+
+        def read(rid, **kw):
+            reads.append(rid)
+            return [job(LINUX, "completed", "success")]
+
+        monkeypatch.setattr(ci_wait, "gh_runs", lambda sha, **kw: [ci_row("completed", "success")])
+        monkeypatch.setattr(ci_wait, "gh_run_jobs", read)
+        rc = ci_wait.main(["--sha", SHA, "--repo", "o/r", "--settle", "0"])
+        assert rc == 0
+        assert reads == [77]                   # the not-finished check of the green poll only
+        assert "jobs of run" not in capsys.readouterr().err
+
+
+class TestFormatRunJobs:
+    def test_an_unfinished_job_is_named_by_its_status(self):
+        run_jobs = ci_wait.RunJobs(5, "docs", "in_progress", (
+            ci_wait.JobOutcome("build", "in_progress", None),
+            ci_wait.JobOutcome("lint", "completed", "timed_out")))
+        assert ci_wait.format_run_jobs(run_jobs) == [
+            "jobs of run 5 (docs, in_progress): 1 of 2 failed",
+            "  timed_out    lint",
+            "  in_progress  build"]
+
+    def test_read_run_jobs_keeps_an_unread_run_as_none(self):
+        (only,) = ci_wait.read_run_jobs([ci_row("completed", "failure")], lambda _rid: None)
+        assert only.jobs is None and only.state == "failure"
+
+
+# --- a spent API rate limit ends the wait at once ----------------------------------------------
+# A 403 "API rate limit exceeded" was retried as weather for the whole --error-grace, about ten
+# more calls against an empty limit every session on the account shares.
+
+_RATE_403 = "HTTP 403: API rate limit exceeded for user ID 1. (https://api.github.com/...)"
+
+
+def rate_gh(remaining: int | None, calls: list[list[str]], *, rate_rc: int = 0):
+    """`gh run list` fails with a 403; `gh api rate_limit` answers ``remaining`` (or ``rate_rc``)."""
+
+    def fake_run(argv, **kwargs):
+        calls.append(list(argv))
+        if argv[:3] == ["gh", "run", "list"]:
+            return subprocess.CompletedProcess(argv, 1, stdout="", stderr=_RATE_403)
+        if argv[-1] == "rate_limit":
+            if rate_rc:
+                return subprocess.CompletedProcess(argv, rate_rc, stdout="", stderr="HTTP 502")
+            core = {"limit": 5000, "used": 5000 - (remaining or 0), "remaining": remaining,
+                    "reset": 1_800_000_000}
+            return subprocess.CompletedProcess(
+                argv, 0, stdout=json.dumps({"resources": {"core": core}, "rate": core}), stderr="")
+        raise AssertionError(f"unexpected gh call {argv}")
+
+    return fake_run
+
+
+class TestASpentRateLimitEndsTheWait:
+    def _cli(self, monkeypatch, fake, argv=()):
+        now = [1000.0]
+        if REAL_GH_RATE_LIMIT is not None:
+            monkeypatch.setattr(ci_wait, "gh_rate_limit", REAL_GH_RATE_LIMIT)
+        monkeypatch.setattr(ci_wait, "sha_is_known_locally", lambda sha, **kw: True)
+        monkeypatch.setattr(ci_wait.subprocess, "run", fake)
+        monkeypatch.setattr(ci_wait.time, "monotonic", lambda: now[0])
+        monkeypatch.setattr(ci_wait.time, "sleep", lambda s: now.__setitem__(0, now[0] + s))
+        return ci_wait.main(["--sha", SHA, "--repo", "o/r", "--interval", "30", *argv])
+
+    @staticmethod
+    def _listings(calls):
+        return [c for c in calls if c[:3] == ["gh", "run", "list"]]
+
+    def test_an_exhausted_core_limit_stops_after_one_listing(self, monkeypatch, capsys):
+        calls: list[list[str]] = []
+        rc = self._cli(monkeypatch, rate_gh(0, calls))
+        err = capsys.readouterr().err
+        assert rc == 2
+        assert len(self._listings(calls)) == 1, calls
+        assert err.splitlines()[-1].startswith("rate-limited: the GitHub API rate limit is spent")
+        assert "UTC" in err and "resets at" in err
+
+    def test_json_reports_the_rate_limited_state(self, monkeypatch, capsys):
+        rc = self._cli(monkeypatch, rate_gh(0, []), argv=("--json",))
+        payload = json.loads(capsys.readouterr().out)
+        assert rc == 2 and payload["ok"] is False
+        assert payload["data"]["state"] == "rate-limited"
+        assert "API rate limit exceeded" in payload["data"]["summary"]
+
+    def test_quota_left_keeps_the_retry(self, monkeypatch, capsys):
+        """The control: the same 403 with requests left (a secondary limit, say) is weather."""
+        calls: list[list[str]] = []
+        rc = self._cli(monkeypatch, rate_gh(12, calls))
+        assert rc == 2
+        assert len(self._listings(calls)) > 1, calls
+        assert capsys.readouterr().err.splitlines()[-1].startswith("error: gh failed")
+
+    def test_an_unreadable_quota_keeps_the_retry(self, monkeypatch, capsys):
+        calls: list[list[str]] = []
+        rc = self._cli(monkeypatch, rate_gh(None, calls, rate_rc=1))
+        assert rc == 2
+        assert len(self._listings(calls)) > 1, calls
+        assert capsys.readouterr().err.splitlines()[-1].startswith("error: gh failed")
+
+    def test_an_enterprise_repo_asks_its_own_host(self, monkeypatch):
+        calls: list[list[str]] = []
+        monkeypatch.setattr(ci_wait.subprocess, "run", rate_gh(0, calls))
+        quota = REAL_GH_RATE_LIMIT(repo="ghe.example.com/o/r")
+        assert quota == ci_wait.RateLimit(0, 5000, 1_800_000_000.0)
+        assert calls == [["gh", "api", "--hostname", "ghe.example.com", "rate_limit"]]
+
+
+class TestRateLimitParsing:
+    @pytest.mark.parametrize("answer", [
+        None, [], {"resources": {}},
+        {"resources": {"core": {"remaining": "0", "limit": 1, "reset": 1}}},
+        {"resources": {"core": {"remaining": True, "limit": 1, "reset": 1}}},
+    ])
+    def test_any_other_shape_is_unknown_never_spent(self, answer):
+        assert ci_wait.parse_rate_limit(answer) is None
+
+    def test_the_summary_names_local_and_utc_reset(self):
+        cet = timezone(timedelta(hours=1), "CET")
+        text = ci_wait.rate_limit_summary(ci_wait.RateLimit(0, 5000, 1_800_000_000.0),
+                                          now=1_800_000_000.0 - 125, tz=cet)
+        assert "(0 of 5000 core requests left)" in text
+        assert "resets at 2027-01-15 09:00:00 CET (2027-01-15 08:00:00 UTC), in 2m05s" in text
+
+    def test_the_wait_loop_stops_on_the_first_failure_when_spent(self):
+        fetched: list[int] = []
+
+        def fetch():
+            fetched.append(1)
+            raise ci_wait.GhFailed(f"gh exited 1: {_RATE_403}")
+
+        result = ci_wait.wait_for(fetch, deadline_polls=50, sleep=lambda _s: None,
+                                  rate_limit_spent=lambda: "the GitHub API rate limit is spent")
+        assert result.state == "rate-limited" and len(fetched) == 1
+        assert ci_wait.exit_code_for(result.state) == 2

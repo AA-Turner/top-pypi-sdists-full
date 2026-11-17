@@ -54,10 +54,12 @@ from .literals import (
     FeatureTypeType,
     FeedbackValueTypeType,
     IdentityProviderTypeTypeType,
+    IssuedTokenTypeIdentifierTypeType,
     IssuerTypeType,
     LogLevelType,
     MessageActionTypeType,
     OAuthFlowTypeType,
+    OAuthTokenTypeTypeType,
     PasswordHashingAlgorithmTypeType,
     PreTokenGenerationLambdaVersionTypeType,
     PreventUserExistenceErrorTypesType,
@@ -71,6 +73,7 @@ from .literals import (
     SessionTypeTypeType,
     StatusTypeType,
     TimeUnitsTypeType,
+    TokenTypeIdentifierTypeType,
     UpdateReplicaStatusTypeType,
     UserImportJobStatusTypeType,
     UsernameAttributeTypeType,
@@ -256,6 +259,8 @@ __all__ = (
     "GetCSVHeaderResponseTypeDef",
     "GetClientTokenRequestTypeDef",
     "GetClientTokenResponseTypeDef",
+    "GetDerivedTokenRequestTypeDef",
+    "GetDerivedTokenResponseTypeDef",
     "GetDeviceRequestTypeDef",
     "GetDeviceResponseTypeDef",
     "GetGroupRequestTypeDef",
@@ -1021,6 +1026,20 @@ class GetClientTokenRequestTypeDef(TypedDict):
     Scopes: NotRequired[Sequence[str]]
     ClientMetadata: NotRequired[Mapping[str, str]]
 
+class GetDerivedTokenRequestTypeDef(TypedDict):
+    ClientId: str
+    SubjectToken: str
+    SubjectTokenType: TokenTypeIdentifierTypeType
+    ClientSecret: NotRequired[str]
+    SubjectTokenProviderName: NotRequired[str]
+    ActorToken: NotRequired[str]
+    ActorTokenType: NotRequired[TokenTypeIdentifierTypeType]
+    ActorTokenProviderName: NotRequired[str]
+    Scopes: NotRequired[Sequence[str]]
+    Audiences: NotRequired[Sequence[str]]
+    Resources: NotRequired[Sequence[str]]
+    RequestedTokenType: NotRequired[IssuedTokenTypeIdentifierTypeType]
+
 class GetDeviceRequestTypeDef(TypedDict):
     DeviceKey: str
     AccessToken: NotRequired[str]
@@ -1385,6 +1404,14 @@ class EmptyResponseMetadataTypeDef(TypedDict):
 class GetCSVHeaderResponseTypeDef(TypedDict):
     UserPoolId: str
     CSVHeader: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class GetDerivedTokenResponseTypeDef(TypedDict):
+    IssuedToken: str
+    IssuedTokenType: IssuedTokenTypeIdentifierTypeType
+    TokenType: OAuthTokenTypeTypeType
+    ExpiresIn: int
+    Scopes: list[str]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetSigningCertificateResponseTypeDef(TypedDict):

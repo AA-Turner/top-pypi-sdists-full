@@ -30,6 +30,8 @@ from .paginator import GetRequestAuthorizationDetailsPaginator
 from .type_defs import (
     GetRequestAuthorizationDetailsInputTypeDef,
     GetRequestAuthorizationDetailsOutputTypeDef,
+    GetRequestAuthorizationPolicyInputTypeDef,
+    GetRequestAuthorizationPolicyOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -89,6 +91,16 @@ class IAMToolboxPreviewClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam-toolbox/client/get_request_authorization_details.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam_toolbox/client/#get_request_authorization_details)
+        """
+
+    def get_request_authorization_policy(
+        self, **kwargs: Unpack[GetRequestAuthorizationPolicyInputTypeDef]
+    ) -> GetRequestAuthorizationPolicyOutputTypeDef:
+        """
+        Retrieves a policy that was evaluated for a specific access denied request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/iam-toolbox/client/get_request_authorization_policy.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_iam_toolbox/client/#get_request_authorization_policy)
         """
 
     def get_paginator(  # type: ignore[override]

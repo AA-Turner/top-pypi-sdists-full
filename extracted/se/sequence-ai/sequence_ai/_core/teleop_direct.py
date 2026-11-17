@@ -31,7 +31,7 @@ has little unsent (LOW_BYTES), a step's arrays wait behind one piece at most.
 WHY the STUN servers are named under our own domain: users are not shown which provider serves anything.
 
 
-Needs aiortc (`pip install 'sequence-ai[teleop]'`, Python 3.10 or later); imported where a direct connection is first
+Needs aiortc (`pip install 'sequence-ai[teleop]'`, Python 3.11 or later); imported where a direct connection is first
 made, so a robot or console that makes none needs none of it.
 """
 from __future__ import annotations
@@ -104,7 +104,13 @@ MOST_PEERS = 4
 
 _GONE_S = 30
 _INSTALL = "pip install 'sequence-ai[teleop]'"
-_NEEDS = "a direct connection between a console and its robot needs Python 3.10 or later and aiortc"
+
+
+
+_PYTHON = (3, 11)
+_NEEDS = "a direct connection between a console and its robot needs Python 3.11 or later and aiortc"
+_OLD = ("a direct connection between a console and its robot needs Python 3.11 or later, as aiortc does, and this is "
+        "Python {version}")
 _MAGIC = 0x2112A442
 _ENCODER_IN = False
 _GATHER_IN = False
@@ -113,8 +119,8 @@ _log = logging.getLogger("sequence_ai.teleop")
 
 
 def available() -> bool:
-    """Whether this install can make a direct connection: Python 3.10+ and aiortc present (not imported here)."""
-    return sys.version_info >= (3, 10) and importlib.util.find_spec("aiortc") is not None
+    """Whether this install can make a direct connection: Python 3.11+ and aiortc present (not imported here)."""
+    return tuple(sys.version_info[:2]) >= _PYTHON and importlib.util.find_spec("aiortc") is not None
 
 
 def _install_encoder() -> None:
@@ -131,8 +137,8 @@ def _install_gather() -> None:
     """Once a process: an interface's STUN question given up GATHER_GRACE_S after another interface has its answer. aioice
     waits 5 s for every interface, and one with no way to the internet (a VPN's, a tailnet's) never hears: 5 s on each
     side of every connection. Answers that do come arrive together, so they are all kept; with none, the 5 s stand. Left
-    as it is by an aioice with no such function: that wait is all this shortens. {dev 11-11: "GATHER 5.00S", two interfaces,
-    the tailnet's unanswered; a console took 11.12 s to connect}"""
+    as it is by an aioice with no such function: that wait is all this shortens.
+"""
     global _GATHER_IN
     if _GATHER_IN:
         return
@@ -176,7 +182,11 @@ def install_receiving() -> None:
 
 
 def require() -> None:
-    """MissingPackage, saying how to install it, where this install cannot make a direct connection."""
+    """MissingPackage where this install cannot make a direct connection: on a Python before 3.11, that it needs 3.11
+    and which Python this is - no install there changes it; else how to install aiortc."""
+    if tuple(sys.version_info[:2]) < _PYTHON:
+        raise MissingPackage(_OLD.format(version=".".join(str(n) for n in sys.version_info[:3])),
+                             hint="run it on Python 3.11 or later")
     if not available():
         raise MissingPackage(_NEEDS, hint=_INSTALL)
 

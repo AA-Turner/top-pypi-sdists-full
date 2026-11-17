@@ -56,6 +56,7 @@ Usage::
         ListInferenceExperimentsPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
+        ListInferenceRoutersPaginator,
         ListJobSchemaVersionsPaginator,
         ListJobsPaginator,
         ListLabelingJobsForWorkteamPaginator,
@@ -155,6 +156,7 @@ Usage::
     list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
     list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
+    list_inference_routers_paginator: ListInferenceRoutersPaginator = client.get_paginator("list_inference_routers")
     list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator("list_job_schema_versions")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
@@ -304,6 +306,8 @@ from .type_defs import (
     ListInferenceRecommendationsJobsResponseTypeDef,
     ListInferenceRecommendationsJobStepsRequestPaginateTypeDef,
     ListInferenceRecommendationsJobStepsResponseTypeDef,
+    ListInferenceRoutersInputPaginateTypeDef,
+    ListInferenceRoutersOutputTypeDef,
     ListJobSchemaVersionsRequestPaginateTypeDef,
     ListJobSchemaVersionsResponseTypeDef,
     ListJobsRequestPaginateTypeDef,
@@ -456,6 +460,7 @@ __all__ = (
     "ListInferenceExperimentsPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
+    "ListInferenceRoutersPaginator",
     "ListJobSchemaVersionsPaginator",
     "ListJobsPaginator",
     "ListLabelingJobsForWorkteamPaginator",
@@ -1318,6 +1323,24 @@ class ListInferenceRecommendationsJobsPaginator(_ListInferenceRecommendationsJob
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceRecommendationsJobs.html#SageMaker.Paginator.ListInferenceRecommendationsJobs.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferencerecommendationsjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListInferenceRoutersPaginatorBase = Paginator[ListInferenceRoutersOutputTypeDef]
+else:
+    _ListInferenceRoutersPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListInferenceRoutersPaginator(_ListInferenceRoutersPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceRouters.html#SageMaker.Paginator.ListInferenceRouters)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferencerouterspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListInferenceRoutersInputPaginateTypeDef]
+    ) -> PageIterator[ListInferenceRoutersOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListInferenceRouters.html#SageMaker.Paginator.ListInferenceRouters.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker/paginators/#listinferencerouterspaginator)
         """
 
 if TYPE_CHECKING:

@@ -69,6 +69,9 @@ _ERROR_FIRST_APPROVALS: Final = frozenset(
         # User-requested blocking placement-input policy, qualified with paired
         # native fixtures and inspected immutable Terraform corpus evidence.
         "iac:no-hardcoded-deployment-location",
+        # User-requested ban on proven-unused exports; the published semantic
+        # analyzer is qualified with native consumers and immutable corpus evidence.
+        "iac:no-unused-module-outputs",
         # Invalid build ordering or substitution into executable shell syntax.
         "text:cloudbuild-contract",
         # User-approved architecture policy: literal/import-proven interpreter source
@@ -104,6 +107,9 @@ _ERROR_FIRST_APPROVALS: Final = frozenset(
         "python:no-dynamic-builtins",
         "python:no-shared-mutable-default",
         "python:no-sys-path-mutation",
+        # User-requested Python keyword ban, qualified with native Ruff ownership,
+        # labeled syntax fixtures and an immutable corpus; existing uses migrated.
+        "python:no-nonlocal-statement",
     }
 )
 

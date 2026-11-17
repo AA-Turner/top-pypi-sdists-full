@@ -352,6 +352,7 @@ __all__ = (
     "GatewayConnectionAlbResourcesTypeDef",
     "GatewayConnectionResourcesTypeDef",
     "GatewayConnectionTypeDef",
+    "GatewayConnectorDeregistrationDelayTypeDef",
     "GatewayConnectorFiltersOutputTypeDef",
     "GatewayConnectorFiltersTypeDef",
     "GatewayConnectorFiltersUnionTypeDef",
@@ -1463,6 +1464,10 @@ class GatewayConnectionAlbResourcesTypeDef(TypedDict):
     testListenerRuleArn: NotRequired[str]
     targetGroupArn: NotRequired[str]
     alternateTargetGroupArn: NotRequired[str]
+
+
+class GatewayConnectorDeregistrationDelayTypeDef(TypedDict):
+    timeoutSeconds: NotRequired[int]
 
 
 class GatewayConnectorFiltersOutputTypeDef(TypedDict):
@@ -3205,12 +3210,14 @@ class GatewayConnectorOutputTypeDef(TypedDict):
     portName: str
     healthCheck: NotRequired[GatewayConnectorHealthCheckTypeDef]
     filters: NotRequired[GatewayConnectorFiltersOutputTypeDef]
+    deregistrationDelay: NotRequired[GatewayConnectorDeregistrationDelayTypeDef]
 
 
 class GatewayConnectorTypeDef(TypedDict):
     portName: str
     healthCheck: NotRequired[GatewayConnectorHealthCheckTypeDef]
     filters: NotRequired[GatewayConnectorFiltersUnionTypeDef]
+    deregistrationDelay: NotRequired[GatewayConnectorDeregistrationDelayTypeDef]
 
 
 class GatewayElbAccessLogConfigurationTypeDef(TypedDict):

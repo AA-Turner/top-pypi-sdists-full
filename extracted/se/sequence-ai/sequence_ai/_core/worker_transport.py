@@ -381,7 +381,7 @@ class _WorkerTransport(StreamLink):
     def prewarm(self) -> None:
         """Open the robot's stream now, in the background, so its first act and observation find it open rather than
         opening it - and what the worker takes known as they go, from its upgrade's answer: a TLS handshake through a
-        worker's tunnel took 54 ms to 3.1 s on dev, and a robot's first act paid it. A request that comes while it opens
+        worker's tunnel took 54 ms to 3.1 s as measured, and a robot's first act paid it. A request that comes while it opens
         waits for it (_route).
 """
         self._ensure_stream()

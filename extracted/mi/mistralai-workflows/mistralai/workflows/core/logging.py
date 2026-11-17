@@ -160,9 +160,9 @@ def _to_host_stdlib_call(logger: Any, method_name: str, event_dict: EventDict) -
     """Hand the event to the stdlib logger as text, keeping its fields in the message for SDK formatters."""
     fields = {key: value for key, value in event_dict.items() if key not in ("exc_info", "stack_info")}
     (text,), kwargs = _to_stdlib_call(logger, method_name, event_dict)
-    if type(logger).findCaller is not logging.Logger.findCaller:
-        # structlog's stdlib logger class (loggers created after ``LoggerFactory``) skips its own
-        # frames to find the caller; the stacklevel offset is only for plain stdlib loggers.
+    if getattr(type(logger).findCaller, "__module__", None) == "structlog.stdlib":
+        # structlog's stdlib logger class skips its own frames to find the caller; other loggers,
+        # including application classes that override findCaller, need the stacklevel offset.
         del kwargs["stacklevel"]
     message = _HostEventMessage(text)
     message.fields = fields
@@ -253,6 +253,13 @@ def route_logs_to_host_logging(inject_otel_trace: bool = False) -> None:
     global _shared_processors
     _shared_processors = _build_shared_processors(inject_otel_trace)
 
+    # LoggerFactory() sets the global logger class; restore the host's so its loggers keep their methods.
+    # Known gap: async methods such as ainfo() report a structlog frame as their file, function, line and
+    # stack. Nothing in the SDK calls them, and fixing it would multiply this change roughly tenfold.
+    host_logger_class = logging.getLoggerClass()
+    factory = structlog.stdlib.LoggerFactory()
+    logging.setLoggerClass(host_logger_class)
+
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -264,7 +271,7 @@ def route_logs_to_host_logging(inject_otel_trace: bool = False) -> None:
         ],
         wrapper_class=structlog.stdlib.BoundLogger,
         context_class=dict,
-        logger_factory=structlog.stdlib.LoggerFactory(),
+        logger_factory=factory,
         cache_logger_on_first_use=False,
     )
 

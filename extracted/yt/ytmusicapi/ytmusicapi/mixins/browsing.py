@@ -284,7 +284,11 @@ class BrowsingMixin(MixinProtocol):
         subscription_button = header["subscriptionButton"]["subscribeButtonRenderer"]
         artist["channelId"] = subscription_button["channelId"]
         artist["shuffleId"] = nav(header, ["playButton", "buttonRenderer", *NAVIGATION_PLAYLIST_ID], True)
-        artist["radioId"] = nav(header, ["startRadioButton", "buttonRenderer", *NAVIGATION_PLAYLIST_ID], True)
+        radio_button = nav(header, ["startRadioButton", "buttonRenderer"], True)
+        # the page for the artist's own channelId links the radio with a watchPlaylistEndpoint
+        artist["radioId"] = nav(radio_button, NAVIGATION_PLAYLIST_ID, True) or nav(
+            radio_button, NAVIGATION_WATCH_PLAYLIST_ID, True
+        )
         artist["subscribers"] = nav(subscription_button, ["subscriberCountText", "runs", 0, "text"], True)
         artist["monthlyListeners"] = nav(header, ["monthlyListenerCount", "runs", 0, "text"], True)
         artist["monthlyListeners"] = (
@@ -295,8 +299,9 @@ class BrowsingMixin(MixinProtocol):
         artist["subscribed"] = subscription_button["subscribed"]
         artist["thumbnails"] = nav(header, THUMBNAILS, True)
         artist["songs"] = {"browseId": None}
-        if "musicShelfRenderer" in results[0]:  # API sometimes does not return songs
-            musicShelf = nav(results[0], MUSIC_SHELF)
+        songs_shelf = find_object_by_key(results, MUSIC_SHELF[0])
+        if songs_shelf:  # API sometimes does not return songs
+            musicShelf = nav(songs_shelf, MUSIC_SHELF)
             if "navigationEndpoint" in nav(musicShelf, TITLE):
                 artist["songs"]["browseId"] = nav(musicShelf, TITLE + NAVIGATION_BROWSE_ID)
             artist["songs"]["results"] = parse_playlist_items(musicShelf["contents"])

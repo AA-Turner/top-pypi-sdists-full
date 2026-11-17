@@ -1,7 +1,8 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -14,8 +15,8 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     sandbox_id: str,
     *,
-    body: SandboxSnapshotPOST,
-    owner_id: Union[Unset, str] = UNSET,
+    body: SandboxSnapshotPOST | Unset = UNSET,
+    owner_id: str | Unset = UNSET,
 ) -> dict[str, Any]:
     headers: dict[str, Any] = {}
 
@@ -27,11 +28,14 @@ def _get_kwargs(
 
     _kwargs: dict[str, Any] = {
         "method": "post",
-        "url": f"/sandboxes/{sandbox_id}/snapshots",
+        "url": "/sandboxes/{sandbox_id}/snapshots".format(
+            sandbox_id=quote(str(sandbox_id), safe=""),
+        ),
         "params": params,
     }
 
-    _kwargs["json"] = body.to_dict()
+    if not isinstance(body, Unset):
+        _kwargs["json"] = body.to_dict()
 
     headers["Content-Type"] = "application/json"
 
@@ -40,8 +44,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Error, SandboxSnapshot]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Error | SandboxSnapshot | None:
     if response.status_code == 202:
         response_202 = SandboxSnapshot.from_dict(response.json())
 
@@ -94,8 +98,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Error, SandboxSnapshot]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Response[Error | SandboxSnapshot]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -107,31 +111,27 @@ def _build_response(
 def sync_detailed(
     sandbox_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: SandboxSnapshotPOST,
-    owner_id: Union[Unset, str] = UNSET,
-) -> Response[Union[Error, SandboxSnapshot]]:
+    client: AuthenticatedClient | Client,
+    body: SandboxSnapshotPOST | Unset = UNSET,
+    owner_id: str | Unset = UNSET,
+) -> Response[Error | SandboxSnapshot]:
     """Create sandbox snapshot
 
-     Capture a snapshot of a running sandbox. Returns 202 with the snapshot in
-    `creating`. Poll until it is `available` or `failed`. The sandbox keeps
-    running; a runtime capture pauses it briefly.
-
-    400 with `code: invalid_snapshot_name` if `name` is malformed. 409 with
-    `code: sandbox_not_running` if the sandbox is not `running`, or
-    `code: sandbox_group_suspended` if the sandbox group is suspended.
+     Capture a snapshot of a running sandbox. Returns HTTP 202 with the snapshot in `creating` status.
+    Retrieve the snapshot until its status is `available` or `failed`. The sandbox continues running,
+    with a brief pause when capturing a runtime snapshot.
 
     Args:
-        sandbox_id (str):  Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
-        body (SandboxSnapshotPOST):
+        sandbox_id (str): The ID of the sandbox. Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
+        body (SandboxSnapshotPOST | Unset): The settings for the sandbox snapshot to capture.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, SandboxSnapshot]]
+        Response[Error | SandboxSnapshot]
     """
 
     kwargs = _get_kwargs(
@@ -150,31 +150,27 @@ def sync_detailed(
 def sync(
     sandbox_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: SandboxSnapshotPOST,
-    owner_id: Union[Unset, str] = UNSET,
-) -> Optional[Union[Error, SandboxSnapshot]]:
+    client: AuthenticatedClient | Client,
+    body: SandboxSnapshotPOST | Unset = UNSET,
+    owner_id: str | Unset = UNSET,
+) -> Error | SandboxSnapshot | None:
     """Create sandbox snapshot
 
-     Capture a snapshot of a running sandbox. Returns 202 with the snapshot in
-    `creating`. Poll until it is `available` or `failed`. The sandbox keeps
-    running; a runtime capture pauses it briefly.
-
-    400 with `code: invalid_snapshot_name` if `name` is malformed. 409 with
-    `code: sandbox_not_running` if the sandbox is not `running`, or
-    `code: sandbox_group_suspended` if the sandbox group is suspended.
+     Capture a snapshot of a running sandbox. Returns HTTP 202 with the snapshot in `creating` status.
+    Retrieve the snapshot until its status is `available` or `failed`. The sandbox continues running,
+    with a brief pause when capturing a runtime snapshot.
 
     Args:
-        sandbox_id (str):  Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
-        body (SandboxSnapshotPOST):
+        sandbox_id (str): The ID of the sandbox. Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
+        body (SandboxSnapshotPOST | Unset): The settings for the sandbox snapshot to capture.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, SandboxSnapshot]
+        Error | SandboxSnapshot
     """
 
     return sync_detailed(
@@ -188,31 +184,27 @@ def sync(
 async def asyncio_detailed(
     sandbox_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: SandboxSnapshotPOST,
-    owner_id: Union[Unset, str] = UNSET,
-) -> Response[Union[Error, SandboxSnapshot]]:
+    client: AuthenticatedClient | Client,
+    body: SandboxSnapshotPOST | Unset = UNSET,
+    owner_id: str | Unset = UNSET,
+) -> Response[Error | SandboxSnapshot]:
     """Create sandbox snapshot
 
-     Capture a snapshot of a running sandbox. Returns 202 with the snapshot in
-    `creating`. Poll until it is `available` or `failed`. The sandbox keeps
-    running; a runtime capture pauses it briefly.
-
-    400 with `code: invalid_snapshot_name` if `name` is malformed. 409 with
-    `code: sandbox_not_running` if the sandbox is not `running`, or
-    `code: sandbox_group_suspended` if the sandbox group is suspended.
+     Capture a snapshot of a running sandbox. Returns HTTP 202 with the snapshot in `creating` status.
+    Retrieve the snapshot until its status is `available` or `failed`. The sandbox continues running,
+    with a brief pause when capturing a runtime snapshot.
 
     Args:
-        sandbox_id (str):  Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
-        body (SandboxSnapshotPOST):
+        sandbox_id (str): The ID of the sandbox. Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
+        body (SandboxSnapshotPOST | Unset): The settings for the sandbox snapshot to capture.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, SandboxSnapshot]]
+        Response[Error | SandboxSnapshot]
     """
 
     kwargs = _get_kwargs(
@@ -229,31 +221,27 @@ async def asyncio_detailed(
 async def asyncio(
     sandbox_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-    body: SandboxSnapshotPOST,
-    owner_id: Union[Unset, str] = UNSET,
-) -> Optional[Union[Error, SandboxSnapshot]]:
+    client: AuthenticatedClient | Client,
+    body: SandboxSnapshotPOST | Unset = UNSET,
+    owner_id: str | Unset = UNSET,
+) -> Error | SandboxSnapshot | None:
     """Create sandbox snapshot
 
-     Capture a snapshot of a running sandbox. Returns 202 with the snapshot in
-    `creating`. Poll until it is `available` or `failed`. The sandbox keeps
-    running; a runtime capture pauses it briefly.
-
-    400 with `code: invalid_snapshot_name` if `name` is malformed. 409 with
-    `code: sandbox_not_running` if the sandbox is not `running`, or
-    `code: sandbox_group_suspended` if the sandbox group is suspended.
+     Capture a snapshot of a running sandbox. Returns HTTP 202 with the snapshot in `creating` status.
+    Retrieve the snapshot until its status is `available` or `failed`. The sandbox continues running,
+    with a brief pause when capturing a runtime snapshot.
 
     Args:
-        sandbox_id (str):  Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
-        owner_id (Union[Unset, str]):
-        body (SandboxSnapshotPOST):
+        sandbox_id (str): The ID of the sandbox. Example: sbx-1cd4gcph1rs3idesc73a2b2mg.
+        owner_id (str | Unset):
+        body (SandboxSnapshotPOST | Unset): The settings for the sandbox snapshot to capture.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, SandboxSnapshot]
+        Error | SandboxSnapshot
     """
 
     return (

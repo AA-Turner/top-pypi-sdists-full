@@ -4,6 +4,7 @@ class CheckStatus(StrEnum):
     COMPLETED = "completed"
     IN_PROGRESS = "in_progress"
     QUEUED = "queued"
+    UNKNOWN = "unknown"
     WAITING = "waiting"
 
     def __str__(self) -> str:

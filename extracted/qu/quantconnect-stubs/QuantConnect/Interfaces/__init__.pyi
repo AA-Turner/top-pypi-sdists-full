@@ -630,7 +630,7 @@ class IOptionChainProvider(metaclass=abc.ABCMeta):
         Gets the list of option contracts for a given underlying symbol
         
         :param symbol: The option or the underlying symbol to get the option chain for.
-        Providing the option allows targetting an option ticker different than the default e.g. SPXW
+        Providing the option allows targeting an option ticker different than the default e.g. SPXW
         :param date: The date for which to request the option chain (only used in backtesting)
         :returns: The list of option contracts.
         """

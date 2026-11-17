@@ -11,6 +11,7 @@ import sklearn.datasets
 import statsmodels.api as sm
 import statsmodels.tools
 import tabmat as tm
+from packaging.version import Version
 from scipy import optimize, sparse
 
 from glum._distribution import (
@@ -303,8 +304,6 @@ def test_glm_log_regression(family, solver, tol, fit_intercept, offset):
     np.testing.assert_allclose(fit_coef, coef, rtol=8e-6)
 
 
-@pytest.mark.filterwarnings("ignore:The line search algorithm")
-@pytest.mark.filterwarnings("ignore:Line Search failed")
 @pytest.mark.parametrize("n_samples, n_features", [(100, 10), (10, 100)])
 @pytest.mark.parametrize("solver", GLM_SOLVERS)
 @pytest.mark.parametrize("use_offset", [False, True])
@@ -885,8 +884,13 @@ def test_binomial_enet(alpha):
         n_repeated=0,
         random_state=rng,
     )
+    # `penalty` is deprecated in scikit-learn 1.8 and removed in 1.10. From 1.8 on,
+    # 0 < l1_ratio < 1 already means elastic net.
+    penalty_kwargs = (
+        {} if Version(skl.__version__).release >= (1, 8) else {"penalty": "elasticnet"}
+    )
     log = skl.linear_model.LogisticRegression(
-        penalty="elasticnet",
+        **penalty_kwargs,
         random_state=rng,
         fit_intercept=False,
         tol=1e-7,
@@ -1360,6 +1364,8 @@ def test_passing_noncontiguous_as_X():
     baseline = GeneralizedLinearRegressor(family="normal", fit_intercept=False).fit(
         X[2:, :].copy(), y[2:]
     )
+    # Warnings are errors in the test suite, so this also checks that no warning
+    # is emitted for non-contiguous inputs.
     np_view = GeneralizedLinearRegressor(family="normal", fit_intercept=False).fit(
         X[2:, :], y[2:]
     )
@@ -1614,6 +1620,86 @@ def test_categorical_types(k, n, namespace):
     pred_cat_oh = model_cat.predict(X_oh)
     pred_oh_cat = model_oh.predict(X_cat)
     np.testing.assert_allclose(pred_cat_oh, pred_oh_cat)
+
+
+@pytest.mark.parametrize("link", ["logit", "cloglog"])
+@pytest.mark.parametrize(
+    "estimator, kwargs",
+    [
+        (GeneralizedLinearRegressor, {"alpha": 1e-6}),
+        (GeneralizedLinearRegressorCV, {"alphas": [1e-6], "l1_ratio": 0}),
+    ],
+    ids=["GLM", "GLMCV"],
+)
+def test_warns_if_fitted_values_are_saturated(link, estimator, kwargs):
+    # A feature that perfectly separates the outcomes drives the fitted values to 0
+    # and 1, which users can act on, e.g. by regularizing more.
+    rng = np.random.default_rng(0)
+    X = rng.normal(size=(200, 2))
+    y = (X[:, 0] > 0).astype(int)
+    model = estimator(family="binomial", link=link, **kwargs)
+    with pytest.warns(UserWarning, match="numerically 0 or 1"):
+        model.fit(X, y)
+
+
+@pytest.mark.parametrize("link", ["logit", "cloglog"])
+def test_no_saturation_warning_for_well_behaved_data(link):
+    # Warnings are errors in the test suite. With the cloglog link, a few percent of
+    # the fitted values reach the upper clipping bound for well-behaved data.
+    X, y = sklearn.datasets.make_classification(
+        n_samples=500,
+        n_features=6,
+        n_informative=5,
+        n_redundant=0,
+        n_repeated=0,
+        random_state=np.random.RandomState(42),
+    )
+    GeneralizedLinearRegressor(family="binomial", link=link, alpha=0).fit(X, y)
+
+
+@pytest.mark.parametrize(
+    "estimator", [GeneralizedLinearRegressor, GeneralizedLinearRegressorCV]
+)
+def test_pandas_row_slices_do_not_warn(estimator):
+    # Row slices such as df.iloc[:n] are not contiguous in memory; users cannot act
+    # on tabmat's copy warning, so fit, predict and score must not pass it on.
+    rng = np.random.default_rng(0)
+    df = pd.DataFrame(rng.normal(size=(60, 3)), columns=list("abc"))
+    y = rng.normal(size=60)
+    train, test = df.iloc[:40], df.iloc[40:]
+    kwargs = {"n_alphas": 3} if estimator is GeneralizedLinearRegressorCV else {}
+    model = estimator(**kwargs).fit(train, y[:40])
+    model.predict(test)
+    model.score(test, y[40:])
+
+
+def test_polars_categorical_levels():
+    """Polars categorical levels must match tabmat's (sorted) column order.
+
+    Neither unrelated categories from polars' global category pool nor the
+    order of appearance may leak into ``categorical_levels_``.
+    """
+    rng = np.random.default_rng(0)
+    group = rng.choice(["c", "a", "b"], size=200)
+    group[0] = "c"  # order of appearance differs from sorted order
+    y = rng.normal(size=200) + np.select([group == "b", group == "c"], [1.0, 5.0])
+
+    pl.Series(["unrelated"], dtype=pl.Categorical)  # pollute global category pool
+    X_pl = pl.DataFrame({"group": pl.Series(group, dtype=pl.Categorical)})
+    X_pd = pd.DataFrame({"group": pd.Categorical(group)})
+
+    # drop the first level to avoid perfect collinearity with the intercept
+    model_pl = GeneralizedLinearRegressor(alpha=0, drop_first=True).fit(X_pl, y)
+    model_pd = GeneralizedLinearRegressor(alpha=0, drop_first=True).fit(X_pd, y)
+
+    assert model_pl.categorical_levels_ == {"group": ["a", "b", "c"]}
+    np.testing.assert_allclose(model_pl.coef_, model_pd.coef_)
+
+    new = ["a", "b", "c"]
+    np.testing.assert_allclose(
+        model_pl.predict(pl.DataFrame({"group": pl.Series(new, dtype=pl.Categorical)})),
+        model_pd.predict(pd.DataFrame({"group": pd.Categorical(new)})),
+    )
 
 
 @pytest.mark.parametrize(
@@ -2341,7 +2427,7 @@ def test_score_method(as_data_frame, offset, weighted):
 
 def test_information_criteria(regression_data):
     X, y = regression_data
-    regressor = GeneralizedLinearRegressor(family="gaussian")
+    regressor = GeneralizedLinearRegressor(family="gaussian", alpha=0)
     regressor.fit(X, y)
 
     llf = regressor.family_instance.log_likelihood(y, regressor.predict(X))

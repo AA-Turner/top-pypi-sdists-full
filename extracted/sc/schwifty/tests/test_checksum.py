@@ -25,6 +25,8 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("0094012341", "DE:16"),
         # Remainder 1 is accepted when the last two digits match.
         ("0000000066", "DE:16"),
+        # Method 23 compares positions 6 and 7 instead.
+        ("0000066012", "DE:23"),
         ("0012345008", "DE:10"),
         ("0087654008", "DE:10"),
         ("1000000060", "DE:11"),
@@ -231,6 +233,13 @@ from schwifty.exceptions import InvalidBBANChecksum
         ("5654334563", "DE:C1"),
         ("5765445670", "DE:C1"),
         ("5876556788", "DE:C1"),
+        # Method D8 test account numbers. From 1000000000 on, variant 1 (method 00) applies.
+        ("1403414848", "DE:D8"),
+        ("6800000439", "DE:D8"),
+        ("6899999954", "DE:D8"),
+        # Variant 2 (method 09) accepts the whole range 0010000000 to 0099999999 without a check.
+        ("0010000000", "DE:D8"),
+        ("0099999999", "DE:D8"),
         # Method 99 accepts the whole range 0396000000 to 0499999999 without a check.
         ("0396000001", "DE:99"),
         ("0412345678", "DE:99"),
@@ -264,6 +273,7 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         ("0000000010", "DE:02"),
         # Remainder 1 and a second digit outside {8, 9} is rejected.
         ("0000000060", "DE:25"),
+        ("0000061011", "DE:23"),
         ("0001234567", "DE:13"),
         # Method 63 only accepts a leading zero.
         ("1123456600", "DE:63"),
@@ -349,6 +359,13 @@ def test_german_checksum_success(account_code: str, algorithm_name: str) -> None
         # but does not.
         ("5478046940", "DE:C1"),
         ("0543223450", "DE:C1"),
+        # Method D8 test account numbers. 0000260986 is in neither range.
+        ("3012084101", "DE:D8"),
+        ("1062813622", "DE:D8"),
+        ("0000260986", "DE:D8"),
+        # Account codes in neither range are invalid, even if they pass method 00.
+        ("0009290701", "DE:D8"),
+        ("0539290858", "DE:D8"),
     ],
 )
 def test_german_checksum_failure(account_code: str, algorithm_name: str) -> None:
@@ -558,6 +575,20 @@ def test_german_checksum_c0_compute_and_solve() -> None:
     assert algo.compute(["13051172", "1234567890"]) == "6"
     # The check digit is solved with method 20, which accepts every account code.
     assert algo.solve(["13051172", "1234567890"]) == ["13051172", "1234567896"]
+
+
+def test_german_checksum_d8_compute_and_solve() -> None:
+    algo = algorithms["DE:D8"]
+    # Variant 1 (method 00) places the check digit at position 10.
+    assert algo.compute(["6899999950"]) == "4"
+    assert algo.solve(["6899999950"]) == ["6899999954"]
+    # Variant 2 (method 09) has no check digit, so the account code is left as it is.
+    assert algo.compute(["0012345678"]) == ""
+    assert algo.solve(["0012345678"]) == ["0012345678"]
+    # An account code in neither range has no valid check digit.
+    with pytest.raises(InvalidBBANChecksum):
+        algo.compute(["0123456789"])
+    assert algo.solve(["0123456789"]) is None
 
 
 def test_german_checksum_91_solve_exhausted(monkeypatch: pytest.MonkeyPatch) -> None:

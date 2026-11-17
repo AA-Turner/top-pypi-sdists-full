@@ -124,7 +124,7 @@ class StackExceptionInterpreter(System.Object, QuantConnect.Exceptions.IExceptio
         
         :param exception: The exception to be interpreted
         :param inner_interpreter: An interpreter that should be applied to the inner exception.
-        This provides a link back allowing the inner exceptions to be interpreted using the intepretators
+        This provides a link back allowing the inner exceptions to be interpreted using the interpreters
         configured in the StackExceptionInterpreter. Individual implementations *may* ignore
         this value if required.
         :returns: The interpreted exception.

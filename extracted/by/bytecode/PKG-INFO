@@ -1,7 +1,11 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: bytecode
-Version: 0.19.1
+Version: 0.19.2
 Summary: Python module to generate and modify bytecode
+Project-URL: homepage, https://github.com/MatthieuDartiailh/bytecode
+Project-URL: documentation, https://bytecode.readthedocs.io/en/latest/
+Project-URL: repository, https://github.com/MatthieuDartiailh/bytecode
+Project-URL: changelog, https://github.com/MatthieuDartiailh/bytecode/blob/main/doc/changelog.rst
 Author-email: Victor Stinner <victor.stinner@gmail.com>
 Maintainer-email: "Matthieu C. Dartiailh" <m.dartiailh@gmail.com>
 License: The MIT License (MIT)
@@ -25,11 +29,7 @@ License: The MIT License (MIT)
         CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
         TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
         SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-        
-Project-URL: homepage, https://github.com/MatthieuDartiailh/bytecode
-Project-URL: documentation, https://bytecode.readthedocs.io/en/latest/
-Project-URL: repository, https://github.com/MatthieuDartiailh/bytecode
-Project-URL: changelog, https://github.com/MatthieuDartiailh/bytecode/blob/main/doc/changelog.rst
+License-File: COPYING
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -42,10 +42,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
+Requires-Dist: typing-extensions; python_version < '3.10'
 Description-Content-Type: text/x-rst
-License-File: COPYING
-Requires-Dist: typing_extensions; python_version < "3.10"
-Dynamic: license-file
 
 ********
 bytecode

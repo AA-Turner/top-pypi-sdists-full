@@ -51,6 +51,13 @@ class ScheduledAggregateBackfill:
             recomputed from the bucket's start, so windows include recent data before the bucket
             closes. By default only closed buckets are written. Unsupported with either
             ``OFFLINE`` or ``ONLINE_SUMMARIES``, even when combined with ``ONLINE``.
+        online_refresh_schedule: Requires ``ONLINE_SUMMARIES``. A cron expression or duration for a
+            second, cheaper job named ``"<name> (companion)"`` that keeps the summaries' leading
+            edge fresh between summary runs. Each companion run writes only ordinary online
+            buckets, including the still-open one, and never re-summarizes. It starts where its
+            previous run stopped, less the feature's ``backfill_lookback_duration``, and never
+            earlier than the summary read horizon, since older buckets are read from the summary.
+            Typically more frequent than ``schedule``.
     """
 
     def __init__(
@@ -70,6 +77,7 @@ class ScheduledAggregateBackfill:
         environment: str | None = None,
         num_shards: int | None = None,
         include_partial_bucket: bool = False,
+        online_refresh_schedule: CronTab | Duration | None = None,
     ):
         super().__init__()
         self.errors = []
@@ -133,6 +141,11 @@ class ScheduledAggregateBackfill:
                 f"Scheduled aggregate backfill '{name}' sets include_partial_bucket=True, which is not supported with AggregateBackfillTarget.OFFLINE or AggregateBackfillTarget.ONLINE_SUMMARIES"
             )
 
+        if online_refresh_schedule is not None and AggregateBackfillTarget.ONLINE_SUMMARIES not in resolved_targets:
+            self.errors.append(
+                f"Scheduled aggregate backfill '{name}' sets online_refresh_schedule, which requires AggregateBackfillTarget.ONLINE_SUMMARIES"
+            )
+
         if lower_bound is not None:
             lower_bound = lower_bound.astimezone(tz=timezone.utc)
         if upper_bound is not None:
@@ -160,6 +173,7 @@ class ScheduledAggregateBackfill:
         self.environment = environment
         self.num_shards = num_shards
         self.include_partial_bucket = include_partial_bucket
+        self.online_refresh_schedule = online_refresh_schedule
         self.filename = caller_filename
 
         SCHEDULED_AGGREGATE_BACKFILL_REGISTRY[name] = self

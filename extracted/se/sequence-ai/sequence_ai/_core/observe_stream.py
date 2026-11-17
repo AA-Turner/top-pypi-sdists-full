@@ -29,7 +29,7 @@ WHY a frame handed again as it is goes once: a stream to another worker posts wh
 frames. Handed while the first went, the second
 was dropped as the first was answered; handed after, it went again, saying the robot switched after an act there was
 answered (tests/test_standby.py, 8 of 10 once that first post went on an open connection).
-{worker 6 10-25}
+
 WHY everything since the last served act is kept, not only what the worker has not said it has: a worker that restarts,
 or another one after a reconnect, has none of them, and the next act's frames must still be whole there.
 WHY packed when handed over: what msgpack cannot carry is refused to the robot's own call, as an act's inputs are, and

@@ -124,6 +124,7 @@ if typing.TYPE_CHECKING:
     from ..sql.annotation import _SA
     from ..sql.base import ReadOnlyColumnCollection
     from ..sql.elements import BindParameter
+    from ..sql.elements import ClauseElement
     from ..sql.selectable import _ColumnsClauseElement
     from ..sql.selectable import Select
     from ..sql.selectable import Selectable
@@ -571,6 +572,7 @@ class ORMStatementAdapter(sql_util.ColumnAdapter):
         anonymize_labels: bool = False,
         adapt_on_names: bool = False,
         adapt_from_selectables: Optional[AbstractSet[FromClause]] = None,
+        exclude_fn: Optional[Callable[[ClauseElement], bool]] = None,
     ):
         self.role = role
         super().__init__(
@@ -581,6 +583,7 @@ class ORMStatementAdapter(sql_util.ColumnAdapter):
             anonymize_labels=anonymize_labels,
             adapt_on_names=adapt_on_names,
             adapt_from_selectables=adapt_from_selectables,
+            exclude_fn=exclude_fn,
         )
 
 
@@ -1973,6 +1976,28 @@ class _ORMJoin(expression.Join):
                 alias_secondary=True,
                 extra_criteria=_extra_criteria,
             )
+
+            # a target such as a LATERAL subquery may correlate to the
+            # parent's table; when joining from an alias of the parent,
+            # adapt those references to the alias.  only the parent's
+            # table is adapted, as "adapt_from" may be a subquery that
+            # also includes tables the LATERAL selects from on its own
+            if (
+                adapt_from is not None
+                and adapt_from is not prop.parent.selectable
+                and adapt_from is not prop.parent.local_table
+                and isinstance(adapt_to, FromClause)
+            ):
+                correlated = sql_util._lateral_correlated_froms(
+                    adapt_to, prop.parent.selectable
+                )
+                if correlated:
+                    right = sql_util.ClauseAdapter(
+                        adapt_from,
+                        include_fn=lambda elem: not correlated.isdisjoint(
+                            elem._from_objects
+                        ),
+                    ).traverse(adapt_to)
 
             if sj is not None:
                 if isouter:

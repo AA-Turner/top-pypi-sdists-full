@@ -249,13 +249,13 @@ class OrderEventJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantCon
     @overload
     def convert(self, value: QuantConnect.Orders.OrderEvent) -> QuantConnect.Orders.Serialization.SerializedOrderEvent:
         """
-        Convert the input value to a value to be serialzied
+        Convert the input value to a value to be serialized
         
         
         This Class is protected.
         
-        :param value: The input value to be converted before serialziation
-        :returns: A new instance of TResult that is to be serialzied.
+        :param value: The input value to be converted before serialization
+        :returns: A new instance of TResult that is to be serialized.
         """
         ...
 

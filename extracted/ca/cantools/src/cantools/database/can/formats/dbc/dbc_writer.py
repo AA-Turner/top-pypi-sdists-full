@@ -133,6 +133,13 @@ ATTRIBUTE_DEFINITION_BAUDRATE = DbcAttributeDefinition(
     minimum=0,
     maximum=10*1024*1024)
 
+ATTRIBUTE_DEFINITION_BAUDRATE_CANFD = DbcAttributeDefinition(
+    name='BaudrateCANFD',
+    default_value=2_000_000,
+    type_name='INT',
+    minimum=0,
+    maximum=16*1024*1024)
+
 ATTRIBUTE_DEFINITION_CANFD_BRS = DbcAttributeDefinition(
     name='CANFD_BRS',
     default_value='1',
@@ -412,13 +419,17 @@ def _dump_nodes(database: InternalDatabase) -> list[str]:
     return node_names
 
 
+def _escape_display_text(text: str) -> str:
+    return text.replace('"', '\\"')
+
+
 def _dump_value_tables(database: InternalDatabase) -> list[str]:
     val_table: list[str] = []
 
     if database.dbc is not None:
         for name, choices in database.dbc.value_tables.items():
             choices_list = [
-                f'{number} "{text}"'
+                f'{number} "{_escape_display_text(str(text))}"'
                 for number, text in sorted(choices.items(), reverse=True)
             ]
             val_table.append('VAL_TABLE_ {} {} ;'.format(name, ' '.join(choices_list)))
@@ -474,7 +485,7 @@ def _dump_messages(database: InternalDatabase, sort_signals: type_sort_signals) 
                 offset=signal.offset,
                 minimum=(0 if signal.minimum is None else signal.minimum),
                 maximum=(0 if signal.maximum is None else signal.maximum),
-                unit='' if signal.unit is None else signal.unit))
+                unit='' if signal.unit is None else _escape_display_text(signal.unit)))
 
         message_lines.append('\r\n'.join(msg))
 
@@ -580,6 +591,18 @@ def _bus_is_canfd(database: InternalDatabase) -> bool:
     return bus_type.value == 'CAN FD'
 
 
+V_FRAME_FORMATS = ('StandardCAN', 'ExtendedCAN', 'J1939PG',
+                   'StandardCAN_FD', 'ExtendedCAN_FD')
+
+
+def _need_vframeformat_def(database: InternalDatabase) -> bool:
+    # A CAN FD frame is only marked as such by its "VFrameFormat"
+    # attribute. Databases loaded from other formats (e.g., ARXML) or
+    # created in code have no DBC "BusType" attribute, so their CAN FD
+    # frames need the definition as well.
+    return any(m.is_fd for m in database.messages)
+
+
 def _dump_attribute_definitions(database: InternalDatabase) -> list[str]:
     attribute_definition_lines: list[str] = []
 
@@ -608,8 +631,22 @@ def _dump_attribute_definitions(database: InternalDatabase) -> list[str]:
     elif 'Baudrate' in definitions:
         del definitions['Baudrate']
 
-    # create 'VFrameFormat' and 'CANFD_BRS' attribute definitions if bus is CAN FD
-    if _bus_is_canfd(database):
+    # create 'BaudrateCANFD' attribute definition (Vector CANdb++ name)
+    if len(database.buses) == 1 and database.buses[0].fd_baudrate is not None:
+        if 'BaudrateCANFD' not in definitions:
+            definitions['BaudrateCANFD'] = ATTRIBUTE_DEFINITION_BAUDRATE_CANFD
+        # Prefer the Vector attribute name when writing.
+        if 'BaudrateFD' in definitions:
+            del definitions['BaudrateFD']
+    elif 'BaudrateCANFD' in definitions:
+        del definitions['BaudrateCANFD']
+
+    # create 'VFrameFormat' and 'CANFD_BRS' attribute definitions if
+    # bus is CAN FD, or if CAN FD frames would otherwise be written
+    # without a frame format
+    if _bus_is_canfd(database) or (
+            'VFrameFormat' not in definitions
+            and _need_vframeformat_def(database)):
         if 'VFrameFormat' not in definitions:
             definitions['VFrameFormat'] = ATTRIBUTE_DEFINITION_VFRAMEFORMAT
         if 'CANFD_BRS' not in definitions:
@@ -715,10 +752,19 @@ def _dump_attributes(database: InternalDatabase, sort_signals: type_sort_signals
     if 'Baudrate' in database.dbc.attributes:
         del database.dbc.attributes['Baudrate']
 
+    # Same for the CAN FD data-phase rate. Prefer Vector's BaudrateCANFD
+    # and drop the BaudrateFD alias so dumps use a single attribute name.
+    if 'BaudrateCANFD' in database.dbc.attributes:
+        del database.dbc.attributes['BaudrateCANFD']
+    if 'BaudrateFD' in database.dbc.attributes:
+        del database.dbc.attributes['BaudrateFD']
+
     # add a new 'Baudrate' attribute
     baudrate = None
+    fd_baudrate = None
     if len(database.buses) == 1:
         baudrate = database.buses[0].baudrate
+        fd_baudrate = database.buses[0].fd_baudrate
     if baudrate is not None:
         baudrate_attribute_definition = database.dbc.attribute_definitions.get('Baudrate')
         if baudrate_attribute_definition is None:
@@ -727,6 +773,17 @@ def _dump_attributes(database: InternalDatabase, sort_signals: type_sort_signals
         database.dbc.attributes['Baudrate'] = DbcAttribute[int](
             value=int(baudrate),
             definition=typing.cast('DbcAttributeDefinition[int]', baudrate_attribute_definition))
+
+    if fd_baudrate is not None:
+        fd_baudrate_attribute_definition = database.dbc.attribute_definitions.get(
+            'BaudrateCANFD')
+        if fd_baudrate_attribute_definition is None:
+            raise ParseError('Database defines an FD baudrate but no definition '
+                             'for the corresponding attribute')
+        database.dbc.attributes['BaudrateCANFD'] = DbcAttribute[int](
+            value=int(fd_baudrate),
+            definition=typing.cast('DbcAttributeDefinition[int]',
+                                   fd_baudrate_attribute_definition))
 
     for attribute in database.dbc.attributes.values():
         attributes.append(('dbc', attribute, None, None, None, None))
@@ -776,10 +833,17 @@ def _dump_attributes(database: InternalDatabase, sort_signals: type_sort_signals
             else:
                 v_frame_format_str = 'StandardCAN'
             v_frame_format_def = _get_enum_vframeformat_definition(v_frame_format_def)
+            # a loaded frame format is overwritten even with the default, or it goes
+            # stale; other loaded values (e.g. 'reserved') are kept
+            loaded_v_frame_format_str = None
+            if 'VFrameFormat' in msg_attributes:
+                loaded_v_frame_format_str = v_frame_format_def.choices[
+                    int(msg_attributes['VFrameFormat'].value)]
             # only set the VFrameFormat if it is valid according to the attribute definition
             if (
                 v_frame_format_str in v_frame_format_def.choices
-                and v_frame_format_str != v_frame_format_def.default_value
+                and (v_frame_format_str != v_frame_format_def.default_value
+                     or loaded_v_frame_format_str in V_FRAME_FORMATS)
             ):
                 msg_attributes['VFrameFormat'] = DbcAttribute(
                     value=str(v_frame_format_def.choices.index(v_frame_format_str)),
@@ -935,7 +999,7 @@ def _dump_choices(database: InternalDatabase, sort_signals: type_sort_signals, s
                 'VAL_ {frame_id} {name} {choices} ;'.format(
                     frame_id=get_dbc_frame_id(message),
                     name=signal.name,
-                    choices=' '.join([f'{value} "{text}"' for value, text in choices.items()])))
+                    choices=' '.join([f'{value} "{_escape_display_text(str(text))}"' for value, text in choices.items()])))
 
     return choice_lines
 

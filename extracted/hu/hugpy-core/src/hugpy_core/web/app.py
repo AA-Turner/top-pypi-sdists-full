@@ -56,8 +56,6 @@ def build_app(*, start_runtime=True):
     if start_runtime:
         initialize_api_access()
     if start_runtime:
-        from hugpy_core.testfire.storage_cycle import recover_allocations
-        recover_allocations()
         from hugpy_core.grading.lifecycle import recover
         recover()
     from hugpy_core.models.modeldb import forget_unpinned_assignments
@@ -67,9 +65,6 @@ def build_app(*, start_runtime=True):
         logger.info("forgot %d unpinned worker allocations on API reload", forgotten)
     from hugpy_core.calllog.call_record import attach
     attach(app)
-    # The console's Station tab: the real `hugpy-harness tui` over a websocket PTY.
-    from hugpy_core.web import station_term
-    station_term.attach(app)
     from hugpy_core.relay.internal import configure
     configure(app)
     from hugpy_engine.config.models.models_config import set_core_sources

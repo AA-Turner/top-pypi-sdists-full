@@ -1,6 +1,6 @@
 [project]
 name = "piper"
-version = "0.15.1"
+version = "0.15.2"
 description = "A lightweight python toolkit for gluing together restartable, robust command line pipelines"
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -63,8 +63,8 @@ addopts = "-rfE"
 testpaths = ["tests"]
 
 [tool.ruff]
-line-length = 99
-extend-exclude = ["docs_jupyter"]
+line-length = 100
+extend-exclude = ["docs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

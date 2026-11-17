@@ -4,7 +4,7 @@ import enum
 import json
 import pickle
 import typing
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 import uuid
 
 import colorama
@@ -71,6 +71,14 @@ services_table = sqlalchemy.Table(
     # User hash of the user that created the service/pool. Passed in from the
     # API server, since the controller itself may be shared among users.
     sqlalchemy.Column('user_hash', sqlalchemy.Text, server_default=None),
+    # Blob holding the uploaded workdir/file mounts that the service's task
+    # still points at (consolidation mode without a cloud bucket). Each replica
+    # launch passes it on so the API server re-extracts the blob on whichever
+    # host handles the launch. It also keeps the blob from being GC'd while
+    # the service exists.
+    sqlalchemy.Column('file_mounts_blob_id',
+                      sqlalchemy.Text,
+                      server_default=None),
 )
 
 replicas_table = sqlalchemy.Table(
@@ -311,7 +319,8 @@ def add_service(name: str,
                 controller_pid: int,
                 entrypoint: str,
                 controller_ip: Optional[str] = None,
-                user_hash: Optional[str] = None) -> bool:
+                user_hash: Optional[str] = None,
+                file_mounts_blob_id: Optional[str] = None) -> bool:
     """Add a service in the database.
 
     Returns:
@@ -342,7 +351,8 @@ def add_service(name: str,
                 controller_ip=controller_ip,
                 hash=str(uuid.uuid4()),
                 entrypoint=entrypoint,
-                user_hash=user_hash)
+                user_hash=user_hash,
+                file_mounts_blob_id=file_mounts_blob_id)
             session.execute(insert_stmt)
             session.commit()
 
@@ -523,6 +533,10 @@ def _get_service_from_row(r: 'row.RowMapping') -> Dict[str, Any]:
         'entrypoint': r['entrypoint'],
         'user_hash': r['user_hash'],
         'yaml_content': r.get('yaml_content'),
+        # The protocol version of the controller that produced the record,
+        # so the API server can tell what the controller does with the
+        # names it is handed. Records from older controllers carry none.
+        'serve_version': constants.SERVE_VERSION,
     }
     latest_spec = get_spec(r['name'], current_version)
     if latest_spec is not None:
@@ -609,6 +623,32 @@ def get_service_hash(service_name: str) -> Optional[str]:
     return result[0] if result else None
 
 
+def get_service_file_mounts_blob_id(service_name: str) -> Optional[str]:
+    """Get the file mounts blob id recorded for a service, if any."""
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        result = session.execute(
+            sqlalchemy.select(services_table.c.file_mounts_blob_id).where(
+                services_table.c.name == service_name)).fetchone()
+    return result[0] if result else None
+
+
+def get_active_file_mounts_blob_ids() -> Set[str]:
+    """Get the file mounts blob ids of every service still in the database.
+
+    A service keeps launching replicas from its blob until it is removed, so
+    every recorded service counts, whatever its status.
+    """
+    engine = _db_manager.get_engine()
+    with orm.Session(engine) as session:
+        rows = session.execute(
+            sqlalchemy.select(
+                services_table.c.file_mounts_blob_id.distinct()).where(
+                    services_table.c.file_mounts_blob_id.is_not(
+                        None))).fetchall()
+    return {row[0] for row in rows}
+
+
 def get_service_versions(service_name: str) -> List[int]:
     """Gets all versions of a service."""
     engine = _db_manager.get_engine()
@@ -638,12 +678,30 @@ def get_glob_service_names(
         else:
             rows = []
             for service_name in service_names:
+                if '*' not in service_name:
+                    # An exact name matches itself only. As a LIKE pattern
+                    # it would read `_` as a one-character wildcard and, on
+                    # SQLite, compare case-insensitively, so one name could
+                    # reach another service.
+                    condition = services_table.c.name == service_name
+                else:
+                    condition = services_table.c.name.like(
+                        _glob_to_like_pattern(service_name), escape='\\')
                 pattern_rows = session.execute(
-                    sqlalchemy.select(services_table.c.name).where(
-                        services_table.c.name.like(
-                            service_name.replace('*', '%')))).fetchall()
+                    sqlalchemy.select(
+                        services_table.c.name).where(condition)).fetchall()
                 rows.extend(pattern_rows)
     return list({row[0] for row in rows})
+
+
+def _glob_to_like_pattern(glob: str) -> str:
+    """Turns a glob, where only `*` is a wildcard, into a LIKE pattern.
+
+    `_` and `%` are literal in the glob but wildcards in LIKE, so they are
+    escaped, as is the escape character itself.
+    """
+    escaped = glob.replace('\\', '\\\\').replace('%', '\\%').replace('_', '\\_')
+    return escaped.replace('*', '%')
 
 
 # === Replica functions ===

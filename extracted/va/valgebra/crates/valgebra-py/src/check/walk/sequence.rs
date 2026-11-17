@@ -24,14 +24,17 @@ use valgebra_core::{
 use super::reads_its_length;
 use super::record::{RecordReading, check_attr_record, check_keyed_map};
 use super::scalar::{
-    Scalar, admitted_quietly, check_refine, constraints_hold, homogeneous_scalar_union,
-    machine_range, machine_word, scalar_union_admits,
+    Scalar, admitted_quietly, check_refine, constraints_hold, exact_of, exact_text_length,
+    homogeneous_scalar_union, json_leaf_admits, leaf_admits, leaf_reads_here, length_range,
+    machine_range, machine_word, scalar_union_admits, tree_json_leaf_admits, tree_leaf_admits,
 };
+use super::tree::tree_list_read;
 use super::{
     Base, Frame, Scan, class_at, held_iter, homogeneous_scalar, is_exactly_a, is_fatal, member,
     mutated, reads_its_elements, record_fatal, record_if_fatal, scalar_admits, scalar_of, stop,
 };
-use crate::check::ctx::Ctx;
+use crate::check::ctx::{Ctx, MAX_WALK_DEPTH};
+use crate::check::index::{Exact, LeafPlan};
 use crate::check::violation::{summarize_value, type_fail};
 use crate::codes::{
     Code, FROZEN_SET_TYPE, LIST_LENGTH, LIST_TYPE, SET_TYPE, TUPLE_LENGTH, TUPLE_TYPE,
@@ -67,11 +70,10 @@ pub(super) fn check_seq(
             if let Some((kind, schema)) = homogeneous_scalar(prefix, tail, ctx) {
                 return scalar_list_matches(list, kind, schema, value, frame);
             }
-            // Every tag from a keyed map to a refinement, a complement and an
-            // attribute record among them, though the reader declines both:
-            // asked as that run of tags, the test costs a list nested
-            // twenty-five deep 0.03% more instructions, and asked as only the
-            // tags the reader takes, 1.25%.
+            // Every tag from a keyed map to a reference, an attribute record
+            // among them, though the reader declines it: asked as that run of
+            // tags, the test costs a list nested twenty-five deep 0.03% more
+            // instructions, and asked as only the tags the reader takes, 1.25%.
             if let Some(
                 element @ (Schema::KeyedMap { .. }
                 | Schema::Union(_)
@@ -80,6 +82,7 @@ pub(super) fn check_seq(
                 | Schema::Instance(_)
                 | Schema::AttrRecord { .. }
                 | Schema::Refine { .. }
+                | Schema::Ref(_)
                 | Schema::Seq {
                     container: SeqKind::Tuple,
                     ..
@@ -171,13 +174,13 @@ impl SeqArity {
 /// array differ in how their elements are *reached*, and agree on what each
 /// element must be.
 ///
-/// An array whose element is a scalar, a union or a record is read out of line
-/// ([`json_array_read`]), behind a test of the element's tag, as a list's
-/// readings are behind [`check_seq`]'s: this function is inlined into
-/// [`member`], so a reading added here lays out the walk anew, and an array
-/// nested in an array, which no reader takes, would pay a call at every level
-/// were the whole of it out of line -- a document nested twenty-five deep 5.5%
-/// more instructions.
+/// An array whose element is a scalar, a union, a meet, a complement or a record
+/// is read out of line ([`json_array_read`]), behind a test of the element's
+/// tag, as a list's readings are behind [`check_seq`]'s: this function is
+/// inlined into [`member`], so a reading added here lays out the walk anew, and
+/// an array nested in an array, which no reader takes, would pay a call at
+/// every level were the whole of it out of line -- a document nested
+/// twenty-five deep 5.5% more instructions.
 fn json_array_matches(
     prefix: &[Schema],
     tail: Option<&Schema>,
@@ -197,7 +200,9 @@ fn json_array_matches(
             | Schema::Str
             | Schema::Bytes
             | Schema::KeyedMap { .. }
-            | Schema::Union(_)),
+            | Schema::Union(_)
+            | Schema::Intersection(_)
+            | Schema::Complement(_)),
         ) = tail
         && let Some(answered) = json_array_read(element, py, items, frame)
     {
@@ -214,13 +219,13 @@ fn json_array_matches(
 }
 
 /// Membership for a parsed array whose every element is `element`, a scalar
-/// kind, a union of them or a record, read by the reader for its kind, and
-/// `None` where that reader declines.
+/// kind, a union of them, a leaf or a record, read by the reader for its kind,
+/// and `None` where that reader declines.
 ///
-/// One scalar kind at every position is its test an element, read here; a
-/// union of them is [`union_array_matches`] and a record
-/// [`record_array_matches`], each reached by a jump, so this reading saves no
-/// register and builds no stack frame. With the union read here and the record
+/// One scalar kind at every position is its test an element, read here; a leaf
+/// is [`leaf_array_read`], which hands a union of scalar kinds to
+/// [`union_array_matches`], and a record [`record_array_matches`], each reached
+/// by a jump, so this reading saves no register and builds no stack frame. With the union read here and the record
 /// called, it saves six registers for every array it reads, and a document of
 /// two hundred records reads 0.6% more instructions on the profiled 3.14
 /// wheel.
@@ -250,10 +255,64 @@ pub(super) fn json_array_read(
         );
     }
     match element {
-        Schema::Union(_) => union_array_matches(element, py, items, frame),
+        // A leaf, or a union of scalar kinds, which holds no plan and which
+        // the leaf's reader hands to its own.
+        Schema::Union(_) | Schema::Intersection(_) | Schema::Complement(_) => {
+            leaf_array_read(element, py, items, frame)
+        }
         Schema::KeyedMap { .. } => record_array_matches(element, py, items, frame),
         _ => None,
     }
+}
+
+/// A parsed array whose element is a leaf
+/// ([`LeafPlan`]), each item read by its tag
+/// and its number as [`leaf_list_read`] reads a list's elements by their types,
+/// or the reader of a union of scalars where the index holds no plan for the
+/// element. A walk that explains declines before this ([`json_array_read`]),
+/// and an item no tag settles -- an integer past a word the leaf reads -- is
+/// walked.
+#[inline(never)]
+pub(super) fn leaf_array_read(
+    element: &Schema,
+    py: Python<'_>,
+    items: &[JsonValue<'_>],
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let ctx = frame.ctx;
+    let Some(plan) = ctx.index.leaf(element) else {
+        return union_array_matches(element, py, items, frame);
+    };
+    if ctx.state.depth.get() + plan.levels > MAX_WALK_DEPTH {
+        return None;
+    }
+    if plan.trees {
+        return tree_leaf_array_read(element, py, items, plan, frame);
+    }
+    Some(items.iter().all(|item| {
+        json_leaf_admits(plan, item)
+            .unwrap_or_else(|| member(element, &Value::Json(py, item), frame))
+    }))
+}
+
+/// [`leaf_array_read`] for a plan holding a reference to a tree, read where
+/// the trail and the memo let it be ([`leaf_reads_here`]), in a loop of its own
+/// as [`tree_leaf_list_read`] is.
+#[inline(never)]
+fn tree_leaf_array_read(
+    element: &Schema,
+    py: Python<'_>,
+    items: &[JsonValue<'_>],
+    plan: &LeafPlan,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    if !leaf_reads_here(plan, frame.ctx) {
+        return None;
+    }
+    Some(items.iter().all(|item| {
+        tree_json_leaf_admits(plan, item)
+            .unwrap_or_else(|| member(element, &Value::Json(py, item), frame))
+    }))
 }
 
 /// Membership for a parsed array whose every element is a union of scalar
@@ -794,6 +853,13 @@ pub(super) fn element_list_matches(
         Schema::KeyedMap { fields, defaults } => {
             record_list_matches(list, prefix, fields, defaults, value, frame)
         }
+        // A union or a meet the reader of its own declines is a leaf where the
+        // index holds one, asked behind a test of the index's word: asked
+        // after every such reader, the leaf took the readers' tail calls for
+        // calls of their own, a dozen instructions a list of `int | None`.
+        Schema::Union(_) | Schema::Intersection(_) if frame.ctx.index.has_readings() => {
+            read_or_leaf(list, prefix, element, value, frame)
+        }
         Schema::Union(members) => {
             scalar_union_list_matches(list, prefix, element, members, value, frame)
         }
@@ -801,8 +867,18 @@ pub(super) fn element_list_matches(
             [Schema::Instance(index), Schema::AttrRecord { fields }] => {
                 class_record_list_matches(list, prefix, element, *index, fields, value, frame)
             }
-            _ => named_tuple_list_matches(list, prefix, element, members, value, frame),
+            _ => meet_list_read(list, prefix, element, members, value, frame),
         },
+        Schema::Complement(_) if frame.ctx.index.has_readings() => {
+            leaf_list_read(list, prefix, element, value, frame)
+        }
+        // A list of a tree's reference -- `list[J]` -- where the index holds
+        // a reading. Asked without the test of its word, a list of a reference
+        // in a validator holding none paid the reader's call, which the memo's
+        // shape of the instruction gate read 3.5% dearer.
+        Schema::Ref(id) if frame.ctx.index.has_readings() => {
+            tree_list_read(*id, element, prefix, list, value, frame)
+        }
         Schema::Instance(index) => {
             instance_list_matches(list, prefix, element, *index, value, frame)
         }
@@ -827,6 +903,231 @@ pub(super) fn element_list_matches(
 /// `__instancecheck__`. The general loop paid a call and a dispatch around the
 /// pointer test, 130 instructions an element. A list is read in place unless a
 /// snapshot whose every element is exactly the class settles it.
+/// [`element_list_matches`] for a union or a meet, where the index holds a
+/// reading: the reader of a union of scalars or of a named tuple, and the
+/// element read as a leaf where that one declines.
+#[inline(never)]
+fn read_or_leaf(
+    list: &Bound<'_, PyList>,
+    prefix: &[Schema],
+    element: &Schema,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let read = match element {
+        Schema::Union(members) => {
+            scalar_union_list_matches(list, prefix, element, members, value, frame)
+        }
+        Schema::Intersection(members) => match &members[..] {
+            [Schema::Instance(index), Schema::AttrRecord { fields }] => {
+                return class_record_list_matches(
+                    list, prefix, element, *index, fields, value, frame,
+                );
+            }
+            _ => meet_list_read(list, prefix, element, members, value, frame),
+        },
+        _ => None,
+    };
+    read.or_else(|| leaf_list_read(list, prefix, element, value, frame))
+}
+
+/// A list of a meet that is no class and its attributes: of `str` and its
+/// length bounds ([`text_meet_list`]), whatever else the index holds, or a
+/// named tuple's. A translation that writes `minLength` beside `maxLength`
+/// writes the meet with no reading beside it in `list[...]` alone.
+fn meet_list_read(
+    list: &Bound<'_, PyList>,
+    prefix: &[Schema],
+    element: &Schema,
+    members: &[Schema],
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    match text_lengths(members) {
+        Some(range) => text_meet_list(list, prefix, element, range, value, frame),
+        None => named_tuple_list_matches(list, prefix, element, members, value, frame),
+    }
+}
+
+/// The one range of lengths a meet of `str` and refinements of `str` by length
+/// bounds alone admits -- the spelling a JSON Schema translation gives
+/// `minLength` beside `maxLength` -- or `None` where a member is any other node.
+fn text_lengths(members: &[Schema]) -> Option<(usize, usize)> {
+    members
+        .iter()
+        .try_fold((0, usize::MAX), |(least, most), member| match member {
+            Schema::Str => Some((least, most)),
+            Schema::Refine { base, constraints } if matches!(**base, Schema::Str) => {
+                let (low, high) = length_range(constraints)?;
+                Some((least.max(low), most.min(high)))
+            }
+            _ => None,
+        })
+}
+
+/// A list of a meet of `str` and its length refinements ([`text_lengths`]),
+/// each exact `str` read against the one range, or `None` where the walk
+/// explains, behind a prefix, or where the three levels below the list's to
+/// the base's type test -- the meet's, the refinement's and the base's -- are
+/// not free.
+///
+/// The general loop walks each element through the meet and each refinement,
+/// reading the string's length once a bound. Here an exact `str` is its length
+/// against the range, which runs no Python and records nothing, and any other
+/// element is walked whole from the list's level, where the loop walks it.
+#[inline(never)]
+fn text_meet_list(
+    list: &Bound<'_, PyList>,
+    prefix: &[Schema],
+    element: &Schema,
+    (least, most): (usize, usize),
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let ctx = frame.ctx;
+    if !prefix.is_empty() || ctx.mode.explains() || ctx.state.depth.get() + 3 > MAX_WALK_DEPTH {
+        return None;
+    }
+    let mut ok = true;
+    let scan = scan_list(list, |_, item| {
+        ok &= match exact_text_length(item) {
+            Some(length) => least <= length && length <= most,
+            None => member(element, &Value::Py(item), frame),
+        };
+        if !ok && stop(ctx) {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
+    Some(match scan {
+        Scan::Complete => ok,
+        Scan::Stopped => false,
+        Scan::Unreadable => mutated(value, frame),
+    })
+}
+
+/// A list whose element is a union, a meet or a complement of leaves
+/// ([`LeafPlan`]), each element asked by its
+/// exact type and its number, or `None` where the index holds no plan for the
+/// element, or the levels to its deepest type test are not free.
+///
+/// The general loop walks each element through the meet, the union and the
+/// complement the leaf is made of, a frame each and a settling walk for the
+/// complement, around tests the element's type answers. Here an element the
+/// plan admits is admitted, as the walk admits it and records nothing of it,
+/// one it refuses is refused where the walk explains nothing, and every other
+/// -- a subclass, another type, an `int` past a word the plan reads, a refusal
+/// a walk that explains reports -- is walked at its position, in the walk's
+/// own mode. A test runs no Python, so the elements before a walked one are
+/// read as the walk reads them.
+///
+/// Asked where the index holds a reading, behind a test of its word: a list of
+/// a union that is no leaf -- `int | list[T] | list[T | str]` reads one at
+/// every level -- reached a call at each walk that found no plan, which the
+/// memo's shape of the instruction gate read 2.4% dearer.
+#[inline(never)]
+pub(super) fn leaf_list_read(
+    list: &Bound<'_, PyList>,
+    prefix: &[Schema],
+    element: &Schema,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    let ctx = frame.ctx;
+    let plan = ctx.index.leaf(element)?;
+    // An element's walk opens its level below the list's, and the plan's
+    // levels below that: free, the walk can stop on no element the plan
+    // decides.
+    if !prefix.is_empty() || ctx.state.depth.get() + plan.levels > MAX_WALK_DEPTH {
+        return None;
+    }
+    if plan.trees {
+        return tree_leaf_list_read(list, element, plan, value, frame);
+    }
+    Some(leaves_listed(
+        list,
+        element,
+        plan,
+        value,
+        frame,
+        leaf_admits,
+    ))
+}
+
+/// [`leaf_list_read`] for a plan holding a reference to a tree, read where
+/// the trail and the memo let it be ([`leaf_reads_here`]). A loop of its own:
+/// the test of a list or a dict the tree reads on, inlined into the loop over
+/// a plan of scalars, laid that loop out 4% dearer in cycles on the profiled
+/// `CPython` 3.15 wheel at the same instructions.
+#[inline(never)]
+fn tree_leaf_list_read(
+    list: &Bound<'_, PyList>,
+    element: &Schema,
+    plan: &LeafPlan,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> Option<bool> {
+    if !leaf_reads_here(plan, frame.ctx) {
+        return None;
+    }
+    Some(leaves_listed(
+        list,
+        element,
+        plan,
+        value,
+        frame,
+        tree_leaf_admits,
+    ))
+}
+
+/// The loop of [`leaf_list_read`] over `list`, each element asked of `admits`.
+#[expect(
+    clippy::inline_always,
+    reason = "measured: each reader of a list of leaves lays out its own loop, \
+              and the one over a plan of scalars is the instruction gate's"
+)]
+#[inline(always)]
+fn leaves_listed(
+    list: &Bound<'_, PyList>,
+    element: &Schema,
+    plan: &LeafPlan,
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+    admits: impl Fn(&LeafPlan, &Bound<'_, PyAny>, Exact) -> Option<bool>,
+) -> bool {
+    let ctx = frame.ctx;
+    let explains = ctx.mode.explains();
+    let mut ok = true;
+    // The element's walk is spelled here rather than through `seq_element`,
+    // whose one call site keeps it inlined into the general loop: a second
+    // here laid out every walk of a nested list three instructions a level
+    // dearer on the profiled wheel.
+    let scan = scan_list(list, |at, item| {
+        ok &= match exact_of(item).and_then(|exact| admits(plan, item, exact)) {
+            Some(true) => true,
+            Some(false) if !explains => false,
+            _ if explains => {
+                frame.path.push(PathSegment::Index(at));
+                let admitted = member(element, &Value::Py(item), frame);
+                frame.path.pop();
+                admitted
+            }
+            _ => member(element, &Value::Py(item), frame),
+        };
+        if !ok && stop(ctx) {
+            ControlFlow::Break(())
+        } else {
+            ControlFlow::Continue(())
+        }
+    });
+    match scan {
+        Scan::Complete => ok,
+        Scan::Stopped => false,
+        Scan::Unreadable => mutated(value, frame),
+    }
+}
+
 pub(super) fn instance_list_matches(
     list: &Bound<'_, PyList>,
     prefix: &[Schema],
@@ -951,7 +1252,7 @@ pub(super) fn refined_scalar_list(
             None => refined_list_loop(list, |v| v.is_int(), base, constraints, value, frame),
         },
         Schema::Float => refined_list_loop(list, |v| v.is_float(), base, constraints, value, frame),
-        Schema::Str => refined_list_loop(list, |v| v.is_str(), base, constraints, value, frame),
+        Schema::Str => refined_str_list(list, base, constraints, value, frame),
         _ => return None,
     })
 }
@@ -983,6 +1284,62 @@ fn refined_list_loop(
             constraints_hold(constraints, item, frame)
         } else {
             check_refine(base, constraints, &element, frame)
+        };
+        if ok {
+            ControlFlow::Continue(())
+        } else {
+            ControlFlow::Break(())
+        }
+    });
+    match scan {
+        Scan::Complete => ok,
+        Scan::Stopped => false,
+        Scan::Unreadable => mutated(value, frame),
+    }
+}
+
+/// [`refined_scalar_list`] over strings: one range where every constraint is a
+/// length bound, and each element's constraints elsewhere. A call of its own,
+/// so the readers of the other kinds keep their layout: inlined beside them,
+/// the range took the floats' loop to 2.4% more instructions on the build
+/// without a profile (`--binding-refined-float`).
+fn refined_str_list(
+    list: &Bound<'_, PyList>,
+    base: &Schema,
+    constraints: &[Constraint],
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> bool {
+    match length_range(constraints) {
+        Some(range) => length_range_list(list, range, base, constraints, value, frame),
+        #[expect(
+            clippy::redundant_closure_for_method_calls,
+            reason = "the method's path takes one lifetime, where the loop asks a test for every one"
+        )]
+        None => refined_list_loop(list, |v| v.is_str(), base, constraints, value, frame),
+    }
+}
+
+/// [`refined_list_loop`] over strings under length bounds alone.
+///
+/// An exact `str` is in the set exactly when its length lies in the range, read
+/// once for the list, where the general check reads the length once a bound
+/// through the walk's reading of a container's length. Any other element is
+/// [`check_refine`]'s.
+#[inline(never)]
+fn length_range_list(
+    list: &Bound<'_, PyList>,
+    (least, most): (usize, usize),
+    base: &Schema,
+    constraints: &[Constraint],
+    value: &Value<'_, '_>,
+    frame: &mut Frame<'_, '_>,
+) -> bool {
+    let mut ok = true;
+    let scan = scan_list(list, |_, item| {
+        ok &= match exact_text_length(item) {
+            Some(length) => least <= length && length <= most,
+            None => check_refine(base, constraints, &Value::Py(item), frame),
         };
         if ok {
             ControlFlow::Continue(())

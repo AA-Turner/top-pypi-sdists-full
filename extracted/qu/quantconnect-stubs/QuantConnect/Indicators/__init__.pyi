@@ -2745,8 +2745,8 @@ class Correlation(QuantConnect.Indicators.DualSymbolIndicator[QuantConnect.Data.
 
     def compute_indicator(self) -> float:
         """
-        Computes the correlation value usuing symbols values
-        correlation values assing into _correlation property
+        Computes the correlation value using symbols values
+        correlation values assign into _correlation property
         
         
         This Class is protected.
@@ -5087,14 +5087,14 @@ class MarketProfile(QuantConnect.Indicators.TradeBarIndicator, QuantConnect.Indi
     @property
     def poc_price(self) -> float:
         """
-        Price where the most trading occured (Point of Control(POC))
+        Price where the most trading occurred (Point of Control(POC))
         This price is MarketProfile.Current.Value
         """
         ...
 
     @property
     def poc_volume(self) -> float:
-        """Volume where the most tradding occured (Point of Control(POC))"""
+        """Volume where the most trading occurred (Point of Control(POC))"""
         ...
 
     @property
@@ -5629,8 +5629,8 @@ class FisherTransform(QuantConnect.Indicators.BarIndicator, QuantConnect.Indicat
     def compute_next_value(self, input: QuantConnect.Data.Market.IBaseDataBar) -> float:
         """
         Computes the next value in the transform.
-        value1 is a function used to normalize price withing the last _period day range.
-        value1 is centered on its midpoint and then doubled so that value1 wil swing between -1 and +1.
+        value1 is a function used to normalize price within the last _period day range.
+        value1 is centered on its midpoint and then doubled so that value1 will swing between -1 and +1.
         value1 is also smoothed with an exponential moving average whose alpha is 0.33.
         
         Since the smoothing may allow value1 to exceed the _period day price range, limits are introduced to
@@ -7258,10 +7258,10 @@ class EaseOfMovementValue(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
     @overload
     def __init__(self, period: int = 1, scale: int = 10000) -> None:
         """
-        Initializeds a new instance of the EaseOfMovement class using the specufued period
+        Initializes a new instance of the EaseOfMovement class using the specified period
         
         :param period: The period over which to perform to computation
-        :param scale: The size of the number outputed by EMV
+        :param scale: The size of the number outputted by EMV
         """
         ...
 
@@ -7272,7 +7272,7 @@ class EaseOfMovementValue(QuantConnect.Indicators.TradeBarIndicator, QuantConnec
         
         :param name: The name of this indicator
         :param period: The period over which to perform to computation
-        :param scale: The size of the number outputed by EMV
+        :param scale: The size of the number outputted by EMV
         """
         ...
 
@@ -10294,7 +10294,7 @@ class VolumeWeightedAveragePriceIndicator(QuantConnect.Indicators.TradeBarIndica
     @property
     def price(self) -> QuantConnect.Indicators.Identity:
         """
-        Indentity indicator for price
+        Identity indicator for price
         
         
         This Property is protected.
@@ -10580,7 +10580,7 @@ class TimeSeriesIndicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Ind
 
 class AutoRegressiveIntegratedMovingAverage(QuantConnect.Indicators.TimeSeriesIndicator):
     """
-    An Autoregressive Intergrated Moving Average (ARIMA) is a time series model which can be used to describe a set of data.
+    An Autoregressive Integrated Moving Average (ARIMA) is a time series model which can be used to describe a set of data.
     In particular,with Xₜ representing the series, the model assumes the data are of form
     (after differencing _diffOrder times):
     
@@ -12571,6 +12571,15 @@ class InternalIndicatorValues(System.Object, typing.Iterable[QuantConnect.Indica
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect.Indicators.IndicatorDataPoint]:
+        ...
+
+    def add_or_replace(self, point: QuantConnect.Indicators.IndicatorDataPoint) -> None:
+        """
+        Adds the given point, or replaces the last one if it has the same end time
+        
+        
+        This Class is protected.
+        """
         ...
 
     @staticmethod

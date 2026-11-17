@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from .bps import Bps as Bps
 from .gas import Gas as Gas
 from .hex import Hex as Hex
 from .user import User as User
@@ -17,8 +18,10 @@ from .privy_fee import PrivyFee as PrivyFee
 from .abi_schema import AbiSchema as AbiSchema
 from .block_info import BlockInfo as BlockInfo
 from .curve_type import CurveType as CurveType
+from .evm_caip_2 import EvmCaip2 as EvmCaip2
 from .key_quorum import KeyQuorum as KeyQuorum
 from .mfa_method import MfaMethod as MfaMethod
+from .solana_idl import SolanaIdl as SolanaIdl
 from .tempo_call import TempoCall as TempoCall
 from .amount_type import AmountType as AmountType
 from .environment import Environment as Environment
@@ -29,6 +32,7 @@ from .intent_type import IntentType as IntentType
 from .owner_input import OwnerInput as OwnerInput
 from .relayer_fee import RelayerFee as RelayerFee
 from .transaction import Transaction as Transaction
+from .tron_caip_2 import TronCaip2 as TronCaip2
 from .app_response import AppResponse as AppResponse
 from .email_domain import EmailDomain as EmailDomain
 from .kyx_provider import KyxProvider as KyxProvider
@@ -42,6 +46,7 @@ from .tron_address import TronAddress as TronAddress
 from .wallet_asset import WalletAsset as WalletAsset
 from .abi_parameter import AbiParameter as AbiParameter
 from .aptos_bcs_hex import AptosBcsHex as AptosBcsHex
+from .condition_set import ConditionSet as ConditionSet
 from .developer_fee import DeveloperFee as DeveloperFee
 from .fee_line_item import FeeLineItem as FeeLineItem
 from .fiat_currency import FiatCurrency as FiatCurrency
@@ -51,16 +56,20 @@ from .payout_source import PayoutSource as PayoutSource
 from .policy_action import PolicyAction as PolicyAction
 from .policy_method import PolicyMethod as PolicyMethod
 from .recovery_type import RecoveryType as RecoveryType
+from .solana_caip_2 import SolanaCaip2 as SolanaCaip2
 from .spark_balance import SparkBalance as SparkBalance
 from .spark_network import SparkNetwork as SparkNetwork
 from .tron_contract import TronContract as TronContract
 from .wallet_entity import WalletEntity as WalletEntity
 from .currency_asset import CurrencyAsset as CurrencyAsset
+from .denylist_entry import DenylistEntry as DenylistEntry
 from .funding_option import FundingOption as FundingOption
 from .kyx_tos_status import KyxTosStatus as KyxTosStatus
 from .linked_account import LinkedAccount as LinkedAccount
 from .owner_id_input import OwnerIDInput as OwnerIDInput
 from .quantity_param import QuantityParam as QuantityParam
+from .raw_sign_input import RawSignInput as RawSignInput
+from .refund_details import RefundDetails as RefundDetails
 from .signature_type import SignatureType as SignatureType
 from .sms_mfa_method import SMSMfaMethod as SMSMfaMethod
 from .solana_address import SolanaAddress as SolanaAddress
@@ -71,6 +80,7 @@ from .bitcoin_address import BitcoinAddress as BitcoinAddress
 from .bridge_metadata import BridgeMetadata as BridgeMetadata
 from .caip_2_chain_id import Caip2ChainID as Caip2ChainID
 from .condition_value import ConditionValue as ConditionValue
+from .currency_amount import CurrencyAmount as CurrencyAmount
 from .custom_metadata import CustomMetadata as CustomMetadata
 from .hpke_encryption import HpkeEncryption as HpkeEncryption
 from .intent_response import IntentResponse as IntentResponse
@@ -78,16 +88,21 @@ from .kyx_endorsement import KyxEndorsement as KyxEndorsement
 from .kyx_environment import KyxEnvironment as KyxEnvironment
 from .oauth_code_type import OAuthCodeType as OAuthCodeType
 from .onramp_provider import OnrampProvider as OnrampProvider
+from .stellar_address import StellarAddress as StellarAddress
 from .totp_mfa_method import TotpMfaMethod as TotpMfaMethod
 from .abi_schema_param import AbiSchemaParam as AbiSchemaParam
 from .captcha_provider import CaptchaProvider as CaptchaProvider
+from .deposit_metadata import DepositMetadata as DepositMetadata
 from .email_mfa_method import EmailMfaMethod as EmailMfaMethod
 from .kyx_capabilities import KyxCapabilities as KyxCapabilities
+from .kyx_screen_param import KyxScreenParam as KyxScreenParam
 from .kyx_tos_response import KyxTosResponse as KyxTosResponse
 from .moonpay_ui_theme import MoonpayUiTheme as MoonpayUiTheme
 from .owner_input_user import OwnerInputUser as OwnerInputUser
 from .p_256_public_key import P256PublicKey as P256PublicKey
 from .policy_condition import PolicyCondition as PolicyCondition
+from .policy_list_item import PolicyListItem as PolicyListItem
+from .solana_idl_param import SolanaIdlParam as SolanaIdlParam
 from .spark_exit_speed import SparkExitSpeed as SparkExitSpeed
 from .success_response import SuccessResponse as SuccessResponse
 from .sui_command_name import SuiCommandName as SuiCommandName
@@ -100,12 +115,17 @@ from .user_list_params import UserListParams as UserListParams
 from .wallet_custodian import WalletCustodian as WalletCustodian
 from .access_list_entry import AccessListEntry as AccessListEntry
 from .authorization_key import AuthorizationKey as AuthorizationKey
+from .automation_config import AutomationConfig as AutomationConfig
 from .fee_configuration import FeeConfiguration as FeeConfiguration
 from .fiat_payment_rail import FiatPaymentRail as FiatPaymentRail
 from .intent_rpc_params import IntentRpcParams as IntentRpcParams
+from .intent_type_param import IntentTypeParam as IntentTypeParam
+from .kyb_business_type import KYBBusinessType as KYBBusinessType
+from .kyx_screen_result import KyxScreenResult as KyxScreenResult
 from .linked_mfa_method import LinkedMfaMethod as LinkedMfaMethod
 from .onramp_kyc_status import OnrampKYCStatus as OnrampKYCStatus
 from .owner_input_param import OwnerInputParam as OwnerInputParam
+from .policies_response import PoliciesResponse as PoliciesResponse
 from .raw_sign_response import RawSignResponse as RawSignResponse
 from .rpc_sponsor_asset import RpcSponsorAsset as RpcSponsorAsset
 from .signature_options import SignatureOptions as SignatureOptions
@@ -124,6 +144,8 @@ from .aggregation_method import AggregationMethod as AggregationMethod
 from .base_action_result import BaseActionResult as BaseActionResult
 from .chain_testnet_mode import ChainTestnetMode as ChainTestnetMode
 from .condition_operator import ConditionOperator as ConditionOperator
+from .condition_set_item import ConditionSetItem as ConditionSetItem
+from .denylist_rule_type import DenylistRuleType as DenylistRuleType
 from .fiat_currency_code import FiatCurrencyCode as FiatCurrencyCode
 from .gas_spend_currency import GasSpendCurrency as GasSpendCurrency
 from .icloud_client_type import ICloudClientType as ICloudClientType
@@ -131,6 +153,7 @@ from .intent_list_params import IntentListParams as IntentListParams
 from .passkey_mfa_method import PasskeyMfaMethod as PasskeyMfaMethod
 from .payout_destination import PayoutDestination as PayoutDestination
 from .policy_input_param import PolicyInputParam as PolicyInputParam
+from .policy_list_params import PolicyListParams as PolicyListParams
 from .token_output_param import TokenOutputParam as TokenOutputParam
 from .transaction_detail import TransactionDetail as TransactionDetail
 from .user_create_params import UserCreateParams as UserCreateParams
@@ -148,9 +171,12 @@ from .extended_chain_type import ExtendedChainType as ExtendedChainType
 from .funding_method_enum import FundingMethodEnum as FundingMethodEnum
 from .hd_init_input_param import HDInitInputParam as HDInitInputParam
 from .hpke_aead_algorithm import HpkeAeadAlgorithm as HpkeAeadAlgorithm
+from .kyb_account_purpose import KYBAccountPurpose as KYBAccountPurpose
+from .kyb_source_of_funds import KYBSourceOfFunds as KYBSourceOfFunds
 from .kyb_status_response import KYBStatusResponse as KYBStatusResponse
 from .kyc_status_response import KYCStatusResponse as KYCStatusResponse
 from .kyx_provider_status import KyxProviderStatus as KyxProviderStatus
+from .payout_payment_rail import PayoutPaymentRail as PayoutPaymentRail
 from .payout_source_param import PayoutSourceParam as PayoutSourceParam
 from .rpc_intent_response import RpcIntentResponse as RpcIntentResponse
 from .rpc_sponsor_options import RpcSponsorOptions as RpcSponsorOptions
@@ -158,9 +184,9 @@ from .spark_lightning_fee import SparkLightningFee as SparkLightningFee
 from .spark_token_balance import SparkTokenBalance as SparkTokenBalance
 from .spark_transfer_leaf import SparkTransferLeaf as SparkTransferLeaf
 from .swap_quote_response import SwapQuoteResponse as SwapQuoteResponse
+from .transfer_initiation import TransferInitiation as TransferInitiation
 from .tron_contract_param import TronContractParam as TronContractParam
 from .wallet_action_nonce import WalletActionNonce as WalletActionNonce
-from .wallet_entropy_type import WalletEntropyType as WalletEntropyType
 from .wallet_rpc_response import WalletRpcResponse as WalletRpcResponse
 from .wallet_solana_asset import WalletSolanaAsset as WalletSolanaAsset
 from .account_display_name import AccountDisplayName as AccountDisplayName
@@ -174,6 +200,8 @@ from .evm_checksum_address import EvmChecksumAddress as EvmChecksumAddress
 from .fiat_deposit_account import FiatDepositAccount as FiatDepositAccount
 from .fiat_onramp_provider import FiatOnrampProvider as FiatOnrampProvider
 from .intent_authorization import IntentAuthorization as IntentAuthorization
+from .key_quorums_response import KeyQuorumsResponse as KeyQuorumsResponse
+from .kyb_document_purpose import KYBDocumentPurpose as KYBDocumentPurpose
 from .kyx_endorsement_name import KyxEndorsementName as KyxEndorsementName
 from .linked_account_email import LinkedAccountEmail as LinkedAccountEmail
 from .linked_account_phone import LinkedAccountPhone as LinkedAccountPhone
@@ -183,17 +211,22 @@ from .policy_update_params import PolicyUpdateParams as PolicyUpdateParams
 from .raw_sign_hash_params import RawSignHashParams as RawSignHashParams
 from .recipient_public_key import RecipientPublicKey as RecipientPublicKey
 from .rule_intent_response import RuleIntentResponse as RuleIntentResponse
+from .transfer_sca_outcome import TransferScaOutcome as TransferScaOutcome
 from .user_operation_input import UserOperationInput as UserOperationInput
 from .wallet_create_params import WalletCreateParams as WalletCreateParams
 from .wallet_export_params import WalletExportParams as WalletExportParams
 from .wallet_update_params import WalletUpdateParams as WalletUpdateParams
 from .aggregation_condition import AggregationCondition as AggregationCondition
+from .automation_asset_spec import AutomationAssetSpec as AutomationAssetSpec
 from .coinbase_solana_asset import CoinbaseSolanaAsset as CoinbaseSolanaAsset
 from .condition_value_param import ConditionValueParam as ConditionValueParam
 from .custom_metadata_param import CustomMetadataParam as CustomMetadataParam
+from .developer_fee_percent import DeveloperFeePercent as DeveloperFeePercent
 from .external_fiat_account import ExternalFiatAccount as ExternalFiatAccount
 from .fiat_deposit_currency import FiatDepositCurrency as FiatDepositCurrency
 from .hd_submit_input_param import HDSubmitInputParam as HDSubmitInputParam
+from .kyb_submit_data_param import KYBSubmitDataParam as KYBSubmitDataParam
+from .kyc_submit_data_param import KYCSubmitDataParam as KYCSubmitDataParam
 from .kyx_capability_status import KyxCapabilityStatus as KyxCapabilityStatus
 from .kyx_tos_status_detail import KyxTosStatusDetail as KyxTosStatusDetail
 from .linked_account_solana import LinkedAccountSolana as LinkedAccountSolana
@@ -210,10 +243,16 @@ from .authorization_key_role import AuthorizationKeyRole as AuthorizationKeyRole
 from .bridge_onramp_provider import BridgeOnrampProvider as BridgeOnrampProvider
 from .bridge_refund_metadata import BridgeRefundMetadata as BridgeRefundMetadata
 from .cross_app_smart_wallet import CrossAppSmartWallet as CrossAppSmartWallet
+from .custodial_wallet_chain import CustodialWalletChain as CustodialWalletChain
+from .denylist_list_response import DenylistListResponse as DenylistListResponse
 from .deposit_completed_data import DepositCompletedData as DepositCompletedData
 from .deposit_started_source import DepositStartedSource as DepositStartedSource
+from .derivation_input_param import DerivationInputParam as DerivationInputParam
 from .first_class_chain_type import FirstClassChainType as FirstClassChainType
+from .intent_raw_sign_params import IntentRawSignParams as IntentRawSignParams
 from .intent_transfer_params import IntentTransferParams as IntentTransferParams
+from .key_quorum_list_params import KeyQuorumListParams as KeyQuorumListParams
+from .kyb_high_risk_activity import KYBHighRiskActivity as KYBHighRiskActivity
 from .kyx_endorsement_status import KyxEndorsementStatus as KyxEndorsementStatus
 from .linked_account_passkey import LinkedAccountPasskey as LinkedAccountPasskey
 from .moonpay_payment_method import MoonpayPaymentMethod as MoonpayPaymentMethod
@@ -226,6 +265,7 @@ from .policy_condition_param import PolicyConditionParam as PolicyConditionParam
 from .policy_intent_response import PolicyIntentResponse as PolicyIntentResponse
 from .raw_sign_response_data import RawSignResponseData as RawSignResponseData
 from .spark_signing_keyshare import SparkSigningKeyshare as SparkSigningKeyshare
+from .swap_attachment_params import SwapAttachmentParams as SwapAttachmentParams
 from .swap_destination_param import SwapDestinationParam as SwapDestinationParam
 from .swap_submission_status import SwapSubmissionStatus as SwapSubmissionStatus
 from .system_condition_param import SystemConditionParam as SystemConditionParam
@@ -242,12 +282,14 @@ from .wallet_raw_sign_params import WalletRawSignParams as WalletRawSignParams
 from .wallet_transfer_params import WalletTransferParams as WalletTransferParams
 from .access_list_entry_param import AccessListEntryParam as AccessListEntryParam
 from .additional_signer_input import AdditionalSignerInput as AdditionalSignerInput
+from .automation_asset_filter import AutomationAssetFilter as AutomationAssetFilter
 from .coinbase_ethereum_asset import CoinbaseEthereumAsset as CoinbaseEthereumAsset
 from .coinbase_on_ramp_status import CoinbaseOnRampStatus as CoinbaseOnRampStatus
 from .ethereum_yield_provider import EthereumYieldProvider as EthereumYieldProvider
 from .fee_configuration_param import FeeConfigurationParam as FeeConfigurationParam
 from .fiat_onramp_environment import FiatOnrampEnvironment as FiatOnrampEnvironment
 from .gas_spend_response_body import GasSpendResponseBody as GasSpendResponseBody
+from .intent_authorize_params import IntentAuthorizeParams as IntentAuthorizeParams
 from .kraken_embed_quote_type import KrakenEmbedQuoteType as KrakenEmbedQuoteType
 from .kyx_verification_status import KyxVerificationStatus as KyxVerificationStatus
 from .linked_account_ethereum import LinkedAccountEthereum as LinkedAccountEthereum
@@ -258,9 +300,11 @@ from .signature_options_param import SignatureOptionsParam as SignatureOptionsPa
 from .spark_coop_exit_request import SparkCoopExitRequest as SparkCoopExitRequest
 from .tron_calldata_condition import TronCalldataCondition as TronCalldataCondition
 from .user_invite_input_param import UserInviteInputParam as UserInviteInputParam
+from .wallet_funds_btkn_asset import WalletFundsBtknAsset as WalletFundsBtknAsset
 from .wallet_rpc_request_body import WalletRpcRequestBody as WalletRpcRequestBody
 from .app_get_gas_spend_params import AppGetGasSpendParams as AppGetGasSpendParams
 from .authenticate_mode_option import AuthenticateModeOption as AuthenticateModeOption
+from .automation_action_config import AutomationActionConfig as AutomationActionConfig
 from .bridge_destination_asset import BridgeDestinationAsset as BridgeDestinationAsset
 from .card_issuing_card_status import CardIssuingCardStatus as CardIssuingCardStatus
 from .curve_signing_chain_type import CurveSigningChainType as CurveSigningChainType
@@ -270,25 +314,33 @@ from .ethereum_send_calls_call import EthereumSendCallsCall as EthereumSendCalls
 from .hpke_import_config_param import HpkeImportConfigParam as HpkeImportConfigParam
 from .key_quorum_create_params import KeyQuorumCreateParams as KeyQuorumCreateParams
 from .key_quorum_update_params import KeyQuorumUpdateParams as KeyQuorumUpdateParams
+from .kyb_place_of_birth_param import KYBPlaceOfBirthParam as KYBPlaceOfBirthParam
 from .kyb_status_list_response import KYBStatusListResponse as KYBStatusListResponse
 from .kyc_status_list_response import KYCStatusListResponse as KYCStatusListResponse
 from .linked_account_cross_app import LinkedAccountCrossApp as LinkedAccountCrossApp
 from .linked_account_farcaster import LinkedAccountFarcaster as LinkedAccountFarcaster
 from .organization_list_params import OrganizationListParams as OrganizationListParams
 from .payout_destination_param import PayoutDestinationParam as PayoutDestinationParam
+from .payout_travel_rule_param import PayoutTravelRuleParam as PayoutTravelRuleParam
 from .phone_invite_input_param import PhoneInviteInputParam as PhoneInviteInputParam
 from .policy_rule_request_body import PolicyRuleRequestBody as PolicyRuleRequestBody
 from .private_key_export_input import PrivateKeyExportInput as PrivateKeyExportInput
+from .raw_sign_intent_response import RawSignIntentResponse as RawSignIntentResponse
 from .seed_phrase_export_input import SeedPhraseExportInput as SeedPhraseExportInput
 from .spark_transfer_rpc_input import SparkTransferRpcInput as SparkTransferRpcInput
 from .spark_withdraw_rpc_input import SparkWithdrawRpcInput as SparkWithdrawRpcInput
+from .transfer_custody_options import TransferCustodyOptions as TransferCustodyOptions
 from .transfer_intent_response import TransferIntentResponse as TransferIntentResponse
+from .transfer_sca_attestation import TransferScaAttestation as TransferScaAttestation
+from .transfer_sca_auth_factor import TransferScaAuthFactor as TransferScaAuthFactor
 from .wallet_additional_signer import WalletAdditionalSigner as WalletAdditionalSigner
 from .wallet_automation_status import WalletAutomationStatus as WalletAutomationStatus
 from .alchemy_paymaster_context import AlchemyPaymasterContext as AlchemyPaymasterContext
 from .app_custom_oauth_provider import AppCustomOAuthProvider as AppCustomOAuthProvider
+from .automation_trigger_config import AutomationTriggerConfig as AutomationTriggerConfig
 from .cross_app_embedded_wallet import CrossAppEmbeddedWallet as CrossAppEmbeddedWallet
 from .custodial_wallet_provider import CustodialWalletProvider as CustodialWalletProvider
+from .deposit_travel_rule_param import DepositTravelRuleParam as DepositTravelRuleParam
 from .ethereum_typed_data_input import EthereumTypedDataInput as EthereumTypedDataInput
 from .ethereum_yield_sweep_type import EthereumYieldSweepType as EthereumYieldSweepType
 from .fiat_deposit_instructions import FiatDepositInstructions as FiatDepositInstructions
@@ -304,13 +356,17 @@ from .rpc_sponsor_options_param import RpcSponsorOptionsParam as RpcSponsorOptio
 from .spark_coop_exit_fee_quote import SparkCoopExitFeeQuote as SparkCoopExitFeeQuote
 from .spark_user_token_metadata import SparkUserTokenMetadata as SparkUserTokenMetadata
 from .tempo_fee_payer_signature import TempoFeePayerSignature as TempoFeePayerSignature
+from .transfer_initiation_param import TransferInitiationParam as TransferInitiationParam
 from .user_kyc_updated_kyc_data import UserKYCUpdatedKYCData as UserKYCUpdatedKYCData
 from .user_kyc_updated_tos_data import UserKYCUpdatedTosData as UserKYCUpdatedTosData
 from .wallet_funds_erc_20_asset import WalletFundsErc20Asset as WalletFundsErc20Asset
 from .wallet_funds_trc_20_asset import WalletFundsTrc20Asset as WalletFundsTrc20Asset
 from .wallet_init_import_params import WalletInitImportParams as WalletInitImportParams
 from .wallet_invite_input_param import WalletInviteInputParam as WalletInviteInputParam
+from .attached_wallet_automation import AttachedWalletAutomation as AttachedWalletAutomation
 from .crypto_deposit_asset_param import CryptoDepositAssetParam as CryptoDepositAssetParam
+from .denylist_email_input_param import DenylistEmailInputParam as DenylistEmailInputParam
+from .denylist_phone_input_param import DenylistPhoneInputParam as DenylistPhoneInputParam
 from .external_oauth_provider_id import ExternalOAuthProviderID as ExternalOAuthProviderID
 from .key_quorum_intent_response import KeyQuorumIntentResponse as KeyQuorumIntentResponse
 from .kraken_embed_sorting_order import KrakenEmbedSortingOrder as KrakenEmbedSortingOrder
@@ -319,17 +375,23 @@ from .linked_account_base_wallet import LinkedAccountBaseWallet as LinkedAccount
 from .linked_account_input_param import LinkedAccountInputParam as LinkedAccountInputParam
 from .organization_create_params import OrganizationCreateParams as OrganizationCreateParams
 from .organization_update_params import OrganizationUpdateParams as OrganizationUpdateParams
+from .raw_sign_hash_params_param import RawSignHashParamsParam as RawSignHashParamsParam
 from .smart_wallet_configuration import SmartWalletConfiguration as SmartWalletConfiguration
 from .token_transfer_destination import TokenTransferDestination as TokenTransferDestination
+from .transfer_sca_outcome_param import TransferScaOutcomeParam as TransferScaOutcomeParam
 from .tron_transaction_condition import TronTransactionCondition as TronTransactionCondition
 from .unsigned_tempo_transaction import UnsignedTempoTransaction as UnsignedTempoTransaction
 from .user_operation_input_param import UserOperationInputParam as UserOperationInputParam
 from .user_owned_recovery_option import UserOwnedRecoveryOption as UserOwnedRecoveryOption
+from .verification_address_param import VerificationAddressParam as VerificationAddressParam
+from .wallet_automation_response import WalletAutomationResponse as WalletAutomationResponse
 from .wallet_batch_create_result import WalletBatchCreateResult as WalletBatchCreateResult
 from .wallet_create_batch_params import WalletCreateBatchParams as WalletCreateBatchParams
 from .xrpl_transaction_condition import XrplTransactionCondition as XrplTransactionCondition
 from .aggregation_condition_param import AggregationConditionParam as AggregationConditionParam
 from .allowlist_deletion_response import AllowlistDeletionResponse as AllowlistDeletionResponse
+from .automation_asset_filter_all import AutomationAssetFilterAll as AutomationAssetFilterAll
+from .automation_asset_spec_param import AutomationAssetSpecParam as AutomationAssetSpecParam
 from .card_issuing_dispute_status import CardIssuingDisputeStatus as CardIssuingDisputeStatus
 from .crypto_deposit_asset_filter import CryptoDepositAssetFilter as CryptoDepositAssetFilter
 from .custodial_wallet_chain_type import CustodialWalletChainType as CustodialWalletChainType
@@ -342,6 +404,8 @@ from .fiat_deposit_account_status import FiatDepositAccountStatus as FiatDeposit
 from .intent_authorization_member import IntentAuthorizationMember as IntentAuthorizationMember
 from .intent_update_policy_params import IntentUpdatePolicyParams as IntentUpdatePolicyParams
 from .intent_update_wallet_params import IntentUpdateWalletParams as IntentUpdateWalletParams
+from .kyb_associated_person_param import KYBAssociatedPersonParam as KYBAssociatedPersonParam
+from .kyb_business_document_param import KYBBusinessDocumentParam as KYBBusinessDocumentParam
 from .linked_account_custom_oauth import LinkedAccountCustomOAuth as LinkedAccountCustomOAuth
 from .linked_account_github_oauth import LinkedAccountGitHubOAuth as LinkedAccountGitHubOAuth
 from .linked_account_google_oauth import LinkedAccountGoogleOAuth as LinkedAccountGoogleOAuth
@@ -351,6 +415,8 @@ from .linked_account_twitch_oauth import LinkedAccountTwitchOAuth as LinkedAccou
 from .mfa_enabled_webhook_payload import MfaEnabledWebhookPayload as MfaEnabledWebhookPayload
 from .named_token_transfer_source import NamedTokenTransferSource as NamedTokenTransferSource
 from .organizations_list_response import OrganizationsListResponse as OrganizationsListResponse
+from .raw_sign_bytes_params_param import RawSignBytesParamsParam as RawSignBytesParamsParam
+from .raw_sign_input_params_param import RawSignInputParamsParam as RawSignInputParamsParam
 from .rule_delete_intent_response import RuleDeleteIntentResponse as RuleDeleteIntentResponse
 from .rule_intent_request_details import RuleIntentRequestDetails as RuleIntentRequestDetails
 from .rule_mutate_intent_response import RuleMutateIntentResponse as RuleMutateIntentResponse
@@ -361,23 +427,29 @@ from .spark_withdraw_rpc_response import SparkWithdrawRpcResponse as SparkWithdr
 from .telegram_auth_config_schema import TelegramAuthConfigSchema as TelegramAuthConfigSchema
 from .tempo_transaction_condition import TempoTransactionCondition as TempoTransactionCondition
 from .token_transfer_source_param import TokenTransferSourceParam as TokenTransferSourceParam
+from .transfer_initiation_channel import TransferInitiationChannel as TransferInitiationChannel
 from .tron_trigger_smart_contract import TronTriggerSmartContract as TronTriggerSmartContract
 from .typed_data_type_field_input import TypedDataTypeFieldInput as TypedDataTypeFieldInput
 from .unsafe_unwrap_webhook_event import UnsafeUnwrapWebhookEvent as UnsafeUnwrapWebhookEvent
+from .verification_document_param import VerificationDocumentParam as VerificationDocumentParam
 from .wallet_assign_entity_params import WalletAssignEntityParams as WalletAssignEntityParams
 from .wallet_creation_input_param import WalletCreationInputParam as WalletCreationInputParam
 from .wallet_export_response_body import WalletExportResponseBody as WalletExportResponseBody
 from .wallet_init_import_response import WalletInitImportResponse as WalletInitImportResponse
 from .wallet_submit_import_params import WalletSubmitImportParams as WalletSubmitImportParams
 from .additional_signer_item_input import AdditionalSignerItemInput as AdditionalSignerItemInput
+from .automation_destination_asset import AutomationDestinationAsset as AutomationDestinationAsset
 from .bridge_fiat_deposit_metadata import BridgeFiatDepositMetadata as BridgeFiatDepositMetadata
 from .client_session_update_action import ClientSessionUpdateAction as ClientSessionUpdateAction
+from .crypto_deposit_account_chain import CryptoDepositAccountChain as CryptoDepositAccountChain
 from .crypto_deposit_address_route import CryptoDepositAddressRoute as CryptoDepositAddressRoute
 from .custom_token_transfer_source import CustomTokenTransferSource as CustomTokenTransferSource
 from .embedded_wallet_chain_config import EmbeddedWalletChainConfig as EmbeddedWalletChainConfig
 from .embedded_wallet_input_schema import EmbeddedWalletInputSchema as EmbeddedWalletInputSchema
 from .export_private_key_rpc_input import ExportPrivateKeyRpcInput as ExportPrivateKeyRpcInput
 from .export_seed_phrase_rpc_input import ExportSeedPhraseRpcInput as ExportSeedPhraseRpcInput
+from .kyb_estimated_annual_revenue import KYBEstimatedAnnualRevenue as KYBEstimatedAnnualRevenue
+from .kyb_regulated_activity_param import KYBRegulatedActivityParam as KYBRegulatedActivityParam
 from .linked_account_discord_oauth import LinkedAccountDiscordOAuth as LinkedAccountDiscordOAuth
 from .linked_account_spotify_oauth import LinkedAccountSpotifyOAuth as LinkedAccountSpotifyOAuth
 from .linked_account_twitter_oauth import LinkedAccountTwitterOAuth as LinkedAccountTwitterOAuth
@@ -388,6 +460,7 @@ from .private_key_init_input_param import PrivateKeyInitInputParam as PrivateKey
 from .raw_sign_bytes_hash_function import RawSignBytesHashFunction as RawSignBytesHashFunction
 from .spark_lightning_send_request import SparkLightningSendRequest as SparkLightningSendRequest
 from .stripe_onramp_session_status import StripeOnrampSessionStatus as StripeOnrampSessionStatus
+from .swap_attachment_params_param import SwapAttachmentParamsParam as SwapAttachmentParamsParam
 from .swap_quote_destination_param import SwapQuoteDestinationParam as SwapQuoteDestinationParam
 from .tempo_aa_authorization_param import TempoAaAuthorizationParam as TempoAaAuthorizationParam
 from .tron_raw_data_for_send_param import TronRawDataForSendParam as TronRawDataForSendParam
@@ -399,24 +472,34 @@ from .wallet_batch_create_response import WalletBatchCreateResponse as WalletBat
 from .wallet_recovery_setup_method import WalletRecoverySetupMethod as WalletRecoverySetupMethod
 from .action_request_body_condition import ActionRequestBodyCondition as ActionRequestBodyCondition
 from .additional_signer_input_param import AdditionalSignerInputParam as AdditionalSignerInputParam
+from .automation_config_input_param import AutomationConfigInputParam as AutomationConfigInputParam
+from .automation_swap_action_config import AutomationSwapActionConfig as AutomationSwapActionConfig
 from .blockchain_transaction_status import BlockchainTransactionStatus as BlockchainTransactionStatus
 from .bridge_fiat_transfer_metadata import BridgeFiatTransferMetadata as BridgeFiatTransferMetadata
+from .condition_set_intent_response import ConditionSetIntentResponse as ConditionSetIntentResponse
+from .crypto_deposit_account_caip_2 import CryptoDepositAccountCaip2 as CryptoDepositAccountCaip2
 from .deposit_completed_destination import DepositCompletedDestination as DepositCompletedDestination
 from .embedded_wallet_config_schema import EmbeddedWalletConfigSchema as EmbeddedWalletConfigSchema
 from .ethereum_send_calls_rpc_input import EthereumSendCallsRpcInput as EthereumSendCallsRpcInput
 from .fiat_deposit_account_response import FiatDepositAccountResponse as FiatDepositAccountResponse
 from .intent_failed_webhook_payload import IntentFailedWebhookPayload as IntentFailedWebhookPayload
 from .kraken_embed_transaction_type import KrakenEmbedTransactionType as KrakenEmbedTransactionType
+from .kyb_individual_document_param import KYBIndividualDocumentParam as KYBIndividualDocumentParam
 from .organization_kyb_updated_data import OrganizationKYBUpdatedData as OrganizationKYBUpdatedData
+from .policy_delete_intent_response import PolicyDeleteIntentResponse as PolicyDeleteIntentResponse
+from .policy_intent_request_details import PolicyIntentRequestDetails as PolicyIntentRequestDetails
+from .policy_update_intent_response import PolicyUpdateIntentResponse as PolicyUpdateIntentResponse
 from .solana_sign_message_rpc_input import SolanaSignMessageRpcInput as SolanaSignMessageRpcInput
 from .tron_calldata_condition_param import TronCalldataConditionParam as TronCalldataConditionParam
 from .typed_data_types_input_params import TypedDataTypesInputParams as TypedDataTypesInputParams
 from .unsigned_ethereum_transaction import UnsignedEthereumTransaction as UnsignedEthereumTransaction
 from .wallet_additional_signer_item import WalletAdditionalSignerItem as WalletAdditionalSignerItem
 from .wallet_asset_chain_name_input import WalletAssetChainNameInput as WalletAssetChainNameInput
+from .wallet_automation_list_params import WalletAutomationListParams as WalletAutomationListParams
 from .wallet_batch_item_input_param import WalletBatchItemInputParam as WalletBatchItemInputParam
 from .wallet_rpc_request_body_param import WalletRpcRequestBodyParam as WalletRpcRequestBodyParam
 from .bridge_crypto_deposit_metadata import BridgeCryptoDepositMetadata as BridgeCryptoDepositMetadata
+from .condition_set_item_value_input import ConditionSetItemValueInput as ConditionSetItemValueInput
 from .ethereum_send_calls_call_param import EthereumSendCallsCallParam as EthereumSendCallsCallParam
 from .ethereum_transaction_condition import EthereumTransactionCondition as EthereumTransactionCondition
 from .external_fiat_account_response import ExternalFiatAccountResponse as ExternalFiatAccountResponse
@@ -435,13 +518,21 @@ from .seed_phrase_export_input_param import SeedPhraseExportInputParam as SeedPh
 from .spark_get_balance_rpc_response import SparkGetBalanceRpcResponse as SparkGetBalanceRpcResponse
 from .spark_transfer_rpc_input_param import SparkTransferRpcInputParam as SparkTransferRpcInputParam
 from .spark_withdraw_rpc_input_param import SparkWithdrawRpcInputParam as SparkWithdrawRpcInputParam
+from .transfer_custody_options_param import TransferCustodyOptionsParam as TransferCustodyOptionsParam
+from .transfer_initiation_subchannel import TransferInitiationSubchannel as TransferInitiationSubchannel
+from .transfer_sca_attestation_param import TransferScaAttestationParam as TransferScaAttestationParam
+from .transfer_sca_auth_factor_param import TransferScaAuthFactorParam as TransferScaAuthFactorParam
+from .travel_rule_counterparty_param import TravelRuleCounterpartyParam as TravelRuleCounterpartyParam
 from .typed_data_domain_input_params import TypedDataDomainInputParams as TypedDataDomainInputParams
 from .user_kyc_updated_webhook_event import UserKYCUpdatedWebhookEvent as UserKYCUpdatedWebhookEvent
 from .wallet_import_supported_chains import WalletImportSupportedChains as WalletImportSupportedChains
+from .automation_asset_filter_exclude import AutomationAssetFilterExclude as AutomationAssetFilterExclude
+from .automation_asset_filter_include import AutomationAssetFilterInclude as AutomationAssetFilterInclude
 from .bridge_crypto_transfer_metadata import BridgeCryptoTransferMetadata as BridgeCryptoTransferMetadata
 from .bridge_transfer_refund_metadata import BridgeTransferRefundMetadata as BridgeTransferRefundMetadata
 from .card_issuing_replacement_reason import CardIssuingReplacementReason as CardIssuingReplacementReason
 from .card_issuing_transaction_status import CardIssuingTransactionStatus as CardIssuingTransactionStatus
+from .crypto_deposit_address_strategy import CryptoDepositAddressStrategy as CryptoDepositAddressStrategy
 from .crypto_deposit_asset_filter_all import CryptoDepositAssetFilterAll as CryptoDepositAssetFilterAll
 from .email_domain_invite_input_param import EmailDomainInviteInputParam as EmailDomainInviteInputParam
 from .embedded_wallet_create_on_login import EmbeddedWalletCreateOnLogin as EmbeddedWalletCreateOnLogin
@@ -457,6 +548,7 @@ from .intent_executed_webhook_payload import IntentExecutedWebhookPayload as Int
 from .intent_rejected_webhook_payload import IntentRejectedWebhookPayload as IntentRejectedWebhookPayload
 from .intent_update_key_quorum_params import IntentUpdateKeyQuorumParams as IntentUpdateKeyQuorumParams
 from .kraken_embed_transaction_status import KrakenEmbedTransactionStatus as KrakenEmbedTransactionStatus
+from .kyb_individual_document_purpose import KYBIndividualDocumentPurpose as KYBIndividualDocumentPurpose
 from .linked_account_base_wallet_type import LinkedAccountBaseWalletType as LinkedAccountBaseWalletType
 from .linked_account_line_input_param import LinkedAccountLineInputParam as LinkedAccountLineInputParam
 from .message_signing_condition_param import MessageSigningConditionParam as MessageSigningConditionParam
@@ -475,12 +567,16 @@ from .user_get_by_phone_number_params import UserGetByPhoneNumberParams as UserG
 from .user_pregenerate_wallets_params import UserPregenerateWalletsParams as UserPregenerateWalletsParams
 from .user_set_custom_metadata_params import UserSetCustomMetadataParams as UserSetCustomMetadataParams
 from .wallet_archived_webhook_payload import WalletArchivedWebhookPayload as WalletArchivedWebhookPayload
+from .wallet_automation_create_params import WalletAutomationCreateParams as WalletAutomationCreateParams
+from .wallet_automation_list_response import WalletAutomationListResponse as WalletAutomationListResponse
+from .wallet_automation_update_params import WalletAutomationUpdateParams as WalletAutomationUpdateParams
 from .wallet_funds_native_token_asset import WalletFundsNativeTokenAsset as WalletFundsNativeTokenAsset
 from .wallet_restored_webhook_payload import WalletRestoredWebhookPayload as WalletRestoredWebhookPayload
 from .xrpl_sign_transaction_rpc_input import XrplSignTransactionRpcInput as XrplSignTransactionRpcInput
 from .aptos_sign_transaction_rpc_input import AptosSignTransactionRpcInput as AptosSignTransactionRpcInput
 from .aptos_signed_transaction_bcs_hex import AptosSignedTransactionBcsHex as AptosSignedTransactionBcsHex
 from .card_issuing_cancellation_reason import CardIssuingCancellationReason as CardIssuingCancellationReason
+from .condition_set_items_request_body import ConditionSetItemsRequestBody as ConditionSetItemsRequestBody
 from .ethereum_personal_sign_rpc_input import EthereumPersonalSignRpcInput as EthereumPersonalSignRpcInput
 from .ethereum_send_calls_rpc_response import EthereumSendCallsRpcResponse as EthereumSendCallsRpcResponse
 from .ethereum_sign_7702_authorization import EthereumSign7702Authorization as EthereumSign7702Authorization
@@ -497,17 +593,31 @@ from .raw_wallet_authenticate_response import RawWalletAuthenticateResponse as R
 from .solana_sign_message_rpc_response import SolanaSignMessageRpcResponse as SolanaSignMessageRpcResponse
 from .sui_transaction_command_operator import SuiTransactionCommandOperator as SuiTransactionCommandOperator
 from .token_transfer_destination_param import TokenTransferDestinationParam as TokenTransferDestinationParam
+from .transaction_mfa_enforcement_mode import TransactionMfaEnforcementMode as TransactionMfaEnforcementMode
+from .transfer_initiation_attestations import TransferInitiationAttestations as TransferInitiationAttestations
 from .transfer_sent_transaction_detail import TransferSentTransactionDetail as TransferSentTransactionDetail
 from .tron_transaction_condition_field import TronTransactionConditionField as TronTransactionConditionField
 from .tron_transaction_condition_param import TronTransactionConditionParam as TronTransactionConditionParam
 from .unsigned_tempo_transaction_param import UnsignedTempoTransactionParam as UnsignedTempoTransactionParam
 from .user_get_by_email_address_params import UserGetByEmailAddressParams as UserGetByEmailAddressParams
+from .wallet_attach_automations_params import WalletAttachAutomationsParams as WalletAttachAutomationsParams
+from .wallet_automation_reindex_caip_2 import WalletAutomationReindexCaip2 as WalletAutomationReindexCaip2
+from .wallet_automation_reindex_params import WalletAutomationReindexParams as WalletAutomationReindexParams
+from .wallet_detach_automations_params import WalletDetachAutomationsParams as WalletDetachAutomationsParams
 from .wallet_recovered_webhook_payload import WalletRecoveredWebhookPayload as WalletRecoveredWebhookPayload
 from .xrpl_transaction_condition_field import XrplTransactionConditionField as XrplTransactionConditionField
 from .xrpl_transaction_condition_param import XrplTransactionConditionParam as XrplTransactionConditionParam
+from .automation_asset_filter_all_param import AutomationAssetFilterAllParam as AutomationAssetFilterAllParam
+from .automation_asset_spec_input_param import AutomationAssetSpecInputParam as AutomationAssetSpecInputParam
 from .crypto_deposit_asset_filter_param import CryptoDepositAssetFilterParam as CryptoDepositAssetFilterParam
+from .denylist_email_domain_input_param import DenylistEmailDomainInputParam as DenylistEmailDomainInputParam
 from .ethereum_calldata_condition_param import EthereumCalldataConditionParam as EthereumCalldataConditionParam
+from .external_fiat_account_owner_param import ExternalFiatAccountOwnerParam as ExternalFiatAccountOwnerParam
 from .intent_authorized_webhook_payload import IntentAuthorizedWebhookPayload as IntentAuthorizedWebhookPayload
+from .key_quorum_delete_intent_response import KeyQuorumDeleteIntentResponse as KeyQuorumDeleteIntentResponse
+from .key_quorum_intent_request_details import KeyQuorumIntentRequestDetails as KeyQuorumIntentRequestDetails
+from .key_quorum_update_intent_response import KeyQuorumUpdateIntentResponse as KeyQuorumUpdateIntentResponse
+from .kyb_publicly_traded_listing_param import KYBPubliclyTradedListingParam as KYBPubliclyTradedListingParam
 from .linked_account_github_input_param import LinkedAccountGitHubInputParam as LinkedAccountGitHubInputParam
 from .linked_account_google_input_param import LinkedAccountGoogleInputParam as LinkedAccountGoogleInputParam
 from .linked_account_tiktok_input_param import LinkedAccountTiktokInputParam as LinkedAccountTiktokInputParam
@@ -516,12 +626,17 @@ from .linked_account_wallet_input_param import LinkedAccountWalletInputParam as 
 from .named_token_transfer_source_param import NamedTokenTransferSourceParam as NamedTokenTransferSourceParam
 from .organization_kyb_updated_kyb_data import OrganizationKYBUpdatedKYBData as OrganizationKYBUpdatedKYBData
 from .organization_kyb_updated_tos_data import OrganizationKYBUpdatedTosData as OrganizationKYBUpdatedTosData
+from .organization_wallet_configuration import OrganizationWalletConfiguration as OrganizationWalletConfiguration
+from .policy_intent_delete_request_body import PolicyIntentDeleteRequestBody as PolicyIntentDeleteRequestBody
+from .solana_instruction_data_condition import SolanaInstructionDataCondition as SolanaInstructionDataCondition
 from .solana_sign_transaction_rpc_input import SolanaSignTransactionRpcInput as SolanaSignTransactionRpcInput
 from .solana_wallet_derivation_strategy import SolanaWalletDerivationStrategy as SolanaWalletDerivationStrategy
 from .spark_get_balance_rpc_input_param import SparkGetBalanceRpcInputParam as SparkGetBalanceRpcInputParam
 from .sui_transaction_command_condition import SuiTransactionCommandCondition as SuiTransactionCommandCondition
 from .tempo_transaction_condition_field import TempoTransactionConditionField as TempoTransactionConditionField
 from .tempo_transaction_condition_param import TempoTransactionConditionParam as TempoTransactionConditionParam
+from .transfer_initiation_channel_param import TransferInitiationChannelParam as TransferInitiationChannelParam
+from .transfer_sca_auth_factor_category import TransferScaAuthFactorCategory as TransferScaAuthFactorCategory
 from .tron_trigger_smart_contract_param import TronTriggerSmartContractParam as TronTriggerSmartContractParam
 from .typed_data_type_field_input_param import TypedDataTypeFieldInputParam as TypedDataTypeFieldInputParam
 from .user_get_by_custom_auth_id_params import UserGetByCustomAuthIDParams as UserGetByCustomAuthIDParams
@@ -529,6 +644,8 @@ from .user_get_by_wallet_address_params import UserGetByWalletAddressParams as U
 from .user_unlink_linked_account_params import UserUnlinkLinkedAccountParams as UserUnlinkLinkedAccountParams
 from .wallet_entity_assignment_response import WalletEntityAssignmentResponse as WalletEntityAssignmentResponse
 from .additional_signer_item_input_param import AdditionalSignerItemInputParam as AdditionalSignerItemInputParam
+from .automation_destination_asset_param import AutomationDestinationAssetParam as AutomationDestinationAssetParam
+from .condition_set_item_intent_response import ConditionSetItemIntentResponse as ConditionSetItemIntentResponse
 from .custom_token_transfer_source_param import CustomTokenTransferSourceParam as CustomTokenTransferSourceParam
 from .ethereum_sign_typed_data_rpc_input import EthereumSignTypedDataRpcInput as EthereumSignTypedDataRpcInput
 from .export_private_key_rpc_input_param import ExportPrivateKeyRpcInputParam as ExportPrivateKeyRpcInputParam
@@ -543,6 +660,7 @@ from .private_key_export_webhook_payload import PrivateKeyExportWebhookPayload a
 from .rule_intent_create_request_details import RuleIntentCreateRequestDetails as RuleIntentCreateRequestDetails
 from .rule_intent_delete_request_details import RuleIntentDeleteRequestDetails as RuleIntentDeleteRequestDetails
 from .rule_intent_update_request_details import RuleIntentUpdateRequestDetails as RuleIntentUpdateRequestDetails
+from .seed_phrase_export_webhook_payload import SeedPhraseExportWebhookPayload as SeedPhraseExportWebhookPayload
 from .smart_wallet_configuration_enabled import SmartWalletConfigurationEnabled as SmartWalletConfigurationEnabled
 from .smart_wallet_network_configuration import SmartWalletNetworkConfiguration as SmartWalletNetworkConfiguration
 from .spark_transfer_tokens_rpc_response import SparkTransferTokensRpcResponse as SparkTransferTokensRpcResponse
@@ -555,12 +673,18 @@ from .user_authenticated_webhook_payload import UserAuthenticatedWebhookPayload 
 from .user_get_by_github_username_params import UserGetByGitHubUsernameParams as UserGetByGitHubUsernameParams
 from .user_get_by_twitter_subject_params import UserGetByTwitterSubjectParams as UserGetByTwitterSubjectParams
 from .wallet_automation_execution_status import WalletAutomationExecutionStatus as WalletAutomationExecutionStatus
+from .wallet_automation_reindex_response import WalletAutomationReindexResponse as WalletAutomationReindexResponse
+from .wallet_automation_success_response import WalletAutomationSuccessResponse as WalletAutomationSuccessResponse
 from .xrpl_sign_transaction_rpc_response import XrplSignTransactionRpcResponse as XrplSignTransactionRpcResponse
 from .action_request_body_condition_param import ActionRequestBodyConditionParam as ActionRequestBodyConditionParam
 from .aptos_sign_transaction_rpc_response import AptosSignTransactionRpcResponse as AptosSignTransactionRpcResponse
+from .automation_asset_filter_input_param import AutomationAssetFilterInputParam as AutomationAssetFilterInputParam
 from .bridge_static_memo_deposit_metadata import BridgeStaticMemoDepositMetadata as BridgeStaticMemoDepositMetadata
+from .crypto_deposit_account_source_chain import CryptoDepositAccountSourceChain as CryptoDepositAccountSourceChain
 from .crypto_deposit_asset_filter_exclude import CryptoDepositAssetFilterExclude as CryptoDepositAssetFilterExclude
 from .crypto_deposit_asset_filter_include import CryptoDepositAssetFilterInclude as CryptoDepositAssetFilterInclude
+from .denylist_solana_address_input_param import DenylistSolanaAddressInputParam as DenylistSolanaAddressInputParam
+from .deposit_account_crypto_quote_amount import DepositAccountCryptoQuoteAmount as DepositAccountCryptoQuoteAmount
 from .ethereum_personal_sign_rpc_response import EthereumPersonalSignRpcResponse as EthereumPersonalSignRpcResponse
 from .ethereum_secp_256k_1_sign_rpc_input import EthereumSecp256k1SignRpcInput as EthereumSecp256k1SignRpcInput
 from .ethereum_send_calls_rpc_input_param import EthereumSendCallsRpcInputParam as EthereumSendCallsRpcInputParam
@@ -568,12 +692,16 @@ from .ethereum_send_transaction_rpc_input import EthereumSendTransactionRpcInput
 from .ethereum_sign_transaction_rpc_input import EthereumSignTransactionRpcInput as EthereumSignTransactionRpcInput
 from .external_fiat_account_address_param import ExternalFiatAccountAddressParam as ExternalFiatAccountAddressParam
 from .external_fiat_account_gb_data_param import ExternalFiatAccountGBDataParam as ExternalFiatAccountGBDataParam
+from .external_fiat_account_payment_rails import ExternalFiatAccountPaymentRails as ExternalFiatAccountPaymentRails
 from .external_fiat_account_us_data_param import ExternalFiatAccountUsDataParam as ExternalFiatAccountUsDataParam
 from .kraken_embed_identity_document_type import KrakenEmbedIdentityDocumentType as KrakenEmbedIdentityDocumentType
 from .linked_account_telegram_input_param import LinkedAccountTelegramInputParam as LinkedAccountTelegramInputParam
 from .list_fiat_deposit_accounts_response import ListFiatDepositAccountsResponse as ListFiatDepositAccountsResponse
+from .policy_intent_request_details_union import PolicyIntentRequestDetailsUnion as PolicyIntentRequestDetailsUnion
 from .smart_wallet_configuration_disabled import SmartWalletConfigurationDisabled as SmartWalletConfigurationDisabled
 from .solana_sign_message_rpc_input_param import SolanaSignMessageRpcInputParam as SolanaSignMessageRpcInputParam
+from .tmmf_wallet_updated_webhook_payload import TmmfWalletUpdatedWebhookPayload as TmmfWalletUpdatedWebhookPayload
+from .travel_rule_self_counterparty_param import TravelRuleSelfCounterpartyParam as TravelRuleSelfCounterpartyParam
 from .typed_data_types_input_params_param import TypedDataTypesInputParamsParam as TypedDataTypesInputParamsParam
 from .unsigned_ethereum_transaction_param import UnsignedEthereumTransactionParam as UnsignedEthereumTransactionParam
 from .user_get_by_discord_username_params import UserGetByDiscordUsernameParams as UserGetByDiscordUsernameParams
@@ -584,6 +712,10 @@ from .user_wallet_created_webhook_payload import UserWalletCreatedWebhookPayload
 from .wallet_asset_chain_name_input_param import WalletAssetChainNameInputParam as WalletAssetChainNameInputParam
 from .wallet_authenticate_with_jwt_params import WalletAuthenticateWithJwtParams as WalletAuthenticateWithJwtParams
 from .wallet_get_wallet_by_address_params import WalletGetWalletByAddressParams as WalletGetWalletByAddressParams
+from .automation_action_config_input_param import AutomationActionConfigInputParam as AutomationActionConfigInputParam
+from .card_issuing_erc_4626_vault_provider import CardIssuingErc4626VaultProvider as CardIssuingErc4626VaultProvider
+from .condition_set_delete_intent_response import ConditionSetDeleteIntentResponse as ConditionSetDeleteIntentResponse
+from .condition_set_item_value_input_param import ConditionSetItemValueInputParam as ConditionSetItemValueInputParam
 from .ethereum_send_calls_rpc_input_params import EthereumSendCallsRpcInputParams as EthereumSendCallsRpcInputParams
 from .ethereum_transaction_condition_field import EthereumTransactionConditionField as EthereumTransactionConditionField
 from .ethereum_transaction_condition_param import EthereumTransactionConditionParam as EthereumTransactionConditionParam
@@ -595,16 +727,31 @@ from .linked_account_farcaster_input_param import LinkedAccountFarcasterInputPar
 from .linked_account_instagram_input_param import LinkedAccountInstagramInputParam as LinkedAccountInstagramInputParam
 from .linked_account_linked_in_input_param import LinkedAccountLinkedInInputParam as LinkedAccountLinkedInInputParam
 from .list_external_fiat_accounts_response import ListExternalFiatAccountsResponse as ListExternalFiatAccountsResponse
+from .policy_intent_delete_request_details import PolicyIntentDeleteRequestDetails as PolicyIntentDeleteRequestDetails
 from .solana_program_instruction_condition import SolanaProgramInstructionCondition as SolanaProgramInstructionCondition
 from .solana_sign_message_rpc_input_params import SolanaSignMessageRpcInputParams as SolanaSignMessageRpcInputParams
 from .solana_sign_transaction_rpc_response import SolanaSignTransactionRpcResponse as SolanaSignTransactionRpcResponse
 from .spark_claim_static_deposit_rpc_input import SparkClaimStaticDepositRpcInput as SparkClaimStaticDepositRpcInput
 from .transaction_replaced_webhook_payload import TransactionReplacedWebhookPayload as TransactionReplacedWebhookPayload
+from .transfer_initiation_subchannel_param import TransferInitiationSubchannelParam as TransferInitiationSubchannelParam
 from .transfer_received_transaction_detail import TransferReceivedTransactionDetail as TransferReceivedTransactionDetail
 from .typed_data_domain_input_params_param import TypedDataDomainInputParamsParam as TypedDataDomainInputParamsParam
 from .user_get_by_telegram_username_params import UserGetByTelegramUsernameParams as UserGetByTelegramUsernameParams
 from .user_updated_account_webhook_payload import UserUpdatedAccountWebhookPayload as UserUpdatedAccountWebhookPayload
+from .wallet_automation_execution_response import WalletAutomationExecutionResponse as WalletAutomationExecutionResponse
+from .automation_earn_deposit_action_config import (
+    AutomationEarnDepositActionConfig as AutomationEarnDepositActionConfig,
+)
+from .automation_trigger_config_input_param import (
+    AutomationTriggerConfigInputParam as AutomationTriggerConfigInputParam,
+)
 from .crypto_deposit_asset_filter_all_param import CryptoDepositAssetFilterAllParam as CryptoDepositAssetFilterAllParam
+from .denylist_ethereum_address_input_param import (
+    DenylistEthereumAddressInputParam as DenylistEthereumAddressInputParam,
+)
+from .deposit_account_crypto_quote_response import (
+    DepositAccountCryptoQuoteResponse as DepositAccountCryptoQuoteResponse,
+)
 from .ethereum_7702_authorization_condition import (
     Ethereum7702AuthorizationCondition as Ethereum7702AuthorizationCondition,
 )
@@ -614,9 +761,13 @@ from .ethereum_typed_data_message_condition import (
     EthereumTypedDataMessageCondition as EthereumTypedDataMessageCondition,
 )
 from .external_fiat_account_iban_data_param import ExternalFiatAccountIbanDataParam as ExternalFiatAccountIbanDataParam
+from .key_quorum_intent_delete_request_body import KeyQuorumIntentDeleteRequestBody as KeyQuorumIntentDeleteRequestBody
 from .linked_account_custom_jwt_input_param import LinkedAccountCustomJwtInputParam as LinkedAccountCustomJwtInputParam
 from .linked_account_solana_embedded_wallet import (
     LinkedAccountSolanaEmbeddedWallet as LinkedAccountSolanaEmbeddedWallet,
+)
+from .list_crypto_deposit_accounts_response import (
+    ListCryptoDepositAccountsResponse as ListCryptoDepositAccountsResponse,
 )
 from .near_signed_transaction_borsh_base_64 import NearSignedTransactionBorshBase64 as NearSignedTransactionBorshBase64
 from .output_with_previous_transaction_data import (
@@ -638,6 +789,9 @@ from .user_unlinked_account_webhook_payload import (
 from .wallet_authenticate_with_jwt_response import (
     WalletAuthenticateWithJwtResponse as WalletAuthenticateWithJwtResponse,
 )
+from .wallet_automation_attachment_response import (
+    WalletAutomationAttachmentResponse as WalletAutomationAttachmentResponse,
+)
 from .wallet_import_supported_entropy_types import (
     WalletImportSupportedEntropyTypes as WalletImportSupportedEntropyTypes,
 )
@@ -651,8 +805,20 @@ from .yield_claim_confirmed_webhook_payload import (
 from .aptos_sign_transaction_rpc_input_param import (
     AptosSignTransactionRpcInputParam as AptosSignTransactionRpcInputParam,
 )
+from .condition_set_items_request_body_param import (
+    ConditionSetItemsRequestBodyParam as ConditionSetItemsRequestBodyParam,
+)
 from .create_crypto_deposit_account_response import (
     CreateCryptoDepositAccountResponse as CreateCryptoDepositAccountResponse,
+)
+from .crypto_deposit_account_config_response import (
+    CryptoDepositAccountConfigResponse as CryptoDepositAccountConfigResponse,
+)
+from .crypto_deposit_account_search_currency import (
+    CryptoDepositAccountSearchCurrency as CryptoDepositAccountSearchCurrency,
+)
+from .crypto_deposit_account_source_currency import (
+    CryptoDepositAccountSourceCurrency as CryptoDepositAccountSourceCurrency,
 )
 from .encrypted_wallet_authenticate_response import (
     EncryptedWalletAuthenticateResponse as EncryptedWalletAuthenticateResponse,
@@ -697,6 +863,9 @@ from .spark_transfer_tokens_rpc_input_params import (
 from .sui_transfer_objects_command_condition import (
     SuiTransferObjectsCommandCondition as SuiTransferObjectsCommandCondition,
 )
+from .transfer_initiation_attestations_param import (
+    TransferInitiationAttestationsParam as TransferInitiationAttestationsParam,
+)
 from .tron_send_transaction_rpc_input_params import (
     TronSendTransactionRpcInputParams as TronSendTransactionRpcInputParams,
 )
@@ -705,6 +874,15 @@ from .tron_sign_transaction_rpc_input_params import (
 )
 from .unsigned_standard_ethereum_transaction import (
     UnsignedStandardEthereumTransaction as UnsignedStandardEthereumTransaction,
+)
+from .wallet_automation_reindex_asset_result import (
+    WalletAutomationReindexAssetResult as WalletAutomationReindexAssetResult,
+)
+from .wallet_automation_reindex_asset_status import (
+    WalletAutomationReindexAssetStatus as WalletAutomationReindexAssetStatus,
+)
+from .wallet_automation_reindex_caip_2_param import (
+    WalletAutomationReindexCaip2Param as WalletAutomationReindexCaip2Param,
 )
 from .xrpl_sign_transaction_rpc_input_params import (
     XrplSignTransactionRpcInputParams as XrplSignTransactionRpcInputParams,
@@ -715,6 +893,9 @@ from .aptos_sign_transaction_rpc_input_params import (
 from .ethereum_personal_sign_rpc_input_params import (
     EthereumPersonalSignRpcInputParams as EthereumPersonalSignRpcInputParams,
 )
+from .key_quorum_intent_request_details_union import (
+    KeyQuorumIntentRequestDetailsUnion as KeyQuorumIntentRequestDetailsUnion,
+)
 from .linked_account_ethereum_embedded_wallet import (
     LinkedAccountEthereumEmbeddedWallet as LinkedAccountEthereumEmbeddedWallet,
 )
@@ -723,6 +904,12 @@ from .near_sign_transaction_rpc_response_data import (
 )
 from .near_unsigned_transaction_borsh_base_64 import (
     NearUnsignedTransactionBorshBase64 as NearUnsignedTransactionBorshBase64,
+)
+from .organization_wallet_configuration_param import (
+    OrganizationWalletConfigurationParam as OrganizationWalletConfigurationParam,
+)
+from .solana_instruction_data_condition_param import (
+    SolanaInstructionDataConditionParam as SolanaInstructionDataConditionParam,
 )
 from .solana_sign_transaction_rpc_input_param import (
     SolanaSignTransactionRpcInputParam as SolanaSignTransactionRpcInputParam,
@@ -738,6 +925,12 @@ from .sui_transaction_command_condition_param import (
 )
 from .transaction_broadcasted_webhook_payload import (
     TransactionBroadcastedWebhookPayload as TransactionBroadcastedWebhookPayload,
+)
+from .transfer_sca_auth_factor_category_param import (
+    TransferScaAuthFactorCategoryParam as TransferScaAuthFactorCategoryParam,
+)
+from .travel_rule_business_counterparty_param import (
+    TravelRuleBusinessCounterpartyParam as TravelRuleBusinessCounterpartyParam,
 )
 from .tron_send_transaction_rpc_response_data import (
     TronSendTransactionRpcResponseData as TronSendTransactionRpcResponseData,
@@ -757,14 +950,35 @@ from .yield_deposit_confirmed_webhook_payload import (
 from .aptos_sign_transaction_rpc_response_data import (
     AptosSignTransactionRpcResponseData as AptosSignTransactionRpcResponseData,
 )
+from .automation_destination_asset_input_param import (
+    AutomationDestinationAssetInputParam as AutomationDestinationAssetInputParam,
+)
+from .condition_set_intent_delete_request_body import (
+    ConditionSetIntentDeleteRequestBody as ConditionSetIntentDeleteRequestBody,
+)
 from .create_fiat_deposit_account_source_param import (
     CreateFiatDepositAccountSourceParam as CreateFiatDepositAccountSourceParam,
+)
+from .denylist_entry_create_request_body_param import (
+    DenylistEntryCreateRequestBodyParam as DenylistEntryCreateRequestBodyParam,
+)
+from .deposit_account_crypto_quote_asset_param import (
+    DepositAccountCryptoQuoteAssetParam as DepositAccountCryptoQuoteAssetParam,
 )
 from .ethereum_personal_sign_rpc_response_data import (
     EthereumPersonalSignRpcResponseData as EthereumPersonalSignRpcResponseData,
 )
 from .ethereum_sign_typed_data_rpc_input_param import (
     EthereumSignTypedDataRpcInputParam as EthereumSignTypedDataRpcInputParam,
+)
+from .intent_create_condition_set_items_params import (
+    IntentCreateConditionSetItemsParams as IntentCreateConditionSetItemsParams,
+)
+from .intent_update_condition_set_items_params import (
+    IntentUpdateConditionSetItemsParams as IntentUpdateConditionSetItemsParams,
+)
+from .key_quorum_intent_delete_request_details import (
+    KeyQuorumIntentDeleteRequestDetails as KeyQuorumIntentDeleteRequestDetails,
 )
 from .solana_sign_transaction_rpc_input_params import (
     SolanaSignTransactionRpcInputParams as SolanaSignTransactionRpcInputParams,
@@ -784,8 +998,23 @@ from .user_operation_completed_webhook_payload import (
 from .user_transferred_account_webhook_payload import (
     UserTransferredAccountWebhookPayload as UserTransferredAccountWebhookPayload,
 )
+from .wallet_automation_list_executions_params import (
+    WalletAutomationListExecutionsParams as WalletAutomationListExecutionsParams,
+)
 from .yield_withdraw_confirmed_webhook_payload import (
     YieldWithdrawConfirmedWebhookPayload as YieldWithdrawConfirmedWebhookPayload,
+)
+from .automation_swap_action_config_input_param import (
+    AutomationSwapActionConfigInputParam as AutomationSwapActionConfigInputParam,
+)
+from .condition_set_item_delete_intent_response import (
+    ConditionSetItemDeleteIntentResponse as ConditionSetItemDeleteIntentResponse,
+)
+from .condition_set_item_intent_request_details import (
+    ConditionSetItemIntentRequestDetails as ConditionSetItemIntentRequestDetails,
+)
+from .condition_set_item_mutate_intent_response import (
+    ConditionSetItemMutateIntentResponse as ConditionSetItemMutateIntentResponse,
 )
 from .crypto_deposit_asset_filter_exclude_param import (
     CryptoDepositAssetFilterExcludeParam as CryptoDepositAssetFilterExcludeParam,
@@ -808,14 +1037,23 @@ from .ethereum_sign_typed_data_rpc_input_params import (
 from .ethereum_sign_user_operation_rpc_response import (
     EthereumSignUserOperationRpcResponse as EthereumSignUserOperationRpcResponse,
 )
+from .get_crypto_deposit_account_order_response import (
+    GetCryptoDepositAccountOrderResponse as GetCryptoDepositAccountOrderResponse,
+)
 from .solana_sign_transaction_rpc_response_data import (
     SolanaSignTransactionRpcResponseData as SolanaSignTransactionRpcResponseData,
 )
 from .transaction_still_pending_webhook_payload import (
     TransactionStillPendingWebhookPayload as TransactionStillPendingWebhookPayload,
 )
+from .travel_rule_individual_counterparty_param import (
+    TravelRuleIndividualCounterpartyParam as TravelRuleIndividualCounterpartyParam,
+)
 from .wallet_action_swap_failed_webhook_payload import (
     WalletActionSwapFailedWebhookPayload as WalletActionSwapFailedWebhookPayload,
+)
+from .wallet_automation_execution_list_response import (
+    WalletAutomationExecutionListResponse as WalletAutomationExecutionListResponse,
 )
 from .ethereum_secp_256k_1_sign_rpc_input_params import (
     EthereumSecp256k1SignRpcInputParams as EthereumSecp256k1SignRpcInputParams,
@@ -841,8 +1079,14 @@ from .ethereum_typed_data_domain_condition_field import (
 from .ethereum_typed_data_domain_condition_param import (
     EthereumTypedDataDomainConditionParam as EthereumTypedDataDomainConditionParam,
 )
+from .external_fiat_account_business_owner_param import (
+    ExternalFiatAccountBusinessOwnerParam as ExternalFiatAccountBusinessOwnerParam,
+)
 from .oauth_token_device_code_pending_error_code import (
     OAuthTokenDeviceCodePendingErrorCode as OAuthTokenDeviceCodePendingErrorCode,
+)
+from .organization_default_wallet_configurations import (
+    OrganizationDefaultWalletConfigurations as OrganizationDefaultWalletConfigurations,
 )
 from .solana_program_instruction_condition_param import (
     SolanaProgramInstructionConditionParam as SolanaProgramInstructionConditionParam,
@@ -865,11 +1109,26 @@ from .spark_get_static_deposit_address_rpc_input import (
 from .transaction_provider_error_webhook_payload import (
     TransactionProviderErrorWebhookPayload as TransactionProviderErrorWebhookPayload,
 )
+from .usage_ata_deposit_recorded_webhook_payload import (
+    UsageAtaDepositRecordedWebhookPayload as UsageAtaDepositRecordedWebhookPayload,
+)
 from .wallet_action_swap_created_webhook_payload import (
     WalletActionSwapCreatedWebhookPayload as WalletActionSwapCreatedWebhookPayload,
 )
+from .wallet_automation_attachment_list_response import (
+    WalletAutomationAttachmentListResponse as WalletAutomationAttachmentListResponse,
+)
 from .wallet_create_wallets_with_recovery_params import (
     WalletCreateWalletsWithRecoveryParams as WalletCreateWalletsWithRecoveryParams,
+)
+from .automation_asset_filter_input_exclude_param import (
+    AutomationAssetFilterInputExcludeParam as AutomationAssetFilterInputExcludeParam,
+)
+from .automation_asset_filter_input_include_param import (
+    AutomationAssetFilterInputIncludeParam as AutomationAssetFilterInputIncludeParam,
+)
+from .condition_set_intent_delete_request_details import (
+    ConditionSetIntentDeleteRequestDetails as ConditionSetIntentDeleteRequestDetails,
 )
 from .ethereum_7702_authorization_condition_param import (
     Ethereum7702AuthorizationConditionParam as Ethereum7702AuthorizationConditionParam,
@@ -928,6 +1187,9 @@ from .wallet_entity_assignment_request_body_param import (
 from .ethereum_sign_user_operation_rpc_input_param import (
     EthereumSignUserOperationRpcInputParam as EthereumSignUserOperationRpcInputParam,
 )
+from .external_fiat_account_individual_owner_param import (
+    ExternalFiatAccountIndividualOwnerParam as ExternalFiatAccountIndividualOwnerParam,
+)
 from .external_fiat_account_swift_purpose_of_funds import (
     ExternalFiatAccountSwiftPurposeOfFunds as ExternalFiatAccountSwiftPurposeOfFunds,
 )
@@ -976,6 +1238,12 @@ from .xrpl_sign_transaction_rpc_input_params_param import (
 from .aptos_sign_transaction_rpc_input_params_param import (
     AptosSignTransactionRpcInputParamsParam as AptosSignTransactionRpcInputParamsParam,
 )
+from .condition_set_item_intent_delete_request_body import (
+    ConditionSetItemIntentDeleteRequestBody as ConditionSetItemIntentDeleteRequestBody,
+)
+from .crypto_deposit_account_config_search_response import (
+    CryptoDepositAccountConfigSearchResponse as CryptoDepositAccountConfigSearchResponse,
+)
 from .ethereum_personal_sign_rpc_input_params_param import (
     EthereumPersonalSignRpcInputParamsParam as EthereumPersonalSignRpcInputParamsParam,
 )
@@ -1009,6 +1277,9 @@ from .wallet_action_transfer_failed_webhook_payload import (
 from .ethereum_sign_user_operation_rpc_response_data import (
     EthereumSignUserOperationRpcResponseData as EthereumSignUserOperationRpcResponseData,
 )
+from .get_crypto_deposit_account_next_order_response import (
+    GetCryptoDepositAccountNextOrderResponse as GetCryptoDepositAccountNextOrderResponse,
+)
 from .kraken_embed_portfolio_transaction_ref_id_type import (
     KrakenEmbedPortfolioTransactionRefIDType as KrakenEmbedPortfolioTransactionRefIDType,
 )
@@ -1033,9 +1304,6 @@ from .spark_sign_message_with_identity_key_rpc_input import (
 from .transaction_execution_reverted_webhook_payload import (
     TransactionExecutionRevertedWebhookPayload as TransactionExecutionRevertedWebhookPayload,
 )
-from .usage_cross_chain_fee_recorded_webhook_payload import (
-    UsageCrossChainFeeRecordedWebhookPayload as UsageCrossChainFeeRecordedWebhookPayload,
-)
 from .usage_gas_sponsorship_recorded_webhook_payload import (
     UsageGasSponsorshipRecordedWebhookPayload as UsageGasSponsorshipRecordedWebhookPayload,
 )
@@ -1057,6 +1325,15 @@ from .spark_get_withdrawal_fee_quote_rpc_input_params import (
 from .wallet_action_transfer_rejected_webhook_payload import (
     WalletActionTransferRejectedWebhookPayload as WalletActionTransferRejectedWebhookPayload,
 )
+from .condition_set_item_intent_create_request_details import (
+    ConditionSetItemIntentCreateRequestDetails as ConditionSetItemIntentCreateRequestDetails,
+)
+from .condition_set_item_intent_delete_request_details import (
+    ConditionSetItemIntentDeleteRequestDetails as ConditionSetItemIntentDeleteRequestDetails,
+)
+from .condition_set_item_intent_update_request_details import (
+    ConditionSetItemIntentUpdateRequestDetails as ConditionSetItemIntentUpdateRequestDetails,
+)
 from .create_crypto_deposit_account_request_body_param import (
     CreateCryptoDepositAccountRequestBodyParam as CreateCryptoDepositAccountRequestBodyParam,
 )
@@ -1075,6 +1352,9 @@ from .ethereum_sign_transaction_rpc_input_params_param import (
 from .kraken_embed_include_current_day_pnl_query_param import (
     KrakenEmbedIncludeCurrentDayPnlQueryParam as KrakenEmbedIncludeCurrentDayPnlQueryParam,
 )
+from .organization_default_wallet_configurations_param import (
+    OrganizationDefaultWalletConfigurationsParam as OrganizationDefaultWalletConfigurationsParam,
+)
 from .solana_sign_and_send_transaction_rpc_input_param import (
     SolanaSignAndSendTransactionRpcInputParam as SolanaSignAndSendTransactionRpcInputParam,
 )
@@ -1087,8 +1367,14 @@ from .solana_token_program_instruction_condition_param import (
 from .spark_get_static_deposit_address_rpc_input_param import (
     SparkGetStaticDepositAddressRpcInputParam as SparkGetStaticDepositAddressRpcInputParam,
 )
+from .usage_swap_provider_fee_recorded_webhook_payload import (
+    UsageSwapProviderFeeRecordedWebhookPayload as UsageSwapProviderFeeRecordedWebhookPayload,
+)
 from .wallet_action_transfer_succeeded_webhook_payload import (
     WalletActionTransferSucceededWebhookPayload as WalletActionTransferSucceededWebhookPayload,
+)
+from .automation_earn_deposit_action_config_input_param import (
+    AutomationEarnDepositActionConfigInputParam as AutomationEarnDepositActionConfigInputParam,
 )
 from .ethereum_sign_7702_authorization_rpc_input_params import (
     EthereumSign7702AuthorizationRpcInputParams as EthereumSign7702AuthorizationRpcInputParams,
@@ -1120,6 +1406,9 @@ from .spark_sign_message_with_identity_key_rpc_response import (
 from .wallet_action_earn_deposit_failed_webhook_payload import (
     WalletActionEarnDepositFailedWebhookPayload as WalletActionEarnDepositFailedWebhookPayload,
 )
+from .wallet_action_tmmf_deposit_failed_webhook_payload import (
+    WalletActionTmmfDepositFailedWebhookPayload as WalletActionTmmfDepositFailedWebhookPayload,
+)
 from .ethereum_sign_7702_authorization_rpc_response_data import (
     EthereumSign7702AuthorizationRpcResponseData as EthereumSign7702AuthorizationRpcResponseData,
 )
@@ -1138,6 +1427,12 @@ from .wallet_action_earn_deposit_created_webhook_payload import (
 from .wallet_action_earn_withdraw_failed_webhook_payload import (
     WalletActionEarnWithdrawFailedWebhookPayload as WalletActionEarnWithdrawFailedWebhookPayload,
 )
+from .wallet_action_tmmf_deposit_created_webhook_payload import (
+    WalletActionTmmfDepositCreatedWebhookPayload as WalletActionTmmfDepositCreatedWebhookPayload,
+)
+from .wallet_action_tmmf_withdraw_failed_webhook_payload import (
+    WalletActionTmmfWithdrawFailedWebhookPayload as WalletActionTmmfWithdrawFailedWebhookPayload,
+)
 from .ethereum_sign_user_operation_rpc_input_params_param import (
     EthereumSignUserOperationRpcInputParamsParam as EthereumSignUserOperationRpcInputParamsParam,
 )
@@ -1149,6 +1444,12 @@ from .wallet_action_earn_deposit_rejected_webhook_payload import (
 )
 from .wallet_action_earn_withdraw_created_webhook_payload import (
     WalletActionEarnWithdrawCreatedWebhookPayload as WalletActionEarnWithdrawCreatedWebhookPayload,
+)
+from .wallet_action_tmmf_deposit_rejected_webhook_payload import (
+    WalletActionTmmfDepositRejectedWebhookPayload as WalletActionTmmfDepositRejectedWebhookPayload,
+)
+from .wallet_action_tmmf_withdraw_created_webhook_payload import (
+    WalletActionTmmfWithdrawCreatedWebhookPayload as WalletActionTmmfWithdrawCreatedWebhookPayload,
 )
 from .wallet_deposit_account_deposit_failed_webhook_event import (
     WalletDepositAccountDepositFailedWebhookEvent as WalletDepositAccountDepositFailedWebhookEvent,
@@ -1167,6 +1468,12 @@ from .wallet_action_earn_deposit_succeeded_webhook_payload import (
 )
 from .wallet_action_earn_withdraw_rejected_webhook_payload import (
     WalletActionEarnWithdrawRejectedWebhookPayload as WalletActionEarnWithdrawRejectedWebhookPayload,
+)
+from .wallet_action_tmmf_deposit_succeeded_webhook_payload import (
+    WalletActionTmmfDepositSucceededWebhookPayload as WalletActionTmmfDepositSucceededWebhookPayload,
+)
+from .wallet_action_tmmf_withdraw_rejected_webhook_payload import (
+    WalletActionTmmfWithdrawRejectedWebhookPayload as WalletActionTmmfWithdrawRejectedWebhookPayload,
 )
 from .wallet_deposit_account_deposit_started_webhook_event import (
     WalletDepositAccountDepositStartedWebhookEvent as WalletDepositAccountDepositStartedWebhookEvent,
@@ -1189,6 +1496,9 @@ from .wallet_action_earn_fee_collect_failed_webhook_payload import (
 from .wallet_action_earn_withdraw_succeeded_webhook_payload import (
     WalletActionEarnWithdrawSucceededWebhookPayload as WalletActionEarnWithdrawSucceededWebhookPayload,
 )
+from .wallet_action_tmmf_withdraw_succeeded_webhook_payload import (
+    WalletActionTmmfWithdrawSucceededWebhookPayload as WalletActionTmmfWithdrawSucceededWebhookPayload,
+)
 from .spark_get_claim_static_deposit_quote_rpc_response_data import (
     SparkGetClaimStaticDepositQuoteRpcResponseData as SparkGetClaimStaticDepositQuoteRpcResponseData,
 )
@@ -1203,6 +1513,9 @@ from .wallet_deposit_account_deposit_completed_webhook_event import (
 )
 from .ethereum_sign_7702_authorization_rpc_input_params_param import (
     EthereumSign7702AuthorizationRpcInputParamsParam as EthereumSign7702AuthorizationRpcInputParamsParam,
+)
+from .organization_default_wallet_configurations_update_param import (
+    OrganizationDefaultWalletConfigurationsUpdateParam as OrganizationDefaultWalletConfigurationsUpdateParam,
 )
 from .solana_sign_and_send_transaction_rpc_input_params_param import (
     SolanaSignAndSendTransactionRpcInputParamsParam as SolanaSignAndSendTransactionRpcInputParamsParam,

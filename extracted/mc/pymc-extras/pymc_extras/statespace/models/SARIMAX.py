@@ -206,6 +206,7 @@ class BayesianSARIMAX(PyMCStateSpace):
         mode: str | Mode | None = None,
         cov_jitter: float = JITTER_DEFAULT,
         missing_fill_value: float = MISSING_FILL,
+        use_joseph_form: bool = False,
     ):
         """
         Initialize a BayesianSARIMAX model.
@@ -282,13 +283,20 @@ class BayesianSARIMAX(PyMCStateSpace):
             to all sampling methods.
 
         cov_jitter : float, optional
-            Jitter added to the diagonal of every covariance matrix at each filtering step, for numerical
-            stability. Post-estimation graphs are built with this same value. Default 1e-8, or 1e-6 if
+            Jitter added to the diagonal of the observation noise covariance, and of any other
+            covariance matrix the filter or smoother factors, for systems where one can be singular.
+            Post-estimation graphs are built with this same value. Default 1e-8, or 1e-6 if
             ``pytensor.config.floatX`` is float32.
 
         missing_fill_value : float, optional
             Sentinel used to mask missing observations. Set this only if your data legitimately contains the
             default sentinel. Post-estimation graphs are built with this same value. Default -9999.0.
+        use_joseph_form : bool, optional
+            If True, update the filtered covariance with the Joseph form, which is PSD by
+            construction but costs ``O(k_states^3)`` per step. The default update carries rounding
+            error of order ``eps * max(P)``, so use this when ``Q`` and ``H`` are not large next to
+            that, as with a diffuse ``P0`` at float32. Only the "standard" and "convergent" filters
+            take it. Post-estimation graphs are built with this same form. Default False.
         """
         # Model order
         self.p, self.d, self.q = order
@@ -358,6 +366,7 @@ class BayesianSARIMAX(PyMCStateSpace):
             mode=mode,
             cov_jitter=cov_jitter,
             missing_fill_value=missing_fill_value,
+            use_joseph_form=use_joseph_form,
         )
 
     def set_parameters(self) -> Parameter | tuple[Parameter, ...] | None:
@@ -541,23 +550,29 @@ class BayesianSARIMAX(PyMCStateSpace):
 
         return x0, P0
 
-    def make_likelihood(self, data, matrices, dims, missing):
+    def make_likelihood(self, data, matrices, dims, missing, loglikelihood_burn=0):
         """
         Register a :class:`~pymc_extras.statespace.filters.distributions.StationaryVAR`.
 
         The closed form covers a pure autoregression, seasonal or not, with no measurement error,
         a stationary initialization -- which also rules out differencing, since the two cannot be
         combined -- and at most a constant trend. Anything else is filtered, including data with
-        missing values, which only the filter marginalizes.
+        missing values, which only the filter marginalizes, and a nonzero ``loglikelihood_burn``.
         """
-        if self.q > 0 or self.Q > 0 or self.p + self.P == 0 or self.measurement_error:
-            return super().make_likelihood(data, matrices, dims, missing)
-        if not self.stationary_initialization or self.state_structure != "fast":
-            return super().make_likelihood(data, matrices, dims, missing)
-        if self.trend_powers not in ((), (0,)):
-            return super().make_likelihood(data, matrices, dims, missing)
-        if missing.any():
-            return super().make_likelihood(data, matrices, dims, missing)
+        if (
+            self.q > 0
+            or self.Q > 0
+            or self.p + self.P == 0
+            or self.measurement_error
+            or not self.stationary_initialization
+            or self.state_structure != "fast"
+            or self.trend_powers not in ((), (0,))
+            or missing.any()
+            or loglikelihood_burn
+        ):
+            return super().make_likelihood(
+                data, matrices, dims, missing, loglikelihood_burn=loglikelihood_burn
+            )
 
         pymc_model = modelcontext(None)
         *_, transition, _, _, _, state_cov = matrices

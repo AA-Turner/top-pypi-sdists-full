@@ -12,7 +12,7 @@ the robot knows the number before it sends.
 An observation's says too what a robot can do now to send camera frames smaller, sequence_ai.Video, and nothing of what
 the platform may do with observations later.
 
-WHY one threshold: a policy's inputs are its own (the robot-arm preset and the cameras it declared went with train bt),
+WHY one threshold: a policy's inputs are its own (the robot-arm preset and the cameras it declared are gone),
 so nothing declares what a policy reads of them to hold one to.
 
 """

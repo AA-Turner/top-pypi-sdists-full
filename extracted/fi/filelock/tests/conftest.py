@@ -14,10 +14,11 @@ from typing import TYPE_CHECKING, Final, TypeVar
 import pytest
 from capabilities import CAPABILITIES
 
-import filelock._identity
+import filelock._identity  # simplint: ignore[private-import-path]  # tests internal behavior
 from filelock import BaseFileLock, MarkerSoftFileLock, SoftFileLease, SoftFileLock, Timeout
 from filelock._identity import host_name
 from tests.descriptor_helpers import descriptors_on
+from tests.fork_helpers import exit_child
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -33,6 +34,28 @@ os.environ["PYTHONPATH"] = os.pathsep.join(
 _LockT = TypeVar("_LockT", bound=BaseFileLock)
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    if sys.implementation.name == "graalpy":  # pragma: no cover  # only GraalPy's semaphore finalizer raises this
+        # GraalPy keeps a fork-context semaphore's name after the immediate unlink, so its finalizer unlinks it again
+        # and fails with ENOENT. The warning text carries the traceback, so only that cleanup's ENOENT is ignored.
+        # Upstream: https://github.com/oracle/graalpython/issues/1316
+        config.addinivalue_line(
+            "filterwarnings",
+            "ignore:(?s)Exception ignored in.+<Finalize object, dead>.+ in _cleanup\\n.+FileNotFoundError"
+            ":pytest.PytestUnraisableExceptionWarning",
+        )
+
+
+@contextmanager
+def held_after_reclaim(lock: _LockT) -> Generator[_LockT]:
+    # Hold *lock* through :func:`acquire_after_reclaim` and release it on exit.
+    acquire_after_reclaim(lock)
+    try:
+        yield lock
+    finally:
+        lock.release()
+
+
 def acquire_after_reclaim(lock: BaseFileLock) -> None:
     # Take a path whose stale marker the lock has to break first, without a wall-clock budget.
     #
@@ -46,16 +69,6 @@ def acquire_after_reclaim(lock: BaseFileLock) -> None:
             return
 
 
-@contextmanager
-def held_after_reclaim(lock: _LockT) -> Generator[_LockT]:
-    # Hold *lock* through :func:`acquire_after_reclaim` and release it on exit.
-    acquire_after_reclaim(lock)
-    try:
-        yield lock
-    finally:
-        lock.release()
-
-
 def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     # StrictSoftFileLock publishes claims with hard links, so tests marked requires_hard_links cannot run where
     # os.link is missing (Termux/Android CPython ships without it). The no-hard-link degradation itself is covered by
@@ -65,6 +78,17 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         for item in items:
             if item.get_closest_marker("requires_hard_links") is not None:
                 item.add_marker(skip)
+
+
+# Captured at import, before any test forks, so a fork child can tell it is not the session.
+_SESSION_PID: Final[int] = os.getpid()
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]) -> None:  # pragma: needs fork
+    if (pid := os.getpid()) != _SESSION_PID:
+        os.write(2, f"fork child {pid} escaped into pytest at {item.nodeid} ({call.when})\n".encode())
+        exit_child(70)
 
 
 @pytest.fixture(autouse=True, scope="session")

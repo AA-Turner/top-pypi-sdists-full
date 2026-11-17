@@ -16,6 +16,7 @@ _PIECES = (
     "probe.sdk.client.resources.artifacts",
     "probe.sdk.client.resources.auth",
     "probe.sdk.client.resources.catalog",
+    "probe.sdk.client.resources.decisions.decisions",
     "probe.sdk.client.resources.delivery",
     "probe.sdk.client.resources.runs.edits",
     "probe.sdk.client.resources.runs.commands",
@@ -240,6 +241,14 @@ _HOMES = {
     "KeyMetricsView": "probe.sdk.client.resources.projects.pins",
     "ParallelView": "probe.sdk.client.resources.projects.pins",
     "Pin": "probe.sdk.client.resources.projects.pins",
+    # probe.sdk.client.resources.decisions.decisions: a decision to record (decisions PR2)
+    "DecidedBy": "probe.sdk.client.resources.decisions.decisions",
+    "DecisionFieldError": "probe.sdk.client.resources.decisions.decisions",
+    "DecisionTarget": "probe.sdk.client.resources.decisions.decisions",
+    "NewDecision": "probe.sdk.client.resources.decisions.decisions",
+    "TargetEffect": "probe.sdk.client.resources.decisions.decisions",
+    "TargetType": "probe.sdk.client.resources.decisions.decisions",
+    "is_decisions_off": "probe.sdk.client.resources.decisions.decisions",
     # probe.sdk.client.resources.projects.summaries
     "_PREDATES_SUMMARIES": "probe.sdk.client.resources.projects.summaries",
     # probe.sdk.client.resources.projects.projects

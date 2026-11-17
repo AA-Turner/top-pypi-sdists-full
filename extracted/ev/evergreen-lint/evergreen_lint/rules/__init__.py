@@ -11,13 +11,16 @@ from evergreen_lint.rules.commonsense import (
     ShellExecExplicitShell,
 )
 from evergreen_lint.rules.dependency_for_func import DependencyForFunc
+from evergreen_lint.rules.enforce_tag_groups_for_variants import (
+    EnforceTagGroupsForVariants,
+)
 from evergreen_lint.rules.enforce_tags_for_tasks import EnforceTagsForTasks
 from evergreen_lint.rules.enforce_tags_for_variants import EnforceTagsForVariants
-from evergreen_lint.rules.forbid_tasks_with_tag_on_variants import (
-    ForbidTasksWithTagOnVariants,
-)
 from evergreen_lint.rules.enforce_tasks_distro_with_special_tag import (
     EnforceTasksDistroWithSpecialTag,
+)
+from evergreen_lint.rules.forbid_tasks_with_tag_on_variants import (
+    ForbidTasksWithTagOnVariants,
 )
 from evergreen_lint.rules.invalid_build_parameter import InvalidBuildParameter
 from evergreen_lint.rules.required_expansions_write import RequiredExpansionsWrite
@@ -37,6 +40,7 @@ RULES: Dict[str, Type[Rule]] = {
     "tasks-for-variants": TasksForVariants,
     "enforce-tags-for-tasks": EnforceTagsForTasks,
     "enforce-tags-for-variants": EnforceTagsForVariants,
+    "enforce-tag-groups-for-variants": EnforceTagGroupsForVariants,
     "variant-expansions": VariantExpansions,
     "forbid-tasks-with-tag-on-variants": ForbidTasksWithTagOnVariants,
     "enforce-tasks-distro-with-special-tag": EnforceTasksDistroWithSpecialTag,

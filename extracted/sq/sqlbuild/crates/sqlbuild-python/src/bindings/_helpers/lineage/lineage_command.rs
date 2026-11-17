@@ -1,5 +1,6 @@
 //! `sqb lineage`: load or build the relation graph, select lineage, and print it.
 
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -31,21 +32,6 @@ use sqlbuild_analysis::lineage_command::models::{
 };
 use sqlbuild_core::cli_text::models::CliStyle;
 
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::project::build_project_graph;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::lineage::lineage_cache::{
-    lineage_fingerprint, read_lineage_cache, write_lineage_cache,
-};
-use crate::bindings::_helpers::lineage::lineage_index::{graph_index, index_views, lineage_keys};
-use crate::bindings::_helpers::lineage::project_lineage::build_direct_semantic_uses;
-use crate::bindings::_helpers::planner_selection::selectors::resolve_project_selector_tokens;
-use crate::bindings::_helpers::planner_selection::selectors::resolve_project_selectors;
-use crate::bindings::_helpers::planner_selection::selectors::select_project_graph;
-use crate::bindings::_helpers::planner_selection::selectors::{
-    match_project_selector, parse_project_selector,
-};
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
 use sqlbuild_python_base::build_progress::main::transient_status::maybe_status::maybe_status;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
 use sqlbuild_python_base::presentation_text::main::stdout_supports_color::stdout_supports_color;
@@ -56,6 +42,22 @@ use sqlbuild_python_base::records::main::registry::native_attr::native_attr;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::NativeAttr;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_graph::build_project_graph;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_compile::lineage::main::build_direct_semantic_uses::build_direct_semantic_uses;
+use sqlbuild_python_compile::lineage::main::graph_index::graph_index;
+use sqlbuild_python_compile::lineage::main::index_views::index_views;
+use sqlbuild_python_compile::lineage::main::lineage_fingerprint::lineage_fingerprint;
+use sqlbuild_python_compile::lineage::main::lineage_keys::lineage_keys;
+use sqlbuild_python_compile::lineage::main::read_lineage_cache::read_lineage_cache;
+use sqlbuild_python_compile::lineage::main::write_lineage_cache::write_lineage_cache;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_project::planner_selection::main::match_project_selector::match_project_selector;
+use sqlbuild_python_project::planner_selection::main::parse_project_selector::parse_project_selector;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
+use sqlbuild_python_project::planner_selection::main::resolve_project_selector_tokens::resolve_project_selector_tokens;
+use sqlbuild_python_project::planner_selection::main::resolve_project_selectors::resolve_project_selectors;
+use sqlbuild_python_project::planner_selection::main::select_project_graph::select_project_graph;
 
 const UNKNOWN_SELECTOR_ERROR_CODE: &str = "S007";
 const RICH_MODE: &str = "rich";
@@ -102,16 +104,12 @@ fn keywords<'py>(
 
 /// `CliUserError(message, code=..., help=...)`.
 fn user_error(py: Python<'_>, error: LineageError) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", error.code)?;
-        options.set_item("help", error.help)?;
-        error_class(py, ErrorId::CliUser)?.call((error.message,), Some(&options))
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        &error.message,
+        (Some(error.code), error.help.as_deref()),
+    )
 }
 
 fn strings(value: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {

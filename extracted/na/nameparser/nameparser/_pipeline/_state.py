@@ -33,10 +33,20 @@ if TYPE_CHECKING:
     from nameparser._pipeline._pieces import TailRead
 
 
-# The comma characters (ASCII/Arabic/fullwidth, #265). Shared here so
-# tokenize (separators/segmentation) and extract (close-quote
-# boundaries) cannot drift apart.
-COMMA_CHARS = frozenset({",", "\u060c", "\uff0c"})
+# The comma characters (ASCII/Arabic/fullwidth, #265; Ethiopic and
+# Burmese, #1202; N'Ko, Mongolian, Manchu, Lisu, Vai and Bamum, #1202's
+# follow-up -- not the Armenian U+055D, which is no comma, decisions/C1).
+# Shared here so tokenize (separators/segmentation), extract
+# (close-quote boundaries, a listed particle's word end) and _vocab
+# cannot drift apart.
+COMMA_CHARS = frozenset({",", "\u060c", "\uff0c", "\u1363", "\u104a",
+                         "\u07f8", "\u1802", "\u1808", "\ua4fe",
+                         "\ua60d", "\ua6f5"})
+#: The same characters as one string, for str.strip: a word of a
+#: set-apart clause keeps the comma written against it (rules/N1), and
+#: every site reading that word without it strips this, so a clause
+#: reads alike whichever script's comma divides it (decisions/C1, #1202).
+COMMA_STRIP = "".join(sorted(COMMA_CHARS))
 
 
 def comma_bucket(start: int, comma_offsets: Sequence[int]) -> int:
@@ -178,10 +188,9 @@ TITLE_AMBIGUOUS_TAG = "vocab:title-ambiguous"
 #: Written by classify on every occurrence of a word of
 #: `Lexicon.titles_ambiguous` whose title reading is written short
 #: (`Lexicon.title_abbreviations`, `maj`), whichever way the phrase
-#: test read it; read by rules/H5's trailing chain
-#: (`_pieces.trailing_titles`, `is_trailing_title_word`), which takes
-#: the word where it wears the abbreviation shape, by `_pieces._weighed`
-#: and by group's P5 decline. Dropped from the published token like
+#: test read it; read by classify's CHAIN_TITLE_TAG below, rules/H5's
+#: trailing chain taking the word where it wears the abbreviation
+#: shape, and by group's P5 decline. Dropped from the published token like
 #: the kind tags above; the published token keeps TITLE_AMBIGUOUS_TAG.
 TRAILING_TITLE_TAG = "vocab:trailing-title"
 
@@ -191,12 +200,35 @@ TRAILING_TITLE_TAG = "vocab:trailing-title"
 #: 'Priv.-Doz'), and on a word with interior periods every chunk of
 #: which is a title ('Lt.Gov', #1131), never on one read as a title
 #: through some chunk only ('Dr.PhD', 'St.John') nor on one a hyphen
-#: alone joins ('Co-Founder'); read by
-#: rules/H5's trailing chain (`_pieces.trailing_titles`,
-#: `is_trailing_title_word`), which takes it without a final period,
-#: by `_pieces._weighed` and by P13's trailing title (#1104). Dropped
-#: from the published token like the kind tags above.
+#: alone joins ('Co-Founder'); read by classify's CHAIN_TITLE_TAG
+#: below, rules/H5's trailing chain taking it without a final period
+#: (#1104). Dropped from the published token like the kind tags above.
 JOINED_TITLE_TAG = "vocab:joined-title"
+
+#: Written by classify, after rules/H9's phrase test has settled which
+#: words keep "vocab:title", on every word rules/H5's trailing chain
+#: takes: a word carrying JOINED_TITLE_TAG, or one wearing the trailing
+#: abbreviation shape (`_vocab._TRAILING_TITLE_SHAPE`) that carries
+#: "vocab:title" or TRAILING_TITLE_TAG. The one statement of that test,
+#: read as a set membership by the chain (`_pieces.trailing_titles`),
+#: by its one-word form (`_pieces.is_trailing_title_word`, which the
+#: maiden take and P13's walk back ask) and by `_pieces._weighed`
+#: (#1171). Whether the word stands where the chain reaches is the
+#: reader's question. Dropped from the published token like the kind
+#: tags above.
+CHAIN_TITLE_TAG = "vocab:chain-title"
+
+#: On a run of two or more single letters joined by full stops whose
+#: spelling without them is a title written `dotted`
+#: (`Lexicon.dotted_titles`: 'U.S.', 'P.D.', #490), a word the
+#: vocabulary does not list as a title as written: rules/H10's two
+#: title runs at the head of a part, the given part's
+#: (`_pieces.leading_titles`) and H6's before a family comma (assign),
+#: take it as a title only where a title the run keeps stands behind it,
+#: so 'U.S. Grant' stays a name; classify's H9 fold and assemble's
+#: reading source read it too, and C4's count (`_vocab.name_word_count`)
+#: asks the same question without it.
+DOTTED_TITLE_TAG = "vocab:dotted-title"
 
 #: On a word of `Lexicon.given_name_abbreviations`, a given name written
 #: short ('Chas.', 'Ma.'): rules/H2's shape test declines a word
@@ -225,6 +257,11 @@ PARTICLE_GIVEN_TAG = "vocab:particle-given"
 #: group leaves it only on a pair it joined. Dropped
 #: from the published token like the kind tags above (#694).
 BOUND_PHRASE_TAG = "vocab:bound-phrase"
+#: rules/O9 ("the capitals settle the field"): a word in capitals that
+#: Policy.capitals_as_family read as the family, written by post_rules,
+#: so assemble reads its reading as the shape's (a word in capitals)
+#: rather than its position's.
+CAPITALS_FAMILY_TAG = "capitals-family"
 
 #: EITHER way a token joins the ambiguous credential class -- the
 #: vocabulary's claim and the writing's. The two emitters that report
@@ -370,14 +407,15 @@ class ParseState:
     """Carried through the stage fold. Frozen; stages return copies via
     copy_with. Fields are filled progressively:
     extract_delimited -> extracted/masked; tokenize -> tokens (span-
-    sorted)/comma_offsets/interpunct_offsets (the 间隔号 offsets the
+    sorted)/comma_offsets/interpunct_offsets (the 间隔号 and fullwidth-stop offsets the
     order and segmentation decisions consult, #298; the nakaguro
     separators record NOTHING); segment -> segments/structure/one_case
     (lazily, only where C2's flag asks for it -- #289/#516, #613);
     script_segment -> tokens and segments again (the one stage that
-    changes the token COUNT: an unspaced CJK token splits into n+1
-    pieces, still as sub-slices of the original, and every later index
-    in the segment runs shifts by n); classify -> token tags AND
+    changes the token COUNT: an unspaced CJK token, or a word glued at
+    its full stop before any comma (rules/T8), splits into n+1 pieces,
+    still as sub-slices of the original, and every later index in the
+    segment runs shifts by n); classify -> token tags AND
     one_case; group -> structure (its head decides a comma form, #613)
     AND the SUFFIX/TITLE roles of a postnominal part after the comma,
     whose segment it empties so no join reaches it,

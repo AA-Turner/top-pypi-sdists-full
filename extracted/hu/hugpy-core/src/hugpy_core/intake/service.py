@@ -83,8 +83,13 @@ def presence(worker, state, models, storage=None, resources=None):
     if isinstance(storage, dict):
         payload['storage'] = storage
     if isinstance(resources, dict):
+        # Core holds no model of the worker's host; it carries the Wrapper's live resources report through
+        # to the console unchanged (operator 2026-11-16: "core needs to be reflecting the wrappers
+        # telemetry … it should have no reason to derive its own aggregation of its resources"). `transfers`
+        # (central→worker copies in flight, and ones ended in the last 60 s) rides along so the console can
+        # show a downloading model from the Wrapper's own done_bytes/total_bytes/started_at.
         payload['resources'] = {key: resources[key] for key in (
-            'host_state', 'cpu_state', 'gpu_state', 'process_state', 'residents',
+            'host_state', 'cpu_state', 'gpu_state', 'process_state', 'residents', 'transfers',
             'cards', 'gpu_policy', 'queue', 'sampled_at', 'active_requests') if key in resources}
         payload['cards'] = resources.get('cards') or []
         payload['gpu_policy'] = resources.get('gpu_policy') or {}
@@ -169,6 +174,12 @@ def collect(worker, since=-1, wait=30):
         if 'pair_settings' in ((payload.get('data_service') or {}).get('paths') or {}):
             from hugpy_core.intake.wrapper_settings import apply_report
             apply_report(conn, name, state.get("pair_settings"))
+        # Reflect the Wrapper's per-model feasibility verdict (possible /
+        # possible_reason on its /v1/models rows) into the pair's auto_blocked, in
+        # this same transaction: an impossible model is auto-blocked to the worker
+        # so routing (blocked_worker_ids) never calls it. Core only mirrors it.
+        from hugpy_core.models.modeldb import reflect_feasibility
+        reflect_feasibility(conn, name, models)
         conn.execute('INSERT INTO worker_presence(worker,payload) VALUES (%s,%s) '
                      'ON CONFLICT(worker) DO UPDATE SET payload=EXCLUDED.payload, observed_at=now()',
                      (name, Jsonb(mirror.without_nul(payload))))

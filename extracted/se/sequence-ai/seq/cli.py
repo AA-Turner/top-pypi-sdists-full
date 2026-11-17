@@ -135,13 +135,8 @@ _LIST_TITLES = {"fits": "adapters in your account that declare this pair:"}
 
 
 
-_LIST_LINES = {"counts": "cards a machine holds"}
 
-
-def _or(items: list) -> str:
-    """A list in words, as the gateway says one: "1", "1 or 4", "1, 2, 4 or 8"."""
-    said = [str(x) for x in items]
-    return said[0] if len(said) == 1 else f"{', '.join(said[:-1])} or {said[-1]}"
+_SAID = {"counts"}
 
 
 
@@ -196,8 +191,8 @@ def _own_flags(exc: BaseException, command: str | None) -> str | None:
 
 def _report(exc: BaseException, command: str | None = None) -> int:
     """How every failed command ends, on stderr: `error[<code>]: <detail>`, the
-    lists the platform named (each under its title where one is known: _LIST_TITLES, or on one line after what it is:
-    _LIST_LINES), a `hint:` line when there is one and another in this CLI's own flags (_OWN_FLAGS), `request_id:`
+    lists the platform named (each under its title where one is known: _LIST_TITLES; none its sentence already says:
+    _SAID), a `hint:` line when there is one and another in this CLI's own flags (_OWN_FLAGS), `request_id:`
     for a 500 — and the exit code of the code's
     row (1 internal, 2 the request, 3 the key, 4 not there or gone, 5 the state, 6 money, 7 worth retrying), so a script
     tells retry from give up without reading the text. A declaration error is the request's (2)."""
@@ -207,10 +202,9 @@ def _report(exc: BaseException, command: str | None = None) -> int:
 
     print(f"error[{code}]: {getattr(exc, 'message', None) or exc}", file=sys.stderr)
     for key, items in (getattr(exc, "details", None) or {}).items():
+        if key in _SAID:
+            continue
         if isinstance(items, list) and all(isinstance(x, (str, int, float)) for x in items):
-            if items and key in _LIST_LINES:
-                print(f"{_LIST_LINES[key]}: {_or(items)}", file=sys.stderr)
-                continue
             if items and key in _LIST_TITLES:
                 print(_LIST_TITLES[key], file=sys.stderr)
             for x in items:

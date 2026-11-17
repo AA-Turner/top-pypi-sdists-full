@@ -12,20 +12,26 @@ Usage::
 
     from mypy_boto3_networkflowmonitor.client import NetworkFlowMonitorClient
     from mypy_boto3_networkflowmonitor.paginator import (
+        GetMonitorScopeSuggestionsPaginator,
         GetQueryResultsMonitorTopContributorsPaginator,
+        GetQueryResultsPerformanceMonitorPaginator,
         GetQueryResultsWorkloadInsightsTopContributorsDataPaginator,
         GetQueryResultsWorkloadInsightsTopContributorsPaginator,
         ListMonitorsPaginator,
+        ListPerformanceMonitorsPaginator,
         ListScopesPaginator,
     )
 
     session = Session()
     client: NetworkFlowMonitorClient = session.client("networkflowmonitor")
 
+    get_monitor_scope_suggestions_paginator: GetMonitorScopeSuggestionsPaginator = client.get_paginator("get_monitor_scope_suggestions")
     get_query_results_monitor_top_contributors_paginator: GetQueryResultsMonitorTopContributorsPaginator = client.get_paginator("get_query_results_monitor_top_contributors")
+    get_query_results_performance_monitor_paginator: GetQueryResultsPerformanceMonitorPaginator = client.get_paginator("get_query_results_performance_monitor")
     get_query_results_workload_insights_top_contributors_data_paginator: GetQueryResultsWorkloadInsightsTopContributorsDataPaginator = client.get_paginator("get_query_results_workload_insights_top_contributors_data")
     get_query_results_workload_insights_top_contributors_paginator: GetQueryResultsWorkloadInsightsTopContributorsPaginator = client.get_paginator("get_query_results_workload_insights_top_contributors")
     list_monitors_paginator: ListMonitorsPaginator = client.get_paginator("list_monitors")
+    list_performance_monitors_paginator: ListPerformanceMonitorsPaginator = client.get_paginator("list_performance_monitors")
     list_scopes_paginator: ListScopesPaginator = client.get_paginator("list_scopes")
     ```
 """
@@ -38,14 +44,20 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    GetMonitorScopeSuggestionsInputPaginateTypeDef,
+    GetMonitorScopeSuggestionsOutputTypeDef,
     GetQueryResultsMonitorTopContributorsInputPaginateTypeDef,
     GetQueryResultsMonitorTopContributorsOutputTypeDef,
+    GetQueryResultsPerformanceMonitorInputPaginateTypeDef,
+    GetQueryResultsPerformanceMonitorOutputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsDataInputPaginateTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsDataOutputTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsInputPaginateTypeDef,
     GetQueryResultsWorkloadInsightsTopContributorsOutputTypeDef,
     ListMonitorsInputPaginateTypeDef,
     ListMonitorsOutputTypeDef,
+    ListPerformanceMonitorsInputPaginateTypeDef,
+    ListPerformanceMonitorsOutputTypeDef,
     ListScopesInputPaginateTypeDef,
     ListScopesOutputTypeDef,
 )
@@ -56,12 +68,33 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "GetMonitorScopeSuggestionsPaginator",
     "GetQueryResultsMonitorTopContributorsPaginator",
+    "GetQueryResultsPerformanceMonitorPaginator",
     "GetQueryResultsWorkloadInsightsTopContributorsDataPaginator",
     "GetQueryResultsWorkloadInsightsTopContributorsPaginator",
     "ListMonitorsPaginator",
+    "ListPerformanceMonitorsPaginator",
     "ListScopesPaginator",
 )
+
+if TYPE_CHECKING:
+    _GetMonitorScopeSuggestionsPaginatorBase = Paginator[GetMonitorScopeSuggestionsOutputTypeDef]
+else:
+    _GetMonitorScopeSuggestionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetMonitorScopeSuggestionsPaginator(_GetMonitorScopeSuggestionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/GetMonitorScopeSuggestions.html#NetworkFlowMonitor.Paginator.GetMonitorScopeSuggestions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#getmonitorscopesuggestionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetMonitorScopeSuggestionsInputPaginateTypeDef]
+    ) -> PageIterator[GetMonitorScopeSuggestionsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/GetMonitorScopeSuggestions.html#NetworkFlowMonitor.Paginator.GetMonitorScopeSuggestions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#getmonitorscopesuggestionspaginator)
+        """
 
 if TYPE_CHECKING:
     _GetQueryResultsMonitorTopContributorsPaginatorBase = Paginator[
@@ -83,6 +116,26 @@ class GetQueryResultsMonitorTopContributorsPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/GetQueryResultsMonitorTopContributors.html#NetworkFlowMonitor.Paginator.GetQueryResultsMonitorTopContributors.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#getqueryresultsmonitortopcontributorspaginator)
+        """
+
+if TYPE_CHECKING:
+    _GetQueryResultsPerformanceMonitorPaginatorBase = Paginator[
+        GetQueryResultsPerformanceMonitorOutputTypeDef
+    ]
+else:
+    _GetQueryResultsPerformanceMonitorPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetQueryResultsPerformanceMonitorPaginator(_GetQueryResultsPerformanceMonitorPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/GetQueryResultsPerformanceMonitor.html#NetworkFlowMonitor.Paginator.GetQueryResultsPerformanceMonitor)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#getqueryresultsperformancemonitorpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetQueryResultsPerformanceMonitorInputPaginateTypeDef]
+    ) -> PageIterator[GetQueryResultsPerformanceMonitorOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/GetQueryResultsPerformanceMonitor.html#NetworkFlowMonitor.Paginator.GetQueryResultsPerformanceMonitor.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#getqueryresultsperformancemonitorpaginator)
         """
 
 if TYPE_CHECKING:
@@ -146,6 +199,24 @@ class ListMonitorsPaginator(_ListMonitorsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/ListMonitors.html#NetworkFlowMonitor.Paginator.ListMonitors.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#listmonitorspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPerformanceMonitorsPaginatorBase = Paginator[ListPerformanceMonitorsOutputTypeDef]
+else:
+    _ListPerformanceMonitorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListPerformanceMonitorsPaginator(_ListPerformanceMonitorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/ListPerformanceMonitors.html#NetworkFlowMonitor.Paginator.ListPerformanceMonitors)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#listperformancemonitorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPerformanceMonitorsInputPaginateTypeDef]
+    ) -> PageIterator[ListPerformanceMonitorsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkflowmonitor/paginator/ListPerformanceMonitors.html#NetworkFlowMonitor.Paginator.ListPerformanceMonitors.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkflowmonitor/paginators/#listperformancemonitorspaginator)
         """
 
 if TYPE_CHECKING:

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 __all__ = [
     "__version__",
     "bfloat16",
@@ -29,6 +29,7 @@ __all__ = [
     "float8_e4m3fnuz",
     "float8_e5m2",
     "float8_e5m2fnuz",
+    "float8_e5m3fnu",
     "float8_e8m0fnu",
     "iinfo",
     "int1",
@@ -37,6 +38,8 @@ __all__ = [
     "uint1",
     "uint2",
     "uint4",
+    "real",
+    "imag",
 ]
 
 from ml_dtypes._finfo import finfo
@@ -54,6 +57,7 @@ from ml_dtypes._ml_dtypes_ext import float8_e4m3fn
 from ml_dtypes._ml_dtypes_ext import float8_e4m3fnuz
 from ml_dtypes._ml_dtypes_ext import float8_e5m2
 from ml_dtypes._ml_dtypes_ext import float8_e5m2fnuz
+from ml_dtypes._ml_dtypes_ext import float8_e5m3fnu
 from ml_dtypes._ml_dtypes_ext import float8_e8m0fnu
 from ml_dtypes._ml_dtypes_ext import int1
 from ml_dtypes._ml_dtypes_ext import int2
@@ -74,6 +78,7 @@ float8_e4m3fn: type[_np.generic]
 float8_e4m3fnuz: type[_np.generic]
 float8_e5m2: type[_np.generic]
 float8_e5m2fnuz: type[_np.generic]
+float8_e5m3fnu: type[_np.generic]
 float8_e8m0fnu: type[_np.generic]
 int1: type[_np.generic]
 int2: type[_np.generic]
@@ -83,6 +88,17 @@ uint2: type[_np.generic]
 uint4: type[_np.generic]
 bcomplex32: type[_np.generic]
 complex32: type[_np.generic]
+
+bcomplex32.__doc__ = (
+    "A 4-byte complex number composed of two bfloat16 values.\n\n"
+    "On NumPy <2.5, use ml_dtypes.real() and ml_dtypes.imag() instead of "
+    "array.real and array.imag."
+)
+complex32.__doc__ = (
+    "A 4-byte complex number composed of two float16 values.\n\n"
+    "On NumPy <2.5, use ml_dtypes.real() and ml_dtypes.imag() instead of "
+    "array.real and array.imag."
+)
 
 
 def real(x: _np.ndarray) -> _np.ndarray:
@@ -131,3 +147,25 @@ def imag(x: _np.ndarray) -> _np.ndarray:
 
   # Otherwise, assume everything is OK with just using the normal `.imag`
   return x.imag
+
+
+_DLPACK_TYPES = [
+    # (DLDataTypeCode, bits) -> dtype
+    ((4, 16), bfloat16),  # kDLBfloat
+    ((18, 32), bcomplex32),  # kDLBcomplex
+    ((5, 32), complex32),  # kDLComplex
+    ((7, 8), float8_e3m4),  # kDLFloat8_e3m4
+    ((8, 8), float8_e4m3),  # kDLFloat8_e4m3
+    ((9, 8), float8_e4m3b11fnuz),  # kDLFloat8_e4m3b11fnuz
+    ((10, 8), float8_e4m3fn),  # kDLFloat8_e4m3fn
+    ((11, 8), float8_e4m3fnuz),  # kDLFloat8_e4m3fnuz
+    ((12, 8), float8_e5m2),  # kDLFloat8_e5m2
+    ((13, 8), float8_e5m2fnuz),  # kDLFloat8_e5m2fnuz
+    ((14, 8), float8_e8m0fnu),  # kDLFloat8_e8m0fnu
+]
+
+if _np.lib.NumpyVersion(_np.__version__) >= "2.5.0":
+  for _key, _dt in _DLPACK_TYPES:
+    # Note: If there is a conflicting registration, NumPy may raise a ValueError.
+    # If this ever becomes an issue in practice, consider warning or ignoring it.
+    _np.dtypes.register_dlpack_dtype(_key, _np.dtype(_dt))

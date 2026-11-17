@@ -15,15 +15,21 @@ from typing import (
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class AggregateBackfillIncrementalProgressRequest(_message.Message):
-    __slots__ = ("features", "store_offline", "store_online")
+    __slots__ = ("features", "store_offline", "store_online", "summary_horizon_companion")
     FEATURES_FIELD_NUMBER: _ClassVar[int]
     STORE_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     STORE_ONLINE_FIELD_NUMBER: _ClassVar[int]
+    SUMMARY_HORIZON_COMPANION_FIELD_NUMBER: _ClassVar[int]
     features: _containers.RepeatedScalarFieldContainer[str]
     store_offline: bool
     store_online: bool
+    summary_horizon_companion: bool
     def __init__(
-        self, features: _Optional[_Iterable[str]] = ..., store_offline: bool = ..., store_online: bool = ...
+        self,
+        features: _Optional[_Iterable[str]] = ...,
+        store_offline: bool = ...,
+        store_online: bool = ...,
+        summary_horizon_companion: bool = ...,
     ) -> None: ...
 
 class AggregateBackfillIncrementalProgressIdentifier(_message.Message):

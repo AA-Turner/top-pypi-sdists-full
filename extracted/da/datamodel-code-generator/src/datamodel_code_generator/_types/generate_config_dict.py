@@ -37,6 +37,7 @@ if TYPE_CHECKING:
         NamingStrategy,
         OpenAPIAsDefinitions,
         OpenAPIScope,
+        OpenEnums,
         ReadOnlyWriteOnlyModelType,
         ReuseScope,
         SchemaValidatorType,
@@ -68,6 +69,7 @@ class BaseGenerateConfig(TypedDict):
     emit_model_metadata: NotRequired[Path | None]
     output_model_type: NotRequired[DataModelType]
     preset: NotRequired[PresetName | None]
+    read_implied_options_from_merged_values: NotRequired[bool]
     target_python_version: NotRequired[PythonVersion]
     target_pydantic_version: NotRequired[TargetPydanticVersion | None]
     base_class: NotRequired[str]
@@ -116,6 +118,8 @@ class BaseGenerateConfig(TypedDict):
     encoding: NotRequired[str]
     enum_field_as_literal: NotRequired[LiteralType | None]
     enum_field_as_literal_map: NotRequired[dict[str, str] | None]
+    open_enums: NotRequired[OpenEnums | None]
+    open_enum_base_class_map: NotRequired[dict[str, str] | None]
     ignore_enum_constraints: NotRequired[bool]
     use_one_literal_as_default: NotRequired[bool]
     use_enum_values_in_discriminator: NotRequired[bool]
@@ -123,7 +127,10 @@ class BaseGenerateConfig(TypedDict):
     read_schema_version_per_document: NotRequired[bool]
     read_escaped_ref_pointers: NotRequired[bool]
     read_dynamic_anchors_in_document_order: NotRequired[bool]
+    read_ids_with_empty_fragment: NotRequired[bool]
+    read_single_allof_refs_in_their_documents: NotRequired[bool]
     ignore_ref_siblings_by_schema_version: NotRequired[bool]
+    read_yaml_1_1_numbers_as_text: NotRequired[bool]
     use_msgspec_tagged_unions: NotRequired[bool]
     tag_msgspec_by_payload_name: NotRequired[bool]
     use_msgspec_nullable_enum_alias: NotRequired[bool]
@@ -132,13 +139,16 @@ class BaseGenerateConfig(TypedDict):
     use_typed_map_values_beside_other_types: NotRequired[bool]
     use_single_dict_for_object_maps: NotRequired[bool]
     read_unevaluated_properties: NotRequired[bool]
+    read_kubernetes_extensions: NotRequired[bool]
     use_single_value_enum_as_const: NotRequired[bool]
     read_const_beside_enum: NotRequired[bool]
+    read_format_as_annotation: NotRequired[bool]
     filter_literal_values: NotRequired[bool]
     intersect_allof_keywords: NotRequired[bool]
     intersect_combined_schema_keywords: NotRequired[bool]
     distribute_allof_over_unions: NotRequired[bool]
     read_allof_parents_in_mro_order: NotRequired[bool]
+    read_inherited_property_schemas_in_mro_order: NotRequired[bool]
     read_nullable_beside_type_list: NotRequired[bool]
     keep_field_defaults_off_branch_roots: NotRequired[bool]
     keep_enum_member_values: NotRequired[bool]
@@ -167,6 +177,7 @@ class BaseGenerateConfig(TypedDict):
     use_title_as_name: NotRequired[bool]
     infer_union_variant_names: NotRequired[bool]
     use_tag_as_union_variant_name: NotRequired[bool]
+    infer_union_discriminators: NotRequired[bool]
     name_allof_union_members_after_branches: NotRequired[bool]
     use_operation_id_as_name: NotRequired[bool]
     use_unique_items_as_set: NotRequired[bool]
@@ -242,6 +253,7 @@ class BaseGenerateConfig(TypedDict):
     use_pendulum: NotRequired[bool]
     use_standard_primitive_types: NotRequired[bool]
     use_object_type: NotRequired[bool]
+    untyped_value_type: NotRequired[str | None]
     http_query_parameters: NotRequired[Sequence[tuple[str, str]] | None]
     treat_dot_as_module: NotRequired[bool | None]
     strict_dotted_module_names: NotRequired[bool]
@@ -271,6 +283,7 @@ class BaseGenerateConfig(TypedDict):
     type_overrides: NotRequired[dict[str, str] | None]
     type_overrides_replace_whole_type: NotRequired[bool]
     use_x_python_type_as_written: NotRequired[bool]
+    use_x_python_import_for_every_ref: NotRequired[bool]
     use_bytes_for_content_media_type: NotRequired[bool]
     use_bounds_for_float_const: NotRequired[bool]
     read_only_write_only_model_type: NotRequired[ReadOnlyWriteOnlyModelType | None]

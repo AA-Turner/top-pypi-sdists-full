@@ -45,7 +45,7 @@ mod test {
 		"<t:1234567890> <t:1234567890:R>",
 		"<:pepe:873227248453443624> <a:pepe:873227248453443624> 😀",
 		"https://example.com/ [text](https://example.com/) [titled](https://example.com/ \"title\")",
-		"# heading\n## heading\n-# small text\n> quoted line\n- item\n1. item",
+		"# heading\n## heading\n-# subtext text\n> quoted line\n- item\n1. item",
 		"```js\nconst a = 1;\n```",
 	];
 

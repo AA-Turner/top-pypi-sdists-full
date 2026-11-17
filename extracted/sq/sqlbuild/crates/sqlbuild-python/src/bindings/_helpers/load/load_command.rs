@@ -18,30 +18,13 @@ use sqlbuild_core::load_command::main::render_load_ready::render_load_ready;
 use sqlbuild_core::load_command::models::{LoadCounts, LoadResultText};
 use sqlbuild_host::entries::models::{AdapterHost, ExecutorHost, UserCodeHost};
 
-use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
-use crate::bindings::_helpers::command_runtime::concurrency::resolve_concurrency;
 use crate::bindings::_helpers::command_runtime::connection::resolve_project_connection_config;
-use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_runtime_config;
-use crate::bindings::_helpers::compile_attachment::effective_config::build_effective_target_config;
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::cursor::overrides::{cursor_integer, cursor_timestamp};
-use crate::bindings::_helpers::discovery::provider_secrets::{
-    SecretPolicy, consumer_uses, require_used_secrets, sink_uses,
-};
 use crate::bindings::_helpers::load::load_progress::{
     LoadCallbackRelay, LoadProgressReporter, load_result_text,
 };
 use crate::bindings::_helpers::load::load_selection::{
     LoadProject, LoaderDefaults, loader_defaults, loader_write_schemas, target_vars,
 };
-use crate::bindings::_helpers::planner_resolution::cursor_overrides::type_cursor_overrides;
-use crate::bindings::_helpers::planner_selection::unit_tests::reject_unit_test_selectors;
-use crate::bindings::_helpers::references::source_relations::render_source_relation;
-use crate::bindings::_helpers::result_output::documents::format_load_execution_json;
-use crate::bindings::_helpers::result_output::documents::write_execution_json_output;
-use crate::bindings::_helpers::result_output::event_writer::ExecutionEventWriter;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
@@ -52,6 +35,27 @@ use sqlbuild_python_base::records::main::construct::new_record::new_record;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::selected_target_settings::selected_target_settings;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
+use sqlbuild_python_front::command_runtime::main::resolve_concurrency::resolve_concurrency;
+use sqlbuild_python_front::compile_attachment::main::build_effective_runtime_config::build_effective_runtime_config;
+use sqlbuild_python_front::compile_attachment::main::build_effective_target_config::build_effective_target_config;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::cursor::main::overrides::cursor_integer::cursor_integer;
+use sqlbuild_python_front::cursor::main::overrides::cursor_timestamp::cursor_timestamp;
+use sqlbuild_python_front::discovery::main::sources::consumer_uses::consumer_uses;
+use sqlbuild_python_front::discovery::main::sources::require_used_secrets::require_used_secrets;
+use sqlbuild_python_front::discovery::main::sources::sink_uses::sink_uses;
+use sqlbuild_python_front::discovery::models::SecretPolicy;
+use sqlbuild_python_output::build_progress::main::write_execution_header::write_execution_header;
+use sqlbuild_python_output::build_progress::models::ConnectionProgressReporter;
+use sqlbuild_python_output::result_output::main::results::format_load_execution_json::format_load_execution_json;
+use sqlbuild_python_output::result_output::main::results::write_execution_json_output::write_execution_json_output;
+use sqlbuild_python_output::result_output::models::ExecutionEventWriter;
+use sqlbuild_python_planner::planner_resolution::main::cursor::type_cursor_overrides::type_cursor_overrides;
+use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
+use sqlbuild_python_project::references::main::render_source_relation::render_source_relation;
 
 const LOADER_NODE_KEY: &str = "sqlbuild_loader_node";
 const EXECUTION_COMMAND: &str = "sqb load";
@@ -77,6 +81,7 @@ struct Preparation<'py> {
     cursor_overrides: Bound<'py, PyAny>,
     provider_session: Bound<'py, PyAny>,
     project_relations: Bound<'py, PyAny>,
+    target_config: TargetSettingsValues,
 }
 
 fn text<'py>(py: Python<'py>, value: &str) -> Bound<'py, PyAny> {
@@ -352,14 +357,23 @@ fn prepare<'py>(
     } else {
         new_record(py, RecordId::CursorOverrides, (), None)?
     };
+    let target_config: TargetSettingsValues = selected_target_settings(
+        (discovered, &native_field(request, "selected_target")?),
+        &adapter_name.extract::<String>()?,
+        (&connection_config, &runtime.1, &adapter),
+    )?;
     let provider_session: Bound<'py, PyAny> = call_with(
         &host_entry(py, UserCodeHost::BuildProviderSession)?,
-        &[(
-            "discovered_providers",
-            native_field(discovered, "providers")?,
-        )],
+        &[
+            (
+                "discovered_providers",
+                native_field(discovered, "providers")?,
+            ),
+            ("setup_context", target_config.setup_context(py)?),
+        ],
     )?;
     Ok(Preparation {
+        target_config,
         adapter_name: adapter_name.extract()?,
         project_relations: project_relations(invocation, &adapter)?,
         adapter,
@@ -393,6 +407,7 @@ fn runtime_params<'py>(
             ("target", target_name.clone()),
             ("vars", effective_vars.clone()),
             ("is_reload", native_field(request, "reload")?),
+            ("target_config", preparation.target_config.record(py)?),
             (
                 "start_cursor_ts",
                 cursor_timestamp(&native_field(overrides, "start_ts")?)?,

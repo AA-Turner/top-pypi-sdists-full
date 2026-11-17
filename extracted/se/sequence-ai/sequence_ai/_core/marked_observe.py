@@ -13,7 +13,7 @@ before the refusal, which the worker could no longer decode, go as left out with
 WHY one encoder set per worker-side episode: an episode the platform starts anew (a copy that stopped, another worker)
 is a fresh decoder at the worker, whose first frame must be a keyframe - a new episode id, new encoders, so it is.
 WHY imported only for a marker: sequence_base and the encoders need Python 3.10 and an extra; a robot that marks
-nothing needs neither, and this core stays 3.9 and httpx-only. {worker 1 and worker 6, 10-24}
+nothing needs neither, and this core stays 3.9 and httpx-only.
 """
 from __future__ import annotations
 

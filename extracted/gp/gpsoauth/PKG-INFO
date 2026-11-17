@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gpsoauth
-Version: 3.0.0
+Version: 3.0.1
 Summary: A python client library for Google Play Services OAuth.
 License: MIT
 License-File: LICENSE

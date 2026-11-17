@@ -54,6 +54,7 @@ from datamodel_code_generator.enums import (
     NamingStrategy,
     OpenAPIAsDefinitions,
     OpenAPIScope,
+    OpenEnums,
     ReadOnlyWriteOnlyModelType,
     ReuseScope,
     SchemaValidatorType,
@@ -778,6 +779,19 @@ _flag(
 )
 _toggle(
     model_options,
+    "--infer-union-discriminators",
+    help="Write a oneOf or anyOf that declares no discriminator as a discriminated union (Pydantic "
+    "Field(discriminator=...), msgspec tagged structs) when every branch that is not null requires one property "
+    "holding one string or integer value (a const or a one-value enum, also through allOf members and local $refs), "
+    "with no value shared; in Pydantic output a union with a discriminator keyword keeps it. Valid payloads parse the "
+    "same, except that a tag typed as a one-value enum class becomes its Literal value; with "
+    "--use-one-literal-as-default a payload without the tag, which the schema requires, is rejected. An invalid "
+    "payload reports the errors of the branch its tag names, or one tag error. Not applied to "
+    "dataclasses.dataclass and typing.TypedDict output. Without it these unions are smart unions in Pydantic output, "
+    "and msgspec output tags only the unions whose tags are written on the branches themselves, as in 0.96.0",
+)
+_toggle(
+    model_options,
     "--name-allof-union-members-after-branches",
     help="Name the classes an allOf gives the branches of a oneOf or anyOf it holds after the branch: the holder "
     "and the branch's tag (with --infer-union-variant-names or --use-tag-as-union-variant-name), its $ref class or "
@@ -927,6 +941,19 @@ typing_options.add_argument(
     type=_json_value_or_file,
     default=None,
 )
+typing_options.add_argument(
+    "--open-enums",
+    help="Accept values an enum does not list. "
+    "extensible: the enums whose schema marks them open (x-extensible-enum: true, or x-ms-enum with "
+    "modelAsString: true); "
+    "all: every enum of two or more values, except one whose schema closes it (x-extensible-enum: false, "
+    "modelAsString: false); "
+    "none: no enum, as without the option. "
+    "An open enum is written as its Enum class on the base --open-enum-base-class-map names for that class, else "
+    "as Literal[...] joined with its type (Literal['red', 'green'] | str), whatever the options say about Literals",
+    choices=_values(OpenEnums),
+    default=None,
+)
 _flag(
     typing_options,
     "--ignore-enum-constraints",
@@ -999,6 +1026,16 @@ _toggle(
     "an allOf lists a base before its own descendant (allOf: [A, B] with B = allOf: [A, ...]); without it the parents "
     "of an inner allOf are read in document order and the property can take the farther base's looser constraints, "
     "as in 0.90.0",
+)
+_toggle(
+    typing_options,
+    "--read-inherited-property-schemas-in-mro-order",
+    help="With --intersect-combined-schema-keywords, give a property that a model only makes required the schema its "
+    "allOf parents declare, read in the order of the class bases from the allOf members the model's own fields are "
+    "read from (an alias member followed to the schema it names, the keywords beside a $ref member read with it), so "
+    "a model written before its parents takes the field it takes when written after them; without it the declaration "
+    "is looked up in the allOf members as written, and under --intersect-combined-schema-keywords such a field can "
+    "lose its description or its constraints or become Any, as in 0.96.0",
 )
 _flag(typing_options, "--field-constraints", help="Use field constraints and not con* annotations")
 _toggle(
@@ -1145,6 +1182,19 @@ _toggle(
     "--use-object-type",
     help="Use object instead of Any for unspecified JSON Schema object and array values",
 )
+typing_options.add_argument(
+    "--untyped-value-type",
+    help="Write each value the schema leaves untyped ({}, true, a schema whose keywords give it no type, the values of "
+    "an object without properties and the items of an array without items) as this type instead of Any: "
+    "pydantic.JsonValue (Pydantic 2.5 or later), object, Any or the dotted import path of a type of your own, which "
+    "the models import; the structure is as without the option. --type-overrides, x-python-type and x-python-import "
+    "keep their types, and msgspec.Struct output keeps Any, which msgspec decodes into JSON values. Without it untyped "
+    "values are Any, "
+    "and object in containers under --use-object-type, as in 0.96.0",
+    metavar="TYPE",
+    type=str,
+    default=None,
+)
 _toggle(
     typing_options,
     "--use-typed-nullable-map-values",
@@ -1166,6 +1216,14 @@ _toggle(
 )
 _toggle(
     typing_options,
+    "--read-kubernetes-extensions",
+    help="Read the Kubernetes schema extensions as the keywords they stand for: x-kubernetes-int-or-string (and the "
+    "int-or-string format) as an integer or a string, x-kubernetes-preserve-unknown-fields beside properties as "
+    "additionalProperties true, and an x-kubernetes-group-version-kind as the const and default of the apiVersion "
+    "and kind it names; without it they are ignored, as in 0.96.0",
+)
+_toggle(
+    typing_options,
     "--use-single-dict-for-object-maps",
     help="Type an object map, an object without properties whose keys patternProperties or propertyNames constrain, "
     "as one dict whose keys are those of every key class and whose value is the union of their values, beside the "
@@ -1175,6 +1233,17 @@ _toggle(
     typing_options,
     "--use-subclass-enum",
     help="Define generic Enum class as subclass with field type when enum has type (int, float, bytes, str)",
+)
+typing_options.add_argument(
+    "--open-enum-base-class-map",
+    help="Base classes that open the Enum classes of open enums (--open-enums), by the class the enum is written on "
+    "(JSON or JSON file path). Keys: Enum, StrEnum, IntEnum. "
+    'Example: \'{"StrEnum": "mypkg.OpenStrEnum", "IntEnum": "mypkg.OpenIntEnum"}\'. '
+    "Each is your member-less subclass of that class whose _missing_ keeps a value it does not list; a value type "
+    "before Enum (--use-subclass-enum) stays: (str, mypkg.OpenEnum). An open enum whose class has no entry, or that "
+    "is written as a Literal, is written as Literal[...] joined with its type",
+    type=_json_value_or_file,
+    default=None,
 )
 _toggle(
     typing_options,
@@ -1288,6 +1357,17 @@ typing_options.add_argument(
     type=str,
     default=None,
 )
+_toggle(
+    typing_options,
+    "--read-format-as-annotation",
+    help="Read the format of a schema as an annotation, as JSON Schema does: a string, integer or number schema takes "
+    "the type its type keyword gives (str, int, float), with its own length, pattern and bound keywords, so every "
+    "value the schema accepts validates, a string or integer dumps as written (a number as the float it parses to, as "
+    "without a format), and an unknown format gives no warning; a format that a --type-mappings entry names for the "
+    "schema's type keeps that mapping, and format: binary stays bytes. Without "
+    "it each known format selects a type (EmailStr, AwareDatetime, UUID, Decimal, SecretStr, Base64Str, ...), as in "
+    "0.96.0",
+)
 typing_options.add_argument(
     "--type-overrides",
     help="Replace schema model types with custom Python types. "
@@ -1314,6 +1394,15 @@ _toggle(
     "with the schema, such as tuple, MutableSequence or MutableMapping, is written around the schema's item, key and "
     "value types; without it such a union is ignored where the schema declares one type, and the field takes the "
     "schema's type, and such a container is written as list, Sequence, set, frozenset or Mapping, as in 0.90.0",
+)
+_toggle(
+    typing_options,
+    "--use-x-python-import-for-every-ref",
+    help="Type every reference to a schema with x-python-import by the class it imports, as a $ref to it at a field "
+    "is: also an allOf of it beside keywords that add no field where a JSON pointer into another document or a "
+    "whole-document $ref names it, and under --read-only-write-only-model-type request-response a model does not "
+    "split for the readOnly or writeOnly properties of such a schema, nor for those its allOf bases reach through one; "
+    "without it such a reference keeps the model of its schema and those models split, as in 0.96.0",
 )
 _toggle(
     typing_options,
@@ -1833,6 +1922,23 @@ _toggle(
 )
 _toggle(
     base_options,
+    "--read-ids-with-empty-fragment",
+    help="Read an $id that ends with an empty fragment, such as https://example.com/item.json#, as the URI without "
+    "it, which names the same resource, so a $ref to https://example.com/item.json# or "
+    "https://example.com/item.json#/definitions/Tag in the document that declares it resolves inside that document; "
+    "without it such a $ref loads the document at that URL, from the network, as in 0.96.0.",
+)
+_toggle(
+    base_options,
+    "--read-single-allof-refs-in-their-documents",
+    help="Read the target of the one $ref of an allOf as every other $ref is read: in the document that holds the "
+    "schema, a plain-name anchor such as #code included. The target decides whether the schema is typed as the "
+    "referenced enum, as a root model over it, or refused, so a schema of a referenced file takes the form the same "
+    "schemas take in one file; without it the target is read at the same pointer of the input document, where a "
+    "plain-name anchor names nothing, so such a schema can be written as a copy of the enum or refused, as in 0.96.0.",
+)
+_toggle(
+    base_options,
     "--ignore-ref-siblings-by-schema-version",
     help="Read a $ref as its target alone where the schema version ignores the keywords beside it (JSON Schema "
     "draft 4, 6 and 7, OpenAPI 3.0, AsyncAPI 2), as those versions specify: a $ref with a sibling format: binary "
@@ -1842,6 +1948,15 @@ _toggle(
     "0.88.0. The version is the one --read-schema-version-per-document reads, else that of the document parsed. A "
     "schema converted from Avro, XML Schema or Protocol Buffers keeps the keywords its converter writes beside a "
     "$ref, such as the default of a field typed by a named type.",
+)
+_toggle(
+    base_options,
+    "--read-yaml-1-1-numbers-as-text",
+    help="Read an unquoted YAML value with _ or : that YAML 1.1 reads as a number, such as 16:9 (969 in base 60), "
+    "18_24 or 1_000, as its text, as YAML 1.2, which OpenAPI names, and the ryaml reader read it, also in enum, "
+    "default, const, examples, extensions and YAML data input. Without it such a value is the number YAML 1.1 reads, "
+    "as in 0.96.0, except where a string is required in a document that the number makes invalid (a pattern, a "
+    "format, a description, a component or property name), where it is its text.",
 )
 
 # ======================================================================================
@@ -1956,6 +2071,14 @@ general_options.add_argument(
     ),
 )
 _flag(general_options, "--ignore-pyproject", help="Ignore pyproject.toml configuration", default=False)
+_toggle(
+    general_options,
+    "--read-implied-options-from-merged-values",
+    help="Read the options that another option turns on (--use-annotated turns on --field-constraints) from the "
+    "arguments and pyproject.toml together, so --no-use-annotated over use-annotated = true in pyproject.toml also "
+    "leaves --field-constraints off where pyproject.toml gives it false, as use-annotated = false there does; "
+    "without it --field-constraints stays on, as in 0.96.0.",
+)
 general_options.add_argument(
     "--install-skill",
     choices=["codex", "claude-code"],

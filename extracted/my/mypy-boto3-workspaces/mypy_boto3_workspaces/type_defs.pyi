@@ -84,6 +84,7 @@ from .literals import (
     WorkspaceImageIngestionProcessType,
     WorkspaceImageRequiredTenancyType,
     WorkspaceImageStateType,
+    WorkspaceOSUserModeType,
     WorkspacesPoolErrorCodeType,
     WorkspacesPoolStateType,
     WorkspaceStateType,
@@ -1372,6 +1373,7 @@ class RegisterWorkspaceDirectoryRequestTypeDef(TypedDict):
     WorkspaceDirectoryName: NotRequired[str]
     WorkspaceDirectoryDescription: NotRequired[str]
     UserIdentityType: NotRequired[UserIdentityTypeType]
+    WorkspaceOsUserMode: NotRequired[WorkspaceOSUserModeType]
     IdcInstanceArn: NotRequired[str]
     MicrosoftEntraConfig: NotRequired[MicrosoftEntraConfigTypeDef]
     WorkspaceType: NotRequired[WorkspaceTypeType]
@@ -1642,6 +1644,7 @@ class WorkspaceDirectoryTypeDef(TypedDict):
     IDCConfig: NotRequired[IDCConfigTypeDef]
     ActiveDirectoryConfig: NotRequired[ActiveDirectoryConfigTypeDef]
     StreamingProperties: NotRequired[StreamingPropertiesOutputTypeDef]
+    WorkspaceOsUserMode: NotRequired[WorkspaceOSUserModeType]
     ErrorMessage: NotRequired[str]
 
 WorkspaceAccessPropertiesUnionTypeDef = Union[

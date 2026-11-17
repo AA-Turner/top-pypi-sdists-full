@@ -31,6 +31,7 @@ __all__ = (
     "EncryptionTypeType",
     "ListClustersPaginatorName",
     "ListStreamsPaginatorName",
+    "MetricGroupType",
     "PaginatorName",
     "ResourceServiceName",
     "ServiceName",
@@ -62,6 +63,7 @@ EncryptionStatusType = Literal["ENABLED", "ENABLING", "KMS_KEY_INACCESSIBLE", "U
 EncryptionTypeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS_KEY"]
 ListClustersPaginatorName = Literal["list_clusters"]
 ListStreamsPaginatorName = Literal["list_streams"]
+MetricGroupType = Literal["STATEMENT_STATISTICS"]
 StreamActiveWaiterName = Literal["stream_active"]
 StreamFailureErrorCodeType = Literal[
     "CLUSTER_CMK_INACCESSIBLE",
@@ -187,6 +189,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -371,6 +374,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -438,6 +442,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

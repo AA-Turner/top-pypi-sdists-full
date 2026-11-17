@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.pricing_tier_pb2
+import sentry_protos.billing.v1.common.v1.soft_cap_type_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -50,6 +51,28 @@ class SalesLineItemPricing(google.protobuf.message.Message):
 global___SalesLineItemPricing = SalesLineItemPricing
 
 @typing.final
+class SalesLineItemSoftCap(google.protobuf.message.Message):
+    """A soft cap Sentry staff set for one line item. Usage past the line item's
+    reserved volume is allowed instead of hard-stopping ingestion.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    LINE_ITEM_UID_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    line_item_uid: builtins.str
+    type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType
+    def __init__(
+        self,
+        *,
+        line_item_uid: builtins.str = ...,
+        type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "type", b"type"]) -> None: ...
+
+global___SalesLineItemSoftCap = SalesLineItemSoftCap
+
+@typing.final
 class SalesConfig(google.protobuf.message.Message):
     """The contract settings that only Sentry staff set, through sales and
     provisioning. It is the counterpart to the customer-configurable UserConfig,
@@ -59,13 +82,19 @@ class SalesConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     PRICING_FIELD_NUMBER: builtins.int
+    SOFT_CAPS_FIELD_NUMBER: builtins.int
     @property
     def pricing(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SalesLineItemPricing]: ...
+    @property
+    def soft_caps(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SalesLineItemSoftCap]:
+        """A line item without an entry has no soft cap."""
+
     def __init__(
         self,
         *,
         pricing: collections.abc.Iterable[global___SalesLineItemPricing] | None = ...,
+        soft_caps: collections.abc.Iterable[global___SalesLineItemSoftCap] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["pricing", b"pricing"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["pricing", b"pricing", "soft_caps", b"soft_caps"]) -> None: ...
 
 global___SalesConfig = SalesConfig

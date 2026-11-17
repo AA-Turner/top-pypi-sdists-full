@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: metaclass-registry
-Version: 0.4.1
+Version: 0.5.0
 Summary: Zero-boilerplate metaclass-driven plugin registry system with lazy discovery and caching
 Project-URL: Homepage, https://github.com/OpenHCSDev/metaclass-registry
 Project-URL: Documentation, https://metaclass-registry.readthedocs.io

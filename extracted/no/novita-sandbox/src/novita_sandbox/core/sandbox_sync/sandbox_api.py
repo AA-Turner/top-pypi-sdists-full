@@ -51,6 +51,10 @@ from novita_sandbox.core.sandbox.sandbox_api import (
     SandboxQuotaUsage,
     SandboxEventItem,
     SandboxEventsResult,
+    SandboxResizeResult,
+    SandboxResourceTargets,
+    resize_result_from_api,
+    resource_targets_to_api,
 )
 from novita_sandbox.core.sandbox_sync.paginator import SandboxPaginator, get_api_client
 from novita_sandbox.core.legacy_api import (
@@ -63,6 +67,40 @@ from novita_sandbox.core.template.types import TemplateInfo
 
 
 class SandboxApi(SandboxBase):
+    @classmethod
+    def _cls_resize(
+        cls,
+        sandbox_id: str,
+        *,
+        cpu: Optional[int] = None,
+        memory_gib: Optional[float] = None,
+        disk_gib: Optional[float] = None,
+        **opts: Unpack[ApiParams],
+    ) -> SandboxResizeResult:
+        targets: SandboxResourceTargets = {}
+        if cpu is not None:
+            targets["cpu"] = cpu
+        if memory_gib is not None:
+            targets["memory_gib"] = memory_gib
+        if disk_gib is not None:
+            targets["disk_gib"] = disk_gib
+        body = resource_targets_to_api(targets)
+        raise_if_legacy(opts, "Sandbox.resize")
+        config = ConnectionConfig(**opts)
+        res = (
+            get_api_client(config)
+            .get_httpx_client()
+            .post(
+                f"/sandboxes/{sandbox_id}/resize",
+                json=body,
+            )
+        )
+        if res.status_code == 404:
+            raise SandboxNotFoundException(f"Sandbox {sandbox_id} not found")
+        if res.status_code >= 300:
+            raise handle_api_exception(res)
+        return resize_result_from_api(res.json())
+
     @staticmethod
     def list(
         query: Optional[SandboxQuery] = None,
@@ -353,28 +391,6 @@ class SandboxApi(SandboxBase):
         }
 
     @classmethod
-    def _cls_hotplug_memory(
-        cls,
-        sandbox_id: str,
-        requested_size_mib: int = 0,
-        **opts: Unpack[ApiParams],
-    ) -> None:
-        raise_if_legacy(opts, "Sandbox.hotplug_memory")
-
-        config = ConnectionConfig(**opts)
-        api_client = get_api_client(config)
-        res = api_client.get_httpx_client().post(
-            f"/sandboxes/{sandbox_id}/hotplug-memory",
-            json={"requested_size_mib": requested_size_mib},
-        )
-
-        if res.status_code == 404:
-            raise SandboxNotFoundException(f"Sandbox {sandbox_id} not found")
-
-        if res.status_code >= 300:
-            raise handle_api_exception(res)
-
-    @classmethod
     def _cls_mount_volume(
         cls,
         sandbox_id: str,
@@ -443,9 +459,13 @@ class SandboxApi(SandboxBase):
         lifecycle: Optional[SandboxLifecycle] = None,
         volume_mounts: Optional[List[SandboxVolumeMountAPI]] = None,
         node_id: Optional[str] = None,
+        resources: Optional[SandboxResourceTargets] = None,
         **opts: Unpack[ApiParams],
     ) -> SandboxCreateResponse:
         config = ConnectionConfig(**opts)
+        resources_body = (
+            resource_targets_to_api(resources) if resources is not None else None
+        )
         long_running = metadata is not None and metadata.get("long_running") == "true"
         if long_running:
             metadata = dict(metadata or {})
@@ -471,6 +491,8 @@ class SandboxApi(SandboxBase):
             }
             if node_id:
                 body["nodeID"] = node_id
+            if resources_body is not None:
+                raise_if_legacy(opts, "Sandbox.create resources")
 
             api_client = get_api_client(config)
             res = api_client.get_httpx_client().post("/sandboxes", json=body)
@@ -511,6 +533,33 @@ class SandboxApi(SandboxBase):
             body.additional_properties["nodeID"] = node_id
 
         api_client = get_api_client(config)
+        if resources_body is not None:
+            body_dict = body.to_dict()
+            body_dict["resources"] = resources_body
+            # The backend allows six minutes for a resource-aware create, so
+            # that is the default; an explicit request_timeout still wins.
+            user_specified_timeout = (
+                "request_timeout" in opts and opts.get("request_timeout") is not None
+            )
+            effective_timeout = (
+                config.request_timeout if user_specified_timeout else 360.0
+            )
+            res = api_client.get_httpx_client().post(
+                "/sandboxes/custom",
+                json=body_dict,
+                timeout=effective_timeout,
+            )
+            if res.status_code >= 300:
+                raise handle_api_exception(res)
+            data = res.json()
+            if Version(data.get("envdVersion", "0")) < Version("0.1.0"):
+                SandboxApi._cls_kill(data.get("sandboxID", ""))
+                raise TemplateException(
+                    "You need to update the template to use the new SDK. "
+                    "You can do this by running `novita-sandbox-cli template build` in the directory with the template."
+                )
+            return sandbox_create_response_from_dict(data)
+
         res = post_sandboxes.sync_detailed(
             body=body,
             client=api_client,

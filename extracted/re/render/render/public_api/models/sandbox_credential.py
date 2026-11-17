@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar, Union, cast
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -16,23 +18,33 @@ T = TypeVar("T", bound="SandboxCredential")
 
 @_attrs_define
 class SandboxCredential:
-    """Desired credential configuration scoped to one sandbox group. Secret values
-    are independent for each credential ID and are never returned, including to admins.
+    """A credential configured for injection into matching outbound HTTPS requests from sandboxes in one sandbox group.
+    Each credential stores its own secret value. These endpoints do not return secret values, including to admins.
+
+    Credential injection supports HTTPS requests on port 443. Avoid overlapping credential configurations for the same
+    hostname. Multiple matching credentials are not combined.
 
         Attributes:
-            id (str): Caller-supplied URL-safe name, unique within the sandbox group. The names
-                `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+            id (str): The case-sensitive ID you assign to the credential, unique within its sandbox group. Use only letters,
+                numbers, periods, underscores, tildes, and hyphens. The names `.` and `..` and IDs starting with `rnd-` are
+                reserved.
                  Example: my-inference-key.
-            domain (str): Exact public DNS hostname, normalized to lowercase. IP addresses, ports,
-                wildcards, and local/internal hostnames are not supported.
+            domain (str): The destination hostname to match for credential injection. Must be a public DNS hostname. Render
+                normalizes it to lowercase and matches it exactly. IP addresses, ports, wildcards, and local or internal
+                hostnames are not supported.
                  Example: api.render.com.
-            enabled (bool):
-            methods (list[str]): GET, HEAD, POST, PUT, PATCH, DELETE, or OPTIONS, normalized to uppercase.
-                An empty list matches any method.
-            paths (list[str]): Exact absolute request paths, without query strings, fragments,
-                escaping, or patterns. An empty list matches any path.
-            injection (SandboxCredentialInjection):
-            version (Union[Unset, SandboxCredentialVersion]):
+            enabled (bool): Whether this credential is enabled for injection.
+            methods (list[str]): The HTTP methods to match for credential injection. Supported methods are GET, HEAD, POST,
+                PUT, PATCH, DELETE, and OPTIONS, normalized to uppercase. An empty list matches any method.
+            paths (list[str]): The request path patterns to match for credential injection. Each pattern must match the
+                entire absolute path. Use `*` for one nonempty path segment or `**` for one or more segments. Wildcards must
+                occupy whole segments. For example, `/a/*` matches `/a/b`, and `/a/**` also matches `/a/b/c`. Neither matches
+                `/a`. Patterns do not support query strings, fragments, or escaping. Request query strings do not affect
+                matching. An empty list matches any path.
+            injection (SandboxCredentialInjection): Settings for injecting the secret value into matching outbound HTTPS
+                requests.
+            version (SandboxCredentialVersion | Unset): Metadata for a credential version. These endpoints do not return
+                secret values.
     """
 
     id: str
@@ -40,8 +52,8 @@ class SandboxCredential:
     enabled: bool
     methods: list[str]
     paths: list[str]
-    injection: "SandboxCredentialInjection"
-    version: Union[Unset, "SandboxCredentialVersion"] = UNSET
+    injection: SandboxCredentialInjection
+    version: SandboxCredentialVersion | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -57,7 +69,7 @@ class SandboxCredential:
 
         injection = self.injection.to_dict()
 
-        version: Union[Unset, dict[str, Any]] = UNSET
+        version: dict[str, Any] | Unset = UNSET
         if not isinstance(self.version, Unset):
             version = self.version.to_dict()
 
@@ -80,8 +92,8 @@ class SandboxCredential:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.sandbox_credential_injection import SandboxCredentialInjection
-        from ..models.sandbox_credential_version import SandboxCredentialVersion
+        from ..models.sandbox_credential_injection import SandboxCredentialInjection  # noqa: PLC0415
+        from ..models.sandbox_credential_version import SandboxCredentialVersion  # noqa: PLC0415
 
         d = dict(src_dict)
         id = d.pop("id")
@@ -97,7 +109,7 @@ class SandboxCredential:
         injection = SandboxCredentialInjection.from_dict(d.pop("injection"))
 
         _version = d.pop("version", UNSET)
-        version: Union[Unset, SandboxCredentialVersion]
+        version: SandboxCredentialVersion | Unset
         if isinstance(_version, Unset):
             version = UNSET
         else:

@@ -23,6 +23,7 @@ from sqlalchemy import (
     true,
 )
 
+from cerbos_sqlalchemy._nullness import is_null
 from cerbos_sqlalchemy._operators import OPERATOR_FNS, exact_pair, require_lowerable
 from cerbos_sqlalchemy.errors import UnsupportedPlanError
 
@@ -97,27 +98,41 @@ class Relation:
         self.correlate = tuple(correlate)
         self.member = member
         self.hop_correlation = tuple(hop_correlation)
+        self._own: tuple[Any, ...] | None = None
+        self._hop_own: tuple[Any, ...] = ()
 
     def __repr__(self) -> str:
         return f"Relation({', '.join(str(p) for p in self.correlation)})"
+
+    def _correlated(self, query: Any, own: tuple[Any, ...] | None) -> Any:
+        if own is None:
+            return query.correlate(*self.correlate)
+        return query.correlate_except(*own)
 
     def _exists(self, *conditions: Any) -> Any:
         query = select(literal(1))
         for predicate in (*self.correlation, *conditions):
             query = query.where(predicate)
-        return exists(query.correlate(*self.correlate))
+        return exists(self._correlated(query, self._own))
 
     def _count(self, *conditions: Any) -> Any:
         query = select(func.count())
         for predicate in (*self.correlation, *conditions):
             query = query.where(predicate)
-        return query.correlate(*self.correlate).scalar_subquery()
+        return self._correlated(query, self._own).scalar_subquery()
 
     def _guarded(self, expression: Any) -> Any:
-        return require_hops(expression, self.hop_correlation, self.correlate)
+        if self._own is None:
+            return require_hops(expression, self.hop_correlation, self.correlate)
+        if not self.hop_correlation:
+            return expression
+        guard = select(literal(1))
+        for predicate in self.hop_correlation:
+            guard = guard.where(predicate)
+        return case((exists(guard.correlate_except(*self._hop_own)), expression))
 
     def _errors(self, body: Any) -> Any:
-        return self._exists(body.is_(None))
+        return self._exists(is_null(body))
 
 
 class _Deferred:
@@ -241,10 +256,10 @@ def _relation_membership(relation: Relation, value: Any) -> Any:
         )
     member = _members(relation, "in")
     if value is None:
-        predicate = member.is_(None)
+        predicate = is_null(member)
     elif hasattr(value, "is_"):
         left, right = exact_pair(member, value)
-        predicate = or_(left == right, and_(member.is_(None), value.is_(None)))
+        predicate = or_(left == right, and_(is_null(member), is_null(value)))
     else:
         left, right = exact_pair(member, value)
         predicate = left == right

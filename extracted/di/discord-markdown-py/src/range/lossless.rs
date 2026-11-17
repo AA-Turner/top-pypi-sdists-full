@@ -5,7 +5,7 @@ use crate::{
 	lossless::{Child, Node, NodeKind, Side, Token, TokenKind},
 	node::{
 		Element, Elements, Id, Ids, SpannedElement,
-		block::{Heading, List, Small},
+		block::{Heading, List, Subtext},
 	},
 	span::{LosslessSpan, Span, Spanned, TrackedSpan},
 	syntax::SyntaxSet,
@@ -180,9 +180,9 @@ impl<'a, 'data> Builder<'a, 'data> {
 				children.extend(self.inlines(content, next(), applied));
 				NodeKind::Heading { level }
 			}
-			Element::Small(Small { content }) => {
+			Element::Subtext(Subtext { content }) => {
 				children.extend(self.inlines(content, next(), applied));
-				NodeKind::Small
+				NodeKind::Subtext
 			}
 			Element::Quote(kind, content) => {
 				children.extend(self.blocks(content, next(), applied));
@@ -341,7 +341,7 @@ impl<'a, 'data> Builder<'a, 'data> {
 			| Element::List(_)
 			| Element::Paragraph(_)
 			| Element::Quote(..)
-			| Element::Small(_)
+			| Element::Subtext(_)
 			| Element::Empty => {
 				unreachable!("inline content is parsed with the inline rules alone")
 			}

@@ -39,6 +39,7 @@ from exp.runtime.gateway.contracts import (
 from exp.runtime.gateway.fleet_lanes import FleetLane, FleetUsage
 from exp.runtime.gateway.health import DeploymentHealthKey, DeploymentHealthRegistry
 from exp.runtime.gateway.lane_saturation import failover_overflow_cap, priority_overflow_ceiling
+from exp.runtime.gateway.native_context_window import route_context_windows
 from exp.runtime.gateway.native_execution import (
     THROTTLE_BACKOFF,
     THROTTLE_FAILOVER_COLD,
@@ -49,7 +50,7 @@ from exp.runtime.gateway.native_execution import (
     rung_load_key,
     throttle_disposition,
 )
-from exp.runtime.gateway.native_fallback_rules import route_fallback_rules
+from exp.runtime.gateway.native_fallback_rules import route_fallback_rules, route_rung_families
 from exp.runtime.gateway.native_settlement import (
     first_token_at_from_settlement,
     graceful_transport_retirement,
@@ -314,6 +315,8 @@ def failed_dispatch_candidate(
         maximum_same_deployment_attempts=entry.attempt_policy.maximum_same_deployment_attempts,
         physical_route_cap=entry.attempt_policy.physical_route_cap,
         physical_attempt_counts=entry.attempt_counts,
+        context_windows=route_context_windows(route),
+        rung_families=route_rung_families(route, entry.denied_destination_pools),
     )
     disposition = throttle_disposition(
         failure,
@@ -695,8 +698,8 @@ def ejection_disclosure(
     """Name the ejected lane a first dial or failover was ordered past, if any.
 
     The claim walk orders an ejected lane last (``DeploymentHealthRegistry.order``),
-    so an ejected depth earlier in ``ladder`` than ``candidate`` is the rung
-    this dispatch replaced. It is disclosed as ``dispatch_reason =
+    so an ejected depth ahead of ``candidate`` in ``ladder`` is the rung this
+    dispatch replaced. It is disclosed as ``dispatch_reason =
     lane_ejected`` with that rung as the ``preferred_deployment``, exactly like
     a policy shed, so the ledger tells a worker's dead-lane ejection apart from
     a platform-side lane hold. A reason another rule already named (a shed,
@@ -707,7 +710,8 @@ def ejection_disclosure(
         health: The worker's circuit and lane-ejection registry.
         keys: One health key per route depth.
         route: The request's admitted route.
-        ladder: The depths this walk could claim, in route order.
+        ladder: The depths this walk could claim, in its preference order
+            (route order, or fresh families first under a tight budget).
         candidate: The depth about to dispatch.
         disclosed: The ``(dispatch_reason, preferred_deployment)`` already chosen.
 
@@ -716,9 +720,12 @@ def ejection_disclosure(
     """
     if disclosed[0] not in (None, "rung_dead"):
         return disclosed
-    for depth in ladder:
-        if depth >= candidate:
-            break
+    ahead = (
+        ladder[: ladder.index(candidate)]
+        if candidate in ladder
+        else tuple(depth for depth in ladder if depth < candidate)
+    )
+    for depth in ahead:
         if health.lane_ejected(keys[depth]):
             return LANE_EJECTED, route.deployments[depth]
     return disclosed

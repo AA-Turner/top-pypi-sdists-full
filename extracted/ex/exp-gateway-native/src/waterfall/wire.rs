@@ -167,6 +167,14 @@ pub struct DeploymentWire {
     /// widening (the same convention as the other per-rung flags here).
     #[serde(default)]
     pub capture_logprobs: bool,
+    /// This rung's family within the route: the route index of the first
+    /// deployment dialing the same upstream offering on the same kind of
+    /// credential (`native_fallback_rules.route_rung_families`). A throttle
+    /// redial waits only while the attempts left can still reach every
+    /// undialed family (`fallback_rules::fresh_family_reserved`). Absent on
+    /// older admissions, which never reserve.
+    #[serde(default)]
+    pub rung_family: Option<u32>,
 }
 
 /// The frozen retry-policy facts returned by admission.
@@ -203,6 +211,7 @@ impl RoutePolicy {
 }
 
 /// Everything one waterfall run needs besides its request guard.
+#[derive(Clone)]
 pub struct WaterfallContext<'a> {
     pub bridge: &'a Arc<Bridge>,
     pub http: &'a crate::upstream::UpstreamClient,
@@ -267,6 +276,14 @@ pub struct WaterfallContext<'a> {
     pub tool_search: Option<&'a ToolSearchAdmission>,
     /// Frozen output policy execution for preambles and terminal responses.
     pub output_guardrails: Option<super::OutputGuardrailContext<'a>>,
+    /// Per route depth, whether the surface assembles the whole answer before
+    /// sending the caller any byte (a non-streaming request, or a stream an
+    /// output guardrail buffers): the waterfall then drains a committed
+    /// attempt itself, and a connection-level failure mid-body restarts on
+    /// the ladder instead of answering with an error the caller never had to
+    /// see. Empty (or `false` at a depth) keeps the live relay for the
+    /// surface to drain.
+    pub buffered: &'a [bool],
 }
 
 impl WaterfallContext<'_> {

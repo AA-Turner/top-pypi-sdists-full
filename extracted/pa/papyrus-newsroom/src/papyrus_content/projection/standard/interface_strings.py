@@ -7,6 +7,9 @@ reads them from ``page.strings``); each other language's file gives the same key
 The keys the standard front end itself needs on a language edition are derived from ``projection.json``, so a setting written in the primary language
 always has its translation:
 
+* ``skipToMain``: the words of the skip link ("Skip to main content"), in every public language including the primary;
+* ``switcherLabel``: the word "Language" in the language, the accessible name of the language switcher (with the current language's name), while the site
+  draws one (``site.languageSwitcher.placement`` is not ``none``), in every public language including the primary;
 * ``language.name``: the language's name in itself (``Español``, ``中文``), what a language switcher shows;
 * ``site.name``: the publication's name in the language (masthead, ``<title>`` suffix, ``og:site_name``, feeds, Markdown twins, structured data; the primary
   language's name is ``site.name`` of ``projection.json`` and is listed as ``alternateName`` in the structured data of every edition); ``site.shortName`` when the
@@ -22,7 +25,8 @@ always has its translation:
   Markdown twins, its feeds and its structured data, never in the primary language's words);
 * ``footer.text`` when the site sets ``footer.text``;
 * ``translation.label`` and ``translation.original``: the line every translated page carries ("Traducido por IA del {original}", with ``{original}`` the
-  link to the original, whose words are ``translation.original``: "original en inglés").
+  link to the original, whose words are ``translation.original``: "original en inglés"). An imported translation (``papyrus stories import-translation``)
+  shows only the link, in the words of ``translation.original``, and never says AI: who wrote it is the byline's to say.
 
 :func:`missing_keys` is the check: a public language whose file lacks a key the rule requires is refused by the projection, naming the language and the
 keys, so English words never appear on a Spanish page because a translation was forgotten.
@@ -48,6 +52,8 @@ UNTRANSLATED_LABEL_KEY = "listing.untranslated"
 UNTRANSLATED_ORIGINAL_KEY = "listing.untranslatedOriginal"
 #: Where ``translation.label`` places the link to the original.
 ORIGINAL_PLACEHOLDER = "{original}"
+SKIP_LINK_KEY = "skipToMain"
+SWITCHER_LABEL_KEY = "switcherLabel"
 
 
 class InterfaceStringsIncomplete(ValueError):
@@ -70,7 +76,9 @@ def read_interface_strings(static_directory: Path | None) -> dict[str, dict[str,
 
 def required_keys(standard, primary_strings: Mapping[str, str], edition_nav_hrefs: tuple[str, ...]) -> tuple[str, ...]:
     """Every key a language edition needs: the standard front end's own (from the settings) and every key of the primary language's file."""
-    keys = [LANGUAGE_NAME_KEY, SITE_NAME_KEY, "home.label", "listing.pageSuffix", TRANSLATION_LABEL_KEY, TRANSLATION_ORIGINAL_KEY, UNTRANSLATED_LABEL_KEY, UNTRANSLATED_ORIGINAL_KEY]
+    keys = [LANGUAGE_NAME_KEY, SKIP_LINK_KEY, SITE_NAME_KEY, "home.label", "listing.pageSuffix", TRANSLATION_LABEL_KEY, TRANSLATION_ORIGINAL_KEY, UNTRANSLATED_LABEL_KEY, UNTRANSLATED_ORIGINAL_KEY]
+    if standard.identity.language_switcher_placement != "none":
+        keys.append(SWITCHER_LABEL_KEY)
     if standard.identity.short_name:
         keys.append(SITE_SHORT_NAME_KEY)
     if standard.identity.publisher:

@@ -219,8 +219,8 @@ class GpuCancelled(LeftRunning):
 class GpuNotCancelled(LeftRunning):
     """Ctrl-C twice while `seq gpu add` was asked: the second stops it before the platform answered, and the platform adds
     them all the same once it has the request, so what it added is not known here and not removed - said so, with how to
-    see and end them, where "cancelled" alone told its owner nothing was left to bill. {worker 6 on dev 11-14 20:38Z:
-    a Ctrl-C 2.0 s into the add said "cancelled", and gpu-bff72487feb7 was starting 8 s later}"""
+    see and end them, where "cancelled" alone told its owner nothing was left to bill.
+"""
 
     def __init__(self) -> None:
         KeyboardInterrupt.__init__(self, "not cancelled: stopped before the platform answered, it may have added them - "

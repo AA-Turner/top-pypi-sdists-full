@@ -42,8 +42,13 @@ from datamodel_code_generator._container_kinds import ARRAYS, CONTAINERS, MAPPIN
 from datamodel_code_generator._document_reader import as_mapping
 from datamodel_code_generator._json_schema import SCHEMA_MAP_KEYS, SCHEMA_VALUE_KEYS, non_null_types
 from datamodel_code_generator._url_redaction import named_location
-from datamodel_code_generator.imports import IMPORT_ANY, _import_path
-from datamodel_code_generator.model._decisions.enum_kind import enum_as_literal, is_literal_kind, literal_value_kind
+from datamodel_code_generator.imports import _import_path
+from datamodel_code_generator.model._decisions.enum_kind import (
+    enum_as_literal,
+    is_literal_kind,
+    json_type,
+    literal_value_kind,
+)
 from datamodel_code_generator.model._decisions.literal_default import const_type
 from datamodel_code_generator.model.base import ConstraintsBase
 from datamodel_code_generator.parser import _schema_refs
@@ -52,7 +57,7 @@ from datamodel_code_generator.parser._intersection import (
     declared_types,
     inherited_positional_tail,
 )
-from datamodel_code_generator.parser._null_facts import NullSources, dump_null_sources, resolve_null_facts
+from datamodel_code_generator.parser._null_facts import NullSources, null_sources, resolve_null_facts
 from datamodel_code_generator.parser._schema_object import _ANNOTATION_KEYWORDS, JsonSchemaObject, _locate
 from datamodel_code_generator.parser._schema_reading import (
     _constraint_values,
@@ -63,7 +68,7 @@ from datamodel_code_generator.parser._schema_reading import (
 )
 from datamodel_code_generator.parser._schema_refs import SchemaRefsHost
 from datamodel_code_generator.parser.base import _TYPE_DEPENDENT_CONSTRAINTS_KEY
-from datamodel_code_generator.types import ANY, Types, _is_plain_none, _is_value_literal
+from datamodel_code_generator.types import Types, _is_plain_none, _is_value_literal, untyped_value_data_type
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
@@ -137,13 +142,17 @@ __all__ = [
     "union_sibling_constraints",
 ]
 
-_CONST_ENUM_TYPES: Final[Mapping[LiteralValueKind, str]] = {
-    "str": "string",
-    "bool": "boolean",
-    "int": "integer",
-    "float": "number",
+_UNTYPED_CONST_KINDS: Final[frozenset[LiteralValueKind]] = frozenset({"none", "other"})
+"""The kinds of a const that give a merged enum of const branches no ``type``: a null, and a list, an object or any
+other value; the first const of another kind gives the merged enum its JSON type (``json_type``)."""
+_SCALAR_VALUE_TYPES: Final[Mapping[LiteralValueKind, Types]] = {
+    "none": Types.null,
+    "bool": Types.boolean,
+    "int": Types.integer,
+    "float": Types.float,
+    "str": Types.string,
 }
-"""The ``type`` a merged enum of const branches takes from the kind of the first const that has one."""
+"""The type a scalar JSON value of each kind is read as where no schema names one."""
 _NON_ASSERTING_KEYWORDS = _ANNOTATION_KEYWORDS | {"contentEncoding", "contentMediaType", "contentSchema", "format"}
 
 
@@ -266,10 +275,6 @@ def _imported_type_paths(data_type: DataType) -> Iterator[str]:
         for import_ in (nested.import_, *(nested.python_type.imports if nested.python_type else ())):
             if import_ is not None and import_.from_:
                 yield _import_path(import_)
-
-
-_NULL_TYPE_SOURCES: Final[NullSources] = NullSources(type_null=True)
-"""The null sources of a branch whose ``type`` is null as written, which ``_extract_const_enum_from_combined`` reads."""
 
 
 class ArrayBoundsHost(Protocol):
@@ -402,8 +407,14 @@ class ValueKeywordsHost(SchemaRefsHost, Protocol):
     def _reads_enum(self, obj: JsonSchemaObject) -> bool:
         """Return whether the run reads the enum of a schema: it has one and --ignore-enum-constraints is off."""
 
+    def _open_enum_without_base(self, obj: JsonSchemaObject) -> bool:
+        """Return whether the enum of a schema is open with no base for its class, so it is written as a Literal."""
+
     def _ref_schema_exists(self, resolved_ref: str) -> bool:
         """Return whether a resolved JSON pointer identifies a source schema."""
+
+    def _with_open_enum_type(self, obj: JsonSchemaObject, literal: DataType) -> DataType:
+        """Return the Literal type of an open enum joined with the type of its schema, else the Literal type."""
 
 
 def should_parse_enum_as_literal(
@@ -435,13 +446,16 @@ def enum_as_literal_under(
     property_name: str | None,
     property_obj: JsonSchemaObject | None,
 ) -> bool:
-    """Return whether an enum is written as a Literal under an ``--enum-field-as-literal`` setting."""
+    """Return whether an enum is written as a Literal under an ``--enum-field-as-literal`` setting.
+
+    An open enum with no base for its class (``--open-enum-base-class-map``) is a Literal whatever the setting.
+    """
     return enum_as_literal(
         extension=(property_obj if property_obj is not None else obj).x_enum_field_as_literal,
         mapped=parser.enum_field_as_literal_map.get(property_name) if property_name else None,
         setting=setting,
         member_count=len(obj.enum),
-    )
+    ) or parser._open_enum_without_base(obj)  # noqa: SLF001
 
 
 def extract_const_enum_from_combined(  # noqa: PLR0912
@@ -467,8 +481,8 @@ def extract_const_enum_from_combined(  # noqa: PLR0912
             continue
         if item is True:
             return None
-        if item.type == "null" and "const" not in item.extras:
-            null_branches.append(_NULL_TYPE_SOURCES)
+        if "const" not in item.extras and (sources := null_sources(item.type)).type_null:
+            null_branches.append(sources)
             continue
 
         if "const" not in item.extras:
@@ -482,8 +496,8 @@ def extract_const_enum_from_combined(  # noqa: PLR0912
         branches.append(item)
         read_as_const = read_as_const and item.read_as_const
 
-        if inferred_type is None:
-            inferred_type = _CONST_ENUM_TYPES.get(literal_value_kind(const_value))
+        if inferred_type is None and literal_value_kind(const_value) not in _UNTYPED_CONST_KINDS:
+            inferred_type = json_type(const_value)
 
     if not enum_values:  # pragma: no cover
         return None
@@ -512,9 +526,7 @@ def extract_const_enum_from_combined(  # noqa: PLR0912
         [item.title for item in branches if item.title],
         [item.description or "" for item in branches],
         final_type,
-        bool(
-            resolve_null_facts(dump_null_sources({"type": parent.type}), "const-enum", parts=null_branches).admits_null
-        ),
+        bool(resolve_null_facts(null_sources(parent.type), "const-enum", parts=null_branches).admits_null),
         values_as_written,
     )
 
@@ -586,10 +598,11 @@ def check_literal_const(parser: ValueKeywordsHost, obj: JsonSchemaObject, const:
 def enum_literal(parser: ValueKeywordsHost, obj: JsonSchemaObject, written: frozenset[str] = NO_KEYWORDS) -> DataType:
     """Return the Literal type of the enum values that meet the constraints its field leaves out.
 
-    A type of only some of the values (``_literal_view``) keeps them as written.
+    A type of only some of the values (``_literal_view``) keeps them as written. An open enum's Literal type is joined
+    with the type of its schema (``_with_open_enum_type``).
     """
     view = parser._literal_view(obj, written)  # noqa: SLF001
-    data_type = parser._literal_values_type(view.enum)  # noqa: SLF001
+    data_type = parser._with_open_enum_type(obj, parser._literal_values_type(view.enum))  # noqa: SLF001
     if (values_as_written := view.__dict__.get(VALUES_AS_WRITTEN_KEY)) is not None:
         parser._graph_builder.record_values_as_written(data_type, values_as_written)  # noqa: SLF001
     return data_type
@@ -1234,17 +1247,9 @@ def resolve_array_field_required_nullable(parser: ValueKeywordsHost, obj: JsonSc
 
 def get_scalar_data_type_from_json_value(parser: ValueKeywordsHost, value: object) -> DataType | None:
     """Infer a normal Python type from a scalar JSON value."""
-    if value is None:
-        return parser.data_type_manager.get_data_type(Types.null)
-    if isinstance(value, bool):
-        return parser.data_type_manager.get_data_type(Types.boolean)
-    if isinstance(value, int):
-        return parser.data_type_manager.get_data_type(Types.integer)
-    if isinstance(value, float):
-        return parser.data_type_manager.get_data_type(Types.float)
-    if isinstance(value, str):
-        return parser.data_type_manager.get_data_type(Types.string)
-    return None
+    if (type_ := _SCALAR_VALUE_TYPES.get(literal_value_kind(value))) is None:
+        return None
+    return parser.data_type_manager.get_data_type(type_)
 
 
 def get_data_type_from_json_value(parser: ValueKeywordsHost, value: object) -> DataType:
@@ -1255,13 +1260,15 @@ def get_data_type_from_json_value(parser: ValueKeywordsHost, value: object) -> D
     if isinstance(value, list):
         item_types = [get_data_type_from_json_value(parser, item) for item in value]
         return parser.data_type(
-            data_types=item_types or [parser.data_type(type=ANY, import_=IMPORT_ANY)],
+            data_types=item_types
+            or [untyped_value_data_type(parser.data_type, parser.data_type_manager.untyped_value)],
             is_list=True,
         )
     if isinstance(value, dict):
         value_types = [get_data_type_from_json_value(parser, item) for item in value.values()]
         return parser.data_type(
-            data_types=value_types or [parser.data_type(type=ANY, import_=IMPORT_ANY)],
+            data_types=value_types
+            or [untyped_value_data_type(parser.data_type, parser.data_type_manager.untyped_value)],
             is_dict=True,
         )
     return parser.data_type_manager.get_data_type(Types.any)
@@ -1345,18 +1352,16 @@ def _value_bounds(value: object, obj: JsonSchemaObject) -> dict[str, float]:
 
 def partition_enum_values(
     parser: ValueKeywordsHost, enum_values: list[Any]
-) -> tuple[list[JsonSchemaLiteral], list[object], bool]:
+) -> tuple[list[JsonSchemaLiteral], list[object]]:
     """Split enum values into literal (``is_literal_kind``) and non-literal values."""
     literal_values: list[JsonSchemaLiteral] = []
     non_literal_values: list[object] = []
-    has_null = False
     bool_literals = parser._output_model_context.supports_boolean_literals  # noqa: SLF001
     for enum_value in enum_values:
         if (kind := literal_value_kind(enum_value)) == "none":
-            has_null = True
             non_literal_values.append(enum_value)
         elif is_literal_kind(kind, bool_literals=bool_literals):
             literal_values.append(enum_value)
         else:
             non_literal_values.append(enum_value)
-    return literal_values, non_literal_values, has_null
+    return literal_values, non_literal_values

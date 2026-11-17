@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "hugpy-core"
-version = "0.4.106"
+version = "0.4.107"
 description = "Hugpy Core: a small fleet API, worker console, dispatch and consolidated history."
 readme = "README.md"
 requires-python = ">=3.9"

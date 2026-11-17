@@ -307,6 +307,15 @@ def get_date_from_timestamp(
         match = RE_SEARCH_TIMESTAMP.search(date_string)
 
     if match:
+        try:
+            seconds = int(match.group(1))
+            millis = int(match.group(2) or 0)
+            micros = millis * 1000 + int(match.group(3) or 0)
+        except ValueError:
+            # A digit that the regular expression matches but int() does not
+            # know, e.g. one added to Unicode after this Python version.
+            return None
+
         if (
             settings is None
             or settings.TIMEZONE is None
@@ -319,9 +328,6 @@ def get_date_from_timestamp(
             # Otherwise, use the timezone given in settings
             timezone = get_timezone_from_tz_string(settings.TIMEZONE)
 
-        seconds = int(match.group(1))
-        millis = int(match.group(2) or 0)
-        micros = millis * 1000 + int(match.group(3) or 0)
         if negative:
             seconds, micros = divmod(seconds * 1000000 - micros, 1000000)
         date_obj = datetime.fromtimestamp(seconds, timezone).replace(
@@ -375,31 +381,49 @@ def parse_with_formats(
     """
     period = "day"
     for date_format in date_formats:
+        now = settings.RELATIVE_BASE or _now(settings)
         try:
-            date_obj = patched_strptime(date_string, date_format)
+            date_obj = patched_strptime(
+                date_string, date_format, reference_year=now.year
+            )
         except ValueError:
             continue
         else:
             _missing = _get_missing_parts(date_format)
+            if "year" in _missing:
+                try:
+                    date_obj = date_obj.replace(year=now.year)
+                except ValueError:
+                    continue
+
             missing_month = "month" in _missing
             missing_day = "day" in _missing
             if missing_month and missing_day:
                 period = "year"
-                date_obj = set_correct_month_from_settings(date_obj, settings)
-                date_obj = set_correct_day_from_settings(date_obj, settings)
+                date_obj = set_correct_month_from_settings(
+                    date_obj, settings, current_month=now.month
+                )
+                date_obj = set_correct_day_from_settings(
+                    date_obj, settings, current_day=now.day
+                )
 
             elif missing_month:
                 period = "year"
-                date_obj = set_correct_month_from_settings(date_obj, settings)
+                date_obj = set_correct_month_from_settings(
+                    date_obj, settings, current_month=now.month
+                )
 
             elif missing_day:
                 period = "month"
-                date_obj = set_correct_day_from_settings(date_obj, settings)
+                date_obj = set_correct_day_from_settings(
+                    date_obj, settings, current_day=now.day
+                )
 
-            now = settings.RELATIVE_BASE or _now(settings)
-            if "year" in _missing:
-                date_obj = date_obj.replace(year=now.year)
-            elif "%y" in date_format and "%Y" not in date_format:
+            if (
+                "year" not in _missing
+                and "%y" in date_format
+                and "%Y" not in date_format
+            ):
                 date_obj = _apply_century_preference(
                     date_obj, now, settings.PREFER_DATES_FROM
                 )
@@ -468,6 +492,23 @@ def _get_name_translations(
     return pattern, dict(translations)
 
 
+def _english_names(translations: dict[str, list[str]], match: str) -> list[str]:
+    """Return the English names that the name *match* found by the pattern of
+    :func:`_get_name_translations` can stand for."""
+    names = translations.get(match.lower())
+    if names is None:
+        # The pattern ignores case the way the regex module does, which also
+        # equates letters that str.lower() keeps apart, such as "ſ" and "s", or
+        # "I" and the Turkish "ı". Look for the names that it matched.
+        names = []
+        for name, english_names in translations.items():
+            if re.fullmatch(re.escape(name), match, flags=re.IGNORECASE):
+                names.extend(
+                    english for english in english_names if english not in names
+                )
+    return names
+
+
 def _translate_names(
     date_string: str, date_format: str, locale: "Locale"
 ) -> Iterator[str]:
@@ -491,10 +532,11 @@ def _translate_names(
     # A name can stand for several English names, e.g. "mar" is both "martes"
     # and "marzo" in Spanish, so combinations are yielded, but only the first
     # few, since their number doubles with each such name.
-    for combination in itertools.islice(
-        itertools.product(*(translations[match.lower()] for match in matches)),
-        _MAX_TRANSLATIONS,
-    ):
+    english_names = {
+        match: _english_names(translations, match) for match in dict.fromkeys(matches)
+    }
+    options = [english_names[match] for match in matches]
+    for combination in itertools.islice(itertools.product(*options), _MAX_TRANSLATIONS):
         yield "".join(
             part + name for part, name in zip(parts, (*combination, ""), strict=True)
         )

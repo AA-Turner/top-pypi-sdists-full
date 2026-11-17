@@ -9,21 +9,32 @@ Everything is derived from ``settings.domain`` (the apex, e.g.
 ``cube.edgescaleai-cube.com`` in prod, ``cube-dev.edgescaleai-cube.com`` in
 dev) rather than hardcoded, so the gate is environment-correct.
 
-Two security primitives live here and are reused verbatim by the middleware:
+Four security primitives live here and are reused verbatim by the middleware
+and both proxy legs:
   * :func:`is_app_subdomain_host` — the host gate that decides where
     cookie-auth is honored (cookie-auth on app subdomains only; the apex and
     its ``/mcp`` + ``/tunnel`` surface stay Bearer-only — spec §4.2 CSRF rule).
+  * :func:`select_credential` — which credential a request authenticates
+    with: a ``cmcp_`` Bearer key, else the session cookie where permitted. On
+    an app subdomain a Bearer token that is not ours belongs to the in-cube
+    app and is left for it (spec §4.2).
+  * :func:`authorization_carries_api_key` — whether an ``Authorization`` value
+    holds our key, so both proxy legs can keep it from the in-cube app.
   * :func:`validate_next` — the open-redirect guard on the post-login ``next``
     target (spec §4.4).
 """
 
 from __future__ import annotations
 
+import logging
 from urllib.parse import unquote, urlsplit
 
 from starlette.responses import Response
 
+from cube_cloud.auth.api_keys import API_KEY_PREFIX
 from cube_cloud.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Cookie carrying the cmcp_ key. HttpOnly + Secure + SameSite=Lax, parent-domain
 # scoped, 12h fixed max-age (spec §4.2).
@@ -60,6 +71,70 @@ def strip_session_cookie(cookie_header: str) -> str:
             continue
         kept.append(crumb)
     return "; ".join(kept)
+
+
+def select_credential(
+    authorization: str,
+    session_cookie_value: str | None,
+    *,
+    host: str,
+    cookie_allowed: bool,
+) -> tuple[str | None, bool]:
+    """Return ``(raw_key, via_cookie)``: the credential this request authenticates with.
+
+    A ``Bearer`` header is ours when it carries a ``cmcp_`` key, or on any host
+    that is not an app subdomain (the apex MCP surface is Bearer-only and has
+    no app behind it). On an app subdomain, a Bearer token that is NOT ours
+    belongs to the in-cube app (an OSDK app sends ``Authorization: Bearer
+    <its own token>`` on every data call), so it is not validated here: the
+    request authenticates by the session cookie, where ``cookie_allowed``, and
+    the header is forwarded to the app untouched. When no cookie can stand in
+    for a Bearer set aside that way, a WARNING records its shape (first four
+    characters and length, never the token).
+
+    This does not widen cookie-auth. The cookie is honored exactly where it
+    already was (``cookie_allowed``: app subdomains off ``/mcp`` + ``/tunnel``,
+    and the console's apex allowlist); the only change is that an app's own
+    header no longer stops the cookie from being read. Shared by
+    ``APIKeyMiddleware`` and the WS leg so the two cannot drift.
+    """
+    if authorization.startswith("Bearer "):
+        bearer = authorization[7:]  # strip "Bearer "
+        if bearer.startswith(API_KEY_PREFIX) or not is_app_subdomain_host(host):
+            return bearer, False
+        if not (cookie_allowed and session_cookie_value):
+            # Nothing will stand in for the Bearer we set aside, so this request
+            # fails as unauthenticated. Normally that is an app call after the
+            # session expired. It is also exactly how a key minted WITHOUT the
+            # cmcp_ prefix would fail on an app subdomain (it still works on the
+            # apex), and the stored SHA-256 cannot tell us any key's shape, so
+            # say so here. Nothing derived from the token is logged, not even a
+            # prefix or length. INFO, not WARNING: any unauthenticated caller
+            # can trigger it, and an OSDK page keeps polling after its session
+            # expires. The prefix is spelled out rather than passed as
+            # API_KEY_PREFIX: CodeQL's py/clear-text-logging-sensitive-data
+            # treats any *KEY* name as a secret.
+            logger.info(
+                "app_proxy: set aside a non-cmcp_ Bearer on %s with no session cookie; "
+                "answering as unauthenticated",
+                host.split(":")[0],
+            )
+    if cookie_allowed:
+        return session_cookie_value, True
+    return None, False
+
+
+def authorization_carries_api_key(value: str) -> bool:
+    """True iff an ``Authorization`` header value carries a ``cmcp_`` key.
+
+    Both proxy legs drop such a header before dialing the in-cube app, so our
+    key never reaches it, the same guarantee :func:`strip_session_cookie` gives
+    the cookie. The scheme match is case-insensitive and whitespace-tolerant on
+    purpose: dropping too much here is the fail-safe direction, and an app has
+    no use for a ``cmcp_`` key.
+    """
+    scheme, _, token = value.strip().partition(" ")
+    return scheme.lower() == "bearer" and token.strip().startswith(API_KEY_PREFIX)
 
 
 def apex_host() -> str:

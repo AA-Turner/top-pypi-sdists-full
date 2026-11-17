@@ -38,7 +38,7 @@ class TestBoxes:
     def test_method_create_with_all_params(self, client: Langsmith) -> None:
         box = client.sandboxes.boxes.create(
             access_delegation={
-                "mode": "INHERIT",
+                "mode": "EXPLICIT",
                 "permissions": ["string"],
             },
             cpu_millicores=0,
@@ -117,10 +117,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -167,6 +168,8 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
                         "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "rewrite": {
                             "port": 1,
@@ -291,10 +294,11 @@ class TestBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -341,6 +345,8 @@ class TestBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
                         "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "rewrite": {
                             "port": 1,
@@ -931,7 +937,7 @@ class TestAsyncBoxes:
     async def test_method_create_with_all_params(self, async_client: AsyncLangsmith) -> None:
         box = await async_client.sandboxes.boxes.create(
             access_delegation={
-                "mode": "INHERIT",
+                "mode": "EXPLICIT",
                 "permissions": ["string"],
             },
             cpu_millicores=0,
@@ -1010,10 +1016,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -1060,6 +1067,8 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
                         "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "rewrite": {
                             "port": 1,
@@ -1184,10 +1193,11 @@ class TestAsyncBoxes:
                 },
                 "callbacks": [
                     {
-                        "match_hosts": ["string"],
                         "ttl_seconds": 60,
                         "url": "url",
+                        "attribution_headers": ["string"],
                         "full_request": True,
+                        "match_hosts": ["string"],
                         "request_headers": [
                             {
                                 "name": "name",
@@ -1234,6 +1244,8 @@ class TestAsyncBoxes:
                         "match_headers": ["string"],
                         "match_hosts": ["string"],
                         "match_paths": ["string"],
+                        "match_port": 1,
+                        "match_scheme": "https",
                         "relay_id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                         "rewrite": {
                             "port": 1,

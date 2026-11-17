@@ -160,14 +160,18 @@ class PendingSalesConfig(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     PRICING_FIELD_NUMBER: builtins.int
+    SOFT_CAPS_FIELD_NUMBER: builtins.int
     @property
     def pricing(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PendingSalesLineItemPricing]: ...
+    @property
+    def soft_caps(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PendingSalesLineItemSoftCap]: ...
     def __init__(
         self,
         *,
         pricing: collections.abc.Iterable[global___PendingSalesLineItemPricing] | None = ...,
+        soft_caps: collections.abc.Iterable[global___PendingSalesLineItemSoftCap] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["pricing", b"pricing"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["pricing", b"pricing", "soft_caps", b"soft_caps"]) -> None: ...
 
 global___PendingSalesConfig = PendingSalesConfig
 
@@ -199,6 +203,26 @@ class PendingSalesLineItemPricing(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_reserved_price_cents", b"_reserved_price_cents"]) -> typing.Literal["reserved_price_cents"] | None: ...
 
 global___PendingSalesLineItemPricing = PendingSalesLineItemPricing
+
+@typing.final
+class PendingSalesLineItemSoftCap(google.protobuf.message.Message):
+    """Mirrors contract.v2.SalesLineItemSoftCap."""
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    LINE_ITEM_UID_FIELD_NUMBER: builtins.int
+    TYPE_FIELD_NUMBER: builtins.int
+    line_item_uid: builtins.str
+    type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType
+    def __init__(
+        self,
+        *,
+        line_item_uid: builtins.str = ...,
+        type: sentry_protos.billing.v1.common.v1.soft_cap_type_pb2.SoftCapType.ValueType = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "type", b"type"]) -> None: ...
+
+global___PendingSalesLineItemSoftCap = PendingSalesLineItemSoftCap
 
 @typing.final
 class PendingUserConfig(google.protobuf.message.Message):
@@ -240,7 +264,7 @@ class PendingUserConfig(google.protobuf.message.Message):
 
     @property
     def soft_cap(self) -> global___SoftCap:
-        """Pending soft-cap override."""
+        """Deprecated: stage soft caps in PendingChange.sales_config instead."""
 
     def __init__(
         self,

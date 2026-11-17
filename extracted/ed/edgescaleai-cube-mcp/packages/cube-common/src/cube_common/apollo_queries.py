@@ -979,6 +979,12 @@ mutation CreateProductRelease($productReleaseManifest: String!) {
 # Product queries
 # ---------------------------------------------------------------------------
 
+# Page size for a drained `LIST_PRODUCTS` (`apollo_pagination.fetch_all_products`).
+# 200 is the largest size `tools/products.py::list_products` has always asked for; at
+# ~850 products (rbac-service's registry, 2026-10) that is five pages, well inside
+# `MAX_PAGES`. The tool's own default of 50 would hit the cap at 500 and truncate.
+PRODUCTS_PAGE_SIZE = 200
+
 LIST_PRODUCTS = """
 query ListProducts($pageSize: Int!, $pageToken: String) {
     apollo {

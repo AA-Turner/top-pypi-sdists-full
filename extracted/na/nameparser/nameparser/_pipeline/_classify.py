@@ -13,9 +13,12 @@ plus ambiguities (CONJUNCTION_OR_INITIAL) and
 one_case -- whether the name's own words are written in one case,
 recorded for the later stages that read it (#289/#516) and left alone
 where an earlier stage already asked.
-Reads: every Lexicon vocabulary field except surnames and
-honorific_tails, which script_segment consumes upstream, and
-given_names, which only post_rules reads (rules/O6); and the kinds
+Reads: every Lexicon vocabulary field except given_names, which only
+post_rules and assemble read (rules/O6) -- surnames and
+honorific_tails, which script_segment consumes upstream, only through
+helpers: the caps shape's unlisted test (`_vocab.in_any_wordlist`)
+reads both, and `_vocab.period_joined_credential` honorific_tails;
+and the kinds
 of its suffix words and particles (Lexicon's generation_words,
 credential_words, honorific_words and patronymic_particles, internal
 sets, 3.0) and the
@@ -25,7 +28,10 @@ titles written short (title_abbreviations, #999) and the names a
 community gives every member (shared_names) and the given names
 written behind a particle (particle_given_names, #704) and the
 two-word given names a bound word completes into (bound_phrases,
-#694); and, since
+#694) and the titles a run of single letters may spell
+(dotted_titles, rules/H10, #490) and the saint particles a word glued
+at its full stop is cut behind (saint_particles, through
+`_vocab.glued_saint_cut`); and, since
 2.4, Policy.unlisted_dotted_suffixes and Policy.unlisted_caps_suffixes,
 which decide whether an UNLISTED dotted or all-caps token joins the
 ambiguous credential class by SHAPE (#516) -- the all-caps half here
@@ -35,30 +41,32 @@ Policy.extra_suffix_delimiters, with the built-in semicolon
 (_vocab.glued_cores), so a word after the first comma with a
 delimiter glued to it is tagged as the word without it (rules/C10).
 is_initial also consults
-the _policy module's _NO_INITIALS constant. It is named apart from the
+the _policy module's _SCRIPT_PROPERTIES table. It is named apart from the
 fields above because it is not CONFIGURATION -- no Lexicon or Policy
 carries it and no caller can change it -- and not because it decides
 nothing: the tags this stage writes do vary by it ('씨.' is not tagged
 `initial`, which is the whole of #320).
 
 Tags emitted -- stable (API): "particle", "conjunction", "initial";
-namespaced (unstable): "vocab:title", "vocab:given-title",
-"vocab:after-given-title", "vocab:title-ambiguous",
+namespaced (unstable), kept on the published token: "vocab:title",
+"vocab:given-title", "vocab:after-given-title",
+"vocab:title-ambiguous", "vocab:dotted-title" (a run of single letters
+spelling a title the lexicon marks `dotted`, rules/H10, #490),
 "vocab:suffix", "vocab:suffix-word", "vocab:suffix-ambiguous",
-"vocab:suffix-word-ambiguous", "vocab:agnomen",
-"vocab:generation-word", "vocab:credential-word",
-"vocab:honorific-word", "vocab:patronymic", "vocab:trailing-title"
-and "vocab:joined-title" (read by the later stages and dropped by
-assemble, Token.reading carrying the kind out, save the last two,
-which mark no kind), "vocab:title-case-name" (a suffix word whose
-Title case leans to the name, rules/S6, kept on the published token),
+"vocab:suffix-word-ambiguous", "vocab:agnomen", "vocab:title-case-name"
+(a suffix word whose Title case leans to the name, rules/S6),
 "vocab:particle-ambiguous", "vocab:bound-given",
-"vocab:given-abbreviation", "vocab:shared-name" (which rules/P10, O6
-and O7 read), "vocab:particle-given" (which P10 and O6 read) and
-"vocab:bound-phrase" (on a bound word and the word after it being a
-listed pair, which P12 joins and O6 counts once, #694), each
-dropped by assemble and carrying no kind out, "vocab:maiden-marker",
-"vocab:maiden-marker-cont"; in a namespace of its own,
+"vocab:given-abbreviation", "vocab:maiden-marker" and
+"vocab:maiden-marker-cont" (a marker group drops leaves no token; one
+read as a word keeps its tag); namespaced, read by the later stages and dropped
+by assemble (`_assemble._KIND_TAGS`): "vocab:generation-word",
+"vocab:credential-word", "vocab:honorific-word" and "vocab:patronymic",
+Token.reading carrying the kind out, "vocab:trailing-title",
+"vocab:joined-title" and "vocab:chain-title", which mark no kind,
+"vocab:shared-name" (which rules/P10, O6 and O7 read),
+"vocab:particle-given" (which P10 and O6 read) and "vocab:bound-phrase"
+(on a bound word and the word after it being a listed pair, which P12
+joins and O6 counts once, #694); in a namespace of its own,
 "shape:acronym"; and in another, "split:credential" and
 "split:member", written on the first word of a credential split across
 a space (`_vocab.split_pair`) to name the piece the pair merges into:
@@ -92,19 +100,21 @@ import unicodedata
 from nameparser._lexicon import _normalize, _spells_an_initial
 from nameparser._policy import CapsSuffixes
 from nameparser._pipeline._state import (
-    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, CREDENTIAL_WORD_TAG,
+    AGNOMEN_TAG, AMBIGUOUS_ACRONYM_TAG, AMBIGUOUS_WORD_TAG, COMMA_STRIP, CREDENTIAL_WORD_TAG,
     GENERATION_WORD_TAG, GIVEN_ABBREVIATION_TAG, HONORIFIC_WORD_TAG,
     BOUND_PHRASE_TAG, PARTICLE_GIVEN_TAG, PATRONYMIC_TAG, SHAPE_ACRONYM_TAG, SHARED_NAME_TAG, SPLIT_CREDENTIAL_TAG, SPLIT_MEMBER_TAG, TITLE_AMBIGUOUS_TAG,
     TITLE_CASE_NAME_TAG,
-    JOINED_TITLE_TAG, TRAILING_TITLE_TAG, ParseState,
+    CHAIN_TITLE_TAG, DOTTED_TITLE_TAG, JOINED_TITLE_TAG, TRAILING_TITLE_TAG,
+    ParseState,
     Deferred, PendingAmbiguity, PendingReading,
     WorkToken, copy_with,
 )
 from nameparser._types import AmbiguityKind, ReadingKind, ReadingSource
 from nameparser._pipeline._vocab import (
-    BUILTIN_GLUED_DELIMITERS, SPLIT_CHUNK, SPLIT_PAIR_OPENS, _INITIAL, _JOINED_WORD, caps_shape_candidate,
+    BUILTIN_GLUED_DELIMITERS, SPLIT_CHUNK, SPLIT_PAIR_OPENS, _INITIAL, _JOINED_WORD,
+    _TRAILING_TITLE_SHAPE, caps_shape_candidate,
     composed_len, glued_cores, glued_stem, is_cased_paired_initials,
-    is_initial, is_one_case,
+    is_dotted_title, is_initial, is_one_case,
     period_joined_title, period_joined_vocab,
     split_pair,
     suffix_as_written, tag_marker_runs, title_readings,
@@ -173,6 +183,15 @@ def _tags_for(token: WorkToken, n: str, state: ParseState,
         # 'д-р', is a credential there to CLDR (decisions/H5, #1104)
         if "." in n and _JOINED_WORD.match(n):
             tags.add(JOINED_TITLE_TAG)
+    # rules/H10: "a run of single letters joined by full stops whose
+    # spelling without them is a title the vocabulary marks as written
+    # that way" -- the tag; whether a title the run keeps follows it is
+    # for the title runs to ask (`_pieces.leading_titles`, and H6's in
+    # assign). The stop and set tests first, C-level, so a word with no
+    # interior stop, or one spelling no marked title, pays no frame.
+    elif ("." in n and n.replace(".", "") in lex._sets.dotted_titles
+          and is_dotted_title(token.text, n, lex)):
+        tags.add(DOTTED_TITLE_TAG)
     if n in lex._sets.given_name_titles:
         tags.add("vocab:given-title")
     # rules/H5: "a title that may be a given name is title vocabulary
@@ -495,7 +514,7 @@ def classify(state: ParseState) -> ParseState:
     if state.extracted:
         for i, t in enumerate(state.tokens):
             if (t.role is not None and i not in marker_tags
-                    and (bare := t.text.strip(",")) and bare != t.text):
+                    and (bare := t.text.strip(COMMA_STRIP)) and bare != t.text):
                 readers[i] = copy_with(t, text=bare)
                 folded[i] = _normalize(bare)
     tokens = tuple(
@@ -542,6 +561,18 @@ def classify(state: ParseState) -> ParseState:
     # a contested word keeps TITLE_AMBIGUOUS_TAG either way, for the
     # report where it opens the name (assign)
     lex = state.lexicon
+    # rules/H10: "a title that is also a given name reads it as the
+    # title it spells when asking for a partner in its title phrase
+    # (H9)" -- the run's spelling without stops goes to the phrase test
+    # wherever it stands, as its undotted twin does. Only where the name
+    # holds a word that test reads, so a run alone ('U.S. Grant') runs
+    # no phrase test; whether the run is kept as a title is the title
+    # runs' question, not this one (decisions/H10)
+    if not (lex._sets.titles_ambiguous.isdisjoint(folded)
+            and lex._sets.title_modifiers.isdisjoint(folded)):
+        for i, t in enumerate(tokens):
+            if DOTTED_TITLE_TAG in t.tags:
+                folded[i] = folded[i].replace(".", "")
     if not (lex._sets.titles_ambiguous.isdisjoint(folded)
             and lex._sets.title_modifiers.isdisjoint(folded)):
         written = list(tokens)
@@ -631,6 +662,26 @@ def classify(state: ParseState) -> ParseState:
         for i, tag in split.items():
             written[i] = copy_with(written[i], tags=written[i].tags | {tag})
         tokens = tuple(written)
+    # rules/H5: "successive single words that wear the abbreviation
+    # shape and are title vocabulary chain into the title from the end"
+    # -- which words those are, written once as CHAIN_TITLE_TAG for
+    # every reader of the chain (#1171). After H9's phrase test, which
+    # settles "vocab:title"; against the text as written, which the
+    # readers saw before the tag ('Prof.;' wears no shape, C10's stem
+    # notwithstanding). The tag tests first, in C, so only a title word
+    # pays the regex, and only one wearing the shape pays a frame, in
+    # any position ('Dr.' too: position is the readers' question).
+    chain: list[WorkToken] | None = None
+    for i, token in enumerate(tokens):
+        tags = token.tags
+        if (JOINED_TITLE_TAG in tags
+                or ("vocab:title" in tags or TRAILING_TITLE_TAG in tags)
+                and _TRAILING_TITLE_SHAPE.match(token.text) is not None):
+            if chain is None:
+                chain = list(tokens)
+            chain[i] = copy_with(token, tags=tags | {CHAIN_TITLE_TAG})
+    if chain is not None:
+        tokens = tuple(chain)
     ambiguities = list(state.ambiguities)
     for i, token in enumerate(tokens):
         # #383/#479: narrows the fork's own "initial" tag with the same

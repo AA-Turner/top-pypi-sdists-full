@@ -100,8 +100,8 @@ pub enum Syntax {
 	Quote = 27,
 	/// `>>> quote`, quoting everything after it.
 	MultilineQuote = 28,
-	/// `-# small`
-	Small = 29,
+	/// `-# subtext`
+	Subtext = 29,
 }
 
 /// A collection of [`Syntax`]es.
@@ -162,7 +162,7 @@ impl Syntax {
 
 	/// Syntaxes parsed only at the start of a line.
 	pub const BLOCK: SyntaxSet =
-		enum_set!(Self::Heading | Self::List | Self::Quote | Self::MultilineQuote | Self::Small);
+		enum_set!(Self::Heading | Self::List | Self::Quote | Self::MultilineQuote | Self::Subtext);
 
 	/// Every way of writing an emoji.
 	pub const EMOJI: SyntaxSet =
@@ -246,7 +246,7 @@ impl Syntax {
 		Self::List,
 		Self::Quote,
 		Self::MultilineQuote,
-		Self::Small,
+		Self::Subtext,
 	];
 
 	/// Whether `input` begins with whatever begins this syntax. Running text stops wherever an
@@ -334,7 +334,7 @@ impl Syntax {
 			| Self::List
 			| Self::Quote
 			| Self::MultilineQuote
-			| Self::Small => return None,
+			| Self::Subtext => return None,
 		})
 	}
 
@@ -463,7 +463,7 @@ mod test {
 	fn bits_are_stable() {
 		assert_eq!(SyntaxSet::from(Syntax::CustomEmoji).as_u32(), 1 << 0);
 		assert_eq!(SyntaxSet::from(Syntax::Bold).as_u32(), 1 << 19);
-		assert_eq!(SyntaxSet::from(Syntax::Small).as_u32(), 1 << 29);
+		assert_eq!(SyntaxSet::from(Syntax::Subtext).as_u32(), 1 << 29);
 		assert_eq!(SyntaxSet::all().as_u32(), (1 << 30) - 1);
 	}
 

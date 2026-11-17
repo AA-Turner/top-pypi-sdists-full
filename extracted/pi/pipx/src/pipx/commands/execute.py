@@ -1,27 +1,50 @@
 from __future__ import annotations
 
-__lazy_modules__ = ["itertools", "pipx.subprocess_runner", "pipx.util", "pipx.venv"]
+__lazy_modules__ = [
+    "itertools",
+    "pathlib",
+    "pipx.commands.common",
+    "pipx.subprocess_runner",
+    "pipx.util",
+    "pipx.venv",
+    "typing",
+]
 
 import os
 from itertools import chain
-from typing import TYPE_CHECKING, Final, NoReturn
+from pathlib import Path
+from typing import Final, NoReturn
 
+from pipx.commands.common import exposed_app_names
 from pipx.constants import WINDOWS
 from pipx.subprocess_runner import exec_app
 from pipx.util import PipxError
 from pipx.venv import Venv
 
-if TYPE_CHECKING:
-    from pathlib import Path
-
 
 def execute(package: str, venv_dir: Path, app: str, app_args: list[str]) -> NoReturn:
+    """Run an app of a managed environment, replacing the current process.
+
+    :param package: the name of the package, as shown to the user.
+    :param venv_dir: the directory of the environment.
+    :param app: the name of the app to run.
+    :param app_args: the arguments to pass to the app.
+    :raises PipxError: when the environment or the app does not exist.
+    """
     if not venv_dir.is_dir():
         msg = f"pipx does not manage environment {package!r}."
         raise PipxError(msg)
 
     venv: Final[Venv] = Venv(venv_dir)
-    app_paths: Final[dict[str, Path]] = _application_paths(venv)
+    app_paths: Final[dict[str, Path]] = {}
+    for managed_package in (venv.pipx_metadata.main_package, *venv.pipx_metadata.injected_packages.values()):
+        for path in chain(
+            managed_package.resources.app_paths,
+            *managed_package.resources.app_paths_of_dependencies.values(),
+        ):
+            # an app installed with a suffix is on PATH under the suffixed name, which is the one users type
+            for name in {path.name, *exposed_app_names(path.name, managed_package.exposure.suffix)}:
+                app_paths[Path(name).stem if WINDOWS and Path(name).suffix.lower() == ".exe" else name] = path
     if (app_path := app_paths.get(app)) is None:
         available: Final[str] = ", ".join(sorted(app_paths)) or "none"
         msg = f"Application {app!r} was not found in environment {package!r}.\nAvailable applications: {available}"
@@ -39,14 +62,6 @@ def execute(package: str, venv_dir: Path, app: str, app_args: list[str]) -> NoRe
         os.pathsep.join((str(venv.bin_path), path)) if (path := environment.get("PATH")) else str(venv.bin_path)
     )
     exec_app([app_path, *app_args], env=environment)
-
-
-def _application_paths(venv: Venv) -> dict[str, Path]:
-    return {
-        path.stem if WINDOWS and path.suffix.lower() == ".exe" else path.name: path
-        for package in (venv.pipx_metadata.main_package, *venv.pipx_metadata.injected_packages.values())
-        for path in chain(package.app_paths, *package.app_paths_of_dependencies.values())
-    }
 
 
 __all__ = [

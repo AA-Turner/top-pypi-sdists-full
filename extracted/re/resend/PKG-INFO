@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: resend
-Version: 2.53.2
+Version: 2.54.0
 Summary: Resend Python SDK
 Home-page: https://github.com/resendlabs/resend-python
 Author: Derich Pacheco
@@ -132,6 +132,19 @@ import resend
 
 resend.api_key = "re_yourkey"
 resend.default_async_http_client = resend.HTTPXClient(timeout=60)
+```
+
+By default, `HTTPXClient` opens a new connection for every request. To reuse
+connections, pass your own `httpx.AsyncClient`. You own its lifecycle, so close
+it when you're done:
+
+```py
+import httpx
+import resend
+
+async with httpx.AsyncClient(timeout=60) as client:
+    resend.default_async_http_client = resend.HTTPXClient(client=client)
+    ...
 ```
 
 Legacy configurations that assign an `AsyncHTTPClient` to

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import threading
 from dataclasses import dataclass
 from time import monotonic
 from typing import TYPE_CHECKING
+
+from vercel_runtime import allio
 
 # Re-exported: hooks decide takeover eligibility from the routed host.
 from .headers import current_forwarded_host
@@ -105,7 +106,7 @@ async def _run_hook(name: str, hook: _InvocationHook) -> None:
     succeeded = False
     reschedule_after: float | None = None
     try:
-        result = await asyncio.to_thread(hook.callback)
+        result = await allio.to_thread(hook.callback)
         if isinstance(result, (int, float)) and not isinstance(result, bool):
             reschedule_after = max(0.0, float(result))
         succeeded = True

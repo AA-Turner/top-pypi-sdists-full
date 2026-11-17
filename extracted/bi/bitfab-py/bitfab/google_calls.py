@@ -159,32 +159,110 @@ def http_error(request: Any, error: dict[str, Any]) -> Exception:
     return from_errors.HttpError(response, content, uri=getattr(request, "uri", None))
 
 
+def _run_request(
+    request: Any, method_id: str, prefix: str, params: dict[str, Any], send: Any
+) -> Any:
+    fingerprint = credential_fingerprint(request_credentials(request))
+    if fingerprint is not None:
+        params[CREDENTIAL_PARAM] = fingerprint
+    result = service_calls.run(
+        service_calls.ServiceCall(
+            integration=SERVICES[prefix][0],
+            method=method_id,
+            params=params,
+            send=send,
+            request=request,
+        )
+    )
+    if isinstance(result, dict) and isinstance(result.get(HTTP_ERROR_KEY), dict):
+        raise http_error(request, result[HTTP_ERROR_KEY])
+    return result
+
+
+def _parsed(request: Any) -> tuple[str, str, dict[str, Any]] | None:
+    with contextlib.suppress(Exception):
+        return request_params(request)
+    return None
+
+
 def _patched_execute(original: Any) -> Any:
     @functools.wraps(original)
     def execute(self: Any, *args: Any, **kwargs: Any) -> Any:
-        parsed = None
-        with contextlib.suppress(Exception):
-            parsed = request_params(self)
+        parsed = _parsed(self)
         if parsed is None or len(args) > len(EXECUTE_PARAMS):
             return original(self, *args, **kwargs)
         kwargs = {**dict(zip(EXECUTE_PARAMS, args)), **kwargs}
-        args = ()
-        method_id, prefix, params = parsed
-        fingerprint = credential_fingerprint(request_credentials(self))
-        if fingerprint is not None:
-            params[CREDENTIAL_PARAM] = fingerprint
-        result = service_calls.run(
-            service_calls.ServiceCall(
-                integration=SERVICES[prefix][0],
-                method=method_id,
-                params=params,
-                send=lambda: original(self, *args, **kwargs),
-                request=self,
-            )
+        return _run_request(self, *parsed, lambda: original(self, **kwargs))
+
+    setattr(execute, PATCHED_MARKER, True)
+    return execute
+
+
+def _send_batch(original: Any, batch: Any, http: Any) -> dict[str, tuple[Any, Any]]:
+    outcomes: dict[str, tuple[Any, Any]] = {}
+    callbacks, callback = batch._callbacks, batch._callback
+
+    def capture(request_id: str, response: Any, exception: Any) -> None:
+        outcomes[request_id] = (response, exception)
+
+    batch._callbacks = {request_id: capture for request_id in batch._order}
+    batch._callback = None
+    try:
+        original(batch, http)
+    finally:
+        batch._callbacks, batch._callback = callbacks, callback
+    return outcomes
+
+
+def _sent(outcome: tuple[Any, Any]) -> Any:
+    response, exception = outcome
+    if exception is not None:
+        raise exception
+    return response
+
+
+def _never_sent(method_id: str) -> Any:
+    def send() -> Any:
+        raise service_calls.ServiceCallHeldBackError(
+            f"{method_id} was held back: it was part of a batched request "
+            "during a replay, and batched Gmail calls never reach Google."
         )
-        if isinstance(result, dict) and isinstance(result.get(HTTP_ERROR_KEY), dict):
-            raise http_error(self, result[HTTP_ERROR_KEY])
-        return result
+
+    return send
+
+
+def _answer(request: Any, http: Any, outcome: tuple[Any, Any] | None) -> Any:
+    parsed = _parsed(request)
+    if parsed is None:
+        return request.execute(http=http) if outcome is None else _sent(outcome)
+    send = _never_sent(parsed[0]) if outcome is None else lambda: _sent(outcome)
+    return _run_request(request, *parsed, send)
+
+
+def _patched_batch_execute(original: Any) -> Any:
+    @functools.wraps(original)
+    def execute(self: Any, http: Any = None) -> Any:
+        requests = getattr(self, "_requests", None) or {}
+        if not any(_parsed(request) is not None for request in requests.values()):
+            return original(self, http)
+        if http is None:
+            http = next((r.http for r in requests.values() if r is not None), None)
+        outcomes = (
+            {} if service_calls.replaying() else _send_batch(original, self, http)
+        )
+        http_error_type = getattr(
+            sys.modules.get("googleapiclient.errors"), "HttpError", ()
+        )
+        for request_id in list(self._order):
+            response, exception = None, None
+            try:
+                response = _answer(requests[request_id], http, outcomes.get(request_id))
+            except http_error_type as error:
+                exception = error
+            for callback in (self._callbacks.get(request_id), self._callback):
+                if callback is not None:
+                    callback(request_id, response, exception)
+        return None
 
     setattr(execute, PATCHED_MARKER, True)
     return execute
@@ -228,6 +306,14 @@ def patch_module(module: Any) -> None:
                 and not getattr(execute, PATCHED_MARKER, False)
             ):
                 cls.execute = _patched_execute(execute)
+            batch_cls = getattr(module, "BatchHttpRequest", None)
+            batch_execute = getattr(batch_cls, "execute", None)
+            if (
+                batch_cls is not None
+                and batch_execute
+                and not getattr(batch_execute, PATCHED_MARKER, False)
+            ):
+                batch_cls.execute = _patched_batch_execute(batch_execute)
         if getattr(module, "__name__", "") == CREDENTIALS_MODULE:
             cls = getattr(module, "Credentials", None)
             refresh = getattr(cls, "refresh", None)

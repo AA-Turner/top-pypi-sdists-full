@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import List, Union, Optional
+from typing import List, Union
 from typing_extensions import Literal, Required, TypedDict
 
 from ..._types import SequenceNotStr
@@ -24,7 +24,22 @@ class TransactionGetParams(TypedDict, total=False):
     """
 
     asset: Union[
-        Literal["usdc", "usdc.e", "eth", "avax", "pol", "bnb", "usdt", "eurc", "usdb", "ousd", "pathusd", "sol", "trx"],
+        Literal[
+            "usdc",
+            "usdc.e",
+            "eth",
+            "avax",
+            "pol",
+            "bnb",
+            "mon",
+            "usdt",
+            "eurc",
+            "usdb",
+            "ousd",
+            "pathusd",
+            "sol",
+            "trx",
+        ],
         List[WalletAsset],
     ]
     """Exactly one of `asset` or `token` is required.
@@ -33,10 +48,11 @@ class TransactionGetParams(TypedDict, total=False):
     """
 
     cursor: str
+    """Cursor returned by the previous page."""
 
     include_archived: bool
     """Include archived wallets in lookup. Defaults to false."""
 
-    limit: Optional[float]
+    limit: int
 
     tx_hash: str

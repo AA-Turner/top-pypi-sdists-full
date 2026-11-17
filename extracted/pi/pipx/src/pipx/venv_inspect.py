@@ -8,6 +8,7 @@ __lazy_modules__ = [
     "packaging.requirements",
     "packaging.utils",
     "pathlib",
+    "pipx.pipx_metadata_file",
     "pipx.requires_python",
     "pipx.subprocess_runner",
     "pipx.util",
@@ -28,13 +29,14 @@ import tomllib
 from dataclasses import dataclass
 from importlib import metadata
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Final, TypedDict
+from typing import TYPE_CHECKING, Final, NamedTuple, TypedDict
 from urllib.parse import urlparse
 
 from packaging.requirements import Requirement
 from packaging.utils import InvalidName, canonicalize_name
 
 from pipx.constants import COMPLETION_SECTIONS, MAN_SECTIONS, WINDOWS
+from pipx.pipx_metadata_file import PackageResources
 from pipx.requires_python import unsatisfied_constraint
 from pipx.subprocess_runner import run_subprocess
 from pipx.util import PipxError, is_file_name
@@ -44,6 +46,8 @@ if TYPE_CHECKING:
     from subprocess import CompletedProcess
 
     from packaging.specifiers import SpecifierSet
+
+    from pipx.result import JsonValue
 
 _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
@@ -55,6 +59,16 @@ def inspect_venv(
     venv_python_path: Path,
     venv_man_path: Path,
 ) -> VenvMetadata:
+    """Inspect a virtual environment for the apps, man pages and dependencies of its package.
+
+    :param root_package_name: the name of the package installed in the environment.
+    :param root_package_extras: the extras of the package that were installed.
+    :param venv_bin_path: the bin directory of the environment.
+    :param venv_python_path: the interpreter of the environment.
+    :param venv_man_path: the man directory of the environment.
+    :returns: the metadata found.
+    :raises PipxError: when the environment has no metadata for its package or cannot be inspected.
+    """
     root_req: Final[Requirement] = Requirement(root_package_name)
     root_req.extras = root_package_extras
 
@@ -92,26 +106,28 @@ def inspect_venv(
             resources_of_dependencies.app_paths[dep] = _windows_extra_app_paths(dep_paths)
 
     return VenvMetadata(
-        apps=apps,
-        app_paths=_windows_extra_app_paths(app_paths) if WINDOWS else app_paths,
-        apps_of_dependencies=apps_of_dependencies,
-        app_paths_of_dependencies=resources_of_dependencies.app_paths,
-        man_pages=man_pages,
-        man_paths=[venv_man_path / man_page for man_page in man_pages],
-        man_pages_of_dependencies=[
-            str(Path(dep_path.parent.name) / dep_path.name)
-            for dep_paths in resources_of_dependencies.man_paths.values()
-            for dep_path in dep_paths
-        ],
-        man_paths_of_dependencies=resources_of_dependencies.man_paths,
-        completions=completions,
-        completion_paths=[venv_share_path / completion for completion in completions],
-        completions_of_dependencies=[
-            dep_path.relative_to(venv_share_path).as_posix()
-            for dep_paths in resources_of_dependencies.completion_paths.values()
-            for dep_path in dep_paths
-        ],
-        completion_paths_of_dependencies=resources_of_dependencies.completion_paths,
+        resources=PackageResources(
+            apps=apps,
+            app_paths=_windows_extra_app_paths(app_paths) if WINDOWS else app_paths,
+            apps_of_dependencies=apps_of_dependencies,
+            app_paths_of_dependencies=resources_of_dependencies.app_paths,
+            man_pages=man_pages,
+            man_paths=[venv_man_path / man_page for man_page in man_pages],
+            man_pages_of_dependencies=[
+                str(Path(dep_path.parent.name) / dep_path.name)
+                for dep_paths in resources_of_dependencies.man_paths.values()
+                for dep_path in dep_paths
+            ],
+            man_paths_of_dependencies=resources_of_dependencies.man_paths,
+            completions=completions,
+            completion_paths=[venv_share_path / completion for completion in completions],
+            completions_of_dependencies=[
+                dep_path.relative_to(venv_share_path).as_posix()
+                for dep_paths in resources_of_dependencies.completion_paths.values()
+                for dep_path in dep_paths
+            ],
+            completion_paths_of_dependencies=resources_of_dependencies.completion_paths,
+        ),
         package_version=root_dist.version,
         python_version=f"Python {venv_env['python_full_version']}",
         unsupported_python=unsatisfied_constraint(root_dist.metadata.get("Requires-Python"), venv_python_version),
@@ -119,6 +135,12 @@ def inspect_venv(
 
 
 def fetch_info_in_venv(venv_python_path: Path) -> tuple[list[str], dict[str, str], str]:
+    """Run the interpreter of an environment to read its search path, environment and Python version.
+
+    :param venv_python_path: the interpreter of the environment.
+    :returns: the search path, the environment variables and the Python version.
+    :raises PipxError: when the interpreter cannot run or prints no usable information.
+    """
     command_str: Final[str] = textwrap.dedent(
         """
         import json
@@ -181,16 +203,27 @@ def fetch_info_in_venv(venv_python_path: Path) -> tuple[list[str], dict[str, str
     except json.JSONDecodeError as error:
         msg = f"{venv_python_path} printed output pipx cannot parse while inspecting its environment."
         raise PipxError(msg, wrap_message=False) from error
-    return venv_info["sys_path"], venv_info["environment"], venv_info["python_version"]
+    return (  # simplint: ignore[long-tuple-return]  # preserve the tuple return contract
+        venv_info["sys_path"],
+        venv_info["environment"],
+        venv_info["python_version"],
+    )
 
 
-class _VenvInfo(TypedDict):
-    sys_path: list[str]
-    environment: dict[str, str]
-    python_version: str
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _VenvInspectInformation:
+    distributions: Mapping[str, metadata.Distribution]
+    env: dict[str, str]
+    bin_path: Path
+    man_path: Path
 
 
 def get_distributions_by_name(paths: list[str]) -> dict[str, metadata.Distribution]:
+    """Return the installed distributions of the given search path, by name.
+
+    :param paths: the directories to search for distributions.
+    :returns: the distributions keyed by their name.
+    """
     metadata.MetadataPathFinder().invalidate_caches()
     distributions: Final[dict[str, metadata.Distribution]] = {}
     for dist in metadata.distributions(path=paths):
@@ -209,11 +242,10 @@ def _distribution_name(dist: metadata.Distribution) -> str | None:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class _VenvInspectInformation:
-    distributions: Mapping[str, metadata.Distribution]
-    env: dict[str, str]
-    bin_path: Path
-    man_path: Path
+class _DependencyResources:
+    app_paths: dict[str, list[Path]]
+    man_paths: dict[str, list[Path]]
+    completion_paths: dict[str, list[Path]]
 
 
 def _dfs_package_resources(
@@ -247,13 +279,6 @@ def _dfs_package_resources(
         _dfs_package_resources(dep_dist, dep_req, venv_inspect_info, resources, dep_visited)
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _DependencyResources:
-    app_paths: dict[str, list[Path]]
-    man_paths: dict[str, list[Path]]
-    completion_paths: dict[str, list[Path]]
-
-
 def _get_package_dependencies(dist: metadata.Distribution, extras: set[str], env: dict[str, str]) -> list[Requirement]:
     eval_env: Final[dict[str, str]] = env.copy()
     # an empty extra lets the markers that name no extra evaluate
@@ -273,9 +298,7 @@ def _get_package_dependencies(dist: metadata.Distribution, extras: set[str], env
     return dependencies
 
 
-def _get_resources(
-    dist: metadata.Distribution, bin_path: Path, man_path: Path
-) -> tuple[list[str], list[str], list[str]]:
+def _get_resources(dist: metadata.Distribution, bin_path: Path, man_path: Path) -> _Resources:
     entry_point_apps: Final[set[str]] = _get_apps_from_entry_points(dist, bin_path)
     dist_file_apps, dist_file_man_pages, dist_file_completions = _get_resources_from_dist_files(
         dist, bin_path, man_path
@@ -283,15 +306,20 @@ def _get_resources(
     inst_file_apps, inst_file_man_pages, inst_file_completions = _get_resources_from_inst_files(
         dist, bin_path, man_path
     )
-    return (
-        sorted(entry_point_apps | dist_file_apps | inst_file_apps),
-        sorted(dist_file_man_pages | inst_file_man_pages | _get_man_pages_from_editable_project(dist, man_path)),
-        sorted(dist_file_completions | inst_file_completions),
+    return _Resources(
+        apps=sorted(entry_point_apps | dist_file_apps | inst_file_apps),
+        man_pages=sorted(
+            dist_file_man_pages | inst_file_man_pages | _get_man_pages_from_editable_project(dist, man_path)
+        ),
+        completions=sorted(dist_file_completions | inst_file_completions),
     )
 
 
 def _get_apps_from_entry_points(dist: metadata.Distribution, bin_path: Path) -> set[str]:
-    if not _owns_entry_points(dist):
+    # every wheel unpacks into one site-packages, so a dependency can plant entry_points.txt in this .dist-info
+    if dist.read_text("RECORD") is not None and not any(
+        path.name == "entry_points.txt" and path.parent.suffix == ".dist-info" for path in dist.files or []
+    ):
         return set()
     app_names: Final[set[str]] = set()
     for entry_point in dist.entry_points:
@@ -305,16 +333,7 @@ def _get_apps_from_entry_points(dist: metadata.Distribution, bin_path: Path) -> 
     return app_names
 
 
-def _owns_entry_points(dist: metadata.Distribution) -> bool:
-    # every wheel unpacks into one site-packages, so a dependency can plant entry_points.txt in this .dist-info
-    if dist.read_text("RECORD") is None:
-        return True
-    return any(path.name == "entry_points.txt" and path.parent.suffix == ".dist-info" for path in dist.files or [])
-
-
-def _get_resources_from_dist_files(
-    dist: metadata.Distribution, bin_path: Path, man_path: Path
-) -> tuple[set[str], set[str], set[str]]:
+def _get_resources_from_dist_files(dist: metadata.Distribution, bin_path: Path, man_path: Path) -> _ResourceNames:
     app_names: Final[set[str]] = set()
     man_names: Final[set[str]] = set()
     completion_names: Final[set[str]] = set()
@@ -334,7 +353,7 @@ def _get_resources_from_dist_files(
             pass
         if completion_name := _get_completion_name(dist_file_path, man_path.parent):
             completion_names.add(completion_name)
-    return app_names, man_names, completion_names
+    return _ResourceNames(apps=app_names, man_pages=man_names, completions=completion_names)
 
 
 def _get_completion_name(file_path: Path, share_path: Path) -> str | None:
@@ -352,9 +371,13 @@ def _same_file(left: Path, right: Path) -> bool:
         return False
 
 
-def _get_resources_from_inst_files(
-    dist: metadata.Distribution, bin_path: Path, man_path: Path
-) -> tuple[set[str], set[str], set[str]]:
+class _ResourceNames(NamedTuple):
+    apps: set[str]
+    man_pages: set[str]
+    completions: set[str]
+
+
+def _get_resources_from_inst_files(dist: metadata.Distribution, bin_path: Path, man_path: Path) -> _ResourceNames:
     app_names: Final[set[str]] = set()
     man_names: Final[set[str]] = set()
     completion_names: Final[set[str]] = set()
@@ -372,7 +395,13 @@ def _get_resources_from_inst_files(
             pass
         if completion_name := _get_completion_name(inst_file_path, man_path.parent):
             completion_names.add(completion_name)
-    return app_names, man_names, completion_names
+    return _ResourceNames(apps=app_names, man_pages=man_names, completions=completion_names)
+
+
+class _Resources(NamedTuple):
+    apps: list[str]
+    man_pages: list[str]
+    completions: list[str]
 
 
 def _get_man_pages_from_editable_project(dist: metadata.Distribution, man_path: Path) -> set[str]:
@@ -439,8 +468,8 @@ def _iter_pyproject_data_files(project_root: Path) -> Iterator[tuple[str, list[s
     yield from _iter_normalized_data_files(pyproject_data.get("tool", {}).get("setuptools", {}).get("data-files", {}))
 
 
-def _iter_normalized_data_files(data_files: object) -> Iterator[tuple[str, list[str]]]:
-    items: Iterable[object]
+def _iter_normalized_data_files(data_files: JsonValue) -> Iterator[tuple[str, list[str]]]:
+    items: Iterable[JsonValue | tuple[str, JsonValue]]
     if isinstance(data_files, dict):
         items = data_files.items()
     elif isinstance(data_files, (list, tuple)):
@@ -520,29 +549,43 @@ def _windows_extra_app_paths(app_paths: list[Path]) -> list[Path]:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class VenvMetadata:
-    apps: list[str]
-    app_paths: list[Path]
-    apps_of_dependencies: list[str]
-    app_paths_of_dependencies: dict[str, list[Path]]
-    man_pages: list[str]
-    man_paths: list[Path]
-    man_pages_of_dependencies: list[str]
-    man_paths_of_dependencies: dict[str, list[Path]]
-    completions: list[str]
-    completion_paths: list[Path]
-    completions_of_dependencies: list[str]
-    completion_paths_of_dependencies: dict[str, list[Path]]
+    """Metadata of the apps, man pages and dependencies that a virtual environment provides.
+
+    :param resources: the apps, man pages and completion scripts of the package and of its dependencies.
+    :param package_version: the installed version of the package.
+    :param python_version: the version of the Python interpreter of the environment.
+    :param unsupported_python: the Python requirement of the package that the environment does not satisfy, or None.
+    """
+
+    resources: PackageResources
     package_version: str
     python_version: str
     unsupported_python: SpecifierSet | None
 
 
+class _VenvInfo(TypedDict):
+    sys_path: list[str]
+    environment: dict[str, str]
+    python_version: str
+
+
 def list_not_required_packages(venv_python: Path) -> set[str]:
+    """Return the names of the installed packages that no other installed package requires.
+
+    :param venv_python: the interpreter of the environment.
+    :returns: the names of the packages.
+    """
     venv_sys_path, venv_env, _ = fetch_info_in_venv(venv_python)
     return not_required_packages(venv_sys_path, venv_env)
 
 
 def not_required_packages(sys_path: list[str], env: dict[str, str]) -> set[str]:
+    """Return the names of the packages that no other package in the search path requires.
+
+    :param sys_path: the search path of the environment.
+    :param env: the environment variables for evaluating requirement markers.
+    :returns: the normalized names of the packages.
+    """
     # mirrors `pip list --not-required` from the installed metadata, so every backend reports the same packages, uv
     # included, which lacks the flag
     installed: Final[set[str]] = set()
@@ -555,6 +598,12 @@ def not_required_packages(sys_path: list[str], env: dict[str, str]) -> set[str]:
 
 
 def get_required_dependency_names(dist: metadata.Distribution, env: dict[str, str]) -> set[str]:
+    """Return the normalized names of the packages that a distribution requires.
+
+    :param dist: the installed distribution.
+    :param env: the environment variables for evaluating requirement markers.
+    :returns: the names of the required dependencies, including those that only an extra pulls in.
+    """
     # every declared extra counts, so a dependency only an extra pulls in stays required, and pipx does not report it
     # removable while the package declaring it is installed
     return {

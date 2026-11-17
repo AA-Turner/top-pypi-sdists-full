@@ -30,8 +30,8 @@ from math import isfinite
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, Literal, Protocol
 
-from filelock._error import SoftFileLockProtocolError
-from filelock._identity import host_name
+from filelock._error import SoftFileLockProtocolError  # simplint: ignore[private-import-path]  # internal dependency
+from filelock._identity import host_name  # simplint: ignore[private-import-path]  # internal dependency
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -43,19 +43,19 @@ _PROTOCOL: Final[str] = "filelock-rw/1"
 _GENERATION_DIGITS: Final[int] = 20
 _TOKEN_HEX_LENGTH: Final[int] = 32
 #: A snapshot line is ``reader=`` plus a token, so this bounds a hostile record without capping real reader counts.
-_MAX_RECORD_SIZE: Final[int] = 1 << 20
+MAX_RECORD_SIZE: Final[int] = 1 << 20
 #: Snapshots older than this many generations behind the latest are removed by whoever commits. The window is also how
 #: far ``latest`` probes past a gap before it trusts that nothing newer exists; ``gen/HEAD``, not the window, is what
 #: keeps a listing served further behind from passing an old generation off as the head.
 _RETAINED_GENERATIONS: Final[int] = 64
-_GENERATIONS_DIRECTORY: Final[str] = "gen"
+GENERATIONS_DIRECTORY: Final[str] = "gen"
 #: A random token created once per log: removing ``gen/`` removes it, so a participant can tell a log that was wiped and
 #: restarted from the one it remembers.
 _EPOCH_NAME: Final[str] = "epoch"
 #: The epoch plus a copy of the newest snapshot, renamed into place after each commit. NFS revalidates a file opened by
 #: name but may serve a listing from cache, so this is the head a stale client cannot miss; it may lag, never lead.
 _HEAD_NAME: Final[str] = "HEAD"
-_HOLDERS_DIRECTORY: Final[str] = "holders"
+HOLDERS_DIRECTORY: Final[str] = "holders"
 _TEMPORARY_PREFIX: Final[str] = ".commit-"
 
 
@@ -105,66 +105,6 @@ class _Files(Protocol):
         ...
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Snapshot:
-    # The lock's state at one generation: which token writes, which tokens read.
-    generation: int
-    writer: str | None
-    readers: frozenset[str]
-
-    @property
-    def members(self) -> frozenset[str]:
-        return self.readers if self.writer is None else self.readers | {self.writer}
-
-    def encode(self) -> bytes:
-        lines = [_PROTOCOL, f"generation={self.generation}"]
-        if self.writer is not None:
-            lines.append(f"writer={self.writer}")
-        lines.extend(f"reader={token}" for token in sorted(self.readers))
-        return "".join(f"{line}\n" for line in lines).encode("ascii")
-
-
-def parse_snapshot(data: bytes) -> Snapshot | None:
-    # The snapshot a ``gen/<N>`` record encodes, or ``None`` when the record is malformed.
-    if not data or len(data) > _MAX_RECORD_SIZE:
-        return None
-    try:
-        lines = data.decode("ascii").split("\n")
-    except UnicodeDecodeError:
-        return None
-    if lines[0] != _PROTOCOL or lines[-1]:
-        return None
-    generation: int | None = None
-    writer: str | None = None
-    readers: set[str] = set()
-    for line in lines[1:-1]:
-        key, _, value = line.partition("=")
-        if (
-            key == "generation"
-            and generation is None
-            and len(value) <= _GENERATION_DIGITS
-            and value.isdigit()
-            and str(int(value)) == value
-        ):
-            generation = int(value)
-        elif key == "writer" and writer is None and _is_token(value):
-            writer = value
-        elif key == "reader" and _is_token(value) and value not in readers:
-            readers.add(value)
-        else:
-            return None
-    return None if generation is None else Snapshot(generation=generation, writer=writer, readers=frozenset(readers))
-
-
-def _is_token(value: str) -> bool:
-    # Whether *value* is a claim token: exactly 32 lowercase hex digits.
-    return len(value) == _TOKEN_HEX_LENGTH and all(character in "0123456789abcdef" for character in value)
-
-
-def new_token() -> str:
-    return secrets.token_hex(_TOKEN_HEX_LENGTH // 2)
-
-
 class Ledger:
     # How long each observed value has stayed the same, measured on this observer's monotonic clock.
     #
@@ -199,7 +139,7 @@ class GenerationLog:
     def __init__(self, files: _Files, lock_file: str, root: str) -> None:
         self._files = files
         self._lock_file = lock_file
-        self._directory = Path(root, _GENERATIONS_DIRECTORY)
+        self._directory = Path(root, GENERATIONS_DIRECTORY)
         self._epoch_path = str(self._directory / _EPOCH_NAME)
         self._head_path = str(self._directory / _HEAD_NAME)
         self._epoch: bytes | None = None
@@ -391,6 +331,66 @@ class GenerationLog:
             self._files.unlink(self._path(generation))
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class Snapshot:
+    # The lock's state at one generation: which token writes, which tokens read.
+    generation: int
+    writer: str | None
+    readers: frozenset[str]
+
+    @property
+    def members(self) -> frozenset[str]:
+        return self.readers if self.writer is None else self.readers | {self.writer}
+
+    def encode(self) -> bytes:
+        lines = [_PROTOCOL, f"generation={self.generation}"]
+        if self.writer is not None:
+            lines.append(f"writer={self.writer}")
+        lines.extend(f"reader={token}" for token in sorted(self.readers))
+        return "".join(f"{line}\n" for line in lines).encode("ascii")
+
+
+def new_token() -> str:
+    return secrets.token_hex(_TOKEN_HEX_LENGTH // 2)
+
+
+def parse_snapshot(data: bytes) -> Snapshot | None:
+    # The snapshot a ``gen/<N>`` record encodes, or ``None`` when the record is malformed.
+    if not data or len(data) > MAX_RECORD_SIZE:
+        return None
+    try:
+        lines = data.decode("ascii").split("\n")
+    except UnicodeDecodeError:
+        return None
+    if lines[0] != _PROTOCOL or lines[-1]:
+        return None
+    generation: int | None = None
+    writer: str | None = None
+    readers: set[str] = set()
+    for line in lines[1:-1]:
+        key, _, value = line.partition("=")
+        if (
+            key == "generation"
+            and generation is None
+            and len(value) <= _GENERATION_DIGITS
+            and value.isdigit()
+            and str(int(value)) == value
+        ):
+            generation = int(value)
+        elif key == "writer" and writer is None and _is_token(value):
+            writer = value
+        elif key == "reader" and _is_token(value) and value not in readers:
+            readers.add(value)
+        else:
+            return None
+    return None if generation is None else Snapshot(generation=generation, writer=writer, readers=frozenset(readers))
+
+
+def _is_token(value: str) -> bool:
+    # Whether *value* is a claim token: exactly 32 lowercase hex digits.
+    return len(value) == _TOKEN_HEX_LENGTH and all(character in "0123456789abcdef" for character in value)
+
+
 class Participant:
     # One acquisition, from publishing a claim through holding the lock to leaving.
     #
@@ -419,13 +419,9 @@ class Participant:
         self._clock = clock
         self._ledger = ledger
         self._log = log
-        self._holder = self._holder_path(self.token)
         self._holder_identity: tuple[int, int] | None = None
         self._entered = False
         self._next_sweep = clock()
-
-    def _holder_path(self, token: str) -> str:
-        return str(Path(self._root, _HOLDERS_DIRECTORY, token))
 
     def publish(self) -> None:
         # Create the holder record peers watch for liveness; it exists before the token appears in any snapshot.
@@ -434,11 +430,14 @@ class Participant:
 
     def _create_holder(self) -> None:
         try:
-            self._holder_identity = self._files.create(self._holder, self._record())
+            self._holder_identity = self._files.create(self._holder_path(self.token), self._record())
         except FileNotFoundError:
             # Removing the whole log takes the directories with it.
             self._files.prepare(self._root, force=True)
-            self._holder_identity = self._files.create(self._holder, self._record())
+            self._holder_identity = self._files.create(self._holder_path(self.token), self._record())
+
+    def _holder_path(self, token: str) -> str:
+        return str(Path(self._root, HOLDERS_DIRECTORY, token))
 
     def _record(self) -> bytes:
         return encode_holder(self.token, new_token(), self._stale_threshold)
@@ -495,7 +494,7 @@ class Participant:
     def _refresh_nonce(self) -> bool:
         if (identity := self._holder_identity) is None:
             return False
-        return self._files.overwrite(self._holder, self._record(), identity)
+        return self._files.overwrite(self._holder_path(self.token), self._record(), identity)
 
     def _sweep(self, latest: Snapshot) -> None:
         # A participant that crashed before its first commit leaves a record no snapshot names, and a commit that
@@ -505,12 +504,12 @@ class Participant:
             return
         self._next_sweep = now + self._stale_threshold / 2
         watched = set(latest.members)
-        holders = Path(self._root, _HOLDERS_DIRECTORY)
+        holders = Path(self._root, HOLDERS_DIRECTORY)
         for name in self._files.listdir(str(holders)):
             if name != self.token and name not in latest.members and _is_token(name):
                 watched.add(key := f"holder:{name}")
                 self._collect(key, str(holders / name))
-        generations = Path(self._root, _GENERATIONS_DIRECTORY)
+        generations = Path(self._root, GENERATIONS_DIRECTORY)
         for name in self._files.listdir(str(generations)):
             if name.startswith(_TEMPORARY_PREFIX):
                 watched.add(key := f"temporary:{name}")
@@ -580,7 +579,7 @@ class Participant:
             finally:
                 self._entered = False
                 self.generation = None
-                self._files.unlink(self._holder)
+                self._files.unlink(self._holder_path(self.token))
 
 
 def encode_holder(token: str, nonce: str, lease: float) -> bytes:
@@ -613,6 +612,9 @@ class TreeReplacedError(RuntimeError):
 
 
 __all__ = [
+    "GENERATIONS_DIRECTORY",
+    "HOLDERS_DIRECTORY",
+    "MAX_RECORD_SIZE",
     "GenerationLog",
     "HeartbeatOutcome",
     "Ledger",

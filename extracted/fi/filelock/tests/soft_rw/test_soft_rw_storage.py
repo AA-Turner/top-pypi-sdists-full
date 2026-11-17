@@ -81,7 +81,7 @@ def test_create_flushes_only_a_durable_record(tmp_path: Path, mocker: MockerFixt
 
 def test_link_trusts_identity_over_an_error(tmp_path: Path, mocker: MockerFixture) -> None:
     # An NFS retransmit can report a link that landed as failed; the target naming the source's file is what counts.
-    real_link = storage_mod._link_no_follow
+    real_link = storage_mod.link_no_follow
 
     def link_then_fail(source: str, target: str, **dir_fds: int | None) -> None:
         real_link(source, target, **dir_fds)
@@ -89,8 +89,8 @@ def test_link_trusts_identity_over_an_error(tmp_path: Path, mocker: MockerFixtur
 
     mocker.patch.object(
         storage_mod,
-        "_link_no_follow",
-        new=mocker.create_autospec(storage_mod._link_no_follow, side_effect=link_then_fail),
+        "link_no_follow",
+        new=mocker.create_autospec(storage_mod.link_no_follow, side_effect=link_then_fail),
     )
     source = tmp_path / "source"
     source.write_bytes(b"data")
@@ -100,8 +100,8 @@ def test_link_trusts_identity_over_an_error(tmp_path: Path, mocker: MockerFixtur
 def test_link_reports_an_unsupported_filesystem(tmp_path: Path, mocker: MockerFixture) -> None:
     mocker.patch.object(
         storage_mod,
-        "_link_no_follow",
-        new=mocker.create_autospec(storage_mod._link_no_follow, side_effect=NotImplementedError("no os.link")),
+        "link_no_follow",
+        new=mocker.create_autospec(storage_mod.link_no_follow, side_effect=NotImplementedError("no os.link")),
     )
     source = tmp_path / "source"
     source.write_bytes(b"data")
@@ -118,8 +118,8 @@ def test_link_raises_a_fault_that_did_not_land(tmp_path: Path, mocker: MockerFix
     # A persistent EPERM or EIO is not a peer winning the race; reporting it as one would spin forever.
     mocker.patch.object(
         storage_mod,
-        "_link_no_follow",
-        new=mocker.create_autospec(storage_mod._link_no_follow, side_effect=OSError(EIO, "Input/output error")),
+        "link_no_follow",
+        new=mocker.create_autospec(storage_mod.link_no_follow, side_effect=OSError(EIO, "Input/output error")),
     )
     source = tmp_path / "source"
     source.write_bytes(b"data")
@@ -196,8 +196,9 @@ def test_overwrite_does_not_block_on_a_fifo_with_a_reader(tmp_path: Path) -> Non
 
 
 def test_unlink_tolerates_a_refused_removal(tmp_path: Path, mocker: MockerFixture) -> None:
-    mocker.patch.object(storage_mod.os, "unlink", side_effect=PermissionError("held open"), autospec=True)
+    unlink = mocker.patch.object(storage_mod.os, "unlink", side_effect=PermissionError("held open"), autospec=True)
     OsFiles(str(tmp_path / "x.lock")).unlink(str(tmp_path / "record"))
+    unlink.assert_called_once()
 
 
 def test_unlink_other_errors_propagate(tmp_path: Path, mocker: MockerFixture) -> None:
@@ -242,6 +243,7 @@ def test_prepare_creates_missing_parents(tmp_path: Path) -> None:
 
 
 @NEEDS_FOREIGN_STICKY_TMP
+@pytest.mark.parametrize("name_only", [pytest.param(False, id="descriptors"), pytest.param(True, id="names")])
 @pytest.mark.parametrize(
     "call",
     [
@@ -252,8 +254,9 @@ def test_prepare_creates_missing_parents(tmp_path: Path) -> None:
     ],
 )
 def test_record_operations_recheck_the_owner_of_a_replaced_directory(  # pragma: needs foreign-sticky-tmp
-    lock_path_in_shared_tmp: Path, mocker: MockerFixture, call: Callable[[OsFiles, str], object]
+    lock_path_in_shared_tmp: Path, mocker: MockerFixture, call: Callable[[OsFiles, str], object], name_only: bool
 ) -> None:
+    mocker.patch.object(storage_mod, "_SUPPORTS_DIR_FD", new=not name_only and storage_mod._SUPPORTS_DIR_FD)
     files = OsFiles(str(lock_path_in_shared_tmp))
     files.prepare(root := f"{lock_path_in_shared_tmp}.rw")
     Path(root).rename(aside := f"{root}.aside")
@@ -267,3 +270,15 @@ def test_record_operations_recheck_the_owner_of_a_replaced_directory(  # pragma:
         assert list(Path(root, "holders").iterdir()) == []
     finally:
         shutil.rmtree(aside, ignore_errors=True)
+
+
+def test_record_operations_round_trip_without_dir_fd(tmp_path: Path, mocker: MockerFixture) -> None:
+    mocker.patch.object(storage_mod, "_SUPPORTS_DIR_FD", new=False)
+    files = OsFiles(str(tmp_path / "x.lock"))
+    files.prepare(str(tmp_path / "x.lock.rw"))
+    record: Final = str(tmp_path / "x.lock.rw" / "holders" / "record")
+    files.create(record, b"data")
+    assert files.read(record) == b"data"
+    assert files.listdir(str(Path(record).parent)) == ["record"]
+    files.unlink(record)
+    assert files.read(record) is None

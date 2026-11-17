@@ -12,7 +12,6 @@ from typing import cast
 
 import gradio as gr
 from fastapi import FastAPI
-from gradio import http_server
 from gradio import routes
 from gradio import utils
 from gradio.context import LocalContext
@@ -35,9 +34,15 @@ from .middleware import get_server_ports
 from .middleware import ZeroGPUMiddleware
 
 
+try:
+    from gradio import http_server
+except ImportError: # pragma: no cover (Gradio < 4.23)
+    from gradio import networking as http_server
+
+
 orig_create_app = App.create_app
 orig_mount_gradio_app = gr.mount_gradio_app
-orig_start_server = http_server.start_server
+orig_start_server = http_server.start_server # pyright: ignore[reportAttributeAccessIssue]
 orig_get_function_with_locals = utils.get_function_with_locals
 orig_queue_start = Queue.start
 orig_queue_methods: dict[str, Any] = {
@@ -240,7 +245,7 @@ def patch():
     App.create_app = create_app
     gr.mount_gradio_app = mount_gradio_app
     routes.mount_gradio_app = mount_gradio_app
-    http_server.start_server = start_server
+    http_server.start_server = start_server # pyright: ignore[reportAttributeAccessIssue]
     utils.get_function_with_locals = get_function_with_locals
     _patch_queue()
 

@@ -2,28 +2,25 @@
 (``dreamscale.deploy_bases`` loads it by the family manifest's id).
 
 Scaffolded by scripts/new_model.py --contract-from-checkpoint; listed (``listed_as``). No robot
-is fixed: each checkpoint's export declares its cameras, widths, rate and chunk, and a create
-names the custom preset. So its create (the CLI's `deployments create` options, then Detect the
-export and create with what the robot names), its robot line (from the checkpoint row's
-embodiment) and Detect's lines are its own: deploy_bases/internw0.py's _create_internw0,
-internw0_robot_line and hy_vla.py's hy_vla_found_lines are working ones. Its sessions' contract
-is dreamscale.policy.praxis1_deployment.
+is fixed, though `dreamscale run xarm7` drives its exports of bimanual xArm 7 recordings
+(``robots``, ``runner``): each checkpoint's export declares its cameras, widths, rate and chunk,
+and a create names the custom preset. So its create (the CLI's `deployments create` options,
+then Detect the export and create with what the robot names), its robot line (from the
+checkpoint row's embodiment) and Detect's lines are its own: deploy_bases/internw0.py's
+_create_internw0, internw0_robot_line and hy_vla.py's hy_vla_found_lines are working ones. Its
+sessions' contract is dreamscale.policy.praxis1_deployment.
 
 RTC (experimental) is the export's: trained where its training ran with committed prefixes (and
 its build passed the RTC checks), else off; `deployments rtc` turns it off or caps the prefix in
 whole 4-row action tokens.
 
-The engine is the deployment's: standard (upstream's call, the default) or lightning
-(experimental: the same actions, sooner), set with `deployments create --engine` and changed with
-`deployments engine`; its next server runs it.
+It has no engine setting: Praxis-1 always runs its fast engine.
 """
 
 from __future__ import annotations
 
 import time
 
-from dreamscale_transport.praxis import DEFAULT_ENGINE
-from dreamscale_transport.praxis import ENGINES as _ENGINES
 from dreamscale_transport.praxis1_deploy import RTC_TOKEN_ROWS
 
 from dreamscale.control import ControlPlaneClient
@@ -31,8 +28,6 @@ from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 
 NAME = "praxis-1-base"
 SOURCE_FORMAT = "praxis1"
-# The engines its deployments choose between, the default first (the shared endpoints' list).
-ENGINES = (DEFAULT_ENGINE, *(e for e in _ENGINES if e != DEFAULT_ENGINE))
 ROLES = ("base", "left_wrist", "right_wrist")
 # The custom preset a create names, and its build's steps, as `deployments create --wait` shows
 # them.
@@ -103,6 +98,46 @@ def set_rtc(row, checkpoint_id, method, max_delay, client_factory, print_fn) -> 
                                "--rtc` to use it")
 
 
+def praxis1_robot(declared) -> str | None:
+    """The robot whose `dreamscale run` drives a Praxis-1 deployment (a row's ``embodiment``):
+    xarm7 for an export of bimanual xArm 7 recordings, else None (it runs from Python)."""
+    from dreamscale.policy.praxis1_deployment import xarm7_camera_keys
+
+    return "xarm7" if xarm7_camera_keys(declared) is not None else None
+
+
+def run_command(deployment: dict) -> str | None:
+    """A deployment of bimanual xArm 7 recordings: `dreamscale run xarm7`."""
+    robot = praxis1_robot(deployment.get("embodiment") or {})
+    return f"dreamscale run {robot} --deployment {deployment['id']}" if robot else None
+
+
+def runner(embodiment, checkpoint_id, row, model):
+    """`dreamscale run <robot> --deployment`: the base for a deployment of that robot's
+    recordings (bimanual xArm 7); any other runs from Python, with the cameras and state its
+    contract names."""
+    declared = row.get("embodiment") or {}
+    robot = praxis1_robot(declared)
+    if robot == embodiment.name:
+        return NAME
+    if robot is not None:
+        raise cmd._invalid(
+            f"{checkpoint_id} is a Praxis-1 deployment for the bimanual xArm 7, not "
+            f"{embodiment.label}",
+            f"run it with `dreamscale run {robot} --deployment {checkpoint_id}`",
+            cause=f"`dreamscale run {embodiment.name}` drives {embodiment.label} only",
+        )
+    cameras = ", ".join(f'"{c.get("key")}": frame' for c in declared.get("cameras") or [])
+    raise cmd._invalid(
+        f"{checkpoint_id} is a Praxis-1 deployment `dreamscale run` doesn't drive",
+        f'drive it from Python: dreamscale.connect(deployment="{checkpoint_id}"), then '
+        f"policy.next_action(dreamscale.robot.observation(cameras={{{cameras}}}, "
+        f"state=[{declared.get('state_dim')} values]), ...)",
+        cause="`dreamscale run` drives Praxis-1 deployments of bimanual xArm 7 joint targets "
+        "(16 values in radians, base and wrist cameras)",
+    )
+
+
 def parse_role_cameras(values) -> list[dict] | None:
     """``--camera KEY=ROLE`` (repeatable): the robot's camera key for each role the export
     trained (base, left_wrist, right_wrist), in the export's order."""
@@ -120,17 +155,12 @@ def parse_role_cameras(values) -> list[dict] | None:
 def run_add_praxis1(*, repo: str, revision=None, name=None, hf_token=None, path=None,
                     executed=None, joint_unit=None, cameras=None, region="auto", wait=True,
                     keep_warm=None, slug=None, region_fallback=None, rtc_method=None,
-                    engine=None, client_factory=ControlPlaneClient, print_fn=print,
-                    sleep=time.sleep):
+                    client_factory=ControlPlaneClient, print_fn=print, sleep=time.sleep):
     """Read a Praxis-1 fine-tune's export (a Hub repo or a local folder), pin the resolved
     commit, and deploy it. The export owns its robot (cameras by role, widths, joint names,
     grippers, normalization); a create may name the robot's camera keys, run fewer actions
     per chunk and name its joint unit. RTC is the export's unless ``rtc_method`` says "off".
-    ``engine``: standard (None: the server's default) or lightning (experimental).
     (A managed training run deploys from its own page.)"""
-    if engine is not None and engine not in ENGINES:
-        raise cmd._invalid(f"Praxis-1's engine is {' or '.join(ENGINES)}",
-                           "pass --engine standard or --engine lightning")
     region = cmd._check_region(client_factory, NAME, "Praxis-1", region, print_fn=print_fn)
     folder = cmd.local_checkpoint.scan(repo) if cmd.local_checkpoint.is_local_folder(repo) else None
     if folder and (revision is not None or hf_token is not None):
@@ -166,28 +196,22 @@ def run_add_praxis1(*, repo: str, revision=None, name=None, hf_token=None, path=
         repo, name = None, name or folder.label
     else:
         repo, revision = source["repo"], source["revision"]
-    result = cmd.run_add(
+    return cmd.run_add(
         repo=repo, model=NAME, revision=revision, name=name, hf_token=token,
         embodiment=embodiment, region=region, wait=wait,
         client_factory=client_factory, print_fn=print_fn, sleep=sleep,
         keep_warm=keep_warm, slug=slug, source_path=source.get("source_path", ""),
         # None: trained where the export trained with committed prefixes, else off.
-        rtc_method=rtc_method, region_fallback=region_fallback, engine=engine, **local,
+        rtc_method=rtc_method, region_fallback=region_fallback, **local,
     )
-    if engine not in (None, DEFAULT_ENGINE) and result.get("engine") != engine:
-        # An older control plane ignores the field: say so rather than let it pass silently.
-        print_fn(f"Note: this Dreamscale server doesn't offer engines yet, so it runs "
-                 f"{DEFAULT_ENGINE}; set it later with `dreamscale deployments engine "
-                 f"{cmd._ref(result)} {engine}`.")
-    return result
 
 
 def _create_praxis1(
     *, repo, given, preset, camera, hz, path, executed, steps, joint_unit, rtc, rtc_prefix,
-    revision, name, hf_token, region, wait, keep_warm, slug, region_fallback=None, engine=None,
+    revision, name, hf_token, region, wait, keep_warm, slug, region_fallback=None,
 ) -> None:
     """`deployments create --base praxis-1-base`: the export owns the robot and its RTC; the CLI
-    passes only --path, --executed, --joint-unit, --camera KEY=ROLE, --rtc off and --engine."""
+    passes only --path, --executed, --joint-unit, --camera KEY=ROLE and --rtc off."""
     # The CLI's ``given`` carries every robot flag, --rtc included: --rtc is checked on its own.
     unsupported = {key: value for key, value in given.items()
                    if key not in ("path", "executed", "rtc")}
@@ -196,7 +220,7 @@ def _create_praxis1(
     ) or any(value is not None for value in unsupported.values()):
         raise cli.typer.BadParameter(
             "Praxis-1 reads its robot from the export; pass only --path, --executed, "
-            "--camera KEY=ROLE, --rtc off and --engine."
+            "--camera KEY=ROLE and --rtc off."
         )
     try:
         cameras = parse_role_cameras(camera)
@@ -208,7 +232,7 @@ def _create_praxis1(
         repo=repo, revision=revision, name=name, hf_token=hf_token, path=path,
         executed=executed, joint_unit=joint_unit, cameras=cameras,
         region=region or cmd.AUTO_REGION, wait=wait, keep_warm=keep_warm, slug=slug,
-        region_fallback=region_fallback, rtc_method=rtc, engine=engine,
+        region_fallback=region_fallback, rtc_method=rtc,
     )
     if result.get("status") == "failed":
         raise cli.typer.Exit(code=1)
@@ -223,7 +247,10 @@ BASE = DeployBase(
     family="praxis1", name=NAME, label="Praxis-1", cli=CLI, listed_as=NAME,
     exported=EXPORTED,
     robot_line=praxis1_robot_line, describe_rtc=praxis1_rtc, set_rtc=set_rtc,
-    engines=ENGINES,
     create=_create_praxis1,
     detects_as_base=True, found_lines=praxis1_found_lines,
+    runner=runner, run_command=run_command,
+    # Its exports of bimanual xArm 7 recordings (16 joint targets in radians, cameras by role).
+    robots=("xarm7",),
+    robot_observe={"xarm7": "dreamscale.policy.praxis1_deployment:xarm7_deployment_observe"},
 )

@@ -722,7 +722,7 @@ class CorporateFactorProvider(QuantConnect.Data.Auxiliary.FactorFile[QuantConnec
         """
         Gets all of the splits and dividends represented by this factor file
         
-        :param symbol: The symbol to ues for the dividend and split objects
+        :param symbol: The symbol to use for the dividend and split objects
         :param exchange_hours: Exchange hours used for resolving the previous trading day
         :param decimal_places: The number of decimal places to round the dividend's distribution to, defaulting to 2
         :returns: All splits and dividends represented by this factor file in chronological order.

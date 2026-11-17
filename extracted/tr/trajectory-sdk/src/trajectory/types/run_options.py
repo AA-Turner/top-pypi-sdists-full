@@ -8,7 +8,9 @@ from trajectory._models import BaseModel
 from trajectory.types.priority_aggregation import PriorityAggregation
 from trajectory.types.priority_trait import PriorityTrait
 
-TrainingAlgorithm: TypeAlias = Literal["gspo", "grpo", "importance_sampling", "score_centering"]
+TrainingAlgorithm: TypeAlias = Literal[
+  "gspo", "grpo", "importance_sampling", "score_centering", "rlcd"
+]
 
 
 class RunOptions(BaseModel):
@@ -34,7 +36,10 @@ class RunOptions(BaseModel):
     """
 
   algorithm: TrainingAlgorithm | None = None
-  """Training algorithm; omit to preserve the model default."""
+  """
+    Training algorithm; omit to preserve the model default. RLCD trains decision
+    probabilities with Brier loss against logged outcome labels.
+    """
 
   train_on_truncation: bool | None = None
   """

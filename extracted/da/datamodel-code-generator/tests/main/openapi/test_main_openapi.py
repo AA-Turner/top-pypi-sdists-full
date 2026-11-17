@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import black
+import msgspec
 import pydantic
 import pytest
 import yaml
@@ -3168,11 +3169,7 @@ def test_main_invalid_dotted_unsafe_retry_preserves_legacy(
                 mocker.ANY,
                 mocker.ANY,
                 mocker.ANY,
-                jsonschema_version=mocker.ANY,
-                openapi_version=mocker.ANY,
-                asyncapi_version=mocker.ANY,
-                xmlschema_version=mocker.ANY,
-                protobuf_version=mocker.ANY,
+                schema_version=mocker.ANY,
                 python_type_expressions=mocker.ANY,
             )
             expected_calls = [expected_call, expected_call]
@@ -8011,6 +8008,24 @@ def test_main_openapi_allof_required_inherited_collision_msgspec(output_file: Pa
         ],
         force_exec_validation=True,
     )
+
+
+def test_main_openapi_allof_required_inherited_collisions_msgspec(output_file: Path) -> None:
+    """Keep the Python name of every required inherited field that a derived property's name collides with."""
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "allof_required_inherited_collisions.yaml",
+        output_path=output_file,
+        input_file_type="openapi",
+        extra_args=[
+            *("--output-model-type", DataModelType.MsgspecStruct.value, "--target-python-version", "3.11"),
+            *("--disable-timestamp", "--formatters", "builtin"),
+        ],
+    )
+    with _generated_model(output_file, "allof_required_inherited_collisions", "CollisionDerived") as derived:
+        decoded = msgspec.json.decode(b'{"x-y":"s","a-b":"t","x_y":1,"a_b":2}', type=derived)
+        with pytest.raises(msgspec.ValidationError) as missing:
+            msgspec.json.decode(b'{"x-y":"s"}', type=derived)
+    assert_output(f"{decoded!r}\n{msgspec.json.encode(decoded).decode()}\n{missing.value}\n", name="payloads")
 
 
 @pytest.mark.parametrize(
@@ -14847,6 +14862,34 @@ def test_main_openapi_generic_base_class_package_cycle(output_dir: Path) -> None
             "builtin",
         ],
         force_exec_validation=True,
+    )
+
+
+def test_main_openapi_reuse_model_collapsed_alias_enum(output_dir: Path) -> None:
+    """Import the kept enum where reuse removed a duplicate and its alias in another module was collapsed (#6842).
+
+    ``z.Alias`` is replaced by the enum ``c.Color`` under the ``parent`` strategy, which takes its path, and reuse
+    removes ``c.Kind``, which ``z.Holder`` named before: ``z.py`` writes ``c.Alias`` and imports ``c``.
+    """
+    run_main_and_assert(
+        input_path=OPEN_API_DATA_PATH / "reuse_model_collapsed_alias_enum.yaml",
+        output_path=output_dir,
+        input_file_type="openapi",
+        extra_args=[
+            "--output-model-type",
+            "pydantic_v2.BaseModel",
+            "--reuse-model",
+            "--collapse-root-models",
+            "--collapse-root-models-name-strategy",
+            "parent",
+            "--disable-timestamp",
+            "--formatters",
+            "builtin",
+        ],
+        force_exec_validation=True,
+        runtime_validation_module="z",
+        runtime_validation_model_name="Holder",
+        runtime_validation_data={"kind": "red"},
     )
 
 

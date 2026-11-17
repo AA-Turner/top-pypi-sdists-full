@@ -1120,6 +1120,30 @@ class ToolType(_common.CaseInSensitiveEnum):
   """Media processing tool."""
 
 
+class DocumentMetadataContentLayer(_common.CaseInSensitiveEnum):
+  """Content layers to extract from a document."""
+
+  CONTENT_LAYER_UNSPECIFIED = 'CONTENT_LAYER_UNSPECIFIED'
+  """Default value."""
+  PAGE_IMAGE = 'PAGE_IMAGE'
+  """Rendered page images."""
+  PAGE_TEXT = 'PAGE_TEXT'
+  """Extracted page text."""
+
+
+class SpreadsheetMetadataContentLayer(_common.CaseInSensitiveEnum):
+  """Content layers to extract from a spreadsheet."""
+
+  CONTENT_LAYER_UNSPECIFIED = 'CONTENT_LAYER_UNSPECIFIED'
+  """Default value."""
+  DATA = 'DATA'
+  """Cell values, merges, and formats."""
+  FORMULAS = 'FORMULAS'
+  """Formula expressions and their computed results."""
+  VISUAL = 'VISUAL'
+  """A rendered image of the sheet."""
+
+
 class ResourceScope(_common.CaseInSensitiveEnum):
   """Resource scope."""
 
@@ -1165,6 +1189,8 @@ class EmbeddingApiType(_common.CaseInSensitiveEnum):
   """predict API endpoint (default)"""
   EMBED_CONTENT = 'EMBED_CONTENT'
   """embedContent API Endpoint"""
+  BATCH_EMBED_CONTENTS = 'BATCH_EMBED_CONTENTS'
+  """batchEmbedContents API Endpoint"""
 
 
 class SafetyFilterLevel(_common.CaseInSensitiveEnum):
@@ -1547,6 +1573,19 @@ class LiveMusicPlaybackControl(_common.CaseInSensitiveEnum):
       Retains the current prompts and config."""
 
 
+class VideoMetadataContentLayer(_common.CaseInSensitiveEnum):
+  """Content layers to extract from a video."""
+
+  CONTENT_LAYER_UNSPECIFIED = 'CONTENT_LAYER_UNSPECIFIED'
+  """Default value."""
+  FRAMES = 'FRAMES'
+  """Extract video frames."""
+  AUDIO = 'AUDIO'
+  """Extract audio track."""
+  TRANSCRIPT = 'TRANSCRIPT'
+  """Extract audio transcript."""
+
+
 class PartMediaResolution(_common.BaseModel):
   """Media resolution for the input media."""
 
@@ -1693,6 +1732,140 @@ class SpeechMetadataDict(TypedDict, total=False):
 
 
 SpeechMetadataOrDict = Union[SpeechMetadata, SpeechMetadataDict]
+
+
+class DocumentMetadata(_common.BaseModel):
+  """Metadata describes the input document content.
+
+  Set this in `Part.document_metadata` or
+  `FunctionResponsePart.document_metadata` when `inline_data` or `file_data`
+  contains a document to configure static document preprocessing.
+  """
+
+  start_page: Optional[int] = Field(
+      default=None, description="""1-indexed inclusive start page."""
+  )
+  end_page: Optional[int] = Field(
+      default=None, description="""1-indexed inclusive end page."""
+  )
+  content_layers: Optional[list[DocumentMetadataContentLayer]] = Field(
+      default=None,
+      description="""Content layers to return. If empty, defaults to [PAGE_IMAGE] when
+      DocumentMetadata is set. When DocumentMetadata is not set, default
+      document processing is used (for example, page images for PDFs).""",
+  )
+
+
+class DocumentMetadataDict(TypedDict, total=False):
+  """Metadata describes the input document content.
+
+  Set this in `Part.document_metadata` or
+  `FunctionResponsePart.document_metadata` when `inline_data` or `file_data`
+  contains a document to configure static document preprocessing.
+  """
+
+  start_page: Optional[int]
+  """1-indexed inclusive start page."""
+
+  end_page: Optional[int]
+  """1-indexed inclusive end page."""
+
+  content_layers: Optional[list[DocumentMetadataContentLayer]]
+  """Content layers to return. If empty, defaults to [PAGE_IMAGE] when
+      DocumentMetadata is set. When DocumentMetadata is not set, default
+      document processing is used (for example, page images for PDFs)."""
+
+
+DocumentMetadataOrDict = Union[DocumentMetadata, DocumentMetadataDict]
+
+
+class SpreadsheetMetadata(_common.BaseModel):
+  """Metadata describes the input spreadsheet content.
+
+  Set this in `Part.spreadsheet_metadata` or
+  `FunctionResponsePart.spreadsheet_metadata` when `inline_data` or `file_data`
+  contains a spreadsheet to configure static spreadsheet preprocessing.
+  """
+
+  visible_cells: Optional[str] = Field(
+      default=None,
+      description="""The range of cells to extract, in A1 notation (e.g. "A1:D10").
+      If not set, the full occupied area of the sheet is used.""",
+  )
+  sheet_index: Optional[int] = Field(
+      default=None,
+      description="""The 1-indexed index of the sheet to extract, in workbook order. If
+      not set, the first sheet is used.""",
+  )
+  content_layers: Optional[list[SpreadsheetMetadataContentLayer]] = Field(
+      default=None,
+      description="""Content layers to return. If empty, defaults to [DATA, FORMULAS]
+      when SpreadsheetMetadata is set.""",
+  )
+
+
+class SpreadsheetMetadataDict(TypedDict, total=False):
+  """Metadata describes the input spreadsheet content.
+
+  Set this in `Part.spreadsheet_metadata` or
+  `FunctionResponsePart.spreadsheet_metadata` when `inline_data` or `file_data`
+  contains a spreadsheet to configure static spreadsheet preprocessing.
+  """
+
+  visible_cells: Optional[str]
+  """The range of cells to extract, in A1 notation (e.g. "A1:D10").
+      If not set, the full occupied area of the sheet is used."""
+
+  sheet_index: Optional[int]
+  """The 1-indexed index of the sheet to extract, in workbook order. If
+      not set, the first sheet is used."""
+
+  content_layers: Optional[list[SpreadsheetMetadataContentLayer]]
+  """Content layers to return. If empty, defaults to [DATA, FORMULAS]
+      when SpreadsheetMetadata is set."""
+
+
+SpreadsheetMetadataOrDict = Union[SpreadsheetMetadata, SpreadsheetMetadataDict]
+
+
+class AudioMetadata(_common.BaseModel):
+  """Metadata describes the input audio content.
+
+  Set this in `Part.audio_metadata` or `FunctionResponsePart.audio_metadata`
+  when `inline_data` or `file_data` contains audio to configure static audio
+  preprocessing.
+  """
+
+  start_offset: Optional[str] = Field(
+      default=None,
+      description="""The start offset of the audio, relative to the start of the audio
+      stream.""",
+  )
+  end_offset: Optional[str] = Field(
+      default=None,
+      description="""The end offset of the audio, relative to the start of the audio
+      stream.""",
+  )
+
+
+class AudioMetadataDict(TypedDict, total=False):
+  """Metadata describes the input audio content.
+
+  Set this in `Part.audio_metadata` or `FunctionResponsePart.audio_metadata`
+  when `inline_data` or `file_data` contains audio to configure static audio
+  preprocessing.
+  """
+
+  start_offset: Optional[str]
+  """The start offset of the audio, relative to the start of the audio
+      stream."""
+
+  end_offset: Optional[str]
+  """The end offset of the audio, relative to the start of the audio
+      stream."""
+
+
+AudioMetadataOrDict = Union[AudioMetadata, AudioMetadataDict]
 
 
 class CodeExecutionResult(_common.BaseModel):
@@ -1995,6 +2168,44 @@ FunctionResponseFileDataOrDict = Union[
 ]
 
 
+class VideoMetadata(_common.BaseModel):
+  """Provides metadata for a video, including the start and end offsets for clipping and the frame rate."""
+
+  end_offset: Optional[str] = Field(
+      default=None, description="""Optional. The end offset of the video."""
+  )
+  fps: Optional[float] = Field(
+      default=None,
+      description="""Optional. The frame rate of the video sent to the model. If not specified, the default value is 1.0. The valid range is (0.0, 24.0].""",
+  )
+  start_offset: Optional[str] = Field(
+      default=None, description="""Optional. The start offset of the video."""
+  )
+  content_layers: Optional[list[VideoMetadataContentLayer]] = Field(
+      default=None,
+      description="""Content layers to return. If empty, defaults to [FRAMES, AUDIO].""",
+  )
+
+
+class VideoMetadataDict(TypedDict, total=False):
+  """Provides metadata for a video, including the start and end offsets for clipping and the frame rate."""
+
+  end_offset: Optional[str]
+  """Optional. The end offset of the video."""
+
+  fps: Optional[float]
+  """Optional. The frame rate of the video sent to the model. If not specified, the default value is 1.0. The valid range is (0.0, 24.0]."""
+
+  start_offset: Optional[str]
+  """Optional. The start offset of the video."""
+
+  content_layers: Optional[list[VideoMetadataContentLayer]]
+  """Content layers to return. If empty, defaults to [FRAMES, AUDIO]."""
+
+
+VideoMetadataOrDict = Union[VideoMetadata, VideoMetadataDict]
+
+
 class FunctionResponsePart(_common.BaseModel):
   """A datatype containing media that is part of a `FunctionResponse` message.
 
@@ -2015,39 +2226,94 @@ class FunctionResponsePart(_common.BaseModel):
       default=None,
       description="""Optional. How the model processes this part's media for understanding. Only meaningful for video parts (`inline_data` or `file_data` with video mime). Non-video parts ignore this field. This field is not supported in Vertex AI.""",
   )
+  media_resolution: Optional[PartMediaResolution] = Field(
+      default=None, description="""Media resolution for the input media."""
+  )
+  video_metadata: Optional[VideoMetadata] = Field(
+      default=None,
+      description="""Video metadata. The metadata should only be specified while the
+      video data is presented in inline_data or file_data.""",
+  )
+  document_metadata: Optional[DocumentMetadata] = Field(
+      default=None,
+      description="""Document metadata. The metadata should only be specified while the
+      document data is presented in inline_data or file_data.""",
+  )
+  spreadsheet_metadata: Optional[SpreadsheetMetadata] = Field(
+      default=None,
+      description="""Spreadsheet metadata. The metadata should only be specified while
+      the spreadsheet data is presented in inline_data or file_data.""",
+  )
+  audio_metadata: Optional[AudioMetadata] = Field(
+      default=None,
+      description="""Audio metadata. The metadata should only be specified while the
+      audio data is presented in inline_data or file_data.""",
+  )
 
   @classmethod
-  def from_bytes(cls, *, data: bytes, mime_type: str) -> 'FunctionResponsePart':
+  def from_bytes(
+      cls,
+      *,
+      data: bytes,
+      mime_type: str,
+      display_name: Optional[str] = None,
+  ) -> 'FunctionResponsePart':
     """Creates a FunctionResponsePart from bytes and mime type.
 
     Args:
       data (bytes): The bytes of the data
       mime_type (str): mime_type: The MIME type of the data.
+      display_name (str): Optional display name of the data.
     """
     inline_data = FunctionResponseBlob(
         data=data,
         mime_type=mime_type,
+        display_name=display_name,
     )
     return cls(inline_data=inline_data)
 
   @classmethod
   def from_uri(
-      cls, *, file_uri: str, mime_type: Optional[str] = None
+      cls,
+      *,
+      file_uri: str,
+      mime_type: Optional[str] = None,
+      display_name: Optional[str] = None,
   ) -> 'FunctionResponsePart':
     """Creates a FunctionResponsePart from a file uri.
 
     Args:
       file_uri (str): The uri of the file
       mime_type (str): mime_type: The MIME type of the file. If not provided,
-        the MIME type will be automatically determined.
+        the MIME type will be automatically determined. For Files API URIs, the
+        MIME type is left unset and the API uses the MIME type of the uploaded
+        file.
+      display_name (str): Optional display name of the file.
     """
     if mime_type is None:
       import mimetypes
 
       mime_type, _ = mimetypes.guess_type(file_uri)
-      if not mime_type:
+      # Files API URIs (for example
+      # https://generativelanguage.googleapis.com/v1beta/files/abc123) have no
+      # file extension. The API reads the MIME type from the uploaded file.
+      # Resource names such as `files/abc123` are not URIs, and the API
+      # rejects them, so they still need a MIME type.
+      import re
+
+      is_files_api_uri = re.match(
+          r'https://(?:[a-z0-9-]+-)?generativelanguage(?:\.sandbox)?'
+          r'\.googleapis\.com/(?:v1|v1beta|v1alpha|v1main)/files/[a-z0-9-]+'
+          r'(?::download(?:\?alt=media)?)?$',
+          file_uri,
+      )
+      if not mime_type and not is_files_api_uri:
         raise ValueError(f'Failed to determine mime type for file: {file_uri}')
-    file_data = FunctionResponseFileData(file_uri=file_uri, mime_type=mime_type)
+    file_data = FunctionResponseFileData(
+        file_uri=file_uri,
+        mime_type=mime_type,
+        display_name=display_name,
+    )
     return cls(file_data=file_data)
 
 
@@ -2069,6 +2335,25 @@ class FunctionResponsePartDict(TypedDict, total=False):
 
   media_processing: Optional[MediaProcessing]
   """Optional. How the model processes this part's media for understanding. Only meaningful for video parts (`inline_data` or `file_data` with video mime). Non-video parts ignore this field. This field is not supported in Vertex AI."""
+
+  media_resolution: Optional[PartMediaResolutionDict]
+  """Media resolution for the input media."""
+
+  video_metadata: Optional[VideoMetadataDict]
+  """Video metadata. The metadata should only be specified while the
+      video data is presented in inline_data or file_data."""
+
+  document_metadata: Optional[DocumentMetadataDict]
+  """Document metadata. The metadata should only be specified while the
+      document data is presented in inline_data or file_data."""
+
+  spreadsheet_metadata: Optional[SpreadsheetMetadataDict]
+  """Spreadsheet metadata. The metadata should only be specified while
+      the spreadsheet data is presented in inline_data or file_data."""
+
+  audio_metadata: Optional[AudioMetadataDict]
+  """Audio metadata. The metadata should only be specified while the
+      audio data is presented in inline_data or file_data."""
 
 
 FunctionResponsePartOrDict = Union[
@@ -2207,37 +2492,6 @@ class BlobDict(TypedDict, total=False):
 
 
 BlobOrDict = Union[Blob, BlobDict]
-
-
-class VideoMetadata(_common.BaseModel):
-  """Provides metadata for a video, including the start and end offsets for clipping and the frame rate."""
-
-  end_offset: Optional[str] = Field(
-      default=None, description="""Optional. The end offset of the video."""
-  )
-  fps: Optional[float] = Field(
-      default=None,
-      description="""Optional. The frame rate of the video sent to the model. If not specified, the default value is 1.0. The valid range is (0.0, 24.0].""",
-  )
-  start_offset: Optional[str] = Field(
-      default=None, description="""Optional. The start offset of the video."""
-  )
-
-
-class VideoMetadataDict(TypedDict, total=False):
-  """Provides metadata for a video, including the start and end offsets for clipping and the frame rate."""
-
-  end_offset: Optional[str]
-  """Optional. The end offset of the video."""
-
-  fps: Optional[float]
-  """Optional. The frame rate of the video sent to the model. If not specified, the default value is 1.0. The valid range is (0.0, 24.0]."""
-
-  start_offset: Optional[str]
-  """Optional. The start offset of the video."""
-
-
-VideoMetadataOrDict = Union[VideoMetadata, VideoMetadataDict]
 
 
 class WordInfo(_common.BaseModel):
@@ -2424,6 +2678,21 @@ class Part(_common.BaseModel):
       default=None,
       description="""Extra metadata associated with the part for speech synthesis, such
       as speaker and style. Only valid when `Part.data` is set to `text`.""",
+  )
+  document_metadata: Optional[DocumentMetadata] = Field(
+      default=None,
+      description="""Document metadata. The metadata should only be specified while the
+      document data is presented in inline_data or file_data.""",
+  )
+  spreadsheet_metadata: Optional[SpreadsheetMetadata] = Field(
+      default=None,
+      description="""Spreadsheet metadata. The metadata should only be specified while
+      the spreadsheet data is presented in inline_data or file_data.""",
+  )
+  audio_metadata: Optional[AudioMetadata] = Field(
+      default=None,
+      description="""Audio metadata. The metadata should only be specified while the
+      audio data is presented in inline_data or file_data.""",
   )
 
   def __init__(
@@ -2665,6 +2934,18 @@ class PartDict(TypedDict, total=False):
   speech_metadata: Optional[SpeechMetadataDict]
   """Extra metadata associated with the part for speech synthesis, such
       as speaker and style. Only valid when `Part.data` is set to `text`."""
+
+  document_metadata: Optional[DocumentMetadataDict]
+  """Document metadata. The metadata should only be specified while the
+      document data is presented in inline_data or file_data."""
+
+  spreadsheet_metadata: Optional[SpreadsheetMetadataDict]
+  """Spreadsheet metadata. The metadata should only be specified while
+      the spreadsheet data is presented in inline_data or file_data."""
+
+  audio_metadata: Optional[AudioMetadataDict]
+  """Audio metadata. The metadata should only be specified while the
+      audio data is presented in inline_data or file_data."""
 
 
 PartOrDict = Union[Part, PartDict]
@@ -8075,57 +8356,61 @@ GroundingSupportOrDict = Union[GroundingSupport, GroundingSupportDict]
 
 
 class RetrievalMetadata(_common.BaseModel):
-  """Metadata returned to client when grounding is enabled."""
+  """Metadata related to the retrieval grounding source.
+
+  This is part of the `GroundingMetadata` returned when grounding is enabled.
+  """
 
   google_search_dynamic_retrieval_score: Optional[float] = Field(
       default=None,
-      description="""Optional. Score indicating how likely information from google
-      search could help answer the prompt. The score is in the range [0, 1],
-      where 0 is the least likely and 1 is the most likely. This score is only
-      populated when google search grounding and dynamic retrieval is enabled.
-      It will be compared to the threshold to determine whether to trigger
-      Google search.""",
+      description="""Optional. A score indicating how likely it is that a Google Search query could help answer the prompt. The score is in the range of `[0, 1]`. A score of 1 means the model is confident that a search will be helpful, and 0 means it is not. This score is populated only when Google Search grounding and dynamic retrieval are enabled. The score is used to determine whether to trigger a search.""",
   )
 
 
 class RetrievalMetadataDict(TypedDict, total=False):
-  """Metadata returned to client when grounding is enabled."""
+  """Metadata related to the retrieval grounding source.
+
+  This is part of the `GroundingMetadata` returned when grounding is enabled.
+  """
 
   google_search_dynamic_retrieval_score: Optional[float]
-  """Optional. Score indicating how likely information from google
-      search could help answer the prompt. The score is in the range [0, 1],
-      where 0 is the least likely and 1 is the most likely. This score is only
-      populated when google search grounding and dynamic retrieval is enabled.
-      It will be compared to the threshold to determine whether to trigger
-      Google search."""
+  """Optional. A score indicating how likely it is that a Google Search query could help answer the prompt. The score is in the range of `[0, 1]`. A score of 1 means the model is confident that a search will be helpful, and 0 means it is not. This score is populated only when Google Search grounding and dynamic retrieval are enabled. The score is used to determine whether to trigger a search."""
 
 
 RetrievalMetadataOrDict = Union[RetrievalMetadata, RetrievalMetadataDict]
 
 
 class SearchEntryPoint(_common.BaseModel):
-  """The entry point used to search for grounding sources."""
+  """An entry point for displaying Google Search results.
+
+  A `SearchEntryPoint` is populated when the grounding source for a model's
+  response is Google Search. It provides information that you can use to display
+  the search results in your application.
+  """
 
   rendered_content: Optional[str] = Field(
       default=None,
-      description="""Optional. Web content snippet that can be embedded in a web page
-      or an app webview.""",
+      description="""Optional. An HTML snippet that can be embedded in a web page or an application's webview. This snippet displays a search result, including the title, URL, and a brief description of the search result.""",
   )
   sdk_blob: Optional[bytes] = Field(
       default=None,
-      description="""Optional. JSON representing array of tuples.""",
+      description="""Optional. A base64-encoded JSON object that contains a list of search queries and their corresponding search URLs. This information can be used to build a custom search UI.""",
   )
 
 
 class SearchEntryPointDict(TypedDict, total=False):
-  """The entry point used to search for grounding sources."""
+  """An entry point for displaying Google Search results.
+
+  A `SearchEntryPoint` is populated when the grounding source for a model's
+  response is Google Search. It provides information that you can use to display
+  the search results in your application.
+  """
 
   rendered_content: Optional[str]
-  """Optional. Web content snippet that can be embedded in a web page
-      or an app webview."""
+  """Optional. An HTML snippet that can be embedded in a web page or an application's webview. This snippet displays a search result, including the title, URL, and a brief description of the search result."""
 
   sdk_blob: Optional[bytes]
-  """Optional. JSON representing array of tuples."""
+  """Optional. A base64-encoded JSON object that contains a list of search queries and their corresponding search URLs. This information can be used to build a custom search UI."""
 
 
 SearchEntryPointOrDict = Union[SearchEntryPoint, SearchEntryPointDict]
@@ -9298,6 +9583,11 @@ class _EmbedContentParametersPrivate(_common.BaseModel):
       description="""The Gemini Enterprise Agent Platform embedding API to use.
       """,
   )
+  batch_contents: Optional[ContentListUnion] = Field(
+      default=None,
+      description="""The multiple contents to embed.
+      """,
+  )
   config: Optional[EmbedContentConfig] = Field(
       default=None,
       description="""Configuration that contains optional parameters.
@@ -9322,6 +9612,10 @@ class _EmbedContentParametersPrivateDict(TypedDict, total=False):
 
   embedding_api_type: Optional[EmbeddingApiType]
   """The Gemini Enterprise Agent Platform embedding API to use.
+      """
+
+  batch_contents: Optional[ContentListUnionDict]
+  """The multiple contents to embed.
       """
 
   config: Optional[EmbedContentConfigDict]
@@ -11846,7 +12140,7 @@ class GenerationConfig(_common.BaseModel):
   )
   stop_sequences: Optional[list[str]] = Field(
       default=None,
-      description="""Optional. A list of character sequences that will stop the model from generating further tokens. If a stop sequence is generated, the output will end at that point. This is useful for controlling the length and structure of the output. For example, you can use ["\n", "###"] to stop generation at a new line or a specific marker.""",
+      description="""Optional. A list of character sequences that will stop the model from generating further tokens. If a stop sequence is generated, the output will end at that point. This is useful for controlling the length and structure of the output. For example, you can use ["\\n", "###"] to stop generation at a new line or a specific marker.""",
   )
   temperature: Optional[float] = Field(
       default=None,
@@ -11939,7 +12233,7 @@ class GenerationConfigDict(TypedDict, total=False):
   """Optional. The speech generation config."""
 
   stop_sequences: Optional[list[str]]
-  """Optional. A list of character sequences that will stop the model from generating further tokens. If a stop sequence is generated, the output will end at that point. This is useful for controlling the length and structure of the output. For example, you can use ["\n", "###"] to stop generation at a new line or a specific marker."""
+  """Optional. A list of character sequences that will stop the model from generating further tokens. If a stop sequence is generated, the output will end at that point. This is useful for controlling the length and structure of the output. For example, you can use ["\\n", "###"] to stop generation at a new line or a specific marker."""
 
   temperature: Optional[float]
   """Optional. Controls the randomness of the output. A higher temperature results in more creative and diverse responses, while a lower temperature makes the output more predictable and focused. The valid range is (0.0, 2.0]."""
@@ -13918,64 +14212,6 @@ SingleReinforcementTuningRewardConfigOrDict = Union[
 ]
 
 
-class CompositeReinforcementTuningRewardConfigWeightedRewardConfig(
-    _common.BaseModel
-):
-  """Composite reinforcement tuning reward config weighted reward config."""
-
-  reward_config: Optional[SingleReinforcementTuningRewardConfig] = Field(
-      default=None, description="""Single reward configuration."""
-  )
-  weight: Optional[float] = Field(
-      default=None,
-      description="""How much this single reward contributes to the total overall reward. Total reward is a linear combination of single rewards with their corresponding weights, i.e., ``` total_reward = ( weight_a * reward_a + weight_b * reward_b + ... ) / (weight_a + weight_b + ...) ```""",
-  )
-
-
-class CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict(
-    TypedDict, total=False
-):
-  """Composite reinforcement tuning reward config weighted reward config."""
-
-  reward_config: Optional[SingleReinforcementTuningRewardConfigDict]
-  """Single reward configuration."""
-
-  weight: Optional[float]
-  """How much this single reward contributes to the total overall reward. Total reward is a linear combination of single rewards with their corresponding weights, i.e., ``` total_reward = ( weight_a * reward_a + weight_b * reward_b + ... ) / (weight_a + weight_b + ...) ```"""
-
-
-CompositeReinforcementTuningRewardConfigWeightedRewardConfigOrDict = Union[
-    CompositeReinforcementTuningRewardConfigWeightedRewardConfig,
-    CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict,
-]
-
-
-class CompositeReinforcementTuningRewardConfig(_common.BaseModel):
-  """Composite reinforcement tuning reward config."""
-
-  weighted_reward_configs: Optional[
-      list[CompositeReinforcementTuningRewardConfigWeightedRewardConfig]
-  ] = Field(
-      default=None,
-      description="""List of reward function configurations with weights.""",
-  )
-
-
-class CompositeReinforcementTuningRewardConfigDict(TypedDict, total=False):
-  """Composite reinforcement tuning reward config."""
-
-  weighted_reward_configs: Optional[
-      list[CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict]
-  ]
-  """List of reward function configurations with weights."""
-
-
-CompositeReinforcementTuningRewardConfigOrDict = Union[
-    CompositeReinforcementTuningRewardConfig,
-    CompositeReinforcementTuningRewardConfigDict,
-]
-
-
 class ReinforcementTuningHyperParameters(_common.BaseModel):
   """Hyperparameters for Reinforcement Tuning."""
 
@@ -14064,6 +14300,78 @@ class ReinforcementTuningHyperParametersDict(TypedDict, total=False):
 
 ReinforcementTuningHyperParametersOrDict = Union[
     ReinforcementTuningHyperParameters, ReinforcementTuningHyperParametersDict
+]
+
+
+class CompositeReinforcementTuningRewardConfigWeightedRewardConfig(
+    _common.BaseModel
+):
+  """Reward function configuration with a weight.
+
+  The weight is used to combine the reward with other rewards. This data type is
+  not supported in Gemini API.
+  """
+
+  reward_config: Optional[SingleReinforcementTuningRewardConfig] = Field(
+      default=None, description="""Single reward configuration."""
+  )
+  weight: Optional[float] = Field(
+      default=None,
+      description="""How much this single reward contributes to the total overall reward. Total reward is a linear combination of single rewards with their corresponding weights, i.e., ``` total_reward = ( weight_a * reward_a + weight_b * reward_b + ... ) / (weight_a + weight_b + ...) ```""",
+  )
+
+
+class CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict(
+    TypedDict, total=False
+):
+  """Reward function configuration with a weight.
+
+  The weight is used to combine the reward with other rewards. This data type is
+  not supported in Gemini API.
+  """
+
+  reward_config: Optional[SingleReinforcementTuningRewardConfigDict]
+  """Single reward configuration."""
+
+  weight: Optional[float]
+  """How much this single reward contributes to the total overall reward. Total reward is a linear combination of single rewards with their corresponding weights, i.e., ``` total_reward = ( weight_a * reward_a + weight_b * reward_b + ... ) / (weight_a + weight_b + ...) ```"""
+
+
+CompositeReinforcementTuningRewardConfigWeightedRewardConfigOrDict = Union[
+    CompositeReinforcementTuningRewardConfigWeightedRewardConfig,
+    CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict,
+]
+
+
+class CompositeReinforcementTuningRewardConfig(_common.BaseModel):
+  """Composite reward function configuration for reinforcement tuning.
+
+  This data type is not supported in Gemini API.
+  """
+
+  weighted_reward_configs: Optional[
+      list[CompositeReinforcementTuningRewardConfigWeightedRewardConfig]
+  ] = Field(
+      default=None,
+      description="""List of reward function configurations with weights.""",
+  )
+
+
+class CompositeReinforcementTuningRewardConfigDict(TypedDict, total=False):
+  """Composite reward function configuration for reinforcement tuning.
+
+  This data type is not supported in Gemini API.
+  """
+
+  weighted_reward_configs: Optional[
+      list[CompositeReinforcementTuningRewardConfigWeightedRewardConfigDict]
+  ]
+  """List of reward function configurations with weights."""
+
+
+CompositeReinforcementTuningRewardConfigOrDict = Union[
+    CompositeReinforcementTuningRewardConfig,
+    CompositeReinforcementTuningRewardConfigDict,
 ]
 
 
@@ -18305,7 +18613,7 @@ class ClaudeFile(_common.BaseModel):
   )
   filename: Optional[str] = Field(
       default=None,
-      description="""Output only. The original name of the uploaded file, taken from the `Content-Disposition` header on upload. Between 1 and 255 characters. Control characters and the characters `<>:"|?*\/` are not accepted.""",
+      description="""Output only. The original name of the uploaded file, taken from the `Content-Disposition` header on upload. Between 1 and 255 characters. Control characters and the characters `<>:"|?*\\/` are not accepted.""",
   )
   id: Optional[str] = Field(
       default=None,
@@ -18343,7 +18651,7 @@ class ClaudeFileDict(TypedDict, total=False):
   """Output only. The time at which the file expires and is deleted, set from the `expires_in_seconds` upload form field. Unset for files that do not expire, which is serialised as `null`."""
 
   filename: Optional[str]
-  """Output only. The original name of the uploaded file, taken from the `Content-Disposition` header on upload. Between 1 and 255 characters. Control characters and the characters `<>:"|?*\/` are not accepted."""
+  """Output only. The original name of the uploaded file, taken from the `Content-Disposition` header on upload. Between 1 and 255 characters. Control characters and the characters `<>:"|?*\\/` are not accepted."""
 
   id: Optional[str]
   """Output only. The server-assigned identifier of the file, for example `file_abc123`. This is the ID to pass in subsequent model requests."""

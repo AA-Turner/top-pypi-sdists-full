@@ -33,6 +33,10 @@ Usage::
         ListAttachmentRoutingPolicyAssociationsPaginator,
         ListAttachmentsPaginator,
         ListConnectPeersPaginator,
+        ListContextChangesPaginator,
+        ListContextStoreAssociationsPaginator,
+        ListContextStoresPaginator,
+        ListContextsPaginator,
         ListCoreNetworkPolicyVersionsPaginator,
         ListCoreNetworkPrefixListAssociationsPaginator,
         ListCoreNetworkRoutingInformationPaginator,
@@ -64,6 +68,10 @@ Usage::
     list_attachment_routing_policy_associations_paginator: ListAttachmentRoutingPolicyAssociationsPaginator = client.get_paginator("list_attachment_routing_policy_associations")
     list_attachments_paginator: ListAttachmentsPaginator = client.get_paginator("list_attachments")
     list_connect_peers_paginator: ListConnectPeersPaginator = client.get_paginator("list_connect_peers")
+    list_context_changes_paginator: ListContextChangesPaginator = client.get_paginator("list_context_changes")
+    list_context_store_associations_paginator: ListContextStoreAssociationsPaginator = client.get_paginator("list_context_store_associations")
+    list_context_stores_paginator: ListContextStoresPaginator = client.get_paginator("list_context_stores")
+    list_contexts_paginator: ListContextsPaginator = client.get_paginator("list_contexts")
     list_core_network_policy_versions_paginator: ListCoreNetworkPolicyVersionsPaginator = client.get_paginator("list_core_network_policy_versions")
     list_core_network_prefix_list_associations_paginator: ListCoreNetworkPrefixListAssociationsPaginator = client.get_paginator("list_core_network_prefix_list_associations")
     list_core_network_routing_information_paginator: ListCoreNetworkRoutingInformationPaginator = client.get_paginator("list_core_network_routing_information")
@@ -122,6 +130,14 @@ from .type_defs import (
     ListAttachmentsResponseTypeDef,
     ListConnectPeersRequestPaginateTypeDef,
     ListConnectPeersResponseTypeDef,
+    ListContextChangesRequestPaginateTypeDef,
+    ListContextChangesResponseTypeDef,
+    ListContextsRequestPaginateTypeDef,
+    ListContextsResponseTypeDef,
+    ListContextStoreAssociationsRequestPaginateTypeDef,
+    ListContextStoreAssociationsResponseTypeDef,
+    ListContextStoresRequestPaginateTypeDef,
+    ListContextStoresResponseTypeDef,
     ListCoreNetworkPolicyVersionsRequestPaginateTypeDef,
     ListCoreNetworkPolicyVersionsResponseTypeDef,
     ListCoreNetworkPrefixListAssociationsRequestPaginateTypeDef,
@@ -161,6 +177,10 @@ __all__ = (
     "ListAttachmentRoutingPolicyAssociationsPaginator",
     "ListAttachmentsPaginator",
     "ListConnectPeersPaginator",
+    "ListContextChangesPaginator",
+    "ListContextStoreAssociationsPaginator",
+    "ListContextStoresPaginator",
+    "ListContextsPaginator",
     "ListCoreNetworkPolicyVersionsPaginator",
     "ListCoreNetworkPrefixListAssociationsPaginator",
     "ListCoreNetworkRoutingInformationPaginator",
@@ -560,6 +580,80 @@ class ListConnectPeersPaginator(_ListConnectPeersPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListConnectPeers.html#NetworkManager.Paginator.ListConnectPeers.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listconnectpeerspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContextChangesPaginatorBase = Paginator[ListContextChangesResponseTypeDef]
+else:
+    _ListContextChangesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContextChangesPaginator(_ListContextChangesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextChanges.html#NetworkManager.Paginator.ListContextChanges)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextchangespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContextChangesRequestPaginateTypeDef]
+    ) -> PageIterator[ListContextChangesResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextChanges.html#NetworkManager.Paginator.ListContextChanges.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextchangespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContextStoreAssociationsPaginatorBase = Paginator[
+        ListContextStoreAssociationsResponseTypeDef
+    ]
+else:
+    _ListContextStoreAssociationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContextStoreAssociationsPaginator(_ListContextStoreAssociationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextStoreAssociations.html#NetworkManager.Paginator.ListContextStoreAssociations)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextstoreassociationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContextStoreAssociationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContextStoreAssociationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextStoreAssociations.html#NetworkManager.Paginator.ListContextStoreAssociations.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextstoreassociationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContextStoresPaginatorBase = Paginator[ListContextStoresResponseTypeDef]
+else:
+    _ListContextStoresPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContextStoresPaginator(_ListContextStoresPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextStores.html#NetworkManager.Paginator.ListContextStores)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextstorespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContextStoresRequestPaginateTypeDef]
+    ) -> PageIterator[ListContextStoresResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContextStores.html#NetworkManager.Paginator.ListContextStores.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextstorespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListContextsPaginatorBase = Paginator[ListContextsResponseTypeDef]
+else:
+    _ListContextsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListContextsPaginator(_ListContextsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContexts.html#NetworkManager.Paginator.ListContexts)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListContextsRequestPaginateTypeDef]
+    ) -> PageIterator[ListContextsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/paginator/ListContexts.html#NetworkManager.Paginator.ListContexts.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_networkmanager/paginators/#listcontextspaginator)
         """
 
 if TYPE_CHECKING:

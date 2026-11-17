@@ -1,6 +1,6 @@
 [project]
 name = "papyrus-newsroom"
-version = "5.127.0"
+version = "5.130.0"
 description = "Papyrus newsroom Python tools and CLI."
 readme = "README.md"
 license = "MIT"
@@ -10,7 +10,7 @@ dependencies = [
     "citeproc-py >=0.8.2,<1.0.0",
     # The `papyrus` CLI imports humanus at import time, and Papyrus is
     # integrating it more deeply, so it is a base dependency (Ryan, 2026-10-05).
-    "humanus >=0.41.1,<0.42",
+    "humanus >=0.42.0,<0.43",
     "biblicus >=1.15.0,<2",
     # `papyrus stories save-version` (and every save that derives bodyIr) imports markusmd, so a plain
     # `pipx install papyrus-newsroom` needs it (PPY-a4ae21).
@@ -28,6 +28,8 @@ dependencies = [
     "requests >=2.32.3,<3",
     # SiteConfig (the shared tier's settings) is validated against its JSON schema (PPY-ee1e02).
     "jsonschema >=4.23,<5",
+    # A language edition prints its dates in the language's own format (CLDR: "15 de noviembre de 2026", "2026年11月15日"), as the standard front end's cards and bylines do.
+    "Babel >=2.14,<3",
     # The shared CLI login library: `papyrus login` stores sessions in the platform's secure store
     # (macOS Keychain, Linux Secret Service/kernel keyring/memory agent, Windows Credential Manager).
     "cli-login ==0.4.1 ; sys_platform != 'linux'",

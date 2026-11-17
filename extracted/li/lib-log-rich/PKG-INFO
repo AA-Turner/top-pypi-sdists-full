@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_log_rich
-Version: 8.2.1
+Version: 8.2.2
 Summary: Rich-powered logging runtime with contextual metadata, multi-sink fan-out, and ring-buffer dumps
 Project-URL: Homepage, https://github.com/bitranox/lib_log_rich
 Project-URL: Repository, https://github.com/bitranox/lib_log_rich.git
@@ -33,7 +33,7 @@ Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
 Requires-Dist: certifi>=2026.10.23; extra == 'dev'
-Requires-Dist: click>=8.5.0; extra == 'dev'
+Requires-Dist: click>=8.5.1; extra == 'dev'
 Requires-Dist: hatchling>=1.33.0; extra == 'dev'
 Requires-Dist: httpx2>=2.14.0; extra == 'dev'
 Requires-Dist: hypothesis>=6.168.5; extra == 'dev'
@@ -46,7 +46,7 @@ Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
 Requires-Dist: pytest>=9.2.0; extra == 'dev'
 Requires-Dist: rtoml>=0.14.0; extra == 'dev'
-Requires-Dist: ruff>=0.17.3; extra == 'dev'
+Requires-Dist: ruff>=0.17.4; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Provides-Extra: eventlog

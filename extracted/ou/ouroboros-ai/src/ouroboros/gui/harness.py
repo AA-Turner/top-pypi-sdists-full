@@ -5,6 +5,11 @@ A conversation is the Ouroboros pipeline told as a chat:
 * **Interview** mode asks Socratic questions in the thread (``ouroboros_interview``),
   writes the spec when you are ready (``ouroboros_generate_seed``), then runs it
   (``ouroboros_start_execute_seed``) and follows the run's board until it ends.
+  It is a brownfield interview only when the chat was started for an existing
+  project folder. Then each question the server marks as answerable from code
+  goes to the repository investigator first, and the answer comes back for
+  one-click confirmation, or is sent at once when the skill's PATH 1a allows it
+  (``gui/interview_assist.py``).
 * **Auto** mode hands the goal to ``ouroboros auto`` and streams its output.
 
 The handlers are the same objects the CLI and MCP server build, called in-process
@@ -18,21 +23,59 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable, Coroutine, Iterator
 import contextlib
+import contextvars
 import json
 import os
 from pathlib import Path
+import re
+import tempfile
 import threading
 import time
-from typing import Any
+from typing import Any, Literal, cast
 import uuid
 
 import yaml
 
+from ouroboros.gui import workspace
+from ouroboros.gui.interview_assist import (
+    AUTO_CONFIRMED_PREFIX,
+    CONFIRMED_PREFIX,
+    MAX_ASSISTED_IN_A_ROW,
+    RecordingInterviewHandler,
+    auto_confirm_source,
+    load_interview_view,
+)
 from ouroboros.gui.jobs import JobRegistry, ouroboros_command
 
 _MAX_LOG_LINES = 400
 _RUN_POLL_SEC = 2.0
 _TERMINAL_RUN = frozenset({"completed", "failed", "cancelled"})
+# What an Auto result needs from `ouroboros auto`'s output. The job reads them
+# from every line as it arrives (``JobRegistry.start(watch=...)``), so a long
+# run cannot push them out of the job's bounded log.
+_AUTO_WATCH = {
+    "execution_id": re.compile(r"\b(exec_[A-Za-z0-9_-]{6,})\b"),
+    "handoff_status": re.compile(r"^\s*Run handoff status:\s*(\S+)\s*$"),
+}
+
+# The project folder of the chat whose interview or Seed call this task runs.
+# Handlers are shared by every chat on the same agent; each call runs as its
+# own task, so each sees its own chat's folder.
+_CHAT_FOLDER: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "gui_chat_folder", default=None
+)
+
+
+class Refusal(ValueError):
+    """A request the console refuses, with a stable code the page translates.
+
+    ``extra`` carries the values the page's sentence needs (a folder, an agent).
+    """
+
+    def __init__(self, code: str, message: str, **extra: Any) -> None:
+        super().__init__(message)
+        self.code = code
+        self.extra = extra
 
 
 def chats_dir() -> Path:
@@ -48,6 +91,7 @@ def _now() -> float:
 
 
 def _msg(role: str, kind: str, text: str = "", **data: Any) -> dict[str, Any]:
+    """A transcript entry. A ``key`` names a fixed sentence the page translates; ``text`` is its English."""
     return {
         "id": uuid.uuid4().hex[:10],
         "role": role,
@@ -69,7 +113,61 @@ class _Loop:
         self.thread.start()
 
     def submit(self, coro: Coroutine[Any, Any, Any]) -> Any:
-        return asyncio.run_coroutine_threadsafe(coro, self.loop)
+        return asyncio.run_coroutine_threadsafe(_as_console_surface(coro), self.loop)
+
+
+class _FolderAdapter:
+    """The LLM adapter an authoring handler builds for itself, run in the chat's folder.
+
+    ``InterviewHandler`` and ``GenerateSeedHandler`` build their adapter without a
+    ``cwd``, so the agent CLI would start in the console's launch folder and load
+    that folder's CLAUDE.md, AGENTS.md and settings. This builds the same adapter
+    (the role's backend, the one sealed turn the handler asks for) with the
+    calling chat's folder (``_CHAT_FOLDER``) as ``cwd``. It is built for each
+    completion, from the settings of that moment, as the handler's own adapter
+    is built for each call.
+    """
+
+    def __init__(self, role: Literal["interview", "seed_generation"], backend: str | None) -> None:
+        self.role = role
+        self.backend = backend
+
+    def resolved_backend(self) -> str:
+        from ouroboros.config import get_llm_backend_for_role
+
+        return get_llm_backend_for_role(self.role, explicit_backend=self.backend)
+
+    def seals_tools(self) -> bool:
+        """Whether the handler would seal this backend's tools (it then drops tool cues)."""
+        from ouroboros.backends import backend_supports_tool_envelope
+        from ouroboros.providers import resolve_llm_backend
+
+        return backend_supports_tool_envelope(resolve_llm_backend(self.resolved_backend()))
+
+    def build(self) -> Any:
+        from ouroboros.providers import create_llm_adapter
+
+        backend = self.resolved_backend()
+        sealed = self.seals_tools()
+        cwd = _CHAT_FOLDER.get()
+        if self.role == "interview":
+            return create_llm_adapter(
+                backend=backend,
+                max_turns=1,
+                use_case="interview",
+                allowed_tools=[] if sealed else None,
+                strict_mcp_config=True,
+                cwd=cwd,
+            )
+        return create_llm_adapter(
+            backend=backend,
+            max_turns=1,
+            allowed_tools=[] if sealed else None,
+            cwd=cwd,
+        )
+
+    async def complete(self, messages: Any, config: Any) -> Any:
+        return await self.build().complete(messages, config)
 
 
 class _Handlers:
@@ -77,7 +175,8 @@ class _Handlers:
 
     ``backend=None`` follows ``~/.ouroboros/config.yaml``; a named backend runs
     every stage of this conversation on that agent (models still come from the
-    Agents & models settings for that backend).
+    Agents & models settings for that backend). The interview and Seed agents
+    run in the calling chat's folder (``_CHAT_FOLDER``).
     """
 
     def __init__(self, backend: str | None = None) -> None:
@@ -88,6 +187,7 @@ class _Handlers:
 
     def ensure(self) -> None:
         if self._built:
+            self._match_prompt_mode()
             return
         from ouroboros.auto.adapters import (
             HandlerInterviewBackend,
@@ -103,10 +203,19 @@ class _Handlers:
 
         backend = effective_runtime(self.backend)
         llm = self.backend if self.backend and _supports_llm(self.backend) else None
-        self.interview_handler = InterviewHandler(llm_backend=llm, agent_runtime_backend=backend)
-        self.interview = HandlerInterviewBackend(self.interview_handler, cwd=os.getcwd())
+        self._interview_adapter = _FolderAdapter("interview", llm)
+        self._interview_inner = InterviewHandler(
+            llm_backend=llm, agent_runtime_backend=backend, llm_adapter=self._interview_adapter
+        )
+        self._match_prompt_mode()
+        self.interview_handler = RecordingInterviewHandler(self._interview_inner)
+        self.interview = HandlerInterviewBackend(cast(Any, self.interview_handler), cwd=os.getcwd())
         self.seed = HandlerSeedGenerator(
-            GenerateSeedHandler(llm_backend=llm, agent_runtime_backend=backend)
+            GenerateSeedHandler(
+                llm_backend=llm,
+                agent_runtime_backend=backend,
+                llm_adapter=_FolderAdapter("seed_generation", llm),
+            )
         )
         execute = ExecuteSeedHandler(llm_backend=llm, agent_runtime_backend=backend)
         self.start_handler = StartExecuteSeedHandler(
@@ -117,9 +226,30 @@ class _Handlers:
         self._run_starter = HandlerRunStarter
         self._built = True
 
+    def _match_prompt_mode(self) -> None:
+        """Ask without tool cues exactly when the handler would for its own adapter.
+
+        The handler keeps an injected adapter's caller-chosen prompt mode
+        (#1537); this adapter is the one the handler would build, so it gets
+        the mode the handler picks for that one. Refreshed before every call.
+        """
+        self._interview_inner.suppress_tool_use_prompt_cues = self._interview_adapter.seals_tools()
+
     def run_starter(self, cwd: str) -> Any:
         self.ensure()
         return self._run_starter(self.start_handler, cwd=cwd)
+
+    def code_request(self, interview_session_id: str) -> dict[str, Any] | None:
+        """The server's code-fact request on this interview's latest question, if any."""
+        return self.interview_handler.code_request(interview_session_id) if self._built else None
+
+    def interview_view(self, interview_session_id: str) -> tuple[dict[str, Any] | None, str | None]:
+        """The completion gate and the issued question, as the server persisted them."""
+        if not self._built:
+            return None, None
+        return load_interview_view(
+            self.interview_handler.resolved_state_dir(), interview_session_id
+        )
 
 
 def effective_runtime(backend: str | None, *, public: bool = False) -> str | None:
@@ -169,15 +299,22 @@ _ASK_SYSTEM = (
 
 
 class Harness:
-    """Conversations, their background work, and live subscribers."""
+    """Conversations, their background work, and live subscribers.
 
-    def __init__(self) -> None:
+    ``jobs`` is the console's job registry, so the ``ouroboros auto`` jobs chats
+    start are listed in Activity with every other job the console runs.
+    """
+
+    def __init__(self, jobs: JobRegistry | None = None) -> None:
         self._sessions: dict[str, dict[str, Any]] = {}
         self._lock = threading.RLock()
         self._changed = threading.Condition(self._lock)
         self._loop: _Loop | None = None
         self._handlers: dict[str, _Handlers] = {}
-        self._jobs = JobRegistry()
+        # One repository investigator per chat, so its call cap and the answers
+        # it already found carry across the chat's questions.
+        self._investigators: dict[str, Any] = {}
+        self._jobs = jobs if jobs is not None else JobRegistry()
         self._load_all()
 
     # ── persistence ─────────────────────────────────────────────────
@@ -279,6 +416,7 @@ class Harness:
     def delete(self, session_id: str) -> None:
         with self._lock:
             self._sessions.pop(session_id, None)
+            self._investigators.pop(session_id, None)
             with contextlib.suppress(OSError):
                 (chats_dir() / f"{session_id}.json").unlink()
             self._changed.notify_all()
@@ -286,16 +424,18 @@ class Harness:
     def create(self, payload: dict[str, Any]) -> dict[str, Any]:
         goal = str(payload.get("goal") or "").strip()
         if not goal:
-            raise ValueError("Say what you want to build.")
+            raise Refusal("goal_missing", "Say what you want to build.")
         cwd = str(payload.get("cwd") or "").strip() or os.getcwd()
         cwd = str(Path(cwd).expanduser())
         if not Path(cwd).is_dir():
-            raise ValueError(f"Folder not found: {cwd}")
+            raise Refusal("folder_missing", f"Folder not found: {cwd}", folder=cwd)
         mode = payload.get("mode") if payload.get("mode") in ("auto", "ask") else "interview"
+        project = _interview_project(payload.get("project"), cwd) if mode == "interview" else None
         backend = str(payload.get("backend") or "").strip() or None
         model = str(payload.get("model") or "").strip() or None
         if backend:
             _validate_backend(backend, mode)
+            _require_installed(backend)
         session_id = uuid.uuid4().hex[:12]
         session: dict[str, Any] = {
             "id": session_id,
@@ -303,6 +443,7 @@ class Harness:
             "goal": goal,
             "cwd": cwd,
             "mode": mode,
+            "project": project,
             "backend": backend,
             "model": model,
             "status": "thinking",
@@ -322,10 +463,11 @@ class Harness:
             self._spawn(session_id, self._interview_start(session_id))
         return self.get(session_id) or session
 
-    def send(self, session_id: str, text: str) -> dict[str, Any]:
+    def send(self, session_id: str, text: str, *, corrects: str | None = None) -> dict[str, Any]:
+        """Send what the user typed. ``corrects`` names an auto-confirmed answer it corrects."""
         text = text.strip()
         if not text:
-            raise ValueError("Type an answer first.")
+            raise Refusal("answer_empty", "Type an answer first.")
         with self._lock:
             session = self._require(session_id)
             ask = session.get("mode") == "ask"
@@ -333,14 +475,22 @@ class Harness:
                 ("waiting_answer", "done", "failed", "interrupted") if ask else ("waiting_answer",)
             )
             if session.get("status") not in ready:
-                raise ValueError("Ouroboros is not waiting for a message right now.")
-            session["messages"].append(_msg("user", "text", text))
+                raise Refusal("not_waiting", "Ouroboros is not waiting for a message right now.")
+            payload = text
+            extra: dict[str, Any] = {}
+            if corrects and not ask:
+                payload = _correction_payload(session, corrects, text)
+                extra["corrects"] = corrects
+            session["messages"].append(_msg("user", "text", text, **extra))
             session["status"] = "thinking"
+            session["suggestion"] = {"pending": False}
+            # A human answer resets the skill's Dialectic Rhythm Guard.
+            session["assisted_in_a_row"] = 0
             self._touch(session)
         if ask:
             self._spawn(session_id, self._ask(session_id))
         else:
-            self._spawn(session_id, self._interview_answer(session_id, text))
+            self._spawn(session_id, self._interview_answer(session_id, payload))
         return self.get(session_id) or {}
 
     def action(self, session_id: str, action: str, payload: dict[str, Any]) -> dict[str, Any]:
@@ -349,47 +499,143 @@ class Harness:
             status = session.get("status")
             if action == "seed":
                 if status not in ("waiting_answer", "seed_ready_to_write", "interrupted", "failed"):
-                    raise ValueError("The interview is still working.")
+                    raise Refusal("interview_busy", "The interview is still working.")
                 if not session.get("interview_session_id"):
-                    raise ValueError("There is no interview to turn into a spec yet.")
+                    raise Refusal("no_interview", "There is no interview to turn into a spec yet.")
                 session["status"] = "thinking"
-                session["messages"].append(_msg("system", "note", "Writing the spec…"))
+                session["messages"].append(
+                    _msg("system", "note", "Writing the spec…", key="writing_spec")
+                )
                 self._touch(session)
                 coro = self._write_seed(session_id, force=bool(payload.get("force")))
             elif action == "run":
                 if not session.get("seed_yaml"):
-                    raise ValueError("Write the spec before running it.")
+                    raise Refusal("no_spec", "Write the spec before running it.")
                 if status == "running":
-                    raise ValueError("This spec is already running.")
-                problem = _workspace_problem(str(session["cwd"]))
-                if problem:
-                    raise ValueError(problem)
+                    raise Refusal("already_running", "This spec is already running.")
+                prepare = payload.get("prepare_git", False)
+                if not isinstance(prepare, bool):
+                    raise Refusal("bad_prepare_git", "prepare_git must be true or false.")
+                self._ready_folder(session, prepare=prepare)
                 session["status"] = "running"
                 self._touch(session)
                 coro = self._start_run(session_id)
             elif action == "suggest":
                 if status != "waiting_answer" or not session.get("last_question"):
-                    raise ValueError("There is no open question to answer.")
-                if session.get("suggestion", {}).get("pending"):
-                    raise ValueError("A suggestion is already being drafted.")
+                    raise Refusal("no_question", "There is no open question to answer.")
+                current = session.get("suggestion") or {}
+                if current.get("pending"):
+                    raise Refusal("suggestion_pending", "A suggestion is already being drafted.")
                 question = str(session["last_question"])
+                # A new project has no repository to read, and a question the
+                # repository was already checked for gets the default at once.
+                use_repo = session.get("project") != "new" and not (
+                    current.get("repo_checked") and current.get("question") == question
+                )
                 session["suggestion"] = {"pending": True, "question": question}
                 self._touch(session)
-                self._spawn_quiet(session_id, self._suggest(session_id, question))
+                self._spawn_quiet(session_id, self._suggest(session_id, question, use_repo))
+                return self.get(session_id) or {}
+            elif action == "accept":
+                suggestion = session.get("suggestion") or {}
+                question = session.get("last_question")
+                if (
+                    status != "waiting_answer"
+                    or suggestion.get("pending")
+                    or not suggestion.get("text")
+                    or suggestion.get("question") != question
+                ):
+                    raise Refusal("no_suggestion", "There is no suggested answer to send.")
+                text = str(suggestion["text"])
+                repo = suggestion.get("source") == "repo"
+                session["messages"].append(
+                    _msg(
+                        "user",
+                        "text",
+                        text,
+                        via="repo_confirmed" if repo else "suggested",
+                        evidence=list(suggestion.get("evidence") or []),
+                        question=question,
+                    )
+                )
+                session["status"] = "thinking"
+                session["suggestion"] = {"pending": False}
+                # Accepting a repository fact is not a judgment; picking a
+                # drafted answer to a product question is.
+                session["assisted_in_a_row"] = (
+                    int(session.get("assisted_in_a_row") or 0) + 1 if repo else 0
+                )
+                self._touch(session)
+                coro = self._interview_answer(
+                    session_id, f"{CONFIRMED_PREFIX} {text}" if repo else text
+                )
+            elif action == "dismiss":
+                suggestion = session.get("suggestion") or {}
+                if not suggestion.get("text") or suggestion.get("question") != session.get(
+                    "last_question"
+                ):
+                    raise Refusal("no_suggestion", "There is no suggested answer to dismiss.")
+                session["suggestion"] = {
+                    "pending": False,
+                    "question": suggestion.get("question"),
+                    "repo_checked": bool(suggestion.get("repo_checked"))
+                    or suggestion.get("source") == "repo",
+                }
+                self._touch(session)
                 return self.get(session_id) or {}
             elif action == "stop":
                 job_id = session.get("auto_job_id")
                 job = self._jobs.get(job_id) if job_id else None
                 if job is None or job.status != "running":
-                    raise ValueError("Nothing to stop.")
-                session["messages"].append(_msg("system", "note", "Stop requested."))
+                    raise Refusal("nothing_to_stop", "Nothing to stop.")
+                session["messages"].append(
+                    _msg("system", "note", "Stop requested.", key="stop_requested")
+                )
                 self._touch(session)
                 self._terminate_job(job_id)
                 return self.get(session_id) or {}
             else:
-                raise ValueError(f"Unknown action: {action}")
+                raise Refusal("unknown_action", f"Unknown action: {action}", action=action)
         self._spawn(session_id, coro)
         return self.get(session_id) or {}
+
+    def _ready_folder(self, session: dict[str, Any], *, prepare: bool) -> None:
+        """Refuse a hand-off the folder cannot take, or prepare the folder when asked to.
+
+        Runs under the lock, so two clicks cannot prepare the same folder twice.
+        """
+        cwd = str(session["cwd"])
+        state = workspace.git_state(cwd)
+        if state.needs_prepare and prepare:
+            try:
+                done = workspace.prepare_git(cwd)
+            except workspace.GitPrepareError as exc:
+                raise Refusal("git_prepare_failed", str(exc), detail=str(exc)) from exc
+            if done != "unchanged":
+                session["messages"].append(
+                    _msg(
+                        "system",
+                        "note",
+                        "Made this folder a git repository with an empty first commit."
+                        if done == "initialized"
+                        else "Added an empty first commit to this git repository.",
+                        key=f"git_{done}",
+                    )
+                )
+            return
+        problem = workspace.workspace_problem(state)
+        if state.needs_prepare:
+            raise Refusal("needs_git", problem or "", reason=state.kind)
+        if problem:
+            raise Refusal("git_unreadable", problem, detail=state.detail)
+
+    def folder(self, path: str) -> dict[str, Any]:
+        """What the new-chat form shows under the folder field. Reads only; creates nothing."""
+        expanded = Path(path).expanduser()
+        if not expanded.is_dir():
+            return {"path": str(expanded), "exists": False, "git": None}
+        state = workspace.git_state(str(expanded))
+        return {"path": str(expanded), "exists": True, "git": state.kind, "detail": state.detail}
 
     def subscribe(
         self, session_id: str
@@ -462,32 +708,74 @@ class Harness:
 
     # interview ---------------------------------------------------------
 
-    def _apply_turn(self, session_id: str, turn: Any) -> None:
+    def _apply_turn(
+        self,
+        session_id: str,
+        turn: Any,
+        readiness: dict[str, Any] | None = None,
+        code_request: dict[str, Any] | None = None,
+        issued: str | None = None,
+    ) -> tuple[str, int] | None:
+        """Show the server's turn; return the question to investigate and its turn, if due.
+
+        Ready means what the server decided: it completed the interview. The
+        readiness view carries the gate it applies (score, per-dimension floors,
+        streak) for the meter; nothing here compares a score with a threshold.
+        ``issued`` is the pending question exactly as the server stored it; the
+        answer echoes it back, never the decorated text the thread shows.
+        """
+        investigate: tuple[str, int] | None = None
+
         def apply(session: dict[str, Any]) -> None:
+            nonlocal investigate
             session["interview_session_id"] = turn.session_id
-            ready = bool(turn.seed_ready or turn.completed)
+            # Numbers each server turn, so late work for an earlier one is dropped
+            # even when the server asks the same question again.
+            session["turn_seq"] = int(session.get("turn_seq") or 0) + 1
+            ready = bool(turn.completed or (readiness or {}).get("complete"))
             if turn.ambiguity_score is not None:
                 session["ambiguity"] = turn.ambiguity_score
-                ready = ready or turn.ambiguity_score <= 0.2
+            session["readiness"] = readiness
             if turn.question and not turn.completed:
+                session["messages"].append(
+                    _msg("assistant", "question", turn.question, ambiguity=turn.ambiguity_score)
+                )
+            session["last_question"] = turn.question
+            session["issued_question"] = issued
+            session["seed_ready"] = ready
+            session["status"] = "seed_ready_to_write" if turn.completed else "waiting_answer"
+            session["suggestion"] = {"pending": False}
+            if (
+                turn.question
+                and not turn.completed
+                and code_request is not None
+                and session.get("project") == "existing"
+                and int(session.get("assisted_in_a_row") or 0) < MAX_ASSISTED_IN_A_ROW
+            ):
+                session["suggestion"] = {"pending": True, "question": turn.question, "auto": True}
+                asked = str(issued or code_request.get("question") or turn.question)
+                investigate = (asked, session["turn_seq"])
+            if turn.completed:
                 session["messages"].append(
                     _msg(
                         "assistant",
-                        "question",
-                        turn.question,
-                        ambiguity=turn.ambiguity_score,
-                        ready=ready,
+                        "note",
+                        "The interview is complete. Write the spec next.",
+                        key="interview_complete",
                     )
-                )
-            session["last_question"] = turn.question
-            session["seed_ready"] = ready
-            session["status"] = "seed_ready_to_write" if turn.completed else "waiting_answer"
-            if turn.completed:
-                session["messages"].append(
-                    _msg("assistant", "note", "The interview is complete. Write the spec next.")
                 )
 
         self._update(session_id, apply)
+        return investigate
+
+    async def _after_turn(self, session_id: str, handlers: _Handlers, turn: Any) -> None:
+        readiness, issued = await asyncio.to_thread(handlers.interview_view, turn.session_id)
+        due = self._apply_turn(
+            session_id, turn, readiness, handlers.code_request(turn.session_id), issued
+        )
+        if due is not None:
+            asked, turn_seq = due
+            self._spawn_quiet(session_id, self._auto_investigate(session_id, turn_seq, asked))
 
     def _handlers_for(self, session: dict[str, Any]) -> _Handlers:
         key = session.get("backend") or ""
@@ -500,22 +788,35 @@ class Harness:
 
     async def _interview_start(self, session_id: str) -> None:
         session = self.get(session_id) or {}
+        _in_chat_folder(session)
         handlers = self._handlers_for(session)
         await asyncio.to_thread(handlers.ensure)
-        turn = await handlers.interview.start(session["goal"], cwd=session["cwd"])
-        self._apply_turn(session_id, turn)
+        if session.get("project") == "existing":
+            turn = await handlers.interview.start(session["goal"], cwd=session["cwd"])
+        else:
+            # The interview detects brownfield from the folder it is given, and
+            # a new project has none: give it an empty one, so the launch
+            # directory (often a git repository) cannot make it brownfield.
+            with tempfile.TemporaryDirectory(prefix="ouroboros-new-project-") as blank:
+                turn = await handlers.interview.start(session["goal"], cwd=blank)
+        await self._after_turn(session_id, handlers, turn)
 
     async def _interview_answer(self, session_id: str, text: str) -> None:
         session = self.get(session_id) or {}
+        _in_chat_folder(session)
         handlers = self._handlers_for(session)
         await asyncio.to_thread(handlers.ensure)
+        # Echo the question exactly as the server issued it. Without one (the
+        # state could not be read) send none: the server then records the
+        # answer against the question it is waiting on.
         turn = await handlers.interview.answer(
-            session["interview_session_id"], text, last_question=session.get("last_question")
+            session["interview_session_id"], text, last_question=session.get("issued_question")
         )
-        self._apply_turn(session_id, turn)
+        await self._after_turn(session_id, handlers, turn)
 
     async def _write_seed(self, session_id: str, *, force: bool) -> None:
         session = self.get(session_id) or {}
+        _in_chat_folder(session)
         handlers = self._handlers_for(session)
         await asyncio.to_thread(handlers.ensure)
         seed = await handlers.seed(session["interview_session_id"], force=force)
@@ -653,24 +954,95 @@ class Harness:
 
         future.add_done_callback(done)
 
-    async def _suggest(self, session_id: str, question: str) -> None:
-        """Draft an answer: from the repository when it settles the question, else a default."""
-        session = self.get(session_id) or {}
-        backend = session.get("backend") or None
-        suggestion: dict[str, Any] = {"pending": False, "question": question}
-        investigation = None
+    async def _repo_investigator(self, session: dict[str, Any]) -> Any | None:
+        """This chat's repository investigator (the one ``ooo auto`` uses), or ``None``."""
+        with self._lock:
+            if session["id"] in self._investigators:
+                return self._investigators[session["id"]]
+        investigator = None
         try:
             from ouroboros.auto.investigator import build_repo_investigator
             from ouroboros.config.loader import get_agent_runtime_backend
 
-            runtime = backend or await asyncio.to_thread(get_agent_runtime_backend)
+            runtime = session.get("backend") or await asyncio.to_thread(get_agent_runtime_backend)
             investigator = build_repo_investigator(runtime)
-            if investigator is not None:
-                investigation = await investigator.investigate(
-                    session["goal"], question, Path(session["cwd"])
-                )
         except Exception:
-            investigation = None
+            investigator = None
+        with self._lock:
+            return self._investigators.setdefault(session["id"], investigator)
+
+    async def _investigate(self, session: dict[str, Any], question: str) -> Any | None:
+        investigator = await self._repo_investigator(session)
+        if investigator is None:
+            return None
+        try:
+            return await investigator.investigate(session["goal"], question, Path(session["cwd"]))
+        except Exception:
+            return None
+
+    async def _auto_investigate(self, session_id: str, turn_seq: int, asked: str) -> None:
+        """Answer a code-fact question from the repository before the human has to.
+
+        A found answer is offered for one-click confirmation; one PATH 1a allows
+        (an exact manifest or config match) is sent at once with a visible
+        "auto-confirmed" note the user can correct. A question the repository
+        does not settle, or a product decision, stays with the human.
+        """
+        session = self.get(session_id) or {}
+        investigation = await self._investigate(session, asked)
+        found = bool(investigation is not None and investigation.found and investigation.answer)
+        workspace = Path(str(session.get("cwd") or "."))
+        source = await asyncio.to_thread(auto_confirm_source, investigation, workspace)
+        submit: str | None = None
+
+        def apply(s: dict[str, Any]) -> None:
+            nonlocal submit
+            if s.get("turn_seq") != turn_seq or s.get("status") != "waiting_answer":
+                return  # the user answered first, or the interview moved on
+            shown = s.get("last_question")
+            if not found:
+                s["suggestion"] = {"pending": False, "question": shown, "repo_checked": True}
+                return
+            answer = str(investigation.answer).strip()
+            evidence = [_span_text(span) for span in investigation.checked][:5]
+            assisted = int(s.get("assisted_in_a_row") or 0)
+            if source is None or assisted >= MAX_ASSISTED_IN_A_ROW:
+                s["suggestion"] = {
+                    "pending": False,
+                    "question": shown,
+                    "text": answer,
+                    "source": "repo",
+                    "evidence": evidence,
+                    "auto": True,
+                    "repo_checked": True,
+                }
+                return
+            s["messages"].append(
+                _msg(
+                    "user",
+                    "text",
+                    answer,
+                    via="auto_confirmed",
+                    source=source,
+                    evidence=evidence,
+                    question=shown,
+                )
+            )
+            s["suggestion"] = {"pending": False}
+            s["status"] = "thinking"
+            s["assisted_in_a_row"] = assisted + 1
+            submit = f"{AUTO_CONFIRMED_PREFIX} {answer}"
+
+        self._update(session_id, apply)
+        if submit is not None:
+            self._spawn(session_id, self._interview_answer(session_id, submit))
+
+    async def _suggest(self, session_id: str, question: str, use_repo: bool = True) -> None:
+        """Draft an answer: from the repository when it settles the question, else a default."""
+        session = self.get(session_id) or {}
+        suggestion: dict[str, Any] = {"pending": False, "question": question}
+        asked = str(session.get("issued_question") or question)
+        investigation = await self._investigate(session, asked) if use_repo else None
         if investigation is not None and investigation.found and investigation.answer:
             suggestion.update(
                 text=investigation.answer,
@@ -761,11 +1133,11 @@ class Harness:
         if result.is_err:
             raise RuntimeError(str(result.error))
         reply = result.value
+        shown = getattr(reply, "model", model)
+        hint = await asyncio.to_thread(_default_model_hint, backend, shown)
 
         def apply(s: dict[str, Any]) -> None:
-            s["messages"].append(
-                _msg("assistant", "text", reply.content, model=getattr(reply, "model", model))
-            )
+            s["messages"].append(_msg("assistant", "text", reply.content, model=shown, **hint))
             s["activity"] = []
             s["status"] = "waiting_answer"
 
@@ -789,6 +1161,7 @@ class Harness:
             ),
             meta={"key": session_id},
             cwd=session["cwd"],
+            watch=_AUTO_WATCH,
         )
 
         def apply(s: dict[str, Any]) -> None:
@@ -809,36 +1182,79 @@ class Harness:
             job = self._jobs.get(job_id)
             if job is None:
                 return
+            # Read the status first: once it is final, every line is already in.
+            running = job.status == "running"
             snap = job.snapshot(since=cursor)
             cursor = snap["cursor"]
             if snap["lines"]:
 
-                def apply(s: dict[str, Any], lines: list[str] = snap["lines"]) -> None:
+                def apply(
+                    s: dict[str, Any],
+                    lines: list[str] = snap["lines"],
+                    found: dict[str, str] = snap["found"],
+                ) -> None:
                     for message in reversed(s["messages"]):
                         if message.get("kind") == "log" and message.get("job_id") == job_id:
                             message["lines"] = (message.get("lines", []) + lines)[-_MAX_LOG_LINES:]
                             break
-                    for line in lines:
-                        found = _execution_id_in(line)
-                        if found:
-                            s["execution_id"] = found
+                    if found.get("execution_id"):
+                        s["execution_id"] = found["execution_id"]
 
                 self._update(session_id, apply)
-            if snap["status"] != "running":
-
-                def finish(s: dict[str, Any], snap: dict[str, Any] = snap) -> None:
-                    ok = snap["status"] == "succeeded"
-                    s["status"] = "done" if ok else "failed"
-                    text = (
-                        "ouroboros auto finished."
-                        if ok
-                        else f"ouroboros auto exited with {snap['exit_code']}."
-                    )
-                    s["messages"].append(_msg("assistant", "note" if ok else "error", text))
-
-                self._update(session_id, finish)
+            if not running:
+                self._finish_auto(session_id, snap, cancelled=job.cancelled)
                 return
             time.sleep(0.5)
+
+    def _finish_auto(self, session_id: str, snap: dict[str, Any], *, cancelled: bool) -> None:
+        """End an Auto chat with what it produced: outcome, run board, folder and changes.
+
+        The execution id and handoff status come from what the job recorded from
+        every output line (``snap["found"]``), not from its bounded log.
+        """
+        cwd = str((self.get(session_id) or {}).get("cwd") or "")
+        changes = workspace.folder_changes(cwd) if cwd else None
+        found: dict[str, str] = snap.get("found") or {}
+        execution_id = found.get("execution_id")
+        handoff = found.get("handoff_status")
+
+        def finish(s: dict[str, Any]) -> None:
+            ok = snap["status"] == "succeeded"
+            s["status"] = "done" if ok else "failed"
+            if ok:
+                s["messages"].append(
+                    _msg("assistant", "note", "ouroboros auto finished.", key="auto_finished")
+                )
+            else:
+                code = snap["exit_code"]
+                s["messages"].append(
+                    _msg(
+                        "assistant",
+                        "error",
+                        f"ouroboros auto exited with {code}.",
+                        key="auto_exited",
+                        vars={"code": code},
+                    )
+                )
+            if execution_id:
+                s["execution_id"] = execution_id
+            s["messages"].append(
+                _msg(
+                    "assistant",
+                    "result",
+                    "",
+                    source="auto",
+                    outcome=_auto_outcome(snap["status"], cancelled, handoff),
+                    handoff_status=handoff,
+                    execution_id=execution_id,
+                    folder=cwd,
+                    in_repo=changes is not None,
+                    files=list(changes.files) if changes else [],
+                    file_count=changes.count if changes else 0,
+                )
+            )
+
+        self._update(session_id, finish)
 
     def _terminate_job(self, job_id: str) -> None:
         job = self._jobs.get(job_id)
@@ -846,30 +1262,64 @@ class Harness:
             job.cancel()
 
 
-def _workspace_problem(cwd: str) -> str | None:
-    """Why a run cannot start in ``cwd`` (each task runs in a git worktree), or ``None``."""
-    import subprocess
+def _in_chat_folder(session: dict[str, Any]) -> None:
+    """Run this task's interview and Seed agents in the chat's folder.
 
-    def git(*args: str) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(  # noqa: S603 - fixed git arguments
-            ["git", "-C", cwd, *args], capture_output=True, text=True, timeout=10, check=False
-        )
+    Called at the top of a coroutine the harness runs as its own task, so the
+    setting stays with that task (and the work it starts), not other chats.
+    """
+    _CHAT_FOLDER.set(str(session.get("cwd") or "") or None)
 
-    try:
-        inside = git("rev-parse", "--is-inside-work-tree")
-    except (OSError, subprocess.TimeoutExpired):
-        return None  # no git binary: let the run report its own error
-    if inside.returncode != 0:
-        return (
-            "Ouroboros runs each task in a git worktree, and this folder is not a git "
-            'repository. Run `git init && git commit --allow-empty -m "init"` in it first.'
+
+def _interview_project(choice: object, cwd: str) -> str:
+    """``existing`` only when the user chose it for a folder the interview can read.
+
+    The default is a new project: the console is usually launched from wherever
+    it was installed or from a login service, so its launch directory says
+    nothing about what the user is building. An omitted choice is that default;
+    any other value than ``new`` or ``existing`` is refused, not guessed.
+    """
+    if choice is None or choice == "" or choice == "new":
+        return "new"
+    if choice != "existing":
+        raise Refusal(
+            "project_kind_unknown",
+            f"Unknown project kind: {choice!r}. Use 'new' or 'existing'.",
+            kind=str(choice),
         )
-    if git("rev-parse", "--verify", "HEAD").returncode != 0:
-        return (
-            "This git repository has no commits yet, so Ouroboros cannot create task "
-            'worktrees. Run `git commit --allow-empty -m "init"` in it first.'
+    from ouroboros.bigbang.explore import detect_brownfield
+
+    if not detect_brownfield(cwd):
+        raise Refusal(
+            "not_a_project",
+            f"{cwd} has no git repository or project manifest, so the interview cannot "
+            "read it as an existing project. Choose the project's folder, or start a new project.",
+            folder=cwd,
         )
-    return None
+    return "existing"
+
+
+def _correction_payload(session: dict[str, Any], message_id: str, text: str) -> str:
+    """The interview answer that corrects an earlier auto-confirmed one."""
+    target = next(
+        (
+            m
+            for m in session.get("messages", [])
+            if m.get("id") == message_id and m.get("via") == "auto_confirmed"
+        ),
+        None,
+    )
+    if target is None:
+        raise Refusal("bad_correction", "Only an auto-confirmed answer can be corrected.")
+    target["corrected"] = True
+    return (
+        "[from-user] Correction: an earlier answer was auto-confirmed from the repository "
+        f"({target.get('source')}) and is wrong.\n"
+        f"Earlier question: {target.get('question')}\n"
+        f"Auto-confirmed answer: {target.get('text')}\n"
+        f"Correct answer: {text}\n"
+        "This corrects the earlier answer; it does not answer the current question."
+    )
 
 
 def _run_result(cwd: str, run_session_id: object) -> dict[str, Any] | None:
@@ -899,27 +1349,25 @@ def _run_result(cwd: str, run_session_id: object) -> dict[str, Any] | None:
         return None
 
     def git(*args: str) -> str:
-        return subprocess.run(  # noqa: S603 - fixed git arguments
-            ["git", *args], capture_output=True, text=True, timeout=10, check=False
-        ).stdout
+        try:
+            return subprocess.run(  # noqa: S603 - fixed git arguments
+                ["git", *args], capture_output=True, text=True, timeout=10, check=False
+            ).stdout
+        except (OSError, subprocess.TimeoutExpired):
+            return ""
 
     base = git("-C", cwd, "rev-parse", "HEAD").strip()
     committed = (
         git("-C", worktree, "diff", "--name-only", f"{base}...HEAD").splitlines() if base else []
     )
-    pending = [line[3:] for line in git("-C", worktree, "status", "--porcelain").splitlines()]
-    files = sorted(
-        {
-            name
-            for name in [*committed, *pending]
-            if name and "__pycache__" not in name and not name.endswith(".pyc")
-        }
-    )
+    pending = workspace.status_paths(git("-C", worktree, "status", "--porcelain"))
+    # Every path git reports, nothing hidden: both counts come from these lists.
+    files = sorted({name for name in [*committed, *pending] if name})
     return {
         "worktree": worktree,
         "branch": branch,
         "base": base[:12],
-        "files": files[:50],
+        "files": files[: workspace.MAX_FILES],
         "file_count": len(files),
         "uncommitted": len(pending),
     }
@@ -988,18 +1436,74 @@ def _validate_backend(backend: str, mode: str) -> None:
 
     capability = get_backend_capability(backend)
     if capability is None:
-        raise ValueError(f"Unknown agent or provider backend: {backend}")
+        raise Refusal(
+            "backend_unknown", f"Unknown agent or provider backend: {backend}", agent=backend
+        )
     allowed = llm_backend_choices() if mode == "ask" else runtime_backend_choices()
     if capability.name not in allowed:
         kind = "chat with" if mode == "ask" else "run Ouroboros work on"
-        raise ValueError(f"{backend} cannot {kind} in this mode.")
+        raise Refusal("backend_wrong_mode", f"{backend} cannot {kind} in this mode.", agent=backend)
 
 
-def _execution_id_in(line: str) -> str | None:
-    import re
+def _require_installed(backend: str) -> None:
+    """Refuse an agent whose CLI is not installed, as the new-chat picker marks it.
 
-    match = re.search(r"\b(exec_[A-Za-z0-9_-]{6,})\b", line)
-    return match.group(1) if match else None
+    Detection is the picker's own (``detect_backend_cli``). A backend with no CLI
+    of its own (LiteLLM, a host session) has nothing to detect and is not refused.
+    """
+    from ouroboros.backends import get_backend_capability
+    from ouroboros.backends.model_catalog import detect_backend_cli
+    from ouroboros.gui import installers
+
+    capability = get_backend_capability(backend)
+    if capability is None or not capability.cli_name:
+        return
+    if detect_backend_cli(capability.name) is not None:
+        return
+    methods = installers.methods_for(capability.name) or installers.methods_for(capability.cli_name)
+    install = methods[0]["command"] if methods else None
+    how = f"Install it with `{install}`" if install else "Install it"
+    raise Refusal(
+        "backend_not_installed",
+        f"The {capability.cli_name} CLI is not installed, so this chat cannot use {backend}. "
+        f"{how} or from the Connect page, then start the chat again.",
+        agent=capability.name,
+        cli=capability.cli_name,
+        install=install,
+    )
+
+
+def _default_model_hint(backend: str | None, model: object) -> dict[str, Any]:
+    """For a reply whose model is the ``default`` sentinel: which agent's default, and its model.
+
+    Display only. ``model_default`` is the CLI's configured model when its own
+    config names one (``configured_default_model``), else ``None``.
+    """
+    from ouroboros.backends import get_backend_capability
+    from ouroboros.backends.model_catalog import DEFAULT_MODEL_SENTINEL, configured_default_model
+    from ouroboros.providers import resolve_llm_backend
+
+    if model != DEFAULT_MODEL_SENTINEL:
+        return {}
+    try:
+        capability = get_backend_capability(resolve_llm_backend(backend))
+    except ValueError:
+        capability = None
+    if capability is None:
+        return {"model_backend": None, "model_default": None}
+    return {
+        "model_backend": capability.name,
+        "model_default": configured_default_model(capability.name),
+    }
+
+
+def _auto_outcome(status: str, cancelled: bool, handoff: str | None) -> str:
+    """How an Auto job ended: ``completed`` only when its run reported completion."""
+    if cancelled:
+        return "stopped"
+    if status != "succeeded":
+        return "failed"
+    return "completed" if handoff == "completed" else "unverified"
 
 
 def _board_summary(board: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1038,6 +1542,20 @@ def _board_summary(board: dict[str, Any], events: list[dict[str, Any]]) -> dict[
         "activity": activity,
         "key": json.dumps([status, counts, phase, activity], sort_keys=True, default=str),
     }
+
+
+async def _as_console_surface(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Run console work under the ``console`` interview surface label.
+
+    Every coroutine the console runs goes through :meth:`_Loop.submit`, so the
+    interviews it starts or answers are labeled ``console`` in the event store
+    (``ouroboros.bigbang.interview_closure``). The import stays lazy to keep
+    this module light at console start-up.
+    """
+    from ouroboros.bigbang.interview_closure import InterviewSurface, use_interview_surface
+
+    with use_interview_surface(InterviewSurface.CONSOLE):
+        return await coro
 
 
 __all__ = ["Harness", "chats_dir"]

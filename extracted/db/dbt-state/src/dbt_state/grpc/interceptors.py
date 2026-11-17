@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import abc
 import collections
+import threading
+import time
 import typing as t
 import uuid
 
@@ -18,6 +20,8 @@ from query_cache_common.constants import (
 )
 from query_cache_common.utils import current_epoch_millis
 from typing_extensions import override
+
+from dbt_state import events
 
 
 class _ClientCallDetails(
@@ -304,3 +308,120 @@ class InvocationInfoInterceptor(_MetadataModifyingInterceptor):
             metadata.append((INVOCATION_ID_HEADER, self._invocation_id))
         if self._cloud_run_id:
             metadata.append((CLOUD_RUN_ID_HEADER, self._cloud_run_id))
+
+
+class ServerUnavailableError(grpc.RpcError):
+    """Raised by QueryCacheGrpcClient for every RPC once ServerUnavailableInterceptor has marked
+    the server unavailable.
+
+    Subclasses grpc.RpcError so existing `except grpc.RpcError` handlers treat it as any other
+    server failure.
+    """
+
+    def code(self) -> grpc.StatusCode:  # noqa: PLR6301
+        return grpc.StatusCode.UNAVAILABLE
+
+    def details(self) -> str:  # noqa: PLR6301
+        return "dbt State disabled for the rest of this run"
+
+    def __str__(self) -> str:
+        return f"dbt State: {self.details()}"
+
+
+COUNTED_STATUS_CODES = frozenset(
+    {
+        grpc.StatusCode.DEADLINE_EXCEEDED,
+        grpc.StatusCode.UNAVAILABLE,
+        grpc.StatusCode.UNAUTHENTICATED,
+    }
+)
+"""Status codes that count toward marking the server unavailable: it can't be reached or
+authenticated"""
+
+
+class ServerUnavailableInterceptor(grpc.UnaryUnaryClientInterceptor):
+    """Marks the server unavailable for the rest of the run after repeated failed requests.
+
+    It only tracks failures; QueryCacheGrpcClient checks is_server_available before each RPC and
+    fails it immediately. It must come after RequestIdInterceptor so it sees grpc's own call
+    rather than RequestIdInterceptor's wrapped error.
+
+    A one-way circuit breaker: it never marks the server available again within the run (no
+    half-open probing).
+
+    Counts failures with a code in COUNTED_STATUS_CODES; overlapping failures count once. Marks
+    the server unavailable once max_consecutive_failures are counted over at least
+    min_failure_span_seconds. A success resets the count; other errors are ignored.
+    """
+
+    def __init__(
+        self,
+        max_consecutive_failures: int,
+        min_failure_span_seconds: float,
+    ) -> None:
+        """
+        Args:
+            max_consecutive_failures: Counted failures after which the server is marked
+                unavailable. A value of 0 or less never marks it unavailable.
+            min_failure_span_seconds: How long counted failures must keep happening, from the
+                start of the first one, before the server is marked unavailable.
+        """
+        self._max_consecutive_failures = max_consecutive_failures
+        self._min_failure_span_seconds = min_failure_span_seconds
+        self._lock = threading.Lock()
+        self._consecutive_failures = 0
+        self._last_counted_failure_end = float("-inf")
+        self._first_counted_failure_start = 0.0
+        self._is_server_available = True
+
+    @property
+    def is_server_available(self) -> bool:
+        """Whether the server is still considered available. Once marked unavailable, it stays
+        False for the rest of the run."""
+        return self._is_server_available
+
+    def intercept_unary_unary(
+        self,
+        continuation: t.Callable[[grpc.ClientCallDetails, t.Any], t.Any],
+        client_call_details: grpc.ClientCallDetails,
+        request: t.Any,
+    ) -> t.Any:
+        started = time.monotonic()
+        call = continuation(client_call_details, request)
+        exc = call.exception()
+        ended = time.monotonic()
+
+        # continuation returns non-gRPC exceptions as-is, and they have no code()
+        code = exc.code() if isinstance(exc, grpc.RpcError) else None
+
+        unavailable_after: t.Optional[int] = None
+        with self._lock:
+            if exc is None:
+                self._consecutive_failures = 0
+            elif (
+                code in COUNTED_STATUS_CODES
+                # a call that started before the last counted failure ended overlapped it
+                and started >= self._last_counted_failure_end
+            ):
+                if self._consecutive_failures == 0:
+                    self._first_counted_failure_start = started
+                self._consecutive_failures += 1
+                self._last_counted_failure_end = ended
+                if (
+                    0 < self._max_consecutive_failures <= self._consecutive_failures
+                    and ended - self._first_counted_failure_start >= self._min_failure_span_seconds
+                    and self._is_server_available
+                ):
+                    self._is_server_available = False
+                    unavailable_after = self._consecutive_failures
+
+        # fired outside the lock so other gRPC threads don't wait on dbt's event system
+        if unavailable_after is not None and code is not None:
+            events.fire_warn_event_with_cache_bypass(
+                "dbt State disabled for the rest of this run after {} consecutive failed "
+                "requests to the dbt State API (last error: {})",
+                str(unavailable_after),
+                code.name,
+            )
+
+        return call

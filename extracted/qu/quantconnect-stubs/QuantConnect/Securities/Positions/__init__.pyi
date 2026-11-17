@@ -661,7 +661,7 @@ class SecurityPositionGroupModel(QuantConnect.ExtendedDictionary[QuantConnect.Se
     @property
     def position_group_buying_power_model(self) -> QuantConnect.Securities.Positions.IPositionGroupBuyingPowerModel:
         """
-        Get's the single security position group buying power model to use
+        Gets the single security position group buying power model to use
         
         
         This Property is protected.

@@ -63,7 +63,9 @@ _SET = {"abbreviation": True, "addresses": "given", "after_given": True,
         "attaches": ["office"],
         "cased": "ZzQ", "acronym": None, "attached": {"side": "after"},
         "may_be_initial": True, "title_case_is_name": True,
-        "shared": True, "after_particle": True, "completed_by": ["zzq"]}
+        "shared": True, "after_particle": True, "capital_opening": True,
+        "dotted": True,
+        "completed_by": ["zzq"]}
 
 
 def _probe_readings() -> list[Any]:
@@ -330,14 +332,41 @@ def test_a_file_holding_no_reading_is_chosen_only_strictly() -> None:
     empty = ri.files() - ri.tags()
     assert empty and ri.tags() <= ri.files()
     for tag in sorted(empty):
-        with pytest.raises(ValueError, match=f"{tag}.toml holds no reading"):
+        with pytest.raises(ValueError,
+                           match=f"{tag}.toml holds no reading a parse reads"):
             ri.selected([tag])
         assert ri.selected([tag], strict=True) == {tag}
         # nothing Latin is left to compile but mul.toml's: the
-        # native-script pool and mul.toml alone (#1005)
+        # native-script pool, mul.toml and the file alone (#1005)
         assert ri.compile_choice(frozenset({tag}), True) == ri.compile_readings(
             ri.choose([r for r in ri.index() if ri.is_native_script(r.text)
-                       or r.tag == "mul"], frozenset({tag})))
+                       or r.tag in ("mul", tag)], frozenset({tag})))
+        # any reading such a file holds is one no parse reads; a file of
+        # familiar readings alone is planted in the test below
+        assert all(r.category == "familiar"
+                   for r in ri.index() if r.tag == tag)
+
+
+def test_a_file_holding_only_familiar_readings_is_chosen_only_strictly(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    # whatever shipped files have this shape now (hu.toml, zu.toml on
+    # 2026-11-12), a planted file holds the rule to its case: a plain choice never drops a familiar reading,
+    # so a file of familiar readings alone would change nothing as one
+    planted = dict(ri._by_text()) | {
+        "zzq": (("xx", "familiar", (("short_for", ("zzr",)),)),),
+        "zzs": (("yy", "familiar", (("short_for", ("zzt",)),)),
+                ("yy", "given", ())),
+    }
+    shipped = ri.files()
+    monkeypatch.setattr(ri, "_by_text", lambda: planted)
+    monkeypatch.setattr(ri, "files", lambda: shipped | {"xx", "yy"})
+    # the uncached function, reading the planted index
+    monkeypatch.setattr(ri, "tags", ri.tags.__wrapped__)
+    assert "xx" not in ri.tags() and "yy" in ri.tags()
+    with pytest.raises(ValueError, match="xx.toml holds no reading a parse"):
+        ri.selected(["xx"])
+    assert ri.selected(["xx"], strict=True) == {"xx"}
+    assert ri.selected(["yy"]) == {"yy"}
 
 
 #: The words each strict choice of one tag ungates against the plain
@@ -349,7 +378,7 @@ def test_a_file_holding_no_reading_is_chosen_only_strictly() -> None:
 #: file whose names carry it, and joins it when a chosen file's
 #: vocabulary reading loses its gate: review each move.
 STRICT_UNGATED = {
-    "ar": {"cheikh"},
+    "ar": {"ben", "cheikh"},
     "ca": {"del", "la"},
     "cs": {"st"},
     "fil": {"del", "la", "san"},
@@ -389,3 +418,27 @@ def test_strict_ungated_compares_with_the_plain_choice_not_the_default() -> None
 def test_a_word_no_file_holds_as_a_suffix_has_no_suffix_kind() -> None:
     assert ri.suffix_kind_of("dean") is None
     assert ri.suffix_kind_of("zzqnotaword") is None
+
+
+def test_same_as_compiles_for_readings_of_every_kind() -> None:
+    from nameparser import _reading_index as ri
+    compiled = ri.compile_choice(frozenset())
+    same_as = compiled["SAME_AS"]
+    # keyed by the group of the reading's kind (decisions/name-matching,
+    # 2026-11-08): a given name's spelling is not a surname's
+    assert list(same_as) == sorted(set(ri.SAME_AS_GROUPS.values()))
+    assert same_as["given"]["wm"] == ("william",)
+    assert same_as["suffix"]["junior"] == ("jr",)
+    assert same_as["title"]["capt"] == ("captain",)
+    assert "ma" in same_as["given"] and "ma" not in same_as["family"]
+    # a bound given name's spelling is the given name's, a particle's
+    # the family's: the words standing in those roles
+    assert same_as["given"]["abdel"] == ("abdul",)
+    assert same_as["family"]["mc"] == ("mac",)
+    # every full form a word carries in a group, not the first one
+    assert same_as["title"]["sr"] == ("senhor", "señor")
+    for group in same_as.values():
+        assert list(group) == sorted(group)
+    # only a given reading's same_as makes an abbreviated given name
+    assert "wm" in compiled["GIVEN_NAME_ABBREVIATIONS"]
+    assert not {"junior", "capt"} & compiled["GIVEN_NAME_ABBREVIATIONS"]

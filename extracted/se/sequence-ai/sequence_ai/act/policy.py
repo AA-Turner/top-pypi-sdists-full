@@ -4,9 +4,9 @@
     observe(x)                an observation handed over as the robot makes it
     act()                     one request: the policy's act function called, and what it returned
 
-When to ask for the next answer, and how to play it on the robot, is your own code: run() and the Player went with
-train br. {the user 10-24: "Users can just do it themselves because they're calling the act anyway ... Okay, yeah,
-we should delete them."} An act is served as it comes; how long a robot can wait for an answer - from the step it
+When to ask for the next answer, and how to play it on the robot, is your own code: run() and the Player are
+gone.
+ An act is served as it comes; how long a robot can wait for an answer - from the step it
 asks for the next to its last valid one - the platform reads from the control loop the policy declares:
 @seq.policy(hz=, action_chunk_valid_len=, action_chunk_replan_at=). A robot counts action_chunk_replan_at steps from
 when it sends an act, then asks for the next answer; how it joins the new rows to the old is its own.
@@ -796,7 +796,7 @@ class Policy(_Waits):
         to decode is what this absorbs: they get a line of English and an answer.
         
 
-        Before, only a policy's first call waited; a later one raised. On dev with 0.35.0, a policy left open had its
+        Before, only a policy's first call waited; a later one raised. With 0.35.0, a policy left open had its
         worker stopped 72 s after its last act, and its next call raised Unavailable "the worker is still starting"
         after 7.8 s.
         A teleop robot's act that went while its model drove (`asked`, who drives as it went) is held to who drives as

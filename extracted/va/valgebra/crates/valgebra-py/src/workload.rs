@@ -40,7 +40,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyInt, PyList, PyModule, PyString, PyTuple};
 use valgebra_core::{Constraint, DefIx, Field, MapClause, Schema, SeqKind, SeqShape};
 
-use crate::build::{Pool, build_root};
+use crate::build::{Pool, build_root, combine};
 use crate::check::{Frame, Unwritten, WalkMode, WalkState, member};
 use crate::input::Value;
 use crate::validator::Validator;
@@ -231,8 +231,10 @@ pub enum BindingShape {
     /// One of the three shapes that enter a reference, beside the JSON
     /// recursive document and [`Memo`](BindingShape::Memo). Every other shape
     /// walks a schema with no `Ref` in it, so the trail the walk keeps to refuse
-    /// a cyclic value -- entered and left once per level, per value -- is
-    /// reached by none of them, and a change to how it is held reads as free. The
+    /// a cyclic value -- entered and left once per list -- is reached by none of
+    /// them, and a change to how it is held reads as free. The definition is a
+    /// tree of scalars, so the walk reads it by each value's type
+    /// (`tree_member`), and this is the shape that counts that reading. The
     /// recursive schema is also the one a caller writes for a JSON document or
     /// a syntax tree, which is the shape most likely to carry real depth.
     Recursive,
@@ -310,6 +312,14 @@ pub enum BindingShape {
     /// A `set[str]` of sixty-four strings: a set, read through its own
     /// iterator rather than by position, which no other shape reaches.
     Set,
+    /// A record nested sixteen deep, each level a record of the validator below
+    /// met with the JSON values, built as a JSON Schema frontend builds one:
+    /// two compositions a level, the record's of the level below, whose
+    /// indices do not move, and the meet's of the record and the universe,
+    /// whose do. The one shape that composes validators, so what composing
+    /// costs, and what it costs to find that an operand's indices stay where
+    /// they are, reads as free without it.
+    Compose,
 }
 
 impl BindingShape {
@@ -350,6 +360,7 @@ impl BindingShape {
             "record-list" => BindingShape::RecordList,
             "nullable" => BindingShape::Nullable,
             "set" => BindingShape::Set,
+            "compose" => BindingShape::Compose,
             _ => return None,
         })
     }
@@ -800,6 +811,7 @@ pub fn binding_perf_workload_shape(py: Python<'_>, shape: BindingShape, iters: u
         }
         BindingShape::Recursive => recursive_walk(py, iters),
         BindingShape::Memo => memo_walk(py, iters),
+        BindingShape::Compose => compose_walk(py, iters),
         BindingShape::Relation => relation_walk(py, iters),
         BindingShape::Json => json_walk(py, iters, JSON_DOCUMENT, Expect::Member),
         BindingShape::JsonReject => json_walk(py, iters, JSON_REJECT, Expect::NonMember),
@@ -1104,13 +1116,80 @@ fn spelled_walk(py: Python<'_>, iters: usize, source: &str) -> u64 {
     checksum
 }
 
+/// [`BindingShape::Compose`]: sixteen levels of a record of the level below
+/// met with the JSON values, built from an `int` each iteration.
+fn compose_walk(py: Python<'_>, iters: usize) -> u64 {
+    let itself = || Schema::Ref(DefIx::new(0));
+    let body = Schema::union([
+        Schema::NoneType,
+        Schema::Bool,
+        Schema::Int,
+        Schema::Float,
+        Schema::Str,
+        Schema::list(SeqShape::homogeneous(itself())),
+        Schema::KeyedMap {
+            fields: Vec::new().into(),
+            defaults: vec![MapClause {
+                key: Schema::Str,
+                value: itself(),
+            }]
+            .into(),
+        },
+    ]);
+    let json = Validator::checked(itself(), Vec::new(), vec![body])
+        .expect("one definition is within every limit");
+    let json = Py::new(py, json).expect("a validator is a Python object");
+    let leaf = Py::new(py, Validator::new(Schema::Int, Vec::new(), Vec::new()))
+        .expect("a validator is a Python object");
+    let names: Vec<Bound<'_, PyString>> = (0..16)
+        .map(|level| PyString::new(py, &format!("k{level}")))
+        .collect();
+    let work = digest(names.len(), shown(json.bind(py).as_any()));
+    settle_the_heap(py);
+    let mut checksum: u64 = 0;
+    for _ in 0..iters {
+        let mut below = leaf.clone_ref(py).into_any();
+        let mut nodes = 0;
+        for name in &names {
+            let fields = PyDict::new(py);
+            fields
+                .set_item(name, below.bind(py))
+                .expect("a dict takes a string key");
+            let mut literals = Pool::default();
+            let mut definitions = Vec::new();
+            let schema = build_root(fields.as_any(), &mut literals, &mut definitions)
+                .expect("a record of a validator always builds");
+            let record = Validator::checked(schema, literals.into_items(), definitions)
+                .expect("a record sixteen deep is within every limit");
+            let operands = PyTuple::new(
+                py,
+                [
+                    Py::new(py, record)
+                        .expect("a validator is a Python object")
+                        .into_any(),
+                    json.clone_ref(py).into_any(),
+                ],
+            )
+            .expect("a tuple of two always builds");
+            let met = combine(&operands, Schema::meet_within)
+                .expect("a meet sixteen deep is within every limit");
+            nodes = met.schema.node_count();
+            below = Py::new(py, met)
+                .expect("a validator is a Python object")
+                .into_any();
+        }
+        checksum = checksum.wrapping_add(nodes as u64 + work);
+    }
+    checksum
+}
+
 /// The recursive schema's own shape: `mu X. int | list[X]` over a nested list.
 ///
-/// Eight levels of nesting, each a one-element list, so the walk enters and
-/// leaves the reference eight times per iteration and the leaf is an integer.
-/// A one-element list at each level rather than a wide one keeps what is
-/// counted the *descent* -- the reference, the trail, and the union choice --
-/// rather than a list loop the homogeneous shapes already measure.
+/// Eight levels of nesting, each a one-element list, so the walk enters the
+/// trail eight times per iteration and the leaf is an integer. A one-element
+/// list at each level rather than a wide one keeps what is counted the
+/// *descent* -- the reference, the trail, and the reading of each value's type
+/// -- rather than a list loop the homogeneous shapes already measure.
 ///
 /// The value is built once, outside the loop, like every shape here.
 fn recursive_walk(py: Python<'_>, iters: usize) -> u64 {

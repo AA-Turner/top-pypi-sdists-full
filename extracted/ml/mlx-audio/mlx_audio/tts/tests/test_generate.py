@@ -1,7 +1,7 @@
 import sys
 import unittest
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, create_autospec, patch
 
 import mlx.core as mx
 import numpy as np
@@ -453,12 +453,20 @@ class TestGenerateAudio(unittest.TestCase):
         model = MagicMock()
         model.sample_rate = 48000
         model.preserve_ref_audio_path = True
-        model.generate.return_value = [self._result([0.1, 0.2], sample_rate=48000)]
+
+        def generate(text, ref_audio=None, ref_text=None, **kwargs):
+            pass
+
+        model.generate = create_autospec(
+            generate,
+            return_value=[self._result([0.1, 0.2], sample_rate=48000)],
+        )
 
         generate_audio(
             text="hello",
             model=model,
             ref_audio="speaker.wav",
+            stt_model=None,
             verbose=False,
         )
 
@@ -500,6 +508,56 @@ class TestGenerateAudio(unittest.TestCase):
         self.assertEqual(len(call_kwargs["ref_audio"]), 2)
         self.assertEqual(call_kwargs["ref_text"], ["speaker one", "speaker two"])
         mock_audio_write.assert_called_once()
+
+    @patch("builtins.print")
+    @patch("mlx_audio.tts.generate.audio_write")
+    @patch("mlx_audio.tts.generate.load_audio")
+    @patch("mlx_audio.tts.generate.os.path.exists", return_value=True)
+    def _transcribe_reference(
+        self,
+        model_type,
+        sample_rate,
+        _mock_exists,
+        mock_load_audio,
+        _mock_audio_write,
+        _mock_print,
+    ):
+        """Generates with speaker.wav and no ref_text. Returns what the STT
+        model received and what load_audio returned."""
+        transcript = "Automatically transcribed reference."
+        mock_load_audio.return_value = mx.zeros(16)
+        model = MagicMock(model_type=model_type, sample_rate=sample_rate)
+
+        def generate(text, ref_audio=None, ref_text=None, **kwargs):
+            pass
+
+        model.generate = create_autospec(
+            generate,
+            return_value=[self._result([0.1, 0.2], sample_rate=sample_rate)],
+        )
+        stt_model = MagicMock()
+        stt_model.generate.return_value = SimpleNamespace(text=transcript)
+
+        generate_audio(
+            text="hello",
+            model=model,
+            ref_audio="speaker.wav",
+            stt_model=stt_model,
+            verbose=False,
+        )
+
+        self.assertEqual(model.generate.call_args.kwargs["ref_text"], transcript)
+        stt_model.generate.assert_called_once()
+        return stt_model.generate.call_args.args[0], mock_load_audio.return_value
+
+    def test_missing_ref_text_is_transcribed_from_the_reference_file(self):
+        # Loaded for a 44.1 kHz model, the audio would reach Whisper as 16 kHz.
+        heard, _ = self._transcribe_reference("fish_qwen3_omni", 44100)
+        self.assertEqual(heard, "speaker.wav")
+
+    def test_volume_normalized_references_are_transcribed_without_reloading(self):
+        heard, loaded = self._transcribe_reference("spark", 16000)
+        self.assertIs(heard, loaded)
 
     @patch("builtins.print")
     @patch("mlx_audio.tts.generate.audio_write")

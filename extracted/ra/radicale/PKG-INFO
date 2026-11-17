@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Radicale
-Version: 3.9.1
+Version: 3.9.2
 Summary: CalDAV and CardDAV Server
 Author-email: Guillaume Ayoub <guillaume.ayoub@kozea.fr>, Unrud <unrud@outlook.com>, Peter Bieringer <pb@bieringer.de>
 License: GNU GPL v3
@@ -96,6 +96,8 @@ Radicale is a small but powerful CalDAV (calendars, to-do lists) and CardDAV
 
 For the complete documentation, please visit
 [Radicale master Documentation](https://radicale.org/master.html).
+
+How the source tree is put together is in [docs/README.md](docs/README.md).
 
 Additional hints can be found
 * [Radicale Wiki](https://github.com/Kozea/Radicale/wiki)

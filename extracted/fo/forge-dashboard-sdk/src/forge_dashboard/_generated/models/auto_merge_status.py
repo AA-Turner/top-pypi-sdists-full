@@ -42,7 +42,9 @@ class AutoMergeStatus:
                 (including a token without merge permission). A stopped pull
                 request stays armed and merges once the cause is gone, or the
                 person cancels.
-            message (str): Plain words, safe to show a person.
+            message (str): Plain words, safe to show a person. A sentence that would name the
+                forge says "the forge" instead, and the page puts the forge's
+                label (`ForgeCapabilities.label`) in its place.
             code (str | Unset): The same codes as `ActionError.code` (`checks_pending`,
                 `checks_failing`, `conflict`, `stacked`, `permission`,
                 `rate_limited`, `not_mergeable`, `behind`). Omitted when the pull request

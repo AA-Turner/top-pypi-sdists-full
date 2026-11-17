@@ -58,6 +58,7 @@ use crate::oracle::special_lookup;
 mod record;
 mod scalar;
 mod sequence;
+mod tree;
 
 use record::{
     Decided, check_attr_record, check_keyed_map_apart, keyed_map_explain, keyed_map_matches,
@@ -67,6 +68,7 @@ use scalar::{
     scalar_member, scalar_of,
 };
 use sequence::{check_frozenset, check_seq, check_set};
+use tree::tree_member;
 
 pub(crate) use scalar::root_scalar;
 
@@ -591,7 +593,19 @@ pub(crate) fn member(schema: &Schema, value: &Value<'_, '_>, frame: &mut Frame<'
         // and lay out `member` around the call, which the profiled shape of a
         // list nested twenty-five deep, which enters no definition, reads as
         // 3.6% more.
+        //
+        // A definition read as a tree of scalars is answered by a Python
+        // value's types where a fast walk keeps nothing ([`tree_member`]),
+        // which enters the definition where it answers. Two tests here and the
+        // rest out of line, since a reference in a validator with no reading,
+        // or one the reading declines, pays what this arm carries.
         Schema::Ref(id) => {
+            if ctx.index.has_readings()
+                && let Value::Py(_) = value
+                && let Some(admitted) = tree_member(*id, schema, value, frame)
+            {
+                return admitted;
+            }
             if ctx.state.memo.enter() && ctx.index.memo.remembers(*id) {
                 return remembered_ref(*id, value, frame);
             }
@@ -1743,13 +1757,7 @@ fn walked_reaching(
     room: Room,
 ) -> (bool, Option<Code>, Room) {
     let ctx = frame.ctx;
-    let own = Room {
-        levels: room
-            .levels
-            .saturating_add(ctx.index.memo.levels(id))
-            .min(MAX_WALK_DEPTH),
-        unfolded: (room.unfolded + 1).min(MAX_RECURSION_DEPTH),
-    };
+    let own = own_reach(id, room, ctx);
     let mut outer = Room::default();
     ctx.state
         .keep(|kept| outer = std::mem::replace(&mut kept.reached, own));
@@ -1758,6 +1766,32 @@ fn walked_reaching(
     let met = ctx.state.signals.stopped.get();
     ctx.state.signals.stopped.set(earlier.or(met));
     (admitted, met, outer)
+}
+
+/// The reach of a walk of the definition `id` begun at `room`: the levels its
+/// body can open by itself (`MemoPlan::levels`) and one more unfolding, within
+/// the bounds. A walk that enters no reference below reaches this and no
+/// further.
+fn own_reach(id: DefIx, room: Room, ctx: Ctx<'_>) -> Room {
+    Room {
+        levels: room
+            .levels
+            .saturating_add(ctx.index.memo.levels(id))
+            .min(MAX_WALK_DEPTH),
+        unfolded: (room.unfolded + 1).min(MAX_RECURSION_DEPTH),
+    }
+}
+
+/// Note, for the walk kept around it, the reach of a reference to `id` that a
+/// reading answered at a scalar, at `levels` with `unfolded` pairs on the
+/// trail: what [`remembered_ref`] notes where it walks the reference, since a
+/// scalar's walk enters no reference below it.
+///
+/// A reading reads a tree of scalars, which reaches no code the walk calls,
+/// so wherever a memo arms -- a validator whose definitions the plan holds --
+/// the tree is remembered, and its reference is walked by [`remembered_ref`].
+pub(super) fn note_scalar_reach(id: DefIx, (levels, unfolded): (usize, usize), ctx: Ctx<'_>) {
+    note_reach(ctx, own_reach(id, Room { levels, unfolded }, ctx));
 }
 
 /// How far a walk inside the one being kept reached, for that walk to read.

@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # "Github CI Service User" (API key is the DEVIN_AI_API_KEY GitHub org secret).
 HYDRA_SERVICE_USER_ID = "service-user-19e8281ae7fc4a6da98bb6e5f045c87e"
 HYDRA_LABEL = "hyd-chain-v2"
+HYDRA_SESSION_TAGS = {"ai-oncall", "ai-internal-issues"}
 _PR_TAG = re.compile(r"^airbyte-pr-(\d+)$")
 _PR_URL = re.compile(r"^https://github\.com/airbytehq/airbyte/pull/(\d+)$")
 _ONCALL_ISSUE_TAG = re.compile(r"^oncall-issue-\d+$")
@@ -123,7 +124,9 @@ def handle_stop_event(event: DevinStopEvent, store: Any) -> dict[str, Any]:
 
         tags = session.get("tags") or []
         expected_service_user_id = os.environ.get("HYDRA_SERVICE_USER_ID", HYDRA_SERVICE_USER_ID)
-        if session.get("service_user_id") != expected_service_user_id or "ai-oncall" not in tags:
+        if session.get("service_user_id") != expected_service_user_id or not (
+            HYDRA_SESSION_TAGS.intersection(tags)
+        ):
             return _finish("not_hydra", session_id, prompt_id)
 
         pr, mapping_outcome, has_pr_tag = _pull_request_number(

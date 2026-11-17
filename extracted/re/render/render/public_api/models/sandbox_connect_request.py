@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
-from typing import Any, TypeVar, Union
+from typing import Any, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -11,15 +13,12 @@ T = TypeVar("T", bound="SandboxConnectRequest")
 
 @_attrs_define
 class SandboxConnectRequest:
-    """Optional body when minting a run connect token. `command` is stored on
-    the exec timeline (truncated to 4KB); the full command is still sent
-    to the sandbox proxy when executing.
-
-        Attributes:
-            command (Union[Unset, str]): Command text for the sandbox event timeline.
+    """
+    Attributes:
+        command (str | Unset):
     """
 
-    command: Union[Unset, str] = UNSET
+    command: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:

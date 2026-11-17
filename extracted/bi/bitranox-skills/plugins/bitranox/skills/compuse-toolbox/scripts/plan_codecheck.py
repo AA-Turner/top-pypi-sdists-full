@@ -25,7 +25,11 @@ is checked as a file on its own.
 
 How the checks run. The repository is COPIED to a temporary directory (without `.git`, `.venv*`,
 `node_modules` and the tool caches) and the blocks are written over the copy, so the real tree is
-never touched and the blocks see the project's other modules. Then:
+never touched and the blocks see the project's other modules. In a git checkout the copy is what
+git lists - tracked files, untracked ones, and ignored FILES (a generated `_version.py`, a `.env`)
+- but no ignored DIRECTORY: build output, nested worktrees and data trees are not the project,
+and copying them put about 0.7 GB and 22x the tracked file count into the temp dir before the
+first check. Outside a git checkout (or when git cannot answer) the whole tree is walked. Then:
   * pytest - only when a placed path is a test file (`test_*.py` / `*_test.py`), on the project's
     interpreter (`--python`, else `./.venv`'s, else this one) with the copy's `src/` and root
     first on PYTHONPATH, so an editable install of the REAL tree cannot answer for the copy.
@@ -61,6 +65,7 @@ import sys
 import tempfile
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
+from enum import StrEnum
 from pathlib import Path, PurePosixPath
 
 from _cli_envelope import EXIT_ERROR, EXIT_NO, EXIT_YES, EnvelopeArgumentParser, emit, guarded
@@ -97,14 +102,29 @@ class Block:
     path: str | None = None
 
 
+class CheckStatus(StrEnum):
+    """The outcome of one check. The values are the wire form (`status` in JSON; upper-cased in
+    the text report)."""
+
+    PASS = "pass"
+    FAIL = "fail"
+    ERROR = "error"  # the check could not run
+    SKIPPED = "skipped"
+
+
 @dataclass
 class CheckResult:
     """The outcome of one check: pass, fail, error (could not run) or skipped."""
 
     check: str
-    status: str
+    status: CheckStatus
     detail: str = ""
     argv: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # _verdict tests for ERROR and FAIL only, so an unknown status would read as a pass:
+        # parse it where the result is made.
+        self.status = CheckStatus(self.status)
 
 
 def _split_lines(text: str) -> list[str]:
@@ -228,13 +248,83 @@ def place_blocks(blocks: list[Block], repo: Path) -> tuple[dict[str, str], list[
 
 
 def copy_repo(repo: Path, dest: Path) -> Path:
-    """Copy `repo` to `dest/repo` without VCS metadata, virtualenvs or caches."""
-    def ignore(_dir: str, names: list[str]) -> set[str]:
-        return {n for n in names if n in _COPY_SKIP or n.startswith(".venv")}
+    """Copy `repo` to `dest/repo` without VCS metadata, virtualenvs, caches or ignored trees.
 
+    The file list comes from git when `repo` is a git checkout (see the module docstring), else
+    from a walk with the fixed skip list."""
     target = dest / "repo"
-    shutil.copytree(repo, target, symlinks=True, ignore=ignore)
+    listed = _git_listed_paths(repo)
+    if listed is None:
+        shutil.copytree(repo, target, symlinks=True, ignore=_skip_names)
+        return target
+    target.mkdir(parents=True)
+    for rel in listed:
+        if _skipped_rel(rel):
+            continue
+        _copy_entry(repo / rel, target / rel)
     return target
+
+
+def _skip_names(_dir: str, names: list[str]) -> set[str]:
+    return {n for n in names if n in _COPY_SKIP or n.startswith(".venv")}
+
+
+def _skipped_rel(rel: str) -> bool:
+    return any(part in _COPY_SKIP or part.startswith(".venv") for part in PurePosixPath(rel).parts)
+
+
+def _copy_entry(source: Path, dest: Path) -> None:
+    """Copy one listed path: a file or link as itself, a directory (a submodule) as a tree.
+
+    A path git still lists but the checkout no longer has (deleted, not yet committed) is not
+    part of the tree being checked, so it is skipped."""
+    if not os.path.lexists(source):
+        return
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    if source.is_dir() and not source.is_symlink():
+        shutil.copytree(source, dest, symlinks=True, ignore=_skip_names, dirs_exist_ok=True)
+        return
+    shutil.copy2(source, dest, follow_symlinks=False)
+
+
+def _git(repo: Path, *args: str) -> subprocess.CompletedProcess[bytes] | None:
+    """Run git in `repo` with every GIT_ variable stripped, so a hook's GIT_DIR cannot redirect
+    the question to another repository; None when git cannot be run."""
+    env = {k: v for k, v in os.environ.items()
+           if not k.startswith("GIT_") or k == "GIT_CEILING_DIRECTORIES"}
+    try:
+        return subprocess.run(["git", "-c", "core.quotePath=false", *args], cwd=repo, env=env,
+                              capture_output=True, timeout=120, check=False)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def _git_lines(repo: Path, *args: str) -> list[str] | None:
+    proc = _git(repo, *args)
+    if proc is None or proc.returncode != 0:
+        return None
+    return [p for p in proc.stdout.decode("utf-8", "surrogateescape").split("\0") if p]
+
+
+def _git_listed_paths(repo: Path) -> list[str] | None:
+    """Repo-relative paths to copy, per git, or None when git cannot say for `repo`.
+
+    None also when `repo` is a directory an enclosing checkout IGNORES: there git lists the
+    directory itself as ignored and nothing in it, which would copy an empty tree."""
+    top = _git_lines(repo, "rev-parse", "-z", "--show-toplevel")
+    if not top:
+        return None
+    ignored_self = _git(Path(top[0]), "check-ignore", "-q", "--no-index", str(repo.resolve()))
+    if ignored_self is not None and ignored_self.returncode == 0:
+        return None
+    owned = _git_lines(repo, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
+    ignored = _git_lines(repo, "ls-files", "-z", "--others", "--ignored", "--exclude-standard",
+                         "--directory")
+    if owned is None or ignored is None:
+        return None
+    # `--directory` names a wholly ignored directory once, with a trailing slash: that is a tree
+    # to leave out. An ignored FILE is listed by itself and copied.
+    return sorted({*owned, *(p for p in ignored if not p.endswith("/"))})
 
 
 def _project_python(repo: Path, explicit: str | None) -> str:
@@ -271,12 +361,12 @@ def _check_pytest(copy: Path, files: list[str], python: str, run: Runner,
                   timeout: float) -> CheckResult:
     tests = [f for f in files if _is_test(f)]
     if not tests:
-        return CheckResult("pytest", "skipped", "no placed path is a test file")
+        return CheckResult("pytest", CheckStatus.SKIPPED, "no placed path is a test file")
     # An interpreter without pytest fails every run with exit 1, which would read as the PLAN's
     # failure; under `uv run` with no ./.venv this interpreter is uv's throwaway one, which has none.
     probe = _run(run, [python, "-c", "import pytest"], cwd=copy, timeout=timeout)
     if probe.returncode != 0:
-        return CheckResult("pytest", "error",
+        return CheckResult("pytest", CheckStatus.ERROR,
                            f"{python} has no pytest; pass --python with the project's interpreter",
                            [python, "-c", "import pytest"])
     paths = [str(copy / "src"), str(copy)] + [p for p in [os.environ.get("PYTHONPATH")] if p]
@@ -285,16 +375,17 @@ def _check_pytest(copy: Path, files: list[str], python: str, run: Runner,
     proc = _run(run, argv, cwd=copy, env=env, timeout=timeout)
     out = (proc.stdout or "") + (proc.stderr or "")
     if proc.returncode == 0:
-        return CheckResult("pytest", "pass", _tail(out, 3), argv)
+        return CheckResult("pytest", CheckStatus.PASS, _tail(out, 3), argv)
     if proc.returncode in (1, 2, 5):            # failed, collection error, collected nothing
-        return CheckResult("pytest", "fail", _tail(out), argv)
-    return CheckResult("pytest", "error", f"pytest exited {proc.returncode}: {_tail(out)}", argv)
+        return CheckResult("pytest", CheckStatus.FAIL, _tail(out), argv)
+    return CheckResult("pytest", CheckStatus.ERROR,
+                       f"pytest exited {proc.returncode}: {_tail(out)}", argv)
 
 
 def _check_pyright(copy: Path, files: list[str], python: str, tool: list[str] | None, run: Runner,
                    timeout: float) -> CheckResult:
     if tool is None:
-        return CheckResult("pyright", "error", "pyright not found (on PATH, or via uv)")
+        return CheckResult("pyright", CheckStatus.ERROR, "pyright not found (on PATH, or via uv)")
     config = {"include": files, "typeCheckingMode": "strict",
               "extraPaths": ["src"] if (copy / "src").is_dir() else []}
     cfg = copy / "pyrightconfig.json"
@@ -305,24 +396,24 @@ def _check_pyright(copy: Path, files: list[str], python: str, tool: list[str] | 
         report = json.loads(proc.stdout or "")
         summary = report["summary"]
     except (ValueError, KeyError, TypeError):
-        return CheckResult("pyright", "error",
+        return CheckResult("pyright", CheckStatus.ERROR,
                            f"pyright exited {proc.returncode} without a report: "
                            f"{_tail((proc.stdout or '') + (proc.stderr or ''))}", argv)
     analysed = int(summary.get("filesAnalyzed", 0))
     if analysed < len(files):
-        return CheckResult("pyright", "error",
+        return CheckResult("pyright", CheckStatus.ERROR,
                            f"pyright analysed {analysed} of {len(files)} placed files", argv)
     errors = [f"{Path(d.get('file', '')).name}:{d['range']['start']['line'] + 1}: {d.get('message')}"
               for d in report.get("generalDiagnostics", []) if d.get("severity") == "error"]
     if errors:
-        return CheckResult("pyright", "fail", "\n".join(errors[:25]), argv)
-    return CheckResult("pyright", "pass", f"{analysed} files, 0 errors", argv)
+        return CheckResult("pyright", CheckStatus.FAIL, "\n".join(errors[:25]), argv)
+    return CheckResult("pyright", CheckStatus.PASS, f"{analysed} files, 0 errors", argv)
 
 
 def _check_ruff(repo: Path, placed: dict[str, str], tool: list[str] | None, run: Runner,
                 timeout: float) -> CheckResult:
     if tool is None:
-        return CheckResult("ruff", "error", "ruff not found (on PATH, or via uv)")
+        return CheckResult("ruff", CheckStatus.ERROR, "ruff not found (on PATH, or via uv)")
     findings = []
     for rel, text in placed.items():
         argv = [*tool, "check", "--stdin-filename", rel, "-"]
@@ -330,12 +421,12 @@ def _check_ruff(repo: Path, placed: dict[str, str], tool: list[str] | None, run:
         if proc.returncode == 1:
             findings.append(f"{rel}:\n{_tail(proc.stdout or '')}")
         elif proc.returncode != 0:
-            return CheckResult("ruff", "error",
+            return CheckResult("ruff", CheckStatus.ERROR,
                                f"ruff exited {proc.returncode} on {rel}: {_tail(proc.stderr or '')}",
                                argv)
     if findings:
-        return CheckResult("ruff", "fail", "\n".join(findings))
-    return CheckResult("ruff", "pass", f"{len(placed)} files clean")
+        return CheckResult("ruff", CheckStatus.FAIL, "\n".join(findings))
+    return CheckResult("ruff", CheckStatus.PASS, f"{len(placed)} files clean")
 
 
 def run_checks(repo: Path, placed: dict[str, str], checks: Sequence[str], *, python: str | None = None,
@@ -364,14 +455,15 @@ def run_checks(repo: Path, placed: dict[str, str], checks: Sequence[str], *, pyt
                     results.append(_check_ruff(repo, placed, _tool_argv("ruff", ruff), run,
                                                timeout))
             except (OSError, subprocess.SubprocessError) as exc:
-                results.append(CheckResult(check, "error", f"{type(exc).__name__}: {exc}"))
+                results.append(CheckResult(check, CheckStatus.ERROR,
+                                           f"{type(exc).__name__}: {exc}"))
     return results
 
 
 def _verdict(results: list[CheckResult], unplaced: list[Block], allow_unplaced: bool) -> int:
-    if any(r.status == "error" for r in results):
+    if any(r.status == CheckStatus.ERROR for r in results):
         return EXIT_ERROR
-    if any(r.status == "fail" for r in results) or (unplaced and not allow_unplaced):
+    if any(r.status == CheckStatus.FAIL for r in results) or (unplaced and not allow_unplaced):
         return EXIT_NO
     return EXIT_YES
 
@@ -384,7 +476,7 @@ def _report(results: list[CheckResult], placed: dict[str, str], unplaced: list[B
               f"backticked .py above it)")
     for r in results:
         print(f"{r.status.upper():8} {r.check}")
-        if r.detail and r.status != "pass":
+        if r.detail and r.status != CheckStatus.PASS:
             print("    " + r.detail.replace("\n", "\n    "))
 
 
@@ -433,11 +525,11 @@ def main(argv: Sequence[str] | None = None) -> int:
                          pyright=args.pyright, timeout=args.timeout)
     code = _verdict(results, unplaced, args.allow_unplaced)
     skipped = [f"block at line {b.line}: no path" for b in unplaced]
-    skipped += [f"{r.check}: {r.detail}" for r in results if r.status == "skipped"]
+    skipped += [f"{r.check}: {r.detail}" for r in results if r.status == CheckStatus.SKIPPED]
     if args.json:
         data = {"placed": sorted(placed), "unplaced": [b.line for b in unplaced],
                 "checks": [r.__dict__ for r in results]}
-        error = next((r.detail for r in results if r.status == "error"), None)
+        error = next((r.detail for r in results if r.status == CheckStatus.ERROR), None)
         return emit(code, "plan_codecheck", data, skipped=skipped, error=error)
     _report(results, placed, unplaced)
     return code

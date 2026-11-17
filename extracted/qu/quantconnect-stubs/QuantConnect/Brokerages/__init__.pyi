@@ -1226,7 +1226,7 @@ class DefaultConnectionHandler(System.Object, QuantConnect.Brokerages.IConnectio
 
 
 class BrokerageException(System.Exception):
-    """Represents an error retuned from a broker's server"""
+    """Represents an error returned from a broker's server"""
 
     @overload
     def __init__(self, message: str) -> None:
@@ -3750,7 +3750,7 @@ class TastytradeBrokerageModel(QuantConnect.Brokerages.DefaultBrokerageModel):
 
 
 class BrokerageName(IntEnum):
-    """Specifices what transaction model and submit/execution rules to use"""
+    """Specifies what transaction model and submit/execution rules to use"""
 
     DEFAULT = 0
     """Transaction and submit/execution rules will be the default as initialized"""

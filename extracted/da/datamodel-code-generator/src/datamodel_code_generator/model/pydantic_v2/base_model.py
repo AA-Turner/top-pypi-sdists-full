@@ -40,7 +40,7 @@ from datamodel_code_generator._regex_syntax import (
     pattern_engine,
     selects_python_engine,
 )
-from datamodel_code_generator._requirements import CONFIG_KEY_REQUIREMENTS, REQUIREMENTS
+from datamodel_code_generator._requirements import CONFIG_KEY_REQUIREMENTS, REQUIREMENTS, form_path
 from datamodel_code_generator.enums import AliasGenerator
 from datamodel_code_generator.imports import (
     IMPORT_ANNOTATED,
@@ -181,6 +181,7 @@ if TYPE_CHECKING:
 
 
 _CONSTRAINED_STRING_IMPORTS = frozenset({IMPORT_CONSTR, IMPORT_STRING_CONSTRAINTS, IMPORT_FIELD})
+_IMPORT_JSON_VALUE = Import.from_full_path(form_path("pydantic.json_value"))
 _ANNOTATED_CONSTRAINT_BASES: dict[_ImportKey, str] = {
     _import_key(IMPORT_CONSTR): "str",
     _import_key(IMPORT_CONINT): "int",
@@ -695,6 +696,24 @@ def _prepare_type_alias_field(
     return True
 
 
+def _writes_no_call_without_plan(field: DataModelFieldBase) -> bool:
+    """Return whether ``field`` has nothing a ``Field()`` call could write and needs no null default, so no call.
+
+    Only the Pydantic v2 field class itself answers it, its subclasses build their plans: its plan is then built
+    without a call (``_build_render_plan``) and its imports read no plan (``WRITES_NO_CALL_WITHOUT_PLAN``).
+    """
+    return (
+        type(field) is DataModelField
+        and not field.is_class_var
+        and not field._may_have_field_statement()  # noqa: SLF001
+        and field._alias_generator_name_from_parent() is None  # noqa: SLF001
+        and ((parent := field.parent) is None or not parent._uses_custom_root_template)  # noqa: SLF001
+        and not field._requires_null_default(  # noqa: SLF001
+            missing_sentinel=field._uses_missing_sentinel(factory_present=False)  # noqa: SLF001
+        )
+    )
+
+
 def _needs_model_regex_engine(fields: list[DataModelFieldBase]) -> bool:
     """Return whether a pattern of the fields needs the ``python-re`` engine of the model that holds them."""
     return has_lookaround_pattern(fields)
@@ -734,6 +753,7 @@ class DataModelField(_PydanticBaseDataModelField):
     PREPARE_PYTHON_PATTERNS = staticmethod(_prepare_python_patterns)
     PREPARE_TYPE_ALIAS_FIELD = staticmethod(_prepare_type_alias_field)
     NEEDS_MODEL_REGEX_ENGINE = staticmethod(_needs_model_regex_engine)
+    WRITES_NO_CALL_WITHOUT_PLAN = staticmethod(_writes_no_call_without_plan)
     PATTERN_NEEDS_HOLDER_ENGINE = staticmethod(_pattern_needs_holder_engine)
     _EXCLUDE_FIELD_KEYS: ClassVar[set[str]] = {
         "alias",
@@ -755,16 +775,19 @@ class DataModelField(_PydanticBaseDataModelField):
 
     @override
     def _pydantic_constructs(self) -> tuple[PydanticConstruct, ...]:
-        """Return the Pydantic constructs that the field's ``Field()`` data and constrained types write."""
-        data, _ = self._get_field_data_and_default_factory()
+        """Return the Pydantic constructs that the field's ``Field()`` call and constrained types write."""
+        call = self._render_plan().call
+        written = {} if call is None else {argument.name: argument.value for argument in call.kwargs}
         constructs: list[PydanticConstruct] = []
-        if "union_mode" in data:
+        if "union_mode" in written:
             constructs.append("pydantic.union_mode")
-        if isinstance(pattern := data.get("pattern"), PythonRuntimeExpression) or any(
+        if isinstance(pattern := written.get("pattern"), PythonRuntimeExpression) or any(
             isinstance((data_type.kwargs or {}).get("pattern"), PythonRuntimeExpression)
             for data_type in self.data_type.all_data_types
         ):
             constructs.append("pydantic.compiled_pattern")
+        if any(data_type.import_ == _IMPORT_JSON_VALUE for data_type in self.data_type.all_data_types):
+            constructs.append("pydantic.json_value")
         if pattern is not None:
             if self._constrains_bytes_only():
                 constructs.append("pydantic.bytes_pattern")
@@ -790,8 +813,13 @@ class DataModelField(_PydanticBaseDataModelField):
         """
         if not self._constrains_bytes_only():
             return False
-        data, _ = self._get_field_data_and_default_factory()
-        return isinstance(pattern := data.get("pattern"), str) and pattern_engine(pattern, row="model") == "python"
+        call = self._render_plan().call
+        return call is not None and any(
+            argument.name == "pattern"
+            and isinstance(pattern := argument.value, str)
+            and pattern_engine(pattern, row="model") == "python"
+            for argument in call.kwargs
+        )
 
     @property
     @override
@@ -884,22 +912,11 @@ class DataModelField(_PydanticBaseDataModelField):
             return False
         return self.data_type.type == "None"
 
-    def _writes_no_field_metadata(self) -> bool:
-        """Return whether the field has nothing a ``Field()`` call could write, so its plan needs no call."""
-        return (
-            type(self) is DataModelField
-            and not self.is_class_var
-            and not super()._may_have_field_statement()
-            and self._alias_generator_name_from_parent() is None
-            and ((parent := self.parent) is None or not parent._uses_custom_root_template)  # noqa: SLF001
-        )
-
     @override
     def _build_render_plan(self) -> FieldRenderPlan:
         """Include the explicit null default required by Pydantic v2; a field without metadata writes no call."""
-        if self._writes_no_field_metadata() and not self._requires_null_default(
-            missing_sentinel=(missing := self._uses_missing_sentinel(factory_present=False))
-        ):
+        if _writes_no_call_without_plan(self):
+            missing = self._uses_missing_sentinel(factory_present=False)
             return self._field_render_plan(
                 None,
                 FieldDefault(self.default, missing, MISSING_DEFAULT if missing else DEFAULT_VALUE),
@@ -1375,8 +1392,8 @@ def _only_describes_own_named_type(field: DataModelFieldBase) -> bool:
         for data_type in field.data_type.all_data_types
     ):
         return False
-    data, default_factory = cast("DataModelField", field)._get_field_data_and_default_factory()  # noqa: SLF001
-    return not default_factory and all(key == "description" for key, value in data.items() if value is not None)
+    call = field._render_plan().call  # noqa: SLF001
+    return call is None or (call.factory is None and all(argument.name == "description" for argument in call.kwargs))
 
 
 def _field_patterns(fields: Iterable[DataModelFieldBase]) -> Iterator[tuple[str, DataType, DataModelFieldBase, bool]]:

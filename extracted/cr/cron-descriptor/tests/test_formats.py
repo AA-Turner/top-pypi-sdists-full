@@ -116,20 +116,26 @@ def test_day_of_week_once_in_month_fourth(options: Options) -> None:
 def test_day_of_month_and_day_of_week_uses_or(options: Options) -> None:
     assert get_description("* * 2 * 1", options) == "Every minute, on day 2 of the month, or on Monday"
 
-def test_day_of_month_step_and_day_of_week_uses_or(options: Options) -> None:
-    assert get_description("* * */2 * 1", options) == "Every minute, every 2 days, or on Monday"
+def test_day_of_month_step_and_day_of_week_uses_only_on(options: Options) -> None:
+    # "*/2" still starts with "*", so this hits cron's asterisk bug (crontab.guru/cron-bug.html):
+    # real cron ANDs it with day-of-week instead of ORing it, unlike a plain list such as "1,15".
+    assert get_description("* * */2 * 1", options) == "Every minute, every 2 days, only on Monday"
 
-def test_every_x_weeks_single_day(options: Options) -> None:
-    assert get_description("0 0 12 ? * FRI/2", options) == "At 12:00 PM, every 2 weeks, only on Friday"
+def test_day_of_month_list_and_day_of_week_uses_or(options: Options) -> None:
+    assert get_description("30 4 1,15 * FRI", options) == \
+        "At 04:30 AM, on day 1 and 15 of the month, or on Friday"
 
-def test_every_x_weeks_day_range(options: Options) -> None:
-    assert get_description("0 0 12 ? * WED-FRI/3", options) == "At 12:00 PM, every 3 weeks, Wednesday through Friday"
+def test_weekday_step_includes_sunday(options: Options) -> None:
+    assert get_description("0 0 12 ? * FRI/2", options) == "At 12:00 PM, every 2 days of the week, Friday through Sunday"
 
-def test_every_x_weeks_day_list(options: Options) -> None:
-    assert get_description("0 0 12 ? * TUE,FRI/4", options) == "At 12:00 PM, every 4 weeks, only on Tuesday and Friday"
+def test_weekday_step_selects_range_start(options: Options) -> None:
+    assert get_description("0 0 12 ? * WED-FRI/3", options) == "At 12:00 PM, only on Wednesday"
+
+def test_weekday_step_applies_to_its_list_item(options: Options) -> None:
+    assert get_description("0 0 12 ? * TUE,FRI/4", options) == "At 12:00 PM, only on Tuesday and Friday"
 
 def test_every_x_days_of_the_week_range_ending_on_sunday(options: Options) -> None:
-    # 7 is Sunday; the range still spans several days, so this is not a weekly cadence
+    # 7 is Sunday at the end of an inclusive weekday range.
     assert get_description("0 0 12 ? * 1-7/2", options) == "At 12:00 PM, every 2 days of the week, Monday through Sunday"
     assert get_description("0 0 12 ? * FRI-SUN/2", options) == "At 12:00 PM, every 2 days of the week, Friday through Sunday"
 
@@ -328,7 +334,16 @@ def test_month_interval_with_step_value(options: Options) -> None:
     assert get_description("0 5 7 ? 3/2 ? *", options) == "At 07:05 AM, every 2 months, March through December"
 
 def test_day_of_week_interval_with_step_value(options: Options) -> None:
-    assert get_description("0 5 7 ? * 2/3 *", options) == "At 07:05 AM, every 3 days of the week, Tuesday through Saturday"
+    assert get_description("0 5 7 ? * 2/3 *", options) == "At 07:05 AM, every 3 days of the week, Tuesday through Sunday"
+
+def test_day_of_week_interval_preserves_monday_start(options: Options) -> None:
+    assert get_description("0 0 * * 1/1", options) == "At 12:00 AM, Monday through Sunday"
+    assert get_description("0 0 * * 1/2", options) == "At 12:00 AM, every 2 days of the week, Monday through Sunday"
+
+def test_day_of_week_interval_one_indexed_sunday_start(options: Options) -> None:
+    options.day_of_week_start_index_zero = False
+    assert get_description("0 0 * * 1/1", options) == "At 12:00 AM"
+    assert get_description("0 0 * * 1/2", options) == "At 12:00 AM, every 2 days of the week"
 
 def test_year_interval_with_step_value(options: Options) -> None:
     assert get_description("0 5 7 ? * ? 2016/4", options) == "At 07:05 AM, every 4 years, 2016 through 9999"
@@ -411,3 +426,21 @@ def test_comma_with_step_in_days_of_week(options: Options) -> None:
     assert get_description("0 0 * * 1-3/2,5", options) == (
         "At 12:00 AM, only on every 2 days of the week, Monday through Wednesday and Friday"
     )
+
+
+def test_day_of_week_nth_list_same_day(options: Options) -> None:
+    assert get_description("0 0 9 * * 1#2,1#4", options) == "At 09:00 AM, on the second and fourth Monday of the month"
+    assert get_description("0 45 7 * * 5#1,5#3,5#5", options) == (
+        "At 07:45 AM, on the first, third, and fifth Friday of the month"
+    )
+
+
+def test_day_of_week_nth_list_different_days(options: Options) -> None:
+    assert get_description("0 0 9 * * 1#2,3#4", options) == (
+        "At 09:00 AM, on the second Monday and fourth Wednesday of the month"
+    )
+
+
+def test_day_of_week_nth_list_with_plain_day(options: Options) -> None:
+    # Only lists where every item has an ordinal are described item by item
+    assert "Friday" in get_description("0 0 * * 1#2,5", options)

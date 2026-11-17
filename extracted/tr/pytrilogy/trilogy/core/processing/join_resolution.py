@@ -4,9 +4,9 @@ from collections import defaultdict
 from collections.abc import Callable, Collection, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from functools import cached_property, partial
-from itertools import combinations
+from itertools import permutations
 from operator import attrgetter
-from typing import NamedTuple
+from typing import Any
 
 from trilogy.constants import DEFAULT_NAMESPACE, PRESENCE_MARKER_PREFIX, logger
 from trilogy.core.domain_graph import DomainGraph
@@ -25,6 +25,7 @@ from trilogy.core.models.build import (
     BuildDatasource,
     BuildFunction,
     BuildGrain,
+    BuildUnionDatasource,
     get_grouped_aggregate_wrapper,
 )
 from trilogy.core.models.build_environment import (
@@ -174,6 +175,9 @@ class PlannedPairs:
     # groups whose rows are finer than what the plan knows of them (a derived
     # connector's subplan): each also pairs on its resolved grain
     grain_paired: frozenset[str] = frozenset()
+    # the groups in the order the plan joins them when nothing else decides;
+    # a group it leaves out comes after, in no stated order
+    order: tuple[str, ...] = ()
 
     @classmethod
     def star(
@@ -183,6 +187,7 @@ class PlannedPairs:
         only on keys both join the hub on."""
         sides = ["hub", *(f"spoke{i}" for i in range(len(spokes)))]
         keys = {side: spoke[1] for side, spoke in zip(sides[1:], spokes)}
+        # the hub's rows are the merge's: each spoke hangs off them
         return cls(
             {
                 id(node): frozenset({side})
@@ -193,6 +198,38 @@ class PlannedPairs:
                 for i, a in enumerate(sides)
                 for b in sides[i + 1 :]
             },
+            order=("hub",),
+        )
+
+    @classmethod
+    def over_scans(
+        cls,
+        sides: Mapping[int, frozenset[str]],
+        keys: Mapping[frozenset[str], frozenset[str]],
+        datasources: Mapping[str, BuildDatasource | BuildUnionDatasource],
+        grain_paired: frozenset[str] = frozenset(),
+    ) -> PlannedPairs:
+        """A plan between datasource scans, stating `scan_precedence` over
+        each scan's declared grain. A side no datasource names (a derived
+        connector, whose rows are its subplan's) states none."""
+        grains = {
+            name: frozenset(datasources[name].grain.components)
+            for name in sorted(frozenset().union(*sides.values()))
+            if name in datasources
+        }
+        return cls(
+            sides,
+            keys,
+            grain_paired=grain_paired,
+            order=scan_precedence(keys, grains),
+        )
+
+    def rank(self, groups: frozenset[str]) -> int:
+        """Where a side holding `groups` comes in the plan's order: the join
+        walk breaks the ties its facts leave on it before any spelling."""
+        return min(
+            (i for i, gid in enumerate(self.order) if gid in groups),
+            default=len(self.order),
         )
 
     @property
@@ -237,6 +274,28 @@ class PlannedPairs:
         )
 
 
+def scan_precedence(
+    keys: Mapping[frozenset[str], frozenset[str]],
+    grains: Mapping[str, frozenset[str]],
+) -> tuple[str, ...]:
+    """The order a merge of scans joins them in when nothing else decides,
+    as `JoinPlan.precedence` states it for groups: a scan of rows before
+    the lookups its pairings identify (a scan whose grain lies inside the
+    keys it pairs on), finer rows first. A scan of no declared grain is
+    stated with the coarsest. Where a `~` binding puts a scan is resolve's
+    to state (`_binding_tiers`)."""
+    looked_up = {
+        side
+        for pair, pairs in keys.items()
+        if len(pair) == 2
+        for side in pair
+        if grains.get(side) and grains[side] <= pairs
+    }
+    return tuple(
+        sorted(sorted(grains), key=lambda s: (s in looked_up, -len(grains[s])))
+    )
+
+
 @dataclass(frozen=True)
 class SideFacts:
     """What a merge knows about ONE of its sides, in the merge's node spelling.
@@ -265,6 +324,9 @@ class SideFacts:
     hosts: bool = False
     # every column is a one-row value (a `by *` total, a constant)
     one_row: bool = False
+    # reads one datasource partial on its own grain (an arm of a union): its
+    # rows are a subset of a whole relation's, so its partials bind no key
+    arm: bool = False
     # spans the side holds a region's rows on
     held_spans: frozenset[str] = frozenset()
     # extent-free spans the side carries every value of
@@ -312,9 +374,20 @@ class JoinFacts:
     # two sides -> the keys the join plan pairs them on, each a column both
     # hold; a pair it does not name pairs on nothing
     pair_keys: Mapping[frozenset[str], frozenset[str]] = field(default_factory=dict)
+    # each side's place in the one order the walk joins the merge's sides in
+    # (`_stated_order`)
+    side_ranks: Mapping[str, int] = field(default_factory=dict)
+    # the side holding the merge's rows, when the merge states one: the walk
+    # starts from it
+    seed: str | None = None
 
     def side(self, node: str) -> SideFacts:
         return self.sides.get(node) or _NO_FACTS
+
+    def rank(self, node: str) -> tuple[int, str]:
+        """Where the merge states a side; the name decides only between two
+        sides it states alike (projections of one split group)."""
+        return (self.side_ranks.get(node, len(self.side_ranks)), node)
 
     @cached_property
     def authored_keys(self) -> frozenset[str]:
@@ -812,7 +885,10 @@ def ensure_content_preservation(
     joins: list[JoinOrderOutput],
     authored_axis_keys: frozenset[str] = frozenset(),
     demanded_domains: frozenset[str] = frozenset(),
+    grains: Mapping[str, frozenset[str]] | None = None,
 ) -> None:
+    """`grains` is each side's grain: a right its join's keys identify is a
+    lookup, whose unmatched rows are its domain's, not an axis's content."""
     for idx, review_join in enumerate(joins):
         predecessors = joins[:idx]
         if review_join.type == JoinType.FULL:
@@ -820,6 +896,12 @@ def ensure_content_preservation(
         has_prior_left = False
         has_prior_right = False
         review_keys: set[str] = set().union(*review_join.keys.values())
+        right_grain = (grains or {}).get(review_join.right, frozenset())
+        lookup_off_axis = bool(
+            right_grain
+            and right_grain <= review_keys
+            and not review_keys & authored_axis_keys
+        )
         for pred in predecessors:
             on_pred_right = pred.right in review_join.lefts
             on_pred_left = any(x in review_join.lefts for x in pred.lefts)
@@ -829,7 +911,9 @@ def ensure_content_preservation(
             # sides' content), or when this join is keyed ON the FULL's own
             # spine (coalesced across both families) and the spine is a domain
             # this merge demands. A join keyed OFF the spine hangs off one
-            # family: only get_join_type can license preserving it.
+            # family: only get_join_type can license preserving it. Nor is a
+            # lookup off the axis the axis's content: a date no sale fell on
+            # is no customer's row, however the customers were merged.
             if pred.type == JoinType.FULL and (on_pred_right or on_pred_left):
                 has_prior_left = True
                 pred_keys: set[str] = set().union(*pred.keys.values())
@@ -837,7 +921,7 @@ def ensure_content_preservation(
                     review_keys
                     and review_keys <= pred_keys
                     and review_keys <= demanded_domains
-                ) or (pred_keys & authored_axis_keys):
+                ) or (pred_keys & authored_axis_keys and not lookup_off_axis):
                     has_prior_right = True
                 continue
             # Either way the padded relation is in the ACCUMULATED stream,
@@ -863,126 +947,13 @@ def ensure_content_preservation(
                 review_join.type = widened
 
 
-def _score_join_candidate(
-    x: str,
-    *,
-    root: str,
-    facts: JoinFacts,
-    multi_partial: bool,
-    anchor_sources: frozenset[str],
-) -> tuple[int, int, str]:
-    side = facts.side(x)
-    base = 1
-    # A query-scoped LEFT anchor must seed the join base: a right is typed
-    # against the lefts in walk order, so each co-anchored optional source
-    # dedups against the anchor (LEFT_OUTER), not the other optional (FULL).
-    # The boost dominates the multi_partial bump so the anchor always outranks.
-    if x in anchor_sources:
-        base += 10
-    is_partial = root in side.partials
-    if multi_partial and is_partial:
-        base += 2
-    elif is_partial:
-        base -= 1
-    # the side holding the region's rows seeds the tree: its feeders hang
-    # LEFT off it instead of meeting FULL before it arrives
-    if side.hosts and not is_partial:
-        base += 3
-    return (base, len(side.grain), x)
-
-
-class _Pivot(NamedTuple):
-    """A planned key the walk ranks pairings under. A solid pivot pairs only
-    the key's holders that hold no region (`_solid_value_null_pivots`)."""
-
-    key: str
-    solid: bool = False
-
-
-def _solid_value_null_pivots(
-    pivot_map: dict[_Pivot, list[str]], facts: JoinFacts
-) -> dict[_Pivot, list[str]]:
-    """A value-nullable key pairs the sides holding no region on it before a
-    region's rows unite: a padded NULL is no member of the NULL group an
-    aggregate the region does not feed computes on it. A side holding the
-    region joins on it after, through the key's own pivot."""
-    if not facts.held_spans:
-        return {}
-    out: dict[_Pivot, list[str]] = {}
-    for pivot, sides in pivot_map.items():
-        solid = [s for s in sides if not facts.side(s).held_spans]
-        if len(solid) > 1 and any(
-            pivot.key in facts.side(s).value_nullables for s in solid
-        ):
-            out[_Pivot(pivot.key, solid=True)] = solid
-    return out
-
-
-def _pivot_map(
-    pair_keys: Mapping[frozenset[str], frozenset[str]],
-) -> dict[_Pivot, list[str]]:
-    """Each planned key's holders: the sides the plan pairs on it."""
-    out: dict[str, set[str]] = defaultdict(set)
-    for pair, keys in pair_keys.items():
-        if len(pair) == 2:
-            for key in keys:
-                out[key] |= pair
-    return {_Pivot(key): sorted(holders) for key, holders in out.items()}
-
-
-def _keyless_order(facts: JoinFacts, ds: str) -> tuple[bool, str, str]:
-    """A keyless side joins in the order of the first column no other side
-    holds; one with none joins after."""
+def _keyless_order(facts: JoinFacts, ds: str) -> tuple[bool, tuple[int, str]]:
+    """A keyless side joins in the stated order; one holding no column of
+    its own joins after."""
     others = frozenset().union(
         *(side.columns for node, side in facts.sides.items() if node != ds)
     )
-    own = min(facts.side(ds).columns - others, default=None)
-    return (own is None, own or "", ds)
-
-
-def _pivot_rank(
-    pivot: _Pivot, holders: list[str], facts: JoinFacts
-) -> tuple[bool, bool, bool, int, int, int, str]:
-    """An AUTHORED join key (scoped join / merge relation) ranks FIRST: its
-    equality is a semantic pairing contract, not a heuristic tree edge. If a
-    cheaper shared key seeds the tree instead, the sides pair on that key
-    alone and the authored predicate lands on a leaf dimension, where a
-    preserving join NULLs the dimension instead of un-pairing the rows.
-    A span some side holds a region on ranks next: the stitch on the span
-    unites the region's rows with its feeder first, and a key the region
-    CARRIES (an aggregate by the description) joins the united rows after
-    it. Joining on the carried key instead joins the aggregate to the
-    domain alone, where a `~?` guest (a value-NULL key, so no domain row)
-    never reaches its NULL group. A side holding several regions' rows (an
-    aggregate by `bucket` over customers no order has) ranks after the
-    others are stitched: its NULL group holds their padded rows, which only
-    exist once their own stitch ran."""
-    key = pivot.key
-    return (
-        pivot.solid or key not in facts.authored_join_keys,
-        not pivot.solid,
-        pivot.solid or key not in facts.held_spans,
-        max(len(facts.side(side).held_spans - {key}) for side in holders),
-        len(holders),
-        len(key),
-        key,
-    )
-
-
-def _ranked_edges(
-    pivot_map: Mapping[_Pivot, list[str]], facts: JoinFacts
-) -> list[tuple[_Pivot, str, str]]:
-    """Every planned pairing as (key, side, side), best-ranked first: a pair
-    the plan pairs on several keys is an edge under each."""
-    edges = [
-        (pivot, a, b)
-        for pivot, holders in pivot_map.items()
-        for a, b in combinations(holders, 2)
-        if pivot.key in facts.paired(a, b)
-    ]
-    return sorted(
-        edges, key=lambda e: (_pivot_rank(e[0], pivot_map[e[0]], facts), e[1], e[2])
-    )
+    return (not facts.side(ds).columns - others, facts.rank(ds))
 
 
 def _join_onto(right: str, walked: list[str], facts: JoinFacts) -> JoinOrderOutput:
@@ -1034,94 +1005,57 @@ def _preserved_past_inner(joins: list[JoinOrderOutput]) -> str | None:
 def resolve_join_order_v2(facts: JoinFacts) -> list[JoinOrderOutput]:
     """Order the merge's sides (`facts.sides`) into a join tree by walking
     the plan's pairings (`facts.pair_keys`): two sides pair on what it pairs
-    them on, and on nothing else. Each step joins the unjoined side whose
-    pairing onto the joined set ranks best (`_pivot_rank` on its key), ties
-    going to the best-scored side (``_score_join_candidate``); a pairing
-    between two unjoined sides seeds a tree only when none touches it. Every
-    choice point sorts its inputs, so the plan is deterministic across runs.
+    them on, and on nothing else. Each step joins the side stated first
+    (`facts.rank`) among the unjoined ones the plan pairs with a joined one;
+    a side pairing with none seeds a tree only when none does. The walk
+    chooses nothing itself, so the plan is deterministic across runs.
 
-    The order is a choice of plan shape, not of rows, with one exception the
-    walk repairs: a side preserved past an INNER join among the sides walked
-    before it (`_preserved_past_inner`) seeds the walk instead, so each of
-    them hangs off its rows on its own pairing.
+    The stated order (`_stated_order`) is the plan's shape below what each
+    key's holders' rows are (`_key_row_terms`). Two more facts about rows
+    outrank it. A merge whose rows are one side's states that side (`facts.seed`), and the
+    walk starts from it. And the walk repairs a side preserved past an INNER
+    join among the sides walked before it (`_preserved_past_inner`): that
+    side seeds the walk instead, so each of them hangs off its rows on its
+    own pairing.
     ``ensure_content_preservation`` keeps every later join from dropping the
     rows an earlier one preserved.
     """
-    # A source is an anchor when it provides a scoped-LEFT anchor key as a
-    # COMPLETE (non-partial) concept; optional sources are partial against it.
-    # An anchor key is only ACTIVE when some present source is partial against
-    # it: the boost exists to keep optional sources directional (LEFT, not
-    # FULL), and with no optional side in the plan, seeding the tree on it
-    # would just perturb unrelated joins.
-    active_anchor_keys = {
-        key
-        for key in facts.anchor_keys
-        if any(key in side.partials for side in facts.sides.values())
-    }
-    anchor_sources = frozenset(
-        ds
-        for ds, side in facts.sides.items()
-        if side.columns & active_anchor_keys and not active_anchor_keys & side.partials
-    )
-    output = _walk(facts, anchor_sources)
-    seed = _preserved_past_inner(output)
+    output = _walk(facts, facts.seed)
+    seed = None if facts.seed else _preserved_past_inner(output)
     if seed is not None:
-        output = _walk(facts, anchor_sources, seed)
-    ensure_content_preservation(output, facts.axis_keys, facts.demanded_domains)
+        output = _walk(facts, seed)
+    ensure_content_preservation(
+        output,
+        facts.axis_keys,
+        facts.demanded_domains,
+        {node: side.grain for node, side in facts.sides.items()},
+    )
     restore_full_join_providers(output)
     return output
 
 
-def _walk(
-    facts: JoinFacts, anchor_sources: frozenset[str], seed: str | None = None
-) -> list[JoinOrderOutput]:
-    """One walk over the plan's pairings, from `seed` when given."""
-    pivot_map = _pivot_map(facts.pair_keys)
-    pivot_map.update(_solid_value_null_pivots(pivot_map, facts))
-    edges = _ranked_edges(pivot_map, facts)
+def _walk(facts: JoinFacts, seed: str | None = None) -> list[JoinOrderOutput]:
+    """One walk over the plan's pairings, from `seed` when given. Each step
+    joins the side the merge states first (`facts.rank`) among those the plan
+    pairs with a joined one; when it pairs none, the first of the rest seeds
+    another island."""
+    paired = {
+        side
+        for pair, keys in facts.pair_keys.items()
+        if len(pair) == 2 and keys
+        for side in pair
+    }
     output: list[JoinOrderOutput] = []
     walked: list[str] = [seed] if seed else []
     eligible_left: set[str] = set(walked)
-    opened: dict[_Pivot, bool] = {}
 
-    while True:
+    while unjoined := paired - eligible_left:
         touching = [
-            e for e in edges if (e[1] in eligible_left) != (e[2] in eligible_left)
+            side
+            for side in unjoined
+            if any(facts.paired(side, left) for left in walked)
         ]
-        open_edges = touching or [
-            e for e in edges if not ({e[1], e[2]} & eligible_left)
-        ]
-        if not open_edges:
-            break
-        root = open_edges[0][0]
-        key = root.key
-        # judged once, over the key's holders unjoined when it first ranks best
-        multi_partial = opened.setdefault(
-            root,
-            sum(
-                1
-                for x in pivot_map[root]
-                if x not in eligible_left and key in facts.side(x).partials
-            )
-            > 1,
-        )
-        score_key = partial(
-            _score_join_candidate,
-            root=key,
-            facts=facts,
-            multi_partial=multi_partial,
-            anchor_sources=anchor_sources,
-        )
-        right = max(
-            (
-                side
-                for pivot, a, b in open_edges
-                if pivot == root
-                for side in (a, b)
-                if side not in eligible_left
-            ),
-            key=score_key,
-        )
+        right = min(touching or unjoined, key=facts.rank)
         if touching:
             output.append(_join_onto(right, walked, facts))
         elif eligible_left:
@@ -1145,7 +1079,7 @@ def _walk(
             )
             output.append(
                 JoinOrderOutput(
-                    left=min(eligible_left),
+                    left=min(eligible_left, key=facts.rank),
                     right=ds,
                     type=JoinType.INNER if one_row else JoinType.FULL,
                     keys={},
@@ -1236,18 +1170,38 @@ def preserved_sources(
 ) -> set[str]:
     """Identifiers of the sources whose every row survives the join tree.
     Joins are left-deep: a join that does not preserve its left side drops
-    rows of everything joined so far, and an UNNEST can drop rows too."""
+    rows of everything joined so far, and an UNNEST can drop rows too. A
+    right the join does not preserve keeps every row all the same when each
+    has a partner (`_partners_every_right_row`)."""
     right_ids = joined_right_ids(joins)
     alive = {ds.identifier for ds in datasets if ds.identifier not in right_ids}
     for join in joins:
         if not isinstance(join, Join):
             alive = set()
             continue
+        right_kept = join.join_type in PADS_LEFT_JOIN_TYPES or (
+            _partners_every_right_row(join, alive)
+        )
         if join.join_type not in PADS_RIGHT_JOIN_TYPES:
             alive = set()
-        if join.join_type in PADS_LEFT_JOIN_TYPES:
+        if right_kept:
             alive.add(join.right.identifier)
     return alive
+
+
+def _partners_every_right_row(join: Join, alive: set[str]) -> bool:
+    """A join on one key from a left whose every row survives and which holds
+    the key's whole domain: every right row with a key has a partner, so only
+    a NULL key on the right drops one (`trees LEFT JOIN ~species`)."""
+    pairs = join.pairs or []
+    if len(pairs) != 1:
+        return False
+    pair = pairs[0]
+    return (
+        pair.node.identifier in alive
+        and complete_key_domain(pair.node, pair.left.address)
+        and all(c.address != pair.right.address for c in join.right.nullable_concepts)
+    )
 
 
 def merge_partial_addresses(
@@ -1404,7 +1358,7 @@ def _whole_coalesce_groups(
     kept_ids = {id(pair) for pair in kept}
     restore = {
         id(pair)
-        for group in coalesced_key_groups(pairs)
+        for group in coalesced_key_groups(pairs, _pair_source)
         if any(id(p) in kept_ids for p in group)
         for pair in group
     }
@@ -2448,6 +2402,7 @@ def _side_facts(
         <= {canon_node(c.address) for c in datasource.output_concepts} - own_partials,
         one_row=bool(concepts)
         and all(c.granularity == Granularity.SINGLE_ROW for c in visible),
+        arm=_reads_arm(datasource),
         # A side holding a region's rows (its domain, or whatever read it)
         # hosts that region's extension rows on the join keyed by its span,
         # whatever columns it emits: the contract, not an inference from the
@@ -2473,6 +2428,160 @@ def _side_facts(
     return facts, concepts
 
 
+def _declared_subset_keys(environment: BuildEnvironment) -> frozenset[str]:
+    """Every key a declared `subset` relation names, member or anchor."""
+    graph = environment.domain_graph
+    return frozenset(
+        address
+        for member, anchor in graph.declared_subset_pairs()
+        for address in (member, anchor, graph.canonical(anchor))
+    )
+
+
+def _reads_arm(datasource: DataSource) -> bool:
+    if isinstance(datasource, BuildDatasource):
+        grain = datasource.grain.components
+        return bool(grain) and grain <= {c.address for c in datasource.partial_concepts}
+    return len(datasource.datasources) == 1 and _reads_arm(datasource.datasources[0])
+
+
+def _subset_bindings(side: SideFacts, declared: frozenset[str]) -> frozenset[str]:
+    """The keys a side binds as `~`: its partials, or for an arm of a union
+    only those a `declared` subset relation names."""
+    return side.partials & declared if side.arm else side.partials
+
+
+def _binding_tiers(
+    sides: Mapping[str, SideFacts],
+    pair_keys: Mapping[frozenset[str], frozenset[str]],
+    declared: frozenset[str],
+) -> dict[str, int]:
+    """Where a side's `~` bindings put it: one partial on a key it pairs on
+    after every side that is not, and after those one binding a key as `~`
+    whose partner binds it completely (its anchor: the member's rows hang off
+    the anchor's)."""
+    tier: dict[str, int] = defaultdict(int)
+    for pair, keys in pair_keys.items():
+        if len(pair) != 2:
+            continue
+        for side, other in permutations(pair):
+            if _subset_bindings(sides[side], declared) & keys - sides[other].partials:
+                tier[side] = 2
+            elif sides[side].partials & keys:
+                tier[side] = max(tier[side], 1)
+    return tier
+
+
+def _key_holders(
+    pair_keys: Mapping[frozenset[str], frozenset[str]],
+) -> dict[str, set[str]]:
+    """Each planned key's holders: the sides the plan pairs on it."""
+    out: dict[str, set[str]] = defaultdict(set)
+    for pair, keys in pair_keys.items():
+        if len(pair) == 2:
+            for key in keys:
+                out[key] |= pair
+    return out
+
+
+def _solid_holders(
+    facts: JoinFacts, holders: Mapping[str, set[str]]
+) -> dict[str, set[str]]:
+    """Each value-nullable key's holders that hold no region, in a merge
+    where some side holds one: they pair on it before a region's rows unite.
+    A padded NULL is no member of the NULL group an aggregate the region does
+    not feed computes on the key."""
+    if not facts.held_spans:
+        return {}
+    out: dict[str, set[str]] = {}
+    for key, held_by in holders.items():
+        solid = {s for s in held_by if not facts.side(s).held_spans}
+        if len(solid) > 1 and any(key in facts.side(s).value_nullables for s in solid):
+            out[key] = solid
+    return out
+
+
+RowTerm = tuple[bool, bool, bool, int, int]
+
+
+def _key_row_terms(
+    facts: JoinFacts, holders: Mapping[str, set[str]]
+) -> list[tuple[RowTerm, set[str]]]:
+    """Where each planned key comes for what its holders' rows are, with the
+    holders it places. An AUTHORED key (scoped join / merge relation) comes
+    first: its equality is the pairing between its holders' rows, and sides
+    met on a cheaper shared key before it pair on that key alone. Then a
+    value-nullable key between the sides holding no region
+    (`_solid_holders`). Then a span some side holds a region on: the stitch
+    on the span unites the region's rows with its feeder before a key the
+    region CARRIES joins them, or a `~?` guest never reaches its NULL group.
+    A key held by a side holding several regions' rows comes after the others
+    are stitched: its NULL group holds their padded rows. Then the key the
+    plan pairs the fewest sides on: a side that also pairs on a wider key
+    meets its holders on both."""
+    out: list[tuple[RowTerm, set[str]]] = []
+    for key, held_by in holders.items():
+        others = max(len(facts.side(s).held_spans - {key}) for s in held_by)
+        term = (
+            key not in facts.authored_join_keys,
+            True,
+            key not in facts.held_spans,
+            others,
+            len(held_by),
+        )
+        out.append((term, held_by))
+    for solid in _solid_holders(facts, holders).values():
+        out.append(((True, False, False, 0, len(solid)), solid))
+    return out
+
+
+def _shape_terms(
+    ranks: Mapping[str, int],
+    sides: Mapping[str, SideFacts],
+    pair_keys: Mapping[frozenset[str], frozenset[str]],
+    declared: frozenset[str],
+) -> dict[str, tuple[int, int, bool]]:
+    """Where a side comes for the plan's shape alone: its `~` bindings
+    (`_binding_tiers`), then `ranks` (the plan's order), then, between sides
+    the plan ranks alike, the one holding the merge's rows, whose feeders
+    hang LEFT off it instead of meeting FULL before it arrives."""
+    tiers = _binding_tiers(sides, pair_keys, declared)
+    # a side the plan left out comes after the ones it states
+    last = max(ranks.values(), default=-1) + 1
+    return {
+        node: (tiers[node], ranks.get(node, last), not side.hosts)
+        for node, side in sides.items()
+    }
+
+
+def _places(terms: Mapping[str, Any]) -> dict[str, int]:
+    """Each side's place under its term; sides of one term share a place."""
+    place = {term: i for i, term in enumerate(sorted(set(terms.values())))}
+    return {node: place[term] for node, term in terms.items()}
+
+
+def _stated_order(
+    ranks: Mapping[str, int], facts: JoinFacts, declared: frozenset[str]
+) -> dict[str, int]:
+    """The one order the walk joins a merge's sides in. A side comes where
+    the best key the plan pairs it on puts it: a key is placed by what its
+    holders' rows are (`_key_row_terms`), then by where the plan's shape
+    puts those holders (`_shape_terms`, over `ranks`, the plan's order), so
+    a lookup follows the rows it hangs off. Sides one key places alike come
+    in the shape's order. All of it reads the built sides, so no plan states
+    it: resolve does, once for the merge, before the walk."""
+    sides, pair_keys = facts.sides, facts.pair_keys
+    shape = _places(_shape_terms(ranks, sides, pair_keys, declared))
+    best: dict[str, tuple[RowTerm, tuple[int, ...]]] = {}
+    for rows, held_by in _key_row_terms(facts, _key_holders(pair_keys)):
+        term = (rows, tuple(sorted(shape[side] for side in held_by)))
+        for side in held_by:
+            best[side] = min(best.get(side, term), term)
+    # a side the plan pairs on nothing comes after the ones it pairs
+    unpaired = ((True, True, True, len(sides), len(sides)), ())
+    return _places({node: (best.get(node, unpaired), shape[node]) for node in sides})
+
+
 def get_node_joins(
     datasources: list[DataSource],
     environment: BuildEnvironment,
@@ -2482,13 +2591,18 @@ def get_node_joins(
     keyspace: Keyspace | None = None,
     *,
     planned_pairs: Mapping[frozenset[str], frozenset[str]],
+    side_ranks: Mapping[str, int] | None = None,
+    seed: str | None = None,
 ) -> list[SourceJoin]:
     """`keyspace` is the plan's, for the spans it can pad for, the spellings a
     rowset body pads them under and its region partition. `planned_pairs` is
     the merge's join plan pair by pair of sides (by datasource identifier):
     two sides pair only on what the plan pairs them on, and a column two sides
-    merely share is no key. Resolve orders and types the joins; it never
-    chooses a key."""
+    merely share is no key. `side_ranks` is each side's place in the plan's
+    order (by identifier), which the order the walk reads is stated over
+    (`_stated_order`). `seed` is the side the walk
+    starts from when the merge's rows are that side's. Resolve orders and
+    types the joins; it never chooses a key."""
     keyspace = keyspace or Keyspace()
 
     # each pseudonym class is one graph node, named by a source's own output
@@ -2592,6 +2706,18 @@ def get_node_joins(
         demanded_domains=frozenset(canon_node(a) for a in demanded_domains),
         span_families=span_families,
         pair_keys=pair_nodes,
+        seed=f"ds~{seed}" if seed else None,
+    )
+    facts = replace(
+        facts,
+        side_ranks=_stated_order(
+            {
+                f"ds~{identifier}": rank
+                for identifier, rank in (side_ranks or {}).items()
+            },
+            facts,
+            frozenset(canon_node(a) for a in _declared_subset_keys(environment)),
+        ),
     )
     merge = _Merge(facts, ds_node_map, ds_concept_map, spellings, canon_node, memo)
     joins = resolve_join_order_v2(facts)

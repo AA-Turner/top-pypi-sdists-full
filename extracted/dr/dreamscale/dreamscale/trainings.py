@@ -35,7 +35,7 @@ import httpx
 from dreamscale_transport.training_data import split_columns
 
 from dreamscale import errors
-from dreamscale.config import dashboard_url, dreamscale_home, load_config
+from dreamscale.config import dashboard_url, dreamscale_home, load_config, warn_engine_ignored
 from dreamscale.control import ControlPlaneClient
 
 POLL_S = 5.0
@@ -1068,17 +1068,20 @@ class Training:
         completed. Deployments made from its checkpoints keep running."""
         call(self._client_factory, "delete_training", self.id)
 
-    def deploy(self, step: int | None = None, *, region: str | None = "auto",
-               executed: int | None = None, engine: str | None = None) -> dict:
+    def deploy(
+        self, step: int | None = None, *, region: str | None = "auto",
+        executed: int | None = None,
+        engine: str | None = None,  # accepted from older code, ignored (one engine)
+    ) -> dict:
         """A Deployment of a checkpoint (1-based ``step``; default the latest). It validates
         on a GPU first; pass its ``model`` and ``id`` to ``dreamscale.connect``. ``region``: a
         region id such as ``"japan"``, or ``"auto"`` (the default), the nearest region its base
         serves, measured from here as ``dreamscale train deploy`` does (the server's default
         when nothing could be measured). ``executed``: the rows the robot executes per chunk
-        (default: the run's own). ``engine``: where its base offers a choice (Praxis-1),
-        ``"standard"`` (the default) or ``"lightning"`` (experimental: the same actions, sooner)."""
+        (default: the run's own)."""
         from dreamscale.checkpoints_cmd import AUTO_REGION, _check_region, parse_region
 
+        warn_engine_ignored(engine)
         region = parse_region(region)
         if region == AUTO_REGION:
             base = self.data.get("base") or call(
@@ -1090,7 +1093,6 @@ class Training:
         result = call(
             self._client_factory, "deploy_training", self.id, step=step, region=region,
             **({"executed_actions": executed} if executed is not None else {}),
-            **({"engine": engine} if engine is not None else {}),
         )
         return result.get("deployment") or result
 

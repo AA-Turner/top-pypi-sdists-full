@@ -15,16 +15,19 @@ import sys
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from lens import (
+    advisory,  # noqa: E402
+    holistic,  # noqa: E402
+)
 from lens import agent as agent_mod  # noqa: E402
 from lens import context as lens_context  # noqa: E402
 from lens import findings as findings_mod  # noqa: E402
-from lens import holistic  # noqa: E402
 from lens import review as review_mod  # noqa: E402
 from lens.agent import BundleResult  # noqa: E402
 from lens.bundle import group  # noqa: E402
@@ -6832,3 +6835,308 @@ def test_a_stream_cut_mid_chunk_is_retried_as_transport_weather():
     )
     c.complete("x", [{"role": "user", "content": "hi"}], max_tokens=5)
     assert len(calls) == 2
+
+
+# ---- a request the model provider refuses (provider_rejected) -----------------------------------
+
+
+def _refused(pad: int = 400):
+    """The gateway's refusal, longer than any old truncation limit, so a test can
+    prove the run report keeps it whole."""
+    body = {
+        "error": {
+            "code": "invalid_request",
+            "fault": "gateway",
+            "message": "The request is not valid." + " detail" * (pad // 7),
+            "param": None,
+            "reason": "provider_rejected",
+            "retryable": False,
+        }
+    }
+    return 400, {}, json.dumps(body)
+
+
+def test_a_refused_request_is_not_retried_names_its_size_and_keeps_the_error_whole():
+    from lens.llm import ContentRejected  # noqa: PLC0415 - class under test
+
+    status, _, text = _refused()
+    sent = Script(_refused(), response())
+    c = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=sent)
+    with pytest.raises(ContentRejected) as exc:
+        c.complete("review:a", [{"role": "user", "content": "hi"}], max_tokens=5)
+    e = exc.value
+    assert e.stage == "review:a"
+    assert e.error == " ".join(text.split()) and len(e.error) > 300  # never cut
+    assert e.request_chars > 0 and e.input_tokens_est > 0
+    (call,) = c.calls
+    assert call["error"] == e.error and call["request_chars"] == e.request_chars
+    # Content-driven, not lens's request shape: the other bundles still review.
+    c.complete("review:b", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert len(sent.requests) == 2
+
+
+def test_consecutive_refusals_never_open_the_breaker_but_are_counted_as_failed():
+    """Every part of a PR can be refused (one did: all four). Each refusal is a
+    failed request, but none may stop a later bundle's call from being sent."""
+    from lens.llm import ContentRejected  # noqa: PLC0415 - class under test
+
+    sent = Script(*[_refused()] * 5, response())
+    led = Ledger(cap_usd=1)
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=led,
+        transport=sent,
+        max_consecutive_failures=3,
+    )
+    for i in range(5):
+        with pytest.raises(ContentRejected):
+            c.complete(f"review:{i}", [{"role": "user", "content": "hi"}], max_tokens=5)
+    c.complete("review:last", [{"role": "user", "content": "hi"}], max_tokens=5)
+    assert len(sent.requests) == 6  # every call was sent
+    assert led.failed_requests == 5
+
+
+def test_every_failed_call_keeps_its_whole_redacted_error_in_the_run_report():
+    long = '{"error": "' + "x" * 500 + ' key sk-abc123def"}'
+    c = Client(
+        model="m",
+        price=PRICE,
+        ledger=Ledger(cap_usd=1),
+        transport=Script((401, {}, long)),
+    )
+    with pytest.raises(FatalRequestError) as exc:
+        c.complete("review:a", [{"role": "user", "content": "hi"}], max_tokens=5)
+    err = c.calls[0]["error"]
+    assert len(err) > 500 and err.endswith('sk-…"}') and "sk-abc" not in err
+    assert "sk-abc" not in str(exc.value)
+
+
+def test_a_turn_zero_refusal_names_the_first_prompts_files_and_hunks(repo: Path):
+    ws, bundle = _ws(repo)
+    script = Script(_refused())
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+    res = agent_mod.review_bundle(
+        client,
+        ws,
+        bundle,
+        RuleSet([], {}),
+        {"title": "t", "body": "b"},
+        [],
+        agent_mod.AgentLimits(),
+    )
+    assert res.stop == "refused"
+    r = res.refusal
+    assert r["turn"] == 0 and r["stage"] == f"review:{bundle.label}"
+    assert r["request_chars"] > 0 and "provider_rejected" in r["error"]
+    kinds = [s["kind"] for s in r["suspects"]]
+    assert kinds[:2] == ["pr_description", "context"] and "diff" in kinds
+    diff = next(s for s in r["suspects"] if s["kind"] == "diff")
+    assert diff["files"] == {"application_sdk/storage/fetch.py": ["1-4"]}
+    assert agent_mod.suspect_paths(r)[-1] == "application_sdk/storage/fetch.py"
+    # Counts and locations only: no line of the PR's code is in the record.
+    assert "data.decode()" not in json.dumps(r)
+
+
+def test_a_later_refusal_suspects_only_what_the_last_tool_call_pulled_in(repo: Path):
+    ws, bundle = _ws(repo)
+    script = Script(
+        response(
+            [
+                tool_call(
+                    "read_file",
+                    {
+                        "file_path": "tests/unit/test_fetch.py",
+                        "start_line": 1,
+                        "end_line": 4,
+                    },
+                )
+            ]
+        ),
+        _refused(),
+    )
+    client = Client(model="m", price=PRICE, ledger=Ledger(cap_usd=1), transport=script)
+    res = agent_mod.review_bundle(
+        client, ws, bundle, RuleSet([], {}), {}, [], agent_mod.AgentLimits()
+    )
+    assert res.stop == "refused" and res.refusal["turn"] == 1
+    (suspect,) = res.refusal["suspects"]
+    assert suspect["kind"] == "tool" and suspect["tool"] == "read_file"
+    assert suspect["files"] == {"tests/unit/test_fetch.py": ["1-4"]}
+    assert len(res.refusal["sent"]) > 1  # the whole prompt is still listed
+
+
+def test_a_refused_review_does_not_tell_the_author_to_retry_and_reports_the_suspects(
+    repo: Path,
+):
+    from lens import report  # noqa: PLC0415 - module under test
+
+    gh = FakeGitHub()
+    res = run(
+        gh=cast(GitHub, gh),
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=load_rules(repo / ".github" / "lens"),
+        client_factory=_factory(Script(_refused())),
+    )
+    assert res.failed and res.incomplete
+    body = next(c["body"] for c in gh.comments if SUMMARY_MARKER in c["body"])
+    assert "Review incomplete" in body
+    assert "Comment `/lens` to retry" not in body
+    assert "refused again" in body and "`application_sdk/storage/fetch.py`" in body
+
+    rep = report.build(res)
+    (b,) = [b for b in rep["bundles"] if b.get("refusal")]
+    assert "provider_rejected" in b["error"] and len(b["error"]) > 300
+    assert len(b["refusal"]["error"]) > 300
+    md = report.markdown(rep, 1)
+    assert "Refused by the model provider" in md and "provider_rejected" in md
+    assert "application_sdk/storage/fetch.py" in md
+
+
+def test_a_refusal_beside_a_transport_failure_still_offers_a_retry_for_the_other_part():
+    res = RunResult(action="reviewed")
+    res.bundles = [
+        BundleResult(label="a", stop="refused", refusal={"suspects": []}),
+        BundleResult(label="b", stop="llm_error", error="HTTP 503"),
+    ]
+    res.incomplete = ["a: refused", "b: llm_error"]
+    hint = review_mod._retry_hint(res)
+    assert "refused again" in hint and "other parts that failed" in hint
+
+
+# ---- advisory notes: rules no code change can satisfy ------------------------------
+
+PYPROJECT_DIFF = """\
+diff --git a/pyproject.toml b/pyproject.toml
+index 1111111..2222222 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -1,3 +1,3 @@
+ [project]
+ name = "x"
+-dependencies = ["dnspython>=2.7"]
++dependencies = ["dnspython>=2.8"]
+"""
+
+
+def test_a_dependency_change_gets_a_scan_advisory_not_a_finding(repo: Path):
+    """The trivy/grype scan rule asks for something only the PR description can
+    show, and verify judges only code, so a finding for it could never close. A
+    dependency-only diff with no scan in its description therefore draws no finding
+    (the real build-config card no longer asks for one) and does carry a
+    non-blocking advisory note in the summary, which survives a later re-render."""
+    real_cfg = Path(__file__).resolve().parents[2] / "lens"
+    (repo / "pyproject.toml").write_text(
+        '[project]\nname = "x"\ndependencies = ["dnspython>=2.8"]\n'
+    )
+    gh = FakeGitHub(
+        diffs={("b0", "h1"): PYPROJECT_DIFF},
+        files={
+            ("pyproject.toml", "h1"): (repo / "pyproject.toml").read_text(),
+        },
+    )
+    script = Script()  # the reviewer raises nothing and calls task_done
+    res = run(
+        gh=cast(GitHub, gh),
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=load_rules(real_cfg),
+        client_factory=_factory(script),
+    )
+    sent = json.dumps(script.requests)
+    assert "build-config" in sent  # the card did reach the reviewer
+    # No card line asks the reviewer to flag a missing scan.
+    assert not re.search(r"- Flag:[^\n\\]*trivy", sent)
+    assert res.state is not None and res.state.open_findings() == []
+    [summary] = gh.comments
+    body = summary["body"]
+    assert "Ready to merge" in body
+    assert "**Advisory** (does not block)" in body
+    advisory = body.split("**Advisory** (does not block)")[1].split("\n")[0]
+    assert (
+        "trivy" in advisory and "grype" in advisory and "`pyproject.toml`" in advisory
+    )
+    # A later round, dismiss or recheck re-renders from stored state: the note stays.
+    back = PRState.decode(body)
+    assert back is not None and back.advisories == res.state.advisories
+    again = render_summary(RunResult("reviewed", mode="full", state=back))
+    assert "**Advisory** (does not block)" in again
+
+
+def test_a_code_only_change_gets_no_scan_advisory(repo: Path):
+    gh = FakeGitHub()
+    res = run(
+        gh=cast(GitHub, gh),
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=load_rules(repo / ".github" / "lens"),
+        client_factory=_factory(Script()),
+    )
+    assert res.state is not None and res.state.advisories == []
+    assert "**Advisory**" not in gh.comments[0]["body"]
+
+
+def test_state_from_a_newer_lens_with_unknown_fields_still_decodes():
+    """A field added by a later lens (or dropped by a revert) must not make every
+    PR's stored state unreadable."""
+    st = PRState(
+        round=2,
+        findings=[Finding("a.py", 1, "low", "bug", "t", "b", "x = 1")],
+    )
+    body = st.encode()
+    raw = json.loads(
+        findings_mod.zlib.decompress(
+            findings_mod.base64.b64decode(
+                re.search(r"<!-- [^:]+:(\S+) -->", body).group(1)  # type: ignore[union-attr]
+            )
+        )
+    )
+    raw["some_future_field"] = [1]
+    raw["findings"][0]["some_future_finding_field"] = "x"  # nested, too
+    blob = findings_mod.base64.b64encode(
+        findings_mod.zlib.compress(json.dumps(raw).encode())
+    ).decode()
+    back = PRState.decode(f"<!-- {findings_mod.STATE_MARKER}:{blob} -->")
+    assert back is not None and back.round == 2
+    assert [f.title for f in back.findings] == ["t"]
+
+
+DOCKERFILE_RENAME_DIFF = """\
+diff --git a/Dockerfile b/container.build
+similarity index 100%
+rename from Dockerfile
+rename to container.build
+"""
+
+
+def test_renaming_a_dockerfile_away_still_gets_the_scan_advisory(repo: Path):
+    """A rename's diff entry carries its destination as the path; the Dockerfile it
+    renames away still changed, so its former name must count."""
+    gh = FakeGitHub(
+        diffs={("b0", "h1"): DOCKERFILE_RENAME_DIFF},
+        files={("container.build", "h1"): "FROM scratch\n"},
+    )
+    res = run(
+        gh=cast(GitHub, gh),
+        number=1,
+        root=repo,
+        cfg=cfg_for(repo),
+        rules=load_rules(repo / ".github" / "lens"),
+        client_factory=_factory(Script()),
+    )
+    assert res.state is not None
+    [note] = res.state.advisories
+    assert "`Dockerfile`" in note
+
+
+def test_a_path_holding_backticks_cannot_break_out_of_its_code_span():
+    """Paths come from the PR, so a backtick in one must not close the code span and
+    let the rest render as Markdown in lens's own summary."""
+    [note] = advisory.notes(["Dockerfile`**spoof**`x"])
+    assert "`` Dockerfile`**spoof**`x ``" in note
+    [note] = advisory.notes(["a/Dockerfile\n## heading"])
+    assert "\n" not in note

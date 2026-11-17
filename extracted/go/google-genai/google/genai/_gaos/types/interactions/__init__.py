@@ -36,13 +36,25 @@ if TYPE_CHECKING:
         AntigravityAgentConfigParam,
     )
     from .argumentsdelta import ArgumentsDelta, ArgumentsDeltaTypedDict
-    from .audiocontent import AudioContent, AudioContentMimeType, AudioContentParam
+    from .audiocontent import (
+        AudioContent,
+        AudioContentMimeType,
+        AudioContentParam,
+        AudioProcessing,
+        AudioProcessingEnum,
+        AudioProcessingParam,
+    )
     from .audiodelta import AudioDelta, AudioDeltaMimeType, AudioDeltaTypedDict
+    from .audiomediaprocessing import AudioMediaProcessing, AudioMediaProcessingParam
     from .audioresponseformat import (
         AudioResponseFormat,
         AudioResponseFormatDelivery,
         AudioResponseFormatMimeType,
         AudioResponseFormatParam,
+    )
+    from .audiostaticmediaprocessing import (
+        AudioStaticMediaProcessing,
+        AudioStaticMediaProcessingParam,
     )
     from .codeexecution import CodeExecution, CodeExecutionParam
     from .codeexecutioncallarguments import (
@@ -100,11 +112,22 @@ if TYPE_CHECKING:
         DocumentContent,
         DocumentContentMimeType,
         DocumentContentParam,
+        DocumentProcessing,
+        DocumentProcessingEnum,
+        DocumentProcessingParam,
     )
     from .documentdelta import (
         DocumentDelta,
         DocumentDeltaMimeType,
         DocumentDeltaTypedDict,
+    )
+    from .documentmediaprocessing import (
+        DocumentMediaProcessing,
+        DocumentMediaProcessingParam,
+    )
+    from .documentstaticmediaprocessing import (
+        DocumentStaticMediaProcessing,
+        DocumentStaticMediaProcessingParam,
     )
     from .dynamicagentconfig import DynamicAgentConfig, DynamicAgentConfigParam
     from .empty import Empty, EmptyTypedDict
@@ -303,6 +326,11 @@ if TYPE_CHECKING:
     from .modalitytokens import ModalityTokens, ModalityTokensTypedDict
     from .model import Model
     from .modeloutputstep import ModelOutputStep, ModelOutputStepParam
+    from .pageprocessingoptions import (
+        PageProcessingOptions,
+        PageProcessingOptionsContentLayer,
+        PageProcessingOptionsParam,
+    )
     from .parallelaisearchconfig import (
         ParallelAISearchConfig,
         ParallelAISearchConfigParam,
@@ -354,7 +382,16 @@ if TYPE_CHECKING:
     from .speakerconfig import SpeakerConfig, SpeakerConfigParam
     from .speechannotation import SpeechAnnotation, SpeechAnnotationParam
     from .speechconfig import SpeechConfig, SpeechConfigParam
-    from .staticmediaprocessing import StaticMediaProcessing, StaticMediaProcessingParam
+    from .spreadsheetprocessingoptions import (
+        SpreadsheetProcessingOptions,
+        SpreadsheetProcessingOptionsContentLayer,
+        SpreadsheetProcessingOptionsParam,
+    )
+    from .staticmediaprocessing import (
+        StaticMediaProcessing,
+        StaticMediaProcessingContentLayer,
+        StaticMediaProcessingParam,
+    )
     from .status import Status, StatusParam
     from .step import Step, StepParam, UnknownStep
     from .stepdelta import StepDelta, StepDeltaTypedDict
@@ -390,6 +427,18 @@ if TYPE_CHECKING:
     from .tool import Tool, ToolParam, UnknownTool
     from .toolchoiceconfig import ToolChoiceConfig, ToolChoiceConfigParam
     from .toolchoicetype import ToolChoiceType
+    from .toolsearch import Execution, ToolSearch, ToolSearchParam
+    from .toolsearchcalldelta import ToolSearchCallDelta, ToolSearchCallDeltaTypedDict
+    from .toolsearchcallstep import ToolSearchCallStep, ToolSearchCallStepParam
+    from .toolsearchcallsteparguments import (
+        ToolSearchCallStepArguments,
+        ToolSearchCallStepArgumentsParam,
+    )
+    from .toolsearchresultdelta import (
+        ToolSearchResultDelta,
+        ToolSearchResultDeltaTypedDict,
+    )
+    from .toolsearchresultstep import ToolSearchResultStep, ToolSearchResultStepParam
     from .transcriptionconfig import (
         TranscriptionConfig,
         TranscriptionConfigMode,
@@ -467,10 +516,17 @@ __all__ = [
     "AudioDelta",
     "AudioDeltaMimeType",
     "AudioDeltaTypedDict",
+    "AudioMediaProcessing",
+    "AudioMediaProcessingParam",
+    "AudioProcessing",
+    "AudioProcessingEnum",
+    "AudioProcessingParam",
     "AudioResponseFormat",
     "AudioResponseFormatDelivery",
     "AudioResponseFormatMimeType",
     "AudioResponseFormatParam",
+    "AudioStaticMediaProcessing",
+    "AudioStaticMediaProcessingParam",
     "CodeExecution",
     "CodeExecutionCallArguments",
     "CodeExecutionCallArgumentsParam",
@@ -515,6 +571,13 @@ __all__ = [
     "DocumentDelta",
     "DocumentDeltaMimeType",
     "DocumentDeltaTypedDict",
+    "DocumentMediaProcessing",
+    "DocumentMediaProcessingParam",
+    "DocumentProcessing",
+    "DocumentProcessingEnum",
+    "DocumentProcessingParam",
+    "DocumentStaticMediaProcessing",
+    "DocumentStaticMediaProcessingParam",
     "DynamicAgentConfig",
     "DynamicAgentConfigParam",
     "Empty",
@@ -534,6 +597,7 @@ __all__ = [
     "ErrorTypedDict",
     "ExaAISearchConfig",
     "ExaAISearchConfigParam",
+    "Execution",
     "FileCitation",
     "FileCitationParam",
     "FileContent",
@@ -687,6 +751,9 @@ __all__ = [
     "Network",
     "NetworkEnum",
     "NetworkParam",
+    "PageProcessingOptions",
+    "PageProcessingOptionsContentLayer",
+    "PageProcessingOptionsParam",
     "ParallelAISearchConfig",
     "ParallelAISearchConfigParam",
     "PlaceCitation",
@@ -751,7 +818,11 @@ __all__ = [
     "SpeechConfigParam",
     "SpeechConfigUnion",
     "SpeechConfigUnionParam",
+    "SpreadsheetProcessingOptions",
+    "SpreadsheetProcessingOptionsContentLayer",
+    "SpreadsheetProcessingOptionsParam",
     "StaticMediaProcessing",
+    "StaticMediaProcessingContentLayer",
     "StaticMediaProcessingParam",
     "Status",
     "StatusParam",
@@ -795,6 +866,18 @@ __all__ = [
     "ToolChoiceParam",
     "ToolChoiceType",
     "ToolParam",
+    "ToolSearch",
+    "ToolSearchCallDelta",
+    "ToolSearchCallDeltaTypedDict",
+    "ToolSearchCallStep",
+    "ToolSearchCallStepArguments",
+    "ToolSearchCallStepArgumentsParam",
+    "ToolSearchCallStepParam",
+    "ToolSearchParam",
+    "ToolSearchResultDelta",
+    "ToolSearchResultDeltaTypedDict",
+    "ToolSearchResultStep",
+    "ToolSearchResultStepParam",
     "TranscriptionConfig",
     "TranscriptionConfigMode",
     "TranscriptionConfigModeEnum",
@@ -876,13 +959,20 @@ _dynamic_imports: dict[str, str] = {
     "AudioContent": ".audiocontent",
     "AudioContentMimeType": ".audiocontent",
     "AudioContentParam": ".audiocontent",
+    "AudioProcessing": ".audiocontent",
+    "AudioProcessingEnum": ".audiocontent",
+    "AudioProcessingParam": ".audiocontent",
     "AudioDelta": ".audiodelta",
     "AudioDeltaMimeType": ".audiodelta",
     "AudioDeltaTypedDict": ".audiodelta",
+    "AudioMediaProcessing": ".audiomediaprocessing",
+    "AudioMediaProcessingParam": ".audiomediaprocessing",
     "AudioResponseFormat": ".audioresponseformat",
     "AudioResponseFormatDelivery": ".audioresponseformat",
     "AudioResponseFormatMimeType": ".audioresponseformat",
     "AudioResponseFormatParam": ".audioresponseformat",
+    "AudioStaticMediaProcessing": ".audiostaticmediaprocessing",
+    "AudioStaticMediaProcessingParam": ".audiostaticmediaprocessing",
     "CodeExecution": ".codeexecution",
     "CodeExecutionParam": ".codeexecution",
     "CodeExecutionCallArguments": ".codeexecutioncallarguments",
@@ -927,9 +1017,16 @@ _dynamic_imports: dict[str, str] = {
     "DocumentContent": ".documentcontent",
     "DocumentContentMimeType": ".documentcontent",
     "DocumentContentParam": ".documentcontent",
+    "DocumentProcessing": ".documentcontent",
+    "DocumentProcessingEnum": ".documentcontent",
+    "DocumentProcessingParam": ".documentcontent",
     "DocumentDelta": ".documentdelta",
     "DocumentDeltaMimeType": ".documentdelta",
     "DocumentDeltaTypedDict": ".documentdelta",
+    "DocumentMediaProcessing": ".documentmediaprocessing",
+    "DocumentMediaProcessingParam": ".documentmediaprocessing",
+    "DocumentStaticMediaProcessing": ".documentstaticmediaprocessing",
+    "DocumentStaticMediaProcessingParam": ".documentstaticmediaprocessing",
     "DynamicAgentConfig": ".dynamicagentconfig",
     "DynamicAgentConfigParam": ".dynamicagentconfig",
     "Empty": ".empty",
@@ -1109,6 +1206,9 @@ _dynamic_imports: dict[str, str] = {
     "Model": ".model",
     "ModelOutputStep": ".modeloutputstep",
     "ModelOutputStepParam": ".modeloutputstep",
+    "PageProcessingOptions": ".pageprocessingoptions",
+    "PageProcessingOptionsContentLayer": ".pageprocessingoptions",
+    "PageProcessingOptionsParam": ".pageprocessingoptions",
     "ParallelAISearchConfig": ".parallelaisearchconfig",
     "ParallelAISearchConfigParam": ".parallelaisearchconfig",
     "PlaceCitation": ".placecitation",
@@ -1169,7 +1269,11 @@ _dynamic_imports: dict[str, str] = {
     "SpeechAnnotationParam": ".speechannotation",
     "SpeechConfig": ".speechconfig",
     "SpeechConfigParam": ".speechconfig",
+    "SpreadsheetProcessingOptions": ".spreadsheetprocessingoptions",
+    "SpreadsheetProcessingOptionsContentLayer": ".spreadsheetprocessingoptions",
+    "SpreadsheetProcessingOptionsParam": ".spreadsheetprocessingoptions",
     "StaticMediaProcessing": ".staticmediaprocessing",
+    "StaticMediaProcessingContentLayer": ".staticmediaprocessing",
     "StaticMediaProcessingParam": ".staticmediaprocessing",
     "Status": ".status",
     "StatusParam": ".status",
@@ -1213,6 +1317,19 @@ _dynamic_imports: dict[str, str] = {
     "ToolChoiceConfig": ".toolchoiceconfig",
     "ToolChoiceConfigParam": ".toolchoiceconfig",
     "ToolChoiceType": ".toolchoicetype",
+    "Execution": ".toolsearch",
+    "ToolSearch": ".toolsearch",
+    "ToolSearchParam": ".toolsearch",
+    "ToolSearchCallDelta": ".toolsearchcalldelta",
+    "ToolSearchCallDeltaTypedDict": ".toolsearchcalldelta",
+    "ToolSearchCallStep": ".toolsearchcallstep",
+    "ToolSearchCallStepParam": ".toolsearchcallstep",
+    "ToolSearchCallStepArguments": ".toolsearchcallsteparguments",
+    "ToolSearchCallStepArgumentsParam": ".toolsearchcallsteparguments",
+    "ToolSearchResultDelta": ".toolsearchresultdelta",
+    "ToolSearchResultDeltaTypedDict": ".toolsearchresultdelta",
+    "ToolSearchResultStep": ".toolsearchresultstep",
+    "ToolSearchResultStepParam": ".toolsearchresultstep",
     "TranscriptionConfig": ".transcriptionconfig",
     "TranscriptionConfigMode": ".transcriptionconfig",
     "TranscriptionConfigModeEnum": ".transcriptionconfig",

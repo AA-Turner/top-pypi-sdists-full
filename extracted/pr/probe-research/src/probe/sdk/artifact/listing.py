@@ -11,6 +11,8 @@ from .. import errors
 
 _PAGINATION_HEADER = "X-Artifact-Pagination"
 _PAGINATION_VERSION = "offset-v1"
+#: A full page of a run's own files names the next one; an older server sends none and pages by offset.
+_NEXT_CURSOR_HEADER = "X-Next-Cursor"
 _PAGE_LIMIT = 1000
 
 
@@ -22,7 +24,9 @@ def read_artifact_rows(
 
     An old server ignores offset, so a limit probe would lose rows or loop.
     Repeated IDs or a capability change raise instead of returning a wrong
-    inventory. No snapshot isolation against concurrent deletes: read a settled run.
+    inventory. A server cursor anchors each page to the last row read, so a file
+    deleted or moved mid-read never skips another; offset alone (an older server)
+    can, so read a settled run there.
     """
     response = fetch(params or None)
     page = response.json()
@@ -50,5 +54,9 @@ def read_artifact_rows(
         seen.update(ids)
         if len(page) < _PAGE_LIMIT:
             return rows
-        response = fetch({**(params or {}), "limit": _PAGE_LIMIT, "offset": len(rows)})
+        cursor = response.headers.get(_NEXT_CURSOR_HEADER)
+        response = fetch({
+            **(params or {}), "limit": _PAGE_LIMIT, "offset": len(rows),
+            **({"cursor": cursor} if cursor else {}),
+        })
         page = response.json()

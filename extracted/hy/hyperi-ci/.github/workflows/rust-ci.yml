@@ -182,7 +182,7 @@ jobs:
     # The composite installs uv and runs its config readers with PyYAML, so
     # the default set is enough (issue #291). It runs before the mode is
     # resolved, so it reads the payload's visibility directly.
-    runs-on: ${{ ((inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || !(inputs.runner-mode || vars.GH_RUNNER_MODE) && github.event.repository.visibility == 'public') && 'ubuntu-latest' || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.pull_request.head.repo.fork || (inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || !(inputs.runner-mode || vars.GH_RUNNER_MODE) && github.event.repository.visibility == 'public') && 'ubuntu-latest' || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
     # semantic-release's git plugin verifies push access (`git push --dry-run`)
     # on a publish predict, which needs write. A fork PR never reaches that
     # (will-publish is false off main), so its read-only token resolves the gates.
@@ -251,6 +251,28 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
         run: ${{ env.HYPERCI_INSTALL }} preflight
 
+      - name: Mint a token to dispatch the image mirror
+        # actions:write on hyperi-ci alone, to run mirror-images.yml. A fork PR
+        # has no secrets, so it skips this and `mirror ensure` only warns.
+        id: mirror-token
+        if: steps.predict.outputs.run-checks == 'true' && github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: hyperi-ci
+          permission-actions: write
+
+      - name: Serve the Docker Hub pins from the GHCR mirror
+        # Copies any pin the mirror lacks before Test pulls it. Warns, never
+        # fails: a test that pulls a missing image fails on its own.
+        if: steps.predict.outputs.run-checks == 'true'
+        env:
+          GH_TOKEN: ${{ steps.mirror-token.outputs.token }}
+        run: ${{ env.HYPERCI_INSTALL }} mirror ensure
+
       - name: Generate build matrix
         # Arch breadth keys off run-build: every run that builds at all builds both
         # arches, including a validate-only dispatch and a branch-mode PR. Keying it
@@ -314,7 +336,7 @@ jobs:
       github.event_name == 'merge_group'
     # Needs only git and uv, so no language variable (issue #291). It does not
     # wait for Plan, so it reads the payload's visibility directly.
-    runs-on: ${{ ((inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || !(inputs.runner-mode || vars.GH_RUNNER_MODE) && github.event.repository.visibility == 'public') && 'ubuntu-latest' || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
+    runs-on: ${{ (github.event.pull_request.head.repo.fork || (inputs.runner-mode || vars.GH_RUNNER_MODE) == 'free' || !(inputs.runner-mode || vars.GH_RUNNER_MODE) && github.event.repository.visibility == 'public') && 'ubuntu-latest' || vars.GH_RUNNER_DEFAULT || 'ubuntu-latest' }}
     # pull-requests: read reads the PR title live. A job-level block replaces the
     # workflow default, so contents: read is restated.
     permissions:
@@ -394,6 +416,30 @@ jobs:
       - name: Setup osv-scanner
         uses: hyperi-io/hyperi-ci/.github/actions/setup-osv-scanner@main
 
+      - name: Mint a token to read the diagram checker
+        # contents:read on hyperi-ai alone. A fork PR has no secrets, so it
+        # skips this and diagram-check skips with a note.
+        id: diagram-token
+        if: github.event.pull_request.head.repo.fork != true
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.GH_APP_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: hyperi-ai
+          permission-contents: read
+
+      - name: Fetch the diagram checker
+        # The checker is private hyperi-ai code, fetched here and never copied
+        # into hyperi-ci. Only this step sees the token.
+        id: diagram
+        if: steps.diagram-token.outputs.token != ''
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.diagram-token.outputs.token }}
+        run: ${{ env.HYPERCI_INSTALL }} fetch-diagram-check --dest "$RUNNER_TEMP/hyperi-ai-tools"
+
       - name: Deepen history for secret scan
         # gitleaks scans the branch git log, which a depth-1 checkout cuts to HEAD,
         # so deepen to cover the pushed range. The checkout keeps no credential, so
@@ -416,6 +462,7 @@ jobs:
       - name: Run quality checks
         env:
           GITLEAKS_GH_ACTIONS_KEY: ${{ secrets.GITLEAKS_GH_ACTIONS_KEY }}
+          HYPERCI_DIAGRAM_CHECK: ${{ steps.diagram.outputs.path }}
         run: ${{ env.HYPERCI_INSTALL }} run quality
 
   test:

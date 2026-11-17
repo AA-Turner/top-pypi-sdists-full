@@ -21,10 +21,10 @@ from nameparser._pipeline._vocab import (
     lexicon_cue,
     maiden_marker_run, name_word_count, period_joined_credential,
     period_joined_title, period_joined_vocab, written_as_a_name,
+    is_capitals_word,
     resolve_script_set, single_script, suffix_as_written, _joined_chunks,
 )
-from nameparser._policy import (Policy, Script, _NO_INITIALS,
-                                _SCRIPT_RANGES)
+from nameparser._policy import Policy, Script, _SCRIPT_RANGES
 
 _LEX = (Lexicon()
         .add("phd", "ma", kind="credential")
@@ -125,74 +125,6 @@ def test_strict_suffix_veto_skips_cjk() -> None:
     lex = Lexicon().add("씨", "様", kind="suffix")
     assert is_suffix_strict("씨.", lex)
     assert is_suffix_strict("様.", lex)
-
-
-def _representative(script: Script) -> str:
-    """The first codepoint of `script`'s _SCRIPT_RANGES spans that the
-    SHAPE half admits as an initial. Shape-admitted, not simply the
-    first codepoint: a range's first codepoint is often unassigned or
-    punctuation (KATAKANA's 0x30A0 is a hyphen, HIRAGANA's 0x3040 is
-    unassigned), which \\w does not match -- and testing is_initial on
-    such a character answers False for the SHAPE's reason, making the
-    repertoire assertion below vacuously green. Raising when no span
-    holds one is the point rather than a corner: a script whose
-    declared ranges contain no initial-shaped character at all has
-    ranges that do not describe it."""
-    for lo, hi in _SCRIPT_RANGES[script]:
-        for cp in range(lo, hi + 1):
-            if is_initial_shaped(chr(cp) + "."):
-                return chr(cp)
-    raise AssertionError(
-        f"no character in _SCRIPT_RANGES[{script}] is initial-SHAPED, "
-        f"so this script's declaration cannot be tested against "
-        f"is_initial -- check that the ranges are that script's")
-
-
-def test_every_script_is_classified_for_initials() -> None:
-    """A member joining Script must be classified here on purpose;
-    _policy._NO_INITIALS carries the reasoning.
-
-    The classification lives in this table rather than the assertion
-    being `set(Script) == set(_NO_INITIALS)`: that passes trivially
-    today, since all four current members are CJK, and the only way to
-    green it again after adding a script would be to declare that
-    script initial-less. That prejudges the answer. The point is to
-    force a decision, not a particular one.
-
-    Three bindings, not two: the table covers Script, the table's
-    False rows are _NO_INITIALS, and -- the one that makes this a
-    behavioral test rather than a comparison of two constants -- each
-    row is checked against is_initial on a character DERIVED from that
-    script's own _SCRIPT_RANGES entry. Without the third, a script
-    declared initial-less under ranges that are not its own passes all
-    the way through while is_initial still says yes to its characters.
-    """
-    has_initials = {
-        Script.HAN: False,       # ideographs are morphemes
-        Script.HANGUL: False,    # syllable blocks
-        Script.HIRAGANA: False,  # syllables
-        Script.KATAKANA: False,  # syllables
-    }
-    assert set(has_initials) == set(Script), (
-        "a Script member is unclassified for initials: decide whether "
-        "a single character of it can stand in for a name, add the row, "
-        "and put it in _policy._NO_INITIALS if it cannot")
-    assert {s for s, yes in has_initials.items() if not yes} \
-        == set(_NO_INITIALS), (
-        "this table and _policy._NO_INITIALS disagree about which "
-        "scripts have initials: a row here saying False is what puts a "
-        "script in the constant, so add the missing member to "
-        "_NO_INITIALS -- or, if the constant is the one that's right, "
-        "flip the row")
-    for script, yes in has_initials.items():
-        char = _representative(script)
-        assert is_initial(char + ".") is yes, (
-            f"the declaration for {script} does not reach is_initial: "
-            f"the row says has_initials={yes}, but is_initial("
-            f"{char + '.'!r}) -- on a character taken from "
-            f"_SCRIPT_RANGES[{script}] -- says {not yes}. Either the "
-            f"ranges are not this script's, or _NO_INITIALS and the "
-            f"repertoire predicate have come apart")
 
 
 def test_strict_suffix_initial_veto() -> None:
@@ -792,6 +724,16 @@ def test_is_title_shaped_is_h2_s_shape_alone() -> None:
     assert not is_title_shaped("MA.", lex)
     assert is_title_shaped("Chas.", lex.add(
         "chas", kind="given", same_as=None))
+    # rules/H2's transliteration-digraph Except: a digraph in the set is
+    # the initial of one Cyrillic letter, in any case (#1136). Ts, Ch and
+    # Sh, also titles written short, keep the shape; so do the spellings
+    # outside the set (Greek or Dutch Th., LC's Iu.) and a longer word
+    # opening with a digraph (Yuk.) -- decisions/H2 (#1136)
+    for word in ("Yu.", "YU.", "yu.", "Ya.", "Ye.", "Yo.", "Zh.", "Kh.",
+                 "Shch.", "Dzh."):
+        assert not is_title_shaped(word, lex), word
+    for word in ("Ts.", "Ch.", "Sh.", "Th.", "Iu.", "Yuk."):
+        assert is_title_shaped(word, lex), word
 
 
 def test_name_word_count_counts_names_not_tokens() -> None:
@@ -822,9 +764,10 @@ def test_name_word_count_counts_names_not_tokens() -> None:
     assert name_word_count(["Smith", "Jr"], lex, pol) == 1
 
 
-# Stored form: space-joined, per-word normalized -- what _normset
-# writes for this field. Built as bare frozensets rather than through a
-# Lexicon so these exercise the predicate and nothing else.
+# Stored form: space-joined, per-word normalized -- the key
+# add(..., kind="birth_marker") folds a phrase to (_lexicon._title_key).
+# Built as bare frozensets rather than through a Lexicon so these
+# exercise the predicate and nothing else.
 _WORD_ONLY = frozenset({"née"})
 _PHRASE = frozenset({"z domu"})
 _BOTH = frozenset({"geb", "geb von"})
@@ -898,6 +841,16 @@ def test_maiden_marker_run_does_not_claim_a_word_that_folds_away() -> None:
     # would
     assert maiden_marker_run([".", "née"], _WORD_ONLY) == 0
     assert maiden_marker_run([".", "z", "domu"], _PHRASE) == 0
+
+
+def test_effective_script_reads_a_joined_cyrillic_word() -> None:
+    # #1237: a hyphen or apostrophe inside a Cyrillic word keeps it
+    # Cyrillic; at an edge, beside another script, or in Latin it does not
+    assert effective_script("Оюун-Эрдэнэ") is Script.CYRILLIC
+    assert effective_script("Мар'яна") is Script.CYRILLIC
+    for text in ("-Ива", "Ива-", "'Ива", "Müller-Lüdenscheid", "Иван-王",
+                 "Jean-Paul", "José"):
+        assert effective_script(text) is None, text
 
 
 def test_single_script_requires_every_char_in_one_script() -> None:
@@ -1211,6 +1164,8 @@ def test_two_dotted_letters_merge_only_outside_a_cased_script() -> None:
     lex = Lexicon.default().remove("jr", kind="generation").add(
         "jr", "พบ", kind="credential")
     assert split_pair("J.", "R.", lex) is None
+    # Thai writes no initials but writes abbreviations, so the pair
+    # merges: split_pair asks the abbreviation column (#1256)
     assert split_pair("พ.", "บ.", lex) == "split"
     assert split_pair("พ.", "บ.", Lexicon.default()) is None
     assert split_pair("พ", "บ", lex) is None
@@ -1456,3 +1411,192 @@ def test_trailing_title_shape(text: str, admitted: bool) -> None:
     assert bool(_TRAILING_TITLE_SHAPE.match(text)) is admitted
     if _PERIOD_ABBREV.match(text):
         assert admitted, "every _PERIOD_ABBREV match is one of its matches"
+
+
+# rules/T8's division (#1230, #1235), on a synthetic vocabulary: 'dr',
+# 'lt', 'gov' and 'dra' titles, 'royal' a modifier and 'majesty' a
+# style, 'st' a saint particle and a title, 'ma' a given name written
+# short, 'msc' and 'md' credentials, 'filho', 'jr' and 'esq' suffix
+# words; Thai 'ดร', 'รศ' and 'ศ' titles (#1166)
+_GLUED_LEX = (Lexicon()
+              .add("dr", "lt", "gov", "dra", kind="title")
+              .add("ดร", "รศ", "ศ", kind="academic")
+              .add("พ.ต.อ", "พ.ต", "พ.อ.หญิง", kind="military",
+                   attached="before")
+              .add("st", kind="saint")
+              .add("st", kind="title")
+              .add("ma", kind="given", same_as="maria")
+              .add("msc", "md", kind="credential", acronym=True)
+              .add("filho", "jr", kind="generation")
+              .add("esq", kind="honorific")
+              .add("royal", kind="modifier")
+              .add("majesty", kind="style"))
+
+
+def _pieces_of(text: str) -> list[str]:
+    from nameparser._pipeline._vocab import glued_cuts
+    cuts = glued_cuts(text, _GLUED_LEX)
+    return [text[a:b] for a, b in zip((0, *cuts), (*cuts, len(text)))]
+
+
+@pytest.mark.parametrize(("text", "pieces"), [
+    # a chunk read alone meets a name: a title, a letter, a digraph, a
+    # given name written short
+    ("Dr.John", ["Dr.", "John"]),
+    ("J.Smith", ["J.", "Smith"]),
+    ("Ц.Сандаг-Очир", ["Ц.", "Сандаг-Очир"]),
+    ("Yu.Petrov", ["Yu.", "Petrov"]),
+    ("Ma.Refugio", ["Ma.", "Refugio"]),
+    ("B.TURAN", ["B.", "TURAN"]),
+    ("Dr.O'Brien", ["Dr.", "O'Brien"]),
+    ("Dr.McDonald", ["Dr.", "McDonald"]),
+    # the division repeats, an initial opening the next one
+    ("Yu.A.Chibrikova", ["Yu.", "A.", "Chibrikova"]),
+    # a run of initials before the name stays one word (rules/T7)
+    ("J.R.Smith", ["J.R.", "Smith"]),
+    # titles glued to each other divide at each stop, as written apart
+    ("Lt.Gov.John", ["Lt.", "Gov.", "John"]),
+    # an initial behind a title, alone or a run
+    ("Dr.J.", ["Dr.", "J."]),
+    ("Dr.J.R.", ["Dr.", "J.R."]),
+    # a title spelled without its stops is no bar where an initial ends
+    # the word, 'dra' being listed (the review's 'Dr.A. Supriya')
+    ("Dr.A.", ["Dr.", "A."]),
+    # a Thai name carries vowel and tone marks after its letters, a
+    # script without case divides, and a one-letter title there is
+    # read alone as a title, no initial (#1166)
+    ("ดร.สุดา", ["ดร.", "สุดา"]),
+    ("ดร.สมชาย", ["ดร.", "สมชาย"]),
+    ("รศ.ดร.สุดา", ["รศ.", "ดร.", "สุดา"]),
+    ("ศ.ดร.สุดา", ["ศ.", "ดร.", "สุดา"]),
+    ("ศ.สุดา", ["ศ.", "สุดา"]),
+    # a title listed with its stops is one chunk: past its own stop, or
+    # behind a last chunk of two letters or more (#1319)
+    ("พ.ต.อ.สมชาย", ["พ.ต.อ.", "สมชาย"]),
+    ("พ.อ.หญิงวาสนา", ["พ.อ.หญิง", "วาสนา"]),
+    ("พ.ต.อ.ดร.สมชาย", ["พ.ต.อ.", "ดร.", "สมชาย"]),
+    # a last chunk of one letter needs its stop, so the longer rank does
+    # not take the name's first letter ('พ.ต.อ' in 'พ.ต.อนุชา')
+    ("พ.ต.อนุชา", ["พ.ต.", "อนุชา"]),
+    # titles glued to each other divide at each stop, a dotted one too
+    ("ดร.พ.ต.อ.", ["ดร.", "พ.ต.อ."]),
+    ("ดร.พ.อ.หญิง", ["ดร.", "พ.อ.หญิง"]),
+    # a run of single letters running past a rank is T7's run before
+    # the name, not the rank and an initial
+    ("พ.ต.ส.สมชาย", ["พ.ต.ส.", "สมชาย"]),
+])
+def test_a_glued_word_divides_where_a_chunk_read_alone_meets_a_name(
+        text: str, pieces: list[str]) -> None:
+    assert _pieces_of(text) == pieces
+
+
+@pytest.mark.parametrize("text", [
+    "J.R.R",            # a run of initials (rules/T7)
+    "E.T.",
+    "Dr.med",           # lower case after the stop
+    "m.ʿali",           # the first letter with case is lower case
+    "Dr.Med.",          # closed by its own stop
+    "J.Smith.",
+    "Dr.John.Smith",    # followed by another chunk
+    "Q.R.ST.",          # an initial opening a chunk that stays whole
+    "M.Sc",             # read whole: a suffix without its stops
+    "Lt.Gov.",          # no name closes the word: every chunk a title
+    "Dr.MD",            # a credential after the stop
+    "Yu.A.",            # initials alone, no name closing the word
+    "Yu.J.A.",          # a digraph and a run of initials, no name
+    "Yu.A.A",
+    "Dr.Jr",            # a suffix word after the stop
+    "Dr.Esq",
+    "Dr.A.Jr",
+    "Dr.Ma.Smith",      # a name followed by another chunk
+    "Mr.Ma.A.",
+    "M.D./Ph.D.",       # a delimiter inside
+    "St.John",          # a saint particle's chunk (#1071)
+    "Gen.Ademola",      # a chunk nothing lists
+    "Mr2.Smith",        # a digit
+    "ส.สุดา",           # a letter without case, no title: no initial
+    "ดร.สุดา.",          # closed by its own stop, in a script without case
+    "พ.ตสมชาย",          # a one-letter last chunk with no stop: an initial
+    "พ.ต.ส.",            # a run of initials past the rank stays T7's run
+])
+def test_a_glued_word_the_shape_refuses_stays_whole(text: str) -> None:
+    assert _pieces_of(text) == [text]
+
+
+def test_a_dotted_title_ends_past_its_stop_or_the_word() -> None:
+    from nameparser._pipeline._vocab import dotted_title_end
+    # its own stop after it, the word's end, or nothing (#1319)
+    assert dotted_title_end("พ.ต.อ.สมชาย", 0, ("พ.ต.อ",)) == 6
+    assert dotted_title_end("พ.ต.อ", 0, ("พ.ต.อ",)) == 5
+    assert dotted_title_end("พ.ต.อนุชา", 0, ("พ.ต.อ",)) is None
+
+
+def test_a_word_lowered_to_another_length_reads_no_dotted_title() -> None:
+    # offsets in the lowered text would not be the word's, so the
+    # dotted titles are not asked; the word divides as before #1319
+    from nameparser._pipeline._vocab import glued_cuts
+    assert glued_cuts("Dr.İsmail", _GLUED_LEX) == (3,)
+
+
+def test_a_title_listed_whole_keeps_its_word() -> None:
+    from nameparser._pipeline._vocab import glued_cuts
+    # with its stops, and without them where no initial ends the word
+    assert glued_cuts("Dr.John", _GLUED_LEX.add("dr.john", kind="title")) == ()
+    assert glued_cuts("Dr.Ma", _GLUED_LEX.add("drma", kind="title")) == ()
+    # a title and an initial divide though the two spell a title ('dra')
+    assert glued_cuts("Dr.A.", _GLUED_LEX) == (3,)
+
+
+@pytest.mark.parametrize("chunk", ["Royal", "Majesty", "Dr"])
+def test_a_modifier_and_a_style_are_title_chunks(chunk: str) -> None:
+    from nameparser._pipeline._vocab import is_title_chunk
+    assert is_title_chunk(chunk, _GLUED_LEX)
+
+
+@pytest.mark.parametrize(("text", "pieces"), [
+    # a script with no case divides behind a title; its single letter is
+    # no chunk read alone
+    ("Dr.王小明", ["Dr.", "王小明"]),
+    ("Dr.محمد", ["Dr.", "محمد"]),
+    ("م.حسن", ["م.حسن"]),
+])
+def test_a_caseless_script_after_the_stop(text: str, pieces: list[str]) -> None:
+    assert _pieces_of(text) == pieces
+
+
+@pytest.mark.parametrize(("text", "cut"), [
+    ("Sta.Ana", 4), ("St.John", 3), ("STE.MARIE", 4), ("Sto.Tomas", 4),
+    ("Sta.ana", None),     # lower case after the stop
+    ("Sta.Ana.", None),    # closed by its own stop
+    ("Sta.Ana.Cruz", None),
+    ("Dr.John", None),     # no saint particle
+])
+def test_a_saint_particle_glued_to_a_name(text: str, cut: int | None) -> None:
+    from nameparser._pipeline._vocab import glued_saint_cut
+    assert glued_saint_cut(text, _GLUED_LEX.add("sta", "sto", "ste",
+                                                kind="saint")) == cut
+
+
+@pytest.mark.parametrize(("text", "expected"), [
+    # rules/O9's capitals word (#659): two or more capitals ending it,
+    # after any lowercase prefix glued in front
+    ("DUPONT", True), ("MA", True), ("O'BRIEN", True), ("O\u2019BRIEN", True),
+    ("ALLIOT-MARIE", True), ("McDONALD", True), ("d'ESTAING", True),
+    ("ŞAHİN", True), ("ИВАНОВ", True), ("ΚΑΡΑΓΙΑΝΝΗΣ", True),
+    ("WEIß", True), ("E\u0301COLE", True),
+    # a combining mark with no composed form stays in its letter's run
+    ("BA\u0331R", True),
+    # one capital, or a name in mixed case
+    ("A", False), ("PhD", False), ("McD", False), ("Dupont", False),
+    ("dupont", False), ("MEng", False),
+    # initials joined by a hyphen, a joiner at either end
+    ("J-P", False), ("A-B-C", False), ("'MBA'", False), ("-AB", False),
+    ("AB-", False),
+    # a full stop, a slash, a digit, a bracket, a caseless letter
+    ("DR.", False), ("GS.TS.", False), ("N/A", False), ("ABC8", False),
+    ("(MBA)", False), ("李", False), ("", False),
+    # a digit in the prefix glued in front
+    ("2cDUPONT", False),
+])
+def test_is_capitals_word(text: str, expected: bool) -> None:
+    assert is_capitals_word(text) is expected

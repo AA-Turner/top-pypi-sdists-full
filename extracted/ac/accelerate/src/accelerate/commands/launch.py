@@ -18,11 +18,15 @@ import argparse
 import importlib
 import logging
 import os
+import signal
 import subprocess
 import sys
+import threading
+from collections import deque
+from contextlib import suppress
 from pathlib import Path
 
-import torch
+import psutil
 
 from accelerate.commands.config import default_config_file, load_config_from_file
 from accelerate.commands.config.config_args import SageMakerConfig
@@ -36,18 +40,13 @@ from accelerate.utils import (
     _filter_args,
     check_cuda_p2p_ib_support,
     convert_dict_to_env_variables,
+    get_distributed_backend,
+    get_torch_accelerator_backend,
     is_bf16_available,
     is_deepspeed_available,
-    is_hpu_available,
-    is_mlu_available,
-    is_musa_available,
-    is_neuron_available,
-    is_npu_available,
     is_rich_available,
     is_sagemaker_available,
-    is_sdaa_available,
     is_torch_xla_available,
-    is_xpu_available,
     patch_environment,
     prepare_deepspeed_cmd_env,
     prepare_multi_gpu_env,
@@ -68,6 +67,10 @@ if is_rich_available():
 
 
 logger = logging.getLogger(__name__)
+
+# Bound the child stderr kept for the raised error to the last 512 KiB, so a long run does not buffer it all.
+CHILD_STDERR_CHUNK_SIZE = 8192
+CHILD_STDERR_TAIL_CHUNKS = 64
 
 
 options_to_group = {
@@ -164,7 +167,7 @@ def launch_command_parser(subparsers=None):
         "--quiet",
         "-q",
         action="store_true",
-        help="Silence subprocess errors from the launch stack trace and only show the relevant tracebacks. (Only applicable to DeepSpeed and single-process configurations)",
+        help="Show training errors without the launcher traceback, even with --debug. Applies to single-process, multi-GPU, and DeepSpeed launches.",
     )
     # Hardware selection arguments
     hardware_args = parser.add_argument_group(
@@ -192,7 +195,7 @@ def launch_command_parser(subparsers=None):
         choices=["no", "fp16", "bf16", "fp8"],
         help="Whether or not to use mixed precision training. "
         "Choose between FP16 and BF16 (bfloat16) training. "
-        "BF16 training is only supported on Nvidia Ampere GPUs and PyTorch 1.10 or later.",
+        "BF16 training is only supported on Nvidia Ampere GPUs.",
     )
     resource_args.add_argument(
         "--num_processes", type=int, default=None, help="The total number of processes to be launched in parallel."
@@ -235,9 +238,10 @@ def launch_command_parser(subparsers=None):
     )
     resource_args.add_argument(
         "--dynamo_use_dynamic",
-        default=False,
+        default=None,
         action="store_true",
-        help="Whether to enable dynamic shape tracing.",
+        help="Whether to enable dynamic shape tracing. If not set, `torch.compile` uses its default, which "
+        "switches to dynamic shapes after the first recompilation.",
     )
     resource_args.add_argument(
         "--dynamo_use_regional_compilation",
@@ -791,8 +795,8 @@ def launch_command_parser(subparsers=None):
     fp8_args.add_argument(
         "--fp8_backend",
         type=str,
-        choices=["ao", "te", "msamp"],
-        help="Choose a backend to train with FP8 (ao: torchao, te: TransformerEngine, msamp: MS-AMP)",
+        choices=["ao", "te"],
+        help="Choose a backend to train with FP8 (ao: torchao, te: TransformerEngine)",
     )
     fp8_args.add_argument(
         "--fp8_use_autocast_during_eval",
@@ -837,13 +841,6 @@ def launch_command_parser(subparsers=None):
         type=lambda x: tuple(map(str_to_bool, x.split(","))),
         default=(False, False, False),
         help="Whether or not to execute `fprop`, `dgrad`, and `wgrad` GEMMS in higher precision. Should be passed in a comma-separated string of booleans (useful only when `--fp8_backend=te` is passed).",
-    )
-    fp8_args.add_argument(
-        "--fp8_opt_level",
-        type=str,
-        default="O2",
-        choices=["O1", "O2"],
-        help="What level of 8-bit collective communication should be used with MS-AMP (useful only when `--fp8_backend=msamp` is passed).",
     )
     fp8_args.add_argument(
         "--fp8_enable_fsdp_float8_all_gather",
@@ -989,21 +986,111 @@ def launch_command_parser(subparsers=None):
     return parser
 
 
-def simple_launcher(args):
-    cmd, current_env = prepare_simple_launcher_cmd_env(args)
+def _terminate_process_tree(process):
+    processes = [process]
+    # Capture descendants before stopping their parent, including workers in separate sessions.
+    with suppress(psutil.NoSuchProcess):
+        processes.extend(process.children(recursive=True))
+    alive = processes
+    try:
+        for child in processes:
+            with suppress(psutil.NoSuchProcess):
+                child.terminate()
+        _, alive = psutil.wait_procs(processes, timeout=5)
+    except (KeyboardInterrupt, SystemExit):
+        pass
+    finally:
+        for child in alive:
+            with suppress(psutil.NoSuchProcess):
+                child.kill()
+        psutil.wait_procs(alive, timeout=5)
+        process.wait()
 
-    process = subprocess.Popen(cmd, env=current_env)
-    process.wait()
+
+def _run_subprocess(cmd, current_env, quiet):
+    # Tee the child's stderr: write it through as it arrives so output stays live, and keep the tail for the error.
+    process = psutil.Popen(cmd, env=current_env, stderr=subprocess.PIPE)
+    tail = deque(maxlen=CHILD_STDERR_TAIL_CHUNKS)
+
+    def copy_stderr():
+        while chunk := process.stderr.read1(CHILD_STDERR_CHUNK_SIZE):
+            sys.stderr.buffer.write(chunk)
+            sys.stderr.flush()
+            tail.append(chunk)
+
+    def handle_sigterm(signum, frame):
+        sys.exit(128 + signum)
+
+    reader = None
+    previous_sigterm = None
+    try:
+        if threading.current_thread() is threading.main_thread():
+            previous_sigterm = signal.signal(signal.SIGTERM, handle_sigterm)
+        copy_stderr()
+        process.wait()
+    except (KeyboardInterrupt, SystemExit) as error:
+        # Keep draining during shutdown so the child's cleanup cannot block on a full pipe.
+        reader = threading.Thread(target=copy_stderr, daemon=True)
+        reader.start()
+        _terminate_process_tree(process)
+        reader.join(timeout=5)
+        if isinstance(error, KeyboardInterrupt):
+            sys.exit(130)
+        raise
+    finally:
+        if previous_sigterm is not None:
+            signal.signal(signal.SIGTERM, previous_sigterm)
+        # A descendant can still hold the pipe open; do not block closing a pipe another thread is reading.
+        if reader is None or not reader.is_alive():
+            process.stderr.close()
     if process.returncode != 0:
-        if not args.quiet:
-            raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd)
+        if not quiet:
+            stderr = b"".join(tail).decode(errors="replace")
+            raise subprocess.CalledProcessError(
+                returncode=process.returncode, cmd=cmd, stderr=stderr
+            ) from RuntimeError(stderr)
         else:
             sys.exit(1)
 
 
-def multi_gpu_launcher(args):
-    import torch.distributed.run as distrib_run
+def simple_launcher(args):
+    cmd, current_env = prepare_simple_launcher_cmd_env(args)
+    _run_subprocess(cmd, current_env, args.quiet)
 
+
+def _run_torchrun(args):
+    import torch.distributed.run as distrib_run
+    from torch.distributed.elastic.multiprocessing.api import SignalException
+    from torch.distributed.elastic.multiprocessing.errors import ChildFailedError
+
+    debug = getattr(args, "debug", False)
+    quiet = getattr(args, "quiet", False)
+    args = _filter_args(
+        args,
+        distrib_run.get_args_parser(),
+        ["--training_script", args.training_script, "--training_script_args", args.training_script_args],
+    )
+    try:
+        distrib_run.run(args)
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except SignalException as error:
+        # The elastic agent has already shut down its workers before re-raising the signal.
+        sys.exit(128 + error.sigval)
+    except Exception as error:
+        if isinstance(error, ChildFailedError) and quiet:
+            print(error, file=sys.stderr)
+            sys.exit(1)
+        if is_rich_available() and debug and not quiet:
+            console = get_console()
+            console.print("\n[bold red]Using --debug, `torch.distributed` Stack Trace:[/bold red]")
+            console.print_exception(suppress=[__file__], show_locals=False)
+            sys.exit(1)
+        else:
+            raise
+
+
+def multi_gpu_launcher(args):
     current_env = prepare_multi_gpu_env(args)
     if not check_cuda_p2p_ib_support():
         message = "Using RTX 4000 series which doesn't support faster communication speedups. Ensuring P2P and IB communications are disabled."
@@ -1017,28 +1104,11 @@ def multi_gpu_launcher(args):
         if warn:
             logger.warning(message)
 
-    debug = getattr(args, "debug", False)
-    args = _filter_args(
-        args,
-        distrib_run.get_args_parser(),
-        ["--training_script", args.training_script, "--training_script_args", args.training_script_args],
-    )
-
     with patch_environment(**current_env):
-        try:
-            distrib_run.run(args)
-        except Exception:
-            if is_rich_available() and debug:
-                console = get_console()
-                console.print("\n[bold red]Using --debug, `torch.distributed` Stack Trace:[/bold red]")
-                console.print_exception(suppress=[__file__], show_locals=False)
-            else:
-                raise
+        _run_torchrun(args)
 
 
 def deepspeed_launcher(args):
-    import torch.distributed.run as distrib_run
-
     if not is_deepspeed_available():
         raise ImportError("DeepSpeed is not installed => run `pip3 install deepspeed` or build it from source.")
     else:
@@ -1063,30 +1133,10 @@ def deepspeed_launcher(args):
             if len(valid_env_items) > 1:
                 f.writelines(valid_env_items)
 
-        process = subprocess.Popen(cmd, env=current_env)
-        process.wait()
-        if process.returncode != 0:
-            if not args.quiet:
-                raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd)
-            else:
-                sys.exit(1)
+        _run_subprocess(cmd, current_env, args.quiet)
     else:
-        debug = getattr(args, "debug", False)
-        args = _filter_args(
-            args,
-            distrib_run.get_args_parser(),
-            ["--training_script", args.training_script, "--training_script_args", args.training_script_args],
-        )
         with patch_environment(**current_env):
-            try:
-                distrib_run.run(args)
-            except Exception:
-                if is_rich_available() and debug:
-                    console = get_console()
-                    console.print("\n[bold red]Using --debug, `torch.distributed` Stack Trace:[/bold red]")
-                    console.print_exception(suppress=[__file__], show_locals=False)
-                else:
-                    raise
+            _run_torchrun(args)
 
 
 def tpu_launcher(args):
@@ -1305,40 +1355,17 @@ def _validate_launch_command(args):
         if args.num_processes == -1:
             raise ValueError("You need to manually pass in `--num_processes` using this config yaml.")
     else:
+        device_count = 0
+        if not args.cpu:
+            device_type, device_module = get_torch_accelerator_backend()
+            if get_distributed_backend(device_type) is not None:
+                device_count = device_module.device_count()
         if args.num_processes is None:
-            if is_xpu_available():
-                args.num_processes = torch.xpu.device_count()
-            elif is_mlu_available():
-                args.num_processes = torch.mlu.device_count()
-            elif is_sdaa_available():
-                args.num_processes = torch.sdaa.device_count()
-            elif is_musa_available():
-                args.num_processes = torch.musa.device_count()
-            elif is_npu_available():
-                args.num_processes = torch.npu.device_count()
-            elif is_hpu_available():
-                args.num_processes = torch.hpu.device_count()
-            elif is_neuron_available():
-                args.num_processes = torch.neuron.device_count()
-            else:
-                args.num_processes = torch.cuda.device_count()
+            args.num_processes = max(device_count, 1)
             warned.append(f"\t`--num_processes` was set to a value of `{args.num_processes}`")
         if args.debug is None:
             args.debug = False
-        if (
-            not args.multi_gpu
-            and args.num_processes > 1
-            and (
-                (is_xpu_available() and torch.xpu.device_count() > 1)
-                or (is_npu_available() and torch.npu.device_count() > 1)
-                or (is_hpu_available() and torch.hpu.device_count() > 1)
-                or (is_mlu_available() and torch.mlu.device_count() > 1)
-                or (is_sdaa_available() and torch.sdaa.device_count() > 1)
-                or (is_musa_available() and torch.musa.device_count() > 1)
-                or (is_neuron_available() and torch.neuron.device_count() > 1)
-                or (torch.cuda.is_available() and torch.cuda.device_count() > 1)
-            )
-        ):
+        if not args.multi_gpu and args.num_processes > 1 and device_count > 1:
             warned.append(
                 "\t\tMore than one GPU was found, enabling multi-GPU training.\n"
                 "\t\tIf this was unintended please pass in `--num_processes=1`."

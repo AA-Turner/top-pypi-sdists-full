@@ -5,6 +5,7 @@ from typing_extensions import Literal
 
 from ..._models import BaseModel
 from .failure_reason import FailureReason
+from ..currency_amount import CurrencyAmount
 from .evm_wallet_action_step_status import EvmWalletActionStepStatus
 
 __all__ = ["EvmTransactionWalletActionStep"]
@@ -34,4 +35,13 @@ class EvmTransactionWalletActionStep(BaseModel):
     """Whether this step has reached on-chain finality.
 
     Absent until finality is confirmed.
+    """
+
+    gas_credits_charged: Optional[CurrencyAmount] = None
+    """A monetary value with its currency denomination."""
+
+    gas_credits_charged_usd: Optional[str] = None
+    """
+    Deprecated, use `gas_credits_charged` instead; gas credits charged in USD for
+    this step, if sponsored, as a decimal string.
     """

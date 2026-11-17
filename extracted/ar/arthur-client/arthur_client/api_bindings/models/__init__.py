@@ -275,6 +275,8 @@ from arthur_client.api_bindings.models.metrics_version import MetricsVersion
 from arthur_client.api_bindings.models.metrics_versions_sort import MetricsVersionsSort
 from arthur_client.api_bindings.models.model import Model
 from arthur_client.api_bindings.models.model_governance_view import ModelGovernanceView
+from arthur_client.api_bindings.models.model_inference_activity import ModelInferenceActivity
+from arthur_client.api_bindings.models.model_inference_activity_list import ModelInferenceActivityList
 from arthur_client.api_bindings.models.model_metric_spec import ModelMetricSpec
 from arthur_client.api_bindings.models.model_metrics_schedule import ModelMetricsSchedule
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType

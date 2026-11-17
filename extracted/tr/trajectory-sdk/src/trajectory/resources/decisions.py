@@ -12,7 +12,12 @@ from trajectory._resource import APIResource
 from trajectory._response import to_raw_response_wrapper
 from trajectory._types import Headers, NotGiven, Omit, not_given, omit
 from trajectory._utils import maybe_transform
-from trajectory.types.create_decision_params import CreateDecisionParams, DecisionQuestionInputParam
+from trajectory.types.create_decision_params import (
+  CreateDecisionParams,
+  DecisionQuestionInputParam,
+  ImagePartParam,
+  TextPartParam,
+)
 from trajectory.types.decisions.create_decision_response import CreateDecisionResponse
 
 
@@ -26,7 +31,7 @@ class Decisions(APIResource):
     *,
     x_trajectory_id: str,
     model: str,
-    input: str,
+    input: str | Iterable[TextPartParam | ImagePartParam],
     questions: Iterable[DecisionQuestionInputParam],
     idempotency_key: str | None | Omit = omit,
     extra_headers: Headers | None = None,

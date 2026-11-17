@@ -12,6 +12,7 @@ certain derivation, else ``None`` (:func:`dashboard_base_url`).
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from functools import lru_cache
 from urllib.parse import urlsplit
 
@@ -61,16 +62,17 @@ def _derive(api_base_url: str) -> str | None:
     return f"https://{remainder}"
 
 
-def dashboard_base_url(api_base_url: str | None = None) -> str | None:
+def dashboard_base_url(api_base_url: str | None = None, *, env: Mapping[str, str] | None = None) -> str | None:
     """Public dashboard origin, or ``None`` when it cannot be known.
 
-    ``PROBE_DASHBOARD_URL`` wins outright.
+    ``PROBE_DASHBOARD_URL`` wins outright: from ``env`` when given (the caller's environment; the
+    daemon host passes the command's), else this process's.
 
     ``None`` is a real answer: no link costs one navigation, a WRONG one a trusted
     404. Never guess the public host; a self-hosted install would get links into
     somebody else's tenant.
     """
-    explicit = (os.environ.get(DASHBOARD_URL_ENV) or "").strip()
+    explicit = ((os.environ if env is None else env).get(DASHBOARD_URL_ENV) or "").strip()
     if explicit:
         return explicit.rstrip("/")
     if api_base_url is None:
@@ -87,8 +89,10 @@ def entity_url(
     *,
     parent_id: str | None = None,
     api_base_url: str | None = None,
+    env: Mapping[str, str] | None = None,
 ) -> str | None:
-    """Link to one entity's dashboard page, or ``None`` if it has no page.
+    """Link to one entity's dashboard page, or ``None`` if it has no page. ``env``: as
+    `dashboard_base_url`.
 
     ``None`` for: unroutable kind, missing id, nested kind without ``parent_id``, or
     unknown dashboard origin; callers say nothing. A half-built `/runs//trials/<id>`
@@ -96,7 +100,7 @@ def entity_url(
     """
     if not entity_id:
         return None
-    base = dashboard_base_url(api_base_url)
+    base = dashboard_base_url(api_base_url, env=env)
     if not base:
         return None
     nested = _NESTED_ROUTES.get(str(kind))

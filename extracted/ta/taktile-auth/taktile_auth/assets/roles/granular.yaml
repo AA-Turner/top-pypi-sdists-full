@@ -205,6 +205,8 @@ data_case_editor/org_id,ws_id:
     - data_editor/org_id,ws_id
     - case_editor/org_id,ws_id
     - data_case_viewer/org_id,ws_id
+    # not in case_editor: config files are not case-specific
+    - w:workspace_config_file/org_id,ws_id
 data_case_admin/org_id,ws_id:
     - data_admin/org_id,ws_id
     - case_admin/org_id,ws_id

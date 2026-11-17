@@ -1,8 +1,8 @@
 """
 A console's and its robot's clocks, and how late each command and each step reached the other side
 . Every time on the wire is
-an integer of microseconds since the epoch, each side's own clock (the team's interface, worker 3 to workers 1, 7 and 2,
-11-10).
+an integer of microseconds since the epoch, each side's own clock
+.
 
 In one sentence: the console asks the robot its time (a tick, carrying when it was sent) → the robot answers at once
 with when it got the tick and when it answered (a tock) → of the last ROUNDS rounds the console keeps the one with the

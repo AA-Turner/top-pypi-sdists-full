@@ -24,6 +24,7 @@ class MotivoDeNoEntrega(StrEnum):
     NO_QUIERE_MARKETING = "no_quiere_marketing"
     NUMERO_LIMITADO = "numero_limitado"
     PROBLEMA_DE_PAGO = "problema_de_pago"
+    CUENTA_BLOQUEADA = "cuenta_bloqueada"
     OTRO = "otro"
 
 
@@ -42,11 +43,12 @@ MOTIVO_POR_CODIGO: Dict[int, MotivoDeNoEntrega] = {
     131050: MotivoDeNoEntrega.NO_QUIERE_MARKETING,
     131048: MotivoDeNoEntrega.NUMERO_LIMITADO,
     131042: MotivoDeNoEntrega.PROBLEMA_DE_PAGO,
+    131031: MotivoDeNoEntrega.CUENTA_BLOQUEADA,
 }
 
 DESCRIPCIONES: Dict[MotivoDeNoEntrega, DescripcionDeMotivo] = {
     MotivoDeNoEntrega.TOPE_DE_MARKETING: DescripcionDeMotivo(
-        texto="Meta no lo entregó: esta persona ya recibió muchos mensajes de marketing (de todas las empresas).",
+        texto="Meta no lo entregó: esta persona ya recibió muchos mensajes de marketing.",
         que_hacer="Se puede volver a intentar mañana."),
     MotivoDeNoEntrega.SIN_WHATSAPP: DescripcionDeMotivo(
         texto="Meta no lo entregó: el número no tiene WhatsApp o no puede recibir mensajes.",
@@ -64,6 +66,9 @@ DESCRIPCIONES: Dict[MotivoDeNoEntrega, DescripcionDeMotivo] = {
     MotivoDeNoEntrega.PROBLEMA_DE_PAGO: DescripcionDeMotivo(
         texto="Meta no lo entregó: la cuenta de WhatsApp tiene un problema de pago.",
         que_hacer="Revisá el método de pago en Meta Business."),
+    MotivoDeNoEntrega.CUENTA_BLOQUEADA: DescripcionDeMotivo(
+        texto="Meta no lo entregó: la cuenta de WhatsApp que envía está bloqueada o restringida.",
+        que_hacer="Revisá el estado de la cuenta en Meta Business."),
     MotivoDeNoEntrega.OTRO: DescripcionDeMotivo(
         texto="Meta no lo entregó.",
         que_hacer="Revisá el detalle de Meta."),

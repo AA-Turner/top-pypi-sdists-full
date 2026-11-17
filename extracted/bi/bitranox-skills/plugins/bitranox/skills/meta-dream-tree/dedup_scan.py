@@ -42,8 +42,9 @@ import argparse
 import json
 import re
 import sys
+from bisect import bisect_right
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -185,7 +186,11 @@ def similarity(a: str, b: str) -> float:
     scores high. It cannot see meaning, which is why the output is candidates. A leading engine
     frontmatter frame is stripped first (see body_content).
     """
-    ta, tb = tokens(body_content(a)), tokens(body_content(b))
+    return _jaccard(tokens(body_content(a)), tokens(body_content(b)))
+
+
+def _jaccard(ta: set[str], tb: set[str]) -> float:
+    """similarity's measure on word sets already built. PURE and symmetric."""
     if not ta and not tb:
         return 1.0
     if not ta or not tb:
@@ -260,32 +265,48 @@ def _plant_control(facts: list[Fact]) -> tuple[list[Fact], Fact, Fact]:
     return facts + [planted], source, planted
 
 
-def _candidate_pairs(facts: list[Fact]) -> list[tuple[int, int]]:
-    """Index-pairs worth scoring: those sharing at least two reasonably rare content words.
+# The most facts a token may be carried by and still link a pair. Sized on the real store
+# against the fraction-only ceiling: 100 dropped no pair scoring 0.2 or more (the highest pair
+# it dropped scored 0.18, the reporting threshold is 0.45 to 0.5), while 50 began dropping
+# pairs scoring 0.2 to 0.23.
+_DF_CEILING_CAP = 100
 
-    Scoring every pair is quadratic and a real store holds ~1000 facts. The index keeps the work
-    proportional to actual overlap; a token carried by more than a fifth of the corpus is
-    dropped, since it separates nothing.
+
+def _candidate_pairs(token_sets: list[set[str]]) -> Iterator[tuple[int, int]]:
+    """Index-pairs (i < j) worth scoring: those sharing at least two reasonably rare content words.
+
+    Scoring every pair is quadratic and a real store holds ~2000 facts. The index keeps the work
+    proportional to actual overlap; a token carried by more than a fifth of the corpus, or by
+    more than _DF_CEILING_CAP facts, is dropped, since it separates nothing. The fraction alone
+    let a word in 19% of the facts through at any store size, so the pairs grew with the square
+    of the store (1.77M of 1.98M on a real store, every one of them scoring under 0.35); the cap
+    makes them grow with the facts once the store passes 5 * _DF_CEILING_CAP. A real duplicate
+    shares many words, rare ones among them, so it keeps two shared words under the cap.
+    The shared-word counts are built one row at a time and yielded, so memory follows the facts.
     """
-    n = len(facts)
+    n = len(token_sets)
     if n < 2:
-        return []
+        return
     postings: dict[str, list[int]] = defaultdict(list)
-    for i, f in enumerate(facts):
-        for tok in tokens(_scored(f)):
+    for i, toks in enumerate(token_sets):
+        for tok in toks:
             postings[tok].append(i)
     # A floor of 5 as well as a fraction: on a small corpus every shared word is also carried by
     # the planted control, so a pure fraction drops exactly the tokens that link the pair the
     # scan exists to find - and the tool reports a clean tree of three facts.
-    ceiling = max(5, n // 5)
-    shared: dict[tuple[int, int], int] = defaultdict(int)
-    for idxs in postings.values():
-        if len(idxs) > ceiling:
-            continue
-        for x in range(len(idxs)):
-            for y in range(x + 1, len(idxs)):
-                shared[(idxs[x], idxs[y])] += 1
-    return [pair for pair, count in shared.items() if count >= 2]
+    ceiling = max(5, min(n // 5, _DF_CEILING_CAP))
+    rare = {tok: idxs for tok, idxs in postings.items() if len(idxs) <= ceiling}
+    for i, toks in enumerate(token_sets):
+        shared: dict[int, int] = defaultdict(int)
+        for tok in toks:
+            idxs = rare.get(tok)
+            if idxs is None:
+                continue
+            # Each posting list is ascending, so the partners after i start past i's own slot.
+            for j in idxs[bisect_right(idxs, i):]:
+                shared[j] += 1
+        for j in sorted(j for j, count in shared.items() if count >= 2):
+            yield i, j
 
 
 def _bucket(score: float) -> float:
@@ -307,8 +328,15 @@ def run(facts: list[Fact], *, threshold: float = 0.5, scorer=similarity,
     # index never consider the (source, planted) pair at all, reporting an instrument failure
     # though the scorer itself worked fine.
     control_score = scorer(_scored(source), _scored(planted))
+    # A fact's words never change, so each text is built and tokenised once here rather than in
+    # every pair it is part of: measured on the real store, 142 us a pair re-tokenising both
+    # texts against 13 us on the sets, about 249 s against 24 s a scan.
+    texts = [_scored(f) for f in corpus]
+    word_sets = [tokens(body_content(t)) for t in texts]   # exactly what similarity compares
+    score_of = ((lambda i, j: _jaccard(word_sets[i], word_sets[j])) if scorer is similarity
+                else (lambda i, j: scorer(texts[i], texts[j])))
     real_pairs = 0
-    for i, j in _candidate_pairs(corpus):
+    for i, j in _candidate_pairs([tokens(t) for t in texts]):
         fa, fb = corpus[i], corpus[j]
         if {fa.slug, fb.slug} == {planted.slug, source.slug}:
             continue                       # already scored directly above
@@ -316,7 +344,7 @@ def run(facts: list[Fact], *, threshold: float = 0.5, scorer=similarity,
             # The plant against a third fact is not a pair anyone can merge. Counted, it put
             # phantom near-misses in the very distribution a reader is told to inspect.
             continue
-        score = scorer(_scored(fa), _scored(fb))
+        score = score_of(i, j)
         real_pairs += 1
         distribution[_bucket(score)] += 1
         if score >= threshold:

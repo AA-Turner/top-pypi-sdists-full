@@ -42,6 +42,7 @@ Exit 2 blocks the call and shows stderr to the model; every other path (includin
 any error) exits 0, so a broken guard never wedges a turn.
 """
 
+import functools
 import json
 import os
 import re
@@ -78,6 +79,10 @@ CONSUMER = re.compile(
     re.IGNORECASE,
 )
 
+_NONBLANK_RUN = re.compile(r"\S+")
+_SHORT_FLAG_CLUSTER = re.compile(r"-[A-Za-z]+")
+_TAG_N_FLAG = re.compile(r"-n\d*")
+_ASSIGNMENT_WORD = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\+?[:?!]?=")
 # The correct handlings - if either is present the author is not making this mistake. They are
 # looked for where they can ACT, never in prose (see `handles_pipe_status`).
 _PIPEFAIL = re.compile(r"\bpipefail\b")
@@ -104,6 +109,26 @@ _JIG_UNDER_UV = re.compile(r"\buv\s+run\b[^\n;&|]*?" + _JIG_NAME)
 # `gh run watch` exits 0 whatever the run concluded unless it is told --exit-status, so its OWN
 # status is no verdict either, even with nothing after it.
 _WATCH_WITHOUT_VERDICT = re.compile(r"\bgh\s+run\s+watch\b(?![^\n;&|]*--exit-status\b)")
+
+# The whole-command views every check reads. Each check is written to stand alone, so before this
+# cache main() derived the same view of one command up to five times; on a 121 KB heredoc that was
+# most of the guard's 160 ms, paid on every Bash call. The transforms are pure and return str, so a
+# shared result is safe, and four entries bound the memory at a few copies of one command. Only
+# WHOLE-command calls go through here: the per-segment calls inside loops would evict these.
+@functools.lru_cache(maxsize=4)
+def _heredocs_blanked(command: str) -> str:
+    return blank_heredoc_bodies(command)
+
+
+@functools.lru_cache(maxsize=4)
+def _masked(text: str, tool_name: str) -> str:
+    return mask_data_regions(text, tool_name=tool_name)
+
+
+@functools.lru_cache(maxsize=4)
+def _unexpanded(text: str, tool_name: str) -> str:
+    return blank_unexpanded_text(text, tool_name=tool_name)
+
 
 # A backslash-newline continues the SAME command; it is not the newline that ends a statement.
 _LINE_CONTINUATION = re.compile(r"\\\r?\n")
@@ -215,7 +240,7 @@ def _program_words_kept(raw: str, masked: str, tool_name: str = "Bash") -> str:
     names the jig in `G=`, and reading that as the jig running judged everything after it - a
     common idiom in real backgrounded commands, where the jig itself ran last and alone.
     """
-    tokens = [(m.start(), m.end()) for m in re.finditer(r"\S+", masked)]
+    tokens = [(m.start(), m.end()) for m in _NONBLANK_RUN.finditer(masked)]
     at = _past_assignments(tokens, raw, 0)
     out = _blanked(masked, tokens[:at])
     while at < len(tokens):
@@ -364,7 +389,7 @@ def gate_status_is_not_the_tasks(command: str, tool_name: str = "Bash") -> bool:
         return True
     if any(start <= first.start() < end for start, end in opaque):
         return True
-    text = mask_data_regions(joined, tool_name=tool_name)
+    text = _masked(joined, tool_name)
     rest = text[first.end():]
     if "|" in rest:
         return True
@@ -388,10 +413,10 @@ def handles_pipe_status(command: str, tool_name: str = "Bash") -> bool:
     read on text where only single quotes, escapes and comments are blanked, because it expands
     inside double quotes - `[ "${PIPESTATUS[0]}" -eq 0 ]` is the documented fix.
     """
-    base = blank_heredoc_bodies(command or "")
-    if _PIPEFAIL.search(mask_data_regions(base, tool_name=tool_name)):
+    base = _heredocs_blanked(command or "")
+    if _PIPEFAIL.search(_masked(base, tool_name)):
         return True
-    return bool(_PIPESTATUS_READ.search(blank_unexpanded_text(base, tool_name=tool_name)))
+    return bool(_PIPESTATUS_READ.search(_unexpanded(base, tool_name)))
 
 
 def _comments_blanked(raw: str, masked: str) -> str:
@@ -412,8 +437,8 @@ def _statements(command: str, tool_name: str) -> list[tuple[str, str]]:
     pass here preserves length), so a `;` or newline inside quotes or a comment is not a statement
     boundary: `# note; git commit when green` is one comment, not a commit.
     """
-    raw = blank_heredoc_bodies(command)
-    masked = mask_data_regions(raw, tool_name=tool_name)
+    raw = _heredocs_blanked(command)
+    masked = _masked(raw, tool_name)
     readable = _comments_blanked(raw, masked)
     out, start = [], 0
     for sep in SPLIT.finditer(masked):
@@ -467,9 +492,9 @@ def reads_masked_status(command: str, tool_name: str = "Bash") -> bool:
     """
     if handles_pipe_status(command, tool_name):
         return False
-    base = blank_heredoc_bodies(command or "")
-    masked = mask_data_regions(base, tool_name=tool_name)
-    expanding = blank_unexpanded_text(base, tool_name=tool_name)
+    base = _heredocs_blanked(command or "")
+    masked = _masked(base, tool_name)
+    expanding = _unexpanded(base, tool_name)
     reads = _status_reads(expanding, tool_name=tool_name)
     spans = [(a, b) for a, b in _spans(masked) if masked[a:b].strip()]
     for index, (start, end) in enumerate(spans):
@@ -670,7 +695,7 @@ def _without_redirections(words: list[str]) -> list[str]:
 
 def _short_cluster(word: str) -> str:
     """The letters of a bundled short-option word (`-am` -> `am`), else ""."""
-    return word[1:] if re.fullmatch(r"-[A-Za-z]+", word) else ""
+    return word[1:] if _SHORT_FLAG_CLUSTER.fullmatch(word) else ""
 
 
 def _cluster_flags(cluster: str, value_letters: str) -> tuple[str, bool]:
@@ -695,7 +720,7 @@ def _tag_writes(args: list[str]) -> bool:
         word, cluster = args[i], _short_cluster(args[i])
         name = word.split("=", 1)[0]
         flags, value_next = _cluster_flags(cluster, "muF") if len(cluster) > 1 else ("", False)
-        reads = reads or name in _TAG_READS or bool(re.fullmatch(r"-n\d*", word))
+        reads = reads or name in _TAG_READS or bool(_TAG_N_FLAG.fullmatch(word))
         reads = reads or bool(set(flags) & set("lv"))
         writes = writes or name in _TAG_WRITES or bool(set(flags) & set("asufdmFe"))
         if word == "--":
@@ -723,7 +748,7 @@ def _make_writes(args: list[str]) -> bool:
                            or (word in _MAKE_OPTIONAL_NUMBER and number_follows))
             i += 2 if takes_value else 1
             continue
-        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*\+?[:?!]?=", word):
+        if not _ASSIGNMENT_WORD.match(word):
             targets.append(word)                 # NAME=value is a variable, not a target
         i += 1
     return not targets or not set(targets) <= _MAKE_PRINT_TARGETS
@@ -767,8 +792,8 @@ def _statements_with_separators(command: str, tool_name: str) -> list[tuple[str,
     Cut on the masked command, so a separator inside quotes, a substitution or a comment is not
     one; a newline reads as "" like the end of the command, since it sequences unconditionally.
     """
-    raw = blank_heredoc_bodies(command)
-    masked = mask_data_regions(raw, tool_name=tool_name)
+    raw = _heredocs_blanked(command)
+    masked = _masked(raw, tool_name)
     out, start = [], 0
     for sep in SPLIT.finditer(masked):
         out.append((raw[start:sep.start()], sep.group(0).strip()))

@@ -26,6 +26,12 @@ class WalletActionEarnWithdrawRejectedWebhookPayload(BaseModel):
     created_at: str
     """ISO 8601 timestamp of when the wallet action was created."""
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     failure_reason: FailureReason
     """A description of why a wallet action (or a step within a wallet action) failed."""
 
@@ -39,7 +45,11 @@ class WalletActionEarnWithdrawRejectedWebhookPayload(BaseModel):
     """The status of the wallet action."""
 
     steps: List[WalletActionStep]
-    """The steps of the wallet action at the time of rejection."""
+    """
+    The steps of the wallet action at the time of rejection; `gas_credits_charged`
+    on a step may still be `null` when this webhook fires, so fetch the wallet
+    action directly for up-to-date gas data.
+    """
 
     type: Literal["wallet_action.earn_withdraw.rejected"]
     """The type of webhook event."""

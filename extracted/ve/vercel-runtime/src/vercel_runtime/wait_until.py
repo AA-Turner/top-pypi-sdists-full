@@ -1,14 +1,14 @@
 from __future__ import annotations
 
-import asyncio
 import contextlib
 import contextvars
 import inspect
 import logging
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
+from vercel_runtime import allio
 from vercel_runtime.invocation_hooks import attach_due_hooks
 
 if TYPE_CHECKING:
@@ -52,9 +52,6 @@ class WaitUntilCollector:
                 ),
             )
 
-        if isinstance(awaitable, asyncio.Future):
-            awaitable.add_done_callback(_consume_future_exception)
-
     async def drain(self) -> None:
         while True:
             with self._lock:
@@ -64,24 +61,27 @@ class WaitUntilCollector:
                     self._closed = True
                     return
 
-            tasks = [
-                pending.context.run(
-                    asyncio.ensure_future,
-                    pending.awaitable,
-                )
-                for pending in batch
-            ]
-            results = await asyncio.gather(*tasks, return_exceptions=True)
-            for result in results:
-                if isinstance(result, asyncio.CancelledError):
+            errors: list[BaseException] = []
+            cancelled_error = allio.get_cancelled_exc_class()
+            async with allio.create_task_group() as task_group:
+                for pending in batch:
+                    pending.context.run(
+                        task_group.start_soon,
+                        _run_pending,
+                        pending,
+                        errors,
+                    )
+
+            for error in errors:
+                if isinstance(error, cancelled_error):
                     logger.error("wait_until task was cancelled")
-                elif isinstance(result, BaseException):
+                else:
                     logger.error(
                         "wait_until task failed",
                         exc_info=(
-                            type(result),
-                            result,
-                            result.__traceback__,
+                            type(error),
+                            error,
+                            error.__traceback__,
                         ),
                     )
 
@@ -102,7 +102,7 @@ async def finish_wait_until_async(collector: WaitUntilCollector) -> None:
 
 def finish_wait_until(collector: WaitUntilCollector) -> None:
     try:
-        asyncio.run(collector.drain())
+        allio.run(collector.drain)
     finally:
         clear_wait_until_context()
 
@@ -128,10 +128,14 @@ def _set_public_wait_until(
             set_context(wait_until=_discard_wait_until)
 
 
-def _consume_future_exception(future: asyncio.Future[Any]) -> None:
-    if not future.cancelled():
-        with contextlib.suppress(BaseException):
-            future.exception()
+async def _run_pending(
+    pending: _PendingAwaitable,
+    errors: list[BaseException],
+) -> None:
+    try:
+        await pending.awaitable
+    except BaseException as error:
+        errors.append(error)
 
 
 def _close_coroutine(awaitable: Awaitable[object]) -> None:

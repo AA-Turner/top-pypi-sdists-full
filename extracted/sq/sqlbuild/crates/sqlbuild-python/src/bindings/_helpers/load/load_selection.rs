@@ -17,27 +17,24 @@ use sqlbuild_core::load_command::main::select_load_entries::select_load_entries 
 use sqlbuild_core::load_command::models::{LoadEntry, LoadGraph};
 use sqlbuild_host::entries::models::AdapterHost;
 
-use crate::bindings::_helpers::compile_attachment::effective_config::{
-    build_effective_connection_config, build_effective_runtime_config,
-};
-use crate::bindings::_helpers::compile_attachment::target::{
-    connection_is_default_target, project_location,
-};
-use crate::bindings::_helpers::compile_driver::targets::{
-    expanded_loader_namespace, managed_write_schema, preserved_loader_schemas,
-};
-use crate::bindings::_helpers::contracts::spec_resolution::loader_destination_parts;
-use crate::bindings::_helpers::contracts::spec_resolution::resolve_effective_adapter_name;
-use crate::bindings::_helpers::model_config::template_data::early_model_templates;
 use sqlbuild_python_base::boundary::models::KeywordArguments;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
-use sqlbuild_python_base::records::main::construct::error_class::error_class;
-use sqlbuild_python_base::records::main::construct::new_helped_error::new_helped_error;
+use sqlbuild_python_base::records::main::construct::new_error::new_error;
 use sqlbuild_python_base::records::main::construct::new_record_with::new_record_with;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::replaced_keywords::replaced_keywords;
 use sqlbuild_python_base::records::types::ErrorId;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_attachment::main::connection_is_default_target::connection_is_default_target;
+use sqlbuild_python_compile::compile_attachment::main::project_location::project_location;
+use sqlbuild_python_compile::compile_driver::main::setup::expanded_loader_namespace::expanded_loader_namespace;
+use sqlbuild_python_compile::compile_driver::main::setup::managed_write_schema::managed_write_schema;
+use sqlbuild_python_compile::compile_driver::main::setup::preserved_loader_schemas::preserved_loader_schemas;
+use sqlbuild_python_front::compile_attachment::main::build_effective_connection_config::build_effective_connection_config;
+use sqlbuild_python_front::compile_attachment::main::build_effective_runtime_config::build_effective_runtime_config;
+use sqlbuild_python_front::contracts::main::loader_destination_parts::loader_destination_parts;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::model_config::main::config::early_model_templates::early_model_templates;
 
 const LOADER_NODE_KEY: &str = "sqlbuild_loader_node";
 const COMPILE_INPUT_CODE: &str = "P001";
@@ -139,11 +136,11 @@ fn preserved_source_namespace(
         ),
     ) {
         Ok(()) => Ok(()),
-        Err(AssemblyError::CompileInput { message, help }) => Err(new_helped_error(
+        Err(AssemblyError::CompileInput { message, help }) => Err(new_error(
             source.py(),
             ErrorId::CompileInput,
-            (message, COMPILE_INPUT_CODE),
-            help.as_deref(),
+            &message,
+            (Some(COMPILE_INPUT_CODE), help.as_deref()),
         )),
         Err(other) => Err(PyValueError::new_err(format!("{other:?}"))),
     }
@@ -285,22 +282,15 @@ impl<'py> LoadProject<'py> {
 }
 
 fn unknown_selector(py: Python<'_>, error: &UnknownLoadSelector) -> PyErr {
-    let raised = (|| {
-        let options: Bound<'_, PyDict> = PyDict::new(py);
-        options.set_item("code", UNKNOWN_SELECTOR_CODE)?;
-        options.set_item("help", UNKNOWN_SELECTOR_HELP)?;
-        error_class(py, ErrorId::CliUser)?.call(
-            (format!(
-                "sqb load selector '{}' does not match any managed source or loader",
-                error.name
-            ),),
-            Some(&options),
-        )
-    })();
-    match raised {
-        Ok(error) => PyErr::from_value(error),
-        Err(error) => error,
-    }
+    new_error(
+        py,
+        ErrorId::CliUser,
+        &format!(
+            "sqb load selector '{}' does not match any managed source or loader",
+            error.name
+        ),
+        (Some(UNKNOWN_SELECTOR_CODE), Some(UNKNOWN_SELECTOR_HELP)),
+    )
 }
 
 /// `value.strip()` when it is a string with non-blank text, else `None`.

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 __lazy_modules__ = [
     "functools",
-    "pipx",
     "pipx.commands.common",
     "pipx.commands.install",
     "pipx.commands.outdated",
@@ -12,6 +11,7 @@ __lazy_modules__ = [
     "pipx.interpreter",
     "pipx.options",
     "pipx.package_specifier",
+    "pipx.paths",
     "pipx.pipx_metadata_file",
     "pipx.redact",
     "pipx.script",
@@ -28,7 +28,6 @@ from enum import StrEnum
 from functools import partial
 from typing import TYPE_CHECKING, Final
 
-from pipx import paths
 from pipx.colors import BOLD, RED
 from pipx.commands.common import (
     expose_package_resources,
@@ -46,8 +45,16 @@ from pipx.constants import ExitCode
 from pipx.emojis import SLEEP
 from pipx.fanout import fan_out, locked_in_order
 from pipx.interpreter import get_default_python
-from pipx.options import CooldownOptions, ExposureOptions, InstallOptions, OutdatedOptions, ReinstallOptions
+from pipx.options import (
+    CooldownOptions,
+    EnvironmentOptions,
+    ExistingOptions,
+    InstallOptions,
+    OutdatedOptions,
+    ReinstallOptions,
+)
 from pipx.package_specifier import parse_specifier_for_upgrade, trusted_recorded_pip_args, valid_pypi_name
+from pipx.paths import CTX
 from pipx.pipx_metadata_file import PipxMetadata
 from pipx.redact import redact_url_credentials
 from pipx.result import OperationData, OperationError, OperationResult, OutputLevel, OutputMessage, OutputStream
@@ -72,6 +79,12 @@ _LOGGER: Final[logging.Logger] = logging.getLogger(__name__)
 
 
 def upgrade(venv_dirs: dict[str, Path], options: UpgradeOptions) -> OperationResult[UpgradeData]:
+    """Upgrade the packages of the given environments, each under its lock.
+
+    :param venv_dirs: the environment directories, keyed by the package spec each was installed from.
+    :param options: the options of the upgrade.
+    :returns: the result listing the upgraded packages.
+    """
     results: Final[list[_PackageUpgradeResult]] = []
     install_messages: Final[list[OutputMessage]] = []
 
@@ -111,17 +124,16 @@ def _upgrade_venv(
                 # or extras the user asked to install
                 [package_spec or venv_dir.name],
                 InstallOptions(
-                    local_bin_dir=paths.CTX.bin_dir,
-                    local_man_dir=paths.CTX.man_dir,
-                    python=options.python,
+                    local_bin_dir=CTX.bin_dir,
+                    local_man_dir=CTX.man_dir,
+                    environment=EnvironmentOptions(
+                        python=options.python,
+                        venv_args=options.venv_args,
+                        python_flag_passed=options.python_flag_passed,
+                    ),
+                    existing=ExistingOptions(force=options.force),
                     pip_args=options.pip_args,
-                    venv_args=options.venv_args,
                     verbose=options.verbose,
-                    force=options.force,
-                    reinstall=False,
-                    exposure=ExposureOptions(),
-                    preinstall_packages=None,
-                    python_flag_passed=options.python_flag_passed,
                     backend=options.backend,
                     cooldown=CooldownOptions(cli_days=options.cooldown.days),
                     emit_output=False,
@@ -166,13 +178,23 @@ def _repaired_venv(
 ) -> Venv:
     if is_unfinished(venv_dir):
         _LOGGER.warning("%s was left half changed by an interrupted pipx run; reinstalling it first.", venv_dir.name)
+        # rebuild on the Python the environment runs on, which only the interpreter knows on Windows, where the
+        # environment's python.exe is a launcher rather than a link
+        python_path: Final[Path] = Venv(venv_dir).python_path
+        base_python: Final[str] = (
+            run_subprocess(
+                [python_path, "-c", "import sys; print(sys._base_executable)"], log_stdout=False
+            ).stdout.strip()
+            if python_path.is_file()
+            else get_default_python()
+        )
         messages.extend(
             reinstall(
                 venv_dir,
                 ReinstallOptions(
-                    local_bin_dir=paths.CTX.bin_dir,
-                    local_man_dir=paths.CTX.man_dir,
-                    python=_base_python(Venv(venv_dir)),
+                    local_bin_dir=CTX.bin_dir,
+                    local_man_dir=CTX.man_dir,
+                    python=base_python,
                     verbose=verbose,
                     backend=backend,
                 ),
@@ -180,16 +202,6 @@ def _repaired_venv(
             ).messages
         )
     return Venv(venv_dir, verbose=verbose, backend=backend)
-
-
-def _base_python(venv: Venv) -> str:
-    # rebuild on the Python the environment runs on, which only the interpreter knows on Windows, where the
-    # environment's python.exe is a launcher rather than a link
-    if venv.python_path.is_file():
-        return run_subprocess(
-            [venv.python_path, "-c", "import sys; print(sys._base_executable)"], log_stdout=False
-        ).stdout.strip()
-    return get_default_python()
 
 
 def _validate_venv_for_upgrade(venv_dir: Path, venv: Venv) -> None:
@@ -245,6 +257,27 @@ def _upgrade_venv_packages(
         marked_unfinished(venv.root),
     ):
         return _upgrade_packages(venv, main_pip_args, options, packages_to_upgrade=packages_to_upgrade)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _PackageUpgradeResult:
+    environment: str
+    package: str
+    previous_version: str
+    version: str
+    status: _UpgradeStatus
+    injected: bool
+    location: str
+    interpreter: str | None
+    backend: str
+    source: str | None = None
+
+
+class _UpgradeStatus(StrEnum):
+    LOCKED = "locked"
+    PINNED = "pinned"
+    UNCHANGED = "unchanged"
+    UPGRADED = "upgraded"
 
 
 def _upgrade_packages(
@@ -322,14 +355,12 @@ def _upgrade_package(
     if package_metadata.pinned:
         return _package_result(venv, package_name, _UpgradeStatus.PINNED)
 
-    previous_resource_paths: Final[set[Path]] = get_expected_venv_resource_paths(
-        venv, paths.CTX.bin_dir, paths.CTX.man_dir
-    )
+    previous_resource_paths: Final[set[Path]] = get_expected_venv_resource_paths(venv, CTX.bin_dir, CTX.man_dir)
     venv.upgrade_package(
         package_name,
         parse_specifier_for_upgrade(package_metadata.package_or_url),
         pip_args,
-        exposure=ExposureOptions.recorded(package_metadata),
+        exposure=package_metadata.exposure,
         is_main_package=package_name == venv.main_package_name,
         expected_apps=package_metadata.expected_apps,
         cooldown_days=cooldown_days if cooldown_days is not None else package_metadata.cooldown_days,
@@ -338,12 +369,12 @@ def _upgrade_package(
     upgraded_metadata: Final[PackageInfo] = venv.package_metadata[package_name]
     validate_expected_apps(venv, package_name, upgraded_metadata.expected_apps)
     if venv.pipx_metadata.exposure_enabled:
-        expose_package_resources(upgraded_metadata, paths.CTX.bin_dir, paths.CTX.man_dir, force=force)
-        remove_stale_venv_resources(previous_resource_paths, venv, paths.CTX.bin_dir, paths.CTX.man_dir)
+        expose_package_resources(upgraded_metadata, CTX.bin_dir, CTX.man_dir, force=force)
+        remove_stale_venv_resources(previous_resource_paths, venv, CTX.bin_dir, CTX.man_dir)
 
     return _PackageUpgradeResult(
         environment=venv.name,
-        package=f"{upgraded_metadata.package}{upgraded_metadata.suffix}",
+        package=f"{upgraded_metadata.package}{upgraded_metadata.exposure.suffix}",
         previous_version=package_metadata.package_version,
         version=upgraded_metadata.package_version,
         status=(
@@ -359,11 +390,17 @@ def _upgrade_package(
     )
 
 
+def _local_source(package_metadata: PackageInfo) -> str | None:
+    if package_metadata.package_or_url is not None and valid_pypi_name(package_metadata.package_or_url) is None:
+        return redact_url_credentials(package_metadata.package_or_url)
+    return None
+
+
 def _package_result(venv: Venv, package_name: str, status: _UpgradeStatus) -> _PackageUpgradeResult:
     package_metadata: Final[PackageInfo] = venv.package_metadata[package_name]
     return _PackageUpgradeResult(
         environment=venv.name,
-        package=f"{package_metadata.package}{package_metadata.suffix}",
+        package=f"{package_metadata.package}{package_metadata.exposure.suffix}",
         previous_version=package_metadata.package_version,
         version=package_metadata.package_version,
         status=status,
@@ -375,10 +412,16 @@ def _package_result(venv: Venv, package_name: str, status: _UpgradeStatus) -> _P
     )
 
 
-def _local_source(package_metadata: PackageInfo) -> str | None:
-    if package_metadata.package_or_url is not None and valid_pypi_name(package_metadata.package_or_url) is None:
-        return redact_url_credentials(package_metadata.package_or_url)
-    return None
+@dataclass(frozen=True, slots=True, kw_only=True)
+class UpgradeData(OperationData):
+    """Result data of the upgrade commands.
+
+    :ivar packages: the upgrade results of the packages.
+    :ivar skipped: the packages that were skipped, with the reason.
+    """
+
+    packages: tuple[_PackageUpgradeResult, ...]
+    skipped: tuple[_SkippedUpgrade, ...]
 
 
 def _package_messages(result: _PackageUpgradeResult, *, upgrading_all: bool) -> tuple[OutputMessage, ...]:
@@ -439,6 +482,12 @@ def _package_messages(result: _PackageUpgradeResult, *, upgrading_all: bool) -> 
 
 
 def upgrade_all(venv_container: VenvContainer, options: UpgradeOptions) -> OperationResult[UpgradeData]:
+    """Upgrade every environment that has a newer version of its package.
+
+    :param venv_container: the container of the environments.
+    :param options: the options of the upgrade.
+    :returns: the result listing the upgraded packages and the skipped ones.
+    """
     outdated: Final[OutdatedData] = inspect_outdated(
         venv_container,
         OutdatedOptions(
@@ -461,9 +510,7 @@ def upgrade_all(venv_container: VenvContainer, options: UpgradeOptions) -> Opera
         check_failures.setdefault(failure.environment, []).append(failure.error)
 
     venv_dirs: Final[list[Path]] = list(venv_container.iter_venv_dirs())
-    with expose_shared_resources_in_order(
-        (PipxMetadata(venv_dir) for venv_dir in venv_dirs), paths.CTX.bin_dir, paths.CTX.man_dir
-    ):
+    with expose_shared_resources_in_order((PipxMetadata(venv_dir) for venv_dir in venv_dirs), CTX.bin_dir, CTX.man_dir):
         venv_upgrades: Final[list[_VenvUpgrade]] = fan_out(
             [
                 partial(
@@ -558,7 +605,7 @@ def _upgrade_listed_venv(
                     package_name
                     for package_name, package in venv.package_metadata.items()
                     if (package_name == venv.main_package_name or options.include_injected)
-                    and (venv.name, f"{package_name}{package.suffix}") in candidates
+                    and (venv.name, f"{package_name}{package.exposure.suffix}") in candidates
                 },
             )
         except PipxError as error:
@@ -576,10 +623,31 @@ def _upgrade_listed_venv(
     )
 
 
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _VenvUpgrade:
+    messages: tuple[OutputMessage, ...] = ()
+    results: tuple[_PackageUpgradeResult, ...] = ()
+    skipped: tuple[_SkippedUpgrade, ...] = ()
+    failures: tuple[_FailedUpgrade, ...] = ()
+    interrupted: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _SkippedUpgrade:
+    environment: str
+    reason: str
+
+
 def _raise_check_failures(venv: Venv, check_failures: dict[str, list[str]]) -> None:
     # index-check failures block an unlocked upgrade; raise so the enclosing handler records the environment
     if venv.pipx_metadata.main_package.lock_file is None and (errors := check_failures.get(venv.name)):
         raise PipxError("\n".join(errors), wrap_message=False)
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class _FailedUpgrade:
+    environment: str
+    error: str
 
 
 def _interrupted_upgrade(venv_dir: Path) -> _VenvUpgrade:
@@ -596,6 +664,13 @@ def _interrupted_upgrade(venv_dir: Path) -> _VenvUpgrade:
 
 
 def upgrade_shared(pip_args: list[str], *, verbose: bool) -> OperationResult[SharedData]:
+    """Upgrade the shared libraries that pipx's own environment uses.
+
+    :param pip_args: extra arguments for pip.
+    :param verbose: show the output of pip.
+    :returns: the result with the location of the shared libraries.
+    :raises PipxError: when the shared libraries cannot be upgraded.
+    """
     # pip-backed installs use this environment regardless of the installed environments' backends
     SHARED_LIBS.upgrade(verbose=verbose, pip_args=pip_args, raises=True)
     return OperationResult(
@@ -605,56 +680,13 @@ def upgrade_shared(pip_args: list[str], *, verbose: bool) -> OperationResult[Sha
     )
 
 
-class _UpgradeStatus(StrEnum):
-    LOCKED = "locked"
-    PINNED = "pinned"
-    UNCHANGED = "unchanged"
-    UPGRADED = "upgraded"
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _PackageUpgradeResult:
-    environment: str
-    package: str
-    previous_version: str
-    version: str
-    status: _UpgradeStatus
-    injected: bool
-    location: str
-    interpreter: str | None
-    backend: str
-    source: str | None = None
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _SkippedUpgrade:
-    environment: str
-    reason: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _FailedUpgrade:
-    environment: str
-    error: str
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class _VenvUpgrade:
-    messages: tuple[OutputMessage, ...] = ()
-    results: tuple[_PackageUpgradeResult, ...] = ()
-    skipped: tuple[_SkippedUpgrade, ...] = ()
-    failures: tuple[_FailedUpgrade, ...] = ()
-    interrupted: tuple[str, ...] = ()
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class UpgradeData(OperationData):
-    packages: tuple[_PackageUpgradeResult, ...]
-    skipped: tuple[_SkippedUpgrade, ...]
-
-
 @dataclass(frozen=True, slots=True, kw_only=True)
 class SharedData(OperationData):
+    """Result data of the upgrade-shared command.
+
+    :ivar location: the directory of the shared libraries.
+    """
+
     location: str
 
 

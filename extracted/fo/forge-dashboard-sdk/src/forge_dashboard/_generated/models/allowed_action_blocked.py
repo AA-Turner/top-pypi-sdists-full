@@ -9,6 +9,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
+from typing import cast
+import datetime
 
 
 
@@ -41,11 +43,16 @@ class AllowedActionBlocked:
                 know. Declared with `x-extensible-enum`.
             message (str): Plain words, safe to show a person.
             next_ (str | Unset): What unlocks it, when something does.
+            since (datetime.datetime | Unset): Only with `forge_unreachable`: when the rows on show were
+                read. While the forge can't be asked every action is listed
+                blocked with this code, whatever reason the earlier answer
+                gave, and `message` is the same sentence a row's pills use.
      """
 
     code: str
     message: str
     next_: str | Unset = UNSET
+    since: datetime.datetime | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -59,6 +66,10 @@ class AllowedActionBlocked:
 
         next_ = self.next_
 
+        since: str | Unset = UNSET
+        if not isinstance(self.since, Unset):
+            since = self.since.isoformat()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -68,6 +79,8 @@ class AllowedActionBlocked:
         })
         if next_ is not UNSET:
             field_dict["next"] = next_
+        if since is not UNSET:
+            field_dict["since"] = since
 
         return field_dict
 
@@ -82,10 +95,21 @@ class AllowedActionBlocked:
 
         next_ = d.pop("next", UNSET)
 
+        _since = d.pop("since", UNSET)
+        since: datetime.datetime | Unset
+        if isinstance(_since,  Unset):
+            since = UNSET
+        else:
+            since = datetime.datetime.fromisoformat(_since)
+
+
+
+
         allowed_action_blocked = cls(
             code=code,
             message=message,
             next_=next_,
+            since=since,
         )
 
 

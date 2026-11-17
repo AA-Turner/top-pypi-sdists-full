@@ -10,12 +10,13 @@ code, nothing kept from an earlier version → a module the class imported that 
 the deploy prints how many files, how large, and their hash (seq.source.files_sha256), which the platform keeps beside
 the version.
 
-WHY a folder: one argument decided both which class to deploy and which code to upload - "so when you deploy, you deploy
-a py file, and then it uploads the entire thing. That is not very intuitive. Why couldn't we just deploy a folder"
+WHY a folder: one argument decided both which class to deploy and which code to upload - a .py file was named and the
+whole folder around it went up, which nobody would guess
+
 . WHY the whole folder: a helper, a config or
 third_party/ left behind ran the version the author did not see. WHY nothing is
-left out unsaid: `build/` and `env/` were dropped wherever they were, a vendored package's own `build/` with them (worker
-8, 10-13). An add_local_file / add_local_dir path inside the folder is the folder's own copy (its add_local step names it
+left out unsaid: `build/` and `env/` were dropped wherever they were, a vendored package's own `build/` with them
+. An add_local_file / add_local_dir path inside the folder is the folder's own copy (its add_local step names it
 there); one outside it ships under `_seq_local/<n>/`.
 
 The tar is deterministic (sorted entries, zeroed mtime/owner) so the same source gives the same sha256 and the platform
@@ -429,7 +430,7 @@ def _gitignored(top: Path) -> list[str]:
 
 def _mib(n: float) -> str:
     """A size as the docs and the limits say it, in MiB: the 64 MiB ceiling read "67 MB" in decimal megabytes.
-    {worker 7's std3 list B5}"""
+    """
     return f"{n / 2 ** 20:.1f} MiB"
 
 

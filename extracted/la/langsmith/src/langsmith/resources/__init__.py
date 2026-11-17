@@ -1,5 +1,13 @@
 # File generated from our OpenAPI spec by Stainless. See CONTRIBUTING.md for details.
 
+from .sql import (
+    SqlResource,
+    AsyncSqlResource,
+    SqlResourceWithRawResponse,
+    AsyncSqlResourceWithRawResponse,
+    SqlResourceWithStreamingResponse,
+    AsyncSqlResourceWithStreamingResponse,
+)
 from .info import (
     InfoResource,
     AsyncInfoResource,
@@ -23,6 +31,14 @@ from .fleet import (
     AsyncFleetResourceWithRawResponse,
     FleetResourceWithStreamingResponse,
     AsyncFleetResourceWithStreamingResponse,
+)
+from .repos import (
+    ReposResource,
+    AsyncReposResource,
+    ReposResourceWithRawResponse,
+    AsyncReposResourceWithRawResponse,
+    ReposResourceWithStreamingResponse,
+    AsyncReposResourceWithStreamingResponse,
 )
 from .agents import (
     AgentsResource,
@@ -56,6 +72,14 @@ from .traces import (
     TracesResourceWithStreamingResponse,
     AsyncTracesResourceWithStreamingResponse,
 )
+from .commits import (
+    CommitsResource,
+    AsyncCommitsResource,
+    CommitsResourceWithRawResponse,
+    AsyncCommitsResourceWithRawResponse,
+    CommitsResourceWithStreamingResponse,
+    AsyncCommitsResourceWithStreamingResponse,
+)
 from .threads import (
     ThreadsResource,
     AsyncThreadsResource,
@@ -79,6 +103,14 @@ from .sessions import (
     AsyncSessionsResourceWithRawResponse,
     SessionsResourceWithStreamingResponse,
     AsyncSessionsResourceWithStreamingResponse,
+)
+from .ai_search import (
+    AISearchResource,
+    AsyncAISearchResource,
+    AISearchResourceWithRawResponse,
+    AsyncAISearchResourceWithRawResponse,
+    AISearchResourceWithStreamingResponse,
+    AsyncAISearchResourceWithStreamingResponse,
 )
 from .sandboxes import (
     SandboxesResource,
@@ -128,8 +160,22 @@ from .online_evaluators import (
     OnlineEvaluatorsResourceWithStreamingResponse,
     AsyncOnlineEvaluatorsResourceWithStreamingResponse,
 )
+from .workspace_secrets import (
+    WorkspaceSecretsResource,
+    AsyncWorkspaceSecretsResource,
+    WorkspaceSecretsResourceWithRawResponse,
+    AsyncWorkspaceSecretsResourceWithRawResponse,
+    WorkspaceSecretsResourceWithStreamingResponse,
+    AsyncWorkspaceSecretsResourceWithStreamingResponse,
+)
 
 __all__ = [
+    "SqlResource",
+    "AsyncSqlResource",
+    "SqlResourceWithRawResponse",
+    "AsyncSqlResourceWithRawResponse",
+    "SqlResourceWithStreamingResponse",
+    "AsyncSqlResourceWithStreamingResponse",
     "ProductFeedbackResource",
     "AsyncProductFeedbackResource",
     "ProductFeedbackResourceWithRawResponse",
@@ -178,6 +224,12 @@ __all__ = [
     "AsyncTracesResourceWithRawResponse",
     "TracesResourceWithStreamingResponse",
     "AsyncTracesResourceWithStreamingResponse",
+    "AISearchResource",
+    "AsyncAISearchResource",
+    "AISearchResourceWithRawResponse",
+    "AsyncAISearchResourceWithRawResponse",
+    "AISearchResourceWithStreamingResponse",
+    "AsyncAISearchResourceWithStreamingResponse",
     "EvaluatorsResource",
     "AsyncEvaluatorsResource",
     "EvaluatorsResourceWithRawResponse",
@@ -214,6 +266,24 @@ __all__ = [
     "AsyncInfoResourceWithRawResponse",
     "InfoResourceWithStreamingResponse",
     "AsyncInfoResourceWithStreamingResponse",
+    "WorkspaceSecretsResource",
+    "AsyncWorkspaceSecretsResource",
+    "WorkspaceSecretsResourceWithRawResponse",
+    "AsyncWorkspaceSecretsResourceWithRawResponse",
+    "WorkspaceSecretsResourceWithStreamingResponse",
+    "AsyncWorkspaceSecretsResourceWithStreamingResponse",
+    "ReposResource",
+    "AsyncReposResource",
+    "ReposResourceWithRawResponse",
+    "AsyncReposResourceWithRawResponse",
+    "ReposResourceWithStreamingResponse",
+    "AsyncReposResourceWithStreamingResponse",
+    "CommitsResource",
+    "AsyncCommitsResource",
+    "CommitsResourceWithRawResponse",
+    "AsyncCommitsResourceWithRawResponse",
+    "CommitsResourceWithStreamingResponse",
+    "AsyncCommitsResourceWithStreamingResponse",
     "IssuesResource",
     "AsyncIssuesResource",
     "IssuesResourceWithRawResponse",

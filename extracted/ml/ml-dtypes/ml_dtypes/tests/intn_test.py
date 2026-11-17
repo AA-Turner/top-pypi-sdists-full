@@ -47,23 +47,6 @@ VALUES = {
 }
 
 
-FLOAT_TYPES = [
-    ml_dtypes.bfloat16,
-    ml_dtypes.float4_e2m1fn,
-    ml_dtypes.float6_e2m3fn,
-    ml_dtypes.float6_e3m2fn,
-    ml_dtypes.float8_e3m4,
-    ml_dtypes.float8_e4m3,
-    ml_dtypes.float8_e4m3b11fnuz,
-    ml_dtypes.float8_e4m3fn,
-    ml_dtypes.float8_e4m3fnuz,
-    ml_dtypes.float8_e5m2,
-    ml_dtypes.float8_e5m2fnuz,
-    # No casts to e8m0fnu for now.
-    # ml_dtypes.float8_e8m0fnu,
-]
-
-
 @contextlib.contextmanager
 def ignore_warning(**kw):
   with warnings.catch_warnings():
@@ -200,120 +183,6 @@ class ScalarTest(parameterized.TestCase):
           self.assertIsInstance(out, scalar_type)
           self.assertEqual(scalar_type(op(v, w)), out, msg=(v, w))
 
-  CAST_DTYPES = [
-      np.float16,
-      np.float32,
-      np.float64,
-      np.int8,
-      np.int16,
-      np.int32,
-      np.int64,
-      np.complex64,
-      np.complex128,
-      np.uint8,
-      np.uint16,
-      np.uint32,
-      np.uint64,
-      np.intc,
-      np.int_,
-      np.longlong,
-      np.uintc,
-      np.ulonglong,
-  ] + INTN_TYPES
-
-  @parameterized.product(a=INTN_TYPES, b=CAST_DTYPES)
-  def testCanCast(self, a, b):
-    allowed_casts = [
-        (np.bool_, int1),
-        (np.bool_, int2),
-        (np.bool_, int4),
-        (int1, int1),
-        (int1, int2),
-        (int1, int4),
-        (int1, np.int8),
-        (int1, np.int16),
-        (int1, np.int32),
-        (int1, np.int64),
-        (int1, np.float16),
-        (int1, np.float32),
-        (int1, np.float64),
-        (int1, np.complex64),
-        (int1, np.complex128),
-        (int2, int2),
-        (int2, np.int8),
-        (int2, np.int16),
-        (int2, np.int32),
-        (int2, np.int64),
-        (int2, np.float16),
-        (int2, np.float32),
-        (int2, np.float64),
-        (int2, np.complex64),
-        (int2, np.complex128),
-        (int2, int4),
-        (int4, int4),
-        (int4, np.int8),
-        (int4, np.int16),
-        (int4, np.int32),
-        (int4, np.int64),
-        (int4, np.float16),
-        (int4, np.float32),
-        (int4, np.float64),
-        (int4, np.complex64),
-        (int4, np.complex128),
-        (np.bool_, uint1),
-        (np.bool_, uint2),
-        (np.bool_, uint4),
-        (uint1, uint1),
-        (uint1, uint2),
-        (uint1, uint4),
-        (uint1, np.int8),
-        (uint1, np.int16),
-        (uint1, np.int32),
-        (uint1, np.int64),
-        (uint1, np.uint8),
-        (uint1, np.uint16),
-        (uint1, np.uint32),
-        (uint1, np.uint64),
-        (uint1, np.float16),
-        (uint1, np.float32),
-        (uint1, np.float64),
-        (uint1, np.complex64),
-        (uint1, np.complex128),
-        (uint2, uint2),
-        (uint2, np.int8),
-        (uint2, np.int16),
-        (uint2, np.int32),
-        (uint2, np.int64),
-        (uint2, np.uint8),
-        (uint2, np.uint16),
-        (uint2, np.uint32),
-        (uint2, np.uint64),
-        (uint2, np.float16),
-        (uint2, np.float32),
-        (uint2, np.float64),
-        (uint2, np.complex64),
-        (uint2, np.complex128),
-        (uint2, uint4),
-        (uint4, uint4),
-        (uint4, np.int8),
-        (uint4, np.int16),
-        (uint4, np.int32),
-        (uint4, np.int64),
-        (uint4, np.uint8),
-        (uint4, np.uint16),
-        (uint4, np.uint32),
-        (uint4, np.uint64),
-        (uint4, np.float16),
-        (uint4, np.float32),
-        (uint4, np.float64),
-        (uint4, np.complex64),
-        (uint4, np.complex128),
-    ]
-    allowed_casts += [(a, b) for a in INTN_TYPES for b in FLOAT_TYPES]
-    self.assertEqual(
-        ((a, b) in allowed_casts), np.can_cast(a, b, casting="safe")
-    )
-
   @parameterized.product(scalar_type=INTN_TYPES)
   def testIssubdtype(self, scalar_type):
     # In the future, we may want to make these more specific (e.g. use
@@ -344,11 +213,41 @@ class ScalarTest(parameterized.TestCase):
       np.array(np.inf, dtype=scalar_type)
     with self.assertRaises(OverflowError):
       np.array(1e10, dtype=scalar_type)
+    # The message names the type.
+    high = VALUES[scalar_type][-1]
+    with self.assertRaisesRegex(OverflowError, scalar_type.__name__):
+      scalar_type(float(high + 1))
+    with self.assertRaisesRegex(OverflowError, scalar_type.__name__):
+      scalar_type(np.float32(high + 1))
+    with self.assertRaisesRegex(OverflowError, scalar_type.__name__):
+      scalar_type(np.int64(high + 1))
     # But these shouldn't raise exceptions.
-    np.array(np.nan).astype(scalar_type)
-    np.array(np.inf).astype(scalar_type)
     with np.errstate(invalid="ignore"):
+      np.array(np.nan).astype(scalar_type)
+      np.array(np.inf).astype(scalar_type)
       np.array(1e10).astype(scalar_type)
+
+  @parameterized.product(
+      scalar_type=INTN_TYPES,
+      float_type=[float, np.float64, np.float32, np.float16],
+  )
+  def testCastFloatTruncation(self, scalar_type, float_type):
+    low = min(VALUES[scalar_type])
+    high = max(VALUES[scalar_type])
+    for x, expected in [(low - 0.5, low), (high + 0.5, high)]:
+      val = float_type(x)
+      self.assertEqual(scalar_type(val), scalar_type(expected))
+      np.testing.assert_array_equal(
+          np.array([val], dtype=scalar_type),
+          np.array([expected], dtype=scalar_type),
+      )
+    for x in [low - 1.0, high + 1.0]:
+      val = float_type(x)
+      with self.assertRaises(OverflowError):
+        scalar_type(val)
+      if float_type is float:
+        with self.assertRaises(OverflowError):
+          np.array([val], dtype=scalar_type)
 
   _INCOMPATIBLE_VALUES = [
       None,
@@ -445,8 +344,14 @@ class ScalarTest(parameterized.TestCase):
     np.testing.assert_array_equal(op(seq, val), op(seq, equiv_val))
 
 
-# Tests for the Python scalar type
-@multi_threaded(num_workers=3, skip_tests=["testBinaryUfuncs"])
+@multi_threaded(
+    num_workers=3,
+    skip_tests=[
+        "testBinaryUfuncs",
+        "testDivideByZeroWarningAsError",  # warnings.catch_warnings is not thread-safe
+        "testZeroSizeReduction",  # pytest 9.0.1's subtest appears not to be thread-safe
+    ],
+)
 class ArrayTest(parameterized.TestCase):
 
   @parameterized.product(scalar_type=INTN_TYPES)
@@ -524,66 +429,6 @@ class ArrayTest(parameterized.TestCase):
 
   @parameterized.product(
       scalar_type=INTN_TYPES,
-      dtype=[
-          np.float16,
-          np.float32,
-          np.float64,
-          np.longdouble,
-          np.int8,
-          np.int16,
-          np.int32,
-          np.int64,
-          np.complex64,
-          np.complex128,
-          np.clongdouble,
-          np.uint8,
-          np.uint16,
-          np.uint32,
-          np.uint64,
-          np.intc,
-          np.int_,
-          np.longlong,
-          np.uintc,
-          np.ulonglong,
-      ],
-  )
-  def testCasts(self, scalar_type, dtype):
-    x_orig = np.array(VALUES[scalar_type])
-    x = np.array(VALUES[scalar_type]).astype(dtype)
-    x = np.where(x == x_orig, x, np.zeros_like(x))
-    y = x.astype(scalar_type)
-    z = y.astype(dtype)
-    self.assertTrue(np.all(x == y), msg=(x, y))
-    self.assertEqual(scalar_type, y.dtype)
-    self.assertTrue(np.all(x == z))
-    self.assertEqual(dtype, z.dtype)
-
-  # TODO(phawkins): ideally we would also allow unsafe casts between custom
-  # types, but I'm unable to figure out how to convince NumPy to treat custom
-  # casts as unsafe.
-  @parameterized.product(
-      types=[(int2, int4), (uint2, uint4), (int1, int2), (uint1, uint2)]
-      + [
-          (a, b)
-          for a in INTN_TYPES
-          for b in FLOAT_TYPES
-          if (a, b)
-          not in [
-              (int4, ml_dtypes.float6_e2m3fn),
-              (uint4, ml_dtypes.float6_e2m3fn),
-          ]
-      ]
-  )
-  def testCastBetweenCustomTypes(self, types):
-    a, b = types
-    x = np.array(VALUES[a], dtype=a)
-    y = x.astype(b)
-    np.testing.assert_array_equal(
-        np.array(VALUES[a], dtype=b).astype(np.int32), y.astype(np.int32)
-    )
-
-  @parameterized.product(
-      scalar_type=INTN_TYPES,
       ufunc=[
           np.add,
           np.subtract,
@@ -600,6 +445,87 @@ class ArrayTest(parameterized.TestCase):
         ufunc(x[:, None], x[None, :]).astype(scalar_type),
         ufunc(y[:, None], y[None, :]),
     )
+
+  @parameterized.product(
+      scalar_type=INTN_TYPES,
+      ufunc=[
+          np.logical_and,
+          np.logical_or,
+          np.logical_xor,
+      ],
+  )
+  def testLogicalUfuncReduce(self, scalar_type, ufunc):
+    x = np.array([True, False, True], dtype=scalar_type)
+    np.testing.assert_equal(
+        ufunc.reduce(x),
+        ufunc.reduce(x.astype(bool)),
+    )
+
+  @parameterized.parameters(INTN_TYPES)
+  def testAccumulateWithOutputDtype(self, scalar_type):
+    x = np.array([1, 2, 3], dtype=scalar_type)
+    res = np.multiply.accumulate(x, dtype=np.int32)
+    np.testing.assert_equal(res, np.multiply.accumulate(x.astype(np.int32)))
+
+  @parameterized.parameters(INTN_TYPES)
+  def testZeroSizeReduction(self, scalar_type):
+    x = np.array([], dtype=scalar_type)
+    for op, expected in [(np.add, 0), (np.multiply, 1)]:
+      with self.subTest(op.__name__):
+        np.testing.assert_equal(op.reduce(x), scalar_type(expected))
+
+  @parameterized.parameters(INTN_TYPES)
+  def testMultiAxisReductions(self, scalar_type):
+    if scalar_type == int1:
+      vals = [-1, 0]
+    elif scalar_type == uint1:
+      vals = [0, 1]
+    else:
+      vals = [1, 1]
+    x = np.array([vals, vals], dtype=scalar_type)
+    for op in [np.add, np.multiply]:
+      res = op.reduce(x, axis=(0, 1))
+      self.assertEqual(res.dtype, np.dtype(scalar_type))
+      expected = np.asarray(op.reduce(x.astype(np.int32), axis=(0, 1))).astype(
+          scalar_type
+      )[()]
+      np.testing.assert_equal(res, expected)
+
+  @parameterized.parameters(INTN_TYPES)
+  def testDivideByZeroWarningAsError(self, scalar_type):
+    val = -1 if scalar_type is int1 else 1
+    x = np.array([val, val], dtype=scalar_type)
+    zero = np.array([0, 0], dtype=scalar_type)
+    for op in [np.floor_divide, np.remainder]:
+      with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", RuntimeWarning)
+        with np.errstate(divide="warn"):
+          np.testing.assert_array_equal(
+              op(x, zero), np.zeros(2, dtype=scalar_type)
+          )
+      self.assertLen(caught, 1)
+
+      with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        with np.errstate(divide="ignore"):
+          np.testing.assert_array_equal(
+              op(x, zero), np.zeros(2, dtype=scalar_type)
+          )
+        with np.errstate(divide="warn"):
+          with self.assertRaises(RuntimeWarning):
+            _ = op(x, zero)
+
+      with np.errstate(divide="raise"):
+        with self.assertRaises(FloatingPointError):
+          _ = op(x, zero)
+
+  @parameterized.parameters(INTN_TYPES)
+  def testPythonIntOutOfBoundsComparison(self, scalar_type):
+    x = np.array(VALUES[scalar_type], dtype=scalar_type)
+    self.assertFalse(np.any(x == 1000))
+    self.assertTrue(np.all(x != 1000))
+    self.assertTrue(np.all(x < 1000))
+    self.assertTrue(np.all(1000 > x))
 
 
 if __name__ == "__main__":

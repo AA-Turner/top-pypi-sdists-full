@@ -121,13 +121,24 @@ pub struct Token {
 	pub next: Neighbor,
 	/// How many leaves come before it, so that a pair with nothing between them can be refused.
 	pub leaves: usize,
+	/// Whether it comes straight after a detected URL, which only left it out in case it closes
+	/// something; see [`Token::flanking`].
+	pub after_url: bool,
 }
 
 impl Token {
+	/// A run straight after a detected URL can close a modifier opened before the URL, as in
+	/// `_https://example.com_`, but never opens one: it is the URL's own, unless something was
+	/// waiting for it.
 	fn flanking(&self, spoiler: SpoilerState) -> Flanking {
-		self.delim
+		let flanking = self
+			.delim
 			.ch
-			.flanking(self.delim.len, self.prev, self.next, spoiler)
+			.flanking(self.delim.len, self.prev, self.next, spoiler);
+		Flanking {
+			opens: flanking.opens && !self.after_url,
+			..flanking
+		}
 	}
 }
 

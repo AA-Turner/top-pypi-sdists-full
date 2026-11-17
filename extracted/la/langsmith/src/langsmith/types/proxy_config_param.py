@@ -50,13 +50,20 @@ class CallbackRequestHeader(TypedDict, total=False):
 
 
 class Callback(TypedDict, total=False):
-    match_hosts: Required[SequenceNotStr[str]]
-
     ttl_seconds: Required[int]
 
     url: Required[str]
 
+    attribution_headers: SequenceNotStr[str]
+    """
+    AttributionHeaders selects required all-egress response headers instead of
+    destination credentials; omit match_hosts and full_request, and return
+    expires_at with the headers.
+    """
+
     full_request: bool
+
+    match_hosts: SequenceNotStr[str]
 
     request_headers: Iterable[CallbackRequestHeader]
 
@@ -332,9 +339,13 @@ class Rule(TypedDict, total=False):
     """
 
     match_hosts: SequenceNotStr[str]
-    """
-    MatchHosts is only accepted for header injection, rewrite, and relay rules.
-    Provider auth rules use built-in host matching. A relay rule may also list IP
+    """MatchHosts lists the hosts a header injection, rewrite, or relay rule covers.
+
+    AWS and GCP rules match their provider's hosts built in; there MatchHosts
+    optionally narrows them to the listed hosts (e.g. "sts.amazonaws.com",
+    "bigquery.googleapis.com"), and when empty the rule covers every host the
+    provider can authenticate. A host no rule covers is passed through without TLS
+    interception. Azure rules do not accept it. A relay rule may also list IP
     addresses and CIDR blocks (10.0.0.0/8), which match connections the sandbox
     makes to an IP address rather than a name.
     """
@@ -349,9 +360,16 @@ class Rule(TypedDict, total=False):
     matches `/v10`); a suffix, written as `*`, a slash, and then the ending, which
     matches any path that ends with that text (the ending `runs` also matches
     `/v1/xruns`); or `*` alone for every path. A wildcard in the middle of a path is
-    not supported. An empty list matches every path. Rules are evaluated in order
-    and the first match wins. Rejected on aws, gcp, azure, and relay rules.
+    not supported. An empty list matches every path. A request whose path is not
+    canonical (a `.` or `..` segment, an empty segment such as `//`, a backslash, or
+    a percent-encoded slash, backslash, or dot) matches no pattern. Rules are
+    evaluated in order and the first match wins. Rejected on aws, gcp, azure, and
+    relay rules.
     """
+
+    match_port: int
+
+    match_scheme: Literal["https"]
 
     relay_id: str
     """
@@ -365,6 +383,12 @@ class Rule(TypedDict, total=False):
     rewrite: RuleRewrite
 
     type: str
+    """
+    Type selects the rule action; attribution adds up to 16 literal plaintext X-
+    metadata headers to every proxy-handled HTTP(S) destination, independently of
+    credential rules. At most one attribution rule is allowed, without matching,
+    provider, relay, rewrite or environment fields.
+    """
 
 
 class ProxyConfigParam(TypedDict, total=False):

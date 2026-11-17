@@ -9,6 +9,7 @@ from ....shared.reads.search_contract import (
     EntityType,
     MatchMode)
 from probe.mcp.tools.shaping.people import to_people_cards
+from probe.sdk.reads import links
 
 
 #: How much of the engine's rationale a card carries. Long enough for a reason,
@@ -123,9 +124,10 @@ def _section(response: Any, key: str) -> dict[str, Any]:
     }
 
 
-def _exact_result(row: dict) -> dict:
+def _exact_result(row: dict, *, api_base_url: str | None = None) -> dict:
     """An exact-channel hit (project | experiment | run | artifact) in the tool's
-    result shape.
+    result shape. A run, experiment or project hit carries its dashboard page as
+    `url` (as a browse node does), absent when the dashboard origin is unknown.
 
     `slug` rides in the card because it is the reason a run hit exists: the
     backend gained a runs branch precisely so a pasted petname resolves, and a
@@ -160,12 +162,14 @@ def _exact_result(row: dict) -> dict:
         # addressable resource per run regardless of which channel surfaced it.
         resource = f"research://runs/{entity_id}/handoff"
     # artifacts have no addressable research:// resource (no single-GET route)
+    url = links.entity_url(str(entity_type), entity_id, api_base_url=api_base_url)
     return {
         "entity_type": entity_type,
         "id": entity_id,
         "card": card,
         "why_matched": _why_matched(MatchMode.EXACT, Channel.EXACT, score=row.get("score")),
         "resource": resource,
+        **({"url": url} if url else {}),
     }
 
 
@@ -202,8 +206,10 @@ def _read_github_author(row: dict) -> str | None:
     return author.strip()
 
 
-def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
-    """A semantic-channel document hit (engine) in the tool's result shape.
+def _semantic_result(row: dict, *, keyword: bool = False, api_base_url: str | None = None) -> dict:
+    """A semantic-channel document hit (engine) in the tool's result shape. A hit
+    resolved to a run, experiment or project carries its dashboard page as `url`
+    (as the exact channel's does); a document or paper hit has no page and none.
 
     `keyword` labels a hit the backend's keyword search found (BM25, no model):
     same card, `why_matched` says `keyword` so it is never read as a meaning match.
@@ -262,6 +268,7 @@ def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
     people = to_people_cards(row.get("people"), show_id=False)
     if people:
         card["people"] = people
+    url = links.entity_url(str(kind), entity_id, api_base_url=api_base_url) if kind else None
     return {
         "entity_type": kind or EntityType.DOCUMENT,
         **({"id": entity_id} if kind else {}),
@@ -273,6 +280,7 @@ def _semantic_result(row: dict, *, keyword: bool = False) -> dict:
             reason=_chunk_reason(row),
         ),
         "resource": resource,
+        **({"url": url} if url else {}),
     }
 
 

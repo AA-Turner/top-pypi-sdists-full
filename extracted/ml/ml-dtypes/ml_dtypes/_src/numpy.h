@@ -22,21 +22,43 @@ limitations under the License.
 
 // Disallow Numpy 2.0 deprecated symbols.
 #define NPY_NO_DEPRECATED_API NPY_2_0_API_VERSION
+#define NPY_TARGET_VERSION NPY_2_0_API_VERSION
 
-// We import_array in the ml_dtypes init function only.
-#define PY_ARRAY_UNIQUE_SYMBOL _ml_dtypes_numpy_api
+// We import_array and import_umath in the ml_dtypes init function only.
+#define PY_ARRAY_UNIQUE_SYMBOL _ml_dtypes_numpy_array_api
+#define PY_UFUNC_UNIQUE_SYMBOL _ml_dtypes_numpy_ufunc_api
 #ifndef ML_DTYPES_IMPORT_NUMPY
 #define NO_IMPORT_ARRAY
+#define NO_IMPORT_UFUNC
 #endif
-
-// Place `<locale>` before <Python.h> to avoid build failure in macOS.
-#include <locale>
 
 #include <Python.h>
 
 #include "numpy/arrayobject.h"
 #include "numpy/arrayscalars.h"
+#include "numpy/dtype_api.h"
 #include "numpy/ufuncobject.h"
+
+#include "ml_dtypes/_src/npy_2_compat_new_dtypes.h"
+
+#ifndef PyUFunc_AddLoopsFromSpecs
+// Backport `PyUFunc_AddLoopsFromSpecs` for conditional use if we are
+// on NumPy 2.5+ at runtime.  (function available with 2.4, but not imag/real)
+#if NPY_API_VERSION < 0x15
+typedef struct {
+  const char* name;
+  PyArrayMethod_Spec* spec;
+} PyUFunc_LoopSlot;  // defined starting NumPy 2.4+
+#endif
+
+static inline int PyUFunc_AddLoopsFromSpecs(PyUFunc_LoopSlot* loop_specs) {
+  if (PyArray_RUNTIME_VERSION < 0x15) {
+    return 0;  // no-op as function is not available.
+  }
+  return (*(int (*)(PyUFunc_LoopSlot*))PyUFunc_API[47])(loop_specs);
+}
+
+#endif
 
 namespace ml_dtypes {
 
@@ -48,7 +70,6 @@ void ImportNumpy();
 
 extern PyObject* ComplexWarning;
 int GiveComplexWarning();
-int GiveComplexWarningNoGIL();
 
 }  // namespace ml_dtypes
 

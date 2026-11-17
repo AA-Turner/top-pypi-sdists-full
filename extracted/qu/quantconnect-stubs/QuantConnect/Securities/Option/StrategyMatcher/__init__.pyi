@@ -1558,7 +1558,7 @@ class AbsoluteRiskOptionPositionCollectionEnumerator(System.Object, QuantConnect
 
     def __init__(self, market_price_provider: typing.Callable[[QuantConnect.Symbol], float]) -> None:
         """
-        Intializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
+        Initializes a new instance of the AbsoluteRiskOptionPositionCollectionEnumerator class
         
         :param market_price_provider: Function providing the current market price for a provided symbol
         """

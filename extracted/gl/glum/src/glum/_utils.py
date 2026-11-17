@@ -1,4 +1,6 @@
+import contextlib
 import logging
+import warnings
 from collections.abc import Sequence
 from typing import Any, Optional, Union
 
@@ -9,6 +11,19 @@ import tabmat as tm
 from scipy import sparse
 
 _logger = logging.getLogger(__name__)
+
+
+def get_categories(series: nw.Series) -> list:
+    """Get the categories of a categorical series, in tabmat's column order.
+
+    Polars ``Categorical`` (unlike ``Enum``) has no per-column category list:
+    ``get_categories()`` returns polars' global category pool (polars < 2.0) or
+    the values present in order of appearance (polars >= 2.0). Use the sorted
+    unique values instead, as tabmat does.
+    """
+    if series.implementation.is_polars() and isinstance(series.dtype, nw.Categorical):
+        return series.drop_nulls().unique().sort().to_list()
+    return series.cat.get_categories().to_list()
 
 
 def align_df_categories(
@@ -47,8 +62,6 @@ def align_df_categories(
         else:
             continue
 
-        changed_dtypes[column] = df[column].cast(nw.Enum(levels))
-
         if cat_missing_method == "convert" and not has_missing_category[column]:
             unseen_categories = set(df[column].unique()) - set(
                 categorical_levels[column]
@@ -62,6 +75,8 @@ def align_df_categories(
             raise ValueError(
                 f"Column {column} contains unseen categories: {unseen_categories}."
             )
+
+        changed_dtypes[column] = df[column].cast(nw.Enum(levels))
 
     if changed_dtypes:
         df = df.with_columns(**changed_dtypes)
@@ -152,17 +167,10 @@ def expand_categorical_penalties(
             )
 
         expanded_penalty = []  # type: ignore
-        backend = nw.get_native_namespace(X).__name__
 
         for element, (column, dt) in zip(penalty, X.schema.items()):
             if isinstance(dt, (nw.Enum, nw.Categorical)):
-                # For Polars Categorical (not Enum), avoid .cat.get_categories()
-                # due to string cache issues. Enum is safe to use.
-                if backend == "polars" and isinstance(dt, nw.Categorical):
-                    num_categories = len(X[column].unique().drop_nulls())
-                else:
-                    num_categories = len(X[column].cat.get_categories())
-
+                num_categories = len(get_categories(X[column]))
                 length = num_categories + has_missing_category[column] - drop_first
                 expanded_penalty.extend(element for _ in range(length))
             else:
@@ -172,6 +180,24 @@ def expand_categorical_penalties(
 
     else:
         return penalty
+
+
+@contextlib.contextmanager
+def ignore_tabmat_copy_warning():
+    """Silence tabmat's "not contiguous" warning.
+
+    Row slices of a data frame (e.g. ``df.iloc[:n]``) are not contiguous in memory,
+    so tabmat copies them and warns. The copy is harmless and users can only avoid
+    the warning by copying their data themselves, so we do not pass it on.
+
+    TODO: tabmat no longer warns after 4.3.1. Remove this once glum requires a
+    tabmat release that includes that change.
+    """
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message="Input array is not contiguous", category=UserWarning
+        )
+        yield
 
 
 def is_contiguous(X) -> bool:

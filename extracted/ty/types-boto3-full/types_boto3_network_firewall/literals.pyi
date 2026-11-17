@@ -27,6 +27,8 @@ __all__ = (
     "ConfigurationSyncStateType",
     "ContainerAssociationStatusType",
     "ContainerMonitoringTypeType",
+    "ContextStoreSyncStatusType",
+    "ContextTypeType",
     "DNSExpiryExceptionPolicyType",
     "DecryptionActionType",
     "EnabledAnalysisTypeType",
@@ -45,11 +47,13 @@ __all__ = (
     "IdentifiedTypeType",
     "ListAnalysisReportsPaginatorName",
     "ListContainerAssociationsPaginatorName",
+    "ListContextStoresPaginatorName",
     "ListFirewallPoliciesPaginatorName",
     "ListFirewallPoliciesV2PaginatorName",
     "ListFirewallsPaginatorName",
     "ListFlowOperationResultsPaginatorName",
     "ListFlowOperationsPaginatorName",
+    "ListResourcesInContextStorePaginatorName",
     "ListRuleGroupsPaginatorName",
     "ListTLSInspectionConfigurationsPaginatorName",
     "ListTagsForResourcePaginatorName",
@@ -71,6 +75,7 @@ __all__ = (
     "ResourceManagedTypeType",
     "ResourceServiceName",
     "ResourceStatusType",
+    "ResourceTypeType",
     "RevocationCheckActionType",
     "Route53ResolvedIPValidationActionType",
     "RuleGroupTypeType",
@@ -98,6 +103,10 @@ AttachmentStatusType = Literal["CREATING", "DELETING", "ERROR", "FAILED", "READY
 ConfigurationSyncStateType = Literal["CAPACITY_CONSTRAINED", "IN_SYNC", "PENDING"]
 ContainerAssociationStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 ContainerMonitoringTypeType = Literal["ECS", "EKS"]
+ContextStoreSyncStatusType = Literal[
+    "FULLY_RESOLVED", "PARTIALLY_RESOLVED", "SYNCING", "SYNC_FAILED", "UNRESOLVED"
+]
+ContextTypeType = Literal["Attachment", "ResourceId", "SegmentId", "Subnet"]
 DNSExpiryExceptionPolicyType = Literal["CONTINUE", "DROP", "REJECT"]
 DecryptionActionType = Literal["BYPASS", "DECRYPT"]
 EnabledAnalysisTypeType = Literal["HTTP_HOST", "TLS_SNI"]
@@ -358,11 +367,13 @@ IdentifiedTypeType = Literal[
 ]
 ListAnalysisReportsPaginatorName = Literal["list_analysis_reports"]
 ListContainerAssociationsPaginatorName = Literal["list_container_associations"]
+ListContextStoresPaginatorName = Literal["list_context_stores"]
 ListFirewallPoliciesPaginatorName = Literal["list_firewall_policies"]
 ListFirewallPoliciesV2PaginatorName = Literal["list_firewall_policies_v2"]
 ListFirewallsPaginatorName = Literal["list_firewalls"]
 ListFlowOperationResultsPaginatorName = Literal["list_flow_operation_results"]
 ListFlowOperationsPaginatorName = Literal["list_flow_operations"]
+ListResourcesInContextStorePaginatorName = Literal["list_resources_in_context_store"]
 ListRuleGroupsPaginatorName = Literal["list_rule_groups"]
 ListTLSInspectionConfigurationsPaginatorName = Literal["list_tls_inspection_configurations"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
@@ -389,6 +400,7 @@ ResourceManagedTypeType = Literal[
     "PARTNER_MANAGED",
 ]
 ResourceStatusType = Literal["ACTIVE", "DELETING", "ERROR", "UPDATING"]
+ResourceTypeType = Literal["SecurityGroup", "Subnet", "TGWAttachment", "VPC"]
 RevocationCheckActionType = Literal["DROP", "PASS", "REJECT"]
 Route53ResolvedIPValidationActionType = Literal["ALERT", "DROP", "REJECT"]
 RuleGroupTypeType = Literal["FIREWALL", "IPS", "STATEFUL", "STATEFUL_DOMAIN", "STATELESS"]
@@ -551,6 +563,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -735,6 +748,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -802,6 +816,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -886,11 +901,13 @@ PaginatorName = Literal[
     "get_analysis_report_results",
     "list_analysis_reports",
     "list_container_associations",
+    "list_context_stores",
     "list_firewall_policies",
     "list_firewall_policies_v2",
     "list_firewalls",
     "list_flow_operation_results",
     "list_flow_operations",
+    "list_resources_in_context_store",
     "list_rule_groups",
     "list_tags_for_resource",
     "list_tls_inspection_configurations",

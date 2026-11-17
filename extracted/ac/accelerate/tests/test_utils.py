@@ -11,9 +11,12 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import builtins
 import os
 import pickle
+import sys
 import tempfile
+import time
 import unittest
 import warnings
 from collections import UserDict, namedtuple
@@ -30,10 +33,10 @@ from accelerate.big_modeling import cpu_offload_with_hook
 from accelerate.hooks import attach_align_device_hook, remove_hook_from_module
 from accelerate.state import PartialState
 from accelerate.test_utils.testing import (
+    execute_subprocess_async,
     require_huggingface_suite,
     require_non_cpu,
     require_non_torch_xla,
-    require_torch_min_version,
     require_tpu,
     require_triton,
     torch_device,
@@ -53,6 +56,7 @@ from accelerate.utils import (
     has_offloaded_params,
     is_torch_xla_available,
     listify,
+    model_has_dtensor,
     pad_across_processes,
     pad_input_tensors,
     patch_environment,
@@ -292,6 +296,27 @@ class UtilsTester(unittest.TestCase):
             assert "5.4.0" in ctx.records[0].msg
             assert "5.5.0" in ctx.records[0].msg
 
+    def test_model_has_dtensor_false_without_a_distributed_build(self):
+        # A torch build compiled without a distributed backend cannot hold DTensor parameters, and
+        # importing torch.distributed.tensor on one raises instead of returning False. AMD's Windows
+        # ROCm wheels are such a build. Reproduce that by making the import fail the way it does
+        # there, so this fails loudly if the availability guard is ever dropped.
+        real_import = builtins.__import__
+
+        def refuse_dtensor_import(name, *args, **kwargs):
+            if name in ("torch.distributed.tensor", "torch.distributed._tensor"):
+                raise ModuleNotFoundError("No module named 'torch._C._distributed_c10d'; 'torch._C' is not a package")
+            return real_import(name, *args, **kwargs)
+
+        with patch("accelerate.utils.other.is_torch_distributed_available", return_value=False):
+            with patch.object(builtins, "__import__", refuse_dtensor_import):
+                assert model_has_dtensor(nn.Linear(4, 4)) is False
+
+    def test_model_has_dtensor_still_inspects_params_with_a_distributed_build(self):
+        # The guard must not short-circuit the real check on a normal build.
+        with patch("accelerate.utils.other.is_torch_distributed_available", return_value=True):
+            assert model_has_dtensor(nn.Linear(4, 4)) is False
+
     @require_non_torch_xla
     def test_save_safetensor_shared_memory(self):
         class Model(nn.Module):
@@ -311,7 +336,6 @@ class UtilsTester(unittest.TestCase):
                 assert len(log.records) == 1
                 assert "Removed shared tensor" in log.output[0]
 
-    @require_torch_min_version(version="1.12")
     def test_pad_across_processes(self):
         from torch.nested import nested_tensor
 
@@ -549,6 +573,36 @@ class UtilsTester(unittest.TestCase):
         assert result["inputs"][0].shape == torch.Size([6, 3])
         assert result["inputs"][1].shape == torch.Size([6, 4])
         assert result["labels"].shape == torch.Size([6, 1])
+
+
+class ExecuteSubprocessAsyncTester(unittest.TestCase):
+    def test_killed_by_signal_raises(self):
+        cmd = [sys.executable, "-c", "import os, signal; os.kill(os.getpid(), signal.SIGTERM)"]
+        with self.assertRaises(RuntimeError):
+            execute_subprocess_async(cmd, echo=False)
+
+    def assert_stopped_on_timeout(self, cmd):
+        start = time.monotonic()
+        with self.assertRaises(TimeoutError):
+            execute_subprocess_async(cmd, timeout=10, quiet=True, echo=False)
+        self.assertLess(time.monotonic() - start, 30)
+
+    def test_timeout_stops_torchrun_workers(self):
+        # torchrun runs its workers in their own sessions and stops them itself on SIGTERM
+        with tempfile.TemporaryDirectory() as tmpdir:
+            script = os.path.join(tmpdir, "sleep.py")
+            with open(script, "w") as f:
+                f.write("import time; time.sleep(120)")
+            self.assert_stopped_on_timeout(
+                [sys.executable, "-m", "torch.distributed.run", "--standalone", "--nproc_per_node=2", script]
+            )
+
+    def test_timeout_stops_single_process_launch(self):
+        # Like a single-process `accelerate launch`: the launcher dies on SIGTERM without passing it on to its script
+        launcher = (
+            "import subprocess, sys; subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)']).wait()"
+        )
+        self.assert_stopped_on_timeout([sys.executable, "-c", launcher])
 
 
 def set_dummy_accelerate_env_var():

@@ -21,7 +21,6 @@
 # SOFTWARE.
 
 from functools import singledispatchmethod
-from typing import Dict, List, Optional
 
 import numpy as np
 from pyannote.core import (
@@ -66,7 +65,10 @@ def discrete_diarization_error_rate(reference: np.ndarray, hypothesis: np.ndarra
     (hypothesis,), _ = permutate(reference[np.newaxis], hypothesis)
 
     # total speech duration (in number of frames)
-    total = 1.0 * np.sum(reference)
+    # NOTE: reference and hypothesis are float16, whose maximum is 65504. Frame
+    # counts pass that after about 18 minutes of one speaker, so the reduction
+    # has to accumulate in float64 or it saturates to inf and the rate is 0.
+    total = np.sum(reference, dtype=np.float64)
 
     # false alarm and missed detection (in number of frames)
     detection_error = np.sum(hypothesis, axis=1) - np.sum(reference, axis=1)
@@ -76,9 +78,9 @@ def discrete_diarization_error_rate(reference: np.ndarray, hypothesis: np.ndarra
     # speaker confusion (in number of frames)
     confusion = np.sum((hypothesis != reference) * hypothesis, axis=1) - false_alarm
 
-    false_alarm = np.sum(false_alarm)
-    missed_detection = np.sum(missed_detection)
-    confusion = np.sum(confusion)
+    false_alarm = np.sum(false_alarm, dtype=np.float64)
+    missed_detection = np.sum(missed_detection, dtype=np.float64)
+    confusion = np.sum(confusion, dtype=np.float64)
 
     der = (false_alarm + missed_detection + confusion) / total
 
@@ -108,13 +110,13 @@ class DiscreteDiarizationErrorRate(BaseMetric):
         self,
         reference,
         hypothesis,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
     ):
         return self.compute_components_helper(hypothesis, reference, uem=uem)
 
     @singledispatchmethod
     def compute_components_helper(
-        self, hypothesis, reference, uem: Optional[Timeline] = None
+        self, hypothesis, reference, uem: Timeline | None = None
     ):
         klass = hypothesis.__class__.__name__
         raise NotImplementedError(
@@ -126,7 +128,7 @@ class DiscreteDiarizationErrorRate(BaseMetric):
         self,
         hypothesis: np.ndarray,
         reference: np.ndarray,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
     ):
 
         if reference.ndim != 2:
@@ -167,7 +169,7 @@ class DiscreteDiarizationErrorRate(BaseMetric):
         self,
         hypothesis: SlidingWindowFeature,
         reference: Annotation,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
     ):
 
         ndim = hypothesis.data.ndim
@@ -194,7 +196,6 @@ class DiscreteDiarizationErrorRate(BaseMetric):
 
         # if (num_frames, num_speakers)-shaped, compute just one DER for the whole file
         if ndim == 2:
-
             if uem is None:
                 return self.compute_components_helper(hypothesis.data, reference.data)
 
@@ -212,10 +213,8 @@ class DiscreteDiarizationErrorRate(BaseMetric):
 
         # if (num_chunks, num_frames, num_speakers)-shared, compute one DER per chunk and aggregate
         elif ndim == 3:
-
             components = self.init_components()
             for window, hypothesis_window in hypothesis:
-
                 # Skip any window not fully covered by a segment of the uem
                 if uem is not None and not uem.covers(Timeline([window])):
                     continue
@@ -259,7 +258,7 @@ class SlidingDiarizationErrorRate(BaseMetric):
         self,
         reference,
         hypothesis,
-        uem: Optional[Timeline] = None,
+        uem: Timeline | None = None,
     ):
 
         if uem is None:
@@ -313,7 +312,7 @@ class MacroAverageFMeasure(BaseMetric):
 
     def __init__(
         self,
-        classes: List[str],  # noqa
+        classes: list[str],
         collar: float = 0.0,
         beta: float = 1.0,
         **kwargs,
@@ -326,7 +325,7 @@ class MacroAverageFMeasure(BaseMetric):
         self.collar = collar
         self.beta = beta
 
-        self._sub_metrics: Dict[str, DetectionPrecisionRecallFMeasure] = {
+        self._sub_metrics: dict[str, DetectionPrecisionRecallFMeasure] = {
             label: DetectionPrecisionRecallFMeasure(collar=collar, beta=beta, **kwargs)
             for label in self.classes
         }
@@ -352,7 +351,7 @@ class MacroAverageFMeasure(BaseMetric):
             )
         return details
 
-    def compute_metric(self, detail: Dict[str, float]):
+    def compute_metric(self, detail: dict[str, float]):
         return np.mean(list(detail.values()))
 
     def report(self, display=False):
@@ -367,7 +366,7 @@ class MacroAverageFMeasure(BaseMetric):
                     index=True,
                     sparsify=False,
                     justify="right",
-                    float_format=lambda f: "{0:.2f}".format(f),
+                    float_format=lambda f: f"{f:.2f}",
                 )
             )
 

@@ -1,51 +1,60 @@
-[tool.poetry]
+[project]
 name = "aiorwlock"
-version = "1.5.1"
+version = "1.6.0"
 description = "Read write lock for asyncio."
-authors = ["Nikolay Novik <nickolainovik@gmail.com>"]
+authors = [{ name = "Nikolay Novik", email = "nickolainovik@gmail.com" }]
 license = "Apache-2.0"
-homepage = "https://github.com/aio-libs/aiorwlock"
-repository = "https://github.com/aio-libs/aiorwlock"
-documentation = "https://github.com/aio-libs/aiorwlock"
+license-files = ["LICENSE"]
+requires-python = ">=3.11"
 keywords = ["aiorwlock", "lock", "asyncio"]
 classifiers = [
-    "License :: OSI Approved :: Apache Software License",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Operating System :: OS Independent",
     "Development Status :: 5 - Production/Stable",
     "Framework :: AsyncIO",
 ]
+dependencies = []
 
-[tool.poetry.dependencies]
-python = ">=3.9"
+[project.urls]
+Homepage = "https://github.com/aio-libs/aiorwlock"
+Repository = "https://github.com/aio-libs/aiorwlock"
+Documentation = "https://github.com/aio-libs/aiorwlock"
 
-[tool.poetry.dev-dependencies]
-bandit = "1.8.6"
-black = "25.11.0"
-flake8-bugbear = "24.12.12"
-flake8 = "7.3.0"
-isort = "6.1.0"
-mypy = "1.19.1"
+[tool.poetry.group.dev.dependencies]
+bandit = "1.9.4"
+mypy = "2.4.1"
 pyroma = "5.0.1"
-pytest-asyncio = "1.2.0"
-pytest-cov = "7.0.0"
-pytest = "8.4.2"
-coverage = "^7.10.7"
+pytest-asyncio = "1.5.0"
+pytest-cov = "7.1.0"
+pytest = "9.2.0"
+ruff = "0.17.5"
+coverage = "^7.17.3"
 
 [build-system]
-requires = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=2.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
 filterwarnings = ["error"]
 testpaths = ["tests"]
 asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 79
+target-version = "py311"
+
+[tool.ruff.format]
+quote-style = "preserve"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP"]
 
 [tool.mypy]
 [tool.mypy-pytest]

@@ -291,7 +291,7 @@ ENDPOINTS_HELP_EXAMPLES = """[dim]Examples:[/dim]
 """
 
 ENDPOINTS_ROLLOUT_HELP_EXAMPLES = """[dim]Examples:[/dim]
-[dim]-[/dim] Rolling (capacity-preserving batch swap):
+[dim]-[/dim] Rolling (one replica per rung):
   [primary]tg endpoints rollout my-deployment --rolling[/primary]
 
 [dim]-[/dim] Blue-green cutover:
@@ -303,6 +303,9 @@ ENDPOINTS_ROLLOUT_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] Canary with custom steps and interval:
   [primary]tg endpoints rollout my-deployment --canary \\
     --steps 5,25,50,100 --interval 30s[/primary]
+
+[dim]-[/dim] Canary bounded to two new target replicas per step:
+  [primary]tg endpoints rollout my-deployment --canary --max-surge 2[/primary]
 
 [dim]-[/dim] Canary with a metric gate (threshold or regression):
   [primary]tg endpoints rollout my-deployment --canary \\
@@ -512,6 +515,11 @@ MODELS_PUBLIC_HELP_EXAMPLES = """[dim]Examples:[/dim]
 MODELS_CONFIGS_HELP_EXAMPLES = """[dim]Examples:[/dim]
 [dim]-[/dim] List configs you can pass to [primary]tg models deploy --config[/primary]:
   [primary]tg models configs ml_xxxxxxxxxxxx[/primary]
+  [primary]tg models configs ls ml_xxxxxxxxxxxx[/primary]
+
+[dim]-[/dim] Inspect a config's selectors and certifications:
+  [primary]tg models configs get cr_xxxxxxxxxxxx[/primary]
+  [primary]tg models configs cr_xxxxxxxxxxxx[/primary]
 """
 
 MODELS_UPDATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
@@ -591,6 +599,18 @@ CLUSTERS_CREATE_HELP_EXAMPLES = """[dim]Examples:[/dim]
     --billing-type ON_DEMAND \\
     --nvidia-version-id <nvidia-version-id> \\
     --volume <volume-id>[/primary]
+
+[dim]-[/dim] Create a shared volume with the cluster instead of attaching an existing one:
+  [primary]tg clusters create --non-interactive \\
+    --name my-cluster \\
+    --cluster-type KUBERNETES \\
+    --gpu-type H100_SXM \\
+    --region us-central-8 \\
+    --num-gpus 8 \\
+    --billing-type ON_DEMAND \\
+    --nvidia-version-id <nvidia-version-id> \\
+    --shared-volume-name my-data \\
+    --shared-volume-size-tib 1[/primary]
 """
 
 CLUSTERS_GET_CREDENTIALS_HELP_EXAMPLES = """[dim]Examples:[/dim]

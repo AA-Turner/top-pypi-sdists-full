@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import Any, TypeVar
 
@@ -9,9 +11,10 @@ T = TypeVar("T", bound="SandboxCredentialRestore")
 
 @_attrs_define
 class SandboxCredentialRestore:
-    """
+    """The retained credential version to restore.
+
     Attributes:
-        version_id (int): Retained version whose configuration will be used to create a new current revision.
+        version_id (int): The ID of a retained credential version to restore as a new current version.
     """
 
     version_id: int

@@ -310,7 +310,11 @@ class UserConfig(google.protobuf.message.Message):
     @property
     def activation(self) -> global___Activation: ...
     @property
-    def soft_cap(self) -> global___SoftCap: ...
+    def soft_cap(self) -> global___SoftCap:
+        """Deprecated: use contract.v2.SalesConfig.soft_caps in Contract.sales_config.
+        A customer can send UserConfig, so it must not set a soft cap.
+        """
+
     @property
     def spend_allocation(self) -> global___SpendAllocation: ...
     def __init__(

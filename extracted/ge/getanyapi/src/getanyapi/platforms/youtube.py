@@ -63,17 +63,19 @@ class YoutubeChannelContactInput(TypedDict, total=False):
     """Input for YouTube Channel Contact Email."""
 
     allowFallbacks: NotRequired[bool]
-    """Optional, default true. We recommend leaving it out. Setting it to false is experimental (its behavior may change) and ties the request to the sources listed in `source`: only they may serve, the request is refused with no charge if none of them can, and no other source rescues it when they fail. To control cost, set `max_cost_usd` instead: the REST query parameter or MCP `run_api` argument, on requests paid from your AnyAPI wallet. When true, the listed sources are tried first and any other source may serve after them, at the normal price. Default: true."""
+    """Has no effect on this API. One source serves each request and there is no automatic failover to another source, whether this is true, false or left out. Use `source` to choose the source."""
     channelId: NotRequired[str]
     """YouTube channel ID (UC...)."""
+    fresh: NotRequired[bool]
+    """Optional, and it costs more. Set true to have the address read from YouTube now instead of one a source already holds, for a channel that may have changed its email. With it on, the price is $0.44 per email found instead of this API's normal $0.11 or $0.132; a channel with no email is still free. Only one source offers it, so leave `source` out or name that source (the lane whose offer lists the `fresh` add-on); naming another source is refused with no charge. A lookup that is not ready inside the call is charged $0.44 when it starts and refunded if no email is found within 48 hours. Leave it out and nothing changes. Default: false."""
     handle: NotRequired[str]
     """YouTube channel handle, with or without the leading @."""
     ignoreSources: NotRequired[list[str]]
-    """Optional. Source ids to skip for this request, taken from this endpoint's `lanes[].source.id`. The cheapest remaining source serves. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the remaining sources. An id that does not serve this endpoint, or that is also in `source`, is rejected as invalid input with no charge; skipping every source is rejected the same way."""
+    """Optional. Source ids to skip, from this endpoint's `lanes[].source.id`. It never moves a request to another source: if the source that would serve (the one chosen with `source`, otherwise the lowest-priced) is in this list, the request is refused as invalid input with no charge. An id that does not serve this endpoint, or that is also in `source`, is rejected the same way."""
     preferLatencyUnderMs: NotRequired[int]
     """Optional; omit it and routing is unchanged, with the cheapest source serving. Prefer sources whose typical response time (median over the trailing 30 days, as published on this endpoint's lane health) is under this many milliseconds; among those, the cheapest serves. This can raise your price: when the cheapest source misses the target, a faster and dearer one serves, and you are quoted and charged its price. If no source is that fast the request is still served, by whichever source offers the best speed for its price - it is never refused for being slow. Sources we have not timed are tried last. This is a preference, not a guarantee: the median describes past requests and is not a ceiling on this one, and it excludes any wait this request itself asks for. On a paginated walk it applies to the first page only: later pages stay with the source that page chose, at the price it was quoted. Minimum: 1."""
     source: NotRequired[list[str]]
-    """Optional and experimental: its behavior may change. We recommend leaving it out and letting automatic routing choose: routing serves the cheapest source, uses cheaper sources as they are added, and fails over to another source when one fails, so your requests are not tied to the uptime of one source. To control cost, set a price ceiling instead: on requests paid from your AnyAPI wallet, the `max_cost_usd` REST query parameter or MCP `run_api` argument skips any source that would charge more, and refuses the request with no charge if none is left. Avoid pinning a single source, especially with `allowFallbacks` false: when that source has an outage your requests fail while others are served. If you send it, list source ids from this endpoint's `lanes[].source.id` in /catalog or /apis; they are tried first in the order given, then the others, unless `allowFallbacks` is false. You are charged for the source that serves, plus any source tried before it that charged for its attempt, and never more than the most this endpoint can cost with the sources that may serve. An id that does not serve this endpoint is rejected as invalid input with no charge; a listed source that is not serving right now is refused with no charge, so omit `source` to be served by another. On a paginated walk, later pages must include the source that served page one, or omit `source`."""
+    """Optional. One source serves each request to this API, and a request never moves to another source: there is no automatic failover. Leave it out and the lowest-priced source is used, or with `fresh` on the one source that offers it. To choose a source, list its id from this endpoint's `lanes[].source.id` in /catalog or /apis; if you list several, the lowest-priced of them is used. You are charged that source's price. If the chosen source is not serving right now, or costs more than your `max_cost_usd` (the REST query parameter or MCP `run_api` argument), the request is refused with no charge and is never sent to another source. An id that does not serve this endpoint is rejected as invalid input with no charge."""
 
 
 class YoutubeChannelLivesInput(TypedDict, total=False):
@@ -1426,13 +1428,19 @@ class YoutubeNamespace:
         Reveal the business inquiry email a YouTube creator publishes behind the
         channel's View email address button. YouTube gates that address behind a
         signed-in Google session and a CAPTCHA, so it is absent from the channel
-        page a logged-out scraper reads. A lookup the source has not revealed yet
-        takes minutes to hours: it is charged when the lookup starts, refunded
-        automatically if no email is found within 48 hours, and the call returns a
-        request id at once with a link that collects the answer later with no API
-        key.
+        page a logged-out scraper reads. Each lookup runs on one source only and
+        never moves to another: the cheapest source unless the call names one. An
+        email found inside the call is charged that source's price, and a channel
+        with no email is free. A lookup the source cannot answer yet takes minutes
+        to hours: it is charged when the lookup starts, refunded automatically if no
+        email is found within 48 hours, and the call returns a request id at once
+        with a link that collects the answer later with no API key. A finished
+        answer stays readable for 3 days after it is found. Set `fresh` to true to
+        have the address read from YouTube now instead of one a source already
+        holds: that costs more, $0.44 per email found instead of the normal $0.11 or
+        $0.132, and it runs only on the source that offers it.
 
-        Price: $0.132 per request plus $0 per result (maximum $0.132).
+        Price: $0.11 per request.
 
         Example:
             res = client.youtube.channel_contact(handle="@mkbhd")
@@ -1715,7 +1723,7 @@ class YoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00048 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")
@@ -2070,13 +2078,19 @@ class AsyncYoutubeNamespace:
         Reveal the business inquiry email a YouTube creator publishes behind the
         channel's View email address button. YouTube gates that address behind a
         signed-in Google session and a CAPTCHA, so it is absent from the channel
-        page a logged-out scraper reads. A lookup the source has not revealed yet
-        takes minutes to hours: it is charged when the lookup starts, refunded
-        automatically if no email is found within 48 hours, and the call returns a
-        request id at once with a link that collects the answer later with no API
-        key.
+        page a logged-out scraper reads. Each lookup runs on one source only and
+        never moves to another: the cheapest source unless the call names one. An
+        email found inside the call is charged that source's price, and a channel
+        with no email is free. A lookup the source cannot answer yet takes minutes
+        to hours: it is charged when the lookup starts, refunded automatically if no
+        email is found within 48 hours, and the call returns a request id at once
+        with a link that collects the answer later with no API key. A finished
+        answer stays readable for 3 days after it is found. Set `fresh` to true to
+        have the address read from YouTube now instead of one a source already
+        holds: that costs more, $0.44 per email found instead of the normal $0.11 or
+        $0.132, and it runs only on the source that offers it.
 
-        Price: $0.132 per request plus $0 per result (maximum $0.132).
+        Price: $0.11 per request.
 
         Example:
             res = client.youtube.channel_contact(handle="@mkbhd")
@@ -2359,7 +2373,7 @@ class AsyncYoutubeNamespace:
         Search YouTube and get matching videos (title, channel, views, length,
         publish time) as normalized JSON.
 
-        Price: $0.00048 per request.
+        Price: $0.0005 per request.
 
         Example:
             res = client.youtube.search(query="how to cook rice")

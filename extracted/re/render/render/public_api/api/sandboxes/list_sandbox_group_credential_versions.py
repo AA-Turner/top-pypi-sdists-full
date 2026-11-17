@@ -1,7 +1,8 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
+from urllib.parse import quote
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -16,15 +17,18 @@ def _get_kwargs(
 ) -> dict[str, Any]:
     _kwargs: dict[str, Any] = {
         "method": "get",
-        "url": f"/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}/versions",
+        "url": "/sandbox-groups/{sandbox_group_id}/credentials/{credential_id}/versions".format(
+            sandbox_group_id=quote(str(sandbox_group_id), safe=""),
+            credential_id=quote(str(credential_id), safe=""),
+        ),
     }
 
     return _kwargs
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Error, list["SandboxCredentialVersion"]]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Error | list[SandboxCredentialVersion] | None:
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
@@ -82,8 +86,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Error, list["SandboxCredentialVersion"]]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Response[Error | list[SandboxCredentialVersion]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -96,28 +100,30 @@ def sync_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Error, list["SandboxCredentialVersion"]]]:
+    client: AuthenticatedClient | Client,
+) -> Response[Error | list[SandboxCredentialVersion]]:
     """List sandbox credential versions
 
-     Returns version metadata in descending version ID order. Multiple versions may
-    share one configuration fingerprint. Metadata is retained while its configuration
-    is retained; configurations are evicted by their most recent activation version ID.
-    Secret values and the group fingerprint nonce are never returned.
+     List retained credential versions, newest version ID first. Versions with identical settings and
+    secret values share a fingerprint.
+
+    Render retains the current configuration and the three distinct prior configurations most recently
+    active. When an older configuration is removed, all versions that refer to it are also removed.
+    These endpoints do not return secret values.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, list['SandboxCredentialVersion']]]
+        Response[Error | list[SandboxCredentialVersion]]
     """
 
     kwargs = _get_kwargs(
@@ -136,28 +142,30 @@ def sync(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Error, list["SandboxCredentialVersion"]]]:
+    client: AuthenticatedClient | Client,
+) -> Error | list[SandboxCredentialVersion] | None:
     """List sandbox credential versions
 
-     Returns version metadata in descending version ID order. Multiple versions may
-    share one configuration fingerprint. Metadata is retained while its configuration
-    is retained; configurations are evicted by their most recent activation version ID.
-    Secret values and the group fingerprint nonce are never returned.
+     List retained credential versions, newest version ID first. Versions with identical settings and
+    secret values share a fingerprint.
+
+    Render retains the current configuration and the three distinct prior configurations most recently
+    active. When an older configuration is removed, all versions that refer to it are also removed.
+    These endpoints do not return secret values.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, list['SandboxCredentialVersion']]
+        Error | list[SandboxCredentialVersion]
     """
 
     return sync_detailed(
@@ -171,28 +179,30 @@ async def asyncio_detailed(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Response[Union[Error, list["SandboxCredentialVersion"]]]:
+    client: AuthenticatedClient | Client,
+) -> Response[Error | list[SandboxCredentialVersion]]:
     """List sandbox credential versions
 
-     Returns version metadata in descending version ID order. Multiple versions may
-    share one configuration fingerprint. Metadata is retained while its configuration
-    is retained; configurations are evicted by their most recent activation version ID.
-    Secret values and the group fingerprint nonce are never returned.
+     List retained credential versions, newest version ID first. Versions with identical settings and
+    secret values share a fingerprint.
+
+    Render retains the current configuration and the three distinct prior configurations most recently
+    active. When an older configuration is removed, all versions that refer to it are also removed.
+    These endpoints do not return secret values.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, list['SandboxCredentialVersion']]]
+        Response[Error | list[SandboxCredentialVersion]]
     """
 
     kwargs = _get_kwargs(
@@ -209,28 +219,30 @@ async def asyncio(
     sandbox_group_id: str,
     credential_id: str,
     *,
-    client: Union[AuthenticatedClient, Client],
-) -> Optional[Union[Error, list["SandboxCredentialVersion"]]]:
+    client: AuthenticatedClient | Client,
+) -> Error | list[SandboxCredentialVersion] | None:
     """List sandbox credential versions
 
-     Returns version metadata in descending version ID order. Multiple versions may
-    share one configuration fingerprint. Metadata is retained while its configuration
-    is retained; configurations are evicted by their most recent activation version ID.
-    Secret values and the group fingerprint nonce are never returned.
+     List retained credential versions, newest version ID first. Versions with identical settings and
+    secret values share a fingerprint.
+
+    Render retains the current configuration and the three distinct prior configurations most recently
+    active. When an older configuration is removed, all versions that refer to it are also removed.
+    These endpoints do not return secret values.
 
     Args:
-        sandbox_group_id (str):  Example: sbg-cph1rs3idesc73a2b2mg.
-        credential_id (str): Caller-supplied URL-safe name, unique within the sandbox group. The
-            names
-            `.` and `..` and the prefix `rnd-` are reserved. IDs are case-sensitive.
+        sandbox_group_id (str): The ID of the sandbox group. Example: sbg-cph1rs3idesc73a2b2mg.
+        credential_id (str): The case-sensitive ID you assign to the credential, unique within its
+            sandbox group. Use only letters, numbers, periods, underscores, tildes, and hyphens. The
+            names `.` and `..` and IDs starting with `rnd-` are reserved.
              Example: my-inference-key.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, list['SandboxCredentialVersion']]
+        Error | list[SandboxCredentialVersion]
     """
 
     return (

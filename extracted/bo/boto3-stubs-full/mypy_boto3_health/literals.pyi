@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_health.literals import DescribeAffectedAccountsForOrganizationPaginatorName
+    from mypy_boto3_health.literals import AccountTagTypeType
 
-    data: DescribeAffectedAccountsForOrganizationPaginatorName = "describe_affected_accounts_for_organization"
+    data: AccountTagTypeType = "ACCOUNT_RESOURCE_TAG"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccountTagTypeType",
     "DescribeAffectedAccountsForOrganizationPaginatorName",
     "DescribeAffectedEntitiesForOrganizationPaginatorName",
     "DescribeAffectedEntitiesPaginatorName",
@@ -30,6 +31,8 @@ __all__ = (
     "DescribeEventsForOrganizationPaginatorName",
     "DescribeEventsPaginatorName",
     "DescribeServiceLifecyclePaginatorName",
+    "DescribeTagsForOrganizationPaginatorName",
+    "DescribeTagsPaginatorName",
     "EntityStatusCodeType",
     "EventActionabilityType",
     "EventAggregateFieldType",
@@ -40,12 +43,17 @@ __all__ = (
     "EventTypeCategoryType",
     "EventTypePersonaType",
     "HealthServiceName",
+    "OrganizationTagTypeType",
     "PaginatorName",
     "RegionName",
     "ResourceServiceName",
     "ServiceName",
+    "TagKeyStatusType",
+    "TagsOnboardingStatusForOrganizationType",
+    "TagsOnboardingStatusType",
 )
 
+AccountTagTypeType = Literal["ACCOUNT_RESOURCE_TAG"]
 DescribeAffectedAccountsForOrganizationPaginatorName = Literal[
     "describe_affected_accounts_for_organization"
 ]
@@ -58,6 +66,8 @@ DescribeEventTypesPaginatorName = Literal["describe_event_types"]
 DescribeEventsForOrganizationPaginatorName = Literal["describe_events_for_organization"]
 DescribeEventsPaginatorName = Literal["describe_events"]
 DescribeServiceLifecyclePaginatorName = Literal["describe_service_lifecycle"]
+DescribeTagsForOrganizationPaginatorName = Literal["describe_tags_for_organization"]
+DescribeTagsPaginatorName = Literal["describe_tags"]
 EntityStatusCodeType = Literal["IMPAIRED", "PENDING", "RESOLVED", "UNIMPAIRED", "UNKNOWN"]
 EventActionabilityType = Literal["ACTION_MAY_BE_REQUIRED", "ACTION_REQUIRED", "INFORMATIONAL"]
 EventAggregateFieldType = Literal["eventTypeCategory"]
@@ -67,6 +77,10 @@ EventStatusCodeType = Literal["closed", "open", "upcoming"]
 EventTypeActionabilityType = Literal["ACTION_MAY_BE_REQUIRED", "ACTION_REQUIRED", "INFORMATIONAL"]
 EventTypeCategoryType = Literal["accountNotification", "investigation", "issue", "scheduledChange"]
 EventTypePersonaType = Literal["BILLING", "OPERATIONS", "SECURITY"]
+OrganizationTagTypeType = Literal["ORGANIZATION_ACCOUNT_TAG", "ORGANIZATION_RESOURCE_TAG"]
+TagKeyStatusType = Literal["ACTIVE", "PENDING"]
+TagsOnboardingStatusForOrganizationType = Literal["DISABLED", "ENABLED"]
+TagsOnboardingStatusType = Literal["DISABLED", "ENABLED"]
 HealthServiceName = Literal["health"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -177,6 +191,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -361,6 +376,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -428,6 +444,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -517,5 +534,7 @@ PaginatorName = Literal[
     "describe_events",
     "describe_events_for_organization",
     "describe_service_lifecycle",
+    "describe_tags",
+    "describe_tags_for_organization",
 ]
 RegionName = Literal["us-east-2"]

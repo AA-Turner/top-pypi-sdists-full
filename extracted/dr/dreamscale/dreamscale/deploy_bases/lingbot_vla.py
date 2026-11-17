@@ -1,5 +1,5 @@
 """LingBot-VLA 2.0 deployments in the SDK: upstream's trainer export on the bimanual xArm 7
-(Rodeo's export: its cameras and widths are fixed) or on a custom robot its export's record
+(the preset: its cameras and widths are fixed) or on a custom robot its export's record
 declares (`--preset custom`: its widths, views and chunk are the record's; the create may name
 its camera keys by role, its units and, where the record names none, its rate). RTC off or
 trained; `dreamscale run xarm7` drives the preset."""
@@ -26,7 +26,7 @@ CLI = Base({"bimanual_xarm7": "Bimanual xArm 7", "custom": "Custom"}, (
 
 
 def _robot_line(detected: dict) -> str:
-    """Detect's robot: Rodeo's xArm 7, or the custom robot the export's record declares."""
+    """Detect's robot: the xArm 7 preset, or the custom robot the export's record declares."""
     if detected.get("preset") != C.CUSTOM_PRESET:
         return ("Robot: Bimanual xArm 7 (16 joint targets, aft first; cameras top, left, right; "
                 "20 Hz)")
@@ -58,7 +58,7 @@ def lingbot_vla_found_lines(found: dict) -> list[str]:
 
 def _robot_from_found(found: dict, robot: dict | None, hz: float | None) -> dict:
     """The robot a create runs: the one it named, else the one Detect read (a custom robot's
-    export names it; Rodeo's is the xArm 7). A custom robot needs a rate: its record's or the
+    export names it; the preset's is the xArm 7). A custom robot needs a rate: its record's or the
     create's (`--hz`), refused here when neither names one, never assumed."""
     detected = found.get("detected") or {}
     if robot is None:

@@ -489,6 +489,11 @@ def test_profile_config_reads_api_key_env(monkeypatch: pytest.MonkeyPatch, tmp_p
             'LangSmith profile "prod" gets its API key from a command (api_key_cmd), '
             "which the Python SDK does not support yet",
         ),
+        (
+            {"secret_store": "keychain"},
+            'LangSmith profile "prod" keeps its credentials in the OS keychain (secret_store), '
+            "which the Python SDK does not support yet",
+        ),
     ],
 )
 def test_profile_config_unresolvable_api_key_ref_warns(
@@ -986,6 +991,127 @@ def test_list_project_issues_uses_platform_issues_endpoint(api_url: str, expecte
         "status": "open",
         "priority": "high",
     }
+
+
+def _http_response(status_code: int, body: str = "") -> requests.Response:
+    response = requests.Response()
+    response.status_code = status_code
+    response._content = body.encode()
+    response.url = "http://localhost:1984"
+    return response
+
+
+@pytest.mark.parametrize(
+    ("api_url", "expected_url"),
+    [
+        (
+            "http://localhost:1984",
+            "http://localhost:1984/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+        (
+            "http://localhost:1984/api/v1",
+            "http://localhost:1984/api/v1/platform/datasets/{dataset_id}/examples/metadata",
+        ),
+    ],
+)
+@pytest.mark.parametrize(("remove", "operation"), [(False, "array_add"), (True, "array_remove")])
+def test_update_dataset_splits_uses_bulk_metadata_endpoint(
+    api_url: str, expected_url: str, remove: bool, operation: str
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [uuid.uuid4(), uuid.uuid4()]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(api_url=api_url, api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo())
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=remove)
+
+    (call,) = mock_session.request.call_args_list
+    assert call.args[0] == "PATCH"
+    assert call.args[1] == expected_url.format(dataset_id=dataset_id)
+    assert call.kwargs["json"] == {
+        "example_ids": [str(id_) for id_ in example_ids],
+        "operations": [{"key": "dataset_split", "operation": operation, "values": ["test"]}],
+    }
+
+
+def test_update_dataset_splits_batches_example_ids() -> None:
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.return_value = _http_response(207, '{"statuses": []}')
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=example_ids)
+
+    batches = [c.kwargs["json"]["example_ids"] for c in mock_session.request.call_args_list]
+    assert [len(b) for b in batches] == [10_000, 1]
+    assert batches[0] + batches[1] == example_ids
+
+
+@pytest.mark.parametrize(
+    "missing_route",
+    [
+        _http_response(404, "404 page not found"),
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "The requested path does not exist."}',
+        ),
+        _http_response(405, '{"title": "Method Not Allowed", "status": 405}'),
+    ],
+)
+def test_update_dataset_splits_falls_back_when_endpoint_missing(
+    missing_route: requests.Response,
+) -> None:
+    dataset_id = uuid.uuid4()
+    example_ids = [str(uuid.uuid4()) for _ in range(10_001)]
+    mock_session = MagicMock()
+    mock_session.request.side_effect = [
+        _http_response(207, '{"statuses": []}'),
+        missing_route,
+        _http_response(200, "{}"),
+    ]
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    client.update_dataset_splits(dataset_id=dataset_id, split_name="test", example_ids=example_ids, remove=True)
+
+    first, second, legacy = mock_session.request.call_args_list
+    assert first.args[0] == second.args[0] == "PATCH"
+    assert legacy.args[:2] == ("PUT", f"http://localhost:1984/datasets/{dataset_id}/splits")
+    # The legacy endpoint has no size limit, so it takes the rest in one request.
+    assert legacy.kwargs["json"] == {
+        "split_name": "test",
+        "examples": example_ids[10_000:],
+        "remove": True,
+    }
+
+
+@pytest.mark.parametrize(
+    "error_response",
+    [
+        _http_response(
+            404,
+            '{"title": "Not Found", "status": 404, "detail": "dataset not found"}',
+        ),
+        _http_response(403, '{"title": "Forbidden", "status": 403}'),
+    ],
+)
+def test_update_dataset_splits_does_not_fall_back_on_other_errors(
+    error_response: requests.Response,
+) -> None:
+    mock_session = MagicMock()
+    mock_session.request.return_value = error_response
+
+    client = Client(
+        api_url="http://localhost:1984", api_key="test", session=mock_session, info=ls_schemas.LangSmithInfo()
+    )
+    with pytest.raises(ls_utils.LangSmithError):
+        client.update_dataset_splits(dataset_id=uuid.uuid4(), split_name="test", example_ids=[uuid.uuid4()])
+
+    assert {c.args[0] for c in mock_session.request.call_args_list} == {"PATCH"}
 
 
 # These check the query params the client sends, not what the server returns.
@@ -2537,6 +2663,17 @@ def test_create_feedback_can_opt_out_of_extending_trace_retention() -> None:
 
     payload = json.loads(session.request.call_args.kwargs["data"])
     assert payload["extend_trace_retention"] is False
+
+
+def test_update_feedback_clears_explicit_none_and_keeps_omitted() -> None:
+    session = mock.Mock()
+    client = Client(api_url="http://localhost:1984", api_key="123", session=session)
+
+    client.update_feedback(uuid.uuid4(), score=0.123456, comment=None)
+
+    payload = json.loads(session.request.call_args.kwargs["data"])
+    # comment is cleared; value and correction are left as they are.
+    assert payload == {"score": 0.1235, "comment": None}
 
 
 def test_create_feedback_opt_out_uses_direct_post_when_batching_available() -> None:
@@ -8135,6 +8272,77 @@ async def test_async_run_is_shared_does_not_warn_about_read_run_shared_link() ->
             assert await client.run_is_shared(run_id) is True
 
 
+_QUEUE_METHODS = [
+    ("add_runs_to_annotation_queue", "client.annotation_queues.items.create()"),
+    ("get_run_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("list_runs_from_annotation_queue", "client.annotation_queues.items.list()"),
+    ("delete_run_from_annotation_queue", "client.annotation_queues.items.delete_all()"),
+]
+
+
+def _queue_call_kwargs(method: str, run_id: uuid.UUID) -> dict:
+    return {
+        "add_runs_to_annotation_queue": {"run_ids": [run_id]},
+        "get_run_from_annotation_queue": {"index": 0},
+        "list_runs_from_annotation_queue": {},
+        "delete_run_from_annotation_queue": {"run_id": run_id},
+    }[method]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+def test_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """Each legacy queue method warns once, naming its items API replacement."""
+    client = Client(api_url="http://localhost:1984", api_key="123", session=mock.Mock())
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(Client, "request_with_retries", return_value=_share_response(run_id)),
+        mock.patch.object(Client, "_get_paginated_list", return_value=iter([])),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                list(result)
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
+@pytest.mark.parametrize("method,replacement", _QUEUE_METHODS)
+async def test_async_annotation_queue_run_methods_are_deprecated(method: str, replacement: str) -> None:
+    """The async client's queue methods carry the same deprecations."""
+    from langsmith.async_client import AsyncClient
+
+    async def no_pages(*args, **kwargs):
+        return
+        yield
+
+    client = AsyncClient(api_url="http://localhost:1984", api_key="123")
+    run_id = uuid.uuid4()
+
+    with (
+        mock.patch.object(
+            AsyncClient,
+            "_arequest_with_retries",
+            new=mock.AsyncMock(return_value=_share_response(run_id)),
+        ),
+        mock.patch.object(AsyncClient, "_aget_paginated_list", new=no_pages),
+    ):
+        with pytest.warns(DeprecationWarning) as recorded:
+            result = getattr(client, method)(uuid.uuid4(), **_queue_call_kwargs(method, run_id))
+            if method == "list_runs_from_annotation_queue":
+                _ = [r async for r in result]
+            else:
+                await result
+
+    messages = _deprecation_messages(recorded)
+    assert len(messages) == 1, messages
+    assert f"{method}() is deprecated" in messages[0]
+    assert f"Use {replacement} instead." in messages[0]
+
+
 def _gtr_example_id() -> uuid.UUID:
     return uuid.UUID("11111111-1111-1111-1111-111111111111")
 
@@ -8201,7 +8409,7 @@ def _gtr_v2_run() -> SimpleNamespace:
     ("instance_flags", "expect_v2"),
     [
         ({"ch_query_enabled": True}, False),
-        ({"ch_query_enabled": True, "sdb_query_enabled": True}, False),
+        ({"ch_query_enabled": True, "sdb_query_enabled": True}, True),
         ({"ch_query_enabled": False, "sdb_query_enabled": True}, True),
     ],
 )

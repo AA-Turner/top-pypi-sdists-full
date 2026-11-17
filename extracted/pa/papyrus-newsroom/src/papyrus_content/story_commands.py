@@ -94,6 +94,9 @@ def stories_save_version(flags: list[str]) -> None:
     --author-label is ignored there (the backend does not verify a name, so the CLI never lets one be made up). On the IAM lane
     (an operator's AWS credentials) --author-label is required and is recorded as given.
 
+    The output also prints the version's measurements and how much it changed from the version it replaces (the same rows as `stories measure`),
+    and stores them with the version (metadata.measurements). They are guidance from Humanus, never a limit. The version's language (its saved row) is required.
+
     --images <dir> uploads every local picture the body uses (::image{src=...} and ![](...) whose path resolves under
     <dir>), plus a matching <name>.dark.<ext> or srcDark file, as the newsroom editor's "Insert image" would: the same
     MediaAsset rows and S3 objects (media/assets/<slug>/<file>), then saves the body with src (and srcDark) rewritten
@@ -159,6 +162,10 @@ def stories_save_version(flags: list[str]) -> None:
         for line in plan_output:
             print(line)
         return
+    from .item_language import item_language
+    from .story_measure import measurement_rows, story_measurements
+
+    measurements = story_measurements(body, front_matter, item_language(latest), latest.get("bodyMarkus") or "", int(latest.get("versionNumber") or 1))
     stage = normalize_string(options.get("stage"))
     if options.get("advance"):
         if stage:
@@ -172,12 +179,14 @@ def stories_save_version(flags: list[str]) -> None:
         upload_output = [f"stories\tsave-version\timage-{outcome}\t{image.storage_path}" for image, outcome in upload_planned_images(image_plan, store)]
     record = save_story_version(
         client, lineage_id, front_matter_yaml=front_matter, body_markus=body, actor=author, change_reason=reason, stage=stage,
-        media_rows=image_plan.media_rows if image_plan is not None else None,
+        media_rows=image_plan.media_rows if image_plan is not None else None, measurements=measurements,
     )
     print(header + "write")
     for line in [*plan_output, *upload_output]:
         print(line)
     print(f"stories\tsave-version\tsaved\t{record['id']}")
+    for line in measurement_rows("stories", "save-version", f"{lineage_id}\tversion {next_number}", measurements):
+        print(line)
     print_console_rows("stories", "save-version", lambda base: story_links(base, lineage_id, record["id"], f"editor page of the version just saved (version {next_number})"))
     if options.get("outline"):
         mark_story_outline(client, record, actor=author)
@@ -191,6 +200,60 @@ def stories_save_version(flags: list[str]) -> None:
 
         check_after_save(record["id"])
     print_reminder(client, lineage_id)
+
+
+def stories_measure(flags: list[str]) -> None:
+    """papyrus stories measure [--story <lineage>] [--body-file <file>] [--front-matter-file <file>] [--language <tag>] [--json]
+
+    Plain measurements of a story's text, computed by Humanus (Papyrus counts nothing itself): size (words, or characters in Simplified Chinese; reading
+    time), structure (sections, longest paragraph and sentence, the headline, dek and blurb), sourcing (links and citations per 500 units, the share of
+    paragraphs with none) and the change from another version (units added, removed and rewritten, the share changed). Read only, and guidance only:
+    no limit is applied and nothing is refused.
+
+    --story alone measures the story's current saved version and its change from the version before it. --body-file measures a draft before it is
+    saved (with --story, its change from the story's current version, its headline, dek and blurb and its language from the story unless
+    --front-matter-file and --language say otherwise). A draft with no --story needs --language, because text is never read as a guessed language.
+    """
+    options = parse_options(flags)
+    story = normalize_string(options.get("story"))
+    body = _text_from_option_or_file(options, "body", "body-file")
+    front_matter = _text_from_option_or_file(options, "front-matter", "front-matter-file")
+    language = normalize_string(options.get("language"))
+    if not story and body is None:
+        raise ValueError("Give --story (a saved story) or --body-file (a draft).")
+    if not story and not language:
+        raise ValueError("--language is required for a draft with no --story (a BCP 47 tag such as en, es-419 or zh-Hans).")
+    from .item_language import item_language
+    from .story_measure import measurement_rows, story_measurements
+
+    previous_body = previous_number = None
+    label = "draft"
+    if story:
+        client, _ = create_authoring_client()
+        versions = story_versions(client, story)
+        latest = current_story_version(client, story)
+        language = language or item_language(latest)
+        if body is None:
+            earlier = [row for row in versions if int(row.get("versionNumber") or 0) < int(latest.get("versionNumber") or 0)]
+            previous = earlier[0] if earlier else None
+            body = latest.get("bodyMarkus") or ""
+            label = f"version {latest.get('versionNumber')}"
+        else:
+            previous, label = latest, f"draft of {story}"
+        if front_matter is None:
+            metadata = latest.get("metadata")
+            front_matter = (json.loads(metadata) if isinstance(metadata, str) and metadata else (metadata or {})).get("frontMatterYaml")
+        if previous is not None:
+            previous_body, previous_number = previous.get("bodyMarkus") or "", int(previous.get("versionNumber") or 1)
+        label = f"{story}\t{label}"
+    else:
+        label = f"draft\t{language}"
+    measurements = story_measurements(body, front_matter, language, previous_body, previous_number)
+    if options.get("json"):
+        print(json.dumps({"ok": True, "story": story, **measurements}, indent=2, ensure_ascii=False))
+        return
+    for line in measurement_rows("stories", "measure", label, measurements):
+        print(line)
 
 
 def stories_versions(flags: list[str]) -> None:
@@ -1334,6 +1397,72 @@ def stories_correct_translation(flags: list[str]) -> None:
         from .publish_commands import content_publish
 
         content_publish(["--id", record["id"], *(["--verify"] if verify else []), *(["--json"] if as_json else [])])
+
+
+def stories_import_translation(flags: list[str]) -> None:
+    """papyrus stories import-translation --story LINEAGE --language TAG --body-file FILE [--front-matter-file FILE] --written-by NAME [--drafting-by-ai] --reason TEXT [--dry-run] [--json]
+
+    Attaches finished copy, written separately by people or other agents, as the translation of a published Story. It saves the copy as the next version of
+    ``<story>--<language>`` the way the translation procedure saves one (unpublished, paired with the English version it translates, the original's
+    pictures carried, its address drafted by the language's slug policy), with the writer as its author and a provenance that says the copy was written,
+    not machine-generated. The version's front matter gets ``author: NAME`` (--written-by) and, only with --drafting-by-ai (bots helped write the copy),
+    ``drafting: {by: AI}``, in place of the English's; the site's standard byline reads from those two keys ("By NAME", or "By various bots and NAME") and is
+    translated into the page's language like every byline. The page of an imported translation says nothing of who translated it, only where the original is. Every block is the writer's: owner human, pinned, so a later translation run keeps the copy exactly.
+
+    FILE is the body in Markdown. The front matter is YAML with the Story's own reader-facing texts (title, dek or deck, and blurb and imageAlt when the
+    English has them), in its own file or as a leading --- block of the body file. The copy must have the English's blocks in the same order (blocks are
+    separated by blank lines), the same link targets, web addresses, citations, credits and figure settings, and the English's code blocks and rules; a copy
+    that does not line up, or changes one of those, is refused and nothing is saved. No model is called: the parity and glossary rules and the language's
+    copy-edit policies check each block and the whole body. An error-severity faithfulness finding holds the version (a flag review request a person
+    answers before it publishes), exactly as it holds a machine translation; other findings are printed as advice.
+
+    The Story must be published, in a language the site writes in, and not itself a translation. The command also writes the Story's translation request
+    finished, so ``papyrus stories localize --all`` counts the language up to date. It never publishes: use ``papyrus ops content publish --id VERSION_ID``.
+
+    Writes by default; --dry-run prints the alignment and the findings and writes nothing. See docs/story-translation-procedure.md, "Finished copy"."""
+    from .localize.import_copy import import_translation
+
+    options = parse_options(flags)
+    story = _required_option(options, "story")
+    language = _required_option(options, "language")
+    body_file = _required_option(options, "body-file")
+    front_matter_file = normalize_string(options.get("front-matter-file"))
+    written_by = _required_option(options, "written-by")
+    reason = _required_option(options, "reason")
+    drafting_by_ai = parse_boolean_option(options.get("drafting-by-ai"), default=False, label="--drafting-by-ai")
+    dry_run = parse_boolean_option(options.get("dry-run"), default=False, label="--dry-run")
+    as_json = parse_boolean_option(options.get("json"), default=False, label="--json")
+
+    def read(path: str, flag: str) -> str:
+        if not Path(path).is_file():
+            raise ValueError(f"{flag} {path} is not a file.")
+        return Path(path).read_text(encoding="utf-8")
+
+    body = read(body_file, "--body-file")
+    front_matter = read(front_matter_file, "--front-matter-file") if front_matter_file else None
+    client, claims = create_authoring_client()
+    applied_by = normalize_string((claims or {}).get("sub")) or "papyrus-cli"
+    done = import_translation(client, story=story, language=language, body=body, front_matter=front_matter, written_by=written_by, applied_by=applied_by,
+                              reason=reason, drafting_by_ai=drafting_by_ai, apply=not dry_run)
+    record = done.record
+    if as_json:
+        print(json.dumps({"dryRun": dry_run, "lineage": done.lineage, "language": done.language, "blocks": done.pairs, "findings": done.findings,
+                          "held": done.held, "reason": done.reason, "reviewRequest": done.review_request, "replaces": done.replaces,
+                          "unchanged": done.unchanged, "versionId": record["id"] if record else None, "published": False}, ensure_ascii=False))
+        return
+    row = lambda *cells: print("\t".join(["stories", "import-translation", done.lineage, *cells]))  # noqa: E731
+    for pair in done.pairs:
+        row(f"block {pair['block']}", pair["kind"], "aligned", pair["english"].replace("\n", " ")[:80], "->", pair["copy"].replace("\n", " ")[:80])
+    for finding in done.findings:
+        row(f"block {finding['block']}" if finding["block"] else "body", finding["kind"], f"{finding['severity']} {finding['category']}", finding["policy"],
+            finding["message"], finding["excerpt"])
+    if done.replaces:
+        row("replaces", f"version {done.replaces['versionNumber']}", f"{done.replaces['translation']} copy, {done.replaces['status']}", "kept in the version history")
+    status = "held: flag review request " + str(done.review_request) + " (" + done.reason + ")" if done.held else "no error findings"
+    if dry_run:
+        row("dry run", f"{len(done.pairs)} block(s) aligned", status)
+    else:
+        row("unchanged" if done.unchanged else f"saved {record['id']}", f"{len(done.pairs)} block(s) pinned to {written_by}", status)
 
 
 def stories_localize(flags: list[str]) -> None:

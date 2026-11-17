@@ -36,6 +36,7 @@ from .literals import (
     QueryResultTypeType,
     SessionStateType,
     StatementTypeType,
+    TableAttributesType,
     WorkGroupStateType,
 )
 
@@ -730,6 +731,7 @@ class ListDatabasesInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     WorkGroup: NotRequired[str]
+    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
 
 
 class ListEngineVersionsInputTypeDef(TypedDict):
@@ -802,6 +804,7 @@ class ListTableMetadataInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     WorkGroup: NotRequired[str]
+    AttributesToGet: NotRequired[Sequence[TableAttributesType]]
 
 
 class ListTagsForResourceInputTypeDef(TypedDict):
@@ -1317,6 +1320,7 @@ class ListDataCatalogsInputPaginateTypeDef(TypedDict):
 class ListDatabasesInputPaginateTypeDef(TypedDict):
     CatalogName: str
     WorkGroup: NotRequired[str]
+    AttributesToGet: NotRequired[Sequence[Literal["NAME"]]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1339,6 +1343,7 @@ class ListTableMetadataInputPaginateTypeDef(TypedDict):
     DatabaseName: str
     Expression: NotRequired[str]
     WorkGroup: NotRequired[str]
+    AttributesToGet: NotRequired[Sequence[TableAttributesType]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

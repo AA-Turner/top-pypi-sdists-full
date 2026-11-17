@@ -5332,7 +5332,7 @@ class Client:
         import pandas as pd  # type: ignore
 
         backend = _v2_migration_utils.get_query_backend(self.info.instance_flags)
-        if backend != _v2_migration_utils.QueryBackend.SMITHDB_ONLY:
+        if backend == _v2_migration_utils.QueryBackend.CLICKHOUSE_ONLY:
             # Suppressed: get_test_results() is supported, so callers have nothing
             # to migrate; how it fetches runs is an implementation detail.
             with _suppress_deprecation_warning():
@@ -5378,7 +5378,7 @@ class Client:
             # Convert to `schemas.Run` so both branches yield the same datamodel:
             # the v2 model types `reference_example_id` as `str`, which would not
             # match the `UUID` example ids when joining the two dataframes below.
-            runs = (_v2_migration_utils._v2_run_to_schema(r) for r in pager)
+            runs = (_v2_migration_utils._v2_run_to_schema(r, host_url=self._host_url) for r in pager)
         results: list[dict] = []
         example_ids = []
 
@@ -7550,14 +7550,39 @@ class Client:
             if dataset_name is None:
                 raise ValueError("Must provide dataset name or ID")
             dataset_id = self.read_dataset(dataset_name=dataset_name).id
-        data = {
-            "split_name": split_name,
-            "examples": [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)],
-            "remove": remove,
-        }
+        dataset_uuid = _as_uuid(dataset_id, "dataset_id")
+        ids = [str(_as_uuid(id_, f"example_ids[{i}]")) for i, id_ in enumerate(example_ids)]
+        path = _platform_path(self.api_url, f"datasets/{dataset_uuid}/examples/metadata")
+        # Lowercase, because the endpoint first shipped accepting only lowercase
+        # names and BYOC data planes on that version still do; later servers
+        # accept either case.
+        operation = "array_remove" if remove else "array_add"
 
-        response = self.request_with_retries("PUT", f"/datasets/{_as_uuid(dataset_id, 'dataset_id')}/splits", json=data)
-        ls_utils.raise_for_status_with_text(response)
+        def _raise_if_route_missing(response: requests.Response, _attempt: int) -> bool:
+            if _bulk_metadata_route_missing(response):
+                raise _BulkMetadataRouteMissingError
+            return False
+
+        for start in range(0, len(ids), _BULK_METADATA_MAX_EXAMPLE_IDS):
+            body = {
+                "example_ids": ids[start : start + _BULK_METADATA_MAX_EXAMPLE_IDS],
+                "operations": [{"key": "dataset_split", "operation": operation, "values": [split_name]}],
+            }
+            try:
+                # handle_response only runs before the last attempt, so allow two.
+                self.request_with_retries(
+                    "PATCH",
+                    path,
+                    json=body,
+                    stop_after_attempt=2,
+                    handle_response=_raise_if_route_missing,
+                )
+            except _BulkMetadataRouteMissingError:
+                # Older self-hosted servers lack the bulk metadata endpoint.
+                data = {"split_name": split_name, "examples": ids[start:], "remove": remove}
+                response = self.request_with_retries("PUT", f"/datasets/{dataset_uuid}/splits", json=data)
+                ls_utils.raise_for_status_with_text(response)
+                return
 
     def _resolve_run_id(
         self,
@@ -7932,7 +7957,8 @@ class Client:
             key (str):
                 The name of the feedback metric.
             score (Optional[Union[float, int, bool]]):
-                The score to rate this run on the metric or aspect.
+                The score to rate this run on the metric or aspect. Floats are
+                rounded to 4 decimal places, the most the API stores.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The display value or non-numeric value for this feedback.
             run_id (Optional[Union[UUID, str]]):
@@ -8015,18 +8041,25 @@ class Client:
             client = Client()
 
             inputs = {"x": 1}
-            with trace(name="foobar", inputs=inputs) as root_run:
+            with trace(name="foobar", inputs=inputs, client=client) as root_run:
                 result = foo(**inputs)
                 result = bar(**result)
                 root_run.outputs = result
                 trace_id = root_run.id
                 child_runs = root_run.child_runs
 
+            # The ID of the project (session) the runs were traced to. Runs are
+            # sent in the background, so flush first: the project is created
+            # when its first run arrives.
+            client.flush()
+            session_id = client.read_project(project_name=root_run.session_name).id
+
             # Provide feedback for a trace (a.k.a. a root run)
             client.create_feedback(
                 key="user_feedback",
                 score=1,
                 trace_id=trace_id,
+                session_id=session_id,
             )
 
             # Provide feedback for a child run
@@ -8038,6 +8071,7 @@ class Client:
                 # trace_id= is optional but recommended to enable batched and backgrounded
                 # feedback ingestion.
                 trace_id=trace_id,
+                session_id=session_id,
             )
             ```
         """
@@ -8158,18 +8192,23 @@ class Client:
         self,
         feedback_id: ID_TYPE,
         *,
-        score: Union[float, int, bool, None] = None,
-        value: Union[float, int, bool, str, dict, None] = None,
-        correction: Union[dict, None] = None,
-        comment: Union[str, None] = None,
+        score: Union[float, int, bool, None] = cast(Any, _UNSET),
+        value: Union[float, int, bool, str, dict, None] = cast(Any, _UNSET),
+        correction: Union[dict, None] = cast(Any, _UNSET),
+        comment: Union[str, None] = cast(Any, _UNSET),
     ) -> None:
         """Update a feedback in the LangSmith API.
+
+        Only the fields you pass are changed. Pass ``None`` to clear a field;
+        omit it to keep its current value.
 
         Args:
             feedback_id (Union[UUID, str]):
                 The ID of the feedback to update.
             score (Optional[Union[float, int, bool]]):
-                The score to update the feedback with.
+                The score to update the feedback with. Floats are rounded to
+                4 decimal places, the most the API stores; the API rejects
+                more precise scores sent to it directly.
             value (Optional[Union[float, int, bool, str, dict]]):
                 The value to update the feedback with.
             correction (Optional[dict]):
@@ -8179,15 +8218,24 @@ class Client:
 
         Returns:
             None
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                # Change the score and remove the comment.
+                client.update_feedback(feedback_id, score=0.5, comment=None)
         """
         feedback_update: dict[str, Any] = {}
-        if score is not None:
+        if score is not _UNSET:
             feedback_update["score"] = _format_feedback_score(score)
-        if value is not None:
+        if value is not _UNSET:
             feedback_update["value"] = value
-        if correction is not None:
+        if correction is not _UNSET:
             feedback_update["correction"] = correction
-        if comment is not None:
+        if comment is not _UNSET:
             feedback_update["comment"] = comment
         response = self.request_with_retries(
             "PATCH",
@@ -8619,7 +8667,10 @@ class Client:
         Defines how feedback with a given key should be interpreted.
         If an identical configuration already exists for the key, it is
         returned unchanged. If a different configuration already exists
-        for the key, an error is raised.
+        for the key, the result depends on the workspace: with enforced
+        feedback configs on, the new configuration is added next to the
+        existing ones (unless the key has an enforced configuration);
+        otherwise an HTTP 400 "Feedback config already exists" is raised.
 
         Args:
             feedback_key (str):
@@ -8642,10 +8693,11 @@ class Client:
                 configuration.
 
         Raises:
-            requests.HTTPError: If a conflicting configuration already
-                exists for the given key (HTTP 400), or if is_enforced is
-                set and the caller lacks the
-                feedback-configs:manage-enforced permission (HTTP 403).
+            LangSmithError: If a different configuration already exists for
+                the key and the workspace does not allow a second one (HTTP
+                400), if is_enforced is set and the caller lacks the
+                feedback-configs:manage-enforced permission (HTTP 403), or if
+                the key already has an enforced configuration (HTTP 409).
 
         Example:
             .. code-block:: python
@@ -8659,6 +8711,18 @@ class Client:
                         "type": "continuous",
                         "min": 0.0,
                         "max": 5.0,
+                    },
+                )
+
+                tags = client.create_feedback_config(
+                    feedback_key="topics",
+                    feedback_config={
+                        "type": "categorical",
+                        "categories": [
+                            {"value": 0, "label": "billing"},
+                            {"value": 1, "label": "shipping"},
+                        ],
+                        "allows_multiple_categories": True,
                     },
                 )
         """
@@ -8686,8 +8750,13 @@ class Client:
         name_contains: Optional[str] = None,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_all_configs: bool = False,
+        is_enforced: Optional[bool] = None,
     ) -> Iterator[ls_schemas.FeedbackConfigSchema]:
         """List feedback configurations.
+
+        By default this returns one configuration per key. A key can have
+        more than one; pass ``include_all_configs=True`` to see them all.
 
         Args:
             feedback_key (Optional[Sequence[str]]):
@@ -8698,6 +8767,15 @@ class Client:
                 The maximum number of configurations to return.
             offset (int):
                 The number of configurations to skip. Defaults to 0.
+            include_all_configs (bool):
+                Return every configuration of each key, deleted ones
+                included, instead of one per key. Defaults to False.
+            is_enforced (Optional[bool]):
+                Only enforced configurations when True, only unenforced
+                ones when False.
+
+        ``include_all_configs`` and ``is_enforced`` need LangSmith v0.18 or
+        later on self-hosted deployments.
 
         Yields:
             FeedbackConfigSchema: The feedback configurations.
@@ -8719,6 +8797,10 @@ class Client:
             params["key"] = feedback_key
         if name_contains is not None:
             params["name_contains"] = name_contains
+        if include_all_configs:
+            params["include_all_configs"] = True
+        if is_enforced is not None:
+            params["is_enforced"] = is_enforced
         for i, config in enumerate(self._get_paginated_list("/feedback-configs", params=params)):
             yield ls_schemas.FeedbackConfigSchema(**config)
             if limit is not None and i + 1 >= limit:
@@ -8730,6 +8812,7 @@ class Client:
         *,
         feedback_config: Optional[ls_schemas.FeedbackConfig] = None,
         is_lower_score_better: Optional[bool] = None,
+        config_id: Optional[ID_TYPE] = None,
     ) -> ls_schemas.FeedbackConfigSchema:
         """Update a feedback configuration.
 
@@ -8739,16 +8822,23 @@ class Client:
             feedback_key (str):
                 The feedback key of the configuration to update.
             feedback_config (Optional[FeedbackConfig]):
-                The new configuration values.
+                The new configuration values. Replaces the whole
+                configuration, so include ``allows_multiple_categories`` to
+                keep a multi-select tag multi-select.
             is_lower_score_better (Optional[bool]):
                 Whether a lower score is considered better.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+                Self-hosted deployments need LangSmith v0.18 or later.
 
         Returns:
             FeedbackConfigSchema: The updated feedback configuration.
 
         Raises:
             LangSmithNotFoundError: If no configuration exists for the
-                given feedback key (HTTP 404).
+                given feedback key or config_id (HTTP 404).
 
         Example:
             .. code-block:: python
@@ -8764,10 +8854,113 @@ class Client:
         body: dict[str, Any] = {
             "feedback_key": feedback_key,
         }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
         if feedback_config is not None:
             body["feedback_config"] = feedback_config
         if is_lower_score_better is not None:
             body["is_lower_score_better"] = is_lower_score_better
+        return self._patch_feedback_config(body)
+
+    def add_feedback_categories(
+        self,
+        feedback_key: str,
+        categories: Sequence[ls_schemas.FeedbackCategory],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Add categories to a categorical feedback configuration.
+
+        The existing categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            categories (Sequence[FeedbackCategory]):
+                The categories to add. Values and labels must not clash with
+                existing ones.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or a
+                value or label is duplicated (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.add_feedback_categories("topics", [{"value": 2, "label": "returns"}])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "add_categories": list(categories),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def remove_feedback_categories(
+        self,
+        feedback_key: str,
+        values: Sequence[float],
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> ls_schemas.FeedbackConfigSchema:
+        """Remove categories from a categorical feedback configuration.
+
+        Feedback already written with a removed value is unchanged. The other
+        categories and ``allows_multiple_categories`` are kept.
+        Self-hosted deployments need LangSmith v0.18 or later;
+        older versions ignore the change and return the configuration
+        unchanged.
+
+        Args:
+            feedback_key (str):
+                The feedback key of the configuration to update.
+            values (Sequence[float]):
+                The values (not labels) of the categories to remove.
+            config_id (Optional[Union[UUID, str]]):
+                The configuration to update, for keys with more than one.
+                When omitted, the key's enforced configuration is updated,
+                or else its first one, or else its most recently modified one.
+
+        Returns:
+            FeedbackConfigSchema: The updated feedback configuration.
+
+        Raises:
+            LangSmithNotFoundError: If no configuration matches (HTTP 404).
+            LangSmithError: If the configuration is not categorical or fewer
+                than two categories would remain (HTTP 422).
+
+        Example:
+            .. code-block:: python
+
+                from langsmith import Client
+
+                client = Client()
+                client.remove_feedback_categories("topics", [2])
+        """
+        body: dict[str, Any] = {
+            "feedback_key": feedback_key,
+            "remove_categories": list(values),
+        }
+        if config_id is not None:
+            body["id"] = str(_as_uuid(config_id, "config_id"))
+        return self._patch_feedback_config(body)
+
+    def _patch_feedback_config(self, body: dict[str, Any]) -> ls_schemas.FeedbackConfigSchema:
         response = self.request_with_retries(
             "PATCH",
             "/feedback-configs",
@@ -8776,15 +8969,24 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.FeedbackConfigSchema(**response.json())
 
-    def delete_feedback_config(self, feedback_key: str) -> None:
+    def delete_feedback_config(
+        self,
+        feedback_key: Optional[str] = None,
+        *,
+        config_id: Optional[ID_TYPE] = None,
+    ) -> None:
         """Delete a feedback configuration.
 
         This performs a soft delete. The configuration can be recreated
-        later with the same key.
+        later with the same key. Pass exactly one of ``feedback_key`` or
+        ``config_id``.
 
         Args:
-            feedback_key (str):
-                The feedback key of the configuration to delete.
+            feedback_key (Optional[str]):
+                Delete every configuration of this feedback key.
+            config_id (Optional[Union[UUID, str]]):
+                Delete only this configuration. Self-hosted deployments
+                need LangSmith v0.18 or later.
 
         Example:
             .. code-block:: python
@@ -8794,10 +8996,15 @@ class Client:
                 client = Client()
                 client.delete_feedback_config("user-rating")
         """
+        if (feedback_key is None) == (config_id is None):
+            raise ValueError("Pass exactly one of feedback_key or config_id.")
+        params = (
+            {"id": str(_as_uuid(config_id, "config_id"))} if config_id is not None else {"feedback_key": feedback_key}
+        )
         response = self.request_with_retries(
             "DELETE",
             "/feedback-configs",
-            params={"feedback_key": feedback_key},
+            params=params,
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -8865,9 +9072,13 @@ class Client:
                 The feedback configs to assign to this queue's rubric.
                 Each item specifies a feedback_key and optional per-queue
                 customization like description and value_descriptions.
+                Items read from another queue's ``rubric_items`` can be
+                passed as-is to copy its rubric.
 
         Returns:
-            AnnotationQueue: The created annotation queue object.
+            AnnotationQueueWithDetails: The created annotation queue. Its
+                ``rubric_items`` is not filled in; call ``read_annotation_queue``
+                to get the stored rubric.
         """
         body: dict[str, Any] = {
             "name": name,
@@ -8880,21 +9091,22 @@ class Client:
         response = self.request_with_retries(
             "POST",
             "/annotation-queues",
-            json={k: v for k, v in body.items() if v is not None},
+            data=_dumps_json({k: v for k, v in body.items() if v is not None}),
         )
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.AnnotationQueueWithDetails(
             **response.json(),
         )
 
-    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueue:
+    def read_annotation_queue(self, queue_id: ID_TYPE) -> ls_schemas.AnnotationQueueWithDetails:
         """Read an annotation queue with the specified `queue_id`.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue to read.
 
         Returns:
-            AnnotationQueue: The annotation queue object.
+            AnnotationQueueWithDetails: The annotation queue, including its
+                rubric items and the feedback config each one uses.
         """
         base_url = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}"
         response = self.request_with_retries(
@@ -8925,6 +9137,7 @@ class Client:
                 annotation queue.
             rubric_items (Optional[list[AnnotationQueueRubricItem]]):
                 The feedback configs to assign to this queue's rubric.
+                Replaces the existing rubric.
 
         Returns:
             None
@@ -8941,7 +9154,7 @@ class Client:
         response = self.request_with_retries(
             "PATCH",
             f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}",
-            json=body,
+            data=_dumps_json(body),
         )
         ls_utils.raise_for_status_with_text(response)
 
@@ -8961,6 +9174,11 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.create() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide."
+    )
     def add_runs_to_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -8970,15 +9188,19 @@ class Client:
     ) -> None:
         """Add runs to an annotation queue with the specified `queue_id`.
 
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.create` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
+
         Provide exactly one of `runs` or `run_ids`:
 
-        - `runs` (preferred): each entry carries the run's full lookup key
+        - `runs`: each entry carries the run's full lookup key
           (`run_id`, `session_id`, `start_time`, and an optional
           `source_proposed_example_id`). This lets the run be located directly,
           without a scan, and is required for workspaces served by SmithDB.
-        - `run_ids`: a plain list of run IDs. This path is deprecated and will
-          be removed after Jan 31, 2027; prefer `runs`.
-          See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs.
+        - `run_ids`: a plain list of run IDs.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -8997,13 +9219,6 @@ class Client:
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs/by-key"
             json_body = [_serialize_run_key(run, i) for i, run in enumerate(runs)]
         elif run_ids is not None:
-            warnings.warn(
-                "The run_ids parameter of add_runs_to_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
-                "Use the runs parameter with RunKey objects instead. "
-                "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-add-runs for the migration guide.",
-                _LangSmithDeprecationWarning,
-                stacklevel=2,
-            )
             path = f"/annotation-queues/{_as_uuid(queue_id, 'queue_id')}/runs"
             json_body = [str(_as_uuid(id_, f"run_ids[{i}]")) for i, id_ in enumerate(run_ids)]
         else:
@@ -9011,8 +9226,19 @@ class Client:
         response = self.request_with_retries("POST", path, json=json_body)
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "delete_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.delete_all() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide."
+    )
     def delete_run_from_annotation_queue(self, queue_id: ID_TYPE, *, run_id: ID_TYPE) -> None:
         """Delete a run from an annotation queue with the specified `queue_id` and `run_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.delete_all` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9028,8 +9254,19 @@ class Client:
         )
         ls_utils.raise_for_status_with_text(response)
 
+    @_deprecated(
+        "get_run_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def get_run_from_annotation_queue(self, queue_id: ID_TYPE, *, index: int) -> ls_schemas.RunWithAnnotationQueueInfo:
         """Get a run from an annotation queue at the specified index.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -9051,6 +9288,11 @@ class Client:
         ls_utils.raise_for_status_with_text(response)
         return ls_schemas.RunWithAnnotationQueueInfo(**response.json())
 
+    @_deprecated(
+        "list_runs_from_annotation_queue() is deprecated and will be removed after Jan 31, 2027. "
+        "Use client.annotation_queues.items.list() instead. "
+        "See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide."
+    )
     def list_runs_from_annotation_queue(
         self,
         queue_id: ID_TYPE,
@@ -9059,6 +9301,12 @@ class Client:
         limit: Optional[int] = None,
     ) -> Iterator[ls_schemas.RunWithAnnotationQueueInfo]:
         """List runs in an annotation queue with the specified `queue_id`.
+
+        .. admonition:: Deprecated
+
+            Use :meth:`langsmith.Client.annotation_queues.items.list` instead.
+            See https://docs.langchain.com/langsmith/smithdb-sdk-migration-feedback#annotation-queues-read-runs for the migration guide.
+            Will be removed after Jan 31, 2027.
 
         Args:
             queue_id (Union[UUID, str]): The ID of the annotation queue.
@@ -11368,6 +11616,24 @@ def _dataset_examples_path(api_url: str, dataset_id: ID_TYPE) -> str:
         return f"/platform/datasets/{dataset_id}/examples"
     else:
         return f"/v1/platform/datasets/{dataset_id}/examples"
+
+
+# The most example IDs the bulk metadata endpoint accepts in one request.
+_BULK_METADATA_MAX_EXAMPLE_IDS = 10_000
+
+
+class _BulkMetadataRouteMissingError(Exception):
+    """The server has no bulk metadata endpoint."""
+
+
+def _bulk_metadata_route_missing(response: requests.Response) -> bool:
+    """Whether a bulk metadata response means the server lacks the route.
+
+    A missing dataset is also a 404, but its problem details say "dataset not found".
+    """
+    if response.status_code == 405:
+        return True
+    return response.status_code == 404 and "dataset not found" not in response.text.lower()
 
 
 def _platform_path(api_url: str, path: str) -> str:

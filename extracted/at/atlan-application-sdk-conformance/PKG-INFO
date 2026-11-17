@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk-conformance
-Version: 0.58.0
+Version: 0.59.0
 Summary: Conformance suite, remediation programs, and CLI for the Atlan Application SDK
 Author-email: Atlan App Team <connect@atlan.com>
 License-Expression: Apache-2.0
@@ -52,6 +52,25 @@ uv run atlan-application-sdk-conformance programs-dir
 uv run atlan-application-sdk-conformance gen-rule-docs
 ```
 
+## SDK-derived data
+
+`conformance/data/` holds tables generated from SDK (and `pyatlan_v9`) source, baked into the wheel
+because the suite runs in consumer repos where that source is not available.
+Never hand-edit them: regenerate in the same PR as the SDK change, and each
+drift test under `tests/` fails until you do. Every generator takes `--check`.
+
+| Table | Command |
+|---|---|
+| `deprecated_symbols.json` | `gen-deprecations` |
+| `public_errors.json` | `gen-public-errors` |
+| `relationship_directions.json` | `gen-relationship-directions` |
+| `sdk_contract_fields.json` | `gen-sdk-contract-fields` |
+| `sdk_type_aliases.json` | `gen-sdk-type-aliases` |
+| `toolkit_baseline.json` | `gen-toolkit-baseline` |
+
+Run each as `uv run atlan-application-sdk-conformance <command>` from
+`packages/conformance/`.
+
 See [preflight conformance](conformance/docs/preflight-testing.md) for static checks, opt-in behavior scenarios, and their coverage limits, and the [F-series rule catalog](conformance/docs/rules/preflight.md) for the rules themselves.
 
 ## Suppressing a finding
@@ -67,6 +86,15 @@ comment to) is instead exempted via a `[tool.conformance]` key in the repo's own
 `pyproject.toml` — see
 [`docs/schema-contract.md` §6.4](conformance/docs/schema-contract.md#64-config-based-tier-exemption-toolconformance)
 for the canonical convention and when to use it over inline suppression.
+
+## Files that do not parse
+
+A Python file the runner cannot parse is skipped by every check, so it would
+otherwise look clean. The runner reports each one instead: a `[PARSE]` line in
+the log, a SARIF `toolExecutionNotifications` entry, `executionSuccessful:
+false`, and a failed gate. Fix the syntax error, or `--exclude` the path if it
+is deliberately not Python. See
+[`docs/schema-contract.md` §8](conformance/docs/schema-contract.md#files-the-suite-could-not-analyse).
 
 ## In CI
 

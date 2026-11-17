@@ -38,6 +38,13 @@ AUTH_URL = get_env("AUTH_URL", "https://auth.state.dbt.com")
 TOKEN_URL = get_env("TOKEN_URL", "https://auth.state.dbt.com/token")
 """The OAuth token endpoint to use"""
 
+AUTH_HTTP_TIMEOUT: t.Tuple[float, float] = (15, 30)
+"""Timeout in seconds for each auth server HTTP request: (connection timeout, read timeout)
+
+Connection timeout is longest the client waits to establish the connection. Read timeout is the
+longest it waits for server to send data once connected.
+"""
+
 
 THEME = Theme(
     {
@@ -151,6 +158,7 @@ class SsoAuth:
             redirect_uri=REDIRECT_URI,
             scope=self._scope,
             code_challenge_method="S256",
+            default_timeout=AUTH_HTTP_TIMEOUT,
         )
         self._token_info: t.Optional[t.Dict] = None
         self._token_scope: t.Optional[Scope] = None

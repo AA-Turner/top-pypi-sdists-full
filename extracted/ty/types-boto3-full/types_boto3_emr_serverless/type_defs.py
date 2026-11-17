@@ -56,6 +56,7 @@ __all__ = (
     "DiskEncryptionConfigurationOutputTypeDef",
     "DiskEncryptionConfigurationTypeDef",
     "DiskEncryptionConfigurationUnionTypeDef",
+    "FlexExecutionTypeDef",
     "GetApplicationRequestTypeDef",
     "GetApplicationResponseTypeDef",
     "GetDashboardForJobRunRequestTypeDef",
@@ -270,6 +271,10 @@ class DeleteApplicationRequestTypeDef(TypedDict):
     applicationId: str
 
 
+class FlexExecutionTypeDef(TypedDict):
+    enabled: NotRequired[bool]
+
+
 class GetApplicationRequestTypeDef(TypedDict):
     applicationId: str
 
@@ -329,28 +334,6 @@ class SparkSubmitTypeDef(TypedDict):
     sparkSubmitParameters: NotRequired[str]
 
 
-JobRunAttemptSummaryTypeDef = TypedDict(
-    "JobRunAttemptSummaryTypeDef",
-    {
-        "applicationId": str,
-        "id": str,
-        "arn": str,
-        "createdBy": str,
-        "jobCreatedAt": datetime,
-        "createdAt": datetime,
-        "updatedAt": datetime,
-        "executionRole": str,
-        "state": JobRunStateType,
-        "stateDetails": str,
-        "releaseLabel": str,
-        "name": NotRequired[str],
-        "mode": NotRequired[JobRunModeType],
-        "type": NotRequired[str],
-        "attempt": NotRequired[int],
-    },
-)
-
-
 class JobRunExecutionIamPolicyOutputTypeDef(TypedDict):
     policy: NotRequired[str]
     policyArns: NotRequired[list[str]]
@@ -359,29 +342,6 @@ class JobRunExecutionIamPolicyOutputTypeDef(TypedDict):
 class JobRunExecutionIamPolicyTypeDef(TypedDict):
     policy: NotRequired[str]
     policyArns: NotRequired[Sequence[str]]
-
-
-JobRunSummaryTypeDef = TypedDict(
-    "JobRunSummaryTypeDef",
-    {
-        "applicationId": str,
-        "id": str,
-        "arn": str,
-        "createdBy": str,
-        "createdAt": datetime,
-        "updatedAt": datetime,
-        "executionRole": str,
-        "state": JobRunStateType,
-        "stateDetails": str,
-        "releaseLabel": str,
-        "name": NotRequired[str],
-        "mode": NotRequired[JobRunModeType],
-        "type": NotRequired[str],
-        "attempt": NotRequired[int],
-        "attemptCreatedAt": NotRequired[datetime],
-        "attemptUpdatedAt": NotRequired[datetime],
-    },
-)
 
 
 class ResourceUtilizationTypeDef(TypedDict):
@@ -570,6 +530,51 @@ class WorkerTypeSpecificationInputTypeDef(TypedDict):
     imageConfiguration: NotRequired[ImageConfigurationInputTypeDef]
 
 
+JobRunAttemptSummaryTypeDef = TypedDict(
+    "JobRunAttemptSummaryTypeDef",
+    {
+        "applicationId": str,
+        "id": str,
+        "arn": str,
+        "createdBy": str,
+        "jobCreatedAt": datetime,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "executionRole": str,
+        "state": JobRunStateType,
+        "stateDetails": str,
+        "releaseLabel": str,
+        "name": NotRequired[str],
+        "mode": NotRequired[JobRunModeType],
+        "type": NotRequired[str],
+        "attempt": NotRequired[int],
+        "flexExecution": NotRequired[FlexExecutionTypeDef],
+    },
+)
+JobRunSummaryTypeDef = TypedDict(
+    "JobRunSummaryTypeDef",
+    {
+        "applicationId": str,
+        "id": str,
+        "arn": str,
+        "createdBy": str,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "executionRole": str,
+        "state": JobRunStateType,
+        "stateDetails": str,
+        "releaseLabel": str,
+        "name": NotRequired[str],
+        "mode": NotRequired[JobRunModeType],
+        "type": NotRequired[str],
+        "attempt": NotRequired[int],
+        "attemptCreatedAt": NotRequired[datetime],
+        "attemptUpdatedAt": NotRequired[datetime],
+        "flexExecution": NotRequired[FlexExecutionTypeDef],
+    },
+)
+
+
 class InitialCapacityConfigTypeDef(TypedDict):
     workerCount: int
     workerConfiguration: NotRequired[WorkerResourceConfigTypeDef]
@@ -585,21 +590,9 @@ class JobDriverTypeDef(TypedDict):
     hive: NotRequired[HiveTypeDef]
 
 
-class ListJobRunAttemptsResponseTypeDef(TypedDict):
-    jobRunAttempts: list[JobRunAttemptSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 JobRunExecutionIamPolicyUnionTypeDef = Union[
     JobRunExecutionIamPolicyTypeDef, JobRunExecutionIamPolicyOutputTypeDef
 ]
-
-
-class ListJobRunsResponseTypeDef(TypedDict):
-    jobRuns: list[JobRunSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 
 class ListApplicationsRequestPaginateTypeDef(TypedDict):
@@ -705,6 +698,20 @@ class SessionTypeDef(TypedDict):
 SessionConfigurationOverridesUnionTypeDef = Union[
     SessionConfigurationOverridesTypeDef, SessionConfigurationOverridesOutputTypeDef
 ]
+
+
+class ListJobRunAttemptsResponseTypeDef(TypedDict):
+    jobRunAttempts: list[JobRunAttemptSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListJobRunsResponseTypeDef(TypedDict):
+    jobRuns: list[JobRunSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 JobDriverUnionTypeDef = Union[JobDriverTypeDef, JobDriverOutputTypeDef]
 ApplicationTypeDef = TypedDict(
     "ApplicationTypeDef",
@@ -813,6 +820,7 @@ class JobRunTypeDef(TypedDict):
     queuedDurationMilliseconds: NotRequired[int]
     imageConfiguration: NotRequired[ImageConfigurationTypeDef]
     workerTypeSpecifications: NotRequired[dict[str, WorkerTypeSpecificationTypeDef]]
+    flexExecution: NotRequired[FlexExecutionTypeDef]
 
 
 ConfigurationOverridesUnionTypeDef = Union[
@@ -885,3 +893,4 @@ class StartJobRunRequestTypeDef(TypedDict):
     name: NotRequired[str]
     mode: NotRequired[JobRunModeType]
     retryPolicy: NotRequired[RetryPolicyTypeDef]
+    flexExecution: NotRequired[FlexExecutionTypeDef]

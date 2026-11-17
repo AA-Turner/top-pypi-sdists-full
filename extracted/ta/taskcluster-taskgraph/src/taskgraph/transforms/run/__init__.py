@@ -11,6 +11,7 @@ run-using handlers in `taskcluster/taskgraph/transforms/run`.
 
 import copy
 import logging
+import re
 from typing import Literal, Optional, Union
 
 from taskgraph.transforms.base import TransformSequence
@@ -40,35 +41,71 @@ class FetchesEntrySchema(Schema):
     verify_hash: Optional[bool] = None
 
 
+class GithubRepoTokenSecret(
+    Schema, tag_field="type", tag="github-repo-token", kw_only=True
+):
+    #: The name of the GitHub App registered with Taskcluster.
+    app: str
+    #: The GitHub repository the token is for. Defaults to the
+    #: `base_repository` parameter.
+    repo: Optional[str] = None
+    #: The token's permissions, mapping a permission to its level. Defaults to
+    #: `{"contents": "read"}`.
+    permissions: Optional[dict[str, str]] = None
+    #: The environment variable to export the token in. Defaults to
+    #: `GITHUB_TOKEN`.
+    env: Optional[str] = None
+
+
+class TaskclusterSecret(Schema, tag_field="type", tag="secret", kw_only=True):
+    #: The name of the secret in Taskcluster's secrets service.
+    name: str
+    #: The environment variable to export the secret in. Exclusive with `file`.
+    env: Optional[str] = None
+    #: The file to write the secret to, relative to the task's working
+    #: directory. Exclusive with `env`.
+    file: Optional[str] = None
+    #: A key of the secret to export, rather than the whole secret. Dots select
+    #: keys of nested objects, e.g. `foo.bar`.
+    key: Optional[str] = None
+
+    def __post_init__(self):
+        if (self.env is None) == (self.file is None):
+            raise ValueError("exactly one of 'env' or 'file' is required")
+
+
+SecretsEntrySchema = Union[GithubRepoTokenSecret, TaskclusterSecret]
+
+
 class WhenConfig(Schema):
-    # This task only needs to be run if a file matching one of the given
-    # patterns has changed in the push. The patterns use the mozpack
-    # match function (python/mozbuild/mozpack/path.py).
+    #: This task only needs to be run if a file matching one of the given
+    #: patterns has changed in the push. The patterns use the mozpack
+    #: match function (python/mozbuild/mozpack/path.py).
     files_changed: Optional[list[str]] = None
 
 
 class RunConfig(Schema, forbid_unknown_fields=False, kw_only=True):
-    # The key to a run implementation in a peer module to this one.
+    #: The key to a run implementation in a peer module to this one.
     using: str
-    # Base work directory used to set up the task.
+    #: Base work directory used to set up the task.
     workdir: Optional[str] = None
 
 
 #: Schema for a run transforms
 class RunDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=True):
-    # A description of how to run this task.
+    #: A description of how to run this task.
     run: RunConfig
-    # The name of the task. At least one of 'name' or 'label' must be
-    # specified. If 'label' is not provided, it will be generated from
-    # the 'name' by prepending the kind.
+    #: The name of the task. At least one of 'name' or 'label' must be
+    #: specified. If 'label' is not provided, it will be generated from
+    #: the 'name' by prepending the kind.
     name: Optional[str] = None
-    # The label of the task. At least one of 'name' or 'label' must be
-    # specified. If 'label' is not provided, it will be generated from
-    # the 'name' by prepending the kind.
+    #: The label of the task. At least one of 'name' or 'label' must be
+    #: specified. If 'label' is not provided, it will be generated from
+    #: the 'name' by prepending the kind.
     label: Optional[str] = None
-    # the following fields are passed directly through to the task description,
-    # possibly modified by the run implementation. See
-    # taskcluster/taskgraph/transforms/task.py for the schema details.
+    #: the following fields are passed directly through to the task description,
+    #: possibly modified by the run implementation. See
+    #: taskcluster/taskgraph/transforms/task.py for the schema details.
     description: TaskDescriptionSchema.__annotations__["description"]  # type: ignore  # noqa: F821
     worker_type: TaskDescriptionSchema.__annotations__["worker_type"]  # type: ignore  # noqa: F821
     priority: TaskDescriptionSchema.__annotations__["priority"] = None  # type: ignore
@@ -95,15 +132,17 @@ class RunDescriptionSchema(Schema, forbid_unknown_fields=False, kw_only=True):
     always_target: Optional[bool] = None
     optimization: Optional[OptimizationType] = None
     needs_sccache: Optional[bool] = None
-    # The "when" section contains descriptions of the circumstances under
-    # which this task should be included in the task graph. This will be
-    # converted into an optimization, so it cannot be specified in a run
-    # description that also gives 'optimization'.
+    #: The "when" section contains descriptions of the circumstances under
+    #: which this task should be included in the task graph. This will be
+    #: converted into an optimization, so it cannot be specified in a run
+    #: description that also gives 'optimization'.
     when: Optional[WhenConfig] = None
-    # A list of artifacts to install from 'fetch' tasks.
+    #: A list of artifacts to install from 'fetch' tasks.
     fetches: Optional[dict[str, list[Union[str, FetchesEntrySchema]]]] = None
-    # This object will be passed through to the task description, with additions
-    # provided by the task's run-using function.
+    #: A list of secrets for run-task to fetch before running the task.
+    secrets: Optional[list[SecretsEntrySchema]] = None
+    #: This object will be passed through to the task description, with additions
+    #: provided by the task's run-using function.
     worker: Optional[dict] = None
 
     def __post_init__(self):
@@ -345,6 +384,79 @@ def use_fetches(config, tasks):
 
         env.setdefault("MOZ_FETCHES_DIR", "fetches")
 
+        yield task
+
+
+def _github_owner_repo(url):
+    """Return the owner and repository for a github.com HTTPS or SSH URL."""
+    match = re.fullmatch(
+        r"(?:https?://github\.com/|ssh://git@github\.com/|git@github\.com:)"
+        r"([^/]+)/([^/]+?)(?:\.git)?/?",
+        url,
+    )
+    return match.groups() if match else None
+
+
+@transforms.add
+def use_secrets(config, tasks):
+    """Convert `secrets` into `RUN_TASK_SECRETS`, and add the scopes and
+    features run-task needs to fetch them."""
+    for task in tasks:
+        secrets = task.pop("secrets", None)
+        if not secrets:
+            yield task
+            continue
+
+        label = task["label"]
+        worker = task.setdefault("worker", {})
+        env = worker.setdefault("env", {})
+        if "RUN_TASK_SECRETS" in env:
+            raise Exception(f"{label}: use 'secrets' or set RUN_TASK_SECRETS, not both")
+
+        scopes = task.setdefault("scopes", [])
+        entries = []
+        dests = set()
+        for secret in secrets:
+            entry = {k: v for k, v in secret.items() if v is not None}
+            if entry["type"] == "github-repo-token":
+                entry.setdefault("repo", config.params["base_repository"])
+                github_repo = _github_owner_repo(entry["repo"])
+                if not github_repo:
+                    raise Exception(
+                        f"{label}: github-repo-token repo {entry['repo']!r} "
+                        "is not a GitHub repository"
+                    )
+                owner, repo = github_repo
+                permissions = entry.get("permissions", {"contents": "read"})
+                new_scopes = [
+                    f"auth:github-repo-token:{entry['app']}/{owner}/{repo}:{perm}:{level}"
+                    for perm, level in sorted(permissions.items())
+                ]
+                dest = ("env", entry.get("env", "GITHUB_TOKEN"))
+            else:
+                new_scopes = [f"secrets:get:{entry['name']}"]
+                dest = (
+                    ("env", entry["env"]) if "env" in entry else ("file", entry["file"])
+                )
+
+            if dest in dests:
+                raise Exception(
+                    f"{label}: more than one secret is exported to {dest[0]} {dest[1]}"
+                )
+            dests.add(dest)
+            if dest[0] == "env" and dest[1] in env:
+                raise Exception(
+                    f"{label}: secret exported to env {dest[1]} is also set in "
+                    "worker.env"
+                )
+
+            for scope in new_scopes:
+                if scope not in scopes:
+                    scopes.append(scope)
+            entries.append(entry)
+
+        worker["taskcluster-proxy"] = True
+        env["RUN_TASK_SECRETS"] = json.dumps(entries, sort_keys=True)
         yield task
 
 

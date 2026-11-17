@@ -33,6 +33,13 @@ class TestMetricsV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_models_inference_activity(self) -> None:
+        """Test case for get_models_inference_activity
+
+        Get Models Inference Activity
+        """
+        pass
+
     def test_post_model_metrics_by_version(self) -> None:
         """Test case for post_model_metrics_by_version
 

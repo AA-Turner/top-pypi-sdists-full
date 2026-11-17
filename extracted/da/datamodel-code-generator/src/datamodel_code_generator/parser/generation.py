@@ -65,6 +65,7 @@ from datamodel_code_generator._graph_links import (
     data_type_children,
     drop_child_and_detached,
     nearest_field,
+    type_children,
 )
 from datamodel_code_generator._model_keys import FieldKey, ModelKey, NodeKey, model_key_of
 from datamodel_code_generator._parse_memo import ParseMemo, bump_field, bump_model, bump_node
@@ -83,6 +84,7 @@ from datamodel_code_generator.parser._sites import (
     position_step,
     site_of,
 )
+from datamodel_code_generator.types import _hint_null
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterable, Iterator, Mapping, Sequence
@@ -140,6 +142,7 @@ _REPLACED = MemberFacts("replaced")
 _REPLACEMENT = MemberFacts("replacement")
 _REPLACEMENT_LAST = UnionPolicy("legacy-replacement-last")
 OrderedSet: TypeAlias = dict[_OrderedSetItem, None]
+_SitesByTarget: TypeAlias = defaultdict[ModelKey, OrderedSet[SiteKey]]
 
 SITE_EFFECTS: Mapping[str, ProvenanceHow] = MappingProxyType({
     "append_field": "copied",
@@ -207,6 +210,7 @@ NO_SITE_EFFECT: frozenset[str] = frozenset({
     "set_field_extra",
     "set_field_extras",
     "set_field_identity",
+    "set_module_models",
     "set_type_discriminator",
     "set_type_expressions",
     "update_model_reference",
@@ -271,9 +275,7 @@ def _tree_nodes(roots: Iterable[DataType]) -> Iterator[DataType]:
     stack = list(roots)
     while stack:
         node = stack.pop()
-        stack.extend(node.data_types)
-        if dict_key := node.dict_key:
-            stack.append(dict_key)
+        stack.extend(type_children(node))
         yield node
 
 
@@ -352,7 +354,8 @@ class GenerationFacts:
 
     A model's data type ids increase in traversal order, so ``(owner parse order, id)`` orders occurrences
     as a full rebuild traverses them. The reference sites of the type trees (`RefSite`) take the id of their
-    occurrence as their key, and ``sites_by_target`` lists them per target in that order.
+    occurrence as their key, and ``sites_by_target`` lists them per target in that order, ``base_sites_by_target``
+    the sites of bases among them.
     """
 
     model_facts: dict[ModelId, ModelFact] = field(default_factory=dict)
@@ -362,7 +365,8 @@ class GenerationFacts:
     model_by_path: dict[str, ModelId] = field(default_factory=dict)
     model_by_ref_id: dict[ModelKey, ModelId] = field(default_factory=dict)
     data_types_by_model: dict[ModelId, tuple[DataTypeId, ...]] = field(default_factory=dict)
-    sites_by_target: defaultdict[ModelKey, OrderedSet[SiteKey]] = field(default_factory=lambda: defaultdict(dict))
+    sites_by_target: _SitesByTarget = field(default_factory=lambda: defaultdict(dict))
+    base_sites_by_target: _SitesByTarget = field(default_factory=lambda: defaultdict(dict))
     shared_data_type_fact_ids: dict[int, list[DataTypeId]] = field(default_factory=dict)
     sites: dict[SiteKey, RefSite] = field(default_factory=dict)
 
@@ -803,16 +807,24 @@ class GenerationIndexBuilder:
         self._facts.data_type_facts[fact.id] = fact
         self._index_data_type_object(fact)
         if fact.reference:
-            self._add_target_site(self._model_key(fact.reference), SiteKey(fact.id))
+            key = self._model_key(fact.reference)
+            for sites_by_target in self._target_site_lists(fact):
+                self._add_target_site(sites_by_target, key, SiteKey(fact.id))
 
     def _forget_fact(self, fact: DataTypeFact) -> None:
         self._forget_data_type_object(fact)
         if fact.reference:
             key = self._model_key(fact.reference)
-            site_keys = self._facts.sites_by_target[key]
-            del site_keys[SiteKey(fact.id)]
-            if not site_keys:
-                del self._facts.sites_by_target[key]
+            for sites_by_target in self._target_site_lists(fact):
+                site_keys = sites_by_target[key]
+                del site_keys[SiteKey(fact.id)]
+                if not site_keys:
+                    del sites_by_target[key]
+
+    def _target_site_lists(self, fact: DataTypeFact) -> tuple[_SitesByTarget, ...]:
+        """Return the per-target site lists that list the site of ``fact``: every site, and the sites of bases."""
+        facts = self._facts
+        return (facts.sites_by_target, facts.base_sites_by_target) if fact.role == "base" else (facts.sites_by_target,)
 
     def _update_base_owners(
         self,
@@ -852,9 +864,9 @@ class GenerationIndexBuilder:
         if facts.data_type_fact_by_object[object_id] is fact:
             facts.data_type_fact_by_object[object_id] = facts.data_type_facts[max(data_type_ids, key=facts.order_key)]
 
-    def _add_target_site(self, key: ModelKey, site_key: SiteKey) -> None:
+    def _add_target_site(self, sites_by_target: _SitesByTarget, key: ModelKey, site_key: SiteKey) -> None:
         facts = self._facts
-        site_keys = facts.sites_by_target[key]
+        site_keys = sites_by_target[key]
         if not site_keys or facts.order_key(next(reversed(site_keys))) < facts.order_key(site_key):
             site_keys[site_key] = None
             return
@@ -1033,9 +1045,8 @@ class GenerationIndex:
         """Return the models whose bases name ``reference``, once each, in the order of those bases."""
         facts = self._view().facts
         owners = (
-            facts.model_facts[fact.owner_model].model
-            for fact in self.data_type_facts_for_reference(reference)
-            if fact.role == "base"
+            facts.model_facts[facts.data_type_facts[site_key].owner_model].model
+            for site_key in facts.base_sites_by_target.get(self._store.model_key(reference), ())
         )
         return list({id(owner): owner for owner in owners}.values())
 
@@ -1141,8 +1152,7 @@ class GenerationIndex:
         return tuple(
             owner
             for owner in owners
-            if owner is not parent
-            and (owner.dict_key is data_type or any(member is data_type for member in owner.data_types))
+            if owner is not parent and any(child is data_type for child in type_children(owner))
         )
 
     def root_collapse_reference_usage(
@@ -1481,6 +1491,16 @@ class GenerationStore:  # noqa: PLR0904
         self._builder.retire_model(model)
         self._builder.register_model(replacement)
 
+    @staticmethod
+    @deprecated("Use GenerationStore.builder().set_module_models() instead.", category=None)
+    def set_module_models(models: list[DataModel], members: Iterable[DataModel]) -> None:
+        """Make ``models``, the list of the models a module writes, hold ``members`` in their order, in place.
+
+        Every holder of the list sees the change. Nothing the store derives reads a module's list: the emitted models
+        are what ``register_model``, ``retire_model`` and ``replace_model`` record.
+        """
+        models[:] = members
+
     def _universe_facts(self) -> _UniverseFacts:
         """Return the current facts of the parsed models with the ids they record each model under."""
         return _UniverseFacts(self.current_facts(), self._model_ids_by_object)
@@ -1639,7 +1659,7 @@ class GenerationStore:  # noqa: PLR0904
         Render preparation writes rendered nullability once for every node of every model. A None that is not the
         type's own comes from its nullable model (also marked as not the type's own) or from its union's members.
         """
-        if (null := data_type._hint_null_source()) in {None, "own"}:  # noqa: SLF001
+        if (null := _hint_null(data_type)) in {None, "own"}:
             return
         data_type.is_optional = True
         data_type._update_type_null(  # noqa: SLF001
@@ -2931,6 +2951,10 @@ class GraphBuilder:
     def set_fields(self, model: DataModel, fields: Iterable[DataModelFieldBase]) -> None:
         """Replace all fields on ``model`` and invalidate derived facts; the new sites of ``model`` are copied."""
         self._store.set_fields(model, fields)  # ty: ignore[deprecated]
+
+    def set_module_models(self, models: list[DataModel], members: Iterable[DataModel]) -> None:
+        """Make ``models``, the list of the models a module writes, hold ``members`` in their order, in place."""
+        self._store.set_module_models(models, members)  # ty: ignore[deprecated]
 
     def set_nested_data_types(self, data_type: DataType, nested_data_types: Iterable[DataType]) -> None:
         """Replace nested data types and invalidate derived facts; the new sites under ``data_type`` are overridden."""

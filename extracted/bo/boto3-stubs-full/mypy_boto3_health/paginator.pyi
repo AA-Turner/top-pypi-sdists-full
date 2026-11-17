@@ -20,6 +20,8 @@ Usage::
         DescribeEventsForOrganizationPaginator,
         DescribeEventsPaginator,
         DescribeServiceLifecyclePaginator,
+        DescribeTagsForOrganizationPaginator,
+        DescribeTagsPaginator,
     )
 
     session = Session()
@@ -33,6 +35,8 @@ Usage::
     describe_events_for_organization_paginator: DescribeEventsForOrganizationPaginator = client.get_paginator("describe_events_for_organization")
     describe_events_paginator: DescribeEventsPaginator = client.get_paginator("describe_events")
     describe_service_lifecycle_paginator: DescribeServiceLifecyclePaginator = client.get_paginator("describe_service_lifecycle")
+    describe_tags_for_organization_paginator: DescribeTagsForOrganizationPaginator = client.get_paginator("describe_tags_for_organization")
+    describe_tags_paginator: DescribeTagsPaginator = client.get_paginator("describe_tags")
     ```
 """
 
@@ -60,6 +64,10 @@ from .type_defs import (
     DescribeEventTypesResponseTypeDef,
     DescribeServiceLifecycleRequestPaginateTypeDef,
     DescribeServiceLifecycleResponseTypeDef,
+    DescribeTagsForOrganizationRequestPaginateTypeDef,
+    DescribeTagsForOrganizationResponseTypeDef,
+    DescribeTagsRequestPaginateTypeDef,
+    DescribeTagsResponseTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -76,6 +84,8 @@ __all__ = (
     "DescribeEventsForOrganizationPaginator",
     "DescribeEventsPaginator",
     "DescribeServiceLifecyclePaginator",
+    "DescribeTagsForOrganizationPaginator",
+    "DescribeTagsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -230,4 +240,42 @@ class DescribeServiceLifecyclePaginator(_DescribeServiceLifecyclePaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeServiceLifecycle.html#Health.Paginator.DescribeServiceLifecycle.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describeservicelifecyclepaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeTagsForOrganizationPaginatorBase = Paginator[
+        DescribeTagsForOrganizationResponseTypeDef
+    ]
+else:
+    _DescribeTagsForOrganizationPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeTagsForOrganizationPaginator(_DescribeTagsForOrganizationPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeTagsForOrganization.html#Health.Paginator.DescribeTagsForOrganization)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describetagsfororganizationpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeTagsForOrganizationRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeTagsForOrganizationResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeTagsForOrganization.html#Health.Paginator.DescribeTagsForOrganization.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describetagsfororganizationpaginator)
+        """
+
+if TYPE_CHECKING:
+    _DescribeTagsPaginatorBase = Paginator[DescribeTagsResponseTypeDef]
+else:
+    _DescribeTagsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class DescribeTagsPaginator(_DescribeTagsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeTags.html#Health.Paginator.DescribeTags)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describetagspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeTagsRequestPaginateTypeDef]
+    ) -> PageIterator[DescribeTagsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/paginator/DescribeTags.html#Health.Paginator.DescribeTags.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_health/paginators/#describetagspaginator)
         """

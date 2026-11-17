@@ -28,7 +28,7 @@ requires-python = ">=3.12"
 dynamic = ["version"]
 dependencies = [
     "ghome-foyer-api>=3.1.0,<4",
-    "gpsoauth>=2.0.0",
+    "gpsoauth>=3.0.1",
     # Note, we want to keep versions of aiohttp, grpcio, requests and zeroconf (in the discovery extra) similar to Home Assistant
     # https://github.com/home-assistant/core/blob/2026.10.0/homeassistant/package_constraints.txt
     "aiohttp>=3.14.4",
@@ -90,7 +90,7 @@ select = [
     "I", # isort
     "INP", # flake8-no-pep420
     "ISC", # flake8-implicit-str-concat
-    "ICN001", # import concentions; {name} should be imported as {asname}
+    "ICN001", # import conventions; {name} should be imported as {asname}
     "LOG", # flake8-logging
     "N804", # First argument of a class method should be named cls
     "N805", # First argument of a method should be named self
@@ -221,6 +221,10 @@ disable = [
     "consider-using-namedtuple-or-dataclass",
     "consider-using-assignment-expr",
 ]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["error"]
 
 [tool.mypy]
 python_version = "3.12"

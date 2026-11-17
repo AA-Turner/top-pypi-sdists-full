@@ -13,6 +13,7 @@
 # limitations under the License.
 import glob
 import os
+import threading
 from io import StringIO
 from pathlib import Path
 from typing import Optional
@@ -162,7 +163,7 @@ def test_stage_copy_remote_to_local_quoted_stage_recursive(
     assert mock_execute.mock_calls == [
         mock.call("ls '@\"stage name\"'", cursor_class=DictCursor),
         mock.call(
-            f"get '@\"stage name\"/file' file://{Path(tmp_dir).resolve()}/ parallel=4"
+            f"get '@\"stage name\"/' file://{Path(tmp_dir).resolve()}/ parallel=4"
         ),
     ]
 
@@ -241,7 +242,7 @@ def test_stage_copy_remote_to_local_quoted_uri_recursive(
     assert result.exit_code == 0, result.output
     assert mock_execute.mock_calls == [
         mock.call("ls @stageName", cursor_class=DictCursor),
-        mock.call(f"get @stageName/file.py {file_uri} parallel=4"),
+        mock.call(f"get @stageName/ {file_uri} parallel=4"),
     ]
 
 
@@ -437,9 +438,9 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
             "@exe",
             [
-                "get @exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
-                "get @exe/s1.sql file://{}/ parallel=4",
+                "get @exe/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get @exe/a/ file://{}/a/ parallel=4 pattern='(?:^|.*/)a/[^/]+$'",
+                "get @exe/a/b/ file://{}/a/b/ parallel=4",
             ],
         ),
         (
@@ -447,9 +448,9 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
             "@exe/",
             [
-                "get @exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @exe/a/b/s3.sql file://{}/a/b/ parallel=4",
-                "get @exe/s1.sql file://{}/ parallel=4",
+                "get @exe/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get @exe/a/ file://{}/a/ parallel=4 pattern='(?:^|.*/)a/[^/]+$'",
+                "get @exe/a/b/ file://{}/a/b/ parallel=4",
             ],
         ),
         (
@@ -457,8 +458,8 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql"],
             "@exe/a",
             [
-                "get @exe/a/s2.sql file://{}/ parallel=4",
-                "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
+                "get @exe/a/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s2\\.sql)$'",
+                "get @exe/a/b/ file://{}/b/ parallel=4",
             ],
         ),
         (
@@ -466,8 +467,8 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql"],
             "@exe/a/",
             [
-                "get @exe/a/s2.sql file://{}/ parallel=4",
-                "get @exe/a/b/s3.sql file://{}/b/ parallel=4",
+                "get @exe/a/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s2\\.sql)$'",
+                "get @exe/a/b/ file://{}/b/ parallel=4",
             ],
         ),
         (
@@ -475,7 +476,7 @@ def test_copy_files_quotes_git_source_path():
             ["a/b/s3.sql"],
             "@exe/a/b",
             [
-                "get @exe/a/b/s3.sql file://{}/ parallel=4",
+                "get @exe/a/b/ file://{}/ parallel=4",
             ],
         ),
         (
@@ -483,7 +484,7 @@ def test_copy_files_quotes_git_source_path():
             ["a/b/s3.sql"],
             "@exe/a/b/",
             [
-                "get @exe/a/b/s3.sql file://{}/ parallel=4",
+                "get @exe/a/b/ file://{}/ parallel=4",
             ],
         ),
         (
@@ -507,9 +508,9 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
             "@db.schema.exe",
             [
-                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
-                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+                "get @db.schema.exe/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get @db.schema.exe/a/ file://{}/a/ parallel=4 pattern='(?:^|.*/)a/[^/]+$'",
+                "get @db.schema.exe/a/b/ file://{}/a/b/ parallel=4",
             ],
         ),
         (
@@ -517,9 +518,9 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
             "@db.schema.exe/",
             [
-                "get @db.schema.exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @db.schema.exe/a/b/s3.sql file://{}/a/b/ parallel=4",
-                "get @db.schema.exe/s1.sql file://{}/ parallel=4",
+                "get @db.schema.exe/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get @db.schema.exe/a/ file://{}/a/ parallel=4 pattern='(?:^|.*/)a/[^/]+$'",
+                "get @db.schema.exe/a/b/ file://{}/a/b/ parallel=4",
             ],
         ),
         (
@@ -527,8 +528,8 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "a/b/s3.sql"],
             "@db.schema.exe/a/",
             [
-                "get @db.schema.exe/a/s2.sql file://{}/ parallel=4",
-                "get @db.schema.exe/a/b/s3.sql file://{}/b/ parallel=4",
+                "get @db.schema.exe/a/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s2\\.sql)$'",
+                "get @db.schema.exe/a/b/ file://{}/b/ parallel=4",
             ],
         ),
         (
@@ -544,8 +545,8 @@ def test_copy_files_quotes_git_source_path():
             ["a/s2.sql", "s1.sql"],
             "@schema.exe",
             [
-                "get @schema.exe/a/s2.sql file://{}/a/ parallel=4",
-                "get @schema.exe/s1.sql file://{}/ parallel=4",
+                "get @schema.exe/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get @schema.exe/a/ file://{}/a/ parallel=4",
             ],
         ),
     ],
@@ -568,9 +569,9 @@ def test_copy_get_recursive(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
-    assert copy_calls == [
-        mock.call(c.format(temporary_directory)) for c in expected_calls
-    ]
+    assert sorted(call.args[0] for call in copy_calls) == sorted(
+        c.format(temporary_directory) for c in expected_calls
+    )
 
 
 @pytest.mark.parametrize(
@@ -581,9 +582,9 @@ def test_copy_get_recursive(
             ["a/s2.sql", "a/b/s3.sql", "s1.sql"],
             "@~",
             [
-                "get '@~/a/s2.sql' file://{}/a/ parallel=4",
-                "get '@~/a/b/s3.sql' file://{}/a/b/ parallel=4",
-                "get '@~/s1.sql' file://{}/ parallel=4",
+                "get '@~/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:s1\\.sql)$'",
+                "get '@~/a/' file://{}/a/ parallel=4 pattern='(?:^|.*/)a/[^/]+$'",
+                "get '@~/a/b/' file://{}/a/b/ parallel=4",
             ],
         ),
         (
@@ -591,8 +592,8 @@ def test_copy_get_recursive(
             ["a/s2.sql", "a/b/s3.sql"],
             "@~/a",
             [
-                "get '@~/a/s2.sql' file://{}/ parallel=4",
-                "get '@~/a/b/s3.sql' file://{}/b/ parallel=4",
+                "get '@~/a/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:s2\\.sql)$'",
+                "get '@~/a/b/' file://{}/b/ parallel=4",
             ],
         ),
         (
@@ -631,9 +632,9 @@ def test_copy_get_recursive_from_user_stage(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls '{expected_stage_path}'", cursor_class=DictCursor)
-    assert copy_calls == [
-        mock.call(c.format(temporary_directory)) for c in expected_calls
-    ]
+    assert sorted(call.args[0] for call in copy_calls) == sorted(
+        c.format(temporary_directory) for c in expected_calls
+    )
 
 
 @pytest.mark.parametrize(
@@ -647,8 +648,7 @@ def test_copy_get_recursive_from_user_stage(
             ],
             "@repo/tags/v3.6.0/Casks",
             [
-                "get @repo/tags/v3.6.0/Casks/snowcli.rb file://{}/ parallel=4",
-                "get @repo/tags/v3.6.0/Casks/snowcli.tmpl.rb file://{}/ parallel=4",
+                "get @repo/tags/v3.6.0/Casks/ file://{}/ parallel=4",
             ],
         ),
         (
@@ -656,8 +656,8 @@ def test_copy_get_recursive_from_user_stage(
             ["repo/branches/main/README.md", "repo/branches/main/dir/file.txt"],
             "@repo/branches/main/",
             [
-                "get @repo/branches/main/README.md file://{}/ parallel=4",
-                "get @repo/branches/main/dir/file.txt file://{}/dir/ parallel=4",
+                "get @repo/branches/main/ file://{}/ parallel=4 pattern='(?:^|.*/)(?:README\\.md)$'",
+                "get @repo/branches/main/dir/ file://{}/dir/ parallel=4",
             ],
         ),
         (
@@ -688,9 +688,9 @@ def test_copy_get_recursive_from_git_repo(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
-    assert copy_calls == [
-        mock.call(c.format(temporary_directory)) for c in expected_calls
-    ]
+    assert sorted(call.args[0] for call in copy_calls) == sorted(
+        c.format(temporary_directory) for c in expected_calls
+    )
 
 
 @pytest.mark.parametrize(
@@ -704,8 +704,8 @@ def test_copy_get_recursive_from_git_repo(
             ],
             "'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/'",
             [
-                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/manifest.yml' file://{}/ parallel=4",
-                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/scripts/setup.sql' file://{}/scripts/ parallel=4",
+                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:manifest\\.yml)$'",
+                "get 'snow://project/DCM_DEMO.PROJECTS.DCM_PROJECT_DEV/deployments/DEPLOYMENT$3/scripts/' file://{}/scripts/ parallel=4",
             ],
         ),
         (
@@ -716,8 +716,8 @@ def test_copy_get_recursive_from_git_repo(
             ],
             "'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/'",
             [
-                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/app.py' file://{}/ parallel=4",
-                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/lib/utils.py' file://{}/lib/ parallel=4",
+                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:app\\.py)$'",
+                "get 'snow://project/MY_DB.MY_SCHEMA.MY_PROJECT/deployments/deploy_v1/lib/' file://{}/lib/ parallel=4",
             ],
         ),
         (
@@ -728,8 +728,8 @@ def test_copy_get_recursive_from_git_repo(
             ],
             "'snow://streamlit/DB.SCHEMA.MY_APP/'",
             [
-                "get 'snow://streamlit/DB.SCHEMA.MY_APP/streamlit_app.py' file://{}/ parallel=4",
-                "get 'snow://streamlit/DB.SCHEMA.MY_APP/pages/page1.py' file://{}/pages/ parallel=4",
+                "get 'snow://streamlit/DB.SCHEMA.MY_APP/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:streamlit_app\\.py)$'",
+                "get 'snow://streamlit/DB.SCHEMA.MY_APP/pages/' file://{}/pages/ parallel=4",
             ],
         ),
     ],
@@ -752,9 +752,9 @@ def test_copy_get_recursive_from_vstage(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
-    assert copy_calls == [
-        mock.call(c.format(temporary_directory)) for c in expected_calls
-    ]
+    assert sorted(call.args[0] for call in copy_calls) == sorted(
+        c.format(temporary_directory) for c in expected_calls
+    )
 
 
 @pytest.mark.parametrize(
@@ -769,8 +769,8 @@ def test_copy_get_recursive_from_vstage(
             ],
             "'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/DEPLOYMENT$1/'",
             [
-                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/deploy_metadata.json' file://{}/ parallel=4",
-                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/scripts/setup.sql' file://{}/scripts/ parallel=4",
+                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/' file://{}/ parallel=4 pattern='(?:^|.*/)(?:deploy_metadata\\.json)$'",
+                "get 'snow://project/TEMP.DEV_PLATFORM_MAA.DEVPLATFORM_MAA_PROJECT/deployments/deployment$1/scripts/' file://{}/scripts/ parallel=4",
             ],
         ),
     ],
@@ -793,9 +793,9 @@ def test_copy_get_recursive_from_vstage_case_mismatch(
 
     ls_call, *copy_calls = mock_execute.mock_calls
     assert ls_call == mock.call(f"ls {expected_stage_path}", cursor_class=DictCursor)
-    assert copy_calls == [
-        mock.call(c.format(temporary_directory)) for c in expected_calls
-    ]
+    assert sorted(call.args[0] for call in copy_calls) == sorted(
+        c.format(temporary_directory) for c in expected_calls
+    )
 
 
 @mock.patch(f"{STAGE_MANAGER}.execute_query")
@@ -1632,7 +1632,11 @@ class RecursiveUploadTester:
                 MockTemporaryDirectory.current_name = self.name
                 return super().__enter__()
 
-        with mock.patch(f"{STAGE_MANAGER}.put", new_callable=MockPut):
+        with mock.patch(
+            f"{STAGE_MANAGER}.put", new_callable=MockPut
+        ), mock.patch.object(
+            StageManager, "connection", new=property(lambda self: MagicMock())
+        ):
             with mock.patch(
                 "snowflake.cli._plugins.stage.manager.TemporaryDirectory",
                 MockTemporaryDirectory,
@@ -1739,9 +1743,9 @@ def _collect_recursive_uploads(root: Path, *, parallel: bool):
     put_mock = MagicMock(side_effect=fake_put)
     sm = StageManager()
     budget = "16" if parallel else "1"
-    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.dict(
-        os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: budget}
-    ):
+    with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.object(
+        StageManager, "connection", new=property(lambda self: MagicMock())
+    ), mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: budget}):
         gen = sm.put_recursive(
             local_path=root,
             stage_path="@stageName",
@@ -1808,8 +1812,12 @@ def test_put_recursive_parallel_over_budget_stays_within_budget(temporary_direct
         return real_executor(*args, **kwargs)
 
     with mock.patch.object(StageManager, "put", new=put_mock), mock.patch.object(
+        StageManager, "connection", new=property(lambda self: MagicMock())
+    ), mock.patch.object(
         stage_manager, "ThreadPoolExecutor", side_effect=recording_executor
-    ), mock.patch.dict(os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: str(budget)}):
+    ), mock.patch.dict(
+        os.environ, {STAGE_UPLOAD_WORKERS_ENV_VAR: str(budget)}
+    ):
         list(
             StageManager().put_recursive(
                 local_path=src,
@@ -1838,6 +1846,80 @@ def test_recursive_upload_with_empty_dir(temporary_directory):
     _ = tester.execute(local_path=temporary_directory)
 
     assert tester.calls == []
+
+
+def test_put_recursive_opens_connection_on_calling_thread_before_workers(
+    temporary_directory,
+):
+    """put_recursive must open the session on the calling thread before any
+    worker PUT. connect() reads Click's thread-local context, which workers
+    do not have (SNOW-4462463)."""
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("a")
+    (src / "sub").mkdir()
+    (src / "sub" / "b.txt").write_text("b")
+
+    caller = threading.get_ident()
+    events: list[tuple[str, int]] = []
+
+    def tracking_connection(_self):
+        events.append(("connect", threading.get_ident()))
+        return MagicMock()
+
+    def fake_put(*args, **kwargs):
+        events.append(("put", threading.get_ident()))
+        cursor = MagicMock()
+        cursor.fetchall.return_value = []
+        return cursor
+
+    with mock.patch.object(
+        StageManager, "connection", new=property(tracking_connection)
+    ), mock.patch.object(StageManager, "put", new=fake_put):
+        list(
+            StageManager().put_recursive(
+                local_path=src,
+                stage_path="@stageName",
+                temp_directory=src,
+            )
+        )
+
+    assert events, "expected a connection open and at least one PUT"
+    assert events[0] == ("connect", caller)
+    assert all(kind == "put" for kind, _thread in events[1:])
+
+
+def test_put_recursive_does_not_open_connection_when_there_are_no_files(
+    temporary_directory,
+):
+    src = Path(temporary_directory) / "src"
+    src.mkdir()
+    (src / "empty").mkdir()
+
+    events: list[str] = []
+
+    def tracking_connection(_self):
+        events.append("connect")
+        return MagicMock()
+
+    def fake_put(*args, **kwargs):
+        events.append("put")
+        cursor = MagicMock()
+        cursor.fetchall.return_value = []
+        return cursor
+
+    with mock.patch.object(
+        StageManager, "connection", new=property(tracking_connection)
+    ), mock.patch.object(StageManager, "put", new=fake_put):
+        list(
+            StageManager().put_recursive(
+                local_path=src,
+                stage_path="@stageName",
+                temp_directory=src,
+            )
+        )
+
+    assert events == []
 
 
 def test_recursive_upload_glob_file_pattern(temporary_directory):

@@ -34,7 +34,11 @@ import h11
 from starlette.requests import ClientDisconnect, Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 
-from cube_cloud.auth.session_cookie import SESSION_COOKIE_NAME, strip_session_cookie
+from cube_cloud.auth.session_cookie import (
+    SESSION_COOKIE_NAME,
+    authorization_carries_api_key,
+    strip_session_cookie,
+)
 from cube_cloud.browser_proxy.authz import authorize_app_access
 from cube_cloud.browser_proxy.rate_limit import SlidingWindowRateLimiter
 from cube_cloud.browser_proxy.resolver import resolve_app_name
@@ -97,14 +101,19 @@ def build_request_headers(request: Request, body_len: int) -> list[tuple[bytes, 
     """Build the outbound header list for the app, from the browser's request.
 
     Strips hop-by-hop headers, the original Content-Length (recomputed from the
-    actual buffered body below), and our ``cmcp_session`` cookie from the Cookie
-    header (so the API key never reaches the app); preserves everything else,
-    including Host (see module docstring).
+    actual buffered body below), our ``cmcp_session`` cookie from the Cookie
+    header, and an ``Authorization`` header that carries a ``cmcp_`` key (so the
+    API key never reaches the app); preserves everything else, including Host
+    (see module docstring) and the app's own ``Authorization``.
     """
     headers: list[tuple[bytes, bytes]] = []
     for name, value in request.headers.items():
         lname = name.lower()
         if lname in HOP_BY_HOP_HEADERS or lname == "content-length":
+            continue
+        if lname == "authorization" and authorization_carries_api_key(value):
+            # Our key authenticated this request; it is not the app's to see.
+            # An app's own Bearer token (not cmcp_) is forwarded below.
             continue
         if lname == "cookie":
             # Strip our session cookie so the cmcp_ API key is never forwarded to

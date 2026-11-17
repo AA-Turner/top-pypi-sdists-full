@@ -8,6 +8,7 @@
 // where `s <= 0.0` would pass it.
 #![allow(clippy::neg_cmp_op_on_partial_ord)]
 
+pub mod anomaly;
 pub mod aoa;
 pub mod aod;
 pub mod atc;
@@ -26,8 +27,10 @@ pub mod brdf;
 pub mod coded;
 pub mod coreg;
 pub mod coreg_local;
+pub mod correlation;
 pub mod dist;
 pub mod eigen;
+pub mod eof;
 pub mod ewmacd;
 pub mod fields;
 pub mod fmask;

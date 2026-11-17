@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import csv
+import io
 import logging
-import ntpath
 import os
 import posixpath
 import re
@@ -19,53 +20,146 @@ from distlib.scripts import ScriptMaker, enquote_executable
 
 from virtualenv.util.path import remove_file, safe_delete
 
+from ._safe_extract_zip import extract_zip as _safe_extract_zip
+
 if TYPE_CHECKING:
     from virtualenv.create.creator import Creator
 
-LOGGER = logging.getLogger(__name__)
+LOGGER: Final[logging.Logger] = logging.getLogger(__name__)  # simplint: ignore[module-variable-prefix]  # existing name
+# https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
+# the path length Windows stops at without long path support, counting the terminating null
+_MAX_PATH: Final[int] = 260
+# a directory has to leave room for an 8.3 file name inside it
+_MAX_DIR_PATH: Final[int] = _MAX_PATH - 12
 
 
-def _safe_extract_zip(zip_ref: zipfile.ZipFile, target_dir: Path) -> None:
-    # Guard against zip slip: a wheel is a zip and a tampered entry name (absolute path or one containing ``..``)
-    # could escape ``target_dir``.
-    base = target_dir.resolve()
-    for info in zip_ref.infolist():
-        name = info.filename
-        if name.startswith(("/", "\\")) or ntpath.isabs(name) or posixpath.isabs(name):
-            msg = f"refusing to extract absolute path entry from wheel: {name!r}"
-            raise RuntimeError(msg)
-        candidate = (base / name).resolve()
-        try:
-            candidate.relative_to(base)
-        except ValueError as exc:
-            msg = f"refusing to extract entry escaping target directory: {name!r}"
-            raise RuntimeError(msg) from exc
-    zip_ref.extractall(str(target_dir))
+_MATCH_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"""
+                        (?P<name>[^\W\d]\w*?)  # the script name, which starts with a letter
+                        -?\d+(?:\.\d+)*        # an optional dash and the version
+                        """,
+    re.VERBOSE,
+)
 
 
 class PipInstall(ABC):
+    """Install one seed package from a wheel into the environment, using a cached image of the wheel.
+
+    :param wheel: the wheel to install
+    :param creator: the creator of the environment
+    :param image_folder: the folder holding the cached image of the wheel
+
+    """
+
     def __init__(self, wheel: Path, creator: Creator, image_folder: Path) -> None:
         self._wheel = wheel
         self._creator = creator
         self._image_dir = image_folder
 
-    @abstractmethod
-    def _sync(self, src: Path, dst: Path) -> None:
-        raise NotImplementedError
-
     def install(self, version_info: tuple[int, ...]) -> None:
+        """Install the package, replacing any previous version and creating its console scripts.
+
+        :param version_info: the version of the Python interpreter the package is installed for
+
+        """
         dist_info: Final = self._find_dist_info(self._image_dir)
         self._uninstall_previous_version(dist_info)
         # sync image
         for filename in self._image_dir.iterdir():
-            into = self._creator.purelib / filename.name
-            self._sync(filename, into)
+            self._sync(filename, self._creator.purelib / filename.name)
         # generate console executables
         consoles = set()
         script_dir = self._creator.script_dir
         for name, module in self._read_console_scripts(dist_info).items():
             consoles.update(self._create_console_entry_point(name, module, script_dir, version_info))
         LOGGER.debug("generated console scripts %s", " ".join(i.name for i in consoles))
+
+    @staticmethod
+    def _find_dist_info(folder: Path) -> Path:
+        files = []
+        for filename in folder.iterdir():
+            files.append(filename.name)
+            if filename.suffix == ".dist-info":
+                return filename
+        msg = f"no .dist-info at {folder}, has {', '.join(files)}"
+        raise RuntimeError(msg)
+
+    def _uninstall_previous_version(self, dist_info: Path) -> None:
+        dist_name = dist_info.stem.split("-")[0]
+        in_folders = chain.from_iterable([i.iterdir() for i in (self._creator.purelib, self._creator.platlib)])
+        paths = (p for p in in_folders if p.stem.split("-")[0] == dist_name and p.suffix == ".dist-info" and p.is_dir())
+        if (existing_dist := next(paths, None)) is not None:
+            self._uninstall_dist(existing_dist, self._creator.dest)
+
+    @staticmethod
+    def _uninstall_dist(dist: Path, env_dir: Path) -> None:
+        dist_base: Final = dist.parent
+        LOGGER.debug("uninstall existing distribution %s from %s", dist.stem, dist_base)
+
+        top_txt: Final = dist / "top_level.txt"
+        paths: Final = (
+            {dist.parent / i.strip() for i in top_txt.read_text(encoding="utf-8").splitlines()}
+            if top_txt.exists()
+            else set()
+        )
+        paths.add(dist)
+
+        base_dirs: Final = paths.copy()
+        record: Final = dist / "RECORD"
+        for name in (
+            (row[0] for row in csv.reader(io.StringIO(record.read_bytes().decode("utf-8"), newline="")) if row)
+            if record.exists()
+            else ()
+        ):
+            path: Final = dist_base / name
+            if not any(p in base_dirs for p in path.parents):
+                paths.add(path)
+
+        root: Final = env_dir.resolve()
+        metadata_parents: Final = set(dist.resolve().parents)
+        for entry in sorted(paths):
+            if entry.exists() or entry.is_symlink():
+                linked: Final = entry.is_symlink()
+                # Unlinking the final link leaves its target intact; parent links still affect containment.
+                resolved: Final = entry.parent.resolve() / entry.name if linked else entry.resolve()
+                if root not in resolved.parents or resolved in metadata_parents:
+                    LOGGER.warning(
+                        "skip removal of %s listed by %s: not inside environment %s or a parent of the metadata",
+                        entry,
+                        dist.name,
+                        root,
+                    )
+                elif entry.is_dir() and not linked:
+                    safe_delete(entry)
+                else:
+                    remove_file(entry)
+
+    @abstractmethod
+    def _sync(self, src: Path, dst: Path) -> None:
+        raise NotImplementedError
+
+    @staticmethod
+    def _read_console_scripts(dist_info: Path) -> dict[str, str]:
+        scripts: Final[dict[str, str]] = {}
+        entry_points = dist_info / "entry_points.txt"
+        if entry_points.exists():
+            parser = EntryPointConfig(interpolation=None, strict=False)
+            with entry_points.open(encoding="utf-8") as file_handler:
+                parser.read_file(file_handler)
+            if "console_scripts" in parser.sections():
+                for name, value in parser.items("console_scripts"):
+                    # fold only a trailing version (pip3, pip-3.13), so python3-config and 2to3 keep their names
+                    match = _MATCH_PATTERN.fullmatch(name)
+                    scripts[match.group("name") if match else name] = value
+        return scripts
+
+    def _create_console_entry_point(
+        self, name: str, value: str, to_folder: Path, version_info: tuple[int, ...]
+    ) -> list[Path]:
+        new_files = ScriptMakerCustom(to_folder, version_info, self._creator.exe, name).make(f"{name} = {value}")
+        result = []
+        result.extend(Path(i) for i in new_files)
+        return result
 
     def build_image(self) -> None:
         """Extract the seed wheel into a staging directory, fix up its RECORD file, then move it into place.
@@ -97,15 +191,20 @@ class PipInstall(ABC):
             except BaseException:
                 safe_delete(folder)
                 raise
-        self._image_dir = built
+            # built ends in two long names again, so the files may only fit under the short path of the image itself
+            self._image_dir = self._short_path_if_needed(zip_ref, built)
 
     @staticmethod
     def _short_path_if_needed(zip_ref: zipfile.ZipFile, folder: Path) -> Path:
         if os.name != "nt":
             return folder
-        # https://docs.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation
-        if max(len(i) for i in zip_ref.namelist()) + len(str(folder)) <= 260:  # ruff:ignore[magic-value-comparison]
+        names: Final = zip_ref.namelist()
+        prefix: Final = len(str(folder)) + 1  # the separator before each entry
+        longest_file: Final = prefix + max(len(i) for i in names)
+        longest_dir: Final = prefix + max(len(posixpath.dirname(i)) for i in names)
+        if longest_file < _MAX_PATH and longest_dir < _MAX_DIR_PATH:
             return folder
+        # deferred, only the path-length fallback needs the short-path helper
         from virtualenv.util.path import get_short_path_name  # ruff:ignore[import-outside-top-level]
 
         return Path(get_short_path_name(str(folder)))
@@ -116,15 +215,9 @@ class PipInstall(ABC):
         dist_info: Final = self._find_dist_info(folder)
         self._fix_records(folder, dist_info, self._generate_new_files(folder, dist_info))
 
-    @staticmethod
-    def _find_dist_info(folder: Path) -> Path:
-        files = []
-        for filename in folder.iterdir():
-            files.append(filename.name)
-            if filename.suffix == ".dist-info":
-                return filename
-        msg = f"no .dist-info at {folder}, has {', '.join(files)}"
-        raise RuntimeError(msg)  # pragma: no cover
+    @abstractmethod
+    def _fix_records(self, folder: Path, dist_info: Path, extra_record_data: set[Path]) -> None:
+        raise NotImplementedError
 
     def _generate_new_files(self, folder: Path, dist_info: Path) -> set[Path]:
         new_files = set()
@@ -142,115 +235,77 @@ class PipInstall(ABC):
             for name, module in self._read_console_scripts(dist_info).items():
                 new_files.update(
                     Path(os.path.normpath(str(folder / rel / i.name)))
+                    # version_info is a VersionInfo, which the helper types as a plain tuple
                     for i in self._create_console_entry_point(name, module, to_folder, version_info)  # ty: ignore[invalid-argument-type]
                 )
         finally:
             safe_delete(to_folder)
         return new_files
 
-    @abstractmethod
-    def _fix_records(self, folder: Path, dist_info: Path, extra_record_data: set[Path]) -> None:
-        raise NotImplementedError
-
     @staticmethod
     def _records_text(folder: Path, files: set[Path] | list[Path]) -> str:
-        return "\n".join(f"{os.path.relpath(str(rec), str(folder))},," for rec in files)
-
-    @staticmethod
-    def _read_console_scripts(dist_info: Path) -> dict[str, str]:
-        scripts: Final[dict[str, str]] = {}
-        entry_points = dist_info / "entry_points.txt"
-        if entry_points.exists():
-            parser = EntryPointConfig(interpolation=None, strict=False)
-            with entry_points.open(encoding="utf-8") as file_handler:
-                parser.read_file(file_handler)
-            if "console_scripts" in parser.sections():
-                for name, value in parser.items("console_scripts"):
-                    # fold only a trailing version (pip3, pip-3.13), so python3-config and 2to3 keep their names
-                    match = re.fullmatch(r"([^\W\d]\w*?)-?\d+(?:\.\d+)*", name)
-                    scripts[match.group(1) if match else name] = value
-        return scripts
-
-    def _create_console_entry_point(
-        self, name: str, value: str, to_folder: Path, version_info: tuple[int, ...]
-    ) -> list[Path]:
-        result = []
-        maker = ScriptMakerCustom(to_folder, version_info, self._creator.exe, name)
-        specification = f"{name} = {value}"
-        new_files = maker.make(specification)
-        result.extend(Path(i) for i in new_files)
-        return result
-
-    def _uninstall_previous_version(self, dist_info: Path) -> None:
-        dist_name = dist_info.stem.split("-")[0]
-        in_folders = chain.from_iterable([i.iterdir() for i in (self._creator.purelib, self._creator.platlib)])
-        paths = (p for p in in_folders if p.stem.split("-")[0] == dist_name and p.suffix == ".dist-info" and p.is_dir())
-        existing_dist = next(paths, None)
-        if existing_dist is not None:
-            self._uninstall_dist(existing_dist, self._creator.dest)
-
-    @staticmethod
-    def _uninstall_dist(dist: Path, env_dir: Path) -> None:
-        dist_base: Final = dist.parent
-        LOGGER.debug("uninstall existing distribution %s from %s", dist.stem, dist_base)
-
-        top_txt: Final = dist / "top_level.txt"
-        paths: Final = (
-            {dist.parent / i.strip() for i in top_txt.read_text(encoding="utf-8").splitlines()}
-            if top_txt.exists()
-            else set()
-        )
-        paths.add(dist)
-
-        base_dirs: Final = paths.copy()
-        record: Final = dist / "RECORD"
-        for name in (
-            (i.split(",")[0] for i in record.read_text(encoding="utf-8").splitlines()) if record.exists() else ()
-        ):
-            path: Final = dist_base / name
-            if not any(p in base_dirs for p in path.parents):
-                paths.add(path)
-
-        root: Final = env_dir.resolve()
-        metadata_parents: Final = set(dist.resolve().parents)
-        for entry in sorted(paths):
-            if entry.exists() or entry.is_symlink():
-                linked: Final = entry.is_symlink()
-                # Unlinking the final link leaves its target intact; parent links still affect containment.
-                resolved: Final = entry.parent.resolve() / entry.name if linked else entry.resolve()
-                if root not in resolved.parents or resolved in metadata_parents:
-                    LOGGER.warning(
-                        "skip removal of %s listed by %s: not inside environment %s or a parent of the metadata",
-                        entry,
-                        dist.name,
-                        root,
-                    )
-                elif entry.is_dir() and not linked:
-                    safe_delete(entry)
-                else:
-                    remove_file(entry)
+        stream = io.StringIO(newline="")
+        csv.writer(stream).writerows((os.path.relpath(str(rec), str(folder)), "", "") for rec in files)
+        return stream.getvalue()
 
     def clear(self) -> None:
+        """Remove the cached image of the wheel."""
         if self._image_dir.exists():
             safe_delete(self._image_dir)
 
     def has_image(self) -> bool:
-        return self._image_dir.exists() and any(self._image_dir.iterdir())
+        """Whether the cached image of the wheel exists and holds files.
+
+        On Windows an image that is found is switched to its short path when its files do not fit under the long one, as
+        a build does, so the install can read them.
+
+        :returns: ``True`` when the image has content
+
+        """
+        if not (self._image_dir.exists() and any(self._image_dir.iterdir())):
+            return False
+        if os.name == "nt":
+            with zipfile.ZipFile(str(self._wheel)) as zip_ref:
+                self._image_dir = self._short_path_if_needed(zip_ref, self._image_dir)
+        return True
 
 
 class EntryPointConfig(ConfigParser):
+    """Config parser that keeps the option names as written, without lower-casing them."""
+
     @staticmethod
     def optionxform(optionstr: str) -> str:
+        """Keep the option name as written.
+
+        :param optionstr: the option name
+
+        :returns: the option name unchanged
+
+        """
         return optionstr
 
 
-class ScriptMakerCustom(ScriptMaker):
+class ScriptMakerCustom(ScriptMaker):  # simplint: ignore[unexported-public-name]  # existing name
+    """Writes the entry point scripts of a distribution, replacing any existing file of the same name.
+
+    :param target_dir: the directory the scripts are written to
+    :param version_info: the interpreter version, with ``major`` and ``minor``
+    :param executable: the interpreter the scripts run with
+    :param name: the name of the script
+
+    :var clobber: ``True`` so existing scripts are overwritten
+    :var set_mode: ``True`` so the scripts are made executable
+    :var variants: the script variants to write, inherited from ``ScriptMaker``
+
+    """  # simplint: ignore[function-docstring]  # existing docs
+
     def __init__(self, target_dir: Path, version_info: tuple[int, ...], executable: Path, name: str) -> None:
         super().__init__(None, str(target_dir))
         self.clobber = True  # overwrite
         self.set_mode = True  # ensure they are executable
         self.executable = enquote_executable(str(executable))
-        self.version_info = version_info.major, version_info.minor  # ty: ignore[unresolved-attribute]
+        # callers pass a VersionInfo with .major and .minor, the parameter is typed as tuple
+        self.version_info = version_info.major, version_info.minor  # ty: ignore[missing-attribute]
         self.variants = {"", "X", "X.Y"}
         self._name = name
         self._raw_executable = str(executable)
@@ -274,6 +329,14 @@ class ScriptMakerCustom(ScriptMaker):
 
 def shell_shebang(executable: str, post_interp: bytes = b"") -> bytes:
     # The exec line is read by both sh and Python; double-quoted backslashes survive both readers.
+    """Build a shebang that runs the executable through ``sh`` and then Python.
+
+    :param executable: the executable to run
+    :param post_interp: the bytes appended after the interpreter path
+
+    :returns: the shebang and the wrapper lines, as bytes
+
+    """
     quoted: Final = shlex.quote(executable).replace("\\", "'\"\\\\\"'")
     return b"#!/bin/sh\n'''exec' " + quoted.encode("utf-8") + post_interp + b' "$0" "$@"\n' + b"' '''\n"
 

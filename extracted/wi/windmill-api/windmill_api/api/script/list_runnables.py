@@ -22,6 +22,7 @@ def _get_kwargs(
     paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
+    search_any_order: Union[Unset, None, bool] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     cursor: Union[Unset, None, str] = UNSET,
     include_draft_only: Union[Unset, None, bool] = UNSET,
@@ -50,6 +51,8 @@ def _get_kwargs(
     params["label"] = label
 
     params["search"] = search
+
+    params["search_any_order"] = search_any_order
 
     params["per_page"] = per_page
 
@@ -105,6 +108,7 @@ def sync_detailed(
     paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
+    search_any_order: Union[Unset, None, bool] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     cursor: Union[Unset, None, str] = UNSET,
     include_draft_only: Union[Unset, None, bool] = UNSET,
@@ -122,6 +126,7 @@ def sync_detailed(
         paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
+        search_any_order (Union[Unset, None, bool]):
         per_page (Union[Unset, None, int]):
         cursor (Union[Unset, None, str]):
         include_draft_only (Union[Unset, None, bool]):
@@ -145,6 +150,7 @@ def sync_detailed(
         paths=paths,
         label=label,
         search=search,
+        search_any_order=search_any_order,
         per_page=per_page,
         cursor=cursor,
         include_draft_only=include_draft_only,
@@ -170,6 +176,7 @@ def sync(
     paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
+    search_any_order: Union[Unset, None, bool] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     cursor: Union[Unset, None, str] = UNSET,
     include_draft_only: Union[Unset, None, bool] = UNSET,
@@ -187,6 +194,7 @@ def sync(
         paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
+        search_any_order (Union[Unset, None, bool]):
         per_page (Union[Unset, None, int]):
         cursor (Union[Unset, None, str]):
         include_draft_only (Union[Unset, None, bool]):
@@ -211,6 +219,7 @@ def sync(
         paths=paths,
         label=label,
         search=search,
+        search_any_order=search_any_order,
         per_page=per_page,
         cursor=cursor,
         include_draft_only=include_draft_only,
@@ -230,6 +239,7 @@ async def asyncio_detailed(
     paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
+    search_any_order: Union[Unset, None, bool] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     cursor: Union[Unset, None, str] = UNSET,
     include_draft_only: Union[Unset, None, bool] = UNSET,
@@ -247,6 +257,7 @@ async def asyncio_detailed(
         paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
+        search_any_order (Union[Unset, None, bool]):
         per_page (Union[Unset, None, int]):
         cursor (Union[Unset, None, str]):
         include_draft_only (Union[Unset, None, bool]):
@@ -270,6 +281,7 @@ async def asyncio_detailed(
         paths=paths,
         label=label,
         search=search,
+        search_any_order=search_any_order,
         per_page=per_page,
         cursor=cursor,
         include_draft_only=include_draft_only,
@@ -293,6 +305,7 @@ async def asyncio(
     paths: Union[Unset, None, str] = UNSET,
     label: Union[Unset, None, str] = UNSET,
     search: Union[Unset, None, str] = UNSET,
+    search_any_order: Union[Unset, None, bool] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     cursor: Union[Unset, None, str] = UNSET,
     include_draft_only: Union[Unset, None, bool] = UNSET,
@@ -310,6 +323,7 @@ async def asyncio(
         paths (Union[Unset, None, str]):
         label (Union[Unset, None, str]):
         search (Union[Unset, None, str]):
+        search_any_order (Union[Unset, None, bool]):
         per_page (Union[Unset, None, int]):
         cursor (Union[Unset, None, str]):
         include_draft_only (Union[Unset, None, bool]):
@@ -335,6 +349,7 @@ async def asyncio(
             paths=paths,
             label=label,
             search=search,
+            search_any_order=search_any_order,
             per_page=per_page,
             cursor=cursor,
             include_draft_only=include_draft_only,

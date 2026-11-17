@@ -213,3 +213,43 @@ def test_video_models_are_what_they_can_render_and_available_only_on_a_connected
     assert models["org/i2v::*"].tasks == ("image-to-video",) and models["org/i2v::*"].extra["available"] is True
     assert models["org/vace"].tasks == ("text-to-video", "video-to-video")
     assert models["org/away"].extra["available"] is False            # held only by a host that is not connected
+
+
+def test_pickers_offer_what_can_serve_a_call_with_the_inputs_it_needs(monkeypatch):
+    """Browser pickers (2026-11-16): a model's tasks and required inputs come from the engine and pipeline that
+    serve it, not its catalog tag; a pipeline's sub-folders and key::* twins are not offered; availability says
+    whether an online worker serves it now and which connected hosts hold it."""
+    from contextlib import contextmanager
+    from hugpy_core.relay import inference_catalog
+    from hugpy_core.web import routes
+    now = datetime.now(timezone.utc)
+    row = dict(files=1, seen_at=now, content_id=None, basis="size", source_role="central", locations=[],
+               task="text-to-image", arch=None, layers=None, ctx_train=None, expert_count=None,
+               expert_used_count=None, bytes=10, variation="*", capabilities=[], holder="ae")
+    monkeypatch.setattr(fleet_central, "_all_rows", lambda: [
+        dict(row, key="org/edit", engine="imagegen", class_names=["QwenImageEditPlusPipeline"]),
+        dict(row, key="org/encoder", engine="llama-server", class_names=[], variation="enc-q4.gguf"),
+        dict(row, key="org/Wan-I2V", engine="videogen", class_names=["WanModel"], task="text-to-video"),
+        dict(row, key="org/flux", engine="imagegen", class_names=["Flux2Pipeline"], holder="brain")])
+    monkeypatch.setattr(fleet_central, "_connected", lambda: {"ae", "brain"})
+    table = [dict(model_key=k, primary_task=t, metadata={}, framework=None) for k, t in (
+        ("org/edit", "text-to-image"), ("org/edit::*", "text-to-image"), ("org/edit/text_encoder", "text-generation"),
+        ("org/encoder", "text-to-image"), ("org/Wan-I2V", "text-to-video"), ("org/flux", "text-to-image"))]
+
+    class Conn:
+        def execute(self, *a):
+            return self
+
+        def fetchall(self):
+            return table
+
+    monkeypatch.setattr(inference_catalog, "_conn", contextmanager(lambda: (yield Conn())))
+    monkeypatch.setattr(routes, "model_rows", lambda: [
+        dict(id=k, available=True, workers=["ae"]) for k in ("org/edit", "org/encoder", "org/Wan-I2V")])
+    rows = {r["id"]: r for r in inference_catalog.picker_models()}
+    assert set(rows) == {"org/edit", "org/encoder", "org/Wan-I2V", "org/flux"}
+    assert rows["org/edit"]["tasks"] == ["image-to-image"] and rows["org/edit"]["needs"] == ["image", "text"]
+    assert rows["org/encoder"]["tasks"] == ["text-generation"]             # a chat unit, never an image model
+    assert rows["org/Wan-I2V"]["tasks"] == ["image-to-video"] and rows["org/Wan-I2V"]["needs"] == ["image"]
+    assert rows["org/flux"]["needs"] == ["text"] and rows["org/flux"]["available"] is False
+    assert rows["org/flux"]["held_by"] == ["brain"] and rows["org/edit"]["hosts"] == ["ae"]

@@ -1,9 +1,9 @@
 """Running a blocking step of a teardown without holding an event loop.
 
-A browser's close WAITS: for its processes to exit, for the survivors of the
-tree, for the directories to be removed. Those waits are the point (`close()`
-returns once the processes are gone, as Playwright's does), so the fix is not a
-shorter wait: it is that the waiting thread is not the loop's. Measured with
+A browser's close WAITS: for its processes to exit (`close()` returns once the
+browser has exited, as Playwright's does), and the reaper after it for the
+survivors of the tree and the directories. Those waits are the point, so the
+fix is not a shorter wait: it is that the waiting thread is not the loop's. Measured with
 py-spy on four browsers in one Python process, closing one stopped the loop
 that serves the other three for as long as it waited.
 

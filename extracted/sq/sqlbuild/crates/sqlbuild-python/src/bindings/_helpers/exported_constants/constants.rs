@@ -38,20 +38,19 @@ use sqlbuild_state::execution_history::constants::{
     DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, SCHEMA_VERSION,
 };
 
-use crate::bindings::_helpers::attachments::cursor_intrinsics::{
+use sqlbuild_python_compile::compile_command::constants::REUSE_DISABLE_ENV_VAR;
+use sqlbuild_python_compile::compile_command::constants::TRACKED_ENVIRONMENT_PREFIXES;
+use sqlbuild_python_compile::compile_command::constants::UNTRACKED_ENVIRONMENT_NAMES;
+use sqlbuild_python_compile::compile_delta::constants::DELTA_DISABLE_ENV_VAR;
+use sqlbuild_python_compile::compile_delta::constants::DELTA_VERIFY_ENV_VAR;
+use sqlbuild_python_compile::frontier::constants::CAPTURE_DIR_ENV_VAR;
+use sqlbuild_python_compile::rules::constants::CUSTOM_HOST_RUNTIME_VERSION;
+use sqlbuild_python_front::attachments::constants::{
     MICROBATCH_END_SENTINEL, MICROBATCH_START_SENTINEL,
 };
-use crate::bindings::_helpers::compile_command::constants::{
-    REUSE_DISABLE_ENV_VAR, TRACKED_ENVIRONMENT_PREFIXES, UNTRACKED_ENVIRONMENT_NAMES,
-};
-use crate::bindings::_helpers::compile_delta::driver::{
-    DELTA_DISABLE_ENV_VAR, DELTA_VERIFY_ENV_VAR,
-};
-use crate::bindings::_helpers::frontier::stage_capture::CAPTURE_DIR_ENV_VAR;
-use crate::bindings::_helpers::result_output::event_writer::RESULT_PATH_ENV;
-use crate::bindings::_helpers::rules::constants::CUSTOM_HOST_RUNTIME_VERSION;
-use crate::bindings::_helpers::semantic_shapes::shapes::{VALID_FROM_DEFAULT, VALID_TO_DEFAULT};
-use crate::bindings::_helpers::state_rows::constants::MIGRATION_WRITE_ATTEMPTS;
+use sqlbuild_python_front::state_rows::constants::MIGRATION_WRITE_ATTEMPTS;
+use sqlbuild_python_output::result_output::constants::RESULT_PATH_ENV;
+use sqlbuild_python_project::semantic_shapes::constants::{VALID_FROM_DEFAULT, VALID_TO_DEFAULT};
 
 /// Text constants exported under their Python names.
 pub(crate) const EXPORTED_TEXTS: &[(&str, &str)] = &[

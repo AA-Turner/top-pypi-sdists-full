@@ -8,9 +8,8 @@ Compatible with Python versions >=3.9
 
 from __future__ import annotations
 
-__version__ = "3.1.8"
+__version__ = "3.1.9"
 
-import abc
 import array
 import functools
 import io
@@ -23,7 +22,8 @@ import time
 import warnings
 import zipfile
 from collections.abc import Container, Iterable, Iterator, Reversible, Sequence
-from contextlib import AbstractContextManager, ExitStack
+from contextlib import ExitStack
+from dataclasses import dataclass
 from datetime import date, datetime
 from os import PathLike
 from pathlib import Path
@@ -135,6 +135,48 @@ class BBox(NamedTuple):
     ymax: float
 
 
+class RingSamplingError(Exception):
+    """An exception for geometric errors occurring when organising polygons."""
+
+
+class GeoJSON_Error(Exception):
+    """An exception to handle GeoJSON specific problems."""
+
+
+class ShapefileException(Exception):
+    """An exception to handle shapefile specific problems."""
+
+
+class CorruptShpShapeRecord(ShapefileException):
+    """Indicates invalid metadata in Shape record headers."""
+
+
+class dbfFileException(ShapefileException):
+    """Indicates a problem with the .dbf file."""
+
+
+class DbfStringDataLoss(ValueError):
+    """An exception to handle truncation of the user's text data (strict=True only)."""
+
+
+class CorruptDbfRecord(Warning):
+    """A Warning of possible corrupt data in the .dbf. record headers
+    (e.g. incorrect record lengths and deletionFlags).
+    """
+
+
+class PossibleDataLoss(Warning):
+    """A Warning of possible data loss when encoding or decoding."""
+
+
+class UnsuccessfulFileDownload(Warning):
+    """E.g. 404s"""
+
+
+class PossiblyCorruptFileHeader(Warning):
+    """A Warning of inconsistent file meta data in a .shp or .shx header ."""
+
+
 def _min_not_None(m1: float | None, m2: float | None) -> float | None:
     if m1 is None:
         return m2
@@ -233,14 +275,6 @@ for c in FieldType.__members__:
     FIELD_TYPE_ALIASES[c.lower()] = c
     FIELD_TYPE_ALIASES[c.encode("ascii").lower()] = c
     FIELD_TYPE_ALIASES[c.encode("ascii").upper()] = c
-
-
-class PossibleDataLoss(Warning):
-    pass
-
-
-class DbfStringDataLoss(ValueError):
-    pass
 
 
 class Decoder(Protocol):
@@ -918,10 +952,6 @@ def ring_contains_point(coords: PointsT, p: Point2D) -> bool:
     return inside_flag
 
 
-class RingSamplingError(Exception):
-    pass
-
-
 def ring_sample(coords: PointsT, ccw: bool = False) -> Point2D:
     """Return a sample point guaranteed to be within a ring, by efficiently
     finding the first centroid of a coordinate triplet whose orientation
@@ -1104,10 +1134,6 @@ def organize_polygon_rings(
     # add as single exterior without any holes
     polys = [[ext] for ext in exteriors]
     return polys
-
-
-class GeoJSON_Error(Exception):
-    pass
 
 
 # Could be an Enum, but an isinstance check is still needed.
@@ -2479,6 +2505,7 @@ class _Record(list[RecordValue]):
         field_positions: dict[str, int],
         values: Iterable[RecordValue],
         oid: int | None = None,
+        deletion_flag: bytes = b" ",
     ):
         """
         A Record should be created by the Reader class
@@ -2492,7 +2519,12 @@ class _Record(list[RecordValue]):
             self._oid = oid
         else:
             self._oid = -1
+        self._deletion_flag = deletion_flag
         list.__init__(self, values)
+
+    @property
+    def deletion_flag(self) -> bytes:
+        return self._deletion_flag
 
     def __getattr__(self, item: str) -> RecordValue:
         """
@@ -2721,12 +2753,6 @@ HTML_SIGNATURES_UC = (
 )
 
 
-class UnsuccessfulFileDownload(Warning): ...
-
-
-class PossiblyCorruptFileHeader(Warning): ...
-
-
 # Must be tuple of lower case strings (for str.lower.startswith(<tuple>)),
 # and must not include Windows drive letters.
 SUPPORTED_URL_SCHEMES = ("http", "https")
@@ -2830,27 +2856,24 @@ def ensure_within_bounds(i: int, num_records: int) -> int:
     return i
 
 
-class ShapefileException(Exception):
-    """An exception to handle shapefile specific problems."""
-
-
-class CorruptShpShapeRecord(ShapefileException):
-    """Indicates invalid metadata in Shape record headers."""
-
-
-class dbfFileException(ShapefileException):
-    """Indicates a problem with the .dbf file."""
-
-
 # Use ExitStack to Support not closing opened file objects passed in e.g.(handled by some
 # external context manager, or the caller manually calling .close).
 #
 # This will only ever hold at most one context manager.
 # But an ExitStack is the right tool for the job
 # when the number of context manager(s) depends on user input.
-class _HasExitStack(AbstractContextManager["_HasExitStack", None]):
+class _HasExitStack:
+    """This mixin / base class lets all 8 Reader and Writer
+    instances be used as context managers without
+    repeating the typed __exit__ signature, and without
+    adding ExitStack's other 'public' methods to their API.
+    """
+
     def __init__(self) -> None:
         self.exit_stack = ExitStack()
+
+    def __enter__(self) -> _HasExitStack:
+        return self
 
     def __exit__(
         self,
@@ -2864,74 +2887,61 @@ class _HasExitStack(AbstractContextManager["_HasExitStack", None]):
         self.exit_stack.close()
 
 
-FileProtoT = TypeVar("FileProtoT")
+FileObjT = TypeVar(
+    "FileObjT", bound=Union[ReadSeekableBinStream, WriteSeekableBinStream]
+)
 
 
-class _FileObjChecker(_HasExitStack, Generic[FileProtoT]):
-    """Base class that verifies its file-like object."""
+@dataclass(frozen=True)
+class _ReadableFileCtx:
+    ext: Literal[".shp", ".shx", ".dbf"]
+    mode: Literal["rb"] = "rb"
+    ExceptionClass: type[ShapefileException] = ShapefileException
+    FileObj = ReadSeekableBinStream
 
-    @property
-    @abc.abstractmethod
-    def FileProto(self) -> type[FileProtoT]: ...
 
-    @property
-    @abc.abstractmethod
-    def new_file_obj_mode(self) -> Literal["rb", "w+b"]: ...
+@dataclass(frozen=True)
+class _WriteableFileCtx:
+    ext: Literal[".shp", ".shx", ".dbf"]
+    mode: Literal["w+b"] = "w+b"
+    ExceptionClass: type[ShapefileException] = ShapefileException
+    FileObj = WriteSeekableBinStream
 
-    @property
-    @abc.abstractmethod
-    def ext(self) -> Literal[".shp", ".shx", ".dbf", None]: ...
 
-    ExceptionClass = ShapefileException
+def _ensure_file_obj(
+    file: str | os.PathLike[Any] | FileObjT,
+    exit_stack: ExitStack,
+    ctx: _ReadableFileCtx | _WriteableFileCtx,
+) -> FileObjT:
 
-    def __init__(
-        self,
-        file: str | os.PathLike[Any] | FileProtoT | None,
-    ):
-        super().__init__()
-        if self.ext is None:
-            return
-        self._file: Path | FileProtoT | None
-        if isinstance(file, (str, os.PathLike)):
-            self._file = Path(file).with_suffix(self.ext)
-        else:
-            self._file = file
+    if isinstance(file, (str, os.PathLike)):
+        path = Path(file).with_suffix(ctx.ext)
 
-    def _ensure_file_obj(
-        self,
-        f: str | os.PathLike[Any] | FileProtoT | None = None,
-    ) -> FileProtoT:
-        # Also used by Writer on constituent files self._shp & self._shx
+        parent = path.parent
+        if parent:
+            parent.mkdir(exist_ok=True, parents=True)
+        fp = path.open(ctx.mode)
 
-        f = f or self._file
+        # Only push files created here to the exit stack.
+        # The user must close their own file objects.
+        exit_stack.enter_context(fp)
+        return cast(FileObjT, fp)
 
-        if isinstance(f, (str, os.PathLike)):
-            path = Path(f)
-            dir_ = path.parent
-            if dir_:
-                dir_.mkdir(exist_ok=True, parents=True)
-            fp = path.open(self.new_file_obj_mode)
+    # See Minor hack below, to get these instance checks to work.
+    if isinstance(file, ctx.FileObj):
+        return file
 
-            # Only push files created here to the exit stack.
-            # The user must close their own file objects.
-            self.exit_stack.enter_context(fp)
-            return cast(FileProtoT, fp)
+    # Ugly, but perhaps needed to avoid weird Python 3.14
+    # specific bug in run_benchmarks.py on Windows
+    # if (
+    #     (attrs := getattr(FileObj, "__protocol_attrs__", None))
+    #     and all(hasattr(file, attr) for attr in attrs)
+    # ):
+    #     return file
 
-        # See Minor hack below.
-        if isinstance(f, self.FileProto):
-            return f
-
-        # Ugly, but perhaps needed to avoid weird Python 3.14
-        # specific bug in run_benchmarks.py on Windows
-        # if (
-        #     (attrs := getattr(self.FileProto, "__protocol_attrs__", None))
-        #     and all(hasattr(f, attr) for attr in attrs)
-        # ):
-        #     return f
-
-        raise self.ExceptionClass(
-            f"Unsupported file-like object: {f}.  Must satisfy: {self.FileProto}"
-        )
+    raise ctx.ExceptionClass(
+        f"Unsupported file-like object: {file}.  Must satisfy: {ctx.FileObj}"
+    )
 
 
 # Minor hack.  Relies on Protocols being ABC subclasses.
@@ -2946,27 +2956,47 @@ ReadSeekableBinStream.register(tempfile._TemporaryFileWrapper)
 WriteSeekableBinStream.register(tempfile._TemporaryFileWrapper)
 
 
-class _HasCheckedReadableFile(_FileObjChecker[ReadSeekableBinStream]):
-    def __init__(self, file: str | PathLike[Any] | ReadSeekableBinStream):
+def _ensure_readable_file_obj(
+    file: str | os.PathLike[Any] | ReadSeekableBinStream,
+    exit_stack: ExitStack,
+    ctx: _ReadableFileCtx,
+) -> tuple[ReadSeekableBinStream, int]:
 
-        super().__init__(file)
+    file_obj = _ensure_file_obj(file, exit_stack, ctx)
+    file_obj.seek(0, 2)  # offset=0, whence = 2 => EOF
+    file_size_B = file_obj.tell()
 
-        self.file.seek(0, 2)  # offset=0, whence = 2 => EOF
-        self.file_size_B = self.file.tell()
-        self.file.seek(0)
-
-    @functools.cached_property
-    def file(self) -> ReadSeekableBinStream:
-        return self._ensure_file_obj()
+    return file_obj, file_size_B
 
 
-class DbfReader(_HasCheckedReadableFile):
+def _check_file_length(
+    declared_file_length_B: int,
+    actual_file_size_B: int,
+    file: ReadSeekableBinStream,
+    ctx: _ReadableFileCtx,
+) -> None:
+    if declared_file_length_B == actual_file_size_B:
+        return
+
+    file_name = getattr(file, "name", ctx.ext)
+    if declared_file_length_B > actual_file_size_B:
+        raise ctx.ExceptionClass(
+            f"Declared file size: {declared_file_length_B} in {file_name} header"
+            f"larger than actual file size: {actual_file_size_B} (bytes)"
+        )
+
+    msg = (
+        f"Declared file size in {file_name} header: {declared_file_length_B} "
+        f"smaller than actual file size: {actual_file_size_B} "
+        "(both in bytes)"
+    )
+    warnings.warn(msg, category=PossiblyCorruptFileHeader)
+
+
+class DbfReader(_HasExitStack):
     """Reads a dbf file's fields and records."""
 
-    FileProto = ReadSeekableBinStream
-    new_file_obj_mode = "rb"
-    ext = ".dbf"
-    ExceptionClass = dbfFileException
+    _ctx = _ReadableFileCtx(ext=".dbf", ExceptionClass=dbfFileException)
 
     def __init__(
         self,
@@ -2976,7 +3006,11 @@ class DbfReader(_HasCheckedReadableFile):
         encodingErrors: str = "strict",
         strict: bool = False,
     ):
-        super().__init__(file=dbf)
+        super().__init__()
+
+        self.file, self.file_size_B = _ensure_readable_file_obj(
+            dbf, self.exit_stack, self._ctx
+        )
 
         self.encoding = encoding
         self.encodingErrors = encodingErrors
@@ -2986,6 +3020,44 @@ class DbfReader(_HasCheckedReadableFile):
         self._fieldLookup: dict[str, int] = {}
 
         self._dbfHeader()
+
+        self.file.seek(-1, 2)  # one byte before EOF
+        self._last_byte = self.file.read(1)
+        last_byte_int = int.from_bytes(self._last_byte, byteorder="big")
+
+        declared_file_length_B = (
+            self._dbfHdrLength + self.numRecords * self._record_length + 1
+        )
+
+        if declared_file_length_B == self.file_size_B:
+            if last_byte_int != 0x1A:
+                msg = (
+                    "Actual file size matches declared file size (header and records size + 1) "
+                    f"but EOF byte: {last_byte_int:#x} is not 0x1a "
+                )
+                if self.strict:
+                    raise dbfFileException(msg)
+                warnings.warn(msg)
+        elif declared_file_length_B - 1 == self.file_size_B:
+            # Missing EOF byte
+            msg = (
+                "File length is exactly the declared header and records size, "
+                "but misses the EOF byte. "
+            )
+            if last_byte_int == 0x1A:
+                msg += f"Last byte: {last_byte_int:#x} is not 0x1a (EOF byte special value) "
+            else:
+                msg += "Last byte is 0x1a, but that value could also be from the last record's data. "
+            msg += "Note: In previous versions of PyShp, Writers did not output a .dbf EOF byte "
+            if self.strict:
+                raise PossiblyCorruptFileHeader(msg)
+            msg += "so no warning will be given.  Set strict=True to raise an Exception for this instead. "
+            logger.info(msg)
+
+        else:
+            _check_file_length(
+                declared_file_length_B, self.file_size_B, self.file, self._ctx
+            )
 
     def __len__(self) -> int:
         """Returns the number of records in the .dbf file."""
@@ -3035,7 +3107,7 @@ class DbfReader(_HasCheckedReadableFile):
         return [Field("DeletionFlag", FieldType.C, 1, 0), *self.data_fields]
 
     def _record_fmt(self, fields: Container[str] | None = None) -> str:
-        """Calculates the struct format string for of a .dbf record. Optional 'fields' arg
+        """Calculates the struct format string for a .dbf record. Optional 'fields' arg
         specifies which fieldnames to unpack and which to ignore. Note that this
         The DeletionFlag is always included at index 0 (to correctly unpack the dbf record).
         The items in fields may appear in any order.
@@ -3054,8 +3126,23 @@ class DbfReader(_HasCheckedReadableFile):
         fmt_size = calcsize(fmt)
         # total size of fields should add up to recordlength from the header
         # so calculate the difference, and concat a field of that many pad bytes.
-        if fmt_size < self._record_length:
-            num_pad_bytes = self._record_length - fmt_size
+
+        num_pad_bytes = self._record_length - fmt_size
+        if num_pad_bytes != 0:
+            msg = (
+                f"The (fixed) record length declared in the file header: {self._record_length} "
+                f"did not match the record size: {fmt_size} "
+                f"calculated from the struct format string: {fmt}"
+            )
+
+            if num_pad_bytes < 0 or self.strict:
+                raise dbfFileException(msg)
+            else:
+                warnings.warn(
+                    f"{msg}. Struct fmt string will be padded with '{num_pad_bytes}x' (any such bytes in the record will be ignored). ",
+                    category=CorruptDbfRecord,
+                )
+
             fmt = f"{fmt}{num_pad_bytes}x"
 
         return fmt
@@ -3099,6 +3186,7 @@ class DbfReader(_HasCheckedReadableFile):
         recLookup: dict[str, int],
         recStruct: Struct,
         oid: int | None = None,
+        ignore_deletion_flag: bool = False,
     ) -> _Record | None:
         """Reads and returns a dbf record row as a list of values. Requires self.file
         to already be pointing to the start of the record (e.g. from a previous call
@@ -3111,15 +3199,24 @@ class DbfReader(_HasCheckedReadableFile):
         # The only format chars from self._record_fmt, in recStruct from _record_fields,
         # are s and x (ascii encoded str and pad byte) so everything in recordContents is bytes
         # https://docs.python.org/3/library/struct.html#format-characters
-        recordContents = recStruct.unpack(self.file.read(recStruct.size))
+        deletion_flag, *recordContents = recStruct.unpack(
+            self.file.read(recStruct.size)
+        )
 
-        # deletion flag field is always unpacked as first value (see _record_fmt)
-        if recordContents[0] != b" ":
-            # deleted record
-            return None
-
-        # drop deletion flag from values
-        recordContents = recordContents[1:]
+        if deletion_flag == b"*":
+            # "The byte's value is a space (0x20), if the record is active,
+            # or an asterisk (0x2A), if the record is deleted. "
+            # https://en.wikipedia.org/wiki/.dbf#Database_records
+            if not ignore_deletion_flag:
+                return None
+        elif deletion_flag != b" " and not ignore_deletion_flag:
+            msg = (
+                f"On record: {oid}, deletion flag not marked for deletion (not b'*') "
+                f"but also not an ascii space( not b' ').  Got: {deletion_flag!r}"
+            )
+            if self.strict:
+                raise dbfFileException(msg)
+            warnings.warn(msg, category=CorruptDbfRecord)
 
         # check that values match fields
         if len(fieldTuples) != len(recordContents):
@@ -3194,9 +3291,14 @@ class DbfReader(_HasCheckedReadableFile):
                 )
             record.append(value)
 
-        return _Record(recLookup, record, oid)
+        return _Record(recLookup, record, oid=oid, deletion_flag=deletion_flag)
 
-    def record(self, i: int = 0, fields: list[str] | None = None) -> _Record | None:
+    def record(
+        self,
+        i: int = 0,
+        fields: list[str] | None = None,
+        ignore_deletion_flag: bool = False,
+    ) -> _Record | None:
         """Returns a specific dbf record based on the supplied index.
         To only read some of the fields, specify the 'fields' arg as a
         list of one or more fieldnames.
@@ -3208,7 +3310,11 @@ class DbfReader(_HasCheckedReadableFile):
         self.seek_to_rec(index=i)
         fieldTuples, recLookup, recStruct = self._record_fields(fields)
         return self._record(
-            oid=i, fieldTuples=fieldTuples, recLookup=recLookup, recStruct=recStruct
+            oid=i,
+            fieldTuples=fieldTuples,
+            recLookup=recLookup,
+            recStruct=recStruct,
+            ignore_deletion_flag=ignore_deletion_flag,
         )
 
     def records(
@@ -3288,29 +3394,34 @@ class DbfReader(_HasCheckedReadableFile):
         self.file.seek(self._dbfHdrLength + (index * recSize))
 
 
-class ShxReader(_HasCheckedReadableFile):
+class ShxReader(_HasExitStack):
     """Reads an shx file (a file of file positions
     of shapes in a .shp file).
     """
 
-    FileProto = ReadSeekableBinStream
-    new_file_obj_mode = "rb"
-    ext = ".shx"
+    _ctx = _ReadableFileCtx(ext=".shx")
 
     def __init__(
         self,
         shx: str | PathLike[Any] | ReadSeekableBinStream,
     ):
-        super().__init__(file=shx)
+        super().__init__()
+        self.file, self.file_size_B = _ensure_readable_file_obj(
+            shx, self.exit_stack, self._ctx
+        )
         self.numShapes: int
         self._shxHeader()
         self._shxRecords_16bw: array.array[int] | None = None
 
     def _shxHeader(self) -> None:
         """Reads the header information from a .shx file."""
-        # File length (16-bit word * 2 = bytes) - header length
+        # Byte 24: File length (in 16-bit words (pairs of bytes)) (Esri spec, p4, Table 1)
         self.file.seek(24)
-        shx_records_length_B = (unpack(">i", self.file.read(4))[0] * 2) - 100
+        declared_file_length_B = 2 * unpack(">i", self.file.read(4))[0]
+        _check_file_length(
+            declared_file_length_B, self.file_size_B, self.file, self._ctx
+        )
+        shx_records_length_B = declared_file_length_B - 100
         self.numShapes = shx_records_length_B // 8
 
     @functools.cache
@@ -3341,21 +3452,19 @@ class ShxReader(_HasCheckedReadableFile):
 ShapeHeaderInfoT = tuple[int, int, int]
 
 
-class ShpReader(_HasCheckedReadableFile):
+class ShpReader(_HasExitStack):
     """Reads a .shp file."""
 
-    FileProto = ReadSeekableBinStream
-    new_file_obj_mode = "rb"
-    ext = ".shp"
+    _ctx = _ReadableFileCtx(ext=".shp")
 
     def __init__(
         self,
         shp: str | PathLike[Any] | ReadSeekableBinStream,
     ):
-        super().__init__(file=shp)
-        # self.bbox: BBox
-        # self.zbox: ZBox
-        # self.mbox: MBox
+        super().__init__()
+        self.file, self.file_size_B = _ensure_readable_file_obj(
+            shp, self.exit_stack, self._ctx
+        )
         self.shapeType: int
         self._shpHeader()
         self.headers_cache: list[ShapeHeaderInfoT] = []
@@ -3385,15 +3494,7 @@ class ShpReader(_HasCheckedReadableFile):
                 for m_bound in unpack("<2d", self.file.read(16))
             )
         )
-
-        if self.file_size_B != self.shp_file_size_B:
-            file_name = getattr(self.file, "name", ".shp")
-            msg = (
-                f"Declared file size in {file_name} header: {self.shp_file_size_B} "
-                f"not equal to actual file size: {self.file_size_B} "
-                "(both in bytes)"
-            )
-            warnings.warn(msg, category=PossiblyCorruptFileHeader)
+        _check_file_length(self.shp_file_size_B, self.file_size_B, self.file, self._ctx)
 
     @functools.cache  # Only read through the shape headers (e.g. on disk), at most once.
     def _headers_cached_gen(self) -> Iterator[ShapeHeaderInfoT]:
@@ -3466,15 +3567,14 @@ class ShpReader(_HasCheckedReadableFile):
         """Returns geometry for a single shape (or None if
         it is outside the specified bbox).
 
-        Requires the size in B of the shaps, and the .shp
-        file to have been .seeked to the start of the shape
-        (immediately after the shape's header).
+        Requires the size in B of the shape, and the .shp
+        file to have already been .seeked to the start of
+        the shape data (immediately after the shape's header).
         """
 
         # Read entire record into memory to avoid having to call
         # seek on the file afterwards
         b_io: ReadSeekableBinStream = io.BytesIO(self.file.read(shape_len_B))
-        # To avoid a .seek for the next shape's header (where we are already)
         b_io.seek(0)
 
         try:
@@ -3528,12 +3628,6 @@ class ShpReader(_HasCheckedReadableFile):
 
         bbox = BBox(*bbox) if bbox is not None else None
 
-        # Found shapefiles which report incorrect
-        # shp file length in the header. Can't trust
-        # that so we seek to the end of the file
-        # and figure it out.
-        # self.file.seek(0, 2)
-        # file_size_B = self.file.tell()
         if shape_lengths_B is not None:
             pos = 108  # Skip first shape's header
             # Iterate exactly the number of shapes as shape
@@ -4269,16 +4363,12 @@ def _try_to_flush_file_obj(f: WriteSeekableBinStream | str | None) -> None:
         pass
 
 
-class _HasCheckedWriteableFile(_FileObjChecker[WriteSeekableBinStream]):
-    FileProto = WriteSeekableBinStream
-    new_file_obj_mode = "w+b"
+class _WriterBase(_HasExitStack):
+    _ctx = _WriteableFileCtx(ext=".shp")
 
     def __init__(self, file: str | PathLike[Any] | WriteSeekableBinStream):
-        super().__init__(file)
-
-    @functools.cached_property
-    def file(self) -> WriteSeekableBinStream:
-        return self._ensure_file_obj()
+        super().__init__()
+        self.file = _ensure_file_obj(file, self.exit_stack, self._ctx)
 
     def is_open(self) -> bool:
         return bool(self.file and _is_file_obj_open(self.file))
@@ -4293,11 +4383,10 @@ class _HasCheckedWriteableFile(_FileObjChecker[WriteSeekableBinStream]):
         super().close()
 
 
-class DbfWriter(_HasCheckedWriteableFile):
+class DbfWriter(_WriterBase):
     """Writes .dbf files (dBASE database files), in particular those of Shapefiles."""
 
-    ext = ".dbf"
-    ExceptionClass = dbfFileException
+    _ctx = _WriteableFileCtx(ext=".dbf", ExceptionClass=dbfFileException)
 
     def __init__(
         self,
@@ -4310,6 +4399,10 @@ class DbfWriter(_HasCheckedWriteableFile):
         # Keep kwargs even though unused, to preserve PyShp 2.4 API
         **kwargs: Any,
     ):
+
+        super().__init__(file=dbf)
+        _reserve_bytes_for_shp_or_shx_header(self.file)
+
         super().__init__(file=dbf)
 
         self.encoding = encoding
@@ -4397,6 +4490,12 @@ class DbfWriter(_HasCheckedWriteableFile):
 
         # Terminator (0x0d from dbf spec https://en.wikipedia.org/wiki/.dbf#File_header)
         f.write(b"\r")
+
+    def close(self) -> None:
+        # EOF byte (0x1a from dbf spec https://en.wikipedia.org/wiki/.dbf#File_format_of_Level_5_DOS_dBASE)
+        self.file.seek(0, 2)
+        self.file.write(b"\x1a")
+        super().close()
 
     def record(
         self,
@@ -4596,70 +4695,90 @@ class DbfWriter(_HasCheckedWriteableFile):
         self.recNum += 1
 
 
-class _ShpShxHeaderWriter(_HasCheckedWriteableFile):
-    def __init__(self, file: str | PathLike[Any] | WriteSeekableBinStream):
-        super().__init__(file=file)
-        # Initiate with empty headers, to be finalized upon closing
-        self.file.seek(0)
-        self.file.write(b"9" * 100)
+class _ShpWriterInfo(Protocol):
+    """The info about a .shp file, needed to write its .shx file."""
 
-    def _write_file_length(self) -> None:
-        raise NotImplementedError
-
-    def _shp_or_shx_header(self, shp_info: _ShpWriterInfo) -> None:
-        """Writes the specified header type to the specified file-like object.
-        Several of the shapefile formats are so similar that a single generic
-        method to read or write them is warranted."""
-        f = self.file
-        f.seek(0)
-        # File code, Unused bytes
-        f.write(pack(">6i", 9994, 0, 0, 0, 0, 0))
-
-        # File length (Bytes / 2 = 16-bit words).
-        # Hook for shx and shp specific subclasses to implement.
-        self._write_file_length()
-
-        f.write(pack("<2i", 1000, shp_info.shapeType or NULL))
-
-        # BBox, the shapefile's bounding box (lower left, upper right)
-        # In such cases of empty shapefiles, ESRI spec says the bbox values are 'unspecified'.
-        # Not sure what that means, so for now just setting to 0s, which is the same behavior as in previous versions.
-        # This would also make sense since the Z and M bounds are similarly set to 0 for non-Z/M type shapefiles.
-        # bbox: BBox = (0, 0, 0, 0)
-        bbox = shp_info._bbox or (0, 0, 0, 0)
-        try:
-            f.write(pack("<4d", *bbox))
-        except StructError:
-            raise ShapefileException(
-                "Failed to write shapefile bounding box. Floats required."
-            )
-
-        # Elevation
-        # As per the ESRI shapefile spec, the zbox for non-Z type shapefiles are set to 0s
-        # zbox : ZBox = (0, 0).  We also do this for empty shapefiles and null-shapes only files.
-        zbox = shp_info._zbox or (0, 0)
-
-        # Ms
-        # As per the ESRI shapefile spec, the mbox for non-M type shapefiles are set to 0s
-        # mbox: Mbox = (0, 0).  We also do this for empty shapefiles and null-shapes only files.
-        mbox = shp_info._mbox or (0, 0)
-
-        # Try writing
-        try:
-            f.write(pack("<4d", *zbox, *replace_None_with_NODATA(mbox)))
-        except StructError:
-            raise ShapefileException(
-                "Failed to write shapefile elevation and measure values. Floats required."
-            )
+    @property
+    def shapeType(self) -> int | None: ...
+    @property
+    def shpNum(self) -> int: ...
+    @property
+    def bbox(self) -> BBox | None: ...
+    @property
+    def zbox(self) -> ZBox | None: ...
+    @property
+    def mbox(self) -> MBox | None: ...
 
 
-class _ShpWriterInfo(_ShpShxHeaderWriter):
+def _reserve_bytes_for_shp_or_shx_header(file: WriteSeekableBinStream) -> None:
+    # Write 100 bytes of
+    file.seek(0)
+    file.write(b"9" * 100)
+
+
+def _shp_or_shx_header(
+    f: WriteSeekableBinStream,
+    shp_info: _ShpWriterInfo,
+    file_size_B: int,
+) -> None:
+    """Writes the specified header type to the specified file-like object.
+    Several of the shapefile formats are so similar that a single generic
+    method to read or write them is warranted."""
+    f.seek(0)
+    # File code, Unused bytes
+    f.write(pack(">6i", 9994, 0, 0, 0, 0, 0))
+
+    # File length (Bytes / 2 = 16-bit words).
+    # Hook for shx and shp specific subclasses to implement.
+
+    size_16b_words = file_size_B // 2
+    f.write(pack(">i", size_16b_words))
+
+    f.write(pack("<2i", 1000, shp_info.shapeType or NULL))
+
+    # BBox, the shapefile's bounding box (lower left, upper right)
+    # In such cases of empty shapefiles, ESRI spec says the bbox values are 'unspecified'.
+    # Not sure what that means, so for now just setting to 0s, which is the same behavior as in previous versions.
+    # This would also make sense since the Z and M bounds are similarly set to 0 for non-Z/M type shapefiles.
+    # bbox: BBox = (0, 0, 0, 0)
+    bbox = shp_info.bbox or (0, 0, 0, 0)
+    try:
+        f.write(pack("<4d", *bbox))
+    except StructError:
+        raise ShapefileException(
+            "Failed to write shapefile bounding box. Floats required."
+        )
+
+    # Elevation
+    # As per the ESRI shapefile spec, the zbox for non-Z type shapefiles are set to 0s
+    # zbox : ZBox = (0, 0).  We also do this for empty shapefiles and null-shapes only files.
+    zbox = shp_info.zbox or (0, 0)
+
+    # Ms
+    # As per the ESRI shapefile spec, the mbox for non-M type shapefiles are set to 0s
+    # mbox: Mbox = (0, 0).  We also do this for empty shapefiles and null-shapes only files.
+    mbox = shp_info.mbox or (0, 0)
+
+    # Try writing
+    try:
+        f.write(pack("<4d", *zbox, *replace_None_with_NODATA(mbox)))
+    except StructError:
+        raise ShapefileException(
+            "Failed to write shapefile elevation and measure values. Floats required."
+        )
+
+
+class ShpWriter(_WriterBase):
+    ext = ".shp"
+    _ctx = _WriteableFileCtx(ext=".shp")
+
     def __init__(
         self,
         shp: str | PathLike[Any] | WriteSeekableBinStream,
         shapeType: int | None = None,
     ):
         super().__init__(file=shp)
+        _reserve_bytes_for_shp_or_shx_header(self.file)
         self.shapeType: int | None = shapeType
         # Geometry record offsets and lengths for writing shx file.
         self.shpNum: int = 0
@@ -4667,35 +4786,9 @@ class _ShpWriterInfo(_ShpShxHeaderWriter):
         self._zbox: ZBox | None = None
         self._mbox: MBox | None = None
 
-    def bbox(self) -> BBox | None:
-        """Returns the current bounding box for the shapefile which is
-        the lower-left and upper-right corners. It does not contain the
-        elevation or measure extremes."""
-        return self._bbox
-
-    def zbox(self) -> ZBox | None:
-        """Returns the current z extremes for the shapefile."""
-        return self._zbox
-
-    def mbox(self) -> MBox | None:
-        """Returns the current m extremes for the shapefile."""
-        return self._mbox
-
-
-class ShpWriter(_ShpWriterInfo):
-    ext = ".shp"
-
     def _header(self) -> None:
-        super()._shp_or_shx_header(shp_info=self)
-
-    def _write_file_length(self) -> None:
-        # self.file required to be at correct position, e.g.
-        # if called by self._header
-
-        # Calculate size as 16-bit words
-        size_B = self._shp_file_length_B()
-        size_16b_words = size_B // 2
-        self.file.write(pack(">i", size_16b_words))
+        file_size_B = self._shp_file_length_B()
+        _shp_or_shx_header(self.file, shp_info=self, file_size_B=file_size_B)
 
     def _shp_file_length_B(self) -> int:
         """Calculates the file length of the shp file."""
@@ -4753,6 +4846,23 @@ class ShpWriter(_ShpWriterInfo):
         else:
             # first time mbox is being set
             self._mbox = mbox
+
+    @property
+    def bbox(self) -> BBox | None:
+        """Returns the current bounding box for the shapefile which is
+        the lower-left and upper-right corners. It does not contain the
+        elevation or measure extremes."""
+        return self._bbox
+
+    @property
+    def zbox(self) -> ZBox | None:
+        """Returns the current z extremes for the shapefile."""
+        return self._zbox
+
+    @property
+    def mbox(self) -> MBox | None:
+        """Returns the current m extremes for the shapefile."""
+        return self._mbox
 
     def shape(
         self,
@@ -4837,8 +4947,9 @@ class ShpWriter(_ShpWriterInfo):
         return offset, n
 
 
-class ShxWriter(_ShpShxHeaderWriter):
+class ShxWriter(_WriterBase):
     ext = ".shx"
+    _ctx = _WriteableFileCtx(ext=".shx")
 
     def __init__(
         self,
@@ -4846,6 +4957,7 @@ class ShxWriter(_ShpShxHeaderWriter):
         shp_writer: _ShpWriterInfo,
     ):
         super().__init__(file=shx)
+        _reserve_bytes_for_shp_or_shx_header(self.file)
         self.shp_writer = shp_writer
 
     def _shx_record(self, offset_B: int, length_B: int) -> None:
@@ -4863,23 +4975,12 @@ class ShxWriter(_ShpShxHeaderWriter):
         f.write(pack(">2i", offset_16bw, length_16bw))
 
     def _header(self) -> None:
-        super()._shp_or_shx_header(shp_info=self.shp_writer)
-
-    def _write_file_length(self) -> None:
-        # self.file required to be at correct position, e.g.
-        # if called by self._header
-        self.file.write(pack(">i", ((100 + (self.shp_writer.shpNum * 8)) // 2)))
+        file_size_B = 100 + (self.shp_writer.shpNum * 8)
+        _shp_or_shx_header(self.file, shp_info=self.shp_writer, file_size_B=file_size_B)
 
 
 class Writer(_HasExitStack):
     """Provides write support for ESRI Shapefiles."""
-
-    # W = TypeVar("W", bound=WriteSeekableBinStream)
-
-    FileProto = WriteSeekableBinStream
-    new_file_obj_mode = "w+b"
-    ext = None
-    ExceptionClass = ShapefileException
 
     def __init__(
         self,

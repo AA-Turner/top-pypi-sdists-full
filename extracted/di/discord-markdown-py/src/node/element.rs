@@ -10,7 +10,7 @@ use crate::{
 
 use super::{
 	Sequence,
-	block::{Heading, List, Small},
+	block::{Heading, List, Subtext},
 	inline::{
 		code_block::CodeBlock, emoji::Emoji, link::Link, mention::Mention, timestamp::Timestamp,
 	},
@@ -38,7 +38,7 @@ pub enum Element<'data, S: Span> {
 	/// Plain Node content.
 	Paragraph(Elements<'data, S>),
 	Quote(QuoteKind, Elements<'data, S>),
-	Small(Small<S, Element<'data, S>>),
+	Subtext(Subtext<S, Element<'data, S>>),
 	/// New line.
 	Empty,
 }
@@ -71,7 +71,7 @@ impl<S: Span> Element<'_, S> {
 			| Self::List(_)
 			| Self::Paragraph(_)
 			| Self::Quote(..)
-			| Self::Small(_)
+			| Self::Subtext(_)
 			| Self::Empty
 			| Self::Emoji(Emoji::Custom(_))
 			| Self::Link(_, Link { text: Some(_), .. }) => return None,
@@ -106,7 +106,7 @@ impl<S: Span> Element<'_, S> {
 			Self::Paragraph(_)
 				| Self::Quote(..)
 				| Self::Heading(_)
-				| Self::Small(_)
+				| Self::Subtext(_)
 				| Self::List(_)
 		)
 	}
@@ -123,7 +123,7 @@ impl<S: Span> Element<'_, S> {
 		let (content, items) = match self {
 			Self::Paragraph(content)
 			| Self::Heading(Heading { content, .. })
-			| Self::Small(Small { content }) => (Some((Content::Inline, content)), &[][..]),
+			| Self::Subtext(Subtext { content }) => (Some((Content::Inline, content)), &[][..]),
 			Self::Quote(_, content) => (Some((Content::Blocks, content)), &[][..]),
 			Self::List(List { items, .. }) => (None, items.value.as_slice()),
 			_ => (None, &[][..]),

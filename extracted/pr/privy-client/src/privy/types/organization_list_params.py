@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
 from typing_extensions import TypedDict
 
 __all__ = ["OrganizationListParams"]
@@ -10,5 +9,6 @@ __all__ = ["OrganizationListParams"]
 
 class OrganizationListParams(TypedDict, total=False):
     cursor: str
+    """Cursor returned by the previous page."""
 
-    limit: Optional[float]
+    limit: int

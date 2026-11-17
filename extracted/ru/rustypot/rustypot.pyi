@@ -165,6 +165,13 @@ class AxPyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -202,6 +209,13 @@ class AxPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -394,6 +408,16 @@ class Bus:
         r"""
         Same as `sync_read_register`, plus each motor's error field.
         """
+    def sync_read_raw_with_error(self, ids: typing.Sequence[builtins.int], addr: builtins.int, length: builtins.int, retries: builtins.int = 0) -> builtins.list[tuple[builtins.list[builtins.int], builtins.int]]:
+        r"""
+        Read `length` raw bytes at `addr` and each motor's status error byte, in
+        the order of `ids`. One Sync Read per protocol; groups containing a motor
+        without Sync Read support use individual reads.
+        
+        The caller must ensure the range means the same thing on every motor.
+        No decoding or register layout checks are performed. Unknown ids fail
+        before any instruction is sent.
+        """
     def sync_write_register(self, ids: typing.Sequence[builtins.int], name: builtins.str, values: typing.Sequence[builtins.int], retries: builtins.int = 0) -> None:
         r"""
         Sync write `values` to register `name` of `ids`, one value per id: one Sync
@@ -406,6 +430,19 @@ class Bus:
         refusing the write included; an alarm in an answer does not fail it. A bus
         failure is tried again up to `retries` more times per motor. On Feetech servos the
         lock follows the torque (`ServoDefinition.eeprom_lock`).
+        """
+    def reset_turn_count(self, ids: typing.Sequence[builtins.int], retries: builtins.int = 0) -> builtins.dict[builtins.int, builtins.str]:
+        r"""
+        Zero the turn count of `ids` (Feetech's RESET, 0x0A, or Dynamixel's Clear,
+        0x10), every motor tried even after one fails, and return {id: error} for those
+        that failed (empty when all went through): a servo not known to answer it
+        (`ServoDefinition.supports_turn_count_reset`), a motor refusing it, or one not
+        answering. A bus failure is tried again up to `retries` more times per motor.
+        An STS servo keeps counting turns past its encoder's zero, torque on or off, so
+        a joint moved by hand through that boundary reports its position a turn away
+        from its limits and, once the torque is on, drives a whole turn to a goal. The
+        other registers are kept; a power cycle clears the count as well. Send this
+        with the torque off.
         """
     def change_id(self, definition: ServoDefinition, id: builtins.int, new_id: builtins.int) -> None:
         r"""
@@ -546,6 +583,13 @@ class MxPyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -583,6 +627,13 @@ class MxPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_return_delay_time(self, id: builtins.int) -> typing.Any: ...
     def sync_write_return_delay_time(self, ids: list, values: list) -> None: ...
     def write_return_delay_time(self, id: builtins.int, value: builtins.int) -> None: ...
@@ -853,6 +904,13 @@ class Orbita2dFocPyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -890,6 +948,13 @@ class Orbita2dFocPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_voltage_limit(self, id: builtins.int) -> typing.Any: ...
     def sync_write_voltage_limit(self, ids: list, values: list) -> None: ...
     def write_voltage_limit(self, id: builtins.int, value: builtins.float) -> None: ...
@@ -1196,6 +1261,13 @@ class Orbita2dPoulpePyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -1233,6 +1305,13 @@ class Orbita2dPoulpePyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -1434,6 +1513,13 @@ class Orbita3dFocPyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -1471,6 +1557,13 @@ class Orbita3dFocPyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -1717,6 +1810,13 @@ class Orbita3dPoulpePyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -1754,6 +1854,13 @@ class Orbita3dPoulpePyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -2027,6 +2134,13 @@ class Scs0009PyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -2064,6 +2178,13 @@ class Scs0009PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -2406,6 +2527,13 @@ class Scs0043PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -2549,6 +2677,13 @@ class Scs0043PyController:
         r"""
         Whether the firmware answers a ping sent to the broadcast id, which
         `broadcast_scan` relies on.
+        """
+    @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
         """
     @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
@@ -2725,6 +2860,13 @@ class ServoDefinition:
         Whether the error field of the servo's answers only reports alarms, never an
         instruction it refused, as on Feetech servos.
         """
+    @property
+    def supports_turn_count_reset(self) -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the turn count
+        it keeps past its encoder's zero (Feetech's RESET, 0x0A, or Dynamixel's Clear,
+        0x10); `Bus.reset_turn_count` relies on it.
+        """
     def __eq__(self, other: builtins.object, /) -> builtins.bool: ...
     def __hash__(self) -> builtins.int: ...
     def refuses(self, status: builtins.int) -> builtins.bool:
@@ -2855,6 +2997,13 @@ class Sts3215PyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -2892,6 +3041,13 @@ class Sts3215PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -3318,6 +3474,13 @@ class Xl320PyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -3359,6 +3522,13 @@ class Xl320PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -3586,6 +3756,13 @@ class Xl330PyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -3629,6 +3806,13 @@ class Xl330PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word
@@ -4050,6 +4234,13 @@ class Xl430PyController:
         `broadcast_scan` relies on.
         """
     @staticmethod
+    def supports_turn_count_reset() -> builtins.bool:
+        r"""
+        Whether the servo is known to answer the instruction that zeroes the
+        turn count it keeps past its encoder's zero (Feetech's RESET, 0x0A, or
+        Dynamixel's Clear, 0x10).
+        """
+    @staticmethod
     def baudrates() -> builtins.dict[builtins.int, builtins.int]:
         r"""
         Serial rates the servo can be set to, as {baud rate: register value},
@@ -4091,6 +4282,13 @@ class Xl430PyController:
     def ping(self, id: builtins.int) -> builtins.bool: ...
     def reboot(self, id: builtins.int) -> builtins.bool: ...
     def factory_reset(self, id: builtins.int, conserve_id_only: builtins.bool = True, conserve_id_and_baudrate: builtins.bool = True) -> None: ...
+    def reset_turn_count(self, id: builtins.int) -> builtins.int:
+        r"""
+        Zero the turn count of motor `id` with its torque off (Feetech's RESET,
+        0x0A, or Dynamixel's Clear, 0x10), and return the status packet's error
+        byte. A servo not known to answer it (`supports_turn_count_reset()`)
+        raises `RuntimeError` before anything reaches the bus.
+        """
     def read_register(self, id: builtins.int, name: builtins.str, retries: builtins.int = 0) -> builtins.int:
         r"""
         Read register `name` as an integer, decoded from the servo's word

@@ -62,6 +62,7 @@ Usage::
         ListInferenceExperimentsPaginator,
         ListInferenceRecommendationsJobStepsPaginator,
         ListInferenceRecommendationsJobsPaginator,
+        ListInferenceRoutersPaginator,
         ListJobSchemaVersionsPaginator,
         ListJobsPaginator,
         ListLabelingJobsForWorkteamPaginator,
@@ -182,6 +183,7 @@ Usage::
     list_inference_experiments_paginator: ListInferenceExperimentsPaginator = client.get_paginator("list_inference_experiments")
     list_inference_recommendations_job_steps_paginator: ListInferenceRecommendationsJobStepsPaginator = client.get_paginator("list_inference_recommendations_job_steps")
     list_inference_recommendations_jobs_paginator: ListInferenceRecommendationsJobsPaginator = client.get_paginator("list_inference_recommendations_jobs")
+    list_inference_routers_paginator: ListInferenceRoutersPaginator = client.get_paginator("list_inference_routers")
     list_job_schema_versions_paginator: ListJobSchemaVersionsPaginator = client.get_paginator("list_job_schema_versions")
     list_jobs_paginator: ListJobsPaginator = client.get_paginator("list_jobs")
     list_labeling_jobs_for_workteam_paginator: ListLabelingJobsForWorkteamPaginator = client.get_paginator("list_labeling_jobs_for_workteam")
@@ -281,6 +283,7 @@ from .paginator import (
     ListInferenceExperimentsPaginator,
     ListInferenceRecommendationsJobsPaginator,
     ListInferenceRecommendationsJobStepsPaginator,
+    ListInferenceRoutersPaginator,
     ListJobSchemaVersionsPaginator,
     ListJobsPaginator,
     ListLabelingJobsForWorkteamPaginator,
@@ -404,6 +407,7 @@ __all__ = (
     "ListInferenceExperimentsPaginator",
     "ListInferenceRecommendationsJobStepsPaginator",
     "ListInferenceRecommendationsJobsPaginator",
+    "ListInferenceRoutersPaginator",
     "ListJobSchemaVersionsPaginator",
     "ListJobsPaginator",
     "ListLabelingJobsForWorkteamPaginator",

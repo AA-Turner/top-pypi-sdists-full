@@ -13,10 +13,11 @@ pub mod pair;
 use std::collections::HashMap;
 
 use crate::{
+	lossless::LinkKind,
 	node::{
 		Block, Blocks, Element, Elements, Id, Ids, Inline, Inlines, SpannedBlock, SpannedElement,
 		SpannedInline,
-		block::{Heading, List, Small, list::item::Item},
+		block::{Heading, List, Subtext, list::item::Item},
 		flatten,
 		inline::link::Link,
 	},
@@ -36,11 +37,12 @@ pub enum Content {
 	Inline,
 }
 
-/// What [`resolve`] does with an opener that block syntax was recognized after but that matched
-/// nothing.
+/// What [`resolve`] does with a delimiter run that the parse could only guess was one, but that
+/// matched nothing: an opener that block syntax was recognized after, or a run straight after a
+/// detected URL.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unmatched {
-	/// Fail with its offset, so the caller can parse again with it disabled.
+	/// Fail with its offset, so the caller can parse again knowing it is not a delimiter.
 	Reject,
 	/// Leave it as text where it stands.
 	Text,
@@ -55,6 +57,8 @@ struct Collect {
 	prev: Neighbor,
 	/// How many leaves the walk has passed.
 	leaves: usize,
+	/// Whether the last thing the walk passed was a detected URL.
+	after_url: bool,
 }
 
 impl Collect {
@@ -71,16 +75,20 @@ impl Collect {
 	#[tracing::instrument(name = "collect", level = Level::TRACE, skip_all)]
 	fn seq<S: Span>(&mut self, seq: &[SpannedElement<'_, S>]) {
 		for node in seq {
+			let after_url = std::mem::take(&mut self.after_url);
 			match &node.value {
-				Element::Delim(delim) => self.delim(*delim),
-				element => self.element(element),
+				Element::Delim(delim) => self.delim(*delim, after_url),
+				element => {
+					self.element(element);
+					self.after_url = matches!(element, Element::Link(LinkKind::Detected, _));
+				}
 			}
 		}
 	}
 
 	/// Record `delim` as a token, with the character before it; the one after it is filled in by
 	/// whatever comes next.
-	fn delim(&mut self, delim: Delim) {
+	fn delim(&mut self, delim: Delim, after_url: bool) {
 		let prev = self.prev;
 		let ch = Neighbor::Char(delim.ch.char());
 		self.chars(ch, ch);
@@ -89,6 +97,7 @@ impl Collect {
 			prev,
 			next: Neighbor::LINE_END,
 			leaves: self.leaves,
+			after_url,
 		});
 		// a delimiter alone on its line has a line ending after it, which the line consumed
 		if delim.alone {
@@ -337,7 +346,7 @@ impl<'a> Rebuild<'a> {
 				level,
 				content: self.inline_content(content, next(), applied),
 			}),
-			Element::Small(Small { content }) => Block::Small(Small {
+			Element::Subtext(Subtext { content }) => Block::Subtext(Subtext {
 				content: self.inline_content(content, next(), applied),
 			}),
 			Element::Quote(_, content) => {
@@ -463,7 +472,7 @@ impl<'a> Rebuild<'a> {
 			| Element::List(_)
 			| Element::Paragraph(_)
 			| Element::Quote(..)
-			| Element::Small(_)
+			| Element::Subtext(_)
 			| Element::Empty => {
 				unreachable!("inline content is parsed with the inline rules alone")
 			}
@@ -549,7 +558,7 @@ fn flatten_blocks<S: Span>(blocks: &mut [SpannedBlock<'_, S>]) {
 		match &mut block.value {
 			Block::Paragraph(content)
 			| Block::Heading(Heading { content, .. })
-			| Block::Small(Small { content }) => flatten(&mut content.value),
+			| Block::Subtext(Subtext { content }) => flatten(&mut content.value),
 			Block::Quote(content) => flatten_blocks(&mut content.value),
 			Block::List(list) => {
 				for item in &mut list.items.value {
@@ -578,6 +587,7 @@ fn place<S: Span>(
 		pending: 0,
 		prev: Neighbor::LINE_END,
 		leaves: 0,
+		after_url: false,
 	};
 	collect.seq(nodes);
 	let tokens = collect.tokens;
@@ -588,7 +598,7 @@ fn place<S: Span>(
 			.iter()
 			.zip(matches.iter())
 			.filter(|(token, matched)| {
-				token.delim.before_block && matched.leftover == token.delim.len
+				(token.delim.before_block || token.after_url) && matched.leftover == token.delim.len
 			})
 			.map(|(token, _)| token.delim.start)
 			.collect();
@@ -610,9 +620,11 @@ fn place<S: Span>(
 /// resulting ranges, producing the finished tree.
 ///
 /// # Errors
-/// With [`Unmatched::Reject`], the offsets of any openers that block syntax was recognized after
-/// but that matched nothing. Their lines are paragraphs -- `__# a` is not a heading -- so the
-/// caller must parse again with them disabled, as [`crate::parse`] does.
+/// With [`Unmatched::Reject`], the offsets of any delimiter runs that matched nothing and that
+/// the parse could only guess were delimiters: openers that block syntax was recognized after,
+/// whose lines are paragraphs -- `__# a` is not a heading -- and runs straight after a detected
+/// URL, which belong to it -- `https://example.com/abc_` ends in its `_`. The caller must parse
+/// again knowing they are not delimiters, as [`crate::parse`] does.
 ///
 /// Spoilers take their ids from `ids`.
 #[tracing::instrument(level = Level::TRACE, skip(nodes, ids), err(level = Level::TRACE, Debug))]

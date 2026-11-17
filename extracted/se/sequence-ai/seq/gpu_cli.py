@@ -13,6 +13,7 @@ the system `ssh`.
 """
 from __future__ import annotations
 
+import os
 import signal
 import subprocess
 import sys
@@ -70,8 +71,8 @@ def _held(said: str) -> Iterator[Callable[[], bool]]:
     command stopped then never hears their ids - they would start, and be billed once they run, after it said
     "cancelled". Held, it is said (`said`) and the add's answer awaited, so what it added can be removed; a second goes
     through. Where no handler can be set (not the main thread), a Ctrl-C goes through as ever. The handler before is set
-    back. {worker 6 on dev 11-14 20:38Z: a Ctrl-C 2.0 s into the add said "cancelled", and gpu-bff72487feb7 was starting
-    8 s later}"""
+    back.
+"""
     pressed: list = []
 
     def hold(_signum: int, _frame: Any) -> None:
@@ -98,7 +99,7 @@ def _expected_ms(m: dict) -> Any:
 
 
 def _cards(m: dict) -> int:
-    """How many cards a GPU machine has: its `cards`, which the platform gives each since hf3u; 1 for one it does not say
+    """How many cards a GPU machine has: its `cards`, which the platform gives each; 1 for one it does not say
     it of."""
     n = m.get("cards")
     return n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 1
@@ -238,8 +239,8 @@ def gpu_places(text: str = "", limit: int = 8, *, base_url: str | None = None, e
     their own name first, the largest first, one a line - its name, state and country, then its latitude and longitude,
     either of which `seq gpu add --place` takes, and "(as <that other name>)" for a city found by one ("big apple": New
     York City, as Big Apple). Returns the list sequence_ai.gpu.places read.
-    {the user 11-11: "a city drop down list and auto fill the long and lat"; the user 11-12: "we shouldnt allow
-    locaiton out of us"}"""
+    
+"""
     import sequence_ai
 
     cities = sequence_ai.gpu.places(text, limit, base_url=base_url)
@@ -313,8 +314,8 @@ def gpu_history(limit: int | None = None, cursor: str | None = None, *, base_url
                 echo: Echo = _silent) -> dict:
     """`seq gpu history [--limit N] [--cursor C]`: your GPU machines that are over, kept 30 days, the one ended last
     first — id, the place you asked for, its cards, status, when it started and ended, what it cost in all, and why one
-    failed — a page at a time. Returns what sequence_ai.gpu.history read. {the user 11-12: "if it is closed we should
-    have a history secciton instead of these thse should only be live"}"""
+    failed — a page at a time. Returns what sequence_ai.gpu.history read.
+"""
     import sequence_ai
 
     out = sequence_ai.gpu.history(limit, cursor, base_url=base_url)
@@ -372,23 +373,40 @@ def gpu_logs(gpu_id: str, *, since: str | None = None, follow: bool = False, bas
 
 
 
-def _ssh_key() -> tuple[Path, Path]:
+def _ssh_key() -> tuple[Path, Path] | None:
     """Your SSH key pair under ~/.ssh — (public, private): id_ed25519 first, then id_rsa, then id_ecdsa, then any
-    *.pub; a new ed25519 key is made (no passphrase) when you have none. Only the public half is ever read and sent;
-    the private half stays on disk for the system ssh to use."""
+    *.pub; None when you have none (gpu_ssh makes one: _made, _kept). Only the public half is ever read and sent; the
+    private half stays on disk for the system ssh to use."""
     d = Path.home() / ".ssh"
     for name in ("id_ed25519.pub", "id_rsa.pub", "id_ecdsa.pub"):
         pub = d / name
         if pub.exists():
             return pub, pub.with_suffix("")
     found = sorted(d.glob("*.pub")) if d.exists() else []
-    if found:
-        return found[0], found[0].with_suffix("")
-    d.mkdir(mode=0o700, exist_ok=True)
-    priv = d / "id_ed25519"
-    print(f"no SSH key in ~/.ssh — making {priv}", file=sys.stderr, flush=True)
+    return (found[0], found[0].with_suffix("")) if found else None
+
+
+def _made(aside: Path) -> Path:
+    """A new ed25519 key, no passphrase, made in `aside` - a directory of this run's, not ~/.ssh: its public half."""
+    priv = aside / "id_ed25519"
     subprocess.run(["ssh-keygen", "-t", "ed25519", "-f", str(priv), "-N", "", "-C", "sequence-gpu"],
                    check=True, stdout=subprocess.DEVNULL)
+    return priv.with_suffix(".pub")
+
+
+def _kept(made: Path) -> tuple[Path, Path]:
+    """The key _made made (`made` its public half), kept in ~/.ssh as id_ed25519 - (public, private) - and never over a
+    file there: one that took the name while this ran (another `seq gpu ssh` that made one) is left as it is, said."""
+    d = Path.home() / ".ssh"
+    d.mkdir(mode=0o700, exist_ok=True)
+    priv = d / "id_ed25519"
+    try:
+        for src, dst, mode in ((made.with_suffix(""), priv, 0o600), (made, priv.with_suffix(".pub"), 0o644)):
+            with os.fdopen(os.open(dst, os.O_WRONLY | os.O_CREAT | os.O_EXCL, mode), "wb") as f:
+                f.write(src.read_bytes())
+    except FileExistsError:
+        raise Unavailable(f"{priv} was made while this ran - run `seq gpu ssh` again to use it") from None
+    print(f"no SSH key in ~/.ssh — made {priv}", file=sys.stderr, flush=True)
     return priv.with_suffix(".pub"), priv
 
 
@@ -397,10 +415,20 @@ def gpu_ssh(gpu_id: str, words: list[str], *, do_print: bool = False, base_url: 
     platform signs into a certificate, then hand off to the system ssh as root — a shell, or one command after `--`.
     Its exit code is the ssh's own. `--print` (do_print) instead keeps the certificate under ~/.config/sequences and prints an
     ~/.ssh/config Host block for it, named by its id, without connecting. (A machine that is not running is refused by the gateway, said
-    as it comes.)"""
+    as it comes.) With no key in ~/.ssh, one is made aside and kept there once the platform answered for that
+    machine: one that is not there, or does not run, is refused with ~/.ssh as it was.
+
+"""
     path = f"/v1/gpus/{segment(gpu_id, 'gpu id')}/ssh"
-    pub, priv = _ssh_key()
-    info = _call("POST", path, base_url, {"public_key": pub.read_text().strip()})
+    key = _ssh_key()
+    if key is None:
+        with tempfile.TemporaryDirectory() as aside:
+            made = _made(Path(aside))
+            info = _call("POST", path, base_url, {"public_key": made.read_text().strip()})
+            key = _kept(made)
+    else:
+        info = _call("POST", path, base_url, {"public_key": key[0].read_text().strip()})
+    priv = key[1]
     host, port, user = info.get("host"), info.get("port"), info.get("user") or "root"
 
 

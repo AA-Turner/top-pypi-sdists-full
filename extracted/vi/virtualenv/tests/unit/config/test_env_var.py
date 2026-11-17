@@ -53,6 +53,11 @@ def test_python_multi_value_prefer_newline_via_env_var(monkeypatch) -> None:
         pytest.param(" a , b ", ["a", "b"], id="strips_whitespace"),
         pytest.param("a\n\nb", ["a", "b"], id="drops_blank_lines"),
         pytest.param("a", ["a"], id="single"),
+        pytest.param(">=3.9,<3.10", [">=3.9,<3.10"], id="version_specifier"),
+        pytest.param("python3.8, >=3.9,!=3.9.1,<3.12", ["python3.8", ">=3.9,!=3.9.1,<3.12"], id="specifier_after_name"),
+        pytest.param("cpython>=3.9,<3.10", ["cpython>=3.9,<3.10"], id="specifier_with_implementation"),
+        pytest.param("cpython>=3.9,pypy>=3.10", ["cpython>=3.9", "pypy>=3.10"], id="two_implementations_split"),
+        pytest.param("python3,python27", ["python3", "python27"], id="names_still_split"),
         pytest.param("", [], id="empty"),
         pytest.param(b"a,b", ["a", "b"], id="bytes_comma"),
         pytest.param(b"a\nb", ["a", "b"], id="bytes_newline"),
@@ -65,8 +70,7 @@ def test_split_values(value, expected) -> None:
 
 def test_extra_search_dir_via_env_var(tmp_path, monkeypatch) -> None:
     monkeypatch.chdir(tmp_path)
-    value = f"a{os.linesep}0{os.linesep}b{os.pathsep}c"
-    monkeypatch.setenv("VIRTUALENV_EXTRA_SEARCH_DIR", str(value))
+    monkeypatch.setenv("VIRTUALENV_EXTRA_SEARCH_DIR", str(f"a{os.linesep}0{os.linesep}b{os.pathsep}c"))
     (tmp_path / "a").mkdir()
     (tmp_path / "b").mkdir()
     (tmp_path / "c").mkdir()
@@ -77,8 +81,10 @@ def test_extra_search_dir_via_env_var(tmp_path, monkeypatch) -> None:
 @pytest.mark.usefixtures("_empty_conf")
 @pytest.mark.skipif(is_macos_brew(PythonInfo.current_system()), reason="no copy on brew")
 def test_value_alias(monkeypatch, mocker) -> None:
+    # imported with the test, which needs only this parser
     from virtualenv.config.cli.parser import VirtualEnvConfigParser  # ruff:ignore[import-outside-top-level]
 
+    # the test patches the private _fix_default, which has no public accessor
     prev = VirtualEnvConfigParser._fix_default  # ruff:ignore[private-member-access]
 
     def func(self, action):
@@ -88,7 +94,7 @@ def test_value_alias(monkeypatch, mocker) -> None:
             action.default = False  # force default copy to be False, we expect env-var to flip it
         return prev(self, action)
 
-    mocker.patch("virtualenv.run.VirtualEnvConfigParser._fix_default", side_effect=func, autospec=True)
+    mocker.patch("virtualenv.config.cli.parser.VirtualEnvConfigParser._fix_default", side_effect=func, autospec=True)
 
     monkeypatch.delenv("SYMLINKS", raising=False)
     monkeypatch.delenv("VIRTUALENV_COPIES", raising=False)

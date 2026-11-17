@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import datetime as dt
+import importlib
 import sqlite3
 from collections.abc import Generator
 from math import e, pi, sqrt
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 from pytest_lazy_fixtures import lf
@@ -1560,9 +1561,11 @@ class TestRepr:
 
 
 class TestBreakOnHyphens:
-    row = [
-        "bluedevil breeze breeze-gtk eos-bash-shared glib2 "
-        "kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration"
+    row: ClassVar[list[str]] = [
+        (
+            "bluedevil breeze breeze-gtk eos-bash-shared glib2 "
+            "kactivitymanagerd kde-cli-tools kde-gtk-config kdecoration"
+        )
     ]
     EXPECTED_TRUE = """+------------------------------------------+
 |                 Field 1                  |
@@ -1720,9 +1723,11 @@ class TestWidth:
                 0,
                 0,
                 0,
-                "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
-                "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
-                "erat, sed diam voluptua",
+                (
+                    "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
+                    "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
+                    "erat, sed diam voluptua"
+                ),
             ]
         )
 
@@ -1915,9 +1920,11 @@ class TestWidth:
                 0,
                 0,
                 0,
-                "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
-                "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
-                "erat, sed diam voluptua",
+                (
+                    "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
+                    "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
+                    "erat, sed diam voluptua"
+                ),
             ]
         )
 
@@ -1944,9 +1951,11 @@ class TestWidth:
                 0,
                 0,
                 0,
-                "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
-                "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
-                "erat, sed diam voluptua",
+                (
+                    "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam "
+                    "nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam "
+                    "erat, sed diam voluptua"
+                ),
             ]
         )
 
@@ -2006,6 +2015,31 @@ class TestGeneralOutput:
     def test_copy(self, helper_table: PrettyTable) -> None:
         t_copy = helper_table.copy()
         assert helper_table.get_string() == t_copy.get_string()
+
+    @pytest.mark.parametrize(
+        "attribute, value",
+        [
+            ("custom_format", {"Field 2": lambda field, value: f"[{value}]"}),
+            ("float_format", {"Field 2": ".2"}),
+            ("int_format", {"Field 2": "03"}),
+            ("none_format", {"Field 2": "-"}),
+        ],
+    )
+    def test_copy_with_format_option(
+        self, helper_table: PrettyTable, attribute: str, value: dict[str, Any]
+    ) -> None:
+        setattr(helper_table, attribute, value)
+        t_copy = helper_table.copy()
+        assert getattr(t_copy, attribute) == value
+        assert helper_table.get_string() == t_copy.get_string()
+
+        # The copy's callbacks update the copy, not the original
+        t_copy.custom_format["Field 2"] = lambda field, value: "changed"
+        assert "changed" in t_copy.get_string()
+        assert "changed" not in helper_table.get_string()
+        assert getattr(helper_table, attribute) == value
+        for name in ("float_format", "int_format", "none_format"):
+            assert "Field 2" not in getattr(t_copy, name)
 
     def test_text(self, helper_table: PrettyTable) -> None:
         assert helper_table.get_formatted_string("text") == helper_table.get_string()
@@ -2080,7 +2114,7 @@ class TestDeprecations:
     )
     def test_hrule_constant_deprecations(self, module_name: str, name: str) -> None:
         with pytest.deprecated_call(match=f"the '{name}' constant is deprecated"):
-            exec(f"from {module_name} import {name}")
+            getattr(importlib.import_module(module_name), name)
 
     @pytest.mark.parametrize(
         "module_name",
@@ -2106,7 +2140,7 @@ class TestDeprecations:
         self, module_name: str, name: str
     ) -> None:
         with pytest.deprecated_call(match=f"the '{name}' constant is deprecated"):
-            exec(f"from {module_name} import {name}")
+            getattr(importlib.import_module(module_name), name)
 
     def test_options_type_deprecation(self) -> None:
         with pytest.deprecated_call(match="OptionsType"):

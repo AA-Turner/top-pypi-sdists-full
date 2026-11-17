@@ -1,0 +1,1 @@
+import{n as e,r as t}from"./refreshRemoteConfig-D04pmfKv.js";export{e as loadRemoteConfigUntilReady,t as refreshRemoteConfig};

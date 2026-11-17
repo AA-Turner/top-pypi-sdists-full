@@ -1,7 +1,7 @@
 from http import HTTPStatus
-from typing import Any, Optional, Union
+from typing import Any
 
-import httpx
+import httpx2
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
@@ -14,11 +14,11 @@ from ...types import UNSET, Response, Unset
 def _get_kwargs(
     *,
     owner_id: str,
-    sandbox_group_id: Union[Unset, str] = UNSET,
-    name: Union[Unset, str] = UNSET,
-    cursor: Union[Unset, str] = UNSET,
-    limit: Union[Unset, int] = 20,
-    status: Union[Unset, list[SandboxStatus]] = UNSET,
+    sandbox_group_id: str | Unset = UNSET,
+    name: str | Unset = UNSET,
+    cursor: str | Unset = UNSET,
+    limit: int | Unset = 20,
+    status: list[SandboxStatus] | Unset = UNSET,
 ) -> dict[str, Any]:
     params: dict[str, Any] = {}
 
@@ -32,7 +32,7 @@ def _get_kwargs(
 
     params["limit"] = limit
 
-    json_status: Union[Unset, list[str]] = UNSET
+    json_status: list[str] | Unset = UNSET
     if not isinstance(status, Unset):
         json_status = []
         for status_item_data in status:
@@ -53,8 +53,8 @@ def _get_kwargs(
 
 
 def _parse_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Optional[Union[Error, list["SandboxWithCursor"]]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Error | list[SandboxWithCursor] | None:
     if response.status_code == 200:
         response_200 = []
         _response_200 = response.json()
@@ -107,8 +107,8 @@ def _parse_response(
 
 
 def _build_response(
-    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
-) -> Response[Union[Error, list["SandboxWithCursor"]]]:
+    *, client: AuthenticatedClient | Client, response: httpx2.Response
+) -> Response[Error | list[SandboxWithCursor]]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -119,33 +119,34 @@ def _build_response(
 
 def sync_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     owner_id: str,
-    sandbox_group_id: Union[Unset, str] = UNSET,
-    name: Union[Unset, str] = UNSET,
-    cursor: Union[Unset, str] = UNSET,
-    limit: Union[Unset, int] = 20,
-    status: Union[Unset, list[SandboxStatus]] = UNSET,
-) -> Response[Union[Error, list["SandboxWithCursor"]]]:
+    sandbox_group_id: str | Unset = UNSET,
+    name: str | Unset = UNSET,
+    cursor: str | Unset = UNSET,
+    limit: int | Unset = 20,
+    status: list[SandboxStatus] | Unset = UNSET,
+) -> Response[Error | list[SandboxWithCursor]]:
     """List sandboxes
 
-     List sandboxes for a single workspace. Sandboxes are scoped to the region of
-    their workspace's sandbox group, so one workspace must be named per request.
+     List sandboxes in a workspace. Each request must specify one workspace. Sandboxes run in the region
+    of their sandbox group.
 
     Args:
         owner_id (str):
-        sandbox_group_id (Union[Unset, str]):  Example: sbg-cph1rs3idesc73a2b2mg.
-        name (Union[Unset, str]):
-        cursor (Union[Unset, str]):
-        limit (Union[Unset, int]): Defaults to 20 Default: 20.
-        status (Union[Unset, list[SandboxStatus]]):
+        sandbox_group_id (str | Unset): The ID of the sandbox group. Example: sbg-
+            cph1rs3idesc73a2b2mg.
+        name (str | Unset):
+        cursor (str | Unset):
+        limit (int | Unset): Defaults to 20 Default: 20.
+        status (list[SandboxStatus] | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, list['SandboxWithCursor']]]
+        Response[Error | list[SandboxWithCursor]]
     """
 
     kwargs = _get_kwargs(
@@ -166,33 +167,34 @@ def sync_detailed(
 
 def sync(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     owner_id: str,
-    sandbox_group_id: Union[Unset, str] = UNSET,
-    name: Union[Unset, str] = UNSET,
-    cursor: Union[Unset, str] = UNSET,
-    limit: Union[Unset, int] = 20,
-    status: Union[Unset, list[SandboxStatus]] = UNSET,
-) -> Optional[Union[Error, list["SandboxWithCursor"]]]:
+    sandbox_group_id: str | Unset = UNSET,
+    name: str | Unset = UNSET,
+    cursor: str | Unset = UNSET,
+    limit: int | Unset = 20,
+    status: list[SandboxStatus] | Unset = UNSET,
+) -> Error | list[SandboxWithCursor] | None:
     """List sandboxes
 
-     List sandboxes for a single workspace. Sandboxes are scoped to the region of
-    their workspace's sandbox group, so one workspace must be named per request.
+     List sandboxes in a workspace. Each request must specify one workspace. Sandboxes run in the region
+    of their sandbox group.
 
     Args:
         owner_id (str):
-        sandbox_group_id (Union[Unset, str]):  Example: sbg-cph1rs3idesc73a2b2mg.
-        name (Union[Unset, str]):
-        cursor (Union[Unset, str]):
-        limit (Union[Unset, int]): Defaults to 20 Default: 20.
-        status (Union[Unset, list[SandboxStatus]]):
+        sandbox_group_id (str | Unset): The ID of the sandbox group. Example: sbg-
+            cph1rs3idesc73a2b2mg.
+        name (str | Unset):
+        cursor (str | Unset):
+        limit (int | Unset): Defaults to 20 Default: 20.
+        status (list[SandboxStatus] | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, list['SandboxWithCursor']]
+        Error | list[SandboxWithCursor]
     """
 
     return sync_detailed(
@@ -208,33 +210,34 @@ def sync(
 
 async def asyncio_detailed(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     owner_id: str,
-    sandbox_group_id: Union[Unset, str] = UNSET,
-    name: Union[Unset, str] = UNSET,
-    cursor: Union[Unset, str] = UNSET,
-    limit: Union[Unset, int] = 20,
-    status: Union[Unset, list[SandboxStatus]] = UNSET,
-) -> Response[Union[Error, list["SandboxWithCursor"]]]:
+    sandbox_group_id: str | Unset = UNSET,
+    name: str | Unset = UNSET,
+    cursor: str | Unset = UNSET,
+    limit: int | Unset = 20,
+    status: list[SandboxStatus] | Unset = UNSET,
+) -> Response[Error | list[SandboxWithCursor]]:
     """List sandboxes
 
-     List sandboxes for a single workspace. Sandboxes are scoped to the region of
-    their workspace's sandbox group, so one workspace must be named per request.
+     List sandboxes in a workspace. Each request must specify one workspace. Sandboxes run in the region
+    of their sandbox group.
 
     Args:
         owner_id (str):
-        sandbox_group_id (Union[Unset, str]):  Example: sbg-cph1rs3idesc73a2b2mg.
-        name (Union[Unset, str]):
-        cursor (Union[Unset, str]):
-        limit (Union[Unset, int]): Defaults to 20 Default: 20.
-        status (Union[Unset, list[SandboxStatus]]):
+        sandbox_group_id (str | Unset): The ID of the sandbox group. Example: sbg-
+            cph1rs3idesc73a2b2mg.
+        name (str | Unset):
+        cursor (str | Unset):
+        limit (int | Unset): Defaults to 20 Default: 20.
+        status (list[SandboxStatus] | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Union[Error, list['SandboxWithCursor']]]
+        Response[Error | list[SandboxWithCursor]]
     """
 
     kwargs = _get_kwargs(
@@ -253,33 +256,34 @@ async def asyncio_detailed(
 
 async def asyncio(
     *,
-    client: Union[AuthenticatedClient, Client],
+    client: AuthenticatedClient | Client,
     owner_id: str,
-    sandbox_group_id: Union[Unset, str] = UNSET,
-    name: Union[Unset, str] = UNSET,
-    cursor: Union[Unset, str] = UNSET,
-    limit: Union[Unset, int] = 20,
-    status: Union[Unset, list[SandboxStatus]] = UNSET,
-) -> Optional[Union[Error, list["SandboxWithCursor"]]]:
+    sandbox_group_id: str | Unset = UNSET,
+    name: str | Unset = UNSET,
+    cursor: str | Unset = UNSET,
+    limit: int | Unset = 20,
+    status: list[SandboxStatus] | Unset = UNSET,
+) -> Error | list[SandboxWithCursor] | None:
     """List sandboxes
 
-     List sandboxes for a single workspace. Sandboxes are scoped to the region of
-    their workspace's sandbox group, so one workspace must be named per request.
+     List sandboxes in a workspace. Each request must specify one workspace. Sandboxes run in the region
+    of their sandbox group.
 
     Args:
         owner_id (str):
-        sandbox_group_id (Union[Unset, str]):  Example: sbg-cph1rs3idesc73a2b2mg.
-        name (Union[Unset, str]):
-        cursor (Union[Unset, str]):
-        limit (Union[Unset, int]): Defaults to 20 Default: 20.
-        status (Union[Unset, list[SandboxStatus]]):
+        sandbox_group_id (str | Unset): The ID of the sandbox group. Example: sbg-
+            cph1rs3idesc73a2b2mg.
+        name (str | Unset):
+        cursor (str | Unset):
+        limit (int | Unset): Defaults to 20 Default: 20.
+        status (list[SandboxStatus] | Unset):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
-        httpx.TimeoutException: If the request takes longer than Client.timeout.
+        httpx2.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Union[Error, list['SandboxWithCursor']]
+        Error | list[SandboxWithCursor]
     """
 
     return (

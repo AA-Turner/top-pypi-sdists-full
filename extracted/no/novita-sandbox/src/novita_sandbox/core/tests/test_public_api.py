@@ -96,7 +96,7 @@ def test_core_sandbox_instance_contract():
     assert sandbox.git is not None
     assert sandbox.sandbox_id == "sandbox-id"
     assert sandbox.sandbox_domain is not None
-    assert callable(sandbox.hotplug_memory)
+    assert not hasattr(sandbox, "hotplug_memory")
     assert callable(sandbox.resize)
 
 
@@ -407,15 +407,15 @@ def test_novita_template_namespace_preserves_positional_list_arguments(monkeypat
     assert captured["opts"]["request_timeout"] == 5
 
 
-def test_resize_delegates_to_hotplug_memory(monkeypatch):
+def test_resize_delegates_to_target_resources(monkeypatch):
     captured = {}
 
-    def fake_hotplug(self, requested_size_mib, **opts):
-        captured["sandbox_id"] = self.sandbox_id
-        captured["requested_size_mib"] = requested_size_mib
+    def fake_resize(cls, sandbox_id, **opts):
+        captured["sandbox_id"] = sandbox_id
         captured["opts"] = opts
+        return {"memory": {"status": "applied", "current": 2}}
 
-    monkeypatch.setattr(Sandbox, "hotplug_memory", fake_hotplug)
+    monkeypatch.setattr(core_client.SandboxApi, "_cls_resize", classmethod(fake_resize))
 
     sandbox = Sandbox(
         sandbox_id="sandbox-id",
@@ -425,43 +425,34 @@ def test_resize_delegates_to_hotplug_memory(monkeypatch):
         connection_config=ConnectionConfig(api_key="test-key"),
     )
 
-    sandbox.resize(memory_mib=512, request_timeout=5)
-
-    assert captured == {
-        "sandbox_id": "sandbox-id",
-        "requested_size_mib": 512,
-        "opts": {"request_timeout": 5},
-    }
+    result = sandbox.resize(memory_gib=2, request_timeout=5)
+    assert result["memory"]["current"] == 2
+    assert captured["sandbox_id"] == "sandbox-id"
+    assert captured["opts"]["memory_gib"] == 2
+    assert captured["opts"]["request_timeout"] == 5
 
 
-def test_novita_resize_namespaces_delegate_to_hotplug_memory(monkeypatch):
+def test_novita_resize_namespaces_use_target_resources_for_sandbox(monkeypatch):
     captured = []
 
-    def fake_hotplug(cls, sandbox_id, requested_size_mib=0, **opts):
+    def fake_resize(cls, sandbox_id, **opts):
         captured.append(
-            {
-                "sandbox_id": sandbox_id,
-                "requested_size_mib": requested_size_mib,
-                "opts": opts,
-            }
+            {"sandbox_id": sandbox_id, "target": opts["memory_gib"], "opts": opts}
         )
+        return {"memory": {"status": "applied", "current": 2}}
 
-    monkeypatch.setattr(
-        core_client.SandboxApi,
-        "_cls_hotplug_memory",
-        classmethod(fake_hotplug),
-    )
+    monkeypatch.setattr(core_client.SandboxApi, "_cls_resize", classmethod(fake_resize))
 
     novita = Novita(api_key="client-key", headers={"X-Base": "1"})
 
     novita.sandbox.resize(
         "sandbox-id",
-        memory_mib=512,
+        memory_gib=2,
         request_timeout=5,
         headers={"X-Next": "2"},
     )
-    novita.code_interpreter.resize("code-id", memory_mib=256)
-    novita.desktop.resize("desktop-id", memory_mib=128)
+    novita.code_interpreter.resize("code-id", memory_gib=2)
+    novita.desktop.resize("desktop-id", memory_gib=2)
 
     assert len(captured) == 3
     assert [call["sandbox_id"] for call in captured] == [
@@ -469,7 +460,8 @@ def test_novita_resize_namespaces_delegate_to_hotplug_memory(monkeypatch):
         "code-id",
         "desktop-id",
     ]
-    assert [call["requested_size_mib"] for call in captured] == [512, 256, 128]
+    assert captured[0]["target"] == 2
+    assert [call["target"] for call in captured[1:]] == [2, 2]
 
     assert captured[0]["opts"]["api_key"] == "client-key"
     assert captured[0]["opts"]["request_timeout"] == 5

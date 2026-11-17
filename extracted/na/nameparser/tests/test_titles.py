@@ -1,4 +1,3 @@
-import pytest
 
 from nameparser import parse
 
@@ -56,12 +55,9 @@ class TitleTestCase(ParsedNameTestBase):
         hn = parse("Coach")
         self.m(hn.title, "Coach", hn)
 
-    # TODO: fix handling of U.S. -- 2.0 matches v1 here: lc()-style
-    # normalization keeps 'u.s' out of the titles vocabulary, so the
-    # chain never starts (an interim 2.0 build that stripped interior
-    # periods made this pass, but that normalization wrongly turned
-    # 'J.R.' into the title 'jr'; v1 parity won)
-    @pytest.mark.xfail(reason="#490")
+    # rules/H10 (#490): 'us' is a title written `dotted`, so the run of
+    # letters spells it where a title follows it; 'U.S. Grant' keeps
+    # its given name (tests/v2/cases.py)
     def test_chained_title_first_name_title_is_initials(self) -> None:
         hn = parse("U.S. District Judge Marc Thomas Treadwell")
         self.m(hn.title, "U.S. District Judge", hn)
@@ -144,8 +140,9 @@ class TitleTestCase(ParsedNameTestBase):
 
     def test_initials_also_suffix(self) -> None:
         hn = parse("Smith, J.R.")
-        self.m(hn.given, "J.R.", hn)
-        # self.m(hn.middle, "R.", hn)
+        # rules/T7 (#1296): the run parts into its initials
+        self.m(hn.given, "J.", hn)
+        self.m(hn.middle, "R.", hn)
         self.m(hn.family, "Smith", hn)
 
     def test_two_title_parts_separated_by_periods(self) -> None:
@@ -204,7 +201,10 @@ class TitleTestCase(ParsedNameTestBase):
         # decisions/v1-xfail-triage): the question was already settled in
         # v0.2.5, when 'ben' was removed from the prefixes. 'ben' collides with
         # the given name Ben, which is the same criterion
-        # (decisions/vocabulary-collisions) that keeps it out today.
+        # (decisions/vocabulary-collisions) that keeps it out of the
+        # default today; since #1257 an Arabic or Hebrew choice reads it
+        # as a clan particle (locales.AR, locales.HE), where this name
+        # gives family 'ben Husain'.
         # test_ben_as_first_name below is the collision it protects.
         hn = parse("Ahmad ben Husain")
         self.m(hn.title, "", hn)
@@ -347,7 +347,9 @@ class TitleTestCase(ParsedNameTestBase):
 
     def test_leading_internal_period_abbreviation_excluded(self) -> None:
         hn = parse("E.T. Smith")
-        self.m(hn.given, "E.T.", hn)
+        # rules/T7 (#1296): the run parts into its initials
+        self.m(hn.given, "E.", hn)
+        self.m(hn.middle, "T.", hn)
         self.m(hn.family, "Smith", hn)
         self.m(hn.title, "", hn)
 

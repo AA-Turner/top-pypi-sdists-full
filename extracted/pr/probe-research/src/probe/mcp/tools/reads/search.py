@@ -253,8 +253,9 @@ class SearchMixin:
             and raw_semantic.get("retrieval") == BackendRetrieval.KEYWORD
         )
         merged = _interleave(
-            [(_exact_result(row), row) for row in exact["results"]],
-            [(_semantic_result(row, keyword=keyword_ran), row) for row in semantic["results"]],
+            [(_exact_result(row, api_base_url=self._api_base_url), row) for row in exact["results"]],
+            [(_semantic_result(row, keyword=keyword_ran, api_base_url=self._api_base_url), row)
+             for row in semantic["results"]],
         )
         if people["sort"]:
             # Newest first across BOTH channels (D16): a round-robin would put an old exact hit

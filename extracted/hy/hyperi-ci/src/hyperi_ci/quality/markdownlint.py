@@ -15,8 +15,12 @@ from :mod:`hyperi_ci.quality.node_tools`.
 
 import re
 import shutil
-from pathlib import Path
+from dataclasses import replace
+from pathlib import Path, PurePosixPath
 
+import yaml
+
+from hyperi_ci import jsonc
 from hyperi_ci.common import info
 from hyperi_ci.config import CIConfig
 from hyperi_ci.languages.quality_common import resolve_tool_mode
@@ -54,6 +58,52 @@ def repo_config(root: Path) -> Path | None:
         if candidate.is_file():
             return candidate
     return None
+
+
+def config_dir(root: Path) -> Path:
+    """Return the nearest directory from ``root`` up to the cwd with a repo config.
+
+    cli2 reads its config from the directory it runs in, so `lint-docs docs`
+    from a repo root has to run from the root to see the root config.
+    """
+    top = Path.cwd().resolve()
+    here = root.resolve()
+    for candidate in (here, *here.parents):
+        if repo_config(candidate) is not None:
+            return candidate
+        if candidate == top or top not in candidate.parents:
+            break
+    return root
+
+
+def root_ignores(root: Path) -> list[str]:
+    """Return the ``ignores`` globs of the root ``.markdownlint-cli2`` config.
+
+    cli2 applies root ``ignores`` only while it expands globs, so a literal
+    path skips them, and they are applied here instead. A nested config's
+    ``ignores`` cli2 applies itself. A ``.cjs`` or ``.mjs`` config is code
+    and is not read.
+    """
+    for name, load in (
+        (".markdownlint-cli2.jsonc", jsonc.loads),
+        (".markdownlint-cli2.yaml", yaml.safe_load),
+    ):
+        path = root / name
+        if not path.is_file():
+            continue
+        try:
+            raw = load(path.read_text(encoding="utf-8"))
+        except (ValueError, yaml.YAMLError):
+            return []
+        ignores = raw.get("ignores") if isinstance(raw, dict) else None
+        if not isinstance(ignores, list):
+            return []
+        return [g for g in ignores if isinstance(g, str)]
+    return []
+
+
+def _ignored(rel: str, globs: list[str]) -> bool:
+    return any(PurePosixPath(rel).full_match(glob) for glob in globs)
 
 
 def parse(output: str) -> list[fdg.Finding]:
@@ -98,11 +148,13 @@ def run(
     if mode == "disabled":
         info("  markdownlint: disabled")
         return 0
+    root = config_dir(Path(root or Path.cwd()))
+    ignores = root_ignores(root)
+    files = [f for f in files if not _ignored(fdg.relpath(f, root), ignores)]
     if not files:
         info("  markdownlint: no markdown to check - skipping")
         return 0
 
-    root = Path(root or Path.cwd())
     exe = shutil.which("markdownlint-cli2") or node_tools.executable(
         "markdownlint-cli2"
     )
@@ -127,6 +179,7 @@ def run(
     )
     if isinstance(found, int):
         return found
+    found = [replace(f, path=fdg.relpath(root / f.path)) for f in found]
 
     fdg.report("markdownlint", found, mode, sarif_path=sarif_path)
 

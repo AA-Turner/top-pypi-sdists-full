@@ -16,7 +16,6 @@ from datetime import datetime, time, timezone
 from functools import partial
 from io import BufferedReader, BytesIO, IOBase, StringIO, TextIOWrapper
 from itertools import chain, islice
-from multiprocessing import cpu_count
 from types import GeneratorType
 from typing import (
     TYPE_CHECKING,
@@ -32,6 +31,7 @@ from pyathena.arrow.reader import ParquetChunkReader
 from pyathena.arrow.util import to_column_info
 from pyathena.converter import Converter, _parse_time_zone, _to_datetime_with_tz, _to_time
 from pyathena.error import DataError, ProgrammingError
+from pyathena.filesystem import s3_filesystem
 from pyathena.filesystem.s3 import S3FileSystem
 from pyathena.model import AthenaQueryExecution
 from pyathena.pandas.reader import _BINARY_NULL, BinaryCSVReader
@@ -868,7 +868,7 @@ class AthenaPandasResultSetMetadataReader(AthenaUnloadResultSetMetadataReader):
         chunksize: int | None = None,
         block_size: int | None = None,
         cache_type: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        max_workers: int | None = None,
         **kwargs: Any,
     ) -> None:
         """Initialize the reader and the filesystem of the result files; it sends no request.
@@ -884,7 +884,9 @@ class AthenaPandasResultSetMetadataReader(AthenaUnloadResultSetMetadataReader):
             chunksize: The number of rows per chunk, if the result is read in chunks.
             block_size: The S3 read block size of the filesystem.
             cache_type: The default fsspec cache type of the filesystem.
-            max_workers: The maximum number of threads of the filesystem.
+            max_workers: The size of the request pool of the S3 filesystem
+                that reads the result files. If None, the
+                ``max_pool_connections`` of the connection's S3 client.
             **kwargs: The options of ``pandas.read_csv()`` or ``pandas.read_parquet()``.
                 ``coerce_int96_timestamp_unit=None`` is dropped for an UNLOAD result.
         """
@@ -918,8 +920,8 @@ class AthenaPandasResultSetMetadataReader(AthenaUnloadResultSetMetadataReader):
         if self._filesystem is None:
             # Not cached by fsspec so that the connection and the dircache are released
             # with the result set.
-            self._filesystem = S3FileSystem(
-                connection=self._connection,
+            self._filesystem = s3_filesystem(
+                self._connection,
                 default_block_size=self._block_size,
                 default_cache_type=self._cache_type,
                 max_workers=self._max_workers,
@@ -1216,7 +1218,7 @@ class AthenaPandasResultSet(AthenaResultSet):
         chunksize: int | None = None,
         block_size: int | None = None,
         cache_type: str | None = None,
-        max_workers: int = (cpu_count() or 1) * 5,
+        max_workers: int | None = None,
         auto_optimize_chunksize: bool = False,
         result_set_type_hints: dict[str | int, str] | None = None,
         **kwargs,
@@ -1248,7 +1250,9 @@ class AthenaPandasResultSet(AthenaResultSet):
                 the next block while pandas parses the current one.
                 Without ``cache_type``, PyAthena's filesystem reads a Parquet file of a chunked
                 UNLOAD result that is larger than 32 MiB without a cache.
-            max_workers: Maximum worker threads for parallel operations.
+            max_workers: The size of the request pool of the S3 filesystem
+                that reads the result files. If None, the
+                ``max_pool_connections`` of the connection's S3 client.
             auto_optimize_chunksize: Enable automatic chunksize determination
                                    for large files when chunksize is None.
             result_set_type_hints: Athena type signatures for complex-type columns,
@@ -2426,6 +2430,10 @@ class AthenaPandasResultSet(AthenaResultSet):
         super().close()
         self._closed_event.set()
         self._df_iter.close()
+        # Ends the idle threads of the request pool of the filesystem, which
+        # a read that is still running keeps until it ends.
+        if (fs := getattr(self, "_fs", None)) is not None:
+            fs.close()
         self._df = pd.DataFrame()
         self._df_iter = PandasDataFrameIterator(self._df, _no_trunc_date)
         self._row_iter = iter(())

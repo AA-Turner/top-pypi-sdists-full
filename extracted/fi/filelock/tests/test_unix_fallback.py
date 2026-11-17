@@ -258,7 +258,7 @@ def test_lock_file_it_cannot_write_stays_denied_where_flock_works(tmp_path: Path
 
 @NEEDS_FCNTL
 def test_denied_lock_file_is_reopened_in_the_acquisition_directory(  # pragma: needs fcntl
-    working_directories: tuple[Path, Path], mocker: MockerFixture
+    working_directories: tuple[Path, Path], monkeypatch: pytest.MonkeyPatch, mocker: MockerFixture
 ) -> None:
     # Resolved against the working directory of the moment, a chdir between the refused O_RDWR open and the read-only
     # reopen probes a file in another directory, or none.
@@ -270,7 +270,7 @@ def test_denied_lock_file_is_reopened_in_the_acquisition_directory(  # pragma: n
     def deny_write_then_chdir(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
         if not flags & os.O_CREAT and "test.lock" in path:
             if flags & os.O_RDWR:
-                os.chdir(second)
+                monkeypatch.chdir(second)
                 raise PermissionError(EACCES, "Permission denied", path)
             read_only_opens.append(path)
         return real_open(path, flags, mode, dir_fd=dir_fd)
@@ -306,7 +306,9 @@ def test_fallback_treats_a_leased_marker_it_cannot_write_as_contention(tmp_path:
 
 
 @NEEDS_FCNTL
-@pytest.mark.parametrize("write_denied_lock_file", ["unlink"], ids=["unlinked-under-the-denial"], indirect=True)
+@pytest.mark.parametrize(
+    "write_denied_lock_file", [pytest.param("unlink", id="unlinked-under-the-denial")], indirect=True
+)
 @pytest.mark.usefixtures("write_denied_lock_file")
 def test_lock_file_unlinked_under_a_denied_open_is_retried(tmp_path: Path) -> None:  # pragma: needs fcntl
     (lock_path := tmp_path / "test.lock").touch()

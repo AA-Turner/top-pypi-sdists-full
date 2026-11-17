@@ -3,8 +3,11 @@
 from pytest import approx, mark, raises
 
 from stjames.coordinate import AngleCoordinate, Coordinate, DihedralCoordinate, DistanceCoordinate, LinearCombinationCoordinate
+from stjames.engine import Engine
+from stjames.method import Method
 from stjames.pdb import ResidueAtomRef, ResidueRef
 from stjames.restraint import MDRestraints, RestraintType
+from stjames.settings import Settings
 from stjames.types import SimpleProteinMDTrajectory
 from stjames.workflows.covalent_inhibitor_scan import (
     CovalentInhibitorScanSettings,
@@ -30,6 +33,13 @@ TRANSFER = ScanSettings(
     num=5,
 )
 BOND = ScanSettings(coordinate=DistanceCoordinate(atoms=(ACCEPTOR, DONOR)), force_constant=45, start=4, stop=2, num=3)
+
+
+@mark.parametrize("calc_settings", [Settings(method=Method.GFN2_XTB), Settings(method=Method.GFN2_XTB, engine=Engine.XTB)])
+def test_unsupported_engine(calc_settings: Settings) -> None:
+    """Reject non-Orb calculations with inferred or explicit engines."""
+    with raises(ValueError):
+        CovalentInhibitorScanSettings(scan_coordinates=[BOND], reactive_region=[RESIDUE, LIGAND], ligand=LIGAND, calc_settings=calc_settings)
 
 
 @mark.parametrize("axes", [[TRANSFER], [BOND, TRANSFER]])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: valyu
-Version: 2.13.7
+Version: 2.13.8
 Summary: Deepsearch API for AI.
 Home-page: https://valyu.ai
 Author: Valyu
@@ -139,6 +139,8 @@ response = valyu.contents(
 The `include_image_links` option (default `True`) is also available on `valyu.search()`. When it is `False`, image markdown `![alt](url)` becomes `[Image: alt]`, and images with no alt text are removed.
 
 ### Answer
+
+> **Deprecated.** The Answer API is deprecated (announced 2026-11-17) and stops working on 2026-12-17, when the endpoint returns HTTP 410. `valyu.answer()` still works until then but emits a `DeprecationWarning`. Use DeepResearch with `mode="instant"`, or `search()` plus your own LLM. See the [migration guide](https://docs.valyu.ai/api-reference/endpoint/answer#migrate-from-answer).
 
 AI-generated answers grounded by Valyu's search. Supports streaming.
 

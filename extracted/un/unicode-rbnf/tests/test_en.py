@@ -31,13 +31,31 @@ def test_english():
 
     # Special rules
     assert engine.format_number(-1).text == "minus one"
+    assert engine.format_number(-2.0).text == "minus two"
+
+    # Negative fractions keep their fractional part
+    assert engine.format_number(-1.5).text == "minus one point five"
+    assert engine.format_number(-0.5).text == "minus zero point five"
+    assert engine.format_number("-10.75").text == "minus ten point seven five"
+    assert (
+        engine.format_number(-1234.5).text
+        == "minus one thousand two hundred thirty-four point five"
+    )
+
     assert engine.format_number(float("nan")).text == "not a number"
     assert engine.format_number(float("inf")).text == "infinity"
+    assert engine.format_number(float("-inf")).text == "minus infinity"
 
     # Fractions
     assert engine.format_number(3.14).text == "three point one four"
     assert engine.format_number("5.3").text == "five point three"
     assert engine.format_number(0.0123).text == "zero point zero one two three"
+
+    # Small enough that str() would give scientific notation (1e-07)
+    assert (
+        engine.format_number(1e-7).text
+        == "zero point zero zero zero zero zero zero one"
+    )
 
     # Ordinals
     assert engine.format_number(20, FormatPurpose.ORDINAL).text == "twentieth"

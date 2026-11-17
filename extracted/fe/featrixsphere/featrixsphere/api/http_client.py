@@ -115,6 +115,18 @@ def _is_stalled_node_busy(response: Optional[requests.Response]) -> bool:
     return isinstance(body, dict) and body.get('detail') == 'stalled-node-busy'
 
 
+def _is_duplicate_dispatch_blocked(response: Optional[requests.Response]) -> bool:
+    """True if this 409 is sphere-api-router's "a job of this type is already in
+    flight for this session" refusal (route_helpers.duplicate_inflight_job_response)."""
+    if response is None or response.status_code != 409:
+        return False
+    try:
+        body = response.json()
+    except (ValueError, AttributeError):
+        return False
+    return isinstance(body, dict) and body.get('duplicate_dispatch_blocked') is True
+
+
 def _quota_exceeded_info(response: Optional[requests.Response]) -> Optional[Dict[str, Any]]:
     """Return the response body if this 429 is sphere-api-router's org
     job-queue-limit signal (`quota_exceeded`: this org already has
@@ -224,6 +236,7 @@ class HTTPClientMixin:
         last_error = None
         node_upgrading_announced = False
         queue_wait_announced = False
+        resent_after_read_timeout = False
 
         while True:
             attempt += 1
@@ -318,6 +331,19 @@ class HTTPClientMixin:
                     )
                     raise
 
+                # A re-send after a read timeout that the router refuses as a duplicate
+                # means the timed-out attempt landed and its job is running: return the
+                # refusal (it names that job) instead of failing a job that started.
+                # 2026-11-13: the router took 30.4s to answer train_predictor (Supabase
+                # bookkeeping after the node had accepted), the 30s read timed out, the
+                # re-send got this 409 and the QA run failed while the SP trained on.
+                if resent_after_read_timeout and _is_duplicate_dispatch_blocked(e.response):
+                    logger.warning(
+                        f"{method} {endpoint}: the attempt that timed out was accepted; "
+                        f"following its job {e.response.json().get('job_uuid')}"
+                    )
+                    return e.response
+
                 # Soft-503: training-in-progress signal. Don't retry, don't raise —
                 # return the response so callers (e.g. predict()) can surface it.
                 if status_code == 503 and _extract_training_status(e.response) is not None:
@@ -393,6 +419,7 @@ class HTTPClientMixin:
                 # For non-uploads, keep the original max_retries cap.
                 attempts_ok = is_upload or (attempt < max_retries)
                 if attempts_ok and elapsed < max_retry_time:
+                    resent_after_read_timeout = resent_after_read_timeout or isinstance(e, ReadTimeout)
                     delay = min(
                         self._retry_base_delay * (2 ** (attempt - 1)),
                         self._retry_max_delay

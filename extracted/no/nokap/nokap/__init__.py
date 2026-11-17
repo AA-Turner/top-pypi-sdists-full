@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from ._api import close, from_html, webshot
+from ._api import Renderer, close, from_html, webshot
 from ._browser import Chrome, find_chrome
 from ._errors import (
     CDPError,
@@ -11,14 +11,17 @@ from ._errors import (
     PageLoadTimeout,
     SelectorError,
 )
+from ._install import install_chrome
 from ._session import Session
 from ._types import PaperSize
 
 __all__ = [
+    "Renderer",
     "webshot",
     "from_html",
     "close",
     "find_chrome",
+    "install_chrome",
     "Chrome",
     "Session",
     "NokapError",

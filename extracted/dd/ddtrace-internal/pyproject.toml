@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ddtrace-internal"
-version = "0.2.0"
+version = "0.3.0"
 description = "Stub internal Datadog Python package (ddtrace-internal)."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -16,6 +16,9 @@ Repository = "https://github.com/DataDog/datadog-apm-python"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+_ddtrace_internal = ["py.typed"]
 
 [tool.pytest.ini_options]
 # Tests live at tests/<module_path>/test.py, mirroring the source layout so

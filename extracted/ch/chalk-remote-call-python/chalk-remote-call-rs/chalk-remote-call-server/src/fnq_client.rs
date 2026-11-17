@@ -9,6 +9,7 @@ use chalk_remote_call_proto::chalk::runtime::v1::fnq_consumer_service_client::Fn
 use chalk_remote_call_proto::chalk::runtime::v1::{
     AcquireWorkRequest, FnqWork, RenewWorkRequest, ReportResultsRequest,
 };
+use tokio::sync::watch;
 use tonic::transport::{Channel, ClientTlsConfig, Endpoint};
 use tonic::{Request, Status};
 
@@ -62,6 +63,7 @@ impl FnqClient {
     pub async fn acquire(
         &self,
         request: AcquireWorkRequest,
+        shutdown: &mut watch::Receiver<bool>,
         mut dispatch: impl FnMut(FnqWork),
     ) -> Result<usize, Status> {
         let started = Instant::now();
@@ -69,33 +71,51 @@ impl FnqClient {
         let mut delivered = HashSet::new();
         let mut backoff = Duration::from_millis(200);
         loop {
+            if *shutdown.borrow() {
+                return Ok(delivered.len());
+            }
             if started.elapsed() >= retry_window {
                 return Err(Status::failed_precondition(
                     "Fnq acquisition replay window expired",
                 ));
             }
             let result = async {
-                let mut stream = self
-                    .client
-                    .clone()
-                    .acquire_work(self.request(request.clone()).await?)
-                    .await?
-                    .into_inner();
+                let response = tokio::select! {
+                    biased;
+                    _ = shutdown.changed() => return Ok(delivered.len()),
+                    response = async {
+                        self.client
+                            .clone()
+                            .acquire_work(self.request(request.clone()).await?)
+                            .await
+                    } => response?,
+                };
+                let mut stream = response.into_inner();
 
-                while let Some(response) =
-                    tokio::time::timeout(Duration::from_secs(5), stream.message())
-                        .await
-                        .map_err(|_| {
-                            Status::deadline_exceeded("Fnq acquisition stream stalled")
-                        })??
-                {
+                loop {
+                    if *shutdown.borrow() {
+                        return Ok(delivered.len());
+                    }
+                    let response = tokio::select! {
+                        biased;
+                        _ = shutdown.changed() => return Ok(delivered.len()),
+                        response = tokio::time::timeout(Duration::from_secs(5), stream.message()) => {
+                            response.map_err(|_| {
+                                Status::deadline_exceeded("Fnq acquisition stream stalled")
+                            })??
+                        },
+                    };
+                    let Some(mut response) = response else {
+                        break;
+                    };
+                    // Once received, validate and dispatch this delivery before
+                    // observing shutdown so the caller can drain its work.
                     // Redis's recorded deadline accounts for transit time. Renew
                     // before dispatch if less than half the requested lease remains.
                     let now = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .map_err(|_| Status::internal("system clock before Unix epoch"))?
                         .as_millis() as i128;
-                    let mut response = response;
                     if let Some(work) = response
                         .work
                         .as_mut()
@@ -140,7 +160,11 @@ impl FnqClient {
                         ));
                     }
                     tracing::warn!(%error, "Fnq acquisition failed; retrying the same request");
-                    tokio::time::sleep(backoff).await;
+                    tokio::select! {
+                        biased;
+                        _ = shutdown.changed() => return Ok(delivered.len()),
+                        _ = tokio::time::sleep(backoff) => {},
+                    }
                     backoff = (backoff * 2).min(Duration::from_secs(2));
                 }
                 Err(error) => return Err(error),

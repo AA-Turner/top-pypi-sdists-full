@@ -388,7 +388,7 @@ def fit_timeline(evs: List[Ev], budget_s: float) -> List[Ev]:
 
 def drive(evs: Iterable[Ev], emit_move: Any, *, emit_wheel: Any = None,
           emit_last: bool = True, now: Any = None, sleep: Any = None,
-          origin: Optional[Tuple[float, float]] = None) -> int:
+          origin: Optional[Tuple[float, float]] = None, timed: bool = False) -> int:
     """The SYNCHRONOUS driver of :class:`Pacer`. Returns events sent.
 
     The asynchronous one lives in :mod:`._cursor`, because it has to ``await``
@@ -398,7 +398,9 @@ def drive(evs: Iterable[Ev], emit_move: Any, *, emit_wheel: Any = None,
 
     ``now`` and ``sleep`` are injectable so a test can drive a whole timeline
     without waiting for it. ``origin`` is where the pointer is before the plan
-    starts, the reference for the pacer's reach until something is sent.
+    starts, the reference for the pacer's reach until something is sent. With ``timed`` the move emitter is also given the
+    event's planned instant (``t_ms``, from the start of the plan) as a third argument, and so is the wheel emitter
+    (``emit_wheel(dx, dy, t_ms)``).
     """
     evs = list(evs)
     if not evs:
@@ -418,9 +420,15 @@ def drive(evs: Iterable[Ev], emit_move: Any, *, emit_wheel: Any = None,
                 if emit_wheel is None:
                     pacer.dropped()  # nothing here can carry a notch
                     continue
-                emit_wheel(arg.dx, arg.dy)
+                if timed:
+                    emit_wheel(arg.dx, arg.dy, arg.t_ms)
+                else:
+                    emit_wheel(arg.dx, arg.dy)
             else:
-                emit_move(arg.x, arg.y)
+                if timed:
+                    emit_move(arg.x, arg.y, arg.t_ms)
+                else:
+                    emit_move(arg.x, arg.y)
             pacer.emitted(clock())
     return pacer.delivered
 

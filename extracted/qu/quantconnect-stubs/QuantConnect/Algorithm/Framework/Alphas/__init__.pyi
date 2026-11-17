@@ -378,7 +378,7 @@ class Insight(System.Object):
     @overload
     def compute_close_time(exchange_hours: QuantConnect.Securities.SecurityExchangeHours, generated_time_utc: typing.Union[datetime.datetime, datetime.date], period: datetime.timedelta) -> datetime.datetime:
         """
-        computs the insight closing time from the given generated time and period
+        computes the insight closing time from the given generated time and period
         
         :param exchange_hours: The exchange hours of the insight's security
         :param generated_time_utc: The insight's generated time in utc
@@ -874,7 +874,7 @@ class BasePairsTradingAlphaModel(QuantConnect.Algorithm.Framework.Alphas.AlphaMo
 class PearsonCorrelationPairsTradingAlphaModel(QuantConnect.Algorithm.Framework.Alphas.BasePairsTradingAlphaModel):
     """
     This alpha model is designed to rank every pair combination by its pearson correlation
-    and trade the pair with the hightest correlation
+    and trade the pair with the highest correlation
     This model generates alternating long ratio/short ratio insights emitted as a group
     """
 
@@ -1268,7 +1268,7 @@ class InsightCollection(System.Object, typing.Iterable[QuantConnect.Algorithm.Fr
 
     def remove_expired_insights(self, utc_time: typing.Union[datetime.datetime, datetime.date]) -> System.Collections.Generic.ICollection[QuantConnect.Algorithm.Framework.Alphas.Insight]:
         """
-        Remove all expired insights from the collection and retuns them
+        Remove all expired insights from the collection and returns them
         
         :param utc_time: Time that determines whether the insight has expired
         :returns: Expired insights that were removed.

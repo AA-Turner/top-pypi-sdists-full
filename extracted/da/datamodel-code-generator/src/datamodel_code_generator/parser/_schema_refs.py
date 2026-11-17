@@ -37,7 +37,7 @@ from typing_extensions import Protocol, final
 from datamodel_code_generator import Error, ReadOnlyWriteOnlyModelType
 from datamodel_code_generator._graph import reach
 from datamodel_code_generator._json_pointer import escape_token, join_pointer
-from datamodel_code_generator._json_schema import REF_PRE_PASS_FIELDS, REF_PRE_PASS_POSITIONS, SCHEMA_SHAPES
+from datamodel_code_generator._json_schema import REF_PRE_PASS_FIELDS, REF_PRE_PASS_POSITIONS, subschema_entries
 from datamodel_code_generator._records import record
 from datamodel_code_generator._scc import find_circular_sccs, strongly_connected_components
 from datamodel_code_generator._url_redaction import named_location
@@ -75,7 +75,6 @@ from datamodel_code_generator.parser._schema_reading import (
     _is_plain_name_fragment,
     _ref_edge_child_entries,
     _without_contains_keywords,
-    get_model_by_path,
     split_json_pointer,
 )
 from datamodel_code_generator.parser.base import get_special_path
@@ -88,6 +87,7 @@ if TYPE_CHECKING:
 
     from datamodel_code_generator._source import YamlValue
     from datamodel_code_generator.parser._intersection import KeywordIntersection
+    from datamodel_code_generator.parser._schema_reading import PointerReading
     from datamodel_code_generator.types import DataType
 
 __all__ = [
@@ -162,16 +162,6 @@ _REPORTED_VALUE_CONFLICT_KEY = "_reported_value_conflict"
 _VALUE_CONFLICT_KEYWORDS = frozenset({"enum", "const"})
 _ValidatedT = TypeVar("_ValidatedT")
 _REF_PRE_PASS_KEYWORDS = frozenset(REF_PRE_PASS_POSITIONS)
-
-
-def _iter_ref_walk_children(data: dict[str, Any]) -> Iterator[dict[str, Any] | list[Any]]:
-    """Yield the subschemas of a raw schema in keyword order, leaving instance values and metadata out."""
-    for keyword, value in data.items():
-        match SCHEMA_SHAPES.get(keyword), value:
-            case "map", dict():
-                yield from (schema for schema in value.values() if isinstance(schema, dict))
-            case "sequence" | "single" | "single-or-sequence", dict() | list():
-                yield value
 
 
 def _ref_path_parts(file_part: str) -> list[str]:
@@ -468,6 +458,24 @@ def ref_file_document(parser: SchemaRefsHost, file_part: str, role: str | None =
     return parser._get_ref_body(file_part)  # noqa: SLF001
 
 
+def raw_ref_value(
+    parser: SchemaRefsHost,
+    resolved_ref: str,
+    *,
+    reading: PointerReading | None = None,
+    role: str | None = None,
+    or_missing: bool = False,
+) -> YamlValue:
+    """Return the value of the loaded document a reference key names at its fragment, as ``_fragment_value`` reads it.
+
+    The document is that of ``ref_file_document``, with ``role`` for a key that names its root; the fragment is read by
+    ``reading``, by default the parser's.
+    """
+    file_part, _, fragment = resolved_ref.partition("#")
+    document = ref_file_document(parser, file_part, None if fragment else role)
+    return _fragment_value(document, fragment, or_missing=or_missing, reading=reading or parser._pointer_slash_names)  # noqa: SLF001
+
+
 def read_ref_value(parser: SchemaRefsHost, resolved_ref: str) -> dict[str, YamlValue] | YamlValue:
     """Return the value of a loaded document at a reference key, with the references it holds as a schema.
 
@@ -476,14 +484,12 @@ def read_ref_value(parser: SchemaRefsHost, resolved_ref: str) -> dict[str, YamlV
     model that inherits such a class is written from its own keywords, and the run warns once per document (an error
     under --strict-refs, as before).
     """
-    file_part, _, fragment = resolved_ref.partition("#")
     try:
-        document = ref_file_document(parser, file_part)
+        value = raw_ref_value(parser, resolved_ref)
     except RefDocumentNotFoundError as exc:
         if not reads_as_unread_mapped_document(parser, exc):
             raise
         return dict(UNREAD_MAPPED_SCHEMA)
-    value = _fragment_value(document, fragment, names=parser._pointer_slash_names)  # noqa: SLF001
     return read_as_schema(parser, value)
 
 
@@ -506,10 +512,7 @@ def ref_reading(parser: SchemaRefsHost, root: Literal["root", "object"]) -> RefR
 
 def ref_schema_exists(parser: SchemaRefsHost, resolved_ref: str) -> bool:
     """Return whether a resolved JSON pointer identifies a source schema."""
-    file_part, _, fragment = resolved_ref.partition("#")
-    document = ref_file_document(parser, file_part)
-    names = parser._pointer_slash_names  # noqa: SLF001
-    return _fragment_value(document, fragment, or_missing=True, names=names) is not _MISSING_JSON_POINTER
+    return raw_ref_value(parser, resolved_ref, or_missing=True) is not _MISSING_JSON_POINTER
 
 
 UNREAD_MAPPED_SCHEMA: Final = MappingProxyType({"type": "object"})
@@ -552,8 +555,7 @@ def key_node(parser: SchemaRefsHost, resolved_ref: str) -> _TargetNode:
 
     The value is read as ``_load_ref_schema_object`` reads it, without validating it.
     """
-    node = parser._graph.node(read_ref_value(parser, resolved_ref))  # noqa: SLF001
-    return resolved_ref if node is None else node
+    return parser._graph.node(read_ref_value(parser, resolved_ref)) or resolved_ref  # noqa: SLF001
 
 
 def unvisited_ref_target(
@@ -867,9 +869,8 @@ def dynamic_ref_edges(parser: SchemaRefsHost, resolved_ref: str) -> _DynamicEdge
         return parser._dynamic_ref_graph[node]  # noqa: SLF001
     file_part, _, fragment = resolved_ref.partition("#")
     document, raw = prepared_ref_document(parser, file_part)
-    schema = _fragment_value(raw, fragment, or_missing=True, names=parser._pointer_slash_names)  # noqa: SLF001
-    located = parser._graph.node(schema)  # noqa: SLF001
-    node = parser._dynamic_ref_nodes[resolved_ref] = resolved_ref if located is None else located  # noqa: SLF001
+    schema = _fragment_value(raw, fragment, or_missing=True, reading=parser._pointer_slash_names)  # noqa: SLF001
+    node = parser._dynamic_ref_nodes[resolved_ref] = parser._graph.node(schema) or resolved_ref  # noqa: SLF001
     anchors: set[str] = set()
     targets: list[str] = []
     for pointer, subschema in iter_referencing_schemas(parser, schema, fragment):
@@ -942,9 +943,10 @@ def iter_referencing_schemas(
 ) -> Iterator[tuple[str, dict[str, Any]]]:
     """Visit the raw subschemas that the parser follows, with their JSON pointers.
 
-    Keywords are those of the reference pre-pass plus the additionalItems of tuple-style arrays,
-    which array parsing appends as the tail item. References under keywords the parser ignores and
-    definitions that apply only through references are not analyzed.
+    It reads the view of the reference pre-pass (``REF_PRE_PASS_FIELDS``, and ``REF_PRE_PASS_POSITIONS`` under
+    --generate-schema-validators) and the additionalItems of tuple-style arrays, which array parsing appends as the
+    tail item. References under keywords the parser ignores and definitions that apply only through references are
+    not analyzed.
     """
     keywords = _REF_PRE_PASS_KEYWORDS if parser.generate_schema_validators else REF_PRE_PASS_FIELDS
     stack = [(pointer, cast("dict[str, Any]", schema))] if isinstance(schema, dict) else []
@@ -1104,7 +1106,7 @@ def parse_dynamic_specialization(parser: SchemaRefsHost, specialization: _Dynami
     """Parse a referenced schema again under the $dynamicAnchor bindings of its dynamic scope."""
     file_part, _, fragment = specialization.target.partition("#")
     with parser._ref_document_context(file_part) as (_, raw):  # noqa: SLF001
-        value = _fragment_value(raw, fragment, names=parser._pointer_slash_names)  # noqa: SLF001
+        value = _fragment_value(raw, fragment, reading=parser._pointer_slash_names)  # noqa: SLF001
         obj = parser._validate_schema_object(value, list(specialization.path))  # noqa: SLF001
         with parser._dynamic_scope_context(specialization.path, specialization.bindings, fragment):  # noqa: SLF001
             parser._parse_schema_obj(specialization.reference.name, obj, list(specialization.path))  # noqa: SLF001
@@ -1279,11 +1281,10 @@ def intersect_ref_siblings_schema(  # noqa: PLR0913
         and "contains" in holder.extras
         and (contains_bounds := get_contains_bounds(parser, parser._schema_object(target))) is not None  # noqa: SLF001
     ):
-        sibling_contains = _INHERITED_ARRAY_EXTRA_CONSTRAINT_FIELDS & holder.extras.keys()
         extras_key = JsonSchemaObject.__extra_key__
         merged[extras_key] = {
             **_without_contains_keywords(merged[extras_key]),
-            **{key: holder.extras[key] for key in sibling_contains},
+            **{key: value for key, value in holder.extras.items() if key in _INHERITED_ARRAY_EXTRA_CONSTRAINT_FIELDS},
         }
         parser._merge_schema_constraints(merged, [contains_bounds], intersect=True)  # noqa: SLF001
     merged_schema = parser._schema_object(merged)  # noqa: SLF001
@@ -1417,14 +1418,8 @@ def is_ref_circular(parser: SchemaRefsHost, resolved_ref: str) -> bool:
 
 def ref_cycle_document(parser: SchemaRefsHost, ref_to_check: str) -> Generator[object, None, None]:
     """Yield the value ref_to_check names, resolving references relative to its document until closed."""
-    file_part, _, fragment = ref_to_check.partition("#")
-    with parser._ref_file_context(file_part):  # noqa: SLF001
-        raw_doc = ref_file_document(parser, file_part)
-        yield (
-            get_model_by_path(raw_doc, [p for p in fragment.split("/") if p], refuse_scalar=True)
-            if fragment
-            else raw_doc
-        )
+    with parser._ref_file_context(ref_to_check.partition("#")[0]):  # noqa: SLF001
+        yield raw_ref_value(parser, ref_to_check, reading="legacy-cycle-through-scalar")
 
 
 class _RefCycleFrame(NamedTuple):
@@ -1481,7 +1476,9 @@ def walk_ref_cycle(
         if isinstance(node := nodes.pop(), list):
             nodes.extend(item for item in reversed(node) if isinstance(item, (dict, list)))
             continue
-        nodes.extend(reversed(list(_iter_ref_walk_children(node))))
+        nodes.extend(
+            reversed([child for key, value in node.items() for _, child in subschema_entries(key, value, whole=True)])
+        )
         if isinstance(ref_value := node.get("$ref"), str):
             try:
                 resolved = ref_path(parser, ref_value)

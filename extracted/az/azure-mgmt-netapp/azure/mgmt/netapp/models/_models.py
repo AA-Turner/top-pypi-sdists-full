@@ -2288,7 +2288,7 @@ class CacheProperties(_Model):  # pylint: disable=docstring-keyword-should-match
      "Disabled" and "Enabled".
     :vartype ldap: str or ~azure.mgmt.netapp.models.LdapState
     :ivar ldap_server_type: Specifies the type of LDAP server for flexcache volume. Known values
-     are: "ActiveDirectory" and "OpenLDAP".
+     are: "ActiveDirectory" and "OpenLdap".
     :vartype ldap_server_type: str or ~azure.mgmt.netapp.models.LdapServerType
     :ivar origin_cluster_information: Origin cluster information. Required.
     :vartype origin_cluster_information: ~azure.mgmt.netapp.models.OriginClusterInformation
@@ -2388,7 +2388,7 @@ class CacheProperties(_Model):  # pylint: disable=docstring-keyword-should-match
         name="ldapServerType", visibility=["read", "create"]
     )
     """Specifies the type of LDAP server for flexcache volume. Known values are: \"ActiveDirectory\"
-     and \"OpenLDAP\"."""
+     and \"OpenLdap\"."""
     origin_cluster_information: "_models.OriginClusterInformation" = rest_field(
         name="originClusterInformation", visibility=["read", "create"]
     )
@@ -6559,6 +6559,9 @@ class SmbSettings(_Model):  # pylint: disable=docstring-keyword-should-match-key
     :ivar smb_non_browsable: Enables non-browsable property for SMB Shares. Only applicable for
      SMB/DualProtocol cache. Known values are: "Disabled" and "Enabled".
     :vartype smb_non_browsable: str or ~azure.mgmt.netapp.models.SmbNonBrowsable
+    :ivar smb_oplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol cache. Known values are: "Disabled" and "Enabled".
+    :vartype smb_oplocks: str or ~azure.mgmt.netapp.models.SmbOplocks
     """
 
     smb_encryption: Optional[Union[str, "_models.SmbEncryptionState"]] = rest_field(
@@ -6576,6 +6579,11 @@ class SmbSettings(_Model):  # pylint: disable=docstring-keyword-should-match-key
     )
     """Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol cache.
      Known values are: \"Disabled\" and \"Enabled\"."""
+    smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = rest_field(
+        name="smbOplocks", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol cache. Known values are: \"Disabled\" and \"Enabled\"."""
 
     @overload
     def __init__(
@@ -6584,6 +6592,7 @@ class SmbSettings(_Model):  # pylint: disable=docstring-keyword-should-match-key
         smb_encryption: Optional[Union[str, "_models.SmbEncryptionState"]] = None,
         smb_access_based_enumeration: Optional[Union[str, "_models.SmbAccessBasedEnumeration"]] = None,
         smb_non_browsable: Optional[Union[str, "_models.SmbNonBrowsable"]] = None,
+        smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = None,
     ) -> None: ...
 
     @overload
@@ -6964,353 +6973,6 @@ class SnapshotRestoreFiles(_Model):  # pylint: disable=docstring-keyword-should-
         *,
         file_paths: list[str],
         destination_path: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-
-class SubvolumeInfo(ProxyResource):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """Subvolume Information properties Deprecated. This resource type will be removed in a future API
-    version.
-
-    :ivar id: Fully qualified resource ID for the resource. Ex -
-     /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}.
-    :vartype id: str
-    :ivar name: The name of the resource.
-    :vartype name: str
-    :ivar type: The type of the resource. E.g. "Microsoft.Compute/virtualMachines" or
-     "Microsoft.Storage/storageAccounts".
-    :vartype type: str
-    :ivar system_data: Azure Resource Manager metadata containing createdBy and modifiedBy
-     information.
-    :vartype system_data: ~azure.mgmt.netapp.models.SystemData
-    :ivar properties: Subvolume Properties.
-    :vartype properties: ~azure.mgmt.netapp.models.SubvolumeProperties
-    """
-
-    properties: Optional["_models.SubvolumeProperties"] = rest_field(
-        visibility=["read", "create", "update", "delete", "query"]
-    )
-    """Subvolume Properties."""
-
-    __flattened_items = ["path", "size", "parent_path", "provisioning_state"]
-
-    @overload
-    def __init__(
-        self,
-        *,
-        properties: Optional["_models.SubvolumeProperties"] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        _flattened_input = {k: kwargs.pop(k) for k in kwargs.keys() & self.__flattened_items}
-        super().__init__(*args, **kwargs)
-        for k, v in _flattened_input.items():
-            setattr(self, k, v)
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self.__flattened_items:
-            if self.properties is None:
-                return None
-            return getattr(self.properties, name)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        if key in self.__flattened_items:
-            if self.properties is None:
-                self.properties = self._attr_to_rest_field["properties"]._class_type()
-            setattr(self.properties, key, value)
-        else:
-            super().__setattr__(key, value)
-
-
-class SubvolumeModel(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """Result of the post subvolume and action is to get metadata of the subvolume.
-
-    :ivar id: Resource Id.
-    :vartype id: str
-    :ivar name: Resource name.
-    :vartype name: str
-    :ivar type: Resource type.
-    :vartype type: str
-    :ivar properties: It represents the minimal properties of the subvolume.
-    :vartype properties: ~azure.mgmt.netapp.models.SubvolumeModelProperties
-    """
-
-    id: Optional[str] = rest_field(visibility=["read"])
-    """Resource Id."""
-    name: Optional[str] = rest_field(visibility=["read"])
-    """Resource name."""
-    type: Optional[str] = rest_field(visibility=["read"])
-    """Resource type."""
-    properties: Optional["_models.SubvolumeModelProperties"] = rest_field(
-        visibility=["read", "create", "update", "delete", "query"]
-    )
-    """It represents the minimal properties of the subvolume."""
-
-    __flattened_items = [
-        "path",
-        "parent_path",
-        "size",
-        "bytes_used",
-        "permissions",
-        "creation_time_stamp",
-        "accessed_time_stamp",
-        "modified_time_stamp",
-        "changed_time_stamp",
-        "provisioning_state",
-    ]
-
-    @overload
-    def __init__(
-        self,
-        *,
-        properties: Optional["_models.SubvolumeModelProperties"] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        _flattened_input = {k: kwargs.pop(k) for k in kwargs.keys() & self.__flattened_items}
-        super().__init__(*args, **kwargs)
-        for k, v in _flattened_input.items():
-            setattr(self, k, v)
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self.__flattened_items:
-            if self.properties is None:
-                return None
-            return getattr(self.properties, name)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        if key in self.__flattened_items:
-            if self.properties is None:
-                self.properties = self._attr_to_rest_field["properties"]._class_type()
-            setattr(self.properties, key, value)
-        else:
-            super().__setattr__(key, value)
-
-
-class SubvolumeModelProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """Properties which represents actual subvolume model which is stored as a file in the system.
-
-    :ivar path: Path to the subvolume.
-    :vartype path: str
-    :ivar parent_path: Path to the parent subvolume.
-    :vartype parent_path: str
-    :ivar size: Size of subvolume.
-    :vartype size: int
-    :ivar bytes_used: Bytes used.
-    :vartype bytes_used: int
-    :ivar permissions: Permissions of the subvolume.
-    :vartype permissions: str
-    :ivar creation_time_stamp: Creation time and date.
-    :vartype creation_time_stamp: ~datetime.datetime
-    :ivar accessed_time_stamp: Most recent access time and date.
-    :vartype accessed_time_stamp: ~datetime.datetime
-    :ivar modified_time_stamp: Most recent modification time and date.
-    :vartype modified_time_stamp: ~datetime.datetime
-    :ivar changed_time_stamp: Most recent change time and date.
-    :vartype changed_time_stamp: ~datetime.datetime
-    :ivar provisioning_state: Azure lifecycle management.
-    :vartype provisioning_state: str
-    """
-
-    path: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Path to the subvolume."""
-    parent_path: Optional[str] = rest_field(
-        name="parentPath", visibility=["read", "create", "update", "delete", "query"]
-    )
-    """Path to the parent subvolume."""
-    size: Optional[int] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Size of subvolume."""
-    bytes_used: Optional[int] = rest_field(name="bytesUsed", visibility=["read", "create", "update", "delete", "query"])
-    """Bytes used."""
-    permissions: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Permissions of the subvolume."""
-    creation_time_stamp: Optional[datetime.datetime] = rest_field(
-        name="creationTimeStamp", visibility=["read", "create", "update", "delete", "query"], format="rfc3339"
-    )
-    """Creation time and date."""
-    accessed_time_stamp: Optional[datetime.datetime] = rest_field(
-        name="accessedTimeStamp", visibility=["read", "create", "update", "delete", "query"], format="rfc3339"
-    )
-    """Most recent access time and date."""
-    modified_time_stamp: Optional[datetime.datetime] = rest_field(
-        name="modifiedTimeStamp", visibility=["read", "create", "update", "delete", "query"], format="rfc3339"
-    )
-    """Most recent modification time and date."""
-    changed_time_stamp: Optional[datetime.datetime] = rest_field(
-        name="changedTimeStamp", visibility=["read", "create", "update", "delete", "query"], format="rfc3339"
-    )
-    """Most recent change time and date."""
-    provisioning_state: Optional[str] = rest_field(
-        name="provisioningState", visibility=["read", "create", "update", "delete", "query"]
-    )
-    """Azure lifecycle management."""
-
-    @overload
-    def __init__(
-        self,
-        *,
-        path: Optional[str] = None,
-        parent_path: Optional[str] = None,
-        size: Optional[int] = None,
-        bytes_used: Optional[int] = None,
-        permissions: Optional[str] = None,
-        creation_time_stamp: Optional[datetime.datetime] = None,
-        accessed_time_stamp: Optional[datetime.datetime] = None,
-        modified_time_stamp: Optional[datetime.datetime] = None,
-        changed_time_stamp: Optional[datetime.datetime] = None,
-        provisioning_state: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-
-class SubvolumePatchParams(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """Parameters with which a subvolume can be updated.
-
-    :ivar size: Truncate subvolume to the provided size in bytes.
-    :vartype size: int
-    :ivar path: path to the subvolume.
-    :vartype path: str
-    """
-
-    size: Optional[int] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Truncate subvolume to the provided size in bytes."""
-    path: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """path to the subvolume."""
-
-    @overload
-    def __init__(
-        self,
-        *,
-        size: Optional[int] = None,
-        path: Optional[str] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        super().__init__(*args, **kwargs)
-
-
-class SubvolumePatchRequest(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """Subvolume Patch Request properties.
-
-    :ivar properties: Subvolume Properties.
-    :vartype properties: ~azure.mgmt.netapp.models.SubvolumePatchParams
-    """
-
-    properties: Optional["_models.SubvolumePatchParams"] = rest_field(
-        visibility=["read", "create", "update", "delete", "query"]
-    )
-    """Subvolume Properties."""
-
-    __flattened_items = ["size", "path"]
-
-    @overload
-    def __init__(
-        self,
-        *,
-        properties: Optional["_models.SubvolumePatchParams"] = None,
-    ) -> None: ...
-
-    @overload
-    def __init__(self, mapping: Mapping[str, Any]) -> None:
-        """
-        :param mapping: raw JSON to initialize the model.
-        :type mapping: Mapping[str, Any]
-        """
-
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
-        _flattened_input = {k: kwargs.pop(k) for k in kwargs.keys() & self.__flattened_items}
-        super().__init__(*args, **kwargs)
-        for k, v in _flattened_input.items():
-            setattr(self, k, v)
-
-    def __getattr__(self, name: str) -> Any:
-        if name in self.__flattened_items:
-            if self.properties is None:
-                return None
-            return getattr(self.properties, name)
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-
-    def __setattr__(self, key: str, value: Any) -> None:
-        if key in self.__flattened_items:
-            if self.properties is None:
-                self.properties = self._attr_to_rest_field["properties"]._class_type()
-            setattr(self.properties, key, value)
-        else:
-            super().__setattr__(key, value)
-
-
-class SubvolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-match-keyword-only
-    """This represents path associated with the subvolume.
-
-    :ivar path: Path to the subvolume.
-    :vartype path: str
-    :ivar size: Truncate subvolume to the provided size in bytes.
-    :vartype size: int
-    :ivar parent_path: parent path to the subvolume.
-    :vartype parent_path: str
-    :ivar provisioning_state: Azure lifecycle management.
-    :vartype provisioning_state: str
-    """
-
-    path: Optional[str] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Path to the subvolume."""
-    size: Optional[int] = rest_field(visibility=["read", "create", "update", "delete", "query"])
-    """Truncate subvolume to the provided size in bytes."""
-    parent_path: Optional[str] = rest_field(
-        name="parentPath", visibility=["read", "create", "update", "delete", "query"]
-    )
-    """parent path to the subvolume."""
-    provisioning_state: Optional[str] = rest_field(name="provisioningState", visibility=["read"])
-    """Azure lifecycle management."""
-
-    @overload
-    def __init__(
-        self,
-        *,
-        path: Optional[str] = None,
-        size: Optional[int] = None,
-        parent_path: Optional[str] = None,
     ) -> None: ...
 
     @overload
@@ -7725,11 +7387,13 @@ class Volume(TrackedResource):  # pylint: disable=docstring-keyword-should-match
         "smb_access_based_enumeration",
         "smb_non_browsable",
         "smb_continuously_available",
+        "smb_oplocks",
         "throughput_mibps",
         "actual_throughput_mibps",
         "encryption_key_source",
         "key_vault_private_endpoint_resource_id",
         "ldap_enabled",
+        "ldap_server_type",
         "cool_access",
         "coolness_period",
         "cool_access_retrieval_policy",
@@ -7750,7 +7414,6 @@ class Volume(TrackedResource):  # pylint: disable=docstring-keyword-should-match
         "volume_spec_name",
         "encrypted",
         "placement_rules",
-        "enable_subvolumes",
         "provisioned_availability_zone",
         "is_large_volume",
         "originating_resource_id",
@@ -8214,11 +7877,13 @@ class VolumeGroupVolumeProperties(_Model):  # pylint: disable=docstring-keyword-
         "smb_access_based_enumeration",
         "smb_non_browsable",
         "smb_continuously_available",
+        "smb_oplocks",
         "throughput_mibps",
         "actual_throughput_mibps",
         "encryption_key_source",
         "key_vault_private_endpoint_resource_id",
         "ldap_enabled",
+        "ldap_server_type",
         "cool_access",
         "coolness_period",
         "cool_access_retrieval_policy",
@@ -8239,7 +7904,6 @@ class VolumeGroupVolumeProperties(_Model):  # pylint: disable=docstring-keyword-
         "volume_spec_name",
         "encrypted",
         "placement_rules",
-        "enable_subvolumes",
         "provisioned_availability_zone",
         "is_large_volume",
         "originating_resource_id",
@@ -8336,6 +8000,7 @@ class VolumePatch(_Model):  # pylint: disable=docstring-keyword-should-match-key
         "snapshot_directory_visible",
         "smb_access_based_enumeration",
         "smb_non_browsable",
+        "smb_oplocks",
     ]
 
     @overload
@@ -8446,6 +8111,9 @@ class VolumePatchProperties(_Model):  # pylint: disable=docstring-keyword-should
     :ivar smb_non_browsable: Enables non-browsable property for SMB Shares. Only applicable for
      SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
     :vartype smb_non_browsable: str or ~azure.mgmt.netapp.models.SmbNonBrowsable
+    :ivar smb_oplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
+    :vartype smb_oplocks: str or ~azure.mgmt.netapp.models.SmbOplocks
     """
 
     service_level: Optional[Union[str, "_models.ServiceLevel"]] = rest_field(
@@ -8541,6 +8209,11 @@ class VolumePatchProperties(_Model):  # pylint: disable=docstring-keyword-should
     )
     """Enables non-browsable property for SMB Shares. Only applicable for SMB/DualProtocol volume.
      Known values are: \"Disabled\" and \"Enabled\"."""
+    smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = rest_field(
+        name="smbOplocks", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol volume. Known values are: \"Disabled\" and \"Enabled\"."""
 
     @overload
     def __init__(
@@ -8563,6 +8236,7 @@ class VolumePatchProperties(_Model):  # pylint: disable=docstring-keyword-should
         snapshot_directory_visible: Optional[bool] = None,
         smb_access_based_enumeration: Optional[Union[str, "_models.SmbAccessBasedEnumeration"]] = None,
         smb_non_browsable: Optional[Union[str, "_models.SmbNonBrowsable"]] = None,
+        smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = None,
     ) -> None: ...
 
     @overload
@@ -8742,6 +8416,9 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
     :ivar smb_continuously_available: Enables continuously available share property for smb volume.
      Only applicable for SMB volume.
     :vartype smb_continuously_available: bool
+    :ivar smb_oplocks: Enables or disables SMB opportunistic lock property for SMB Shares. Only
+     applicable for SMB/DualProtocol volume. Known values are: "Disabled" and "Enabled".
+    :vartype smb_oplocks: str or ~azure.mgmt.netapp.models.SmbOplocks
     :ivar throughput_mibps: Maximum throughput in MiB/s that can be achieved by this volume and
      this will be accepted as input only for manual qosType volume.
     :vartype throughput_mibps: float
@@ -8759,6 +8436,9 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
     :vartype key_vault_private_endpoint_resource_id: str
     :ivar ldap_enabled: Specifies whether LDAP is enabled or not for a given NFS volume.
     :vartype ldap_enabled: bool
+    :ivar ldap_server_type: Specifies the type of LDAP server for a given NFS volume. Known values
+     are: "ActiveDirectory" and "OpenLdap".
+    :vartype ldap_server_type: str or ~azure.mgmt.netapp.models.LdapServerType
     :ivar cool_access: Specifies whether Cool Access(tiering) is enabled for the volume.
     :vartype cool_access: bool
     :ivar coolness_period: Specifies the number of days after which data that is not accessed by
@@ -8829,10 +8509,6 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
     :vartype encrypted: bool
     :ivar placement_rules: Application specific placement rules for the particular volume.
     :vartype placement_rules: list[~azure.mgmt.netapp.models.PlacementKeyValuePairs]
-    :ivar enable_subvolumes: Flag indicating whether subvolume operations are enabled on the volume
-     Deprecated. Subvolume operations and this flag will be removed in a future API version. Known
-     values are: "Enabled" and "Disabled".
-    :vartype enable_subvolumes: str or ~azure.mgmt.netapp.models.EnableSubvolumes
     :ivar provisioned_availability_zone: The availability zone where the volume is provisioned.
      This refers to the logical availability zone where the volume resides.
     :vartype provisioned_availability_zone: str
@@ -8957,6 +8633,11 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
         name="smbContinuouslyAvailable", visibility=["read", "create", "update", "delete", "query"]
     )
     """Enables continuously available share property for smb volume. Only applicable for SMB volume."""
+    smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = rest_field(
+        name="smbOplocks", visibility=["read", "create", "update", "delete", "query"]
+    )
+    """Enables or disables SMB opportunistic lock property for SMB Shares. Only applicable for
+     SMB/DualProtocol volume. Known values are: \"Disabled\" and \"Enabled\"."""
     throughput_mibps: Optional[float] = rest_field(
         name="throughputMibps", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -8978,6 +8659,11 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
      volume. Only applicable if encryptionKeySource = 'Microsoft.KeyVault'."""
     ldap_enabled: Optional[bool] = rest_field(name="ldapEnabled", visibility=["read", "create"])
     """Specifies whether LDAP is enabled or not for a given NFS volume."""
+    ldap_server_type: Optional[Union[str, "_models.LdapServerType"]] = rest_field(
+        name="ldapServerType", visibility=["read", "create"]
+    )
+    """Specifies the type of LDAP server for a given NFS volume. Known values are: \"ActiveDirectory\"
+     and \"OpenLdap\"."""
     cool_access: Optional[bool] = rest_field(
         name="coolAccess", visibility=["read", "create", "update", "delete", "query"]
     )
@@ -9068,12 +8754,6 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
         name="placementRules", visibility=["read", "create", "update", "delete", "query"]
     )
     """Application specific placement rules for the particular volume."""
-    enable_subvolumes: Optional[Union[str, "_models.EnableSubvolumes"]] = rest_field(
-        name="enableSubvolumes", visibility=["read", "create", "update", "delete", "query"]
-    )
-    """Flag indicating whether subvolume operations are enabled on the volume Deprecated. Subvolume
-     operations and this flag will be removed in a future API version. Known values are: \"Enabled\"
-     and \"Disabled\"."""
     provisioned_availability_zone: Optional[str] = rest_field(name="provisionedAvailabilityZone", visibility=["read"])
     """The availability zone where the volume is provisioned. This refers to the logical availability
      zone where the volume resides."""
@@ -9115,10 +8795,12 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
         smb_access_based_enumeration: Optional[Union[str, "_models.SmbAccessBasedEnumeration"]] = None,
         smb_non_browsable: Optional[Union[str, "_models.SmbNonBrowsable"]] = None,
         smb_continuously_available: Optional[bool] = None,
+        smb_oplocks: Optional[Union[str, "_models.SmbOplocks"]] = None,
         throughput_mibps: Optional[float] = None,
         encryption_key_source: Optional[Union[str, "_models.EncryptionKeySource"]] = None,
         key_vault_private_endpoint_resource_id: Optional[str] = None,
         ldap_enabled: Optional[bool] = None,
+        ldap_server_type: Optional[Union[str, "_models.LdapServerType"]] = None,
         cool_access: Optional[bool] = None,
         coolness_period: Optional[int] = None,
         cool_access_retrieval_policy: Optional[Union[str, "_models.CoolAccessRetrievalPolicy"]] = None,
@@ -9132,7 +8814,6 @@ class VolumeProperties(_Model):  # pylint: disable=docstring-keyword-should-matc
         proximity_placement_group: Optional[str] = None,
         volume_spec_name: Optional[str] = None,
         placement_rules: Optional[list["_models.PlacementKeyValuePairs"]] = None,
-        enable_subvolumes: Optional[Union[str, "_models.EnableSubvolumes"]] = None,
         is_large_volume: Optional[bool] = None,
         breakthrough_mode: Optional[Union[str, "_models.BreakthroughMode"]] = None,
     ) -> None: ...

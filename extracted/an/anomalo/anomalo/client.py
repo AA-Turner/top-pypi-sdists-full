@@ -287,6 +287,10 @@ class Client:
             f"warehouse/{warehouse_id}", method="DELETE", empty_response=True
         )
 
+    def delete_table(self, table_id: int) -> None:
+        """Delete an Anomalo View."""
+        self._api_call(f"tables/{table_id}", method="DELETE", empty_response=True)
+
     def refresh_warehouse(
         self, warehouse_id: int, schema_crawl_priority: str | None = None
     ):

@@ -35,8 +35,14 @@ from .paginator import (
     DescribeEventsPaginator,
     DescribeEventTypesPaginator,
     DescribeServiceLifecyclePaginator,
+    DescribeTagsForOrganizationPaginator,
+    DescribeTagsPaginator,
 )
 from .type_defs import (
+    ConfigureTagsForOrganizationRequestTypeDef,
+    ConfigureTagsForOrganizationResponseTypeDef,
+    ConfigureTagsRequestTypeDef,
+    ConfigureTagsResponseTypeDef,
     DescribeAffectedAccountsForOrganizationRequestTypeDef,
     DescribeAffectedAccountsForOrganizationResponseTypeDef,
     DescribeAffectedEntitiesForOrganizationRequestTypeDef,
@@ -62,6 +68,14 @@ from .type_defs import (
     DescribeHealthServiceStatusForOrganizationResponseTypeDef,
     DescribeServiceLifecycleRequestTypeDef,
     DescribeServiceLifecycleResponseTypeDef,
+    DescribeTagKeysForOrganizationResponseTypeDef,
+    DescribeTagKeysResponseTypeDef,
+    DescribeTagsForOrganizationRequestTypeDef,
+    DescribeTagsForOrganizationResponseTypeDef,
+    DescribeTagsOnboardingStatusForOrganizationResponseTypeDef,
+    DescribeTagsOnboardingStatusResponseTypeDef,
+    DescribeTagsRequestTypeDef,
+    DescribeTagsResponseTypeDef,
     EmptyResponseMetadataTypeDef,
 )
 
@@ -111,6 +125,27 @@ class HealthClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/generate_presigned_url.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#generate_presigned_url)
+        """
+
+    def configure_tags(
+        self, **kwargs: Unpack[ConfigureTagsRequestTypeDef]
+    ) -> ConfigureTagsResponseTypeDef:
+        """
+        Configures which resource tag keys are tracked by Health for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/configure_tags.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#configure_tags)
+        """
+
+    def configure_tags_for_organization(
+        self, **kwargs: Unpack[ConfigureTagsForOrganizationRequestTypeDef]
+    ) -> ConfigureTagsForOrganizationResponseTypeDef:
+        """
+        Configures which tag keys are tracked by Health for all accounts in your
+        organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/configure_tags_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#configure_tags_for_organization)
         """
 
     def describe_affected_accounts_for_organization(
@@ -253,6 +288,65 @@ class HealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_service_lifecycle)
         """
 
+    def describe_tag_keys(self) -> DescribeTagKeysResponseTypeDef:
+        """
+        Returns the list of resource tag keys configured for Health event tracking in
+        your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tag_keys.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tag_keys)
+        """
+
+    def describe_tag_keys_for_organization(self) -> DescribeTagKeysForOrganizationResponseTypeDef:
+        """
+        Returns the list of tag keys configured for Health event tracking across your
+        organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tag_keys_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tag_keys_for_organization)
+        """
+
+    def describe_tags(
+        self, **kwargs: Unpack[DescribeTagsRequestTypeDef]
+    ) -> DescribeTagsResponseTypeDef:
+        """
+        Returns the resource tags associated with Health events for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tags.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tags)
+        """
+
+    def describe_tags_for_organization(
+        self, **kwargs: Unpack[DescribeTagsForOrganizationRequestTypeDef]
+    ) -> DescribeTagsForOrganizationResponseTypeDef:
+        """
+        Returns the tags associated with Health events across all accounts in your
+        organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tags_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tags_for_organization)
+        """
+
+    def describe_tags_onboarding_status(self) -> DescribeTagsOnboardingStatusResponseTypeDef:
+        """
+        Returns the current onboarding status of the Health tags feature for your
+        account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tags_onboarding_status.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tags_onboarding_status)
+        """
+
+    def describe_tags_onboarding_status_for_organization(
+        self,
+    ) -> DescribeTagsOnboardingStatusForOrganizationResponseTypeDef:
+        """
+        Returns the current onboarding status of the Health tags feature for your
+        organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/describe_tags_onboarding_status_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#describe_tags_onboarding_status_for_organization)
+        """
+
     def disable_health_service_access_for_organization(self) -> EmptyResponseMetadataTypeDef:
         """
         Disables Health from working with Organizations.
@@ -261,12 +355,44 @@ class HealthClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#disable_health_service_access_for_organization)
         """
 
+    def disable_tags(self) -> EmptyResponseMetadataTypeDef:
+        """
+        Disables the Health tags feature for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/disable_tags.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#disable_tags)
+        """
+
+    def disable_tags_for_organization(self) -> EmptyResponseMetadataTypeDef:
+        """
+        Disables the Health tags feature for all accounts in your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/disable_tags_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#disable_tags_for_organization)
+        """
+
     def enable_health_service_access_for_organization(self) -> EmptyResponseMetadataTypeDef:
         """
         Enables Health to work with Organizations.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/enable_health_service_access_for_organization.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#enable_health_service_access_for_organization)
+        """
+
+    def enable_tags(self) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables the Health tags feature for your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/enable_tags.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#enable_tags)
+        """
+
+    def enable_tags_for_organization(self) -> EmptyResponseMetadataTypeDef:
+        """
+        Enables the Health tags feature for all accounts in your organization.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/enable_tags_for_organization.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#enable_tags_for_organization)
         """
 
     @overload  # type: ignore[override]
@@ -350,6 +476,28 @@ class HealthClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_service_lifecycle"]
     ) -> DescribeServiceLifecyclePaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_tags_for_organization"]
+    ) -> DescribeTagsForOrganizationPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/health/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_health/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_tags"]
+    ) -> DescribeTagsPaginator:
         """
         Create a paginator for an operation.
 

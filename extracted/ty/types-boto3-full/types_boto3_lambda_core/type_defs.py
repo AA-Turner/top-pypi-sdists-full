@@ -24,6 +24,7 @@ from typing import Union
 from .literals import (
     CompatibilityPolicyType,
     ComputeResourceTypeType,
+    ElasticIpTypeType,
     NetworkConnectorLastUpdateStatusReasonCodeType,
     NetworkConnectorLastUpdateStatusType,
     NetworkConnectorStateReasonCodeType,
@@ -57,6 +58,7 @@ __all__ = (
     "DeleteRuntimeAliasRequestTypeDef",
     "DeleteRuntimeRequestTypeDef",
     "DeleteRuntimeVersionRequestTypeDef",
+    "ElasticIpConfigurationTypeDef",
     "GetNetworkConnectorRequestTypeDef",
     "GetNetworkConnectorResponseTypeDef",
     "GetRuntimeAliasRequestTypeDef",
@@ -166,6 +168,14 @@ class DeleteRuntimeVersionRequestTypeDef(TypedDict):
     RecoveryWindowInDays: NotRequired[int]
 
 
+ElasticIpConfigurationTypeDef = TypedDict(
+    "ElasticIpConfigurationTypeDef",
+    {
+        "Type": ElasticIpTypeType,
+    },
+)
+
+
 class GetNetworkConnectorRequestTypeDef(TypedDict):
     Identifier: str
 
@@ -250,20 +260,6 @@ class ListRuntimeVersionsRequestTypeDef(TypedDict):
 class ListRuntimesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
-
-
-class NetworkConnectorVpcEgressConfigurationOutputTypeDef(TypedDict):
-    SubnetIds: NotRequired[list[str]]
-    SecurityGroupIds: NotRequired[list[str]]
-    NetworkProtocol: NotRequired[NetworkProtocolType]
-    AssociatedComputeResourceTypes: NotRequired[list[ComputeResourceTypeType]]
-
-
-class NetworkConnectorVpcEgressConfigurationTypeDef(TypedDict):
-    SubnetIds: NotRequired[Sequence[str]]
-    SecurityGroupIds: NotRequired[Sequence[str]]
-    NetworkProtocol: NotRequired[NetworkProtocolType]
-    AssociatedComputeResourceTypes: NotRequired[Sequence[ComputeResourceTypeType]]
 
 
 class RestoreRuntimeRequestTypeDef(TypedDict):
@@ -476,6 +472,22 @@ class UpdateRuntimeVersionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class NetworkConnectorVpcEgressConfigurationOutputTypeDef(TypedDict):
+    SubnetIds: NotRequired[list[str]]
+    SecurityGroupIds: NotRequired[list[str]]
+    NetworkProtocol: NotRequired[NetworkProtocolType]
+    AssociatedComputeResourceTypes: NotRequired[list[ComputeResourceTypeType]]
+    ElasticIpConfiguration: NotRequired[ElasticIpConfigurationTypeDef]
+
+
+class NetworkConnectorVpcEgressConfigurationTypeDef(TypedDict):
+    SubnetIds: NotRequired[Sequence[str]]
+    SecurityGroupIds: NotRequired[Sequence[str]]
+    NetworkProtocol: NotRequired[NetworkProtocolType]
+    AssociatedComputeResourceTypes: NotRequired[Sequence[ComputeResourceTypeType]]
+    ElasticIpConfiguration: NotRequired[ElasticIpConfigurationTypeDef]
+
+
 class GetRuntimeAliasRequestWaitTypeDef(TypedDict):
     RuntimeName: str
     Name: str
@@ -525,14 +537,6 @@ class ListNetworkConnectorsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class NetworkConnectorConfigurationOutputTypeDef(TypedDict):
-    VpcEgressConfiguration: NotRequired[NetworkConnectorVpcEgressConfigurationOutputTypeDef]
-
-
-class NetworkConnectorConfigurationTypeDef(TypedDict):
-    VpcEgressConfiguration: NotRequired[NetworkConnectorVpcEgressConfigurationTypeDef]
-
-
 class ListRuntimeVersionsResponseTypeDef(TypedDict):
     Items: list[RuntimeVersionInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -549,6 +553,14 @@ class ListRuntimesResponseTypeDef(TypedDict):
     Items: list[RuntimeInfoTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class NetworkConnectorConfigurationOutputTypeDef(TypedDict):
+    VpcEgressConfiguration: NotRequired[NetworkConnectorVpcEgressConfigurationOutputTypeDef]
+
+
+class NetworkConnectorConfigurationTypeDef(TypedDict):
+    VpcEgressConfiguration: NotRequired[NetworkConnectorVpcEgressConfigurationTypeDef]
 
 
 class CreateNetworkConnectorResponseTypeDef(TypedDict):

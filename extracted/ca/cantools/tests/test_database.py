@@ -403,6 +403,59 @@ BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","J1939PG";
         self.assertEqual(len(db.buses), 1)
         self.assertEqual(db.buses[0].baudrate, 500000)
 
+    def test_dbc_load_bus_fd_baudrate(self):
+        db = cantools.database.load_file('tests/files/dbc/bus_fd_baudrate.dbc')
+
+        self.assertEqual(len(db.buses), 1)
+        bus = db.buses[0]
+        self.assertEqual(bus.name, 'FdBus')
+        self.assertEqual(bus.baudrate, 500000)
+        self.assertEqual(bus.fd_baudrate, 2000000)
+
+    def test_dbc_load_bus_fd_baudrate_alias(self):
+        # Compatibility alias used by some tools instead of Vector's name.
+        db = cantools.database.load_file(
+            'tests/files/dbc/bus_fd_baudrate_alias.dbc')
+
+        self.assertEqual(len(db.buses), 1)
+        bus = db.buses[0]
+        self.assertEqual(bus.name, 'FdAliasBus')
+        self.assertEqual(bus.baudrate, 250000)
+        self.assertEqual(bus.fd_baudrate, 4000000)
+
+        dumped = db.as_dbc_string()
+        self.assertIn('BA_ "BaudrateCANFD" 4000000;', dumped)
+        self.assertNotIn('BA_ "BaudrateFD"', dumped)
+
+        reloaded = cantools.database.load_string(dumped, database_format='dbc')
+        self.assertEqual(reloaded.buses[0].baudrate, 250000)
+        self.assertEqual(reloaded.buses[0].fd_baudrate, 4000000)
+
+    def test_arxml_to_dbc_preserves_fd_baudrate(self):
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
+        self.assertEqual(db.buses[0].baudrate, 500000)
+        self.assertEqual(db.buses[0].fd_baudrate, 2000000)
+
+        dumped = db.as_dbc_string()
+        self.assertIn('BA_ "Baudrate" 500000;', dumped)
+        self.assertIn('BA_ "BaudrateCANFD" 2000000;', dumped)
+
+        reloaded = cantools.database.load_string(dumped, database_format='dbc')
+        self.assertEqual(reloaded.buses[0].baudrate, 500000)
+        self.assertEqual(reloaded.buses[0].fd_baudrate, 2000000)
+
+    def test_dbc_dump_file_preserves_fd_baudrate(self):
+        filename_dump = 'bus_fd_baudrate_dump.dbc'
+        db = cantools.database.load_file('tests/files/dbc/bus_fd_baudrate.dbc')
+        cantools.database.dump_file(db, filename_dump)
+
+        try:
+            reloaded = cantools.database.load_file(filename_dump)
+            self.assertEqual(reloaded.buses[0].baudrate, 500000)
+            self.assertEqual(reloaded.buses[0].fd_baudrate, 2000000)
+        finally:
+            os.remove(filename_dump)
+
     def test_foobar_encode_decode(self):
         db = cantools.database.Database()
         db.add_dbc_file('tests/files/dbc/foobar.dbc')
@@ -2644,6 +2697,40 @@ BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","J1939PG";
                              }
                          ])
 
+    def test_multiplexed_sections_with_different_lengths_sym(self):
+        db = cantools.database.load_string(
+            'FormatVersion=6.0 // Do not edit this line!\n'
+            'Title="Multiplexed sections with different lengths"\n'
+            '\n'
+            '{SENDRECEIVE}\n'
+            '\n'
+            '[TestAlert]\n'
+            'ID=700h\n'
+            'Len=4\n'
+            'Mux=FSM 0,8 1\n'
+            'Var=alert1 unsigned 8,1\n'
+            '\n'
+            '[TestAlert]\n'
+            'Len=8\n'
+            'Mux=TestMuxFloat 0,8 2\n'
+            'Var=value float 8,32\n'
+            '\n'
+            '[TestAlert]\n'
+            'Mux=TestMuxFloat 0,8 3\n'
+            'Var=alert2 unsigned 8,1\n',
+            database_format='sym')
+
+        message = db.get_message_by_name('TestAlert')
+        self.assertEqual(message.length, 8)
+
+        data = message.encode({'FSM': 2, 'value': 1.5})
+        self.assertEqual(len(data), 8)
+        self.assertEqual(message.decode(data), {'FSM': 2, 'value': 1.5})
+
+        reloaded = cantools.database.load_string(db.as_sym_string(),
+                                                 database_format='sym')
+        self.assertEqual(reloaded.get_message_by_name('TestAlert').length, 8)
+
     def test_type_parameter_overrides_is_extended_sym(self):
         db = cantools.database.Database()
         db.add_sym_file('tests/files/sym/type-extended-cycle-dash-p.sym')
@@ -4346,6 +4433,193 @@ BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","J1939PG";
             self.assertEqual(message_1.signals[0].start, 8)
             self.assertEqual(message_1.signals[0].length, 1)
 
+    def test_overlapping_little_endian_signals_decode_and_encode(self):
+        # Issue #205: overlapping Intel signals (bit flags plus the
+        # whole byte as a status code) used to raise "Short data".
+        dbc = '''VERSION ""
+
+NS_ :
+    NS_DESC_
+    CM_
+    BA_DEF_
+    BA_
+    VAL_
+    CAT_DEF_
+    CAT_
+    FILTER
+    BA_DEF_DEF_
+    EV_DATA_
+    ENVVAR_DATA_
+    SGTYPE_
+    SGTYPE_VAL_
+    BA_DEF_SGTYPE_
+    BA_SGTYPE_
+    SIG_TYPE_REF_
+    VAL_TABLE_
+    SIG_GROUP_
+    SIG_VALTYPE_
+    SIGTYPE_VALTYPE_
+    BO_TX_BU_
+    BA_DEF_REL_
+    BA_REL_
+    BA_DEF_DEF_REL_
+    BU_SG_REL_
+    BU_EV_REL_
+    BU_BO_REL_
+    SG_MUL_VAL_
+
+BS_:
+
+BU_:
+
+BO_ 287 Message01: 1 Vector__XXX
+ SG_ Flag1 : 0|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag2 : 1|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag3 : 2|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag4 : 3|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag5 : 4|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag6 : 5|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag7 : 6|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Flag8 : 7|1@1+ (1,0) [0|1] "" Vector__XXX
+ SG_ Status : 0|8@1+ (1,0) [0|255] "" Vector__XXX
+'''
+        db = cantools.database.load_string(dbc, strict=False)
+        decoded = db.decode_message(287, b'\x00')
+        self.assertEqual(decoded, {
+            'Flag1': 0,
+            'Flag2': 0,
+            'Flag3': 0,
+            'Flag4': 0,
+            'Flag5': 0,
+            'Flag6': 0,
+            'Flag7': 0,
+            'Flag8': 0,
+            'Status': 0,
+        })
+
+        decoded = db.decode_message(287, b'\xaa')
+        self.assertEqual(decoded, {
+            'Flag1': 0,
+            'Flag2': 1,
+            'Flag3': 0,
+            'Flag4': 1,
+            'Flag5': 0,
+            'Flag6': 1,
+            'Flag7': 0,
+            'Flag8': 1,
+            'Status': 0b10101010,
+        })
+
+        encoded = db.encode_message(287, decoded, strict=False)
+        self.assertEqual(encoded, b'\xaa')
+
+        # Overlapping signals survive a dump/load round trip (#763).
+        db_reloaded = cantools.database.load_string(db.as_dbc_string(),
+                                                    strict=False)
+        self.assertEqual(
+            sorted((s.name, s.start, s.length)
+                   for s in db_reloaded.get_message_by_name('Message01').signals),
+            sorted((s.name, s.start, s.length)
+                   for s in db.get_message_by_name('Message01').signals))
+        self.assertEqual(db_reloaded.decode_message(287, b'\xaa'), decoded)
+
+    def test_overlapping_big_endian_signals_decode_and_encode(self):
+        status = cantools.database.can.Signal(
+            'Status', 7, 8, 'big_endian')
+        msb = cantools.database.can.Signal(
+            'Msb', 7, 1, 'big_endian')
+        message = cantools.database.can.Message(
+            1, 'M', 1, [status, msb], strict=False)
+
+        decoded = message.decode(b'\x80')
+        self.assertEqual(decoded, {'Status': 0x80, 'Msb': 1})
+
+        encoded = message.encode(decoded, strict=False)
+        self.assertEqual(encoded, b'\x80')
+
+    def test_overlapping_signals_padding(self):
+        # 'Low' (bits 0-3) and 'Wide' (bits 2-5) end up in different
+        # layers. Only bits 6-7 are unused, so only these may be
+        # filled with the unused bit pattern.
+        low = cantools.database.can.Signal('Low', 0, 4, 'little_endian')
+        wide = cantools.database.can.Signal('Wide', 2, 4, 'little_endian')
+        message = cantools.database.can.Message(
+            1, 'M', 1, [low, wide], strict=False, unused_bit_pattern=0xff)
+
+        encoded = message.encode({'Low': 0, 'Wide': 0},
+                                 strict=False,
+                                 padding=True)
+        self.assertEqual(encoded, b'\xc0')
+        self.assertEqual(message.decode(encoded), {'Low': 0, 'Wide': 0})
+
+    def test_overlapping_signals_issue_205_sym(self):
+        # Reduced/obfuscated SYM based on a real multiplexed boot-log
+        # frame: a 32-bit status word shares its MSB with a 1-bit flag
+        # (issue #205).
+        filename = 'tests/files/sym/issue_205.sym'
+
+        with self.assertRaises(cantools.database.Error) as cm:
+            cantools.database.load_file(filename, strict=True)
+
+        self.assertIn('overlapping', str(cm.exception))
+
+        db = cantools.database.load_file(filename, strict=False)
+        self.assertEqual(len(db.messages), 1)
+
+        flags_frame = bytes([0x00, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x80])
+        decoded = db.decode_message('BootLog', flags_frame)
+        self.assertEqual(decoded, {
+            'Selector': 0x030000,
+            'StatusWord': 0x80000000,
+            'StatusMsb': 1,
+        })
+        encoded = db.encode_message('BootLog', decoded, strict=False)
+        self.assertEqual(encoded, flags_frame)
+
+        # Non-overlapping mux variant still decodes individual bits.
+        reset_frame = bytes([0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00])
+        decoded = db.decode_message('BootLog', reset_frame)
+        self.assertEqual(decoded['Selector'], 0)
+        self.assertEqual(decoded['StatusBitA'], 1)
+        self.assertEqual(decoded['StatusBitB'], 0)
+
+    def test_overlapping_multiplexed_signals_decode_and_encode(self):
+        # Codecs are compiled per multiplexer variant, so overlapping
+        # signals in a muxed frame use extra bitstruct layers too.
+        mux = cantools.database.can.Signal(
+            'Mux', 0, 8, is_multiplexer=True)
+        status = cantools.database.can.Signal(
+            'Status', 8, 8,
+            multiplexer_ids=[1],
+            multiplexer_signal='Mux')
+        flag = cantools.database.can.Signal(
+            'Flag', 8, 1,
+            multiplexer_ids=[1],
+            multiplexer_signal='Mux')
+        other = cantools.database.can.Signal(
+            'Other', 8, 8,
+            multiplexer_ids=[0],
+            multiplexer_signal='Mux')
+        message = cantools.database.can.Message(
+            1, 'M', 2, [mux, status, flag, other], strict=False)
+
+        decoded = message.decode(b'\x01\xab')
+        self.assertEqual(decoded, {
+            'Mux': 1,
+            'Status': 0xab,
+            'Flag': 1,
+        })
+        encoded = message.encode(decoded, strict=False)
+        self.assertEqual(encoded, b'\x01\xab')
+
+        decoded = message.decode(b'\x00\x55')
+        self.assertEqual(decoded, {
+            'Mux': 0,
+            'Other': 0x55,
+        })
+        encoded = message.encode(decoded, strict=False)
+        self.assertEqual(encoded, b'\x00\x55')
+
     def test_database_signals_check_failure(self):
         signal = cantools.database.can.Signal('S',
                                               7,
@@ -5972,16 +6246,35 @@ BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","J1939PG";
         signal = message.signals[0]
         self.assertEqual(signal.name, 'SignalA')
 
-        # float limits: choices keyed by 0.0 and 1.0 (not integers 0 and 1)
-        self.assertIn(0.0, signal.choices)
-        self.assertIn(1.0, signal.choices)
-        self.assertEqual(signal.choices[0.0], 'OFF')
-        self.assertEqual(signal.choices[1.0], 'ON')
+        # float limits: "0.0" and "1.0" are accepted as the raw values 0 and 1
+        self.assertIn(0, signal.choices)
+        self.assertIn(1, signal.choices)
+        self.assertEqual(signal.choices[0], 'OFF')
+        self.assertEqual(signal.choices[1], 'ON')
 
         # missing-lower-limit entry: lower_limit was absent, so it was inferred
         # from upper_limit=2 and the entry is present rather than dropped.
         self.assertIn(2, signal.choices)
         self.assertEqual(signal.choices[2], 'INVALID')
+
+    def test_system_float_enumeration_limits_arxml(self):
+        # enumeration limits written as "0.0" must give integer choice
+        # values, or encoding by name and DBC/KCD output break
+        db = cantools.database.load_file(
+            'tests/files/arxml/system-float-limits-missing-compu-scale-4.2.arxml')
+        message = db.messages[0]
+        choices = message.signals[0].choices
+
+        for value in choices:
+            self.assertIs(type(value), int)
+
+        encoded = message.encode({'SignalA': 'ON'})
+        self.assertEqual(message.decode(encoded)['SignalA'], 'ON')
+
+        dbc = cantools.database.load_string(db.as_dbc_string(), 'dbc')
+        self.assertEqual(dbc.messages[0].signals[0].choices, choices)
+        kcd = cantools.database.load_string(db.as_kcd_string(), 'kcd')
+        self.assertEqual(kcd.messages[0].signals[0].choices, choices)
 
     def test_system_bad_root_tag(self):
         with self.assertRaises(UnsupportedDatabaseFormatError) as cm:
@@ -6818,6 +7111,65 @@ BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN","J1939PG";
         self.assertEqual(signal_group.name, 'iNvAlId_SiGnaL_gRoUp_NaMe')
         self.assertEqual(signal_group.signal_names[0], '___Brackets___')
         self.assertEqual(signal_group.signal_names[1], '_13StartsWithNumber')
+
+    def test_fd_frames_from_arxml_dump_to_dbc(self):
+        # The ARXML database has no DBC "BusType" attribute, but its
+        # CAN FD frames must stay CAN FD in the written DBC file.
+        db = cantools.database.load_file('tests/files/arxml/system-4.2.arxml')
+        fd_messages = [message.name for message in db.messages if message.is_fd]
+        self.assertEqual(fd_messages,
+                         ['MultiplexedMessage', 'Message1', 'Message2'])
+
+        dumped = cantools.database.load_string(db.as_dbc_string(), 'dbc')
+
+        for message in db.messages:
+            self.assertEqual(dumped.get_message_by_name(message.name).is_fd,
+                             message.is_fd,
+                             message.name)
+
+    def test_fd_dbc_without_bus_type_dumps_no_new_definitions(self):
+        # A DBC file marks its CAN FD frames with "VFrameFormat" and need
+        # not define "BusType" or "CANFD_BRS". Dumping it must not add
+        # definitions that the source did not have.
+        with open('tests/files/dbc/fd_test.dbc') as fin:
+            source = ''.join(line for line in fin
+                             if 'BusType' not in line and 'CANFD_BRS' not in line)
+
+        db = cantools.database.load_string(source, 'dbc')
+        self.assertTrue(db.get_message_by_name('TestMsg_FDStd').is_fd)
+
+        self.assertNotIn('CANFD_BRS', db.as_dbc_string())
+
+    def test_fd_dbc_dump_after_clearing_fd(self):
+        # A message loaded as CAN FD that is changed to classic CAN must
+        # not keep its old "VFrameFormat" value in the written DBC file.
+        db = cantools.database.load_file('tests/files/dbc/fd_test.dbc')
+        db.get_message_by_name('TestMsg_FDStd').is_fd = False
+
+        dumped = cantools.database.load_string(db.as_dbc_string(), 'dbc')
+
+        for message in db.messages:
+            self.assertEqual(dumped.get_message_by_name(message.name).is_fd,
+                             message.is_fd,
+                             message.name)
+
+    def test_dbc_dump_keeps_loaded_reserved_frame_format(self):
+        # Only a loaded frame format is rewritten from the message; a value
+        # such as "reserved" carries information the message cannot hold.
+        db = cantools.database.load_string(
+            'VERSION ""\n'
+            'NS_ :\n'
+            'BS_:\n'
+            'BU_: N\n'
+            'BO_ 291 M1: 8 N\n'
+            ' SG_ S : 0|8@1+ (1,0) [0|0] "" N\n'
+            'BA_DEF_ BO_ "VFrameFormat" ENUM "StandardCAN","ExtendedCAN",'
+            '"reserved","J1939PG";\n'
+            'BA_DEF_DEF_ "VFrameFormat" "StandardCAN";\n'
+            'BA_ "VFrameFormat" BO_ 291 2;\n',
+            'dbc')
+
+        self.assertIn('BA_ "VFrameFormat" BO_ 291 2;', db.as_dbc_string())
 
     def test_fd_detection(self):
         filename = "tests/files/dbc/fd_test.dbc"

@@ -1,6 +1,6 @@
 [project]
 name = "py-key-value-aio"
-version = "0.4.6"
+version = "0.5.0"
 description = "Async Key-Value Store - A pluggable interface for KV Stores"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,9 +14,12 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
 ]
 dependencies = [
     "beartype>=0.20.0",
+    "beartype>=0.23.0; python_version >= '3.15'",
     "typing-extensions>=4.15.0",
 ]
 
@@ -27,7 +30,7 @@ disk = [
     "pathvalidate>=3.3.1",
 ]
 filetree = [
-    "aiofile>=3.5.0,!=3.9.0,<3.10 ; python_version < '3.11'",
+    "aiofile>=3.8.8,!=3.9.0,<3.10 ; python_version < '3.11'",
     "aiofile>=3.12.3 ; python_version >= '3.11'",
     "anyio>=4.4.0",
 ]
@@ -45,11 +48,11 @@ elasticsearch = [
 ]
 opensearch = ["opensearch-py[async]>=2.0.0"]
 dynamodb = [
-    "aioboto3>=13.3.0",
+    "types-aiobotocore-lite[aiobotocore]>=2.16.0",
     "types-aiobotocore-dynamodb>=2.16.0",
 ]
 s3 = [
-    "aioboto3>=13.3.0",
+    "types-aiobotocore-lite[aiobotocore]>=2.16.0",
     "types-aiobotocore-s3>=2.16.0",
 ]
 azure-tables = [
@@ -57,16 +60,10 @@ azure-tables = [
     "azure-core>=1.29.0",
 ]
 keyring = ["keyring>=25.6.0"]
-keyring-linux = [
-    "keyring>=25.6.0",
-    "dbus-python>=1.4.0",
-]
+keyring-linux = ["keyring>=25.6.0"]
 pydantic = ["pydantic>=2.11.9"]
 aerospike = ["aerospike>=16.0.0"]
-rocksdb = [
-    "rocksdict>=0.3.24 ; python_version >= '3.12'",
-    "rocksdict>=0.3.2 ; python_version < '3.12'",
-]
+rocksdb = ["rocksdict>=0.3.24"]
 duckdb = [
     "duckdb>=1.1.1",
     "pytz>=2025.2",
@@ -186,10 +183,11 @@ exclude = [
 
 [dependency-groups]
 dev = [
-    "py-key-value-aio[memory,disk,filetree,redis,elasticsearch,opensearch,memcached,mongodb,vault,dynamodb,s3,azure-tables,rocksdb,duckdb,firestore,postgresql]",
-    "py-key-value-aio[chdb]; platform_system != 'Windows'",
-    "py-key-value-aio[valkey]; platform_system != 'Windows'",
-    "py-key-value-aio[aerospike]; platform_system != 'Windows'",
+    "py-key-value-aio[memory,disk,filetree,redis,elasticsearch,opensearch,memcached,mongodb,vault,dynamodb,s3,azure-tables,duckdb,firestore,postgresql]",
+    "py-key-value-aio[chdb]; platform_system != 'Windows' and python_version < '3.15'",
+    "py-key-value-aio[rocksdb]; python_version < '3.15'",
+    "py-key-value-aio[valkey]; platform_system != 'Windows' and python_version < '3.15'",
+    "py-key-value-aio[aerospike]; platform_system != 'Windows' and python_version < '3.15'",
     "py-key-value-aio[keyring]",
     "py-key-value-aio[pydantic]",
     "py-key-value-aio[wrappers-encryption]",

@@ -41,6 +41,8 @@ from mistralai.workflows.core._registration.execution_registration_interceptor i
 )
 from mistralai.workflows.core.activity import activity, get_all_temporal_activities
 from mistralai.workflows.core.auth import get_token_provider
+from mistralai.workflows.core.auth.header_files import get_deployment_headers
+from mistralai.workflows.core.auth.startup_read import read_credential_at_startup
 from mistralai.workflows.core.config import config_discovery
 from mistralai.workflows.core.config.config import AppConfig, config, log_configuration, setup_default_logging
 from mistralai.workflows.core.config.config import WorkerConfig as WorkerSettings
@@ -79,7 +81,7 @@ from mistralai.workflows.core.temporal.payload_converter import (
 from mistralai.workflows.core.temporal.runtime_metrics import build_runtime, pump_runtime_metrics
 from mistralai.workflows.core.temporal.temporal_client import (
     create_temporal_client,
-    refresh_temporal_api_key,
+    refresh_temporal_credentials,
     set_worker_service_client,
 )
 from mistralai.workflows.core.tracing._temporal_tracing_interceptor import (
@@ -826,7 +828,7 @@ async def _run_worker(
         worker_client = get_worker_client(
             base_url=config.worker.server_url,
             token_provider=get_token_provider(),
-            headers=config.worker.mistral_api_headers,
+            headers=get_deployment_headers(),
         )
 
         # Initialize OpenTelemetry tracing for the worker component
@@ -864,7 +866,7 @@ async def _run_worker(
             add_tracing_interceptors=False,
             failure_converter=payload_encoding.failure_converter,
         )
-        # Publish the connection whose bearer refresh_temporal_api_key keeps current, so DI-provided
+        # Publish the connection whose credentials refresh_temporal_credentials keeps current, so DI-provided
         # clients (plugin activities) ride it instead of opening an unrefreshed parallel connection.
         set_worker_service_client(temporal_client.service_client)
 
@@ -978,7 +980,7 @@ async def _run_worker(
                         got=len(refs),
                     )
 
-            token_refresh_task = tg.create_task(refresh_temporal_api_key(temporal_client.service_client))
+            token_refresh_task = tg.create_task(refresh_temporal_credentials(temporal_client.service_client))
 
             # Drain the runtime MetricBuffer and re-emit through its dedicated provider (worker_id-free
             # resource). Both are present only on the worker with metrics enabled.
@@ -1078,6 +1080,13 @@ async def run_worker(
 
     def _revert_config() -> None:
         config.__dict__.update(original_config.__dict__)  # pyright: ignore[reportAttributeAccessIssue]
+
+    # Every later read keeps the last good value, so only this first read needs the retry.
+    with _report_worker_errors(
+        exit_on_terminal_error=not detach,
+        unexpected_error_message="Failed to read worker header files",
+    ):
+        await read_credential_at_startup(get_deployment_headers, "header files")
 
     enable_config_discovery = (
         enable_config_discovery if enable_config_discovery is not None else config.worker.enable_config_discovery

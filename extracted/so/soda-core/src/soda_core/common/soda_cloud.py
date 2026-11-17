@@ -36,6 +36,7 @@ from soda_core.common.exceptions import (
 )
 from soda_core.common.logging_constants import Emoticons, ExtraKeys, soda_logger
 from soda_core.common.logs import Location, Logs
+from soda_core.common.metadata_types import SqlDataType
 from soda_core.common.soda_cloud_dto import (
     CheckAttribute,
     CheckAttributes,
@@ -297,6 +298,44 @@ def _command_accepted(response: Optional[Response]) -> bool:
     """Whether Soda Cloud accepted a command. The shared contract of every ``bool``-returning
     command method: no response (the client swallowed the error) counts as a rejection."""
     return response is not None and response.ok
+
+
+# Soda Cloud response codes that reject a results upload for a reason only the customer can
+# cause: the contract or the organization's configuration is wrong, so the same upload fails on
+# every run until someone fixes it. A session whose failed uploads were all rejected with one of
+# these raises ``ResultsRejectedBySodaCloudException``, so the CLI reports it like any other error
+# the customer has to fix (exit 3) instead of exiting ``RESULTS_NOT_SENT_TO_CLOUD`` (4), which is
+# kept for failures on Soda's side. Keep this list to
+# codes no platform fault produces: shared codes such as ``access_denied`` or ``invalid_request``
+# stay out.
+CUSTOMER_CAUSED_RESULTS_REJECTION_CODES: frozenset[str] = frozenset(
+    {
+        # A check attribute the organization does not have.
+        "resource_attribute_not_found",
+        # A check attribute value of the wrong type.
+        "invalid_resource_attribute_value_type",
+        # A service user publishing a contract for a dataset or data source that doesn't exist yet.
+        "service_user_may_not_create_contract_datasets",
+        # A draft or test contract.
+        "invalid_contract_type",
+        "could_not_publish_contract",
+        # The resource is being deleted.
+        "resource_in_deletion",
+    }
+)
+
+
+def _customer_caused_rejection_code(response: Optional[Response]) -> Optional[str]:
+    """The response code when Soda Cloud rejected a request with a 400 whose code is in
+    ``CUSTOMER_CAUSED_RESULTS_REJECTION_CODES``; None for any other response."""
+    if response is None or response.status_code != 400:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    code = body.get("code") if isinstance(body, dict) else None
+    return code if code in CUSTOMER_CAUSED_RESULTS_REJECTION_CODES else None
 
 
 ResponseModel = TypeVar("ResponseModel", bound=BaseModel)
@@ -567,7 +606,7 @@ class SodaCloud:
         response: Response = self._execute_command(
             command_json_dict=payload, request_log_name="send_check_collection_results"
         )
-        if response.status_code == 200:
+        if response is not None and response.status_code == 200:
             file_count_label = "1 file" if len(results) == 1 else f"{len(results)} files"
             logger.info(f"{Emoticons.OK_HAND} Results sent to Soda Cloud ({file_count_label})")
             response_json: dict = response.json()
@@ -592,8 +631,12 @@ class SodaCloud:
                     for r in results:
                         r.sending_results_to_soda_cloud_failed = True
                 return response_json
+        # Only recorded here: the session executor raises it once every file is done (see
+        # ``ResultsRejectedBySodaCloudException``).
+        rejection_code: Optional[str] = _customer_caused_rejection_code(response)
         for r in results:
             r.sending_results_to_soda_cloud_failed = True
+            r.soda_cloud_rejection_code = rejection_code
         return None
 
     def trigger_contract_skeleton_generation(self, dataset_identifier: DatasetIdentifier) -> None:
@@ -2484,8 +2527,12 @@ def _build_v4_diagnostics_check_type_json_dict(check_result: CheckResult) -> Opt
     elif isinstance(check_result, SchemaCheckResult):
         return {
             "type": check_result.check.type,
-            "expected": [_build_schema_column(expected) for expected in check_result.expected_columns],
-            "actual": [_build_schema_column(actual) for actual in check_result.actual_columns],
+            "expected": [
+                _build_schema_column(name, data_type) for name, data_type in check_result.expected_columns.items()
+            ],
+            "actual": [
+                _build_schema_column(column.column_name, column.sql_data_type) for column in check_result.actual_columns
+            ],
             # To be added later if we need it
             # "actualColumnsNotExpected": [...],
             # "expectedColumnsNotActual": [...],
@@ -2527,17 +2574,11 @@ def _scope_rows_tested_json_dict(check_result: CheckResult) -> dict:
     return {}
 
 
-def _build_schema_column(column_metadata: ColumnMetadata) -> Optional[dict]:
+def _build_schema_column(name: str, data_type: Optional[SqlDataType]) -> dict:
     return {
-        "name": column_metadata.column_name,
-        # column_metadata.sql_data_type can be None when
-        # expected columns of schema check don't include the type.
+        "name": name,
         # The type includes the data type parameters in round brackets eg VARCHAR(255)
-        "type": (
-            column_metadata.sql_data_type.get_sql_data_type_str_with_parameters()
-            if column_metadata.sql_data_type
-            else None
-        ),
+        "type": data_type.get_sql_data_type_str_with_parameters() if data_type else None,
     }
 
 

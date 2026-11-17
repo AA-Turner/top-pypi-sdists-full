@@ -53,6 +53,7 @@ class float8_e4m3fnuz;
 class float8_e4m3b11fnuz;
 class float8_e5m2;
 class float8_e5m2fnuz;
+class float8_e5m3fnu;
 class float8_e8m0fnu;
 
 template <typename Derived>
@@ -69,8 +70,7 @@ class float8_base {
   template <typename T>
   explicit EIGEN_DEVICE_FUNC float8_base(
       T i, std::enable_if_t<std::is_integral_v<T>, int> = 0)
-      : float8_base(ConvertFrom(static_cast<float>(i)).rep(),
-                    ConstructFromRepTag{}) {}
+      : float8_base(ConvertFrom(i).rep(), ConstructFromRepTag{}) {}
   template <typename T>
   explicit EIGEN_DEVICE_FUNC float8_base(
       T f, std::enable_if_t<std::is_floating_point_v<T>, int> = 0)
@@ -314,7 +314,8 @@ class float8_e4m3b11fnuz : public float8_base<float8_e4m3b11fnuz> {
     return Base::operator-();
   }
 
-  float8_e4m3b11fnuz operator-(const float8_e4m3b11fnuz& other) const {
+  EIGEN_DEVICE_FUNC float8_e4m3b11fnuz
+  operator-(const float8_e4m3b11fnuz& other) const {
     return Base::operator-(other);
   }
 
@@ -357,7 +358,8 @@ class float8_e4m3fnuz : public float8_base<float8_e4m3fnuz> {
     return Base::operator-();
   }
 
-  float8_e4m3fnuz operator-(const float8_e4m3fnuz& other) const {
+  EIGEN_DEVICE_FUNC float8_e4m3fnuz
+  operator-(const float8_e4m3fnuz& other) const {
     return Base::operator-(other);
   }
 
@@ -410,11 +412,86 @@ class float8_e5m2fnuz : public float8_base<float8_e5m2fnuz> {
     return Base::operator-();
   }
 
-  float8_e5m2fnuz operator-(const float8_e5m2fnuz& other) const {
+  EIGEN_DEVICE_FUNC float8_e5m2fnuz
+  operator-(const float8_e5m2fnuz& other) const {
     return Base::operator-(other);
   }
 
   explicit EIGEN_DEVICE_FUNC operator bool() const { return rep() != 0; }
+};
+
+class float8_e5m3fnu : public float8_base<float8_e5m3fnu> {
+  // 8-bit floating point with 3 bit mantissa and no sign bit.
+  //
+  // See:
+  // https://docs.nvidia.com/cuda/parallel-thread-execution/#alternate-floating-point-data-formats
+  //
+  // An 8-bit floating point type with no sign bit, 5 bits exponent and 3 bits
+  // mantissa. The suffix "fnu" is consistent with LLVM/MLIR naming and is
+  // derived from the differences to IEEE floating point conventions. `F` is
+  // for "finite" (no infinities), `N` for with special NaN encoding, `U` for
+  // unsigned.
+  //
+  // This type has the following characteristics:
+  // * bit encoding: S0E5M3 - `0bEEEEEMMM`
+  // * exponent bias: 15
+  // * infinities: Not supported
+  // * NaNs: Supported with exponent bits and mantissa bits set to all 1s -
+  // `0b11111111`
+  // * denormals when exponent is 0
+ private:
+  using Base = float8_base<float8_e5m3fnu>;
+  friend class float8_base<float8_e5m3fnu>;
+  using Base::Base;
+
+ public:
+  template <typename T, RequiresIsDerivedFromFloat8Base<T> = 0>
+  explicit EIGEN_DEVICE_FUNC float8_e5m3fnu(T f8)
+      : float8_e5m3fnu(ConvertFrom(f8)) {}
+
+  constexpr float8_e5m3fnu operator-() const {
+    // No negative numbers supported in E5M3, so negating zero is a no-op and
+    // negating anything else yields NaN.
+    return rep() == 0x00 ? *this : float8_e5m3fnu::FromRep(0xFF);
+  }
+
+  float8_e5m3fnu operator-(const float8_e5m3fnu& other) const {
+    return Base::operator-(other);
+  }
+
+  explicit EIGEN_DEVICE_FUNC operator bool() const { return rep() != 0; }
+
+  // The encoding is unsigned, so the representation is monotonic and ordering
+  // simplifies to a uint8_t compare. The base class implementation cannot be
+  // used because it treats the MSB as a sign bit.
+  EIGEN_STRONG_INLINE EIGEN_DEVICE_FUNC bool operator<(
+      const float8_e5m3fnu& other) const {
+    if (Eigen::numext::isnan(*this) || Eigen::numext::isnan(other)) {
+      return false;
+    }
+    return rep() < other.rep();
+  }
+  EIGEN_STRONG_INLINE EIGEN_DEVICE_FUNC bool operator<=(
+      const float8_e5m3fnu& other) const {
+    if (Eigen::numext::isnan(*this) || Eigen::numext::isnan(other)) {
+      return false;
+    }
+    return rep() <= other.rep();
+  }
+  EIGEN_STRONG_INLINE EIGEN_DEVICE_FUNC bool operator>(
+      const float8_e5m3fnu& other) const {
+    if (Eigen::numext::isnan(*this) || Eigen::numext::isnan(other)) {
+      return false;
+    }
+    return rep() > other.rep();
+  }
+  EIGEN_STRONG_INLINE EIGEN_DEVICE_FUNC bool operator>=(
+      const float8_e5m3fnu& other) const {
+    if (Eigen::numext::isnan(*this) || Eigen::numext::isnan(other)) {
+      return false;
+    }
+    return rep() >= other.rep();
+  }
 };
 
 class float8_e8m0fnu : public float8_base<float8_e8m0fnu> {
@@ -449,7 +526,8 @@ class float8_e8m0fnu : public float8_base<float8_e8m0fnu> {
     return float8_e8m0fnu::FromRep(0xFF);
   }
 
-  float8_e8m0fnu operator-(const float8_e8m0fnu& other) const {
+  EIGEN_DEVICE_FUNC float8_e8m0fnu
+  operator-(const float8_e8m0fnu& other) const {
     return Base::operator-(other);
   }
 
@@ -1000,6 +1078,66 @@ struct numeric_limits_float8_e5m2fnuz : public numeric_limits_float8_base {
   }
 };
 
+struct numeric_limits_float8_e5m3fnu : public numeric_limits_float8_base {
+ private:
+  static inline constexpr const int kExponentBias = 15;
+  static inline constexpr const int kMantissaBits = 3;
+
+ public:
+  // NOLINTBEGIN: these names must match std::numeric_limits.
+  static inline constexpr const bool is_signed = false;
+  static inline constexpr const int digits = kMantissaBits + 1;
+  static inline constexpr const int digits10 = Digits10FromDigits(digits);
+  static inline constexpr const int max_digits10 =
+      MaxDigits10FromDigits(digits);
+  static inline constexpr const int min_exponent = (1 - kExponentBias) + 1;
+  static inline constexpr const int min_exponent10 =
+      MinExponent10FromMinExponent(min_exponent);
+  static inline constexpr const int max_exponent =
+      (0b11111 - kExponentBias) + 1;  // Extended format.
+  static inline constexpr const int max_exponent10 =
+      MaxExponent10FromMaxExponentAndDigits(max_exponent, digits);
+  static inline constexpr const bool is_iec559 = false;
+  static inline constexpr const bool has_infinity = false;
+  static inline constexpr const bool has_signaling_NaN = false;
+  // NOLINTEND
+
+  // 1.0 * 2^(0b00001 - 15) = 1.0 * 2^-14 = 6.103515625e-05 (min normal)
+  static constexpr float8_e5m3fnu min() {
+    return float8_e5m3fnu::FromRep(0b00001 << kMantissaBits);
+  }
+  // Unsigned format, so the lowest value is zero.
+  static constexpr float8_e5m3fnu lowest() {
+    return float8_e5m3fnu::FromRep(0b00000'000);
+  }
+  // (1 + 0b110 * 2^-3) * 2^(0b11111 - 15) = 1.75 * 2^16 = 114688
+  static constexpr float8_e5m3fnu max() {
+    return float8_e5m3fnu::FromRep(0b11111'110);
+  }
+  // 1.0 * 2^-3 = 0.125
+  static constexpr float8_e5m3fnu epsilon() {
+    return float8_e5m3fnu::FromRep((-kMantissaBits + kExponentBias)
+                                   << kMantissaBits);
+  }
+  // 1.0 * 2^-1 = 0.5
+  static constexpr float8_e5m3fnu round_error() {
+    return float8_e5m3fnu::FromRep((-1 + kExponentBias) << kMantissaBits);
+  }
+  static constexpr float8_e5m3fnu infinity() {
+    return float8_e5m3fnu::FromRep(0b11111'111);
+  }  // NaN.
+  static constexpr float8_e5m3fnu quiet_NaN() {
+    return float8_e5m3fnu::FromRep(0b11111'111);
+  }
+  static constexpr float8_e5m3fnu signaling_NaN() {
+    return float8_e5m3fnu::FromRep(0b11111'111);
+  }
+  // 1.0 * 2^(-15 - 3 + 1) = 1.0 * 2^-17 = 7.62939453125e-06 (min denormal)
+  static constexpr float8_e5m3fnu denorm_min() {
+    return float8_e5m3fnu::FromRep(0b00000'001);
+  }
+};
+
 struct numeric_limits_float8_e8m0fnu : public numeric_limits_float8_base {
  private:
   static inline constexpr const int kExponentBias = 127;
@@ -1095,6 +1233,10 @@ struct numeric_limits<ml_dtypes::float8_internal::float8_e5m2fnuz>
     : public ml_dtypes::float8_internal::numeric_limits_float8_e5m2fnuz {};
 
 template <>
+struct numeric_limits<ml_dtypes::float8_internal::float8_e5m3fnu>
+    : public ml_dtypes::float8_internal::numeric_limits_float8_e5m3fnu {};
+
+template <>
 struct numeric_limits<ml_dtypes::float8_internal::float8_e8m0fnu>
     : public ml_dtypes::float8_internal::numeric_limits_float8_e8m0fnu {};
 }  // namespace std
@@ -1164,6 +1306,12 @@ constexpr inline bool(isnan)(const float8_e5m2fnuz& a) {
   return a.rep() == 0x80;
 }
 
+constexpr inline float8_e5m3fnu abs(const float8_e5m3fnu& a) { return a; }
+
+constexpr inline bool(isnan)(const float8_e5m3fnu& a) {
+  return a.rep() == std::numeric_limits<float8_e5m3fnu>::quiet_NaN().rep();
+}
+
 constexpr inline float8_e8m0fnu abs(const float8_e8m0fnu& a) { return a; }
 
 constexpr inline bool(isnan)(const float8_e8m0fnu& a) {
@@ -1197,9 +1345,42 @@ std::ostream& operator<<(std::ostream& os, const float8_base<Float8>& f8) {
 //==============================================================================
 
 // Helper for getting a bit representation provided a byte size.
+//
+// Defined here instead of using Eigen::numext::get_integer_by_size, which is
+// not available in Eigen 3.4.x releases. As in Eigen, unsupported sizes map to
+// void.
 template <int kNumBytes>
-using GetUnsignedInteger =
-    typename Eigen::numext::get_integer_by_size<kNumBytes>::unsigned_type;
+struct UnsignedIntegerBySize {
+  using type = void;
+};
+
+template <>
+struct UnsignedIntegerBySize<1> {
+  using type = uint8_t;
+};
+
+template <>
+struct UnsignedIntegerBySize<2> {
+  using type = uint16_t;
+};
+
+template <>
+struct UnsignedIntegerBySize<4> {
+  using type = uint32_t;
+};
+
+template <>
+struct UnsignedIntegerBySize<8> {
+  using type = uint64_t;
+};
+
+template <int kNumBytes>
+using GetUnsignedInteger = typename UnsignedIntegerBySize<kNumBytes>::type;
+
+template <int kNumBits>
+using GetUnsignedIntegerBits =
+    typename Eigen::numext::get_integer_by_size<(kNumBits + 7) /
+                                                8>::unsigned_type;
 
 // Converts between two floating-point types.
 template <typename From, typename To, bool kSaturate, bool kTruncate,
@@ -1233,6 +1414,11 @@ struct TraitsBase {
                                             << kMantissaBits;
   static constexpr BitsType kMantissaMask = (BitsType{1} << kMantissaBits) - 1;
   static constexpr int kExponentBias = (1 << (kExponentBits - 1)) - 1;
+
+  // Type that can hold mantissa, exponent, and one extra (overflow) bit.
+  // This may be larger than BitsType for unsigned types.
+  using WideBitsType =
+      GetUnsignedIntegerBits<kMantissaBits + kExponentBits + 1>;
 };
 
 template <typename Float>
@@ -1354,25 +1540,43 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
 
   using ToTraits = Traits<To>;
   using ToBits = typename ToTraits::BitsType;
+  using WideToBits = typename ToTraits::WideBitsType;
   static constexpr bool kToIsSigned = ToTraits::kIsSigned;
   static constexpr bool kToHasZero = ToTraits::kHasZero;
   static constexpr int kToMantissaBits = ToTraits::kMantissaBits;
   static constexpr int kToExponentBits = ToTraits::kExponentBits;
   static constexpr int kToExponentBias = ToTraits::kExponentBias;
+  // See Step 4 for why a target without zero gets one more binade.
+  static constexpr int kToEncodingBias = kToExponentBias + !kToHasZero;
 
   static EIGEN_DEVICE_FUNC inline To run(From from) {
-    const bool from_sign =
-        Eigen::numext::bit_cast<FromBits>(from) >> (kFromBits - 1) &&
-        kFromIsSigned;
-    From from_abs = Eigen::numext::abs(from);
-    FromBits from_abs_bits = Eigen::numext::bit_cast<FromBits>(from_abs);
+    const FromBits from_bits = Eigen::numext::bit_cast<FromBits>(from);
+    const bool from_sign = (from_bits >> (kFromBits - 1)) && kFromIsSigned;
+    FromBits from_abs_bits;
+    bool from_isinf;
+    bool from_isnan;
+    // Check exponent and mantissa bits as integers instead of calling
+    // isinf/isnan on `from`. When auto-vectorizing on ARM64, Clang can compile
+    // `isinf || isnan` into a floating-point `>` comparison against +inf,
+    // which sets the hardware FE_INVALID exception flag on quiet NaNs.
+    // Integer comparisons never raise floating-point exceptions.
+    if constexpr (std::numeric_limits<From>::is_iec559) {
+      from_abs_bits = from_bits & ~(FromBits{1} << (kFromBits - 1));
+      from_isinf = from_abs_bits == FromTraits::kExponentMask;
+      from_isnan = from_abs_bits > FromTraits::kExponentMask;
+    } else {
+      From from_abs = Eigen::numext::abs(from);
+      from_abs_bits = Eigen::numext::bit_cast<FromBits>(from_abs);
+      from_isinf = Eigen::numext::isinf(from_abs);
+      from_isnan = Eigen::numext::isnan(from_abs);
+    }
 
     // 1. Handle non-finite values (Infinity and NaN).
-    if (Eigen::numext::isinf(from_abs)) {
+    if (from_isinf) {
       return from_sign ? -Eigen::NumTraits<To>::infinity()
                        : Eigen::NumTraits<To>::infinity();
     }
-    if (Eigen::numext::isnan(from_abs)) {
+    if (from_isnan) {
       return from_sign ? -Eigen::NumTraits<To>::quiet_NaN()
                        : Eigen::NumTraits<To>::quiet_NaN();
     }
@@ -1441,7 +1645,11 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
     //
     // If the result is negative, it indicates the value is too small for the
     // normal range of the target (underflow), requiring denormalization.
-    int target_biased_exponent_base = unbiased_exponent + kToExponentBias - 1;
+    //
+    // A target without zero (e.g., E8M0) has no subnormals: biased exponent 0
+    // is its smallest normal binade. We encode it as if it had zero and
+    // subnormals one binade below that, and Step 6 shifts the encoding down.
+    int target_biased_exponent_base = unbiased_exponent + kToEncodingBias - 1;
 
     // 5. Apply Shift and Rounding.
     // We calculate the shift needed to align the source mantissa to the target
@@ -1457,7 +1665,7 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
         std::min((kFromMantissaBits - kToMantissaBits) + denormal_adjustment,
                  kFromMantissaBits + 2);
 
-    ToBits aligned_mantissa;
+    WideToBits aligned_mantissa;
     if (alignment_shift > 0) {
       if constexpr (!kTruncate) {
         // Rounding may cause a carry (e.g., 1.11... -> 10.00...).
@@ -1473,8 +1681,8 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
 
     // 6. Pack and Handle Overflow.
     // Clamp the exponent bits to 0 (for subnormals).
-    const ToBits target_exp_bits =
-        static_cast<ToBits>(std::max(0, target_biased_exponent_base));
+    const WideToBits target_exp_bits =
+        static_cast<WideToBits>(std::max(0, target_biased_exponent_base));
 
     // Reassemble the bits using integer addition.
     //
@@ -1489,9 +1697,18 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
     //
     // This addition also handles rounding overflow automatically. If rounding
     // created a carry (mantissa = 2.0), it adds an extra 1 to the exponent
-    // (creating `BiasedExp + 1`).
-    ToBits result_bits =
+    // (creating `BiasedExp + 1`). `WideToBits` is required to store the highest
+    // bit in this case.
+    WideToBits result_bits_wide =
         aligned_mantissa + (target_exp_bits << kToMantissaBits);
+    if constexpr (!kToHasZero) {
+      // Undo the extra binade from Step 4. Values that rounded or truncated to
+      // zero or a subnormal clamp to the smallest representable value (which is
+      // the nearest value when rounding, and matches llvm::APFloat rmTowardZero
+      // when truncating since no representable value is <= x).
+      constexpr WideToBits kSmallest = WideToBits{1} << kToMantissaBits;
+      result_bits_wide = std::max(result_bits_wide, kSmallest) - kSmallest;
+    }
 
     const ToBits kToMaxFinite =
         Eigen::numext::bit_cast<ToBits>(Eigen::NumTraits<To>::highest());
@@ -1500,15 +1717,18 @@ struct ConvertImpl<From, To, kSaturate, kTruncate,
     // Condition 1: Exponent calculated exceeds target max.
     // Condition 2: The final packed bits exceed the max finite representation
     // (handles cases where rounding pushed a max-value into infinity).
+    ToBits result_bits;
     if (target_biased_exponent_base >=
-            std::numeric_limits<To>::max_exponent + kToExponentBias ||
-        result_bits > kToMaxFinite) {
+            std::numeric_limits<To>::max_exponent + kToEncodingBias ||
+        result_bits_wide > kToMaxFinite) {
       if constexpr (kSaturate) {
         result_bits = kToMaxFinite;
       } else {
         result_bits =
             Eigen::numext::bit_cast<ToBits>(Eigen::NumTraits<To>::infinity());
       }
+    } else {
+      result_bits = static_cast<ToBits>(result_bits_wide);
     }
 
     // 7. Apply Sign
@@ -1568,44 +1788,121 @@ struct ConvertImpl<float8_e5m2, Eigen::half, kSaturate, kTruncate> {
   }
 };
 
+// Converts `from` to float such that rounding (or truncating) the result to a
+// type with at least two fewer significand bits than float gives the same
+// result as rounding (or truncating) `from` to that type directly.
+//
+// Narrowing to float with round to nearest and then rounding again ("double
+// rounding") may alter the result: the first rounding can produce a value that
+// lies halfway between two values of the narrower type even though `from` did
+// not, leaving the second rounding to break a tie that does not exist. We avoid
+// this by narrowing with round to odd: if `from` is not exactly representable,
+// the result is whichever of the two floats bracketing it has an odd
+// significand. This value is never halfway between two values of the narrower
+// type and lies between the same two such values as `from`. See: Boldo, Sylvie,
+// and Guillaume Melquiond. "When double rounding is odd." 17th IMACS World
+// Congress. 2005.
+template <typename From>
+EIGEN_DEVICE_FUNC inline float RoundToOddFloat(From from) {
+  static_assert(std::numeric_limits<float>::is_iec559);
+  static_assert(std::numeric_limits<float>::radix == 2);
+  constexpr int kFloatDigits = std::numeric_limits<float>::digits;
+  if constexpr (std::is_integral_v<From>) {
+    if constexpr (std::numeric_limits<From>::digits <= kFloatDigits) {
+      // Every value of `From` is representable without rounding.
+      return static_cast<float>(from);
+    } else {
+      static_assert(std::numeric_limits<From>::digits <=
+                        std::numeric_limits<uint64_t>::digits,
+                    "Integer types wider than 64 bits are not supported.");
+      bool is_negative = false;
+      uint64_t magnitude = static_cast<uint64_t>(from);
+      if constexpr (std::is_signed_v<From>) {
+        if (from < 0) {
+          is_negative = true;
+          // Unsigned negation is exact, even for the minimum value.
+          magnitude = uint64_t{0} - magnitude;
+        }
+      }
+      if ((magnitude >> kFloatDigits) == 0) {
+        return static_cast<float>(from);
+      }
+      const int bit_width =
+          std::numeric_limits<uint64_t>::digits - countl_zero(magnitude);
+      // Keep the `kFloatDigits` leading bits, and set the lowest of them if
+      // any of the discarded bits are set.
+      const int shift = bit_width - kFloatDigits;
+      const uint64_t sticky = (magnitude & ((uint64_t{1} << shift) - 1)) != 0;
+      magnitude = ((magnitude >> shift) | sticky) << shift;
+      // `magnitude` has at most `kFloatDigits` significant bits now, so this
+      // conversion is exact.
+      const float abs_narrow = static_cast<float>(magnitude);
+      return is_negative ? -abs_narrow : abs_narrow;
+    }
+  } else {
+    static_assert(std::is_floating_point_v<From>);
+    if constexpr (std::numeric_limits<From>::digits <= kFloatDigits) {
+      return static_cast<float>(from);
+    } else if constexpr (std::numeric_limits<From>::is_iec559 &&
+                         sizeof(From) == sizeof(uint64_t)) {
+      static_assert(std::numeric_limits<From>::digits >= kFloatDigits + 2);
+      static_assert(std::numeric_limits<float>::min_exponent >=
+                    std::numeric_limits<From>::min_exponent + 2);
+      // Compare IEEE 754 binary64 magnitudes via integer bits so quiet NaNs
+      // never undergo ordered floating point comparisons (which raise
+      // FE_INVALID, including under ARM64 NEON vectorization).
+      const uint64_t wide_bits = Eigen::numext::bit_cast<uint64_t>(from);
+      const bool is_negative = (wide_bits >> 63) != 0;
+      const uint64_t abs_wide_bits = wide_bits & 0x7FFF'FFFF'FFFF'FFFFULL;
+      if (abs_wide_bits > 0x7FF0'0000'0000'0000ULL) {
+        return is_negative ? -std::numeric_limits<float>::quiet_NaN()
+                           : std::numeric_limits<float>::quiet_NaN();
+      }
+      const From abs_wide = Eigen::numext::bit_cast<From>(abs_wide_bits);
+      float abs_narrow = static_cast<float>(abs_wide);
+      const uint64_t abs_narrow_as_wide_bits =
+          Eigen::numext::bit_cast<uint64_t>(static_cast<From>(abs_narrow));
+      uint32_t narrow_bits = Eigen::numext::bit_cast<uint32_t>(abs_narrow);
+      const bool keep_narrow =
+          (abs_wide_bits == abs_narrow_as_wide_bits) || (narrow_bits & 1);
+      const bool narrow_is_rd = abs_wide_bits > abs_narrow_as_wide_bits;
+      narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
+      abs_narrow = Eigen::numext::bit_cast<float>(narrow_bits);
+      return is_negative ? -abs_narrow : abs_narrow;
+    } else {
+      static_assert(std::numeric_limits<From>::digits >= kFloatDigits + 2);
+      static_assert(std::numeric_limits<float>::min_exponent >=
+                    std::numeric_limits<From>::min_exponent + 2);
+      if ((Eigen::numext::isnan)(from)) {
+        return std::signbit(from) ? -std::numeric_limits<float>::quiet_NaN()
+                                  : std::numeric_limits<float>::quiet_NaN();
+      }
+      const bool is_negative = std::signbit(from);
+      const From abs_wide = std::fabs(from);
+      float abs_narrow = static_cast<float>(abs_wide);
+      const From abs_narrow_as_wide = static_cast<From>(abs_narrow);
+
+      uint32_t narrow_bits = Eigen::numext::bit_cast<uint32_t>(abs_narrow);
+      const bool keep_narrow =
+          (abs_wide == abs_narrow_as_wide) || (narrow_bits & 1);
+      const bool narrow_is_rd = abs_wide > abs_narrow_as_wide;
+      narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
+      abs_narrow = Eigen::numext::bit_cast<float>(narrow_bits);
+      return is_negative ? -abs_narrow : abs_narrow;
+    }
+  }
+}
+
 template <typename Derived>
 template <bool kSaturate, bool kTruncate, typename From>
 EIGEN_DEVICE_FUNC Derived float8_base<Derived>::ConvertFrom(const From from) {
-  // We are rounding long double -> float -> float8. This can induce
-  // double-rounding which may alter the results. We can correct for this using
-  // a trick explained in: Boldo, Sylvie, and Guillaume Melquiond. "When double
-  // rounding is odd." 17th IMACS World Congress. 2005.
-  if constexpr (std::is_floating_point_v<From> &&
-                sizeof(From) > sizeof(double)) {
-    // float80, binary128, etc. end up here.
-    static_assert(std::numeric_limits<From>::digits >=
-                  std::numeric_limits<float>::digits + 2);
-    static_assert(std::numeric_limits<float>::min_exponent >=
-                  std::numeric_limits<From>::min_exponent + 2);
-    static_assert(std::numeric_limits<float>::is_iec559);
-    static_assert(std::numeric_limits<float>::radix == 2);
-    const bool is_negative = std::signbit(from);
-    const From abs_wide = std::fabs(from);
-    float abs_narrow = static_cast<float>(abs_wide);
-    const From abs_narrow_as_wide = static_cast<From>(abs_narrow);
-
-    uint32_t narrow_bits = Eigen::numext::bit_cast<uint32_t>(abs_narrow);
-    // We can keep the narrow value as-is if narrowing was exact (no rounding
-    // error), the wide value was NaN (the narrow value is also NaN and should
-    // be preserved) or if we rounded to the odd value.
-    const bool keep_narrow = (abs_wide == abs_narrow_as_wide) ||
-                             std::isnan(abs_narrow) || (narrow_bits & 1);
-    // We morally performed a round-down if `abs_narrow` is smaller than
-    // `abs_wide`.
-    const bool narrow_is_rd = abs_wide > abs_narrow_as_wide;
-    // If the narrow value is odd or exact, pick it.
-    // Otherwise, narrow is even and corresponds to either the rounded-up or
-    // rounded-down value. If narrow is the rounded-down value, we want the
-    // rounded-up value as it will be odd.
-    narrow_bits += keep_narrow ? 0 : narrow_is_rd ? 1 : -1;
-    abs_narrow = Eigen::numext::bit_cast<float>(narrow_bits);
+  // Integers and floating point types wider than double (float80, binary128,
+  // etc.) have no direct conversion. Narrowing them to float first must not
+  // round twice, so use round to odd.
+  if constexpr (std::is_integral_v<From> || (std::is_floating_point_v<From> &&
+                                             sizeof(From) > sizeof(double))) {
     return ConvertImpl<float, Derived, kSaturate, kTruncate>::run(
-        is_negative ? -abs_narrow : abs_narrow);
+        RoundToOddFloat(from));
   } else {
     return ConvertImpl<From, Derived, kSaturate, kTruncate>::run(from);
   }
@@ -1627,6 +1924,7 @@ using float8_e4m3fnuz = float8_internal::float8_e4m3fnuz;
 using float8_e4m3b11fnuz = float8_internal::float8_e4m3b11fnuz;
 using float8_e5m2 = float8_internal::float8_e5m2;
 using float8_e5m2fnuz = float8_internal::float8_e5m2fnuz;
+using float8_e5m3fnu = float8_internal::float8_e5m3fnu;
 using float8_e8m0fnu = float8_internal::float8_e8m0fnu;
 
 }  // namespace ml_dtypes
@@ -1674,6 +1972,12 @@ EIGEN_DEVICE_FUNC inline bool isinf_impl<ml_dtypes::float8_e5m2>(
 template <>
 EIGEN_DEVICE_FUNC inline bool isinf_impl<ml_dtypes::float8_e5m2fnuz>(
     const ml_dtypes::float8_e5m2fnuz& x) {
+  return ml_dtypes::float8_internal::isinf(x);
+}
+
+template <>
+EIGEN_DEVICE_FUNC inline bool isinf_impl<ml_dtypes::float8_e5m3fnu>(
+    const ml_dtypes::float8_e5m3fnu& x) {
   return ml_dtypes::float8_internal::isinf(x);
 }
 
@@ -1726,6 +2030,12 @@ EIGEN_DEVICE_FUNC inline bool isnan_impl<ml_dtypes::float8_e5m2fnuz>(
 }
 
 template <>
+EIGEN_DEVICE_FUNC inline bool isnan_impl<ml_dtypes::float8_e5m3fnu>(
+    const ml_dtypes::float8_e5m3fnu& x) {
+  return ml_dtypes::float8_internal::isnan(x);
+}
+
+template <>
 EIGEN_DEVICE_FUNC inline bool isnan_impl<ml_dtypes::float8_e8m0fnu>(
     const ml_dtypes::float8_e8m0fnu& x) {
   return ml_dtypes::float8_internal::isnan(x);
@@ -1770,6 +2080,12 @@ EIGEN_DEVICE_FUNC inline bool isfinite_impl<ml_dtypes::float8_e5m2>(
 template <>
 EIGEN_DEVICE_FUNC inline bool isfinite_impl<ml_dtypes::float8_e5m2fnuz>(
     const ml_dtypes::float8_e5m2fnuz& x) {
+  return ml_dtypes::float8_internal::isfinite(x);
+}
+
+template <>
+EIGEN_DEVICE_FUNC inline bool isfinite_impl<ml_dtypes::float8_e5m3fnu>(
+    const ml_dtypes::float8_e5m3fnu& x) {
   return ml_dtypes::float8_internal::isfinite(x);
 }
 

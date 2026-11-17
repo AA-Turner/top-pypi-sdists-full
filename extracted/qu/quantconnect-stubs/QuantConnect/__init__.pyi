@@ -545,7 +545,7 @@ class Compression(System.Object):
         :param data: The file contents in bytes to be zipped
         :param mode: The archive mode
         :param compression_level: The desired compression level
-        :param leave_stream_open: True to leave the taget stream open
+        :param leave_stream_open: True to leave the target stream open
         :returns: The zipped file as a byte array.
         """
         ...
@@ -1087,7 +1087,7 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
 
     @property
     def canonical(self) -> QuantConnect.Symbol:
-        """Get's the canonical representation of this symbol"""
+        """Gets the canonical representation of this symbol"""
         ...
 
     @property
@@ -1361,12 +1361,12 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         
         :param underlying_symbol: The underlying security symbol
         :param market: The market the underlying resides in
-        :param style: The option style (American, European, ect..)
+        :param style: The option style (American, European, etc..)
         :param right: The option right (Put/Call)
         :param strike: The option strike price
         :param expiry: The option expiry date
         :param alias: An alias to be used for the symbol cache. Required when
-        adding the same security from diferent markets
+        adding the same security from different markets
         :returns: A new Symbol object for the specified option contract.
         """
         ...
@@ -1380,12 +1380,12 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         :param underlying_symbol: The underlying security symbol
         :param target_option: The target option ticker. This is useful when the option ticker does not match the underlying, e.g. SPX index and the SPXW weekly option. If null is provided will use underlying
         :param market: The market the underlying resides in
-        :param style: The option style (American, European, ect..)
+        :param style: The option style (American, European, etc..)
         :param right: The option right (Put/Call)
         :param strike: The option strike price
         :param expiry: The option expiry date
         :param alias: An alias to be used for the symbol cache. Required when
-        adding the same security from diferent markets
+        adding the same security from different markets
         :returns: A new Symbol object for the specified option contract.
         """
         ...
@@ -1411,7 +1411,7 @@ class Symbol(str, System.Object, System.IEquatable[QuantConnect_Symbol], System.
         
         :param underlying: The underlying ticker
         :param market: The market the underlying resides in
-        :param style: The option style (American, European, ect..)
+        :param style: The option style (American, European, etc..)
         :param right: The option right (Put/Call)
         :param strike: The option strike price
         :param expiry: The option expiry date
@@ -1992,7 +1992,7 @@ class AlgorithmConfiguration(System.Object):
 
 
 class ChartType(IntEnum):
-    """Type of chart - should we draw the series as overlayed or stacked"""
+    """Type of chart - should we draw the series as overlaid or stacked"""
 
     OVERLAY = 0
 
@@ -2692,7 +2692,7 @@ class Result(System.Object):
 
     @property
     def server_statistics(self) -> System.Collections.Generic.IDictionary[str, str]:
-        """Server status information, including CPU/RAM usage, ect..."""
+        """Server status information, including CPU/RAM usage, etc..."""
         ...
 
     @server_statistics.setter
@@ -3035,7 +3035,7 @@ class AlgorithmStatus(IntEnum):
     """Algorithm completed running (6)"""
 
     RUNTIME_ERROR = 7
-    """Runtime Error Stoped Algorithm (7)"""
+    """Runtime Error Stopped Algorithm (7)"""
 
     INVALID = 8
     """Error in the algorithm id (not used) (8)"""
@@ -4919,7 +4919,7 @@ class TimeZones(System.Object):
     """Gets the time zone for Madrid, Span. This is a daylight savings time zone."""
 
     BUENOS_AIRES: typing.Any = ...
-    """Gets the time zone for Buenos Aires, Argentia."""
+    """Gets the time zone for Buenos Aires, Argentina."""
 
     BRISBANE: typing.Any = ...
     """Gets the time zone for Brisbane, Australia."""
@@ -6433,7 +6433,7 @@ class Extensions(System.Object):
     @staticmethod
     def get_string_between_chars(value: str, left: str, right: str) -> str:
         """
-        Get the first occurence of a string between two characters from another string
+        Get the first occurrence of a string between two characters from another string
         
         :param value: The original string
         :param left: Left bound of the substring
@@ -6626,7 +6626,7 @@ class Extensions(System.Object):
     def is_subclass_of_generic(type: typing.Type, possible_super_type: typing.Type) -> bool:
         """
         Checks the specified type to see if it is a subclass of the possible_super_type. This method will
-        crawl up the inheritance heirarchy to check for equality using generic type definitions (if exists)
+        crawl up the inheritance hierarchy to check for equality using generic type definitions (if exists)
         
         :param type: The type to be checked as a subclass of possible_super_type
         :param possible_super_type: The possible superclass of type
@@ -7747,7 +7747,7 @@ class RegressionTestException(System.Exception):
     @overload
     def __init__(self, message: str) -> None:
         """
-        Creates a new isntance of a RegressionTestException
+        Creates a new instance of a RegressionTestException
         
         :param message: Message to be thrown by the exception
         """
@@ -7868,7 +7868,7 @@ class TimeKeeper(System.Object, QuantConnect.Interfaces.ITimeKeeper):
         has not already been added, this will throw a KeyNotFoundException.
         
         :param time_zone: The time zone to get local time for
-        :returns: The local time in the specifed time zone.
+        :returns: The local time in the specified time zone.
         """
         ...
 
@@ -8046,7 +8046,7 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         
         :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
         :param properties: Other data defining properties of the symbol including market,
-        security type, listing or expiry date, strike/call/put/style for options, ect...
+        security type, listing or expiry date, strike/call/put/style for options, etc...
         """
         ...
 
@@ -8057,7 +8057,7 @@ class SecurityIdentifier(System.Object, System.IEquatable[QuantConnect_SecurityI
         
         :param symbol: The base36 string encoded as a long using alpha <0-9A-Z>
         :param properties: Other data defining properties of the symbol including market,
-        security type, listing or expiry date, strike/call/put/style for options, ect...
+        security type, listing or expiry date, strike/call/put/style for options, etc...
         :param underlying: Specifies a SecurityIdentifier that represents the underlying security
         """
         ...
@@ -8401,7 +8401,7 @@ class ChartSeriesJsonConverter:
 
     @property
     def can_read(self) -> bool:
-        """This converter wont be used to read JSON. Will throw exception if manually called."""
+        """This converter won't be used to read JSON. Will throw exception if manually called."""
         ...
 
     def can_convert(self, object_type: typing.Type) -> bool:
@@ -9558,34 +9558,34 @@ class Field(System.Object):
     """Provides static properties to be used as selectors with the indicator system"""
 
     BID_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid close price"""
+    """Gets a selector that selects the Bid close price"""
 
     BID_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid open price"""
+    """Gets a selector that selects the Bid open price"""
 
     BID_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid low price"""
+    """Gets a selector that selects the Bid low price"""
 
     BID_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid high price"""
+    """Gets a selector that selects the Bid high price"""
 
     ASK_CLOSE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask close price"""
+    """Gets a selector that selects the Ask close price"""
 
     ASK_OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask open price"""
+    """Gets a selector that selects the Ask open price"""
 
     ASK_LOW: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask low price"""
+    """Gets a selector that selects the Ask low price"""
 
     ASK_HIGH: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask high price"""
+    """Gets a selector that selects the Ask high price"""
 
     ASK_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Ask price"""
+    """Gets a selector that selects the Ask price"""
 
     BID_PRICE: typing.Callable[[QuantConnect.Data.IBaseData], float]
-    """Gets a selector that selectes the Bid price"""
+    """Gets a selector that selects the Bid price"""
 
     OPEN: typing.Callable[[QuantConnect.Data.IBaseData], float]
     """Gets a selector that selects the Open value"""
@@ -9714,9 +9714,9 @@ class DataMonitorReport(System.Object):
         """
         Initializes a new instance of the DataMonitorReport class
         
-        :param succeeded_data_requests_count: Number of data paths that were requested and successfuly served
+        :param succeeded_data_requests_count: Number of data paths that were requested and successfully served
         :param failed_data_requests_count: Number of data paths that were requested but could not be served
-        :param succeeded_universe_data_requests_count: Number of universe data paths that were requested and successfuly served
+        :param succeeded_universe_data_requests_count: Number of universe data paths that were requested and successfully served
         :param failed_universe_data_requests_count: Number of universe data paths that were requested but could not be served
         :param data_request_rates: Rates at which data requests were made per second
         :param succeeded_data_requests_file: Name of the file listing the succeeded data requests, if stored
@@ -9772,7 +9772,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
 
     def __getitem__(self, key: QuantConnect_ExtendedDictionary_TKey) -> QuantConnect_ExtendedDictionary_TValue:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -9784,7 +9784,7 @@ class ExtendedDictionary(typing.Generic[QuantConnect_ExtendedDictionary_TKey, Qu
 
     def __setitem__(self, key: QuantConnect_ExtendedDictionary_TKey, value: QuantConnect_ExtendedDictionary_TValue) -> None:
         """
-        Indexer method for the base dictioanry to access the objects by their symbol.
+        Indexer method for the base dictionary to access the objects by their symbol.
         
         :param key: Key object indexer
         :returns: Object of t_value.
@@ -10773,7 +10773,7 @@ class Time(System.Object):
         Normalizes the step size as a percentage of the period.
         
         :param period: The period to normalize against
-        :param step_size: The step size to be normaized
+        :param step_size: The step size to be normalized
         :returns: The normalized step size as a percentage of the period.
         """
         ...
@@ -10927,7 +10927,7 @@ class Messages(System.Object):
         """String message saying: Initial margin requirement must be between 0 and 1"""
 
         invalid_maintenance_margin_requirement: str = "Maintenance margin requirement must be between 0 and 1"
-        """String messsage saying: Maintenance margin requirement must be between 0 and 1"""
+        """String message saying: Maintenance margin requirement must be between 0 and 1"""
 
         invalid_free_buying_power_percent_requirement: str = "Free Buying Power Percent requirement must be between 0 and 1"
         """String message saying: Free Buying Power Percent requirement must be between 0 and 1"""
@@ -10959,7 +10959,7 @@ class Messages(System.Object):
         @staticmethod
         def insufficient_buying_power_due_to_unsufficient_margin(order: QuantConnect.Orders.Order, initial_margin_required_for_remainder_of_order: float, free_margin: float) -> str:
             """
-            Returns a string mesage containing information about the order ID, the initial margin and
+            Returns a string message containing information about the order ID, the initial margin and
             the free margin
             """
             ...
@@ -11080,7 +11080,7 @@ class Messages(System.Object):
 
         @staticmethod
         def to_string(cash_book: QuantConnect.Securities.CashBook) -> str:
-            """Parses the given CashBook into a string mesage with basic information about it"""
+            """Parses the given CashBook into a string message with basic information about it"""
             ...
 
     class CashBuyingPowerModel(System.Object):
@@ -11576,7 +11576,7 @@ class Messages(System.Object):
         @staticmethod
         def interpret_exception(exception: typing.Any) -> str:
             """
-            Returns a string message saying: Tring to include an invalid token/character in any statement throws s SyntaxError
+            Returns a string message saying: Trying to include an invalid token/character in any statement throws s SyntaxError
             exception. It also contains an advice to prevent that exception
             """
             ...
@@ -12017,7 +12017,7 @@ class Messages(System.Object):
         @staticmethod
         def filled_with_quote_data(security: QuantConnect.Securities.Security) -> str:
             """
-            Returns a string message warnning the user that no trade information was available, so the order was filled
+            Returns a string message warning the user that no trade information was available, so the order was filled
             using quote data
             """
             ...
@@ -12613,7 +12613,7 @@ class Messages(System.Object):
 
         @staticmethod
         def multiple_matching_tickers_located(tickers: typing.List[str]) -> str:
-            """Returns a string message saying mutiple potentially matching tickers were localized"""
+            """Returns a string message saying multiple potentially matching tickers were localized"""
             ...
 
         @staticmethod
@@ -12803,7 +12803,7 @@ class Messages(System.Object):
         @staticmethod
         def invalid_status(request: QuantConnect.Orders.OrderRequest, order: QuantConnect.Orders.Order) -> str:
             """
-            Returns a string message saying it was impossible to udpate the order with the id
+            Returns a string message saying it was impossible to update the order with the id
             from the given request because it already had the status of the given order
             """
             ...
@@ -13063,7 +13063,7 @@ class Messages(System.Object):
 
         @staticmethod
         def unsupported_security_type(brokerage_model: QuantConnect.Brokerages.IBrokerageModel, security: QuantConnect.Securities.Security) -> str:
-            """Retunrns a string message saying the type of the given security is not supported by the given brokerage"""
+            """Returns a string message saying the type of the given security is not supported by the given brokerage"""
             ...
 
         @staticmethod

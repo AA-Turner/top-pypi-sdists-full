@@ -38,6 +38,8 @@ from tabpfn.inference_tuning import (
     MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING,
     RegressorEvalMetrics,
     RegressorTuningConfig,
+    find_mean_calibration_scale,
+    get_tuning_split_indices,
     get_tuning_temperatures,
 )
 from tabpfn.model_loading import ModelSource, prepend_cache_path
@@ -486,6 +488,12 @@ def test_sklearn_compatible_estimator(
     _auto_devices = infer_devices(devices="auto")
     if any(device.type == "mps" for device in _auto_devices):
         pytest.skip("MPS does not support float64, which is required for this check.")
+
+    if "sample_weight" in check.func.__name__:  # type: ignore
+        pytest.skip(
+            "The default checkpoint takes no `sample_weight`, so `fit` raises; "
+            "see tests/test_row_weights.py."
+        )
 
     if check.func.__name__ in (  # type: ignore
         "check_methods_subset_invariance",
@@ -1708,6 +1716,291 @@ def test__predict__target_transform__predictions_are_finite_and_accurate(
     assert r2_score(y_test, pred) > 0.7
 
 
+def _zero_inflated_regression_data() -> tuple[np.ndarray, np.ndarray]:
+    r = np.random.RandomState(0)
+    X = r.randn(300, 3)
+    y = np.where(X[:, 0] < 0.5, 0.0, np.exp(4.0 + X[:, 1] + 0.3 * r.randn(300)))
+    return X, y
+
+
+@pytest.mark.parametrize(
+    "transform", ["log_quantile_gap", "log_fixed_atom", "log1p_target"]
+)
+def test__fit__zero_inflated_transform__sees_the_raw_target(transform: str) -> None:
+    """The transform must find the exact zeros of the raw target, not a z-score."""
+    X, y = _zero_inflated_regression_data()
+    y = 1e3 * y
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        random_state=42,
+        inference_config={
+            "REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,),
+        },
+    )
+    reg.fit(X, y)
+
+    logs = np.log(y[y > 0])
+    if transform == "log1p_target":
+        t = np.log1p(y)
+        expected = (t - t.mean()) / t.std()
+    elif transform == "log_quantile_gap":
+        t = np.where(y > 0, np.log(np.where(y > 0, y, 1.0)), 0.0)
+        t[y == 0] = np.quantile(logs, 0.01) - logs.std()
+        expected = (t - t.mean()) / t.std()
+    else:
+        t = (np.log(np.where(y > 0, y, 1.0)) - logs.mean()) / logs.std()
+        expected = np.where(y > 0, np.maximum(t, -3.5), -4.0)
+    member_y = np.asarray(reg.executor_.ensemble_members[0].y_train)
+
+    np.testing.assert_allclose(member_y, expected, rtol=1e-8)
+    zero_code = member_y[y == 0][0]
+    assert (member_y == zero_code).mean() == (y == 0).mean()
+
+
+@pytest.mark.parametrize(
+    "transform", ["log_quantile_gap", "log_fixed_atom", "log1p_target"]
+)
+def test__predict__zero_inflated_transform__members_decode_low_borders_to_zero(
+    transform: str,
+) -> None:
+    """Each member's low borders decode to exactly raw 0.
+
+    Only the outer border lies below 0: the border repair widens the collapsed
+    outer bucket.
+    """
+    X, y = _zero_inflated_regression_data()
+    reg = TabPFNRegressor(
+        n_estimators=2,
+        device="cpu",
+        inference_precision=torch.float32,
+        random_state=42,
+        inference_config={"REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,)},
+    )
+    reg.fit(X[:200], y[:200])
+    _, _, member_borders = reg.forward(X[200:], use_inference_mode=True)
+
+    for borders in member_borders:
+        zero = np.asarray(-reg.y_train_mean_ / reg.y_train_std_, borders.dtype)
+        assert borders[1] == borders[2] == zero
+        assert borders[1:].min() == zero
+        assert borders[0] < zero
+
+
+@pytest.mark.parametrize(
+    "transform", ["log_quantile_gap", "log_fixed_atom", "log1p_target"]
+)
+def test__predict__nonnegative_and_capped__outputs_are_nonnegative(
+    transform: str,
+) -> None:
+    """The grid bucket that holds 0 and every bucket below it are read at 0."""
+    X, y = _zero_inflated_regression_data()
+    reg = TabPFNRegressor(
+        n_estimators=2,
+        device="cpu",
+        inference_precision=torch.float32,
+        random_state=42,
+        inference_config={
+            "REGRESSION_Y_PREPROCESS_TRANSFORMS": (transform,),
+            "REGRESSION_READOUT": "nonnegative_and_capped",
+        },
+    )
+    reg.fit(X[:200], y[:200])
+    full = reg.predict(X[200:], output_type="full")
+
+    for output in (full["mean"], full["median"], full["mode"], *full["quantiles"]):
+        assert output.min() >= 0
+    assert (full["quantiles"][0] == 0).any()
+
+
+# Buckets [-3, -2] and [3, 4] are the half-normal tails; [-0.5, 1.5] holds 0.
+_SMALL_GRID = FullSupportBarDistribution(
+    torch.tensor([-3.0, -2.0, -0.5, 1.5, 2.0, 3.0, 4.0], dtype=torch.float64)
+)
+
+
+def _small_grid_output(
+    probs: torch.Tensor, output_type: str, truncate_above: float | None
+) -> typing.Any:
+    return regressor_module._logits_to_output(
+        output_type=output_type,
+        logits=probs.log(),
+        znorm_space_bardist=_SMALL_GRID,
+        y_mean=0.0,
+        y_std=1.0,
+        quantiles=[0.25, 0.75],
+        truncate_above=truncate_above,
+    )
+
+
+def test__logits_to_output__truncated__reads_the_zero_bucket_at_zero() -> None:
+    # Rows: all mass in the bucket that holds 0; half there, half in [2, 3]; a
+    # quarter each in the two buckets below it, half in [2, 3].
+    probs = torch.zeros(3, 6, dtype=torch.float64)
+    probs[0, 2] = 1.0
+    probs[1, 2] = probs[1, 4] = 0.5
+    probs[2, 0] = probs[2, 1] = 0.25
+    probs[2, 4] = 0.5
+
+    def output(output_type: str, truncate_above: float | None = 10.0) -> typing.Any:
+        # Nothing on the grid lies above 10, so only the read at 0 acts.
+        return _small_grid_output(probs, output_type, truncate_above)
+
+    np.testing.assert_allclose(output("mean", None)[:2], [0.5, 1.5])
+    np.testing.assert_allclose(output("mean"), [0.0, 1.25, 1.25])
+    np.testing.assert_array_equal(output("median"), [0.0, 0.0, 0.0])
+    low, high = output("quantiles")
+    np.testing.assert_array_equal(low, [0.0, 0.0, 0.0])
+    np.testing.assert_allclose(high, [0.0, 2.5, 2.5])
+    np.testing.assert_array_equal(output("mode"), [0.0, 2.5, 2.5])
+
+
+def test__logits_to_output__truncated__drops_the_mass_above_truncate_above() -> None:
+    # Rows: a quarter below 0, a quarter in the bucket that holds 0, half in the
+    # tail above 3; half in [1.5, 2], half in [2, 3], which holds 2.5.
+    probs = torch.zeros(2, 6, dtype=torch.float64)
+    probs[0, 1] = probs[0, 2] = 0.25
+    probs[0, 5] = 0.5
+    probs[1, 3] = probs[1, 4] = 0.5
+
+    # Row 0: the mass above 3 is dropped, and the rest reads at 0. Row 1: the
+    # bucket [2, 3] holds 2.5 and is kept whole.
+    np.testing.assert_allclose(
+        _small_grid_output(probs, "mean", 2.5), [0.0, (1.75 + 2.5) / 2]
+    )
+    _, high = _small_grid_output(probs, "quantiles", 2.5)
+    np.testing.assert_allclose(high, [0.0, 2.5])
+    _, high_untruncated = _small_grid_output(probs, "quantiles", None)
+    assert high_untruncated[0] > 3.0
+
+
+def test__logits_to_output__truncated__grid_above_zero__reads_nothing_at_zero() -> None:
+    """With every raw border above 0, the left tail is not read at 0."""
+    probs = torch.full((1, 6), 1 / 6, dtype=torch.float64)
+
+    def output(output_type: str, truncate_above: float | None) -> typing.Any:
+        # The raw borders run from 7 to 14, so nothing on the grid is capped.
+        return regressor_module._logits_to_output(
+            output_type=output_type,
+            logits=probs.log(),
+            znorm_space_bardist=_SMALL_GRID,
+            y_mean=10.0,
+            y_std=1.0,
+            quantiles=[0.05, 0.5],
+            truncate_above=truncate_above,
+        )
+
+    low, _ = output("quantiles", 100.0)
+    assert 0.0 < low[0] < 7.0
+    np.testing.assert_allclose(low, output("quantiles", None)[0])
+    np.testing.assert_allclose(output("mean", 100.0), output("mean", None))
+
+
+@pytest.mark.parametrize(("truncate_above", "expected"), [(2.5, 3.0), (3.5, np.inf)])
+def test__logits_to_output__truncated__quantile_one_is_the_last_kept_border(
+    truncate_above: float, expected: float
+) -> None:
+    """Capped below the tail bucket, the quantile 1 is the last kept border."""
+    probs = torch.full((1, 6), 1 / 6, dtype=torch.float64)
+
+    (top,) = regressor_module._logits_to_output(
+        output_type="quantiles",
+        logits=probs.log(),
+        znorm_space_bardist=_SMALL_GRID,
+        y_mean=0.0,
+        y_std=1.0,
+        quantiles=[1.0],
+        truncate_above=truncate_above,
+    )
+
+    np.testing.assert_array_equal(top, [expected])
+
+
+def test__predict__nonnegative_and_capped__reads_every_output_truncated() -> None:
+    X, y = _zero_inflated_regression_data()
+    config = {"REGRESSION_Y_PREPROCESS_TRANSFORMS": (None,)}
+    kwargs = {"n_estimators": 2, "device": "cpu", "random_state": 42}
+    reg = TabPFNRegressor(
+        **kwargs,
+        inference_config={**config, "REGRESSION_READOUT": "nonnegative_and_capped"},
+    ).fit(X[:200], y[:200])
+    plain = TabPFNRegressor(**kwargs, inference_config=config).fit(X[:200], y[:200])
+
+    full = reg.predict(X[200:], output_type="full")
+    full_plain = plain.predict(X[200:], output_type="full")
+
+    def expected(output_type: str) -> typing.Any:
+        return regressor_module._logits_to_output(
+            output_type=output_type,
+            logits=full["logits"],
+            znorm_space_bardist=reg.znorm_space_bardist_,
+            y_mean=reg.y_train_mean_,
+            y_std=reg.y_train_std_,
+            quantiles=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+            truncate_above=float(y[:200].max()),
+        )
+
+    for output_type in ("mean", "median", "mode"):
+        np.testing.assert_array_equal(full[output_type], expected(output_type))
+    np.testing.assert_array_equal(full["quantiles"], expected("quantiles"))
+    np.testing.assert_array_equal(reg.predict(X[200:]), expected("mean"))
+    assert (full["mean"] >= 0).all()
+    assert not np.allclose(full["mean"], full_plain["mean"])
+    # The returned distribution is the untruncated one.
+    torch.testing.assert_close(full["logits"], full_plain["logits"])
+
+
+@pytest.mark.parametrize("constant", [False, True])
+def test__fit__nonnegative_and_capped_with_negative_targets__raises(
+    constant: bool,
+) -> None:
+    X, y = _zero_inflated_regression_data()
+    y[0] = -1.0
+    if constant:
+        # A constant target skips the model, but not the check.
+        y[:] = -1.0
+    reg = TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        inference_config={"REGRESSION_READOUT": "nonnegative_and_capped"},
+    )
+
+    with pytest.raises(ValueError, match=r"nonnegative_and_capped.*nonnegative"):
+        reg.fit(X, y)
+
+
+def _nonnegative_and_capped_regressor(**kwargs: typing.Any) -> TabPFNRegressor:
+    return TabPFNRegressor(
+        n_estimators=1,
+        device="cpu",
+        inference_config={"REGRESSION_READOUT": "nonnegative_and_capped"},
+        **kwargs,
+    )
+
+
+def test__fit_with_differentiable_input__nonnegative_and_capped__raises() -> None:
+    """Only `fit` stores the largest training target that the readout needs."""
+    reg = _nonnegative_and_capped_regressor(differentiable_input=True)
+
+    with pytest.raises(NotImplementedError, match="nonnegative_and_capped"):
+        reg.fit_with_differentiable_input(torch.randn(20, 3), torch.rand(20))
+
+
+def test__fit_from_preprocessed__nonnegative_and_capped__raises() -> None:
+    reg = _nonnegative_and_capped_regressor()
+
+    with pytest.raises(NotImplementedError, match="nonnegative_and_capped"):
+        reg.fit_from_preprocessed(
+            [torch.zeros(20, 3)],
+            [torch.zeros(20)],
+            [[[]]],
+            [[]],
+            performance_options=typing.cast("typing.Any", None),
+            y_train_mean=0.0,
+            y_train_std=1.0,
+        )
+
+
 @pytest.mark.parametrize("dtype", ["float32", "float64"])
 def test__fit__target_frame_is_independent_of_the_target_units(dtype: str) -> None:
     """Rescaling the target changes its frame but preserves standardized inputs."""
@@ -2123,8 +2416,17 @@ def test__compute_holdout_validation_data__returns_self_consistent_triples() -> 
     )
 
     assert len(folds) == 2
-    for logits, raw_space_bardist, y_holdout, log_weights in folds:
+    for (
+        logits,
+        raw_space_bardist,
+        y_holdout,
+        log_weights,
+        row_weights,
+        truncate_above,
+    ) in folds:
         assert log_weights is None
+        assert row_weights is None
+        assert truncate_above is None
         n_holdout = len(X) // 2
         assert logits.shape == (n_holdout, raw_space_bardist.num_bars)
         assert y_holdout.shape == (n_holdout,)
@@ -2200,6 +2502,268 @@ def _make_tuning_sized_regression_data(
     return sklearn.datasets.make_regression(
         n_samples=n_samples, n_features=4, noise=10.0, random_state=0
     )
+
+
+def _make_non_negative_tuning_sized_regression_data() -> tuple[np.ndarray, np.ndarray]:
+    X, y = _make_tuning_sized_regression_data()
+    return X, np.abs(y)
+
+
+@pytest.mark.parametrize(
+    "inference_config",
+    [None, {"REGRESSION_Y_PREPROCESS_TRANSFORMS": ("log_quantile_gap",)}],
+)
+@pytest.mark.parametrize("calibrate_temperature", [False, True])
+@pytest.mark.parametrize("power", [1.0, 1.5])
+def test__fit__with_calibrate_mean__scales_the_mean_by_the_holdout_fit(
+    power: float, calibrate_temperature: bool, inference_config: dict | None
+) -> None:
+    X, y = _make_non_negative_tuning_sized_regression_data()
+    # One model for every regressor below: each dummy model has its own random weights.
+    kwargs = _tuning_regressor_kwargs(inference_config=inference_config)
+    tuning_config = {
+        "calibrate_mean": True,
+        "mean_calibration_power": power,
+        "calibrate_temperature": calibrate_temperature,
+        "tuning_holdout_frac": 0.5,
+        "tuning_n_folds": 2,
+    }
+    calibrated = TabPFNRegressor(tuning_config=tuning_config, **kwargs).fit(X, y)
+
+    # Rebuild the holdout means c* must be fitted on: one tuning regressor per
+    # split, predicting the mean of its own holdout rows with the calibrated
+    # temperature.
+    temperature = calibrated.ensemble_softmax_temperature_
+    y_holdout, mean_holdout = [], []
+    for train, holdout in get_tuning_split_indices(
+        X, y, holdout_frac=0.5, n_splits=2, random_state=0, task_type="regressor"
+    ):
+        fold_regressor = TabPFNRegressor(**kwargs).fit(X[train], y[train])
+        fold_regressor.ensemble_softmax_temperature_ = temperature
+        y_holdout.append(y[holdout])
+        mean_holdout.append(fold_regressor.predict(X[holdout]))
+    expected_scale = find_mean_calibration_scale(
+        y_true=np.concatenate(y_holdout),
+        mean=np.concatenate(mean_holdout),
+        power=power,
+    )
+    assert calibrated.mean_calibration_scale_ != 1.0
+    np.testing.assert_allclose(
+        calibrated.mean_calibration_scale_, expected_scale, rtol=1e-5
+    )
+
+    plain = TabPFNRegressor(**kwargs).fit(X, y)
+    plain.ensemble_softmax_temperature_ = temperature
+    X_test = X[:20]
+    scale = calibrated.mean_calibration_scale_
+    np.testing.assert_allclose(
+        calibrated.predict(X_test), scale * plain.predict(X_test), rtol=1e-6
+    )
+    main_calibrated = calibrated.predict(X_test, output_type="main")
+    main_plain = plain.predict(X_test, output_type="main")
+    np.testing.assert_allclose(
+        main_calibrated["mean"], scale * main_plain["mean"], rtol=1e-6
+    )
+    # Only the mean is rescaled.
+    np.testing.assert_array_equal(main_calibrated["median"], main_plain["median"])
+    np.testing.assert_array_equal(
+        calibrated.predict(X_test, output_type="quantiles", quantiles=[0.9])[0],
+        plain.predict(X_test, output_type="quantiles", quantiles=[0.9])[0],
+    )
+
+
+@pytest.mark.parametrize(
+    "tuning_config",
+    [
+        None,
+        {"calibrate_temperature": True, "tuning_holdout_frac": 0.5},
+    ],
+)
+def test__fit__without_calibrate_mean__leaves_the_mean_unchanged(
+    tuning_config: dict | None,
+) -> None:
+    X, y = _make_non_negative_tuning_sized_regression_data()
+    regressor = TabPFNRegressor(
+        tuning_config=tuning_config, **_tuning_regressor_kwargs()
+    ).fit(X, y)
+
+    assert regressor.mean_calibration_scale_ == 1.0
+    X_test = X[:20]
+    unscaled_mean = regressor_module._logits_to_output(
+        output_type="mean",
+        logits=regressor._compute_aggregated_logits(
+            ensure_compatible_predict_input_sklearn(X_test, regressor)
+        ),
+        znorm_space_bardist=regressor.znorm_space_bardist_,
+        y_mean=regressor.y_train_mean_,
+        y_std=regressor.y_train_std_,
+        quantiles=[],
+        truncate_above=None,
+    )
+    np.testing.assert_array_equal(regressor.predict(X_test), unscaled_mean)
+    np.testing.assert_array_equal(
+        regressor.predict(X_test, output_type="main")["mean"], unscaled_mean
+    )
+
+
+def test__fit__calibrate_mean_with_negative_targets__raises() -> None:
+    X, y = _make_tuning_sized_regression_data()
+    regressor = TabPFNRegressor(
+        tuning_config={"calibrate_mean": True}, **_tuning_regressor_kwargs()
+    )
+
+    with pytest.raises(ValueError, match="nonnegative targets"):
+        regressor.fit(X, y)
+
+
+def test__fit__mean_calibration_without_positive_holdout_targets__warns() -> None:
+    X, y = _make_non_negative_tuning_sized_regression_data()
+    splits = {"tuning_holdout_frac": 0.2, "tuning_n_folds": 1}
+    # Zero every target the one tuning fold holds out.
+    ((_, holdout),) = get_tuning_split_indices(
+        X, y, holdout_frac=0.2, n_splits=1, random_state=0, task_type="regressor"
+    )
+    y[holdout] = 0.0
+    regressor = TabPFNRegressor(
+        tuning_config={"calibrate_mean": True, **splits},
+        **_tuning_regressor_kwargs(),
+    )
+
+    with pytest.warns(UserWarning, match="positive target and a positive weight"):
+        regressor.fit(X, y)
+
+    assert regressor.mean_calibration_scale_ == 1.0
+
+
+def _zero_inflated_tuning_data() -> tuple[np.ndarray, np.ndarray]:
+    r = np.random.RandomState(0)
+    X = r.randn(MIN_NUM_SAMPLES_RECOMMENDED_FOR_TUNING + 100, 3)
+    y = np.where(X[:, 0] < 0.0, 0.0, np.exp(4.0 + X[:, 1] + 0.8 * r.randn(X.shape[0])))
+    return X, y
+
+
+def test__fit__with_mean_calibration_and_a_mean_readout__scales_the_readout() -> None:
+    X, y = _zero_inflated_tuning_data()
+    kwargs = _tuning_regressor_kwargs(
+        inference_config={
+            "REGRESSION_Y_PREPROCESS_TRANSFORMS": ("log_quantile_gap",),
+            "REGRESSION_READOUT": "nonnegative_and_capped",
+        }
+    )
+    splits = {"tuning_holdout_frac": 0.5, "tuning_n_folds": 2}
+    calibrated = TabPFNRegressor(
+        tuning_config={"calibrate_mean": True, **splits}, **kwargs
+    ).fit(X, y)
+
+    y_holdout, mean_holdout = [], []
+    for train, holdout in get_tuning_split_indices(
+        X, y, holdout_frac=0.5, n_splits=2, random_state=0, task_type="regressor"
+    ):
+        y_holdout.append(y[holdout])
+        mean_holdout.append(
+            TabPFNRegressor(**kwargs).fit(X[train], y[train]).predict(X[holdout])
+        )
+    expected_scale = find_mean_calibration_scale(
+        y_true=np.concatenate(y_holdout),
+        mean=np.concatenate(mean_holdout),
+        power=1.5,
+    )
+    np.testing.assert_allclose(
+        calibrated.mean_calibration_scale_, expected_scale, rtol=1e-6
+    )
+    plain = TabPFNRegressor(**kwargs).fit(X, y)
+    np.testing.assert_allclose(
+        calibrated.predict(X[:20]),
+        expected_scale * plain.predict(X[:20]),
+        rtol=1e-6,
+    )
+
+
+def _weighted_tuning_regressor_kwargs(
+    monkeypatch: pytest.MonkeyPatch, **overrides: Any
+) -> dict[str, Any]:
+    """`_tuning_regressor_kwargs` for a dummy model that takes and ignores row
+    weights, so `fit` accepts `sample_weight`.
+    """
+    kwargs = _tuning_regressor_kwargs(
+        inference_config={"SAMPLE_WEIGHT_MODE": "learned"}, **overrides
+    )
+    model_cls = type(kwargs["model_path"].model)
+    original_forward = model_cls.forward
+
+    def forward(
+        self: Any,
+        *args: Any,
+        row_weights_NB2: torch.Tensor | None = None,
+        sample_weight_mode: str | None = None,
+        **forward_kwargs: Any,
+    ) -> Any:
+        del row_weights_NB2, sample_weight_mode
+        return original_forward(self, *args, **forward_kwargs)
+
+    monkeypatch.setattr(model_cls, "forward", forward)
+    monkeypatch.setattr(
+        model_cls, "get_supported_sample_weight_modes", lambda _: ("learned",)
+    )
+    return kwargs
+
+
+def test__fit__mean_calibration_with_sample_weight__weights_the_holdout_rows(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    X, rate = _zero_inflated_tuning_data()
+    exposure = np.random.RandomState(1).uniform(0.05, 2.0, len(rate))
+    kwargs = _weighted_tuning_regressor_kwargs(monkeypatch)
+    splits = {"tuning_holdout_frac": 0.5, "tuning_n_folds": 2}
+    calibrated = TabPFNRegressor(
+        tuning_config={"calibrate_mean": True, **splits}, **kwargs
+    ).fit(X, rate, sample_weight=exposure)
+
+    rate_holdout, mean_holdout, exposure_holdout = [], [], []
+    for train, holdout in get_tuning_split_indices(
+        X, rate, holdout_frac=0.5, n_splits=2, random_state=0, task_type="regressor"
+    ):
+        fold_regressor = TabPFNRegressor(**kwargs).fit(
+            X[train], rate[train], sample_weight=exposure[train]
+        )
+        rate_holdout.append(rate[holdout])
+        mean_holdout.append(fold_regressor.predict(X[holdout]))
+        exposure_holdout.append(exposure[holdout])
+    fold_scale = partial(
+        find_mean_calibration_scale,
+        y_true=np.concatenate(rate_holdout),
+        mean=np.concatenate(mean_holdout),
+        power=1.5,
+    )
+    expected_scale = fold_scale(sample_weight=np.concatenate(exposure_holdout))
+    assert expected_scale != pytest.approx(fold_scale(), rel=1e-3)
+    np.testing.assert_allclose(
+        calibrated.mean_calibration_scale_, expected_scale, rtol=1e-6
+    )
+
+
+def test__fit__mean_calibration_with_only_zero_weight_positive_holdout_rows__warns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    X, y = _zero_inflated_tuning_data()
+    ((_, holdout),) = get_tuning_split_indices(
+        X, y, holdout_frac=0.2, n_splits=1, random_state=0, task_type="regressor"
+    )
+    sample_weight = np.ones(len(y))
+    sample_weight[holdout[y[holdout] > 0]] = 0.0
+    regressor = TabPFNRegressor(
+        tuning_config={
+            "calibrate_mean": True,
+            "tuning_holdout_frac": 0.2,
+            "tuning_n_folds": 1,
+        },
+        **_weighted_tuning_regressor_kwargs(monkeypatch),
+    )
+
+    with pytest.warns(UserWarning, match="positive target and a positive weight"):
+        regressor.fit(X, y, sample_weight=sample_weight)
+
+    assert regressor.mean_calibration_scale_ == 1.0
 
 
 @pytest.mark.parametrize(
@@ -2411,6 +2975,9 @@ def test__eval_metric_and_tuning_config__round_trip_through_sklearn_clone(
         ("log", -1.0, "strictly positive"),
         ("1_plus_log", -1.0, "greater than -1"),
         ("1_plus_log", -2.0, "greater than -1"),
+        ("log_quantile_gap", -1.0, "nonnegative"),
+        ("log_fixed_atom", -1.0, "nonnegative"),
+        ("log1p_target", -1.0, "nonnegative"),
     ],
 )
 def test__fit__invalid_log_target__raises_clear_error(

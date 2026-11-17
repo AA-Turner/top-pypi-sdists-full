@@ -155,12 +155,29 @@ class OrderFeeParameters(System.Object):
         """Gets the order"""
         ...
 
+    @property
+    def fill_price(self) -> typing.Optional[float]:
+        """Gets the price the order filled at, in the security's quote currency, or null before it fills"""
+        ...
+
+    @overload
     def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order) -> None:
         """
         Initializes a new instance of the OrderFeeParameters class
         
         :param security: The security
         :param order: The order
+        """
+        ...
+
+    @overload
+    def __init__(self, security: QuantConnect.Securities.Security, order: QuantConnect.Orders.Order, fill_price: float) -> None:
+        """
+        Initializes a new instance of the OrderFeeParameters class for a filled order
+        
+        :param security: The security
+        :param order: The order
+        :param fill_price: The price the order filled at, in the security's quote currency
         """
         ...
 

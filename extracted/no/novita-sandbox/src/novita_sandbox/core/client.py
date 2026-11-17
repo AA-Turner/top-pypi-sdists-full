@@ -274,21 +274,17 @@ class _SandboxNamespace(_Namespace):
         self,
         sandbox_id: str,
         *,
-        memory_mib: Optional[int] = None,
+        cpu: Optional[int] = None,
+        memory_gib: Optional[float] = None,
+        disk_gib: Optional[float] = None,
         **opts: Any,
-    ) -> None:
-        """
-        Add hotplug memory to a running sandbox.
-
-        `memory_mib=512` adds 512 MiB of memory; it does not resize the
-        sandbox to a total of 512 MiB.
-        """
-        if memory_mib is None:
-            raise ValueError("resize requires memory_mib")
-
-        return SandboxApi._cls_hotplug_memory(
+    ):
+        """Increase a sandbox to absolute CPU, memory and disk totals."""
+        return SandboxApi._cls_resize(
             sandbox_id=sandbox_id,
-            requested_size_mib=memory_mib,
+            cpu=cpu,
+            memory_gib=memory_gib,
+            disk_gib=disk_gib,
             **self._merge(opts),
         )
 
@@ -371,21 +367,17 @@ class _RuntimeSandboxNamespace(_Namespace):
         self,
         sandbox_id: str,
         *,
-        memory_mib: Optional[int] = None,
+        cpu: Optional[int] = None,
+        memory_gib: Optional[float] = None,
+        disk_gib: Optional[float] = None,
         **opts: Any,
-    ) -> None:
-        """
-        Add hotplug memory to a running sandbox.
-
-        `memory_mib=512` adds 512 MiB of memory; it does not resize the
-        sandbox to a total of 512 MiB.
-        """
-        if memory_mib is None:
-            raise ValueError("resize requires memory_mib")
-
-        return SandboxApi._cls_hotplug_memory(
+    ):
+        """Increase a sandbox to absolute CPU, memory and disk totals."""
+        return SandboxApi._cls_resize(
             sandbox_id=sandbox_id,
-            requested_size_mib=memory_mib,
+            cpu=cpu,
+            memory_gib=memory_gib,
+            disk_gib=disk_gib,
             **self._merge(opts),
         )
 

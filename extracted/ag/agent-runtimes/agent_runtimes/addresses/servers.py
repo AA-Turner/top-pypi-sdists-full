@@ -240,7 +240,7 @@ class RuntimeAddresses:
         for mode, slot in self.slots.items():
             await slot.fill(mode_app(addressed, mode))
         if addressed.hosts is not None:
-            # A2A at its agent host (D-6), whatever transport it was made for.
+            # A2A at its agent host, whatever transport it was made for.
             _answer_over_a2a(agent_id, addressed)
             company = (
                 company_of(addressed, agent_id) if addressed.role == "company" else None
@@ -436,6 +436,7 @@ def company_of(addressed: AddressedAgent, agent_id: str) -> Any:
         plugins=plugins,
         hosted=True,
         operations=addressed,
+        description=addressed.app.description,
     )
     # A person signed in with their personal agent calls its addresses with its PAP token.
     access = addressed.access

@@ -16,10 +16,13 @@ from privy.types import (
     WalletInitImportResponse,
     WalletBatchCreateResponse,
     WalletEntityAssignmentResponse,
+    WalletAutomationSuccessResponse,
     WalletAuthenticateWithJwtResponse,
+    WalletAutomationAttachmentListResponse,
     WalletCreateWalletsWithRecoveryResponse,
 )
 from tests.utils import assert_matches_type
+from privy._utils import parse_datetime
 from privy.pagination import SyncCursor, AsyncCursor
 from privy.types.wallets import TransferActionResponse
 
@@ -50,6 +53,7 @@ class TestWallets:
                     "override_policy_ids": ["xxxxxxxxxxxxxxxxxxxxxxxx"],
                 }
             ],
+            derivation={"wallet_id": "wallet_id"},
             display_name="display_name",
             entity={
                 "id": "jorpjo4rfxj62nx1itt8y1zt",
@@ -106,7 +110,7 @@ class TestWallets:
             entity_id="entity_id",
             external_id="external_id",
             include_archived=True,
-            limit=100,
+            limit=1,
             user_id="user_id",
         )
         assert_matches_type(SyncCursor[Wallet], wallet, path=["response"])
@@ -132,6 +136,121 @@ class TestWallets:
             assert_matches_type(SyncCursor[Wallet], wallet, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_attach_automations(self, client: PrivyAPI) -> None:
+        wallet = client.wallets._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_attach_automations_with_all_params(self, client: PrivyAPI) -> None:
+        wallet = client.wallets._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+            params={"destination_address": "x"},
+            privy_authorization_signature="privy-authorization-signature",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_attach_automations(self, client: PrivyAPI) -> None:
+        response = client.wallets.with_raw_response._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        wallet = response.parse()
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_attach_automations(self, client: PrivyAPI) -> None:
+        with client.wallets.with_streaming_response._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            wallet = response.parse()
+            assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_attach_automations(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            client.wallets.with_raw_response._attach_automations(
+                wallet_id="",
+                automation_ids=["x"],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_detach_automations(self, client: PrivyAPI) -> None:
+        wallet = client.wallets._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_detach_automations_with_all_params(self, client: PrivyAPI) -> None:
+        wallet = client.wallets._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+            privy_authorization_signature="privy-authorization-signature",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_detach_automations(self, client: PrivyAPI) -> None:
+        response = client.wallets.with_raw_response._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        wallet = response.parse()
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_detach_automations(self, client: PrivyAPI) -> None:
+        with client.wallets.with_streaming_response._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            wallet = response.parse()
+            assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_detach_automations(self, client: PrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            client.wallets.with_raw_response._detach_automations(
+                wallet_id="",
+                automation_ids=["x"],
+            )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -2958,7 +3077,7 @@ class TestWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         )
         assert_matches_type(TransferActionResponse, wallet, path=["response"])
@@ -2970,16 +3089,39 @@ class TestWallets:
             wallet_id="wallet_id",
             destination={
                 "address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2",
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
                 "amount": "10.5",
             },
-            amount="amount",
+            amount=".2166991022",
             amount_type="exact_input",
+            custody_options={
+                "initiation": {
+                    "attestations": {
+                        "sca": {
+                            "outcome": "not_applicable",
+                            "auth_factors": [
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "possession",
+                                    "reference": "auth_event_123",
+                                },
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "knowledge",
+                                    "reference": "auth_event_456",
+                                },
+                            ],
+                        }
+                    },
+                    "channel": "other_mobile_payment",
+                    "subchannel": "remote",
+                }
+            },
             fee_configuration={
                 "type": "total_fee_bps",
                 "value": 50,
@@ -3001,7 +3143,7 @@ class TestWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         )
 
@@ -3018,7 +3160,7 @@ class TestWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         ) as response:
             assert not response.is_closed
@@ -3038,7 +3180,7 @@ class TestWallets:
                 destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
                 source={
                     "asset": "usdc",
-                    "chain": "base",
+                    "chain": "tempo",
                 },
             )
 
@@ -3204,6 +3346,17 @@ class TestWallets:
             encryption_type="HPKE",
             recipient_public_key="DAQcDQgAEx4aoeD72yykviK+fckqE2CItVIGn1rCnvCXZ1HgpOcMEMialRmTrqIK4oZlYd1",
             user_jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30",
+        )
+        assert_matches_type(WalletAuthenticateWithJwtResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_authenticate_with_jwt_with_all_params(self, client: PrivyAPI) -> None:
+        wallet = client.wallets.authenticate_with_jwt(
+            encryption_type="HPKE",
+            recipient_public_key="DAQcDQgAEx4aoeD72yykviK+fckqE2CItVIGn1rCnvCXZ1HgpOcMEMialRmTrqIK4oZlYd1",
+            user_jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30",
+            mfa_token="x",
         )
         assert_matches_type(WalletAuthenticateWithJwtResponse, wallet, path=["response"])
 
@@ -3455,6 +3608,7 @@ class TestAsyncWallets:
                     "override_policy_ids": ["xxxxxxxxxxxxxxxxxxxxxxxx"],
                 }
             ],
+            derivation={"wallet_id": "wallet_id"},
             display_name="display_name",
             entity={
                 "id": "jorpjo4rfxj62nx1itt8y1zt",
@@ -3511,7 +3665,7 @@ class TestAsyncWallets:
             entity_id="entity_id",
             external_id="external_id",
             include_archived=True,
-            limit=100,
+            limit=1,
             user_id="user_id",
         )
         assert_matches_type(AsyncCursor[Wallet], wallet, path=["response"])
@@ -3537,6 +3691,121 @@ class TestAsyncWallets:
             assert_matches_type(AsyncCursor[Wallet], wallet, path=["response"])
 
         assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_attach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        wallet = await async_client.wallets._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_attach_automations_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        wallet = await async_client.wallets._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+            params={"destination_address": "x"},
+            privy_authorization_signature="privy-authorization-signature",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_attach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.wallets.with_raw_response._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        wallet = await response.parse()
+        assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_attach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.wallets.with_streaming_response._attach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            wallet = await response.parse()
+            assert_matches_type(WalletAutomationAttachmentListResponse, wallet, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_attach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            await async_client.wallets.with_raw_response._attach_automations(
+                wallet_id="",
+                automation_ids=["x"],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_detach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        wallet = await async_client.wallets._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_detach_automations_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        wallet = await async_client.wallets._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+            privy_authorization_signature="privy-authorization-signature",
+            privy_request_expiry="privy-request-expiry",
+        )
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_detach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        response = await async_client.wallets.with_raw_response._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        wallet = await response.parse()
+        assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_detach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        async with async_client.wallets.with_streaming_response._detach_automations(
+            wallet_id="wallet_id",
+            automation_ids=["x"],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            wallet = await response.parse()
+            assert_matches_type(WalletAutomationSuccessResponse, wallet, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_detach_automations(self, async_client: AsyncPrivyAPI) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `wallet_id` but received ''"):
+            await async_client.wallets.with_raw_response._detach_automations(
+                wallet_id="",
+                automation_ids=["x"],
+            )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
@@ -6363,7 +6632,7 @@ class TestAsyncWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         )
         assert_matches_type(TransferActionResponse, wallet, path=["response"])
@@ -6375,16 +6644,39 @@ class TestAsyncWallets:
             wallet_id="wallet_id",
             destination={
                 "address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2",
-                "asset": "usdc",
-                "chain": "base",
+                "asset": "ousd",
+                "chain": "tempo",
             },
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
                 "amount": "10.5",
             },
-            amount="amount",
+            amount=".2166991022",
             amount_type="exact_input",
+            custody_options={
+                "initiation": {
+                    "attestations": {
+                        "sca": {
+                            "outcome": "not_applicable",
+                            "auth_factors": [
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "possession",
+                                    "reference": "auth_event_123",
+                                },
+                                {
+                                    "authenticated_at": parse_datetime("2026-01-15T10:30:00Z"),
+                                    "category": "knowledge",
+                                    "reference": "auth_event_456",
+                                },
+                            ],
+                        }
+                    },
+                    "channel": "other_mobile_payment",
+                    "subchannel": "remote",
+                }
+            },
             fee_configuration={
                 "type": "total_fee_bps",
                 "value": 50,
@@ -6406,7 +6698,7 @@ class TestAsyncWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         )
 
@@ -6423,7 +6715,7 @@ class TestAsyncWallets:
             destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
             source={
                 "asset": "usdc",
-                "chain": "base",
+                "chain": "tempo",
             },
         ) as response:
             assert not response.is_closed
@@ -6443,7 +6735,7 @@ class TestAsyncWallets:
                 destination={"address": "0xB00F0759DbeeF5E543Cc3E3B07A6442F5f3928a2"},
                 source={
                     "asset": "usdc",
-                    "chain": "base",
+                    "chain": "tempo",
                 },
             )
 
@@ -6609,6 +6901,17 @@ class TestAsyncWallets:
             encryption_type="HPKE",
             recipient_public_key="DAQcDQgAEx4aoeD72yykviK+fckqE2CItVIGn1rCnvCXZ1HgpOcMEMialRmTrqIK4oZlYd1",
             user_jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30",
+        )
+        assert_matches_type(WalletAuthenticateWithJwtResponse, wallet, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_authenticate_with_jwt_with_all_params(self, async_client: AsyncPrivyAPI) -> None:
+        wallet = await async_client.wallets.authenticate_with_jwt(
+            encryption_type="HPKE",
+            recipient_public_key="DAQcDQgAEx4aoeD72yykviK+fckqE2CItVIGn1rCnvCXZ1HgpOcMEMialRmTrqIK4oZlYd1",
+            user_jwt="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30",
+            mfa_token="x",
         )
         assert_matches_type(WalletAuthenticateWithJwtResponse, wallet, path=["response"])
 

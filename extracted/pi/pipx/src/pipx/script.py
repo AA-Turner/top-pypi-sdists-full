@@ -21,7 +21,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Final, cast
 
 from packaging.specifiers import InvalidSpecifier, SpecifierSet
 from packaging.utils import canonicalize_name
@@ -35,21 +35,33 @@ if TYPE_CHECKING:
     from urllib.response import addinfourl
     from zipfile import ZipFile
 
+    from pipx.result import JsonValue
+
 
 _INLINE_METADATA: Final[re.Pattern[str]] = re.compile(
     r"""
-    ^\#\ ///\ (?P<type>[a-zA-Z0-9-]+)$ \s
-    (?P<content> (^\#(|\ .*)$ \s)+ )
-    ^\#\ ///$
+    ^\#\ ///\ (?P<type>[a-zA-Z0-9-]+)$ \s  # opening line naming the metadata type
+    (?P<content> (^\#(?:|\ .*)$ \s)+ )       # each commented line, empty ones included
+    ^\#\ ///$                                # closing line
     """,
     re.VERBOSE | re.MULTILINE,
 )
+_SCRIPT_APP: Final[re.Pattern[str]] = re.compile(r"[A-Za-z0-9_][A-Za-z0-9._-]*")
+_DISTRIBUTION_SEPARATOR: Final[re.Pattern[str]] = re.compile(r"[-_.]+")
 
 
 @contextmanager
 def installable_script(
     package_name: str, package_or_url: str, expected_apps: tuple[str, ...]
 ) -> Generator[str, None, None]:
+    """Yield the requirement to install for a package spec, writing a script to a wheel when the spec is a script.
+
+    :param package_name: the name of the package the script provides.
+    :param package_or_url: the package spec or URL, or the path of a script.
+    :param expected_apps: the apps the user expects the package to provide.
+    :yields: the requirement to install, the spec itself when it is not a script.
+    :raises PipxError: when the script provides a different package than package_name.
+    """
     if (resolved_name := script_name_from_spec(package_or_url, expected_apps)) is None:
         yield package_or_url
         return
@@ -63,28 +75,52 @@ def installable_script(
 
 
 def script_name_from_spec(package_spec: str, expected_apps: tuple[str, ...]) -> str | None:
+    """Return the canonical name of the app that a script spec provides.
+
+    :param package_spec: the package spec, which may be a script.
+    :param expected_apps: the apps the user expects, at most one.
+    :returns: the canonical name of the script, or None when the spec is not a script.
+    :raises PipxError: when more than one app is expected or the app name is not portable.
+    """
     if not is_script_spec(package_spec):
         return None
     if len(expected_apps) > 1:
         msg = "A script can provide one --app name."
         raise PipxError(msg)
     app: Final[str] = _script_app(package_spec, expected_apps)
-    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9._-]*", app) is None:
+    if _SCRIPT_APP.fullmatch(app) is None:
         msg = f"Invalid script app name {app!r}. Pass --app with a portable command name."
         raise PipxError(msg)
     return canonicalize_name(app)
 
 
 def is_script_spec(package_spec: str) -> bool:
+    """Return whether a package spec is a script, a local ``.py`` file or an HTTP URL to one.
+
+    :param package_spec: the package spec to check.
+    :returns: whether the spec is a script.
+    """
     if local_script(package_spec) is not None:
         return True
-    parsed: Final[urllib.parse.SplitResult] = urllib.parse.urlsplit(package_spec)
+    try:
+        parsed: Final[urllib.parse.SplitResult] = urllib.parse.urlsplit(package_spec)
+    except ValueError:
+        return False
     return parsed.scheme in {"http", "https"} and parsed.path.lower().endswith(".py")
 
 
 def local_script(package_spec: str) -> Path | None:
+    """Return the path of a local script that a package spec names.
+
+    :param package_spec: the package spec to check.
+    :returns: the resolved path of the script, or None when the spec names no local file.
+    """
     # a single-letter scheme is a Windows drive; any longer one is a URL, whose path must not resolve below the cwd
-    if len(urllib.parse.urlsplit(package_spec).scheme) > 1:
+    try:
+        scheme = urllib.parse.urlsplit(package_spec).scheme
+    except ValueError:
+        return None
+    if len(scheme) > 1:
         return None
     path: Final[Path] = Path(package_spec).expanduser()
     if not path.is_file():
@@ -129,16 +165,22 @@ def _read_script(package_or_url: str, expected_apps: tuple[str, ...]) -> _Script
     return _Script(app=_script_app(package_or_url, expected_apps), content=content, metadata=metadata)
 
 
-# a PEP 723 script larger than this is almost certainly the wrong URL; bound the read so a stalled or huge response
-# cannot hang pipx or exhaust memory
-_MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
-
-
 def download_script(url: str) -> str:
+    """Download a script from a URL.
+
+    :param url: the URL of the script.
+    :returns: the content of the script.
+    :raises PipxError: when the URL carries credentials or the download fails.
+    """
     from http.client import HTTPException  # ruff:ignore[import-outside-top-level]  # slows startup
     from urllib.request import urlopen  # ruff:ignore[import-outside-top-level]  # pulls in http.client, slows startup
 
-    _reject_url_credentials(url)
+    # urllib's HTTP handler keeps the userinfo in the host it connects to (python/cpython#78809), so credentials never
+    # authenticate the download and a failed host:port split puts the password into the error message; its FTP handler
+    # does log in with them
+    if (parts := urllib.parse.urlsplit(url)).scheme in {"http", "https"} and parts.username is not None:
+        msg = f"Script URL {redact_url_credentials(url)} must not contain credentials."
+        raise PipxError(msg)
     try:
         with urlopen(url, timeout=30) as response:  # ruff:ignore[suspicious-url-open-usage]  # callers choose the allowed schemes
             data: Final[bytes] = response.read(_MAX_SCRIPT_BYTES + 1)
@@ -148,15 +190,6 @@ def download_script(url: str) -> str:
     except (OSError, HTTPException, UnicodeDecodeError, LookupError) as error:
         msg = f"Unable to read script {redact_url_credentials(url)}: {error}"
         raise PipxError(msg) from error
-
-
-def _reject_url_credentials(url: str) -> None:
-    # urllib's HTTP handler keeps the userinfo in the host it connects to (python/cpython#78809), so credentials never
-    # authenticate the download and a failed host:port split puts the password into the error message; its FTP handler
-    # does log in with them
-    if (parts := urllib.parse.urlsplit(url)).scheme in {"http", "https"} and parts.username is not None:
-        msg = f"Script URL {redact_url_credentials(url)} must not contain credentials."
-        raise PipxError(msg)
 
 
 def _reject_incomplete_script(url: str, response: HTTPResponse | addinfourl, data: bytes) -> None:
@@ -171,6 +204,13 @@ def _reject_incomplete_script(url: str, response: HTTPResponse | addinfourl, dat
 
 
 def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
+    """Return the inline metadata of a script, from its ``# /// script`` block.
+
+    :param content: the script text, or the path of the script.
+    :returns: the metadata, or None when the script has no ``script`` block.
+    :raises ValueError: when the script uses the obsolete ``pyproject`` block or its block is malformed.
+    :raises PipxError: when the metadata cannot be parsed.
+    """
     normalized_text: Final[str] = (
         (content.read_text(encoding="utf-8") if isinstance(content, Path) else content)
         .removeprefix("﻿")
@@ -188,13 +228,13 @@ def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
         msg = "Multiple `# /// script` metadata blocks found"
         raise ValueError(msg)
 
-    raw: Final[dict[str, object]] = tomllib.loads(
+    raw: Final[dict[str, JsonValue]] = tomllib.loads(
         "".join(
             line[2:] if line.startswith("# ") else line[1:]
             for line in matches[0].group("content").splitlines(keepends=True)
         )
     )
-    dependencies: Final[object] = raw.get("dependencies", [])
+    dependencies: Final[JsonValue] = raw.get("dependencies", [])
     if not isinstance(dependencies, list) or not all(isinstance(dependency, str) for dependency in dependencies):
         msg = "Inline script `dependencies` must be an array of strings."
         raise PipxError(msg)
@@ -205,7 +245,7 @@ def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
 
     normalized: Final[list[str]] = []
     try:
-        for dependency in dependencies:
+        for dependency in cast("list[str]", dependencies):
             normalized.append(str(Requirement(dependency)))
     except InvalidRequirement as error:
         msg = f"Invalid requirement {redact_url_credentials(dependency)}: {redact_url_credentials(str(error))}"
@@ -217,7 +257,19 @@ def read_script_metadata(content: str | Path) -> ScriptMetadata | None:
     )
 
 
-def _normalize_requires_python(value: object) -> str | None:
+@dataclass(frozen=True, slots=True, kw_only=True)
+class ScriptMetadata:
+    """Inline metadata of a script: its dependencies and the Python it requires.
+
+    :param dependencies: the requirements the script declares.
+    :param requires_python: the Python version the script requires, or None.
+    """
+
+    dependencies: tuple[str, ...]
+    requires_python: str | None
+
+
+def _normalize_requires_python(value: JsonValue) -> str | None:
     if value is None:
         return None
     if not isinstance(value, str):
@@ -228,12 +280,6 @@ def _normalize_requires_python(value: object) -> str | None:
     except InvalidSpecifier as error:
         msg = f"Invalid `requires-python` value {value}: {error}"
         raise PipxError(msg) from error
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
-class ScriptMetadata:
-    dependencies: tuple[str, ...]
-    requires_python: str | None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -249,7 +295,7 @@ def _write_wheel(directory: Path, package_name: str, script: _Script) -> Path:
 
     digest: Final[str] = hashlib.sha256(script.content.encode()).hexdigest()[:12]
     version: Final[str] = f"0+{digest}"
-    distribution: Final[str] = re.sub(r"[-_.]+", "_", package_name)
+    distribution: Final[str] = _DISTRIBUTION_SEPARATOR.sub("_", package_name)
     module: Final[str] = f"_pipx_script_{distribution}"
     stem: Final[str] = f"{distribution}-{version}"
     dist_info: Final[str] = f"{stem}.dist-info"
@@ -279,7 +325,10 @@ __all__ = [
             _write_member(archive, name, data)
         archive.writestr(
             record,
-            "".join(f"{name},sha256={_digest(data)},{len(data)}\n" for name, data in members.items()) + f"{record},,\n",
+            "".join([
+                *(f"{name},sha256={_digest(data)},{len(data)}\n" for name, data in members.items()),
+                f"{record},,\n",
+            ]),
         )
     return wheel
 
@@ -289,7 +338,7 @@ def _metadata(package_name: str, version: str, metadata: ScriptMetadata) -> byte
     if metadata.requires_python is not None:
         lines.append(f"Requires-Python: {metadata.requires_python}")
     lines.extend(f"Requires-Dist: {dependency}" for dependency in metadata.dependencies)
-    return ("\n".join(lines) + "\n\n").encode()
+    return "\n".join([*lines, "", ""]).encode()
 
 
 def _write_member(archive: ZipFile, name: str, data: bytes) -> None:
@@ -305,6 +354,11 @@ def _digest(data: bytes) -> str:
     import hashlib  # ruff:ignore[import-outside-top-level]  # loads OpenSSL, slows startup
 
     return base64.urlsafe_b64encode(hashlib.sha256(data).digest()).rstrip(b"=").decode()
+
+
+# a PEP 723 script larger than this is almost certainly the wrong URL; bound the read so a stalled or huge response
+# cannot hang pipx or exhaust memory
+_MAX_SCRIPT_BYTES: Final[int] = 10 * 1024 * 1024
 
 
 __all__ = [

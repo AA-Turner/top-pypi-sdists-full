@@ -25,6 +25,7 @@ from typing import (
     ClassVar,
     Final,
     Literal,
+    NamedTuple,
     Optional,
     Protocol,
     TypeAlias,
@@ -58,6 +59,7 @@ from datamodel_code_generator._container_kinds import (
     ARRAYS,
     CONTAINER_FLAGS,
     CONTAINERS,
+    GENERIC_CONTAINERS,
     GIVEN_CONTAINERS,
     MAPPINGS,
     SLOT_CLASSES,
@@ -72,7 +74,7 @@ from datamodel_code_generator._format_types import (
     PythonVersion,
     PythonVersionMin,
 )
-from datamodel_code_generator._graph_links import add_child, drop_child, link_members
+from datamodel_code_generator._graph_links import add_child, drop_child, link_members, type_children
 from datamodel_code_generator._model_keys import NodeKey
 from datamodel_code_generator._module_paths import dotted_name
 from datamodel_code_generator._parse_memo import PARSE_MEMO, rendering_memo
@@ -114,6 +116,8 @@ _ENUM_MEMBER_LITERAL_REFERENCE_DATA_TYPE_KEY = "_enum_member_literal_reference"
 _FORWARD_REFERENCE_DATA_TYPE_KEY = "_is_forward_reference"
 _TYPE_NULL_DATA_TYPE_KEY = "_type_null"
 _LITERAL_IMPORT_DATA_TYPE_KEY = "_literal_import"
+_UNTYPED_VALUE_DATA_TYPE_KEY = "_untyped_value_name"
+"""The name an untyped value is written as under --untyped-value-type, on the ``Any`` type that stands for it."""
 _DEEP_COPY_LEAVES_OUT: Final = frozenset({_LITERAL_IMPORT_DATA_TYPE_KEY})
 """The private state of a type that a deep copy leaves out and every other copy keeps: the ``Literal`` import alias."""
 _RenderStateWrite: TypeAlias = Literal["reference-null", "member-null", "null-moved-to-union", "empty-union"]
@@ -894,10 +898,8 @@ class DataType(_BaseModel):  # noqa: PLR0904
             return
         visited.add(node_id)
         visitor(self)
-        for child in self.data_types:
+        for child in type_children(self):
             child.walk(visitor, visited)
-        if self.dict_key:
-            self.dict_key.walk(visitor, visited)
 
     def find_source(self, source_type: type[SourceT]) -> SourceT | None:  # ty: ignore[invalid-type-form]
         """Find the first reference source matching the given type from all nested data types."""
@@ -1148,8 +1150,12 @@ class DataType(_BaseModel):  # noqa: PLR0904
 
     @property
     def _own_text(self) -> str | None:
-        """Return the text the type writes of its own: its alias, else its type; none when its members write it."""
-        return self.alias or self.type
+        """Return the text the type writes of its own: its alias, else its type; none when its members write it.
+
+        An untyped value under --untyped-value-type keeps the type ``Any`` and writes the name of the type it is
+        written as (``untyped_value_data_type``).
+        """
+        return self.alias or self.__dict__.get(_UNTYPED_VALUE_DATA_TYPE_KEY) or self.type
 
     @property
     def _writes_nothing_of_its_own(self) -> bool:
@@ -1225,24 +1231,6 @@ class DataType(_BaseModel):  # noqa: PLR0904
             member_count=len(self.data_types),
         )
 
-    def _hint_null_source(self) -> NullSource | None:
-        """Return why ``type_hint`` writes None: the type's own, its nullable model's, or its members' by their hints.
-
-        A union takes the None of a member whose rendered hint strips it under the union's operator (row M,
-        ``legacy-member-null-from-hint-text``), so the members are rendered only when neither of the others decides.
-        A rendering of the hint answers whether it is None as well (``_type_hint_and_null``).
-        """
-        return _nullability_core().rendered_nullability(
-            own=self.is_optional, reference=self.adds_reference_null, member_nulls=self._iter_hint_member_nulls()
-        )
-
-    def _iter_hint_member_nulls(self) -> Iterator[bool]:
-        """Yield whether the union, as ``type_hint`` renders it, takes the None of its members."""
-        if not self._own_text and self._takes_member_null(_nullability_core()):
-            yield _merge_union_members(
-                self, tuple(type_expr_of(member, base=False) for member in self.data_types)
-            ).takes_null
-
     def _gives_member_null(self, core: ModuleType) -> bool:
         """Return whether the type, as a member of a union, gives the union its None (``member_null``)."""
         verdict = core.member_null(is_none=_is_plain_none(self), is_any=self.type == ANY)
@@ -1300,14 +1288,17 @@ class DataType(_BaseModel):  # noqa: PLR0904
         """Generate the Python type hint string for this DataType."""
         return render_type_expr(_build_type_expr(self, base=False))
 
-    def _type_hint_and_null(self) -> tuple[str, bool]:
-        """Return ``type_hint`` and whether it writes None (``_hint_null_source``), from one rendering.
+    def _type_hint_and_null(self, expression: object = None) -> tuple[str, NullSource | None]:
+        """Return ``type_hint`` and why it writes None (``_hint_null``), from one rendering.
 
-        A class that writes its own hint renders it, then the None.
+        A class that writes its own hint renders it, then the None is asked. ``expression`` is the type's expression
+        (``type_expr_of``) when it is built already; the models pass it on without importing this module's names.
         """
         if type(self).type_hint is not DataType.type_hint:
-            return self.type_hint, self._hint_null_source() is not None
-        return _render_apply(cast("TypeApply", _build_type_expr(self, base=False)))
+            return self.type_hint, _hint_null(self)
+        if expression is None:
+            expression = _build_type_expr(self, base=False)
+        return _render_apply(cast("TypeApply", expression))
 
     @property
     def is_union(self) -> bool:
@@ -1473,6 +1464,8 @@ def _build_type_expr(data_type: DataType, *, base: bool) -> TypeExpr:
             form = "literal"
         elif data_type.reference:
             form, args = "single", (RefLeaf(data_type),)
+    if data_type not in GENERIC_CONTAINERS:
+        return TypeApply(data_type, form, args, base=base)
     order = data_type._BASE_TYPE_HINT_CONTAINER_ORDER if base else data_type._TYPE_HINT_CONTAINER_ORDER  # noqa: SLF001
     for container in order:
         if (name := _container_name(data_type, container)) is not None:
@@ -1481,6 +1474,36 @@ def _build_type_expr(data_type: DataType, *, base: bool) -> TypeExpr:
             given = given_container_of(data_type.given_container, container)
             return TypeApply(data_type, form, args, name, mapping, key, base, given is not None and given.variadic)
     return TypeApply(data_type, form, args, base=base)
+
+
+def _hint_null(node: DataType, *, reference: bool = True, member_null: bool | None = None) -> NullSource | None:
+    """Return why the hint of a type writes None: the type's own, its nullable model's, or its members' by their hints.
+
+    The rule is ``rendered_nullability`` with the members answering by their hints (row
+    ``legacy-member-null-from-hint-text``; ``DataType.admits_none`` is the row ``structure``): a union takes the None
+    of a member whose hint strips it under the union's operator, unless a container that the hint writes holds the
+    union. ``member_null`` is that answer of the hint ``_render_apply`` is writing, base hints included; without it
+    the members' hints of ``type_hint`` are merged, when neither the type nor its model gives the None.
+    ``reference`` False leaves the model's None out: the base type of a constrained call names no model, and imports
+    collected without a hint pass that None on as the field's.
+    """
+    core = _nullability_core()
+    return core.rendered_nullability(
+        own=node.is_optional,
+        reference=reference and node.adds_reference_null,
+        member_nulls=_hint_member_nulls(node, core) if member_null is None else (member_null,),
+    )
+
+
+def _hint_member_nulls(node: DataType, core: ModuleType) -> Iterator[bool]:
+    """Yield whether ``type_hint`` merges a None out of its members' hints, for a union that it writes in no container.
+
+    ``type_hint`` writes every container but the tuple, which is no union (``_TYPE_HINT_CONTAINER_ORDER``).
+    """
+    if not node._own_text and node._takes_member_null(core):  # noqa: SLF001
+        yield _merge_union_members(
+            node, tuple(type_expr_of(member, base=False) for member in node.data_types)
+        ).takes_null
 
 
 def render_type_expr(expr: TypeExpr, /) -> str:
@@ -1495,11 +1518,11 @@ def render_type_expr(expr: TypeExpr, /) -> str:
     return node.base_type_hint if expr.base else node.type_hint
 
 
-def _render_apply(expr: TypeApply) -> tuple[str, bool]:
+def _render_apply(expr: TypeApply) -> tuple[str, NullSource | None]:
     """Write what one data type writes: its own text or its form, its container, its quotes, its None or its call.
 
-    Return the text and whether the hint holds the None ``DataType._hint_null_source`` reads: the type's own, its
-    nullable model's, or the one the members of its union hold (``rendered_nullability``).
+    Return the text and why the hint writes None (``_hint_null``). The members' None is the one its union merged from
+    their hints: a container that is written keeps it inside, and the name of an alias of None writes it already.
     """
     node = expr.node
     text = node._own_text  # noqa: SLF001
@@ -1512,7 +1535,8 @@ def _render_apply(expr: TypeApply) -> tuple[str, bool]:
         text = node._get_wrapped_alias_type_hint(text)  # noqa: SLF001
     if (container := expr.container) is not None:
         if member_null:
-            text, member_null = node._optional_hint(text, node.use_union_operator), False  # noqa: SLF001
+            text = node._optional_hint(text, node.use_union_operator)  # noqa: SLF001
+        member_null = merged_null = False
         if expr.mapping:
             key = STR if expr.key is None else render_type_expr(expr.key)
             text = subscript_text(container, (key, text or ANY)) if expr.key is not None or text else container
@@ -1522,22 +1546,12 @@ def _render_apply(expr: TypeApply) -> tuple[str, bool]:
             text = container
     if not expr.base and node._is_forward_reference:  # noqa: SLF001
         text = stable_repr(text) if '"' in text or "\\" in text else f'"{text}"'
-    core = _nullability_core()
-    if (
-        hint_null := core.rendered_nullability(
-            own=node.is_optional,
-            reference=expr.form != "base" and node.adds_reference_null,
-            member_nulls=(member_null,),
-        )
-        is not None
-    ) and text != ANY:
-        return node._optional_hint(text, node.use_union_operator), True  # noqa: SLF001
-    hint_null = hint_null or (merged_null and node._takes_member_null(core))  # noqa: SLF001
+    null = _hint_null(node, reference=expr.form != "base", member_null=merged_null)
+    if null is not None and (member_null or null != "member") and text != ANY:
+        return node._optional_hint(text, node.use_union_operator), null  # noqa: SLF001
     if not expr.base and node.is_func and node.kwargs:
-        return call_text(
-            text, (keyword_argument(k, represent_python_value(v)) for k, v in node.kwargs.items())
-        ), hint_null
-    return text, hint_null
+        return call_text(text, (keyword_argument(k, represent_python_value(v)) for k, v in node.kwargs.items())), null
+    return text, null
 
 
 def _render_form(expr: TypeApply) -> tuple[str, bool, bool]:
@@ -1758,12 +1772,9 @@ def _link_parts(data_type: DataType) -> None:
             data_type.is_optional = True
             data_type.data_types = [data_type.data_types[index] for index in plan.members]
 
-    for member in data_type.data_types:
-        if member.reference or member.data_types:
-            member.parent = data_type
-
-    if data_type.dict_key and (data_type.dict_key.reference or data_type.dict_key.data_types):
-        data_type.dict_key.parent = data_type
+    for child in type_children(data_type):
+        if child.reference or child.data_types:
+            child.parent = data_type
 
     if data_type.reference:
         add_child(data_type.reference, data_type)
@@ -1808,6 +1819,55 @@ def _valid_import_type(
             "kwargs": kwargs,
         },
     )
+
+
+@final
+class UntypedValue(NamedTuple):
+    """The type --untyped-value-type writes the untyped values as: its name and the import it needs, if any."""
+
+    name: str
+    import_: Import | None
+
+    @classmethod
+    def from_option(cls, value: str) -> UntypedValue:
+        """Read a value of --untyped-value-type: ``Any``, ``object`` or a dotted import path the models import."""
+        match value:
+            case "Any":
+                return cls(ANY, IMPORT_ANY)
+            case "object":
+                return cls("object", None)
+        import_ = Import.from_full_path(value)
+        return cls(import_.import_, import_)
+
+
+def writes_object_for_untyped_items(use_object_type: bool, untyped_value: UntypedValue | None) -> bool:  # noqa: FBT001
+    """Whether the values and items of objects and arrays without types are ``object``: under --use-object-type.
+
+    --untyped-value-type takes precedence: it gives them the type of every untyped value.
+    """
+    return use_object_type and untyped_value is None
+
+
+def untyped_value_data_type(cls: type[DataTypeT], untyped_value: UntypedValue | None) -> DataTypeT:
+    """Return the type of a value the schema leaves untyped: ``Any``, or under --untyped-value-type that type.
+
+    The type stays ``Any`` for every decision that reads it, as without the option; it writes the name and needs the
+    import of the type the option gives.
+    """
+    data_type = _valid_import_type(cls, IMPORT_ANY)
+    if untyped_value is not None:
+        data_type.import_ = untyped_value.import_
+        data_type.__dict__[_UNTYPED_VALUE_DATA_TYPE_KEY] = untyped_value.name
+    return data_type
+
+
+def written_type_name(data_type: DataType) -> str | None:
+    """Return the name of the type a type without an import writes: its type, or the --untyped-value-type name.
+
+    An untyped value keeps the type ``Any`` for every decision and writes the name the option gives
+    (``untyped_value_data_type``), such as ``object``.
+    """
+    return data_type.__dict__.get(_UNTYPED_VALUE_DATA_TYPE_KEY) or data_type.type
 
 
 @cache
@@ -2041,6 +2101,10 @@ class DataTypeManager(ABC):
     """The regex engines the models compile a schema's ``pattern`` on (``_regex_syntax.read_pattern``)."""
     _WRITES_CONSTRAINED_TYPES: ClassVar[bool] = _applicability.BASE_OUTPUT.writes_constrained_types
     """Whether the type manager writes scalar constraints into ``con*`` types (``OutputKeywords``)."""
+    WRITES_UNTYPED_VALUE_TYPE: ClassVar[bool] = True
+    """Whether the output writes the untyped values as the type --untyped-value-type gives; else they stay ``Any``."""
+    type_map: dict[Types, DataType]
+    """The type of each schema type and format, which the type managers of the outputs build."""
 
     def __init__(  # noqa: PLR0913, PLR0917
         self,
@@ -2075,6 +2139,7 @@ class DataTypeManager(ABC):
         self.target_date_class: DateClassType | None = target_date_class
         self.treat_dot_as_module: bool = treat_dot_as_module or False
         self.use_serialize_as_any: bool = use_serialize_as_any
+        self.untyped_value: UntypedValue | None = None
 
         self.data_type: type[DataType] = _create_context_data_type(
             "ContextDataType",
@@ -2099,6 +2164,24 @@ class DataTypeManager(ABC):
             self.treat_dot_as_module,
             self.use_serialize_as_any,
         )
+
+    def use_untyped_value_type(self, untyped_value_type: str | None) -> None:
+        """Write the untyped values as the type --untyped-value-type gives, unless the output keeps ``Any``.
+
+        The untyped value of the type map, and the values and items of objects and arrays without types, which it
+        gives also under --use-object-type, become that type (``untyped_value_data_type``). The option is set after
+        construction, so a type manager with the constructor of an older release keeps working.
+        """
+        if untyped_value_type is None or not self.WRITES_UNTYPED_VALUE_TYPE:
+            return
+        untyped_value = self.untyped_value = UntypedValue.from_option(untyped_value_type)
+        type_map = self.type_map
+        type_map[Types.any] = untyped_value_data_type(type(type_map[Types.any]), untyped_value)
+        for types, container in ((Types.object, "is_dict"), (Types.array, "is_list")):
+            cls = type(type_map[types])
+            type_map[types] = _valid_data_type(
+                cls, data_types=[untyped_value_data_type(cls, untyped_value)], **{container: True}
+            )
 
     @abstractmethod
     def get_data_type(self, types: Types, **kwargs: Any) -> DataType:

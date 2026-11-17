@@ -80,6 +80,6 @@ class ModelRunOptions(BaseModel):
 
 class RunOptionsResponse(BaseModel):
   bench_id: str = ""
-  """Deprecated and always empty; run options are the same for every benchmark."""
+  """Benchmark ID used for these training options, or empty for generative defaults."""
 
   models: list[ModelRunOptions]

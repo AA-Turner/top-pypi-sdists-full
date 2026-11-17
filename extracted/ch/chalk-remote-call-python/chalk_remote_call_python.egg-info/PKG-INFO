@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalk-remote-call-python
-Version: 1.10.14
+Version: 1.11.1
 Summary: Chalk remote call Python runtime interface client
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -186,6 +186,47 @@ def handler(event, context):
 serve(handler=handler, port=8080)
 ```
 
+#### Opt-in model-serving readiness
+
+Model-serving integrations can pass a native `ServingHandle` to control gRPC
+health and admission of new synchronous or async enqueue requests:
+
+```python
+import time
+import threading
+
+from chalk_remote_call import ServingHandle, serve
+
+serving = ServingHandle()  # starts NOT_SERVING
+
+def model_controller():
+    # After loading and verifying the selected model target:
+    serving.set_serving(True, lease_expires_at=time.time() + 30)
+
+    # Before applying another target, stop new admissions and drain requests:
+    serving.set_serving(False)
+    # After applying and verifying the new target, supply its later expiry.
+    serving.set_serving(True, lease_expires_at=time.time() + 30)
+
+threading.Thread(target=model_controller, daemon=True).start()
+serve(handler=handler, port=8080, serving_handle=serving)
+```
+
+The absolute Unix expiry is required when enabling serving and must be no more
+than 300 seconds in the future. Repeating the same expiry cannot renew the
+lease; the target provider must deliver a later expiry first. Rust converts the
+absolute timestamp to a monotonic deadline, expires health and admission without
+further Python calls, and rejects stale or expired timestamps. A new later
+expiry can reopen serving after an update, provided it remains within the
+five-minute bound.
+
+This handle only controls gRPC health and admission of new calls. It does not
+cancel or drain calls that passed admission before the state changed. An
+integration must stop new calls and wait for its own admitted requests to drain
+before modifying model state. Omitting `serving_handle` preserves the existing
+always-serving health behavior. The handle is a local control surface; it does
+not authenticate a target descriptor or provide trusted controller delivery.
+
 ### Invocation context
 
 Each Python bridge invocation runs in a fresh `contextvars.Context`. Handler
@@ -298,3 +339,33 @@ the production JWT layer and Fnq service, then exercise real native-shim executi
 lease renewal, result writes, token rotation, and environment isolation. These tests
 skip unless `FNQ_TEST_SERVER` and `REDIS_URL` are set. Deploy the service before
 setting `CHALK_FNQ_CONSUMER_ENDPOINT` on a workload.
+
+### Managed model target admission
+
+The model deployment API records a typed serving configuration. Its launcher
+passes one private `--model-serving-bootstrap JSON` argument containing the static
+configuration and platform-generated deployment binding. The entire UTF-8
+payload is bounded to 64 KiB. This creates a strict `ServingHandle` before
+importing the user handler and starts the optional
+`chalkcompute.weights.serving.model_runtime.ManagedModelRuntime`. Environment
+feature switches alone cannot activate this path. Managed images
+must install the compatible ChalkCompute serving extra and native runtime.
+Ordinary remote-call handlers do not load this integration.
+
+Managed calls carry `x-chalk-model-weight-target`, the exact immutable target
+fingerprint selected by the backend. The native server checks this constraint
+at ingress and again when actual Python execution starts. An expired lease,
+missing target, stale target, or paused update rejects execution. The header is
+an admission constraint and does not replace authentication.
+
+Before changing weights the SDK closes admission and waits for native execution
+to finish, including generators and blocking Python tasks after a client
+disconnect. An uncertain managed execution permanently closes the native gate
+until the replica restarts.
+
+Managed durable async work requires the dataplane function queue. If its pinned
+target becomes unavailable after delivery, the consumer persists an explicit
+`ModelWeightTargetUnavailable` failed-call result before acknowledging delivery.
+The caller can submit a fresh request against the new target. This avoids
+executing old work against new weights or silently acknowledging it. The
+legacy Redis-list consumer remains available to ordinary handlers.

@@ -8,10 +8,10 @@ import dataclasses
 import time
 import warnings
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from copy import copy, deepcopy
 from functools import partial
-from inspect import signature
+from inspect import Parameter, signature
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypeVar
 from typing_extensions import override
@@ -83,12 +83,22 @@ class _TimedIterator(Iterator[_T]):
         return self
 
 
-def _model_expectes_task_type_arg(model: Architecture) -> bool:
-    """Check if the model's forward function expects a task_type argument.
+def _forward_parameters(model: torch.nn.Module) -> Mapping[str, Parameter]:
+    """The parameters of `model.forward`, by name."""
+    return signature(model.forward).parameters
 
-    This is a check for backwards compatibility.
-    """
-    return "task_type" in signature(model.forward).parameters
+
+def _model_forward_kwargs(
+    model: Architecture, task_type: str, estimator_ids: list[int]
+) -> dict[str, str | list[int]]:
+    """Return the metadata arguments accepted by the architecture."""
+    parameters = _forward_parameters(model)
+    kwargs: dict[str, str | list[int]] = {}
+    if "task_type" in parameters:
+        kwargs["task_type"] = task_type
+    if "estimator_ids" in parameters:
+        kwargs["estimator_ids"] = estimator_ids
+    return kwargs
 
 
 def _estimator_batch_budget(model: Architecture) -> EstimatorBatchBudget:
@@ -306,6 +316,31 @@ def _batch_member_inputs(
         torch.cat(list(xs), dim=1),
         torch.cat([y.reshape(y.shape[0], -1) for y in ys], dim=1),
     )
+
+
+def _row_weight_kwargs(
+    members: Sequence[TabPFNEnsembleMember],
+    sample_weight_mode: str | None,
+    x: torch.Tensor,
+) -> dict[str, torch.Tensor | str]:
+    """The members' per-row weights as forward arguments, batched like their rows.
+
+    The weights take the device and dtype of `x`, the members' batched rows. Empty
+    when `fit` got no per-row weights, so the forward is the same call as for a
+    model that takes none.
+    """
+    if sample_weight_mode is None:
+        return {}
+    row_weights = []
+    for member in members:
+        assert member.row_weights is not None
+        row_weights.append(
+            torch.as_tensor(member.row_weights, device=x.device, dtype=x.dtype)
+        )
+    return {
+        "row_weights_NB2": torch.stack(row_weights, dim=1),
+        "sample_weight_mode": sample_weight_mode,
+    }
 
 
 class InferenceEngine(ABC):
@@ -708,6 +743,7 @@ class InferenceEngineOnDemand(MultiDeviceInferenceEngine):
             only_return_standard_out=only_return_standard_out,
             save_peak_mem=save_peak_mem,
             task_type=task_type,
+            sample_weight_mode=self.ensemble_preprocessor.sample_weight_mode,
         )
 
 
@@ -800,9 +836,11 @@ class InferenceEngineBatchedNoPreprocessing(SingleDeviceInferenceEngine):
                     train_y_batch = train_y_batch.type(self.force_inference_dtype)  # type: ignore
                     model.type(self.force_inference_dtype)
 
-                kwargs = {}
-                if _model_expectes_task_type_arg(model):
-                    kwargs["task_type"] = task_type
+                kwargs = _model_forward_kwargs(
+                    model,
+                    task_type,
+                    [config.estimator_id for config in self.ensemble_configs[i]],
+                )
                 with (
                     get_autocast_context(device, enabled=autocast),
                     torch.inference_mode(self.inference_mode),
@@ -1021,6 +1059,7 @@ class InferenceEngineCachePreprocessing(MultiDeviceInferenceEngine):
             only_return_standard_out=only_return_standard_out,
             save_peak_mem=save_peak_mem,
             task_type=task_type,
+            sample_weight_mode=self.ensemble_preprocessor.sample_weight_mode,
         )
 
     @override
@@ -1282,14 +1321,16 @@ class InferenceEngineExplicitKVCache(MultiDeviceInferenceEngine):
             ),
             kv_cache_follows_attention_grid=kv_cache_precision == "adaptive",
         )
-        kwargs = {}
-        if _model_expectes_task_type_arg(model):
-            kwargs["task_type"] = self.task_type
 
         def build(positions: list[int]) -> KVCache:
             X, y = _batch_member_inputs(
                 [prepared[i][0] for i in positions],
                 [prepared[i][1] for i in positions],
+            )
+            kwargs = _model_forward_kwargs(
+                model,
+                self.task_type,
+                [members[i].config.estimator_id for i in positions],
             )
             with (
                 get_autocast_context(device, enabled=autocast),
@@ -1303,6 +1344,11 @@ class InferenceEngineExplicitKVCache(MultiDeviceInferenceEngine):
                     performance_options=performance_options,
                     return_kv_cache=True,
                     **kwargs,
+                    **_row_weight_kwargs(
+                        [members[i] for i in positions],
+                        self.ensemble_preprocessor.sample_weight_mode,
+                        X,
+                    ),
                 )
             assert cache is not None
             if not self.keep_cache_on_device or stage_cache_on_cpu:
@@ -1447,9 +1493,12 @@ class InferenceEngineExplicitKVCache(MultiDeviceInferenceEngine):
             if save_peak_mem
             else None,
         )
-        kwargs = {}
-        if _model_expectes_task_type_arg(model):
-            kwargs["task_type"] = task_type
+        kwargs = _model_forward_kwargs(
+            model, task_type, [member.config.estimator_id for member in members]
+        )
+        row_weight_kwargs = _row_weight_kwargs(
+            members, self.ensemble_preprocessor.sample_weight_mode, X
+        )
 
         cache_on_device = self.kv_caches[cache_index].to(device)
         if self.keep_cache_on_device:
@@ -1469,6 +1518,7 @@ class InferenceEngineExplicitKVCache(MultiDeviceInferenceEngine):
                     kv_cache=cache_on_device,
                     x_is_test_only=True,
                     **kwargs,
+                    **row_weight_kwargs,
                 )
 
         n_test, batch, columns = X.shape
@@ -1566,6 +1616,7 @@ def _call_model_on_members(  # noqa: PLR0913
     only_return_standard_out: bool,
     save_peak_mem: bool,
     task_type: str,
+    sample_weight_mode: str | None,
 ) -> _MemberOutputs:
     """Forward the members, which share a model, from their train and test rows.
 
@@ -1577,13 +1628,22 @@ def _call_model_on_members(  # noqa: PLR0913
     prepared: list[tuple[torch.Tensor, torch.Tensor, list[int]]] = []
     for member, X_test in zip(members, X_tests, strict=True):
         X_full, y_train = _prepare_model_inputs(
-            device, force_inference_dtype, member.X_train, X_test, member.y_train
+            device,
+            force_inference_dtype,
+            member.X_train,
+            X_test,
+            member.y_train,
+            x_device=_model_input_device(
+                model, device, member.X_train, X_test, force_inference_dtype
+            ),
         )
         X_full, feature_schema = _maybe_run_gpu_preprocessing(
             X_full,
             gpu_preprocessor=member.gpu_preprocessor,
             num_train_rows=member.X_train.shape[0],
             feature_schema=member.feature_schema,
+            consume_input=True,
+            compute_device=device,
         )
         prepared.append(
             (X_full, y_train, feature_schema.indices_for(FeatureModality.CATEGORICAL))
@@ -1595,10 +1655,6 @@ def _call_model_on_members(  # noqa: PLR0913
         if save_peak_mem
         else None,
     )
-    kwargs = {}
-    if _model_expectes_task_type_arg(model):
-        kwargs["task_type"] = task_type
-
     # GPU preprocessing may have changed the members' widths, so the group is
     # refined by the prepared shapes.
     outputs: _MemberOutputs = []
@@ -1607,17 +1663,25 @@ def _call_model_on_members(  # noqa: PLR0913
         X, y = _batch_member_inputs(
             [prepared[i][0] for i in positions], [prepared[i][1] for i in positions]
         )
+        kwargs = _model_forward_kwargs(
+            model, task_type, [members[i].config.estimator_id for i in positions]
+        )
+        x, x_kwargs = _model_input_arguments(X, device)
         with (
             get_autocast_context(device, enabled=autocast),
             torch.inference_mode(inference_mode),
         ):
             output = model(
-                X,
+                x,
                 y,
                 only_return_standard_out=only_return_standard_out,
                 categorical_inds=[prepared[i][2] for i in positions],
                 performance_options=performance_options,
+                **x_kwargs,
                 **kwargs,
+                **_row_weight_kwargs(
+                    [members[i] for i in positions], sample_weight_mode, X
+                ),
             )
         outputs.append((positions, output))
     return outputs
@@ -1629,13 +1693,72 @@ def _prepare_model_inputs(
     X_train: torch.Tensor | np.ndarray,
     X_test: torch.Tensor | np.ndarray,
     y_train: torch.Tensor | np.ndarray,
+    *,
+    x_device: torch.device | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor]:
+    """The train and test rows as one `(rows, 1, columns)` tensor, and the labels.
+
+    Written into one tensor on `x_device`, by default `device`, a block of rows at a
+    time, so that device holds the table once. The labels go to `device`.
+    """
     dtype = force_inference_dtype if force_inference_dtype else torch.float32
-    X_train = torch.as_tensor(X_train, dtype=dtype, device=device)
-    X_test = torch.as_tensor(X_test, dtype=dtype, device=device)
-    X_full = torch.cat([X_train, X_test], dim=0).unsqueeze(1)
+    num_train, num_test = len(X_train), len(X_test)
+    num_columns = X_train.shape[1] if num_train else X_test.shape[1]
+    X_full = torch.empty(
+        (num_train + num_test, 1, num_columns),
+        dtype=dtype,
+        device=device if x_device is None else x_device,
+    )
+    rows = max(1, _MODEL_INPUT_BLOCK_BYTES // max(1, num_columns * dtype.itemsize))
+    for offset, part in ((0, X_train), (num_train, X_test)):
+        for start in range(0, len(part), rows):
+            block = torch.as_tensor(part[start : start + rows])
+            X_full[offset + start : offset + start + len(block), 0].copy_(block)
     y_train = torch.as_tensor(y_train, dtype=dtype, device=device)
     return X_full, y_train
+
+
+_MODEL_INPUT_BLOCK_BYTES = 1 << 28
+"""Bytes of rows `_prepare_model_inputs` converts and copies at a time."""
+
+HOST_MODEL_INPUT_MIN_BYTES = 16 << 30
+"""Model inputs at least this large stay in host memory, for a model that reads its
+input from there: one whose `forward` takes an `x_host` argument."""
+
+
+def _model_input_device(
+    model: torch.nn.Module,
+    device: torch.device,
+    X_train: torch.Tensor | np.ndarray,
+    X_test: torch.Tensor | np.ndarray,
+    force_inference_dtype: torch.dtype | None,
+) -> torch.device:
+    """Where `_prepare_model_inputs` puts the model input for `model` on `device`.
+
+    In host memory when the model's `forward` takes an `x_host` argument and the input
+    takes `HOST_MODEL_INPUT_MIN_BYTES`; else on `device`.
+    """
+    if "x_host" not in _forward_parameters(model) or device.type == "cpu":
+        return device
+    dtype = force_inference_dtype if force_inference_dtype else torch.float32
+    num_columns = X_train.shape[1] if len(X_train) else X_test.shape[1]
+    nbytes = (len(X_train) + len(X_test)) * num_columns * dtype.itemsize
+    if nbytes >= HOST_MODEL_INPUT_MIN_BYTES:
+        return torch.device("cpu")
+    return device
+
+
+def _model_input_arguments(
+    X: torch.Tensor, device: torch.device
+) -> tuple[torch.Tensor | None, dict[str, torch.Tensor]]:
+    """The model's `x` and extra keyword arguments that pass it the input `X`.
+
+    An input that `_model_input_device` kept in host memory for a model on another
+    device goes as `x_host`, with `x` None.
+    """
+    if X.device.type == "cpu" and device.type != "cpu":
+        return None, {"x_host": X}
+    return X, {}
 
 
 def _move_and_squeeze_output(
@@ -1653,6 +1776,8 @@ def _maybe_run_gpu_preprocessing(
     *,
     num_train_rows: int | None = None,
     use_fitted_cache: bool = False,
+    consume_input: bool = False,
+    compute_device: torch.device | None = None,
 ) -> tuple[torch.Tensor, FeatureSchema]:
     """Run GPU preprocessing if a pipeline is provided.
 
@@ -1662,6 +1787,9 @@ def _maybe_run_gpu_preprocessing(
         feature_schema: Feature schema from CPU preprocessing.
         num_train_rows: Number of training rows for fit.
         use_fitted_cache: Reuse previously fitted state.
+        consume_input: Whether the pipeline may write into `X`, which the caller
+            no longer reads.
+        compute_device: The device the pipeline computes on when `X` is elsewhere.
 
     Returns:
         Tuple of (transformed tensor, updated feature schema).
@@ -1674,6 +1802,8 @@ def _maybe_run_gpu_preprocessing(
         feature_schema=feature_schema,
         num_train_rows=num_train_rows,
         use_fitted_cache=use_fitted_cache,
+        consume_input=consume_input,
+        compute_device=compute_device,
     )
     return result.x, result.feature_schema
 

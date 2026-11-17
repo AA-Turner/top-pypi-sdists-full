@@ -1,6 +1,7 @@
 import dataclasses
 import unicodedata
 import warnings
+from collections.abc import Callable
 
 import pytest
 
@@ -28,6 +29,17 @@ def test_collapse_is_the_254_algorithm() -> None:
     assert _collapse("John Smith ()") == "John Smith"
     assert _collapse("John Smith ''") == "John Smith"
     assert _collapse('John Smith ""') == "John Smith"
+    # a U+202F joins only between two Mongolian letters (the T6 join);
+    # beside anything else, or in a run, it is whitespace like any other
+    assert _collapse("Jean\u202fDupont") == "Jean Dupont"
+    assert _collapse("\u1834\u1823\u1822\u202fSmith") == "\u1834\u1823\u1822 Smith"
+    assert _collapse("Smith\u202f\u1834\u1823\u1822") == "Smith \u1834\u1823\u1822"
+    assert _collapse("\u1834\u1823\u1822\u202f \u182a\u1820") == (
+        "\u1834\u1823\u1822 \u182a\u1820")
+    assert _collapse("\u1834\u1823\u1822 \u202f\u182a\u1820") == (
+        "\u1834\u1823\u1822 \u182a\u1820")
+    assert _collapse("\u1834\u1823\u1822\u202f\u182a\u1820") == (
+        "\u1834\u1823\u1822\u202f\u182a\u1820")
     assert _collapse("") == ""
 
 
@@ -60,6 +72,24 @@ def _delavega() -> ParsedName:
         Token("Vega", Span(15, 19), Role.FAMILY),
         Token("III", Span(20, 23), Role.SUFFIX),
     ])
+
+
+@pytest.mark.parametrize("make, want", [
+    # the collapse reads every comma the parse does (#1202's follow-up):
+    # leading debris an empty field leaves, and a space before a comma
+    (lambda: parse("، John").render("{family}، {given}"), "John"),
+    (lambda: parse("፣ Ana García López").initials(
+        spec="{family}، {given}"), "A."),
+    (lambda: parse("Gore، Al، Jr.").render("{family} ، {given} ، {suffix}"),
+     "Gore، Al، Jr."),
+    # the ASCII twins, read so before it
+    (lambda: parse(", John").render("{family}, {given}"), "John"),
+    (lambda: parse("Gore, Al, Jr.").render("{family} , {given} , {suffix}"),
+     "Gore, Al, Jr."),
+])
+def test_collapse_reads_every_comma(make: Callable[[], str],
+                                    want: str) -> None:
+    assert make() == want
 
 
 def test_render_fills_fields_and_collapses() -> None:
@@ -131,12 +161,17 @@ def test_default_str_includes_nickname_and_maiden() -> None:
     ("山田\u3000太郎", None, "山田 太郎"),
     ("John\t \tSmith", None, "John Smith"),
     ("威廉·莎士比亚", None, "威廉·莎士比亚"),
+    ("台邦．撒沙勒", None, "台邦．撒沙勒"),
     ("ジョン ・ スミス", None, "ジョン・スミス"),
     ("ｼﾞｮﾝ･ｽﾐｽ", None, "ｼﾞｮﾝ･ｽﾐｽ"),
+    ("አበበ፡ከበደ፡ተሰማ", None, "አበበ፡ከበደ፡ተሰማ"),
+    ("አበበ፡ ከበደ፡ ተሰማ", None, "አበበ፡ከበደ፡ተሰማ"),
     ("John Smith ,Jr.", None, "John Smith, Jr."),
     ("John Smith,Jr.", None, "John Smith, Jr."),
     ("John Smith， Jr.", None, "John Smith，Jr."),
     ("محمد علي، الابن", None, "محمد علي، الابن"),
+    ("አበበ ከበደ፣Jr.", None, "አበበ ከበደ፣ Jr."),
+    ("John Smith၊Jr.", None, "John Smith၊ Jr."),
     # comma shapes: no comma, a full name, one word and nothing before
     # it, and a third part
     ("John Smith Jr.", None, "John Smith Jr."),
@@ -793,6 +828,21 @@ def test_the_gate_leaves_the_suffixes_out() -> None:
         == ["PhD", "MD"]
 
 
+def test_a_credential_written_in_two_chunks_takes_its_mask() -> None:
+    """#998 listed credentials written in two chunks joined at a full
+    stop, each with a `cased` mask, so repair writes the chunks as
+    their writers do, stops included (#459), where the acronym clause
+    wrote them in capitals ('B.PHARM'). The mask lays its letters over
+    the word as written, so the spelling without stops takes it too."""
+    for text, repaired in (
+            ("ahmed ali b.pharm", "Ahmed Ali B.Pharm"),
+            ("JOHN SMITH, M.TECH", "John Smith, M.Tech"),
+            ("jane doe, mkes", "Jane Doe, MKes")):
+        name = parse(text)
+        assert str(name.capitalized()) == repaired, text
+        assert str(name.capitalized(force=True)) == repaired, text
+
+
 def test_a_suffix_written_in_more_than_one_case_is_kept_as_written(
 ) -> None:
     """rules/R5 (decided 2026-09-24): the gate leaves the suffixes
@@ -872,6 +922,284 @@ def test_a_word_takes_its_capital_past_a_caseless_lead() -> None:
     for lead in ("'", "‘", "’"):
         assert parse(f"{lead}abd smith").capitalized().given \
             == f"{lead}Abd"
+
+
+def _nfd(text: str) -> str:
+    return unicodedata.normalize("NFD", text)
+
+
+def _repairs(text: str, force: bool) -> str:
+    """`text` parsed and repaired, read composed, so a row typed
+    decomposed compares with its composed twin (#542)."""
+    return unicodedata.normalize(
+        "NFC", str(parse(text).capitalized(force=force)))
+
+
+def test_a_cyrillic_apostrophe_before_a_vowel_stays_inside_the_word() -> None:
+    """rules/R4 (#1214): the Ukrainian and Belarusian apostrophe before
+    я, ю, є, ї, е, ё or і is part of the word, so the vowel after it
+    keeps the word's lowercase, in each spelling of the apostrophe that
+    is no word character, typed composed or decomposed, plain or
+    forced. Any other apostrophe still divides the word: before a
+    consonant (О'Коннор) or a vowel outside the set (Д'Артаньян), and
+    after a Latin letter, whose question #1214 leaves open (Dem'Yan).
+    U+02BC is a modifier letter, a word character, so it never divided
+    the word."""
+    rows: tuple[tuple[str, str], ...] = (
+        ("БЕЗУГЛА МАР{a}ЯНА ВОЛОДИМИРІВНА", "Безугла Мар{a}яна Володимирівна"),
+        ("ІВАН П{a}ЯТАК", "Іван П{a}ятак"),
+        ("ар{a}єв володимир ігорович", "Ар{a}єв Володимир Ігорович"),
+        ("ДЗМІТРЫЙ ЮР{a}ЕВІЧ КАМЫШЫК", "Дзмітрый Юр{a}евіч Камышык"),
+        # a letter that decomposes on either side of the apostrophe
+        ("ІВАН ВОРОБЙ{a}ЇВ", "Іван Воробй{a}їв"),
+        ("ГАННА Б{a}ЁРН", "Ганна Б{a}ёрн"),
+        ("ОЛЕНА В{a}ЮН", "Олена В{a}юн"),
+        # the boundaries
+        ("ЛЮДМИЛА О{a}КОННОР", "Людмила О{a}Коннор"),
+        ("ЛЮДМИЛА Д{a}АРТАНЬЯН", "Людмила Д{a}Артаньян"),
+        # the accepted cost: an elision before a vowel only Belarusian
+        # writes after its apostrophe
+        ("ВАЛЕРІ Д{a}ЕСТЕН", "Валері Д{a}естен"),
+        ("DEM{a}YAN SMITH", "Dem{a}Yan Smith"),
+        ("JOHN O{a}BRIEN", "John O{a}Brien"),
+        # a Latin (or Greek) letter before the apostrophe, a Cyrillic
+        # vowel after it: no Cyrillic word to join
+        ("ІВАН O{a}ЯРОШ", "Іван O{a}Ярош"),
+        ("ΑΝΝΑ Μ{a}ЯНА", "Αννα Μ{a}Яна"),
+        # two apostrophes are not one
+        ("БЕЗУГЛА МАР{a}{a}ЯНА", "Безугла Мар{a}{a}Яна"),
+    )
+    for apostrophe in ("'", "‘", "’"):
+        for text, repaired in rows:
+            text, repaired = (s.format(a=apostrophe) for s in (text, repaired))
+            for written in (text, _nfd(text)):
+                for force in (False, True):
+                    assert _repairs(written, force) == repaired, \
+                        (written, force)
+    assert _repairs("БЕЗУГЛА МАРʼЯНА", False) == "Безугла Марʼяна"
+    # a name written correctly is a fixpoint of the forced repair
+    assert _repairs("Мар'яна Безугла", True) == "Мар'яна Безугла"
+
+
+def test_georgian_in_mtavruli_repairs_to_mkhedruli() -> None:
+    """rules/R4 (#1223): Georgian writes no initial capital, and a
+    Mtavruli letter's title case is itself, so a name written in
+    Mtavruli repairs to Mkhedruli throughout rather than keeping a
+    Mtavruli first letter. initials() reads the letters as written, as
+    it reads any capital, so it gives Mkhedruli after the repair. The
+    first-letter lowering reaches no other script: a letter whose lower
+    case is longer than it keeps str.capitalize()'s answer."""
+    for text, repaired in (("ᲜᲘᲜᲝ ᲑᲣᲠᲯᲐᲜᲐᲫᲔ", "ნინო ბურჯანაძე"),
+                           ("ᲣᲩᲐ ᲒᲝᲒᲝᲚᲐᲫᲔ", "უჩა გოგოლაძე"),
+                           ("ნინო ბურჯანაძე", "ნინო ბურჯანაძე")):
+        for force in (False, True):
+            assert _repairs(text, force) == repaired, (text, force)
+    assert parse("ᲜᲘᲜᲝ ᲑᲣᲠᲯᲐᲜᲐᲫᲔ").initials() == "Ნ. Ბ."
+    assert parse("ᲜᲘᲜᲝ ᲑᲣᲠᲯᲐᲜᲐᲫᲔ").capitalized().initials() == "ნ. ბ."
+    # MOVED deliberately by #1222 (decisions/R4's 2026-11-12 entry):
+    # this test pinned the first row as kept on the default path. A
+    # Mtavruli first letter on Mkhedruli (the Latin habit), and a
+    # Mtavruli surname beside a Mkhedruli given name (emphasis), are no
+    # case contrast, Georgian having no case (rules/R5's Accepted
+    # bullet): written in Mkhedruli on the default path as under force,
+    # where 1.4.0 through 3.0.1 kept both as written. A Latin surname in
+    # capitals in a name of mixed case is kept (the last line)
+    for text, repaired in (("Ნინო Ბურჯანაძე", "ნინო ბურჯანაძე"),
+                           ("ნინო ᲑᲣᲠᲯᲐᲜᲐᲫᲔ", "ნინო ბურჯანაძე")):
+        for force in (False, True):
+            assert _repairs(text, force) == repaired, (text, force)
+    # beside a Latin word in capitals the name is in one case, as an
+    # Arabic one is, so the Latin word repairs; a Latin Title-case word
+    # keeps the contrast its own letters make
+    assert _repairs("محمد MA", False) == "محمد Ma"
+    assert _repairs("ჯეკ MA", False) == "ჯეკ Ma"
+    assert _repairs("ნინო SMITH", False) == "ნინო Smith"
+    assert _repairs("Jean DUPONT", False) == "Jean DUPONT"
+    assert _repairs("ნინო Smith", False) == "ნინო Smith"
+    assert _repairs("İSTANBUL SMITH", False) == "İstanbul Smith"
+    # the other cased scripts the repair reaches keep their title case
+    assert _repairs("ΟΔΥΣΣΕΑΣ ΕΛΥΤΗΣ", False) == "Οδυσσεας Ελυτης"
+    assert _repairs("ԼԵՎՈՆ ՏԵՐ-ՊԵՏՐՈՍՅԱՆ", False) == "Լեվոն Տեր-Պետրոսյան"
+
+
+def test_a_particle_opening_a_hyphenated_word_is_name_text() -> None:
+    """rules/R4 (#1224): a particle that opens a hyphenated word is
+    written as a name word, whichever particle it is, the particle arm
+    being the only clause left out for it; one inside the word
+    keeps its lowercase, as does a spaced one (save one opening the
+    surname that its reading writes with a capital, the test below),
+    and a particle written with its hyphen and nothing after it ('az-')
+    is one word, asked whole as before (#700)."""
+    for text, repaired in (
+            ("LEVON TER-PETROSYAN", "Levon Ter-Petrosyan"),
+            ("levon ter-petrosyan", "Levon Ter-Petrosyan"),
+            ("AHMAD AL-AHMARI", "Ahmad Al-Ahmari"),
+            ("AHMAD IBN-ʿALĪ", "Ahmad Ibn-ʿAlī"),
+            ("ARMAND VAN-DEN BERGH", "Armand Van-den Bergh"),
+            ("MARIA VAN-DER", "Maria Van-der"),
+            # only the opening part's first word leaves the particle arm
+            ("JUAN D'LA-VEGA", "Juan D'la-Vega"),
+            # punctuation is no first word: the particle after it opens
+            ("juan .'de-vega", "Juan .'De-Vega"),
+            # one named part is no hyphenated word to open
+            ("MARIA VAN-", "Maria van-"),
+            ("jose -de", "Jose -de"),
+            ("juan garcia-de-la-vega", "Juan Garcia-de-la-Vega"),
+            ("JAN VAN TER HORST", "Jan van ter Horst"),
+            ("zaʿīm, ḥusnī az-", "Ḥusnī az- Zaʿīm")):
+        for written in (text, _nfd(text)):
+            assert _repairs(written, False) == repaired, written
+    assert _repairs("Levon Ter-Petrosyan", True) == "Levon Ter-Petrosyan"
+    assert _repairs("Ahmad al-ʿAbbas", True) == "Ahmad Al-ʿAbbas"
+
+
+def test_an_elided_particle_in_a_hyphenated_word_keeps_its_lowercase(
+) -> None:
+    """rules/R4 (#1280): a particle whose listed spelling opens with an
+    apostrophe -- Dutch 's and 't, straight or typographic -- keeps its
+    lowercase in any part of a hyphenated word, as it does spaced, where
+    a particle written with no apostrophe opens one with a capital
+    (Ter-Petrosyan); outside the middle and family roles nothing lowers.
+    A one-case nickname spelled with the particle pays for it ('T-Bone,
+    the rule's Accepted bullet), and so does a forced repair of it in
+    mixed case; unforced, mixed case is left as written (rules/R5)."""
+    for text, repaired in (
+            ("WILLEM 'S-GRAVESANDE", "Willem 's-Gravesande"),
+            ("willem 's-gravesande", "Willem 's-Gravesande"),
+            ("ARENT VAN 'S-GRAVESANDE", "Arent van 's-Gravesande"),
+            ("PIETER 'T-HART", "Pieter 't-Hart"),
+            ("PIETER ’T-HART", "Pieter ’t-Hart"),
+            ("WILLEM ’S-GRAVESANDE", "Willem ’s-Gravesande"),
+            ("'S-GRAVESANDE, WILLEM", "Willem 's-Gravesande"),
+            ("WILLEM 'S-GRAVESANDE-SMIT", "Willem 's-Gravesande-Smit"),
+            ("WILLEM 'S GRAVESANDE", "Willem 's Gravesande"),
+            ("LEVON TER-PETROSYAN", "Levon Ter-Petrosyan"),
+            # wherever it stands in the hyphenated word, as 'de' does
+            # (Garcia-de-Vega): the walk would split it at the apostrophe
+            ("WILLEM SMIT-'S-GRAVESANDE", "Willem Smit-'s-Gravesande"),
+            ("WILLEM 'S-'T-HART", "Willem 's-'t-Hart"),
+            ("JAN SMIT-'S", "Jan Smit-'s"),
+            ("JUAN GARCIA-DE-VEGA", "Juan Garcia-de-Vega"),
+            # an all-particle hyphenated word carries no unjoined mark
+            ("JAN 'S-VAN", "Jan 's-van"),
+            ("'S-JACOB SMIT", "'S-Jacob Smit"),
+            ("AARON 'T-BONE WALKER", "Aaron 't-Bone Walker")):
+        for written in (text, _nfd(text)):
+            assert _repairs(written, False) == repaired, written
+    assert _repairs("Aaron 'T-Bone Walker", False) == "Aaron 'T-Bone Walker"
+    assert _repairs("Aaron 'T-Bone Walker", True) == "Aaron 't-Bone Walker"
+    assert _repairs("Willem 'S-Gravesande", True) == "Willem 's-Gravesande"
+    assert (_repairs("Willem Smit-'s-Gravesande", True)
+            == "Willem Smit-'s-Gravesande")
+    assert _repairs("Willem 's-Gravesande", False) == "Willem 's-Gravesande"
+
+
+def test_a_ter_or_der_opening_the_family_name_takes_a_capital() -> None:
+    """rules/R12 (decisions/R12): a family word whose particle reading
+    is written `capital_opening` (`ter`, `der`) is repaired with the
+    particle arm left out where the word before it in the family name,
+    in the order the family view joins them, is no particle -- by its
+    tag, or as the last part of a hyphenated word; opening the family,
+    the word written right before it counts whatever its role, and a
+    last middle word ending in such a part counts too. A middle `ter`
+    keeps its lowercase. Every comma shape, a title before, a full stop
+    on the word and the repair of the repaired name."""
+    for text, repaired in (
+            ("LEVON TER PETROSYAN", "Levon Ter Petrosyan"),
+            ("ARMEN DER KIUREGHIAN", "Armen Der Kiureghian"),
+            ("levon ter petrosyan", "Levon Ter Petrosyan"),
+            ("TER PETROSYAN, LEVON", "Levon Ter Petrosyan"),
+            ("PETROSYAN, LEVON TER", "Levon Ter Petrosyan"),
+            ("DR LEVON TER PETROSYAN", "Dr Levon Ter Petrosyan"),
+            ("LEVON TER PETROSYAN, PHD", "Levon Ter Petrosyan, PhD"),
+            ("LEVON TER. PETROSYAN", "Levon Ter. Petrosyan"),
+            # the costs: a Dutch ter, the Taiwanese given-name syllable,
+            # a der behind an unlisted word, a German epithet
+            ("GERARD TER BORCH", "Gerard Ter Borch"),
+            ("JA DER LIANG", "Ja Der Liang"),
+            ("KAREN AUS DER FÜNTEN", "Karen Aus Der Fünten"),
+            ("ALEXANDRE DUMAS DER ÄLTERE", "Alexandre Dumas Der Ältere"),
+            ("JOHANN DER JÜNGERE", "Johann Der Jüngere"),
+            # a particle right before the family counts whatever its
+            # role: a Dutch surname written without a given name
+            ("VAN DER WALT", "Van der Walt"),
+            ("VAN TER HORST", "Van ter Horst"),
+            ("DR. VAN TER HORST", "Dr. Van ter Horst"),
+            # a hyphenated word ending in a particle right before it,
+            # read as the given name, counts by its last part
+            ("MAITLAND-VAN DER ZEE", "Maitland-Van der Zee"),
+            ("DR. MAITLAND-VAN DER ZEE", "Dr. Maitland-Van der Zee"),
+            # a title that is also a particle counts; one that is not,
+            # does not
+            ("FREIHERR TER HORST", "Freiherr ter Horst"),
+            ("ST. TER HORST", "St. ter Horst"),
+            ("SIR TER HORST", "Sir Ter Horst"),
+            # a nickname spelling a particle counts too
+            ('JAN "VAN" TER HORST', 'Jan "Van" ter Horst'),
+            # after a particle in the family, by its tag
+            ("JAN VAN DER BERG", "Jan van der Berg"),
+            ("JAN VAN TER HORST", "Jan van ter Horst"),
+            ("URSULA VON DER LEYEN", "Ursula von der Leyen"),
+            ("LEVON TER DER PETROSYAN", "Levon Ter der Petrosyan"),
+            # a particle written with its hyphen: the tag alone says so
+            ("ANNA AZ- DER BERG", "Anna az- der Berg"),
+            # the family's order, not the written one: a folded particle
+            # after the comma comes first
+            ("VAN DER BERG, JAN", "Jan van der Berg"),
+            ("BERG, JAN VAN DER", "Jan van der Berg"),
+            ("DER BERG, JAN VAN", "Jan van der Berg"),
+            ("TER HORST, JAN VAN", "Jan van ter Horst"),
+            ("TER HORST, ANNA VAN", "Anna van ter Horst"),
+            # after a particle closing a hyphenated word, untagged
+            ("ANNA SMITH-VAN DER BERG", "Anna Smith-van der Berg"),
+            ("MAITLAND-VAN DER ZEE, ANKE", "Anke Maitland-van der Zee"),
+            ("ANKE MAITLAND-VAN DER ZEE", "Anke Maitland-van der Zee"),
+            ("DER ZEE, ANKE MAITLAND-VAN", "Anke Maitland-van der Zee"),
+            # a middle ter is no family word
+            ("JAN TER HORST VAN DER BERG", "Jan ter Horst van der Berg"),
+            # an all-particle part was name text already
+            ("ANH DO", "Anh Do"),
+            ("TER DER", "Ter Der"),
+            # no capital_opening reading: the particle arm as before
+            ("JUAN DE LA VEGA", "Juan de la Vega")):
+        assert _repairs(text, False) == repaired, text
+        once = parse(text).capitalized()
+        assert once.capitalized(force=True) == once, text
+    assert _repairs("Levon ter Petrosyan", True) == "Levon Ter Petrosyan"
+    assert _repairs("Jan van der Berg", True) == "Jan van der Berg"
+    assert _repairs("Van der Walt", True) == "Van der Walt"
+    assert _repairs("Sr. van der Berg, PhD", True) == "Sr. Van der Berg, PhD"
+    # the middle role under a family-first order keeps its lowercase
+    family_first = Parser(policy=Policy(name_order=FAMILY_FIRST))
+    middle = family_first.parse("PETROSYAN LEVON TER ARAM")
+    assert [t.role for t in middle.tokens if t.text == "TER"] == [Role.MIDDLE]
+    assert str(family_first.capitalized(middle)) == "Petrosyan Levon ter Aram"
+    # a caller's reading takes the property; without it, lowercase
+    lex = Lexicon.default().add("zu", kind="preposition",
+                                capital_opening=True)
+    zu = Parser(lexicon=lex)
+    assert str(zu.capitalized(zu.parse("HANS ZU SALM"))) == "Hans Zu Salm"
+    assert _repairs("HANS ZU SALM", False) == "Hans zu Salm"
+
+
+def test_a_spliced_ter_reads_as_a_revised_one() -> None:
+    """rules/R12 (#1224): a family spliced in as raw text carries no tags, so
+    the vocabulary answers whether it and the word before it are
+    particles, and replace() repairs as revise() and a fresh parse
+    do."""
+    parser = Parser()
+    base = parse("JAN VAN BERG")
+    for family, repaired in (("TER PETROSYAN", "Jan Ter Petrosyan"),
+                             ("VAN TER HORST", "Jan van ter Horst"),
+                             ("VAN DER BERG", "Jan van der Berg")):
+        spliced = str(base.replace(family=family).capitalized())
+        revised = str(parser.revise(base, family=family).capitalized())
+        fresh = str(parse(f"JAN {family}").capitalized())
+        assert spliced == revised == fresh == repaired, family
+    # a particle revised into the given name right before the family
+    # counts, whatever its role
+    revised_given = parser.revise(parse("JAN TER BERG"), given="JAN VAN")
+    assert str(revised_given.capitalized()) == "Jan Van ter Berg"
 
 
 def test_a_recorded_casing_keeps_an_abbreviations_ending() -> None:
@@ -975,7 +1303,7 @@ def test_a_joined_acronym_repairs_whole_and_a_recorded_casing_wins() -> None:
         == "OTR/L"
     for text, whole in (("john smith-jones", "John Smith-Jones"),
                         ("jean-luc picard", "Jean-Luc Picard"),
-                        ("maria da-silva", "Maria da-Silva"),
+                        ("maria da-silva", "Maria Da-Silva"),
                         ("dipl.-ing john smith", "Dipl.-Ing John Smith")):
         assert str(parse(text).capitalized()) == whole, text
     default = Lexicon.default()
@@ -1551,9 +1879,10 @@ def test_a_link_inside_a_hyphenated_word_keeps_its_lowercase() -> None:
             ("juan y-garcia", "Juan Y-Garcia"),
             ("jose ortega-y-", "Jose Ortega-Y-"),
             ("jose -y-gasset", "Jose -Y-Gasset"),
-            # no connective, and the particle arm's own per-word answer
+            # no connective; a particle opening the word is name text
+            # (#1224)
             ("donovan mcnabb-smith", "Donovan McNabb-Smith"),
-            ("maria da-silva", "Maria da-Silva"),
+            ("maria da-silva", "Maria Da-Silva"),
             # three worded parts on the ambiguous side of `first < at
             # < last`, so a mutant dropping that bound cannot pass
             ("juan y-garcia-lopez", "Juan Y-Garcia-Lopez"),
@@ -2118,3 +2447,22 @@ def test_a_caller_word_of_a_capitalized_kind_keeps_its_capital(
     lex = Lexicon.default().add("zaint", kind=kind)
     name = Parser(lexicon=lex).parse("JOHN ZAINT SMITH")
     assert name.capitalized(lex).family == written
+
+
+@pytest.mark.parametrize("spec", [None, "{given} {family}", "{family} {given}"])
+def test_a_joined_mongolian_suffix_renders_joined(spec: str | None) -> None:
+    # the T6 join: the collapse makes whitespace one space, but a U+202F
+    # between two Mongolian letters is inside a word, so it stays
+    name = parse("\u182a\u1820\u1832\u1824\u202f\u1836\u1822\u1828 "
+                 "\u1833\u1823\u1837\u1835\u1822")
+    out = str(name) if spec is None else name.render(spec)
+    assert "\u182a\u1820\u1832\u1824\u202f\u1836\u1822\u1828" in out
+    assert len(parse(out).tokens) == 2
+
+
+def test_lexicon_cannot_list_a_joined_mongolian_word() -> None:
+    # accepted for the T6 join: the vocabulary folds U+202F as a space, so a
+    # joined word is a phrase to Lexicon.add and is refused there
+    with pytest.raises(ValueError, match="phrase"):
+        Lexicon.default().add("\u182a\u1820\u1832\u1824\u202f"
+                              "\u1836\u1822\u1828", kind="family")

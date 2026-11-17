@@ -19,6 +19,7 @@ from probe.integrations.miles.samples.mapping import (
     build_task,
     get_status,
     read_error_message,
+    read_generate_flag,
     read_named_error,
     read_reward,
 )
@@ -164,7 +165,7 @@ class LiveRollouts:
             try_number = 1 if is_eval else self._take_try(index)
         rollout = self._make(sample, args, prefix, try_number, is_agent=is_agent, can_abort=can_abort,
                              can_retry=can_retry)  # fmt: skip
-        self._send_start(writer, rollout, sample)
+        self._send_start(writer, rollout, sample, args)
         return rollout
 
     def _take_try(self, index: Any) -> int:
@@ -199,11 +200,14 @@ class LiveRollouts:
             rollout.scheduled_step = step
         return rollout
 
-    def _send_start(self, writer: Any, rollout: Rollout, sample: Any) -> None:
+    def _send_start(self, writer: Any, rollout: Rollout, sample: Any, args: Any) -> None:
         """The start: task, host, try; a train try also its group, step and the weights its engines serve; the
         engine its requests go to (Miles' router, `single_turn.py:21`)."""
         metadata = getattr(sample, "metadata", None)
-        task = build_task(sample, metadata if isinstance(metadata, Mapping) else {})
+        row = dict(metadata) if isinstance(metadata, Mapping) else {}
+        if rollout.is_agent:  # a copy: the agent keeps the trial's own task key only when the row has none
+            row.update(get_agent_task_fields(sample, row, args))
+        task = build_task(sample, row)
         fields: dict[str, Any] = {"host": HOST, "try_number": rollout.try_number,
                                   "extras": {"miles": _drop_none({"sample_index": rollout.index,
                                                                   "group_index": rollout.group})}}  # fmt: skip
@@ -261,7 +265,7 @@ class LiveRollouts:
                          can_abort=rollout.can_abort, can_retry=rollout.can_retry, retry_of=rollout.key)  # fmt: skip
         if isinstance(getattr(sample, "metadata", None), dict):
             sample.metadata["probe_retry_of"] = rollout.key
-        self._send_start(writer, new, sample)
+        self._send_start(writer, new, sample, args)
         rollout.retried_as = new.key
         self._end(rollout, ABORTED, extras={"retried_as": new.key})
         with self._lock:
@@ -503,6 +507,29 @@ def _read_named_error(outputs: list) -> tuple[str, str] | None:
         if isinstance(metadata, Mapping) and (reason := read_named_error(metadata)):
             return reason, (read_error_message(metadata) or f"Miles sample status {get_status(output)}")[:1024]
     return None
+
+
+def get_agent_task_fields(sample: Any, metadata: Mapping[str, Any], args: Any) -> dict[str, Any]:
+    """The task fields Probe's Harbor agent will give this row (`local:<instance_id>`), when it is the agent the row
+    runs: Miles runs `sample.agent_function_path`, else the run's flag (`agentic_tool_call.py:71`). So the running
+    row names the task its finished sample will. {} for any other agent; a Probe error warns once and gives {}."""
+    try:  # a public door (tests/test_private_wheel.py): without the CLI package no row runs that agent
+        from probe.connectors.miles.harbor_agent import AGENT_FUNCTION_PATH, build_task_fields
+    except ImportError:
+        return {}
+    try:
+        path = getattr(sample, "agent_function_path", None) or read_generate_flag(args, "custom_agent_function_path")
+        path = getattr(path, "path", path)  # a CustomFunctionConfig once Miles resolves it, else its path
+        return build_task_fields(metadata) if path == AGENT_FUNCTION_PATH else {}
+    except Exception as exc:  # noqa: BLE001 -- fail open: the try starts under the row's own task
+        if "task" not in _WARNED:
+            _WARNED.add("task")
+            log.warning("Probe could not name a Miles agent try's task from its agent: %s", exc)
+        return {}
+
+
+#: What this process already warned about once.
+_WARNED: set[str] = set()
 
 
 def _get_attempt_key(sample: Any) -> str | None:

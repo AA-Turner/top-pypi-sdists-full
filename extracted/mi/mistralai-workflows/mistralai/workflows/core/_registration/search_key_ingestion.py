@@ -46,11 +46,11 @@ from mistralai.workflows.core._registration.search_keys import (
     _repr_key,
 )
 from mistralai.workflows.core.activity import activity
+from mistralai.workflows.core.auth.header_files import get_deployment_headers
 from mistralai.workflows.core.config.config import (
     INTERNAL_ACTIVITY_PREFIX,
     MAX_SEARCH_KEY_CHARS,
     MAX_SEARCH_KEYS,
-    config,
 )
 from mistralai.workflows.core.logging import extract_error_context
 from mistralai.workflows.core.temporal.context_handler_interceptor import retrieve_context
@@ -263,7 +263,7 @@ async def _upsert_search_keys(
     temporal_run_id: str,
     search_key_metadata: dict[str, str | None],
 ) -> None:
-    async with get_worker_client(headers=config.worker.mistral_api_headers, timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+    async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
         try:
             await _upsert_search_keys_impl(client, temporal_workflow_id, temporal_run_id, search_key_metadata)
         except (SDKError, NoResponseError) as exc:
@@ -275,7 +275,7 @@ async def _upsert_search_keys(
 
 @activity(name=DELETE_SEARCH_KEYS_ACTIVITY_NAME, _allow_reserved_name=True)
 async def _delete_search_keys(temporal_workflow_id: str, temporal_run_id: str, keys: list[str]) -> None:
-    async with get_worker_client(headers=config.worker.mistral_api_headers, timeout=_REQUEST_TIMEOUT_SECONDS) as client:
+    async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
         try:
             await _delete_search_keys_impl(client, temporal_workflow_id, temporal_run_id, keys)
         except (SDKError, NoResponseError) as exc:
@@ -315,9 +315,7 @@ async def _dispatch(
                 ),
             )
         else:
-            async with get_worker_client(
-                headers=config.worker.mistral_api_headers, timeout=_REQUEST_TIMEOUT_SECONDS
-            ) as client:
+            async with get_worker_client(headers=get_deployment_headers(), timeout=_REQUEST_TIMEOUT_SECONDS) as client:
                 await direct_fn(client, ctx.execution_id, run_id, payload)
     except (
         SDKError,

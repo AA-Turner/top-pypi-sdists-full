@@ -1,0 +1,94 @@
+# Vision catalog: the vision gateway and the computer-vision models the console may
+# deploy into it (docs/ai-reactor-deploy-spec.md §12). A model not listed here cannot be
+# deployed from the console.
+#
+# Unlike the LLM catalog, a vision model is NOT its own Apollo entity. One gateway
+# (cube-managed-services other_services/vision-gateway) serves every model by alias; a
+# model is an entry in the gateway's `models` value, which is all Deploy writes. `id` is
+# that alias, and what an app names in POST /v1/vision/detect.
+#
+# `entry` is copied into the gateway's `models` list verbatim (plus `name` and the
+# Edgeport marker), so its keys are the gateway's model-entry keys: task, backend, path
+# (onnx: a directory in the gateway image's catalog) or source/revision/precision (hf),
+# device, classes (an allowlist; must be the model's own label names), scoreThreshold.
+version: 1
+
+gateway:
+  product_id: com.edgescaleai-cube:esai-vision-gateway
+  entity_name: esai-vision-gateway
+  # Beside the rtsp-connector and camera-overlay, which call it at this Service.
+  namespace: default
+  service: esai-vision-gateway
+  port: 8080
+  # Override block version for a NEW gateway (a floor: snapshots sort after their base).
+  config_block_version: "0.1.0"
+  release_channel: null
+  # Overrides for a gateway the console installs. `models` is always written
+  # explicitly: the chart's own default lists two models the console did not choose.
+  base_overrides:
+    models: []
+
+models:
+  - id: rtdetr-r18
+    display_name: RT-DETR R18 · people and vehicles
+    description: >-
+      Fast object detector (Apache-2.0), limited to people, bicycles, cars, motorbikes,
+      buses and trucks. Runs on the cube's CPU.
+    task: detection
+    detects: people, bicycles, cars, motorbikes, buses, trucks
+    entry:
+      task: detection
+      backend: onnx
+      path: rtdetr-r18
+      device: cpu
+      classes: [person, bicycle, car, motorbike, bus, truck]
+      scoreThreshold: 0.35
+
+  - id: yunet-face
+    display_name: YuNet · faces
+    description: >-
+      Face detector: boxes only, no identification and nothing stored. MIT weights,
+      trained on WIDER FACE (non-commercial). Runs on the cube's CPU.
+    task: detection
+    detects: faces
+    entry:
+      task: detection
+      backend: onnx
+      path: yunet-face
+      device: cpu
+
+  # Face recognition, as the vision lab app uses it (cube-66odzn95, where it was added by
+  # hand; the app calls the models `yunet-face` and `sface` by name, values.yaml
+  # faceEmbedder). The gateway image bakes models/sface from gateway build 0.1.0-19 on
+  # (feature/vision-gateway 02c3807, tools/fetch_sface_model.py).
+  - id: sface
+    display_name: SFace · face recognition
+    description: >-
+      Turns each face YuNet finds into a 128-number vector, so an app can tell whether two
+      photos show the same person. Apache-2.0 weights; upstream does not say what they were
+      trained on, and the method's datasets are research-licensed. Recognising people is
+      biometric processing: get consent first. Runs on the cube's CPU, with YuNet.
+    task: face-embedding
+    detects: face vectors
+    requires: [yunet-face]
+    entry:
+      task: face-embedding
+      backend: onnx
+      path: sface
+      device: cpu
+
+  - id: rtdetr-r18-hf
+    display_name: RT-DETR R18 · Hugging Face
+    description: >-
+      The same detector loaded straight from Hugging Face through transformers, with all
+      80 COCO classes. Several times slower on CPU than the ONNX build; downloads its
+      weights on first start.
+    task: detection
+    detects: 80 COCO object classes
+    entry:
+      task: detection
+      backend: hf
+      source: PekingU/rtdetr_r18vd_coco_o365
+      precision: bf16
+      device: cpu
+      scoreThreshold: 0.35

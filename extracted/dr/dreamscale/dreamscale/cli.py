@@ -142,12 +142,17 @@ def _mode_option():
 
 
 def _engine_option():
-    return typer.Option(
-        None, "--engine",
-        click_type=click.Choice(["standard", "lightning"]),
-        help="Praxis-1's engine (experimental): standard (default) or lightning, the same "
-        "actions faster.",
-    )
+    """`--engine`, from scripts written for older SDKs: hidden, any value, ignored with a note
+    (``_note_engine_ignored``)."""
+    return typer.Option(None, "--engine", hidden=True)
+
+
+def _note_engine_ignored(engine: str | None, what: str = "--engine") -> None:
+    """One line on stderr when an older script still passes ``what``; nothing is sent."""
+    from dreamscale.config import ENGINE_NOT_NEEDED
+
+    if engine is not None:
+        typer.echo(f"Note: {what} {ENGINE_NOT_NEEDED}, so it is ignored.", err=True)
 
 
 def _max_actions_option():
@@ -292,7 +297,7 @@ _POLICY_OPTIONS = (
     "action_smoothing", "smoothing_new_weight", "smoothing_correction_steps",
     "smoothing_reference_speed", "smoothing_time_scale", "trace_dir", "trace_images", "hud",
     "hud_job",
-    "steady_send", "steady_send_ms", "engine",
+    "steady_send", "steady_send_ms",
 )
 
 
@@ -958,21 +963,6 @@ _RTC_HELP = (
 )
 
 
-def _engine_bases_listed() -> bool:
-    """Whether a listed base offers an engine setting: until one is (Praxis-1 is unlisted),
-    `--engine` and `deployments engine` stay out of the help, as an unlisted base's flags do."""
-    from dreamscale import deploy_bases
-
-    return any(base.engines and base.listed_as for base in deploy_bases.bases())
-
-
-_ENGINE_HELP = (
-    "What its servers run, where its base offers a choice (Praxis-1): standard (default) or "
-    "lightning (experimental: the same actions, sooner). Change it later with `dreamscale "
-    "deployments engine`."
-)
-
-
 @deployments_app.command("create", help=_CREATE_HELP)
 @endpoints_app.command("create", help=_CREATE_HELP)
 def deployments_create(
@@ -989,7 +979,8 @@ def deployments_create(
     preset: str | None = typer.Option(
         None,
         "--preset",
-        help="bimanual_yam, so101, arx5 or blank (default: detected from the repo).",
+        help="bimanual_yam, so101, arx5, bimanual_xarm7 or blank (default: detected from the "
+        "repo).",
     ),
     camera: list[str] | None = _CAMERA_OPTION,
     image_size: str | None = typer.Option(
@@ -1079,9 +1070,7 @@ def deployments_create(
         "checkpoint's step).",
     ),
     region_fallback: bool | None = _REGION_FALLBACK_OPTION,
-    engine: str | None = typer.Option(
-        None, "--engine", help=_ENGINE_HELP, hidden=not _engine_bases_listed(),
-    ),
+    engine: str | None = _engine_option(),
     official: str | None = typer.Option(
         None, "--official", help="Instead of a repo: one of the base's own published "
         "checkpoints by name (Verne V0.5: base, robotwin, libero; `deployments list` shows "
@@ -1113,28 +1102,9 @@ def deployments_create(
         "rtc_max_delay": rtc_max_delay, "arm": arm,
     }
     from dreamscale import deploy_bases
-    from dreamscale.checkpoints_cmd import parse_engine
     from dreamscale.local_checkpoint import is_local_folder
 
-    try:
-        engine = parse_engine(engine)
-    except ValueError as error:
-        raise typer.BadParameter(str(error), param_hint="'--engine'") from None
-
-    def engine_option(chosen: str) -> dict:
-        """``engine`` for a base that offers the setting; refused for any other."""
-        if engine is None:
-            return {}
-        offered = deploy_bases.named(chosen).engines
-        if engine not in offered:
-            labels = ", ".join(base.label for base in deploy_bases.bases() if base.engines)
-            raise typer.BadParameter(
-                f"--engine applies to {labels} deployments only; "
-                f"{BASE_LABELS.get(chosen, chosen)} deployments run their standard engine.",
-                param_hint="'--engine'",
-            )
-        return {"engine": engine}
-
+    _note_engine_ignored(engine)
     if official is not None:
         if repo is not None:
             raise typer.BadParameter("give a repo or --official, not both", param_hint="'repo'")
@@ -1156,7 +1126,7 @@ def deployments_create(
             official=official, preset=preset, camera=camera,
             given={k: v for k, v in given.items() if v is not None}, rtc=rtc, name=name,
             region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
-            region_fallback=region_fallback, **engine_option(chosen),
+            region_fallback=region_fallback,
         )
         return
     if repo is None:
@@ -1177,10 +1147,9 @@ def deployments_create(
             executed=executed, steps=steps, joint_unit=joint_unit, rtc=rtc,
             rtc_prefix=rtc_prefix, revision=revision, name=name, hf_token=hf_token,
             region=region, wait=not no_wait, keep_warm=keep_warm, slug=slug,
-            region_fallback=region_fallback, **engine_option(chosen),
+            region_fallback=region_fallback,
         )
         return
-    engine_option(chosen)  # Isaac 0.5 offers none
     for flag, value in (("--rtc-prefix", rtc_prefix), ("--steps", steps),
                         ("--joint-unit", joint_unit)):
         if value is not None:
@@ -1428,23 +1397,15 @@ def deployments_fallback(
     _run(run_fallback, checkpoint_id=checkpoint_id, on=on)
 
 
-@deployments_app.command("engine", hidden=not _engine_bases_listed())
+@deployments_app.command("engine", hidden=True)
 def deployments_engine(
-    checkpoint_id: str = typer.Argument(..., help=_DEPLOYMENT_ARG),
-    engine: str = typer.Argument(
-        ..., help="standard, or lightning (experimental: the same actions, sooner)."
-    ),
+    checkpoint_id: str | None = typer.Argument(None, help=_DEPLOYMENT_ARG),
+    engine: str | None = typer.Argument(None),
 ) -> None:
-    """What a deployment's servers run, where its base offers a choice (Praxis-1): standard or
-    lightning (experimental). For its next server; one already running keeps its engine. No
-    rebuild."""
-    from dreamscale.checkpoints_cmd import parse_engine, run_engine
-
-    try:
-        engine = parse_engine(engine) or "standard"
-    except ValueError as error:
-        raise typer.BadParameter(str(error), param_hint="ENGINE") from None
-    _run(run_engine, checkpoint_id=checkpoint_id, engine=engine)
+    """From scripts written for older SDKs: changes nothing and sends nothing (Praxis-1 has
+    one engine)."""
+    # Always said: the command itself is what is no longer needed, whatever it was given.
+    _note_engine_ignored("", "`dreamscale deployments engine`")
 
 
 @deployments_app.command("rename")
@@ -1962,14 +1923,13 @@ def train_deploy(
         help="Rows the robot executes per chunk (default: the run's; Xiaomi-Robotics-1 about "
         "two thirds of a second at its data's rate, FLUX.3 Action the whole chunk).",
     ),
-    engine: str | None = typer.Option(
-        None, "--engine", help=_ENGINE_HELP, hidden=not _engine_bases_listed(),
-    ),
+    engine: str | None = _engine_option(),
 ) -> None:
     """Deploy a checkpoint of a training run (no form: the dataset defined the robot)."""
     from dreamscale.checkpoints_cmd import parse_region
     from dreamscale.train_cmd import run_deploy
 
+    _note_engine_ignored(engine)
     try:
         region = parse_region(region)
     except ValueError as error:
@@ -1977,7 +1937,6 @@ def train_deploy(
     deployment = _run_train(
         run_deploy, run_id=run_id, step=step, region=region, region_fallback=region_fallback,
         executed=executed, wait=not no_wait,
-        **({"engine": engine} if engine is not None else {}),
     )
     if deployment.get("status") == "failed":
         raise typer.Exit(code=1)
@@ -2468,11 +2427,8 @@ def _run_robot(embodiment, *, ctx, model, instruction, effort, max_cost, config=
     from dreamscale.model_names import resolve_llm_model
 
     region_fallback = options.pop("region_fallback", None)
-    engine = options.pop("engine", None)
-    session_options = {
-        **({"region_fallback": region_fallback} if region_fallback is not None else {}),
-        **({"engine": engine} if engine is not None else {}),
-    }
+    _note_engine_ignored(options.pop("engine", None))
+    session_options = {"region_fallback": region_fallback} if region_fallback is not None else {}
     connect_options = {}
     if session_options:
         from dreamscale.policy.remote import aconnect

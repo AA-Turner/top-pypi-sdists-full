@@ -50,7 +50,9 @@ A removal that removed nothing is a failed action, exit 2: `dhcp rm`, `dhcp rm-s
 `snort unblock` that leaves every requested address present (one address asked for included).
 Only some of several addresses left present is a partial outcome, exit 1, naming them.
 `dns add` and `dns rm` with --apply restart unbound after the write and resolve a name through
-127.0.0.1; when it does not answer they exit 2 saying the change was written.
+127.0.0.1; when it does not answer they exit 2 saying the change was written. `dhcp add`,
+`dhcp rename` and `dhcp rm` with --apply do the same (reconfigure, restart, resolve `localhost.`)
+when the resolver registers DHCP static mappings, so a reservation's hostname follows the change.
 """
 
 import argparse
@@ -68,8 +70,16 @@ import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, asdict
 from datetime import datetime
+from enum import StrEnum
 from pathlib import Path
 from urllib.parse import urlparse
+
+_DTD_RE = re.compile(r"<!DOCTYPE|<!ENTITY", re.I)
+_DIGITS_RE = re.compile(r"[0-9]+")
+_NON_HEX_RE = re.compile(r"[^0-9a-fA-F]")
+_NAMESERVER_RE = re.compile(r"^\s*nameserver\s+(\S+)", re.M)
+_TRACK_RE = re.compile(r"\btrack\s+([^,\s]+)")
+_TRACK_IP_RE = re.compile(r"\bip\s+(\[[^\]]*\]|[^,\s]+)")
 
 SNORT_TABLE = "snort2c"
 MAGICDNS = "100.100.100.100"          # Tailscale's fixed MagicDNS address, the same on every tailnet
@@ -119,7 +129,7 @@ def parse_xml(text: str) -> ET.Element:
     legitimate DOCTYPE, so refusing one closes that without a dependency and without weakening the
     parse of anything real.
     """
-    if re.search(r"<!DOCTYPE|<!ENTITY", text, re.I):
+    if _DTD_RE.search(text):
         raise PfsenseError("the document declares a DOCTYPE or ENTITY; a pfSense config.xml has "
                            "neither, so this is refused rather than expanded")
     try:
@@ -186,14 +196,26 @@ class Alert:
         return SignatureId(gid=int(self.gid), sid=int(self.sid))
 
 
+class Severity(StrEnum):
+    """A `doctor` finding's weight. `warn` means act on it (doctor exits 1); `info` is context."""
+
+    WARN = "warn"
+    INFO = "info"
+
+
 @dataclass(frozen=True)
 class Finding:
     """One `doctor` result. `warn` means act on it; `info` is context."""
 
     check: str
-    severity: str
+    severity: Severity
     subject: str
     detail: str
+
+    def __post_init__(self) -> None:
+        # The exit code counts only WARN, so a misspelled severity would be filed as context and
+        # doctor would exit 0 over it; parsing refuses it where the finding is built.
+        object.__setattr__(self, "severity", Severity(self.severity))
 
 
 # ---- target resolution --------------------------------------------------------------------------
@@ -327,8 +349,21 @@ def _run(argv: list[str], *, stdin_text: str | None = None, timeout: int = 30) -
     it into stdout is what corrupts parsed output.
     """
     proc = subprocess.run(argv, input=stdin_text, capture_output=True, text=True,
-                          encoding="utf-8", errors="replace", timeout=timeout, check=False)
+                          encoding="utf-8", errors="replace", timeout=timeout, check=False,
+                          env=_child_env(argv))
     return proc.returncode, proc.stdout, proc.stderr
+
+
+def _child_env(argv: list[str]) -> dict[str, str] | None:
+    """The environment for a child: a git child loses every GIT_* variable.
+
+    A GIT_DIR or GIT_INDEX_FILE inherited from a hook or a linked-worktree push would make the
+    repository checks answer from another repository's index and excludes. Other children keep the
+    caller's environment untouched (None).
+    """
+    if not argv or Path(argv[0]).name not in ("git", "git.exe"):
+        return None
+    return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
 def run_remote(target: Target, command: str, *, run=_run, stdin_text: str | None = None,
@@ -397,7 +432,7 @@ def parse_alerts(text: str, ip: str | None = None) -> list[Alert]:
 
 
 def _is_ascii_number(field: str) -> bool:
-    return re.fullmatch(r"[0-9]+", field.strip()) is not None
+    return _DIGITS_RE.fullmatch(field.strip()) is not None
 
 
 def parse_sid_spec(text: str) -> SignatureId:
@@ -500,7 +535,7 @@ def resolve_ips(target: str) -> list[str]:
 
 def normalize_mac(mac: str) -> str:
     """Lowercase colon-separated form, so `00-11-22-33-44-55` and `00:11:22:33:44:55` match."""
-    cleaned = re.sub(r"[^0-9a-fA-F]", "", mac).lower()
+    cleaned = _NON_HEX_RE.sub("", mac).lower()
     if len(cleaned) != 12:
         raise PfsenseError(f"not a MAC address: {mac}")
     return ":".join(cleaned[i:i + 2] for i in range(0, 12, 2))
@@ -576,6 +611,30 @@ def reservations_from_config_xml(text: str) -> list[dict]:
     return out
 
 
+def pools_from_config_xml(text: str) -> list[dict]:
+    """The dynamic ranges of every ENABLED DHCP server in a snapshot: the main range plus each
+    additional pool, as {interface, from, to}.
+
+    A server without `<enable>` hands out nothing, so its range is no pool, and reporting a
+    reservation inside it would be noise. Additional pools sit at `dhcpd/<if>/pool[]/range` with
+    the same `from`/`to` shape as the main range.
+    """
+    root = parse_xml(text)
+    out = []
+    for dhcpd in root.findall("dhcpd"):
+        for iface in dhcpd:
+            if iface.find("enable") is None:
+                continue
+            ranges = [iface.find("range"), *(pool.find("range") for pool in iface.findall("pool"))]
+            for rng in ranges:
+                if rng is None:
+                    continue
+                low, high = (rng.findtext("from") or "").strip(), (rng.findtext("to") or "").strip()
+                if low and high:
+                    out.append({"interface": iface.tag, "from": low, "to": high})
+    return out
+
+
 def overrides_from_config_xml(text: str) -> list[dict]:
     """DNS host overrides from a snapshot. The element is `hosts`, not `hostoverride`."""
     root = parse_xml(text)
@@ -591,9 +650,56 @@ def overrides_from_config_xml(text: str) -> list[dict]:
 
 
 # ---- doctor: pure checks over plain data --------------------------------------------------------
+def _pool_holding(address: ipaddress.IPv4Address | ipaddress.IPv6Address, interface: str,
+                  pools: list[dict]) -> dict | None:
+    """The first pool on `interface` whose inclusive from-to range holds `address`."""
+    for pool in pools:
+        if pool.get("interface") != interface:
+            continue
+        try:
+            low, high = ipaddress.ip_address(pool.get("from", "")), ipaddress.ip_address(pool.get("to", ""))
+        except ValueError:
+            continue
+        if low.version == address.version and low <= address <= high:
+            return pool
+    return None
+
+
+def _reservations_in_pools(reservations: list[dict], pools: list[dict]) -> list[Finding]:
+    """A reservation whose address lies in its own interface's dynamic pool.
+
+    A pool widened after the reservation was made produces one, as can a reservation written by a
+    script that bypasses the GUI's checks. A pool on another interface is never a conflict: each
+    DHCP server leases only its own range.
+    """
+    findings = []
+    for res in reservations:
+        try:
+            address = ipaddress.ip_address(res.get("ip", ""))
+        except ValueError:
+            continue
+        pool = _pool_holding(address, res.get("interface", ""), pools)
+        if pool is None:
+            continue
+        name = res.get("hostname") or res.get("descr") or "(no hostname)"
+        findings.append(Finding(
+            check="static_map_in_dynamic_pool", severity=Severity.WARN,
+            subject=f"{res['ip']} {res.get('mac', '?')} {name} on {res.get('interface', '?')}, "
+                    f"inside the pool {pool['from']}-{pool['to']}",
+            detail="ISC dhcpd, pfSense's default DHCP backend, does not keep a reserved address out "
+                   "of its dynamic pool: it can lease this address to another client, and its "
+                   "pre-lease ping check misses a host that does not answer ping (Windows by "
+                   "default), so two machines end up on one address. The only trace is dhcpd "
+                   "logging 'Dynamic and static leases present' for it. Move the reservation "
+                   "outside the pool, or shrink the pool so it no longer covers the address.",
+        ))
+    return findings
+
+
 def doctor_findings(*, reservations: list[dict], overrides: list[dict],
                     arp: list[dict] | None = None, resolv_conf: str | None = None,
-                    upgrade_locks: list[str] | None = None) -> list[Finding]:
+                    upgrade_locks: list[str] | None = None,
+                    pools: list[dict] | None = None) -> list[Finding]:
     """Every audit check, as pure logic over plain data.
 
     Each one is a fault that raises no error of its own and so goes unnoticed: they were all found
@@ -616,7 +722,7 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
             extra = (f" This address is reserved for {shared} MACs, which is exactly the case that "
                      f"breaks: the firewall pins one of them permanently." if shared > 1 else "")
             findings.append(Finding(
-                check="static_arp_armed", severity="warn",
+                check="static_arp_armed", severity=Severity.WARN,
                 subject=f"{res.get('ip','?')} {res.get('mac','?')} {res.get('hostname') or res.get('descr') or ''}".strip(),
                 detail="ARP Table Static Entry is ticked. On a device with more than one interface "
                        "the firewall answers for whichever one is down: reachable inside its subnet, "
@@ -626,12 +732,14 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
     for ip, group in sorted(by_ip.items()):
         if len(group) > 1:
             findings.append(Finding(
-                check="shared_ip_multi_mac", severity="info", subject=ip,
+                check="shared_ip_multi_mac", severity=Severity.INFO, subject=ip,
                 detail="reserved for " + str(len(group)) + " MACs (" +
                        ", ".join(r.get("mac", "?") for r in group) +
                        "). Normal for a device with wired and wireless interfaces; only a problem "
                        "if static ARP is also ticked.",
             ))
+
+    findings.extend(_reservations_in_pools(reservations, pools or []))
 
     # ARP is used for POSITIVE evidence only: it is a cache that expires after minutes of silence,
     # so absence means "not seen lately", never "gone". An earlier version drew conclusions from
@@ -648,7 +756,7 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
             reserved_macs = macs_for_ip.get(entry["ip"])
             if entry.get("mac") and reserved_macs and entry["mac"] not in reserved_macs:
                 findings.append(Finding(
-                    check="reservation_mac_mismatch", severity="warn",
+                    check="reservation_mac_mismatch", severity=Severity.WARN,
                     subject=f"{entry['ip']} reserved for {', '.join(sorted(reserved_macs))}, held by {entry['mac']}",
                     detail="the address is in use by hardware no reservation for it names. If the "
                            "reserved device reappears, DHCP hands it an address something else "
@@ -660,10 +768,10 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
     # upstream servers as fallbacks, so "every entry is loopback" is the wrong test - it flags a
     # correct box. The fault has two distinct signatures, checked separately.
     if resolv_conf is not None:
-        servers = re.findall(r"^\s*nameserver\s+(\S+)", resolv_conf, re.M)
+        servers = _NAMESERVER_RE.findall(resolv_conf)
         if MAGICDNS in servers:
             findings.append(Finding(
-                check="magicdns_in_resolv_conf", severity="warn", subject=MAGICDNS,
+                check="magicdns_in_resolv_conf", severity=Severity.WARN, subject=MAGICDNS,
                 detail="Tailscale's 'Accept DNS' has rewritten /etc/resolv.conf to MagicDNS. When "
                        "the tailnet has no global nameservers the box then resolves no public name "
                        "at all, so pkg and system upgrades fail while LAN clients stay fine because "
@@ -677,7 +785,7 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
             ))
         elif servers and not _is_loopback(servers[0]):
             findings.append(Finding(
-                check="resolver_not_first", severity="warn", subject=servers[0],
+                check="resolver_not_first", severity=Severity.WARN, subject=servers[0],
                 detail="the first nameserver is not this firewall's own resolver, so the box does "
                        "not answer its own queries from unbound. Upstream servers listed AFTER "
                        "loopback are normal fallbacks and are not a fault.",
@@ -685,7 +793,7 @@ def doctor_findings(*, reservations: list[dict], overrides: list[dict],
 
     if upgrade_locks:
         findings.append(Finding(
-            check="upgrade_lock_present", severity="warn", subject=", ".join(upgrade_locks),
+            check="upgrade_lock_present", severity=Severity.WARN, subject=", ".join(upgrade_locks),
             detail="a pfSense-upgrade lock is present, so every package operation reports "
                    "'Another instance of pfSense-upgrade is running'. Usually a background "
                    "pfSense-upgrade is hung on a repository the box cannot resolve: fix the box's "
@@ -742,6 +850,44 @@ echo json_encode($out);
 """
 
 
+def php_list_pools() -> str:
+    """The dynamic ranges of every enabled DHCP server, main range and additional pools alike.
+
+    `enable` is tested by key: `<enable></enable>` reads back as "", so a truthiness test would
+    skip every server that is on.
+    """
+    return """
+$pools = array();
+foreach (config_get_path("dhcpd", array()) as $if => $conf) {
+    if (!is_array($conf) || !array_key_exists("enable", $conf)) { continue; }
+    $ranges = array($conf["range"] ?? array());
+    foreach (($conf["pool"] ?? array()) as $p) { $ranges[] = $p["range"] ?? array(); }
+    foreach ($ranges as $r) {
+        $from = $r["from"] ?? ""; $to = $r["to"] ?? "";
+        if ($from !== "" && $to !== "") { $pools[] = array("interface" => $if, "from" => $from, "to" => $to); }
+    }
+}
+echo json_encode($pools);
+"""
+
+
+def _php_unbound_follows_static_maps() -> str:
+    """Rewrite unbound's static-mapping names when the resolver registers DHCP static mappings.
+
+    With `unbound/regdhcpstatic` on, unbound answers each reservation's hostname from
+    host_entries.conf, which only services_unbound_configure() rewrites: a reservation removed or
+    added without it keeps answering with the old address. The flag is echoed so the caller can
+    restart unbound and check it answers, since the reconfigure has been seen to leave it stopped.
+    Both settings are empty tags when on, so they are tested against null.
+    """
+    return """
+$unbound_follows = config_get_path("unbound/enable") !== null && config_get_path("unbound/regdhcpstatic") !== null;
+if ($unbound_follows) {
+    services_unbound_configure();
+}
+"""
+
+
 def _php_reconfigure_dhcp() -> str:
     """Reload whichever DHCP daemon this box actually runs.
 
@@ -770,6 +916,7 @@ def php_rm_reservation(mac: str) -> str:
 $target = {target};
 $removed = array();
 $plan = array();
+$unbound_follows = false;
 foreach (config_get_path("dhcpd", array()) as $if => $conf) {{
     $kept = array();
     foreach (($conf["staticmap"] ?? array()) as $m) {{
@@ -782,10 +929,11 @@ if (count($removed) == 1) {{
     foreach ($plan as $if => $kept) {{ config_set_path("dhcpd/{{$if}}/staticmap", $kept); }}
     write_config({reason});
     {_php_reconfigure_dhcp()}
+    {_php_unbound_follows_static_maps()}
 }} else {{
     $removed = array();
 }}
-echo json_encode(array("removed" => $removed));
+echo json_encode(array("removed" => $removed, "unbound_follows" => $unbound_follows));
 """
 
 
@@ -849,8 +997,9 @@ $maps[] = array("mac" => {m}, "cid" => "", "ipaddr" => {a}, "hostname" => {h}, "
 config_set_path("dhcpd/{{$if}}/staticmap", $maps);
 write_config({reason});
 {_php_reconfigure_dhcp()}
+{_php_unbound_follows_static_maps()}
 $added = array("interface" => $if, "mac" => {m}, "ip" => {a}, "hostname" => {h});
-echo json_encode(array("added" => $added));
+echo json_encode(array("added" => $added, "unbound_follows" => $unbound_follows));
 """
 
 
@@ -861,6 +1010,7 @@ def php_rename_reservation(mac: str, hostname: str) -> str:
     return f"""
 $renamed = array();
 $plan = array();
+$unbound_follows = false;
 foreach (config_get_path("dhcpd", array()) as $if => $conf) {{
     $maps = $conf["staticmap"] ?? array();
     $touched = false;
@@ -877,10 +1027,11 @@ if (count($renamed) == 1) {{
     foreach ($plan as $if => $maps) {{ config_set_path("dhcpd/{{$if}}/staticmap", $maps); }}
     write_config({reason});
     {_php_reconfigure_dhcp()}
+    {_php_unbound_follows_static_maps()}
 }} else {{
     $renamed = array();
 }}
-echo json_encode(array("renamed" => $renamed));
+echo json_encode(array("renamed" => $renamed, "unbound_follows" => $unbound_follows));
 """
 
 
@@ -1009,20 +1160,108 @@ def nearest_existing(directory: Path) -> Path:
     return probe
 
 
-def prepare_snapshot_dir(directory: Path, *, allow_repo: bool = False, run=_run) -> Path:
+SNAPSHOT_PROBE_NAME = "config-snapshot.xml"
+
+
+def ignored_by_git(directory: Path, *, filename: str = SNAPSHOT_PROBE_NAME, run=_run) -> bool:
+    """True only when git would never stage `directory/filename`, for anyone using this checkout.
+
+    A site's dated backups often live in a gitignored folder of its own machine repo. Four things
+    must all hold, because each one alone let a snapshot become committable:
+
+    - the FILE is ignored, not just the folder: with `configs/*` plus `!configs/*.xml` git calls
+      `configs/` ignored while the negation re-includes every snapshot in it;
+    - the folder is ignored too, and nothing is tracked beneath it (`ls-files`): a force-added
+      file makes the folder a tracked place even while a new file there reads as ignored;
+    - every matching rule comes from a .gitignore in the checkout or the clone's info/exclude, never
+      a per-user core.excludesFile, which another user of the same checkout does not have;
+    - the path is resolved first, so `notes/../configs` through a symlink is judged where the
+      file will land, not by its spelling.
+
+    core.quotePath=false keeps a non-ASCII path unquoted in git's answer. Fail-closed, unlike
+    inside_git_worktree: this is an exemption from a refusal, so any doubt keeps the refusal.
+    """
+    directory = Path(directory).expanduser().resolve()
+    probe = nearest_existing(directory)
+    asked_dir = directory.as_posix().rstrip("/") + "/"
+    asked_file = (directory / filename).as_posix()
+    try:
+        top = _git_toplevel(probe, run=run)
+        if top is None:
+            return False
+        rc, out, _err = run(["git", "-c", "core.quotePath=false", "-C", str(probe), "check-ignore",
+                             "--stdin", "-z", "-v"], stdin_text=f"{asked_dir}\0{asked_file}\0",
+                            timeout=10)
+        if rc != 0:
+            return False
+        sources = _ignore_sources(out or "")
+        if set(sources) != {asked_dir, asked_file}:
+            return False
+        if not all(_trusted_ignore_source(src, top, run=run) for src in sources.values()):
+            return False
+        rc, tracked, _err = run(["git", "-c", "core.quotePath=false", "-C", str(top), "ls-files",
+                                 "-z", "--", asked_dir], timeout=10)
+    except Exception:
+        return False
+    return rc == 0 and not (tracked or "").strip("\0")
+
+
+def _git_toplevel(probe: Path, *, run=_run) -> Path | None:
+    rc, out, _err = run(["git", "-C", str(probe), "rev-parse", "--show-toplevel"], timeout=10)
+    text = (out or "").strip()
+    return Path(text).resolve() if rc == 0 and text else None
+
+
+def _ignore_sources(out: str) -> dict[str, str]:
+    """Map each path check-ignore -v -z named to the source of the rule that IGNORES it.
+
+    Records are four NUL-ended fields: source, line, pattern, path. A path whose deciding pattern
+    starts with `!` matched a negation, which RE-INCLUDES it, so it is left out of the map.
+    """
+    fields = out.split("\0")
+    sources: dict[str, str] = {}
+    for i in range(0, len(fields) - 3, 4):
+        source, _line, pattern, path = fields[i:i + 4]
+        if source and not pattern.startswith("!"):
+            sources[path] = source
+    return sources
+
+
+def _trusted_ignore_source(source: str, top: Path, *, run=_run) -> bool:
+    """A .gitignore inside the checkout, or this clone's info/exclude; nothing per-user.
+
+    Both live in the checkout every user of it shares (a tracked or untracked .gitignore alike).
+    A per-user core.excludesFile does not: git names it by a path outside the work tree. The
+    source is resolved against the top (joining keeps an absolute source as it is) and must land
+    inside it, so no drive-dependent absoluteness test decides it.
+    """
+    resolved = (top / source).resolve()
+    rc, out, _err = run(["git", "-C", str(top), "rev-parse", "--git-path", "info/exclude"],
+                        timeout=10)
+    if rc == 0 and out.strip() and resolved == (top / out.strip()).resolve():
+        return True
+    return resolved.name == ".gitignore" and resolved.is_relative_to(top)
+
+
+def prepare_snapshot_dir(directory: Path, *, allow_repo: bool = False,
+                         filename: str = SNAPSHOT_PROBE_NAME, run=_run) -> Path:
     """Create `directory` private to the user, refusing a git work tree unless told otherwise.
 
-    The work-tree probe runs on the nearest EXISTING ancestor: git cannot answer for a directory
-    that is not there yet, so probing only an existing one let a new dir inside a checkout through.
+    A directory the work tree ignores, with nothing tracked beneath it, is not refused (see
+    ignored_by_git). The work-tree probe runs on the nearest EXISTING ancestor: git cannot answer
+    for a directory that is not there yet, so probing only an existing one let a new dir inside a
+    checkout through.
     Only a directory this call creates is made 0700; an existing one keeps its mode (it may be
     shared or served), with a warning when others can read it.
     """
     directory = Path(directory).expanduser()
-    if not allow_repo and inside_git_worktree(nearest_existing(directory), run=run):
+    if (not allow_repo and inside_git_worktree(nearest_existing(directory), run=run)
+            and not ignored_by_git(directory, filename=filename, run=run)):
         raise PfsenseError(
-            f"{directory} is inside a git work tree, and a snapshot is a live config.xml with "
-            f"password hashes and private keys in it. Pass --snapshot-dir to send it somewhere "
-            f"private (default {default_snapshot_dir()}), or --allow-repo-snapshot to override."
+            f"{directory} is inside a git work tree and not ignored by it, and a snapshot is a "
+            f"live config.xml with password hashes and private keys in it. Pass --snapshot-dir to "
+            f"send it somewhere private (default {default_snapshot_dir()}) or to a folder the "
+            f"repository ignores, or --allow-repo-snapshot to override."
         )
     created = not directory.exists()
     directory.mkdir(parents=True, exist_ok=True)
@@ -1044,17 +1283,33 @@ def do_snapshot(target: Target, directory: Path, *, run=_run, allow_repo: bool =
     """
     # Resolve the destination BEFORE fetching: a refusal should cost nothing, and there is no
     # reason to pull 180 KB of credentials over the wire only to decline to write it.
-    directory = prepare_snapshot_dir(directory, allow_repo=allow_repo, run=run)
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    name = f"config-{target.host}-{stamp}.xml"
+    directory = prepare_snapshot_dir(directory, allow_repo=allow_repo, filename=name, run=run)
     rc, out, err = run_remote(target, "cat /conf/config.xml", run=run, timeout=max(target.timeout, 60))
     if rc != 0:
         raise PfsenseError(f"could not read /conf/config.xml from {target.host}: {err.strip()[:200]}")
     root = parse_xml(out)
     if root.tag != "pfsense":
         raise PfsenseError(f"root element is <{root.tag}>, not <pfsense>; refusing to save it")
-    stamp = datetime.now().strftime("%Y%m%d%H%M%S")
-    path = directory / f"config-{target.host}-{stamp}.xml"
-    path.write_text(out, encoding="utf-8")
+    path = directory / name
+    _write_private(path, out)
     return path
+
+
+def _write_private(path: Path, text: str) -> None:
+    """Write `text` to `path` readable by its owner only, whatever the umask.
+
+    A snapshot holds password hashes and private keys, and an existing snapshot folder keeps its
+    own mode (it may be shared), so the FILE must be private even where the folder is not. The
+    mode is set at creation (0600) and again with fchmod, because O_CREAT ignores the mode for a
+    file that already exists: a second snapshot in the same second replaces the first.
+    """
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        if os.name == "posix":
+            os.fchmod(handle.fileno(), 0o600)
+        handle.write(text)
 
 
 # ---- commands -----------------------------------------------------------------------------------
@@ -1151,9 +1406,26 @@ def cmd_dhcp_add(args) -> int:
     result = run_php(target, php_add_reservation(interface, mac, args.ip, hostname, args.descr), run=args.run)
     if not result.get("added"):
         raise PfsenseError(str(result.get("error") or "the reservation was not added"))
+    note = _restart_unbound_after_dhcp(target, result, run=args.run,
+                                       change=f"the reservation {args.ip} for {mac}")
     _emit(envelope(command="dhcp add", data=result, ok=True), args.json,
-          f"  reserved {args.ip} for {mac} ({hostname}) on {interface}")
+          f"  reserved {args.ip} for {mac} ({hostname}) on {interface}{note}")
     return 0
+
+
+def _restart_unbound_after_dhcp(target: Target, result: dict, *, run, change: str) -> str:
+    """Restart unbound and check it answers when the DHCP write also reconfigured it.
+
+    The PHP side reconfigured unbound only when it registers DHCP static mappings, and says so in
+    `unbound_follows`. The check resolves `localhost.`, unbound's own built-in local zone: the
+    reservation's name depends on a domain this tool does not read, so the check proves unbound
+    answers, not that it answers that name. Returns the human-output suffix.
+    """
+    if not result.get("unbound_follows"):
+        return ""
+    result["unbound"] = restart_and_verify_unbound(target, name="localhost.", ip="127.0.0.1",
+                                                   run=run, change=change)
+    return "; unbound reconfigured and restarted for the static-mapping name, and answers"
 
 
 def cmd_dhcp_rename(args) -> int:
@@ -1172,8 +1444,10 @@ def cmd_dhcp_rename(args) -> int:
     result = run_php(target, php_rename_reservation(mac, hostname), run=args.run)
     if len(result.get("renamed") or []) != 1:
         raise PfsenseError(f"the reservation for {mac} was not renamed (it changed since it was listed)")
+    note = _restart_unbound_after_dhcp(target, result, run=args.run,
+                                       change=f"the rename of the reservation for {mac} to {hostname}")
     _emit(envelope(command="dhcp rename", data=result, ok=True), args.json,
-          f"  renamed {entry['ip']} {mac} to {hostname}")
+          f"  renamed {entry['ip']} {mac} to {hostname}{note}")
     return 0
 
 
@@ -1192,8 +1466,10 @@ def cmd_dhcp_rm(args) -> int:
     removed = result.get("removed") or []
     _require_effect(removed, f"the reservation for {mac} matched, but removing it removed nothing "
                              "(it changed since it was listed); config.xml was not written")
+    note = _restart_unbound_after_dhcp(target, result, run=args.run,
+                                       change=f"the removal of the reservation for {mac}")
     _emit(envelope(command="dhcp rm", data=result, ok=True), args.json,
-          f"  removed {len(removed)} reservation(s) for {mac}")
+          f"  removed {len(removed)} reservation(s) for {mac}{note}")
     return 0
 
 
@@ -1583,17 +1859,92 @@ def cmd_snort_unblock(args) -> int:
     return code
 
 
-def suppresses(supp_text: str, sig: SignatureId) -> bool:
-    """True when a live `suppress` statement names this generator AND this signature.
+Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+_TRACKS = ("by_src", "by_dst")
+
+
+@dataclass(frozen=True)
+class SuppressScope:
+    """Which addresses one live `suppress` statement for a rule applies to.
+
+    `track` None with `understood` True is the plain form, which suppresses the rule for every
+    address. A scoped form names the side of the alert (`by_src`, `by_dst`) and the addresses on
+    that side (`networks`). `understood` False is a statement whose scope this tool does not
+    evaluate (a variable, a negation, track without ip): it counts as covering nothing.
+    """
+
+    track: str | None
+    ip: str | None
+    networks: tuple[Network, ...] = ()
+    understood: bool = True
+
+    def covers(self, target: Network | None) -> bool:
+        if not self.understood:
+            return False
+        if self.track is None:
+            return True
+        if target is None:
+            return False
+        return any(target.version == net.version and target.subnet_of(net) for net in self.networks)
+
+    @property
+    def label(self) -> str:
+        if self.track is None and self.understood:
+            return "every address"
+        return f"track {self.track}, ip {self.ip}"
+
+
+def _scope_networks(ip_value: str) -> tuple[Network, ...] | None:
+    """The networks a suppress `ip` value names, or None for a form not evaluated here.
+
+    Snort's README.filters documents a single address and a CIDR block; a bracketed list of them
+    is read member by member. A `$VARIABLE` or a `!` negation would need Snort's own variable
+    table and list semantics, so it is not guessed at: None, and the statement covers nothing.
+    """
+    inner = ip_value[1:-1] if ip_value.startswith("[") and ip_value.endswith("]") else ip_value
+    networks = []
+    for member in (part.strip() for part in inner.split(",")):
+        try:
+            networks.append(ipaddress.ip_network(member, strict=False))
+        except ValueError:
+            return None
+    return tuple(networks)
+
+
+def _parse_scope(rest: str) -> SuppressScope:
+    """The scope of one statement, from the text after its `sig_id <n>`."""
+    track = _TRACK_RE.search(rest)
+    ip = _TRACK_IP_RE.search(rest)
+    if track is None and ip is None:
+        return SuppressScope(track=None, ip=None)
+    track_value = track.group(1) if track else None
+    ip_value = ip.group(1) if ip else None
+    # Snort requires track and ip together; one without the other, or a track it does not
+    # define, is not a scope this tool can vouch for.
+    networks = _scope_networks(ip_value) if ip_value is not None else None
+    if track_value not in _TRACKS or networks is None:
+        return SuppressScope(track=track_value, ip=ip_value, understood=False)
+    return SuppressScope(track=track_value, ip=ip_value, networks=networks)
+
+
+def suppress_scopes(supp_text: str, sig: SignatureId) -> list[SuppressScope]:
+    """The scope of every live `suppress` statement that names this generator AND this signature.
 
     Anchored per line to a live statement: a commented-out line, or a SID named only in a trailing
     comment, suppresses nothing. The generator is part of the match because `gen_id 1, sig_id 9`
     leaves a GID 125 SID 9 alert firing, and reading it as the fix being in place is how a no-op
     suppression went unnoticed. Only the order pfSense writes (`gen_id` before `sig_id`) counts:
     whether Snort accepts the reverse was not checked, and a NO there is the safe misreading.
+    The scope is returned rather than a yes/no because `track by_src, ip X` suppresses the rule
+    only where X is the alert's source: counting it as a full suppression said yes while every
+    other address stayed blocked.
+    `sig_id 0` matches too: Snort's README.filters says it "applies to all sig_ids for the given
+    gen_id", and reading it as some other signature said NO while Snort suppressed the alert.
     """
-    live_rule = rf"(?m)^[ \t]*suppress\b[^#\n]*\bgen_id\s+{sig.gid}\b[^#\n]*\bsig_id\s+{sig.sid}\b"
-    return re.search(live_rule, supp_text) is not None
+    live_rule = re.compile(rf"^[ \t]*suppress\b[^#\n]*\bgen_id\s+{sig.gid}\b[^#\n]*"
+                           rf"\bsig_id\s+(?:{sig.sid}|0)\b(?P<rest>[^#\n]*)", re.MULTILINE)
+    return [_parse_scope(match.group("rest")) for match in live_rule.finditer(supp_text)]
 
 
 def _assumed_note(sig: SignatureId) -> str:
@@ -1602,8 +1953,60 @@ def _assumed_note(sig: SignatureId) -> str:
     return " (gen_id 1 assumed for a bare --sid; pass the GID:SID that snort why prints)"
 
 
+def _verify_targets(args) -> list[tuple[str, Network | None]]:
+    """The addresses the suppression must cover: each --ip, and the --cidr range.
+
+    An --ip that is not an address is refused (ValueError, exit 2). An unparsable --cidr is kept
+    with no network: it still goes to the pass-list check verbatim, and no scoped suppression can
+    be shown to cover it.
+    """
+    targets: list[tuple[str, Network | None]] = []
+    for ip in args.ip or []:
+        address = ipaddress.ip_address(ip.strip())
+        targets.append((str(address), ipaddress.ip_network(address)))
+    if args.cidr:
+        try:
+            targets.append((args.cidr, ipaddress.ip_network(args.cidr.strip(), strict=False)))
+        except ValueError:
+            targets.append((args.cidr, None))
+    return targets
+
+
+def _scope_verdict(scopes: list[SuppressScope], targets) -> tuple[bool, dict[str, list[str]], list[str]]:
+    """(suppressed for what was asked, which scopes cover each target, the human lines)."""
+    if not scopes:
+        return False, {}, []
+    if any(s.understood and s.track is None for s in scopes):
+        return True, {label: ["all"] for label, _ in targets}, []
+    coverage = {label: [s.track for s in scopes if s.covers(net)] for label, net in targets}
+    lines = []
+    for label, tracks in coverage.items():
+        if tracks:
+            sides = " and ".join(f"track {t}" for t in tracks)
+            lines.append(f"    {label}: yes ({sides}: only alerts with it on that side)")
+        else:
+            lines.append(f"    {label}: NO - outside every scoped suppression of this rule")
+    return bool(targets) and all(coverage.values()), coverage, lines
+
+
+def _suppressed_line(sig: SignatureId, scopes: list[SuppressScope], targets, suppressed: bool) -> str:
+    head = f"  GID:SID {sig.label} suppressed: "
+    if not scopes:
+        return head + "NO"
+    if any(s.understood and s.track is None for s in scopes):
+        return head + "yes, for every address"
+    unread = [s.label + " (scope not understood)" for s in scopes if not s.understood]
+    read = [s.label for s in scopes if s.understood]
+    named = "; ".join(read + unread)
+    if not targets:
+        return (head + f"NO - only for {named}. Give --ip <blocked address> or --cidr to check "
+                "whether that covers the address being blocked")
+    return head + ("yes" if suppressed else "NO") + f", only for {named}"
+
+
 def cmd_snort_verify(args) -> int:
     sig = parse_sid_spec(args.sid)
+    targets = _verify_targets(args)
     target = _target_from_args(args)
     rc, ps_out, _ = run_remote(target, "ps auxww", run=args.run)
     instance = instance_dir_from_ps(ps_out) if rc == 0 else None
@@ -1612,9 +2015,13 @@ def cmd_snort_verify(args) -> int:
 
     checks: dict[str, object] = {"instance_dir": instance, "gid": sig.gid, "sid": sig.sid,
                                  "gid_assumed": sig.gid_assumed}
-    # The SUPPRESSION file carries the GID:SID.
+    # The SUPPRESSION file carries the GID:SID and the scope of each statement.
     _, supp, _ = run_remote(target, f"cat {instance}/supp* 2>/dev/null", run=args.run)
-    checks["sid_suppressed"] = suppresses(supp, sig)
+    scopes = suppress_scopes(supp, sig)
+    suppressed, coverage, coverage_lines = _scope_verdict(scopes, targets)
+    checks["sid_suppressed"] = suppressed
+    checks["suppressions"] = [{"track": s.track, "ip": s.ip, "understood": s.understood} for s in scopes]
+    checks["coverage"] = coverage
 
     if args.cidr:
         # The GENERATED PASS LIST only. Never grep the suppression file for this: its comments
@@ -1624,15 +2031,39 @@ def cmd_snort_verify(args) -> int:
         checks["cidr_passlisted"] = args.cidr in entries
         checks["passlist_entries"] = len(entries)
 
-    ok = bool(checks["sid_suppressed"]) and (not args.cidr or bool(checks.get("cidr_passlisted")))
+    ok = suppressed and (not args.cidr or bool(checks.get("cidr_passlisted")))
     human = "\n".join(
         [f"  live instance: {instance}",
-         f"  GID:SID {sig.label} suppressed: {'yes' if checks['sid_suppressed'] else 'NO'}"
-         f"{_assumed_note(sig)}"]
+         _suppressed_line(sig, scopes, targets, suppressed) + _assumed_note(sig)]
+        + coverage_lines
         + ([f"  {args.cidr} in pass list: {'yes' if checks.get('cidr_passlisted') else 'NO'}"] if args.cidr else [])
     )
     _emit(envelope(command="snort verify", data=checks, ok=True), args.json, human)
     return 0 if ok else 1
+
+
+def _scoped_suppress_lines(sig: SignatureId, cidr: str | None) -> list[str]:
+    """The narrower alternative to the all-addresses suppression, when a range was given.
+
+    The plain line silences the rule for every address, which is the reviewer's call to make,
+    so the scope is said out loud. A scoped pair names BOTH sides because the range can be the
+    alert's source or its destination depending on the rule, and one side alone leaves the other
+    direction blocking. The range goes into a suppress line only when it parses as a network.
+    """
+    if not cidr:
+        return ["     That line suppresses the rule for EVERY address. Give --cidr <range> for a form",
+                "     scoped to one range."]
+    try:
+        network = ipaddress.ip_network(cidr.strip(), strict=False)
+    except ValueError:
+        return ["     That line suppresses the rule for EVERY address. No scoped form is printed:",
+                "     --cidr is not an address range."]
+    base = f"suppress gen_id {sig.gid}, sig_id {sig.sid}"
+    return ["     That line suppresses the rule for EVERY address. To suppress it only for traffic",
+            f"     to or from {network}, add these two lines instead (the range can be either side",
+            "     of the alert):",
+            f"       {base}, track by_src, ip {network}",
+            f"       {base}, track by_dst, ip {network}"]
 
 
 def fix_steps(*, sig: SignatureId, cidr: str | None = None) -> str:
@@ -1653,6 +2084,7 @@ def fix_steps(*, sig: SignatureId, cidr: str | None = None) -> str:
         f"  1. Suppress the rule: add 'suppress gen_id {sig.gid}, sig_id {sig.sid}' to the WAN suppression",
         "     list (Services > Snort > Pass Lists / Suppress, or config.xml).",
         *assumed,
+        *_scoped_suppress_lines(sig, cidr),
         "",
         f"  2. Pass-list the range: add {range_line} as a LITERAL <item> in the Snort pass list",
         "     entry's <address>. Do NOT add it to a firewall ALIAS: an alias entry there is a",
@@ -1709,20 +2141,23 @@ def cmd_doctor(args) -> int:
     if args.config:
         text = Path(args.config).read_text(encoding="utf-8")
         findings = doctor_findings(reservations=reservations_from_config_xml(text),
-                                   overrides=overrides_from_config_xml(text))
+                                   overrides=overrides_from_config_xml(text),
+                                   pools=pools_from_config_xml(text))
         source = args.config
     else:
         target = _target_from_args(args)
         reservations = run_php(target, php_list_reservations(), run=args.run)
         overrides = run_php(target, php_list_overrides(), run=args.run)
+        pools = run_php(target, php_list_pools(), run=args.run)
         arp_out = _read_or_raise(target, "arp -an", run=args.run)
         resolv = _read_or_raise(target, "cat /etc/resolv.conf", run=args.run)
         findings = doctor_findings(reservations=reservations, overrides=overrides,
                                    arp=parse_arp(arp_out), resolv_conf=resolv,
-                                   upgrade_locks=_present_upgrade_locks(target, run=args.run))
+                                   upgrade_locks=_present_upgrade_locks(target, run=args.run),
+                                   pools=pools)
         source = target.host
 
-    warns = [f for f in findings if f.severity == "warn"]
+    warns = [f for f in findings if f.severity == Severity.WARN]
     lines = [f"  {source}:"]
     for finding in findings:
         lines.append(f"  [{finding.severity.upper():<4}] {finding.check}: {finding.subject}")
@@ -1749,7 +2184,8 @@ def _mutation_flags() -> argparse.ArgumentParser:
                         help="where a pre-change snapshot is written (default is a private "
                              "per-user state dir, never the current directory)")
     common.add_argument("--allow-repo-snapshot", action="store_true", default=argparse.SUPPRESS,
-                        help="permit writing a snapshot inside a git work tree")
+                        help="permit writing a snapshot inside a git work tree, in a folder "
+                             "it does not ignore")
     return common
 
 
@@ -1767,7 +2203,8 @@ def build_parser() -> argparse.ArgumentParser:
                     help=f"where a pre-change snapshot is written "
                          f"(default {default_snapshot_dir()}, mode 0700)")
     ap.add_argument("--allow-repo-snapshot", action="store_true",
-                    help="permit writing a snapshot inside a git work tree (refused by default)")
+                    help="permit writing a snapshot inside a git work tree (refused by default unless the "
+                         "repository ignores the folder)")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("info", help="version, DHCP backend, resolver, interfaces, packages").set_defaults(func=cmd_info)
@@ -1842,7 +2279,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = snort.add_parser("verify", help="is the SID suppressed and the CIDR pass-listed, in the LIVE instance?")
     p.add_argument("--sid", required=True, metavar="GID:SID",
                    help="the rule as snort why prints it; a bare SID means gen_id 1")
-    p.add_argument("--cidr")
+    p.add_argument("--cidr", help="the pass-listed range; a scoped suppression must cover it too")
+    p.add_argument("--ip", action="append", metavar="ADDRESS",
+                   help="a blocked address a scoped suppression must cover (repeatable)")
     p.set_defaults(func=cmd_snort_verify)
     p = snort.add_parser("fixsteps", help="print the durable three-part fix")
     p.add_argument("--sid", required=True, metavar="GID:SID",

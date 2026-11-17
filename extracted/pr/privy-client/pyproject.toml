@@ -1,6 +1,6 @@
 [project]
 name = "privy-client"
-version = "0.7.0"
+version = "0.9.0"
 description = "The official Python library for the Privy API API"
 dynamic = ["readme"]
 license = "Apache-2.0"
@@ -9,7 +9,6 @@ authors = [
 ]
 
 dependencies = [
-  "canonicaljson>=2.0.0, <3",
   "cryptography>=41, <47",
   "pyhpke>=0.6.3, <0.6.4",
   "httpx>=0.23.0, <1",
@@ -18,6 +17,8 @@ dependencies = [
   "anyio>=3.5.0, <5",
   "distro>=1.7.0, <2",
   "sniffio",
+  "svix>=1.56.0,<1.57",
+  "rfc8785>=0.1.4, <0.2",
 ]
 
 requires-python = ">= 3.9"
@@ -70,6 +71,7 @@ dev = [
     "importlib-metadata>=6.7.0",
     "rich>=13.7.1",
     "pytest-xdist>=3.6.1",
+    "eth-hash[pycryptodome]>=0.7,<1",
 ]
 pydantic-v1 = [
     "pydantic>=1.9.0,<2",

@@ -31,8 +31,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from . import baseline, holistic, prompts, surface, trace
-from .agent import AgentLimits, BundleResult, review_bundle
+from . import advisory, baseline, holistic, prompts, surface, trace
+from .agent import AgentLimits, BundleResult, review_bundle, suspect_paths
 from .baseline import PRAdditions
 from .bundle import Bundle, group
 from .config import Config
@@ -114,8 +114,13 @@ class RunResult:
     def failed(self) -> bool:
         """A model/transport failure, as opposed to a deliberate budget stop."""
         return bool(self.preflight_error) or any(
-            b.stop in ("llm_error", "fatal") for b in self.bundles
+            b.stop in ("llm_error", "fatal", "refused") for b in self.bundles
         )
+
+    @property
+    def refused(self) -> list[BundleResult]:
+        """Bundles whose request the model provider refused (`provider_rejected`)."""
+        return [b for b in self.bundles if b.stop == "refused"]
 
 
 def describe_mode(
@@ -416,6 +421,9 @@ def run(
         f"decision: REVIEW round {round_no} — {mode_label}; range={range_base[:9]}..{head[:9]}, "
         f"{len(all_files)} file(s) in range ({len(full_files)} in the whole PR), budget left ${ledger.remaining:.4f}"
     )
+
+    # Recomputed from the whole PR each round, so a reverted change drops its note.
+    state.advisories = advisory.notes(advisory.changed_paths(full_files))
 
     # ---- head text for changed files (data only; never executed) -----------
     head_text = head_side_text(gh, full_files, head, cfg.max_changed_files)
@@ -747,7 +755,16 @@ def run(
     failed_paths: list[str] = []
     bundle_paths = {b.label: b.paths for b in bundles}
     for b in res.bundles:
-        if b.stop in ("llm_error", "fatal", "budget"):
+        if b.stop == "refused":
+            suspects = suspect_paths(b.refusal)
+            res.incomplete.append(
+                f"{b.label}: the model provider refused the request "
+                f"(turn {b.refusal.get('turn', 0)}); suspect files: "
+                + (", ".join(f"`{p}`" for p in suspects[:10]) or "none named")
+                + (f" (+{len(suspects) - 10} more)" if len(suspects) > 10 else "")
+            )
+            failed_paths.extend(bundle_paths.get(b.label, []))
+        elif b.stop in ("llm_error", "fatal", "budget"):
             res.incomplete.append(f"{b.label}: {b.stop} — {b.error[:200]}")
             failed_paths.extend(bundle_paths.get(b.label, []))
     res.retried = list(state.pending_files) if retry_only else []
@@ -2126,6 +2143,24 @@ def _details(f: Finding, blob_base: str, chars: int | None = None) -> str:
     return "\n".join(out)
 
 
+def _retry_hint(res: RunResult) -> str:
+    """What an author can do about an incomplete review. A refusal by the model
+    provider is deterministic: `/lens` on the same content is refused again and
+    spends a round, so it is never offered as the fix for one."""
+    refused = res.refused
+    if not refused:
+        return "Comment `/lens` to retry the part that failed."
+    hint = (
+        "The model provider refused part of this change (`provider_rejected`): retrying with "
+        "`/lens` sends the same content and is refused again. Change or split the suspect files "
+        "below, then push; the run report (`lens-run.json`) lists every file and line range each "
+        "refused request held."
+    )
+    if len(refused) < len(res.incomplete):
+        hint += " For the other parts that failed, comment `/lens` to retry."
+    return hint
+
+
 def render_summary(res: RunResult) -> str:
     st = res.state or PRState()
     blocking = st.open_findings(BLOCKING)
@@ -2136,7 +2171,8 @@ def render_summary(res: RunResult) -> str:
     if res.incomplete:
         verdict = (
             "⚠️ **Review incomplete** — part of this change was not reviewed; this is not an all-clear. "
-            "Comment `/lens` to retry the part that failed.\n\n"
+            + _retry_hint(res)
+            + "\n\n"
             + "\n".join(f"- {r}" for r in res.incomplete)
         )
     elif blocking:
@@ -2168,6 +2204,8 @@ def render_summary(res: RunResult) -> str:
         lines.append("")
     elif ap.get("verdict") == "sound":
         lines.append("**Approach check** — sound.\n")
+    for note in st.advisories:
+        lines.append(f"**Advisory** (does not block) — {note}\n")
     for sev in SEVERITIES:
         items = by_level[sev]
         if not items:
@@ -2200,7 +2238,14 @@ def render_summary(res: RunResult) -> str:
     if st.pending_files:
         lines.append(
             f"\n**{len(st.pending_files)} file(s) could not be reviewed this run** and will be retried "
-            "by the next `/lens`: " + ", ".join(f"`{p}`" for p in st.pending_files[:20])
+            "by the next `/lens`"
+            + (
+                " (a part the provider refused is refused again unless its content changes)"
+                if res.refused
+                else ""
+            )
+            + ": "
+            + ", ".join(f"`{p}`" for p in st.pending_files[:20])
         )
     if res.skipped_files:
         lines.append(

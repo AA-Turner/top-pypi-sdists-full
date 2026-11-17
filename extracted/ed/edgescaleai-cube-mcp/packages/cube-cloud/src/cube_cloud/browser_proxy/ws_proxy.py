@@ -60,6 +60,7 @@ from wsproto.events import (
 from cube_cloud.auth import api_keys, session_cookie
 from cube_cloud.auth.session_cookie import (
     SESSION_COOKIE_NAME,
+    authorization_carries_api_key as _authorization_carries_api_key,
     strip_session_cookie as _strip_session_cookie,
 )
 from cube_cloud.browser_proxy.authz import authorize_app_access
@@ -224,15 +225,18 @@ class UpstreamWebSocket:
 def build_upstream_handshake_headers(ws: WebSocket) -> list[tuple[bytes, bytes]]:
     """Forward relevant handshake headers to the upstream WS request.
 
-    Drops the headers wsproto regenerates itself (``_WS_HANDSHAKE_SKIP``) and
-    strips **our** session cookie from any forwarded ``Cookie`` header so the
-    ``cmcp_`` API key is never leaked to the in-cube app -- while preserving the
-    app's own cookies, which it may need for its own session.
+    Drops the headers wsproto regenerates itself (``_WS_HANDSHAKE_SKIP``),
+    strips **our** session cookie from any forwarded ``Cookie`` header, and drops
+    an ``Authorization`` header that carries a ``cmcp_`` key, so the API key is
+    never leaked to the in-cube app -- while preserving the app's own cookies and
+    its own ``Authorization``, which it may need for its own session.
     """
     out: list[tuple[bytes, bytes]] = []
     for name, value in ws.headers.raw:
         lname = name.decode("latin-1").lower()
         if lname in _WS_HANDSHAKE_SKIP:
+            continue
+        if lname == "authorization" and _authorization_carries_api_key(value.decode("latin-1")):
             continue
         if lname == "cookie":
             filtered = _strip_session_cookie(value.decode("latin-1"))
@@ -402,16 +406,20 @@ async def relay(ws: WebSocket, up: UpstreamWebSocket) -> None:
 def _extract_credential(ws: WebSocket) -> tuple[str | None, bool]:
     """Return ``(raw_key, via_cookie)``.
 
-    Mirrors ``APIKeyMiddleware``: a ``Bearer`` header wins; the parent-domain
-    session cookie is the browser fallback. The caller has already host-gated to
-    an app subdomain, which is the only place cookie-auth is honored (spec §4.2
-    CSRF rule) -- ``/tunnel`` and ``/mcp`` are separate routes and never reach
-    here.
+    The same rule as ``APIKeyMiddleware``, through the one shared
+    :func:`session_cookie.select_credential`: a ``cmcp_`` Bearer key wins; the
+    parent-domain session cookie is the browser fallback, and an in-cube app's
+    own Bearer token is left for the app (so ``via_cookie`` is True and the
+    Origin check applies). The caller has already host-gated to an app
+    subdomain, which is the only place cookie-auth is honored (spec §4.2 CSRF
+    rule) -- ``/tunnel`` and ``/mcp`` are separate routes and never reach here.
     """
-    auth_header = ws.headers.get("authorization", "")
-    if auth_header.startswith("Bearer "):
-        return auth_header[7:], False
-    return ws.cookies.get(SESSION_COOKIE_NAME), True
+    return session_cookie.select_credential(
+        ws.headers.get("authorization", ""),
+        ws.cookies.get(SESSION_COOKIE_NAME),
+        host=ws.url.hostname or "",
+        cookie_allowed=True,
+    )
 
 
 def _origin_matches_host(ws: WebSocket, host: str) -> bool:

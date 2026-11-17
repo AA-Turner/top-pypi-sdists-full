@@ -44,7 +44,8 @@ class Locale:
     nameparser live in :mod:`nameparser.locales`; building your own
     needs no registration -- construct one and pass it to
     ``parser_for``. See the :doc:`locale packs guide </locales>` for
-    using, creating, and contributing packs."""
+    using and creating packs; to propose one for nameparser itself, see
+    ``CONTRIBUTING.md`` in the repository."""
 
     #: Identifier, lowercase ``[a-z0-9_]+`` (e.g. "ru", "tr_az").
     code: str
@@ -55,7 +56,8 @@ class Locale:
     #: item 3).
     lexicon: Lexicon
     #: Behavior changes folded onto the base policy (set-valued fields
-    #: union; scalars override, later pack wins).
+    #: union; script_orders merges by script; scalars override, later
+    #: pack wins).
     policy: PolicyPatch = PolicyPatch()
     #: The languages chosen, as BCP 47 tags (``{"pt"}``, ``{"pt-BR"}``):
     #: ``parser_for`` unions the packs' languages, and the base's recorded
@@ -159,6 +161,7 @@ _RULE_VALUES: dict[str, Callable[[Any], object]] = {
     "patronymic_rules": lambda v: frozenset(PatronymicRule(r) for r in v),
     "two_family_names": bool,
     "two_given_names": bool,
+    "initials_as_family": bool,
 }
 
 

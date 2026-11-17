@@ -148,7 +148,7 @@ class LiveOptionChainProvider(QuantConnect.Lean.Engine.DataFeeds.BacktestingOpti
         Gets the option chain associated with the underlying Symbol
         
         :param symbol: The option or the underlying symbol to get the option chain for.
-        Providing the option allows targetting an option ticker different than the default e.g. SPXW
+        Providing the option allows targeting an option ticker different than the default e.g. SPXW
         :param date: The date to ask for the option contract list for
         :returns: Option chain.
         """
@@ -534,7 +534,7 @@ class SubscriptionCollection(System.Object, typing.Iterable[QuantConnect.Lean.En
 
     def try_remove(self, configuration: QuantConnect.Data.SubscriptionDataConfig, subscription: typing.Optional[QuantConnect.Lean.Engine.DataFeeds.Subscription]) -> typing.Tuple[bool, QuantConnect.Lean.Engine.DataFeeds.Subscription]:
         """
-        Attempts to remove the subscription with the specified configuraton from the collection.
+        Attempts to remove the subscription with the specified configuration from the collection.
         
         :param configuration: The configuration of the subscription to remove
         :param subscription: The removed subscription, null if not found.
@@ -545,7 +545,7 @@ class SubscriptionCollection(System.Object, typing.Iterable[QuantConnect.Lean.En
     def update_and_get_fill_forward_resolution(self, configuration: QuantConnect.Data.SubscriptionDataConfig = None) -> QuantConnect.Util.Ref[datetime.timedelta]:
         """
         Gets and updates the fill forward resolution by checking specified subscription configurations and
-        selecting the smallest resoluton not equal to tick
+        selecting the smallest resolution not equal to tick
         """
         ...
 
@@ -1117,7 +1117,7 @@ class BaseDownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.DefaultDataP
 
     def get_stream(self, key: str) -> System.IO.Stream:
         """
-        Get's the stream for a given file path
+        Gets the stream for a given file path
         
         
         This Class is protected.
@@ -1190,7 +1190,7 @@ class DownloaderDataProvider(QuantConnect.Lean.Engine.DataFeeds.BaseDownloaderDa
 
     def get_stream(self, key: str) -> System.IO.Stream:
         """
-        Get's the stream for a given file path
+        Gets the stream for a given file path
         
         
         This Class is protected.
@@ -1269,7 +1269,7 @@ class FileSystemDataFeed(System.Object, QuantConnect.Lean.Engine.DataFeeds.IData
 
     @property
     def is_active(self) -> bool:
-        """Flag indicating the hander thread is completely finished and ready to dispose."""
+        """Flag indicating the handler thread is completely finished and ready to dispose."""
         ...
 
     def add_schedule_wrapper(self, request: QuantConnect.Data.UniverseSelection.SubscriptionRequest, underlying: System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData], time_provider: QuantConnect.ITimeProvider) -> System.Collections.Generic.IEnumerator[QuantConnect.Data.BaseData]:
@@ -2244,8 +2244,8 @@ class ManualTimeProvider(System.Object, QuantConnect.ITimeProvider):
 
     def set_current_time(self, time: typing.Union[datetime.datetime, datetime.date]) -> None:
         """
-        Sets the current time interpeting the specified time as a local time
-        using the time zone used at instatiation.
+        Sets the current time interpreting the specified time as a local time
+        using the time zone used at instantiation.
         
         :param time: The local time to set the current time time, will be
         converted into UTC
@@ -2536,7 +2536,7 @@ class CachingOptionChainProvider(System.Object, QuantConnect.Interfaces.IOptionC
         Gets the list of option contracts for a given underlying symbol
         
         :param symbol: The option or the underlying symbol to get the option chain for.
-        Providing the option allows targetting an option ticker different than the default e.g. SPXW
+        Providing the option allows targeting an option ticker different than the default e.g. SPXW
         :param date: The date for which to request the option chain (only used in backtesting)
         :returns: The list of option contracts.
         """

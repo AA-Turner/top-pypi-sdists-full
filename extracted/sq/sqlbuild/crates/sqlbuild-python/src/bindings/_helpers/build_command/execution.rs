@@ -15,29 +15,12 @@ use crate::bindings::_helpers::build_command::invocation::BuildContext;
 use crate::bindings::_helpers::build_command::lifecycle::{
     DirectPythonLifecycle, LifecycleInputs, prepare_direct_python_lifecycle,
 };
-use crate::bindings::_helpers::build_progress::build_callbacks::{
-    BuildProgressCallbacks, batch_complete_callback, check_callback,
-};
-use crate::bindings::_helpers::build_progress::progress_reporters::ConnectionProgressReporter;
-use crate::bindings::_helpers::build_progress::progress_text::write_execution_header;
 use crate::bindings::_helpers::check::check_core::{
     build_check_relation_targets, load_results_by_loader_name, record_python_run_state_results,
     relevant_check_functions,
 };
 use crate::bindings::_helpers::check::check_results::write_check_results;
 use crate::bindings::_helpers::command_runtime::warehouses::describe_connection_warehouse;
-use crate::bindings::_helpers::compile_driver::relation_targets::build_project_relation_targets;
-use crate::bindings::_helpers::consumption::policy::{changed_policy, policy_line};
-use crate::bindings::_helpers::consumption::recorder::{
-    ConsumptionRecorder, Prepared, held_back_text, prepare as prepare_consumption, run_reason_text,
-};
-use crate::bindings::_helpers::cost_telemetry::context::CostContext;
-use crate::bindings::_helpers::cursor::overrides::{cursor_integer, cursor_timestamp};
-use crate::bindings::_helpers::freshness::publication::append_freshness_records;
-use crate::bindings::_helpers::graph::python_node_graph::python_node_graph;
-use crate::bindings::_helpers::native_host::consumption_state::recorder_callbacks;
-use crate::bindings::_helpers::observations::publication::append_build_observations;
-use crate::bindings::_helpers::planner_resolution::cursor_overrides::type_cursor_overrides;
 use crate::bindings::_helpers::sql_test_command::test_command::timeout_record;
 use crate::bindings::_helpers::sql_test_command::timeouts::{TimeoutKind, resolve_run_timeout};
 use sqlbuild_python_base::boundary::main::call_with::call_with;
@@ -59,6 +42,27 @@ use sqlbuild_python_base::records::main::construct::new_record::new_record;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
 use sqlbuild_python_base::records::types::RecordId;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_relation_targets::build_project_relation_targets;
+use sqlbuild_python_compile::compile_driver::main::setup::project_target_settings::project_target_settings;
+use sqlbuild_python_front::cost_context::models::CostContext;
+use sqlbuild_python_front::cursor::main::overrides::cursor_integer::cursor_integer;
+use sqlbuild_python_front::cursor::main::overrides::cursor_timestamp::cursor_timestamp;
+use sqlbuild_python_front::native_host::main::recorder_callbacks::recorder_callbacks;
+use sqlbuild_python_output::build_progress::main::batch_complete_callback::batch_complete_callback;
+use sqlbuild_python_output::build_progress::main::check_callback::check_callback;
+use sqlbuild_python_output::build_progress::main::write_execution_header::write_execution_header;
+use sqlbuild_python_output::build_progress::models::BuildProgressCallbacks;
+use sqlbuild_python_output::build_progress::models::ConnectionProgressReporter;
+use sqlbuild_python_planner::consumption::main::changed_policy::changed_policy;
+use sqlbuild_python_planner::consumption::main::held_back_text::held_back_text;
+use sqlbuild_python_planner::consumption::main::policy_line::policy_line;
+use sqlbuild_python_planner::consumption::main::prepare::prepare as prepare_consumption;
+use sqlbuild_python_planner::consumption::main::run_reason_text::run_reason_text;
+use sqlbuild_python_planner::consumption::models::{ConsumptionRecorder, Prepared};
+use sqlbuild_python_planner::freshness::main::append_freshness_records::append_freshness_records;
+use sqlbuild_python_planner::observations::main::append_build_observations::append_build_observations;
+use sqlbuild_python_planner::planner_resolution::main::cursor::type_cursor_overrides::type_cursor_overrides;
+use sqlbuild_python_project::graph::main::python_nodes::python_node_graph::python_node_graph;
 use sqlbuild_state::consumption::models::ChangedPolicy;
 
 const EXECUTION_COMMAND: &str = "sqb build";
@@ -356,6 +360,15 @@ pub(crate) fn execute_build_plan<'py>(
                 preparation.concurrency.into_pyobject(py)?.into_any(),
             ),
             ("loader_is_reload", request("reload_sources")?),
+            (
+                "target_config",
+                project_target_settings(
+                    &context.get("discovered_inputs")?,
+                    &project,
+                    (&connection_config, &adapter),
+                )?
+                .record(py)?,
+            ),
             ("start_cursor_ts", start_ts.clone()),
             ("end_cursor_ts", end_ts.clone()),
             ("start_cursor_int", start_int.clone()),
@@ -632,6 +645,15 @@ fn check_runtime<'py>(
             (
                 "is_reload",
                 native_field(&context.request, "reload_sources")?,
+            ),
+            (
+                "target_config",
+                project_target_settings(
+                    &context.get("discovered_inputs")?,
+                    &project,
+                    (&context.get("connection_config")?, &adapter),
+                )?
+                .record(py)?,
             ),
             (
                 "default_database",

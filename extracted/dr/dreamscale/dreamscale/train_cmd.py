@@ -714,13 +714,11 @@ def run_deploy(
     client_factory: Callable[..., Any] = ControlPlaneClient,
     print_fn: Callable[[str], None] = print,
     sleep: Callable[[float], None] = time.sleep,
-    engine: str | None = None,
 ) -> dict:
     """Deploy a checkpoint (default the latest) and follow its GPU check like
     `deployments create`. ``region_fallback``: whether its server may start in the
     next-closest region when its own is full (None: the server's default, on). ``executed``:
-    the rows the robot executes per chunk (None: the run's own). ``engine``: where its base
-    offers a choice (None: the default, standard)."""
+    the rows the robot executes per chunk (None: the run's own)."""
     region = parse_region(region)
     if region == AUTO_REGION:
         # The nearest region the run's base serves (None: the server's default).
@@ -731,7 +729,6 @@ def run_deploy(
         client_factory, "deploy_training", run_id, step=step, region=region,
         **({"region_fallback": region_fallback} if region_fallback is not None else {}),
         **({"executed_actions": executed} if executed is not None else {}),
-        **({"engine": engine} if engine is not None else {}),
     )
     deployment = result.get("deployment") or result
     which = f"{run_id} step {step:,}" if step else f"{run_id}'s latest checkpoint"

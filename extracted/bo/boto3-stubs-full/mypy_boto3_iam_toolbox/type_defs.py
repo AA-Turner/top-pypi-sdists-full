@@ -19,7 +19,13 @@ from __future__ import annotations
 import sys
 from typing import Any
 
-from .literals import EvaluatedEffectType, PolicyTypeType, StatementEffectType
+from .literals import (
+    CheckEffectType,
+    CheckTypeType,
+    EvaluatedEffectType,
+    PolicyTypeType,
+    StatementEffectType,
+)
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -29,10 +35,13 @@ else:
 
 __all__ = (
     "AttachedToTypeDef",
+    "CheckTypeDef",
     "EvaluationTypeDef",
     "GetRequestAuthorizationDetailsInputPaginateTypeDef",
     "GetRequestAuthorizationDetailsInputTypeDef",
     "GetRequestAuthorizationDetailsOutputTypeDef",
+    "GetRequestAuthorizationPolicyInputTypeDef",
+    "GetRequestAuthorizationPolicyOutputTypeDef",
     "MatchedPolicyTypeDef",
     "MatchedStatementTypeDef",
     "PaginatorConfigTypeDef",
@@ -64,6 +73,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class GetRequestAuthorizationPolicyInputTypeDef(TypedDict):
+    authorizationId: str
+    policyUri: str
+
+
 class MatchedStatementTypeDef(TypedDict):
     sid: NotRequired[str]
     evaluatedEffect: NotRequired[StatementEffectType]
@@ -76,6 +90,7 @@ PolicyInfoTypeDef = TypedDict(
         "inline": NotRequired[bool],
         "uri": NotRequired[str],
         "attachedTo": NotRequired[list[AttachedToTypeDef]],
+        "policySource": NotRequired[dict[str, str]],
     },
 )
 
@@ -85,9 +100,22 @@ class GetRequestAuthorizationDetailsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class GetRequestAuthorizationPolicyOutputTypeDef(TypedDict):
+    policyDocument: dict[str, Any]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class MatchedPolicyTypeDef(TypedDict):
     uri: str
     matchedStatements: NotRequired[list[MatchedStatementTypeDef]]
+
+
+class CheckTypeDef(TypedDict):
+    checkType: CheckTypeType
+    evaluatedEffect: CheckEffectType
+    targetArn: NotRequired[str]
+    relevantPolicyTypes: NotRequired[list[PolicyTypeType]]
+    matchedPolicies: NotRequired[list[MatchedPolicyTypeDef]]
 
 
 class EvaluationTypeDef(TypedDict):
@@ -96,6 +124,7 @@ class EvaluationTypeDef(TypedDict):
     context: NotRequired[dict[str, dict[str, Any]]]
     evaluatedEffect: NotRequired[EvaluatedEffectType]
     matchedPolicies: NotRequired[list[MatchedPolicyTypeDef]]
+    checks: NotRequired[list[CheckTypeDef]]
 
 
 class GetRequestAuthorizationDetailsOutputTypeDef(TypedDict):

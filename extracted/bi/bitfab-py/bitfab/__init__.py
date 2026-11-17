@@ -77,6 +77,7 @@ from bitfab.experiments import (
     ExperimentTally,
     ExperimentTotals,
 )
+from bitfab.github_sandbox import github_sandbox, record_github_refs
 from bitfab.gmail_sandbox import (
     gmail_message,
     gmail_sandbox,
@@ -155,6 +156,7 @@ from bitfab.sandbox import (
     Sandbox,
     SandboxStartCtx,
     sandbox_active,
+    sandbox_now,
     sandbox_state,
     without_sandbox,
 )
@@ -425,13 +427,16 @@ __all__ = [
     "get_current_replay_branch",
     "get_current_span",
     "get_current_trace",
+    "github_sandbox",
     "gmail_message",
     "gmail_sandbox",
     "gmail_sandbox_accounts",
     "google_sandbox_http",
+    "record_github_refs",
     "report_replay_progress",
     "reseed_from_registry",
     "sandbox_active",
+    "sandbox_now",
     "sandbox_state",
     "seed_from_registry",
     "serialize_replay_result",

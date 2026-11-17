@@ -4,8 +4,9 @@ A channel is a WebSocket, opened by its handshake, or a server-sent event stream
 `http`, `https` or `sse` servers: one whose messages include a `text/event-stream` one, one an `sse` server serves, or
 one whose HTTP binding asks for `text/event-stream`. This module reads one loaded document as written: the servers
 each channel is served on, its address and parameters, the query and header parameters its binding gives its
-handshake, the security the handshake needs, the messages its operations carry and whether the described application
-sends or receives each, and why a client cannot open a channel. AsyncAPI 2 names the application's sends `subscribe`
+handshake, which are the properties the models hold of the binding's objects (`members`), the security the handshake
+needs, the messages its operations carry and whether the described application sends or receives each, and why a
+client cannot open a channel. AsyncAPI 2 names the application's sends `subscribe`
 and its receives `publish`; AsyncAPI 3 names them by the operation's `action`. Which of them a client sends on a
 WebSocket is the client's setting, and a client receives every message of a stream.
 
@@ -24,20 +25,27 @@ import re
 from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Final, Literal, TypeAlias
 
-from datamodel_code_generator._document_reader import as_mapping, descend
+from datamodel_code_generator._document_reader import as_mapping, descend, held_schema, schema_format_media_type
 from datamodel_code_generator._json_pointer import join_pointer, pointer_tokens, reference_tokens
+from datamodel_code_generator._openapi_wire_plan import EVENT_STREAM
 from datamodel_code_generator._runtime.model_codecs.media import is_token
 from datamodel_code_generator._target_naming import PATH_PLACEHOLDER, path_placeholders
+from datamodel_code_generator.parser.asyncapi import schema_format_kind
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping, Sequence
 
     from datamodel_code_generator._source import YamlValue
+    from datamodel_code_generator._target_contract import TypeView
+    from datamodel_code_generator.reference import SchemaLocation
+    from datamodel_code_generator.types import DataType
 
 __all__ = (
+    "Members",
     "ReadChannel",
     "ReadDocument",
     "ReadHandshakeParameter",
+    "ReadMember",
     "ReadMessage",
     "ReadParameter",
     "ReadScheme",
@@ -74,9 +82,10 @@ _PROTOCOLS: Final[dict[Kind, str]] = {"websocket": "ws or wss", "sse": "http, ht
 _URL_SCHEMES: Final = {"ws": "http", "wss": "https", "http": "http", "https": "https"}
 """The scheme of the URL a client opens a server's channels at, by the scheme the server's URL is written with: a
 WebSocket's `wss` is TLS, as `https` is, and its `ws` plain, as `http` is."""
-_EVENT_STREAM: Final = "text/event-stream"
 _V2_ACTIONS: Final[tuple[tuple[str, Action], ...]] = (("subscribe", "send"), ("publish", "receive"))
-_JSON_FORMATS: Final = re.compile(r"application/(vnd\.aai\.asyncapi|schema)(\+(json|yaml))?(;.*)?")
+_CODED_FORMATS: Final = frozenset(("asyncapi", "jsonschema", "openapi"))
+"""The kinds of `schemaFormat`, the parser's, whose payloads a client codes: those it reads in place, not the Avro,
+Protocol Buffers and XML Schema ones it converts; the format a trait gives, which the parser does not read, too."""
 _SCHEME: Final = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://")
 _DEFAULT_MEDIA: Final = "application/json"
 _TRAIT_FIELDS: Final = frozenset(("contentType", "schemaFormat", "security"))
@@ -94,8 +103,6 @@ _HANDSHAKE_INPUTS: Final[tuple[tuple[str, Literal["query", "header"]], ...]] = (
     ("query", "query"),
     ("headers", "header"),
 )
-_OBJECT_FIELDS: Final = frozenset(("type", "properties", "required", "additionalProperties", "title", "description"))
-"""The keywords of a binding's `query` or `headers` schema that its properties stand for as parameters."""
 _SCHEMES_POINTER: Final = ("components", "securitySchemes")
 _MANAGED_HEADERS: Final = frozenset({
     "connection",
@@ -145,17 +152,35 @@ class ReadParameter:
 
 
 @dataclass(frozen=True, slots=True)
-class ReadHandshakeParameter:
-    """A query or header parameter of a channel's handshake: a property of its binding's `query` or `headers`.
+class ReadMember:
+    """A property of an object schema as the models hold it: a field of the object's model.
 
-    `schema` is where the property's schema is written, and `required` whether the object requires the property.
+    `required` is whether the model requires the field, `fixed` the values its type admits where it admits literal
+    values alone, else None (``TypeTables.fixed``), `type` the field's type, `bound` that type as the models bind it
+    (``ModelFieldFacts.type``), `schema` where the models declare the property, and `written` its schema there as
+    written.
     """
 
     name: str
-    location: Literal["query", "header"]
-    schema: Tokens
     required: bool
-    description: str | None
+    fixed: tuple[object, ...] | None
+    type: DataType
+    bound: TypeView
+    schema: SchemaLocation
+    written: YamlValue
+
+
+Members: TypeAlias = "Callable[[Tokens], tuple[ReadMember, ...] | str]"
+"""The properties the models hold of the object schema at a pointer of the document, or why no parameters stand for
+it, as a phrase."""
+
+
+@dataclass(frozen=True, slots=True)
+class ReadHandshakeParameter:
+    """A query or header parameter of a channel's handshake: a property of its binding's `query` or `headers`."""
+
+    location: Literal["query", "header"]
+    member: ReadMember
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,16 +194,16 @@ class ReadScheme:
 
 @dataclass(frozen=True, slots=True)
 class ReadMessage:
-    """A message a channel carries: where it is declared, what the application does, its codec, and its payload.
+    """A message a channel carries: where it is declared, what the application does, its media type, and its payload.
 
-    `payload` is where the payload schema is written, and `payload_ref` the `$ref` of a payload that is only one, which
-    the message binds as the schema it names. The codec `event` is a server-sent event's, whose data the payload's
-    models decode as JSON.
+    `media` is the essence of its content type, the document's default where it gives none. `payload` is where the
+    payload schema is written, and `payload_ref` the `$ref` of a payload that is only one, which the message binds as
+    the schema it names. How the message travels is the bound models' to decide (`_target_binding.py`).
     """
 
     declaration: Tokens
     action: Action
-    codec: Literal["json", "utf8", "bytes", "event"]
+    media: str
     payload: Tokens
     payload_ref: str | None
 
@@ -252,12 +277,7 @@ class _Document:
 
 def _media(message: Mapping[str, YamlValue], default: str) -> str:
     content = message.get("contentType")
-    return _essence(content if isinstance(content, str) else default)
-
-
-def _essence(media: str) -> str:
-    """Return a media type without its parameters, lowercase."""
-    return media.partition(";")[0].strip().lower()
+    return schema_format_media_type(content if isinstance(content, str) else default)
 
 
 def _scheme_of(url: str) -> tuple[str | None, str]:
@@ -322,10 +342,6 @@ def _revalued(variable: Mapping[str, YamlValue], values: Sequence[YamlValue]) ->
     return {**variable, "default": values[0], **({"enum": list(values[1:])} if "enum" in variable else {})}
 
 
-def _json(media: str) -> bool:
-    return media == _DEFAULT_MEDIA or media.endswith("+json")
-
-
 def _unsubstituted(server: ReadServer) -> str | None:
     """Return why a server's URL has a variable a client cannot substitute, or None where it has none.
 
@@ -339,25 +355,6 @@ def _unsubstituted(server: ReadServer) -> str | None:
         if not isinstance(as_mapping(variables[name]).get("default"), str):
             return f"the variable {name} of server {server.name} has no default"
     return None
-
-
-def _properties(value: YamlValue) -> tuple[dict[str, YamlValue], list[YamlValue]] | None:
-    """Return the properties of an object schema and the names it requires, or None where it says more of the object.
-
-    Only its type `object`, its titles and the keywords of its properties (`_OBJECT_FIELDS`) and extensions may be
-    beside them, and every name it requires must be one of its properties.
-    """
-    if not isinstance(value, dict) or value.get("type", "object") != "object":
-        return None
-    properties, required = value.get("properties", {}), value.get("required", [])
-    if (
-        not isinstance(properties, dict)
-        or not isinstance(required, list)
-        or not all(isinstance(name, str) and name in properties for name in required)
-        or not _OBJECT_FIELDS.issuperset(key for key in map(str, value) if not key.startswith("x-"))
-    ):
-        return None
-    return properties, required
 
 
 def _combined(parts: list[tuple[Requirement, ...] | None]) -> tuple[Requirement, ...] | None:
@@ -395,9 +392,14 @@ def _unordered(security: tuple[Requirement, ...] | None) -> _Unordered | None:
     return frozenset(frozenset((name, frozenset(scopes)) for name, scopes in alternative) for alternative in security)
 
 
-def _declared(document: _Document, parameter: ReadHandshakeParameter) -> tuple[bool, YamlValue]:
-    """Return how a query or header parameter of a handshake is declared, as written but for its description."""
-    return parameter.required, _undescribed(document.value(parameter.schema))
+def _declared(parameter: ReadHandshakeParameter) -> tuple[bool, YamlValue, TypeView]:
+    """Return how a query or header parameter of a handshake is declared, as written but for its description.
+
+    The type the models bind tells apart properties written alike whose references name other schemas, such as
+    `#/definitions/Id` in two documents.
+    """
+    member = parameter.member
+    return member.required, _undescribed(member.written), member.bound
 
 
 def _handshake_inputs(document: _Document, channel: ReadChannel) -> tuple[object, ...]:
@@ -407,7 +409,7 @@ def _handshake_inputs(document: _Document, channel: ReadChannel) -> tuple[object
     """
     return (
         {parameter.name: _undescribed(document.value(parameter.declaration)) for parameter in channel.parameters},
-        {(parameter.location, parameter.name): _declared(document, parameter) for parameter in channel.handshake},
+        {(parameter.location, parameter.member.name): _declared(parameter) for parameter in channel.handshake},
         channel.subprotocols,
         _unordered(channel.security),
     )
@@ -415,9 +417,10 @@ def _handshake_inputs(document: _Document, channel: ReadChannel) -> tuple[object
 
 def _kind(
     document: _Document,
+    members: Members,
     served: list[ReadServer],
     messages: list[ReadMessage],
-    bound: list[tuple[Tokens, Mapping[str, YamlValue], bool]],
+    bound: list[tuple[Tokens, Mapping[str, YamlValue]]],
 ) -> Kind:
     """Return how a client opens a channel: as a server-sent event stream, or as a WebSocket.
 
@@ -426,34 +429,39 @@ def _kind(
     of an operation on it (`bound`) fixes the `Accept` or `Content-Type` header of its GET to `text/event-stream`.
     Any other is a WebSocket, as a channel of HTTP servers whose GET answers otherwise is no stream a client opens.
     """
-    if any(message.codec == "event" for message in messages):
+    if any(message.media == EVENT_STREAM for message in messages):
         return "sse"
     if any(server.kind == "websocket" for server in served):
         return "websocket"
     if any(server.protocol == "sse" for server in served) or any(
-        _streams(document, holder, owner) for holder, owner, _ in bound
+        _streams(document, members, holder, owner) for holder, owner in bound
     ):
         return "sse"
     return "websocket"
 
 
-def _streams(document: _Document, holder: Tokens, owner: Mapping[str, YamlValue]) -> bool:
+def _streams(document: _Document, members: Members, holder: Tokens, owner: Mapping[str, YamlValue]) -> bool:
     """Return whether the HTTP binding of a channel or an operation fixes a media header to `text/event-stream`.
 
     The header is `Accept` or `Content-Type` (`_NEGOTIATED`), a property of the binding's `headers` object, and
-    it is fixed by its `const`, or by an `enum` of that one value.
+    it is fixed where its type admits that one value alone, as the models hold it (`members`).
     """
     bindings = document.resolved(owner.get("bindings"), holder)
-    binding = None if bindings is None else document.resolved(as_mapping(bindings[0]).get("http"), ())
-    headers = None if binding is None else document.resolved(as_mapping(binding[0]).get("headers"), ())
-    if headers is None or (shape := _properties(headers[0])) is None:
+    binding = (
+        None if bindings is None else document.resolved(as_mapping(bindings[0]).get("http"), (*bindings[1], "http"))
+    )
+    headers = (
+        None if binding is None else document.resolved(as_mapping(binding[0]).get("headers"), (*binding[1], "headers"))
+    )
+    if headers is None or isinstance(found := members(headers[1]), str):
         return False
     return any(
-        str(name).lower() in _NEGOTIATED
-        and len(fixed := _fixed_values(document, value)) == 1
-        and isinstance(media := fixed[0], str)
-        and _essence(media) == _EVENT_STREAM
-        for name, value in shape[0].items()
+        member.name.lower() in _NEGOTIATED
+        and member.fixed is not None
+        and len(member.fixed) == 1
+        and isinstance(media := member.fixed[0], str)
+        and schema_format_media_type(media) == EVENT_STREAM
+        for member in found
     )
 
 
@@ -497,33 +505,28 @@ def _bound(
     return (*chosen[1], "bindings"), chosen[0]
 
 
-def _offered(document: _Document, value: YamlValue) -> tuple[str, ...]:
-    """Return the subprotocol tokens a header's schema fixes by its `const` or `enum`, in order, else none.
+def _offered(fixed: tuple[object, ...] | None) -> tuple[str, ...]:
+    """Return the subprotocol tokens a header's type fixes, in order, else none.
 
-    A client offers each subprotocol it speaks and the server selects one, so every value of an `enum` is offered;
+    A client offers each subprotocol it speaks and the server selects one, so every value its type admits is offered;
     a value that is no token offers none.
     """
-    written = _fixed_values(document, value)
-    offered = [item for item in written if isinstance(item, str) and is_token(item)]
-    return tuple(dict.fromkeys(offered)) if len(offered) == len(written) else ()
-
-
-def _fixed_values(document: _Document, value: YamlValue) -> list[YamlValue]:
-    """Return the values a schema fixes by its `const` or `enum`, in order, else none."""
-    schema = as_mapping(None if (found := document.resolved(value, ())) is None else found[0])
-    written = [schema["const"]] if "const" in schema else schema.get("enum")
-    return written if isinstance(written, list) else []
+    values = fixed or ()
+    offered = [item for item in values if isinstance(item, str) and is_token(item)]
+    return tuple(dict.fromkeys(offered)) if len(offered) == len(values) else ()
 
 
 class _Reader:
     """Read the channels of one document by its AsyncAPI version.
 
-    `loaded` returns the schema a `$ref` of the document to another one names in the loaded documents, or None.
+    `loaded` returns the schema a `$ref` of the document to another one names in the loaded documents, or None, and
+    `members` the properties the models hold of an object schema of the document.
     """
 
-    def __init__(self, raw: Mapping[str, YamlValue], loaded: Callable[[str], YamlValue]) -> None:
+    def __init__(self, raw: Mapping[str, YamlValue], loaded: Callable[[str], YamlValue], members: Members) -> None:
         self.document = _Document(raw)
         self.loaded = loaded
+        self.members = members
         version = raw.get("asyncapi")
         self.v2 = isinstance(version, str) and version.startswith("2.")
         default = raw.get("defaultContentType")
@@ -692,15 +695,15 @@ class _Reader:
         if not isinstance(address, str):
             skips.append(("channel_addresses", "it has no address"))
         carried: Skips = []
-        operations: list[tuple[Tokens, Mapping[str, YamlValue], bool]] = []
+        operations: list[tuple[Tokens, Mapping[str, YamlValue]]] = []
         securities: list[tuple[Requirement, ...] | None] = []
         if self.v2:
             messages = list(self.v2_messages(declaration, channel, carried, securities, operations))
         else:
             messages = list(self.v3_messages(declaration, channel, carried, securities, operations))
-        bound = [((*declaration, "bindings"), channel, True), *operations]
+        bound = [((*declaration, "bindings"), channel), *operations]
         served = self.channel_servers(channel)
-        kind = _kind(self.document, [server for server, _ in served], messages, bound)
+        kind = _kind(self.document, self.members, [server for server, _ in served], messages, bound)
         servers = [(server, written) for server, written in served if server.kind == kind]
         if not servers and self.declares_servers:
             skips.append(("server_protocols", f"it is served on no {_PROTOCOLS[kind]} server"))
@@ -733,51 +736,40 @@ class _Reader:
 
     def handshakes(
         self,
-        bound: list[tuple[Tokens, Mapping[str, YamlValue], bool]],
+        bound: list[tuple[Tokens, Mapping[str, YamlValue]]],
         kind: Kind,
         skips: Skips,
         subprotocols: list[str],
     ) -> tuple[ReadHandshakeParameter, ...]:
         """Return the query and header parameters of the bindings that give a channel's handshake its inputs.
 
-        Those are the bindings of the channel and of its operations (`bound`, each with where it is and whether the
-        models type its schemas), which must declare each parameter alike: one declared otherwise by another binding
-        leaves the channel out.
+        Those are the bindings of the channel and of its operations (`bound`, each with where it is), which must
+        declare each parameter alike: one declared otherwise by another binding leaves the channel out.
         """
         _, label, feature = _BINDINGS[kind]
         found: dict[tuple[str, str], ReadHandshakeParameter] = {}
-        for holder, owner, modeled in bound:
-            for parameter in self.handshake(holder, owner, skips, subprotocols, kind, modeled=modeled):
-                earlier = found.setdefault((parameter.location, parameter.name), parameter)
-                if earlier is not parameter and _declared(self.document, earlier) != _declared(
-                    self.document, parameter
-                ):
-                    message = f"its {label}s declare its {parameter.location} parameter {parameter.name} differently"
+        for holder, owner in bound:
+            for parameter in self.handshake(holder, owner, skips, subprotocols, kind):
+                name = parameter.member.name
+                earlier = found.setdefault((parameter.location, name), parameter)
+                if earlier is not parameter and _declared(earlier) != _declared(parameter):
+                    message = f"its {label}s declare its {parameter.location} parameter {name} differently"
                     skips.append((feature, message))
         return tuple(found.values())
 
-    def handshake(  # noqa: PLR0913
-        self,
-        holder: Tokens,
-        owner: Mapping[str, YamlValue],
-        skips: Skips,
-        subprotocols: list[str],
-        kind: Kind,
-        *,
-        modeled: bool,
+    def handshake(
+        self, holder: Tokens, owner: Mapping[str, YamlValue], skips: Skips, subprotocols: list[str], kind: Kind
     ) -> Iterator[ReadHandshakeParameter]:
         """Yield the query and header parameters of the binding of a channel or an operation, which opens it with a GET.
 
         A WebSocket's binding is the channel's `ws` one, and a server-sent event stream's the `http` one of the channel
-        and of each operation on it (`_BINDINGS`). Its `query` and `headers` are object schemas, whose properties are
-        the parameters, required where the object requires them. An object constrained otherwise than by its
-        properties (`_OBJECT_FIELDS`) leaves the channel out, as parameters cannot stand for it. A header the
-        handshake writes itself is no parameter. For a WebSocket (`_MANAGED_HEADERS`), the tokens a
-        `Sec-WebSocket-Protocol` fixes are the subprotocols the handshake offers, added to `subprotocols`; the media
-        headers of a stream's GET (`_NEGOTIATED`) are left unsent, as OpenAPI ignores them; any other such header
-        (`_STREAM_HEADERS`) is left unsent where it is optional, and leaves the channel out where it is required.
-        The models type no schema of the bindings of an AsyncAPI 2 operation (`modeled`), so its `query` or `headers`
-        leaves the channel out.
+        and of each operation on it (`_BINDINGS`). Its `query` and `headers` are object schemas, whose properties, as
+        the models hold them (`members`), are the parameters, required where the models require them; one no
+        parameters stand for leaves the channel out. A header the handshake writes itself is no parameter. For a
+        WebSocket (`_MANAGED_HEADERS`), the tokens a `Sec-WebSocket-Protocol` fixes are the subprotocols the
+        handshake offers, added to `subprotocols`; the media headers of a stream's GET (`_NEGOTIATED`) are left
+        unsent, as OpenAPI ignores them; any other such header (`_STREAM_HEADERS`) is left unsent where it is
+        optional, and leaves the channel out where it is required.
         """
         protocol, label, feature = _BINDINGS[kind]
         if (bindings := self.document.resolved(owner.get("bindings"), holder)) is None:
@@ -794,36 +786,21 @@ class _Reader:
         for name, location in _HANDSHAKE_INPUTS:
             if name not in binding:
                 continue
-            if not modeled:
-                skips.append((
-                    feature,
-                    f"the {label} of an AsyncAPI 2 operation on it declares {name}, which no model types",
-                ))
-                continue
             if (target := self.document.resolved(binding[name], (*written, name))) is None:
                 skips.append((None, f"the {name} schema of its {label} references another document"))
                 continue
-            if (shape := _properties(target[0])) is None:
-                message = f"the {name} schema of its {label} is not an object of properties"
-                skips.append((feature, message))
+            if isinstance(members := self.members(target[1]), str):
+                skips.append((feature, f"the {name} schema of its {label} {members}"))
                 continue
-            properties, required = shape
-            for key, value in properties.items():
-                if location == "header" and (managed := str(key).lower()) in managed_headers:
-                    if managed == _SUBPROTOCOL and (offered := _offered(self.document, value)):
+            for member in members:
+                if location == "header" and (managed := member.name.lower()) in managed_headers:
+                    if managed == _SUBPROTOCOL and (offered := _offered(member.fixed)):
                         subprotocols.extend(offered)
-                    elif key in required and managed not in _NEGOTIATED:
-                        message = f"its {label} sets the header {key}, which the handshake writes itself"
+                    elif member.required and managed not in _NEGOTIATED:
+                        message = f"its {label} sets the header {member.name}, which the handshake writes itself"
                         skips.append((feature, message))
                     continue
-                description = as_mapping(value).get("description")
-                yield ReadHandshakeParameter(
-                    str(key),
-                    location,
-                    (*target[1], "properties", str(key)),
-                    key in required,
-                    description if isinstance(description, str) else None,
-                )
+                yield ReadHandshakeParameter(location, member)
 
     def requirements(self, value: YamlValue, owner: str, skips: Skips) -> tuple[Requirement, ...] | None:
         """Return the alternatives of a server's or an operation's security, None where it needs none.
@@ -919,17 +896,17 @@ class _Reader:
         channel: Mapping[str, YamlValue],
         skips: Skips,
         securities: list[tuple[Requirement, ...] | None],
-        operations: list[tuple[Tokens, Mapping[str, YamlValue], bool]],
+        operations: list[tuple[Tokens, Mapping[str, YamlValue]]],
     ) -> Iterator[ReadMessage]:
         """Yield the messages of an AsyncAPI 2 channel's operations, and their alternatives under `oneOf`.
 
         The security of each operation is added to `securities`, and the operation, with where its bindings are, to
-        `operations`, as one whose binding schemas no model types.
+        `operations`.
         """
         for name, action in _V2_ACTIONS:
             if not isinstance(written := channel.get(name), dict):
                 continue
-            operations.append((*_bound(self.document, written, (*declaration, name), v2=True), False))
+            operations.append(_bound(self.document, written, (*declaration, name), v2=True))
             if (operation := self.traited(written)) is None:
                 skips.append((None, f"a trait of its {name} operation references another document"))
                 continue
@@ -952,12 +929,12 @@ class _Reader:
         channel: Mapping[str, YamlValue],
         skips: Skips,
         securities: list[tuple[Requirement, ...] | None],
-        operations: list[tuple[Tokens, Mapping[str, YamlValue], bool]],
+        operations: list[tuple[Tokens, Mapping[str, YamlValue]]],
     ) -> Iterator[ReadMessage]:
         """Yield the messages of the AsyncAPI 3 operations on a channel: those an operation lists, else all of them.
 
         The security of each operation is added to `securities`, and the operation, with where its bindings are, to
-        `operations`, as one whose binding schemas the models type.
+        `operations`.
         """
         holder = (*declaration, "messages")
         own = [(str(key), value) for key, value in as_mapping(channel.get("messages")).items()]
@@ -967,7 +944,7 @@ class _Reader:
             action = written.get("action")
             if action not in {"send", "receive"}:
                 continue
-            operations.append((*_bound(self.document, written, pointer_tokens(pointer), v2=False), True))
+            operations.append(_bound(self.document, written, pointer_tokens(pointer), v2=False))
             if (operation := self.traited(written)) is None:
                 skips.append((None, f"a trait of operation {pointer} references another document"))
                 continue
@@ -1047,7 +1024,7 @@ class _Reader:
         return merged
 
     def message(self, value: YamlValue, written: Tokens, action: object, skips: Skips) -> Iterator[ReadMessage]:
-        """Yield one message as the application sends or receives it, recording why a client cannot code it."""
+        """Yield one message as the application sends or receives it, recording why a client cannot read its payload."""
         if (found := self.document.resolved(value, written)) is None:
             skips.append((None, "a message of it references another document"))
             return
@@ -1059,9 +1036,10 @@ class _Reader:
         payload = message.get("payload")
         schema_format = message.get("schemaFormat")
         tokens: Tokens = (*declaration, "payload")
-        if isinstance(payload, dict) and "schemaFormat" in payload and "schema" in payload:
-            schema_format, payload, tokens = payload["schemaFormat"], payload["schema"], (*tokens, "schema")
-        if isinstance(schema_format, str) and not _JSON_FORMATS.fullmatch(schema_format):
+        if (held := held_schema(payload, schema_format)) is not None:
+            payload, schema_format = held
+            tokens = (*tokens, "schema")
+        if isinstance(schema_format, str) and schema_format_kind(schema_format) not in _CODED_FORMATS:
             skips.append(("message_content_types", f"the payload of message {pointer} is a {schema_format} schema"))
             return
         if payload is None:
@@ -1069,34 +1047,20 @@ class _Reader:
             return
         ref = as_mapping(payload).get("$ref")
         payload_ref = ref if isinstance(ref, str) and len(as_mapping(payload)) == 1 else None
-        if (target := self.document.resolved(payload, tokens, self.loaded)) is None:
+        if self.document.resolved(payload, tokens, self.loaded) is None:
             skips.append((None, f"the payload of message {pointer} does not resolve in the loaded documents"))
             return
         media = _media(message, self.default_media)
-        schema = as_mapping(target[0])
-        encoding = schema.get("contentEncoding")
-        binary = encoding is None and schema.get("format") == "binary"
-        if media == _EVENT_STREAM:
-            codec: Literal["json", "utf8", "bytes", "event"] = "event"
-        elif media == "application/octet-stream" or (binary and not _json(media)):
-            codec = "bytes"
-        elif media == "text/plain" and encoding is None and schema.get("type") == "string":
-            codec = "utf8"
-        elif _json(media):
-            codec = "json"
-        else:
-            content = media if encoding is None else f"{media} encoded as {encoding}"
-            skips.append(("message_content_types", f"message {pointer} has content type {content}"))
-            return
-        yield ReadMessage(declaration, "send" if action == "send" else "receive", codec, tokens, payload_ref)
+        yield ReadMessage(declaration, "send" if action == "send" else "receive", media, tokens, payload_ref)
 
 
-def read(raw: Mapping[str, YamlValue], loaded: Callable[[str], YamlValue]) -> ReadDocument:
+def read(raw: Mapping[str, YamlValue], loaded: Callable[[str], YamlValue], members: Members) -> ReadDocument:
     """Return every connection of a loaded AsyncAPI document, in document order, and the schemes a handshake can send.
 
-    `loaded` returns the schema a `$ref` of the document to another one names in the loaded documents, or None.
+    `loaded` returns the schema a `$ref` of the document to another one names in the loaded documents, or None, and
+    `members` the properties the models hold of an object schema of the document, or why no parameters stand for it.
     """
-    reader = _Reader(raw, loaded)
+    reader = _Reader(raw, loaded, members)
     return ReadDocument(
         tuple(reader.connections()),
         tuple(scheme for scheme in reader.schemes.values() if isinstance(scheme, ReadScheme)),

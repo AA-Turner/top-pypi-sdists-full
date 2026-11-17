@@ -434,8 +434,9 @@ def export_from_registries(
             AggregateBackfillTarget.ONLINE_SUMMARIES: cron_aggregate_backfill_pb.CRON_AGGREGATE_BACKFILL_TARGET_ONLINE_SUMMARIES,
         }
         proto_targets = [proto_target_by_storage_target[target] for target in backfill.targets]
-        # environment/num_shards/include_partial_bucket are passed only when set; the proto fields are added in
-        # artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
+        # environment/num_shards/include_partial_bucket/companion_schedule are passed only when set; the proto
+        # fields are added in artifacts.v1.CronAggregateBackfill (Layer 2) and None would raise on older stubs.
+        # companion_schedule carries online_refresh_schedule.
         optional_backfill_fields: Dict[str, Any] = {}
         if backfill.environment is not None:
             optional_backfill_fields["environment"] = backfill.environment
@@ -443,6 +444,12 @@ def export_from_registries(
             optional_backfill_fields["num_shards"] = backfill.num_shards
         if backfill.include_partial_bucket:
             optional_backfill_fields["include_partial_bucket"] = True
+        if backfill.online_refresh_schedule is not None:
+            optional_backfill_fields["companion_schedule"] = (
+                timedelta_to_duration(backfill.online_refresh_schedule)
+                if isinstance(backfill.online_refresh_schedule, timedelta)
+                else backfill.online_refresh_schedule
+            )
         cron_aggregate_backfills.append(
             cron_aggregate_backfill_pb.CronAggregateBackfill(
                 name=backfill.name,

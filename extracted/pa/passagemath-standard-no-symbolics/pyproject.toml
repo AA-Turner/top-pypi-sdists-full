@@ -1,0 +1,284 @@
+[build-system]
+# Minimum requirements for the build system to execute.
+requires = [
+    # Some version of sage-conf is required.
+    # Note that PEP517/518 have no notion of optional sage_spkg dependencies:
+    # https://github.com/pypa/pip/issues/6144
+    'passagemath-conf ~= 10.8.14.0 ; sys_platform != "win32"',
+    'setuptools >= 77.0.0',
+    'passagemath-setup ~= 10.8.14.0',
+    'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
+    'cython >=3.1.0,<3.4.0',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
+    'jinja2 >=3.0',
+    'jupyter-core',
+    'numpy >=2.1',
+    'pkgconfig',
+    'memory_allocator <0.2',
+    'passagemath-environment ~= 10.8.14.0',
+    'passagemath-objects ~= 10.8.14.0',
+    'passagemath-categories ~= 10.8.14.0',
+    'passagemath-modules ~= 10.8.14.0',
+    'passagemath-graphs ~= 10.8.14.0',
+    'passagemath-combinat ~= 10.8.14.0',
+    'passagemath-ntl ~= 10.8.14.0',
+    'passagemath-pari ~= 10.8.14.0',
+    'passagemath-repl ~= 10.8.14.0',
+    'passagemath-singular ~= 10.8.14.0',
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "passagemath-standard-no-symbolics"
+description = "passagemath: Sage library without the symbolics subsystem"
+dependencies = [
+    'six >=1.15.0',
+    'passagemath-brial ~= 10.8.14.0',
+    'passagemath-categories ~= 10.8.14.0',
+    'passagemath-cddlib ~= 10.8.14.0',
+    'passagemath-cliquer ~= 10.8.14.0',
+    'passagemath-combinat ~= 10.8.14.0',
+    'passagemath-eclib ~= 10.8.14.0',
+    'passagemath-environment ~= 10.8.14.0',
+    'passagemath-flint ~= 10.8.14.0',
+    'passagemath-gap ~= 10.8.14.0',
+    'passagemath-gap-pkg-transgrp-data ~= 10.8.14.0',
+    'passagemath-gap-pkg-ctbllib-data ~= 10.8.14.0',
+    'passagemath-gap-pkg-tomlib-data ~= 10.8.14.0',
+    'passagemath-gap-pkg-irredsol-data ~= 10.8.14.0',
+    'passagemath-glpk ~= 10.8.14.0',
+    'passagemath-graphs ~= 10.8.14.0',
+    'passagemath-groups ~= 10.8.14.0',
+    'passagemath-highs ~= 10.8.14.0',
+    'passagemath-homfly ~= 10.8.14.0',
+    'passagemath-lcalc ~= 10.8.14.0',
+    'passagemath-libbraiding ~= 10.8.14.0',
+    'passagemath-libecm ~= 10.8.14.0',
+    'passagemath-linbox ~= 10.8.14.0',
+    'passagemath-modules ~= 10.8.14.0',
+    'passagemath-nauty ~= 10.8.14.0',
+    'passagemath-ntl ~= 10.8.14.0',
+    'passagemath-objects ~= 10.8.14.0',
+    'passagemath-palp ~= 10.8.14.0',
+    'passagemath-pari ~= 10.8.14.0',
+    'passagemath-pari-galdata ~= 10.8.14.0',
+    'passagemath-pari-seadata-small ~= 10.8.14.0',
+    'passagemath-planarity ~= 10.8.14.0',
+    'passagemath-plot ~= 10.8.14.0',
+    'passagemath-polyhedra ~= 10.8.14.0',
+    'passagemath-repl ~= 10.8.14.0',
+    'passagemath-schemes ~= 10.8.14.0',
+    'passagemath-singular ~= 10.8.14.0',
+    'passagemath-tachyon ~= 10.8.14.0',
+    'cysignals !=1.12.4; sys_platform == "win32"', 'cysignals >= 1.12.6; python_version >= "3.14"', 'cysignals >=1.11.2, != 1.12.0',
+    'cython >=3.1.0,<3.4.0',
+    'gmpy2 ~=2.1.b999', 'gmpy2 ~=2.3.b1; sys_platform == "win32"',
+    'jupyter-core',
+    'lrcalc ~=2.1',
+    'memory_allocator <0.2',
+    'numpy >=2.1',
+    'pkgconfig',
+    'passagemath-ppl',
+    'passagemath-primesieve-primecount',
+    'requests >=2.13.0',
+    'ipython >=7.13.0',
+    'pexpect >=4.8.0',
+    'sphinx >=6.2, <9',
+    'networkx >=3.1',
+    'scipy >=1.11',
+    'matplotlib >=3.7.0',
+    'pillow >=7.2.0',
+    'ipykernel >=5.2.1',
+    'jupyter-client',
+    'ipywidgets >=7.5.1',
+    'fpylll >=0.5.9; sys_platform != "win32"',
+    'ptyprocess > 0.5',
+]
+dynamic = ["version"]
+license = "GPL-2.0-or-later"
+authors = [{name = "The Sage Developers", email = "sage-support@googlegroups.com"}]
+maintainers = [
+    {name = "Matthias Köppe"},
+    {name = "passagemath contributors"},
+]
+classifiers = [
+    "Development Status :: 6 - Mature",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "Operating System :: POSIX",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS :: MacOS X",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+requires-python = ">=3.11, <3.15"
+
+[project.urls]
+"release notes" = "https://github.com/passagemath/passagemath/releases"
+"repo (upstream)" = "https://github.com/sagemath/sage"
+"repo" = "https://github.com/passagemath/passagemath"
+documentation = "https://passagemath.org/docs/latest"
+"homepage (upstream)" = "https://www.sagemath.org"
+"discourse" = "https://passagemath.discourse.group"
+"tracker (upstream)" = "https://github.com/sagemath/sage/issues"
+"tracker" = "https://github.com/passagemath/passagemath/issues"
+
+[tool.uv.sources]
+passagemath-bootstrap = { workspace = true}
+passagemath-conf = { workspace = true }
+passagemath-setup = { workspace = true }
+passagemath-docbuild = { workspace = true }
+passagemath-sws2rst = { workspace = true }
+#
+passagemath-benzene = { workspace = true }
+passagemath-bliss = { workspace = true }
+passagemath-brial = { workspace = true }
+passagemath-buckygen = { workspace = true }
+passagemath-categories = { workspace = true }
+passagemath-cddlib = { workspace = true }
+passagemath-cliquer = { workspace = true }
+passagemath-cmr = { workspace = true }
+passagemath-combinat = { workspace = true }
+passagemath-coxeter3 = { workspace = true }
+passagemath-database-cremona-ellcurve = { workspace = true }
+passagemath-database-cunningham = { workspace = true }
+passagemath-database-jones-numfield = { workspace = true }
+passagemath-database-kohel = { workspace = true }
+passagemath-database-mutation-class = { workspace = true }
+passagemath-database-odlyzko-zeta = { workspace = true }
+passagemath-database-polytopes-4d = { workspace = true }
+passagemath-database-stein-watkins = { workspace = true }
+passagemath-database-stein-watkins-mini = { workspace = true }
+passagemath-database-symbolic-data = { workspace = true }
+passagemath-doc-html = { workspace = true }
+passagemath-doc-pdf = { workspace = true }
+passagemath-ecl = { workspace = true }
+passagemath-eclib = { workspace = true }
+passagemath-environment = { workspace = true }
+passagemath-flint = { workspace = true }
+passagemath-fricas = { workspace = true }
+passagemath-frobby = { workspace = true }
+passagemath-gap = { workspace = true }
+passagemath-gap-pkg-agt-data = { workspace = true }
+passagemath-gap-pkg-caratinterface = { workspace = true }
+passagemath-gap-pkg-cddinterface = { workspace = true }
+passagemath-gap-pkg-ctbllib-data = { workspace = true }
+passagemath-gap-pkg-curlinterface = { workspace = true }
+passagemath-gap-pkg-difsets-data = { workspace = true }
+passagemath-gap-pkg-factint-data = { workspace = true }
+passagemath-gap-pkg-float = { workspace = true }
+passagemath-gap-pkg-irredsol-data = { workspace = true }
+passagemath-gap-pkg-normalizinterface = { workspace = true }
+passagemath-gap-pkg-numericalsgps-data = { workspace = true }
+passagemath-gap-pkg-perfgrp-data = { workspace = true }
+passagemath-gap-pkg-primgrp-data = { workspace = true }
+passagemath-gap-pkg-rcwa-data = { workspace = true }
+passagemath-gap-pkg-semigroups = { workspace = true }
+passagemath-gap-pkg-sglppow-data = { workspace = true }
+passagemath-gap-pkg-simpcomp-data = { workspace = true }
+passagemath-gap-pkg-smallgrp-data = { workspace = true }
+passagemath-gap-pkg-smallsemi-data = { workspace = true }
+passagemath-gap-pkg-sonata-data = { workspace = true }
+passagemath-gap-pkg-tomlib-data = { workspace = true }
+passagemath-gap-pkg-transgrp-data = { workspace = true }
+passagemath-gap-pkg-unitlib-data = { workspace = true }
+passagemath-gap-pkg-yangbaxter-data = { workspace = true }
+passagemath-gap3 = { workspace = true }
+passagemath-gfan = { workspace = true }
+passagemath-giac = { workspace = true }
+passagemath-glpk = { workspace = true }
+passagemath-glucose = { workspace = true }
+passagemath-graphs = { workspace = true }
+passagemath-graphviz = { workspace = true }
+passagemath-groups = { workspace = true }
+passagemath-gsl = { workspace = true }
+passagemath-highs = { workspace = true }
+passagemath-homfly = { workspace = true }
+passagemath-iml = { workspace = true }
+passagemath-kenzo = { workspace = true }
+passagemath-kissat = { workspace = true }
+passagemath-latte-4ti2 = { workspace = true }
+passagemath-lcalc = { workspace = true }
+passagemath-libbraiding = { workspace = true }
+passagemath-libecm = { workspace = true }
+passagemath-lie = { workspace = true }
+passagemath-linbox = { workspace = true }
+passagemath-lrslib = { workspace = true }
+passagemath-m4ri-m4rie = { workspace = true }
+passagemath-macaulay2 = { workspace = true }
+passagemath-macaulay2-doc = { workspace = true }
+passagemath-mathilda = { workspace = true }
+passagemath-maxima = { workspace = true }
+passagemath-mcqd = { workspace = true }
+passagemath-meataxe = { workspace = true }
+passagemath-modules = { workspace = true }
+passagemath-msolve = { workspace = true }
+passagemath-nauty = { workspace = true }
+passagemath-ntl = { workspace = true }
+passagemath-objects = { workspace = true }
+passagemath-palp = { workspace = true }
+passagemath-pari = { workspace = true }
+passagemath-pari-elldata = { workspace = true }
+passagemath-pari-galdata = { workspace = true }
+passagemath-pari-galpol = { workspace = true }
+passagemath-pari-nflistdata = { workspace = true }
+passagemath-pari-nftables = { workspace = true }
+passagemath-pari-seadata = { workspace = true }
+passagemath-pari-seadata-big = { workspace = true }
+passagemath-pari-seadata-small = { workspace = true }
+passagemath-planarity = { workspace = true }
+passagemath-plantri = { workspace = true }
+passagemath-plot = { workspace = true }
+passagemath-polyhedra = { workspace = true }
+passagemath-polymake = { workspace = true }
+passagemath-qepcad = { workspace = true }
+passagemath-rankwidth = { workspace = true }
+passagemath-repl = { workspace = true }
+passagemath-rubiks = { workspace = true }
+passagemath-schemes = { workspace = true }
+passagemath-singular = { workspace = true }
+passagemath-sirocco = { workspace = true }
+passagemath-standard = { workspace = true }
+passagemath-standard-no-symbolics = { workspace = true }
+passagemath-symbolics = { workspace = true }
+passagemath-sympow = { workspace = true }
+passagemath-tachyon = { workspace = true }
+passagemath-tdlib = { workspace = true }
+passagemath-tides = { workspace = true }
+passagemath-topcom = { workspace = true }
+
+[project.readme]
+file = "README.rst"
+content-type = "text/x-rst"
+
+[project.optional-dependencies]
+test = [
+]
+
+[tool.setuptools]
+script-files = [
+    # Only makes sense in sage-the-distribution. TODO: Move to another installation script.
+    "bin/sage-list-packages",
+    # Uncategorized scripts in alphabetical order
+    "bin/sage-grep",
+    "bin/sage-grepdoc",
+]
+include-package-data = false
+
+[tool.setuptools.package-data]
+sage = [
+    "ext_data/*",
+    "ext_data/images/*",
+    "ext_data/mwrank/*",
+    "ext_data/notebook-ipython/*",
+    "ext_data/nbconvert/*",
+    "ext_data/valgrind/*",
+]
+
+[tool.setuptools.dynamic]
+version = {file = ["VERSION.txt"]}

@@ -8,8 +8,8 @@ JSON pointer walk (``get_model_by_path``, ``split_json_pointer``, ``unescape_jso
 
 from __future__ import annotations
 
-from dataclasses import replace
 from functools import partial
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, NamedTuple
 
 from typing_extensions import Protocol, Sentinel
@@ -18,12 +18,12 @@ from datamodel_code_generator._document_reader import ArrayIndexOutOfRangeError,
 from datamodel_code_generator._json_pointer import decode_token, fragment_pointer, is_pointer_fragment
 from datamodel_code_generator._json_schema import (
     INSTANCE_DATA_KEYWORDS,
-    SCHEMA_MAP_KEYS,
     SCHEMA_POSITIONS,
     admitted_types,
+    json_value_type,
     schema_positions,
 )
-from datamodel_code_generator._openapi_paths import PATH_ITEM_METHODS
+from datamodel_code_generator._openapi_objects import OBJECT_MEMBERS
 from datamodel_code_generator._source import YamlValue  # noqa: TC001 - Public annotations support get_type_hints().
 from datamodel_code_generator.parser._intersection import ENUM_ENTRY_NAMES, intersect_keywords, kept_enum_entries
 from datamodel_code_generator.parser._null_facts import dump_null_sources, resolve_null_facts
@@ -61,20 +61,9 @@ def _schema_dump(schema: JsonSchemaObject | bool) -> dict[str, Any] | bool:  # r
     return schema.model_dump(exclude_unset=True, by_alias=True) if isinstance(schema, JsonSchemaObject) else schema
 
 
-_JSON_VALUE_TYPES: Final = (
-    (bool, "boolean"),
-    (int, "integer"),
-    (float, "number"),
-    (str, "string"),
-    (list, "array"),
-    (dict, "object"),
-    (type(None), "null"),
-)
-
-
 def _get_json_value_type(value: object) -> str:
-    """Return a JSON Schema primitive type name for a concrete value."""
-    return next((name for kind, name in _JSON_VALUE_TYPES if isinstance(value, kind)), "")
+    """Return a JSON Schema primitive type name for a concrete value, ``""`` for a value outside JSON."""
+    return json_value_type(value) or ""
 
 
 def _json_value_admitted(schema_types: AbstractSet[str], value: object) -> bool:
@@ -112,17 +101,7 @@ def _dump_parts_admit_null(parts: Sequence[Mapping[str, Any]], *, own_last: bool
 
 def _dump_enum_entries_skip_null(dump: Mapping[str, Any]) -> bool:
     """Return whether the ``x-enum-*`` entries of a dumped schema leave out the null of its enum (site ``enum``)."""
-    return (
-        resolve_null_facts(
-            replace(
-                dump_null_sources(dump),
-                type_string=dump.get("type") == "string",
-                enum_null=None in (dump.get("enum") or ()),
-            ),
-            "enum",
-        ).rule
-        == "enum-null-as-nullable"
-    )
+    return resolve_null_facts(dump_null_sources(dump), "enum").rule == "enum-null-as-nullable"
 
 
 def _intersect_dumps(  # noqa: PLR0913
@@ -358,14 +337,32 @@ SlashNames = Literal["joined", "uri"]
 """How a JSON pointer reads a ``/`` it writes unescaped inside a name: row ``joined`` joins the parts from a part that
 names no member, the most first, into a key the object holds; row ``uri``, that of --read-escaped-ref-pointers, joins
 them only into a name that holds ``://``, as JSON Pointer reads every other unescaped ``/`` as a separator."""
+PointerReading = (
+    SlashNames | Literal["legacy-split-pointer-tokens", "legacy-drop-empty-tokens", "legacy-cycle-through-scalar"]
+)
+"""How a reader of a reference splits its fragment (``ref_fragment_tokens``): the parser's ``SlashNames``, or the legacy
+row of its call site; ``legacy-cycle-through-scalar`` also refuses a walk through a value that is no container."""
 
 
-def _fragment_value(document: Any, fragment: str, *, or_missing: bool = False, names: SlashNames = "joined") -> Any:
-    """Return the value a JSON pointer fragment names in a loaded document, the document itself for no fragment."""
-    return (
-        _get_model_by_decoded_path(document, split_json_pointer(document, fragment, names=names), or_missing=or_missing)
-        if fragment
-        else document
+def ref_fragment_tokens(document: Any, fragment: str, reading: PointerReading) -> list[str]:
+    """Return the decoded tokens a reference fragment names in a loaded document, as ``reading`` splits it."""
+    match reading:
+        case "joined" | "uri":
+            return split_json_pointer(document, fragment, names=reading)
+        case "legacy-split-pointer-tokens":
+            tokens = fragment.split("/")[1:]
+        case _:
+            tokens = [token for token in fragment.split("/") if token]
+    return list(map(unescape_json_pointer_segment, tokens))
+
+
+def _fragment_value(document: Any, fragment: str, *, or_missing: bool = False, reading: PointerReading) -> Any:
+    """Return the value a reference fragment names in a loaded document, as ``reading`` splits it; ``""`` names it."""
+    if not fragment:
+        return document
+    tokens = ref_fragment_tokens(document, fragment, reading)
+    return _get_model_by_decoded_path(
+        document, tokens, or_missing=or_missing, refuse_scalar=reading == "legacy-cycle-through-scalar"
     )
 
 
@@ -428,24 +425,38 @@ def _split_json_pointer(
     return parts, reference_parts
 
 
-_NON_SCHEMA_KEYWORDS = INSTANCE_DATA_KEYWORDS | {
-    "links",
-    "security",
-    "server",
-    "serverVariables",
-    "servers",
-}
-_NAMED_ENTRY_MAP_KEYWORDS = SCHEMA_MAP_KEYS | {
-    "callbacks",
-    "channels",
-    "content",
-    "encoding",
-    "messages",
-    "operations",
-    "parameters",
-    "responses",
-    "webhooks",
-}
+_DOCUMENT_KEYWORDS: Final[Mapping[str, Literal["data", "entries", "edge-entries", "holder"]]] = MappingProxyType({
+    **dict.fromkeys((name for members in OBJECT_MEMBERS.values() for name in members), "holder"),
+    **dict.fromkeys(
+        (*INSTANCE_DATA_KEYWORDS, "discriminator", "links", "security", "server", "serverVariables", "servers"), "data"
+    ),
+    **dict.fromkeys(
+        (
+            *("callbacks", "channels", "content", "encoding", "messages"),
+            *("operations", "parameters", "responses", "webhooks"),
+        ),
+        "entries",
+    ),
+    **dict.fromkeys(("bindings", "paths"), "edge-entries"),
+    **dict.fromkeys(
+        (
+            *("channel", "components", "message", "messageTraits", "operationTraits", "payload", "pathItems"),
+            *("publish", "reply", "requestBodies", "schemas", "subscribe", "traits", "x-propertyNames"),
+        ),
+        "holder",
+    ),
+})
+"""The keywords of a document object beside the subschema keywords (``SCHEMA_POSITIONS``), by what their value holds.
+
+``data``: instance data, discriminator objects, links, security requirements and servers, which hold no schemas.
+``entries``: a map of named entries, whose keys are names. ``edge-entries``: one that only `$ref` edges read as names.
+``holder``: schemas or the objects around them: every member of ``OBJECT_MEMBERS`` that a later group does not list as
+data or entries (later groups win), and the keywords listed last. An extension (``x-``) is data unless listed. Each walk
+reads it through its view.
+"""
+_NON_SCHEMA_KEYWORDS: Final = frozenset(key for key, role in _DOCUMENT_KEYWORDS.items() if role == "data")
+"""The keywords whose values hold no schemas (data); the read of a whole document reads every other key (row
+``legacy-read-document-every-key``), `$ref` edges below the root only those of ``_REF_EDGE_KEYWORDS``."""
 _DocumentEntries = Literal["object", "names", "maps"]
 
 
@@ -455,7 +466,7 @@ def _document_child_entries(
     """Return how the value under a key of a document object is read, or None when it holds no schemas."""
     if entries == "names":
         return "object"
-    if key in _NON_SCHEMA_KEYWORDS or (isinstance(key, str) and key.startswith("x-") and key != "x-propertyNames"):
+    if key in _NON_SCHEMA_KEYWORDS or (isinstance(key, str) and key.startswith("x-") and key not in _DOCUMENT_KEYWORDS):
         return None
     child: _DocumentEntries = "object"
     match entries, key:
@@ -469,35 +480,10 @@ def _document_child_entries(
 
 
 _RefEdgeEntries = Literal["root", "object", "names", "maps"]
-_REF_EDGE_NAME_MAPS = frozenset({"bindings", "paths"})
-_REF_EDGE_KEYWORDS = (
-    frozenset(SCHEMA_POSITIONS)
-    | _NAMED_ENTRY_MAP_KEYWORDS
-    | _REF_EDGE_NAME_MAPS
-    | {
-        *PATH_ITEM_METHODS,
-        "additionalOperations",
-        "channel",
-        "components",
-        "headers",
-        "message",
-        "messageTraits",
-        "operationTraits",
-        "payload",
-        "pathItems",
-        "publish",
-        "reply",
-        "requestBodies",
-        "requestBody",
-        "schema",
-        "schemas",
-        "itemSchema",
-        "subscribe",
-        "traits",
-        "x-propertyNames",
-    }
-)
-"""The keywords of a schema, path item, operation or message object under which another such object is read."""
+_REF_EDGE_NAME_MAPS: Final = frozenset(key for key, role in _DOCUMENT_KEYWORDS.items() if role == "edge-entries")
+_REF_EDGE_KEYWORDS: Final = frozenset(SCHEMA_POSITIONS).union(_DOCUMENT_KEYWORDS.keys() - _NON_SCHEMA_KEYWORDS)
+"""The view of `$ref` edges: the keywords of a schema, path item, operation or message object under which another such
+object is read, the subschema keywords and every keyword of the table that holds no data."""
 
 
 def _ref_edge_child_entries(

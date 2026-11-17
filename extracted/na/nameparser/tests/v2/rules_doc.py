@@ -133,6 +133,20 @@ POLICIES: dict[str, Policy] = {
         name_order=FAMILY_FIRST_GIVEN_LAST, two_family_names=True),
     "two_family_names+middle_as_family": Policy(
         two_family_names=True, middle_as_family=True),
+    #: rules/O8's switch (#1254), named after its field as O6's is,
+    #: with each order, the rule standing down under both family-first
+    #: ones, and with the switches it reads before.
+    "initials_as_family": Policy(initials_as_family=True),
+    "family-first+initials_as_family": Policy(
+        name_order=FAMILY_FIRST, initials_as_family=True),
+    "family-first-given-last+initials_as_family": Policy(
+        name_order=FAMILY_FIRST_GIVEN_LAST, initials_as_family=True),
+    "initials_as_family+two_family_names": Policy(
+        initials_as_family=True, two_family_names=True),
+    "initials_as_family+two_given_names": Policy(
+        initials_as_family=True, two_given_names=True),
+    "initials_as_family+middle_as_family": Policy(
+        initials_as_family=True, middle_as_family=True),
     #: rules/O7's switch (#704), named after its field as O6's is,
     #: with each order, with O6's switch it reads after and with
     #: middle_as_family, which reads after it.
@@ -168,7 +182,7 @@ POLICIES: dict[str, Policy] = {
     #: the reason above and carrying the DELIMITER in the suffix,
     #: because this field's value is a set rather than a flag: a rule
     #: reached only under a configured separator has to say which one,
-    #: and " | " is the spelling docs/customize.rst teaches and the
+    #: and " | " is the spelling docs/policy.rst teaches and the
     #: one the group tests configure (" - " until #889 made a hyphen
     #: standing alone built in).
     "extra_suffix_delimiters-pipe": Policy(
@@ -179,6 +193,28 @@ POLICIES: dict[str, Policy] = {
     "lone_name_word-family": Policy(lone_name_word=Role.FAMILY),
     "family-first+lone_name_word-family": Policy(
         name_order=FAMILY_FIRST, lone_name_word=Role.FAMILY),
+    #: rules/O9's switch (#659), named after its field as O6's is, with
+    #: each order, which it does not follow, the switches it reads
+    #: before or after, and a patronymic rule whose view it leaves.
+    "capitals_as_family": Policy(capitals_as_family=True),
+    "family-first+capitals_as_family": Policy(
+        name_order=FAMILY_FIRST, capitals_as_family=True),
+    "family-first-given-last+capitals_as_family": Policy(
+        name_order=FAMILY_FIRST_GIVEN_LAST, capitals_as_family=True),
+    "capitals_as_family+two_family_names": Policy(
+        capitals_as_family=True, two_family_names=True),
+    "capitals_as_family+initials_as_family": Policy(
+        capitals_as_family=True, initials_as_family=True),
+    "capitals_as_family+two_given_names": Policy(
+        capitals_as_family=True, two_given_names=True),
+    "capitals_as_family+middle_as_family": Policy(
+        capitals_as_family=True, middle_as_family=True),
+    "capitals_as_family+east-slavic": Policy(
+        capitals_as_family=True,
+        patronymic_rules=frozenset({PatronymicRule.EAST_SLAVIC})),
+    "capitals_as_family+turkic": Policy(
+        capitals_as_family=True,
+        patronymic_rules=frozenset({PatronymicRule.TURKIC})),
 }
 from nameparser._lexicon import Lexicon  # noqa: E402
 from nameparser.locales._es_given_names import GIVEN_NAMES  # noqa: E402
@@ -216,10 +252,23 @@ def _bad_order_none() -> object:
     return Policy(name_order=None)  # type: ignore[arg-type]
 
 
+def _capitals_everywhere() -> object:
+    return Policy(capitals_as_family=True,
+                  unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE)
+
+
+def _capitals_patched_everywhere() -> object:
+    from nameparser import PolicyPatch
+    return Policy(capitals_as_family=True).patched(PolicyPatch(
+        unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE))
+
+
 SUBJECTS: dict[str, object] = {
     "segmenterless-ja": _segmenterless_ja,
     "bad-name-order": _bad_name_order,
     "bad-order-none": _bad_order_none,
+    "capitals-everywhere": _capitals_everywhere,
+    "capitals-patched-everywhere": _capitals_patched_everywhere,
 }
 
 #: Extras gates: locale requiring an optional dependency; the examples

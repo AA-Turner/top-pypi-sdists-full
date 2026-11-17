@@ -24,9 +24,10 @@ class RunOptionsParam(TypedDict, total=False):
   training state. batch_size sets the total number of task groups per batch; each budget counts
   as a separate group. Learn more: https://www.trajectory.ai/field-notes/intelligence-density
   """
-  algorithm: Literal["gspo", "grpo", "importance_sampling", "score_centering"] | None
+  algorithm: Literal["gspo", "grpo", "importance_sampling", "score_centering", "rlcd"] | None
   """
-  Training algorithm; omit to preserve the model default.
+  Training algorithm; omit to preserve the model default. RLCD trains decision probabilities
+  with Brier loss against logged outcome labels.
   """
   train_on_truncation: bool | None
   """

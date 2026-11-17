@@ -27,6 +27,8 @@ from .literals import (
     ConfigurationSyncStateType,
     ContainerAssociationStatusType,
     ContainerMonitoringTypeType,
+    ContextStoreSyncStatusType,
+    ContextTypeType,
     DecryptionActionType,
     DNSExpiryExceptionPolicyType,
     EnabledAnalysisTypeType,
@@ -53,6 +55,7 @@ from .literals import (
     ResourceManagedStatusType,
     ResourceManagedTypeType,
     ResourceStatusType,
+    ResourceTypeType,
     RevocationCheckActionType,
     Route53ResolvedIPValidationActionType,
     RuleGroupTypeType,
@@ -106,6 +109,11 @@ __all__ = (
     "ContainerMonitoringConfigurationOutputTypeDef",
     "ContainerMonitoringConfigurationTypeDef",
     "ContainerMonitoringConfigurationUnionTypeDef",
+    "ContextFiltersTypeDef",
+    "ContextSetOutputTypeDef",
+    "ContextSetTypeDef",
+    "ContextStoreSyncStateTypeDef",
+    "ContextStoreTypeDef",
     "CreateContainerAssociationRequestTypeDef",
     "CreateContainerAssociationResponseTypeDef",
     "CreateFirewallPolicyRequestTypeDef",
@@ -231,6 +239,9 @@ __all__ = (
     "ListContainerAssociationsRequestPaginateTypeDef",
     "ListContainerAssociationsRequestTypeDef",
     "ListContainerAssociationsResponseTypeDef",
+    "ListContextStoresRequestPaginateTypeDef",
+    "ListContextStoresRequestTypeDef",
+    "ListContextStoresResponseTypeDef",
     "ListFirewallPoliciesRequestPaginateTypeDef",
     "ListFirewallPoliciesRequestTypeDef",
     "ListFirewallPoliciesResponseTypeDef",
@@ -246,6 +257,9 @@ __all__ = (
     "ListFlowOperationsRequestPaginateTypeDef",
     "ListFlowOperationsRequestTypeDef",
     "ListFlowOperationsResponseTypeDef",
+    "ListResourcesInContextStoreRequestPaginateTypeDef",
+    "ListResourcesInContextStoreRequestTypeDef",
+    "ListResourcesInContextStoreResponseTypeDef",
     "ListRuleGroupsRequestPaginateTypeDef",
     "ListRuleGroupsRequestTypeDef",
     "ListRuleGroupsResponseTypeDef",
@@ -287,6 +301,7 @@ __all__ = (
     "ReferenceSetsTypeDef",
     "RejectNetworkFirewallTransitGatewayAttachmentRequestTypeDef",
     "RejectNetworkFirewallTransitGatewayAttachmentResponseTypeDef",
+    "ResourceContextTypeDef",
     "ResponseMetadataTypeDef",
     "Route53ResolvedIPValidationOutputTypeDef",
     "Route53ResolvedIPValidationTypeDef",
@@ -471,6 +486,29 @@ class ContainerAssociationSummaryTypeDef(TypedDict):
 class ContainerAttributeTypeDef(TypedDict):
     Key: str
     Value: str
+
+
+class ContextFiltersTypeDef(TypedDict):
+    Region: NotRequired[str]
+    ResourceType: NotRequired[ResourceTypeType]
+
+
+class ContextSetOutputTypeDef(TypedDict):
+    Definition: list[str]
+
+
+class ContextSetTypeDef(TypedDict):
+    Definition: Sequence[str]
+
+
+class ContextStoreSyncStateTypeDef(TypedDict):
+    SyncStatus: NotRequired[ContextStoreSyncStatusType]
+    StatusMessage: NotRequired[str]
+
+
+class ContextStoreTypeDef(TypedDict):
+    ContextStoreId: str
+    ContextStoreOwnerAccountId: str
 
 
 class TagTypeDef(TypedDict):
@@ -811,6 +849,11 @@ class ListContainerAssociationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListContextStoresRequestTypeDef(TypedDict):
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+
 class ListFirewallPoliciesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -847,6 +890,14 @@ class ListFlowOperationsRequestTypeDef(TypedDict):
     FlowOperationType: NotRequired[FlowOperationTypeType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+
+class ResourceContextTypeDef(TypedDict):
+    PublicId: str
+    ContextType: NotRequired[ContextTypeType]
+    Region: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AttachmentType: NotRequired[str]
 
 
 ListRuleGroupsRequestTypeDef = TypedDict(
@@ -1308,6 +1359,19 @@ class ContainerMonitoringConfigurationTypeDef(TypedDict):
     AttributeFilters: NotRequired[Sequence[ContainerAttributeTypeDef]]
 
 
+class ListResourcesInContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    Filters: NotRequired[ContextFiltersTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListContextStoresResponseTypeDef(TypedDict):
+    ContextStores: list[ContextStoreTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class CreateVpcEndpointAssociationRequestTypeDef(TypedDict):
     FirewallArn: str
     VpcId: str
@@ -1540,6 +1604,10 @@ class ListContainerAssociationsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListContextStoresRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListFirewallPoliciesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1570,6 +1638,12 @@ class ListFlowOperationsRequestPaginateTypeDef(TypedDict):
     VpcEndpointAssociationArn: NotRequired[str]
     VpcEndpointId: NotRequired[str]
     FlowOperationType: NotRequired[FlowOperationTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListResourcesInContextStoreRequestPaginateTypeDef(TypedDict):
+    ContextStoreId: str
+    Filters: NotRequired[ContextFiltersTypeDef]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1625,6 +1699,12 @@ class ReferenceSetsTypeDef(TypedDict):
 
 class PolicyVariablesTypeDef(TypedDict):
     RuleVariables: NotRequired[Mapping[str, IPSetTypeDef]]
+
+
+class ListResourcesInContextStoreResponseTypeDef(TypedDict):
+    ResourceContexts: list[ResourceContextTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class ListRuleGroupsResponseTypeDef(TypedDict):
@@ -1707,11 +1787,13 @@ class SyncStateTypeDef(TypedDict):
 class RuleVariablesOutputTypeDef(TypedDict):
     IPSets: NotRequired[dict[str, IPSetOutputTypeDef]]
     PortSets: NotRequired[dict[str, PortSetOutputTypeDef]]
+    ContextSets: NotRequired[dict[str, ContextSetOutputTypeDef]]
 
 
 class RuleVariablesTypeDef(TypedDict):
     IPSets: NotRequired[Mapping[str, IPSetTypeDef]]
     PortSets: NotRequired[Mapping[str, PortSetTypeDef]]
+    ContextSets: NotRequired[Mapping[str, ContextSetTypeDef]]
 
 
 RuleGroupResponseTypeDef = TypedDict(
@@ -1884,6 +1966,8 @@ class FirewallTypeDef(TypedDict):
     NatGatewayCreateMappings: NotRequired[list[NatGatewayCreateMappingOutputTypeDef]]
     ProxySettings: NotRequired[ProxySettingsOutputTypeDef]
     VpcEndpoint: NotRequired[VpcEndpointOutputTypeDef]
+    ContextStoreId: NotRequired[str]
+    ContextStoreOwnerAccountId: NotRequired[str]
     TransparentFilteringNatScope: NotRequired[TransparentFilteringNatScopeType]
 
 
@@ -2124,6 +2208,7 @@ class FirewallStatusTypeDef(TypedDict):
     SyncStates: NotRequired[dict[str, SyncStateTypeDef]]
     CapacityUsageSummary: NotRequired[CapacityUsageSummaryTypeDef]
     TransitGatewayAttachmentSyncState: NotRequired[TransitGatewayAttachmentSyncStateTypeDef]
+    ContextStoreSyncState: NotRequired[ContextStoreSyncStateTypeDef]
 
 
 CreateContainerAssociationRequestTypeDef = TypedDict(

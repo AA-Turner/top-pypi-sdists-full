@@ -1,0 +1,1 @@
+var e=`deploy-as-api`,t=`https://media.comfy.org/website/cloud-deploy`,n=[{src:`${t}/cloud-deploy-1280.webm`,type:`video/webm`},{src:`${t}/cloud-deploy-1280.mp4`,type:`video/mp4`}],r=`${t}/cloud-deploy-poster.jpg`;export{r as n,n as r,e as t};

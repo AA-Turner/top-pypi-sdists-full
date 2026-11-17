@@ -232,6 +232,7 @@ SPEC_ROUTES_WITHOUT_SDK = {
     "/api/v2/entities/{os_workspace}/{entity_uid}": "V2 entity operations",
     "/api/v2/entities/{os_workspace}/{entity_uid}/attachment": "V2 entity attachment",
     "/api/v2/entities/{os_workspace}/{entity_uid}/attachment/_thumbnail": "V2 entity attachment thumbnail (browser image URL, not an SDK call)",
+    "/api/v2/entities/{os_workspace}/_attachments_batch": "V2 entity attachments batch",
 }
 
 # ---------------------------------------------------------------------------

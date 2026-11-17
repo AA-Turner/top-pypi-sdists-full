@@ -1,10 +1,8 @@
 //! Python check planning: run-state recording, dependency relations and read-side preflight.
 
 use sqlbuild_host::entries::models::{AdapterHost, ExecutorHost, UserCodeHost};
+use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
 
-use crate::bindings::_helpers::compile_driver::relation_targets::build_python_relation_targets;
-use crate::bindings::_helpers::graph::python_selection::resolve_python_check_excludes;
-use crate::bindings::_helpers::planner_phases::objects::object;
 use pyo3::IntoPyObject;
 use pyo3::prelude::{
     Bound, PyAny, PyAnyMethods, PyErr, PyModule, PyModuleMethods, PyResult, Python,
@@ -12,6 +10,9 @@ use pyo3::prelude::{
 use pyo3::types::{PyDict, PyDictMethods, PyFrozenSet, PyFrozenSetMethods, PyTuple};
 use pyo3::{pyfunction, wrap_pyfunction};
 use sqlbuild_python_base::boundary::main::keywords::keywords;
+use sqlbuild_python_compile::compile_driver::main::setup::build_python_relation_targets::build_python_relation_targets;
+use sqlbuild_python_project::graph::main::python_nodes::resolve_python_check_excludes::resolve_python_check_excludes;
+use sqlbuild_python_project::planner_phases::main::object::object;
 
 use sqlbuild_core::build_command::errors::BuildCommandError;
 
@@ -263,6 +264,7 @@ pub(crate) struct ReadSideInputs<'py> {
     pub(crate) validation_refs: Bound<'py, PyAny>,
     pub(crate) project_relations: Bound<'py, PyAny>,
     pub(crate) providers: Bound<'py, PyAny>,
+    pub(crate) target_config: Option<TargetSettingsValues>,
 }
 
 fn reference_kind(reference: &Bound<'_, PyAny>) -> PyResult<String> {
@@ -455,6 +457,13 @@ fn node_runtime<'py>(inputs: &ReadSideInputs<'py>) -> PyResult<Bound<'py, PyAny>
             ("vars", native_field(&project, "effective_vars")?),
             ("is_reload", false.into_pyobject(py)?.to_owned().into_any()),
             (
+                "target_config",
+                match &inputs.target_config {
+                    Some(settings) => settings.record(py)?,
+                    None => py.None().into_bound(py),
+                },
+            ),
+            (
                 "default_database",
                 inputs.adapter.call_method0("default_database")?,
             ),
@@ -541,6 +550,7 @@ fn run_check_read_side_dependencies<'py>(
         validation_refs: arguments.value("validation_refs")?,
         project_relations: arguments.value("project_relations")?,
         providers: arguments.value("providers")?,
+        target_config: None,
     })
 }
 

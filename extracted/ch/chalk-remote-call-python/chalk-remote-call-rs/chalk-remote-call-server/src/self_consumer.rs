@@ -37,6 +37,7 @@ use chalk_remote_call_proto::chalk::common::v1::ChalkException;
 use chalk_remote_call_proto::chalk::runtime::v1::report_results_request::Result as ResultEvent;
 use chalk_remote_call_proto::chalk::runtime::v1::{AcquireWorkRequest, ReportResultsRequest};
 use std::collections::HashMap;
+use std::future::Future;
 use std::panic::AssertUnwindSafe;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
@@ -52,7 +53,8 @@ use dashmap::DashMap;
 use futures_util::FutureExt;
 use redis::aio::ConnectionManager;
 use redis::Client;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
+use tokio::task::{JoinHandle, JoinSet};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -495,7 +497,7 @@ impl SelfConsumerConfig {
 /// renewer heartbeats whatever is in the set on each tick.
 type LiveCalls = Arc<DashMap<String, QueueReceipt>>;
 
-/// Connect to Redis and run the consume loop until the process exits. Returns
+/// Drain API and Stream work on shutdown, retaining legacy List execution. Returns
 /// `Err` only on a fatal setup failure (bad URL / unreachable Redis at startup);
 /// transient per-iteration Redis errors are logged and retried so a Redis blip
 /// does not tear the consumer down.
@@ -504,12 +506,16 @@ pub async fn run(
     handler: Arc<PythonHandler>,
     metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
+    mut shutdown: watch::Receiver<bool>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     if config.consumer_endpoint.is_some() {
-        return run_fnq(config, handler, metrics, coalescing_queue).await;
+        return run_fnq(config, handler, metrics, coalescing_queue, shutdown).await;
     }
     let client = Client::open(config.redis_url.clone())?;
-    let conn = ConnectionManager::new(client).await?;
+    let conn = tokio::select! {
+        _ = shutdown.changed() => return Ok(()),
+        conn = ConnectionManager::new(client) => conn?,
+    };
     let queue = FunctionQueue::new(conn.clone(), config.tenant.clone());
     let input_queue = queue.bind(&config.function_name, config.queue_protocol);
     let sem = queue.semaphore(&config.function_name, config.max_concurrent, config.sem_ttl);
@@ -528,7 +534,7 @@ pub async fn run(
         input_queue.initialize_consumer_group().await?;
     }
 
-    spawn_renewer(
+    let renewer = spawn_renewer(
         input_queue.clone(),
         conn.clone(),
         sem_key,
@@ -548,7 +554,8 @@ pub async fn run(
 
     if config.queue_protocol == QueueProtocol::StreamV1 {
         let legacy_queue = queue.bind(&config.function_name, QueueProtocol::ListV1);
-        return run_stream_dispatch_loop(
+        let mut tasks = JoinSet::new();
+        let result = run_stream_dispatch_loop(
             &config,
             queue,
             input_queue,
@@ -560,10 +567,13 @@ pub async fn run(
             handler,
             metrics,
             coalescing_queue,
+            shutdown,
+            &mut tasks,
         )
         .await;
+        drain_calls(&mut tasks, renewer).await;
+        return result;
     }
-
     run_list_dispatch_loop(
         &config,
         queue,
@@ -586,6 +596,7 @@ async fn run_fnq(
     handler: Arc<PythonHandler>,
     metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
+    mut shutdown: watch::Receiver<bool>,
 ) -> Result<(), OutputError> {
     let endpoint = config
         .consumer_endpoint
@@ -594,12 +605,13 @@ async fn run_fnq(
     let token_file = std::env::var("CHALK_FUNCTION_QUEUE_TOKEN_FILE")
         .unwrap_or_else(|_| "/var/run/secrets/chalk-function-queue/identity-token".into());
     let client = crate::fnq_client::FnqClient::new(endpoint, token_file.into())?;
+    let lease_duration_seconds = config.sem_ttl.as_secs().try_into()?;
     let live: Arc<DashMap<String, ()>> = Arc::new(DashMap::new());
     let renewal_client = client.clone();
     let renewal_live = live.clone();
     let consumer_id = Uuid::new_v4().to_string();
     let renew_interval = SEM_RENEW_INTERVAL.min(config.sem_ttl / 3);
-    tokio::spawn(async move {
+    let renewer = tokio::spawn(async move {
         let mut interval = tokio::time::interval(renew_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -621,13 +633,13 @@ async fn run_fnq(
             }
         }
     });
-    let mut tasks = tokio::task::JoinSet::new();
+    let mut tasks = JoinSet::new();
     let mut backoff = config.poll_backoff_initial;
-    loop {
+    while !*shutdown.borrow() {
         while tasks.try_join_next().is_some() {}
         let available = config.max_concurrent.saturating_sub(tasks.len() as u32);
-        if available == 0 {
-            tokio::time::sleep(config.poll_backoff_initial).await;
+        if available == 0 || !handler.is_serving() {
+            wait_backoff(config.poll_backoff_initial, &mut shutdown).await;
             continue;
         }
         let request = AcquireWorkRequest {
@@ -636,105 +648,126 @@ async fn run_fnq(
             consumer_id: consumer_id.clone(),
             max_calls: available.min(config.stream_read_count as u32).min(64),
             max_concurrent: config.max_concurrent,
-            lease_duration_seconds: config.sem_ttl.as_secs().try_into()?,
+            lease_duration_seconds,
         };
-        let result = client
-            .acquire(request, |delivery| {
-                let handle = delivery.work_handle.clone();
-                live.insert(handle.clone(), ());
-                let client = client.clone();
-                let live = live.clone();
-                let handler = handler.clone();
-                let coalescer = coalescing_queue.clone();
-                let metrics = metrics.clone();
-                let flush_timeout = config.flush_timeout;
-                tasks.spawn(async move {
-                    let result = AssertUnwindSafe(async {
-                        let mut output = CallOutput::Fnq {
-                            client,
-                            handle: handle.clone(),
-                            trace_id: String::new(),
-                            call_duration: None,
-                        };
-                        let call = delivery.call.ok_or("Fnq response missing call")?;
-                        let work = QueuedCall {
-                            call_id: delivery.call_id,
-                            call: chalk_queue::types::CallPayload {
-                                name: call.name,
-                                feather_stream: base64::engine::general_purpose::STANDARD
-                                    .encode(call.feather_stream),
-                            },
-                            metadata: chalk_queue::types::CallMetadata {
-                                otel_headers: delivery.metadata,
-                                ..Default::default()
-                            },
-                            result_ttl_seconds: 86400,
-                            batch_result: None,
-                            max_retries: (delivery.max_attempts > 1)
-                                .then_some((delivery.max_attempts - 1) as u32),
-                        };
-                        if delivery.attempt > delivery.max_attempts {
-                            return output
-                                .write_error(
-                                    1,
-                                    "RetryAttemptsExhausted",
-                                    "Fnq retry attempts exhausted",
-                                    None,
-                                )
-                                .await;
-                        }
-                        let final_attempt = delivery.attempt == delivery.max_attempts;
-                        let completed = if let Some(coalescer) = coalescer {
-                            coalesced_execute_and_write(
-                                &coalescer,
-                                &mut output,
-                                work,
-                                final_attempt,
-                                metrics.as_ref(),
+        let acquisition = client.acquire(request, &mut shutdown, |delivery| {
+            let handle = delivery.work_handle.clone();
+            live.insert(handle.clone(), ());
+            let client = client.clone();
+            let live = live.clone();
+            let handler = handler.clone();
+            let coalescer = coalescing_queue.clone();
+            let metrics = metrics.clone();
+            let flush_timeout = config.flush_timeout;
+            tasks.spawn(async move {
+                let result = AssertUnwindSafe(async {
+                    let mut output = CallOutput::Fnq {
+                        client,
+                        handle: handle.clone(),
+                        trace_id: String::new(),
+                        call_duration: None,
+                    };
+                    let call = delivery.call.ok_or("Fnq response missing call")?;
+                    let work = QueuedCall {
+                        call_id: delivery.call_id,
+                        call: chalk_queue::types::CallPayload {
+                            name: call.name,
+                            feather_stream: base64::engine::general_purpose::STANDARD
+                                .encode(call.feather_stream),
+                        },
+                        metadata: chalk_queue::types::CallMetadata {
+                            otel_headers: delivery.metadata,
+                            ..Default::default()
+                        },
+                        result_ttl_seconds: 86400,
+                        batch_result: None,
+                        max_retries: (delivery.max_attempts > 1)
+                            .then_some((delivery.max_attempts - 1) as u32),
+                    };
+                    if delivery.attempt > delivery.max_attempts {
+                        return output
+                            .write_error(
+                                1,
+                                "RetryAttemptsExhausted",
+                                "Fnq retry attempts exhausted",
+                                None,
                             )
-                            .await?
-                        } else {
-                            execute_and_write(
-                                &handler,
-                                &mut output,
-                                work,
-                                flush_timeout,
-                                final_attempt,
-                                metrics.as_ref(),
-                            )
-                            .await?
-                        };
-                        if !completed {
-                            output.report(1, ResultEvent::Retry(())).await?;
-                        }
-                        Ok::<(), OutputError>(())
-                    })
-                    .catch_unwind()
-                    .await;
-                    live.remove(&handle);
-                    match result {
-                        Ok(Ok(())) => {}
-                        Ok(Err(error)) => {
-                            warn!(%handle, %error, "Fnq call failed; lease will expire")
-                        }
-                        Err(_) => {
-                            error!(%handle, "Fnq execution task panicked; lease will expire")
-                        }
+                            .await;
                     }
-                });
-            })
-            .await;
+                    let final_attempt = delivery.attempt == delivery.max_attempts;
+                    let completed = if let Some(coalescer) = coalescer {
+                        coalesced_execute_and_write(
+                            &coalescer,
+                            &mut output,
+                            work,
+                            final_attempt,
+                            metrics.as_ref(),
+                        )
+                        .await?
+                    } else {
+                        execute_and_write(
+                            &handler,
+                            &mut output,
+                            work,
+                            flush_timeout,
+                            final_attempt,
+                            metrics.as_ref(),
+                        )
+                        .await?
+                    };
+                    if !completed {
+                        output.report(1, ResultEvent::Retry(())).await?;
+                    }
+                    Ok::<(), OutputError>(())
+                })
+                .catch_unwind()
+                .await;
+                live.remove(&handle);
+                match result {
+                    Ok(Ok(())) => {}
+                    Ok(Err(error)) => {
+                        warn!(%handle, %error, "Fnq call failed; lease will expire")
+                    }
+                    Err(_) => {
+                        error!(%handle, "Fnq execution task panicked; lease will expire")
+                    }
+                }
+            });
+        });
+        let result = acquisition.await;
+        if *shutdown.borrow() {
+            break;
+        }
         match result {
             Ok(count) if count > 0 => backoff = config.poll_backoff_initial,
             result => {
                 if let Err(error) = result {
                     warn!(%error, "Fnq acquisition failed; will retry");
                 }
-                tokio::time::sleep(backoff).await;
+                wait_backoff(backoff, &mut shutdown).await;
                 backoff = (backoff * 2).min(config.poll_backoff_max);
             }
         }
     }
+    drain_calls(&mut tasks, renewer).await;
+    Ok(())
+}
+
+async fn wait_backoff(backoff: Duration, shutdown: &mut watch::Receiver<bool>) {
+    tokio::select! {
+        _ = tokio::time::sleep(backoff) => {},
+        _ = shutdown.changed() => {},
+    }
+}
+
+async fn drain_calls(tasks: &mut JoinSet<()>, renewer: JoinHandle<()>) {
+    info!(active_calls = tasks.len(), "Draining queued function calls");
+    while let Some(result) = tasks.join_next().await {
+        if let Err(error) = result {
+            error!(%error, "queued function task failed during shutdown");
+        }
+    }
+    renewer.abort();
 }
 
 /// Consume the legacy Redis List queue one call at a time. Streams use their
@@ -807,7 +840,7 @@ async fn run_list_dispatch_loop(
 
         backoff = config.poll_backoff_initial;
 
-        dispatch_delivery(
+        tokio::spawn(dispatch_delivery(
             queue.clone(),
             input_queue.clone(),
             coalescing_queue.clone(),
@@ -818,7 +851,7 @@ async fn run_list_dispatch_loop(
             live_calls.clone(),
             config.flush_timeout,
             metrics.clone(),
-        );
+        ));
         // Loop immediately — dispatch as fast as we can acquire + pop. The
         // semaphore (not this loop) is what bounds in-flight work.
     }
@@ -837,33 +870,36 @@ async fn run_stream_dispatch_loop(
     handler: Arc<PythonHandler>,
     metrics: Option<Arc<CallMetrics>>,
     coalescing_queue: Option<Arc<CoalescingQueue>>,
+    mut shutdown: watch::Receiver<bool>,
+    tasks: &mut JoinSet<()>,
 ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut backoff = config.poll_backoff_initial;
     // Reclaim once immediately to recover work from a prior crashed pod, then
     // periodically. Healthy messages are kept alive by `spawn_renewer`.
     let mut last_reclaim = Instant::now() - STREAM_RECLAIM_INTERVAL;
 
-    loop {
+    while !*shutdown.borrow() {
+        while tasks.try_join_next().is_some() {}
         // Capacity must be reserved before XREADGROUP. Reading first would put
         // a potentially huge number of messages into this consumer's PEL while
         // they wait for semaphore slots.
         let mut leases = match sem.try_acquire_many(config.stream_read_count).await {
             Ok(leases) if !leases.is_empty() => leases,
             Ok(_) => {
-                tokio::time::sleep(backoff).await;
+                wait_backoff(backoff, &mut shutdown).await;
                 backoff = (backoff * 2).min(config.poll_backoff_max);
                 continue;
             }
             Err(error) => {
                 warn!(%error, "batch semaphore acquire failed; backing off");
-                tokio::time::sleep(backoff).await;
+                wait_backoff(backoff, &mut shutdown).await;
                 backoff = (backoff * 2).min(config.poll_backoff_max);
                 continue;
             }
         };
 
         let mut deliveries = Vec::with_capacity(leases.len());
-        if last_reclaim.elapsed() >= STREAM_RECLAIM_INTERVAL {
+        if !*shutdown.borrow() && last_reclaim.elapsed() >= STREAM_RECLAIM_INTERVAL {
             last_reclaim = Instant::now();
             match input_queue
                 .reclaim_stale(&consumer_name, config.sem_ttl, leases.len())
@@ -879,7 +915,7 @@ async fn run_stream_dispatch_loop(
         // During the one-way List → Stream migration, drain old List entries
         // before reading new Stream traffic. This is one bounded operation per
         // read window, not an LLEN on every Stream message.
-        if deliveries.len() < leases.len() {
+        if !*shutdown.borrow() && deliveries.len() < leases.len() {
             if let Some(legacy_queue) = &legacy_queue {
                 match legacy_queue
                     .dequeue_many(&consumer_name, leases.len() - deliveries.len())
@@ -896,7 +932,7 @@ async fn run_stream_dispatch_loop(
                 }
             }
         }
-        if deliveries.len() < leases.len() {
+        if !*shutdown.borrow() && deliveries.len() < leases.len() {
             match input_queue
                 .dequeue_many(&consumer_name, leases.len() - deliveries.len())
                 .await
@@ -917,14 +953,17 @@ async fn run_stream_dispatch_loop(
         let _ = release_many(&mut conn, sem.key(), &unused_tokens).await;
 
         if deliveries.is_empty() {
-            tokio::time::sleep(backoff).await;
+            if *shutdown.borrow() {
+                break;
+            }
+            wait_backoff(backoff, &mut shutdown).await;
             backoff = (backoff * 2).min(config.poll_backoff_max);
             continue;
         }
 
         backoff = config.poll_backoff_initial;
         for (delivery, lease) in deliveries.into_iter().zip(leases) {
-            dispatch_delivery(
+            tasks.spawn(dispatch_delivery(
                 queue.clone(),
                 input_queue.clone(),
                 coalescing_queue.clone(),
@@ -935,9 +974,10 @@ async fn run_stream_dispatch_loop(
                 live_calls.clone(),
                 config.flush_timeout,
                 metrics.clone(),
-            );
+            ));
         }
     }
+    Ok(())
 }
 
 fn attach_queue_wait_timing(work: &mut QueuedCall, attempt: u64) {
@@ -974,33 +1014,37 @@ fn dispatch_delivery(
     live_calls: LiveCalls,
     flush_timeout: Duration,
     metrics: Option<Arc<CallMetrics>>,
-) {
+) -> impl Future<Output = ()> {
     live_calls.insert(lease.token().to_string(), delivery.receipt.clone());
-    match coalescing_queue {
-        Some(cq) => {
-            tokio::spawn(run_one_coalesced_call(
-                queue,
-                input_queue,
-                cq,
-                conn,
-                delivery,
-                lease,
-                live_calls,
-                metrics,
-            ));
-        }
-        None => {
-            tokio::spawn(run_one_call(
-                handler,
-                queue,
-                input_queue,
-                conn,
-                delivery,
-                lease,
-                live_calls,
-                flush_timeout,
-                metrics,
-            ));
+    async move {
+        match coalescing_queue {
+            Some(cq) => {
+                run_one_coalesced_call(
+                    queue,
+                    input_queue,
+                    cq,
+                    conn,
+                    delivery,
+                    lease,
+                    live_calls,
+                    metrics,
+                )
+                .await;
+            }
+            None => {
+                run_one_call(
+                    handler,
+                    queue,
+                    input_queue,
+                    conn,
+                    delivery,
+                    lease,
+                    live_calls,
+                    flush_timeout,
+                    metrics,
+                )
+                .await;
+            }
         }
     }
 }
@@ -1344,14 +1388,25 @@ async fn coalesced_execute_and_write(
             debug!(call_id = %work.call_id, "coalesced queued call completed");
         }
         Some(Err(status)) => {
-            if !final_attempt {
+            if !final_attempt
+                && !is_target_admission_rejection(coalescing_queue.requires_target(), &status)
+            {
                 warn!(call_id = %work.call_id, error = %status, "coalesced queued call failed; leaving delivery pending for retry");
                 return Ok(false);
             }
             // Parity with the enqueue/poll path: only a message string is
             // available, so exc_type is a fixed placeholder.
             output
-                .write_error(1, "RemoteFunctionError", status.message(), None)
+                .write_error(
+                    1,
+                    if is_target_admission_rejection(coalescing_queue.requires_target(), &status) {
+                        "ModelWeightTargetUnavailable"
+                    } else {
+                        "RemoteFunctionError"
+                    },
+                    status.message(),
+                    None,
+                )
                 .await?;
             let summary: String = status.message().chars().take(200).collect();
             output
@@ -1478,7 +1533,11 @@ async fn execute_and_write(
         );
     }
 
-    if result.is_err() && !final_attempt {
+    if result
+        .as_ref()
+        .is_err_and(|error| !(handler.requires_target() && error.is_admission_rejected()))
+        && !final_attempt
+    {
         warn!(call_id = %work.call_id, "queued call failed; leaving delivery pending for retry");
         return Ok(false);
     }
@@ -1510,7 +1569,11 @@ async fn execute_and_write(
             output
                 .write_error(
                     seq,
-                    "RemoteFunctionError",
+                    if handler.requires_target() && e.is_admission_rejected() {
+                        "ModelWeightTargetUnavailable"
+                    } else {
+                        "RemoteFunctionError"
+                    },
                     &e.to_string(),
                     Some(e.details()),
                 )
@@ -1598,7 +1661,7 @@ fn spawn_renewer(
     sem_key: String,
     live_calls: LiveCalls,
     sem_ttl: Duration,
-) {
+) -> JoinHandle<()> {
     tokio::spawn(async move {
         let mut ticker = tokio::time::interval(SEM_RENEW_INTERVAL);
         ticker.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -1633,7 +1696,7 @@ fn spawn_renewer(
                 Err(error) => warn!(%error, "batch Stream delivery renewal failed"),
             }
         }
-    });
+    })
 }
 
 #[cfg(test)]
@@ -2123,5 +2186,38 @@ mod tests {
         assert_eq!(remaining[0].feather_stream, Bytes::from("chunk2"));
         assert_eq!(remaining[1].feather_stream, Bytes::from("chunk3"));
         assert_eq!(remaining[2].feather_stream, Bytes::from("chunk4"));
+    }
+}
+
+/// Only native managed-admission errors bypass execution retry policy. Other
+/// Unavailable statuses retain the legacy retry contract.
+fn is_target_admission_rejection(managed: bool, status: &tonic::Status) -> bool {
+    managed
+        && status.code() == tonic::Code::Unavailable
+        && status
+            .metadata()
+            .get("x-chalk-model-admission-rejected")
+            .is_some_and(|value| value == "1")
+}
+
+#[cfg(test)]
+mod managed_admission_tests {
+    use super::is_target_admission_rejection;
+
+    #[test]
+    fn arbitrary_unavailable_preserves_execution_retry_policy() {
+        let generic = tonic::Status::unavailable("transport failed");
+        assert!(!is_target_admission_rejection(true, &generic));
+        let mut marked = tonic::Status::unavailable("exact target unavailable");
+        marked
+            .metadata_mut()
+            .insert("x-chalk-model-admission-rejected", "1".parse().unwrap());
+        assert!(is_target_admission_rejection(true, &marked));
+        assert!(!is_target_admission_rejection(false, &marked));
+        let mut other = tonic::Status::internal("handler failed");
+        other
+            .metadata_mut()
+            .insert("x-chalk-model-admission-rejected", "1".parse().unwrap());
+        assert!(!is_target_admission_rejection(true, &other));
     }
 }

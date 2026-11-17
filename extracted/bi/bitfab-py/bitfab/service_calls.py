@@ -11,6 +11,7 @@ from typing import Any
 
 from bitfab.constants import _replay_context, replay_item_is_running
 from bitfab.sandbox import SANDBOX_SESSION_KEY
+from bitfab.warn_once import warn_once
 
 
 @dataclass(frozen=True)
@@ -51,6 +52,22 @@ def _alive_clients() -> list[Any]:
 
 def _records(client: Any, integration: str) -> bool:
     return integration not in getattr(client, "_disabled_integrations", ())
+
+
+def _warn_recording_off_by_default(integration: str) -> None:
+    newest = next(iter(_alive_clients()), None)
+    if integration not in getattr(newest, "_integrations_off_by_default", ()):
+        return
+    warn_once(
+        f"integration-off-by-default:{integration}",
+        f"a {integration} call ran inside a trace and was not recorded, because "
+        f"Bitfab records {integration} calls only once you turn them on (they "
+        f"carry your users' data). Without them, replays of this trace start "
+        f"the {integration} sandbox with nothing the original run read. Turn "
+        f'recording on with Bitfab(integrations={{"{integration}": True}}) or '
+        f"BITFAB_ENABLED_INTEGRATIONS={integration}; turn it off by name "
+        f'(integrations={{"{integration}": False}}) to stop this warning.',
+    )
 
 
 def current_call() -> ServiceCall | None:
@@ -117,6 +134,8 @@ def run(call: ServiceCall) -> Any:
             (c for c in _alive_clients() if _records(c, call.integration)), None
         )
         if client is None or not _inside_trace():
+            if client is None and _inside_trace():
+                _warn_recording_off_by_default(call.integration)
             return call.send()
     tokens = (
         _current.set(call),

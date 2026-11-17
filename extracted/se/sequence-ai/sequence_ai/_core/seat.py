@@ -337,8 +337,8 @@ A robot in line had no seat: it is told it is no longer in line. `why` is the pl
 
         `serving`: the version the platform serves now. Another than the one this robot was on took its seat: a version
         that begins to serve disconnects the robots on the others and ends their workers, this connection is over
-        (_ended), and that is said. {the user 11-05: "the v1 just disconnect at the moment you deploy v2", "we dont route
-        it", "user should jsut reconnect"}"""
+        (_ended), and that is said.
+"""
         if self._waiting_ready and why != "stopped":
             return
         in_line = self._in_line

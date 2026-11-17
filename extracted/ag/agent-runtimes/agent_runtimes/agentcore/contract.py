@@ -1,7 +1,7 @@
 # Copyright (c) 2025-2026 Datalayer, Inc.
 # Distributed under the terms of the Modified BSD License.
 
-"""The Amazon Bedrock AgentCore Runtime contract, answered by agent-runtimes (AC-01..AC-03).
+"""The Amazon Bedrock AgentCore Runtime contract, answered by agent-runtimes.
 
 At the root, as AgentCore calls a container:
 
@@ -23,7 +23,7 @@ which is also the policy session the AgentCore Gateway's calls are decided in
 (`mcp.agentcore_gateway.policy_session`).
 A run naming another thread is refused in a sentence. A session this process
 has not held is resumed from its record before the turn runs — the session model's
-resume (`apps.sessions.rebuilt_from_record`, MH-03): its turns and tool rows
+resume (`apps.sessions.rebuilt_from_record`): its turns and tool rows
 given to the run as the conversation so far.
 
 Each run's ``output`` entry in the record carries its invocation
@@ -33,7 +33,7 @@ wall time between (what the usage reads as invocation hours), and when this
 process, the microVM's, started.
 
 A runtime the platform deployed for an application (``AGENTCORE_DEPLOYMENT_UID``)
-runs the deployment's agent, made as a kept runtime's is (`apps.deployments.kept_payload`):
+runs the deployment's agent, made as an always-on deployment's runtime makes it (`apps.deployments.deployment_runtime_payload`):
 its Appspec and the deployment as its instance, read from ai-agents with the first
 caller's token, once the secrets its MCP servers and skills declare were read
 at IAM as the caller and given to this process (`secrets`: never in the image,
@@ -44,7 +44,7 @@ record when this process does not hold it (``/api/v1/apps/sessions/{uid}/resume`
 ``{kind: agentcore, arn}``.
 
 Behind Datalayer IAM's authorizer, the token AgentCore validated is exchanged
-for the platform's tokens before anything else (AC-06, `exchange`): the run
+for the platform's tokens before anything else (`exchange`): the run
 is given the caller's platform token as its bearer, and its model calls the
 caller's inference token. A refused exchange answers 401, in IAM's sentence.
 """
@@ -358,7 +358,7 @@ def remember_turns(uid: str, messages: list[Any]) -> None:
 async def resumed(body: dict[str, Any], uid: str, bearer: str) -> dict[str, Any]:
     """The run, with the session's conversation from its record when this process never held it.
 
-    The resume is the session model's (MH-03, `rebuilt_from_record`): the turns and
+    The resume is the session model's (`rebuilt_from_record`): the turns and
     the tool rows of the record, on the application the agent runs. A run
     bringing its own conversation, a session the record has no turn of (its
     first), and an agent running no application (nothing of its sessions is
@@ -493,7 +493,7 @@ def forget_deployment_agent() -> None:
 async def deployment_agent(server: Any, bearer: str) -> str:
     """The agent of the deployment this runtime runs, made at its first invocation.
 
-    Made as the keeper makes a kept deployment's (`kept_payload`): the version
+    Made as an always-on deployment's runtime makes it (`deployment_runtime_payload`): the version
     ai-agents answers the caller (`principal.read_deployment`), its Appspec,
     the deployment as its instance. Never from what the invocation sends.
 
@@ -503,7 +503,7 @@ async def deployment_agent(server: Any, bearer: str) -> str:
         With no token to ask with (401), when ai-agents does not say what the
         deployment runs (502), or it cannot be made, in its sentence.
     """
-    from agent_runtimes.apps.deployments import DeployRefused, kept_payload
+    from agent_runtimes.apps.deployments import DeployRefused, deployment_runtime_payload
     from agent_runtimes.apps.loading import AppNotRunnable
     from agent_runtimes.apps.principal import DeploymentCodeUnread, read_deployment
 
@@ -524,7 +524,7 @@ async def deployment_agent(server: Any, bearer: str) -> str:
         except DeploymentCodeUnread as unread:
             raise ContractRefused(502, str(unread)) from None
         try:
-            payload = kept_payload(
+            payload = deployment_runtime_payload(
                 answer["spec"],
                 app_uid=str(answer["app_uid"]),
                 deployment_uid=deployment,
@@ -586,7 +586,7 @@ async def opened_from_record(
     turn of it (404) or the application keeping no conversations, started
     (``/apps/sessions``) as the deployment's, its opening saying its agent and
     where it runs — and what woke it, when a trigger did (``woken_by``, the
-    scheduler's tick relayed by ai-agents, AC-67): the session route takes it
+    scheduler's tick relayed by ai-agents): the session route takes it
     from the deployment's owner alone, as it does on a Datalayer runtime.
 
     Raises
@@ -729,7 +729,7 @@ def _workload_of(scope: Mapping[str, Any]) -> Any:
     """Hold, for the run, the workload token AgentCore Runtime sent with the invocation, and its bearer.
 
     The ``agentcore`` identity provider reads it to reach AgentCore's token
-    vault for the person (ID-21); an invocation without one runs
+    vault for the person; an invocation without one runs
     with none held.
     """
     from agent_runtimes.agentcore.identity import (
@@ -915,7 +915,7 @@ def _wants_events(accept: Optional[str]) -> bool:
 
 
 async def tokens_of(headers: Mapping[str, str]) -> Optional[PlatformTokens]:
-    """Exchange the token AgentCore validated for the platform's tokens (AC-06).
+    """Exchange the token AgentCore validated for the platform's tokens.
 
     Parameters
     ----------
@@ -1128,7 +1128,7 @@ async def configure_at_start(app: Any, api_prefix: str) -> None:
 
     settings = agentcore_settings()
     # The exchange's configuration, refused now rather than at the first
-    # invocation (AC-06).
+    # invocation.
     runtime_exchange()
     _API_PREFIX["prefix"] = api_prefix
     deployment = deployment_of_runtime()

@@ -1000,7 +1000,9 @@ class FoundationalModel:
 
         predictor_id = response.get('predictor_id', '')
         if not predictor_id:
-            if response.get('queued'):
+            # already_running: this request's own earlier attempt timed out after the
+            # router had dispatched it (http_client follows that job, not a new one).
+            if response.get('queued') or response.get('already_running'):
                 predictor_id = self._wait_for_queued_predictor(
                     session_id=self.id,
                     target_column=target_column,

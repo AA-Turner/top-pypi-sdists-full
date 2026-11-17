@@ -22,20 +22,6 @@ use sqlbuild_config::project::models::ReviewConfig;
 use crate::bindings::_helpers::change_selection::base_snapshot::{base_comparison, base_variant};
 use crate::bindings::_helpers::change_selection::definition_snapshot::project_wide_keys;
 use crate::bindings::_helpers::change_selection::selection::{ChangedProject, changed_project};
-use crate::bindings::_helpers::compile_driver::discovery::discover_project_inputs;
-use crate::bindings::_helpers::compile_driver::project::build_project_graph;
-use crate::bindings::_helpers::compiled_views::model_reads;
-use crate::bindings::_helpers::compiled_views::project_reads;
-use crate::bindings::_helpers::compiled_views::seed_reads;
-use crate::bindings::_helpers::contracts::spec_resolution::{
-    resolve_effective_adapter_name, resolve_target_name,
-};
-use crate::bindings::_helpers::discovery::project_config::{
-    configured_git_base_ref, configured_review,
-};
-use crate::bindings::_helpers::execution_history::conversion::optional_text;
-use crate::bindings::_helpers::graph::python_node_graph::python_node_graph;
-use crate::bindings::_helpers::planner_selection::selectors::select_project_graph;
 use crate::bindings::_helpers::review_command::support::review_error;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::build_command::main::boolean::boolean;
@@ -43,6 +29,19 @@ use sqlbuild_python_base::build_command::main::text::text;
 use sqlbuild_python_base::command_runtime::main::resolve_cli_adapter::resolve_cli_adapter;
 use sqlbuild_python_base::records::main::fields::field::field as native_field;
 use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
+use sqlbuild_python_compile::compile_driver::main::setup::build_project_graph::build_project_graph;
+use sqlbuild_python_compile::compile_driver::main::stages::discover_project_inputs::discover_project_inputs;
+use sqlbuild_python_front::contracts::main::resolve_effective_adapter_name::resolve_effective_adapter_name;
+use sqlbuild_python_front::contracts::main::resolve_target_name::resolve_target_name;
+use sqlbuild_python_front::discovery::main::project::configured_git_base_ref::configured_git_base_ref;
+use sqlbuild_python_front::discovery::main::project::configured_review::configured_review;
+use sqlbuild_python_front::execution_history::main::nullable_text::nullable_text;
+use sqlbuild_python_project::compiled_views::main::compiled_models::dep_rows::dep_rows;
+use sqlbuild_python_project::compiled_views::main::compiled_models::model_name::model_name;
+use sqlbuild_python_project::compiled_views::main::project::compiled_models::compiled_models;
+use sqlbuild_python_project::compiled_views::main::project::seeds::seeds;
+use sqlbuild_python_project::graph::main::python_nodes::python_node_graph::python_node_graph;
+use sqlbuild_python_project::planner_selection::main::select_project_graph::select_project_graph;
 
 const BASE_REF_ALIAS: &str = "@base";
 const UDF_KIND: &str = "udf";
@@ -108,7 +107,7 @@ pub(crate) fn review_settings(
 ) -> PyResult<ReviewSettings> {
     let py: Python<'_> = request.py();
     let config: ReviewConfig = configured_review(project_dir)?;
-    let since: String = match optional_text(&native_field(request, "since")?)? {
+    let since: String = match nullable_text(&native_field(request, "since")?)? {
         Some(since) => since,
         None if configured_git_base_ref(project_dir)?.is_some() => BASE_REF_ALIAS.to_owned(),
         None => {
@@ -121,7 +120,7 @@ pub(crate) fn review_settings(
         }
     };
     let against: String =
-        match optional_text(&native_field(request, "against")?)?.or(config.against.clone()) {
+        match nullable_text(&native_field(request, "against")?)?.or(config.against.clone()) {
             Some(against) => against,
             None => {
                 return Err(setting_error(
@@ -157,7 +156,7 @@ pub(crate) fn review_settings(
         ));
     };
     let downstream: Option<String> =
-        optional_text(&native_field(request, "downstream")?)?.or(config.downstream.clone());
+        nullable_text(&native_field(request, "downstream")?)?.or(config.downstream.clone());
     let policy: DownstreamPolicy = match downstream.as_deref() {
         None => DownstreamPolicy::Critical,
         Some(value) => parse_downstream_policy(value).ok_or_else(|| {
@@ -215,12 +214,15 @@ fn key_columns(value: &Bound<'_, PyAny>) -> PyResult<Vec<String>> {
 
 /// One model as a review node, critical by its `critical` key or one of the critical tags.
 fn model_node(model: &Bound<'_, PyAny>, critical_tags: &[String]) -> PyResult<ReviewNode> {
-    let values: Bound<'_, PyAny> = native_field(&model_reads::config(model)?, "values")?;
+    let values: Bound<'_, PyAny> = native_field(
+        &sqlbuild_python_project::compiled_views::main::compiled_models::config::config(model)?,
+        "values",
+    )?;
     let tags: Vec<String> = strings(&config_value(&values, "tags")?)?;
     let marked: Bound<'_, PyAny> = config_value(&values, "critical")?;
     let materialized: Bound<'_, PyAny> = config_value(&values, "materialized")?;
     Ok(ReviewNode {
-        name: model_reads::model_name(model)?,
+        name: model_name(model)?,
         kind: MODEL_KIND.to_owned(),
         critical: (!marked.is_none() && marked.is_truthy()?)
             || tags.iter().any(|tag| critical_tags.contains(tag)),
@@ -243,7 +245,7 @@ fn model_node(model: &Bound<'_, PyAny>, critical_tags: &[String]) -> PyResult<Re
 
 /// The database a model's or seed's compiled destination names, if any.
 fn destination_database(destination: &Bound<'_, PyAny>) -> PyResult<Option<String>> {
-    optional_text(&native_field(destination, "database")?)
+    nullable_text(&native_field(destination, "database")?)
 }
 
 /// Dependency order over `nodes`, ties broken by name.
@@ -379,10 +381,16 @@ fn review_graph(
         stateful: BTreeSet::new(),
         databases: BTreeMap::new(),
     };
-    for seed in project_reads::seeds(project)?.try_iter()? {
+    for seed in seeds(project)?.try_iter()? {
         let seed: Bound<'_, PyAny> = seed?;
-        let name: String = seed_reads::name(&seed)?.extract()?;
-        if let Some(database) = destination_database(&seed_reads::destination(&seed)?)? {
+        let name: String =
+            sqlbuild_python_project::resource_views::main::seed_reads::name::name(&seed)?
+                .extract()?;
+        if let Some(database) = destination_database(
+            &sqlbuild_python_project::resource_views::main::seed_reads::destination::destination(
+                &seed,
+            )?,
+        )? {
             project_graph.databases.insert(name.clone(), database);
         }
         project_graph
@@ -399,7 +407,7 @@ fn review_graph(
         );
     }
     let mut dependencies: Vec<(String, Vec<(String, String)>)> = Vec::new();
-    for model in project_reads::models(project)?.try_iter()? {
+    for model in compiled_models(project)?.try_iter()? {
         let model: Bound<'_, PyAny> = model?;
         let node: ReviewNode = model_node(&model, critical_tags)?;
         if node.materialized == INCREMENTAL_MATERIALIZATION
@@ -407,13 +415,13 @@ fn review_graph(
         {
             project_graph.stateful.insert(node.name.clone());
         }
-        if let Some(database) = destination_database(&model_reads::destination(&model)?)? {
+        if let Some(database) = destination_database(&sqlbuild_python_project::compiled_views::main::compiled_models::destination::destination(&model)?)? {
             project_graph.databases.insert(node.name.clone(), database);
         }
         project_graph
             .keys
             .insert(node.name.clone(), node_key(MODEL_KIND, &node.name));
-        dependencies.push((node.name.clone(), model_reads::dep_rows(&model)?));
+        dependencies.push((node.name.clone(), dep_rows(&model)?));
         project_graph.graph.nodes.insert(node.name.clone(), node);
     }
     let mut sources: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -527,7 +535,7 @@ pub(crate) fn review_project<'py>(
     let changes_json: Value = serde_json::from_str(&changed.json((0, &[])))
         .map_err(|error| pyo3::exceptions::PyValueError::new_err(error.to_string()))?;
     let target_database: Option<String> =
-        optional_text(&native_field(&project, "effective_target_database")?)?
+        nullable_text(&native_field(&project, "effective_target_database")?)?
             .filter(|database| !database.eq_ignore_ascii_case(PRESERVE_DATABASE));
     let review = ReviewProject {
         changed_declarations: changed_declarations(&changed.changes),
@@ -544,7 +552,7 @@ pub(crate) fn review_project<'py>(
         stateful,
         databases,
         target_database,
-        target_schema: optional_text(&native_field(&project, "effective_target_schema")?)?,
+        target_schema: nullable_text(&native_field(&project, "effective_target_schema")?)?,
     };
     Ok((review, (discovered, adapter, graph)))
 }

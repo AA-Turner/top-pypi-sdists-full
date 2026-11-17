@@ -58,7 +58,7 @@ def load_extra_models(path=None):
         path = extra_models_path()
     if not path.exists():
         return []
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         records = yaml.safe_load(f)
     if records is None:
         return []
@@ -1649,6 +1649,43 @@ class _Shared:
         return kwargs
 
 
+def _streamed_tool_call_index(tool_calls, tool_call):
+    """Key for one streamed tool-call delta.
+
+    OpenAI sends an integer index. Some compatible endpoints omit it and
+    repeat id and name on every argument fragment. An id already seen
+    continues that call; a new id, or a name with no id, starts one;
+    anything else continues the most recent call.
+    """
+    idx = tool_call.index
+    if idx is not None:
+        return idx
+    if tool_call.id:
+        for existing_idx, existing in tool_calls.items():
+            if existing.id == tool_call.id:
+                return existing_idx
+    if not tool_calls:
+        return 0
+    if tool_call.id or tool_call.function.name:
+        return max(tool_calls) + 1
+    return max(tool_calls)
+
+
+def _tool_call_arguments(arguments):
+    """Parse the JSON arguments of a Chat Completions tool call.
+
+    Models sometimes return arguments that are not valid JSON. Keep them
+    as {"_raw": ...}, as the Responses API path does, instead of
+    crashing the whole response.
+    """
+    if not arguments:
+        return {}
+    try:
+        return json.loads(arguments)
+    except json.JSONDecodeError:
+        return {"_raw": arguments}
+
+
 class Chat(_Shared, KeyModel):
     needs_key = "openai"
     key_env_var = "OPENAI_API_KEY"
@@ -1682,7 +1719,7 @@ class Chat(_Shared, KeyModel):
                 **kwargs,
             )
             chunks = []
-            tool_calls = {}
+            tool_calls: dict[int, Any] = {}
             for chunk in completion:
                 chunks.append(chunk)
                 if chunk.usage:
@@ -1691,7 +1728,7 @@ class Chat(_Shared, KeyModel):
                     for tool_call in chunk.choices[0].delta.tool_calls or []:
                         if tool_call.function.arguments is None:
                             tool_call.function.arguments = ""
-                        idx = tool_call.index
+                        idx = _streamed_tool_call_index(tool_calls, tool_call)
                         if idx not in tool_calls:
                             tool_calls[idx] = tool_call
                             yield StreamEvent(
@@ -1724,7 +1761,7 @@ class Chat(_Shared, KeyModel):
                         llm.ToolCall(
                             tool_call_id=value.id,
                             name=value.function.name,
-                            arguments=json.loads(value.function.arguments or "{}"),
+                            arguments=_tool_call_arguments(value.function.arguments),
                         )
                     )
         else:
@@ -1742,7 +1779,7 @@ class Chat(_Shared, KeyModel):
                     llm.ToolCall(
                         tool_call_id=tool_call.id,
                         name=tool_call.function.name,
-                        arguments=json.loads(tool_call.function.arguments or "{}"),
+                        arguments=_tool_call_arguments(tool_call.function.arguments),
                     )
                 )
                 yield StreamEvent(
@@ -1801,7 +1838,7 @@ class AsyncChat(_Shared, AsyncKeyModel):
                 **kwargs,
             )
             chunks = []
-            tool_calls = {}
+            tool_calls: dict[int, Any] = {}
             async for chunk in completion:
                 if chunk.usage:
                     usage = chunk.usage.model_dump()
@@ -1810,7 +1847,7 @@ class AsyncChat(_Shared, AsyncKeyModel):
                     for tool_call in chunk.choices[0].delta.tool_calls or []:
                         if tool_call.function.arguments is None:
                             tool_call.function.arguments = ""
-                        idx = tool_call.index
+                        idx = _streamed_tool_call_index(tool_calls, tool_call)
                         if idx not in tool_calls:
                             tool_calls[idx] = tool_call
                             yield StreamEvent(
@@ -1840,7 +1877,7 @@ class AsyncChat(_Shared, AsyncKeyModel):
                         llm.ToolCall(
                             tool_call_id=value.id,
                             name=value.function.name,
-                            arguments=json.loads(value.function.arguments or "{}"),
+                            arguments=_tool_call_arguments(value.function.arguments),
                         )
                     )
             response.response_json = remove_dict_none_values(combine_chunks(chunks))
@@ -1859,7 +1896,7 @@ class AsyncChat(_Shared, AsyncKeyModel):
                     llm.ToolCall(
                         tool_call_id=tool_call.id,
                         name=tool_call.function.name,
-                        arguments=json.loads(tool_call.function.arguments or "{}"),
+                        arguments=_tool_call_arguments(tool_call.function.arguments),
                     )
                 )
                 yield StreamEvent(

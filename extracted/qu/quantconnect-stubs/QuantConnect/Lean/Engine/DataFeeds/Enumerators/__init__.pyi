@@ -995,7 +995,7 @@ class LiveFillForwardEnumerator(QuantConnect.Lean.Engine.DataFeeds.Enumerators.F
         a reference to the fill forward resolution, useful if the fill forward resolution is dynamic
         and changing as the enumeration progresses
         
-        :param time_provider: The source of time used to gauage when this enumerator should emit extra bars when
+        :param time_provider: The source of time used to gauge when this enumerator should emit extra bars when
         null data is returned from the source enumerator
         :param enumerator: The source enumerator to be filled forward
         :param exchange: The exchange used to determine when to insert fill forward data
@@ -1447,7 +1447,7 @@ class RateLimitEnumerator(typing.Generic[QuantConnect_Lean_Engine_DataFeeds_Enum
         Initializes a new instance of the RateLimitEnumerator{T} class
         
         :param enumerator: The underlying enumerator to place rate limits on
-        :param time_provider: Time provider used for determing the time between calls
+        :param time_provider: Time provider used for determining the time between calls
         :param minimum_time_between_calls: The minimum time allowed between calls to the underlying enumerator
         """
         ...

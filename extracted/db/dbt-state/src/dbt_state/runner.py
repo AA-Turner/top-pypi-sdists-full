@@ -650,6 +650,11 @@ class RunnerOverride:
     def _run_cache_get_or_create(
         self, config: RuntimeConfig, adapter: SQLAdapter, manifest: Manifest
     ) -> RunCache | None:
+        if (
+            self._query_cache_client is not None
+            and not self._query_cache_client.is_server_available
+        ):
+            return None
         if not self._disabled and self._run_cache is None:
             with self._run_cache_lock:
                 if self._run_cache is None and not self._disabled:

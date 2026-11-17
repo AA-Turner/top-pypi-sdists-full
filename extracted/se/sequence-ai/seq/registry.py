@@ -769,7 +769,7 @@ def _ref_kept(cls: type, applied: tuple[str, dict] | None = None) -> str:
     inside a function; in a module that cannot be imported), its module:qualname as written, the refusal kept on the
     class (_UNIMPORTABLE_ATTR) and raised where the platform needs the import (importable: seq deploy and its dry run,
     seq adapter push). Where the class is written it runs as it did before the decorator: its methods are its author's.
-    {/docs/policy/ "A class you already have": "THE CLASS KEEPS RUNNING LOCALLY AS BEFORE"}
+    
 
 """
     module, qualname = _applied_name(cls, applied)

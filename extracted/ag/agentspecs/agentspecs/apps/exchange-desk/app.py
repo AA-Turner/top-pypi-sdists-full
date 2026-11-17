@@ -2,8 +2,8 @@
 #
 # BSD 3-Clause License
 
-"""Exchange Desk: a company to people's own agents, written in Python
-(E-02; PI-42).
+"""Exchange Desk: a company to people's own agents, written in Python.
+
 
 Shipped at its own domain, it answers before anybody signs in, lets people
 sign in with their Datalayer account, and proposes an exchange in its
@@ -133,13 +133,13 @@ app.as_company(
     scopes=[
         {
             "name": "orders:read",
-            "description": "Read your orders and their status",
+            "description": "Read your orders and their status, to find the one to exchange; asked when you ask about an order; without it, only the exchange policy",
             "changes": "none",
             "personal_data": True,
         },
         {
             "name": "orders:write",
-            "description": "Exchange an order you approved",
+            "description": "Exchange an order you approved; asked only when you say to exchange one; without it, the desk says what an exchange would be but changes nothing",
             "changes": "reversible",
             "personal_data": True,
         },

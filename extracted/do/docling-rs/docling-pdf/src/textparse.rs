@@ -1890,6 +1890,19 @@ fn drop_overpainted_cells(cells: &mut Vec<crate::pdfium_backend::TextCell>) {
             if vo < 0.6 * (a.b - a.t).min(b.b - b.t) {
                 continue;
             }
+            // … and the two sit at one height. The overlap alone says nothing
+            // when the font's vertical metrics are inflated (#1129: a face
+            // whose ascent and descent make every cell 55 pt tall on lines
+            // 11.7 pt apart — each line overlaps the next by four fifths, and
+            // a short line under a long one read as paint: 37 of the page's
+            // 44 lines went, and its table with them). A cell's height is the
+            // font's claim; its width per character is what was drawn, and
+            // lines of prose are never set closer than that, so a shift of
+            // more than half of it is another line, however tall the boxes.
+            let shift = ((a.t + a.b) - (b.t + b.b)).abs() / 2.0;
+            if shift > 0.5 * a.mean_advance().min(b.mean_advance()) {
+                continue;
+            }
             // `a` horizontally inside `b` (with a small tolerance).
             let ho = (a.r.min(b.r) - a.l.max(b.l)).max(0.0);
             if ho >= 0.8 * (a.r - a.l) && (a.r - a.l) <= (b.r - b.l) {
@@ -1949,14 +1962,27 @@ fn page_rotation(doc: &Document, pid: lopdf::ObjectId) -> u16 {
     0
 }
 
-/// The effective `/Resources` dictionary for a page (inline or via reference,
-/// falling back to an inherited one from a `/Parent`).
-fn page_res(doc: &Document, page_id: lopdf::ObjectId) -> Option<&Dictionary> {
-    let (inline, ids) = doc.get_page_resources(page_id).ok()?;
-    if let Some(d) = inline {
-        return Some(d);
+/// The effective `/Resources` dictionary for a page: its own (inline or via
+/// reference), else the nearest ancestor's in the page tree — ISO 32000-1
+/// 7.7.3.4 makes `/Resources` inheritable. Walked by hand rather than through
+/// lopdf's `get_page_resources`, which collects an ancestor's `/Resources`
+/// only when it is an indirect reference: an *inline* dictionary on the
+/// `/Pages` node — the R&OS php pdf writer puts the one font there and gives
+/// each page only `/Type`, `/Parent` and `/Contents` (#1130) — was dropped,
+/// every font went missing and the whole text layer read as empty. A
+/// `/Resources` that does not resolve to a dictionary is skipped in favour of
+/// the next ancestor's (pdf.js and poppler read such files the same way).
+pub(crate) fn page_res(doc: &Document, page_id: lopdf::ObjectId) -> Option<&Dictionary> {
+    let mut id = page_id;
+    // The page-tree depth lopdf itself tolerates; also ends a `/Parent` cycle.
+    for _ in 0..32 {
+        let dict = doc.get_object(id).ok()?.as_dict().ok()?;
+        if let Some(res) = dict.get(b"Resources").ok().and_then(|o| as_dict(doc, o)) {
+            return Some(res);
+        }
+        id = dict.get(b"Parent").ok()?.as_reference().ok()?;
     }
-    ids.into_iter().find_map(|id| doc.get_dictionary(id).ok())
+    None
 }
 
 /// Build the code→[`Font`] map for a resources dictionary's `/Font` sub-dict,
@@ -4478,6 +4504,129 @@ mod page_box_frame {
     }
 }
 
+/// #1130: `/Resources` inherited from the page tree (ISO 32000-1 7.7.3.4) —
+/// above all an *inline* dictionary on a `/Pages` node, which lopdf's
+/// `get_page_resources` never returns (it collects an ancestor's only when it
+/// is a reference). The R&OS php pdf writer files in Govdocs1 (448692.pdf)
+/// carry their one font that way; the text layer read as empty and the wasm
+/// `DigitalConverter` refused the file as a scan.
+#[cfg(test)]
+mod inherited_resources {
+    use super::*;
+    use lopdf::dictionary;
+
+    /// Root `/Pages` (holding `root_res` inline and the MediaBox) → an
+    /// intermediate `/Pages` (holding `mid_res`, if any) → one page with only
+    /// `/Type`, `/Parent`, `/Contents` and, optionally, its own resources.
+    fn pdf(root_res: Object, mid_res: Option<Object>, page_res: Option<Object>) -> Vec<u8> {
+        let mut doc = Document::with_version("1.3");
+        let content = doc.add_object(lopdf::Stream::new(
+            Dictionary::new(),
+            b"BT /F1 12 Tf 72 700 Td (Inherited resources) Tj ET".to_vec(),
+        ));
+        let root_id = doc.new_object_id();
+        let mid_id = doc.new_object_id();
+        let mut page = dictionary! {
+            "Type" => "Page",
+            "Parent" => Object::Reference(mid_id),
+            "Contents" => vec![Object::Reference(content)],
+        };
+        if let Some(r) = page_res {
+            page.set("Resources", r);
+        }
+        let page_id = doc.add_object(page);
+        let mut mid = dictionary! {
+            "Type" => "Pages",
+            "Parent" => Object::Reference(root_id),
+            "Kids" => vec![Object::Reference(page_id)],
+            "Count" => 1,
+        };
+        if let Some(r) = mid_res {
+            mid.set("Resources", r);
+        }
+        doc.objects.insert(mid_id, Object::Dictionary(mid));
+        doc.objects.insert(
+            root_id,
+            Object::Dictionary(dictionary! {
+                "Type" => "Pages",
+                "Kids" => vec![Object::Reference(mid_id)],
+                "Count" => 1,
+                "Resources" => root_res,
+                "MediaBox" => vec![0.into(), 0.into(), 595.into(), 842.into()],
+            }),
+        );
+        let catalog = doc.add_object(dictionary! {
+            "Type" => "Catalog",
+            "Pages" => Object::Reference(root_id),
+        });
+        doc.trailer.set("Root", Object::Reference(catalog));
+        let mut out = Vec::new();
+        doc.save_to(&mut out).expect("save synthetic PDF");
+        out
+    }
+
+    fn fonts(base: &str) -> Object {
+        Object::Dictionary(dictionary! {
+            "Font" => dictionary! { "F1" => dictionary! {
+                "Type" => "Font", "Subtype" => "Type1", "BaseFont" => base,
+            }},
+        })
+    }
+
+    fn page_text(bytes: &[u8]) -> String {
+        let pages = pdf_text_pages(bytes);
+        assert_eq!(pages.len(), 1);
+        pages[0]
+            .cells
+            .iter()
+            .map(|c| c.text.as_str())
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    #[test]
+    fn inline_resources_on_an_ancestor_pages_node_are_inherited() {
+        let bytes = pdf(fonts("Helvetica"), None, None);
+        assert_eq!(page_text(&bytes), "Inherited resources");
+    }
+
+    /// The nearest node that sets `/Resources` wins: the page's own over the
+    /// intermediate node's over the root's — and one that does not resolve to
+    /// a dictionary is passed over for the next ancestor's.
+    #[test]
+    fn the_nearest_resources_dictionary_wins() {
+        let doc_of = |b: &[u8]| load_document(b).expect("load");
+        let font_of = |bytes: &[u8]| {
+            let doc = doc_of(bytes);
+            let pid = *doc.get_pages().values().next().unwrap();
+            let res = page_res(&doc, pid).expect("resources");
+            let f1 = res
+                .get(b"Font")
+                .ok()
+                .and_then(|o| o.as_dict().ok())
+                .and_then(|f| f.get(b"F1").ok())
+                .and_then(|o| o.as_dict().ok())
+                .and_then(|f| f.get(b"BaseFont").ok())
+                .and_then(|o| o.as_name().ok())
+                .map(|n| String::from_utf8_lossy(n).into_owned());
+            f1.unwrap_or_default()
+        };
+        assert_eq!(font_of(&pdf(fonts("Root"), None, None)), "Root");
+        assert_eq!(
+            font_of(&pdf(fonts("Root"), Some(fonts("Mid")), None)),
+            "Mid"
+        );
+        assert_eq!(
+            font_of(&pdf(fonts("Root"), Some(fonts("Mid")), Some(fonts("Page")))),
+            "Page"
+        );
+        assert_eq!(
+            font_of(&pdf(fonts("Root"), Some(Object::Null), None)),
+            "Root"
+        );
+    }
+}
+
 #[cfg(test)]
 mod xref_repair {
     /// Build a tiny one-page PDF whose cross-reference entries are either the
@@ -5818,6 +5967,82 @@ mod overpainted {
         ];
         super::drop_overpainted_cells(&mut cells);
         assert_eq!(cells.len(), 4);
+    }
+
+    /// #1129: Cambria's regular face declares an ascent of 3117 and a descent
+    /// of -2464, so each of its lines sits in a box 5.6 em tall and overlaps
+    /// the next line by four fifths. A short line under a long one was "one
+    /// cell inside another on the same band" — paint — and both went: these
+    /// are the issue page's cells, of whose 44 lines 7 were left. Lines one
+    /// pitch apart are lines; the stacked logo, at one height, still goes.
+    #[test]
+    fn lines_of_a_tall_box_font_are_not_paint() {
+        let mut cells = vec![
+            cell(
+                "17. Carefully pour off the supernatant from both tubes. Invert the",
+                72.0,
+                77.1,
+                514.4,
+                132.7,
+            ),
+            cell(
+                "tubes and tap them gently on the surface of a clean paper towel.",
+                72.0,
+                88.8,
+                453.0,
+                144.4,
+            ),
+            cell("“Evidence A” DNA*", 77.6, 412.5, 150.6, 462.7),
+            cell("“Evidence B” DNA*", 77.6, 423.0, 150.5, 473.2),
+            cell("enzyme mixture*", 77.6, 444.1, 143.9, 494.4),
+            // The same face painting a mark: two glyph runs at one height.
+            cell("\"", 72.7, 600.0, 86.4, 655.6),
+            cell("==", 59.4, 600.0, 99.6, 655.6),
+        ];
+        super::drop_overpainted_cells(&mut cells);
+        let texts: Vec<&str> = cells.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(texts.len(), 5, "{texts:?}");
+        assert!(
+            !texts.contains(&"==") && !texts.contains(&"\""),
+            "{texts:?}"
+        );
+    }
+
+    /// The same through the parser: a paragraph and its short last line in a
+    /// font whose descriptor declares Cambria's metrics. Every line and every
+    /// word of the text-layer page (the browser's and `convert_text_layer`'s)
+    /// is there; before, the page came back empty.
+    #[test]
+    fn a_tall_box_font_keeps_its_lines_on_the_text_layer_page() {
+        let widths = "500 ".repeat(91);
+        let font = format!(
+            "<</Type/Font/Subtype/TrueType/BaseFont/Cambria/Encoding/WinAnsiEncoding\
+             /FirstChar 32/LastChar 122/Widths[{widths}]\
+             /FontDescriptor<</Type/FontDescriptor/FontName/Cambria/Flags 32\
+             /FontBBox[-1475 -2464 2868 3117]/Ascent 3117/Descent -2464\
+             /CapHeight 667/ItalicAngle 0/StemV 80>>>>"
+        );
+        let content = b"BT /F1 10 Tf 72 700 Td \
+            (Carefully pour off the supernatant from both of the tubes) Tj \
+            0 -12 Td (and tap them gently on the surface of a clean towel) Tj \
+            0 -12 Td (to drain them.) Tj ET\n";
+        let pdf = super::base14_fonts::pdf_with_content(font.as_bytes(), content);
+        let page = super::pdf_text_pages(&pdf).remove(0);
+        assert!(
+            page.cells.iter().all(|c| c.b - c.t > 50.0),
+            "the boxes are the font's 5.6 em: {:?}",
+            page.cells
+        );
+        let lines: Vec<&str> = page.cells.iter().map(|c| c.text.as_str()).collect();
+        assert_eq!(
+            lines,
+            [
+                "Carefully pour off the supernatant from both of the tubes",
+                "and tap them gently on the surface of a clean towel",
+                "to drain them.",
+            ]
+        );
+        assert_eq!(page.word_cells.len(), 24, "{:?}", page.word_cells);
     }
 }
 

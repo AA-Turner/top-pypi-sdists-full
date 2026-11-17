@@ -78550,7 +78550,7 @@ class FundamentalInstanceProvider(System.Object):
     @staticmethod
     def get(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> QuantConnect.Data.Fundamental.FundamentalInstanceProvider:
         """
-        Get's the fundamental instance provider for the requested symbol
+        Gets the fundamental instance provider for the requested symbol
         
         :param symbol: The requested symbol
         :returns: The unique instance provider.

@@ -106,9 +106,9 @@ export type List = Node<
 >;
 export type Empty = EmptyNode<"empty">;
 export type Quote = Node<"quote", Block[]>;
-export type Small = Node<"small", { content: Inline[] }>;
+export type Subtext = Node<"subtext", { content: Inline[] }>;
 
-export type Block = Empty | Heading | List | Quote | Small;
+export type Block = Empty | Heading | List | Quote | Subtext;
 
 export type NodeType = Inline["type"] | Block["type"];
 
@@ -132,7 +132,7 @@ export type LosslessNodeKind =
 	| EmptyNode<"document">
 	| EmptyNode<"paragraph">
 	| Node<"heading", { level: number }>
-	| EmptyNode<"small">
+	| EmptyNode<"subtext">
 	// `> ` on every line, or `>>> ` quoting the rest
 	| Node<"quote", "line" | "rest">
 	// the list's kind as written on its first item
@@ -179,7 +179,7 @@ export type TokenKind =
 	| EmptyNode<"indent">
 	| EmptyNode<"list_marker">
 	| EmptyNode<"heading_marker">
-	| EmptyNode<"small_marker">
+	| EmptyNode<"subtext_marker">
 	| EmptyNode<"whitespace">;
 
 export type Token = { kind: TokenKind; text: string; span: Span };

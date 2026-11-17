@@ -6,10 +6,10 @@ from pydantic import AfterValidator, ConfigDict, Field, NonNegativeInt, field_va
 
 from ..pdb import PDB
 from ..types import UUID, Vector3D, round_list
-from .docking import Score, TurboDockSettings, VinaSettings
+from .docking import HeronSettings, Score, TurboDockSettings, VinaSettings
 from .workflow import BatchSMILESWorkflow, ProteinStructureWorkflow
 
-BatchDockingSettingsUnion: TypeAlias = Annotated[VinaSettings | TurboDockSettings, Field(discriminator="settings_type")]
+BatchDockingSettingsUnion: TypeAlias = Annotated[VinaSettings | HeronSettings | TurboDockSettings, Field(discriminator="settings_type")]
 
 
 class BatchDockingWorkflow(BatchSMILESWorkflow, ProteinStructureWorkflow):

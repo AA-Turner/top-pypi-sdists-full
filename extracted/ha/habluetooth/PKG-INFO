@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: habluetooth
-Version: 7.1.2
+Version: 7.1.3
 Summary: High availability Bluetooth
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -24,7 +24,7 @@ Requires-Dist: bluetooth-adapters (>=2.4.0)
 Requires-Dist: bluetooth-auto-recovery (>=1.6.4)
 Requires-Dist: bluetooth-data-tools (>=1.29.24)
 Requires-Dist: btsocket (>=0.3.0)
-Requires-Dist: dbus-fast (>=5.0.22) ; platform_system == "Linux"
+Requires-Dist: dbus-fast (>=5.2.0) ; platform_system == "Linux"
 Project-URL: Bug Tracker, https://github.com/bluetooth-devices/habluetooth/issues
 Project-URL: Changelog, https://github.com/bluetooth-devices/habluetooth/blob/main/CHANGELOG.md
 Project-URL: Documentation, https://habluetooth.readthedocs.io

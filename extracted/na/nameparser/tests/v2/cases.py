@@ -41,13 +41,17 @@ from nameparser import (FAMILY_FIRST, FAMILY_FIRST_GIVEN_LAST, GIVEN_FIRST,
 # Not in nameparser.__all__: _order_repr renders a name_order for an
 # error message, Script/_SCRIPT_RANGES/_script_matcher build the same
 # borrowed predicates build_cjk_corpus.py uses to find CJK text.
-from nameparser._policy import (PatronymicRule, Script, _SCRIPT_RANGES,
+from nameparser._policy import (PatronymicRule, Script, _EAST_ASIAN_SCRIPTS,
                                _order_repr, _script_matcher)
 
 #: rules/O6's switch, which every row of its own carries (#754).
 _TWO = Policy(two_family_names=True)
 #: rules/O7's switch, likewise (#704).
 _GIVEN2 = Policy(two_given_names=True)
+#: rules/O8's switch, likewise (#1254).
+_LETTERS = Policy(initials_as_family=True)
+#: rules/O9's switch, likewise (#659).
+_CAPITALS = Policy(capitals_as_family=True)
 
 #: mirrors tools/differential/shapes.py's SHAPES keys;
 #: test_case_shape_ids_exist_in_the_inventory (test_corpora.py)
@@ -96,10 +100,11 @@ def _stray_ascii(text: str) -> str:
 #: run by the time shape 7 consults it.
 _wholly_katakana = _script_matcher(Script.KATAKANA, whole=True)
 
-#: Whether a text carries a codepoint the parser's script table
-#: classifies -- built once, same idiom as build_cjk_corpus.py's
-#: module-scope `_has_cjk`.
-_has_cjk = _script_matcher(*_SCRIPT_RANGES)
+#: Whether a text carries a codepoint of the East Asian scripts the
+#: parser's script table classifies (Cyrillic, also in the table since
+#: #1237, keys only a declared order) -- built once, same idiom as
+#: build_cjk_corpus.py's module-scope `_has_cjk`.
+_has_cjk = _script_matcher(*_EAST_ASIAN_SCRIPTS)
 
 
 @dataclass(frozen=True)
@@ -296,7 +301,7 @@ class Case:
         # from being wholly katakana, not from the nakaguro -- so
         # _wholly_katakana already covers the katakana case and U+30FB
         # is not tested as a divider here at all.
-        has_divider = "·" in self.text
+        has_divider = "·" in self.text or "．" in self.text
         stripped = "".join(self.text.split())
         is_transcription = has_divider or _wholly_katakana(stripped)
         if self.shape == 6:
@@ -380,8 +385,8 @@ CASES: tuple[Case, ...] = (
          shape=1),
     Case("suffix_acronym_multidot_after_a_family_comma",
          "Smith, E.S.Q.",
-         {"given": "E.S.Q.", "family": "Smith"},
-         classification="parity",
+         {"given": "E.", "middle": "S.Q.", "family": "Smith"},
+         classification="fix(#1296)",
          ambiguities=("suffix-or-name",),
          notes="the other path the same removal moved, once -- with "
                "'esq' in SUFFIX_ACRONYMS the multi-dot spelling was a "
@@ -392,10 +397,12 @@ CASES: tuple[Case, ...] = (
                "#516's by-shape class now reads the SAME single "
                "pre-comma word as a candidate for the ambiguous class "
                "-- one word is never enough to flip the structure "
-               "(rules/C4), so the FIELDS stay at the 1.4.0 "
-               "reading, but the class is now considered, and the "
-               "consideration reports: the parity note above is about "
-               "the reading, not about whether a fork was called",
+               "(rules/C4), so the FIELDS kept the 1.4.0 "
+               "reading through 3.0.1, but the class is now considered, "
+               "and the consideration reports, which says nothing about "
+               "the reading"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'E.', middle 'S.Q.'",
          shape=2),
     Case("removed_ph_fragment_leaves_a_bare_trailing_ph_a_name_word",
          "John Smith Ph.",
@@ -828,6 +835,264 @@ CASES: tuple[Case, ...] = (
          {"given": "Hassan Mohamad", "family": "Ali Omar"},
          policy=Policy(two_given_names=True, middle_as_family=True),
          classification="feat(#704)"),
+    # rules/O8, the initials_as_family switch (#1254): off by default, so
+    # the default row says nothing moved (1.4.0, 2.0.0, 2.8.0 and 3.0.1
+    # all read it so, run 2026-11-11), and the switch rows carry the
+    # policy, one per comma shape and order.
+    Case("letters_ending_a_name_keep_the_last_as_the_family_by_default",
+         "Lakshmi R S",
+         {"given": "Lakshmi", "middle": "R", "family": "S"},
+         ambiguities=("order",),
+         notes="rules/O8's switch is off by default (#1254)"),
+    Case("initials_as_family_reads_the_letters_as_the_family",
+         "Lakshmi R S", {"given": "Lakshmi", "family": "R S"},
+         policy=_LETTERS, classification="feat(#1254)"),
+    Case("initials_as_family_leaves_the_middle_name_before_the_letters",
+         "Ram Bahadur B. K.",
+         {"given": "Ram", "middle": "Bahadur", "family": "B. K."},
+         policy=_LETTERS, classification="feat(#1254)"),
+    Case("initials_as_family_reads_the_name_before_a_suffix_comma",
+         "Lakshmi R S, PhD",
+         {"given": "Lakshmi", "family": "R S", "suffix": "PhD"},
+         policy=_LETTERS, classification="feat(#1254)"),
+    Case("initials_as_family_leaves_the_given_part_after_a_family_comma",
+         "Lakshmi, R S",
+         {"given": "R", "middle": "S", "family": "Lakshmi"},
+         policy=_LETTERS, classification="feat(#1254)",
+         notes="the comma names the family; the switch moves nothing"),
+    Case("initials_as_family_leaves_a_comma_with_nothing_before_it",
+         ", R S", {"given": "R", "middle": "S"},
+         policy=_LETTERS, classification="feat(#1254)"),
+    Case("initials_as_family_leaves_one_letter_where_it_is",
+         "Kavitha S", {"given": "Kavitha", "family": "S"},
+         policy=_LETTERS, classification="feat(#1254)"),
+    Case("initials_as_family_stands_down_under_a_family_first_order",
+         "Huntley R P", {"given": "R", "middle": "P", "family": "Huntley"},
+         policy=Policy(initials_as_family=True, name_order=FAMILY_FIRST),
+         classification="feat(#1254)"),
+    Case("initials_as_family_stands_down_under_family_first_given_last",
+         "Huntley R P", {"given": "P", "middle": "R", "family": "Huntley"},
+         policy=Policy(initials_as_family=True,
+                       name_order=FAMILY_FIRST_GIVEN_LAST),
+         classification="feat(#1254)"),
+    # rules/O9, the capitals_as_family switch (#659): off by default, so
+    # the default rows say nothing moved (1.4.0, 2.0.0, 2.8.0 and 3.0.1
+    # all read them so, run 2026-11-12), and the switch rows carry the
+    # policy, one per comma shape and order.
+    Case("a_family_in_capitals_first_reads_by_position_by_default",
+         "DUPONT Mary", {"given": "DUPONT", "family": "Mary"},
+         notes="rules/O9's switch is off by default (#659)"),
+    Case("two_surnames_in_capitals_read_by_position_by_default",
+         "Ayla BURSALI AKSOY",
+         {"given": "Ayla", "middle": "BURSALI", "family": "AKSOY"},
+         notes="rules/O9's switch is off by default (#659)"),
+    Case("capitals_as_family_reads_capitals_first_as_the_family",
+         "DUPONT Mary", {"given": "Mary", "family": "DUPONT"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("capitals_as_family_reads_two_surnames_as_one_family",
+         "Ayla BURSALI AKSOY", {"given": "Ayla", "family": "BURSALI AKSOY"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("capitals_as_family_reads_a_run_in_the_middle",
+         "Jeffrey LAM Kin-fung",
+         {"given": "Jeffrey", "middle": "Kin-fung", "family": "LAM"},
+         policy=_CAPITALS, classification="feat(#659)",
+         notes="#1181 under the switch: the other words keep their order"),
+    Case("capitals_as_family_outranks_the_credential_reading",
+         "Hugo LAC", {"given": "Hugo", "family": "LAC"},
+         policy=_CAPITALS, classification="feat(#659)",
+         notes="S6 reads suffix 'LAC' and reports given-or-family "
+               "without the switch; the capitals settle the fork"),
+    Case("capitals_as_family_reads_the_name_before_a_suffix_comma",
+         "Mary DUPONT, PhD",
+         {"given": "Mary", "family": "DUPONT", "suffix": "PhD"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("capitals_as_family_leaves_a_family_comma_to_the_comma",
+         "Dupont, MARY", {"given": "MARY", "family": "Dupont"},
+         policy=_CAPITALS, classification="feat(#659)",
+         notes="the comma names the family; the switch reads only the "
+               "part before the first comma"),
+    Case("capitals_as_family_reads_one_word_before_a_suffix_comma",
+         "DUPONT, PhD", {"family": "DUPONT", "suffix": "PhD"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("capitals_as_family_leaves_a_comma_with_nothing_before_it",
+         ", DUPONT Mary", {"given": "DUPONT", "middle": "Mary"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("capitals_as_family_names_the_family_under_family_first",
+         "Mary DUPONT", {"given": "Mary", "family": "DUPONT"},
+         policy=Policy(capitals_as_family=True, name_order=FAMILY_FIRST),
+         classification="feat(#659)"),
+    Case("capitals_as_family_keeps_the_written_order_under_family_first_given_last",
+         "DUPONT Mary Ann",
+         {"given": "Mary", "middle": "Ann", "family": "DUPONT"},
+         policy=Policy(capitals_as_family=True,
+                       name_order=FAMILY_FIRST_GIVEN_LAST),
+         classification="feat(#659)"),
+    Case("capitals_as_family_leaves_a_name_wholly_in_capitals",
+         "MARY DUPONT", {"given": "MARY", "family": "DUPONT"},
+         policy=_CAPITALS, classification="feat(#659)"),
+    Case("the_nepali_pack_reads_the_letters_as_the_family",
+         "Ram Bahadur B K",
+         {"given": "Ram", "middle": "Bahadur", "family": "B K"},
+         locale="ne", classification="feat(#1254)",
+         notes="the default reads middle 'Bahadur B', family 'K'"),
+    Case("the_mongolian_pack_reads_the_fathers_name_as_the_family",
+         "Батын Сүхээ",
+         {"given": "Сүхээ", "family": "Батын"},
+         locale="mn", classification="feat(#1237)",
+         notes="the father's name in the genitive, written first; 1.4.0 "
+               "and 3.0.1 read first/given 'Батын', last/family 'Сүхээ' "
+               "(measured on both wheels 2026-11-12)"),
+    Case("the_mongolian_pack_leaves_a_romanized_name_to_the_callers_order",
+         "Bataagiin Suhee",
+         {"given": "Bataagiin", "family": "Suhee"},
+         locale="mn", classification="parity",
+         notes="the pack's order is keyed to Cyrillic (#1237): Mongolians "
+               "often write a romanized name given-first, so it keeps "
+               "the caller's order; 1.4.0 and 3.0.1 read given "
+               "'Bataagiin' too (2026-11-12)"),
+    Case("the_mongolian_pack_reads_the_given_name_last",
+         "Боржигин Батын Сүхээ",
+         {"given": "Сүхээ", "middle": "Батын", "family": "Боржигин"},
+         locale="mn", classification="feat(#1237)",
+         notes="a word before the father's name (a clan name, not read "
+               "as one) leaves the given name last, the reason the pack "
+               "declares FAMILY_FIRST_GIVEN_LAST rather than FAMILY_FIRST"),
+    # #1257: the Maghrebi and Hebrew particles, each row checked against
+    # the 1.4.0 wheel and master 161ebd28 on 2026-11-12
+    Case("an_amazigh_ait_starts_the_family_name",
+         "Youssef Ait Haddou",
+         {"given": "Youssef", "family": "Ait Haddou"},
+         classification="fix(#1249)",
+         notes="1.4.0 through 3.0.1 read middle 'Ait', family 'Haddou'"),
+    Case("an_amazigh_ait_with_its_diaeresis_starts_the_family_name",
+         "Karim Aït Haddou",
+         {"given": "Karim", "family": "Aït Haddou"},
+         classification="fix(#1249)",
+         notes="1.4.0 through 3.0.1 read middle 'Aït'"),
+    Case("an_amazigh_nait_starts_the_family_name",
+         "Leila Nait Haddou",
+         {"given": "Leila", "family": "Nait Haddou"},
+         classification="fix(#1249)",
+         notes="1.4.0 through 3.0.1 read middle 'Nait'"),
+    Case("an_amazigh_ait_ending_the_given_part_joins_the_family",
+         "Haddou, Youssef Ait",
+         {"given": "Youssef", "family": "Ait Haddou"},
+         classification="fix(#1249)",
+         notes="rules/P6's trailing attachment; 1.4.0 through 3.0.1 read "
+               "middle 'Ait'"),
+    Case("an_amazigh_ait_opening_the_name_folds_it_whole",
+         "Ait Haddou Karim",
+         {"family": "Ait Haddou Karim"},
+         classification="fix(#1249)",
+         notes="rules/P1's default-order reach, its Accepted cost: a "
+               "listing written family first without a comma; 1.4.0 "
+               "through 3.0.1 read given 'Ait', middle 'Haddou'"),
+    Case("a_hassaniya_ould_starts_the_family_name",
+         "Ahmed Ould Haddou",
+         {"given": "Ahmed", "family": "Ould Haddou"},
+         classification="fix(#1249)",
+         notes="a patronymic (rules/R9's view reads 'Ould Haddou'); 1.4.0 "
+               "through 3.0.1 read middle 'Ould'"),
+    Case("an_algerian_ouled_starts_the_family_name",
+         "Karim Ouled Haddou",
+         {"given": "Karim", "family": "Ouled Haddou"},
+         classification="fix(#1249)",
+         notes="1.4.0 through 3.0.1 read middle 'Ouled'"),
+    Case("ben_stays_a_middle_name_by_default",
+         "Karim Ben Haddad",
+         {"given": "Karim", "middle": "Ben", "family": "Haddad"},
+         classification="parity",
+         notes="the negative control for #1248: the given name Ben keeps "
+               "the default from reading the particle (ar.toml, default "
+               "= false); 1.4.0 reads the same"),
+    Case("the_arabic_pack_reads_ben_as_the_family",
+         "Karim Ben Haddad",
+         {"given": "Karim", "family": "Ben Haddad"},
+         locale="ar", classification="feat(#1248)",
+         notes="1.4.0 through 3.0.1 read middle 'Ben'"),
+    Case("the_hebrew_pack_reads_ben_as_the_family",
+         "Yael Ben Arieh",
+         {"given": "Yael", "family": "Ben Arieh"},
+         locale="he", classification="feat(#1248)",
+         notes="1.4.0 through 3.0.1 read middle 'Ben'"),
+    Case("the_arabic_pack_keeps_ben_opening_a_name_given",
+         "Ben Haddad",
+         {"given": "Ben", "family": "Haddad"},
+         locale="ar", classification="parity",
+         ambiguities=("particle-or-given",),
+         notes="the given name Ben where the particle opens a name, the "
+               "fork reported; 1.4.0 reads the same fields"),
+    Case("a_maghrebi_el_starts_the_family_name",
+         "Sara El Haddou",
+         {"given": "Sara", "family": "El Haddou"},
+         classification="fix(#1240)",
+         notes="the article al is spelled in Morocco and Egypt; 1.4.0 "
+               "through 3.0.1 read middle 'El'"),
+    Case("a_maghrebi_el_opening_a_name_is_the_given_name",
+         "El Mehdi Haddou",
+         {"given": "El", "middle": "Mehdi", "family": "Haddou"},
+         classification="parity",
+         ambiguities=("particle-or-given",),
+         notes="an article that may be a given name, as al is: El Mehdi "
+               "is a Moroccan given name; 1.4.0 reads the same fields"),
+    Case("an_algerian_compound_given_name_gives_its_half_to_the_family",
+         "Nour El Houda Haddou",
+         {"given": "Nour", "family": "El Houda Haddou"},
+         classification="fix(#1240)",
+         notes="the accepted cost (rules/P2, decisions/vocabulary-"
+               "collisions 2026-11-12 #1257): the given name is 'Nour El "
+               "Houda'; 1.4.0 through 3.0.1 read middle 'El Houda'"),
+    Case("hebrew_ben_opening_a_name_is_the_given_name",
+         "בן כהן",
+         {"given": "בן", "family": "כהן"},
+         classification="fix(#1209)",
+         ambiguities=("particle-or-given",),
+         notes="1.4.0 read these fields too; 2.x and master read family "
+               "'בן כהן' (a never-given patronymic, rules/P1)"),
+    Case("hebrew_ben_inside_a_name_starts_the_family_name",
+         "יעל בן חיים",
+         {"given": "יעל", "family": "בן חיים"},
+         classification="fix(#1210)",
+         notes="what #1210 changes is the view: 2.0.0 through 3.0.1 read "
+               "these fields, 3.0 with the patronymic view filled, which it "
+               "no longer is; 1.4.0 read middle 'בן', last 'חיים'"),
+    Case("hebrew_abu_starts_the_family_name",
+         "סאמי אבו חליל",
+         {"given": "סאמי", "family": "אבו חליל"},
+         classification="fix(#1211)",
+         notes="1.4.0 through 3.0.1 read middle 'אבו'"),
+    Case("hebrew_al_starts_the_family_name",
+         "נאדר אל חלבי",
+         {"given": "נאדר", "family": "אל חלבי"},
+         classification="fix(#1211)",
+         notes="1.4.0 through 3.0.1 read middle 'אל'"),
+    Case("hebrew_al_opening_a_name_is_the_given_name",
+         "אל כהן",
+         {"given": "אל", "family": "כהן"},
+         classification="parity",
+         ambiguities=("particle-or-given",),
+         notes="the English given name Al written in Hebrew, the fork "
+               "reported; 1.4.0 reads the same fields"),
+    Case("a_turkic_marker_ending_three_words_reads_with_the_fathers_name",
+         "Жылдыз Таалайбек кызы",
+         {"given": "Жылдыз", "family": "Таалайбек кызы"},
+         locale="tr_az", classification="fix(#1187)",
+         notes="no surname: the father's name and the marker are the "
+               "family (rules/O2); 1.4.0 and 3.0.1 with Turkic handling "
+               "read middle 'Таалайбек', last/family 'кызы' (2026-11-12)"),
+    Case("a_romanized_turkic_marker_ending_three_words_reads_with_the_fathers_name",
+         "Aidai Mederbek kyzy",
+         {"given": "Aidai", "family": "Mederbek kyzy"},
+         locale="tr_az", classification="fix(#1187)",
+         notes="1.4.0 and 3.0.1 with Turkic handling read middle 'Mederbek', "
+               "last/family 'kyzy' (2026-11-12)"),
+    Case("a_turkic_marker_ending_two_words_stays_positional",
+         "Cavad oğlu",
+         {"given": "Cavad", "family": "oğlu"},
+         locale="tr_az", classification="parity",
+         notes="rules/O2's boundary: a surname spelled as the marker "
+               "(PSC's 'Ahmed Oglu') leaves two words positional; 1.4.0 "
+               "and 3.0.1 read alike (2026-11-12)"),
     # MOVED by #289, not deleted: 'MA' is written in capitals inside a
     # mixed-case name, so it now leans CREDENTIAL and is taken with no
     # words to spare -- the reserve/count this row used to pin no
@@ -1190,6 +1455,123 @@ CASES: tuple[Case, ...] = (
                "refused (en.toml's cota): marked ambiguous, a name in "
                "capitals with a word to spare read it as the suffix, as "
                "it would have in 49 tse-donors names"),
+    # -- #1315: the Royal Colleges' fellowships and memberships (FRCS,
+    # FRCP, MRCP, FRACS, ...), which only FACS and FACP of the family were
+    # listed beside. Unlisted, a trailing one of four or more capitals fell
+    # to the family name where no comma stood.
+    Case("trailing_royal_college_fellowship", "John Smith FRCS",
+         {"given": "John", "family": "Smith", "suffix": "FRCS"},
+         classification="fix(#1315)",
+         notes="no comma: before #1315 middle 'Smith', family 'FRCS', "
+               "which `Tanaka Hiroshi FRCS` read as a family name too"),
+    Case("family_comma_given_part_ends_in_a_fellowship",
+         "Smith, John MRCP",
+         {"given": "John", "family": "Smith", "suffix": "MRCP"},
+         classification="fix(#1315)",
+         notes="rules/S5's given part: before #1315 middle 'MRCP'"),
+    Case("lower_case_fellowship_before_a_suffix_comma",
+         "john smith frcs, jr.",
+         {"given": "john", "family": "smith", "suffix": "frcs, jr."},
+         classification="fix(#1315)",
+         notes="a name in one case gives no case signal, so the listing "
+               "reads it: before #1315 middle 'smith', family 'frcs'"),
+    # -- #998: credentials written in two chunks joined at a full stop
+    # (B.Pharm, M.Kes), listed so the vocabulary reads them whole, where
+    # rules/S3 read them by shape alone.
+    Case("two_chunk_credential_is_listed", "Ahmed Ali B.Pharm",
+         {"given": "Ahmed", "family": "Ali", "suffix": "B.Pharm"},
+         classification="fix(#998)",
+         notes="the same fields before #998, read by rules/S3's shape "
+               "with a suffix-or-name report; listed, it reports nothing"),
+    Case("two_chunk_credential_with_no_word_to_spare", "Ali C.Psych",
+         {"given": "Ali", "suffix": "C.Psych"},
+         classification="fix(#998)", ambiguities=("given-or-family",),
+         notes="before #998 family 'C.Psych', the shape's suffix "
+               "reading needing a word to spare; the lone name word "
+               "reports given-or-family, as 'Ali M.Med' does"),
+    Case("family_comma_given_part_ends_in_two_chunk_credential",
+         "Hassan, Ahmed M.Kes",
+         {"given": "Ahmed", "family": "Hassan", "suffix": "M.Kes"},
+         classification="fix(#998)",
+         notes="rules/S5's given part: the same fields before #998, "
+               "with a suffix-or-name report"),
+    Case("indonesian_credentials_after_a_comma",
+         "Ayu Pangestu, S.Pd, M.Pd",
+         {"given": "Ayu", "family": "Pangestu", "suffix": "S.Pd, M.Pd"},
+         classification="fix(#998)",
+         notes="before #998 title 'S.Pd M.Pd': the chunk Pd is a listed "
+               "title, and rules/S3 reads a word holding a title chunk as "
+               "a title; listed whole, the vocabulary reads it first"),
+    Case("glued_initial_and_surname_still_read_by_position",
+         "Ahmed Ali M.Hassan",
+         {"given": "Ahmed", "middle": "Ali M.", "family": "Hassan"},
+         classification="fix(#1235)", ambiguities=("suffix-or-name",),
+         notes="rules/T8 divides the glued initial from the surname, as "
+               "'Ahmed Ali M. Hassan' reads, the credential S3's shape read "
+               "the word as still reported; #998's batch had read it as "
+               "an unlisted suffix, and 1.4.0 gave family 'M.Hassan'. The "
+               "id keeps #998's wording, which "
+               "decisions/suffix-acronym-collisions cites"),
+    Case("refused_peng_keeps_the_surname", "Wang Xiao Peng",
+         {"given": "Wang", "middle": "Xiao", "family": "Peng"},
+         classification="parity",
+         notes="P.Eng, Professional Engineer, is refused (en.toml's peng): "
+               "Peng is a Chinese surname and given name"),
+    Case("refused_bed_keeps_the_given_name", "Thapa, Bed",
+         {"given": "Bed", "family": "Thapa"},
+         classification="parity",
+         notes="B.Ed is refused (en.toml's bed): Bed is a Nepali given "
+               "name, in 59 nepal-candidates names; listed, the given "
+               "part after the family comma read suffix 'Bed'"),
+    Case("refused_ssi_keeps_the_word", "Park Ji-hoon ssi",
+         {"given": "Park", "middle": "Ji-hoon", "family": "ssi"},
+         classification="parity",
+         notes="S.Si is refused (id.toml's ssi): ssi is the romanized "
+               "Korean honorific 씨; listed, it read family 'Ji-hoon', "
+               "suffix 'ssi', and recased as SSi"),
+    Case("ambiguous_msi_keeps_the_surname", "Andiswa Zanele Msi",
+         {"given": "Andiswa", "middle": "Zanele", "family": "Msi"},
+         classification="parity", ambiguities=("suffix-or-name",),
+         notes="M.Si is marked ambiguous (id.toml's msi): Msi is a Xhosa "
+               "surname, and listed plain it read suffix 'Msi'; the "
+               "report is new with #998"),
+    Case("ambiguous_msi_after_a_comma_is_the_credential", "Jane Doe, MSi",
+         {"given": "Jane", "family": "Doe", "suffix": "MSi"},
+         classification="fix(#998)", ambiguities=("suffix-or-name",),
+         notes="before #998 given 'MSi', family 'Jane Doe'"),
+    Case("ambiguous_msi_in_capitals_takes_the_surname",
+         "ANDISWA ZANELE MSI",
+         {"given": "ANDISWA", "family": "ZANELE", "suffix": "MSI"},
+         classification="fix(#998)", ambiguities=("suffix-or-name",),
+         notes="the accepted cost of marking msi rather than refusing "
+               "it: a name in one case with a word to spare gives no case "
+               "signal, so the credential reading takes the surname, as "
+               "the ambiguous mot's does (DIVA DA MOT); no local corpus "
+               "writes the shape, while refusing msi reversed Jane Doe, "
+               "MSi; before #998 middle 'ZANELE', family 'MSI'"),
+    Case("two_chunk_credential_written_without_stops_after_a_comma",
+         "Anna Gelavis, BPharm",
+         {"given": "Anna", "family": "Gelavis", "suffix": "BPharm"},
+         classification="fix(#998)",
+         notes="the listed spelling without stops, the vocabulary path: "
+               "before #998 given 'BPharm', family 'Anna Gelavis', rules/C5 "
+               "reading an unlisted two-capital word as paired initials"),
+    Case("two_chunk_credential_in_capitals_without_stops",
+         "JOHN SMITH MPHARM",
+         {"given": "JOHN", "family": "SMITH", "suffix": "MPHARM"},
+         classification="fix(#998)",
+         notes="a name in one case: before #998 middle 'SMITH', family "
+               "'MPHARM'"),
+    Case("indonesian_credentials_with_no_comma",
+         "Ayu Pangestu S.Pd M.Pd",
+         {"given": "Ayu", "family": "Pangestu", "suffix": "S.Pd M.Pd"},
+         classification="fix(#998)",
+         notes="before #998 middle 'Pangestu S.Pd', family 'M.Pd'"),
+    Case("two_chunk_credential_after_a_one_word_head", "Smith, M.Tech",
+         {"family": "Smith", "suffix": "M.Tech"},
+         classification="fix(#998)",
+         notes="the one-word head before the comma: before #998 given "
+               "'M.Tech', with a suffix-or-name report"),
     # -- #848: Ing, the engineering degree of Czech, Slovak, Austrian
     # and Romanian names, is marked ambiguous as PA is, the surname
     # reading being substantial (Census 1,814).
@@ -1237,12 +1619,15 @@ CASES: tuple[Case, ...] = (
                "credential even after a one-word head, where 'Novak, "
                "Ing.' keeps the title; master read title 'ING.'"),
     Case("comma_dotted_initials_ing_are_a_credential", "Smith, I.N.G.",
-         {"family": "Smith", "suffix": "I.N.G."},
-         classification="fix(#848)",
-         notes="the accepted cost: the dotted spelling of an ambiguous "
-               "member reads as the credential with no report, as "
-               "'Smith, M.A.' does; before #848 this read given 'I.N.G.', "
-               "reported"),
+         {"given": "I.", "middle": "N.G.", "family": "Smith"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1238)",
+         notes="#848's accepted cost, the dotted spelling of an "
+               "ambiguous member read as the credential with no report, "
+               "lifted by #1238 behind one name word: a run of initials "
+               "there is the given name whatever it spells (rules/C16), "
+               "reported; the id keeps #848's wording, which "
+               "decisions/suffix-acronym-collisions cites"),
     # #965: King's Counsel, a credential listed as a WORD and gated by
     # its family reading (rules/S11), since KC is also the Nepali surname
     Case("kc_ends_the_name_as_a_suffix", "John Smith KC",
@@ -2067,7 +2452,7 @@ CASES: tuple[Case, ...] = (
                "family 'JONES'"),
     Case("a_generational_word_before_a_title_case_vi_keeps_the_name",
          "Nguyen Van Jr. Vi",
-         {"given": "Nguyen", "middle": "Van Jr.", "family": "Vi"},
+         {"given": "Nguyen", "family": "Van Jr. Vi"},
          classification="fix(#1023)",
          ambiguities=("suffix-or-name",),
          notes="S8: the numeral behind the generation word is refused "
@@ -2075,7 +2460,9 @@ CASES: tuple[Case, ...] = (
                "'Vi' in a name of mixed case leans to the name (the "
                "second review found the shape alone taking it). 1.4.0 "
                "read family 'Jr.', suffix 'Vi'; 2.3.0 through 2.8.0 read "
-               "family 'Van', suffix 'Jr. Vi'"),
+               "family 'Van', suffix 'Jr. Vi'; 3.0.0 through 3.0.1 middle "
+               "'Van Jr.', family 'Vi', the particle's chain stopping at "
+               "the 'Jr.' it now takes (P2, #1177)"),
     Case("a_generational_word_before_an_unsettled_member",
          "John Smith Jr. Ma Jones",
          {"given": "John", "middle": "Smith Jr. Ma", "family": "Jones"},
@@ -2240,12 +2627,13 @@ CASES: tuple[Case, ...] = (
          notes="Fo is a surname too (Dario Fo), and a name of two words "
                "has none to spare for the agnomen (rules/S11)"),
     Case("an_agnomen_glued_behind_an_initial", "Pedro M.Filho",
-         {"given": "Pedro", "family": "M.Filho"},
-         classification="parity",
-         ambiguities=("suffix-or-name",),
-         notes="no chunk claim for a suffix word that is also a name "
-               "(rules/S11): the joined word is weighed by its dotted shape, "
-               "as it was"),
+         {"given": "Pedro", "family": "M.", "suffix": "Filho"},
+         classification="fix(#1235)",
+         ambiguities=("order", "suffix-or-name"),
+         notes="divided from the initial before any comma (rules/T8), "
+               "the agnomen is weighed as it is written apart (rules/S11), "
+               "as 'Pedro M. Filho' reads; 1.4.0 through 3.0.1 read family "
+               "'M.Filho'"),
     Case("a_generation_word_in_front_of_an_agnomen_is_no_word_to_spare", "Pedro Jnr Filho",
          {"given": "Pedro", "middle": "Jnr", "family": "Filho"},
          classification="parity",
@@ -2440,11 +2828,13 @@ CASES: tuple[Case, ...] = (
                "only behind a comma or with a period (H5)"),
     Case("a_joined_connective_is_no_run", "Josep Carod i Rovira",
          {"given": "Josep", "family": "Carod i Rovira"},
+         classification="fix(#397)",
          notes="'i' is a suffix word and a connective; a connective "
                "never starts the run"),
     Case("a_numeral_the_clause_free_name_reads_ends_the_clause",
          "John née Jones Smith VI",
          {"family": "John", "suffix": "VI", "maiden": "Jones Smith"},
+         classification="fix(#445)",
          ambiguities=("suffix-or-name",),
          notes="#601: the take finds a trailing numeral by the numeral "
                "fork's SHAPE test, which asks no vocabulary -- 'vi' is in "
@@ -2456,6 +2846,7 @@ CASES: tuple[Case, ...] = (
          "Jane Doe nee Smith VI Prof.",
          {"title": "Prof.", "given": "Jane", "family": "Doe",
           "suffix": "VI", "maiden": "Smith"},
+         classification="fix(#535)",
          ambiguities=("suffix-or-name",),
          notes="#610: the chain takes 'Prof.' first and leaves 'VI' the "
                "walk's last piece, so the numeral fork reads it, as in "
@@ -2467,6 +2858,7 @@ CASES: tuple[Case, ...] = (
          "Jane Doe nee Smith VI Ph. D.",
          {"given": "Jane", "family": "Doe", "suffix": "VI Ph. D.",
           "maiden": "Smith"},
+         classification="fix(#424)",
          ambiguities=("suffix-or-name",),
          notes="#610: the merged 'Ph. D.' is group-flagged and outside the "
                "peel's walk, so 'VI' is the walk's last piece, as in 'Jane "
@@ -2606,13 +2998,15 @@ CASES: tuple[Case, ...] = (
                "der', suffix 'I'; 1.4.0 through 2.6.0 read as here"),
     Case("a_numeral_behind_a_particle_before_paired_initials_is_family",
          "John van der V, M.J.",
-         {"given": "M.J.", "family": "John van der V"},
-         ambiguities=("suffix-or-name",), classification="parity",
+         {"given": "M.", "middle": "J.", "family": "John van der V"},
+         ambiguities=("suffix-or-name",), classification="fix(#1296)",
          notes="C1: the family part reads its numeral as the comma-less "
                "name does, save that its particles count as no word "
                "(S10), so this part has one name word where 'John Smith "
                "V, M.J.' has two. 2.7.0 through 2.8.2 read family 'John "
-               "van der', suffix 'V'; 1.4.0 through 2.6.0 read as here"),
+               "van der', suffix 'V'; 1.4.0 through 2.6.0 read given "
+               "'M.J.' and the same family. Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'M.', middle 'J.'"),
     Case("a_numeral_behind_a_joined_particle_surname_keeps_the_count",
          "Smith van der Berg V, John",
          {"given": "John", "family": "Smith van der Berg",
@@ -2870,6 +3264,61 @@ CASES: tuple[Case, ...] = (
          notes="where the carve-out did not hold, the join took the "
                "title as the name it links. 1.4.0 through 2.8.2 read "
                "family 'Smith y Prof.'"),
+    # #1168: P13 steps over every title H5's trailing run takes,
+    # a gated title written short included (#999).
+    Case("a_connective_before_a_gated_title_written_short_joins_the_word_before",
+         "John Smith y Maj.",
+         {"title": "Maj.", "given": "John", "family": "Smith y"},
+         classification="fix(#1168)",
+         notes="P13 reads the name words past a trailing title H5 "
+               "reads, 'Maj.' as 'Prof.', as 'John Smith Maj.' reads "
+               "title 'Maj.'. 3.0.0 through 3.0.1 read family 'Smith y "
+               "Maj.'; 1.4.0 middle 'Smith y', last 'Maj.'"),
+    Case("a_connective_before_another_gated_title_joins_the_word_before",
+         "John Smith y Gen.",
+         {"title": "Gen.", "given": "John", "family": "Smith y"},
+         classification="fix(#1168)",
+         notes="3.0.0 through 3.0.1 read family 'Smith y Gen.'; 1.4.0 "
+               "middle 'Smith y', last 'Gen.'"),
+    Case("a_joined_connective_before_a_gated_title_joins_the_word_before",
+         "John Paul Smith y Maj.",
+         {"title": "Maj.", "given": "John", "middle": "Paul",
+          "family": "Smith y"},
+         classification="fix(#1168)",
+         notes="where the carve-out does not hold. 1.4.0 through 3.0.1 "
+               "read family 'Smith y Maj.'"),
+    Case("a_linked_letter_reads_through_a_gated_title",
+         "John Smith y V Maj.",
+         {"title": "Maj.", "given": "John", "family": "Smith y V"},
+         classification="fix(#1098)",
+         notes="#1168's boundary: the lone letter is found before the "
+               "title test is asked, so 3.0.0 through 3.0.1 read the "
+               "same; 1.4.0 read middle 'Smith y V', last 'Maj.'"),
+    Case("a_connective_before_a_listed_rank_the_run_refuses_links_it",
+         "John Paul Smith y 10th.",
+         {"given": "John", "middle": "Paul", "family": "Smith y 10th."},
+         notes="#1168's boundary, found by its code review: H5's run "
+               "takes no '10th.', its digits refused by the abbreviation "
+               "shape ('John Smith 10th.' reads family '10th.'), so P13 "
+               "has no title to step over either. 3.0.0 through 3.0.1 "
+               "read middle 'Paul Smith y', family '10th.', P13's own "
+               "title test stopping there; 1.4.0 through 2.8.2 read as "
+               "here"),
+    Case("a_word_connective_before_a_gated_title_is_the_couples_formula",
+         "John Smith and Maj.",
+         {"given": "John", "family": "Smith and Maj."},
+         notes="#1168's boundary, found by the PR's test review: a word "
+               "connective with a period-marked title behind it is left "
+               "to P3 as the couple's formula, a gated title as 'John "
+               "Smith and Prof.', so P13's two sites ask one word test"),
+    Case("a_connective_before_a_bare_gated_title_keeps_the_name",
+         "John Smith y Maj",
+         {"given": "John", "family": "Smith y Maj"},
+         classification="fix(#1098)",
+         notes="#1168's boundary: H5's run takes a title written short "
+               "with its period only, so P13 has no title to step over "
+               "and links 'Maj' as the name it is. 1.4.0 read middle "
+               "'Smith y', last 'Maj'"),
     Case("a_word_connective_before_a_suffix_joins_the_word_before",
          "John Smith and Jr.",
          {"given": "John", "family": "Smith and", "suffix": "Jr."},
@@ -3165,11 +3614,13 @@ CASES: tuple[Case, ...] = (
                "2.8.0 read family 'JP Clancy'"),
     Case("dotted_initials_spelling_a_credential_before_a_comma_are_the_given_name",
          "A.M. Barrett, MD",
-         {"given": "A.M.", "family": "Barrett", "suffix": "MD"},
-         classification="parity",
+         {"given": "A.", "middle": "M.", "family": "Barrett", "suffix": "MD"},
+         classification="fix(#1296)",
          notes="'am' is a credential, matched with its periods "
                "removed. 2.4.0 through 2.8.0 read family 'A.M. "
-               "Barrett'"),
+               "Barrett'"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'A.', middle 'M.'"),
     Case("a_given_name_a_credential_spells_before_a_comma_is_the_given_name",
          "Cem Akin, M.D., Ph.D.",
          {"given": "Cem", "family": "Akin", "suffix": "M.D., Ph.D."},
@@ -3206,6 +3657,7 @@ CASES: tuple[Case, ...] = (
     Case("a_credential_alone_before_a_comma_is_the_family",
          "Md, PhD",
          {"family": "Md", "suffix": "PhD"},
+         classification="fix(#296)",
          notes="rules/C3 boundary: no name word follows the credential, "
                "so the part is the listing form's one word. 1.4.0 read "
                "title 'PhD', first 'Md'"),
@@ -3237,6 +3689,7 @@ CASES: tuple[Case, ...] = (
     Case("a_title_particle_before_a_comma_is_still_a_title",
          "Freiherr von Berg, PhD",
          {"title": "Freiherr", "family": "von Berg", "suffix": "PhD"},
+         classification="fix(#410)",
          ambiguities=("particle-or-given",),
          notes="#575 boundary: a word of both the title and the particle "
                "vocabulary is not a particle to the count before the "
@@ -3267,6 +3720,7 @@ CASES: tuple[Case, ...] = (
          "van Jr. Berg, Mr.",
          {"title": "Mr.", "given": "van", "middle": "Jr.",
           "family": "Berg"},
+         classification="fix(comma-family)",
          ambiguities=("particle-or-given",),
          notes="#575 boundary: the particle reaches no further than a "
                "suffix word, so 'van' and 'Berg' are two name words and "
@@ -3276,6 +3730,7 @@ CASES: tuple[Case, ...] = (
          "Dr. van der Berg, PhD",
          {"title": "Dr.", "given": "van", "family": "der Berg",
           "suffix": "PhD"},
+         classification="fix(#367)",
          ambiguities=("particle-or-given",),
          notes="#575 boundary: the count for an unambiguous credential "
                "counts the title as a word, so the comma reads as a "
@@ -3289,6 +3744,7 @@ CASES: tuple[Case, ...] = (
     Case("a_leading_title_particle_stays_a_title_before_a_title_only_comma",
          "St John, Dr.",
          {"title": "St Dr.", "family": "John"},
+         classification="fix(#296)",
          notes="#575 boundary: 'St' opens the part, so it is the title "
                "it also is and 'John' alone is the name: two words do "
                "not stand before the comma, the positional read holds. "
@@ -4167,6 +4623,7 @@ CASES: tuple[Case, ...] = (
          "John Smith, Jr., Freiherr von Richthofen",
          {"given": "John", "family": "Smith", "title": "Freiherr",
           "suffix": "Jr., von Richthofen"},
+         classification="fix(#603)",
          ambiguities=("comma-structure",),
          notes="the row above as a part past the second comma, which "
                "is consumed as suffixes but for its title words (C2): "
@@ -4569,11 +5026,11 @@ CASES: tuple[Case, ...] = (
          shape=2),
     Case("the_by_shape_class_never_reaches_is_wholly_suffix",
          "Smith Jr., A.B.",
-         {"given": "A.B.", "family": "Smith", "suffix": "Jr."},
-         classification="parity",
+         {"given": "A.", "middle": "B.", "family": "Smith", "suffix": "Jr."},
+         classification="fix(#1296)",
          ambiguities=("suffix-or-name",),
-         notes="FULL PARITY on the 1.4.0 wheel -- first 'A.B.', last "
-               "'Smith', suffix 'Jr.'; only the report is new, like "
+         notes="1.4.0 through 3.0.1 read first 'A.B.', last "
+               "'Smith', suffix 'Jr.', the report new, like "
                "its report-only siblings above. Also the control that "
                "pins the review-round fix: an EARLIER version of "
                "`is_wholly_suffix` admitted a by-shape member "
@@ -4584,7 +5041,9 @@ CASES: tuple[Case, ...] = (
                "the comma form only through classify's shape tags, and "
                "`_comma.decide` declines it here exactly as the "
                "listed class does above -- one name word, so `A.B.` "
-               "stays the given and `Jr.` its own suffix",
+               "stays a name and `Jr.` its own suffix"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'A.', middle 'B.'",
          shape=2),
     Case("two_name_words_read_the_listed_acronym_as_a_credential",
          "John Smith, MA",
@@ -4793,7 +5252,7 @@ CASES: tuple[Case, ...] = (
     Case("unlisted_dotted_without_words_to_spare_is_the_family",
          "Jack X.Y.Z.",
          {"given": "Jack", "family": "X.Y.Z."},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="the other half of the count, and the row is unchanged "
                "in its FIELDS: two pieces, so the shape loses to the "
                "surname reading. What is new is the report -- the "
@@ -4954,6 +5413,7 @@ CASES: tuple[Case, ...] = (
     Case("a_joined_credential_settles_a_bare_ambiguous_chunk",
          "John Smith, MA/PhD",
          {"given": "John", "family": "Smith", "suffix": "MA/PhD"},
+         classification="fix(#1138)",
          notes="rules/S3 (#1138): a bare member of the ambiguous class is "
                "a chunk where a credential that is no name stands beside "
                "it; 1.4.0 through 2.8.2 reversed the name around it"),
@@ -5004,10 +5464,372 @@ CASES: tuple[Case, ...] = (
                "abbreviations as dotted letters, degrees among them "
                "(the MD here), and has no capitals to write initials "
                "in"),
+    Case("thai_academic_titles_spelled_out",
+         "รองศาสตราจารย์ ดร. สุดา ใจดี",
+         {"title": "รองศาสตราจารย์ ดร.", "given": "สุดา", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="associate professor, Dr.: listed in th.toml; 1.4.0 "
+               "through 3.0.1 read given 'รองศาสตราจารย์', the H2 shape "
+               "reading 'ดร.' only at the head"),
+    Case("thai_lecturer_title",
+         "อาจารย์ สุดา ใจดี",
+         {"title": "อาจารย์", "given": "สุดา", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="lecturer, the commonest title of a Thai faculty list"),
+    Case("thai_titles_glued_at_their_stops",
+         "รศ.ดร.สุดา ใจดี",
+         {"title": "รศ.ดร.", "given": "สุดา", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="rules/T8 divides at each stop, the Thai vowel sign in "
+               "the name after it counted as part of the word; 1.4.0 "
+               "through 3.0.1 read given 'รศ.ดร.สุดา'"),
+    Case("thai_one_letter_title_glued_at_its_stop",
+         "ศ.ดร.สุดา ใจดี",
+         {"title": "ศ.ดร.", "given": "สุดา", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="professor written short: a letter in a script without "
+               "case is read alone only as a listed title"),
+    Case("thai_professional_title_written_short",
+         "นพ. สมชาย ใจดี",
+         {"title": "นพ.", "given": "สมชาย", "family": "ใจดี"},
+         notes="physician written short: the H2 shape read it before "
+               "it was listed (#1166)"),
+    Case("thai_acting_rank_written_as_one_word",
+         "ว่าที่ร้อยตรี สมชาย ใจดี",
+         {"title": "ว่าที่ร้อยตรี", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="acting second lieutenant, two words in meaning written "
+               "as one"),
+    Case("bengali_one_letter_title_glued_at_its_stop",
+         "ড.করম খান",
+         {"title": "ড.", "given": "করম", "family": "খান"},
+         classification="fix(#1166)",
+         notes="the listed one-letter Dr. in a script without case is "
+               "read alone, as written apart; 3.0.1 read title 'ড.করম'"),
+    Case("bengali_name_with_a_vowel_sign_after_the_stop_stays_whole",
+         "ড.রহিম খান",
+         {"title": "ড.রহিম", "family": "খান"},
+         classification="fix(#343)",
+         notes="the boundary: the name's vowel sign U+09BF is no letter "
+               "of the shape, only Thai's marks being counted (#1166; "
+               "decisions/T8's Open line on vowel signs), so the word "
+               "stays whole and its listed title chunk takes it; 1.4.0 "
+               "through 2.2.0 read given 'ড.রহিম', before ড was listed"),
+    Case("thai_glued_title_after_a_family_comma_stays_whole",
+         "ใจดี, รศ.ดร.สุดา",
+         {"title": "รศ.ดร.สุดา", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="accepted: T8 divides nothing after a comma, so the "
+               "listed title chunk takes the word, as 'Smith, Dr.John' "
+               "reads; 3.0.1 read given 'รศ.ดร.สุดา' (#1311)"),
+    Case("thai_salutation_written_as_dotted_letters",
+         "น.ส.ศศินันท์ กัณหารินทร์",
+         {"title": "น.ส.", "given": "ศศินันท์", "family": "กัณหารินทร์"},
+         classification="fix(#1319)",
+         notes="Miss written short is listed with its stops; #1166 had "
+               "read it as initials (given 'น.ส.'), 3.0.1 given "
+               "'น.ส.ศศินันท์'"),
+    Case("thai_police_rank_written_short",
+         "พ.ต.ท. สมมาตร เกลี้ยงสิน",
+         {"title": "พ.ต.ท.", "given": "สมมาตร", "family": "เกลี้ยงสิน"},
+         classification="fix(#1319)",
+         notes="1.4.0 through 3.0.1 read given 'พ.ต.ท.', middle 'สมมาตร'"),
+    Case("thai_rank_written_short_glued_at_its_stop",
+         "พล.ต.ต.สุรศักดิ์ รมยานนท์",
+         {"title": "พล.ต.ต.", "given": "สุรศักดิ์", "family": "รมยานนท์"},
+         classification="fix(#1319)",
+         notes="the glued-title peel cuts after the rank's own stop, its "
+               "first chunk พล being no title alone (rules/W6)"),
+    Case("thai_rank_written_short_glued_to_a_further_title",
+         "พ.ต.อ.ดร.สมชาย ใจดี",
+         {"title": "พ.ต.อ.ดร.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="the peel takes the rank, and T8 divides ดร.สมชาย"),
+    Case("thai_feminine_rank_written_short_glued",
+         "พ.อ.หญิงวาสนา แสงสวย",
+         {"title": "พ.อ.หญิง", "given": "วาสนา", "family": "แสงสวย"},
+         classification="fix(#1319)",
+         notes="the rank's feminine form listed whole: T8 leaves the word "
+               "to the peel, which reads past the dotted run (rules/W6)"),
+    Case("thai_feminine_rank_written_short_apart",
+         "พ.อ.หญิง วาสนา แสงสวย",
+         {"title": "พ.อ.หญิง", "given": "วาสนา", "family": "แสงสวย"},
+         classification="fix(#1319)",
+         notes="a title listed whole with its stops is passed over, "
+               "never cut"),
+    Case("thai_rank_spelled_out_glued",
+         "พันตำรวจโทพิชิต สุนทร",
+         {"title": "พันตำรวจโท", "given": "พิชิต", "family": "สุนทร"},
+         classification="fix(#1319)",
+         notes="1.4.0 through 3.0.1 read given 'พันตำรวจโทพิชิต'"),
+    Case("thai_acting_rank_written_apart_short",
+         "ว่าที่ ร.ต. พงศ์พันธ์ สุนทรชัย",
+         {"title": "ว่าที่ ร.ต.", "given": "พงศ์พันธ์", "family": "สุนทรชัย"},
+         classification="fix(#1319)",
+         notes="ว่าที่ (acting) is a modifier, a title before the rank "
+               "(rules/H9)"),
+    Case("thai_acting_rank_glued_short",
+         "ว่าที่ร.ท.วินัย พืชพิสุทธิ์",
+         {"title": "ว่าที่ร.ท.", "given": "วินัย", "family": "พืชพิสุทธิ์"},
+         classification="fix(#1319)",
+         notes="the peel takes ว่าที่, and T8 divides ร.ท.วินัย"),
+    Case("thai_rank_written_short_before_a_name_opening_like_a_longer_rank",
+         "พ.ต.อนุชา ใจดี",
+         {"title": "พ.ต.", "given": "อนุชา", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="พ.ต.อ is a longer rank, but its last chunk is one letter "
+               "and needs its stop, so the name keeps its อ (the docs "
+               "review of #1319); 1.4.0 through 3.0.1 read given 'พ.ต.อนุชา'"),
+    Case("thai_initial_glued_to_a_name_is_no_dotted_title",
+         "น.สมชาย ใจดี",
+         {"given": "น.สมชาย", "family": "ใจดี"},
+         notes="the boundary: น.ส with no stop after it is the initial น "
+               "and a name opening with ส (the code review of #1319)"),
+    Case("thai_acting_with_no_rank_behind_it_is_no_title",
+         "ว่าที่สมชาย ใจดี",
+         {"given": "ว่าที่สมชาย", "family": "ใจดี"},
+         notes="the boundary: ว่าที่ peels only with a title behind it, "
+               "a modifier (rules/H9, rules/W6)"),
+    Case("thai_acting_feminine_rank_written_short_glued",
+         "ว่าที่ร.ต.หญิงวาสนา ใจดี",
+         {"title": "ว่าที่ร.ต.หญิง", "given": "วาสนา", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="the peel takes ว่าที่, and T8 reads ร.ต.หญิง as one chunk"),
+    Case("thai_salutation_glued_before_a_feminine_rank",
+         "นางพ.อ.หญิงวาสนา แสงสวย",
+         {"title": "นางพ.อ.หญิง", "given": "วาสนา", "family": "แสงสวย"},
+         classification="fix(#1319)"),
+    Case("thai_feminine_rank_spelled_out_apart",
+         "พันเอกหญิง วาสนา แสงสวย",
+         {"title": "พันเอกหญิง", "given": "วาสนา", "family": "แสงสวย"},
+         classification="fix(#1319)"),
+    Case("dotted_latin_degree_glued_to_an_initial_keeps_the_initial",
+         "Dr.C.Meera Nair",
+         {"title": "Dr.", "given": "C.", "middle": "Meera", "family": "Nair"},
+         classification="fix(#1230)",
+         notes="the boundary: a cased title listed with its stops (dr.c) is "
+               "no chunk to T8, decisions/T8's #1305 entry keeping the "
+               "initial; #1319's dotted chunk is a caseless script's"),
+    Case("thai_trailing_run_of_initials_opening_like_a_rank",
+         "สมชาย พ.ต.ส.",
+         {"given": "สมชาย", "family": "พ.ต.ส."},
+         ambiguities=("suffix-or-name",),
+         notes="the boundary: a run of single letters running past the "
+               "rank is T7's run of initials (the fix-commit review); "
+               "no order report since #1256, Thai writing no initials, "
+               "so no byline writes a Thai name before them"),
+    Case("thai_acting_before_a_short_title_not_marked_to_peel",
+         "ว่าที่ดร.สมชาย ใจดี",
+         {"title": "ว่าที่ดร.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="ว่าที่ peels before any listed title, and T8 divides ดร."),
+    Case("thai_acting_before_a_spelled_rank_peels_both",
+         "ว่าที่จ่าสิบตรีสมชาย ใจดี",
+         {"title": "ว่าที่จ่าสิบตรี", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="a modifier peeled with its head behind it: the head peels "
+               "too, as written apart (rules/W6)"),
+    Case("thai_acting_rank_after_a_family_comma",
+         "ใจดี, ว่าที่ร.ท.วินัย",
+         {"title": "ว่าที่ร.ท.", "given": "วินัย", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="the peel takes the rank behind ว่าที่, where T8 divides "
+               "nothing after a comma"),
+    Case("thai_title_with_its_stop_glued_after_a_family_comma",
+         "ใจดี, นาย.สมชาย",
+         {"title": "นาย.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1319)",
+         notes="the peel takes a title's stop with it where T8 divides "
+               "nothing, after a comma"),
+    Case("thai_royal_lineage_title_glued",
+         "หม่อมราชวงศ์คึกฤทธิ์ ปราโมช",
+         {"title": "หม่อมราชวงศ์", "given": "คึกฤทธิ์", "family": "ปราโมช"},
+         classification="fix(#1319)",
+         notes="the royal lineage titles are read as titles (#1319)"),
+    Case("thai_royal_lineage_title_written_short",
+         "ม.ร.ว. คึกฤทธิ์ ปราโมช",
+         {"title": "ม.ร.ว.", "given": "คึกฤทธิ์", "family": "ปราโมช"},
+         classification="fix(#1319)"),
+    Case("thai_boy_written_short",
+         "ด.ช.สมชาย ใจดี",
+         {"title": "ด.ช.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#1319)"),
+    Case("thai_salutation_glued_to_the_given_name",
+         "นายสมชาย ใจดี",
+         {"title": "นาย", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="rules/W6, the glued-title peel; 1.4.0 through 3.0.1 read "
+               "given 'นายสมชาย'"),
+    Case("thai_salutation_written_apart",
+         "นาย สมชาย ใจดี",
+         {"title": "นาย", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="listed by #317; 1.4.0 through 3.0.1 read given 'นาย', "
+               "middle 'สมชาย'"),
+    Case("thai_miss_peels_whole_not_mrs",
+         "นางสาวสุดา ใจดี",
+         {"title": "นางสาว", "given": "สุดา", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="longest first: นางสาว, not นาง + สาวสุดา"),
+    Case("thai_salutation_glued_after_a_family_comma",
+         "ใจดี, นายสมชาย",
+         {"title": "นาย", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="the given part's first word is a site too (rules/W6)"),
+    Case("thai_salutation_glued_with_nothing_before_the_comma",
+         ", นายสมชาย",
+         {"title": "นาย", "given": "สมชาย"},
+         classification="fix(#317)",
+         notes="the peel reaches the given part behind an empty head, "
+               "which then reads as ', นาย สมชาย' does: a Thai title "
+               "addresses the given name (rules/H1, decisions/W6)"),
+    Case("thai_title_listed_whole_is_not_peeled",
+         "นายแพทย์สมชาย ใจดี",
+         {"title": "นายแพทย์", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="physician opens with Mr.: the longest marked title peels, "
+               "and the word นายแพทย์ alone is never cut"),
+    Case("thai_glued_title_with_a_stop_join_behind_it",
+         "อาจารย์ดร.สมชาย ใจดี",
+         {"title": "อาจารย์ดร.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="the remainder ดร.สมชาย divides as rules/T8 divides it "
+               "written apart; the first build read title "
+               "'อาจารย์ดร.สมชาย' and no given name (review)"),
+    Case("thai_glued_title_on_the_family_before_a_comma",
+         "นายใจดี, สมชาย",
+         {"title": "นาย", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="the first word before a family comma is a site too, "
+               "surnames vetted as given names were (decisions/W6)"),
+    Case("thai_glued_title_on_the_family_under_family_first",
+         "นายใจดี สมชาย",
+         {"title": "นาย", "given": "สมชาย", "family": "ใจดี"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#317)",
+         notes="the first word is the family under this order"),
+    Case("thai_second_glued_title_stays_with_the_name",
+         "รองศาสตราจารย์นายแพทย์สมชาย ใจดี",
+         {"title": "รองศาสตราจารย์", "given": "นายแพทย์สมชาย",
+          "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="accepted: one peel (rules/W6), a glued title run being "
+               "no writing a corpus shows"),
+    Case("thai_glued_title_and_one_name_word",
+         "นายสมชาย",
+         {"title": "นาย", "given": "สมชาย"},
+         classification="fix(#317)",
+         notes="a Thai title addresses the given name, so the one word "
+               "after it is given (rules/H1, decisions/W6); 1.4.0 "
+               "through 3.0.1 read given 'นายสมชาย'"),
+    Case("thai_title_alone_in_brackets_is_the_lone_title_of_address",
+         "สุดา ใจดี (นาย)",
+         {"given": "สุดา", "family": "ใจดี", "nickname": "นาย"},
+         notes="rules/S1's lone title of address: a given-name title in "
+               "brackets keeps its pair's reading, as (Sir) does; master "
+               "read title 'นาย' before the Thai titles addressed the "
+               "given name (decisions/S1)"),
+    Case("thai_short_title_in_brackets_reads_as_written_bare",
+         "สุดา ใจดี (ศ.)",
+         {"given": "สุดา", "middle": "ใจดี", "family": "ศ."},
+         notes="accepted (rules/S1): the period escape puts it in the "
+               "name as 'สุดา ใจดี ศ.' reads; master read title 'ศ.'"),
+    Case("thai_title_licenses_the_bound_given_name_join",
+         "นาย abdul rahman",
+         {"title": "นาย", "given": "abdul rahman"},
+         classification="fix(#317)",
+         notes="the bound given-name join a given-name title licenses: "
+               "the pair joins and the name has no family (decisions/W6)"),
+    Case("thai_academic_title_and_one_name_word",
+         "ดร. สุดา",
+         {"title": "ดร.", "given": "สุดา"},
+         classification="fix(#317)",
+         notes="a Thai title addresses the given name; 1.4.0 through "
+               "3.0.1 read family 'สุดา' (decisions/W6)"),
+    Case("thai_shorter_title_where_the_longer_leaves_no_word",
+         "นางสาวิตรี ใจดี",
+         {"title": "นาง", "given": "สาวิตรี", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="นางสาว would leave a vowel mark, so นาง peels, as "
+               "'นาง สาวิตรี' reads (the docs review of #317)"),
+    Case("thai_glued_title_behind_a_dotted_title_pair",
+         "รศ.ดร. นายแพทย์สมชาย ใจดี",
+         {"title": "รศ.ดร. นายแพทย์", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="the site walk passes a title joined at its full stops "
+               "(the docs review of #317)"),
+    Case("thai_glued_title_before_a_dotted_title_pair",
+         "นางรศ.ดร.สมชาย ใจดี",
+         {"title": "นางรศ.ดร.", "given": "สมชาย", "family": "ใจดี"},
+         classification="fix(#317)",
+         notes="a word holding a name is a site, never passed over as a "
+               "title (the fix-commit review of #317)"),
+    Case("thai_glued_title_peels_only_the_first_word",
+         "ใจดี, ดร.สมชาย นายสมศักดิ์",
+         {"title": "ดร.สมชาย", "given": "นายสมศักดิ์", "family": "ใจดี"},
+         classification="fix(#1166)",
+         notes="the boundary: the given part's first word holds a name, "
+               "so the walk stops there and the next word keeps its "
+               "salutation; T8 leaves the word whole after a comma"),
+    Case("thai_title_followed_by_a_hyphen_is_not_cut",
+         "นางสาว-สุดา ใจดี",
+         {"given": "นางสาว-สุดา", "family": "ใจดี"},
+         notes="the boundary: no letter after the longest title, so no "
+               "shorter one cuts it (the fix-commit review of #317)"),
+    Case("thai_title_followed_by_the_repetition_mark_is_not_cut",
+         "นางสาวๆ ใจดี",
+         {"given": "นางสาวๆ", "family": "ใจดี"},
+         notes="the boundary: the repetition mark blocks the peel"),
+    Case("thai_short_form_glued_is_a_given_name",
+         "นพพร ใจดี",
+         {"given": "นพพร", "family": "ใจดี"},
+         notes="the boundary: นพ (physician, short) is not marked, a "
+               "given name opening with it (#317)"),
+    Case("japanese_name_in_thai_letters_keeps_its_opening",
+         "นางาเซะ โทโมยะ",
+         {"given": "นางาเซะ", "family": "โทโมยะ"},
+         notes="the boundary: what is left opens with a vowel written "
+               "after its consonant, so นาง is no title here (#317)"),
+    Case("thai_noble_family_name_particle",
+         "สุดา ณ อยุธยา",
+         {"given": "สุดา", "family": "ณ อยุธยา"},
+         classification="fix(#1167)",
+         notes="ณ (of) opens the family names granted to royal descendants "
+               "and old noble houses, a never-given particle; 1.4.0 "
+               "through 3.0.1 read middle 'ณ', family 'อยุธยา'"),
+    Case("thai_noble_family_name_particle_after_a_title",
+         "นางสาวธนพรรณ ณ นคร",
+         {"title": "นางสาว", "given": "ธนพรรณ", "family": "ณ นคร"},
+         classification="fix(#1167)",
+         notes="the family is #1167's; the salutation's split off the "
+               "given name is #317's (1.4.0 read first 'นางสาวธนพรรณ')"),
+    Case("thai_royal_clan_name_before_na_ayutthaya_is_a_middle_name",
+         "ปฐมพร อินทรางกูร ณ อยุธยา",
+         {"given": "ปฐมพร", "middle": "อินทรางกูร", "family": "ณ อยุธยา"},
+         classification="fix(#1167)",
+         notes="accepted for now: the royal clans write their clan name "
+               "before ณ อยุธยา, and the parser reads it positionally as "
+               "a middle name; the whole surname is the filer's family "
+               "(the review of #1167, every one of the 2019 candidates' "
+               "11 such surnames); 1.4.0 through 3.0.1 read middle "
+               "'อินทรางกูร ณ', family 'อยุธยา'"),
+    Case("thai_noble_family_name_first_under_family_first",
+         "ณ อยุธยา สุดา",
+         {"given": "สุดา", "family": "ณ อยุธยา"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1167)",
+         notes="rules/P1's fold takes the particle and its one name unit "
+               "under a family-first order"),
+    Case("korean_na_is_no_particle",
+         "Na Young Kim",
+         {"given": "Na", "middle": "Young", "family": "Kim"},
+         notes="the boundary: the Latin na is refused as a particle, the "
+               "Korean family name and given name Na (decisions/"
+               "vocabulary-exclusions, #1167)"),
     Case("gc_is_a_family_name_with_nothing_to_spare",
          "Hari G.C.",
          {"given": "Hari", "family": "G.C."},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          classification="fix(#864)",
          notes="gc left the suffix acronyms (decisions/suffix-acronym-"
                "collisions): 1.4.0's reading; 2.0.0 through 2.5.0 read "
@@ -5037,7 +5859,7 @@ CASES: tuple[Case, ...] = (
     Case("the_roman_chunk_accident_retires_narrowly", "Jack X.Y.I.",
          {"given": "Jack", "family": "X.Y.I."},
          classification="fix(#516)",
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="1.4.0 RESTORED. The chunk 'i' is a roman numeral in "
                "the suffix vocabulary, so this read as a generational "
                "suffix -- by accident, the fork being about "
@@ -5081,32 +5903,41 @@ CASES: tuple[Case, ...] = (
          shape=3),
     Case("paired_initials_after_a_two_word_surname_stay_the_given",
          "García Márquez, G.J.",
-         {"given": "G.J.", "family": "García Márquez"},
+         {"given": "G.", "middle": "J.", "family": "García Márquez"},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="#563: two words before the comma may be ONE surname, "
                "and two dotted letters are how a person's own initials "
                "are written, so the count gives way (rules/C5). "
                "2.4's first reading was given 'García', family "
-               "'Márquez', suffix 'G.J.'; 1.4.0 and 2.3.0 read it as "
-               "here, and only the report is new",
+               "'Márquez', suffix 'G.J.'; 1.4.0 through 3.0.1 read "
+               "given 'G.J.', and only the report was new"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'G.', middle 'J.'",
          shape=3),
     Case("paired_initials_after_a_full_name_are_still_a_fork",
          "John Smith, A.B.",
-         {"given": "A.B.", "family": "John Smith"},
+         {"given": "A.", "middle": "B.", "family": "John Smith"},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="#563: the same shape as the row above with a given "
                "name before the comma, which the parser cannot see. "
                "A.B. is also the degree, so the report is the point: "
-               "the reading goes to the initials, and the fork is said",
+               "the reading goes to the initials, and the fork is said"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'A.', middle 'B.'",
          shape=3),
     Case("a_credential_behind_paired_initials_does_not_speak",
          "De La Cruz, M.J. PhD",
-         {"given": "M.J.", "family": "De La Cruz", "suffix": "PhD"},
+         {"given": "M.", "middle": "J.", "family": "De La Cruz", "suffix": "PhD"},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="#563, S7's company rule: only a credential IN FRONT "
                "speaks for a word, so the degree behind the initials "
-               "leaves them the given name. Every release reads it "
-               "this way; the report is new",
+               "leaves them the given name, as every release before "
+               "3.1 read it whole; the report is new"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'M.', middle 'J.'",
          shape=3),
     Case("a_credential_in_front_speaks_for_paired_initials",
          "John Smith, PhD X.Y.",
@@ -5119,13 +5950,16 @@ CASES: tuple[Case, ...] = (
          shape=3),
     Case("a_title_in_front_of_paired_initials_does_not_speak",
          "García Márquez, Ms G.J.",
-         {"title": "Ms", "given": "G.J.", "family": "García Márquez"},
+         {"title": "Ms", "given": "G.", "middle": "J.", "family": "García Márquez"},
+         classification="fix(#1296)",
          notes="#563 review round: 'Ms' is both title and suffix "
                "vocabulary, and in front of paired initials it is the "
                "title of the given part they open (rules/C5, as S7 "
                "reads a dual in that part's title run). The first fix "
                "let it speak and split the surname in silence. Every "
-               "release reads it this way",
+               "release before 3.1 read it whole as the given name"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'G.', middle 'J.'",
          shape=3),
     Case("a_credential_in_front_of_paired_initials_speaks",
          "García Márquez, PhD G.J.",
@@ -5149,8 +5983,8 @@ CASES: tuple[Case, ...] = (
          shape=3),
     Case("two_pairs_behind_a_particle_surname_open_the_given_part",
          "De La Cruz, M.J. K.L.",
-         {"given": "M.J.", "family": "De La Cruz", "middle": "K.L."},
-         classification="fix(#575)",
+         {"given": "M.", "family": "De La Cruz", "middle": "J. K.L."},
+         classification="fix(#1296)",
          ambiguities=("suffix-or-name", "suffix-or-name"),
          notes="'De La Cruz' is one name word (#575), so the count no "
                "longer reaches the part and it reads as 'Cruz, M.J. "
@@ -5158,7 +5992,9 @@ CASES: tuple[Case, ...] = (
                "flipped credential run with no given name. 'K.L.' then "
                "ends the given part, where paired initials are a name "
                "word since #864 (suffix 'K.L.' before it): 1.4.0's "
-               "reading, given 'M.J.', middle 'K.L.'",
+               "reading, given 'M.J.', middle 'K.L.'"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'M.', middle 'J. K.L.'",
          shape=2),
     Case("a_class_member_in_front_of_paired_initials_does_not_speak",
          "García Márquez, Ed G.J.",
@@ -5185,35 +6021,47 @@ CASES: tuple[Case, ...] = (
                "one surname. 1.4.0 read given 'G.J.R.'",
          shape=3),
     Case("one_word_before_the_comma_keeps_the_given", "Smith, A.B.",
-         {"given": "A.B.", "family": "Smith"},
+         {"given": "A.", "middle": "B.", "family": "Smith"},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="its control: one name word before the comma is never "
-               "enough, so the dotted token stays the given name and "
-               "the structure does not move. Unchanged in every "
-               "release; the report is new",
+               "enough, so the dotted token stays a name and the "
+               "structure does not move, as in every release; the "
+               "report is new"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'A.', middle 'B.'",
          shape=2),
-    Case("whole_token_vocabulary_wins_over_the_shape",
+    Case("a_listed_run_behind_one_word_is_read_as_initials",
          "Smith, A.B.C.",
-         {"family": "Smith", "suffix": "A.B.C."},
-         notes="'abc' IS a suffix acronym, so the whole-token lookup "
-               "settles this before any shape reading and the count "
-               "never runs. The boundary between #516's shape class "
-               "and the vocabulary it does not touch",
+         {"given": "A.", "middle": "B.C.", "family": "Smith"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1238)",
+         notes="'abc' IS a suffix acronym, which settled this before "
+               "#1238 as the credential; behind one name word a run of "
+               "initials is the given name whatever it spells "
+               "(rules/C16), as #516's unlisted 'X.Y.Z.' is, the "
+               "credential reported",
          shape=2),
     Case("a_leading_dotted_run_is_untouched", "X.Y.Z. Smith",
-         {"given": "X.Y.Z.", "family": "Smith"},
+         {"given": "X.", "middle": "Y.Z.", "family": "Smith"},
+         classification="fix(#1296)",
          notes="rules/S2 already says a suffix never opens the "
                "string, and the shape class is read only by the "
                "trailing peel and the post-comma slot -- so every "
                "leading dotted run, 'J.R.R. Tolkien' included, is "
-               "untouched by this switch",
+               "untouched by the dotted-suffix switch"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'X.', middle 'Y.Z.'",
          shape=1),
     Case("a_leading_dotted_run_of_three_chunks_is_untouched",
          "J.R.R. Tolkien",
-         {"given": "J.R.R.", "family": "Tolkien"},
+         {"given": "J.", "middle": "R.R.", "family": "Tolkien"},
+         classification="fix(#1296)",
          notes="the three-chunk twin of the row above: 'j', 'r' and "
                "'r' claim nothing either, and the leading slot never "
-               "asks the shape class regardless",
+               "asks the shape class regardless"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'J.', middle 'R.R.'",
          shape=1),
     Case("a_multi_character_chunk_claim_survives", "Doe, John Msc.Ed.",
          {"given": "John", "family": "Doe", "suffix": "Msc.Ed."},
@@ -5226,6 +6074,7 @@ CASES: tuple[Case, ...] = (
          shape=2),
     Case("a_glued_honorific_chunk_is_not_ascii", "J.씨",
          {"given": "J.", "suffix": "씨"},
+         classification="fix(#308)",
          notes="the reason the retirement says ASCII and not just "
                "single-character: '씨' is one character and MUST keep "
                "its chunk claim, the honorific peel resting on it",
@@ -5277,16 +6126,19 @@ CASES: tuple[Case, ...] = (
          shape=2),
     Case("a_leading_shape_token_never_reports_only_the_trailing_one",
          "J.A. K.D.",
-         {"given": "J.A.", "family": "K.D."},
+         {"given": "J.", "middle": "A.", "family": "K.D."},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="'K.D.' is a considered pick -- the peel records it "
                "even though k == 2 declines to take it, so the FIELDS "
-               "stay the two-piece positional read while the fork is "
+               "keep the positional read while the fork is "
                "reported, exactly as a declined LISTED pick always "
                "has been. 'J.A.' gets no such consideration: the peel "
                "walks from the END, so a LEADING shape-admitted token "
                "never reaches it and this reports exactly once, for "
-               "'K.D.' alone",
+               "'K.D.' alone"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'J.', middle 'A.'",
          shape=1),
     Case("an_initialless_script_glued_into_periods_is_not_this_shape",
          "John Smith 田.中.",
@@ -5608,6 +6460,840 @@ CASES: tuple[Case, ...] = (
                "written undotted, and two words before the comma may "
                "be one surname -- the case #563 decides for 'M.J.'. No "
                "report: the comma position declines it outright"),
+    Case("two_caps_with_only_credentials_behind_a_full_name_are_a_credential",
+         "Jane Doe, BM PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "BM PhD"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323, C5's undotted pair: two capitals whose only company in the part "
+               "is credentials are a credential behind two name words "
+               "(Bachelor of Medicine). 1.4.0 through 3.0.1 read given "
+               "'BM', family 'Jane Doe'"),
+    Case("two_caps_opening_a_run_of_listed_credentials_are_a_credential",
+         "David A Cooper, AO DSc MD",
+         {"given": "David", "middle": "A", "family": "Cooper",
+          "suffix": "AO DSc MD"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): 'AO', an order's post-nominal, before "
+               "listed credentials; 1.4.0 through 3.0.1 read given 'AO'"),
+    Case("two_caps_beside_a_word_of_the_ambiguous_class_are_a_credential",
+         "Jane Doe, MA BM FRCP",
+         {"given": "Jane", "family": "Doe", "suffix": "MA BM FRCP"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): 'MA' is company as C16 reads it; "
+               "2.8.0 and 3.0.1 read it so by the unlisted 'FRCP', and "
+               "listing it (#1321) read given 'MA', middle 'BM'"),
+    Case("two_caps_alone_behind_a_full_name_stay_the_given_name",
+         "Jane Doe, BM",
+         {"given": "BM", "family": "Jane Doe"},
+         notes="#1323 boundary: with nothing behind them two capitals "
+               "stay C5's paired initials ('García Márquez, MJ')"),
+    Case("two_caps_behind_one_word_stay_the_given_name_before_a_credential",
+         "Doe, BM PhD",
+         {"given": "BM", "family": "Doe", "suffix": "PhD"},
+         notes="#1323 boundary: behind one word the comma marks a "
+               "surname and a given name, C4's count reads the part as "
+               "a name, and the caps shape is never asked"),
+    Case("two_caps_before_a_generation_stay_the_given_name",
+         "Jane Doe, BM Jr.",
+         {"given": "BM", "family": "Jane Doe", "suffix": "Jr."},
+         notes="#1323 boundary: a generation is a name's, no company "
+               "for a credential (as rules/C16 reads 'Rinehart, J.D. "
+               "Jr.')"),
+    Case("two_caps_behind_a_title_dual_written_as_a_title_stay_initials",
+         "García Márquez, Ms MJ PhD",
+         {"title": "Ms", "given": "MJ", "family": "García Márquez",
+          "suffix": "PhD"},
+         notes="#1323 boundary: 'Ms' written as a title is the given "
+               "part's title, no company, so the part is the given part"),
+    Case("two_caps_behind_a_title_dual_with_nothing_behind_stay_initials",
+         "John Smith, RA MJ",
+         {"title": "RA", "given": "MJ", "family": "John Smith"},
+         notes="#1323 boundary: a word in front of the pair speaks for "
+               "nothing (rules/C5); only credentials behind it do"),
+    Case("two_caps_behind_a_member_with_nothing_behind_stay_initials",
+         "John Smith, MA MJ",
+         {"given": "MA", "middle": "MJ", "family": "John Smith"},
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: no credential behind the pair"),
+    Case("two_caps_before_a_spelled_out_generation_stay_the_given_name",
+         "Jane Doe, MJ Junior",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Junior"},
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: a generation is no credential's company, "
+               "spelled out or gated by the count (rules/S11) as 'Jr.'"),
+    Case("two_caps_before_an_agnomen_stay_the_given_name",
+         "Jane Doe, MJ Filho",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Filho"},
+         classification="fix(#843)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: an agnomen is a name's, as a generation"),
+    Case("two_caps_before_a_title_case_member_stay_the_given_name",
+         "Jane Doe, MJ Ed",
+         {"given": "MJ", "middle": "Ed", "family": "Jane Doe"},
+         classification="fix(comma-family)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: a member of the ambiguous class in Title "
+               "case is no credential its writing settles (rules/S6)"),
+    Case("two_caps_behind_a_capitals_dual_with_a_credential_stay_initials",
+         "Jane Doe, MS BM PhD",
+         {"title": "MS", "given": "BM", "family": "Jane Doe",
+          "suffix": "PhD"},
+         notes="#1323 boundary: a title in front of the pair is the given "
+               "part's, written in capitals too; only words behind the "
+               "pair speak for it (rules/C5)"),
+    Case("two_caps_behind_a_rank_dual_with_a_credential_stay_initials",
+         "Jane Doe, RA MJ PhD",
+         {"title": "RA", "given": "MJ", "family": "Jane Doe",
+          "suffix": "PhD"},
+         notes="#1323 boundary: as 'MS BM PhD'"),
+    Case("two_caps_before_a_capitals_dual_are_a_credential",
+         "Jane Doe, MJ MS",
+         {"given": "Jane", "family": "Doe", "suffix": "MJ MS"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): a title/suffix dual written in capitals "
+               "behind the pair is a credential's writing, as rules/C16's "
+               "company reads it; in front it would be the given part's "
+               "title. 1.4.0 through 3.0.1 read given 'MJ'"),
+    Case("two_caps_alone_before_a_later_listed_credential_are_a_credential",
+         "Jane Mary Doe, MH, PhD",
+         {"given": "Jane", "middle": "Mary", "family": "Doe",
+          "suffix": "MH, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the pair alone in its part, a listed "
+               "credential in a later comma part speaking for it as one "
+               "in its own part does ('Jane Doe, BM PhD'). 1.4.0 through "
+               "3.0.1 read given 'MH', family 'Jane Mary Doe'"),
+    Case("two_caps_alone_before_an_unlisted_part_and_a_listed_credential",
+         "Jane Doe, BM, BCh, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "BM, BCh, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="rules/C5 (#1392): any later part answers, not only the "
+               "next; 'BCh' is unlisted and keeps rules/C2's flag. 1.4.0 "
+               "through 3.0.1 read given 'BM', family 'Jane Doe'"),
+    Case("two_caps_alone_before_a_generation_and_a_listed_credential",
+         "Jane Doe, MH, Jr., PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, Jr., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the generation part is no credential, "
+               "the part behind it is. 1.4.0 through 3.0.1 read given "
+               "'MH'"),
+    Case("two_caps_alone_before_a_credential_split_across_a_space",
+         "Jane Doe, MH, Ph. D.",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, Ph. D."},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): a later part is read in pieces, so a "
+               "split credential (rules/S12) is a listed one. 1.4.0 "
+               "through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_member_its_capitals_settle",
+         "Jane Doe, MH, MA",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, MA"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): a listed member of the ambiguous class "
+               "in capitals is a credential (rules/S6). 1.4.0 through "
+               "3.0.1 read given 'MH'"),
+    Case("two_caps_alone_behind_a_credential_ending_the_name",
+         "Jane Doe MD, MH, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MD, MH, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): a credential before the comma takes "
+               "nothing from it. 1.4.0 through 3.0.1 read given 'MH'"),
+    Case("a_given_name_in_two_caps_before_a_later_credential_is_a_credential",
+         "Ana Ruiz, JO, MD",
+         {"given": "Ana", "family": "Ruiz", "suffix": "JO, MD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: a listed given name written in two "
+               "capitals is not held back. 1.4.0 through 3.0.1 read "
+               "given 'JO', family 'Ana Ruiz'"),
+    Case("two_caps_behind_a_two_word_surname_before_a_later_credential",
+         "García Márquez, MJ, PhD",
+         {"given": "García", "family": "Márquez", "suffix": "MJ, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost, the one rules/C5 takes for 'García "
+               "Márquez, MJ PhD': the count cannot tell a surname of two "
+               "words from a full name. 1.4.0 through 3.0.1 read given "
+               "'MJ', family 'García Márquez'"),
+    Case("two_caps_behind_a_connective_surname_before_a_later_credential",
+         "Ortega y Gasset, MJ, PhD",
+         {"given": "Ortega", "middle": "y", "family": "Gasset",
+          "suffix": "MJ, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: a connective surname counts as its "
+               "words (rules/C3). 1.4.0 through 3.0.1 read given 'MJ', "
+               "family 'Ortega y Gasset'"),
+    Case("a_surname_in_two_caps_after_a_comma_before_a_later_credential",
+         "Ram Bahadur, BK, MD",
+         {"given": "Ram", "family": "Bahadur", "suffix": "BK, MD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: a surname written as two capitals "
+               "behind a comma. 1.4.0 through 3.0.1 read given 'BK', "
+               "family 'Ram Bahadur'"),
+    Case("a_surname_in_two_caps_after_a_comma_under_the_nepali_pack",
+         "Ram Bahadur, BK, MD",
+         {"given": "Ram", "family": "Bahadur", "suffix": "BK, MD"},
+         locale="ne", classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: rules/O8 reads spaced letters, and "
+               "the comma's decision comes first"),
+    Case("two_caps_alone_before_a_name_word_part_and_a_listed_credential",
+         "Jane Doe, MH, John, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, John, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="#1392 accepted cost: any later part answers, so a name "
+               "word in a part between is taken with the rest, flagged "
+               "as before. 1.4.0 through 3.0.1 read given 'MH', suffix "
+               "'John, PhD'"),
+    Case("two_caps_behind_one_word_stay_the_given_name_before_a_later_credential",
+         "Smith, JO, MD",
+         {"given": "JO", "family": "Smith", "suffix": "MD"},
+         notes="#1392 boundary: behind one word the pair is the given "
+               "name, as 'Doe, BM PhD' is"),
+    Case("two_caps_behind_a_particle_surname_stay_the_given_name",
+         "de la Vega, JO, MD",
+         {"given": "JO", "family": "de la Vega", "suffix": "MD"},
+         notes="#1392 boundary: a particle run and its word are one name "
+               "word (rules/C3)"),
+    Case("two_caps_behind_an_empty_head_stay_the_given_name",
+         ", MH, PhD",
+         {"given": "MH", "suffix": "PhD"},
+         notes="#1392 boundary: rules/C15, as 'Doe, MH, PhD' less the "
+               "surname"),
+    Case("two_caps_behind_a_nickname_only_head_stay_the_given_name",
+         "(Bob), MH, PhD",
+         {"given": "MH", "nickname": "Bob", "suffix": "PhD"},
+         notes="#1392 boundary: no name word before the comma"),
+    Case("two_caps_alone_before_a_generation_part_stay_the_given_name",
+         "Jane Doe, MH, Jr.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Jr."},
+         notes="#1392 boundary: a generation is no credential, in a "
+               "later part as in the pair's own ('Jane Doe, BM Jr.')"),
+    Case("two_caps_in_a_name_in_capitals_stay_the_given_name",
+         "JANE DOE, MH, PHD",
+         {"given": "MH", "family": "JANE DOE", "suffix": "PHD"},
+         notes="#1392 boundary: no case contrast (rules/C6), so the "
+               "listing form stands"),
+    Case("two_caps_with_the_caps_shape_off_stay_the_given_name",
+         "Jane Doe, MH, PhD",
+         {"given": "MH", "family": "Jane Doe", "suffix": "PhD"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.OFF),
+         notes="#1392 boundary: the caps shape admits nothing, as for "
+               "'García Márquez, MJ PhD'"),
+    Case("two_caps_beside_a_generation_stay_the_given_name_before_a_later_credential",
+         "Jane Doe, MH Jr., PhD",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Jr., PhD"},
+         notes="#1392 boundary: the pair is not alone in its part, so "
+               "its own part decides ('Jane Doe, BM Jr.')"),
+    Case("two_caps_behind_a_title_dual_stay_initials_before_a_later_credential",
+         "Jane Doe, Ms MH, PhD",
+         {"title": "Ms", "given": "MH", "family": "Jane Doe",
+          "suffix": "PhD"},
+         notes="#1392 boundary: not alone in its part ('García Márquez, "
+               "Ms MJ PhD')"),
+    Case("two_caps_alone_before_a_title_case_member_stay_the_given_name",
+         "Jane Doe, MH, Ma",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Ma"},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary: a member of the ambiguous class in "
+               "Title case is no listed credential (rules/S6)"),
+    Case("two_caps_alone_before_an_unlisted_caps_word_stay_the_given_name",
+         "Jane Doe, MH, XYZ",
+         {"given": "MH", "family": "Jane Doe", "suffix": "XYZ"},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary: a word read by its shape alone is no "
+               "listed credential"),
+    Case("two_caps_alone_before_a_gated_word_stay_the_given_name",
+         "Jane Doe, MH, KC",
+         {"given": "MH", "family": "Jane Doe", "suffix": "KC"},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary: a word the count gates (rules/S11) is "
+               "no listed credential"),
+    Case("two_caps_alone_before_a_numeral_stay_the_given_name",
+         "Jane Doe, MH, V",
+         {"given": "MH", "family": "Jane Doe", "suffix": "V"},
+         notes="#1392 boundary: a numeral is a generation"),
+    Case("two_caps_alone_before_a_listed_generation_stay_the_given_name",
+         "Jane Doe, MH, III",
+         {"given": "MH", "family": "Jane Doe", "suffix": "III"},
+         notes="#1392 boundary: a listed numeral is a generation, a "
+               "suffix word and no credential"),
+    Case("two_caps_alone_before_a_title_dual_as_a_title_stay_the_given_name",
+         "Jane Doe, MH, Ms",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Ms"},
+         notes="#1392 boundary: a title/suffix dual outside capitals is "
+               "a title's writing (rules/C16's company)"),
+    Case("two_caps_alone_before_a_title_dual_in_capitals_are_a_credential",
+         "Jane Doe, MH, MS",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, MS"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): in capitals the dual is a credential's "
+               "writing. 1.4.0 through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_dotted_shape_word_stay_the_given_name",
+         "Jane Doe, MH, X.Y.Z.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "X.Y.Z."},
+         notes="#1392 boundary: a word read by its dotted shape "
+               "(rules/S3) is no listed credential"),
+    Case("two_caps_alone_before_a_credential_and_a_name_word_stay_the_given_name",
+         "Jane Doe, MH, PhD Jones",
+         {"given": "MH", "family": "Jane Doe", "suffix": "PhD Jones"},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary: every word of the later part has to be "
+               "a listed credential"),
+    Case("two_caps_alone_before_an_empty_part_and_a_listed_credential",
+         "Jane Doe, MH,, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): an empty part between is none "
+               "(rules/C2). 1.4.0 through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_caps_word_read_everywhere_stay_the_given_name",
+         "Jane Doe, MH, XYZ",
+         {"given": "MH", "family": "Jane Doe", "suffix": "XYZ"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE),
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="#1392 boundary: EVERYWHERE tags the caps word a member "
+               "of the class, and one read by its shape is still no "
+               "listed credential; the pair kept as the given name "
+               "reports there as before"),
+    Case("two_caps_alone_before_an_empty_part_and_a_generation_stay_the_given_name",
+         "Jane Doe, MH,, Jr.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Jr."},
+         notes="#1392 boundary: an empty part answers nothing"),
+    Case("a_dotted_pair_alone_before_a_later_listed_credential_is_a_credential",
+         "Jane Mary Doe, M.H., PhD",
+         {"given": "Jane", "middle": "Mary", "family": "Doe",
+          "suffix": "M.H., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): dotted, the pair reads as the undotted one "
+               "does where it stands alone before a later listed "
+               "credential. 1.4.0 through 3.0.1 read given 'M.H.', family "
+               "'Jane Mary Doe'"),
+    Case("a_dotted_pair_with_no_closing_stop_before_a_later_credential",
+         "Jane Doe, M.H, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "M.H, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the pair's shape with or without its last "
+               "stop. 1.4.0 through 3.0.1 read given 'M.H'"),
+    Case("a_dotted_pair_behind_a_generation_before_a_later_credential",
+         "Jane Doe Jr., M.H., PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "Jr., M.H., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the later credential speaks where rules/C12 "
+               "keeps the dotted pair alone a name ('John Smith Jr., "
+               "M.J.'). 1.4.0 through 3.0.1 read given 'M.H.', family "
+               "'Jane Doe'"),
+    Case("a_dotted_pair_behind_a_two_word_surname_before_a_later_credential",
+         "García Márquez, M.J., PhD",
+         {"given": "García", "family": "Márquez", "suffix": "M.J., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: dotted initials behind a surname of two "
+               "words read as a credential before a later one. 1.4.0 "
+               "through 3.0.1 read given 'M.J.', family 'García Márquez'"),
+    Case("a_surname_of_dotted_letters_after_a_comma_before_a_later_credential",
+         "Ram Bahadur, B.K., MD",
+         {"given": "Ram", "family": "Bahadur", "suffix": "B.K., MD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: a surname written as dotted letters "
+               "behind a comma. 1.4.0 through 3.0.1 read given 'B.K.', "
+               "family 'Ram Bahadur'"),
+    Case("a_surname_of_dotted_letters_after_a_comma_under_the_nepali_pack",
+         "Ram Bahadur, B.K., MD",
+         {"given": "Ram", "family": "Bahadur", "suffix": "B.K., MD"},
+         locale="ne", classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost: the comma's decision comes before "
+               "rules/O8"),
+    Case("a_decomposed_dotted_pair_before_a_later_credential_is_a_credential",
+         "Jane Doe, A\u0301.E\u0301., PhD",
+         {"given": "Jane", "family": "Doe",
+          "suffix": "A\u0301.E\u0301., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): capitals are read after composing, so the "
+               "decomposed pair reads as its composed twin"),
+    Case("a_dotted_pair_alone_with_no_later_part_stays_the_given_name",
+         "Jane Mary Doe, M.H.",
+         {"given": "M.", "middle": "H.", "family": "Jane Mary Doe"},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: nothing behind the pair (rules/C5)"),
+    Case("a_dotted_pair_behind_one_word_stays_the_given_name_before_a_credential",
+         "Smith, J.O., MD",
+         {"given": "J.", "middle": "O.", "family": "Smith", "suffix": "MD"},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: one name word before the comma"),
+    Case("a_dotted_pair_alone_before_a_generation_part_stays_the_given_name",
+         "Jane Doe, M.H., Jr.",
+         {"given": "M.", "middle": "H.", "family": "Jane Doe",
+          "suffix": "Jr."},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: a generation is no credential"),
+    Case("a_dotted_pair_beside_a_generation_stays_the_given_name",
+         "Jane Doe, M.H. Jr., PhD",
+         {"given": "M.", "middle": "H.", "family": "Jane Doe",
+          "suffix": "Jr., PhD"},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: not alone in its part"),
+    Case("a_dotted_pair_before_a_credential_in_its_own_part_stays_the_given_name",
+         "Jane Doe, M.H. PhD",
+         {"given": "M.", "middle": "H.", "family": "Jane Doe",
+          "suffix": "PhD"},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: in its own part the dotted pair keeps "
+               "rules/C5's reading ('John Smith, A.B. Ph.D.'); only alone "
+               "before a later part does it give way"),
+    Case("a_single_dotted_initial_before_a_later_credential_stays_the_given_name",
+         "Jane Doe, M., PhD",
+         {"given": "M.", "family": "Jane Doe", "suffix": "PhD"},
+         notes="#1392 boundary: one initial is no pair"),
+    Case("dotted_initials_written_apart_before_a_later_credential_stay_the_given_name",
+         "Jane Doe, M. H., PhD",
+         {"given": "M.", "middle": "H.", "family": "Jane Doe",
+          "suffix": "PhD"},
+         notes="#1392 boundary: written apart they are two initials, and "
+               "not alone in the part"),
+    Case("three_dotted_letters_before_a_later_credential_are_a_credential",
+         "Jane Doe, M.H.S., PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "M.H.S., PhD"},
+         classification="fix(#516)",
+         notes="#1392 control: three letters are a credential by their shape "
+               "(rules/C5's Accepted, rules/S3) with or without the later "
+               "part, as since 2.4.0"),
+    Case("a_pair_with_fullwidth_stops_before_a_later_credential_stays_the_given_name",
+         "Jane Doe, M\uff0eH\uff0e, PhD",
+         {"given": "M\uff0eH\uff0e", "family": "Jane Doe",
+          "suffix": "PhD"},
+         notes="#1392 boundary: the fullwidth full stop is no period of the "
+               "pair's shape, here as everywhere"),
+    Case("a_lowercase_dotted_pair_before_a_later_credential_stays_the_given_name",
+         "Jane Doe, m.h., PhD",
+         {"given": "m.h.", "family": "Jane Doe", "suffix": "PhD"},
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: two capitals, not two letters"),
+    Case("a_dotted_pair_in_a_name_in_capitals_stays_the_given_name",
+         "JANE DOE, M.H., PHD",
+         {"given": "M.", "middle": "H.", "family": "JANE DOE",
+          "suffix": "PHD"},
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: no case contrast, as for the undotted pair"),
+    Case("a_dotted_pair_with_the_dotted_shape_off_stays_the_given_name",
+         "Jane Doe, M.H., PhD",
+         {"given": "M.", "middle": "H.", "family": "Jane Doe",
+          "suffix": "PhD"},
+         policy=Policy(unlisted_dotted_suffixes=False),
+         classification="fix(#1296)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary: unlisted_dotted_suffixes governs the dotted "
+               "pair, as unlisted_caps_suffixes the undotted one"),
+    Case("a_dotted_pair_with_the_caps_shape_off_is_still_a_credential",
+         "Jane Doe, M.H., PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "M.H., PhD"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.OFF),
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the caps switch does not reach the dotted "
+               "pair"),
+    Case("two_caps_alone_before_a_joined_word_holding_a_generation_stay_the_given_name",
+         "Jane Doe, MH, MD/Jr.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "MD/Jr."},
+         notes="#1392 boundary, its code review: a joined word is asked "
+               "chunk by chunk, as in the pair's own part ('Jane Doe, MJ "
+               "MD/Jr.')"),
+    Case("two_caps_alone_before_a_joined_word_holding_a_title_case_member",
+         "Jane Doe, MH, Ma/PhD",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Ma/PhD"},
+         notes="#1392 boundary, its code review: a member in Title case "
+               "inside a joined word is no listed credential"),
+    Case("two_caps_alone_before_joined_listed_credentials_are_a_credential",
+         "Jane Doe, MH, MD/PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, MD/PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): every chunk a listed credential. "
+               "1.4.0 through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_credential_listed_with_its_hyphen",
+         "Jane Doe, MH, NP-C",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, NP-C"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): a word the vocabulary lists whole is "
+               "one word, not cut at its hyphen. 1.4.0 through 3.0.1 "
+               "read given 'MH'"),
+    Case("two_caps_alone_before_a_particle_stay_the_given_name",
+         "Jane Doe, MH, Mc",
+         {"given": "MH", "family": "Jane Doe", "suffix": "Mc"},
+         notes="#1392 boundary, its code review: a particle that is also "
+               "an acronym is a name's word, as beside the pair ('Jane "
+               "Doe, MJ Mc')"),
+    Case("two_caps_alone_before_credentials_a_spaced_delimiter_parts",
+         "Jane Doe, MH, MD - PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, MD, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392), its code review: a delimiter standing "
+               "alone is no word of the later part (rules/C10). 1.4.0 "
+               "through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_lone_delimiter_stay_the_given_name",
+         "Jane Doe, MH, -",
+         {"given": "MH", "family": "Jane Doe", "suffix": "-"},
+         notes="#1392 boundary: a part of a delimiter alone holds no "
+               "credential"),
+    Case("two_caps_alone_before_a_credential_a_given_name_also_spells",
+         "Jane Doe, MH, Md",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, Md"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost (decisions/C5): 'Md' in a part of "
+               "its own behind a full name is the credential in any "
+               "case, as beside the pair ('Jane Doe, BM Md'). 1.4.0 "
+               "through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_listed_credential_that_is_not_the_last_part",
+         "Jane Doe, MH, PhD, Jr.",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, PhD, Jr."},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392), its test review: any later part "
+               "answers, the last one or not. 1.4.0 through 3.0.1 read "
+               "given 'MH'"),
+    Case("two_caps_alone_before_a_listed_credential_and_a_name_word_part",
+         "Jane Doe, MH, PhD, John",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, PhD, John"},
+         classification="fix(#1392)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="#1392 accepted cost, as 'MH, John, PhD': the part "
+               "behind keeps rules/C2's flag"),
+    Case("two_caps_before_a_later_credential_read_family_first",
+         "Jane Mary Doe, MH, PhD",
+         {"family": "Jane", "given": "Mary", "middle": "Doe",
+          "suffix": "MH, PhD"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the comma is a suffix comma, so the "
+               "name before it is laid out by the declared order"),
+    Case("two_caps_before_a_later_credential_read_family_first_given_last",
+         "Jane Mary Doe, MH, PhD",
+         {"family": "Jane", "given": "Doe", "middle": "Mary",
+          "suffix": "MH, PhD"},
+         policy=Policy(name_order=FAMILY_FIRST_GIVEN_LAST),
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): as under FAMILY_FIRST"),
+    Case("two_caps_alone_before_credentials_a_connective_joins_stay_the_given_name",
+         "Jane Doe, MH, MA and PhD",
+         {"given": "MH", "family": "Jane Doe", "suffix": "MA and PhD"},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary, its test review: a connective is no "
+               "listed credential"),
+    Case("two_caps_alone_before_a_split_member_of_the_class_stay_the_given_name",
+         "Jane Doe, MH, M. A.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "M. A."},
+         ambiguities=("comma-structure",),
+         notes="#1392 boundary, its test review: two single letters "
+               "written apart are no split credential (rules/S12), so "
+               "'M. D.' keeps the given name too, as beside the pair "
+               "('Jane Doe, BM M. A.')"),
+    Case("two_caps_alone_before_a_credential_and_a_generation_in_one_part",
+         "Jane Doe, MH, PhD Jr.",
+         {"given": "MH", "family": "Jane Doe", "suffix": "PhD Jr."},
+         notes="#1392 boundary, its test review: a generation in the "
+               "later part makes it none"),
+    Case("two_caps_behind_a_lowercase_particle_surname_before_a_later_credential",
+         "Jane van der Berg, MH, PhD",
+         {"given": "Jane", "family": "van der Berg", "suffix": "MH, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): a given name and a particle surname "
+               "are two name words (rules/C3). 1.4.0 through 3.0.1 read "
+               "given 'MH'"),
+    Case("two_caps_read_everywhere_in_a_name_without_contrast_stay_the_given_name",
+         "JANE DOE, MH, PhD",
+         {"given": "MH", "family": "JANE DOE", "suffix": "PhD"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE),
+         ambiguities=("suffix-or-name",),
+         notes="#1392 boundary, its test review: EVERYWHERE tags the "
+               "pair with no contrast asked, and the later credential "
+               "asks it, as the pair's own part does ('JANE DOE, MH "
+               "PhD')"),
+    Case("two_caps_read_everywhere_before_a_later_credential_are_a_credential",
+         "Jane Doe, MH, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, PhD"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE),
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): EVERYWHERE reads the pair as the "
+               "default does where the name carries the contrast"),
+    Case("two_caps_alone_before_a_joined_word_with_a_glued_delimiter",
+         "Jane Doe, MH, MD/Jr.;",
+         {"given": "MH", "family": "Jane Doe", "suffix": "MD/Jr.;"},
+         notes="#1392 boundary, its second code review: a later part's "
+               "word is read without a glued delimiter, as the pair's "
+               "own part is ('Jane Doe, BM MD/Jr.;'), so the generation "
+               "chunk still refuses"),
+    Case("two_caps_alone_before_joined_credentials_with_a_glued_delimiter",
+         "Jane Doe, MH, MD/PhD;",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, MD/PhD;"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1392): the glued delimiter is no part of the "
+               "word (rules/C10). 1.4.0 through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_credential_that_is_also_a_particle",
+         "Jane Doe, BM, DO",
+         {"given": "BM", "family": "Jane Doe", "suffix": "DO"},
+         notes="#1392, left as it was: 'DO' is a particle too, and a "
+               "particle speaks for no credential, in a later part as "
+               "beside the pair ('Jane Doe, BM DO')"),
+    Case("two_caps_behind_a_particle_head_under_the_vietnamese_pack",
+         "de la Vega, MH, PhD",
+         {"given": "Vega", "family": "de la", "suffix": "MH, PhD"},
+         locale="vi", classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392, a limit: the vi choice drops the particle "
+               "readings of 'la' and 'van', so the head counts two name "
+               "words and the pair is a credential, as 'de la Vega, MH "
+               "PhD' reads there since #1323; so does any choice of "
+               "languages that drops the head's particle reading, and "
+               "under the default a particle head keeps the given name"),
+    Case("two_caps_alone_before_a_later_part_in_fullwidth_capitals",
+         "Jane Doe, MH, \uff2d\uff24",
+         {"given": "MH", "family": "Jane Doe", "suffix": "\uff2d\uff24"},
+         ambiguities=("comma-structure",),
+         notes="#1392, an unwritten shape left as it was: fullwidth "
+               "capitals are no listed credential in a later part"),
+    Case("two_caps_alone_before_a_particle_part_and_a_listed_credential",
+         "Jane Doe, MH, Mc, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, Mc, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost, the class of 'MH, John, PhD': any "
+               "later part answers, whatever stands between. 1.4.0 "
+               "through 3.0.1 read given 'MH'"),
+    Case("two_caps_that_spell_a_numeral_before_a_later_credential",
+         "Jane Doe, VI, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "VI, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost (decisions/C5): 'VI' is unlisted "
+               "two capitals and reads through the pair, reported, "
+               "where the listed 'II' reads suffix unreported. 1.4.0 "
+               "through 3.0.1 read given 'VI'"),
+    Case("a_dotted_pair_that_spells_a_particle_before_a_later_credential",
+         "Jane Doe, A.L., PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "A.L., PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392 accepted cost (decisions/C5): dotted, letters "
+               "that spell a particle are a pair like any other, where "
+               "'Jane Doe, AL, PhD' keeps given 'AL'. 1.4.0 through "
+               "3.0.1 read given 'A.L.'"),
+    Case("two_caps_alone_before_a_lowercase_particle_part_and_a_credential",
+         "Jane Doe, MH, de, PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, de, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="#1392, what 'any later part' gives, the class of 'MH, "
+               "John, PhD'. 1.4.0 through 3.0.1 read given 'MH'"),
+    Case("two_caps_alone_before_a_credential_and_a_trailing_name_part",
+         "Jane Doe, MH, PhD, Smith",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, PhD, Smith"},
+         classification="fix(#1392)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="#1392, what 'any later part' gives, as 'MH, PhD, John'"),
+    Case("two_caps_alone_before_a_title_part_and_a_listed_credential",
+         "Jane Doe, MH, Dr., PhD",
+         {"title": "Dr.", "given": "Jane", "family": "Doe",
+          "suffix": "MH, PhD"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392, what 'any later part' gives: the title part "
+               "between is a title (rules/C2). 3.0.1 read given 'MH', "
+               "title 'Dr.'"),
+    Case("two_caps_alone_before_a_particle_with_a_glued_delimiter",
+         "Jane Doe, MH, Mc;",
+         {"given": "Jane", "family": "Doe", "suffix": "MH, Mc;"},
+         classification="fix(#1392)",
+         ambiguities=("suffix-or-name",),
+         notes="#1392, a recorded gap and not the intent (decisions/C5, "
+               "third review): classify tags no particle on a word with "
+               "a delimiter glued to it, so 'Mc;' speaks where 'Mc' "
+               "does not, as beside the pair ('Jane Doe, BM Mc;'). "
+               "1.4.0 through 3.0.1 read given 'MH'"),
+    Case("a_mixed_case_pair_before_a_later_credential_stays_the_given_name",
+         "Jane Doe, Mh, PhD",
+         {"given": "Mh", "family": "Jane Doe", "suffix": "PhD"},
+         notes="#1392 boundary: Title case is a name's writing"),
+    Case("two_caps_behind_a_capitalized_particle_head_stay_the_given_name",
+         "Bin Zhang, MH, PhD",
+         {"given": "MH", "family": "Bin Zhang", "suffix": "PhD"},
+         notes="#1392, left as it was: rules/C3 counts a capitalized "
+               "particle with its surname as one name word, so a full "
+               "name that opens with one keeps the listing form"),
+    Case("two_caps_behind_a_title_particle_head_stay_the_given_name",
+         "Freiherr von Berg, MH, PhD",
+         {"given": "MH", "family": "Freiherr von Berg", "suffix": "PhD"},
+         notes="#1392, left as it was: one name word before the comma"),
+    Case("two_caps_behind_a_capitals_dual_alone_stay_initials",
+         "Jane Doe, MS BM",
+         {"title": "MS", "given": "BM", "family": "Jane Doe"},
+         notes="#1323 boundary: nothing behind the pair"),
+    Case("two_caps_behind_a_title_case_member_alone_stay_the_given_name",
+         "Jane Doe, Ed MJ",
+         {"given": "Ed", "middle": "MJ", "family": "Jane Doe"},
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: nothing behind the pair"),
+    Case("two_caps_behind_a_gated_word_alone_stay_initials",
+         "John Smith, KC MJ",
+         {"given": "KC", "middle": "MJ", "family": "John Smith"},
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: nothing behind the pair"),
+    Case("two_caps_before_a_title_case_ma_stay_the_given_name",
+         "Jane Doe, MJ Ma",
+         {"given": "MJ", "middle": "Ma", "family": "Jane Doe"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(comma-family)",
+         notes="#1323 boundary: a Title-case member is no credential its "
+               "writing settles"),
+    Case("two_caps_before_fils_stay_the_given_name",
+         "Jane Doe, MJ fils",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "fils"},
+         classification="fix(#752)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: a word the count gates (rules/S11); 1.4.0 "
+               "through 2.6.0 read middle 'fils'"),
+    Case("two_caps_before_neto_stay_the_given_name",
+         "Jane Doe, MJ Neto",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Neto"},
+         classification="fix(#843)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: an agnomen; 1.4.0 through 2.6.0 read "
+               "middle 'Neto'"),
+    Case("two_caps_before_junior_in_portuguese_stay_the_given_name",
+         "Jane Doe, MJ Júnior",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Júnior"},
+         classification="fix(#843)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: a generation spelled out; 1.4.0 through "
+               "2.6.0 read middle 'Júnior'"),
+    Case("two_caps_before_a_joined_credential_and_generation_stay_initials",
+         "Jane Doe, MJ MD/Jr.",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "MD/Jr."},
+         classification="fix(#752)",
+         notes="#1323 boundary: a word joined by a slash is asked chunk "
+               "by chunk, and a generation is none; 1.4.0 through 2.6.0 "
+               "read middle 'MD/Jr.'"),
+    Case("two_caps_before_a_joined_gated_word_stay_initials",
+         "Jane Doe, MJ Junior/PhD",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Junior/PhD"},
+         classification="fix(#752)",
+         notes="#1323 boundary: as 'MD/Jr.'; 1.4.0 through 2.6.0 read "
+               "middle 'Junior/PhD'"),
+    Case("two_caps_before_a_joined_title_case_member_stay_initials",
+         "Jane Doe, MJ Ma/PhD",
+         {"given": "MJ", "family": "Jane Doe", "suffix": "Ma/PhD"},
+         classification="fix(#1138)",
+         notes="#1323 boundary: a Title-case chunk is no credential its "
+               "writing settles; 1.4.0 through 2.8.2 read middle "
+               "'Ma/PhD'"),
+    Case("two_caps_before_a_joined_credential_pair_are_a_credential",
+         "Jane Doe, MJ MD/PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MJ MD/PhD"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): every chunk a credential; 3.0.1 read "
+               "given 'MJ', suffix 'MD/PhD'"),
+    Case("two_caps_before_a_particle_stay_the_given_name",
+         "Jane Doe, MJ Mc PhD",
+         {"given": "MJ", "family": "Mc Jane Doe", "suffix": "PhD"},
+         classification="fix(#379)",
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: a particle is no credential, and P6 "
+               "attaches it; 1.4.0 and 2.0.0 read suffix 'Mc, PhD'"),
+    Case("two_caps_before_a_roman_numeral_stay_the_given_name",
+         "Jane Doe, BM III",
+         {"given": "BM", "family": "Jane Doe", "suffix": "III"},
+         notes="#1323 boundary: a numeral is a generation"),
+    Case("two_caps_before_credentials_under_family_first",
+         "Jane Doe, BM PhD",
+         {"given": "Doe", "family": "Jane", "suffix": "BM PhD"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): the comma fixes nothing once the part "
+               "is the credential run, so the declared order reads the "
+               "two words before it"),
+    Case("two_caps_before_credentials_behind_a_generation",
+         "Jane Doe Jr., MJ M.D.",
+         {"given": "Jane", "family": "Doe", "suffix": "Jr., MJ M.D."},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): as rules/C12 reads 'Jane Doe Jr., MJ'; "
+               "3.0.1 read given 'MJ' once a credential followed"),
+    Case("two_caps_before_credentials_behind_a_numeral_generation",
+         "Jane Doe III, MJ Ph. D.",
+         {"given": "Jane", "family": "Doe", "suffix": "III, MJ Ph. D."},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): as rules/C12 reads 'Jane Doe III, MJ'; "
+               "3.0.1 read given 'MJ'"),
+    Case("two_caps_before_credentials_behind_a_credential",
+         "Jane Doe MD, MJ PhD",
+         {"given": "Jane", "family": "Doe", "suffix": "MD, MJ PhD"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): behind a credential the bare 'Jane Doe "
+               "MD, MJ' keeps given 'MJ' (C12), and the pair before "
+               "credentials is the credential run all the same; 3.0.1 "
+               "read given 'MJ'"),
+    Case("two_caps_before_credentials_behind_a_generation_and_a_credential",
+         "Jane Doe Jr. PhD, MJ MD",
+         {"given": "Jane", "family": "Doe", "suffix": "Jr. PhD, MJ MD"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): as the credential head; 3.0.1 read "
+               "given 'MJ'"),
+    Case("two_caps_before_credentials_beside_a_nickname",
+         'Jane Doe, MJ "Mike" PhD',
+         {"given": "Jane", "family": "Doe", "suffix": "MJ PhD",
+          "nickname": "Mike"},
+         classification="fix(#1323)",
+         ambiguities=("suffix-or-name",),
+         notes="rules/C5 (#1323): the nickname is no word of the part"),
+    Case("two_caps_in_an_all_caps_record_stay_the_given_name_everywhere",
+         "JANE DOE, BM PhD",
+         {"given": "BM", "family": "JANE DOE", "suffix": "PhD"},
+         policy=Policy(unlisted_caps_suffixes=CapsSuffixes.EVERYWHERE),
+         ambiguities=("suffix-or-name",),
+         notes="#1323 boundary: C6's contrast is asked under every caps "
+               "setting"),
+    Case("two_caps_in_an_all_caps_record_stay_the_given_name",
+         "JANE DOE, BM PhD",
+         {"given": "BM", "family": "JANE DOE", "suffix": "PhD"},
+         notes="#1323 boundary: without C6's case contrast the caps "
+               "shape admits nothing"),
     Case("an_all_caps_record_keeps_its_given_name_beside_a_mixed_credential",
          "LLOYD WEBBER, ANDREW PhD",
          {"given": "ANDREW", "family": "LLOYD WEBBER", "suffix": "PhD"},
@@ -5623,6 +7309,7 @@ CASES: tuple[Case, ...] = (
          "LLOYD WEBBER née Smith, ANDREW PhD",
          {"given": "ANDREW", "family": "LLOYD WEBBER", "suffix": "PhD",
           "maiden": "Smith"},
+         classification="fix(#274)",
          notes="#564 boundary: the contrast is the name's OWN words "
                "(own_words): a maiden clause's lowercase is not the "
                "name's, so the all-caps record keeps its given name. A "
@@ -6032,6 +7719,7 @@ CASES: tuple[Case, ...] = (
     Case("a_period_marked_dual_opening_a_family_comma_stays_family",
          "Freiherr. von Berg, Ed",
          {"given": "Ed", "family": "Freiherr. von Berg"},
+         classification="fix(comma-precomma-family)",
          ambiguities=("suffix-or-name",)),
     Case("a_dual_second_in_a_title_run_before_a_family_comma_peels",
          "Hon. Ms Smith, Jane",
@@ -6175,6 +7863,7 @@ CASES: tuple[Case, ...] = (
     Case("the_comma_count_counts_names_not_words_behind_a_suffix",
          "Smith Jr, Ma",
          {"given": "Ma", "family": "Smith", "suffix": "Jr"},
+         classification="fix(comma-precomma-family)",
          ambiguities=("suffix-or-name",),
          notes="the SUFFIX arm of the same count, and the shape "
                "decisions/S6 names: 'Smith Jr., MA' is two tokens "
@@ -6185,7 +7874,7 @@ CASES: tuple[Case, ...] = (
          "Smith V., Ma",
          {"given": "Smith", "family": "V.", "suffix": "Ma"},
          policy=Policy(lenient_comma_suffixes=False),
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="MEASURED, and a known rough edge recorded rather than "
                "repaired (decisions/S4, 2026-09-18). Under strict "
                "the initial-shaped 'V.' fails the suffix test, so "
@@ -6199,7 +7888,7 @@ CASES: tuple[Case, ...] = (
          "Smith V, Ma",
          {"given": "Smith", "family": "V", "suffix": "Ma"},
          policy=Policy(lenient_comma_suffixes=False),
-         ambiguities=("suffix-or-name", "suffix-or-name"),
+         ambiguities=("order", "suffix-or-name", "suffix-or-name"),
          notes="the period is the whole difference from the row "
                "above: bare 'V' is still initial-shaped and still "
                "counts as a name word here, so the structure flips "
@@ -6358,7 +8047,7 @@ CASES: tuple[Case, ...] = (
                "way"),
     Case("the_dotted_switch_off_still_reports_the_post_comma_fork",
          "Smith, A.B.",
-         {"given": "A.B.", "family": "Smith"},
+         {"given": "A.", "middle": "B.", "family": "Smith"},
          policy=Policy(unlisted_dotted_suffixes=False),
          ambiguities=("suffix-or-name",),
          notes="MEASURED. With the switch off the token never joins "
@@ -6367,8 +8056,10 @@ CASES: tuple[Case, ...] = (
                "real and the parser declined it), and assign's "
                "post-comma report reads that tag directly. Exactly "
                "ONE report: the shape tag is on one piece and the "
-               "reading is read off the first post-comma piece alone",
-         classification="fix(#516)"),
+               "reading is read off the first post-comma piece alone"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'A.', middle 'B.'",
+         classification="fix(#1296)"),
     Case("the_dotted_switch_off_leaves_a_lone_token_to_the_convention",
          "A.B.", {"given": "A.B."},
          policy=Policy(unlisted_dotted_suffixes=False),
@@ -7117,11 +8808,277 @@ CASES: tuple[Case, ...] = (
                "read family 'Hisham', suffix 'Md Yusoff' (#602's run)"),
     Case("title_case_credential_after_a_patronymic_stays_a_name",
          "Ahmad Faiz Bin Md Sapir",
-         {"given": "Ahmad", "middle": "Faiz Bin Md", "family": "Sapir"},
+         {"given": "Ahmad", "middle": "Faiz", "family": "Bin Md Sapir"},
+         classification="fix(#1177)",
          notes="S8 (#1019): as title_case_credential_before_a_name_"
-               "word_stays_a_name, behind a particle. 1.4.0 through "
-               "2.3.0 read the same; 2.4.0 through 2.8.0 read family "
-               "'Bin', suffix 'Md Sapir'"),
+               "word_stays_a_name, behind a particle, whose chain then "
+               "takes it with the name behind it (P2, #1177). 1.4.0 "
+               "through 2.3.0 and 3.0.0 through 3.0.1 read middle "
+               "'Faiz Bin Md', family 'Sapir'; 2.4.0 through 2.8.0 "
+               "family 'Bin', suffix 'Md Sapir'"),
+    # #1177: P2's chain stops at a suffix word only where S8 would
+    # start its run there, so one S8 starts no run at (`Abd` for Abdul)
+    # or declines for its writing with a name word behind it (`Md` for
+    # Muhammad, a generation word written out) is the chain's.
+    Case("a_suffix_word_inside_a_patronymic_chain_is_the_chains",
+         "Ahmad bin Abd Rahman",
+         {"given": "Ahmad", "family": "bin Abd Rahman"},
+         classification="fix(#1177)",
+         notes="#1177's example: 'Abd' is Abdul written short, as 'Ahmad "
+               "bin Abdul Rahman' reads. 1.4.0 through 3.0.1 read middle "
+               "'bin Abd', family 'Rahman'"),
+    Case("a_credential_spelling_inside_a_patronymic_chain_is_the_chains",
+         "Mariam binti Md Salleh",
+         {"given": "Mariam", "family": "binti Md Salleh"},
+         classification="fix(#1177)",
+         notes="'Md' is Muhammad written short. 1.4.0 through 3.0.1 read "
+               "middle 'binti Md', family 'Salleh'"),
+    Case("a_suffix_word_inside_an_ibn_chain_is_the_chains",
+         "Ahmad ibn Abd Rahman",
+         {"given": "Ahmad", "family": "ibn Abd Rahman"},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'ibn Abd', family "
+               "'Rahman'"),
+    Case("a_suffix_word_further_into_the_chain_is_the_chains",
+         "Mariam binti Haji Abd Talib",
+         {"given": "Mariam", "family": "binti Haji Abd Talib"},
+         classification="fix(#1177)",
+         notes="five of #1177's 55 chains stopped past their first "
+               "word, as this one did. 1.4.0 through 3.0.1 read middle 'binti Haji Abd', "
+               "family 'Talib'"),
+    Case("a_period_marked_suffix_word_inside_the_chain_is_the_chains",
+         "Ahmad bin Abd. Rahman",
+         {"given": "Ahmad", "family": "bin Abd. Rahman"},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'bin Abd.', family "
+               "'Rahman'"),
+    Case("a_suffix_word_inside_a_plain_particle_chain_is_the_chains",
+         "Juan de Md Rahman",
+         {"given": "Juan", "family": "de Md Rahman"},
+         classification="fix(#1177)",
+         notes="the chain is P2's for any particle, not the patronymic "
+               "ones alone. 1.4.0 through 3.0.1 read middle 'de Md', "
+               "family 'Rahman'"),
+    Case("a_suffix_word_inside_a_one_case_chain_is_the_chains",
+         "AHMAD BIN ABD RAHMAN",
+         {"given": "AHMAD", "family": "BIN ABD RAHMAN"},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'BIN ABD', family "
+               "'RAHMAN'"),
+    Case("a_suffix_word_inside_a_family_first_chain_is_the_chains",
+         "Ahmad bin Abd Rahman",
+         {"given": "bin Abd Rahman", "family": "Ahmad"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1177)",
+         notes="3.0.1 read given 'bin', middle 'Abd Rahman'"),
+    Case("a_suffix_word_inside_the_chain_before_a_family_comma_is_family",
+         "bin Abd Rahman, Ahmad",
+         {"given": "Ahmad", "family": "bin Abd Rahman"},
+         classification="fix(#1177)",
+         notes="the family part's own suffix pass reads it behind the "
+               "particle the fold takes (P1), as the chain does with no "
+               "comma. 1.4.0 through 3.0.1 read family 'bin Rahman', "
+               "suffix 'Abd'"),
+    Case("a_suffix_word_inside_the_chain_before_a_family_first_comma",
+         "bin Abd Rahman, Ahmad",
+         {"given": "Ahmad", "family": "bin Abd Rahman"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1177)",
+         notes="3.0.1 read family 'bin Rahman', suffix 'Abd'"),
+    Case("a_suffix_word_inside_a_plain_chain_before_a_family_comma",
+         "van Jr Berg, John",
+         {"given": "John", "family": "van Jr Berg"},
+         classification="fix(#1177)",
+         notes="as 'John van Jr Berg' reads. 1.4.0 through 3.0.1 read "
+               "family 'van Berg', suffix 'Jr'"),
+    Case("a_suffix_word_inside_the_given_parts_chain_is_the_chains",
+         "Rahman, Ahmad bin Abd Ali",
+         {"given": "Ahmad", "middle": "bin Abd Ali", "family": "Rahman"},
+         classification="fix(#1177)",
+         notes="a word that is also bound given-name vocabulary "
+               "starts no run (S8), so the chain takes it even in the "
+               "given part after a family comma, where 'Md' would end "
+               "it. 1.4.0 through 3.0.1 read middle 'bin Ali', suffix "
+               "'Abd'"),
+    Case("a_suffix_word_inside_the_chain_after_an_empty_head_is_the_chains",
+         ", Ahmad bin Abd Rahman",
+         {"given": "Ahmad", "middle": "bin Abd Rahman"},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'bin Rahman', suffix "
+               "'Abd'"),
+    Case("a_suffix_word_inside_the_chain_before_a_suffix_comma_is_the_chains",
+         "Ahmad bin Abd Rahman, Jr.",
+         {"given": "Ahmad", "family": "bin Abd Rahman", "suffix": "Jr."},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'bin Abd', family "
+               "'Rahman'"),
+    Case("a_suffix_word_inside_the_chain_keeps_the_trailing_credential",
+         "Ahmad bin Md Salleh PhD",
+         {"given": "Ahmad", "family": "bin Md Salleh", "suffix": "PhD"},
+         classification="fix(#1177)",
+         notes="1.4.0 through 3.0.1 read middle 'bin Md', family "
+               "'Salleh'"),
+    Case("a_credential_after_the_chain_stays_the_suffix",
+         "Ahmad bin Ismail PhD",
+         {"given": "Ahmad", "family": "bin Ismail", "suffix": "PhD"},
+         classification="parity",
+         notes="#1177's boundary: the trailing run ends the chain, as P2 "
+               "says"),
+    Case("a_generation_after_the_chain_stays_the_suffix",
+         "Ahmad bin Rahman Jr.",
+         {"given": "Ahmad", "family": "bin Rahman", "suffix": "Jr."},
+         classification="parity",
+         notes="#1177's boundary"),
+    Case("a_credential_after_a_particle_run_stays_the_suffix",
+         "Juan de la Vega MD",
+         {"given": "Juan", "family": "de la Vega", "suffix": "MD"},
+         classification="parity",
+         notes="#1177's boundary"),
+    Case("a_suffix_word_ending_the_chain_stays_the_suffix",
+         "Ahmad bin Md",
+         {"given": "Ahmad", "family": "bin", "suffix": "Md"},
+         classification="parity",
+         notes="#1177's boundary: with no name word behind it the word "
+               "begins the trailing run, so it is the suffix and the "
+               "chain has nothing to join"),
+    Case("a_suffix_word_ending_the_family_part_stays_the_suffix",
+         "bin Abd Jr., Ahmad",
+         {"given": "Ahmad", "family": "bin", "suffix": "Abd Jr."},
+         classification="parity",
+         notes="#1177's boundary: before a family comma, a suffix word "
+               "with nothing but suffixes behind it stays the suffix "
+               "behind a particle too. 1.4.0 read suffix 'Abd, Jr.'"),
+    Case("a_generation_in_the_given_parts_run_ends_the_chain",
+         "Hasan, Ali bin Ahmad Jr. Smith",
+         {"given": "Ali", "middle": "bin Ahmad", "family": "Hasan",
+          "suffix": "Jr. Smith"},
+         classification="fix(#602)",
+         ambiguities=("suffix-or-name",),
+         notes="#1177's boundary: in the given part after a family comma "
+               "the run S8 starts behind the given word takes the "
+               "generation and the words behind it, ending the chain "
+               "there (P2). 1.4.0 read middle 'bin Ahmad Smith', suffix "
+               "'Jr.'"),
+    Case("a_generation_word_before_a_name_inside_the_chain_is_the_chains",
+         "Ali bin Ahmad Jr. Hasan",
+         {"given": "Ali", "family": "bin Ahmad Jr. Hasan"},
+         classification="fix(#1177)",
+         notes="a generation word written out before a name starts no "
+               "run (S8), so the chain takes it. 1.4.0 through 3.0.1 "
+               "read middle 'bin Ahmad Jr.', family 'Hasan'"),
+    Case("a_credential_in_capitals_inside_the_chain_starts_the_run",
+         "Mariam binti MD Salleh",
+         {"given": "Mariam", "family": "binti", "suffix": "MD Salleh"},
+         classification="fix(#602)",
+         ambiguities=("suffix-or-name",),
+         notes="#1177's boundary: written in capitals the credential "
+               "starts S8's run, which the chain stops in front of, "
+               "where it takes a Title-case 'Md' as a name word. 1.4.0 "
+               "read middle 'binti MD', last 'Salleh'"),
+    Case("a_credential_in_capitals_inside_the_family_part_stays_the_suffix",
+         "binti MD Salleh, Mariam",
+         {"given": "Mariam", "family": "binti Salleh", "suffix": "MD"},
+         notes="#1177's boundary: before a family comma the family "
+               "part keeps behind a particle only a suffix word S8 "
+               "starts no run at or declines for its writing"),
+    Case("a_degree_inside_a_particle_family_part_stays_the_suffix",
+         "van der Berg PhD Jones, John",
+         {"given": "John", "family": "van der Berg Jones", "suffix": "PhD"},
+         notes="#1177's boundary, found by its docs review"),
+    Case("a_title_case_credential_in_the_given_parts_chain_starts_the_run",
+         "Rahman, Ahmad bin Md Ali",
+         {"given": "Ahmad", "family": "bin Rahman", "suffix": "Md Ali"},
+         classification="fix(#602)",
+         ambiguities=("suffix-or-name", "particle-or-given"),
+         notes="#1177's boundary: in the given part after a family comma "
+               "S8's run starts behind the given word whatever its "
+               "writing, so the chain stops before 'Md' there. 1.4.0 "
+               "read middle 'bin Ali', suffix 'Md'"),
+    Case("a_generation_in_the_given_part_behind_a_title_particle_starts_the_run",
+         "Smith, Freiherr von Berg Jr. Jones",
+         {"title": "Freiherr", "given": "von Berg", "family": "Smith",
+          "suffix": "Jr. Jones"},
+         classification="fix(#602)",
+         ambiguities=("suffix-or-name",),
+         notes="#1177's boundary, found by its code review: behind a "
+               "title-particle the given part's chain stops where S8's "
+               "run starts, as behind a given word. 1.4.0 read first "
+               "'von Berg', middle 'Jones', suffix 'Jr.'"),
+    Case("a_generation_in_the_given_part_behind_do_starts_the_run",
+         "Smith, Do van Jr. Jones",
+         {"given": "Do", "middle": "van", "family": "Smith",
+          "suffix": "Jr. Jones"},
+         classification="fix(#602)",
+         ambiguities=("suffix-or-name", "suffix-or-name"),
+         notes="#1177's boundary, found by its code review. 1.4.0 read "
+               "title 'Do', first 'van', middle 'Jones', suffix 'Jr.'"),
+    Case("a_dual_particle_before_a_generation_keeps_both_suffixes",
+         "DE SMITH VD JR JONES, JOHN",
+         {"given": "JOHN", "family": "DE SMITH JONES", "suffix": "VD JR"},
+         notes="#1177's boundary, found by its docs review: a particle "
+               "that is suffix vocabulary too opens no chain over the "
+               "suffix word behind it (P9), and the word behind the "
+               "suffix it reads as stays in that suffix"),
+    Case("a_suffix_word_the_chain_takes_is_no_word_to_spare",
+         "Freiherr von Md Berg V",
+         {"title": "Freiherr", "family": "von Md Berg V"},
+         classification="fix(#1177)",
+         ambiguities=("particle-or-given", "suffix-or-name"),
+         notes="the words-to-spare count reads the chain's unit as the "
+               "chain makes it, 'Md' inside it, so the numeral reads as "
+               "in 'Freiherr von Abdul Berg V' (P2's boundary, S10); "
+               "found by the PR review. 1.4.0 through 3.0.1 read given "
+               "'von', middle 'Md', family 'Berg', suffix 'V'"),
+    Case("a_suffix_word_the_chain_takes_is_no_word_to_spare_for_an_acronym",
+         "Freiherr von Abd Berg X.Y.Z.",
+         {"title": "Freiherr", "family": "von Abd Berg X.Y.Z."},
+         classification="fix(#1177)",
+         ambiguities=("particle-or-given", "suffix-or-name"),
+         notes="as the row above, for an unlisted dotted acronym (S3). "
+               "3.0.0 through 3.0.1 read given 'von', middle 'Abd', "
+               "family 'Berg', suffix 'X.Y.Z.'; 1.4.0 middle 'Abd "
+               "Berg', last 'X.Y.Z.'"),
+    Case("a_dual_particle_opens_no_chain_over_a_suffix_word",
+         "John vd Jr Smith",
+         {"given": "John", "middle": "vd Jr", "family": "Smith"},
+         notes="#1177's boundary: a particle that is suffix vocabulary "
+               "too opens no chain over a suffix word right behind it, "
+               "as P9 reads it before a family comma (P2's Accepted)"),
+    Case("a_lowercase_bound_given_word_inside_the_family_part_is_family",
+         "bin abd Rahman, Ahmad",
+         {"given": "Ahmad", "family": "bin abd Rahman"},
+         classification="fix(#1177)",
+         notes="the family part's arm for a word S8 starts no run at, "
+               "bound given-name vocabulary, written in lower case so no "
+               "Title-case decline covers it; found by the PR's test "
+               "review. 1.4.0 through 3.0.1 read family 'bin Rahman', "
+               "suffix 'abd'"),
+    Case("a_one_case_bound_given_word_inside_the_family_part_is_family",
+         "BIN ABD RAHMAN, AHMAD",
+         {"given": "AHMAD", "family": "BIN ABD RAHMAN"},
+         classification="fix(#1177)",
+         notes="the row above in one case. 1.4.0 through 3.0.1 read "
+               "family 'BIN RAHMAN', suffix 'ABD'"),
+    Case("a_one_case_generation_word_inside_the_chain_is_the_chains",
+         "AHMAD BIN JR RAHMAN",
+         {"given": "AHMAD", "family": "BIN JR RAHMAN"},
+         classification="fix(#1177)",
+         notes="the chain asks the generation word's decline with the "
+               "name's case, a one-case word behind it being a name "
+               "word (S8); found by the PR's test review. 1.4.0 through "
+               "3.0.1 read middle 'BIN JR', family 'RAHMAN'"),
+    Case("a_mixed_case_dual_particle_before_a_generation_keeps_both_suffixes",
+         "de Smith vd Jr Jones, John",
+         {"given": "John", "family": "de Smith Jones", "suffix": "vd Jr"},
+         notes="#1177's boundary in mixed case, as 'DE SMITH VD JR "
+               "JONES, JOHN' reads (P9)"),
+    Case("a_suffix_word_inside_a_family_part_with_no_particle_stays_the_suffix",
+         "Smith Jr Jones, John",
+         {"given": "John", "family": "Smith Jones", "suffix": "Jr"},
+         classification="parity",
+         notes="#1177's boundary: the family part reads a suffix word "
+               "between two family words as the suffix where no particle "
+               "stands in front of it"),
     Case("title_case_credential_before_a_suffix_comma_stays_a_name",
          "Badrul Hisham Md Yusoff, Jr.",
          {"given": "Badrul", "middle": "Hisham Md", "family": "Yusoff",
@@ -7800,6 +9757,7 @@ CASES: tuple[Case, ...] = (
     Case("no_title_stop_before_a_family_comma",
          "Doe nee Smith Prof., Jane",
          {"given": "Jane", "family": "Doe", "maiden": "Smith Prof."},
+         classification="fix(#274)",
          notes="before a family comma no trailing rule reads these "
                "words ('Doe Prof., Jane' keeps family 'Doe Prof.'), so "
                "there is no chain to consult and the clause keeps the "
@@ -8566,7 +10524,7 @@ CASES: tuple[Case, ...] = (
     Case("delimiters_keep_the_whole_span_whatever_the_last_word_is",
          "Jane Doe (nee Smith MA)",
          {"given": "Jane", "family": "Doe", "maiden": "Smith MA"},
-         classification="parity",
+         classification="fix(#335)",
          ambiguities=(),
          notes="rules/M2, the delimited clause: the writer drew "
                "the boundary and it outranks every reading inside it, "
@@ -8574,13 +10532,14 @@ CASES: tuple[Case, ...] = (
                "inside the pair is what says the span is a maiden "
                "clause even where the pair is not in "
                "`maiden_delimiters`. Unchanged by #533 and by every "
-               "release before it -- a settled position, not one of "
-               "the silences about un-asked forks",
+               "release before it back to 2.2.0 (#335) -- a settled "
+               "position, not one of the silences about un-asked forks. "
+               "1.4.0 through 2.1.0 read nickname 'nee Smith MA'",
          shape=2),
     Case("delimiters_keep_the_whole_span_in_title_case_too",
          "Jane Doe (nee Smith Ma)",
          {"given": "Jane", "family": "Doe", "maiden": "Smith Ma"},
-         classification="parity",
+         classification="fix(#335)",
          ambiguities=(),
          notes="the pair for the row above: the two spellings differ "
                "in everything the lean reads and the delimiters make "
@@ -8592,7 +10551,7 @@ CASES: tuple[Case, ...] = (
          "Jane Doe (nee Smith) MA",
          {"given": "Jane", "family": "Doe", "suffix": "MA",
           "maiden": "Smith"},
-         classification="parity",
+         classification="fix(#335)",
          notes="the boundary cuts both ways: the span is the maiden name "
                "whole, and a member the writer left OUTSIDE it is an "
                "ordinary trailing credential that assign peels, settled by "
@@ -9202,7 +11161,7 @@ CASES: tuple[Case, ...] = (
          "Juan Garcia Lopez, Sr. y Sra.",
          {"title": "Sr. Sra.", "given": "y", "family": "Juan Garcia Lopez"},
          ambiguities=(),
-         classification="parity",
+         classification="fix(#316)",
          notes="the comma decision joins no title across a lone "
                "single-letter connective, so the part is no titles-alone "
                "part and the listing form reads it, P3's count keeping "
@@ -9222,7 +11181,7 @@ CASES: tuple[Case, ...] = (
          "John Smith, Mr. and",
          {"title": "Mr. and", "given": "John", "family": "Smith"},
          ambiguities=(),
-         classification="parity",
+         classification="fix(comma-family)",
          notes="garbage in: the trailing connective takes its kind from "
                "the title on its left and joins with nothing on its "
                "right (2.3.0, 83f4e914 and #617 alike)"),
@@ -9271,6 +11230,7 @@ CASES: tuple[Case, ...] = (
     Case("a_numeral_behind_a_class_member_keeps_the_listing_form",
          "John Smith, Ma I",
          {"given": "Ma", "family": "John Smith", "suffix": "I"},
+         classification="fix(comma-precomma-family)",
          ambiguities=("suffix-or-name", "suffix-or-name"),
          notes="contrast for the row below: C4's run test admits no "
                "single-letter numeral, which could be an initial, so "
@@ -9489,6 +11449,7 @@ CASES: tuple[Case, ...] = (
     Case("only_the_first_suffix_word_can_open_the_comma_part",
          "Smith, MA PhD Jones",
          {"given": "MA", "family": "Smith", "suffix": "PhD Jones"},
+         classification="fix(#602)",
          ambiguities=("suffix-or-name", "suffix-or-name"),
          notes="#603's opener is the part's FIRST suffix word with only "
                "titles in front of it (rules/C13): 'MA', a member of "
@@ -9522,6 +11483,7 @@ CASES: tuple[Case, ...] = (
          "Eric H. Holder, Jr. Attorney General",
          {"title": "Attorney General", "given": "Eric", "middle": "H.",
           "family": "Holder", "suffix": "Jr."},
+         classification="fix(comma-family)",
          notes="the shape #603 generalizes: a part after the comma "
                "holding no name word fixed no family boundary, so the "
                "name before it keeps its positional read and the part "
@@ -9530,12 +11492,16 @@ CASES: tuple[Case, ...] = (
                "whatever stands behind it ('Eric H. Holder, Jr. Chief "
                "Witness', 'witness' being no title word, reads suffix "
                "'Jr. Witness', title 'Chief')"),
-    Case("family_comma_lone_suffix_piece", "Andrews, M.D.",
-         {"family": "Andrews", "suffix": "M.D."},
-         classification="fix(comma-family)",
-         notes="v1 made the lone post-comma strict-suffix piece the "
-               "given; 2.0 routes it to suffix (same family as the "
-               "'Smith, Dr.' row)"),
+    Case("family_comma_lone_dotted_credential_is_initials",
+         "Andrews, M.D.",
+         {"given": "M.", "middle": "D.", "family": "Andrews"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1238)",
+         notes="1.4.0 read given 'M.D.' and 2.0.0 through 3.0.1 suffix "
+               "'M.D.'; since #1238 initials run together behind one "
+               "name word are the given name whatever they spell "
+               "(rules/C16), parted by T7, the credential reported. "
+               "Undotted, 'Smith, MD' stays the suffix"),
     Case("family_comma_suffix_run_renders_unjoined", "Smith, MD PhD",
          {"family": "Smith", "suffix": "MD PhD"},
          classification="fix(comma-family)",
@@ -9711,17 +11677,20 @@ CASES: tuple[Case, ...] = (
     Case("family_segment_particle_chain_suffix", "de la Vega III, Juan",
          {"given": "Juan", "family": "de la Vega", "suffix": "III"}),
     Case("interior_periods_block_vocab", "Smith, J.R.",
-         {"given": "J.R.", "family": "Smith"},
+         {"given": "J.", "middle": "R.", "family": "Smith"},
          ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
          notes="v1's lc() keeps interior periods: 'J.R.' is not the "
-               "suffix word 'jr' (pinned live 2026-07-17), so this "
-               "FIELD reading is unchanged clear back to 1.4.0. #516: "
+               "suffix word 'jr' (pinned live 2026-07-17), so it read "
+               "as the given name from 1.4.0 through 3.0.1. #516: "
                "two unlisted single-letter chunks join the ambiguous "
                "class by shape all the same, the same fork "
                "'Smith, A.B.' reports -- the class is considered and "
                "declined (one word before the comma is never enough), "
                "and the consideration is what reports, exactly as the "
-               "trailing peel's own declined picks always have"),
+               "trailing peel's own declined picks always have"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'J.', middle 'R.'"),
     Case("dotted_acronym_suffix", "John Smith M.D.",
          {"given": "John", "family": "Smith", "suffix": "M.D."},
          notes="suffix-ACRONYM membership alone strips periods (v1 "
@@ -9771,10 +11740,12 @@ CASES: tuple[Case, ...] = (
                "classify's own fall-through has not already tagged "
                "'vocab:suffix' -- unchanged either side of the switch",
          shape=1),
-    Case("period_joined_any_rule", "Mr.Smith",
-         {"title": "Mr.Smith"},
-         notes="the ANY rule is deliberate v1 parity: one title chunk "
-               "claims the whole token"),
+    Case("period_joined_title_and_name_divide", "Mr.Smith",
+         {"title": "Mr.", "family": "Smith"},
+         classification="fix(#1230)",
+         notes="rules/T8 divides a listed title glued to a name, as "
+               "'Mr. Smith' reads; through 3.0.1 v1's ANY rule let the "
+               "title chunk claim the whole word, title 'Mr.Smith'"),
     Case("doubled_comma_suffix", "Doe,, Jr.",
          {"family": "Doe", "suffix": "Jr."},
          notes="the EMPTY given segment keeps its position: 'Jr.' is a "
@@ -9845,7 +11816,11 @@ CASES: tuple[Case, ...] = (
                "and the entry the writer drew ends at each of them. "
                "The core is gone before the render sees it, so the "
                "boundary is read off the dropped indices rather than "
-               "off a surviving token. Parity at every baseline"),
+               "off a surviving token. The classification names the "
+               "change this row guards, not a change in its reading: "
+               "1.4.0, with its counterpart CONSTANTS.suffix_delimiter "
+               "= ' | ', and every release from 2.0.0 read these "
+               "fields"),
     Case("suffix_delimiter_core_parts_a_connective_join",
          "Doe, John, PhD | and MD",
          {"given": "John", "family": "Doe", "suffix": "PhD, and MD"},
@@ -9963,6 +11938,7 @@ CASES: tuple[Case, ...] = (
          "John Smith, Ph. D.; MD",
          {"title": "Ph.", "given": "D.;", "family": "John Smith",
           "suffix": "MD"},
+         classification="fix(phd-merge)",
          notes="rules/C10's Accepted bullet: 'Ph.' and 'D.' are one "
                "credential only as a pair written exactly so, and 'D.;' "
                "is not the second half of one; 'John Smith, Ph. D. MD' "
@@ -10307,6 +12283,7 @@ CASES: tuple[Case, ...] = (
     Case("paren_joined_member_chunk_is_the_suffix_after_the_name",
          "John Smith (MA/PhD)",
          {"given": "John", "family": "Smith", "suffix": "MA/PhD"},
+         classification="fix(#1138)",
          notes="a joined word holding a member is a member (rules/S3, "
                "#1138), settled after the name (rules/S13)"),
     Case("paren_joined_member_chunk_stays_the_nickname_inside_the_name",
@@ -10621,6 +12598,7 @@ CASES: tuple[Case, ...] = (
                "(#694 review)"),
     Case("bound_given_completed_before_a_suffix_comma", "طارق عبد العزيز, Jr.",
          {"given": "طارق", "family": "عبد العزيز", "suffix": "Jr."},
+         classification="fix(#694)",
          notes="#694 review"),
     Case("bound_given_completed_behind_an_empty_head", ", طارق عبد العزيز",
          {"given": "طارق", "middle": "عبد العزيز"},
@@ -10672,7 +12650,7 @@ CASES: tuple[Case, ...] = (
                "so the reading is reported"),
     Case("a_lone_numeral_with_no_word_to_spare_is_the_family",
          "John V", {"given": "John", "family": "V"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="S10 (the trailing roman numeral): a one-letter "
                "numeral needs words to spare, as a bare ambiguous "
                "acronym does, and 'John' is the only other word -- the "
@@ -10681,17 +12659,17 @@ CASES: tuple[Case, ...] = (
                "'V' with no family; 1.4.0 read last 'V'"),
     Case("a_lone_shape_numeral_with_no_word_to_spare_is_the_family",
          "Malcolm X", {"given": "Malcolm", "family": "X"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="the shape-only spelling of the row above: 'x' is in "
                "no vocabulary and reaches the fork by its shape"),
     Case("a_lone_numeral_in_a_one_case_name_is_counted",
          "JOHN V", {"given": "JOHN", "family": "V"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="a name written in one case says nothing about the "
                "letter, so the count decides as it does for 'John V'"),
     Case("a_title_is_no_word_to_spare_for_a_lone_numeral",
          "Dr Smith V", {"title": "Dr", "given": "Smith", "family": "V"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="S10's title clause (the trailing roman numeral); "
                "1.4.0 read first 'Smith', last 'V' too"),
     Case("a_multi_letter_numeral_needs_no_word_to_spare",
@@ -10772,7 +12750,7 @@ CASES: tuple[Case, ...] = (
                "'x'"),
     Case("a_lowercase_shape_numeral_in_a_one_case_name_is_counted",
          "john x", {"given": "john", "family": "x"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="the row above written wholly in lower case: the case "
                "says nothing, so the count decides and reports"),
     Case("a_lowercase_numeral_after_a_maiden_clause_reports_nothing",
@@ -10826,27 +12804,32 @@ CASES: tuple[Case, ...] = (
     Case("a_one_case_link_before_a_credential_reports_the_numeral",
          "john i phd",
          {"given": "john", "family": "i", "suffix": "phd"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="the letter has only a credential behind it, so it "
                "connects nothing (P8) and the numeral is what reports, "
                "as for 'john i, phd' (Derek, #721)"),
     Case("a_one_case_link_before_a_title_reports_the_numeral",
          "john i dr.",
          {"title": "dr.", "given": "john", "family": "i"},
-         ambiguities=("suffix-or-name",), classification="fix(#316)",
+         ambiguities=("order", "suffix-or-name"), classification="fix(#316)",
          notes="the same with a trailing title (H5): one report on "
                "the letter, the numeral's. 1.4.0 read suffix 'dr.'"),
-    Case("a_one_case_non_numeral_link_before_a_credential_is_silent",
+    Case("a_one_case_non_numeral_link_before_a_credential_reports_no_link",
          "jose e phd",
          {"given": "jose", "family": "e", "suffix": "phd"},
-         notes="nothing to join and no numeral fork: no report"),
-    Case("a_one_case_link_before_a_maiden_marker_is_silent",
+         ambiguities=("order",),
+         notes="nothing to join and no numeral fork: no connective or "
+               "numeral report; one word and an initial report the "
+               "order since #1254 (rules/O4)"),
+    Case("a_one_case_link_before_a_maiden_marker_reports_no_link",
          "jose e nee smith",
          {"given": "jose", "family": "e", "maiden": "smith"},
+         ambiguities=("order",),
          classification="fix(#274)",
          notes="the clause is one of the ends of a part, so the letter "
                "before the marker connects nothing (P8, #721); 1.4.0 "
-               "had no maiden markers"),
+               "had no maiden markers. One word and an initial report "
+               "the order since #1254 (rules/O4)"),
     Case("a_one_case_letter_ending_a_comma_part_is_silent",
          "jones, john e",
          {"given": "john", "middle": "e", "family": "jones"},
@@ -10854,6 +12837,7 @@ CASES: tuple[Case, ...] = (
                "nothing, and being no numeral nothing else reports"),
     Case("a_one_case_bare_letter_in_front_keeps_the_numeral_a_name",
          "john j v", {"given": "john", "middle": "j", "family": "v"},
+         ambiguities=("order",),
          classification="fix(#721)",
          notes="read as 'JOHN J V' is: in a one-case name the bare 'j' "
                "in front is the initial its capital is (S10). 1.4.0 "
@@ -11003,14 +12987,16 @@ CASES: tuple[Case, ...] = (
                "no fork is weighed, so nothing reports"),
     Case("a_shape_numeral_before_dotted_initials_stays_the_suffix",
          "John Smith V, M.J.",
-         {"given": "M.J.", "family": "John Smith", "suffix": "V"},
+         {"given": "M.", "middle": "J.", "family": "John Smith", "suffix": "V"},
          ambiguities=("suffix-or-name", "suffix-or-name"),
-         classification="fix(#774)",
+         classification="fix(#1296)",
          notes="C1: a numeral ending the family part is read as the "
                "comma-less name reads it, the two name words in front "
                "sparing the one-letter one, so 'V' stays the suffix as "
                "'Jr.' and 'III' do. 1.4.0 through 2.6.0 read family "
-               "'John Smith V'"),
+               "'John Smith V'"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'M.', middle 'J.'"),
     Case("a_one_letter_numeral_behind_a_connective_surname_stays_family",
          "Vega y Lopez V, Mary",
          {"given": "Mary", "family": "Vega y Lopez V"},
@@ -11459,10 +13445,9 @@ CASES: tuple[Case, ...] = (
                "it takes nothing and 'Jr Smith' is the middle name, as for "
                "'John Jr Smith Berg'"),
     Case("bound_given_join_takes_a_chain_carrying_a_declined_marker",
-         "Abd van der Berg née Jr Jones",
-         {"given": "Abd van der Berg née", "middle": "Jr",
-          "family": "Jones"},
-         classification="fix(#417)",
+         "Abd van der Berg née Jr de Jones",
+         {"given": "Abd van der Berg née Jr", "family": "de Jones"},
+         classification="fix(#1177)",
          notes="the field-level face of #417. The consumer declines "
                "(a suffix follows the marker), the particle chain "
                "takes the declined marker as the word M2 says it is, "
@@ -11474,12 +13459,27 @@ CASES: tuple[Case, ...] = (
                "lone-piece reading is the nicer-looking one: a "
                "marker test widened to match inside a piece would "
                "give given 'Abd', middle 'van der Berg née Jr' with "
-               "the whole suite otherwise green. 2.4.0 through 2.8.0 "
-               "read given 'Abd', family 'van der Berg née', suffix "
-               "'Jr Jones', #602's run started at 'Jr', which a "
+               "the whole suite otherwise green. The row read 'Abd van "
+               "der Berg née Jr Jones' until #1177, whose chain runs "
+               "on past the 'Jr' (the row below); the 'de' here starts "
+               "a group of its own (P2), so the chain still stops in "
+               "front of a family word; 3.0.0 through 3.0.1 read this "
+               "text given 'Abd van der Berg née', middle 'Jr'. For "
+               "the old text 2.4.0 through "
+               "2.8.0 read given 'Abd', family 'van der Berg née', "
+               "suffix 'Jr Jones', #602's run started at 'Jr', which a "
                "generation word before a name word no longer starts "
                "(S8); bound_given_join_reserves_nothing_behind_a_"
                "credential_run holds that path"),
+    Case("a_chain_carrying_a_declined_marker_runs_past_the_suffix_word",
+         "Abd van der Berg née Jr Jones",
+         {"given": "Abd", "family": "van der Berg née Jr Jones"},
+         classification="fix(#1177)",
+         notes="P2: the chain runs past a suffix word with a name word "
+               "behind it, so it ends the name and P5 reserves it as "
+               "the family. 3.0.0 through 3.0.1 read given 'Abd van der "
+               "Berg née', middle 'Jr', family 'Jones'; 1.4.0 given "
+               "'Abd', middle 'van der Berg née Jr', last 'Jones'"),
     Case("bound_given_join_reserves_nothing_behind_a_credential_run",
          "Abd van der Berg née Esq Jones",
          {"given": "Abd", "family": "van der Berg née",
@@ -12113,7 +14113,7 @@ CASES: tuple[Case, ...] = (
                "'Smitty' J. reads family (N3's Accepted)"),
     Case("nickname_word_and_a_one_letter_numeral", "'Smitty' Jones V",
          {"given": "Jones", "family": "V", "nickname": "Smitty"},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          notes="boundary: rules/S10 reads the one-letter numeral as a "
                "second name word, so the name holds two and N3 does "
                "not apply"),
@@ -12174,12 +14174,88 @@ CASES: tuple[Case, ...] = (
          notes="boundary: a credential written as a word is gated by "
                "rules/S11's count too, so N3 does not apply"),
     Case("nickname_title_word_and_a_suffix", "'Smitty' Pope Jr.",
-         {"given": "Pope", "suffix": "Jr.", "nickname": "Smitty"},
-         ambiguities=("title-or-name",), classification="fix(#489)",
-         notes="boundary: a title word left as the one name word is "
-               "rules/H4's doubt (is it a title), which reads it as a "
-               "name by convention; N3 decides only a word nothing "
-               "else has a question about (N3's Precedence)"),
+         {"family": "Pope", "suffix": "Jr.", "nickname": "Smitty"},
+         ambiguities=("title-or-name",), classification="fix(#1169)",
+         notes="rules/N3 reads a title word left as the one name word "
+               "as the family name, as any other; H4 keeps its doubt "
+               "(is it a title) and its report. 1.4.0 through 2.2.0 read "
+               "title 'Pope', given 'Jr.'; 2.3.0 through 3.0.1 given "
+               "'Pope'"),
+    Case("nickname_title_particle_and_a_suffix_keep_the_given_name",
+         "'Smitty' St Jr.",
+         {"given": "St", "suffix": "Jr.", "nickname": "Smitty"},
+         classification="fix(#489)",
+         ambiguities=("title-or-name",),
+         notes="#1169 boundary: a title-particle keeps the reading it "
+               "has, as a particle does (rules/N3's Except)"),
+    Case("nickname_rank_particle_and_a_suffix_keep_the_given_name",
+         "'Smitty' Graf Jr.",
+         {"given": "Graf", "suffix": "Jr.", "nickname": "Smitty"},
+         classification="fix(#489)",
+         ambiguities=("title-or-name",),
+         notes="#1169 boundary: as 'St'"),
+    Case("nickname_brahmic_initial_and_a_suffix_keep_the_given_name",
+         "'Smitty' \u09a1. Jr.",
+         {"given": "\u09a1.", "suffix": "Jr.", "nickname": "Smitty"},
+         classification="fix(suffix-routing)",
+         ambiguities=("title-or-name",),
+         notes="#1169 boundary: an initial keeps the reading it has "
+               "(rules/N3's Except)"),
+    Case("nickname_title_unit_and_a_suffix_keep_the_given_name",
+         "'Smitty' John of Bishop Jr.",
+         {"given": "John of Bishop", "suffix": "Jr.",
+          "nickname": "Smitty"},
+         classification="fix(suffix-routing)",
+         ambiguities=("title-or-name",),
+         notes="#1169 boundary: a unit of three words is no lone word, "
+               "H7's doubt"),
+    Case("nickname_title_of_address_and_a_suffix_read_the_family",
+         "'Smitty' Dr. Jr.",
+         {"family": "Dr.", "suffix": "Jr.", "nickname": "Smitty"},
+         ambiguities=("title-or-name",), classification="fix(#1169)",
+         notes="rules/N3 places the one word whatever it is; H4's report "
+               "says it may be no name. 3.0.1 read given 'Dr.'"),
+    Case("bracketed_credential_title_word_and_a_suffix_read_the_family",
+         "Pope (PhD) Jr.",
+         {"family": "Pope", "suffix": "PhD Jr."},
+         ambiguities=("title-or-name",), classification="fix(#1169)",
+         notes="rules/N3's Accepted: the clause still carries the "
+               "nickname role at assign, as for 'Jones (PhD) Jr.'; "
+               "3.0.1 read given 'Pope'"),
+    Case("nickname_title_word_with_a_suffix_run_reads_the_title_run",
+         "'Smitty' Pope Jr. PhD",
+         {"title": "Pope Jr.", "family": "PhD", "nickname": "Smitty"},
+         classification="fix(#410)",
+         notes="#1169 boundary, rules/N3's Accepted: the title peel takes "
+               "'Pope Jr.' and leaves no name word for N3, H1 reading the "
+               "word left as the family; unchanged since 2.2.0, 1.4.0 and "
+               "2.0.0 reading given 'PhD'"),
+    Case("nickname_title_word_and_a_numeral_read_the_numeral_as_given",
+         "'Smitty' Pope V",
+         {"title": "Pope", "given": "V", "nickname": "Smitty"},
+         notes="#1169 boundary, rules/N3's Accepted: the title peel takes "
+               "'Pope' and the numeral is the name, read by position"),
+    Case("nickname_title_word_and_a_comma_suffix_report_nothing",
+         "'Smitty' Pope, Jr.",
+         {"family": "Pope", "suffix": "Jr.", "nickname": "Smitty"},
+         classification="fix(#296)",
+         notes="#1169 boundary: behind a comma the part is a suffix "
+               "comma's, and H4 is never asked, at the base too"),
+    Case("nickname_lone_title_word_and_a_suffix", "(Bob) Sir Jr.",
+         {"family": "Sir", "suffix": "Jr.", "nickname": "Bob"},
+         ambiguities=("title-or-name",), classification="fix(#1169)",
+         notes="rules/N3 (#1169): the title word left alone is the one "
+               "name word, so the family, the report H4's; 3.0.1 read "
+               "given 'Sir'"),
+    Case("nickname_given_name_title_and_a_title_word_keep_the_given_name",
+         "'Smitty' Sir Pope Jr.",
+         {"title": "Sir", "given": "Pope", "suffix": "Jr.",
+          "nickname": "Smitty"},
+         classification="fix(#489)",
+         ambiguities=("title-or-name",),
+         notes="#1169 boundary: a given-name title in front keeps the "
+               "word given, as N3's Accepted has it for 'Smitty' Sir "
+               "John"),
     Case("nickname_period_shape_word_and_a_suffix", "'Smitty' Xyz. Jr.",
          {"family": "Xyz.", "suffix": "Jr.", "nickname": "Smitty"},
          classification="fix(#815)",
@@ -12549,7 +14625,7 @@ CASES: tuple[Case, ...] = (
     Case("a_lone_numeral_before_a_suffix_comma_is_the_family",
          "John V, Dr.",
          {"title": "Dr.", "given": "John", "family": "V"},
-         ambiguities=("suffix-or-name",), classification="fix(#718)",
+         ambiguities=("order", "suffix-or-name"), classification="fix(#718)",
          notes="the part before a suffix comma reads as the comma-less "
                "name, and 'John V' has no word to spare for a "
                "one-letter numeral (S10, the trailing roman "
@@ -12572,7 +14648,7 @@ CASES: tuple[Case, ...] = (
     Case("a_lone_numeral_before_a_given_name_title_comma",
          "John V, Sir",
          {"title": "Sir", "given": "John", "family": "V"},
-         ambiguities=("suffix-or-name",), classification="fix(#718)",
+         ambiguities=("order", "suffix-or-name"), classification="fix(#718)",
          notes="the row above with a one-letter numeral, which has no "
                "word to spare (S10, the trailing roman numeral). "
                "1.4.0 read title 'Sir', last 'John V'"),
@@ -13150,20 +15226,17 @@ CASES: tuple[Case, ...] = (
                "with 'Abu', 'Al' or 'Bin'); the gap is the spelled-out "
                "name's, not Md's (decisions/indic-honorifics)",
          shape=1),
-    Case("md_opening_a_family_comma_given_part_is_a_credential",
+    Case("md_opening_a_family_comma_given_part_is_the_given_name",
          "Uddin, Md Karim",
-         {"family": "Uddin", "suffix": "Md Karim"},
-         classification="fix(#853)",
+         {"given": "Md", "middle": "Karim", "family": "Uddin"},
          ambiguities=("suffix-or-name",),
-         notes="an accepted cost of #853: a credential opening the "
-               "part after a family comma starts a credential run to "
-               "its end (rules/C13), and 'md' is a credential with no "
-               "title reading left to stand it down, so the given name "
-               "is lost. 9 FEC names take this shape, against about "
-               "380 ClinicalTrials.gov officials ('John Smith, MD "
-               "Jones' shapes) the title reading had misread "
-               "(decisions/indic-honorifics)",
-         shape=2),
+         classification="fix(#1393)",
+         notes="rules/C13's given-name Except: a credential that is "
+               "also a given name written short opens the given part "
+               "behind no whole name, here with a lower-case letter and "
+               "a name word behind it. Through #853 the part was the "
+               "postnominal one, suffix 'Md Karim', an accepted cost "
+               "now fixed (decisions/indic-honorifics, 2026-11-14)"),
     Case("mst_leading_stays_the_given_name", "Mrs Mst Nasima Akther",
          {"title": "Mrs", "given": "Mst", "middle": "Nasima",
           "family": "Akther"},
@@ -13214,14 +15287,14 @@ CASES: tuple[Case, ...] = (
          shape=2),
     Case("md_behind_a_title_opening_a_family_comma_given_part",
          "Uddin, Mr Md Karim",
-         {"title": "Mr", "family": "Uddin", "suffix": "Md Karim"},
-         classification="fix(#853)",
+         {"title": "Mr", "given": "Md", "middle": "Karim",
+          "family": "Uddin"},
          ambiguities=("suffix-or-name",),
-         notes="the same accepted cost behind a title: C13's run "
-               "starts behind titles alone, so the title in front "
-               "does not stand 'Md' down. The title reading gave "
-               "title 'Mr Md', given 'Karim' (decisions/indic-"
-               "honorifics)",
+         classification="fix(#1393)",
+         notes="the same Except behind a title: titles in front of "
+               "'Md' do not stand it down. #853 read suffix 'Md Karim'; "
+               "the title reading before it gave title 'Mr Md', given "
+               "'Karim' (decisions/indic-honorifics)",
          shape=2),
     Case("audit_md_after_comma_is_the_degree", "Smith, MD",
          {"family": "Smith", "suffix": "MD"},
@@ -13363,8 +15436,15 @@ CASES: tuple[Case, ...] = (
                "what the ambiguous gate would have cost"),
     Case("audit_ms_leading_is_the_honorific", "Ms. Smith",
          {"title": "Ms.", "family": "Smith"}),
-    Case("audit_perioded_ms_is_the_degree", "Smith, M.S.",
-         {"family": "Smith", "suffix": "M.S."}),
+    Case("audit_perioded_ms_after_a_one_word_head_is_initials",
+         "Smith, M.S.",
+         {"given": "M.", "middle": "S.", "family": "Smith"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1238)",
+         notes="read the degree until #1238: initials run together "
+               "behind one name word are the given name whatever they "
+               "spell (rules/C16), the degree reported as the other "
+               "reading"),
     Case("audit_ms_honorific_spelling_after_comma_is_the_postnominal",
          "Smith, Ms.",
          {"family": "Smith", "suffix": "Ms."},
@@ -13460,8 +15540,11 @@ CASES: tuple[Case, ...] = (
          ambiguities=("suffix-or-name",)),
     Case("perioded_sa_after_a_family_comma_is_unlisted",
          "Smith, S.A.",
-         {"given": "S.A.", "family": "Smith"},
-         ambiguities=("suffix-or-name",)),
+         {"given": "S.", "middle": "A.", "family": "Smith"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
+         notes="Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'S.', middle 'A.'"),
     # MOVED by #289, not deleted: 'DO' is written in capitals inside a
     # mixed-case name, so it now leans CREDENTIAL and the post-comma
     # slot takes it with one word to spare rather than falling to the
@@ -13473,8 +15556,14 @@ CASES: tuple[Case, ...] = (
                "gate handles the real collision, which is that 'Do' is "
                "a name -- but the bare, all-caps spelling is now read "
                "the way a credential is written"),
-    Case("audit_perioded_do_after_comma_is_a_suffix", "Smith, D.O.",
-         {"family": "Smith", "suffix": "D.O."}),
+    Case("audit_perioded_do_after_a_one_word_head_is_initials",
+         "Smith, D.O.",
+         {"given": "D.", "middle": "O.", "family": "Smith"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1238)",
+         notes="read the degree until #1238, as 'Smith, M.S.' did; "
+               "rules/C16's run of initials behind one word, the "
+               "degree reported"),
     # -- the TRAILING half of the same two removals. `dr` and `sra` are
     # the ONLY audit words that lose SUFFIX membership; every other
     # audit word keeps its suffix membership, so trailing position is
@@ -13583,7 +15672,9 @@ CASES: tuple[Case, ...] = (
     Case("family_comma_title_led_run_keeps_the_written_comma",
          "Smith Jr., Mr. Jr.",
          {"title": "Mr.", "family": "Smith", "suffix": "Jr., Jr."},
-         notes="THE #429 REGRESSION GUARD, and unchanged since 1.4.0. "
+         classification="fix(comma-family)",
+         notes="THE #429 REGRESSION GUARD, and unchanged since 2.0.0 "
+               "(1.4.0 read first 'Jr.', suffix 'Jr.'). "
                "The pre-comma name leaves a suffix, and the segment "
                "after the comma is title-led. #429's first draft let "
                "the title piece OPEN the entry, so the following Jr. "
@@ -13594,10 +15685,12 @@ CASES: tuple[Case, ...] = (
                "continue an entry"),
     Case("family_comma_written_commas_are_kept", "Smith, MD, PhD",
          {"family": "Smith", "suffix": "MD, PhD"},
+         classification="fix(#325)",
          notes="the negative control for #429, and the distinction the "
                "whole change rests on: the parser renders the run as "
                "the writer spaced it, and never stops emitting a comma "
-               "the writer typed. Parity at every baseline"),
+               "the writer typed. The same at every release from 2.2.0; "
+               "1.4.0 through 2.1.0 read title 'MD', suffix 'PhD'"),
     Case("family_comma_run_matches_the_full_name_form", "John Smith, MD PhD",
          {"given": "John", "family": "Smith", "suffix": "MD PhD"},
          notes="the full-name twin of family_comma_suffix_run_renders_"
@@ -13954,6 +16047,277 @@ CASES: tuple[Case, ...] = (
     Case("ma_dotted_inside_the_name_is_unchanged", "John Ma. Smith",
          {"given": "John", "middle": "Ma.", "family": "Smith"},
          notes="the shape reads only the head of the given part"),
+    # -- #1383: `md` is Muhammad written short as well as the medical
+    # degree. Its given reading carries `same_as`, which marks no clash
+    # with the credential, so only rules/H2's yielding moves: a leading
+    # `Md.` is the given name, and the credential reads as it did.
+    Case("md_dotted_opening_the_name_is_the_given_name", "Md. Rahman",
+         {"given": "Md.", "family": "Rahman"},
+         classification="fix(#1383)",
+         notes="1.4.0 through 3.0.1 read title 'Md.' and no given name"),
+    Case("md_dotted_before_two_words_is_the_given_name", "Md. Abdul Karim",
+         {"given": "Md.", "middle": "Abdul", "family": "Karim"},
+         classification="fix(#1383)",
+         notes="1.4.0 through 3.0.1 read title 'Md.', given 'Abdul'"),
+    Case("md_dotted_in_capitals_is_the_given_name", "MD. ABDUL RAHMAN",
+         {"given": "MD.", "middle": "ABDUL", "family": "RAHMAN"},
+         classification="fix(#1383)",
+         notes="Nepal's candidates write it so: 1.4.0 through 3.0.1 read "
+               "title 'MD.', given 'ABDUL'"),
+    Case("md_dotted_behind_a_title_is_the_given_name", "Dr. Md. Rahman",
+         {"title": "Dr.", "given": "Md.", "family": "Rahman"},
+         classification="fix(#1383)",
+         notes="the shape chained it into the title run: 1.4.0 through "
+               "3.0.1 read title 'Dr. Md.' with no given name"),
+    Case("md_dotted_before_a_western_name_is_the_given_name",
+         "Md. John Smith",
+         {"given": "Md.", "middle": "John", "family": "Smith"},
+         classification="fix(#1383)",
+         notes="a leading Md. is Muhammad, not the degree, which follows "
+               "a name: 1.4.0 through 3.0.1 read title 'Md.'"),
+    Case("md_dotted_alone_is_the_given_name", "Md.",
+         {"given": "Md."}, ambiguities=("suffix-or-name",),
+         classification="fix(#1383)",
+         notes="1.4.0 through 3.0.1 read title 'Md.'"),
+    Case("md_dotted_under_family_first_is_placed_by_the_order", "Md. Rahman",
+         {"given": "Rahman", "family": "Md."},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1383)",
+         notes="out of the title, the word is a name word the declared "
+               "order places"),
+    Case("md_after_a_name_stays_the_credential", "John Smith MD",
+         {"given": "John", "family": "Smith", "suffix": "MD"}),
+    Case("md_after_a_comma_stays_the_credential", "John Smith, MD",
+         {"given": "John", "family": "Smith", "suffix": "MD"}),
+    Case("md_dotted_after_a_name_stays_the_credential", "John Smith M.D.",
+         {"given": "John", "family": "Smith", "suffix": "M.D."}),
+    Case("md_title_case_after_a_name_stays_the_credential", "John Smith Md",
+         {"given": "John", "family": "Smith", "suffix": "Md"},
+         notes="a plain given reading would make the credential "
+               "ambiguous and read middle 'Smith', family 'Md' here "
+               "(#1383)"),
+    Case("md_title_case_after_a_comma_stays_the_credential",
+         "John Smith, Md",
+         {"given": "John", "family": "Smith", "suffix": "Md"}),
+    Case("md_after_the_given_part_stays_the_credential", "Smith, John MD",
+         {"given": "John", "family": "Smith", "suffix": "MD"}),
+    Case("md_after_initials_stays_the_credential", "JP Clancy, MD",
+         {"given": "JP", "family": "Clancy", "suffix": "MD"}),
+    Case("md_inside_a_malay_name_is_unchanged",
+         "Badrul Akmal Hisham Md Yusoff",
+         {"given": "Badrul", "middle": "Akmal Hisham Md", "family": "Yusoff"}),
+    Case("md_bracketed_stays_the_credential", "Smith (MD), John",
+         {"given": "John", "family": "Smith", "suffix": "MD"},
+         notes="a plain given reading would make the credential "
+               "ambiguous and read it as the nickname (#1383)"),
+    # -- #1393: a credential that is also a given name written short
+    # opens the given part after a family comma behind no whole name,
+    # written with a lower-case letter or with a name word behind it
+    # (rules/C13's given-name Except). 3dadc263 read each fix row's part
+    # as the postnominal one.
+    Case("md_alone_after_a_family_comma_is_the_given_name", "Rahman, Md",
+         {"given": "Md", "family": "Rahman"}, ambiguities=("suffix-or-name",),
+         classification="fix(#1393)"),
+    Case("md_dotted_alone_after_a_family_comma_is_the_given_name",
+         "Rahman, Md.", {"given": "Md.", "family": "Rahman"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)"),
+    Case("md_dotted_before_a_name_after_a_family_comma",
+         "Rahman, Md. Abdul",
+         {"given": "Md.", "middle": "Abdul", "family": "Rahman"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)"),
+    Case("md_in_capitals_before_a_name_after_a_family_comma",
+         "RAHMAN, MD ABDUL",
+         {"given": "MD", "middle": "ABDUL", "family": "RAHMAN"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)",
+         notes="a name word behind it: its case says nothing here"),
+    Case("md_before_initials_after_a_family_comma", "Rahman, Md A. K.",
+         {"given": "Md", "middle": "A. K.", "family": "Rahman"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)"),
+    Case("md_in_one_case_before_a_name_after_a_family_comma",
+         "rahman, md abdul",
+         {"given": "md", "middle": "abdul", "family": "rahman"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)"),
+    Case("md_behind_a_generation_before_the_comma", "Smith Jr., Md Abdul",
+         {"given": "Md", "middle": "Abdul", "family": "Smith",
+          "suffix": "Jr."},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)",
+         notes="a generation is no name word to the whole-name count "
+               "(rules/C3)"),
+    Case("md_before_a_single_capital_in_mixed_case_is_the_given_name",
+         "Smith, MD J", {"given": "MD", "middle": "J", "family": "Smith"},
+         ambiguities=("suffix-or-name",), classification="fix(#1393)",
+         notes="an initial is a name word, whatever its case"),
+    Case("md_before_an_initial_is_the_given_name", "Rahman, MD A",
+         {"given": "MD", "middle": "A", "family": "Rahman"},
+         ambiguities=("suffix-or-name",), classification="fix(#1393)"),
+    Case("md_behind_a_dual_before_a_name_reports_the_fork",
+         "Rahman, Sr Md Karim",
+         {"title": "Sr", "given": "Md", "middle": "Karim", "family": "Rahman"},
+         ambiguities=("suffix-or-name",), classification="fix(#1393)",
+         notes="read so on 3dadc263 too, a dual opening nothing (C13); "
+               "the Except reads past it as past any title and reports"),
+    Case("md_alone_behind_a_title_stays_the_credential", "Smith, Dr. Md",
+         {"title": "Dr.", "family": "Smith", "suffix": "Md"},
+         classification="fix(comma-family)",
+         notes="boundary: alone behind a title the given part's walk "
+               "would leave the title as the only name word, so the part "
+               "stays the postnominal one, as on 3dadc263 (#1395's second "
+               "review)"),
+    Case("md_alone_behind_a_salutation_stays_the_credential", "Uddin, Mr Md",
+         {"title": "Mr", "family": "Uddin", "suffix": "Md"},
+         classification="fix(comma-family)",
+         notes="boundary, as above"),
+    Case("md_dotted_alone_behind_a_title_stays_the_credential",
+         "Rahman, Mr. Md.", {"title": "Mr.", "family": "Rahman", "suffix": "Md."},
+         classification="fix(comma-family)",
+         notes="boundary, as above"),
+    Case("md_alone_behind_mrs_stays_the_credential", "Rahman, Mrs Md",
+         {"title": "Mrs", "family": "Rahman", "suffix": "Md"},
+         classification="fix(comma-family)",
+         notes="boundary, as above"),
+    Case("md_behind_a_title_before_a_credential_stays_the_credential",
+         "Uddin, Mr Md PhD", {"title": "Mr", "family": "Uddin", "suffix": "Md PhD"},
+         classification="fix(#325)",
+         notes="boundary: a credential behind it is no name word"),
+    Case("md_behind_a_title_before_a_generation_stays_the_credential",
+         "Uddin, Mr Md Jr.", {"title": "Mr", "family": "Uddin", "suffix": "Md Jr."},
+         classification="fix(#325)",
+         notes="boundary: a generation behind it is no name word"),
+    Case("md_alone_behind_a_dual_stays_the_credential", "Rahman, Sr Md",
+         {"family": "Rahman", "suffix": "Sr Md"},
+         classification="fix(#325)",
+         notes="boundary: as behind a title, a dual reading as nothing "
+               "else there"),
+    Case("md_alone_behind_ms_stays_the_credential", "Rahman, Ms Md",
+         {"family": "Rahman", "suffix": "Ms Md"},
+         classification="fix(#325)", notes="boundary, as above"),
+    Case("md_title_case_before_a_credential_stays_the_credential",
+         "Smith, Md PhD", {"family": "Smith", "suffix": "Md PhD"},
+         classification="fix(#325)",
+         notes="boundary: its own writing settles it only alone in the "
+               "part; a credential behind it is no name word"),
+    Case("md_title_case_before_a_capitals_word_stays_the_credential",
+         "Smith, Md XYZ", {"family": "Smith", "suffix": "Md XYZ"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",),
+         notes="boundary: in mixed case a word in capitals may be a "
+               "credential, so it is no name word"),
+    Case("md_before_a_gated_title_stays_the_credential", "SMITH, MD SHEIKH",
+         {"family": "SMITH", "suffix": "MD SHEIKH"},
+         classification="fix(#752)",
+         ambiguities=("suffix-or-name",),
+         notes="boundary: a word with a title reading, a title only "
+               "inside a phrase included, is no name word"),
+    Case("md_before_dean_stays_the_credential", "SMITH, MD DEAN",
+         {"family": "SMITH", "suffix": "MD DEAN"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",), notes="boundary, as above"),
+    Case("md_dotted_in_one_case_alone_stays_the_credential", "rahman, md.",
+         {"family": "rahman", "suffix": "md."},
+         classification="fix(#296)",
+         notes="boundary: a name in one case writes no case that tells"),
+    Case("md_before_a_word_holding_no_letter_stays_the_credential",
+         "RAHMAN, MD 2", {"family": "RAHMAN", "suffix": "MD 2"},
+         classification="fix(#325)",
+         notes="boundary: a word with no letter is no name word"),
+    Case("md_before_a_conjunction_stays_the_credential", "Rahman, Md and Karim",
+         {"family": "Rahman", "suffix": "Md and Karim"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name", "suffix-or-name"),
+         notes="boundary: a conjunction behind it is no name word, so the "
+               "part reads as on 3dadc263 (#1395's third review)"),
+    Case("md_before_a_gated_title_in_mixed_case_stays_the_credential",
+         "Rahman, Md Sheikh Karim",
+         {"family": "Rahman", "suffix": "Md Sheikh Karim"},
+         classification="fix(#752)",
+         ambiguities=("suffix-or-name", "suffix-or-name"),
+         notes="Accepted (rules/C13): a word with a title reading of any "
+               "kind is no name word, a title only inside a phrase "
+               "included; read as on 3dadc263; no local corpus writes the "
+               "shape (2026-11-14)"),
+    Case("md_before_dean_in_mixed_case_stays_the_credential", "Rahman, Md Dean",
+         {"family": "Rahman", "suffix": "Md Dean"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",), notes="Accepted, as above"),
+    Case("md_before_a_name_in_capitals_in_mixed_case_stays_the_credential",
+         "Rahman, Md KARIM", {"family": "Rahman", "suffix": "Md KARIM"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",),
+         notes="Accepted (rules/C13): in mixed case a word in capitals "
+               "may be a credential, so it is no name word; read as on "
+               "3dadc263. Under strict bn this moves from 3dadc263's "
+               "given 'Md', middle 'KARIM' (decisions/C13, 2026-11-14)"),
+    Case("md_before_abdul_in_capitals_in_mixed_case_stays_the_credential",
+         "Rahman, Md ABDUL", {"family": "Rahman", "suffix": "Md ABDUL"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",), notes="Accepted, as above"),
+    Case("a_given_name_written_short_that_is_no_credential_reports_nothing",
+         "Smith, Wm Jones", {"given": "Wm", "middle": "Jones", "family": "Smith"},
+         classification="fix(#789)",
+         notes="the Except reads a credential only; `wm` spells none, so "
+               "no suffix-or-name report"),
+    Case("md_in_capitals_alone_after_a_family_comma_is_the_credential",
+         "RAHMAN, MD", {"family": "RAHMAN", "suffix": "MD"},
+         classification="fix(#296)",
+         notes="boundary: capitals alone are the degree's writing, "
+               "which 107 ClinicalTrials.gov officials write after one "
+               "word ('Novak, MD'), so Muhammad written so is left "
+               "(decisions/indic-honorifics, 2026-11-14)"),
+    Case("md_in_one_case_alone_after_a_family_comma_is_the_credential",
+         "rahman, md", {"family": "rahman", "suffix": "md"},
+         classification="fix(#296)",
+         notes="boundary: a name in one case writes no lower-case "
+               "letter that tells"),
+    Case("md_before_a_credential_after_a_family_comma_is_the_credential",
+         "Smith, MD PhD", {"family": "Smith", "suffix": "MD PhD"},
+         classification="fix(#325)",
+         notes="boundary: a credential behind it is no name word"),
+    Case("md_before_a_split_credential_is_the_credential",
+         "Smith, MD Ph. D.", {"family": "Smith", "suffix": "MD Ph. D."},
+         classification="fix(#325)",
+         notes="boundary: half of a split credential is no name word "
+               "(rules/S12)"),
+    Case("md_before_a_capitals_word_in_mixed_case_is_the_credential",
+         "Smith, MD XYZ", {"family": "Smith", "suffix": "MD XYZ"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",),
+         notes="boundary: a word in capitals in a name of mixed case "
+               "may be a credential, so it is no name word"),
+    Case("md_before_an_ambiguous_credential_is_the_credential",
+         "SMITH, MD MBA, JANE",
+         {"family": "SMITH", "suffix": "MD MBA, JANE"},
+         classification="fix(#325)",
+         ambiguities=("comma-structure", "suffix-or-name"),
+         notes="boundary: a credential that may be a name ('MBA') is no "
+               "name word behind it; FEC writes the degrees between the "
+               "surname and the given name this way"),
+    Case("md_in_capitals_before_a_western_given_name_reads_as_given",
+         "SMITH, MD JANE",
+         {"given": "MD", "middle": "JANE", "family": "SMITH"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1393)",
+         notes="Accepted: the degree written before the given name "
+               "reads as Muhammad written short, the writing being the "
+               "same; 1 of the 9 FEC names of this shape "
+               "(decisions/indic-honorifics, 2026-11-14)"),
+    Case("md_behind_a_titled_surname_is_the_credential", "Dr. Rahman, Md",
+         {"title": "Dr.", "family": "Rahman", "suffix": "Md"},
+         classification="fix(#410)",
+         notes="boundary: a title is a word to the whole-name count "
+               "(rules/C3), so the part is the postnominal one"),
+    Case("md_behind_a_two_word_surname_is_the_credential",
+         "Rahman Khan, Md Abdul",
+         {"given": "Rahman", "family": "Khan", "suffix": "Md Abdul"},
+         classification="fix(#853)",
+         ambiguities=("suffix-or-name",),
+         notes="boundary: two words before the comma are a whole name, "
+               "and C13's run stands, as for 'John Smith, PhD Jones'"),
     Case("wm_dotted_trailing_is_a_name_word", "John Smith Wm.",
          {"given": "John", "middle": "Smith", "family": "Wm."},
          notes="H5 read a listed `wm` as a title here from 2.3.0 "
@@ -14434,6 +16798,7 @@ CASES: tuple[Case, ...] = (
          notes="H9: a style before the word is its partner"),
     Case("contested_title_after_a_comma_in_capitals", "John Smith, DEAN",
          {"given": "John", "family": "Smith", "suffix": "DEAN"},
+         classification="fix(#564)",
          ambiguities=("suffix-or-name",),
          notes="H9: outside a phrase the word reads as the "
                "unlisted word it was, which rules/C6 reads as a "
@@ -14544,6 +16909,7 @@ CASES: tuple[Case, ...] = (
                "H6's peel read title 'Wing', family 'Smith'"),
     Case("modifier_in_a_comma_part", "John Smith, Vice",
          {"title": "Vice", "given": "John", "family": "Smith"},
+         classification="fix(comma-family)",
          notes="H9: after a comma a modifier reads as any title "
                "does, the part being the person's role (decision 10 "
                "measured 247 of 367 ctgov comma-part moves reversing the "
@@ -14563,6 +16929,7 @@ CASES: tuple[Case, ...] = (
     Case("given_name_modifier_before_its_head_in_a_comma_part",
          "Lau, Wing Commander",
          {"title": "Wing Commander", "family": "Lau"},
+         classification="fix(comma-family)",
          notes="H9's boundary: the head title follows, after a comma too"),
     Case("given_name_modifier_after_a_full_name_and_comma", "John Smith, Wing",
          {"given": "Wing", "family": "John Smith"}, classification="fix(#752)",
@@ -14580,6 +16947,7 @@ CASES: tuple[Case, ...] = (
     Case("given_name_modifier_before_a_dotted_suffix", "John Smith Wing. Jr.",
          {"title": "Wing.", "given": "John", "family": "Smith",
           "suffix": "Jr."},
+         classification="fix(#316)",
          notes="H9's Accepted clause: H2's shape reads the period-marked "
                "suffix as a head in the run, as master read it; an "
                "unmarked 'MD' behind gives family 'Wing.' (#752 phase 2j)"),
@@ -15023,11 +17391,13 @@ CASES: tuple[Case, ...] = (
     Case("princess_royal_behind_a_style",
          "Her Royal Highness Princess Royal Anne",
          {"title": "Her Royal Highness Princess Royal", "given": "Anne"},
+         classification="fix(#913)",
          notes="H9: 'princess' attaches to 'royal', so the modifier behind "
                "its head is in its phrase (#913); read given 'Royal', "
                "family 'Anne' 2.7.0"),
     Case("royal_title_phrase_queen_mother", "Queen Mother Elizabeth",
          {"title": "Queen Mother", "given": "Elizabeth"},
+         classification="fix(#489)",
          notes="H9: 'queen' attaches to 'mother'; 2.7.0 read it so, #926 "
                "given 'Queen', middle 'Mother', and 1.4.0 last "
                "'Elizabeth'"),
@@ -15243,11 +17613,13 @@ CASES: tuple[Case, ...] = (
          notes="H9: 'saint' attaches to 'pope', a title after it (#913)"),
     Case("given_name_modifier_after_a_style", "Hon. Wing Lau",
          {"title": "Hon.", "given": "Wing", "family": "Lau"},
+         classification="fix(#752)",
          notes="H9: the modifier's test, not a contested word's style "
                "partner, decides 'wing'; 'Hon. Dean Smith' reads the title"),
     Case("given_name_modifier_before_a_salutation_in_a_comma_part",
          "LAU, WING MR",
          {"title": "WING MR", "family": "LAU"},
+         classification="fix(comma-family)",
          notes="H9: the modifier test takes any title after it as its "
                "head, a salutation too, so 'WING MR' stays a title where "
                "'DEAN MR' gives given 'DEAN'; no FEC donor writes it "
@@ -15266,6 +17638,7 @@ CASES: tuple[Case, ...] = (
                "modifier after them has no head (the code review)"),
     Case("role_word_in_a_comma_part", "John Smith, Resident",
          {"title": "Resident", "given": "John", "family": "Smith"},
+         classification="fix(comma-family)",
          notes="resident is an occupation since 2026-10-25, not a "
                "modifier: a part written 'Resident' is the role"),
     Case("bare_salutation_ending_a_family_comma_given_part",
@@ -15331,6 +17704,179 @@ CASES: tuple[Case, ...] = (
          {"given": "Jane", "middle": "Doe", "family": "Mrs"},
          notes="rules/H5's bare title word: without the comma the "
                "surname is not fixed, so the word stays a name word"),
+    Case("dotted_title_opening_a_title_run", "U.S. Senator John Smith",
+         {"title": "U.S. Senator", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10: 'us' is a title written `dotted`, so the run "
+               "of single letters spells it where a title follows it, "
+               "as 'US Senator John Smith' reads"),
+    Case("dotted_title_after_a_family_comma",
+         "Treadwell, U.S. District Judge Marc",
+         {"title": "U.S. District Judge", "given": "Marc",
+          "family": "Treadwell"},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="H10 at the head of the given part after a family "
+               "comma; the report is C11's for the paired initials "
+               "opening the part (C5's shape), as 3.0.1 gave it"),
+    Case("dotted_title_before_a_family_comma", "U.S. Senator Smith, John",
+         {"title": "U.S. Senator", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10 in H6's run before a family comma, as 'US "
+               "Senator Smith, John' reads"),
+    Case("dotted_title_behind_a_title", "Hon. U.K. Ambassador Jane Smith",
+         {"title": "Hon. U.K. Ambassador", "given": "Jane",
+          "family": "Smith"}, classification="fix(#490)",
+         notes="H10: the run need not open with the dotted word"),
+    Case("dotted_title_with_no_title_behind_it_is_a_name", "U.S. Grant",
+         {"given": "U.", "middle": "S.", "family": "Grant"},
+         classification="fix(#1296)",
+         notes="H10: no title follows the run of letters, so it "
+               "stays the initials it is"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'U.', middle 'S.'"),
+    Case("dotted_title_behind_a_title_with_no_title_behind_it",
+         "Hon. U.S. Grant",
+         {"title": "Hon.", "given": "U.", "middle": "S.", "family": "Grant"},
+         classification="fix(#1296)",
+         notes="H10: the run ends on the dotted word, which it "
+               "gives back"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'U.', middle 'S.'"),
+    Case("dotted_title_whose_title_the_floor_gives_back", "U.S. Senator Jr",
+         {"given": "U.", "middle": "S.", "family": "Senator", "suffix": "Jr"},
+         classification="fix(#1296)",
+         notes="H10 after H3: the floor gives 'Senator' back "
+               "to the name, leaving no title behind the run of letters"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'U.', middle 'S.'"),
+    Case("dotted_title_before_a_family_comma_with_no_title_behind_it",
+         "U.S. Grant Smith, John",
+         {"given": "John", "family": "U.S. Grant Smith"},
+         notes="H10 in H6's run: given back, so the family keeps it"),
+    Case("initials_spelling_a_title_not_written_dotted", "D.R. Judge Smith",
+         {"given": "D.", "middle": "R. Judge", "family": "Smith"},
+         classification="fix(#1296)",
+         notes="H10's Except: 'dr' is no title written `dotted`, so "
+               "initials that spell it stay a name though a title word "
+               "follows (decisions/H10, #490)"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'D.', middle 'R. Judge'"),
+    Case("dotted_title_as_the_partner_of_a_gated_title",
+         "U.S. Marshal John Smith",
+         {"title": "U.S. Marshal", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10 with H9: the run is the modifier it spells, so the "
+               "gated 'Marshal' has its partner, as in 'US Marshal John "
+               "Smith' (#490's code review)"),
+    Case("dotted_title_as_a_gated_title_s_partner_after_a_comma",
+         "Smith, U.S. Marshal John",
+         {"title": "U.S. Marshal", "given": "John", "family": "Smith"},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="H10 with H9 at the head of the given part"),
+    Case("dotted_modifier_before_a_modifier_with_no_head",
+         "U.S. Vice Smith",
+         {"given": "U.", "middle": "S. Vice", "family": "Smith"},
+         classification="fix(#1296)",
+         notes="H10 with H9: 'us' and 'vice' are modifiers with no head "
+               "title behind them, so neither is a title and the run is "
+               "given back, as 'US Vice Smith' reads (#490's fix-commit "
+               "review)"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'U.', middle 'S. Vice'"),
+    Case("dotted_modifier_partnering_a_gated_title_ending_the_name",
+         "John Smith U.S. Dean.",
+         {"title": "Dean.", "given": "John", "middle": "Smith",
+          "family": "U.S."},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="1.4.0 through 3.0.1 read family 'Dean.'; the report is "
+               "S3's, the unlisted dotted shape ending the name, which the "
+               "undotted twin cannot raise. H10's Accepted: H9 reads the run as the modifier it spells "
+               "wherever it stands, so the gated title ending the name "
+               "has its partner and H5 takes it, as 'John Smith US "
+               "Dean.' reads; the run itself stays a name word there"),
+    Case("dotted_title_run_counted_before_the_comma",
+         "U.S. Senator Smith, Ed",
+         {"title": "U.S. Senator", "given": "Ed", "family": "Smith"},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="C4's count reads the run as H10's title, so 'Ed' is "
+               "the given name, as in 'US Senator Smith, Ed'; counted as "
+               "a name word, it made 'Ed' the credential and left no "
+               "given name (#490's code review)"),
+    Case("dotted_title_run_counted_before_a_numeral_and_comma",
+         "U.S. Senator Smith V, AD",
+         {"title": "U.S. Senator", "given": "AD", "family": "Smith V"},
+         classification="fix(#490)",
+         notes="the numeral clause's count reads it as C4's does"),
+    Case("dotted_titles_joined_by_a_connective_stay_a_name",
+         "U.S. and U.K. Ambassador Jane Doe",
+         {"given": "U.S. and U.K.", "middle": "Ambassador Jane",
+          "family": "Doe"},
+         notes="H10's Accepted: the connective joins the two runs into "
+               "one unit of several words, which the run does not read"),
+    Case("dotted_title_with_no_title_behind_it_counted_before_a_comma",
+         "P.D. Grant, Ed",
+         {"given": "P.", "middle": "D.", "family": "Grant", "suffix": "Ed"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
+         notes="C4's count gives the run back where no title follows it, "
+               "as H10 does, so 'Ed' is the credential its count of two "
+               "name words makes it; 'PD Grant, Ed' reads title 'PD', "
+               "given 'Ed' (#490's test review)"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'P.', middle 'D.'"),
+    Case("dotted_title_with_a_credential_behind_counted_before_a_comma",
+         "P.D. Grant PhD, Ed",
+         {"given": "P.", "middle": "D.", "family": "Grant", "suffix": "PhD, Ed"},
+         ambiguities=("suffix-or-name",),
+         classification="fix(#1296)",
+         notes="C4's count asks for a title behind the run, and a "
+               "credential is none (#490's test review)"
+               ". Since #1296 the run of letters parts into initials (rules/T7): "
+               "given 'P.', middle 'D.'"),
+    Case("dotted_title_behind_a_title_before_a_family_comma",
+         "Hon. U.S. Senator Smith, John",
+         {"title": "Hon. U.S. Senator", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10 in H6's run, the run second in it, as 'Hon. US "
+               "Senator Smith, John' reads (#490's test review)"),
+    Case("dotted_title_before_a_shaped_title_and_a_comma",
+         "U.S. Insp. Smith, Ed",
+         {"given": "Ed", "family": "U.S. Insp. Smith"},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="C4's count reads the run as a title before H2's shaped "
+               "'Insp.', as the leading run would, and 'Ed' is the given "
+               "name; H6 reads by vocabulary only, so the run and 'Insp.' "
+               "stay in the family (decisions/H10, #490's test review)"),
+    Case("dotted_title_before_a_gated_title_and_a_comma",
+         "U.S. Dean Smith, Ed",
+         {"title": "U.S. Dean", "given": "Ed", "family": "Smith"},
+         ambiguities=("suffix-or-name",), classification="fix(#490)",
+         notes="C4's count reads 'Dean' as H9 does behind the run "
+               "(#490's test review)"),
+    Case("dotted_title_inside_the_name_before_a_comma",
+         "Jones U.S. Senator PhD, Ed",
+         {"given": "Jones", "middle": "U.S.", "family": "Senator",
+          "suffix": "PhD, Ed"},
+         ambiguities=("suffix-or-name",),
+         notes="H10 reads the run only at the head, so here it is a name "
+               "word to C4's count; 'Jones US Senator PhD, Ed' counts 'US' "
+               "as a title and reads given 'Ed' (#490's test review)"),
+    Case("dotted_title_without_its_final_stop", "U.S Senator John Smith",
+         {"title": "U.S Senator", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10's run takes its final stop optional"),
+    Case("dotted_title_in_lower_case", "u.s. Senator John Smith",
+         {"title": "u.s. Senator", "given": "John", "family": "Smith"},
+         classification="fix(#490)",
+         notes="H10: the vocabulary is matched folded"),
+    Case("doubled_stop_is_no_run_of_letters", "U..S. Senator John Smith",
+         {"given": "U..S.", "middle": "Senator John", "family": "Smith"},
+         notes="H10's shape is single letters each closed by one stop; "
+               "the folded spelling alone would match 'us'"),
+    Case("dotted_academic_title_in_german", "P.D. Dr. Hans Meier",
+         {"title": "P.D. Dr.", "given": "Hans", "family": "Meier"},
+         classification="fix(#490)",
+         notes="H10: 'pd', Privatdozent, is written `dotted`"),
     Case("title_word_trailing_ahead_of_a_reserved_acronym",
          "John Smith Prof. MA",
          {"title": "Prof.", "given": "John", "family": "Smith",
@@ -15724,7 +18270,7 @@ CASES: tuple[Case, ...] = (
     Case("a_run_with_a_name_inside_keeps_the_bound_join_two_views",
          "abdul Dr. X.Y.Z.",
          {"title": "Dr.", "given": "abdul", "family": "X.Y.Z."},
-         ambiguities=("suffix-or-name",),
+         ambiguities=("order", "suffix-or-name"),
          classification="fix(#516)",
          notes="the read is declined (the H5 title stands in front of "
                "a name word the peel declined), so P5's reserve reads "
@@ -16217,6 +18763,27 @@ CASES: tuple[Case, ...] = (
          notes="the recorded cost of 芦: 102 of 172,413 Japanese names "
                "open with it (芦田, 芦川, 芦名), 123 counting 蘆, and "
                "under ZH each divides after it"),
+    Case("zh_transcription_cost_gai", "盖尔哈尔德",
+         {"family": "盖", "given": "尔哈尔德"},
+         locale="zh", classification="fix(#695)",
+         notes="the recorded cost of 盖, as 高橋一郎 is of 高: a "
+               "transcription written without the 间隔号 opening with "
+               "a listed surname is cut after it. 盖 is entered by hand "
+               "(#1445) where 2.5.0 through 3.0.1 took it from Unihan; "
+               "9 of 322,896 corpus names with a Han character are "
+               "this shape"),
+    Case("zh_transcription_cost_mai", "买买提",
+         {"family": "买", "given": "买提"},
+         locale="zh", classification="fix(#695)",
+         notes="买买提 (Memet) is a Uyghur given name transcribed; "
+               "alone it reads as 买 + 买提, the cost of listing 买 "
+               "(#1445 restores it, read so 2.5.0 through 3.0.1)"),
+    Case("zh_transcription_cost_mai_interpunct", "买买提·艾力",
+         {"given": "买买提", "family": "艾力"},
+         locale="zh", classification="fix(#298)",
+         notes="written with the 间隔号 the name is a transcription "
+               "and is not divided (rules/W1's interpunct Except), so "
+               "the cost of 买 falls only on a name written without it"),
 
     # -- #272: the kana license + nakaguro (amendment 2026-07-29).
     # Segmenter-dependent divisions cannot live here (Case has no
@@ -16358,17 +18925,19 @@ CASES: tuple[Case, ...] = (
     Case("ja_combining_voicing_mark_on_hiragana_stays_hiragana",
          "あ゙い たろう",
          {"family": "あ゙い", "given": "たろう"},
-         notes="parity row: on hiragana the mark's base is hiragana, so "
-               "the name is wholly hiragana and reads family-first as it "
-               "always has. Guards the alternative #596 declined -- "
+         classification="fix(#272)",
+         notes="on hiragana the mark's base is hiragana, so the name is "
+               "wholly hiragana and reads family-first as it has since "
+               "2.1.0 (1.4.0 read first 'あ゙い', last 'たろう'). Guards the alternative #596 declined -- "
                "taking the marks out of the hiragana range would leave "
                "あ゙い in no script and the name positional"),
     Case("ja_combining_voicing_mark_kanji_katakana_licensed",
          "山田 ア゙イ",
          {"family": "山田", "given": "ア゙イ"},
-         notes="parity row: kanji plus katakana is the kana license "
-               "whatever the katakana's mark does, so the name stays "
-               "family-first. Under the declined alternative ア゙イ "
+         classification="fix(#272)",
+         notes="kanji plus katakana is the kana license whatever the "
+               "katakana's mark does, so the name stays family-first, as "
+               "since 2.1.0 (1.4.0 read first '山田', last 'ア゙イ'). Under the declined alternative ア゙イ "
                "would have no script, the license would not fire, and "
                "the name would read family ア゙イ"),
     Case("ko_voicing_mark_after_hangul_stays_undivided", "김\u3099민준",
@@ -16433,6 +19002,32 @@ CASES: tuple[Case, ...] = (
                "characters. Shape 7's Given·Family with the 间隔号 "
                "itself written, the divider half of the notation",
          shape=7),
+    Case("zh_fullwidth_stop_transcription_source_order", "台邦．撒沙勒",
+         {"given": "台邦", "family": "撒沙勒"},
+         classification="fix(#1312)",
+         notes="Taiwan writes Indigenous names with the fullwidth full "
+               "stop where the mainland writes the 间隔号: the same "
+               "transcription, so it divides between two Han characters "
+               "and keeps the declared order (T3's flank guard, "
+               "decisions/T3)",
+         shape=7),
+    Case("ko_fullwidth_stop_transcription_source_order", "마이클．잭슨",
+         {"given": "마이클", "family": "잭슨"},
+         classification="fix(#1312)",
+         notes="the fullwidth stop between two hangul names reads as "
+               "the 间隔号 does, suppressing the family-first entry and "
+               "the census-surname split",
+         shape=7),
+    Case("latin_fullwidth_stop_is_name_interior", "Kilang．Ｍanah",
+         {"given": "Kilang．Ｍanah"}, ambiguities=("given-or-family",),
+         notes="a fullwidth stop with Latin neighbors is no "
+               "transcription: the flank guard leaves it in the word "
+               "(#1312)"),
+    Case("zh_ideographic_stop_is_no_divider", "台邦。撒沙勒",
+         {"given": "台邦。撒沙勒"}, ambiguities=("given-or-family",),
+         notes="the ideographic full stop is the sentence stop, not a "
+               "transcription dot, so it divides nothing (decisions/T3, "
+               "#1312)"),
     Case("zh_interpunct_nakaguro_typed_stays_roster", "威廉・莎士比亚",
          {"given": "莎士比亚", "family": "威廉"},
          classification="fix(#272)",
@@ -16891,6 +19486,51 @@ CASES: tuple[Case, ...] = (
                "2.2.0 read title 김민준., family 지, given 훈 -- "
                "hangul segmentation ran on the trailing word.",
          tolerated=True),
+    Case('brahmic_spelled_initials_are_not_a_title', 'एम. एस. वर्मा',
+         {'given': 'एम.', 'middle': 'एस.', 'family': 'वर्मा'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a Latin initial spelled in the script with no vowel sign (M. as एम.) is a run of two letters, which the shape read as a title; 1.4.0 through 3.0.1 read title 'एम. एस.'."),
+    Case('brahmic_spelled_initial_after_a_listed_title_and_a_comma', 'मूर्ति, श्री एम. राजशेखर',
+         {'title': 'श्री', 'given': 'एम.', 'middle': 'राजशेखर', 'family': 'मूर्ति'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a Latin initial spelled in the script with no vowel sign (M. as एम.) is a run of two letters, which the shape read as a title; 2.0.0 through 3.0.1 read title 'श्री एम.' (1.4.0 no title, श्री not yet listed)."),
+    Case('brahmic_spelled_initials_ending_a_comma_part', 'कृष्णा, श्री एस. एम.',
+         {'title': 'श्री', 'given': 'एस.', 'middle': 'एम.', 'family': 'कृष्णा'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a Latin initial spelled in the script with no vowel sign (M. as एम.) is a run of two letters, which the shape read as a title; 3.0.1 read title 'श्री एस. एम.' and 2.0.0 'श्री एस.' (1.4.0 no title, श्री not yet listed)."),
+    Case('bengali_spelled_initial_is_not_a_title', 'এম. আবদুল লতিফ',
+         {'given': 'এম.', 'middle': 'আবদুল', 'family': 'লতিফ'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a Latin initial spelled in the script with no vowel sign (M. as एम.) is a run of two letters, which the shape read as a title; 1.4.0 through 3.0.1 read title 'এম.'."),
+    Case('georgian_beside_an_ambiguous_credential_is_one_case', 'ჯეკ MA',
+         {'given': 'ჯეკ', 'family': 'MA'},
+         classification="fix(#1222)", ambiguities=("suffix-or-name",),
+         notes="rules/S6's caseless script (#1222): Georgian writes no case a writer chooses, so the name is in one case and the count decides, as for 'محمد MA'; 1.4.0 through 2.3.0 read family 'MA', 2.4.0 through 3.0.1 suffix 'MA', Python counting Mkhedruli as lower case."),
+    Case('georgian_beside_an_ambiguous_credential_after_a_comma', 'ჯეკ, MA',
+         {'given': 'MA', 'family': 'ჯეკ'},
+         classification="fix(#1222)", ambiguities=("suffix-or-name",),
+         notes="rules/S6's caseless script (#1222): Georgian writes no case a writer chooses, so the name is in one case and the count decides, as for 'محمد MA'; 1.4.0 through 2.3.0 read given 'MA', 2.4.0 through 3.0.1 suffix 'MA', Python counting Mkhedruli as lower case."),
+    Case('gurmukhi_spelled_initial_is_not_a_title', 'ਐਮ. ਸਿੰਘ',
+         {'given': 'ਐਮ.', 'family': 'ਸਿੰਘ'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a Latin initial spelled in the script with no vowel sign (M. as एम.) is a run of two letters, which the shape read as a title; 1.4.0 through 3.0.1 read title 'ਐਮ.'."),
+    Case('brahmic_spelled_initial_after_a_head_modifier_before_a_comma', 'Vice एम. वर्मा, राम',
+         {'given': 'राम', 'family': 'Vice एम. वर्मा'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191) reaches H9's head run through the shape test: with no head title after it, Vice is a name word, as in the Latin 'Vice J. Smith, John'; 3.0.1 read title 'Vice', family 'एम. वर्मा'."),
+    Case('brahmic_lone_spelled_initial', 'एम.',
+         {'given': 'एम.'},
+         ambiguities=("given-or-family",),
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191): a lone spelled initial is a lone name word, reported given-or-family as a lone 'J.' is; 3.0.1 read title 'एम.'."),
+    Case('brahmic_spelled_initial_after_a_family_comma', 'वर्मा, एम.',
+         {'given': 'एम.', 'family': 'वर्मा'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191) at the head of the part after a family comma, as 'Smith, J.' reads; 3.0.1 read title 'एम.'."),
+    Case('brahmic_spelled_initial_before_a_suffix_comma', 'एम. वर्मा, जूनियर',
+         {'given': 'एम.', 'family': 'वर्मा', 'suffix': 'जूनियर'},
+         classification="fix(#1191)",
+         notes="rules/H2's Brahmic veto (#1191) on the suffix-comma path; 3.0.1 read title 'एम.'."),
     Case("ja_lone_name_with_a_period_is_not_a_title", "田中.",
          {"family": "田中."},
          classification="fix(#323)",
@@ -16934,8 +19574,9 @@ CASES: tuple[Case, ...] = (
          {"given": "ﾏｲｹﾙ."}, ambiguities=("given-or-family",),
          classification="fix(#594)",
          notes="the halfwidth twin of the row above: katakana has no "
-               "initials (_NO_INITIALS), and halfwidth kana is katakana "
-               "now, so H2's opening-abbreviation shape declines it. "
+               "initials nor period abbreviations (_SCRIPT_PROPERTIES), "
+               "and halfwidth kana is katakana now, so H2's "
+               "opening-abbreviation shape declines it. "
                "2.3.0 read title ﾏｲｹﾙ., the halfwidth limit "
                "decisions/cjk-full-stops recorded",
          tolerated=True),
@@ -16960,8 +19601,8 @@ CASES: tuple[Case, ...] = (
          "Проф. Иванов",
          {"title": "Проф.", "family": "Иванов"},
          classification="parity",
-         notes="the alphabet _policy._NO_INITIALS's own comment names "
-               "as the one it would be wrong to add: Cyrillic has "
+         notes="the alphabet _policy's script table names as a "
+               "writing convention, not a typology: Cyrillic has "
                "initials and abbreviations, so H2's shape fires and "
                "the #323 veto stays out of its way. Pins the veto's "
                "repertoire at the four CJK scripts from the other "
@@ -17203,9 +19844,10 @@ CASES: tuple[Case, ...] = (
          classification="fix(#271)",
          notes="likewise unpeeled: 君 is a common Chinese given-name "
                "final, so 王君 is a complete name, not Mr. Wang. "
-               "Unlike its neighbours here, 君 is in NEITHER set -- "
+               "Unlike its neighbours here, 君 is in NEITHER default set -- "
                "there is no spaced entry to fall back on either, and "
-               "only its kana spelling くん peels"),
+               "only its kana spelling くん peels; a Japanese choice "
+               "turns 君 on (tests/v2/test_locales.py, #1194)"),
     Case("zh_glued_shi_stays", "王氏",
          {"family": "王氏"},
          classification="fix(#271)",
@@ -17794,4 +20436,244 @@ CASES: tuple[Case, ...] = (
                "'Dr 김민준씨, Jr.' (ko_honorific_glued_given_suffix_"
                "comma) keeps its comma, which is the pair that shows "
                "the separator is read from the text"),
+    # -- #1202: the Ethiopic and Burmese commas, the Ethiopic wordspace.
+    Case("ethiopic_comma_is_a_family_comma", "ከበደ፣ አበበ",
+         {"family": "ከበደ", "given": "አበበ"},
+         classification="fix(#1202)",
+         notes="U+1363 reads as the Arabic and ASCII commas do; 1.4.0 "
+               "kept it glued to its word, first 'ከበደ፣' last 'አበበ'"),
+    Case("burmese_comma_is_a_family_comma", "မောင်မောင်ခ၊ ဦး",
+         {"family": "မောင်မောင်ခ", "given": "ဦး"},
+         classification="fix(#1202)",
+         notes="U+104A is the Burmese comma (U+104B is the full stop); "
+               "Burmese Wikipedia titles write 'Name၊ honorific', and "
+               "with no Burmese title listed the honorific reads given "
+               "(#1233). 1.4.0: first 'မောင်မောင်ခ၊' last 'ဦး'"),
+    # #1202's follow-up: the other scripts' commas count; the Armenian
+    # U+055D, which marks an apposition, does not (decisions/C1)
+    Case("mongolian_comma_is_a_family_comma", "ᠪᠠᠲᠤ᠂ ᠪᠣᠯᠣᠳ",
+         {"family": "ᠪᠠᠲᠤ", "given": "ᠪᠣᠯᠣᠳ"},
+         classification="fix(#1202)",
+         notes="U+1802 is traditional Mongolian's comma; 1.4.0 kept it "
+               "glued, first 'ᠪᠠᠲᠤ᠂' last 'ᠪᠣᠯᠣᠳ'"),
+    Case("manchu_comma_is_a_family_comma", "Smith᠈ John",
+         {"family": "Smith", "given": "John"},
+         classification="fix(#1202)",
+         notes="U+1808, Manchu's comma; 1.4.0 first 'Smith᠈' last "
+               "'John'"),
+    Case("nko_comma_is_a_family_comma", "ߞߊߣߕߋ߸ ߛߎߟߊߡߊߣ",
+         {"family": "ߞߊߣߕߋ", "given": "ߛߎߟߊߡߊߣ"},
+         classification="fix(#1202)",
+         notes="U+07F8, the comma N'Ko text writes most; 1.4.0 first "
+               "'ߞߊߣߕߋ߸' last 'ߛߎߟߊߡߊߣ'"),
+    Case("lisu_comma_is_a_family_comma", "ꓡꓲ꓾ ꓫꓵ",
+         {"family": "ꓡꓲ", "given": "ꓫꓵ"},
+         classification="fix(#1202)",
+         notes="U+A4FE, Lisu's comma (its ASCII ',' is a tone letter); "
+               "1.4.0 first 'ꓡꓲ꓾' last 'ꓫꓵ'"),
+    Case("vai_comma_is_a_family_comma", "Smith꘍ John",
+         {"family": "Smith", "given": "John"},
+         classification="fix(#1202)",
+         notes="U+A60D; 1.4.0 first 'Smith꘍' last 'John'"),
+    Case("bamum_comma_is_a_family_comma", "Smith꛵ John",
+         {"family": "Smith", "given": "John"},
+         classification="fix(#1202)",
+         notes="U+A6F5; 1.4.0 first 'Smith꛵' last 'John'"),
+    Case("armenian_bowt_is_no_comma", "Ալոյիս՝ Լիխտենշտայնի թագաժառանգ",
+         {"given": "Ալոյիս՝", "middle": "Լիխտենշտայնի",
+          "family": "թագաժառանգ"},
+         notes="U+055D ARMENIAN COMMA marks an apposition or pause; "
+               "Armenian's comma is ASCII ','. Wikidata's label of "
+               "Alois of Liechtenstein, a name and its epithet, reads "
+               "as positional as it always has: read as a comma it "
+               "would make the given name the family (decisions/C1)"),
+    Case("ethiopic_semicolon_is_no_suffix_delimiter",
+         "John Smith, MD፤ PhD",
+         {"given": "MD፤", "family": "John Smith", "suffix": "PhD"},
+         notes="U+1364 is not C10's built-in delimiter, which the "
+               "ASCII ';' is: no source writes it between credentials "
+               "or names (decisions/C1). The reading is the one any "
+               "unlisted glued word gets"),
+    # A set-apart clause's words read the comma family too (rules/S1):
+    # each site taking the comma off a clause word strips every member
+    Case("arabic_comma_inside_a_set_apart_clause", "(PhD، Sr) John Smith",
+         {"title": "Sr", "given": "John", "family": "Smith",
+          "suffix": "PhD"},
+         classification="fix(#1202)",
+         notes="read as '(PhD, Sr) John Smith' is; 1.4.0 read "
+               "nickname 'PhD، Sr', as did 3.0.1, whose clause sites "
+               "stripped only the ASCII comma"),
+    Case("a_comma_glued_between_credentials_keeps_the_clause_a_nickname",
+         "John Smith (MD,PhD)",
+         {"given": "John", "family": "Smith", "nickname": "MD,PhD"},
+         classification="parity",
+         notes="rules/S1's Accepted: a glued comma in a clause with no "
+               "full stop is word text, so the clause is one word no "
+               "vocabulary reads (#1268, both "
+               "designs for dividing it declined, decisions/S1). 1.4.0 "
+               "and 2.5.0 through 3.0.1 read the same; 2.0.0 through "
+               "2.4.0 read nickname 'MD PhD'"),
+    Case("a_comma_spaced_between_credentials_sets_the_clause_apart",
+         "John Smith (MD, PhD)",
+         {"given": "John", "family": "Smith", "suffix": "MD, PhD"},
+         classification="fix(#792)",
+         notes="the spaced twin of the row above, read as credentials "
+               "since 3.0.0; 1.4.0 through 2.8.0 read nickname"),
+    Case("ethiopic_comma_inside_a_set_apart_clause",
+         "John Smith (Dr.፣ PhD)",
+         {"title": "Dr.", "given": "John", "family": "Smith",
+          "suffix": "PhD"},
+         classification="fix(#1202)",
+         notes="1.4.0 read nickname 'Dr.፣ PhD'"),
+    Case("fullwidth_comma_parts_a_set_apart_suffix_run",
+         "John Smith (Jr， PhD)",
+         {"given": "John", "family": "Smith", "suffix": "Jr, PhD"},
+         classification="fix(#1202)",
+         notes="the comma between the clause's two words parts them "
+               "as two entries (rules/R1), as the ASCII one does; "
+               "str() writes it back as written. 1.4.0 read nickname "
+               "'Jr， PhD'"),
+    Case("period_joined_member_before_an_arabic_comma_reports",
+         "John Smith (Msc.Ed، Bob)",
+         {"given": "John", "family": "Smith", "nickname": "Msc.Ed، Bob"},
+         ambiguities=("suffix-or-nickname",),
+         classification="fix(#1202)",
+         notes="a period-joined word holding a member (rules/S3) "
+               "reports beside a non-ASCII comma as beside ',': "
+               "`period_member` takes the comma off with the whole set. "
+               "No corpus name has this shape, so the comma invariant "
+               "in test_properties cannot see it"),
+    Case("burmese_comma_inside_a_set_apart_clause",
+         "John Smith (MBA၊ PhD)",
+         {"given": "John", "family": "Smith", "suffix": "MBA, PhD"},
+         classification="fix(#1202)",
+         notes="1.4.0 read nickname 'MBA၊ PhD'"),
+    Case("ethiopic_wordspace_divides_like_a_space", "አበበ፡ከበደ፡ተሰማ",
+         {"given": "አበበ", "middle": "ከበደ", "family": "ተሰማ"},
+         classification="fix(#1202)",
+         notes="U+1361 is Ethiopic-only, so it divides "
+               "unconditionally like the nakaguro; 1.4.0 read one "
+               "first name 'አበበ፡ከበደ፡ተሰማ'"),
+    # -- #1236: U+202F joins a Mongolian case suffix to its stem.
+    Case("mongolian_suffix_connector_joins_the_genitive",
+         "ᠬᠣᠷᠯᠤ\u180eᠠ\u202fᠶ\u180bᠢᠨ ᠴᠣᠢᠢᠪᠠᠯᠰᠠᠩ",
+         {"family": "ᠬᠣᠷᠯᠤ\u180eᠠ\u202fᠶ\u180bᠢᠨ",
+          "given": "ᠴᠣᠢᠢᠪᠠᠯᠰᠠᠩ"},
+         policy=Policy(name_order=FAMILY_FIRST),
+         classification="fix(#1236)",
+         notes="Khorloogiin Choibalsan, family-first as the script "
+               "writes it: the genitive is one word with the father's "
+               "name. 1.4.0 split at U+202F (first 'ᠬᠣᠷᠯᠤ᠎ᠠ', middle "
+               "'ᠶ᠋ᠢᠨ', under the default order)"),
+    Case("narrow_no_break_space_outside_mongolian_separates",
+         "Jean\u202fDupont",
+         {"given": "Jean", "family": "Dupont"},
+         notes="elsewhere U+202F is the narrow space it is "
+               "named for"),
+    # -- #1241: an apostrophe opening a listed particle is no quote.
+    Case("apostrophe_particle_beside_a_quoted_nickname",
+         "Jan van 't Hof 'Jantje'",
+         {"given": "Jan", "family": "van 't Hof", "nickname": "Jantje"},
+         notes="'t is listed (nl.toml), so its apostrophe "
+               "opens no quote and the nickname pairs with its own "
+               "close; 2.0.0 through 3.0.1 read nickname \"t Hof 'Jantje\" (#1241)"),
+    Case("apostrophe_particle_reports_nothing", "Pieter 't Hart",
+         {"given": "Pieter", "family": "'t Hart"},
+         notes="the reading was right before #1241; only "
+               "its unbalanced-delimiter report goes"),
+    Case("dutch_s_particle_joins_the_surname",
+         "Willem Jacob 's Gravesande",
+         {"given": "Willem", "middle": "Jacob",
+          "family": "'s Gravesande"},
+         classification="fix(#1241)",
+         notes="'s (des) is listed beside 't (nl.toml), so it chains "
+               "into the surname and opens no quote; 1.4.0 through "
+               "3.0.1 read middle \"Jacob 's\", family 'Gravesande', "
+               "the later releases reporting an unbalanced delimiter"),
+    Case("dutch_s_particle_hyphened_reports_nothing",
+         "Arent van 's-Gravesande",
+         {"given": "Arent", "family": "van 's-Gravesande"},
+         notes="the reading is 1.4.0's; a listed particle hyphened to "
+               "its surname opens no quote, so the unbalanced-delimiter "
+               "report 2.0.0 through 3.0.1 gave goes"),
+    Case("georgian_salutation_in_its_script_is_the_title",
+         "ბატონი დავით ყიფიანი",
+         {"title": "ბატონი", "given": "დავით", "family": "ყიფიანი"},
+         classification="fix(#1225)",
+         notes="ka.toml listed only the romanized batoni; 1.4.0 "
+               "through 3.0.1 read given 'ბატონი', middle 'დავით'"),
+    Case("georgian_salutation_abbreviated_with_a_hyphen",
+         "ქ-ნი ნინო ბურჯანაძე",
+         {"title": "ქ-ნი", "given": "ნინო", "family": "ბურჯანაძე"},
+         classification="fix(#1225)",
+         notes="listed whole, as Russian г-н is; a hyphen keeps it one "
+               "word, so no shape rule could read it"),
+    Case("georgian_abbreviated_salutation_ending_the_given_part",
+         "ყიფიანი, დავით ბ-ნი",
+         {"title": "ბ-ნი", "given": "დავით", "family": "ყიფიანი"},
+         classification="fix(#1225)",
+         notes="after_given, as on its full form ბატონი and on г-н "
+               "(rules/H8)"),
+    Case("georgian_academic_title_in_mtavruli",
+         "ᲐᲙᲐᲓᲔᲛᲘᲙᲝᲡᲘ ᲓᲐᲕᲘᲗ ᲧᲘᲤᲘᲐᲜᲘ",
+         {"title": "ᲐᲙᲐᲓᲔᲛᲘᲙᲝᲡᲘ", "given": "ᲓᲐᲕᲘᲗ",
+          "family": "ᲧᲘᲤᲘᲐᲜᲘ"},
+         classification="fix(#1225)",
+         notes="the capitals fold to the listed Mkhedruli spelling"),
+    Case("georgian_salutation_ending_a_name_stays_the_surname",
+         "ჯენსონ ბატონი",
+         {"given": "ჯენსონ", "family": "ბატონი"},
+         notes="Jenson Button transcribed: a bare title word ending a "
+               "name is a name word (rules/H5), the one way Georgian "
+               "Wikipedia writes the word in a name"),
+    Case("armenian_salutation_in_its_script_is_the_title",
+         "Պարոն Դավիթ Հարությունյան",
+         {"title": "Պարոն", "given": "Դավիթ", "family": "Հարությունյան"},
+         classification="fix(#1225)",
+         notes="hy.toml listed no Armenian-script title; 1.4.0 through "
+               "3.0.1 read given 'Պարոն', middle 'Դավիթ'"),
+    Case("armenian_salutation_ending_the_given_part_after_a_comma",
+         "Հակոբյան, Աննա Տիկին",
+         {"title": "Տիկին", "given": "Աննա", "family": "Հակոբյան"},
+         classification="fix(#1225)",
+         notes="after_given, as on the other languages' salutations "
+               "(rules/H8)"),
+    Case("armenian_ter_at_the_head_is_the_clergy_title",
+         "Տեր Հուսիկ Լազարյան",
+         {"title": "Տեր", "given": "Հուսիկ", "family": "Լազարյան"},
+         classification="fix(#1225)",
+         notes="a married priest's title; 1.4.0 through 3.0.1 read given "
+               "'Տեր', middle 'Հուսիկ'"),
+    Case("armenian_ter_inside_the_name_opens_the_surname",
+         "Զավեն Տեր Եղիյան",
+         {"given": "Զավեն", "family": "Տեր Եղիյան"},
+         classification="fix(#1225)",
+         notes="the spaced Տեր- surname: a rank particle, as Freiherr "
+               "is; 1.4.0 through 3.0.1 read middle 'Տեր'"),
+    Case("armenian_ter_surname_before_a_family_comma",
+         "Տեր Եղիյան, Զավեն",
+         {"given": "Զավեն", "family": "Տեր Եղիյան"},
+         notes="the comma keeps the surname whole, as before the title "
+               "reading; without it the shape is the clergy one"),
+    Case("armenian_ter_surname_first_without_a_comma_reads_the_title",
+         "Տեր Եղիյան Զավեն",
+         {"title": "Տեր", "given": "Եղիյան", "family": "Զավեն"},
+         classification="fix(#1225)",
+         notes="the accepted cost: word for word the clergy shape "
+               "(decisions/salutation-titles); 1.4.0 through 3.0.1 read "
+               "given 'Տեր', wrong too"),
+    Case("armenian_ter_surname_behind_a_title_joins_the_title_run",
+         "Պարոն Տեր Պետրոսյան",
+         {"title": "Պարոն Տեր", "family": "Պետրոսյան"},
+         classification="fix(#1225)",
+         notes="the accepted cost, rules/P4's title-particle as in "
+               "'Mr. Freiherr von Berg'; 1.4.0 through 3.0.1 read given "
+               "'Պարոն', middle 'Տեր', wrong too"),
+    Case("armenian_ter_hyphenated_surname_is_one_word",
+         "Լևոն Տեր-Պետրոսյան",
+         {"given": "Լևոն", "family": "Տեր-Պետրոսյան"}),
+    Case("armenian_academic_title_in_its_script_is_the_title",
+         "Դոկտոր Աննա Հակոբյան",
+         {"title": "Դոկտոր", "given": "Աննա", "family": "Հակոբյան"},
+         classification="fix(#1225)"),
 )

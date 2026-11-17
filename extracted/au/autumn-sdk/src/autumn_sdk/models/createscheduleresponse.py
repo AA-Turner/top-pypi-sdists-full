@@ -54,7 +54,7 @@ import pydantic
 from pydantic import model_serializer
 from pydantic.functional_validators import AfterValidator
 from typing import Any, Dict, List, Literal, Optional, Union
-from typing_extensions import Annotated, NotRequired, TypeAliasType, TypedDict
+from typing_extensions import Annotated, NotRequired, TypedDict
 
 
 class PhaseUpsertLicenseCustomize2TypedDict(TypedDict):
@@ -313,18 +313,6 @@ class CreateSchedulePlan2(BaseModel):
         return m
 
 
-CreateScheduleBillingCycleAnchor2TypedDict = TypeAliasType(
-    "CreateScheduleBillingCycleAnchor2TypedDict", Union[str, int]
-)
-r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
-
-
-CreateScheduleBillingCycleAnchor2 = TypeAliasType(
-    "CreateScheduleBillingCycleAnchor2", Union[str, int]
-)
-r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
-
-
 CreateScheduleProrationBehavior2 = Literal[
     "prorate_immediately",
     "none",
@@ -340,8 +328,8 @@ class PhaseRequest2TypedDict(TypedDict):
     r"""When this phase should start, in epoch milliseconds, or 'now' for the immediate phase."""
     starting_after: NotRequired[StartingAfter2TypedDict]
     r"""Relative start offset from the previous resolved schedule phase."""
-    billing_cycle_anchor: NotRequired[CreateScheduleBillingCycleAnchor2TypedDict]
-    r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
+    billing_cycle_anchor: NotRequired[Any]
+    r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, 'now' resets it to the current time (with a past starts_at, the time since then is billed pro rata), and a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
     proration_behavior: NotRequired[CreateScheduleProrationBehavior2]
     r"""How the change when this phase starts is billed. 'prorate_immediately' charges or credits the prorated difference, 'none' skips it. The first phase also takes 'bill_difference', which charges or credits the full-period price difference."""
 
@@ -356,8 +344,8 @@ class PhaseRequest2(BaseModel):
     starting_after: Optional[StartingAfter2] = None
     r"""Relative start offset from the previous resolved schedule phase."""
 
-    billing_cycle_anchor: Optional[CreateScheduleBillingCycleAnchor2] = None
-    r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
+    billing_cycle_anchor: Optional[Any] = None
+    r"""Pass 'phase_start' to reset the billing cycle when this phase starts. On the first phase, 'now' resets it to the current time (with a past starts_at, the time since then is billed pro rata), and a future timestamp in epoch milliseconds anchors the cycle on that date instead."""
 
     proration_behavior: Optional[CreateScheduleProrationBehavior2] = None
     r"""How the change when this phase starts is billed. 'prorate_immediately' charges or credits the prorated difference, 'none' skips it. The first phase also takes 'bill_difference', which charges or credits the full-period price difference."""

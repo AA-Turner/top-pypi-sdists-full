@@ -5,10 +5,19 @@ from typing import Literal
 from pytest import mark, raises
 
 from stjames.workflows.batch_docking import BatchDockingWorkflow
-from stjames.workflows.docking import TurboDockPreset, TurboDockSettings, VinaSettings
+from stjames.workflows.docking import HeronSettings, TurboDockPreset, TurboDockSettings, VinaSettings
 
 _PROTEIN = "c3524c98-2e64-4573-89de-ed467026df44"
 _POCKET = ((0, 0, 0), (20, 20, 20))
+
+
+def test_heron_batch_roundtrip() -> None:
+    """Retain private-state identity, seed and pose limit in batch workflows."""
+    workflow = BatchDockingWorkflow(
+        initial_smiles_list=["CCO"], target=_PROTEIN, protein=_PROTEIN, pocket=_POCKET, docking_settings=HeronSettings(seed=71, max_poses=2)
+    )
+    restored = BatchDockingWorkflow.model_validate_json(workflow.model_dump_json())
+    assert restored.docking_settings.model_dump() == workflow.docking_settings.model_dump()
 
 
 @mark.parametrize(

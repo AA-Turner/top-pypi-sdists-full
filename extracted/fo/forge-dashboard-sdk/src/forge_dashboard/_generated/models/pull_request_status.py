@@ -9,6 +9,8 @@ from attrs import field as _attrs_field
 from ..types import UNSET, Unset
 
 from ..types import UNSET, Unset
+from typing import cast
+import datetime
 
 
 
@@ -30,6 +32,7 @@ class PullRequestStatus:
                 learn more, so a client should show `message` for a code it
                 doesn't know. Declared with `x-extensible-enum`.
             message (str): Plain words, safe to show a person.
+            since (datetime.datetime | Unset): Set only with `forge_unreachable`, and says when the rows on show were read.
             next_ (str | Unset): What unlocks it or what to do about it, when there is something.
             action (str | Unset): The `allowedActions[].action` that clears this status, set only
                 when `code` is `behind`: `update_branch`, or the bot's own rebase
@@ -44,6 +47,7 @@ class PullRequestStatus:
 
     code: str
     message: str
+    since: datetime.datetime | Unset = UNSET
     next_: str | Unset = UNSET
     action: str | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -57,6 +61,10 @@ class PullRequestStatus:
 
         message = self.message
 
+        since: str | Unset = UNSET
+        if not isinstance(self.since, Unset):
+            since = self.since.isoformat()
+
         next_ = self.next_
 
         action = self.action
@@ -68,6 +76,8 @@ class PullRequestStatus:
             "code": code,
             "message": message,
         })
+        if since is not UNSET:
+            field_dict["since"] = since
         if next_ is not UNSET:
             field_dict["next"] = next_
         if action is not UNSET:
@@ -84,6 +94,16 @@ class PullRequestStatus:
 
         message = d.pop("message")
 
+        _since = d.pop("since", UNSET)
+        since: datetime.datetime | Unset
+        if isinstance(_since,  Unset):
+            since = UNSET
+        else:
+            since = datetime.datetime.fromisoformat(_since)
+
+
+
+
         next_ = d.pop("next", UNSET)
 
         action = d.pop("action", UNSET)
@@ -91,6 +111,7 @@ class PullRequestStatus:
         pull_request_status = cls(
             code=code,
             message=message,
+            since=since,
             next_=next_,
             action=action,
         )

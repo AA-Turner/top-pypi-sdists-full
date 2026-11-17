@@ -15,11 +15,13 @@ Usage::
         GetAnalysisReportResultsPaginator,
         ListAnalysisReportsPaginator,
         ListContainerAssociationsPaginator,
+        ListContextStoresPaginator,
         ListFirewallPoliciesPaginator,
         ListFirewallPoliciesV2Paginator,
         ListFirewallsPaginator,
         ListFlowOperationResultsPaginator,
         ListFlowOperationsPaginator,
+        ListResourcesInContextStorePaginator,
         ListRuleGroupsPaginator,
         ListTLSInspectionConfigurationsPaginator,
         ListTagsForResourcePaginator,
@@ -35,11 +37,13 @@ Usage::
     get_analysis_report_results_paginator: GetAnalysisReportResultsPaginator = client.get_paginator("get_analysis_report_results")
     list_analysis_reports_paginator: ListAnalysisReportsPaginator = client.get_paginator("list_analysis_reports")
     list_container_associations_paginator: ListContainerAssociationsPaginator = client.get_paginator("list_container_associations")
+    list_context_stores_paginator: ListContextStoresPaginator = client.get_paginator("list_context_stores")
     list_firewall_policies_paginator: ListFirewallPoliciesPaginator = client.get_paginator("list_firewall_policies")
     list_firewall_policies_v2_paginator: ListFirewallPoliciesV2Paginator = client.get_paginator("list_firewall_policies_v2")
     list_firewalls_paginator: ListFirewallsPaginator = client.get_paginator("list_firewalls")
     list_flow_operation_results_paginator: ListFlowOperationResultsPaginator = client.get_paginator("list_flow_operation_results")
     list_flow_operations_paginator: ListFlowOperationsPaginator = client.get_paginator("list_flow_operations")
+    list_resources_in_context_store_paginator: ListResourcesInContextStorePaginator = client.get_paginator("list_resources_in_context_store")
     list_rule_groups_paginator: ListRuleGroupsPaginator = client.get_paginator("list_rule_groups")
     list_tls_inspection_configurations_paginator: ListTLSInspectionConfigurationsPaginator = client.get_paginator("list_tls_inspection_configurations")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
@@ -52,11 +56,13 @@ from .paginator import (
     GetAnalysisReportResultsPaginator,
     ListAnalysisReportsPaginator,
     ListContainerAssociationsPaginator,
+    ListContextStoresPaginator,
     ListFirewallPoliciesPaginator,
     ListFirewallPoliciesV2Paginator,
     ListFirewallsPaginator,
     ListFlowOperationResultsPaginator,
     ListFlowOperationsPaginator,
+    ListResourcesInContextStorePaginator,
     ListRuleGroupsPaginator,
     ListTagsForResourcePaginator,
     ListTLSInspectionConfigurationsPaginator,
@@ -72,11 +78,13 @@ __all__ = (
     "GetAnalysisReportResultsPaginator",
     "ListAnalysisReportsPaginator",
     "ListContainerAssociationsPaginator",
+    "ListContextStoresPaginator",
     "ListFirewallPoliciesPaginator",
     "ListFirewallPoliciesV2Paginator",
     "ListFirewallsPaginator",
     "ListFlowOperationResultsPaginator",
     "ListFlowOperationsPaginator",
+    "ListResourcesInContextStorePaginator",
     "ListRuleGroupsPaginator",
     "ListTLSInspectionConfigurationsPaginator",
     "ListTagsForResourcePaginator",

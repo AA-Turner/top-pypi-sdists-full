@@ -6,20 +6,18 @@
 import asyncio
 import time
 
-from smithy_core.aio.eventstream import DuplexEventStream
-from smithy_http.aio.crt import AWSCRTHTTPClient
-
 from aws_sdk_transcribe_streaming.models import (
     AudioEvent,
     AudioStream,
     AudioStreamAudioEvent,
     LanguageCode,
     MediaEncoding,
-    StartStreamTranscriptionInput,
     StartStreamTranscriptionOutput,
     TranscriptResultStream,
     TranscriptResultStreamTranscriptEvent,
 )
+from smithy_core.aio.eventstream import AsyncDuplexEventStream
+from smithy_http.aio.crt import AWSCRTHTTPClient
 
 from . import AUDIO_FILE, create_transcribe_client
 
@@ -30,7 +28,7 @@ CHUNK_SIZE = 1024 * 8
 
 
 async def _send_audio_chunks(
-    stream: DuplexEventStream[
+    stream: AsyncDuplexEventStream[
         AudioStream, TranscriptResultStream, StartStreamTranscriptionOutput
     ],
 ) -> None:
@@ -53,7 +51,7 @@ async def _send_audio_chunks(
 
 
 async def _receive_transcription_output(
-    stream: DuplexEventStream[
+    stream: AsyncDuplexEventStream[
         AudioStream, TranscriptResultStream, StartStreamTranscriptionOutput
     ],
 ) -> tuple[bool, list[str]]:
@@ -92,11 +90,9 @@ async def test_start_stream_transcription() -> None:
         "us-west-2", transport=AWSCRTHTTPClient()
     ) as transcribe_client:
         stream = await transcribe_client.start_stream_transcription(
-            input=StartStreamTranscriptionInput(
-                language_code=LanguageCode.EN_US,
-                media_sample_rate_hertz=SAMPLE_RATE,
-                media_encoding=MediaEncoding.PCM,
-            )
+            language_code=LanguageCode.EN_US,
+            media_sample_rate_hertz=SAMPLE_RATE,
+            media_encoding=MediaEncoding.PCM,
         )
 
         results = await asyncio.gather(

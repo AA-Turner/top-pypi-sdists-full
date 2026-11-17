@@ -649,8 +649,24 @@ def test_a_by_shape_token_takes_the_count_and_never_a_lean() -> None:
     ("たなか.", False),     # nor kana
     ("Kim김.", False),        # contains-any, not wholly-of: one CJK char vetoes
     ("J.", False),          # a bare initial never was (H2 boundary)
+    # #1191: nor a Brahmic script, where a spelled initial with no vowel
+    # sign (M. written एम.) is a run of two letters
+    ("एम.", False),         # Devanagari
+    ("এম.", False),         # Bengali
+    ("ਐਮ.", False),         # Gurmukhi
+    ("એમ.", False),         # Gujarati
+    ("ଏମ.", False),         # Odia
+    ("එම.", False),         # Sinhala, the range's far end
+    ("ດຣ.", True),          # Lao, outside the range, as Thai is
+    ("กข.", True),          # Thai writes no initials, but abbreviations (#1256)
+    ("Mएम.", False),        # contains-any, as Kim김. is
+    # #1136: nor a transliteration digraph in the set, in any case,
+    # where the digraphs that are also titles written short keep it
+    ("Yu.", False),
+    ("ZH.", False),
+    ("Ts.", True),
 ])
-def test_leading_title_shape_refuses_an_initialless_script(
+def test_leading_title_shape_refuses_a_script_it_does_not_read(
         text: str, expected: bool) -> None:
     # Xyz. rather than Rev. for the Latin side: Rev. is LISTED, so
     # is_title_piece claims it before the shape is asked
@@ -661,7 +677,8 @@ def test_leading_title_shape_refuses_an_initialless_script(
 
 @pytest.mark.parametrize("text", [
     "Xyz.", "Dr.", "Xyz", "X.", "田中.", "김민준.", "たなか.", "Kim김.", "J.",
-    "Chas.", "MA.",
+    "Chas.", "MA.", "एम.", "এম.", "ਐਮ.", "Mएम.", "એમ.", "ଏମ.", "එම.", "ດຣ.",
+    "Yu.", "ZH.", "kh.", "Shch.", "Dzh.", "Ts.", "Th.", "Iu.",
 ])
 def test_is_title_shaped_and_is_leading_title_agree(text: str) -> None:
     # The two spellings of H2's shape test -- `is_title_shaped`'s own
@@ -1374,7 +1391,8 @@ def test_the_second_unit_is_found_once_per_read(
 
 
 # H5's listed joined title (decisions/H5, #1104): the three readers of
-# classify's JOINED_TITLE_TAG besides the chain itself (which the
+# classify's CHAIN_TITLE_TAG, which a JOINED_TITLE_TAG word carries
+# (#1171), besides the chain itself (which the
 # tests/v2/cases.py rows pin), each asked through the shape its reader serves: P13's
 # trailing title ('y'), the maiden take's candidates (`trailing_candidates`
 # via `is_trailing_title_word`) and the particle run's weighed word

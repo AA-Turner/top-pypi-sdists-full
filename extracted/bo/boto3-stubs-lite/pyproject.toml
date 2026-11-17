@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.44.3"
+version = "1.44.4"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.44.3 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.44.4 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.44.0, <1.45.0",
 ]
 boto3 = [
-    "boto3==1.44.3",
+    "boto3==1.44.4",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.44.0, <1.45.0",
@@ -180,6 +180,7 @@ all = [
     "mypy-boto3-connectcases>=1.44.0, <1.45.0",
     "mypy-boto3-connecthealth>=1.44.0, <1.45.0",
     "mypy-boto3-connectparticipant>=1.44.0, <1.45.0",
+    "mypy-boto3-connectscheduling>=1.44.0, <1.45.0",
     "mypy-boto3-continuum>=1.44.0, <1.45.0",
     "mypy-boto3-controlcatalog>=1.44.0, <1.45.0",
     "mypy-boto3-controltower>=1.44.0, <1.45.0",
@@ -364,6 +365,7 @@ all = [
     "mypy-boto3-odb>=1.44.0, <1.45.0",
     "mypy-boto3-omics>=1.44.0, <1.45.0",
     "mypy-boto3-opensearch>=1.44.0, <1.45.0",
+    "mypy-boto3-opensearchmemory>=1.44.0, <1.45.0",
     "mypy-boto3-opensearchserverless>=1.44.0, <1.45.0",
     "mypy-boto3-organizations>=1.44.0, <1.45.0",
     "mypy-boto3-osis>=1.44.0, <1.45.0",
@@ -431,6 +433,7 @@ all = [
     "mypy-boto3-sagemaker-edge>=1.44.0, <1.45.0",
     "mypy-boto3-sagemaker-featurestore-runtime>=1.44.0, <1.45.0",
     "mypy-boto3-sagemaker-geospatial>=1.44.0, <1.45.0",
+    "mypy-boto3-sagemaker-inference-router-runtime>=1.44.0, <1.45.0",
     "mypy-boto3-sagemaker-metrics>=1.44.0, <1.45.0",
     "mypy-boto3-sagemaker-runtime>=1.44.0, <1.45.0",
     "mypy-boto3-sagemakerjobruntime>=1.44.0, <1.45.0",
@@ -840,6 +843,9 @@ connecthealth = [
 ]
 connectparticipant = [
     "mypy-boto3-connectparticipant>=1.44.0, <1.45.0",
+]
+connectscheduling = [
+    "mypy-boto3-connectscheduling>=1.44.0, <1.45.0",
 ]
 continuum = [
     "mypy-boto3-continuum>=1.44.0, <1.45.0",
@@ -1393,6 +1399,9 @@ omics = [
 opensearch = [
     "mypy-boto3-opensearch>=1.44.0, <1.45.0",
 ]
+opensearchmemory = [
+    "mypy-boto3-opensearchmemory>=1.44.0, <1.45.0",
+]
 opensearchserverless = [
     "mypy-boto3-opensearchserverless>=1.44.0, <1.45.0",
 ]
@@ -1593,6 +1602,9 @@ sagemaker-featurestore-runtime = [
 ]
 sagemaker-geospatial = [
     "mypy-boto3-sagemaker-geospatial>=1.44.0, <1.45.0",
+]
+sagemaker-inference-router-runtime = [
+    "mypy-boto3-sagemaker-inference-router-runtime>=1.44.0, <1.45.0",
 ]
 sagemaker-metrics = [
     "mypy-boto3-sagemaker-metrics>=1.44.0, <1.45.0",

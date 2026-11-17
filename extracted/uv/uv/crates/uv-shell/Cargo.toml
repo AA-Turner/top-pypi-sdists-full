@@ -1,6 +1,6 @@
 [package]
 name = "uv-shell"
-version = "0.0.100"
+version = "0.0.101"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -20,7 +20,6 @@ workspace = true
 uv-fs = { workspace = true }
 uv-static = { workspace = true }
 
-anyhow = { workspace = true }
 fs-err = { workspace = true }
 same-file = { workspace = true }
 tokio = { workspace = true }
@@ -30,6 +29,7 @@ tracing = { workspace = true }
 nix = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
+anyhow = { workspace = true }
 windows = { workspace = true }
 windows-registry = { workspace = true }
 

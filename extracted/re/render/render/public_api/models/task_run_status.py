@@ -1,14 +1,16 @@
-from enum import Enum
+from enum import StrEnum
 
 
-class TaskRunStatus(str, Enum):
+class TaskRunStatus(StrEnum):
     CANCELED = "canceled"
     COMPLETED = "completed"
     FAILED = "failed"
     PAUSED = "paused"
     PENDING = "pending"
     RUNNING = "running"
+    SLEEPING = "sleeping"
     SUCCEEDED = "succeeded"
+    SUSPENDED = "suspended"
 
     def __str__(self) -> str:
         return str(self.value)

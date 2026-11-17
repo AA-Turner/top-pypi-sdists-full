@@ -7,12 +7,11 @@ import os
 import stat
 from collections.abc import AsyncIterator, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NoReturn, TypeVar
 
-import httpx
+import httpx2
 
 from render.client.errors import (
     ClientError,
@@ -33,9 +32,12 @@ from render.experimental.sandbox._tar import (
     astat_path,
 )
 from render.experimental.sandbox.errors import (
+    CredentialNotFoundError,
+    ImageInUseError,
     ImageNotFoundError,
     ImageNotReadyError,
     SandboxDownloadError,
+    SandboxEndedError,
     SandboxExecError,
     SandboxExecStreamError,
     SandboxFileNotFoundError,
@@ -58,8 +60,12 @@ from render.experimental.sandbox.files import (
     resolve_file_dest,
 )
 from render.experimental.sandbox.types import (
+    Credential,
+    CredentialInjection,
+    CredentialVersion,
     EgressRule,
     Image,
+    ImageList,
     ImageSource,
     NetworkPolicy,
     RegistryCredentials,
@@ -77,19 +83,28 @@ from render.public_api.api.sandboxes import (
     create_sandbox,
     create_sandbox_build,
     create_sandbox_group,
+    create_sandbox_group_credential,
     create_sandbox_snapshot,
+    delete_sandbox_build,
     delete_sandbox_group,
+    delete_sandbox_group_credential,
     delete_sandbox_snapshot,
+    list_sandbox_builds,
+    list_sandbox_group_credential_versions,
+    list_sandbox_group_credentials,
     list_sandbox_groups,
     list_sandbox_snapshots,
     list_sandboxes,
+    restore_sandbox_group_credential,
     retrieve_sandbox,
     retrieve_sandbox_build,
     retrieve_sandbox_group,
+    retrieve_sandbox_group_credential,
     retrieve_sandbox_snapshot,
     set_default_sandbox_group,
     terminate_sandbox,
     update_sandbox_group,
+    update_sandbox_group_credential,
 )
 from render.public_api.models.error import Error
 from render.public_api.models.sandbox import Sandbox as GeneratedSandbox
@@ -97,6 +112,25 @@ from render.public_api.models.sandbox_build import SandboxBuild as GeneratedSand
 from render.public_api.models.sandbox_build_post import SandboxBuildPOST
 from render.public_api.models.sandbox_build_post_registry_credential import (
     SandboxBuildPOSTRegistryCredential,
+)
+from render.public_api.models.sandbox_build_status import SandboxBuildStatus
+from render.public_api.models.sandbox_build_with_cursor import SandboxBuildWithCursor
+from render.public_api.models.sandbox_credential import (
+    SandboxCredential as GeneratedCredential,
+)
+from render.public_api.models.sandbox_credential_create import SandboxCredentialCreate
+from render.public_api.models.sandbox_credential_injection import (
+    SandboxCredentialInjection,
+)
+from render.public_api.models.sandbox_credential_injection_type import (
+    SandboxCredentialInjectionType,
+)
+from render.public_api.models.sandbox_credential_restore import (
+    SandboxCredentialRestore,
+)
+from render.public_api.models.sandbox_credential_update import SandboxCredentialUpdate
+from render.public_api.models.sandbox_credential_version import (
+    SandboxCredentialVersion,
 )
 from render.public_api.models.sandbox_egress_rule import SandboxEgressRule
 from render.public_api.models.sandbox_egress_rule_protocol import (
@@ -134,15 +168,20 @@ if TYPE_CHECKING:
     from render.public_api.client import AuthenticatedClient, Client
 
 
+# The code the API sends in a 409 body when the sandbox has ended.
+_SANDBOX_NOT_RUNNING_CODE = "sandbox_not_running"
+
 # The code the sandbox agent sends in a 404 body when the remote path is missing.
 _FILE_NOT_FOUND_CODE = "file_not_found"
 _SNAPSHOT_NOT_FOUND_CODE = "snapshot_not_found"
-_SNAPSHOT_NOT_READY_CODES = frozenset({"snapshot_creating", "snapshot_not_available"})
-_SNAPSHOT_PLAN_MISMATCH_CODE = "snapshot_plan_mismatch"
 # The API still calls images builds, in its paths and error codes.
 _IMAGE_NOT_FOUND_CODE = "build_not_found"
-_IMAGE_NOT_SUCCEEDED_CODE = "build_not_succeeded"
-_GROUP_CONFLICT_ERRORS: dict[str, type[ClientError]] = {
+_CLIENT_ERRORS_BY_CODE: dict[str, type[ClientError]] = {
+    "snapshot_creating": SnapshotNotReadyError,
+    "snapshot_not_available": SnapshotNotReadyError,
+    "snapshot_plan_mismatch": SnapshotPlanMismatchError,
+    "build_not_succeeded": ImageNotReadyError,
+    "image_in_use": ImageInUseError,
     "default_sandbox_group_not_deletable": SandboxGroupDefaultNotDeletableError,
     "sandbox_group_suspended": SandboxGroupSuspendedError,
 }
@@ -154,6 +193,10 @@ _SandboxStatusList = list[SandboxStatus]
 _SandboxGroupWithCursorList = list[SandboxGroupWithCursor]
 _SandboxSnapshotWithCursorList = list[SandboxSnapshotWithCursor]
 _SandboxSnapshotStatusList = list[SandboxSnapshotStatus]
+_SandboxBuildWithCursorList = list[SandboxBuildWithCursor]
+_SandboxBuildStatusList = list[SandboxBuildStatus]
+_CredentialList = list[Credential]
+_CredentialVersionList = list[CredentialVersion]
 
 _T = TypeVar("_T")
 _StatusEnum = TypeVar("_StatusEnum", bound=Enum)
@@ -243,6 +286,7 @@ def _to_snapshot(model: GeneratedSandboxSnapshot) -> Snapshot:
         expires_at=model.expires_at,
         size_bytes=_set_or_none(model.size_bytes),
         error=_set_or_none(model.error),
+        ttl_seconds=_set_or_none(model.ttl_seconds),
     )
 
 
@@ -261,6 +305,47 @@ def _to_image(model: GeneratedSandboxBuild) -> Image:
         created_at=model.created_at,
         failure_reason=_set_or_none(model.failure_reason),
         finished_at=_set_or_none(model.finished_at),
+    )
+
+
+def _to_credential_injection(model: SandboxCredentialInjection) -> CredentialInjection:
+    return CredentialInjection(
+        type=model.type_.value,
+        name=_set_or_none(model.name),
+        template=_set_or_none(model.template),
+    )
+
+
+def _to_credential_injection_body(
+    injection: CredentialInjection,
+) -> SandboxCredentialInjection:
+    return SandboxCredentialInjection(
+        type_=SandboxCredentialInjectionType(injection.type),
+        name=injection.name if injection.name is not None else UNSET,
+        template=injection.template if injection.template is not None else UNSET,
+    )
+
+
+def _to_credential_version(model: SandboxCredentialVersion) -> CredentialVersion:
+    return CredentialVersion(
+        id=model.id,
+        updated_at=model.updated_at,
+        updated_by=model.updated_by,
+        fingerprint=model.fingerprint,
+        restored_from_version_id=_set_or_none(model.restored_from_version_id),
+    )
+
+
+def _to_credential(model: GeneratedCredential) -> Credential:
+    version = _set_or_none(model.version)
+    return Credential(
+        id=model.id,
+        domain=model.domain,
+        enabled=model.enabled,
+        methods=list(model.methods),
+        paths=list(model.paths),
+        injection=_to_credential_injection(model.injection),
+        version=_to_credential_version(version) if version is not None else None,
     )
 
 
@@ -294,6 +379,24 @@ def _error_body(body: bytes | str) -> _ErrorBody:
     )
 
 
+def _raise_for_error_code(status_code: int, body: bytes | str, operation: str) -> None:
+    if not 400 <= status_code < 500:
+        return
+    error = _error_body(body)
+    error_type = _CLIENT_ERRORS_BY_CODE.get(error.code or "")
+    if error_type is None:
+        return
+    message = f"{operation} failed"
+    if error.message:
+        message = f"{message}: {error.message}"
+    raise error_type(message, code=error.code, status_code=status_code)
+
+
+def _handle_sandbox_api_error(response: Response[Any], operation: str) -> None:
+    _raise_for_error_code(response.status_code, response.content, operation)
+    handle_api_error(response, operation)
+
+
 def _handle_snapshot_api_error(
     response: Response[Any],
     snapshot_id: str,
@@ -305,16 +408,7 @@ def _handle_snapshot_api_error(
         code = _error_body(response.content).code
         if path_names_snapshot or code == _SNAPSHOT_NOT_FOUND_CODE:
             raise SnapshotNotFoundError(f"snapshot {snapshot_id} not found", code=code)
-    if response.status_code == 409:
-        error = _error_body(response.content)
-        message = f"{operation} failed"
-        if error.message:
-            message = f"{message}: {error.message}"
-        if error.code in _SNAPSHOT_NOT_READY_CODES:
-            raise SnapshotNotReadyError(message, code=error.code)
-        if error.code == _SNAPSHOT_PLAN_MISMATCH_CODE:
-            raise SnapshotPlanMismatchError(message, code=error.code)
-    handle_api_error(response, operation)
+    _handle_sandbox_api_error(response, operation)
 
 
 def _handle_image_api_error(
@@ -324,26 +418,26 @@ def _handle_image_api_error(
         code = _error_body(response.content).code
         if code == _IMAGE_NOT_FOUND_CODE:
             raise ImageNotFoundError(f"image {image_ref} not found", code=code)
-    if response.status_code == 409:
-        error = _error_body(response.content)
-        if error.code == _IMAGE_NOT_SUCCEEDED_CODE:
-            message = f"{operation} failed"
-            if error.message:
-                message = f"{message}: {error.message}"
-            raise ImageNotReadyError(message, code=error.code)
-    handle_api_error(response, operation)
+    _handle_sandbox_api_error(response, operation)
 
 
-def _handle_group_api_error(response: Response[Any], operation: str) -> None:
-    if response.status_code == 409:
-        error = _error_body(response.content)
-        error_type = _GROUP_CONFLICT_ERRORS.get(error.code or "")
-        if error_type is not None:
-            message = f"{operation} failed"
-            if error.message:
-                message = f"{message}: {error.message}"
-            raise error_type(message, code=error.code, status_code=409)
-    handle_api_error(response, operation)
+def _string_list(values: Sequence[str]) -> list[str]:
+    # A str is a Sequence[str], so list("POST") would split it into characters.
+    return [values] if isinstance(values, str) else list(values)
+
+
+def _handle_credential_api_error(
+    response: Response[Any], not_found_message: str, operation: str
+) -> None:
+    # The API sends no code with a credential 404, and the same 404 for a
+    # missing sandbox group, so only paths that name a credential use this.
+    if response.status_code == 404:
+        raise CredentialNotFoundError(
+            not_found_message,
+            code=_error_body(response.content).code,
+            status_code=404,
+        )
+    _handle_sandbox_api_error(response, operation)
 
 
 class SandboxApi:
@@ -405,7 +499,7 @@ class SandboxApi:
         elif image_ref is not None:
             _handle_image_api_error(response, image_ref, "create sandbox")
         else:
-            handle_api_error(response, "create sandbox")
+            _handle_sandbox_api_error(response, "create sandbox")
         if not isinstance(response.parsed, GeneratedSandbox):
             raise RenderError("Failed to create sandbox: unexpected response type")
         return _to_sandbox(response.parsed)
@@ -417,7 +511,7 @@ class SandboxApi:
             )
         if response.status_code == 404:
             raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
-        handle_api_error(response, "retrieve sandbox")
+        _handle_sandbox_api_error(response, "retrieve sandbox")
         if not isinstance(response.parsed, GeneratedSandbox):
             raise RenderError("Failed to retrieve sandbox: unexpected response type")
         return _to_sandbox(response.parsed)
@@ -496,7 +590,7 @@ class SandboxApi:
             response = await create_sandbox_group.asyncio_detailed(
                 client=self.client, body=body
             )
-        handle_api_error(response, "create sandbox group")
+        _handle_sandbox_api_error(response, "create sandbox group")
         if not isinstance(response.parsed, GeneratedSandboxGroup):
             raise RenderError(
                 "Failed to create sandbox group: unexpected response type"
@@ -508,7 +602,7 @@ class SandboxApi:
             response = await retrieve_sandbox_group.asyncio_detailed(
                 sandbox_group_id, client=self.client
             )
-        handle_api_error(response, "retrieve sandbox group")
+        _handle_sandbox_api_error(response, "retrieve sandbox group")
         if not isinstance(response.parsed, GeneratedSandboxGroup):
             raise RenderError(
                 "Failed to retrieve sandbox group: unexpected response type"
@@ -524,7 +618,7 @@ class SandboxApi:
                 client=self.client,
                 body=SandboxGroupPATCH(concurrency_limit=concurrency_limit),
             )
-        handle_api_error(response, "update sandbox group")
+        _handle_sandbox_api_error(response, "update sandbox group")
         if not isinstance(response.parsed, GeneratedSandboxGroup):
             raise RenderError(
                 "Failed to update sandbox group: unexpected response type"
@@ -536,14 +630,14 @@ class SandboxApi:
             response = await delete_sandbox_group.asyncio_detailed(
                 sandbox_group_id, client=self.client
             )
-        _handle_group_api_error(response, "delete sandbox group")
+        _handle_sandbox_api_error(response, "delete sandbox group")
 
     async def set_default_group(self, sandbox_group_id: str) -> SandboxGroup:
         with request_errors("set default sandbox group"):
             response = await set_default_sandbox_group.asyncio_detailed(
                 sandbox_group_id, client=self.client
             )
-        _handle_group_api_error(response, "set default sandbox group")
+        _handle_sandbox_api_error(response, "set default sandbox group")
         if not isinstance(response.parsed, GeneratedSandboxGroup):
             raise RenderError(
                 "Failed to set default sandbox group: unexpected response type"
@@ -557,20 +651,20 @@ class SandboxApi:
             )
         if response.status_code == 404:
             raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
-        handle_api_error(response, "terminate sandbox")
+        _handle_sandbox_api_error(response, "terminate sandbox")
 
     async def create_snapshot(
         self,
         sandbox_id: str,
         kind: str | None,
         name: str | None,
-        expires_at: datetime | None,
+        ttl_seconds: int | None,
         owner_id: str | Unset,
     ) -> Snapshot:
         body = SandboxSnapshotPOST(
             kind=SandboxSnapshotKind(kind) if kind is not None else UNSET,
             name=name if name is not None else UNSET,
-            expires_at=expires_at if expires_at is not None else UNSET,
+            ttl_seconds=ttl_seconds if ttl_seconds is not None else UNSET,
         )
         with request_errors("create snapshot"):
             response = await create_sandbox_snapshot.asyncio_detailed(
@@ -578,7 +672,7 @@ class SandboxApi:
             )
         if response.status_code == 404:
             raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
-        handle_api_error(response, "create snapshot")
+        _handle_sandbox_api_error(response, "create snapshot")
         if not isinstance(response.parsed, GeneratedSandboxSnapshot):
             raise RenderError("Failed to create snapshot: unexpected response type")
         return _to_snapshot(response.parsed)
@@ -663,10 +757,17 @@ class SandboxApi:
             response = await create_sandbox_build.asyncio_detailed(
                 sandbox_group_id, client=self.client, body=body
             )
-        handle_api_error(response, "import image")
+        _handle_sandbox_api_error(response, "import image")
         if not isinstance(response.parsed, GeneratedSandboxBuild):
             raise RenderError("Failed to import image: unexpected response type")
         return _to_image(response.parsed)
+
+    async def delete_image(self, sandbox_group_id: str, image_id: str) -> None:
+        with request_errors("delete image"):
+            response = await delete_sandbox_build.asyncio_detailed(
+                sandbox_group_id, image_id, client=self.client
+            )
+        _handle_image_api_error(response, image_id, "delete image")
 
     async def get_image(self, sandbox_group_id: str, image_id: str) -> Image:
         with request_errors("retrieve image"):
@@ -678,22 +779,218 @@ class SandboxApi:
             raise RenderError("Failed to retrieve image: unexpected response type")
         return _to_image(response.parsed)
 
+    async def list_images(
+        self,
+        sandbox_group_id: str,
+        name: str | None,
+        status: str | Sequence[str] | None,
+        cursor: str | None,
+        limit: int | None,
+    ) -> ImageList:
+        statuses = _normalize_statuses(status, SandboxBuildStatus)
+        response = await self._list_images_api_call(
+            sandbox_group_id, name, statuses, cursor, limit
+        )
+        parsed = response.parsed
+        if not isinstance(parsed, list):
+            raise RenderError("Failed to list images: unexpected response type")
+        images = [_to_image(item.build) for item in parsed]
+        next_cursor = parsed[-1].cursor if parsed else None
+        return ImageList(images=images, next_cursor=next_cursor)
+
+    @handle_http_errors("list images")
+    async def _list_images_api_call(
+        self,
+        sandbox_group_id: str,
+        name: str | None,
+        statuses: _SandboxBuildStatusList,
+        cursor: str | None,
+        limit: int | None,
+    ) -> Response[Error | _SandboxBuildWithCursorList]:
+        return await list_sandbox_builds.asyncio_detailed(
+            sandbox_group_id,
+            client=self.client,
+            name=name if name is not None else UNSET,
+            status=statuses or UNSET,
+            cursor=cursor if cursor is not None else UNSET,
+            limit=limit if limit is not None else UNSET,
+        )
+
+    async def create_credential(
+        self,
+        sandbox_group_id: str,
+        credential_id: str,
+        domain: str,
+        value: str,
+        injection: CredentialInjection,
+        enabled: bool | None,
+        methods: Sequence[str] | None,
+        paths: Sequence[str] | None,
+    ) -> Credential:
+        body = SandboxCredentialCreate(
+            id=credential_id,
+            domain=domain,
+            value=value,
+            injection=_to_credential_injection_body(injection),
+        )
+        if enabled is not None:
+            body.enabled = enabled
+        if methods is not None:
+            body.methods = _string_list(methods)
+        if paths is not None:
+            body.paths = _string_list(paths)
+        with request_errors("create credential"):
+            response = await create_sandbox_group_credential.asyncio_detailed(
+                sandbox_group_id, client=self.client, body=body
+            )
+        _handle_sandbox_api_error(response, "create credential")
+        if not isinstance(response.parsed, GeneratedCredential):
+            raise RenderError("Failed to create credential: unexpected response type")
+        return _to_credential(response.parsed)
+
+    async def get_credential(
+        self, sandbox_group_id: str, credential_id: str
+    ) -> Credential:
+        with request_errors("retrieve credential"):
+            response = await retrieve_sandbox_group_credential.asyncio_detailed(
+                sandbox_group_id, credential_id, client=self.client
+            )
+        _handle_credential_api_error(
+            response, f"credential {credential_id} not found", "retrieve credential"
+        )
+        if not isinstance(response.parsed, GeneratedCredential):
+            raise RenderError("Failed to retrieve credential: unexpected response type")
+        return _to_credential(response.parsed)
+
+    async def list_credentials(self, sandbox_group_id: str) -> _CredentialList:
+        with request_errors("list credentials"):
+            response = await list_sandbox_group_credentials.asyncio_detailed(
+                sandbox_group_id, client=self.client
+            )
+        _handle_sandbox_api_error(response, "list credentials")
+        parsed = response.parsed
+        if not isinstance(parsed, list):
+            raise RenderError("Failed to list credentials: unexpected response type")
+        return [_to_credential(item) for item in parsed]
+
+    async def update_credential(
+        self,
+        sandbox_group_id: str,
+        credential_id: str,
+        value: str | None,
+        domain: str | None,
+        enabled: bool | None,
+        methods: Sequence[str] | None,
+        paths: Sequence[str] | None,
+        injection: CredentialInjection | None,
+    ) -> Credential:
+        body = SandboxCredentialUpdate()
+        if value is not None:
+            body.value = value
+        if domain is not None:
+            body.domain = domain
+        if enabled is not None:
+            body.enabled = enabled
+        if methods is not None:
+            body.methods = _string_list(methods)
+        if paths is not None:
+            body.paths = _string_list(paths)
+        if injection is not None:
+            body.injection = _to_credential_injection_body(injection)
+        with request_errors("update credential"):
+            response = await update_sandbox_group_credential.asyncio_detailed(
+                sandbox_group_id, credential_id, client=self.client, body=body
+            )
+        _handle_credential_api_error(
+            response, f"credential {credential_id} not found", "update credential"
+        )
+        if not isinstance(response.parsed, GeneratedCredential):
+            raise RenderError("Failed to update credential: unexpected response type")
+        return _to_credential(response.parsed)
+
+    async def delete_credential(
+        self, sandbox_group_id: str, credential_id: str
+    ) -> None:
+        with request_errors("delete credential"):
+            response = await delete_sandbox_group_credential.asyncio_detailed(
+                sandbox_group_id, credential_id, client=self.client
+            )
+        # Deleting a missing credential succeeds, so a 404 is about the group.
+        _handle_sandbox_api_error(response, "delete credential")
+
+    async def list_credential_versions(
+        self, sandbox_group_id: str, credential_id: str
+    ) -> _CredentialVersionList:
+        with request_errors("list credential versions"):
+            response = await list_sandbox_group_credential_versions.asyncio_detailed(
+                sandbox_group_id, credential_id, client=self.client
+            )
+        _handle_credential_api_error(
+            response,
+            f"credential {credential_id} not found",
+            "list credential versions",
+        )
+        parsed = response.parsed
+        if not isinstance(parsed, list):
+            raise RenderError(
+                "Failed to list credential versions: unexpected response type"
+            )
+        return [_to_credential_version(item) for item in parsed]
+
+    async def restore_credential(
+        self, sandbox_group_id: str, credential_id: str, version_id: int
+    ) -> Credential:
+        with request_errors("restore credential"):
+            response = await restore_sandbox_group_credential.asyncio_detailed(
+                sandbox_group_id,
+                credential_id,
+                client=self.client,
+                body=SandboxCredentialRestore(version_id=version_id),
+            )
+        _handle_credential_api_error(
+            response,
+            f"credential {credential_id} or its version {version_id} not found",
+            "restore credential",
+        )
+        if not isinstance(response.parsed, GeneratedCredential):
+            raise RenderError("Failed to restore credential: unexpected response type")
+        return _to_credential(response.parsed)
+
+    async def _raise_connect_token_error(
+        self, sandbox_id: str, owner_id: str, response: httpx2.Response, action: str
+    ) -> NoReturn:
+        # The 409 body doesn't say which way the sandbox ended or when, so look
+        # it up to name both.
+        if (
+            response.status_code == 409
+            and _error_body(response.text).code == _SANDBOX_NOT_RUNNING_CODE
+        ):
+            try:
+                sandbox = await self.get(sandbox_id, owner_id)
+            except RenderError:
+                pass
+            else:
+                ended_error = _sandbox_ended_error(sandbox, action)
+                if ended_error is not None:
+                    raise ended_error
+        _raise_sandbox_http_error(
+            sandbox_id, response.status_code, response.text, action
+        )
+
     async def _mint_run_token(
-        self, sandbox_id: str, owner_id: str, operation: str, command: str
+        self, sandbox_id: str, owner_id: str, operation: str
     ) -> dict[str, Any]:
-        # Command rides along so the API keeps a sanitized copy for the audit trail.
         api_client = self.client.get_async_httpx_client()
         try:
             response = await api_client.post(
                 f"/sandboxes/{sandbox_id}/runs/{operation}/token",
                 params={"ownerId": owner_id},
-                json={"command": command},
             )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             handle_httpx_exception(exc, "connect sandbox run")
         if response.status_code >= 400:
-            _raise_sandbox_http_error(
-                sandbox_id, response.status_code, response.text, "exec"
+            await self._raise_connect_token_error(
+                sandbox_id, owner_id, response, "exec"
             )
         return response.json()
 
@@ -706,11 +1003,11 @@ class SandboxApi:
                 f"/sandboxes/{sandbox_id}/files/{operation}/token",
                 params={"ownerId": owner_id, "path": path},
             )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             handle_httpx_exception(exc, "connect sandbox files")
         if response.status_code >= 400:
-            _raise_sandbox_http_error(
-                sandbox_id, response.status_code, response.text, operation
+            await self._raise_connect_token_error(
+                sandbox_id, owner_id, response, operation
             )
         return response.json()
 
@@ -752,26 +1049,26 @@ class SandboxApi:
             content = aiter_tar_gzip(source)
         else:
             headers["Content-Type"] = _CONTENT_TYPE_OCTET_STREAM
-            # An explicit length keeps httpx from sending an iterator body
+            # An explicit length keeps httpx2 from sending an iterator body
             # chunked, and lets the sandbox size the write up front.
             headers["Content-Length"] = str(info.st_size)
             content = aiter_file(source)
 
         # Keep the connect timeout, but let a large upload take as long as it
         # takes, as the object client does.
-        timeout = httpx.Timeout(5.0, read=None, write=None)
+        timeout = httpx2.Timeout(5.0, read=None, write=None)
         try:
-            async with httpx.AsyncClient(timeout=timeout) as proxy_client:
+            async with httpx2.AsyncClient(timeout=timeout) as proxy_client:
                 response = await proxy_client.request(
                     connection["method"],
                     connection["uri"],
                     headers=headers,
                     content=content,
                 )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             handle_httpx_exception(exc, "upload to sandbox")
         finally:
-            # httpx closes the body on today's failure paths, but that is its
+            # httpx2 closes the body on today's failure paths, but that is its
             # internals, not a contract. Closing here is what actually
             # guarantees the archive producer stops when a request dies early.
             await aclose_content(content)
@@ -796,7 +1093,7 @@ class SandboxApi:
         )
         headers = {
             "Authorization": f"Bearer {connection['token']}",
-            # Ask only for the coding httpx undoes for us. Left to itself it
+            # Ask only for the coding httpx2 undoes for us. Left to itself it
             # also advertises deflate, and br/zstd when those are installed,
             # any of which would arrive as a body we refuse to write.
             "Accept-Encoding": "gzip",
@@ -804,10 +1101,10 @@ class SandboxApi:
         # read bounds the wait for the next chunk, not the transfer, so a large
         # download still has as long as it needs while a body that stops
         # arriving fails instead of hanging. Same budget as exec_stream.
-        timeout = httpx.Timeout(5.0, read=45.0, write=None)
+        timeout = httpx2.Timeout(5.0, read=45.0, write=None)
         try:
             async with (
-                httpx.AsyncClient(timeout=timeout) as proxy_client,
+                httpx2.AsyncClient(timeout=timeout) as proxy_client,
                 proxy_client.stream(
                     connection["method"], connection["uri"], headers=headers
                 ) as response,
@@ -843,7 +1140,7 @@ class SandboxApi:
                     async for chunk in response.aiter_bytes():
                         partial.write(chunk)
                     return await arun_blocking(partial.commit, dest)
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             handle_httpx_exception(exc, "download sandbox file")
         except OSError as exc:
             # Spooling, extracting and renaming all touch the local disk, and a
@@ -856,9 +1153,7 @@ class SandboxApi:
     async def exec_stream(
         self, sandbox_id: str, command: str, owner_id: str, operation: str = "stream"
     ) -> AsyncIterator[SandboxExecEvent]:
-        connection = await self._mint_run_token(
-            sandbox_id, owner_id, operation, command
-        )
+        connection = await self._mint_run_token(sandbox_id, owner_id, operation)
         token = connection["token"]
         uri = connection["uri"]
         method = connection["method"]
@@ -869,10 +1164,10 @@ class SandboxApi:
         }
         # Read timeout at 3x the server's 15s SSE keep-alive interval, so a dead
         # connection is detected without cutting off a live but idle stream.
-        timeout = httpx.Timeout(5.0, read=45.0, write=None)
+        timeout = httpx2.Timeout(5.0, read=45.0, write=None)
         try:
             async with (
-                httpx.AsyncClient(timeout=timeout) as proxy_client,
+                httpx2.AsyncClient(timeout=timeout) as proxy_client,
                 proxy_client.stream(
                     method, uri, headers=headers, json={"command": command}
                 ) as response,
@@ -902,7 +1197,7 @@ class SandboxApi:
                 raise SandboxExecError(
                     "sandbox exec stream ended without an exit event"
                 )
-        except httpx.RequestError as exc:
+        except httpx2.RequestError as exc:
             handle_httpx_exception(exc, "exec sandbox")
 
 
@@ -913,6 +1208,23 @@ def _load_event(data: str) -> dict[str, Any]:
         raise SandboxExecError(
             f"failed to parse sandbox exec event data: {data}"
         ) from exc
+
+
+def _sandbox_ended_error(sandbox: Sandbox, action: str) -> SandboxEndedError | None:
+    """Name how and when a sandbox ended, or None if it hasn't."""
+    if sandbox.status not in ("terminated", "errored"):
+        return None
+    ended = "was terminated" if sandbox.status == "terminated" else "errored"
+    at = ""
+    if sandbox.terminated_at:
+        # Match the API's own format, which ends in Z rather than +00:00.
+        at = f" at {sandbox.terminated_at.isoformat().replace('+00:00', 'Z')}"
+    return SandboxEndedError(
+        f"{action} failed: sandbox {sandbox.id} {ended}{at}",
+        sandbox_status=sandbox.status,
+        code=_SANDBOX_NOT_RUNNING_CODE,
+        status_code=409,
+    )
 
 
 def _raise_sandbox_http_error(
@@ -928,6 +1240,7 @@ def _raise_sandbox_http_error(
         if _error_body(body).code == _FILE_NOT_FOUND_CODE:
             raise SandboxFileNotFoundError(message)
         raise SandboxNotFoundError(f"sandbox {sandbox_id} not found")
+    _raise_for_error_code(status_code, body, action)
     if status_code == 429:
         raise RateLimitError(message)
     if 400 <= status_code < 500:

@@ -15,10 +15,11 @@ from itertools import chain
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Final, Literal, TypeAlias
 
+from datamodel_code_generator._graph_links import type_children
 from tests.checks.areas import Area, Mode, mode
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Iterator, Mapping
+    from collections.abc import Callable, Iterable, Mapping
 
 ParentMismatch: TypeAlias = Literal["recorded field", "dropped field", "data type"]
 """What the ``parent`` of a node is when it does not hold the node: a field of a recorded model, another field, or a
@@ -177,6 +178,15 @@ def collapse_module_root_models(original: Callable[[Any, Any], None]) -> Callabl
     return collapse_module_root_models
 
 
+def _positions_by_target(
+    sites_by_target: Mapping[Any, Iterable[Any]], positions: Mapping[Any, tuple[int, int]]
+) -> dict[Any, list[tuple[int, int]]]:
+    """Return the positions of the sites listed per target, for the targets that list any."""
+    return {
+        key: [positions[site_key] for site_key in site_keys] for key, site_keys in sites_by_target.items() if site_keys
+    }
+
+
 def _fact_record(facts: Any) -> dict[str, object]:
     """Return what ``facts`` record, with each id replaced by the parse order or occurrence position it stands for.
 
@@ -214,11 +224,8 @@ def _fact_record(facts: Any) -> dict[str, object]:
         },
         "paths": {path: parse_orders[model_id] for path, model_id in facts.model_by_path.items()},
         "model keys": {key: parse_orders[model_id] for key, model_id in facts.model_by_ref_id.items()},
-        "sites by target": {
-            key: [positions[site_key] for site_key in site_keys]
-            for key, site_keys in facts.sites_by_target.items()
-            if site_keys
-        },
+        "sites by target": _positions_by_target(facts.sites_by_target, positions),
+        "base sites by target": _positions_by_target(facts.base_sites_by_target, positions),
         "reference sites": {positions[key]: site.occurrence for key, site in facts.sites.items()},
     }
 
@@ -324,11 +331,11 @@ def _holders_of(facts: Any, node_key: int, holders: dict[int, dict[int, set[int]
             by_node = holders[model_id] = {}
             model = facts.model_facts[model_id].model
             stack = [(field_.data_type, field_) for field_ in model.fields]
-            stack.extend((child, base) for base in model.base_classes for child in _children(base))
+            stack.extend((child, base) for base in model.base_classes for child in type_children(base))
             while stack:
                 node, holder = stack.pop()
                 by_node.setdefault(id(node), set()).add(id(holder))
-                stack.extend((child, node) for child in _children(node))
+                stack.extend((child, node) for child in type_children(node))
         found |= by_node.get(node_key, set())
     return found
 
@@ -342,7 +349,7 @@ def _node_in_cycle(roots: Iterable[Any], finished: set[int]) -> Any:
     active: set[int] = set()
     for root in roots:
         active.add(id(root))
-        stack = [(root, _children(root))]
+        stack = [(root, iter(type_children(root)))]
         while stack:
             node, children = stack[-1]
             if (child := next(children, None)) is None:
@@ -354,11 +361,5 @@ def _node_in_cycle(roots: Iterable[Any], finished: set[int]) -> Any:
                 return child
             if id(child) not in finished:
                 active.add(id(child))
-                stack.append((child, _children(child)))
+                stack.append((child, iter(type_children(child))))
     return None
-
-
-def _children(data_type: Any) -> Iterator[Any]:
-    yield from data_type.data_types
-    if dict_key := data_type.dict_key:
-        yield dict_key

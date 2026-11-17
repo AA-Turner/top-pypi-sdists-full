@@ -9,8 +9,34 @@ text = "tikin"
 excluded = { salutation = { reason = "Armenian Mrs. in Latin script: unverified, so not shipped", issue = 606, decided = 2026-10-04 } }
 
 [[word]]
+text = "պարոն"
+salutation = { issue = 1225, gender = "m", expands = "paron, Mr.", after_given = true, note = "no bearer: Wikidata and Armenian Wikipedia's people 0, 2026-11-10" }
+
+[[word]]
+text = "տիկին"
+salutation = { issue = 1225, gender = "f", expands = "tikin, Mrs.", after_given = true, note = "no bearer: Wikidata 0; Armenian Wikipedia's people 5, each the title (Տիկին Ճեն, Madame Chen; Տիկին Սի Ջեյ Ուոքեր, Madam C. J. Walker), 4 first and 1 last, 2026-11-10" }
+
+[[word]]
+text = "ակադեմիկոս"
+academic = { issue = 1225, expands = "academician", note = "Wikidata 1 given-name statement, no citizenship stated; Armenian Wikipedia's people 0, 2026-11-10" }
+
+[[word]]
+text = "դոկտոր"
+academic = { issue = 1225, expands = "doctor", note = "no bearer: Wikidata 0; Armenian Wikipedia's people 1, the title (Դոկտոր Լալայան), 2026-11-10" }
+
+[[word]]
+text = "պրոֆեսոր"
+academic = { issue = 1225, expands = "professor", note = "Wikidata 3 given-name statements (Russia 1, Soviet Union 1), the label of a given-name item rather than an Armenian bearer; Armenian Wikipedia's people 0, 2026-11-10" }
+
+[[word]]
 text = "vardapet"
 religious = { expands = "an Armenian celibate priest and doctor of the church" }
+
+[[word]]
+text = "տեր"
+religious = { issue = 1225, expands = "Father, a married priest; also a bishop's", note = "leads 5 of the 10 names that write it in Armenian Wikipedia's people (2026-11-10), each a cleric (Տեր Հուսիկ Լազարյան)" }
+rank = { issue = 1225, expands = "the Տեր- prefix, a priest's descendants, written spaced", note = "stands inside the other 5, the spaced Տեր- surname (Զավեն Տեր Եղիյան) or a transcribed Dutch ter; read as freiherr is, a title at the head and part of the surname inside the name" }
+given = { note = "carries the particle's may-be-given reading, the C-i default, as freiherr's does: a title-particle never reaches the opening fold (rules/P1), its title read first; no source counts it as a given name (2026-11-10)" }
 
 [[word]]
 text = "ավագ"

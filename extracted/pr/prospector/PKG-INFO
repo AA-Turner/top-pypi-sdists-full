@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prospector
-Version: 1.20.0
+Version: 1.20.1
 Summary: Prospector is a tool to analyse Python code by aggregating the result of other tools.
 License-Expression: GPL-2.0-or-later
 License-File: LICENSE
@@ -40,7 +40,7 @@ Requires-Dist: pep8-naming (>=0.3.3,<=0.10.0)
 Requires-Dist: pycodestyle (>=2.9.0)
 Requires-Dist: pydocstyle (>=2.0.0)
 Requires-Dist: pyflakes (>=2.2.0)
-Requires-Dist: pylint (>=4.0)
+Requires-Dist: pylint (>=4.0.9)
 Requires-Dist: pylint-celery (==0.3)
 Requires-Dist: pylint-django (>=2.6.1)
 Requires-Dist: pyright ; extra == "with-everything"

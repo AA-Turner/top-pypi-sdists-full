@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -13,14 +15,14 @@ T = TypeVar("T", bound="SandboxSnapshotWithCursor")
 
 @_attrs_define
 class SandboxSnapshotWithCursor:
-    """A sandbox snapshot with a cursor
+    """A sandbox snapshot with a cursor for fetching the next page of results.
 
     Attributes:
-        snapshot (SandboxSnapshot):
+        snapshot (SandboxSnapshot): A saved filesystem or runtime state that can be used to create another sandbox.
         cursor (str):
     """
 
-    snapshot: "SandboxSnapshot"
+    snapshot: SandboxSnapshot
     cursor: str
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -42,7 +44,7 @@ class SandboxSnapshotWithCursor:
 
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.sandbox_snapshot import SandboxSnapshot
+        from ..models.sandbox_snapshot import SandboxSnapshot  # noqa: PLC0415
 
         d = dict(src_dict)
         snapshot = SandboxSnapshot.from_dict(d.pop("snapshot"))

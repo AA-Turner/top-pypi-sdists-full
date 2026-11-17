@@ -30,6 +30,14 @@ from .agents import (
     AgentsResourceWithStreamingResponse,
     AsyncAgentsResourceWithStreamingResponse,
 )
+from .models import (
+    ModelsResource,
+    AsyncModelsResource,
+    ModelsResourceWithRawResponse,
+    AsyncModelsResourceWithRawResponse,
+    ModelsResourceWithStreamingResponse,
+    AsyncModelsResourceWithStreamingResponse,
+)
 from .voices import (
     VoicesResource,
     AsyncVoicesResource,
@@ -46,6 +54,14 @@ from .datasets import (
     DatasetsResourceWithStreamingResponse,
     AsyncDatasetsResourceWithStreamingResponse,
 )
+from .watermark import (
+    WatermarkResource,
+    AsyncWatermarkResource,
+    WatermarkResourceWithRawResponse,
+    AsyncWatermarkResourceWithRawResponse,
+    WatermarkResourceWithStreamingResponse,
+    AsyncWatermarkResourceWithStreamingResponse,
+)
 from .fine_tunes import (
     FineTunesResource,
     AsyncFineTunesResource,
@@ -61,14 +77,6 @@ from .access_token import (
     AsyncAccessTokenResourceWithRawResponse,
     AccessTokenResourceWithStreamingResponse,
     AsyncAccessTokenResourceWithStreamingResponse,
-)
-from .voice_changer import (
-    VoiceChangerResource,
-    AsyncVoiceChangerResource,
-    VoiceChangerResourceWithRawResponse,
-    AsyncVoiceChangerResourceWithRawResponse,
-    VoiceChangerResourceWithStreamingResponse,
-    AsyncVoiceChangerResourceWithStreamingResponse,
 )
 from .pronunciation_dicts import (
     PronunciationDictsResource,
@@ -104,6 +112,12 @@ __all__ = [
     "AsyncFineTunesResourceWithRawResponse",
     "FineTunesResourceWithStreamingResponse",
     "AsyncFineTunesResourceWithStreamingResponse",
+    "ModelsResource",
+    "AsyncModelsResource",
+    "ModelsResourceWithRawResponse",
+    "AsyncModelsResourceWithRawResponse",
+    "ModelsResourceWithStreamingResponse",
+    "AsyncModelsResourceWithStreamingResponse",
     "PronunciationDictsResource",
     "AsyncPronunciationDictsResource",
     "PronunciationDictsResourceWithRawResponse",
@@ -128,12 +142,12 @@ __all__ = [
     "AsyncTTSResourceWithRawResponse",
     "TTSResourceWithStreamingResponse",
     "AsyncTTSResourceWithStreamingResponse",
-    "VoiceChangerResource",
-    "AsyncVoiceChangerResource",
-    "VoiceChangerResourceWithRawResponse",
-    "AsyncVoiceChangerResourceWithRawResponse",
-    "VoiceChangerResourceWithStreamingResponse",
-    "AsyncVoiceChangerResourceWithStreamingResponse",
+    "WatermarkResource",
+    "AsyncWatermarkResource",
+    "WatermarkResourceWithRawResponse",
+    "AsyncWatermarkResourceWithRawResponse",
+    "WatermarkResourceWithStreamingResponse",
+    "AsyncWatermarkResourceWithStreamingResponse",
     "VoicesResource",
     "AsyncVoicesResource",
     "VoicesResourceWithRawResponse",

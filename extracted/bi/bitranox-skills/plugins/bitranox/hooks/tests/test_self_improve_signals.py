@@ -1961,6 +1961,18 @@ def test_skills_loaded_since_compaction_streams_an_open_file(tmp_path):
         assert S.skills_loaded_since_compaction(fh) == {"compuse-git"}
 
 
+def test_skill_usage_gives_both_views_from_one_pass_over_a_single_use_iterator():
+    # The gate streams the transcript once: the tally counts every call by its full name, a
+    # subagent's and a pre-compaction one included, while the loaded set keeps the main agent's
+    # bare names after the last boundary. A one-shot iterator proves nothing reads the lines twice.
+    lines = iter([_skill_line("bitranox:compuse-git"), _BOUNDARY,
+                  _skill_line("bitranox:compuse-git"),
+                  _skill_line("bitranox:devops-bmk", isSidechain=True), "not json\n"])
+    usage = S.skill_usage(lines)
+    assert dict(usage.invoked) == {"bitranox:compuse-git": 2, "bitranox:devops-bmk": 1}
+    assert usage.loaded_since_compaction == {"compuse-git"}
+
+
 def test_altitude_chain_handles_a_relative_path(tmp_path, monkeypatch):
     """A relative path must yield the same chain as its absolute form.
 
@@ -2379,3 +2391,42 @@ def test_an_owed_nap_is_consumed_once_the_review_reaches_its_compaction_point(ho
     S.set_watermark("/p/umbrella", str(tp), S.DREAM_REVIEWER, len("before-compaction\n"))
     assert S.unsatisfiable_nap_owed("/p/umbrella/child", "sid-current") == (
         str(tp), S.NAP_OWED_TRANSCRIPT_CONSUMED)
+
+
+# ---- has_any_facts answers from the first fact, without reading every body ---------------------
+
+_OPENED: list[str] | None = None
+
+
+def _record_open(event, args):
+    if event == "open" and _OPENED is not None and isinstance(args[0], str):
+        _OPENED.append(args[0])
+
+
+sys.addaudithook(_record_open)       # audit hooks cannot be removed; it records only while armed
+
+
+def test_has_any_facts_opens_one_native_fact_however_many_there_are(home):
+    global _OPENED
+    d = S.memory_dir("/p/many")
+    d.mkdir(parents=True)
+    (d / "MEMORY.md").write_text("# index\n", encoding="utf-8")
+    for i in range(20):
+        (d / ("fact-%02d.md" % i)).write_text("body %d\n" % i, encoding="utf-8")
+    _OPENED = []
+    try:
+        assert S.has_any_facts("/p/many") is True
+        opened = [p for p in _OPENED if Path(p).parent == d]
+    finally:
+        _OPENED = None
+    assert len(opened) <= 1, opened
+
+
+def test_has_any_facts_does_not_count_the_index_or_an_unreadable_entry(home):
+    d = S.memory_dir("/p/few")
+    d.mkdir(parents=True)
+    (d / "MEMORY.md").write_text("# index\n", encoding="utf-8")
+    (d / "not-a-fact.md").mkdir()                 # a directory named like a fact cannot be read
+    assert S.has_any_facts("/p/few") is False
+    (d / "real.md").write_text("", encoding="utf-8")   # an empty fact still exists
+    assert S.has_any_facts("/p/few") is True

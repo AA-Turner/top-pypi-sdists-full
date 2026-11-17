@@ -34,6 +34,9 @@ from .literals import (
     ConnectPeerAssociationStateType,
     ConnectPeerErrorCodeType,
     ConnectPeerStateType,
+    ContextChangeTypeType,
+    ContextStoreAssociationStateType,
+    ContextStoreStateType,
     CoreNetworkPolicyAliasType,
     CoreNetworkStateType,
     CustomerGatewayAssociationStateType,
@@ -74,6 +77,8 @@ __all__ = (
     "AccountStatusTypeDef",
     "AssociateConnectPeerRequestTypeDef",
     "AssociateConnectPeerResponseTypeDef",
+    "AssociateContextStoreRequestTypeDef",
+    "AssociateContextStoreResponseTypeDef",
     "AssociateCustomerGatewayRequestTypeDef",
     "AssociateCustomerGatewayResponseTypeDef",
     "AssociateLinkRequestTypeDef",
@@ -96,6 +101,10 @@ __all__ = (
     "ConnectPeerTypeDef",
     "ConnectionHealthTypeDef",
     "ConnectionTypeDef",
+    "ContextChangeTypeDef",
+    "ContextEntryTypeDef",
+    "ContextStoreAssociationTypeDef",
+    "ContextStoreTypeDef",
     "CoreNetworkChangeEventTypeDef",
     "CoreNetworkChangeEventValuesTypeDef",
     "CoreNetworkChangeTypeDef",
@@ -117,6 +126,8 @@ __all__ = (
     "CreateConnectPeerResponseTypeDef",
     "CreateConnectionRequestTypeDef",
     "CreateConnectionResponseTypeDef",
+    "CreateContextStoreRequestTypeDef",
+    "CreateContextStoreResponseTypeDef",
     "CreateCoreNetworkPrefixListAssociationRequestTypeDef",
     "CreateCoreNetworkPrefixListAssociationResponseTypeDef",
     "CreateCoreNetworkRequestTypeDef",
@@ -146,6 +157,8 @@ __all__ = (
     "DeleteConnectPeerResponseTypeDef",
     "DeleteConnectionRequestTypeDef",
     "DeleteConnectionResponseTypeDef",
+    "DeleteContextStoreRequestTypeDef",
+    "DeleteContextStoreResponseTypeDef",
     "DeleteCoreNetworkPolicyVersionRequestTypeDef",
     "DeleteCoreNetworkPolicyVersionResponseTypeDef",
     "DeleteCoreNetworkPrefixListAssociationRequestTypeDef",
@@ -172,6 +185,8 @@ __all__ = (
     "DirectConnectGatewayAttachmentTypeDef",
     "DisassociateConnectPeerRequestTypeDef",
     "DisassociateConnectPeerResponseTypeDef",
+    "DisassociateContextStoreRequestTypeDef",
+    "DisassociateContextStoreResponseTypeDef",
     "DisassociateCustomerGatewayRequestTypeDef",
     "DisassociateCustomerGatewayResponseTypeDef",
     "DisassociateLinkRequestTypeDef",
@@ -190,6 +205,12 @@ __all__ = (
     "GetConnectionsRequestPaginateTypeDef",
     "GetConnectionsRequestTypeDef",
     "GetConnectionsResponseTypeDef",
+    "GetContextStoreAssociationRequestTypeDef",
+    "GetContextStoreAssociationResponseTypeDef",
+    "GetContextStoreRequestTypeDef",
+    "GetContextStoreResponseTypeDef",
+    "GetContextVersionRequestTypeDef",
+    "GetContextVersionResponseTypeDef",
     "GetCoreNetworkChangeEventsRequestPaginateTypeDef",
     "GetCoreNetworkChangeEventsRequestTypeDef",
     "GetCoreNetworkChangeEventsResponseTypeDef",
@@ -265,6 +286,18 @@ __all__ = (
     "ListConnectPeersRequestPaginateTypeDef",
     "ListConnectPeersRequestTypeDef",
     "ListConnectPeersResponseTypeDef",
+    "ListContextChangesRequestPaginateTypeDef",
+    "ListContextChangesRequestTypeDef",
+    "ListContextChangesResponseTypeDef",
+    "ListContextStoreAssociationsRequestPaginateTypeDef",
+    "ListContextStoreAssociationsRequestTypeDef",
+    "ListContextStoreAssociationsResponseTypeDef",
+    "ListContextStoresRequestPaginateTypeDef",
+    "ListContextStoresRequestTypeDef",
+    "ListContextStoresResponseTypeDef",
+    "ListContextsRequestPaginateTypeDef",
+    "ListContextsRequestTypeDef",
+    "ListContextsResponseTypeDef",
     "ListCoreNetworkPolicyVersionsRequestPaginateTypeDef",
     "ListCoreNetworkPolicyVersionsRequestTypeDef",
     "ListCoreNetworkPolicyVersionsResponseTypeDef",
@@ -346,6 +379,8 @@ __all__ = (
     "UpdateAttachmentNatConfigurationResponseTypeDef",
     "UpdateConnectionRequestTypeDef",
     "UpdateConnectionResponseTypeDef",
+    "UpdateContextStoreRequestTypeDef",
+    "UpdateContextStoreResponseTypeDef",
     "UpdateCoreNetworkRequestTypeDef",
     "UpdateCoreNetworkResponseTypeDef",
     "UpdateDeviceRequestTypeDef",
@@ -404,6 +439,18 @@ class ConnectPeerAssociationTypeDef(TypedDict):
     DeviceId: NotRequired[str]
     LinkId: NotRequired[str]
     State: NotRequired[ConnectPeerAssociationStateType]
+
+
+class AssociateContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    TransitGatewayArn: NotRequired[str]
+
+
+class ContextStoreAssociationTypeDef(TypedDict):
+    ContextStoreId: NotRequired[str]
+    TransitGatewayArn: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    State: NotRequired[ContextStoreAssociationStateType]
 
 
 class AssociateCustomerGatewayRequestTypeDef(TypedDict):
@@ -516,6 +563,16 @@ ConnectionHealthTypeDef = TypedDict(
 )
 
 
+class ContextEntryTypeDef(TypedDict):
+    ContextId: NotRequired[str]
+    ContextType: NotRequired[str]
+    SegmentType: NotRequired[str]
+    PublicId: NotRequired[str]
+    Region: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AttachmentType: NotRequired[str]
+
+
 class RoutingPolicyAssociationDetailTypeDef(TypedDict):
     RoutingPolicyNames: NotRequired[list[str]]
     SharedSegments: NotRequired[list[str]]
@@ -613,6 +670,10 @@ class DeleteConnectionRequestTypeDef(TypedDict):
     ConnectionId: str
 
 
+class DeleteContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+
+
 class DeleteCoreNetworkPolicyVersionRequestTypeDef(TypedDict):
     CoreNetworkId: str
     PolicyVersionId: int
@@ -676,6 +737,11 @@ class DisassociateConnectPeerRequestTypeDef(TypedDict):
     ConnectPeerId: str
 
 
+class DisassociateContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    TransitGatewayArn: str
+
+
 class DisassociateCustomerGatewayRequestTypeDef(TypedDict):
     GlobalNetworkId: str
     CustomerGatewayArn: str
@@ -723,6 +789,19 @@ class GetConnectionsRequestTypeDef(TypedDict):
     DeviceId: NotRequired[str]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+
+class GetContextStoreAssociationRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    TransitGatewayArn: str
+
+
+class GetContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+
+
+class GetContextVersionRequestTypeDef(TypedDict):
+    ContextStoreId: str
 
 
 class GetCoreNetworkChangeEventsRequestTypeDef(TypedDict):
@@ -920,6 +999,31 @@ class ListConnectPeersRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ListContextChangesRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    FromVersionId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListContextStoreAssociationsRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListContextStoresRequestTypeDef(TypedDict):
+    GlobalNetworkId: NotRequired[str]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
+class ListContextsRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+
 class ListCoreNetworkPolicyVersionsRequestTypeDef(TypedDict):
     CoreNetworkId: str
     MaxResults: NotRequired[int]
@@ -1088,6 +1192,11 @@ class UpdateConnectionRequestTypeDef(TypedDict):
     Description: NotRequired[str]
 
 
+class UpdateContextStoreRequestTypeDef(TypedDict):
+    ContextStoreId: str
+    Description: NotRequired[str]
+
+
 class UpdateCoreNetworkRequestTypeDef(TypedDict):
     CoreNetworkId: str
     Description: NotRequired[str]
@@ -1119,6 +1228,11 @@ class CreateCoreNetworkPrefixListAssociationResponseTypeDef(TypedDict):
 class DeleteCoreNetworkPrefixListAssociationResponseTypeDef(TypedDict):
     CoreNetworkId: str
     PrefixListArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetContextVersionResponseTypeDef(TypedDict):
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1166,6 +1280,27 @@ class DisassociateConnectPeerResponseTypeDef(TypedDict):
 
 class GetConnectPeerAssociationsResponseTypeDef(TypedDict):
     ConnectPeerAssociations: list[ConnectPeerAssociationTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class AssociateContextStoreResponseTypeDef(TypedDict):
+    ContextStoreAssociation: ContextStoreAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DisassociateContextStoreResponseTypeDef(TypedDict):
+    ContextStoreAssociation: ContextStoreAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetContextStoreAssociationResponseTypeDef(TypedDict):
+    ContextStoreAssociation: ContextStoreAssociationTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListContextStoreAssociationsResponseTypeDef(TypedDict):
+    ContextStoreAssociations: list[ContextStoreAssociationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -1264,6 +1399,16 @@ class ConnectionTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
+class ContextStoreTypeDef(TypedDict):
+    GlobalNetworkId: NotRequired[str]
+    ContextStoreId: NotRequired[str]
+    ContextStoreArn: NotRequired[str]
+    Description: NotRequired[str]
+    CreatedAt: NotRequired[datetime]
+    State: NotRequired[ContextStoreStateType]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class CoreNetworkSummaryTypeDef(TypedDict):
     CoreNetworkId: NotRequired[str]
     CoreNetworkArn: NotRequired[str]
@@ -1282,6 +1427,13 @@ class CreateConnectionRequestTypeDef(TypedDict):
     ConnectedLinkId: NotRequired[str]
     Description: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class CreateContextStoreRequestTypeDef(TypedDict):
+    GlobalNetworkId: str
+    Description: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+    ClientToken: NotRequired[str]
 
 
 class CreateCoreNetworkRequestTypeDef(TypedDict):
@@ -1431,6 +1583,18 @@ class NetworkTelemetryTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
     Address: NotRequired[str]
     Health: NotRequired[ConnectionHealthTypeDef]
+
+
+class ContextChangeTypeDef(TypedDict):
+    ChangeType: NotRequired[ContextChangeTypeType]
+    Context: NotRequired[ContextEntryTypeDef]
+
+
+class ListContextsResponseTypeDef(TypedDict):
+    Contexts: list[ContextEntryTypeDef]
+    VersionId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 class CoreNetworkChangeEventValuesTypeDef(TypedDict):
@@ -1771,6 +1935,27 @@ class ListConnectPeersRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListContextChangesRequestPaginateTypeDef(TypedDict):
+    ContextStoreId: str
+    FromVersionId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListContextStoreAssociationsRequestPaginateTypeDef(TypedDict):
+    ContextStoreId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListContextStoresRequestPaginateTypeDef(TypedDict):
+    GlobalNetworkId: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListContextsRequestPaginateTypeDef(TypedDict):
+    ContextStoreId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListCoreNetworkPolicyVersionsRequestPaginateTypeDef(TypedDict):
     CoreNetworkId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -1919,6 +2104,32 @@ class UpdateConnectionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateContextStoreResponseTypeDef(TypedDict):
+    ContextStore: ContextStoreTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteContextStoreResponseTypeDef(TypedDict):
+    ContextStore: ContextStoreTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetContextStoreResponseTypeDef(TypedDict):
+    ContextStore: ContextStoreTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ListContextStoresResponseTypeDef(TypedDict):
+    ContextStores: list[ContextStoreTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class UpdateContextStoreResponseTypeDef(TypedDict):
+    ContextStore: ContextStoreTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class ListCoreNetworksResponseTypeDef(TypedDict):
     CoreNetworks: list[CoreNetworkSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2011,6 +2222,14 @@ class ConnectPeerTypeDef(TypedDict):
 
 class GetNetworkTelemetryResponseTypeDef(TypedDict):
     NetworkTelemetry: list[NetworkTelemetryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListContextChangesResponseTypeDef(TypedDict):
+    ContextChanges: list[ContextChangeTypeDef]
+    FromVersionId: str
+    ToVersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 

@@ -156,8 +156,7 @@ class ActionChunkResult:
     # How many ticks of history the SDK filled in (episode-start padding of past observations
     # or executed actions; 0 for a complete history, and for models without one).
     history_padded: int = 0
-    # Praxis-1 (experimental): the engine that served this answer ("standard" or "lightning"),
-    # where the server says, and why standard served a lightning session ("unavailable").
+    # Kept for compatibility: what the server says of the engine that served this answer.
     engine: str | None = None
     engine_reason: str | None = None
 

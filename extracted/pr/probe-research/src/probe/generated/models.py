@@ -74,10 +74,15 @@ from .enums import (  # noqa: F401 - re-exported
     ContributionSource,
     CreatorKind,
     Role2,
+    DecisionActorKind,
+    DecisionAuthor,
+    DecisionEffect,
+    DecisionTargetType,
+    DecisionWriter,
     DeletionState,
     DeliveryStallCause,
     Role3,
-    Decision,
+    Decision1,
     Status,
     CaptureSource,
     Status1,
@@ -409,6 +414,39 @@ class AppliedOp(BaseModel):
     id: UUID = Field(..., title='Id')
     op: str = Field(..., title='Op')
     undoable: bool = Field(..., title='Undoable')
+
+
+class Artifact(BaseModel):
+    """
+    A file as every surface reads it.
+    """
+
+    content_hash: str | None = Field(None, title='Content Hash')
+    content_type: str | None = Field(None, title='Content Type')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    credential_findings: list[str] | None = Field(None, title='Credential Findings')
+    customer_id: str = Field(..., title='Customer Id')
+    dims_hash: str | None = Field(None, title='Dims Hash')
+    experiment_id: UUID | None = Field(None, title='Experiment Id')
+    id: UUID = Field(..., title='Id')
+    is_reference: bool = Field(..., title='Is Reference')
+    kind: str = Field(..., title='Kind')
+    meta: dict[str, Any] | None = Field(None, title='Meta')
+    name: str = Field(..., title='Name')
+    paper_id: UUID | None = Field(None, title='Paper Id')
+    path: str | None = Field('', title='Path')
+    project_id: UUID | None = Field(None, title='Project Id')
+    redacted_at: AwareDatetime | None = Field(None, title='Redacted At')
+    redacted_spans: int | None = Field(None, title='Redacted Spans')
+    run_id: UUID | None = Field(None, title='Run Id')
+    shared_folder_id: UUID | None = Field(None, title='Shared Folder Id')
+    size_bytes: int | None = Field(None, title='Size Bytes')
+    source_level: str | None = Field(None, title='Source Level')
+    span_id: UUID | None = Field(None, title='Span Id')
+    status: str | None = Field('complete', title='Status')
+    step_index: int | None = Field(None, title='Step Index')
+    uri: str | None = Field(None, title='Uri')
+    workspace_id: UUID | None = Field(None, title='Workspace Id')
 
 
 class SizeBytes(RootModel[int]):
@@ -1501,6 +1539,21 @@ class DatasetRow(BaseModel):
     row: Row | None = Field(None, title='Row')
 
 
+class Rejected(RootModel[str]):
+    root: str = Field(..., max_length=300, title='Rejected')
+
+
+class DecisionSession(BaseModel):
+    """
+    The coding session the decision was written from; `owner` is the person who ran it.
+    """
+
+    agent: str = Field(..., title='Agent')
+    id: str = Field(..., title='Id')
+    owner: str = Field(..., title='Owner')
+    title: str = Field(..., title='Title')
+
+
 class DeleteAccountRequest(BaseModel):
     """
     DELETE /auth/account body (PRB-001).
@@ -1655,7 +1708,7 @@ class ExpectedCustomerId(RootModel[str]):
 
 
 class DeviceAuthorizationDecision(BaseModel):
-    decision: Decision = Field(..., title='Decision')
+    decision: Decision1 = Field(..., title='Decision')
     expected_customer_id: ExpectedCustomerId | None = Field(
         None, title='Expected Customer Id'
     )
@@ -9697,6 +9750,35 @@ class DatasetRegisterOut(BaseModel):
     version: VersionRefOut
 
 
+class DecisionActor(BaseModel):
+    kind: DecisionActorKind
+    name: str = Field(..., title='Name')
+
+
+class DecisionTarget(BaseModel):
+    """
+    A target as served: its current name, its Lineage status tone and label, and a detail.
+    """
+
+    detail: str | None = Field(..., title='Detail')
+    effect: DecisionEffect
+    id: UUID = Field(..., title='Id')
+    name: str = Field(..., title='Name')
+    status: str = Field(..., title='Status')
+    status_label: str = Field(..., title='Status Label')
+    type: DecisionTargetType
+
+
+class DecisionTargetIn(BaseModel):
+    """
+    An experiment or run the decision touched: `ref` is its id or slug.
+    """
+
+    effect: DecisionEffect
+    ref: str = Field(..., max_length=200, min_length=1, title='Ref')
+    type: DecisionTargetType
+
+
 class Inputs(RootModel[list[SeriesSelector]]):
     root: list[SeriesSelector] = Field(..., max_length=16, title='Inputs')
 
@@ -12614,6 +12696,7 @@ class TaskDetail(BaseModel):
 
     dataset: DatasetRow | None = None
     description: Description3 | None = Field(None, title='Description')
+    files: list[Artifact] | None = Field(None, title='Files')
     label: Any = None
     name: Name16 | None = Field(None, title='Name')
     prompt: str | None = Field(None, title='Prompt')
@@ -13320,6 +13403,46 @@ class CompareColumn(BaseModel):
     split: SampleSplit | None = None
     step: int | None = Field(None, title='Step')
     version: int | None = Field(None, title='Version')
+
+
+class Decision(BaseModel):
+    also_follows: list[UUID] = Field(..., title='Also Follows')
+    decided_at: AwareDatetime = Field(..., title='Decided At')
+    decided_by: DecisionActor
+    detail: str = Field(..., title='Detail')
+    experiment_id: UUID | None = Field(..., title='Experiment Id')
+    follows: UUID | None = Field(..., title='Follows')
+    id: UUID = Field(..., title='Id')
+    project_id: UUID = Field(..., title='Project Id')
+    rejected: str | None = Field(..., title='Rejected')
+    session: DecisionSession | None
+    targets: list[DecisionTarget] = Field(..., title='Targets')
+    title: str = Field(..., title='Title')
+    written_by: DecisionWriter
+
+
+class DecisionCreate(BaseModel):
+    """
+    `POST /v1/projects/{scope}/decisions`. Who wrote it and from which session come from the
+    request, never from here.
+    """
+
+    also_follows: list[UUID] | None = Field(None, max_length=20, title='Also Follows')
+    decided_at: AwareDatetime | None = Field(None, title='Decided At')
+    decided_by: DecisionAuthor
+    detail: str = Field(..., max_length=600, min_length=1, title='Detail')
+    evidence: list[str] | None = Field(None, max_length=50, title='Evidence')
+    follows: UUID | None = Field(None, title='Follows')
+    imported: bool | None = Field(False, title='Imported')
+    rejected: Rejected | None = Field(None, title='Rejected')
+    targets: list[DecisionTargetIn] = Field(
+        ..., max_length=50, min_length=1, title='Targets'
+    )
+    title: str = Field(..., max_length=80, min_length=1, title='Title')
+
+
+class DecisionListOut(BaseModel):
+    decisions: list[Decision] = Field(..., title='Decisions')
 
 
 class DesktopProfile(BaseModel):

@@ -13,8 +13,10 @@ class TestBrowsing:
     def test_get_home(self, yt, yt_auth):
         result = yt.get_home()
         assert len(result) >= 2
+        first_page = yt_auth.get_home(limit=1)
         result = yt_auth.get_home(limit=20)
-        assert len(result) >= 15
+        # feed length is personalized and varies, so only assert that continuations were followed
+        assert len(result) > len(first_page)
         assert all(
             # ensure we aren't parsing specifiers like "Song" as artist names
             item["artists"][0]["id"]
@@ -34,6 +36,8 @@ class TestBrowsing:
         assert len(results) == 18
         assert results["shuffleId"] is not None
         assert results["radioId"] is not None
+        # the page for the artist's own channelId links the radio with a watchPlaylistEndpoint
+        assert yt.get_artist(results["channelId"])["radioId"] == results["radioId"]
 
         # test correctness of related artists
         related = results["related"]["results"]
@@ -107,6 +111,23 @@ class TestBrowsing:
         assert len(result["albums"]["results"]) == 1
         assert result["albums"]["results"][0]["title"] == "Test Album"
         assert result["albums"]["results"][0]["browseId"] == "MPREb_test123"
+
+    def test_get_artist_header_less_promo_carousel(self, yt, data_path):
+        """regression test for #1031: some artist pages start with a promotional
+        musicCarouselShelfRenderer without a header, placed before the songs shelf"""
+        with open(data_path / "2026_11_get_artist_promo_carousel.json", encoding="utf8") as f:
+            mock_response = json.load(f)
+
+        with mock.patch("ytmusicapi.YTMusic._send_request", return_value=mock_response):
+            result = yt.get_artist("UCJyuVUIg-MCLF_LcccnzW3g")
+
+        assert result["name"] == "YSY A"
+        assert "results" in result["songs"]
+        assert len(result["songs"]["results"]) == 5
+        assert all(song["videoId"] for song in result["songs"]["results"])
+        assert len(result["albums"]["results"]) == 1
+        assert result["albums"]["results"][0]["title"] == "EL TRAP DE TU PAÍS"
+        assert result["albums"]["results"][0]["browseId"] == "MPREb_KLhmExkBStk"
 
     def test_get_artist_shows(self, yt_oauth):
         # with audiobooks - only with authentication

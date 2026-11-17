@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-solo
-Version: 2.7.0
+Version: 2.8.0
 Summary: Django Solo helps working with singletons
 Author: lazybird
 Maintainer-email: John Hagen <johnthagen@gmail.com>

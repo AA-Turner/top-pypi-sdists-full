@@ -32,6 +32,10 @@ class Check:
             status (CheckStatus): How far one job has got, as a fact. The page works out what to show
                 from it and `conclusion`.
 
+                "unknown" is a status the forge sent that the server cannot grade, a
+                word added after the server was written. It is not queued and has not
+                failed, and the page shows it as unknown.
+
                 "waiting" is a GitHub workflow run held until a maintainer approves
                 it. It has no jobs yet, so it is not queued and has not failed; its
                 `url` is the run's page, where the approve button is. A check run
@@ -47,7 +51,8 @@ class Check:
                 the job (`success`, `failure`, `cancelled`, `skipped`). A legacy
                 commit status, which has no conclusion, is sent as `success` or
                 `failure`. A client decides what each word means and what to do
-                with one it doesn't know.
+                with one it doesn't know: the page shows it as unknown, not as a
+                failure.
 
                 `startup_failure` is a workflow run that never started. It has no
                 jobs, so the check carries the workflow's name, `url` is the run's
@@ -56,6 +61,10 @@ class Check:
                 `action_required` means the job needs someone's approval, and `url`
                 is where to give it. The page shows it as waiting for approval,
                 the same as a held run whose `status` is "waiting".
+            reported_status (str | Unset): The forge's own word for the job's status, sent only when `status`
+                is "unknown", so a client can name what it cannot grade. Absent
+                for every other status. A finished job's own word is its
+                `conclusion`.
             waiting_for (CheckWaitingFor | Unset): Why a queued Forgejo job has not started: `jobs` when it waits on
                 earlier jobs it needs (Forgejo's `blocked`), `runner` when it is
                 ready and waits for a runner to pick it up (`waiting`). The page
@@ -121,6 +130,7 @@ class Check:
     status: CheckStatus
     url: str
     conclusion: str | Unset = UNSET
+    reported_status: str | Unset = UNSET
     waiting_for: CheckWaitingFor | Unset = UNSET
     job_id: int | Unset = UNSET
     run_id: int | Unset = UNSET
@@ -147,6 +157,8 @@ class Check:
         url = self.url
 
         conclusion = self.conclusion
+
+        reported_status = self.reported_status
 
         waiting_for: str | Unset = UNSET
         if not isinstance(self.waiting_for, Unset):
@@ -189,6 +201,8 @@ class Check:
         })
         if conclusion is not UNSET:
             field_dict["conclusion"] = conclusion
+        if reported_status is not UNSET:
+            field_dict["reportedStatus"] = reported_status
         if waiting_for is not UNSET:
             field_dict["waitingFor"] = waiting_for
         if job_id is not UNSET:
@@ -231,6 +245,8 @@ class Check:
         url = d.pop("url")
 
         conclusion = d.pop("conclusion", UNSET)
+
+        reported_status = d.pop("reportedStatus", UNSET)
 
         _waiting_for = d.pop("waitingFor", UNSET)
         waiting_for: CheckWaitingFor | Unset
@@ -285,6 +301,7 @@ class Check:
             status=status,
             url=url,
             conclusion=conclusion,
+            reported_status=reported_status,
             waiting_for=waiting_for,
             job_id=job_id,
             run_id=run_id,

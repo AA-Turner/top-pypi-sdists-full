@@ -48,6 +48,10 @@ from .paginator import (
     ListAttachmentRoutingPolicyAssociationsPaginator,
     ListAttachmentsPaginator,
     ListConnectPeersPaginator,
+    ListContextChangesPaginator,
+    ListContextsPaginator,
+    ListContextStoreAssociationsPaginator,
+    ListContextStoresPaginator,
     ListCoreNetworkPolicyVersionsPaginator,
     ListCoreNetworkPrefixListAssociationsPaginator,
     ListCoreNetworkRoutingInformationPaginator,
@@ -59,6 +63,8 @@ from .type_defs import (
     AcceptAttachmentResponseTypeDef,
     AssociateConnectPeerRequestTypeDef,
     AssociateConnectPeerResponseTypeDef,
+    AssociateContextStoreRequestTypeDef,
+    AssociateContextStoreResponseTypeDef,
     AssociateCustomerGatewayRequestTypeDef,
     AssociateCustomerGatewayResponseTypeDef,
     AssociateLinkRequestTypeDef,
@@ -71,6 +77,8 @@ from .type_defs import (
     CreateConnectionResponseTypeDef,
     CreateConnectPeerRequestTypeDef,
     CreateConnectPeerResponseTypeDef,
+    CreateContextStoreRequestTypeDef,
+    CreateContextStoreResponseTypeDef,
     CreateCoreNetworkPrefixListAssociationRequestTypeDef,
     CreateCoreNetworkPrefixListAssociationResponseTypeDef,
     CreateCoreNetworkRequestTypeDef,
@@ -99,6 +107,8 @@ from .type_defs import (
     DeleteConnectionResponseTypeDef,
     DeleteConnectPeerRequestTypeDef,
     DeleteConnectPeerResponseTypeDef,
+    DeleteContextStoreRequestTypeDef,
+    DeleteContextStoreResponseTypeDef,
     DeleteCoreNetworkPolicyVersionRequestTypeDef,
     DeleteCoreNetworkPolicyVersionResponseTypeDef,
     DeleteCoreNetworkPrefixListAssociationRequestTypeDef,
@@ -122,6 +132,8 @@ from .type_defs import (
     DescribeGlobalNetworksResponseTypeDef,
     DisassociateConnectPeerRequestTypeDef,
     DisassociateConnectPeerResponseTypeDef,
+    DisassociateContextStoreRequestTypeDef,
+    DisassociateContextStoreResponseTypeDef,
     DisassociateCustomerGatewayRequestTypeDef,
     DisassociateCustomerGatewayResponseTypeDef,
     DisassociateLinkRequestTypeDef,
@@ -137,6 +149,12 @@ from .type_defs import (
     GetConnectPeerAssociationsResponseTypeDef,
     GetConnectPeerRequestTypeDef,
     GetConnectPeerResponseTypeDef,
+    GetContextStoreAssociationRequestTypeDef,
+    GetContextStoreAssociationResponseTypeDef,
+    GetContextStoreRequestTypeDef,
+    GetContextStoreResponseTypeDef,
+    GetContextVersionRequestTypeDef,
+    GetContextVersionResponseTypeDef,
     GetCoreNetworkChangeEventsRequestTypeDef,
     GetCoreNetworkChangeEventsResponseTypeDef,
     GetCoreNetworkChangeSetRequestTypeDef,
@@ -191,6 +209,14 @@ from .type_defs import (
     ListAttachmentsResponseTypeDef,
     ListConnectPeersRequestTypeDef,
     ListConnectPeersResponseTypeDef,
+    ListContextChangesRequestTypeDef,
+    ListContextChangesResponseTypeDef,
+    ListContextsRequestTypeDef,
+    ListContextsResponseTypeDef,
+    ListContextStoreAssociationsRequestTypeDef,
+    ListContextStoreAssociationsResponseTypeDef,
+    ListContextStoresRequestTypeDef,
+    ListContextStoresResponseTypeDef,
     ListCoreNetworkPolicyVersionsRequestTypeDef,
     ListCoreNetworkPolicyVersionsResponseTypeDef,
     ListCoreNetworkPrefixListAssociationsRequestTypeDef,
@@ -228,6 +254,8 @@ from .type_defs import (
     UpdateAttachmentNatConfigurationResponseTypeDef,
     UpdateConnectionRequestTypeDef,
     UpdateConnectionResponseTypeDef,
+    UpdateContextStoreRequestTypeDef,
+    UpdateContextStoreResponseTypeDef,
     UpdateCoreNetworkRequestTypeDef,
     UpdateCoreNetworkResponseTypeDef,
     UpdateDeviceRequestTypeDef,
@@ -323,6 +351,16 @@ class NetworkManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#associate_connect_peer)
         """
 
+    def associate_context_store(
+        self, **kwargs: Unpack[AssociateContextStoreRequestTypeDef]
+    ) -> AssociateContextStoreResponseTypeDef:
+        """
+        Associates a transit gateway with a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/associate_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#associate_context_store)
+        """
+
     def associate_customer_gateway(
         self, **kwargs: Unpack[AssociateCustomerGatewayRequestTypeDef]
     ) -> AssociateCustomerGatewayResponseTypeDef:
@@ -384,6 +422,16 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/create_connection.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#create_connection)
+        """
+
+    def create_context_store(
+        self, **kwargs: Unpack[CreateContextStoreRequestTypeDef]
+    ) -> CreateContextStoreResponseTypeDef:
+        """
+        Creates a context store in a global network.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/create_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#create_context_store)
         """
 
     def create_core_network(
@@ -525,6 +573,16 @@ class NetworkManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#delete_connection)
         """
 
+    def delete_context_store(
+        self, **kwargs: Unpack[DeleteContextStoreRequestTypeDef]
+    ) -> DeleteContextStoreResponseTypeDef:
+        """
+        Deletes a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/delete_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#delete_context_store)
+        """
+
     def delete_core_network(
         self, **kwargs: Unpack[DeleteCoreNetworkRequestTypeDef]
     ) -> DeleteCoreNetworkResponseTypeDef:
@@ -641,6 +699,16 @@ class NetworkManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#disassociate_connect_peer)
         """
 
+    def disassociate_context_store(
+        self, **kwargs: Unpack[DisassociateContextStoreRequestTypeDef]
+    ) -> DisassociateContextStoreResponseTypeDef:
+        """
+        Disassociates a transit gateway from a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/disassociate_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#disassociate_context_store)
+        """
+
     def disassociate_customer_gateway(
         self, **kwargs: Unpack[DisassociateCustomerGatewayRequestTypeDef]
     ) -> DisassociateCustomerGatewayResponseTypeDef:
@@ -719,6 +787,37 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_connections.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_connections)
+        """
+
+    def get_context_store(
+        self, **kwargs: Unpack[GetContextStoreRequestTypeDef]
+    ) -> GetContextStoreResponseTypeDef:
+        """
+        Returns information about a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_context_store)
+        """
+
+    def get_context_store_association(
+        self, **kwargs: Unpack[GetContextStoreAssociationRequestTypeDef]
+    ) -> GetContextStoreAssociationResponseTypeDef:
+        """
+        Returns information about the association between a context store and a transit
+        gateway.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_context_store_association.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_context_store_association)
+        """
+
+    def get_context_version(
+        self, **kwargs: Unpack[GetContextVersionRequestTypeDef]
+    ) -> GetContextVersionResponseTypeDef:
+        """
+        Returns the current version of the context entries of a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_context_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_context_version)
         """
 
     def get_core_network(
@@ -991,6 +1090,48 @@ class NetworkManagerClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#list_connect_peers)
         """
 
+    def list_context_changes(
+        self, **kwargs: Unpack[ListContextChangesRequestTypeDef]
+    ) -> ListContextChangesResponseTypeDef:
+        """
+        Returns the context entries that were added to or removed from a context store
+        after the specified version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_context_changes.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#list_context_changes)
+        """
+
+    def list_context_store_associations(
+        self, **kwargs: Unpack[ListContextStoreAssociationsRequestTypeDef]
+    ) -> ListContextStoreAssociationsResponseTypeDef:
+        """
+        Returns the transit gateway associations of a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_context_store_associations.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#list_context_store_associations)
+        """
+
+    def list_context_stores(
+        self, **kwargs: Unpack[ListContextStoresRequestTypeDef]
+    ) -> ListContextStoresResponseTypeDef:
+        """
+        Returns the context stores in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_context_stores.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#list_context_stores)
+        """
+
+    def list_contexts(
+        self, **kwargs: Unpack[ListContextsRequestTypeDef]
+    ) -> ListContextsResponseTypeDef:
+        """
+        Returns the context entries of a context store, and the version of the context
+        entries.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/list_contexts.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#list_contexts)
+        """
+
     def list_core_network_policy_versions(
         self, **kwargs: Unpack[ListCoreNetworkPolicyVersionsRequestTypeDef]
     ) -> ListCoreNetworkPolicyVersionsResponseTypeDef:
@@ -1188,6 +1329,16 @@ class NetworkManagerClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/update_connection.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#update_connection)
+        """
+
+    def update_context_store(
+        self, **kwargs: Unpack[UpdateContextStoreRequestTypeDef]
+    ) -> UpdateContextStoreResponseTypeDef:
+        """
+        Updates the description of a context store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/update_context_store.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#update_context_store)
         """
 
     def update_core_network(
@@ -1491,6 +1642,50 @@ class NetworkManagerClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_connect_peers"]
     ) -> ListConnectPeersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_context_changes"]
+    ) -> ListContextChangesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_context_store_associations"]
+    ) -> ListContextStoreAssociationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_context_stores"]
+    ) -> ListContextStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/networkmanager/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_networkmanager/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_contexts"]
+    ) -> ListContextsPaginator:
         """
         Create a paginator for an operation.
 

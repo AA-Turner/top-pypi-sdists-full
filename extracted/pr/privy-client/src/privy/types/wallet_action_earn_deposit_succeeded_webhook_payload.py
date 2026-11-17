@@ -28,6 +28,12 @@ class WalletActionEarnDepositSucceededWebhookPayload(BaseModel):
     created_at: str
     """ISO 8601 timestamp of when the wallet action was created."""
 
+    event_id: str
+    """
+    The ID of this event, stable across repeat deliveries so clients can deduplicate
+    on it.
+    """
+
     raw_amount: str
     """Base-unit amount of asset deposited (e.g. "1500000")."""
 
@@ -38,7 +44,11 @@ class WalletActionEarnDepositSucceededWebhookPayload(BaseModel):
     """The status of the wallet action."""
 
     steps: List[WalletActionStep]
-    """The steps of the wallet action, including transaction hashes."""
+    """
+    The steps of the wallet action, including transaction hashes;
+    `gas_credits_charged` on a step may still be `null` when this webhook fires, so
+    fetch the wallet action directly for up-to-date gas data.
+    """
 
     type: Literal["wallet_action.earn_deposit.succeeded"]
     """The type of webhook event."""

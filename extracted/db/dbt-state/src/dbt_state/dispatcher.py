@@ -157,6 +157,12 @@ class AsyncTelemetryDispatcher(TelemetryDispatcher):
             if not batch:
                 return
 
+            # this calls the stub directly, so it doesn't go through the client's
+            # _check_channel_state(); retrying can't succeed once the server is unavailable
+            if not self._query_cache_client.is_server_available:
+                logger.debug("dbt State unavailable, dropping %d telemetry events", len(batch))
+                return
+
             logger.debug("Emitting %d telemetry events", len(batch))
 
             proto_events = [event for event, _ in batch]

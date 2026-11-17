@@ -573,6 +573,14 @@ class WorkerConfig(BaseSettings):
     allow_multiple_workers: bool = True
     enable_config_discovery: bool = True
     mistral_api_headers: dict[str, str] | None = None
+    mistral_api_header_files: dict[str, str] | None = Field(
+        default=None,
+        description=(
+            "Like mistral_api_headers, but each value is read from a file, as {header name: file path}. The "
+            "files are re-read so rotated values are picked up. Both are the worker's own identity: sent on every "
+            "Workflows API and Temporal call it makes as itself, never with an executor's identity."
+        ),
+    )
 
     temporal_payload_offloading: PayloadOffloadingConfig | None = None
     temporal_payload_encryption: PayloadEncryptionConfig | None = None
