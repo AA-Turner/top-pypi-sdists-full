@@ -284,11 +284,10 @@ def main(
     cli_token: str,
     host: str,
     working_dir: str,
-    session_id: str,
 ) -> None:
     # Write the .bashrc file before starting the server.
     loop = tornado.ioloop.IOLoop.instance()
-    command_persister = CommandPersister(cli_token, host, session_id)
+    command_persister = CommandPersister(cli_token, host)
     application = make_application(deploy_environment, working_dir, command_persister, host)
     port = 8700
     application.listen(port, "localhost")

@@ -251,6 +251,13 @@ class ModelSettings:
             timeout: Annotated[FiniteFloat, Field(gt=0)] | None = None,
         ) -> None: ...
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        object.__setattr__(self, name, value)
+        # Remember explicit assignments on SDK-created settings, including same-value assignments.
+        assigned = self.__dict__.get("_agent_assigned_fields")
+        if assigned is not None and name in self.__dataclass_fields__:
+            self.__dict__["_agent_assigned_fields"] = assigned | {name}
+
     def resolve(self, override: ModelSettings | dict[str, Any] | None) -> ModelSettings:
         """Produce a new ModelSettings by overlaying any non-None values from the
         override on top of this instance."""
@@ -289,15 +296,15 @@ class ModelSettings:
         return replace(self, **changes)
 
     def to_json_dict(self) -> dict[str, Any]:
-        return cast(dict[str, Any], TypeAdapter(ModelSettings).dump_python(self, mode="json"))
+        adapter: TypeAdapter[ModelSettings] = TypeAdapter(ModelSettings)
+        return cast(dict[str, Any], adapter.dump_python(self, mode="json"))
 
     def to_traceable_dict(self) -> dict[str, Any]:
         """Serialize settings for tracing without provider-specific request extras."""
+        adapter: TypeAdapter[ModelSettings] = TypeAdapter(ModelSettings)
         payload = cast(
             dict[str, Any],
-            TypeAdapter(ModelSettings).dump_python(
-                self, mode="json", include=set(_TRACEABLE_MODEL_SETTING_FIELDS)
-            ),
+            adapter.dump_python(self, mode="json", include=set(_TRACEABLE_MODEL_SETTING_FIELDS)),
         )
         return {key: payload[key] for key in _TRACEABLE_MODEL_SETTING_FIELDS if key in payload}
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aa-srp
-Version: 5.10.0
+Version: 5.11.0
 Summary: Improved SRP Module for Alliance Auth
 Project-URL: Changelog, https://github.com/ppfeufer/aa-srp/blob/master/CHANGELOG.md
 Project-URL: Codecov, https://codecov.io/gh/ppfeufer/aa-srp
@@ -703,7 +703,7 @@ Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Requires-Python: <3.15,>=3.11
 Requires-Dist: allianceauth<6,>=5.5
-Requires-Dist: django-eveonline-sde>=0.2
+Requires-Dist: django-eveonline-sde>=1
 Provides-Extra: tests-allianceauth-latest
 Requires-Dist: aa-discordnotify; extra == 'tests-allianceauth-latest'
 Requires-Dist: aa-forum; extra == 'tests-allianceauth-latest'
@@ -711,6 +711,7 @@ Requires-Dist: allianceauth-discordbot; extra == 'tests-allianceauth-latest'
 Requires-Dist: coverage; extra == 'tests-allianceauth-latest'
 Requires-Dist: django-webtest; extra == 'tests-allianceauth-latest'
 Requires-Dist: faker; extra == 'tests-allianceauth-latest'
+Requires-Dist: fittings; extra == 'tests-allianceauth-latest'
 Requires-Dist: py-cord>=2.7; extra == 'tests-allianceauth-latest'
 Requires-Dist: requests-mock; extra == 'tests-allianceauth-latest'
 Description-Content-Type: text/markdown
@@ -784,7 +785,7 @@ ______________________________________________________________________
 
 - Overview of SRP links
 - Overview of your own SRP requests and their status
-- Accepting kill mails from [zKillboard], [EveTools Killboard], [EVE-Kill] and the
+- Accepting killmails from [zKillboard], [EveTools Killboard], [EVE-Kill] and the
   "External Link" from your in-game kill report
 - SRP Request administration is mostly done via ajax and without page reloads
 - Use modern DataTables with filters where ever they're useful
@@ -842,7 +843,7 @@ Make sure you're in the virtual environment (venv) of your Alliance Auth
 installation Then install the latest release directly from PyPi.
 
 ```shell
-pip install aa-srp==5.10.0
+pip install aa-srp==5.11.0
 ```
 
 #### Step 2: Configure Alliance Auth<a name="step-2-configure-alliance-auth"></a>
@@ -905,7 +906,7 @@ Restart your supervisor services for Auth
 Add the app to your `conf/requirements.txt`
 
 ```requirements
-aa-srp==5.10.0
+aa-srp==5.11.0
 ```
 
 #### Step 2: Update Your AA Settings<a name="step-2-update-your-aa-settings"></a>
@@ -1031,7 +1032,7 @@ To update your existing installation of AA SRP, first enable your virtual enviro
 Then run the following command to update AA SRP to the latest version.
 
 ```shell
-pip install aa-srp==5.10.0
+pip install aa-srp==5.11.0
 
 python manage.py collectstatic
 python manage.py migrate
@@ -1047,7 +1048,7 @@ To update your existing installation of AA SRP, first update the version in your
 `conf/requirements.txt` to the latest version.
 
 ```requirements
-aa-srp==5.10.0
+aa-srp==5.11.0
 ```
 
 Then build your Auth container and restart your containers.

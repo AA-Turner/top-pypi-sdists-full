@@ -35,7 +35,7 @@ from torch.utils.hooks import RemovableHandle
 
 from cozy_runtime import graphs
 from cozy_runtime.author import _phases, _retained
-from cozy_runtime.author._errors import DoesNotFit, Fault, fault, is_capacity
+from cozy_runtime.author._errors import CapabilityError, DoesNotFit, Fault, fault, is_capacity
 from cozy_runtime.author._model import WARNINGS, WarningRow, recovered
 from cozy_runtime.internal import cache_owners, pacing, proctree
 from cozy_runtime.internal.accel import (
@@ -123,6 +123,9 @@ _DTYPES = {
     )
 }
 _REQUEST: ContextVar[Request | None] = ContextVar("cozy_residency_request", default=None)
+#: The shape key of the component forward running now (`execution.catch.passing`), its passes'
+#: shape where its blocks mark them (`_entered`): 0 where none runs.
+PASS_SHAPE: ContextVar[int] = ContextVar("cozy_pass_shape", default=0)
 #: TensorFS tallies working memory by the pass and site it was born in (`vt.pass_mark`); an older
 #: one has no tally, and nothing is marked.
 _ESCAPES = hasattr(vt, "pass_mark")
@@ -526,11 +529,19 @@ class _Block:
             (p.nbytes + 255) // 256 * 256 for row in self.finals.values() for p in row.values()
         )
 
+    def raw_needed(self) -> bool:
+        return self.aliases is None or any(self.aliases.values()) or not self.finals
+
+    @property
+    def least_bytes(self) -> int:
+        """The fewest device bytes it holds in use: its stored rows where they're read, and its
+        final ones."""
+        return (self.storage_bytes if self.raw_needed() else 0) + self.final_bytes
+
     def cached(self) -> bool:
         if self.final_bytes and (self.final_region is None or not self.final_region.resident):
             return False
-        raw_needed = self.aliases is None or any(self.aliases.values()) or not self.finals
-        return not raw_needed or (self.region is not None and bool(self.region.resident))
+        return not self.raw_needed() or (self.region is not None and bool(self.region.resident))
 
     def final_only(self) -> bool:
         return bool(self.finals) and self.aliases is not None and not any(self.aliases.values())
@@ -564,6 +575,8 @@ class Model:
         #: The component by its checkpoint's content, however its package was installed.
         self.content = f"{self.source.ck.id}/{self.component}"
         self.name = f"{self.source.release}/{self.content}"
+        #: the construction whose load built it (`weights.Backend`): what a bake may read
+        self.construction = ""
         self.fill, self.bind, self.finals = declared.fill, declared.bind, declared.finals
         self.declared_finals = declared.finals
         self.binding_identity = None if self.finals is None else self.finals.identity
@@ -617,8 +630,14 @@ class Model:
         # concurrent caller instead of swapping one module's slots beneath its forward.
         with self.memory.lock:
             me = threading.get_ident()
-            if self.closed or self.retiring:
-                raise ResidencyError("the model is closed or retiring its cached graphs")
+            if self.closed:
+                raise CapabilityError(
+                    f"{self.name} is no longer loaded (its construction was released): a call "
+                    "reads only the models its own construction loaded",
+                    code="model_not_loaded",
+                )
+            if self.retiring:
+                raise ResidencyError("the model is retiring its cached graphs")
             if self.users and self.thread != me:
                 raise ResidencyError("concurrent model use requires separate executor storage")
             self.users += 1
@@ -640,6 +659,42 @@ class Model:
             yield self
         finally:
             self.memory._close(self, executing=executing)
+
+    def keep(self, since_ns: int, reserve: int) -> tuple[Binding, int, int] | None:
+        """For a loop of its forwards that can't hold it whole (an LM decoding streamed): of its
+        blocks used since `since_ns`, the most bytes that fit beside its live working memory,
+        `reserve` bytes and room for the largest of the rest to stream through, largest first. A
+        binding over them, which the caller prepares and holds while the loop runs, so each
+        forward reads only the others again; with the bytes kept and those still read a forward.
+        None when none fits. An embedding table is no block a forward reads whole (`_Block.table`)."""
+        if self.memory.native is None:
+            return None
+        # The common group (embeddings, the head, final norms) serves every forward, entered
+        # around it rather than block by block.
+        used = sorted(
+            (b for b in self.groups() if (b is self.common or b.last >= since_ns) and not b.table),
+            key=lambda b: b.least_bytes,
+            reverse=True,
+        )
+        room = vt.room(self.memory.device.index or 0)
+        budget = room["capacity"] - room["working_live"] - reserve
+        kept: list[_Block] = []
+        held = streamed = 0
+        for at, block in enumerate(used):
+            after = used[at + 1].least_bytes if at + 1 < len(used) else 0
+            if held + block.least_bytes + max(streamed, after) <= budget:
+                kept.append(block)
+                held += block.least_bytes
+            else:
+                streamed = max(streamed, block.least_bytes)
+        if not kept:
+            return None
+        self._claim()
+        try:
+            self.memory._declare(self)
+            return Binding(self, kept), held, sum(b.least_bytes for b in used) - held
+        finally:
+            self._release()
 
     def retain(self, paths: Collection[str] = ("",)) -> Binding:
         self._claim()
@@ -723,7 +778,13 @@ class Model:
             for block in self.groups():
                 self.memory._discard(block, forget=True)
             self.memory._forget_pages(self)
-            self.memory.models.pop(self.module, None)
+            if self.name in self.memory._coming:
+                # Its pages were read ahead for another request: their Sources hold its checkpoint.
+                self.memory._staging, self.memory._coming = [], set()
+            # A new map: a request beside it may be iterating the old one (a released construction).
+            models = dict(self.memory.models)
+            models.pop(self.module, None)
+            self.memory.models = models
 
 
 class Hold:
@@ -896,6 +957,22 @@ class Binding:
                         raise torch.OutOfMemoryError(
                             f"{self.model.component}: {missing / (1 << 30):.1f} GiB of float32 "
                             "weights to bind, more than the host can give"
+                        )
+                if (
+                    not replay
+                    and memory.native is not None
+                    and any(b.data is None and not b.cached() for b in self.groups)
+                ):
+                    # Nor on a card that can never hold it: filled partway, it would only evict
+                    # everything else and then wait for memory that can't make it fit (cr-286:
+                    # an 11.1 GiB decode set on an 8 GiB cap waited 300 s, run 47309).
+                    least = sum(b.least_bytes for b in self.groups)
+                    most, said = memory.most_room()
+                    if least > most:
+                        raise Exhausted(
+                            f"{self.model.component}: {_gib(least)} of weights to hold at once, "
+                            f"more than {said} could ever give it",
+                            least,
                         )
                 self.used = True
                 with torch.cuda.stream(stream) if memory.cuda else nullcontext():
@@ -1092,6 +1169,10 @@ class Memory:
         self._executing: dict[Model, int] = {}
         #: the birth site last set on this device (`_born`)
         self._site = 0
+        #: (model, pass shape) whose first block this process measured (`_Probe`), and the one
+        #: measuring now
+        self._probed: set[tuple[str, int]] = set()
+        self._probe: _Probe | None = None
         if self.cuda:
             try:
                 if budget_bytes is not None:
@@ -1198,6 +1279,17 @@ class Memory:
                     owners.remove(model)
                 model.working_phase_keys.remove(key)
 
+    def most_room(self) -> tuple[int, str]:
+        """The most weight bytes this process could ever hold on its card at once, with every
+        other byte of the card or its cap given back, less its own live working memory; and
+        that in words."""
+        index = self.device.index or 0
+        total = int(torch.cuda.get_device_properties(index).total_memory)
+        card = total if self.budget_bytes is None else min(self.budget_bytes, total)
+        live = int(vt.room(index)["working_live"])
+        said = f"GPU {index}'s {_gib(card)}{' cap' if card < total else ''} less {_gib(live)} live"
+        return max(card - live, 0), said
+
     def _free(self) -> int:
         """Free bytes where no native owner answers (MPS, CPU). A CPU's is what the host can still
         give this process: on Linux its tightest cgroup's, page cache counted as room (a pod's
@@ -1297,7 +1389,8 @@ class Memory:
             warnings.warn(f"{w.component}: {why}", RuntimeWarning, stacklevel=2)
         _placeholders(model)
         _hooks(model)
-        self.models[module] = model
+        with self.lock:  # against a close replacing the map (`Model.close`)
+            self.models[module] = model
         return model
 
     def _configure_binding(
@@ -2190,6 +2283,7 @@ class Memory:
 
     def _enter(self, block: _Block, reclaim: bool = True) -> None:
         model = block.model
+        graphs.entering(model.module)
         overlay = None if model.fill is None else model.fill.overlay(block.path, block.parts)
         if overlay != block.overlay and (block.paged() or block.parked):
             self._switch_overlay(block, overlay)
@@ -2243,9 +2337,65 @@ class Memory:
                     block.saved.append((site, site.table[site.name]))
                     site.table[site.name] = value
             self._used(block)
+            if not nested and self._probe is None:
+                self._start_probe(block, capturing)
         except BaseException:
             self._exit(block)
             raise
+
+    def _start_probe(self, block: _Block, capturing: bool) -> None:
+        """Measure `block` if it is its model's first at this pass shape in this process: the
+        working peak resets here, and `_end_probe` reads it beside varena's room (cr-305)."""
+        request = _REQUEST.get()
+        key = (block.model.name, PASS_SHAPE.get())
+        if (
+            not self.cuda
+            or capturing
+            or not block.path  # the model's common block spans its whole forward
+            or request is None
+            or request.idle
+            or key in self._probed
+            or not torch.cuda.is_initialized()
+        ):
+            return
+        device = self.device.index or 0
+        request.sample()  # the request keeps its peak so far
+        stats, room = vt.stats(device), vt.room(device)
+        vt.reset_peak(device)
+        self._probe = _Probe(
+            block,
+            key,
+            int(stats["mapped_bytes"]),
+            int(stats["allocated_bytes"]),
+            int(room["weights_resident"]),
+            int(room["capacity"]),
+        )
+
+    def _end_probe(self, probe: _Probe) -> None:
+        self._probe = None
+        self._probed.add(probe.key)
+        device = self.device.index or 0
+        request = _REQUEST.get()
+        if request is None:
+            return
+        stats, room = vt.stats(device), vt.room(device)
+        peak, allocated = int(stats["allocated_peak"]), int(stats["allocated_bytes"])
+        request.first_blocks.append(
+            {
+                "block": f"{probe.block.model.component}/{probe.block.path}",
+                "shape": probe.key[1],
+                # varena's room samples the driver: what it lost outside varena's pages
+                "non_torch": probe.capacity - int(room["capacity"]),
+                "mapped_growth": int(stats["mapped_bytes"]) - probe.mapped,
+                "peak_above_entry": peak - probe.allocated,
+                "transient": peak - allocated,
+                "fragmentation": int(stats["mapped_peak"]) - peak,
+                "live_at_entry": probe.allocated,
+                "weights_at_entry": probe.weights,
+                "capacity_at_entry": probe.capacity,
+                "capacity": int(room["capacity"]),
+            }
+        )
 
     def _used(self, block: _Block) -> None:
         if self.cuda:
@@ -2264,6 +2414,7 @@ class Memory:
         finally:
             with self.lock:
                 block.count -= 1
+                probe = self._probe if block.count == 0 and self._probe is not None else None
                 if block.count == 0:
                     for site, previous in reversed(block.saved):
                         site.table[site.name] = previous
@@ -2273,6 +2424,8 @@ class Memory:
                         block.born_before = None
                     block.last = time.monotonic_ns()
                     self._idle(block)
+            if probe is not None and probe.block is block:
+                self._end_probe(probe)
 
     def _read(
         self, block: _Block, site: _Site, raw_view: tuple[int, _Part] | None = None
@@ -2417,7 +2570,7 @@ class Memory:
         seen, last = request.heads.get(model, (None, None))
         if seen is None or (block.index in seen and block.index != last):
             request.heads[model] = ({block.index}, block.index)
-            self._pass(model, request, 0)
+            self._pass(model, request, PASS_SHAPE.get())
             self._born(block.escape_site)
         elif block.index != last:
             seen.add(block.index)
@@ -2435,8 +2588,17 @@ class Memory:
             model.escape_floor = common + max(
                 (block.allocation_bytes for block in model.blocks.values()), default=0
             )
+        floor = model.escape_floor
+        if any(b.retained for b in model.groups()):
+            # Held blocks are in the pass's held bytes already: the floor is what still streams
+            # (a decode keeping what fits, `keep`); an embedding table gathers on the host.
+            shared = model.common
+            floor = (shared.allocation_bytes if shared and not shared.retained else 0) + max(
+                (b.allocation_bytes for b in model.blocks.values() if not (b.retained or b.table)),
+                default=0,
+            )
         device = self.device.index or 0
-        refused = vt.pass_mark(device, model.escape_site, shape, model.escape_floor)
+        refused = vt.pass_mark(device, model.escape_site, shape, floor)
         self._born(model.escape_site)
         if refused is not None:
             raise DoesNotFit(_does_not_fit(model.component, refused))
@@ -2485,6 +2647,10 @@ class Memory:
                 request.sample()
                 request.ended = request.stats()
                 self.last = request.ended
+                if request.hosted:  # execution imports residency: loaded by now
+                    from cozy_runtime.internal.execution import pinned
+
+                    pinned.release()
             finally:
                 try:
                     with self.lock:
@@ -2588,6 +2754,10 @@ class RequestStats(TypedDict):
     working_splits: list[SplitRecord]
     escaped: list[EscapeRecord]
     retries: int
+    #: `Request.hosted`
+    hosted: dict[str, str]
+    #: `Request.first_blocks`
+    first_blocks: list[FirstBlock]
     regrown: int
     swallowed_ooms: int
     retained_bytes: int
@@ -2602,6 +2772,38 @@ class RequestStats(TypedDict):
     #: "completed", the core's ahead-of-demand counters (`_ahead`) and "scope"
     prefetch: NotRequired[dict[str, int | str]]
     measurement: NotRequired[str]
+
+
+class FirstBlock(TypedDict):
+    """A model's first block at a pass shape, measured as vLLM's profile run splits a forward, in
+    bytes: the room it lost outside varena's pages (`non_torch`: context, library workspaces,
+    kernel modules), the working pages it mapped, the working peak above entry, its `transient`
+    part (the peak less what the block left allocated), and mapped less allocated at the peaks
+    (`fragmentation`)."""
+
+    block: str
+    shape: int
+    non_torch: int
+    mapped_growth: int
+    peak_above_entry: int
+    transient: int
+    fragmentation: int
+    live_at_entry: int
+    weights_at_entry: int
+    capacity_at_entry: int
+    capacity: int
+
+
+@dataclass(slots=True)
+class _Probe:
+    """`Memory._start_probe`'s readings at the block's entry."""
+
+    block: _Block
+    key: tuple[str, int]
+    mapped: int
+    allocated: int
+    weights: int
+    capacity: int
 
 
 class SplitChoice(TypedDict):
@@ -2682,9 +2884,12 @@ class Retained:
             views.append((end, tensor.nbytes, tensor.dtype, tensor.shape))
             end = (end + tensor.nbytes + 255) // 256 * 256
         region = varena.Retained(memory._device_native(), memory._tier(), end)
-        region.write(memory._cuda_stream().cuda_stream, parts, spill=self.spill)
-        del dense
-        self.states.append(_Kept(memory, region, views))
+        written = region.write(memory._cuda_stream().cuda_stream, parts, spill=self.spill)
+        ptr = written.tensor.data_ptr()
+        del dense, written
+        kept = _Kept(memory, region, views, ptr, end)
+        KEPT.add(kept)
+        self.states.append(kept)
         return self.states[-1]
 
 
@@ -2707,13 +2912,19 @@ type _PhaseSignature = tuple[str, str, str, str, tuple[tuple[str, str, int, int]
 
 
 class _Kept:
+    """One retained state: its Region, the views `put` made of it, and the Region's device
+    address and bytes, which a CUDA graph that reads it pins at each replay (`graphs`)."""
+
     def __init__(
         self,
         memory: Memory,
         region: varena.Retained | None,
         views: list[tuple[int, int, torch.dtype, torch.Size]],
+        ptr: int = 0,
+        nbytes: int = 0,
     ) -> None:
         self.memory, self.region, self.views = memory, region, views
+        self.ptr, self.nbytes = ptr, nbytes
 
     def close(self) -> None:
         # The last reference to its region: it is released now, and views still out keep their pins.
@@ -2722,8 +2933,26 @@ class _Kept:
     def get(self) -> tuple[Tensor, ...]:
         if self.region is None:
             raise RuntimeError("retained state read after its loop ended")
-        raw = self.region.use(self.memory._cuda_stream().cuda_stream).tensor
+        try:
+            raw = self.region.use(self.memory._cuda_stream().cuda_stream).tensor
+        except Exhausted as exc:
+            size = sum(n for _, n, _, _ in self.views)
+            raise Exhausted(
+                f"a retained state of {_gib(size)} found no room ({exc}): the states whose "
+                "tensors are held now stay on the card; read each where it is used",
+                exc.requested_bytes,
+            ) from exc
         return tuple(raw[at : at + n].view(dtype).view(shape) for at, n, dtype, shape in self.views)
+
+
+#: every live retained state: a capture that reads one records it (`graphs.observe`)
+KEPT: weakref.WeakSet[_Kept] = weakref.WeakSet()
+
+
+def kept_ranges() -> list[tuple[int, int, _Kept]]:
+    """Each live retained state's device range, by address."""
+    live = [kept for kept in list(KEPT) if kept.region is not None and kept.ptr]
+    return sorted(((kept.ptr, kept.ptr + kept.nbytes, kept) for kept in live), key=lambda row: row[0])
 
 
 class _Retaining:
@@ -2797,9 +3026,15 @@ class Request:
         #: refusals the Runtime answered by running again another way (a pure op's finer split, an LM
         #: token decoded eagerly for a capture its pool couldn't hold): zero in a normal run
         self.retries = 0
+        #: split sites whose whole output the card had no room for, kept in host memory (cr-305): the
+        #: card's room when its allocation was refused there, else whether selection judged the
+        #: package's estimate of it or its measure (`execution.cuts._hosted`)
+        self.hosted: dict[str, str] = {}
         #: refusals a CUDA graph capture answered by recording again with room for them
         #: (`graphs.capture`): what runs is the same
         self.regrown = 0
+        #: each model's first block measured at a pass shape (`Memory._start_probe`)
+        self.first_blocks: list[FirstBlock] = []
         #: refusals a package scope returned past (`contract._Scopes`): zero in a conforming run
         self.swallowed_ooms = 0
         #: cross-step state its loops declared (`author.retained`)
@@ -2947,6 +3182,8 @@ class Request:
             "working_splits": list(self.working_splits.values()),
             "escaped": list(self.escaped),
             "retries": self.retries,
+            "hosted": dict(self.hosted),
+            "first_blocks": list(self.first_blocks),
             "regrown": self.regrown,
             "swallowed_ooms": self.swallowed_ooms,
             "retained_bytes": self.retained_bytes,

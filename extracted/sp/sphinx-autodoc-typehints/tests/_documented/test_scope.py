@@ -7,10 +7,9 @@ from typing import TYPE_CHECKING, Final
 from _docstring.conftest import BOOL
 from pytest import MarkDecorator, fixture, mark
 
-from sphinx_autodoc_typehints._docstring import process_docstring
-from sphinx_autodoc_typehints._documented import render_scope
-from sphinx_autodoc_typehints._render import render_context
-from sphinx_autodoc_typehints._render.context import RenderContext
+from sphinx_autodoc_typehints._docstring.handler import process_docstring
+from sphinx_autodoc_typehints._documented.scope import render_scope
+from sphinx_autodoc_typehints._render.context import RenderContext, render_context
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -19,7 +18,9 @@ if TYPE_CHECKING:
     from sphinx.config import Config
     from sphinx.testing.util import SphinxTestApp
 
-    from sphinx_autodoc_typehints._types import Annotation
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # keep types private
+        Annotation,
+    )
 
 pytestmark: Final[MarkDecorator] = mark.sphinx(
     "text", testroot="dummy", confoverrides={"autodoc_mock_imports": ["mocked"]}
@@ -42,10 +43,10 @@ def test_render_scope_guards_with_the_mocked_imports(app: SphinxTestApp, guarded
     with render_scope(app, "scope_guarded_module"):
         binder = render_context(app.config).guard_bound
     assert binder is not None
-    before = set(vars(guarded_module))
+    before = set(guarded_module.__dict__)
 
     with binder(guarded_module.func):
-        bound = {name: repr(value) for name, value in vars(guarded_module).items() if name not in before}
+        bound = {name: repr(value) for name, value in guarded_module.__dict__.items() if name not in before}
 
     assert bound == {"Thing": "mocked.Thing"}
 

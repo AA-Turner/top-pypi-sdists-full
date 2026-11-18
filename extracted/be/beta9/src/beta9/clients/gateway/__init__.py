@@ -410,6 +410,14 @@ class DurableDisk(betterproto.Message):
     source_snapshot_id: str = betterproto.string_field(7)
     """Snapshot used to initialize a disk with no snapshot history."""
 
+    capture_exit_snapshot: Optional[bool] = betterproto.bool_field(8, optional=True)
+    """
+    Whether the disk outlives its container. Unset means true. A disk that
+     is not captured is never uploaded, and its worker removes it when the
+     container exits: it belongs to a machine that is never started again.
+     Only a qcow disk can opt out; the snapshot driver always captures.
+    """
+
 
 @dataclass(eq=False, repr=False)
 class PersistentRoot(betterproto.Message):
@@ -682,6 +690,13 @@ class PoolConfig(betterproto.Message):
     container_runtime: str = betterproto.string_field(15)
     """Runtime for workers in this pool."""
 
+    pricing: str = betterproto.string_field(16)
+    """
+    How the machines a reservation buys are sold: "" or "on_demand" for
+     machines that are kept until given back, "spot" for machines their
+     provider may take back at any time, "any" for whichever costs less.
+    """
+
 
 @dataclass(eq=False, repr=False)
 class PoolOffer(betterproto.Message):
@@ -704,6 +719,11 @@ class PoolOffer(betterproto.Message):
     region_display_name: str = betterproto.string_field(17)
     latitude: float = betterproto.double_field(18)
     longitude: float = betterproto.double_field(19)
+    spot: bool = betterproto.bool_field(20)
+    """
+    A spot machine costs less, and its provider may take it back at any
+     time.
+    """
 
 
 @dataclass(eq=False, repr=False)
@@ -729,6 +749,7 @@ class ProviderInstance(betterproto.Message):
     cpu_millicores: int = betterproto.int64_field(19)
     memory_mb: int = betterproto.int64_field(20)
     storage_mb: int = betterproto.int64_field(21)
+    spot: bool = betterproto.bool_field(22)
 
 
 @dataclass(eq=False, repr=False)

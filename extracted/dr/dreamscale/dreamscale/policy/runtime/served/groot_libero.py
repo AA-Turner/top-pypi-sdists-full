@@ -3,7 +3,7 @@ suite only."""
 
 from __future__ import annotations
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 
 def sim_task(model, benchmark, suite):

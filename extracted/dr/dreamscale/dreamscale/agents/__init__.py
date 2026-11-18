@@ -4,7 +4,7 @@ Use run_yam for a configured YAM, or run/arun with your own RobotAdapter.
 Action-chunk policy inference remains available through dreamscale.connect.
 """
 
-from dreamscale_transport.llm import (
+from dreamscale_core.llm import (
     Effort,
     Observation,
     RobotProfile,

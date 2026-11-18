@@ -4965,7 +4965,10 @@ class CometApiClient(BaseApiClient):
 
         * 200: ok, existing user
         * 204: unknown user
+
+        Deprecated: the Comet backend no longer answers this request.
         """
+        LOGGER.warning("check_email() has been deprecated and no longer works")
         payload = {"email": email, "reason": reason}
         response = self.get_from_endpoint("users", payload, return_type="response")
         return response.status_code
@@ -4994,7 +4997,13 @@ class CometApiClient(BaseApiClient):
          'apiKey': 'X6Wr0uKXZwOLnPFpNvV39874857'
         }
         ```
+
+        Deprecated: the Comet backend no longer creates users through this
+        request. Sign up in the Comet UI and use your API key instead.
         """
+        LOGGER.warning(
+            "create_user() has been deprecated and no longer works; sign up in the Comet UI instead"
+        )
         payload = {
             "email": email,
             "userName": username,

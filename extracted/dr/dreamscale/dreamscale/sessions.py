@@ -10,6 +10,9 @@ from contextlib import suppress
 from typing import Any
 
 import httpx
+from dreamscale_core.regions import (
+    region_label as region_label,
+)
 
 from dreamscale import errors
 from dreamscale.constants import (
@@ -20,14 +23,6 @@ from dreamscale.constants import (
 )
 from dreamscale.control import Session
 from dreamscale.policy.connection import rate_limited_delay_s
-
-# How a region reads in progress lines; other region ids print as they are.
-_REGION_LABELS = {"us-west-2": "us-west", "us-east-1": "us-east"}
-
-
-def region_label(region: str | None) -> str | None:
-    """``us-west`` for us-west-2 and ``us-east`` for us-east-1."""
-    return _REGION_LABELS.get(region, region) if region else region
 
 
 async def wait_until_ready(

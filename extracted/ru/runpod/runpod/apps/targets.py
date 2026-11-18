@@ -14,12 +14,13 @@ from typing import Any, AsyncIterator, Callable, Dict, List, Optional
 import aiohttp
 
 from .._hosts import endpoint_domain
-from ..user_agent import USER_AGENT
-from .errors import EndpointNotFound, RemoteExecutionError
+from ..user_agent import APPS_USER_AGENT
+from .errors import AppHTTPError, EndpointNotFound, RemoteExecutionError
 from .protocol import FORMAT_JSON, FunctionRequest
 from .serialization import require_json_value
 from .spec import ResourceSpec
 from .utils.events import emit
+from .utils.http import raise_for_status
 from .utils.network import api_key as _api_key
 from .utils.network import endpoint_url_base as _endpoint_url_base
 
@@ -43,7 +44,7 @@ def _headers(extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
 
     headers = {
         "Content-Type": "application/json",
-        "User-Agent": USER_AGENT,
+        "User-Agent": APPS_USER_AGENT,
     }
     runtime = runtime_headers()
     headers.update(
@@ -225,6 +226,7 @@ async def _request_json(
     app_name: str = "",
     resource_name: str = "",
     retry_not_found: bool = False,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """http json call with exponential backoff on transient failures."""
     require_json_value(payload, "remote request body must be JSON-serializable")
@@ -245,23 +247,20 @@ async def _request_json(
                 async with session.request(
                     method, url, json=payload, headers=headers
                 ) as resp:
-                    if resp.status == 404:
+                    if resp.status == 404 and job_id is None:
                         last_exc = EndpointNotFound(app_name, resource_name)
                         if retry_not_found and attempt < attempts - 1:
                             continue
                         raise last_exc
-                    if resp.status in RETRYABLE_STATUSES:
-                        last_exc = aiohttp.ClientResponseError(
-                            resp.request_info,
-                            resp.history,
-                            status=resp.status,
-                            message=await resp.text(),
-                        )
-                        if not retry_transient:
-                            raise last_exc
-                        continue
-                    resp.raise_for_status()
+                    await raise_for_status(resp, job_id=job_id)
                     return await resp.json()
+        except AppHTTPError as exc:
+            if (exc.status == 404 and retry_not_found) or (
+                exc.status in RETRYABLE_STATUSES and retry_transient
+            ):
+                last_exc = exc
+                continue
+            raise
         except (aiohttp.ClientConnectionError, asyncio.TimeoutError) as exc:
             if not retry_transient:
                 raise
@@ -300,6 +299,7 @@ async def _get_json(
     app_name: str = "",
     resource_name: str = "",
     retry_not_found: bool = False,
+    job_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     return await _request_json(
         "GET",
@@ -309,6 +309,7 @@ async def _get_json(
         app_name=app_name,
         resource_name=resource_name,
         retry_not_found=retry_not_found,
+        job_id=job_id,
     )
 
 
@@ -357,6 +358,7 @@ async def _wait_terminal(
             app_name=app_name,
             resource_name=resource_name,
             retry_not_found=True,
+            job_id=job_id,
         )
         if on_status is not None:
             on_status(data)
@@ -407,6 +409,7 @@ class QueueClient:
             retry_not_found=path.startswith(
                 ("status/", "stream/", "cancel/", "retry/")
             ),
+            job_id=path[len("status/") :] if path.startswith("status/") else None,
         )
 
     async def run(
@@ -504,7 +507,7 @@ class QueueClient:
             ) as resp:
                 if resp.status == 404 and self._app_name:
                     raise EndpointNotFound(self._app_name, self._resource_name)
-                resp.raise_for_status()
+                await raise_for_status(resp)
                 text = await resp.text()
         try:
             result = json.loads(text)

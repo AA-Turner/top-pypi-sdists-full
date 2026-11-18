@@ -11914,6 +11914,14 @@ class Messages(System.Object):
         missing_password: str = "FTP password is missing for unsecure FTP notification."
         """String message saying the password is missing"""
 
+    class NotificationManager(System.Object):
+        """Provides user-facing messages for the Notifications.NotificationManager class and its consumers or related classes"""
+
+        @staticmethod
+        def sms_message_too_long(length: int, maximum_length: int) -> str:
+            """Returns a string message saying the SMS message is longer than allowed and will not be sent"""
+            ...
+
     class NotificationJsonConverter(System.Object):
         """Provides user-facing messages for the Notifications.NotificationJsonConverter class and its consumers or related classes"""
 

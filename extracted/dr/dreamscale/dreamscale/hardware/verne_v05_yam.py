@@ -1,6 +1,6 @@
 """Verne V0.5 deployments of the bimanual YAM preset on `dreamscale run yam`.
 
-A Verne V0.5 deployment (``dreamscale_transport.verne_v05_deploy``) reads and returns absolute
+A Verne V0.5 deployment (``dreamscale_core.verne_v05_deploy``) reads and returns absolute
 tool poses, both arms in one robot frame: the left arm's base. Each request carries a 20-value
 state, per arm (left, then right) xyz in metres, the first two rows of the rotation matrix and
 the jaw opening (0 closed, 1 open); each chunk row is 21 values, the same per arm, then the
@@ -27,7 +27,7 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
-from dreamscale_transport import verne_v05_deploy as C
+from dreamscale_core import verne_v05_deploy as C
 
 from dreamscale import errors
 from dreamscale.policy.cartesian import PoseApproximation

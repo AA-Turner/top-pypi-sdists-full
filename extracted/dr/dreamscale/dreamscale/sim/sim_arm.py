@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Protocol
 
 import numpy as np
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from dreamscale_transport.images import prepare_policy_image
 
 from dreamscale import errors, wire
@@ -32,11 +32,9 @@ from dreamscale.constants import (
     CAMERA_KEY_LIBERO_WRIST,
     CHUNK_SIZE,
     HEARTBEAT_S,
-    MODEL_DREAMZERO_DROID,
     MODEL_LIBERO,
 )
 from dreamscale.control import ControlPlaneClient
-from dreamscale.dreamzero import DREAMZERO_REPLAN_STRIDE
 from dreamscale.model_names import public_model
 from dreamscale.motion.ensemble import EnsembleBuffer
 from dreamscale.policy.lifecycle import (
@@ -1067,7 +1065,6 @@ class SimArm:
         self._keep_warm = _validate_keep_warm(keep_warm)
         self.release_status: str | None = None
         self._next_observation_id = 0
-        self._dreamzero_generation = -1
         self._send_window_ahead()
 
     def _send_window_ahead(self) -> None:
@@ -1364,11 +1361,6 @@ class SimArm:
         self._prepare_task()
         execute = self._contract.execution_chunk_size
         longer_horizon = execute < self._contract.chunk_size
-        dreamzero = self.model == MODEL_DREAMZERO_DROID
-        if dreamzero:
-            # Each episode is a new DreamZero cache generation that restarts at T1.
-            self._dreamzero_generation += 1
-        boundaries = 0
         episode = None
         if self._contract.episode_tick_steps and self.model in NATIVE_OBSERVATION_MODELS:
             def send_frames(key, frames):
@@ -1379,23 +1371,13 @@ class SimArm:
             episode = _SimEpisode(contract=self._contract, env=self._env, send=send_frames)
 
         def submit(frames):
-            nonlocal boundaries
             observation_id = self._next_observation_id
             self._next_observation_id += 1
             profile = SimPolicyProfile(
                 request_id=observation_id, observation_id=observation_id, start_step=result.steps
             )
             started = time.monotonic_ns()
-            action_index = None
-            if dreamzero:
-                action_index = boundaries * DREAMZERO_REPLAN_STRIDE
-                boundaries += 1
-                observation = _dreamzero_observation(
-                    env=self._env, obs=frames, session_id=self._session.session_id,
-                    observation_id=observation_id, action_index=action_index,
-                    cache_generation=self._dreamzero_generation,
-                )
-            elif episode is not None:
+            if episode is not None:
                 with wire.wire_image(self._contract.wire_image):
                     observation = _build_sim_observation(builder=_sim_builder(self.model),
                         session_id=self._session.session_id, observation_id=observation_id,
@@ -1455,11 +1437,6 @@ class SimArm:
                                 chunk_size=len(chunk.actions),
                             )
                         )
-                    if dreamzero:
-                        return _dreamzero_boundary_actions(
-                            chunk, action_index=action_index,
-                            cache_generation=self._dreamzero_generation,
-                        )
                     # A model generating a longer horizon than it executes (Rho, RLDX) replans
                     # after its executed prefix.
                     actions = wire.chunk_actions(chunk)
@@ -1511,15 +1488,7 @@ class SimArm:
                 on_buffer=buffer,
                 metrics=metrics,
                 on_executed=episode.executed if episode is not None else None,
-                **({"action_dim": 8, "initial_chunk_size": DREAMZERO_REPLAN_STRIDE,
-                    "chunk_size": DREAMZERO_REPLAN_STRIDE,
-                    "request_input": lambda obs: obs, "hold_action": self._env.hold_action,
-                    "hold_description": "physics paused during inference (upstream_eval)",
-                    "feedback_description": (
-                        "DROID camera views and proprioception every eight actions"
-                    ),
-                    "drain_pending": True, "pause_for_inference": True}
-                   if dreamzero else
+                **(
                    # A native observation: the model's own width, executing its executed
                    # prefix, with its observation's hold and feedback.
                    {"action_dim": self._contract.action_dim, "initial_chunk_size": execute,
@@ -1751,54 +1720,6 @@ def _print_sim_metrics_summary(metrics: dict[str, Any],
             f"deadline misses {realtime['deadline_miss_count']}, "
             f"underruns {realtime['action_underrun_count']}"
         )
-
-
-def _dreamzero_observation(*, env: Any, obs: Any, session_id: str, observation_id: int,
-                           action_index: int, cache_generation: int) -> Any:
-    """Build the upstream_eval boundary observation for one replan epoch."""
-    from dreamscale.dreamzero import observe
-
-    observation = observe(
-        **env.observation_inputs(obs), camera_capture_times_ns=(time.time_ns(),) * 3
-    )
-    return observation.to_wire_for_step(
-        session_id=session_id,
-        observation_id=observation_id,
-        instruction=env.task_description,
-        source_action_step=action_index - 1,
-        next_action_step=action_index,
-        control_tick=action_index,
-        replan_epoch=action_index // DREAMZERO_REPLAN_STRIDE,
-        cache_generation=cache_generation,
-        sampling="upstream_eval",
-    )
-
-
-def _dreamzero_boundary_actions(chunk: Any, *, action_index: int,
-                                cache_generation: int) -> list[tuple[float, ...]]:
-    """Validate one upstream_eval reply; return the actions up to the next boundary."""
-    from dreamscale.dreamzero import (
-        DREAMZERO_DROID_LOOP_PROFILE,
-        ChunkAlignment,
-        _action,
-        alignment_from_chunk,
-    )
-
-    expected = ChunkAlignment(
-        source_action_step=action_index - 1,
-        source_control_tick=action_index,
-        replan_epoch=action_index // DREAMZERO_REPLAN_STRIDE,
-        cache_generation=cache_generation,
-    )
-    if alignment_from_chunk(chunk) != expected:
-        raise ValueError("DreamZero reply does not match its boundary observation")
-    horizon = runtime_contract_for_model(MODEL_DREAMZERO_DROID).chunk_size
-    if wire.chunk_action_indices(chunk) != list(range(horizon)):
-        raise ValueError(f"DreamZero chunks must contain action indices 0 through {horizon - 1}")
-    return [
-        _action(values, DREAMZERO_DROID_LOOP_PROFILE)
-        for values in wire.chunk_actions(chunk)[:DREAMZERO_REPLAN_STRIDE]
-    ]
 
 
 def _policy_preview_frame(env: SimEnvProtocol, obs: Any,
@@ -2038,26 +1959,7 @@ def _ensure_preview_window(cv2: Any) -> None:
     if _preview_window_initialized:
         return
 
-    try:
-        cv2.startWindowThread()
-    except Exception:  # noqa: BLE001
-        pass
-    cv2.namedWindow(PREVIEW_WINDOW_NAME, cv2.WINDOW_AUTOSIZE)
-    try:
-        cv2.setWindowProperty(PREVIEW_WINDOW_NAME, cv2.WND_PROP_TOPMOST, 1)
-    except Exception:  # noqa: BLE001
-        pass
-    _activate_preview_app()
+    from dreamscale.sim.viewer_window import open_window
+
+    open_window(cv2, PREVIEW_WINDOW_NAME)
     _preview_window_initialized = True
-
-
-def _activate_preview_app() -> None:
-    if sys.platform != "darwin":
-        return
-    try:
-        import AppKit
-
-        app = AppKit.NSRunningApplication.currentApplication()
-        app.activateWithOptions_(AppKit.NSApplicationActivateIgnoringOtherApps)
-    except Exception:  # noqa: BLE001
-        pass

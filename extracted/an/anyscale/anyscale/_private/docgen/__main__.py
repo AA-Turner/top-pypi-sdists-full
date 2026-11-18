@@ -159,8 +159,11 @@ from anyscale.schedule.models import (
     ScheduleStatus,
 )
 from anyscale.scheduler.models import (
+    CloudRollup,
     FlavorQuota,
+    MarketBreakdown,
     MatchExpression,
+    NodeCounts,
     OnViolationAction,
     Operator,
     PreemptionPolicy,
@@ -168,14 +171,27 @@ from anyscale.scheduler.models import (
     PreemptionPolicyReclaimWithinCohort,
     PreemptionPolicyWithinResourceQueue,
     PriorityPolicy,
+    QueueWorkload,
+    QueueWorkloadList,
     ResourceFlavor,
     ResourceGroup,
     ResourceQueue,
+    ResourceQueueStatus,
+    ResourceQueueStatusPage,
     ResourceQuotaSpec,
+    ResourceUsage,
     SchedulerConfig,
     SchedulerConfigVersion,
     SchedulerConfigVersionSummary,
+    SchedulerOverview,
+    SchedulerTotals,
     SchedulingRule,
+    TopConsumer,
+    TopologySummary,
+    WorkloadCounts,
+    WorkloadNodes,
+    WorkloadState,
+    WorkloadStatus,
 )
 from anyscale.service.models import (
     RayGCSExternalStorageConfig,
@@ -391,12 +407,20 @@ ALL_MODULES = [
             scheduler_commands.rollback,
             scheduler_commands.get,
             scheduler_commands.list_versions,
+            scheduler_commands.list_queues,
+            scheduler_commands.get_queue,
+            scheduler_commands.list_queue_workloads,
+            scheduler_commands.overview,
+            scheduler_commands.top_consumers,
         ],
         cli_command_group_prefix={
             scheduler_commands.apply: "config",
             scheduler_commands.rollback: "config",
             scheduler_commands.get: "config",
             scheduler_commands.list_versions: "config",
+            scheduler_commands.list_queues: "queue",
+            scheduler_commands.get_queue: "queue",
+            scheduler_commands.list_queue_workloads: "queue",
         },
         sdk_prefix="anyscale.scheduler",
         sdk_commands=[
@@ -404,6 +428,11 @@ ALL_MODULES = [
             anyscale.scheduler.rollback_config,
             anyscale.scheduler.get_config,
             anyscale.scheduler.list_config_versions,
+            anyscale.scheduler.list_queues,
+            anyscale.scheduler.get_queue,
+            anyscale.scheduler.list_queue_workloads,
+            anyscale.scheduler.get_overview,
+            anyscale.scheduler.list_top_consumers,
         ],
         models=[
             SchedulerConfig,
@@ -423,6 +452,22 @@ ALL_MODULES = [
             OnViolationAction,
             SchedulerConfigVersion,
             SchedulerConfigVersionSummary,
+            ResourceQueueStatusPage,
+            ResourceQueueStatus,
+            WorkloadCounts,
+            NodeCounts,
+            ResourceUsage,
+            MarketBreakdown,
+            QueueWorkloadList,
+            QueueWorkload,
+            WorkloadNodes,
+            WorkloadState,
+            WorkloadStatus,
+            SchedulerOverview,
+            SchedulerTotals,
+            CloudRollup,
+            TopologySummary,
+            TopConsumer,
         ],
     ),
     Module(
@@ -625,23 +670,11 @@ ALL_MODULES = [
             logs_commands.anyscale_logs_service,
             logs_commands.anyscale_logs_job,
             logs_commands.anyscale_logs_cluster,
+            logs_query_commands.query,
         ],
-        sdk_prefix="anyscale.logs",
-        sdk_commands=[],
-        models=[],
-    ),
-    Module(
-        title="Log Queries",
-        filename="log_queries.md",
-        cli_prefix="anyscale logs",
-        cli_commands=[logs_query_commands.query],
         sdk_prefix="anyscale.logs",
         sdk_commands=[anyscale.logs.query],
         models=[LogsResource, LogLine],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/logs_query_commands.py. When
-        # it ships, fold it into the Logs module above.
-        hidden=True,
     ),
     Module(
         title="Events",
@@ -664,9 +697,6 @@ ALL_MODULES = [
         sdk_prefix="anyscale.events",
         sdk_commands=[anyscale.events.list, anyscale.events.list_page],
         models=[EventsFilter, Event, EventsPage],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/events_commands.py.
-        hidden=True,
     ),
     Module(
         title="Metrics",
@@ -684,9 +714,6 @@ ALL_MODULES = [
             anyscale.metrics.query_range,
         ],
         models=[MetricsResource, MetricSeries, MetricSample],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/metrics_commands.py.
-        hidden=True,
     ),
     Module(
         title="GPUs",
@@ -699,25 +726,20 @@ ALL_MODULES = [
         sdk_prefix="anyscale.gpus",
         sdk_commands=[anyscale.gpus.node_gpus, anyscale.gpus.get],
         models=[NodeGpus, Gpu, GpuPlacement, GpuTelemetry, GpuState, GpuXid, GpuWorkload],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the notes in commands/{node,gpu}_commands.py.
-        hidden=True,
     ),
     Module(
         title="Log Files",
         filename="log_files.md",
-        # The four commands hang under four different groups; the group prefix map
-        # renders each as `anyscale <group> logs` (`anyscale job logs-v2` for jobs: the GA
-        # `anyscale job logs` keeps its name, see commands/resource_logs_commands.py).
+        # The three commands hang under three different groups; the group prefix map
+        # renders each as `anyscale <group> logs`. `anyscale job logs-v2` is left out: it
+        # stays hidden (see commands/resource_logs_commands.py).
         cli_prefix="anyscale",
         cli_commands=[
-            resource_logs_commands.job_logs,
             resource_logs_commands.service_logs,
             resource_logs_commands.workspace_logs,
             resource_logs_commands.cluster_logs,
         ],
         cli_command_group_prefix={
-            resource_logs_commands.job_logs: "job",
             resource_logs_commands.service_logs: "service",
             resource_logs_commands.workspace_logs: "workspace_v2",
             resource_logs_commands.cluster_logs: "cluster",
@@ -730,9 +752,6 @@ ALL_MODULES = [
             anyscale.logs.read_page,
         ],
         models=[LogFilesFilter, LogFilesPage, LogChunk, LogFileLine, LogLinesPage],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/resource_logs_commands.py.
-        hidden=True,
     ),
     Module(
         title="Nodes",
@@ -742,9 +761,6 @@ ALL_MODULES = [
         sdk_prefix="anyscale.node",
         sdk_commands=[anyscale.node.list, anyscale.node.get],
         models=[NodeList, Node, NodeStatus],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/node_commands.py.
-        hidden=True,
     ),
     Module(
         title="Tasks",
@@ -762,9 +778,6 @@ ALL_MODULES = [
             TaskAggregateMetrics,
             TaskType,
         ],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/task_commands.py.
-        hidden=True,
     ),
     Module(
         title="Actors",
@@ -781,9 +794,6 @@ ALL_MODULES = [
             ActorExitDetailAggregate,
             ActorAggregateMetrics,
         ],
-        # Not published yet: skips the whole page (CLI, SDK and models). The SDK stays
-        # importable and callable; see the note in commands/actor_commands.py.
-        hidden=True,
     ),
     Module(
         title="Workspaces",

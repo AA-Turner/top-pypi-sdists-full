@@ -1,10 +1,9 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 #
 # Dell OpenManage Ansible Modules
 # Version 10.0.1
-# Copyright (C) 2019-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Copyright (C) 2019-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 #
@@ -576,7 +575,10 @@ import re
 import json
 from datetime import datetime
 from os.path import exists
-import xml.etree.ElementTree as ET
+try:
+    import defusedxml.ElementTree as ET
+except ImportError:
+    import xml.etree.ElementTree as ET
 from ansible.module_utils.compat.version import LooseVersion
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI, IdracAnsibleModule
 from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import idrac_redfish_job_tracking, \
@@ -1221,7 +1223,6 @@ def main():
         module.fail_json(msg=NEGATIVE_TIMEOUT_MESSAGE)
     try:
         http_share = False
-        msg = None
         command = module.params.get("command")
         if module.params.get("share_name") is not None:
             http_share = module.params["share_name"].lower().startswith(('http://', 'https://'))

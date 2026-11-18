@@ -12,7 +12,11 @@ class ExceptionReporter: ...
 
 class Report:
     def __init__(
-        self, graph: ImportGraph, show_timings: bool, graph_building_duration: int
+        self,
+        graph: ImportGraph,
+        show_timings: bool,
+        graph_building_duration: int,
+        filenames: list[str] | None = None,
     ) -> None:
         self.graph = graph
         self.show_timings = show_timings
@@ -29,6 +33,28 @@ class Report:
         self.kept_count = 0
         self.module_count = len(graph.modules)
         self.import_count = graph.count_imports()
+        self.graph_count = 1
+        # One entry per graph: the files sharing it, and how long it took to build.
+        self.graph_summaries: list[tuple[list[str], int]] = [
+            (filenames or [], graph_building_duration)
+        ]
+
+    def add_graph(
+        self,
+        graph: ImportGraph,
+        graph_building_duration: int,
+        filenames: list[str] | None = None,
+    ) -> None:
+        """
+        Record an additional graph that was built for this report.
+
+        This happens when contracts from several config files need different graphs.
+        """
+        self.graph_count += 1
+        self.graph_building_duration += graph_building_duration
+        self.module_count += len(graph.modules)
+        self.import_count += graph.count_imports()
+        self.graph_summaries.append((filenames or [], graph_building_duration))
 
     def add_contract_check(
         self, contract: Contract, contract_check: ContractCheck, duration: int

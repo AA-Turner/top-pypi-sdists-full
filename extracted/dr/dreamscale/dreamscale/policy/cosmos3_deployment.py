@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from dreamscale_transport.cosmos3_deploy import (
+from dreamscale_core.cosmos3_deploy import (
     COSMOS3_BASE_MODEL,
     MAX_ACTION_DIM,
     MAX_ACTION_HORIZON,

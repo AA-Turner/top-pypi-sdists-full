@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: dreamscale
-Version: 0.1.0a340
+Version: 0.1.0a354
 Summary: Cloud robot policy inference — one function call.
 Project-URL: Homepage, https://app.dreamscalelabs.com
 Project-URL: Documentation, https://docs.dreamscalelabs.com
@@ -18,7 +18,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: <3.15,>=3.11
 Requires-Dist: click<8.5,>=8.1.7
-Requires-Dist: dreamscale-transport==0.1.1a152
+Requires-Dist: dreamscale-core==0.1.0a7
+Requires-Dist: dreamscale-transport==0.1.1a162
 Requires-Dist: httpx<1,>=0.27
 Requires-Dist: jsonschema<5,>=4.23
 Requires-Dist: numpy<3,>=1.26
@@ -30,8 +31,6 @@ Requires-Dist: typer<0.26,>=0.12
 Requires-Dist: typing-extensions<5,>=4.10
 Provides-Extra: cameras
 Requires-Dist: opencv-python==4.11.0.86; extra == 'cameras'
-Provides-Extra: dreamzero
-Requires-Dist: av<19,>=15; extra == 'dreamzero'
 Provides-Extra: franka
 Requires-Dist: franky-control==2.0.0; (sys_platform == 'linux' and platform_machine == 'x86_64') and extra == 'franka'
 Provides-Extra: hud
@@ -88,7 +87,7 @@ Cloud robot policy inference — one function call.
 Add Dreamscale to a Python 3.11–3.14 project:
 
 ```bash
-uv add "dreamscale==0.1.0a340"
+uv add "dreamscale==0.1.0a354"
 ```
 
 Install the CLI as a standalone tool:
@@ -117,16 +116,11 @@ or 3.13 when a stack needs it.
 To add a stack to your own project for use from Python:
 
 ```bash
-uv add "dreamscale[so101]==0.1.0a340"
-uv add "dreamscale[sim]==0.1.0a340"
-uv add "dreamscale[dreamzero]==0.1.0a340"
-uv add "dreamscale[yam,cameras,realsense]==0.1.0a340"
-uv add "dreamscale[hud]==0.1.0a340"
+uv add "dreamscale[so101]==0.1.0a354"
+uv add "dreamscale[sim]==0.1.0a354"
+uv add "dreamscale[yam,cameras,realsense]==0.1.0a354"
+uv add "dreamscale[hud]==0.1.0a354"
 ```
-
-The `dreamzero` extra installs the pinned H.264 codec used automatically by
-DreamZero-YAM's three persistent camera streams. DreamZero-DROID and all other
-models keep their existing JPEG transport and do not require this extra.
 
 The base SDK supports Python 3.11 through 3.14. The `so101` extra currently
 supports Python 3.12 and 3.13 because its pinned LeRobot dependency requires
@@ -144,7 +138,6 @@ Choose the benchmark and model explicitly:
 dreamscale sim libero --model gr00t-n17-3b-libero --task-suite libero_object --task-id 0
 dreamscale sim robocasa365 --model xiaomi-robotics-1-robocasa365 --task-suite atomic --task-id CloseFridge --task-seed 7 --max-steps 1800
 dreamscale sim robocasa365 --model rldx-1-ft-rc365 --task-suite atomic --task-id CloseFridge
-dreamscale sim robocasa365 --model dreamzero-droid --task-suite atomic --task-id CloseElectricKettleLid --max-duration 90
 ```
 
 `--list` shows what a benchmark offers, offline and without a model:
@@ -167,11 +160,6 @@ name or a zero-based index within the selected suite. Xiaomi uses the reference
 `pretrain` kitchen split, four observations spaced two physics steps apart, and
 16-action chunks at 20 Hz. Inference runs asynchronously; while a request is
 pending, the simulator stops base and arm motion and retains the gripper command.
-DreamZero-DROID drives the same Franka arm with absolute joint targets at 15 Hz
-from DROID's home pose. It sees the two agent views as its exterior cameras and the
-hand camera as its wrist camera, and physics pauses while each 24-action chunk is
-inferred. RoboCasa's robot-mounted views differ from DROID's training cameras, so
-counter-height tasks suit it best; give it a longer `--max-duration`.
 
 The first RoboCasa run uses `uv` to prepare a separate Python 3.12 native runtime
 and download about 23 GiB of kitchen/object assets into `~/.dreamscale/sim/`.
@@ -201,8 +189,6 @@ dreamscale sim molmospaces --model cosmos3-nano-policy-droid --task-suite all --
 # Cosmos3 Edge, NVIDIA's 4B Cosmos3 DROID policy (private beta), on the same wire.
 dreamscale sim molmospaces --model cosmos3-edge-policy-droid --task-suite pick-v1.5 --task-id 0 --keep-warm 0
 
-# DreamZero-DROID (private beta): physics pauses while each chunk is inferred.
-dreamscale sim molmospaces --model dreamzero-droid --task-suite close-v1 --task-id 0 --keep-warm 0
 ```
 
 Suites: `open-v1`, `close-v1`, `pick-v1.5`, `pick-v2-classic`,
@@ -214,8 +200,7 @@ in each suite. Close-v1 has 915 episodes and every other suite has 1,000.
 The Cosmos3 models are `cosmos3-nano-policy-droid` and `cosmos3-edge-policy-droid`.
 The adapter sends the current
 exterior/wrist RGB views and seven measured Franka joints plus gripper state.
-It duplicates the exterior view into DROID's second exterior slot, following
-the upstream DreamZero evaluation convention. It executes complete 32-action
+It duplicates the exterior view into DROID's second exterior slot. It executes complete 32-action
 chunks at 15 Hz, holding measured joint positions while inference is pending.
 MuJoCo uses the upstream-compatible 66 ms physics interval. Benchmark JSON owns
 the episode initial state and horizon; success comes from upstream
@@ -552,31 +537,7 @@ async with policy:
 underrun when `hold_behavior` is `current_position`. Selecting
 `repeat_last_action` disables it. The result must contain exactly the runtime
 contract's action dimension as finite real numeric scalars; invalid output raises
-`ValueError` before hooks or actuation. DreamZero-DROID and DreamZero-YAM own
-their managed hold paths and reject this callback explicitly.
-
-### DreamZero-YAM quickstart
-
-Install the `dreamzero` extra and sign in as shown above, then run the
-[minimal DreamZero-YAM example](examples/dreamzero_yam.py):
-
-```bash
-python examples/dreamzero_yam.py
-```
-
-The example uses the canonical `dreamscale.connect("dreamzero-yam")` managed
-loop and qualified defaults. Its callbacks are deliberately non-actuating:
-replace `capture` with synchronized top, left, and right RGB frames plus the
-current left-arm, left-gripper, right-arm, and right-gripper state. Camera
-timestamps must describe the real captures using the same clock as
-`time.time_ns()` and remain within 50 ms of one another.
-
-After startup, the loop returns one 14-value absolute target at each native 30 Hz
-control tick in `[left_j0..5, left_gripper, right_j0..5, right_gripper]` order;
-it may initially hold the observed position while the first chunk is in flight.
-Keep the context manager so the cloud session closes, and validate joint,
-velocity, acceleration, workspace, collision, and gripper limits before
-replacing the example's print callback with physical actuation.
+`ValueError` before hooks or actuation.
 
 ### Deployments: your own fine-tunes
 
@@ -683,7 +644,7 @@ the connection closes:
 
 ```python
 with dreamscale.connect(
-    model="dreamzero-yam",
+    model="molmoact2-bimanual-yam",
     idle_timeout=3600,
     keep_warm=900,
 ) as policy:
@@ -712,66 +673,6 @@ attached Modal runtime exits after 3900 seconds without control-plane activity;
 it first drains any accepted inference, and current control traffic renews that
 local safety deadline.
 
-### DreamZero sampling
-
-DreamZero uses one existing `RunStrategy` field; the server owns temporal
-admission and the SDK continues uploading observations while asynchronous
-inference is outstanding.
-
-| Mode | Behavior | YAM | DROID |
-|---|---|---|---|
-| `upstream_eval` | Boundary capture, exact response wait, then eight actions | Explicit | Explicit |
-| `async_8` | Single-flight async admission after a newer eight-tick epoch | Compatibility and rollback | Default |
-| `async_latest` | Single-flight, latest-only admission on the newest strictly newer tick | Accepted default | Rejected |
-
-An omitted value means “use the qualified default for this model”; it does not
-disable sampling. YAM resolves omission to `async_latest`; DROID remains
-`async_8`. Explicit compatibility and reference selections remain available:
-
-```python
-# YAM accepted default
-strategy = dreamscale.RunStrategy()
-
-# Explicit compatibility mode
-strategy = dreamscale.RunStrategy(dreamzero_sampling="async_8")
-
-# Synchronous reference/evaluation
-strategy = dreamscale.RunStrategy(dreamzero_sampling="upstream_eval")
-```
-
-In a managed `upstream_eval` run, the SDK waits for the eight-action boundary,
-captures and uploads one observation, waits for the chunk sourced from that
-exact observation, and then executes the next eight aligned actions at 15 Hz.
-The inference/network delay is an intentional pause in this reference mode;
-there is no continuous upload or action/inference overlap. Externally clocked
-`step()` callers may still provide every environment observation, but only
-ticks `0, 8, 16, ...` are uploaded. The server—not the client—continues to
-construct T1 and exact eight-tick-history T4 windows.
-
-`async_latest` does not create a client request queue. The SDK retains one
-latest unsent observation, while the YAM server admits at most one inference
-and collapses observations received while busy to the newest eligible control
-tick. Returned `PolicyStepResult` values expose `source_control_tick` and
-`source_capture_to_execution_ms`; hold actions without a source chunk report
-`None` for both.
-
-The server returns absolute `24x14` YAM targets. For `async_latest`, the SDK
-keeps the existing two committed steps and motion-smooths only the remaining
-temporally aligned suffix: it blends adjacent absolute-target motion using 85%
-new and 15% old motion, then corrects toward the new absolute target over five
-steps. It never shifts or rebases a chunk. YAM grippers remain continuous
-absolute targets and are handled with the other 12 joints. `async_8`,
-`upstream_eval`, and DROID retain direct commit-prefix replacement. At each
-upstream boundary, the previous chunk's unexecuted suffix is discarded before
-the exact new chunk is installed, so upstream evaluation adds no smoothing,
-averaging, shifting, or rebasing confound.
-
-DreamZero keeps its smoothing choice internal to this qualified mode; explicit
-DreamZero smoothing weights or modes remain unsupported. A managed `run()`
-callback may return `ActResult(accepted_action=...)` so the next merge anchors
-to the target accepted by the actuator. Externally clocked `step()` callers
-without actuator feedback anchor to the requested target.
-
 ### Action smoothing
 
 `policy.run()` smooths overlapping chunks automatically from the model's action
@@ -782,9 +683,7 @@ strategy = dreamscale.RunStrategy()  # action_smoothing="auto"
 ```
 
 `auto` resolves to `output` for delta-action models such as LIBERO and to
-`motion` for absolute-joint models such as SO101. The raw-absolute YAM contract
-is also an absolute target space, although DreamZero owns the narrower mode
-selection described above. `output` averages old and new
+`motion` for absolute-joint models such as SO101. `output` averages old and new
 action values at each overlapping logical timestep, using 70% new by default.
 `motion` blends consecutive target increments, using 85% new motion by default,
 then corrects gradually toward the new absolute targets. Absolute-position

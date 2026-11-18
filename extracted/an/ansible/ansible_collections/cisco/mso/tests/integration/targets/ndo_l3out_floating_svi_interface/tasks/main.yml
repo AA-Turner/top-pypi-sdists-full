@@ -18,6 +18,14 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_floating_svi_interface | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_floating_svi_interface | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_floating_svi_interface | default(mso_site | default("ansible_test")) }}'
+      schema_template: template_1
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 
@@ -27,59 +35,57 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.4
+- name: Exercise ndo_l3out_floating_svi_interface
   when: version.current.version is version('4.4', '>=')
   block:
     
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: absent
-
-    - name: Ensure ansible_test schema does not exist
-      cisco.mso.mso_schema_template: &mso_schema_template_absent
-        <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: template_1
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
+        state: absent
+
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
 
     - name: Create a fabric_policy template
       cisco.mso.ndo_template:
@@ -89,7 +95,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -99,7 +105,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -112,8 +118,8 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: template_1
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: vrf_1
         state: present
 
@@ -126,12 +132,12 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: template_1
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         ospf:
           state: enabled
@@ -142,18 +148,21 @@
         state: present
       register: mso_l3out
 
-    - name: Create L3Out node group policy
+    - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
-        name: node_group_policy_1
+        name: '{{item}}'
         state: present
+      loop:
+        - node_group_policy_1
+        - node_group_policy_2
 
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         name: interface_group_policy_1
         state: present
@@ -163,7 +172,7 @@
     - name: Create a L3out floating svi interface (check mode)
       cisco.mso.ndo_l3out_floating_svi_interface: &create_floating_svi_interface
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -309,9 +318,71 @@
           - nm_update_floating_svi_interface is changed
           - nm_update_floating_svi_interface.previous == nm_create_floating_svi_interface_again.current
           - nm_update_floating_svi_interface.previous != nm_update_floating_svi_interface.current
-          - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
           - nm_update_floating_svi_interface_again is not changed
           - nm_update_floating_svi_interface_again.previous == nm_update_floating_svi_interface_again.current == nm_update_floating_svi_interface.current
+
+    - name: Assert that the L3out floating svi interface was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_floating_svi_interface.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_floating_svi_interface.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_floating_svi_interface.current.addresses.ipV6DAD == "disabled"
+          - nm_update_floating_svi_interface.current.encap.encapType == "vlan"
+          - nm_update_floating_svi_interface.current.encap.value == 100
+          - nm_update_floating_svi_interface.current.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_floating_svi_interface.current.mtu == "1000"
+          - nm_update_floating_svi_interface.current.node.group == ""
+          - nm_update_floating_svi_interface.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_floating_svi_interface.current.node.nodeID == "101"
+          - nm_update_floating_svi_interface.current.node.podID == "1"
+          - nm_update_floating_svi_interface.current.node.routerID == "1.1.1.1"
+          - nm_update_floating_svi_interface.current.node.useRouteIDAsLoopback == false
+          - nm_update_floating_svi_interface.current.node.loopbackIPs is not defined
+          - nm_update_floating_svi_interface.current.nodeID == "101"
+          - nm_update_floating_svi_interface.current.pathType == "anchorNode"
+          - nm_update_floating_svi_interface.current.podID == "1"
+          - nm_update_floating_svi_interface.current.targetDscp == "af11"
+          - nm_update_floating_svi_interface.current.svi.autostate == "enabled"
+          - nm_update_floating_svi_interface.current.svi.mode == "access8021p"
+          - nm_update_floating_svi_interface.current.templateId is defined
+          - nm_update_floating_svi_interface.current.templateName is defined
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out floating svi interface was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface.current.addresses.primaryV4 == "10.0.0.2/24"
+          - nm_update_floating_svi_interface.current.addresses.primaryV6 == "2::101/16"
+          - nm_update_floating_svi_interface.current.addresses.linkLocalV6 == "FE80::10"
+          - nm_update_floating_svi_interface.current.addresses.ipV6DAD == "disabled"
+          - nm_update_floating_svi_interface.current.encap.encapType == "vlan"
+          - nm_update_floating_svi_interface.current.encap.value == 100
+          - nm_update_floating_svi_interface.current.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface.current.mac == "00:22:BD:F8:19:FE"
+          - nm_update_floating_svi_interface.current.mtu == "1000"
+          - nm_update_floating_svi_interface.current.node.group == "node_group_policy_1"
+          - nm_update_floating_svi_interface.current.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface.current.node.nodeID == "101"
+          - nm_update_floating_svi_interface.current.node.podID == "1"
+          - nm_update_floating_svi_interface.current.node.routerID == "1.1.1.1"
+          - nm_update_floating_svi_interface.current.node.useRouteIDAsLoopback == false
+          - nm_update_floating_svi_interface.current.node.loopbackIPs is not defined
+          - nm_update_floating_svi_interface.current.nodeID == "101"
+          - nm_update_floating_svi_interface.current.pathType == "anchorNode"
+          - nm_update_floating_svi_interface.current.podID == "1"
+          - nm_update_floating_svi_interface.current.targetDscp == "af11"
+          - nm_update_floating_svi_interface.current.svi.autostate == "enabled"
+          - nm_update_floating_svi_interface.current.svi.mode == "access8021p"
+          - nm_update_floating_svi_interface.current.templateId is defined
+          - nm_update_floating_svi_interface.current.templateName is defined
+          - nm_update_floating_svi_interface.proposed == nm_update_floating_svi_interface.current == cm_update_floating_svi_interface.current
+      when: version.current.version is version('5.2', '<')
 
     - name: Remove the ipv4_address from a L3out floating svi interface
       cisco.mso.ndo_l3out_floating_svi_interface: &removed_ipv4_address
@@ -377,7 +448,105 @@
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.useRouteIDAsLoopback == true
           - nm_update_floating_svi_interface_router_id_as_loopback.current.node.loopbackIPs is not defined
 
+    - name: Update a L3out floating svi interface with multiple node_group_policies (check mode) (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface: &update_multiple_node_group_policies
+        <<: *update_floating_svi_interface
+        node_group_policy: "{{ omit }}"
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      check_mode: true
+      register: cm_update_floating_svi_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out floating svi interface with multiple node_group_policies (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_multiple_node_group_policies
+      register: nm_update_floating_svi_interface_multiple_node_group_policies
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out floating svi interface with multiple node_group_policies again (>= 5.2)
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_multiple_node_group_policies
+      register: nm_update_floating_svi_interface_multiple_node_group_policies_again
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out floating svi interface with multiple node_group_policies was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - cm_update_floating_svi_interface_multiple_node_group_policies is changed
+          - cm_update_floating_svi_interface_multiple_node_group_policies.proposed.node.group == ""
+          - cm_update_floating_svi_interface_multiple_node_group_policies.proposed.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies is changed
+          - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.group == ""
+          - nm_update_floating_svi_interface_multiple_node_group_policies.previous.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.group == ""
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          # Unlike a single node_group_policy, node_group_policies is sent under "nodeGroups" and is not translated by
+          # the API, so the check mode current node matches the normal mode current.
+          - nm_update_floating_svi_interface_multiple_node_group_policies.current == cm_update_floating_svi_interface_multiple_node_group_policies.current
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again is not changed
+          - nm_update_floating_svi_interface_multiple_node_group_policies_again.previous == nm_update_floating_svi_interface_multiple_node_group_policies_again.current == cm_update_floating_svi_interface_multiple_node_group_policies.current
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: ""
+        interface_group_policy: ""
+      register: nm_update_floating_svi_interface_group_policies_removed
+
+    - name: Remove the node_group_policy and interface_group_policy from a L3out floating svi interface again with list input
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: "{{ omit }}"
+        node_group_policies: []
+        interface_group_policy: ""
+      register: nm_update_floating_svi_interface_group_policies_removed_again
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed is changed
+          - nm_update_floating_svi_interface_group_policies_removed.previous.group == "interface_group_policy_1"
+          - nm_update_floating_svi_interface_group_policies_removed.current.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again is not changed
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.group == ""
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.nodeGroups is not defined
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.nodeGroups is not defined
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the node_group_policy and interface_group_policy were removed (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_floating_svi_interface_group_policies_removed.previous.node.group == "node_group_policy_1"
+          - nm_update_floating_svi_interface_group_policies_removed.current.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.previous.node.group == ""
+          - nm_update_floating_svi_interface_group_policies_removed_again.current.node.group == ""
+      when: version.current.version is version('5.2', '<')
+
     # ERROR HANDLING
+
+    - name: Create L3out floating svi interface with node_group_policy and node_group_policies
+      cisco.mso.ndo_l3out_floating_svi_interface:
+        <<: *update_floating_svi_interface
+        node_group_policy: node_group_policy_1
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: error_floating_svi_interface_node_group_policy_and_policies
+      ignore_errors: true
 
     - name: Create L3out floating svi interface with template and template_id
       cisco.mso.ndo_l3out_floating_svi_interface:
@@ -406,7 +575,7 @@
     - name: Create L3out floating svi interface without l3out or l3out_uuid
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         state: present
       register: error_floating_svi_interface_without_l3out_or_l3out_uuid
       ignore_errors: true
@@ -414,7 +583,7 @@
     - name: Create a L3out floating svi interface without node_id
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         encapsulation_type: vlan
         encapsulation_value: 100
@@ -425,7 +594,7 @@
     - name: Create a L3out floating svi interface without encapsulation_type
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_value: 100
@@ -436,7 +605,7 @@
     - name: Create a L3out floating svi interface without encapsulation_value
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         encapsulation_type: vlan
@@ -452,6 +621,8 @@
     - name: Assert that the error handling for svi interface creation works
       ansible.builtin.assert:
         that:
+          - error_floating_svi_interface_node_group_policy_and_policies is failed
+          - 'error_floating_svi_interface_node_group_policy_and_policies.msg == "parameters are mutually exclusive: node_group_policy|node_group_policies"'
           - error_floating_svi_interface_template_and_template_id is failed
           - 'error_floating_svi_interface_template_and_template_id.msg == "parameters are mutually exclusive: template|template_id"'
           - error_floating_svi_interface_l3out_and_l3out_uuid is failed
@@ -472,7 +643,7 @@
     - name: Create another L3out floating svi interface with vxlan for query all 
       cisco.mso.ndo_l3out_floating_svi_interface: &create_floating_svi_interface_2
         <<: *create_floating_svi_interface
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 102
         encapsulation_type: vxlan
@@ -498,7 +669,7 @@
     - name: Query all L3out floating svi interfaces
       cisco.mso.ndo_l3out_floating_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         state: query
       register: query_all_floating_svi_interfaces
@@ -552,16 +723,25 @@
           - nm_delete_floating_svi_interface_again is not changed
           - nm_delete_floating_svi_interface_again.previous == nm_delete_floating_svi_interface_again.proposed == nm_delete_floating_svi_interface_again.current == {}
 
-    # CLEANUP TEMPLATE
-
+  always:
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-
-    - name: Remove ansible_test schema template
-      cisco.mso.mso_schema_template:
-        <<: *mso_schema_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

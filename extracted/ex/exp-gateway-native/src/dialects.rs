@@ -111,6 +111,21 @@ fn malformed(message: &str) -> Failure {
     Failure::new(FailureClass::MalformedResponse, message).with_retry(false, true)
 }
 
+/// A streamed client tool call that never became one valid call: malformed,
+/// but marked so the waterfall may take it once while nothing reached the
+/// caller (`Failure::malformed_tool_call`).
+pub(crate) fn malformed_tool_call(message: &str) -> Failure {
+    malformed(message).with_malformed_tool_call(true)
+}
+
+impl Failure {
+    /// Mark (or keep marking) a malformed streamed tool call.
+    pub fn with_malformed_tool_call(mut self, malformed_tool_call: bool) -> Self {
+        self.malformed_tool_call = malformed_tool_call;
+        self
+    }
+}
+
 /// One provider-supplied discriminator (an item or event type) reduced to a
 /// token safe to embed in a malformed-stream reason. The reason crosses into
 /// the operator log at the failure boundary, so anything but a short
@@ -277,8 +292,19 @@ impl Normalizer {
         // mark as the pre-stream 4xx, so the waterfall can strip and re-dial.
         let encrypted_reasoning_rejected = dialect == "openai_responses"
             && crate::rejection_shapes::refuses_encrypted_reasoning(code, message);
-        crate::stream_errors::stream_failure(kind, detail)
-            .with_encrypted_reasoning_rejected(encrypted_reasoning_rejected)
+        // A typed content-policy code (or the relayed Gemini verdict) is the
+        // provider's filter; a refusal read only from the sentence, or one
+        // ending a turn the model already refused in its own words, is not.
+        let typed_verdict = !self.model_refusal_seen
+            && (crate::content_filter::is_content_policy_code(code)
+                || crate::stream_errors::relayed_gemini_refusal(code, raw_message).is_some());
+        let failure = crate::stream_errors::stream_failure(kind, detail)
+            .with_encrypted_reasoning_rejected(encrypted_reasoning_rejected);
+        if typed_verdict {
+            crate::content_filter::mark(failure)
+        } else {
+            failure
+        }
     }
 }
 
@@ -361,7 +387,7 @@ fn complete_streamed_tool(
             "reason": message,
         });
         eprintln!("exp-gateway-native: {line}");
-        malformed(&format!("{message} ({bytes} bytes)"))
+        malformed_tool_call(&format!("{message} ({bytes} bytes)"))
     })?;
     events.push(if tool.server {
         Event::ServerToolUseCompleted { index, call }
@@ -433,6 +459,9 @@ pub struct Normalizer {
     dialect: Dialect,
     tools: BTreeMap<u32, ToolAccumulator>,
     refusal_seen: bool,
+    /// The model declined in its own words (a Chat `refusal` delta), as
+    /// distinct from a provider filter finish (`content_filter`).
+    model_refusal_seen: bool,
     terminal: bool,
     // Whether any gateway-visible output token (content, reasoning, or a tool
     // call) has been emitted. A clean stream close after content but without a
@@ -524,6 +553,7 @@ impl Normalizer {
             dialect,
             tools: BTreeMap::new(),
             refusal_seen: false,
+            model_refusal_seen: false,
             terminal: false,
             emitted_output: false,
             accumulated_tool_bytes: 0,

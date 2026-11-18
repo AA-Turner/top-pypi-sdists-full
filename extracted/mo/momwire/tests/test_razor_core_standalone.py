@@ -52,6 +52,8 @@ CORE_SOURCES = (
     "_razor_t2_core.cpp",
     "_accel_razor_cplx.cpp",
     "_razor_solve_core.cpp",
+    # momwire#1971: the fill-pair reuse the solve core calls.
+    "_razor_pair_reuse_core.cpp",
     "_razor_front_core.cpp",
     "_razor_buried_core.cpp",
     # The exact ring kernel (momwire#1479): razor's plan and correction, and
@@ -81,21 +83,11 @@ CORE_SOURCES = (
     # B3), linked into `sinusoidal_fill_driver.cpp`.
     "_sinusoidal_fill_core.cpp",
     "_sinusoidal_transmitted_core.cpp",
-    # The Sinusoidal-Galerkin mixed-potential fill and port solve over the
-    # same front (momwire#1718 S2), linked into
-    # `sinusoidal_galerkin_fill_driver.cpp`.
-    "_sinusoidal_galerkin_fill_core.cpp",
-    "_sinusoidal_galerkin_crossing_core.cpp",
-    # Its direct-field fill (momwire#1718 S7): a wire end on the ground plane.
-    "_sinusoidal_galerkin_direct_core.cpp",
     "_sinusoidal_crossing_core.cpp",
     # The NEC-4.2 run half and the sinusoidal basis' answers to it
     # (momwire#1607 B4a), linked into `nec4_sinusoidal_printout_driver.cpp`.
     "_nec4_run_core.cpp",
     "_sinusoidal_run_core.cpp",
-    # The Sinusoidal-Galerkin basis' answers to the same run half
-    # (momwire#1718 S3).
-    "_sinusoidal_galerkin_run_core.cpp",
     # The B-spline basis' answers to the same run half (momwire#1607 C1).
     "_bspline_nec4_run_core.cpp",
     # The NEC-5 deck reader (unit 2a): the executable's first step, card text
@@ -128,6 +120,8 @@ CORE_SOURCES = (
     # kernel, the grid, and the remainder's projection and moments.
     "_somm_kernel_core.cpp",
     "_somm_grid_core.cpp",
+    # The teams' CPU counts (the affinity mask; momwire#1952).
+    "_cpu_count_core.cpp",
     "_somm_proj_core.cpp",
     "_somm_below_proj_core.cpp",
     "_somm_below_grid_core.cpp",
@@ -159,9 +153,6 @@ CORE_SOURCES = (
     "_bspline_transmitted_core.cpp",
     "_bspline_crossing_core.cpp",
     "_nec5_bspline_printout_core.cpp",
-    # The Sinusoidal-Galerkin basis on the NEC-5 seam (momwire#1718 S8),
-    # linked into `nec5_sinusoidal_galerkin_printout_driver.cpp`.
-    "_nec5_sinusoidal_galerkin_core.cpp",
 )
 DECK = ROOT / "tests" / "fixtures" / "razor_front_deck.txt"
 
@@ -260,10 +251,7 @@ def driver(accel, tmp_path_factory):
         "sinusoidal_galerkin_far_driver",
         "sinusoidal_front_driver",
         "sinusoidal_fill_driver",
-        "sinusoidal_galerkin_fill_driver",
         "nec4_sinusoidal_printout_driver",
-        "nec4_sinusoidal_galerkin_printout_driver",
-        "nec5_sinusoidal_galerkin_printout_driver",
         "transmitted_core_driver",
     )
     sources = [PKG / s for s in CORE_SOURCES] + [SPLIT / f"{d}.cpp" for d in drivers]
@@ -316,8 +304,6 @@ def test_the_core_includes_no_python_header(driver):
     assert "_sinusoidal_galerkin_core.h" in seen, "the SG far fill's core was not built"
     assert "_sinusoidal_front_core.h" in seen, "the sinusoidal front half was not built"
     assert "_sinusoidal_fill_core.h" in seen, "the sinusoidal fill was not built"
-    assert "_sinusoidal_galerkin_fill_core.h" in seen, "the SG fill was not built"
-    assert "_sinusoidal_galerkin_direct_core.h" in seen, "the SG direct fill is missing"
     assert "_nec4_run_core.h" in seen, "the NEC-4.2 run half was not built"
     for marker in ("Python.h", "pybind11", "numpy"):
         assert marker not in seen, f"a core TU includes {marker}"
@@ -540,63 +526,6 @@ def test_the_sinusoidal_fill_in_cxx_alone_is_pythons(driver):
     assert compared >= 30, compared
 
 
-@pytest.mark.slow  # the free-space NEC-4.2 fixtures, each solved twice
-def test_the_sinusoidal_galerkin_fill_in_cxx_alone_is_pythons(driver):
-    """momwire#1718 S2: the Sinusoidal-Galerkin mixed-potential fill and port
-    solve in free space (G, the coefficients, Y), built from the core TUs
-    alone (`sinusoidal_galerkin_fill_driver`, on the OpenBLAS SciPy bundles),
-    is `SinusoidalGalerkinSolver.compute_port_solution`'s at every operating
-    point the NEC-4.2 build makes of every fixture deck it fills, to the
-    bit -- since S7 the direct-field fill of the decks with a wire end on the
-    ground plane among them."""
-    spec = importlib.util.spec_from_file_location(
-        "core_split_sinusoidal_galerkin_fill_compare",
-        SPLIT / "sinusoidal_galerkin_fill_compare.py",
-    )
-    nc = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(nc)
-    pc = _printout_compare_module()
-    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
-        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
-    decks = [
-        p
-        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
-        if p.is_file() and p.suffix in (".nec", ".deck")
-    ]
-    run = subprocess.run(
-        [
-            str(driver[0]["sinusoidal_galerkin_fill_driver"]),
-            pc.scipy_openblas(),
-            pc.numpy_openblas(),
-            *map(str, decks),
-        ],
-        capture_output=True,
-        check=True,
-        env=dict(os.environ, **_ONE_THREAD),
-    )
-    dumps: dict[str, str] = {}
-    current = None
-    for line in run.stdout.decode("utf-8").splitlines(keepends=True):
-        if line.startswith("== "):
-            current = line[3:].rstrip("\n")
-            dumps[current] = ""
-        else:
-            dumps[current] += line
-    compared = contact = 0
-    for path in decks:
-        cxx = dumps[str(path)]
-        if nc.classify(cxx) != "fills":
-            continue
-        diff = nc.dc.first_difference(
-            nc.py_fill(path.read_bytes().decode("latin-1")), cxx
-        )
-        assert diff is None, (path, diff)
-        compared += 1
-        contact += path.name.startswith(("0234_", "0235_", "m1_", "m2_", "p6_"))
-    assert compared >= 80, compared
-    assert contact >= 5, contact
-
-
 @pytest.mark.slow  # median over the 5 s default-lane budget at 0.84.1
 def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
     """momwire#1607 B4a: deck text to the NEC-4.2 slot's printout for the
@@ -613,45 +542,14 @@ def test_the_nec42_sinusoidal_printout_in_cxx_alone_is_pythons(driver):
     assert _nec42_sinusoidal_printouts(driver, decks) >= 30
 
 
-@pytest.mark.slow  # every NEC-4.2 fixture, printed by both copies
-def test_the_nec42_sinusoidal_galerkin_printout_in_cxx_alone_is_pythons(driver):
-    """momwire#1718 S3: deck text to the NEC-4.2 slot's printout for the
-    Sinusoidal-Galerkin basis, built from the core TUs alone
-    (`nec4_sinusoidal_galerkin_printout_driver`), is `_nec4.render(text,
-    basis="sinusoidal-galerkin")`'s on every NEC-4.2 fixture deck it prints,
-    byte for byte but for the two measured-time lines."""
-    decks = [
-        p
-        for p in sorted((ROOT / "tests" / "fixtures" / "eznec_nec42").rglob("*"))
-        if p.is_file() and p.suffix in (".nec", ".deck")
-    ]
-    assert _nec42_sinusoidal_printouts(driver, decks, "sinusoidal-galerkin") >= 80
-
-
-@pytest.mark.slow  # median over the 5 s default-lane budget at 0.90.0
-def test_a_wholly_buried_sinusoidal_galerkin_printout_in_cxx_alone_is_pythons(
-    driver, monkeypatch
-):
-    """momwire#1718 S11a: the lower-medium fill (k_m, the below remainder,
-    the loss power at k_m) through the core TUs alone, on the buried
-    fixtures; the below grids the exact fill on both sides."""
-    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
-    decks = sorted(
-        (ROOT / "tests" / "fixtures" / "bspline_printout_buried").glob("*.nec")
-    )
-    assert _nec42_sinusoidal_printouts(driver, decks, "sinusoidal-galerkin") == len(
-        decks
-    )
-
-
 @pytest.mark.slow  # the mixed decks' transmitted tables, filled by both copies
 def test_the_mixed_decks_print_as_python_on_the_nec42_sinusoidal(driver, monkeypatch):
     """momwire#1718 S12: wires on both sides of the interface with no
     crossing junction through the point-matched lane in C++ alone -- the
     stitched basis, the two transmitted pair classes over the table
     `_somm_transmitted_core` fills, the class blocks -- byte for byte as
-    `_nec4.render(text, basis="sinusoidal")` prints them. One declines by
-    name: two radii (the class kernels read one). A near field over a buried
+    `_nec4.render(text, basis="sinusoidal")` prints them, two radii included
+    (each observer's own, census 11-15: below). A near field over a buried
     wire is refused in Python's words, and that refusal prints as Python's."""
     monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
     decks = sorted(
@@ -664,14 +562,42 @@ def test_the_mixed_decks_print_as_python_on_the_nec42_sinusoidal(driver, monkeyp
         / "probes"
         / "p9_above_and_buried_gn2.nec"
     ]
-    assert _nec42_sinusoidal_printouts(driver, decks) == len(decks) - 1
+    assert _nec42_sinusoidal_printouts(driver, decks) == len(decks)
+
+
+MIXED_RADII_DECKS = [
+    ROOT / "tests" / "fixtures" / rel
+    for rel in (
+        "transmitted_mixed/m3_two_radii.nec",
+        "transmitted_store/m3_plus_short_vertical.nec",
+        "sinusoidal_mixed_radii/four_radii_two_sides.nec",
+    )
+]
+
+
+# ~20 s on Haswell (three mixed decks' transmitted tables, filled by both
+# copies), as its sibling above
+@pytest.mark.slow
+def test_a_mixed_deck_with_several_radii_prints_as_python_on_the_nec42_sinusoidal(
+    driver, monkeypatch
+):
+    """Census 11-15: the nec42-sinusoidal exe declined "a mixed deck with
+    several radii" on the two fixtures Python serves. Python's class blocks
+    (`_class_bands`) read each OBSERVER's radius: the complex twin below the
+    interface takes it per row, and the reduced kernel above, one scalar per
+    call, is called once per constant-radius run of the band
+    (`_radius_runs`). The C++ class kernels do the same, byte for byte as
+    `_nec4.render(text, basis="sinusoidal")` prints them -- the two census
+    fixtures (one radius per side) and a synthetic deck with two radii on
+    each side, so that both classes walk several runs."""
+    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
+    assert _nec42_sinusoidal_printouts(driver, MIXED_RADII_DECKS) == 3
 
 
 def _nec42_sinusoidal_printouts(driver, decks, basis="sinusoidal") -> int:
-    """How many of `decks` `nec4_sinusoidal_printout_driver` (for `basis`
-    "sinusoidal-galerkin", `nec4_sinusoidal_galerkin_printout_driver`)
-    prints, each checked against `_nec4.render(text, basis=basis)` byte for
-    byte but for the two measured-time lines."""
+    """How many of `decks` `nec4_sinusoidal_printout_driver` prints, each
+    checked against `_nec4.render(text, basis=basis)` byte for byte but for
+    the two measured-time lines."""
     spec = importlib.util.spec_from_file_location(
         "core_split_nec4_run_compare", SPLIT / "nec4_run_compare.py"
     )
@@ -683,13 +609,7 @@ def _nec42_sinusoidal_printouts(driver, decks, basis="sinusoidal") -> int:
     version, variant, marker = rc.pc.stamp()
     run = subprocess.run(
         [
-            str(
-                driver[0][
-                    "nec4_sinusoidal_galerkin_printout_driver"
-                    if basis == "sinusoidal-galerkin"
-                    else "nec4_sinusoidal_printout_driver"
-                ]
-            ),
+            str(driver[0]["nec4_sinusoidal_printout_driver"]),
             pc.scipy_openblas(),
             pc.numpy_openblas(),
             version,
@@ -1583,12 +1503,15 @@ def test_the_network_decks_print_their_networks(driver, tmp_path):
     (a gyrator on a parked wire), two loaded current sources through lines
     from a parked node, two voltage sources across an NT, an NT with both
     ends on one segment (its four entries summed, and summing to zero:
-    momwire#1887) -- and is compared byte for byte by the corpus test above."""
+    momwire#1887), two one-port NTs whose port 2 sits on a parked wire no LD
+    pins (those sites held at 0 V, as `_unreached_sites` holds them, rather
+    than an MNA row of zeros refused as a singular network) -- and is
+    compared byte for byte by the corpus test above."""
     pc = _printout_compare_module()
     if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
         pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
     decks = sorted(NET_DECKS.glob("*.nec"))
-    assert len(decks) == 7
+    assert len(decks) == 8
     answers = pc.run_driver(driver[0]["nec5_razor_printout_driver"], decks, tmp_path)
     for path, ans in zip(decks, answers, strict=True):
         assert (ans["route"], ans["seam"], ans["raised"]) == (
@@ -1600,6 +1523,88 @@ def test_the_network_decks_print_their_networks(driver, tmp_path):
         assert ans["printout"] == pc.python_printout(
             path.read_bytes().decode("latin-1")
         ), path
+
+
+PARKED_ONE_PORT_NTS = NET_DECKS / "net_one_port_nts_on_parked_wire.nec"
+
+
+@pytest.mark.parametrize(
+    ("basis", "exe"),
+    [
+        ("razor-2p", "nec5_razor_printout_driver"),
+        ("bspline", "nec5_bspline_printout_driver"),
+    ],
+)
+def test_one_port_nts_on_an_unpinned_parked_wire_print_as_python(
+    driver, tmp_path, basis, exe
+):
+    """EZNEC's parallel load is a one-port NT (Y11 only) whose port 2 sits on
+    its parked circuit wire. With no LD pinning those sites, nothing reaches
+    them -- no card admittance, no antenna admittance -- so their KCL rows are
+    zero. Python holds them at 0 V (`_serve._unreached_sites`) and serves the
+    deck; the C++ core stamped them as floating nodes and refused the MNA
+    system as singular. Both bases print Python's bytes."""
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    with _one_thread():
+        (ans,) = pc.run_driver(
+            driver[0][exe], [PARKED_ONE_PORT_NTS], tmp_path, basis=basis
+        )
+        assert (ans["route"], ans["seam"], ans["raised"]) == (
+            "printed",
+            "served",
+            "",
+        ), ans.get("reason")
+        ref = pc.python_printout(
+            PARKED_ONE_PORT_NTS.read_bytes().decode("latin-1"), basis=basis
+        )
+    assert b"- - - ANTENNA INPUT PARAMETERS - - -" in ref
+    assert ans["printout"] == ref, pc.first_difference(ref, ans["printout"])
+
+
+STAND_OFF_FLOOR = ROOT / "tests" / "fixtures" / "stand_off_floor_865"
+
+
+def test_the_stand_off_floor_refuses_as_python_does(driver, tmp_path):
+    """momwire#865's floor (a bare wire alongside the interface below h = 2a)
+    in Python's sentence from bs2's front: the NEC-5 seam refuses it by name
+    (`_prepare`'s StandOffFloorError) where it declined it as `low-stand-off`.
+    The NEC-4.2 slot's twin deck (`bare_radials_below_floor_nec4.nec`) is
+    held to `momwire-nec42`'s bytes by test_standalone_nec42's fixture walk."""
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    nec5 = STAND_OFF_FLOOR / "bare_radials_below_floor_nec5.nec"
+    with _one_thread():
+        (ans,) = pc.run_driver(
+            driver[0]["nec5_bspline_printout_driver"], [nec5], tmp_path, basis="bspline"
+        )
+        ref = pc.python_printout(nec5.read_bytes().decode("latin-1"), basis="bspline")
+    assert (ans["route"], ans["seam"], ans["raised"]) == ("printed", "refused", ""), ans
+    assert b"NEC ERROR - wire 0 runs at h = 0.900 mm" in ref
+    assert ans["printout"] == ref, pc.first_difference(ref, ans["printout"])
+
+
+SY_DECKS = sorted((ROOT / "tests" / "fixtures" / "sy_refused_by_name").glob("*.nec"))
+
+
+def test_sy_decks_refuse_by_name_as_python_does(driver, tmp_path):
+    """An SY card (4nec2's symbolic variables) is refused by name before its
+    fields are converted, by the C++ reader as by `parse_card`: the printout
+    names SY rather than NON-NUMERICAL CHARACTER IN FIELD, byte for byte as
+    `momwire-nec5-razor-2p` writes it."""
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    assert len(SY_DECKS) == 2
+    answers = pc.run_driver(driver[0]["nec5_razor_printout_driver"], SY_DECKS, tmp_path)
+    for path, ans in zip(SY_DECKS, answers, strict=True):
+        ref = pc.python_printout(path.read_bytes().decode("latin-1"))
+        assert b"NEC ERROR - SY (4nec2 symbolic variables)" in ref, path
+        assert ans["printout"] == ref, (
+            f"{path}: {pc.first_difference(ref, ans['printout'])}"
+        )
 
 
 def test_an_nt_on_one_segment_prints_as_python_on_the_nec42_sinusoidal(driver):
@@ -1959,8 +1964,7 @@ BSPLINE_BURIED_DECKS = ROOT / "tests" / "fixtures" / "bspline_printout_buried"
 def _bspline_printouts(driver, decks, tmp_path, basis="bspline"):
     """bs2's driver against `_shell.render(text, basis="bspline")` over
     `decks`, both on one BLAS thread: every printed deck byte for byte, and
-    every finished run's arrays. Returns (counts, decline reasons). `basis`
-    "sinusoidal-galerkin": that basis' driver (momwire#1718 S8)."""
+    every finished run's arrays. Returns (counts, decline reasons)."""
     pc = _printout_compare_module()
     if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
         pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
@@ -1968,11 +1972,7 @@ def _bspline_printouts(driver, decks, tmp_path, basis="bspline"):
     os.environ.update(_ONE_THREAD)
     try:
         answers = pc.run_driver(
-            driver[0][
-                "nec5_sinusoidal_galerkin_printout_driver"
-                if basis == "sinusoidal-galerkin"
-                else "nec5_bspline_printout_driver"
-            ],
+            driver[0]["nec5_bspline_printout_driver"],
             decks,
             tmp_path,
             basis=basis,
@@ -2166,6 +2166,175 @@ def test_the_4nec2_card_decks_print_as_python(driver, tmp_path, basis):
     assert counts.get("runs", 0) >= 29, counts
 
 
+NORMALIZED_GAIN_DECKS = ROOT / "tests" / "fixtures" / "rp_normalized_gain"
+SINGLE_CUT_DECKS = sorted(NORMALIZED_GAIN_DECKS.glob("small*.nec")) + sorted(
+    (ROOT / "tests" / "fixtures" / "rp_average_single_cut_1962").glob("*.nec")
+)
+
+
+@pytest.mark.parametrize("basis", ["razor-2p", "bspline"])
+def test_a_single_cut_prints_no_average_as_python(driver, tmp_path, basis):
+    """momwire#1962: an RP card with one theta or one phi averages nothing on
+    the NEC-5 engine (no trailer at A = 1 or 3, the rows at A = 2;
+    test_rp_average_single_cut_1962 holds `_shell.render` to x13's captures).
+    `pattern_block` drops the A digit on the same condition, byte for byte as
+    `_shell.render` prints the decks; the two-phi control still averages."""
+    decks = SINGLE_CUT_DECKS
+    assert len(decks) == 10
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    if basis == "bspline":
+        counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+        assert not reasons and counts.get("served", 0) == 10, (counts, reasons)
+    else:
+        with _one_thread():
+            answers = pc.run_driver(
+                driver[0]["nec5_razor_printout_driver"], decks, tmp_path
+            )
+            for path, ans in zip(decks, answers, strict=True):
+                assert ans["route"] == "printed", (path, ans.get("reason"))
+                ref = pc.python_printout(path.read_bytes().decode("latin-1"))
+                assert ans["printout"] == ref, (
+                    f"{path}: {pc.first_difference(ref, ans['printout'])}"
+                )
+    with _one_thread():
+        averaged = [
+            p.stem
+            for p in decks
+            if b"AVERAGE POWER GAIN"
+            in pc.python_printout(p.read_bytes().decode("latin-1"), basis=basis)
+        ]
+    assert averaged == ["cut_two_phi"]
+
+
+AVERAGE_QUADRATURE_DECKS = sorted(
+    (ROOT / "tests" / "fixtures" / "rp_average_quadrature").glob("*.nec")
+)
+
+
+@pytest.mark.parametrize("basis", ["razor-2p", "bspline"])
+def test_the_average_quadrature_decks_print_as_python(driver, tmp_path, basis):
+    """RP 0's average gain on the NEC-5 engine: phi by the trapezoid rule,
+    the theta bands clipped to the span, NaN over a zero step
+    (test_rp_average_quadrature holds `_shell.render` to x13's captures).
+    `pattern_block` prints the same trailer, byte for byte as
+    `_shell.render` prints the decks, NaN lines included."""
+    decks = AVERAGE_QUADRATURE_DECKS
+    assert len(decks) == 25
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    if basis == "bspline":
+        counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+        assert not reasons and counts.get("served", 0) == 25, (counts, reasons)
+    else:
+        with _one_thread():
+            answers = pc.run_driver(
+                driver[0]["nec5_razor_printout_driver"], decks, tmp_path
+            )
+            for path, ans in zip(decks, answers, strict=True):
+                assert ans["route"] == "printed", (path, ans.get("reason"))
+                ref = pc.python_printout(path.read_bytes().decode("latin-1"))
+                assert ans["printout"] == ref, (
+                    f"{path}: {pc.first_difference(ref, ans['printout'])}"
+                )
+    with _one_thread():
+        nan = [
+            p.stem
+            for p in decks
+            if b"AVERAGE POWER GAIN=         NaN"
+            in pc.python_printout(p.read_bytes().decode("latin-1"), basis=basis)
+        ]
+    assert nan == [p.stem for p in decks if p.stem.startswith("z_")]
+
+
+@pytest.mark.parametrize("basis", ["razor-2p", "bspline"])
+def test_the_normalized_gain_decks_print_as_python(driver, tmp_path, basis):
+    """RP with XNDA N = 1 to 5: the NORMALIZED GAIN table through the C++
+    printout core (`pattern_block`'s cells and factor, `pattern_lines`' three
+    column groups, the shorter gap after the table), byte for byte as
+    `_shell.render` prints it, over free space, the Sommerfeld ground, several
+    frequencies and several RP cards. None declines."""
+    decks = sorted(NORMALIZED_GAIN_DECKS.glob("*.nec"))
+    assert len(decks) == 54
+    if basis == "bspline":
+        counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+    else:
+        pc = _printout_compare_module()
+        if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+            pytest.skip(
+                "no bundled OpenBLAS beside SciPy / numpy (not a wheel install)"
+            )
+        saved = {k: os.environ.get(k) for k in _ONE_THREAD}
+        os.environ.update(_ONE_THREAD)
+        try:
+            answers = pc.run_driver(
+                driver[0]["nec5_razor_printout_driver"], decks, tmp_path
+            )
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+        counts, reasons = {}, {}
+        with _one_thread():
+            for path, ans in zip(decks, answers, strict=True):
+                if ans["route"] == "declined":
+                    reasons[ans["reason"]] = reasons.get(ans["reason"], 0) + 1
+                    continue
+                counts[ans["seam"]] = counts.get(ans["seam"], 0) + 1
+                ref = pc.python_printout(path.read_bytes().decode("latin-1"))
+                assert ans["printout"] == ref, (
+                    f"{path}: {pc.first_difference(ref, ans['printout'])}"
+                )
+    assert not reasons, reasons
+    assert counts.get("served", 0) == 54, counts
+
+
+REFUSAL_1117_DECKS = ROOT / "tests" / "fixtures" / "nec5_refusal_sentences_1117"
+
+
+@pytest.mark.parametrize("basis", ["razor-2p", "bspline"])
+def test_the_census_refusals_print_as_python(driver, tmp_path, basis):
+    """The 11-17 census's two bs2 refusals (`test_nec5_refusal_sentences_1117`):
+    a radius spread below a crossing node and a grazing pair inside the
+    Sommerfeld range cap, through the C++ seam and run half on razor-2p and
+    bs2, byte for byte as `_shell.render` prints them: the refusal sentence,
+    never a decline or an INTERNAL ERROR frame."""
+    decks = sorted(REFUSAL_1117_DECKS.glob("*.nec"))
+    assert len(decks) == 2
+    pc = _printout_compare_module()
+    if pc.scipy_openblas() is None or pc.numpy_openblas() is None:
+        pytest.skip("no bundled OpenBLAS beside SciPy / numpy (not a wheel install)")
+    if basis == "bspline":
+        counts, reasons = _bspline_printouts(driver, decks, tmp_path)
+        assert not reasons, reasons
+        assert sum(counts.values()) == 2, counts
+        return
+    saved = {k: os.environ.get(k) for k in _ONE_THREAD}
+    os.environ.update(_ONE_THREAD)
+    try:
+        answers = pc.run_driver(
+            driver[0]["nec5_razor_printout_driver"], decks, tmp_path
+        )
+    finally:
+        for k, v in saved.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+    with _one_thread():
+        for path, ans in zip(decks, answers, strict=True):
+            assert ans["route"] != "declined", (path, ans.get("reason"))
+            ref = pc.python_printout(path.read_bytes().decode("latin-1"))
+            assert b"NEC ERROR" in ref and b"INTERNAL ERROR" not in ref, path
+            assert ans["printout"] == ref, (
+                f"{path}: {pc.first_difference(ref, ans['printout'])}"
+            )
+
+
 CW_1697_DECKS = ROOT / "tests" / "fixtures" / "nec_cw_catenary_1697"
 
 
@@ -2345,35 +2514,6 @@ def test_the_exact_kernel_windows_print_as_python(driver, tmp_path):
     assert len(decks) == 2
     counts, reasons = _bspline_printouts(driver, decks, tmp_path)
     assert counts.get("served", 0) == 2 and not reasons, (counts, reasons)
-
-
-@pytest.mark.slow  # every fixture deck, printed by both copies
-def test_deck_text_to_nec5_printout_in_cxx_alone_is_sinusoidal_galerkins(
-    driver, tmp_path, monkeypatch
-):
-    """momwire#1718 S8: every NEC deck in tests/fixtures through the
-    Sinusoidal-Galerkin basis on the NEC-5 seam in a process with no Python
-    -- the reader, the seam (the node spelling, no cuts), the sinusoidal
-    front with the knot feeds' `feed_xi`, the Galerkin fill and port solve,
-    the inherited readouts in the caller's wire numbering, the run half and
-    the writer. Every deck it prints is `_shell.render(text,
-    basis="sinusoidal-galerkin")`'s, byte for byte, with Python's Y,
-    coefficients and port vectors, node gaps (S9), wholly-buried decks
-    (S11a, the below grids the exact fill on both sides) and crossing decks
-    (S11b) included. It declines, by name, a wire end on the plane (S7) and
-    wires on both sides of the interface with no crossing junction (S12)."""
-    monkeypatch.setenv("MOMWIRE_BELOW_ANCHORS", "off")
-    decks = [
-        p
-        for p in sorted((ROOT / "tests" / "fixtures").rglob("*"))
-        if p.is_file() and p.suffix in (".nec", ".deck")
-    ]
-    counts, reasons = _bspline_printouts(
-        driver, decks, tmp_path, basis="sinusoidal-galerkin"
-    )
-    assert counts.get("served", 0) >= 350, counts
-    allowed = ("S7)", "S12)")
-    assert all(r.endswith(allowed) for r in reasons), reasons
 
 
 # --- the transmitted family (momwire#1718 S12) ------------------------------

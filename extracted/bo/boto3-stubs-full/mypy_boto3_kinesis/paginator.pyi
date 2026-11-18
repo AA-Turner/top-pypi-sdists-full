@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_kinesis.paginator import (
         DescribeStreamPaginator,
         ListChannelsPaginator,
+        ListQueuesPaginator,
         ListShardsPaginator,
         ListStreamConsumersPaginator,
         ListStreamsPaginator,
@@ -24,6 +25,7 @@ Usage::
 
     describe_stream_paginator: DescribeStreamPaginator = client.get_paginator("describe_stream")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+    list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_shards_paginator: ListShardsPaginator = client.get_paginator("list_shards")
     list_stream_consumers_paginator: ListStreamConsumersPaginator = client.get_paginator("list_stream_consumers")
     list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
@@ -42,6 +44,8 @@ from .type_defs import (
     DescribeStreamOutputTypeDef,
     ListChannelsInputPaginateTypeDef,
     ListChannelsOutputTypeDef,
+    ListQueuesInputPaginateTypeDef,
+    ListQueuesOutputTypeDef,
     ListShardsInputPaginateTypeDef,
     ListShardsOutputTypeDef,
     ListStreamConsumersInputPaginateTypeDef,
@@ -58,6 +62,7 @@ else:
 __all__ = (
     "DescribeStreamPaginator",
     "ListChannelsPaginator",
+    "ListQueuesPaginator",
     "ListShardsPaginator",
     "ListStreamConsumersPaginator",
     "ListStreamsPaginator",
@@ -97,6 +102,24 @@ class ListChannelsPaginator(_ListChannelsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/ListChannels.html#Kinesis.Paginator.ListChannels.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/paginators/#listchannelspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListQueuesPaginatorBase = Paginator[ListQueuesOutputTypeDef]
+else:
+    _ListQueuesPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListQueuesPaginator(_ListQueuesPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/ListQueues.html#Kinesis.Paginator.ListQueues)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/paginators/#listqueuespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQueuesInputPaginateTypeDef]
+    ) -> PageIterator[ListQueuesOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/paginator/ListQueues.html#Kinesis.Paginator.ListQueues.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/paginators/#listqueuespaginator)
         """
 
 if TYPE_CHECKING:

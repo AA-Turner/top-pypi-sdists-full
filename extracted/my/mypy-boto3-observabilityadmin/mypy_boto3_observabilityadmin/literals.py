@@ -24,8 +24,11 @@ else:
 
 __all__ = (
     "ActionType",
+    "AzureEventHubTierType",
+    "AzureTelemetryTypeType",
     "CentralizationFailureReasonType",
     "CloudWatchObservabilityAdminServiceServiceName",
+    "ConnectorProviderType",
     "ContextGraphStatusType",
     "DeletionProtectionType",
     "DestinationTypeType",
@@ -37,6 +40,7 @@ __all__ = (
     "FilterRequirementType",
     "IntegrationStatusType",
     "ListCentralizationRulesForOrganizationPaginatorName",
+    "ListConnectorsPaginatorName",
     "ListDatasetIntegrationsPaginatorName",
     "ListResourceTelemetryForOrganizationPaginatorName",
     "ListResourceTelemetryPaginatorName",
@@ -44,6 +48,7 @@ __all__ = (
     "ListTelemetryPipelinesPaginatorName",
     "ListTelemetryRulesForOrganizationPaginatorName",
     "ListTelemetryRulesPaginatorName",
+    "ListThirdPartyTelemetryEnrichmentsPaginatorName",
     "LogTypeType",
     "MskEnhancedMonitoringLevelType",
     "OutputFormatType",
@@ -54,6 +59,7 @@ __all__ = (
     "RuleHealthType",
     "SSEAlgorithmType",
     "ServiceName",
+    "SetupFormatType",
     "SignalTypeType",
     "StatusType",
     "TagConflictResolutionStrategyType",
@@ -64,14 +70,19 @@ __all__ = (
     "TelemetrySourceTypeType",
     "TelemetryStateType",
     "TelemetryTypeType",
+    "ThirdPartyTelemetryEnrichmentStatusType",
+    "ThirdPartyTelemetrySourceType",
     "WAFLogTypeType",
 )
 
 
 ActionType = Literal["ALLOW", "BLOCK", "CAPTCHA", "CHALLENGE", "COUNT", "EXCLUDED_AS_COUNT"]
+AzureEventHubTierType = Literal["Premium", "Standard"]
+AzureTelemetryTypeType = Literal["FlowLogs", "Metrics", "ResourceLogs"]
 CentralizationFailureReasonType = Literal[
     "DESTINATION_ACCOUNT_NOT_IN_ORGANIZATION", "INTERNAL_SERVER_ERROR", "TRUSTED_ACCESS_NOT_ENABLED"
 ]
+ConnectorProviderType = Literal["AZURE"]
 ContextGraphStatusType = Literal["Healthy", "Provisioning", "Unhealthy"]
 DeletionProtectionType = Literal["ENABLED"]
 DestinationTypeType = Literal["cloud-watch-logs"]
@@ -85,6 +96,7 @@ IntegrationStatusType = Literal["ACTIVE", "DELETING"]
 ListCentralizationRulesForOrganizationPaginatorName = Literal[
     "list_centralization_rules_for_organization"
 ]
+ListConnectorsPaginatorName = Literal["list_connectors"]
 ListDatasetIntegrationsPaginatorName = Literal["list_dataset_integrations"]
 ListResourceTelemetryForOrganizationPaginatorName = Literal[
     "list_resource_telemetry_for_organization"
@@ -94,6 +106,7 @@ ListS3TableIntegrationsPaginatorName = Literal["list_s3_table_integrations"]
 ListTelemetryPipelinesPaginatorName = Literal["list_telemetry_pipelines"]
 ListTelemetryRulesForOrganizationPaginatorName = Literal["list_telemetry_rules_for_organization"]
 ListTelemetryRulesPaginatorName = Literal["list_telemetry_rules"]
+ListThirdPartyTelemetryEnrichmentsPaginatorName = Literal["list_third_party_telemetry_enrichments"]
 LogTypeType = Literal[
     "ACCESS_LOGS",
     "ALB_ACCESS_LOGS",
@@ -137,6 +150,7 @@ ResourceTypeType = Literal[
 ]
 RuleHealthType = Literal["Healthy", "Provisioning", "Unhealthy"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
+SetupFormatType = Literal["BICEP"]
 SignalTypeType = Literal["LOG", "METRIC"]
 StatusType = Literal[
     "FAILED_START", "FAILED_STOP", "NOT_STARTED", "RUNNING", "STARTING", "STOPPED", "STOPPING"
@@ -159,6 +173,8 @@ TelemetrySourceTypeType = Literal[
 ]
 TelemetryStateType = Literal["Disabled", "Enabled", "NotApplicable"]
 TelemetryTypeType = Literal["Insights", "Logs", "Metrics", "Traces"]
+ThirdPartyTelemetryEnrichmentStatusType = Literal["Impaired", "Initializing", "Running", "Stopped"]
+ThirdPartyTelemetrySourceType = Literal["Azure"]
 WAFLogTypeType = Literal["WAF_LOGS"]
 CloudWatchObservabilityAdminServiceServiceName = Literal["observabilityadmin"]
 ServiceName = Literal[
@@ -270,6 +286,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -454,6 +471,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -521,6 +539,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -603,6 +622,7 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "list_centralization_rules_for_organization",
+    "list_connectors",
     "list_dataset_integrations",
     "list_resource_telemetry",
     "list_resource_telemetry_for_organization",
@@ -610,4 +630,5 @@ PaginatorName = Literal[
     "list_telemetry_pipelines",
     "list_telemetry_rules",
     "list_telemetry_rules_for_organization",
+    "list_third_party_telemetry_enrichments",
 ]

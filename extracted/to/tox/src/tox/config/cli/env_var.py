@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Final
 
 from tox.config.loader.str_convert import StrConvert
 from tox.util.redact import redact_argv
@@ -12,10 +12,13 @@ from tox.util.redact import redact_argv
 if TYPE_CHECKING:
     from types import UnionType
 
-CONVERT = StrConvert()
+_CONVERT: Final[StrConvert] = StrConvert()
 
 
-def get_env_var(key: str, of_type: type[Any] | UnionType) -> tuple[Any, str] | None:
+def get_env_var(
+    key: str,
+    of_type: type[Any] | UnionType,  # simplint: ignore[imprecise-annotation]  # option type varies
+) -> tuple[Any, str] | None:  # simplint: ignore[imprecise-annotation]  # option value varies
     """Get the environment variable option.
 
     :param key: the config key requested
@@ -32,10 +35,10 @@ def get_env_var(key: str, of_type: type[Any] | UnionType) -> tuple[Any, str] | N
             try:
                 if origin is list:
                     entry_type = of_type.__args__[0]
-                    result = [CONVERT.to(raw=v, of_type=entry_type, factory=None) for v in value.split(";") if v]
+                    result = [_CONVERT.to(raw=v, of_type=entry_type, factory=None) for v in value.split(";") if v]
                 else:
-                    result = CONVERT.to(raw=value, of_type=of_type, factory=None)
-            except Exception as exception:  # ruff:ignore[blind-except]
+                    result = _CONVERT.to(raw=value, of_type=of_type, factory=None)
+            except Exception as exception:  # ruff:ignore[blind-except]  # failure must not stop run
                 redacted_value = redact_argv([value])[0]
                 logging.warning(
                     "env var %s=%r cannot be transformed to %r because %s",

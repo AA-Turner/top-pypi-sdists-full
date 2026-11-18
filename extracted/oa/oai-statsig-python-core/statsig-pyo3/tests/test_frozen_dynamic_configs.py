@@ -63,6 +63,34 @@ def _read_value(sdk, path, freeze):
     return sdk.get_dynamic_config(StatsigUser("user"), "config", options).value
 
 
+def test_native_factories_are_lazy_and_shared_across_clients(monkeypatch):
+    from functools import cache
+
+    from statsig_python_core import _frozen_json
+
+    # Give this test a cold module cache, independent of test order.
+    factories = cache(_frozen_json._native_container_factories.__wrapped__)
+    monkeypatch.setattr(_frozen_json, "_native_container_factories", factories)
+    for path in ("normal", "bulk"):
+        sdk = Statsig(
+            "secret-shared-factories",
+            StatsigOptions(disable_network=True, disable_all_logging=True),
+        )
+        try:
+            sdk.initialize().wait()
+            sdk.override_dynamic_config("config", {"items": []})
+            before = factories.cache_info()
+            assert type(_read_value(sdk, path, False)) is dict
+            assert factories.cache_info() == before
+            frozen = _read_value(sdk, path, True)
+            assert type(frozen) is _FrozenDict
+            assert type(frozen["items"]) is _FrozenList
+        finally:
+            sdk.shutdown().wait()
+    assert factories.cache_info().misses == 1
+    assert factories.cache_info().hits == 1
+
+
 @pytest.fixture(params=["override", "archived"])
 def sdk_with_nested_config(request, httpserver):
     payload = {

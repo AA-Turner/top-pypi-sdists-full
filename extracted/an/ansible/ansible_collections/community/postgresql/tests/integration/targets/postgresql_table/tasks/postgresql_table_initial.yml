@@ -1,4 +1,4 @@
-# Test code for the postgresql_set module
+# Test code for the postgresql_table module
 
 # Copyright: (c) 2019, Andrew Klychkov (@Andersson007) <andrew.a.klychkov@gmail.com>
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -8,7 +8,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_user:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: alice
 
@@ -16,7 +16,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_schema:
-    database: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: acme
 
@@ -51,7 +51,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test1'"
   ignore_errors: true
@@ -90,7 +90,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test1'"
   ignore_errors: true
@@ -105,7 +105,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_tables WHERE tablename = 'test1' AND tableowner = 'alice'"
   ignore_errors: true
@@ -124,7 +124,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     like: test1
@@ -144,7 +144,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test2'"
   ignore_errors: true
@@ -159,7 +159,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     like: test1
@@ -181,7 +181,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test2'"
   ignore_errors: true
@@ -200,7 +200,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     state: absent
@@ -222,7 +222,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test2'"
   ignore_errors: true
@@ -237,7 +237,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     state: absent
@@ -255,7 +255,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test2'"
   ignore_errors: true
@@ -270,7 +270,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     like: test1
@@ -292,7 +292,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     like: test1
@@ -309,7 +309,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     state: absent
@@ -321,7 +321,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test2
     state: absent
@@ -342,7 +342,7 @@
   become_user: "{{ pg_user }}"
   postgresql_user:
     login_user: "{{ pg_user }}"
-    db: postgres
+    login_db: postgres
     name: test_user
     state: present
   ignore_errors: true
@@ -352,7 +352,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test1
     owner: test_user
@@ -372,7 +372,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_tables WHERE tablename = 'test1' AND tableowner = 'test_user'"
   ignore_errors: true
@@ -387,7 +387,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test1
     owner: test_user
@@ -406,7 +406,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_tables WHERE tablename = 'test1' AND tableowner = 'test_user'"
   ignore_errors: true
@@ -425,7 +425,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test3
     columns:
@@ -449,7 +449,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT reloptions FROM pg_class WHERE relname = 'test3'"
   ignore_errors: true
@@ -467,7 +467,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "INSERT INTO test3 (id, name) VALUES (1, 'first')"
 
@@ -476,7 +476,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test3
     truncate: true
@@ -495,7 +495,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT * FROM test3 WHERE id = '1'"
   ignore_errors: true
@@ -511,7 +511,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test3
     truncate: true
@@ -529,7 +529,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT * FROM test3 WHERE id = '1'"
   ignore_errors: true
@@ -540,94 +540,6 @@
       - result.rowcount == 0
 
 #
-# Check rename table
-#
-
-# Rename a table in check_mode.
-# In check_mode test4 won't be exist after the following playbook,
-# so result.changed == 'absent' for the table with this name
-- name: postgresql_table - rename table in check_mode
-  become: true
-  become_user: "{{ pg_user }}"
-  postgresql_table:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    name: test3
-    rename: test4
-  register: result
-  ignore_errors: true
-  check_mode: true
-
-- assert:
-    that:
-      - result is changed
-      - result.queries == ['ALTER TABLE "test3" RENAME TO "test4"']
-      - result.state == "absent"
-
-# Check that the table exists after the previous step, rowcount must be 1
-- name: postgresql_table - check that table exists after the previous step
-  become_user: "{{ pg_user }}"
-  become: true
-  postgresql_query:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test3'"
-  ignore_errors: true
-  register: result
- 
-- assert:
-    that:
-      - result.rowcount == 1
-
-# Rename a table:
-- name: postgresql_table - rename table
-  become: true
-  become_user: "{{ pg_user }}"
-  postgresql_table:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    name: test3
-    rename: test4
-  register: result
-  ignore_errors: true
-
-- assert:
-    that:
-      - result is changed
-      - result.queries == ['ALTER TABLE "test3" RENAME TO "test4"']
-      - result.state == "present"
-
-# Check that the table test 3 doesn't exist after the previous step, rowcount must be - 0
-- name: postgresql_table - check that table exists after the previous step
-  become_user: "{{ pg_user }}"
-  become: true
-  postgresql_query:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test3'"
-  ignore_errors: true
-  register: result
- 
-- assert:
-    that:
-      - result.rowcount == 0
-
-# Check that the table test 4 exists after the previous step, rowcount must be - 1
-- name: postgresql_table - check that table exists after the previous step
-  become_user: "{{ pg_user }}"
-  become: true
-  postgresql_query:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test4'"
-  ignore_errors: true
-  register: result
- 
-- assert:
-    that:
-      - result.rowcount == 1
-
-#
 # Check create unlogged table
 #
 
@@ -636,7 +548,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test5
     unlogged: true
@@ -655,7 +567,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test5'"
   ignore_errors: true
@@ -670,7 +582,7 @@
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test5
     unlogged: true
@@ -688,7 +600,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test5'"
   ignore_errors: true
@@ -699,13 +611,129 @@
     that:
       - result.rowcount == 1
   when: postgres_version_resp.stdout is version('9.1', '>=')
+# Change the persistence of an existing table:
+- name: postgresql_table - unlogged table persistence changes
+  become: true
+  become_user: "{{ pg_user }}"
+  when: postgres_version_resp.stdout is version('9.5', '>=')
+  block:
+  - name: postgresql_table - unlogged true on an unlogged table is idempotent
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+      unlogged: true
+    register: result
+
+  - assert:
+      that:
+        - result is not changed
+        - result.queries == []
+
+  - name: postgresql_table - omitted unlogged leaves an unlogged table as it is
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+    register: result
+
+  - assert:
+      that:
+        - result is not changed
+        - result.queries == []
+
+  - name: postgresql_table - set table logged in check_mode
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+      unlogged: false
+    register: result
+    check_mode: true
+
+  - assert:
+      that:
+        - result is changed
+        - result.queries == ['ALTER TABLE "test5" SET LOGGED']
+
+  - name: postgresql_table - check that the table is still unlogged
+    postgresql_query:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      query: "SELECT relpersistence FROM pg_class WHERE relname = 'test5'"
+    register: result
+
+  - assert:
+      that:
+        - result.query_result[0].relpersistence == 'u'
+
+  - name: postgresql_table - set table logged
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+      unlogged: false
+    register: result
+
+  - assert:
+      that:
+        - result is changed
+        - result.queries == ['ALTER TABLE "test5" SET LOGGED']
+
+  - name: postgresql_table - check that the table is logged
+    postgresql_query:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      query: "SELECT relpersistence FROM pg_class WHERE relname = 'test5'"
+    register: result
+
+  - assert:
+      that:
+        - result.query_result[0].relpersistence == 'p'
+
+  - name: postgresql_table - set table logged again, idempotence
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+      unlogged: false
+    register: result
+
+  - assert:
+      that:
+        - result is not changed
+        - result.queries == []
+
+  - name: postgresql_table - set table unlogged
+    postgresql_table:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      name: test5
+      unlogged: true
+    register: result
+
+  - assert:
+      that:
+        - result is changed
+        - result.queries == ['ALTER TABLE "test5" SET UNLOGGED']
+
+  - name: postgresql_table - check that the table is unlogged
+    postgresql_query:
+      login_db: postgres
+      login_user: "{{ pg_user }}"
+      query: "SELECT relpersistence FROM pg_class WHERE relname = 'test5'"
+    register: result
+
+  - assert:
+      that:
+        - result.query_result[0].relpersistence == 'u'
 
 # Drop table CASCADE:
 - name: postgresql_table - drop table cascade
   become: true
   become_user: "{{ pg_user }}"
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test5
     state: absent
@@ -724,7 +752,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test5'"
   ignore_errors: true
@@ -737,11 +765,11 @@
   when: postgres_version_resp.stdout is version('9.1', '>=')
 
 #
-# Create, drop, and rename table in a specific schema:
+# Create and drop table in a specific schema:
 #
 - name: postgresql_table - create table in a specific schema
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: acme.test_schema_table
   register: result
@@ -755,7 +783,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test_schema_table' and schemaname = 'acme'"
   ignore_errors: true
@@ -767,7 +795,7 @@
 
 - name: postgresql_table - try to create a table with the same name and schema again
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: acme.test_schema_table
   register: result
@@ -778,7 +806,7 @@
 
 - name: postgresql_table - create a table in the default schema for the next test
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: test_schema_table
   register: result
@@ -789,7 +817,7 @@
 
 - name: postgresql_table - drop the table from schema acme
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: postgres.acme.test_schema_table
     state: absent
@@ -804,7 +832,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test_schema_table' and schemaname = 'acme'"
   ignore_errors: true
@@ -816,7 +844,7 @@
 
 - name: postgresql_table - try to drop the table from schema acme again
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: acme.test_schema_table
     state: absent
@@ -830,7 +858,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: "SELECT 1 FROM pg_stat_all_tables WHERE relname = 'test_schema_table' and schemaname = 'public'"
   ignore_errors: true
@@ -840,25 +868,11 @@
     that:
       - result.rowcount == 1
 
-- name: postgresql_table - rename the table that contents a schema name
-  postgresql_table:
-    db: postgres
-    login_user: "{{ pg_user }}"
-    name: public.test_schema_table
-    rename: new_test_schema_table
-    trust_input: true
-  register: result
-
-- assert:
-    that:
-      - result is changed
-      - result.queries == ['ALTER TABLE "public"."test_schema_table" RENAME TO "new_test_schema_table"']
-
 ############################
 # Test trust_input parameter
 - name: postgresql_table - check trust_input
   postgresql_table:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: postgres.acme.test_schema_table
     state: absent
@@ -879,7 +893,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_schema:
-    database: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: acme
     state: absent
@@ -889,7 +903,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_user:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     name: "{{ item }}"
     state: absent

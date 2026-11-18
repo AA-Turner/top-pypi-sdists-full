@@ -76,6 +76,16 @@ MainReturnType = TypeVar('MainReturnType')
 _ensure_context = ensure_context('_active')
 
 
+def _warn_child_runs_experimental() -> None:
+    warnings.warn(
+        'Named child runs (`run_name`, `abort_with_parent` and `Actor.child_runs`) are experimental. Their behavior '
+        'and interface may change in future versions.',
+        UserWarning,
+        # This helper, the SDK method, and its `ensure_context` wrapper sit between the warning and the caller.
+        stacklevel=4,
+    )
+
+
 def _warn_max_items_deprecated() -> None:
     warnings.warn(
         '`max_items` is deprecated and will be removed in version 5.0.0. It works only with legacy pay-per-result '
@@ -445,7 +455,11 @@ class _ActorType:
 
         A run started or reattached with a custom `token` since the last migration or resurrection of this Actor run
         uses that token. Any other run uses the default client.
+
+        Warning:
+            This is an experimental feature. The behavior and interface may change in future versions.
         """
+        _warn_child_runs_experimental()
         return self._child_run_registry.run_clients(self.apify_client)
 
     @cached_property
@@ -760,10 +774,17 @@ class _ActorType:
         Args:
             data: The data to push to the default dataset.
             charged_event_name: If provided and if the Actor uses the pay-per-event pricing model,
-                the method will attempt to charge for the event for each pushed item.
+                the method will attempt to charge for the event for each pushed item. Not supported in multi-tenant
+                Server Actor runs, which charge per request with `Actor.charge()`.
         """
         if charged_event_name and charged_event_name.startswith('apify-'):
             raise ValueError(f'Cannot charge for synthetic event "{charged_event_name}" manually')
+
+        if charged_event_name and self._charging_manager_implementation.is_multi_tenant:
+            raise ValueError(
+                'Charging for pushed items is not supported in a multi-tenant Server Actor run - use '
+                'Actor.charge() with the `request_id` of the incoming request instead.'
+            )
 
         charging_manager = self.get_charging_manager()
 
@@ -912,8 +933,22 @@ class _ActorType:
         """Retrieve the charging manager to access granular pricing information."""
         return self._charging_manager_implementation
 
+    @overload
+    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult: ...
+    @overload
+    async def charge(
+        self, event_name: str, *, count: int = 1, idempotency_key: str | None = None, request_id: str
+    ) -> ChargeResult: ...
+
     @_ensure_context
-    async def charge(self, event_name: str, *, count: int = 1, idempotency_key: str | None = None) -> ChargeResult:
+    async def charge(
+        self,
+        event_name: str,
+        *,
+        count: int = 1,
+        idempotency_key: str | None = None,
+        request_id: str | None = None,
+    ) -> ChargeResult:
         """Charge for a specified number of events - sub-operations of the Actor.
 
         This is relevant only for the pay-per-event pricing model.
@@ -927,11 +962,18 @@ class _ActorType:
             idempotency_key: A unique key preventing a retried operation from being charged for twice. A repeat
                 under the same key within three minutes is not sent to the API and reports the `charged_count` of
                 the original call, or zero if it names a different event. Like the platform, the key is forgotten
-                afterwards.
+                afterwards. In a multi-tenant Server Actor run, every call is sent and the platform deduplicates it.
+                The key is scoped to the whole run there, so a key reused by another caller charges only the first
+                one - derive it from `request_id`.
+            request_id: ID of the Server Actor request being charged, taken from the `X-Actor-Request-ID` header of
+                the incoming request. Required in multi-tenant Server Actor runs, where it maps the charge to the
+                caller's account instead of the account that started the run. Ignored elsewhere.
         """
-        # charging_manager.charge() acquires charge_lock internally.
-        charging_manager = self.get_charging_manager()
-        return await charging_manager.charge(event_name, count=count, idempotency_key=idempotency_key)
+        # The implementation's `charge()` acquires charge_lock internally and, unlike the public overloads, takes the
+        # `None` default of `request_id`.
+        return await self._charging_manager_implementation.charge(
+            event_name, count=count, idempotency_key=idempotency_key, request_id=request_id
+        )
 
     @overload
     def on(
@@ -1016,10 +1058,21 @@ class _ActorType:
     def get_env(self) -> dict:
         """Return a dictionary with information parsed from all the `APIFY_XXX` environment variables.
 
+        Deprecated. Read `Actor.configuration` instead, or `os.environ` for variables it does not expose.
+        Will be removed in version 5.0.0.
+
         For a list of all the environment variables, see the
         [Actor documentation](https://docs.apify.com/actors/development/environment-variables). If some variables
         are not defined or are invalid, the corresponding value in the resulting dictionary will be None.
         """
+        warnings.warn(
+            '`Actor.get_env()` is deprecated and will be removed in version 5.0.0. Read `Actor.configuration` '
+            'instead, or `os.environ` for variables it does not expose.',
+            FutureWarning,
+            # The `ensure_context` wrapper sits between this method and the caller.
+            stacklevel=3,
+        )
+
         config = dict[str, Any]()
         for field_name, field in Configuration.model_fields.items():
             if field.deprecated:
@@ -1092,7 +1145,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1104,6 +1158,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1293,7 +1350,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1305,6 +1363,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1480,7 +1541,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1492,6 +1554,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1580,7 +1645,8 @@ class _ActorType:
                 to the recorded run. A `SUCCEEDED` run is returned as is, an `ABORTED` or `TIMED-OUT` one is
                 resurrected, and a new run is started only when nothing is recorded under the name, or the recorded
                 run `FAILED` or no longer exists. Using `run_name` to attach to a run of a different Actor, task or
-                with a different input raises a `ValueError`.
+                with a different input raises a `ValueError`. Named child runs are experimental, so their behavior
+                and interface may change in future versions.
             abort_with_parent: If true, the child run is gracefully aborted when this Actor run is gracefully
                 aborted. It requires `run_name`, and the value is recorded under it, replacing the one from an earlier
                 call. Once this Actor run is being gracefully aborted, a call with it raises a `RuntimeError` and
@@ -1592,6 +1658,9 @@ class _ActorType:
         """
         if abort_with_parent and run_name is None:
             raise ValueError('`abort_with_parent` requires `run_name`, since only named child runs are tracked.')
+
+        if run_name is not None:
+            _warn_child_runs_experimental()
 
         if max_items is not None:
             _warn_max_items_deprecated()
@@ -1682,7 +1751,7 @@ class _ActorType:
         if not self.configuration.actor_run_id:
             raise RuntimeError('actor_run_id cannot be None when running on the Apify platform.')
 
-        self.log.debug(f'Metamorphing the Actor run into target Actor {target_actor_id!r}.')
+        self.log.debug('Metamorphing the Actor run into target Actor %r.', target_actor_id)
         await self.apify_client.run(self.configuration.actor_run_id).metamorph(
             target_actor_id=target_actor_id,
             run_input=run_input,
@@ -1783,7 +1852,8 @@ class _ActorType:
                 'Passing `idempotency_key` to `Actor.add_webhook()` is deprecated and will be removed in version '
                 '5.0.0. Set it on the `Webhook` instance instead.',
                 DeprecationWarning,
-                stacklevel=2,
+                # The `ensure_context` wrapper sits between this method and the caller.
+                stacklevel=3,
             )
 
         if not self.is_at_home():
@@ -1828,7 +1898,7 @@ class _ActorType:
         """
         if not self.is_at_home():
             title = 'Terminal status message' if is_terminal else 'Status message'
-            self.log.info(f'[{title}]: {status_message}')
+            self.log.info('[%s]: %s', title, status_message)
             return None
 
         # If is_at_home() is True, config.actor_run_id is always set
@@ -1843,11 +1913,12 @@ class _ActorType:
             return await asyncio.wait_for(update, STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds())
         except TimeoutError:
             self.log.warning(
-                f'Failed to set status message for Actor run with ID "{run_id}": '
-                f'the update timed out after {STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds():g}s.'
+                'Failed to set status message for Actor run with ID "%s": the update timed out after %gs.',
+                run_id,
+                STATUS_MESSAGE_UPDATE_TIMEOUT.total_seconds(),
             )
         except Exception as exc:
-            self.log.warning(f'Failed to set status message for Actor run with ID "{run_id}": {exc}')
+            self.log.warning('Failed to set status message for Actor run with ID "%s": %s', run_id, exc)
 
         return None
 
@@ -1886,7 +1957,8 @@ class _ActorType:
 
         Returns:
             ProxyConfiguration object with the passed configuration, or None, if no proxy should be used based
-            on the configuration.
+            on the configuration, or if Apify Proxy was requested in a local run that cannot use it, for example
+            because no password is available or the proxy access is denied.
         """
         if actor_proxy_input is not None:
             if actor_proxy_input.get('useApifyProxy', False):
@@ -1909,7 +1981,9 @@ class _ActorType:
             _apify_client=self._apify_client,
         )
 
-        await proxy_configuration.initialize()
+        is_proxy_usable = await proxy_configuration.initialize()
+        if not is_proxy_usable:
+            return None
 
         return proxy_configuration
 

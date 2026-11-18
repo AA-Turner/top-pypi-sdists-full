@@ -1,6 +1,11 @@
 import numpy as np
 
-from .readers import component_from_alias, load_field_attrs
+from .readers import (
+    OPTIONAL_PARTICLE_KEYS,
+    component_alias,
+    component_from_alias,
+    load_field_attrs,
+)
 from .tools import encode_attrs, fstr
 from .units import pg_units, write_unit_h5
 
@@ -49,7 +54,9 @@ def write_pmd_bunch(h5, data, name=None, t_offset=0.0):
     data : dict or ParticleGroup
         Requires keys 'x', 'px', 'y', 'py', 'z', 'pz', 't', 'status', 'weight'
         (arrays), 'species' (str), 'n_particle' (int), 'charge' (float).
-        Optional key: 'id' (array).
+        The optional per-particle keys in `beamphysics.readers.OPTIONAL_PARTICLE_KEYS`
+        ('id', 's', 'ix_branch', 'ix_ele', 'location', 'p0c', 'spin_x', 'spin_y',
+        'spin_z', 'charge_state') are written when present.
     name : str, optional
         Subgroup to create for the bunch. If None, writes directly into `h5`.
     t_offset : float or numpy.ndarray, optional
@@ -86,9 +93,18 @@ def write_pmd_bunch(h5, data, name=None, t_offset=0.0):
         # Write
         write_component_data(g, g2_name, data[key], unit=u)
 
-    # Optional id. This does not have any units.
-    if "id" in data:
-        g["id"] = data["id"]
+    for key in OPTIONAL_PARTICLE_KEYS:
+        if key not in data:
+            continue
+        if key == "id":
+            # id has no units and is a bare dataset
+            g["id"] = data["id"]
+        else:
+            # totalMomentumOffset is a momentum; p0c holds the same value in eV.
+            unit = pg_units("p0" if key == "p0c" else key)
+            write_component_data(
+                g, component_from_alias[key], np.asarray(data[key]), unit=unit
+            )
 
     # Optional time offset, with the same shape as the particle arrays.
     t_offset = np.asarray(t_offset, dtype=float)
@@ -135,7 +151,7 @@ def write_pmd_field(h5, data, name=None):
     # write components (datasets)
     for key, val in data["components"].items():
         # Units
-        u = pg_units(key)
+        u = pg_units(component_alias[key])
 
         # Ensure complex
         val = val.astype(complex)

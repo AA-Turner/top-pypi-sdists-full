@@ -53,6 +53,8 @@ api_key_audit_logs/org_id,ws_id:
     - r:organization/org_id
     - r:organization_name/org_id
     - r:audit_logs/org_id
+api_key_user_groups_read/org_id,ws_id:
+    - r:user_groups/org_id
 api_key_ws_viewer/org_id,ws_id:
     - ws_viewer/org_id,ws_id
 api_key_ws_editor/org_id,ws_id:

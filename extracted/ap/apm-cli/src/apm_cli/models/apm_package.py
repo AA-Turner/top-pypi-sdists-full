@@ -8,6 +8,7 @@ compatibility.
 
 import logging
 import re
+import threading
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -15,9 +16,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
-from ..core.apm_yml import parse_targets_field
 from ..core.target_catalog import normalize_target_name
-from ..core.target_detection import parse_target_field
 from .dependency import (
     DependencyReference,
     GitReferenceType,
@@ -26,6 +25,11 @@ from .dependency import (
     RemoteRef,
     ResolvedReference,
     parse_git_reference,
+)
+from .manifest_targets import (
+    _LEGACY_ALL_TARGET,
+    _MANIFEST_TARGET_KEYS,
+    ManifestTargetDeclaration,
 )
 from .validation import (
     InvalidVirtualPackageExtensionError,
@@ -66,6 +70,7 @@ __all__ = [  # noqa: RUF022
     "PackageInfo",
     "build_installed_package_info",
     "clear_apm_yml_cache",
+    "invalidate_apm_yml_cache_entry",
     "surviving_dependency_refs_for_reintegration",
 ]
 
@@ -77,11 +82,58 @@ __all__ = [  # noqa: RUF022
 # declared them. Sharing one APMPackage instance across both would let the
 # resolver mutate ``source_path`` and poison the cache for the other consumer.
 _apm_yml_cache: dict[tuple[Path, Path | None, bool], "APMPackage"] = {}
+# Guards every structural mutation of ``_apm_yml_cache``. The parallel
+# pre-download executor and the BFS resolver pool both insert entries from
+# worker threads while ``invalidate_apm_yml_cache_entry`` iterates the dict;
+# an unguarded concurrent insert would raise ``RuntimeError: dictionary
+# changed size during iteration`` and fail the install intermittently.
+# Lock-free ``dict.get`` reads stay safe: the lookup executes as one
+# GIL-held C-level dict operation, so it cannot observe a torn mutation.
+# This read path (and the generation snapshot below) assumes the GIL;
+# revisit both before supporting free-threaded CPython (PEP 703).
+_apm_yml_cache_lock = threading.Lock()
+
+# Bumped under the lock by every invalidation/clear. ``from_apm_yml``
+# snapshots it BEFORE reading the file and skips its insert (still
+# returning the parsed result) when the generation moved: an in-flight
+# parse that read PRE-rewrite bytes must not re-poison the cache AFTER
+# the rewrite's invalidation ran. Global (not per-path) on purpose --
+# the cost of over-invalidation is one extra parse on the next load for
+# each parse in flight when an invalidation lands (invalidations only
+# fire on apm.yml rewrites during materialization, so keep them off hot
+# read paths), and a per-path map would reintroduce the
+# iteration/mutation problem the lock exists to solve.
+_apm_yml_cache_generation = 0
 
 
 def clear_apm_yml_cache() -> None:
     """Clear the from_apm_yml parse cache. Call in tests for isolation."""
-    _apm_yml_cache.clear()
+    global _apm_yml_cache_generation
+    with _apm_yml_cache_lock:
+        _apm_yml_cache_generation += 1
+        _apm_yml_cache.clear()
+
+
+def invalidate_apm_yml_cache_entry(apm_yml_path: Path) -> None:
+    """Drop every cache entry for *apm_yml_path* (all source_path variants).
+
+    MUST be called after rewriting an ``apm.yml`` on disk within a run
+    (marketplace-plugin synthesis, ``stamp_plugin_version``). The cache
+    assumes file content is stable for the process lifetime; a rewrite
+    breaks that. Concretely (apm#2619 migration surfaced this): when a
+    same-process re-download re-synthesized a marketplace plugin's
+    ``apm.yml`` at ``version: 0.0.0``, ``from_apm_yml`` returned the STALE
+    cached instance -- already stamped to the short commit SHA earlier in
+    the run -- so ``stamp_plugin_version``'s ``version == "0.0.0"`` guard
+    skipped, leaving an unstamped tree on disk whose content hash matched
+    neither the lockfile record nor a fresh install's tree.
+    """
+    global _apm_yml_cache_generation
+    resolved = apm_yml_path.resolve()
+    with _apm_yml_cache_lock:
+        _apm_yml_cache_generation += 1
+        for key in [k for k in _apm_yml_cache if k[0] == resolved]:
+            _apm_yml_cache.pop(key, None)
 
 
 def _parse_v01_registries_block(
@@ -299,6 +351,8 @@ _KNOWN_TOP_LEVEL_KEYS = frozenset(
         "compilation",
         "policy",
         "marketplace",
+        # User-manifest only; rejected elsewhere by marketplace.user_manifest.
+        "marketplaces",
         "allowExecutables",
         "executables",
         "lifecycle",
@@ -454,8 +508,22 @@ class APMPackage:
     # ``None`` means the key was absent; ``[]`` means it was present but empty.
     replace_rules: "list[ReplacementRule] | None" = None
 
+    target_declaration: ManifestTargetDeclaration | None = field(
+        default=None, repr=False, compare=False
+    )
+    """Owner of the authored ``target:`` / ``targets:`` declaration."""
+
     def __post_init__(self) -> None:
-        """Derive the canonical target projection for compatibility callers."""
+        """Derive the target declaration and canonical projection for direct constructions."""
+        if self.target_declaration is None:
+            self.target_declaration = ManifestTargetDeclaration(
+                tuple(
+                    (key, value)
+                    for key, value in (("target", self.target), ("targets", self.targets))
+                    if value is not None
+                ),
+                self.source_path,
+            )
         if self.canonical_targets:
             return
         raw_targets: list[str] = []
@@ -681,37 +749,20 @@ class APMPackage:
             else:
                 raise ValueError("'includes' must be 'auto' or a list of strings")
 
-        # Parse target field through the same validator as --target so a CSV
-        # string like ``target: "claude,copilot"`` resolves identically to
-        # ``--target claude,copilot`` and unknown tokens fail at parse time
-        # (see apm_cli.core.target_detection.parse_target_field).
-        target_value = None
-        targets_value: list[str] | None = None
-        if "targets" in data and "target" in data:
-            parse_targets_field(data)
-            raise AssertionError("unreachable: conflicting target keys were accepted")
-        elif "targets" in data:
-            parsed_targets = parse_targets_field(data)
-            targets_value = parsed_targets or None
-            canonical_targets = tuple(parsed_targets)
-        else:
-            target_value = parse_target_field(
-                data.get("target"),
-                source_path=source_manifest,
-            )
-            parsed_target_values = (
-                target_value
-                if isinstance(target_value, list)
-                else [target_value]
-                if isinstance(target_value, str)
-                else []
-            )
-            canonical_targets = tuple(
-                name if name == "all" else normalize_target_name(name)
-                for name in parsed_target_values
-            )
+        # The declaration owner validates ``target:`` with the --target
+        # vocabulary and ``targets:`` with the manifest vocabulary, and rejects
+        # a manifest that declares both.
+        target_declaration = ManifestTargetDeclaration.from_mapping(data, source_manifest)
+        selection = target_declaration.selection
+        target_value = selection if target_declaration.spelling == "target" else None
+        targets_value = selection if target_declaration.spelling == "targets" else None
+        canonical_targets = target_declaration.canonical
 
         extensions = _collect_manifest_extensions(data, source_manifest, warning_handler)
+
+        from ..marketplace.user_manifest import validate_marketplaces_declaration
+
+        validate_marketplaces_declaration(data, source_manifest)
 
         # Parse root-owned ``replace:`` block.  Only present in the consumer
         # root manifest; dependency manifests should not declare it (enforced
@@ -761,6 +812,7 @@ class APMPackage:
             target=target_value,
             targets=targets_value,
             canonical_targets=canonical_targets,
+            target_declaration=target_declaration,
             type=pkg_type,
             includes=includes,
             registries=registries,
@@ -798,10 +850,19 @@ class APMPackage:
         if cached is not None:
             return cached
 
-        try:
-            from ..utils.yaml_io import load_yaml
+        # Snapshot BEFORE reading the file: if an invalidation lands while
+        # this thread parses (a concurrent rewrite of the manifest), the
+        # insert below is skipped so pre-rewrite bytes cannot re-poison
+        # the cache. Plain int read is GIL-atomic; writers bump under the
+        # lock.
+        generation_snapshot = _apm_yml_cache_generation
 
-            data = load_yaml(apm_yml_path)
+        from .manifest_io import load_manifest
+
+        # A DuplicateManifestKeyError (ValueError) propagates as-is: its
+        # message already names the file, key and lines.
+        try:
+            data = load_manifest(apm_yml_path)
         except yaml.YAMLError as e:
             raise ValueError(f"Invalid YAML format in {apm_yml_path}: {e}")  # noqa: B904
 
@@ -815,7 +876,9 @@ class APMPackage:
             manifest_path=apm_yml_path,
             create_config=create_config,
         )
-        _apm_yml_cache[cache_key] = result
+        with _apm_yml_cache_lock:
+            if _apm_yml_cache_generation == generation_snapshot:
+                _apm_yml_cache[cache_key] = result
         return result
 
     def get_apm_dependencies(self) -> list[DependencyReference]:
@@ -885,7 +948,14 @@ class APMPackage:
 
 
 def canonical_package_targets(package: object) -> tuple[str, ...]:
-    """Return canonical targets for packages and compatibility stand-ins."""
+    """Return canonical targets for packages and compatibility stand-ins.
+
+    A package declaring both ``target`` and ``targets`` raises
+    ConflictingTargetsError instead of degrading to either key.
+    """
+    declaration = package_target_declaration(package)
+    if len(declaration.fields) > 1:
+        _ = declaration.selection
     canonical = getattr(package, "canonical_targets", ())
     if isinstance(canonical, (tuple, list)) and canonical:
         return tuple(canonical)
@@ -915,6 +985,10 @@ def canonical_package_target_config(package: object) -> dict[str, object]:
     if not canonical:
         return {}
     if isinstance(package, APMPackage):
+        if package_target_declaration(package).selection == _LEGACY_ALL_TARGET:
+            # Singular ``all`` leaves MCP/LSP runtime selection unrestricted;
+            # projecting it as ``targets: [all]`` would claim it was omitted.
+            return {}
         return {"targets": list(canonical)}
     if isinstance(plural, list):
         return {"targets": list(canonical)}
@@ -923,13 +997,38 @@ def canonical_package_target_config(package: object) -> dict[str, object]:
     return {"targets": list(canonical)}
 
 
-def package_target_selection(package: APMPackage) -> str | list[str] | None:
-    """Return pack-compatible selection from the canonical package owner."""
-    if package.targets is not None:
-        return list(package.canonical_targets)
-    if package.target is not None:
-        return package.target
-    return list(package.canonical_targets) or None
+def _declared_package_field(package: object, name: str) -> Any:
+    """Read a stand-in package field without treating MagicMock attrs as set."""
+    try:
+        attrs = vars(package)
+    except TypeError:
+        attrs = {}
+    if name in attrs:
+        return attrs[name]
+    value = getattr(package, name, None)
+    if type(value).__module__ == "unittest.mock":
+        return None
+    return value
+
+
+def package_target_declaration(package: object) -> ManifestTargetDeclaration:
+    """Return the target declaration of a parsed package or a stand-in."""
+    if package is None:
+        return ManifestTargetDeclaration()
+    if isinstance(package, APMPackage) and package.target_declaration is not None:
+        return package.target_declaration
+    return ManifestTargetDeclaration(
+        tuple(
+            (key, value)
+            for key in _MANIFEST_TARGET_KEYS
+            if (value := _declared_package_field(package, key)) is not None
+        )
+    )
+
+
+def package_target_selection(package: object) -> str | list[str] | None:
+    """Return the declared target selection handed to target decisions."""
+    return package_target_declaration(package).selection
 
 
 @dataclass
@@ -946,6 +1045,9 @@ class PackageInfo:
     package_type: PackageType | None = None  # APM_PACKAGE, CLAUDE_SKILL, or HYBRID
     root_local_project_root: Path | None = None
     deployment_package_root: Path | None = None  # Source root in the deployment output frame
+    # Verbatim licence copies APM added after materialization (#3556); see
+    # apm_cli.deps.carried_license. Empty when nothing was carried.
+    carried_licenses: tuple[Any, ...] = ()
 
     def get_canonical_dependency_string(self) -> str:
         """Get the canonical dependency string for this package.

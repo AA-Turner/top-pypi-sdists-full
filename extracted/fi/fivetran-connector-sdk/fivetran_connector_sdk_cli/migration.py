@@ -18,7 +18,7 @@ from fivetran_connector_sdk_cli.connector_helper import NetworkingMethod, _auth_
 from fivetran_connector_sdk_common.helpers import print_library_log
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_cli.options_file import (
-    is_toml_file_supported, load_options_file, update_profile_fields, write_options_file)
+    load_options_file, update_profile_fields, write_options_file)
 
 _MIGRATION_CONNECTIONS_PATH = "/v1/connector-sdk/migration/connections"
 _LIST_PAGE_LIMIT = 100
@@ -154,7 +154,7 @@ _COMMENTED_DEFAULT_PROFILE = (
 
 def run_migration(deploy_key: str, options_file_path: str) -> Optional[str]:
     """Migrates existing server-saved connection options into a new local options file.
-    Skips if already migrated, in CI, or on Python < 3.11. Not safe against two deploys
+    Skips if already migrated or in CI. Not safe against two deploys
     racing to migrate at once -- last write wins, an accepted tradeoff.
 
     Returns:
@@ -162,9 +162,6 @@ def run_migration(deploy_key: str, options_file_path: str) -> Optional[str]:
     """
     if (os.getenv("CI") or "").lower() == "true":
         print_library_log("migration skipped: CI=true", log_icon=Logging.LogIcon.INFO)
-        return None
-
-    if not is_toml_file_supported():
         return None
 
     if os.path.isfile(options_file_path):

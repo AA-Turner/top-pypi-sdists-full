@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: harfile
-Version: 0.6.0
+Version: 0.7.0
 Summary: Writer for HTTP Archive (HAR) files
 Project-URL: Changelog, https://github.com/schemathesis/harfile/blob/main/CHANGELOG.md
 Project-URL: Bug Tracker, https://github.com/schemathesis/harfile
@@ -63,6 +63,15 @@ This package provides a zero-dependency writer for building HAR (HTTP Archive) f
 
 - The writer assumes a single-threaded environment.
 - Pages are not supported.
+- `add_entry` writes each entry to the file right away. If the `with` block raises, the file keeps the entries written so far and stays valid.
+- `add_entry` raises `ValueError` on a closed file and on `NaN` or `Infinity` numbers.
+- Naive `datetime` values count as local time.
+
+## Installation
+
+```
+pip install harfile
+```
 
 ## Usage
 
@@ -100,7 +109,6 @@ with harfile.open("filename.har") as har:
 buffer = io.StringIO()
 with harfile.open(buffer) as har:
     pass
-
 ```
 
 ## License

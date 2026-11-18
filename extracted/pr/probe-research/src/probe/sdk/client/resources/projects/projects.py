@@ -17,6 +17,7 @@ from .....generated.models import (
 )
 from ....delivery.transport.transport import Page
 from ...resource import Resource
+from .details import ProjectDetailsReads
 
 from .... import errors
 
@@ -348,7 +349,7 @@ class ProjectsMixin:
         self.transport.delete(f"/v1/projects/{project_id}/contributors/{user_id}")
 
 
-class ProjectsResource(Resource):
+class ProjectsResource(ProjectDetailsReads, Resource):
     """`client.projects`: typed project reads. `Page.items` are `ProjectOut`; one project is
     `ProjectDetailOut`."""
 

@@ -8,14 +8,16 @@ from wemake_python_styleguide.compat.aliases import FunctionNodes
 from wemake_python_styleguide.logic import source, walk
 from wemake_python_styleguide.logic.complexity import overuses
 from wemake_python_styleguide.logic.tree import annotations, strings
+from wemake_python_styleguide.options.validation import ValidatedOptions
 from wemake_python_styleguide.types import AnyNodes
 from wemake_python_styleguide.violations import complexity
 from wemake_python_styleguide.visitors import base
 
-#: We use these types to store the number of nodes usage in different contexts.
 _Expressions: TypeAlias = defaultdict[str, list[ast.AST]]
 _FunctionExpressions: TypeAlias = defaultdict[ast.AST, _Expressions]
 _StrOrBytes = TypeVar('_StrOrBytes', str, bytes)
+"""We use these types to store the number of
+ nodes usage in different contexts."""
 
 
 @final
@@ -59,9 +61,14 @@ class StringOveruseVisitor(base.BaseNodeVisitor):
         ),
     )
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        tree: ast.AST,
+        **kwargs: object,
+    ) -> None:
         """Inits the counter for constants."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, tree, **kwargs)
         self._string_constants: defaultdict[str, int] = defaultdict(int)
         self._bytes_constants: defaultdict[bytes, int] = defaultdict(int)
 
@@ -195,9 +202,14 @@ class ExpressionOveruseVisitor(base.BaseNodeVisitor):
 
     _msg: ClassVar[str] = '{0}; used {1}'
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        tree: ast.AST,
+        **kwargs: object,
+    ) -> None:
         """We need to track expression usage in functions and modules."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, tree, **kwargs)
         self._module_expressions: _Expressions = defaultdict(list)
         self._function_expressions: _FunctionExpressions = defaultdict(
             lambda: defaultdict(list),

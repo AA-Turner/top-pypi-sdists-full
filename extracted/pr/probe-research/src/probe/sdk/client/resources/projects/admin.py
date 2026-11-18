@@ -2,6 +2,7 @@
 applied each filter and write (twin: app/projects)."""
 
 from __future__ import annotations
+from collections.abc import Iterator
 
 from .... import errors
 from ....values.tags import canonical_tags
@@ -123,6 +124,19 @@ class ProjectAdminMixin:
         if parent_id is not None and page.items:
             self._verify_parent_filter(parent_id, page.items, "GET /v1/projects")
         return page
+
+    def iter_projects(
+        self, *, workspace_id: str | None = None, tags: list[str] | None = None, **filters
+    ) -> Iterator[dict]:
+        """Every project `list_projects` would list with these filters (an unset one is left out), page after page."""
+        filters = {name: value for name, value in filters.items() if value is not None}
+        cursor = None
+        while True:
+            page = self.list_projects(workspace_id=workspace_id, tags=tags, **filters, **({"cursor": cursor} if cursor else {}))
+            yield from page.items
+            if not page.next_cursor or page.next_cursor == cursor:
+                return
+            cursor = page.next_cursor
 
     def update_project(
         self,

@@ -22,7 +22,7 @@ are accepted as aliases and map to the same internal value.
 """
 
 import warnings
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from functools import cached_property
 from pathlib import Path
 from typing import Literal, Union
@@ -551,36 +551,6 @@ def normalize_target_list(
     return result
 
 
-def normalize_policy_targets(value: str | list[str] | None) -> str | list[str] | None:
-    """Normalize MCP-only selectors for compilation-target policy checks.
-
-    The return shape matches the input shape so scalar callers remain
-    backward-compatible while plural target sets are evaluated together.
-    """
-    if value is None:
-        return None
-
-    values = [value] if isinstance(value, str) else list(value)
-    normalized: list[str] = []
-    for target in values:
-        if target == "all":
-            if target not in normalized:
-                normalized.append(target)
-            continue
-        if target in MCP_ONLY_TARGETS:
-            try:
-                canonical = get_target_capability(target).primitive_profile
-            except KeyError:
-                canonical = None
-            if canonical is None:
-                raise RuntimeError(f"MCP-only target '{target}' has no canonical policy mapping")
-            target = canonical
-        if target not in normalized:
-            normalized.append(target)
-
-    return normalized[0] if isinstance(value, str) else normalized
-
-
 # ---------------------------------------------------------------------------
 # Click parameter type for --target (comma-separated multi-target support)
 # ---------------------------------------------------------------------------
@@ -833,6 +803,60 @@ def _target_capabilities(
             yield target, get_target_capability(target)
 
 
+def _canonical_profile(target: str, capability: TargetCapability) -> str:
+    """Return the native profile a target spelling selects.
+
+    Aliases resolve to their capability name and MCP-only targets map to the
+    primitive profile they configure; an MCP-only target without one fails
+    closed instead of escaping policy under its own name.
+    """
+    if not capability.mcp_only:
+        return normalize_target_name(target)
+    if capability.primitive_profile is None:
+        raise RuntimeError(f"MCP-only target '{target}' has no canonical policy mapping")
+    return capability.primitive_profile
+
+
+def canonical_policy_target_names(
+    values: str | Iterable[str] | None,
+) -> tuple[str, ...] | None:
+    """Canonicalize a policy target list so it compares against decisions.
+
+    ``all`` means unrestricted and yields ``None``. Known spellings resolve
+    through the same profile mapping as
+    :attr:`EffectiveTargetDecision.canonical_targets`; unknown spellings are kept
+    verbatim so they can never match a real target.
+    """
+    if values is None:
+        return None
+    spellings = [values] if isinstance(values, str) else list(values)
+    names: list[str] = []
+    for raw in spellings:
+        spelling = str(raw).strip().lower()
+        if not spelling:
+            continue
+        if spelling == "all":
+            return None
+        try:
+            name = _canonical_profile(spelling, get_target_capability(spelling))
+        except KeyError:
+            name = spelling
+        if name not in names:
+            names.append(name)
+    return tuple(names)
+
+
+def canonical_policy_target_name(value: str | None) -> str | None:
+    """Canonicalize one policy target (``enforce``); ``all`` stays ``all``."""
+    if value is None:
+        return None
+    spelling = str(value).strip().lower()
+    if spelling == "all":
+        return spelling
+    names = canonical_policy_target_names(spelling)
+    return names[0] if names else None
+
+
 @dataclass(frozen=True)
 class EffectiveTargetDecision:
     """One install-time target decision shared by package, MCP, and LSP phases."""
@@ -849,11 +873,7 @@ class EffectiveTargetDecision:
         canonical: list[str] = []
         seen: set[str] = set()
         for target, capability in _target_capabilities(self.value):
-            name = (
-                capability.primitive_profile
-                if capability.mcp_only and capability.primitive_profile is not None
-                else normalize_target_name(target)
-            )
+            name = _canonical_profile(target, capability)
             if name not in seen:
                 seen.add(name)
                 canonical.append(name)
@@ -1006,19 +1026,14 @@ def resolve_audit_target_decision(
 
 def read_manifest_target(project_root: Path) -> list[str] | None:
     """Read audit's manifest target hint; manifest checks own parse failures."""
-    import yaml
+    from apm_cli.models.manifest_targets import read_manifest_target_declaration
 
-    from apm_cli.core.apm_yml import parse_targets_field
-    from apm_cli.utils.yaml_io import load_yaml
-
-    apm_yml = project_root / "apm.yml"
-    if not apm_yml.exists():
+    declaration = read_manifest_target_declaration(project_root / "apm.yml", lenient=True)
+    if declaration is None:
         return None
     try:
-        data = load_yaml(apm_yml) or {}
-        tokens = parse_targets_field(data)
-        return tokens if tokens else None
-    except (OSError, ValueError, TypeError, yaml.YAMLError, click.UsageError):
+        return declaration.restriction()
+    except (ValueError, TypeError, click.UsageError):
         return None
 
 
@@ -1028,6 +1043,7 @@ def resolve_manifest_target_decision(
     manifest_path: Path,
     explicit_target: str | list[str] | None,
     user_scope: bool = False,
+    auto_detect: bool = True,
     create_config: bool = True,
 ) -> EffectiveTargetDecision:
     """Resolve one effective target decision from an optional manifest path."""
@@ -1041,6 +1057,7 @@ def resolve_manifest_target_decision(
         package=package,
         explicit_target=explicit_target,
         user_scope=user_scope,
+        auto_detect=auto_detect,
         create_config=create_config,
     )
 

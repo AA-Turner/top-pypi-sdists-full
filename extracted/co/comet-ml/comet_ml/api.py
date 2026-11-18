@@ -2302,7 +2302,7 @@ class APIExperiment(CommonExperiment):
                 'metadata': None,
                 'assetId': '1c05cf7db0174acc99d8a66c6a9577e5',
                 'tags': [],
-                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=1c05cf7db0174acc99d8a66c6a9577e5" -H"Authorization: BVZZk68boDqH2YyczAtT0uSCN" > ColabNotebook.ipynb',
+                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=1c05cf7db0174acc99d8a66c6a9577e5" -H"Authorization: YOUR_API_KEY" > ColabNotebook.ipynb',
                 'experimentKey': 'deebdf450d314e4fa262941285a83589',
                 'items': [],
                 'etag': None
@@ -2325,7 +2325,7 @@ class APIExperiment(CommonExperiment):
                 'metadata': {'model_type': 'sklearn', 'version': '1.0'},
                 'assetId': '2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g',
                 'tags': ['model', 'production'],
-                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g" -H"Authorization: BVZZk68boDqH2YyczAtT0uSCN" > model.pkl',
+                'curlDownload': 'curl "https://www.comet.com/api/rest/v2/experiment/asset/get-asset?experimentKey=deebdf450d314e4fa262941285a83589&assetId=2d8f9e1a3b4c5d6e7f8a9b0c1d2e3f4g" -H"Authorization: YOUR_API_KEY" > model.pkl',
                 'experimentKey': 'deebdf450d314e4fa262941285a83589',
                 'items': [],
                 'etag': 'abc123def456'

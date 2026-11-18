@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: annotated-doc
-Version: 0.0.6
+Version: 0.0.7
 Summary: Document parameters, class attributes, return types, and variables inline, with Annotated.
 Author-Email: Sebastián Ramírez <tiangolo@gmail.com>
 License-Expression: MIT
@@ -19,7 +19,6 @@ Classifier: Typing :: Typed
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -30,7 +29,7 @@ Project-URL: Documentation, https://github.com/fastapi/annotated-doc
 Project-URL: Repository, https://github.com/fastapi/annotated-doc
 Project-URL: Issues, https://github.com/fastapi/annotated-doc/issues
 Project-URL: Changelog, https://github.com/fastapi/annotated-doc/release-notes.md
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 
 # Annotated Doc

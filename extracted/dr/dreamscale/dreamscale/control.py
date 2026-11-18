@@ -244,7 +244,8 @@ class ControlPlaneClient:
         )
 
     async def connect_data_plane(self, session: Session):
-        from dreamscale_transport import H264WebSocketClient, WebSocketClient, catalog
+        from dreamscale_transport import WebSocketClient
+        from dreamscale_transport import _catalog_client as catalog
 
         if (
             session.data_plane is None
@@ -252,9 +253,7 @@ class ControlPlaneClient:
             or not session.session_token
         ):
             raise errors.catalog("session_expired")
-        client_type = (
-            H264WebSocketClient if session.model == "dreamzero-yam" else WebSocketClient
-        )
+        client_type = WebSocketClient
         codec_options = {}
         if session.model in catalog.camera_codec_models():
             from dreamscale.camera_codec import codec_settings
@@ -1078,6 +1077,15 @@ class ControlPlaneClient:
 
     async def disconnect_hugging_face(self) -> dict[str, Any]:
         return await self._hugging_face_call("DELETE")
+
+    # --- hosted benchmarks: runs on Dreamscale's simulators (dreamscale.sim.hosted) -----------
+
+    async def sim_runs_request(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        """A ``/v1/sim-runs`` call with this client's key. A rejected key raises here; every
+        other answer goes back to ``dreamscale.sim.hosted``, which reads its refusals."""
+        resp = await self._client.request(method, path, **kwargs)
+        _raise_for_auth(resp)
+        return resp
 
     async def list_models(self) -> list[dict[str, Any]]:
         resp = await self._client.get("/v1/models")

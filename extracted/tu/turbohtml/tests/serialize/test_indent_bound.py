@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from functools import partial
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Final, Literal
@@ -8,7 +9,7 @@ import pytest
 from markdown_it import MarkdownIt
 
 from turbohtml import Html, Indent, Markdown, Minify, PlainText, parse, parse_xml
-from turbohtml.clean import minify, sanitize
+from turbohtml.clean import OnDisallowed, Policy, minify, sanitize
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -20,22 +21,20 @@ if TYPE_CHECKING:
 _NESTED_ITEMS: Final[str] = f"{'<ul><li>' * 12}x"
 # plain-text indent spends a budget that source text funds, so cap tests lead with enough text to pay for it
 _FUNDING: Final[str] = "w" * 1024
+_LABEL: Final[re.Pattern[str]] = re.compile(r"[LQ]\d+")
 
 
-def test_markdown_list_indent_stops_at_the_nesting_cap() -> None:
-    assert parse(_NESTED_ITEMS).to_markdown() == _capped_lines("- ")
-
-
-def _capped_lines(marker: str) -> str:
-    return "\n".join("  " * min(level, 8) + marker for level in range(12)) + "x"
+def test_markdown_list_past_the_nesting_cap_is_written_as_html() -> None:
+    assert parse(_NESTED_ITEMS).to_markdown() == f"{'<ul><li>' * 12}x{'</li></ul>' * 12}"
 
 
 def test_text_list_indent_stops_at_the_nesting_cap() -> None:
-    assert parse(f"<p>{_FUNDING}</p>{_NESTED_ITEMS}").to_text() == f"{_FUNDING}\n\n{_capped_lines('* ')}"
+    capped = "\n".join([*(f"{'  ' * min(level, 8)}* " for level in range(11)), f"{'  ' * 8}* x"])
+    assert parse(f"<p>{_FUNDING}</p>{_NESTED_ITEMS}").to_text() == f"{_FUNDING}\n\n{capped}"
 
 
-def test_markdown_blockquote_indent_stops_at_the_nesting_cap() -> None:
-    assert parse(f"{'<blockquote>' * 22}x").to_markdown() == f"{'> ' * 17}x"
+def test_markdown_blockquote_past_the_nesting_cap_is_written_as_html() -> None:
+    assert parse(f"{'<blockquote>' * 22}x").to_markdown() == f"{'<blockquote>' * 22}x{'</blockquote>' * 22}"
 
 
 def test_text_blockquote_indent_stops_at_the_nesting_cap() -> None:
@@ -43,12 +42,40 @@ def test_text_blockquote_indent_stops_at_the_nesting_cap() -> None:
     assert text.rsplit("\n", 1)[-1] == f"{' ' * 68}x"
 
 
+def test_markdown_root_item_past_the_nesting_cap_stops_indenting() -> None:
+    assert _root_item(f"{'<li><ul>' * 9}s").to_markdown() == "\n".join([*_root_item_markers(9), f"{' ' * 16}s"])
+
+
+def _root_item(markup: str) -> Element:
+    item = parse(markup).select_one("li")
+    assert item is not None
+    return item
+
+
+# a list item rendered as the root is not walked for the cap, so its nested lists count from the item's indent
+def _root_item_markers(count: int) -> list[str]:
+    return [f"{'  ' * level}- " for level in range(count)]
+
+
+def test_markdown_root_quote_past_the_nesting_cap_drops_its_marker() -> None:
+    item = _root_item(f"{'<li><ul>' * 8}<blockquote><blockquote>q")
+    lines = [*_root_item_markers(8), f"{' ' * 16}> ", f"{' ' * 16}>", f"{' ' * 16}> q"]
+    assert item.to_markdown() == "\n".join(lines)
+
+
+def test_markdown_root_code_past_the_nesting_cap_is_fenced() -> None:
+    item = _root_item(f"{'<li><ul>' * 9}<pre>  c\n  d</pre>")
+    fence = f"{' ' * 16}```"
+    lines = [*_root_item_markers(9), fence, f"{' ' * 16}  c", f"{' ' * 16}  d", fence]
+    assert item.to_markdown(Markdown(code=Markdown.Code(block_style="indented"))) == "\n".join(lines)
+
+
 @pytest.mark.parametrize(
     ("source", "method", "expected"),
     [
-        pytest.param("<ol><li>" * 8192, "to_markdown", 251_973, id="ordered-items-markdown"),
+        pytest.param("<ol><li>" * 8192, "to_markdown", 147_456, id="ordered-items-markdown"),
         pytest.param("<ol><li>" * 8192, "to_text", 55_537, id="ordered-items-text"),
-        pytest.param("<blockquote>x<br>" * 4096, "to_markdown", 529_989, id="quoted-lines-markdown"),
+        pytest.param("<blockquote>x<br>" * 4096, "to_markdown", 122_880, id="quoted-lines-markdown"),
         pytest.param("<blockquote>x<br>" * 4096, "to_text", 20_540, id="quoted-lines-text"),
     ],
 )
@@ -244,6 +271,95 @@ def test_clone_string_writers_leave_attributes_past_the_budget_out(write: Callab
     assert "three" in text
 
 
+@pytest.mark.parametrize("write", _DOCUMENT_WRITERS.values(), ids=_DOCUMENT_WRITERS.keys())
+def test_clone_past_the_budget_writes_none_of_its_start_tag(write: Callable[[Document], str]) -> None:
+    text = write(parse(f"<p><a title=t href={_WIDE_TARGET}>one<p>two<p>three"))
+    assert text.count(_WIDE_TARGET) == 2
+    assert text.count("title") == 2
+    assert "three" in text
+
+
+@pytest.mark.parametrize("write", _DOCUMENT_WRITERS.values(), ids=_DOCUMENT_WRITERS.keys())
+def test_clone_keeps_its_value_once_its_source_is_removed(write: Callable[[Document], str]) -> None:
+    document = parse(f"<p><a href={_WIDE_TARGET}>1<p>2")
+    source = document.select_one("a")
+    assert source is not None
+    source.decompose()
+    assert write(document).count(_WIDE_TARGET) == 1
+
+
+def test_moved_clone_keeps_its_value_once_its_source_is_removed() -> None:
+    root = _xml_root_with(f"<p><a href={_WIDE_TARGET}>1<p>2")
+    source = root.select_one("a")
+    assert source is not None
+    source.decompose()
+    assert root.canonicalize().decode().count(_WIDE_TARGET) == 1
+
+
+def test_prefix_declared_clone_keeps_its_value_once_its_source_is_removed() -> None:
+    document = parse(f"<p xmlns:y=urn:y><a href={_WIDE_TARGET}>1<p>2")
+    source = document.select_one("a")
+    assert source is not None
+    source.decompose()
+    assert document.canonicalize().decode().count(_WIDE_TARGET) == 1
+
+
+def test_prefix_declared_clone_past_the_budget_writes_none_of_its_start_tag() -> None:
+    text = parse(f"<p xmlns:y=urn:y><a y:b=1 title=t href={_WIDE_TARGET}>one<p>two<p>three").canonicalize().decode()
+    assert text.count(_WIDE_TARGET) == 2
+    assert text.count("title") == 2
+    assert "three" in text
+
+
+def test_xml_clone_leaves_out_an_attribute_name_xml_cannot_hold() -> None:
+    text = parse('<p><a a"b=1 href=/u>one<p>two<p>three').serialize(Html(xml=True))
+    assert text.count("href") == 3
+    assert 'a"b' not in text
+
+
+def test_xml_clone_keeps_only_the_namespace_bindings_xml_can_read() -> None:
+    assert parse('<p><a xmlns:y="" href=/u>one<p>two').serialize(Html(xml=True)).count("xmlns:y") == 0
+    bound = parse("<p><a xmlns:y=urn:y href=/u>one<p>two").serialize(Html(xml=True))
+    assert bound.count('xmlns:y="urn:y"') == 2
+
+
+def test_markdown_raw_clone_leaves_out_an_attribute_name_commonmark_cannot_read() -> None:
+    source = '<table><tr><td colspan=2><p><b a"b=1 title=t>one<p>two'
+    assert parse(source).to_markdown() == (
+        '<table><tbody><tr><td colspan="2"><p><b title="t">one</b></p><p><b title="t">two</b></p></td></tr></tbody>'
+        "</table>"
+    )
+
+
+@pytest.mark.parametrize(
+    "policy",
+    [
+        pytest.param(
+            Policy(
+                tags=frozenset({"a", "p"}), attributes={"*": frozenset({"href"})}, on_disallowed_tag=OnDisallowed.REMOVE
+            ),
+            id="remove",
+        ),
+        pytest.param(
+            Policy(
+                tags=frozenset({"a", "p"}),
+                attributes={"*": frozenset({"href"})},
+                remove_with_content=frozenset({"span"}),
+            ),
+            id="remove-with-content",
+        ),
+    ],
+)
+def test_clone_keeps_its_href_once_its_source_is_removed(policy: Policy) -> None:
+    text = sanitize(f"<span><a href={_WIDE_TARGET}>1</span><p>2", policy)
+    assert text == f'<p><a href="{_WIDE_TARGET}">2</a></p>'
+
+
+def test_clones_of_many_value_sets_each_keep_their_attributes() -> None:
+    source = "".join(f"<p><a href=/{index}>x<p>y" for index in range(64))
+    assert parse(source).html.count("href=") == 128
+
+
 @pytest.mark.parametrize(
     ("source", "expected"),
     [
@@ -368,6 +484,14 @@ def test_text_clone_href_spends_the_padding_budget(
     assert parse(source).to_text(PlainText(links=links)) == expected
 
 
+def test_text_clone_href_of_a_removed_source_is_kept_once() -> None:
+    document = parse(f"<p><a href={_LONG_TARGET}>one<p>two<p>three")
+    source = document.select_one("a")
+    assert source is not None
+    source.decompose()
+    assert document.to_text(PlainText(links="inline")) == f"two ({_LONG_TARGET})\n\nthree"
+
+
 @pytest.mark.parametrize("header", ["detect", "none"])
 def test_markdown_table_padding_stays_linear(header: Literal["detect", "none"], work_steps: WorkSteps) -> None:
     options: Final = Markdown(tables=Markdown.Tables(pad=True, header=header))
@@ -436,13 +560,15 @@ def test_google_doc_margin_indent_stops_at_the_nesting_cap() -> None:
             "".join(f"<ul><li>L{level}" for level in range(8)) + "".join(f"<blockquote>Q{level}" for level in range(4)),
             id="quotes-in-lists",
         ),
+        pytest.param("".join(f"<ol><li>L{level}" for level in range(12)), id="ordered-lists"),
     ],
 )
 def test_markdown_past_the_cap_reads_back_under_commonmark_nesting(source: str) -> None:
-    # markdown-it's CommonMark preset stops reading blocks at nesting level 20
-    labels = sorted(source.replace("<ul><li>", " ").replace("<blockquote>", " ").split())
-    tokens = MarkdownIt("commonmark").parse(parse(source).to_markdown())
-    assert sorted(token.content for token in tokens if token.type == "inline") == labels
+    # markdown-it's CommonMark preset stops reading blocks at nesting level 20, so past the cap the reader takes the
+    # written HTML as one raw block; the labels it shows are the ones the source holds
+    labels = sorted(_LABEL.findall(source))
+    rendered = parse(MarkdownIt("commonmark").render(parse(source).to_markdown()))
+    assert sorted(_LABEL.findall(rendered.text)) == labels
 
 
 def test_pretty_indent_stops_at_the_nesting_cap() -> None:

@@ -7,6 +7,7 @@ org_admin/org_id:
     - org_member/org_id
     - d_api_key/org_id
     - w:organization/org_id
+    - r+w:user_groups/org_id
 access_requester_org/org_id:
     - r+w+d:access_request/org_id
     - r:organization_name/org_id

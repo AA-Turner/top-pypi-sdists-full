@@ -3,10 +3,6 @@
 Three commands over the backend's PromQL endpoints. Each takes exactly one resource id
 (cluster, workspace, job or service); the backend resolves it, checks read permission,
 and restricts the query to that resource, so nothing here filters client-side.
-
-The group is `hidden=True` for now: it runs when typed, but is left out of `anyscale
---help`, the committed doc spec and the reference docs. Removing the flag (and the
-matching one on the Metrics module in `_private/docgen/__main__.py`) publishes it.
 """
 
 import csv
@@ -46,7 +42,6 @@ _RESOURCE_FLAGS = "--cluster-id, --workspace-id, --job-id or --service-id"
 @click.group(
     "metrics",
     help="Query Ray metrics of a cluster, workspace, job or service.",
-    hidden=True,
 )
 def metrics_cli() -> None:
     pass

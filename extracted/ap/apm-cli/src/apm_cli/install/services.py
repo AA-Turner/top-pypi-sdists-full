@@ -209,7 +209,7 @@ def integrate_package_primitives(  # noqa: PLR0913
     package_name: str = "",
     logger: InstallLogger | None = None,
     scope: InstallScope | None = None,
-    skill_subset: tuple | None = None,
+    skill_subset: tuple | None,
     ctx: InstallContext | None = None,
     scratch_root: Path | None = None,
     policy: Any = None,
@@ -508,8 +508,10 @@ def integrate_package_primitives(  # noqa: PLR0913
             }
             # Hook integrator alone needs the scope signal: project-scope
             # deploys keep ``command`` paths repo-relative (#1394), user-scope
-            # deploys absolutize them (#1310 / #1354).  Sibling integrators
-            # don't accept this kwarg, so include it only for hooks.
+            # deploys make them cwd-independent (#1310 / #1354), anchored to
+            # home where the target declares a verified home reference.
+            # Sibling integrators don't accept this kwarg, so include it only
+            # for hooks.
             if _prim_name == "hooks":
                 _call_kwargs["user_scope"] = scope is InstallScope.USER
                 _call_kwargs["dep_targets_active"] = dep_targets_active
@@ -737,6 +739,7 @@ def integrate_local_content(  # noqa: PLR0913
     same shape as ``integrate_package_primitives()``.
     """
     from ..integration.canvas_integrator import CanvasIntegrator
+    from .package_resolution import effective_dependency_selection
 
     if source_root is None:
         source_root = project_root
@@ -762,6 +765,7 @@ def integrate_local_content(  # noqa: PLR0913
         package_name="_local",
         logger=logger,
         scope=scope,
+        skill_subset=effective_dependency_selection(None, ctx).skill_subset,
         ctx=ctx,
         is_first_party=True,
         deployment_plan=deployment_plan,
@@ -830,8 +834,9 @@ def integrate_local_bundle(
 
     Returns:
         Dict with keys ``deployed_files`` (list[str]),
-        ``deployed_file_hashes`` (dict[str, str]), ``skipped`` (int), and
-        per-primitive counters (``skills``, ``agents``, ``commands``, ...).
+        ``deployed_file_hashes`` (dict[str, str]), ``staged_files``
+        (compile input under ``apm_modules/``, never a deployment claim), ``skipped`` (int), and per-primitive counters
+        (``skills``, ``agents``, ``commands``, ...).
     """
     enforce_agent_plugin_deployment_boundary(bundle_info=bundle_info)
 
@@ -889,6 +894,7 @@ def integrate_local_bundle(
 
     deployed_files: list[str] = []
     deployed_hashes: dict[str, str] = {}
+    staged_files: list[str] = []
     skipped = 0
 
     # py-arch-2: Filter bundle-metadata files (plugin.json, .mcp.json) out of
@@ -929,6 +935,13 @@ def integrate_local_bundle(
         )
     else:
         _canvas_approved_bundle = False
+
+    from ..security.executables import EXEC_TYPE_HOOKS
+    from ..security.executables import is_package_approved as _is_approved
+
+    _hooks_approved_bundle = allow_executables is None or (
+        approval_key is not None and _is_approved(allow_executables, approval_key, EXEC_TYPE_HOOKS)
+    )
 
     if not (_canvas_enabled and _canvas_approved_bundle):
         _blocked = sorted(r for r in pack_files if is_canvas_bundle_path(r))
@@ -1017,6 +1030,8 @@ def integrate_local_bundle(
                 _allowed_deploy_prefixes,
                 _known_deploy_prefixes,
                 target=target,
+                hooks_approved=_hooks_approved_bundle,
+                canvas_approved=_canvas_enabled and _canvas_approved_bundle,
             )
             if _deploy_rel is None:
                 if _skip_warning := _bundle_skip_warning(
@@ -1024,6 +1039,8 @@ def integrate_local_bundle(
                     _allowed_deploy_prefixes,
                     _known_deploy_prefixes,
                     target=target,
+                    hooks_approved=_hooks_approved_bundle,
+                    canvas_approved=_canvas_enabled and _canvas_approved_bundle,
                 ):
                     if diagnostics is not None:
                         diagnostics.warn(message=_skip_warning, package=str(slug))
@@ -1032,7 +1049,8 @@ def integrate_local_bundle(
                     skipped += 1
                 continue
             _first_seg = _deploy_rel.split("/", 1)[0] if "/" in _deploy_rel else ""
-            if _first_seg == "instructions" and "instructions" not in (target.primitives or {}):
+            _staged = _first_seg == "instructions" and "instructions" not in target.primitives
+            if _staged:
                 _slug_str = str(slug)
                 if _slug_error := _bundle_slug_error(_slug_str):
                     if logger is not None:
@@ -1098,22 +1116,9 @@ def integrate_local_bundle(
             else:
                 desired_hash = hashlib.sha256(normalized_text.encode("utf-8")).hexdigest()
 
-            if dry_run:
-                deployed_files.append(record)
-                # Normalize to "sha256:<hex>" so the dry-run lockfile preview
-                # matches the format written by ``compute_file_hash`` on the
-                # real deploy path.  ``desired_hash`` here is bare hex for
-                # the bytes this deploy path writes; without the prefix, downstream
-                # exact-match comparisons (e.g. ``cleanup.py`` provenance
-                # check) treat the file as user-edited and skip cleanup.
-                deployed_hashes[record] = f"sha256:{desired_hash}"
-                if logger:
-                    logger.verbose_detail(f"[dry-run] would deploy {record}")
-                continue
-
             # Collision handling: skip if file exists and content differs
             # and not force.  Idempotent (same content) writes are silent.
-            if dest.exists() and not force:
+            if not dry_run and dest.exists() and not force:
                 try:
                     existing_hash = hashlib.sha256(dest.read_bytes()).hexdigest()
                 except OSError:
@@ -1129,28 +1134,32 @@ def integrate_local_bundle(
                     elif logger is not None:
                         logger.warning(msg)
                     continue
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if normalized_text is None:
-                shutil.copy2(src, dest, follow_symlinks=False)
-            else:
-                write_text_lf(dest, normalized_text)
-            # IM4: hash the deployed file after the deploy transform rather
-            # than trusting the source bundle's expected_hash.  Local bundle
-            # text files may be LF-normalized during deploy, so the lockfile
-            # must bind the actual on-disk bytes.
-            deployed_files.append(record)
-            # Use ``compute_file_hash`` so the recorded value carries the
-            # canonical ``sha256:<hex>`` prefix.  Matches the format written
-            # by the regular install pipeline (``compute_deployed_hashes``)
-            # so subsequent stale-cleanup provenance checks compare equal
-            # instead of mis-classifying these files as user-edited.
-            deployed_hashes[record] = compute_file_hash(dest)
+            if not dry_run:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if normalized_text is None:
+                    shutil.copy2(src, dest, follow_symlinks=False)
+                else:
+                    write_text_lf(dest, normalized_text)
+            # Staged instructions are compile input, never deployment claims (#3705).
+            claims = staged_files if _staged else deployed_files
+            claims.append(record)
+            # Claims carry the canonical ``sha256:<hex>`` form that
+            # ``compute_deployed_hashes`` writes, so stale-cleanup provenance
+            # checks compare equal. IM4: a real deploy hashes the on-disk bytes
+            # after LF normalization; a dry run previews the same digest.
+            if not _staged:
+                deployed_hashes[record] = (
+                    f"sha256:{desired_hash}" if dry_run else compute_file_hash(dest)
+                )
             if logger:
-                logger.verbose_detail(f"deployed {record}")
+                logger.verbose_detail(
+                    f"[dry-run] would deploy {record}" if dry_run else f"deployed {record}"
+                )
 
     return {
         "deployed_files": deployed_files,
         "deployed_file_hashes": deployed_hashes,
+        "staged_files": staged_files,
         "skipped": skipped,
         "skills": 0,
         "agents": 0,

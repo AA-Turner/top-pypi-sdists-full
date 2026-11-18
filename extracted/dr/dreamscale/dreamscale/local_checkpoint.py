@@ -165,7 +165,7 @@ def archives(folder: LocalFolder) -> dict[str, list[list[Any]]]:
     """For each ``.pt``/``.pth`` file, the spans (offset, base64 bytes) a reader of its zip
     directory and pickle reads: the server inspects the checkpoint from these alone. A file
     that isn't a readable checkpoint archive is left out (Detect says what it found)."""
-    from dreamscale_transport import torch_archive as ta
+    from dreamscale_core import _torch_archive as ta
 
     out: dict[str, list[list[Any]]] = {}
     sent = 0
@@ -193,7 +193,7 @@ def upload_plan(folder: LocalFolder, found: dict[str, Any]) -> tuple[
 ]:
     """The files Detect said a build reads, with ``uploads.Slice`` for each archive member
     it named (``upload.members``: blob path -> {file, member}), located in the file now."""
-    from dreamscale_transport import torch_archive as ta
+    from dreamscale_core import _torch_archive as ta
 
     from dreamscale.uploads import Slice
 

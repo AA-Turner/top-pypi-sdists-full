@@ -642,6 +642,10 @@ class PackedSimd(System.Object, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def shuffle(lower: System.Runtime.Intrinsics.Vector128[int], upper: System.Runtime.Intrinsics.Vector128[int], indices: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
+        ...
+
+    @staticmethod
     def sign_extend_widening_lower(value: System.Runtime.Intrinsics.Vector128[int]) -> System.Runtime.Intrinsics.Vector128[int]:
         ...
 

@@ -1,4 +1,5 @@
 import sys
+from functools import cache
 from typing import Any
 
 
@@ -78,6 +79,12 @@ class _FrozenList(list):
 
     def __reduce_ex__(self, protocol):
         return _restore_frozen_list, (list(self),)
+
+
+@cache
+def _native_container_factories():
+    """Share native conversion's factories across SDK clients in this interpreter."""
+    return _FrozenDict, _FrozenList, dict.__new__, list.__new__
 
 
 def _restore_frozen_dict(items: list[tuple[Any, Any]]) -> _FrozenDict:

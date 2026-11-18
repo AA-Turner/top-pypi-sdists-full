@@ -1,5 +1,6 @@
 #[path = "snapshot_http.rs"]
-pub(crate) mod snapshot_http;
+mod snapshot_http;
+use super::id_list_load_timing::{self, Phase};
 use super::id_list_propagation::downloaded_range;
 use super::{IdList, IdListManifest, IdListManifestEntry, IdListMetadata, IdListUpdateBase};
 use crate::id_lists_adapter::{
@@ -20,7 +21,6 @@ use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::portable_id_list_ef;
 use crate::sdk_diagnostics::diagnostics::ContextType;
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
-use crate::statsig_metadata::StatsigMetadata;
 use crate::{SpecStore, StatsigErr, StatsigOptions, StatsigRuntime, log_d, log_e};
 use async_trait::async_trait;
 use chrono::Utc;
@@ -29,6 +29,7 @@ use futures::{StreamExt, stream};
 use parking_lot::{Mutex, ReentrantMutex, RwLock};
 use std::collections::HashMap;
 use std::future::Future;
+use std::io::Read;
 use std::ops::{ControlFlow, Range};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -107,6 +108,7 @@ pub struct StatsigHttpIdListsAdapter {
     network: NetworkClient,
     sync_interval_duration: Duration,
     ops_stats: Arc<OpsStatsForInstance>,
+    pub(crate) load_timings_enabled: bool,
     shutdown: Arc<AdapterShutdown>,
     manifest_failures: RefreshFailureTracker,
     file_failures: RefreshFailureTracker,
@@ -181,9 +183,7 @@ impl StatsigHttpIdListsAdapter {
                 .unwrap_or(DEFAULT_ID_LIST_SYNC_INTERVAL_MS),
         ));
 
-        let headers =
-            StatsigMetadata::get_constant_request_headers(sdk_key, options.service_name.as_deref());
-        let network = NetworkClient::new(sdk_key, Some(headers), Some(options));
+        let network = NetworkClient::with_sdk_headers(sdk_key, options);
 
         let sdk_instance_id = options.get_sdk_instance_id(sdk_key);
         let retry_override = RetryPolicy::state_read_override(options.state_read_primary_attempts);
@@ -210,6 +210,7 @@ impl StatsigHttpIdListsAdapter {
             network,
             sync_interval_duration,
             ops_stats: OPS_STATS.get_for_instance_with_options(sdk_instance_id, Some(options)),
+            load_timings_enabled: id_list_load_timing::collection_enabled(Some(options)),
             shutdown: Arc::default(),
             manifest_failures: RefreshFailureTracker::default(),
             file_failures: RefreshFailureTracker::default(),
@@ -367,12 +368,10 @@ impl StatsigHttpIdListsAdapter {
         index: u32,
         build: Option<&PrivateBuildAttempt>,
     ) -> Result<DownloadedIdList, StatsigErr> {
-        let download_permit = self
-            .download_permits
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|_| Self::publication_stopped())?;
+        let started = id_list_load_timing::start_phase();
+        let download_permit = self.download_permits.clone().acquire_owned().await;
+        id_list_load_timing::end_phase(Phase::DownloadPermitWait, started);
+        let download_permit = download_permit.map_err(|_| Self::publication_stopped())?;
         let download_url = if is_fallback {
             self.network.log_fallback("id_list_file", true);
             &job.metadata.url
@@ -388,6 +387,7 @@ impl StatsigHttpIdListsAdapter {
                 job.can_download_snapshots && !is_fallback && index == 0 && start == 0;
             let request =
                 self.id_list_file_request_args(download_url, job, start, &pending, offer_snapshot);
+            let started = id_list_load_timing::start_phase();
             let response = self
                 .network
                 .request_once(
@@ -398,8 +398,9 @@ impl StatsigHttpIdListsAdapter {
                     true,
                     index,
                 )
-                .await
-                .map_err(StatsigErr::NetworkError)?;
+                .await;
+            id_list_load_timing::end_phase(Phase::HttpBody, started);
+            let response = response.map_err(StatsigErr::NetworkError)?;
             if response
                 .data
                 .as_ref()
@@ -421,6 +422,7 @@ impl StatsigHttpIdListsAdapter {
                 None,
                 Some(download_url),
             );
+            let started = id_list_load_timing::start_phase();
             let chunk = normalize_id_list_download(
                 response,
                 download_url,
@@ -429,6 +431,7 @@ impl StatsigHttpIdListsAdapter {
                 job.can_download_snapshots,
                 pending,
             );
+            id_list_load_timing::end_phase(Phase::Decode, started);
             self.add_diagnostics_end_marker(
                 KeyType::GetIDList,
                 StepType::Process,
@@ -844,7 +847,7 @@ impl StatsigHttpIdListsAdapter {
         allow_snapshot_updates: bool,
     ) -> Result<IdListDownloadBatch<'a>, StatsigErr> {
         let can_download_snapshots =
-            allow_snapshot_updates && self.network.supports_wire_responses_without_redirects();
+            allow_snapshot_updates && self.network.supports_response_headers_without_redirects();
         let mut update_batch = IdListUpdateBatch::new(
             curr_manifest,
             &new_manifest,
@@ -992,30 +995,32 @@ impl StatsigHttpIdListsAdapter {
         // Keep the elected listener (and its lease) through installation, even if
         // the refresh future is cancelled while a blocking publication is running.
         let publish = move |stopped: &AtomicBool| {
-            if stopped.load(Ordering::SeqCst) {
-                return Err(Self::publication_stopped());
-            }
-            let mode = if incomplete {
-                IdListPublicationMode::IncompleteRefresh
-            } else {
-                publication_mode
-            };
-            publish_id_list_batch(
-                listener.as_ref(),
-                bases,
-                updates,
-                propagation,
-                mode,
-                eager_downloads,
-            )?;
-            if let Some(LazyManifestPublication {
-                mut guard,
-                next: Some(next),
-            }) = manifest_guard
-            {
-                *guard = Some(next);
-            }
-            Ok(())
+            id_list_load_timing::measure(Phase::ParsePublish, || {
+                if stopped.load(Ordering::SeqCst) {
+                    return Err(Self::publication_stopped());
+                }
+                let mode = if incomplete {
+                    IdListPublicationMode::IncompleteRefresh
+                } else {
+                    publication_mode
+                };
+                publish_id_list_batch(
+                    listener.as_ref(),
+                    bases,
+                    updates,
+                    propagation,
+                    mode,
+                    eager_downloads,
+                )?;
+                if let Some(LazyManifestPublication {
+                    mut guard,
+                    next: Some(next),
+                }) = manifest_guard
+                {
+                    *guard = Some(next);
+                }
+                Ok(())
+            })
         };
         if offload {
             // An opted-in hash commit runs off-thread but still participates in force_shutdown.
@@ -1023,12 +1028,15 @@ impl StatsigHttpIdListsAdapter {
             let stopped = Arc::clone(stopped);
             let guard = refresh_guard.cloned();
             let policy = self.output_policy;
-            tokio::task::spawn_blocking(move || {
-                let _guard = guard;
-                let _scope = policy.enter();
-                let _handoff = shutdown.as_ref().map(|state| state.handoff.lock());
-                publish(&stopped)
-            })
+            tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
+                Phase::PublicationWorkerWait,
+                move || {
+                    let _guard = guard;
+                    let _scope = policy.enter();
+                    let _handoff = shutdown.as_ref().map(|state| state.handoff.lock());
+                    publish(&stopped)
+                },
+            ))
             .await
             .map_err(|error| StatsigErr::FileError(error.to_string()))??;
         } else {
@@ -1044,18 +1052,20 @@ impl StatsigHttpIdListsAdapter {
         self: &Arc<Self>,
         name: &str,
         parallel: Option<&PrivateBuildAttempt>,
-    ) -> Result<(), StatsigErr> {
+    ) -> Result<bool, StatsigErr> {
         let lazy = self.lazy_id_lists.as_ref().ok_or_else(|| {
             StatsigErr::UnstartedAdapter("ID-list manifest has not been fetched yet".to_string())
         })?;
+        let mut attempted = false;
         loop {
             if let Some(build) = parallel {
                 build.submitted.store(false, Ordering::Release);
             }
             let Some(load) = self.plan_lazy_load(lazy, name, parallel).await? else {
-                return Ok(());
+                return Ok(attempted);
             };
 
+            attempted = true;
             let mut successful_downloads = 0;
             let target = load.entry.metadata.clone();
             let (listener, build): (&dyn IdListsUpdateListener, _) = match &load.destination {
@@ -1092,7 +1102,7 @@ impl StatsigHttpIdListsAdapter {
                 }
             };
             match outcome {
-                LazyLoadOutcome::Complete => return Ok(()),
+                LazyLoadOutcome::Complete => return Ok(true),
                 LazyLoadOutcome::Retry => continue,
             }
         }
@@ -1104,7 +1114,9 @@ impl StatsigHttpIdListsAdapter {
         name: &str,
         parallel: Option<&'a PrivateBuildAttempt>,
     ) -> Result<Option<LazyIdListLoad<'a>>, StatsigErr> {
+        let started = id_list_load_timing::start_phase();
         let manifest = lazy.manifest.read().await;
+        id_list_load_timing::end_phase(Phase::AdapterLockWait, started);
         let manifest = manifest.as_ref().ok_or_else(|| {
             StatsigErr::UnstartedAdapter("ID-list manifest has not been fetched yet".to_string())
         })?;
@@ -1209,7 +1221,9 @@ impl StatsigHttpIdListsAdapter {
         planned_metadata: &IdListsResponse,
         update_batch: IdListUpdateBatch,
     ) -> Result<LazyLoadOutcome, StatsigErr> {
+        let started = id_list_load_timing::start_phase();
         let manifest = lazy.manifest.clone().write_owned().await;
+        id_list_load_timing::end_phase(Phase::AdapterLockWait, started);
         if !self.is_current_lazy_target(manifest.as_ref(), name, target, &listener)? {
             return Ok(LazyLoadOutcome::Retry);
         }
@@ -1250,7 +1264,7 @@ impl StatsigHttpIdListsAdapter {
         update.start > 0
             && self.snapshot_enabled
             && listener.supports_id_list_snapshot_updates()
-            && self.network.supports_wire_responses_without_redirects()
+            && self.network.supports_response_headers_without_redirects()
     }
 
     fn is_current_lazy_target(
@@ -1279,17 +1293,29 @@ impl StatsigHttpIdListsAdapter {
             let lock = Arc::clone(manifest);
             // Take the guard only once the worker is running. If a poll owns it,
             // leave the blocking thread free for the poll's own publication.
-            let attempt = tokio::task::spawn_blocking(move || match lock.try_read() {
-                Ok(guard) => ControlFlow::Break(commit(guard.as_ref())),
-                Err(_) => ControlFlow::Continue(commit),
-            })
+            let attempt = tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
+                Phase::PublicationWorkerWait,
+                move || {
+                    let guard =
+                        id_list_load_timing::measure(Phase::AdapterLockWait, || lock.try_read());
+                    match guard {
+                        Ok(guard) => ControlFlow::Break(id_list_load_timing::measure(
+                            Phase::ParsePublish,
+                            || commit(guard.as_ref()),
+                        )),
+                        Err(_) => ControlFlow::Continue(commit),
+                    }
+                },
+            ))
             .await
             .map_err(|e| StatsigErr::ThreadFailure(e.to_string()))?;
             match attempt {
                 ControlFlow::Break(result) => return result,
                 ControlFlow::Continue(pending) => commit = pending,
             }
+            let started = id_list_load_timing::start_phase();
             drop(manifest.read().await);
+            id_list_load_timing::end_phase(Phase::AdapterLockWait, started);
         }
     }
 
@@ -1345,11 +1371,14 @@ impl StatsigHttpIdListsAdapter {
                     shared: Arc::clone(&shared),
                 };
 
-                self.while_running(
-                    shared
-                        .result
-                        .get_or_init(|| self.load_and_publish_id_list(waiter.name, parallel)),
-                )
+                self.while_running(shared.result.get_or_init(|| {
+                    id_list_load_timing::time_list_load(
+                        &self.ops_stats,
+                        name,
+                        self.load_timings_enabled,
+                        self.load_and_publish_id_list(waiter.name, parallel),
+                    )
+                }))
                 .await?
                 .clone()
             })
@@ -1534,7 +1563,20 @@ fn normalize_id_list_download(
     let mut body = response
         .data
         .ok_or_else(|| request_failed("Missing ID list body"))?;
-    let mut bytes = body.read_to_bytes()?;
+    let mut bytes = if body
+        .get_header_ignore_ascii_case("content-encoding")
+        .is_some_and(|encoding| encoding.trim().eq_ignore_ascii_case("gzip"))
+    {
+        // A server that ignores Accept-Encoding: identity can gzip raw records too.
+        body.rewind()?;
+        let mut bytes = Vec::new();
+        flate2::read::MultiGzDecoder::new(body.get_stream_mut())
+            .read_to_end(&mut bytes)
+            .map_err(|err| request_failed(&err.to_string()))?;
+        bytes
+    } else {
+        body.read_to_bytes()?
+    };
     // A proxy can strip the snapshot headers even when the body is valid UTF-8.
     let reject_snapshot = |prefix: &[u8], total| {
         if portable_id_list_ef::matches_v1_prefix(prefix, total) {
@@ -1753,8 +1795,7 @@ fn publish_id_list_batch(
             listener.try_receive_incomplete_id_list_refresh(updates, propagation)
         }
         IdListPublicationMode::Merge => {
-            listener.did_receive_partial_id_list_updates_with_propagation(updates, propagation);
-            Ok(())
+            listener.try_receive_partial_id_list_updates_with_propagation(updates, propagation)
         }
     }
 }
@@ -1812,10 +1853,12 @@ struct PrivateBuildAttempt {
 
 impl PrivateBuildAttempt {
     async fn admit_worker(&self) -> tokio::sync::OwnedSemaphorePermit {
+        let started = id_list_load_timing::start_phase();
         let permit = Arc::clone(&self.permits)
             .acquire_owned()
             .await
             .expect("index build semaphore is never closed");
+        id_list_load_timing::end_phase(Phase::BuildPermitWait, started);
         self.submitted.store(true, Ordering::Release);
         permit
     }
@@ -1872,19 +1915,26 @@ impl LazyIdLists {
         let stopped = Arc::clone(adapter.network.shutdown_flag());
         #[cfg(test)]
         let before_build = self.before_build.clone();
-        tokio::task::spawn_blocking(move || {
-            let _output_scope = output_policy.enter();
-            let _permit = permit;
-            if stopped.load(Ordering::SeqCst) {
-                return Err(StatsigHttpIdListsAdapter::publication_stopped());
-            }
-            #[cfg(test)]
-            if let Some(before_build) = before_build {
-                before_build(&update.new_metadata.name);
-            }
-            let list = store.updated_id_list(base.as_ref(), image, update);
-            Ok((base, list))
-        })
+        tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
+            Phase::BuildWorkerWait,
+            move || {
+                let _output_scope = output_policy.enter();
+                let _permit = permit;
+                if stopped.load(Ordering::SeqCst) {
+                    return Err(StatsigHttpIdListsAdapter::publication_stopped());
+                }
+                #[cfg(test)]
+                if let Some(before_build) = before_build {
+                    before_build(&update.new_metadata.name);
+                }
+                let list = id_list_load_timing::measure(Phase::ParsePublish, || {
+                    id_list_load_timing::measure(Phase::Processing, || {
+                        store.updated_id_list(base.as_ref(), image, update)
+                    })
+                });
+                Ok((base, list))
+            },
+        ))
         .await
         .map_err(|e| StatsigErr::ThreadFailure(e.to_string()))?
     }

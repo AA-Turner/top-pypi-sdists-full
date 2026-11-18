@@ -19,7 +19,6 @@ from tabpfn.preprocessing.torch.pipeline_interface import (
     IN_PLACE_BLOCK_BYTES,
     TorchPreprocessingStep,
     TorchPreprocessingStepResult,
-    _move_cache_to_device,
 )
 from tabpfn.preprocessing.torch.torch_quantile_transformer import (
     TorchQuantileTransformer,
@@ -42,9 +41,10 @@ class TorchSelectiveStep(TorchPreprocessingStep):
     """A step that transforms only the columns CPU preprocessing marked for it.
 
     The marked columns are known when the step is built, and the pipeline passes
-    them as `column_indices`. Steps that override `fit_transform` read their marked
-    columns directly.
+    them as `column_indices`.
     """
+
+    columnwise = True
 
     _target_column_indices: list[int]
 
@@ -59,6 +59,8 @@ class TorchSelectiveStep(TorchPreprocessingStep):
 
 class TorchRandomSignFlipStep(TorchPreprocessingStep):
     """Randomly negate columns with signs shared across rows."""
+
+    runs_on_input_device = True
 
     def __init__(self, random_state: int | np.random.Generator | None) -> None:
         super().__init__()
@@ -75,33 +77,31 @@ class TorchRandomSignFlipStep(TorchPreprocessingStep):
         *,
         in_place: bool = False,
     ) -> TorchPreprocessingStepResult:
-        del in_place  # Writes a new tensor.
         if fitted_cache is None:
             # Fitting needs only the shape; slicing avoids gathering the table.
             fitted_cache = self._fit(x[:0, :, : len(column_indices)])
 
-        if column_indices == list(range(x.shape[-1])):
-            transformed, _, _ = self._transform(x, fitted_cache)
-        else:
-            transformed = x.clone()
-            signs = fitted_cache["signs"].to(x)
-            start = 0
-            while start < len(column_indices):
-                end = start + 1
-                stride = (
-                    max(1, column_indices[end] - column_indices[start])
-                    if end < len(column_indices)
-                    else 1
-                )
-                while (
-                    end < len(column_indices)
-                    and column_indices[end] == column_indices[end - 1] + stride
-                ):
-                    end += 1
-                transformed[
-                    ..., column_indices[start] : column_indices[end - 1] + 1 : stride
-                ].mul_(signs[..., start:end])
-                start = end
+        signs = fitted_cache["signs"].to(x)
+        # Runs of evenly spaced columns, multiplied where they are, leave the other
+        # columns' bits as they were.
+        transformed = x if in_place else x.clone()
+        start = 0
+        while start < len(column_indices):
+            end = start + 1
+            stride = (
+                max(1, column_indices[end] - column_indices[start])
+                if end < len(column_indices)
+                else 1
+            )
+            while (
+                end < len(column_indices)
+                and column_indices[end] == column_indices[end - 1] + stride
+            ):
+                end += 1
+            transformed[
+                ..., column_indices[start] : column_indices[end - 1] + 1 : stride
+            ].mul_(signs[..., start:end])
+            start = end
 
         return TorchPreprocessingStepResult(x=transformed, fitted_cache=fitted_cache)
 
@@ -117,7 +117,7 @@ class TorchRandomSignFlipStep(TorchPreprocessingStep):
     def _transform(
         self, x: torch.Tensor, fitted_cache: dict[str, torch.Tensor]
     ) -> tuple[torch.Tensor, None, None]:
-        return x * fitted_cache["signs"].to(x), None, None
+        raise NotImplementedError("`fit_transform` applies the signs.")
 
 
 class TorchQuantileTransformerStep(TorchPreprocessingStep):
@@ -243,6 +243,9 @@ class TorchSelectiveQuantileTransformerStep(TorchSelectiveStep):
     are left unchanged.
     """
 
+    shared_cache_keys = frozenset({"references"})
+    computes_on_cpu_for_mps = True
+
     def __init__(
         self,
         n_quantiles: int,
@@ -259,42 +262,6 @@ class TorchSelectiveQuantileTransformerStep(TorchSelectiveStep):
         self._target_column_indices = target_column_indices
 
     @override
-    def fit_transform(
-        self,
-        x: torch.Tensor,
-        column_indices: list[int],
-        num_train_rows: int,
-        fitted_cache: dict[str, torch.Tensor] | None = None,
-        *,
-        in_place: bool = False,
-    ) -> TorchPreprocessingStepResult:
-        """Override to select only target columns for quantile transform."""
-        del column_indices, in_place
-        orig_device = x.device
-
-        # The quantile transform uses many small ops (searchsorted, gather,
-        # where) that are faster on CPU than on MPS due to per-kernel launch
-        # overhead.  On CUDA the GPU is preferred.
-        run_on_cpu = orig_device.type == "mps"
-        compute_device = torch.device("cpu") if run_on_cpu else orig_device
-        target_x = x[:, :, self._target_column_indices].to(compute_device)
-        if fitted_cache is None:
-            fitted_cache = self._qt.fit(target_x[:num_train_rows])
-        else:
-            fitted_cache = _move_cache_to_device(fitted_cache, compute_device)
-
-        # Written over its own input, so the transform's intermediates sit next
-        # to this one target-sized buffer only, and never next to the clone.
-        target_x = self._qt.transform(
-            target_x, fitted_cache=fitted_cache, out=target_x
-        ).to(orig_device)
-
-        x = x.clone()
-        x[:, :, self._target_column_indices] = target_x
-
-        return TorchPreprocessingStepResult(x=x, fitted_cache=fitted_cache)
-
-    @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
         return self._qt.fit(x)
 
@@ -304,7 +271,9 @@ class TorchSelectiveQuantileTransformerStep(TorchSelectiveStep):
         x: torch.Tensor,
         fitted_cache: dict[str, torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor | None, FeatureModality | None]:
-        return self._qt.transform(x, fitted_cache=fitted_cache), None, None
+        # `x` is the step's own copy of its columns, so the transform writes over it
+        # and its intermediates sit next to this one buffer only.
+        return self._qt.transform(x, fitted_cache=fitted_cache, out=x), None, None
 
 
 class TorchSelectiveSquashingScalerStep(TorchSelectiveStep):
@@ -316,6 +285,8 @@ class TorchSelectiveSquashingScalerStep(TorchSelectiveStep):
     squashing scaler, writing the results back. All other columns are left
     unchanged.
     """
+
+    computes_on_cpu_for_mps = True
 
     def __init__(
         self,
@@ -329,43 +300,6 @@ class TorchSelectiveSquashingScalerStep(TorchSelectiveStep):
             quantile_range=quantile_range,
         )
         self._target_column_indices = target_column_indices
-
-    @override
-    def fit_transform(
-        self,
-        x: torch.Tensor,
-        column_indices: list[int],
-        num_train_rows: int,
-        fitted_cache: dict[str, torch.Tensor] | None = None,
-        *,
-        in_place: bool = False,
-    ) -> TorchPreprocessingStepResult:
-        """Override to select only target columns for squashing scaler."""
-        del column_indices, in_place
-        orig_device = x.device
-        target_x = x[:, :, self._target_column_indices]
-
-        # The squashing scaler is dominated by torch.nanquantile (sort-based)
-        # plus several small element-wise kernels.  On MPS, per-kernel launch
-        # overhead makes this slower than CPU; on CUDA the GPU is preferred.
-        run_on_cpu = orig_device.type == "mps"
-        if run_on_cpu:
-            target_x = target_x.cpu()
-
-        if fitted_cache is None:
-            fitted_cache = self._scaler.fit(target_x[:num_train_rows])
-        else:
-            fitted_cache = _move_cache_to_device(fitted_cache, target_x.device)
-
-        transformed = self._scaler.transform(target_x, fitted_cache=fitted_cache)
-
-        if run_on_cpu:
-            transformed = transformed.to(orig_device)
-
-        x = x.clone()
-        x[:, :, self._target_column_indices] = transformed
-
-        return TorchPreprocessingStepResult(x=x, fitted_cache=fitted_cache)
 
     @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
@@ -387,47 +321,19 @@ class TorchSelectiveSafePowerStep(TorchSelectiveStep):
     :class:`TorchSelectiveQuantileTransformerStep`.
     """
 
+    computes_on_cpu_for_mps = True
+
     def __init__(self, target_column_indices: list[int]) -> None:
         super().__init__()
         self._transformer = TorchSafePowerTransformer()
         self._target_column_indices = target_column_indices
 
     @override
-    def fit_transform(
-        self,
-        x: torch.Tensor,
-        column_indices: list[int],
-        num_train_rows: int,
-        fitted_cache: dict[str, torch.Tensor] | None = None,
-        *,
-        in_place: bool = False,
-    ) -> TorchPreprocessingStepResult:
-        """Override to select only target columns for the power transform."""
-        del column_indices, in_place
-        orig_device = x.device
-        target_x = x[:, :, self._target_column_indices]
-
-        # MPS has no float64.
-        run_on_cpu = orig_device.type == "mps"
-        if run_on_cpu:
-            target_x = target_x.cpu()
-
-        if fitted_cache is None:
-            fitted_cache = self._transformer.fit(target_x[:num_train_rows])
-        else:
-            fitted_cache = _move_cache_to_device(fitted_cache, target_x.device)
-
-        transformed = self._transformer.transform(target_x, fitted_cache=fitted_cache)
-        del target_x  # free before the full-size clone below
-
-        x = x.clone()
-        x[:, :, self._target_column_indices] = transformed.to(orig_device)
-
-        return TorchPreprocessingStepResult(x=x, fitted_cache=fitted_cache)
-
-    @override
     def _fit(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
-        return self._transformer.fit(x)
+        # The transformer flattens the batch into the columns; the block runners
+        # slice and join the cache by columns, along its last dimension.
+        cache = self._transformer.fit(x)
+        return {key: value.reshape(x.shape[1:]) for key, value in cache.items()}
 
     @override
     def _transform(
@@ -435,7 +341,8 @@ class TorchSelectiveSafePowerStep(TorchSelectiveStep):
         x: torch.Tensor,
         fitted_cache: dict[str, torch.Tensor],
     ) -> tuple[torch.Tensor, torch.Tensor | None, FeatureModality | None]:
-        return self._transformer.transform(x, fitted_cache=fitted_cache), None, None
+        flat = {key: value.reshape(-1) for key, value in fitted_cache.items()}
+        return self._transformer.transform(x, fitted_cache=flat), None, None
 
 
 class TorchSelectiveRobustScalerStep(TorchSelectiveStep):
@@ -444,8 +351,6 @@ class TorchSelectiveRobustScalerStep(TorchSelectiveStep):
     Register with ``modalities=None``, like
     :class:`TorchSelectiveQuantileTransformerStep`.
     """
-
-    columnwise = True
 
     def __init__(self, target_column_indices: list[int]) -> None:
         super().__init__()
@@ -476,7 +381,7 @@ class TorchShuffleFeaturesStep(TorchPreprocessingStep):
     ``ShuffleFeaturesStep`` to guarantee identical results.
     """
 
-    rowwise = True
+    runs_on_input_device = True
 
     def __init__(
         self,
@@ -695,6 +600,9 @@ class TorchAddFingerprintFeaturesStep(TorchPreprocessingStep):
 
     TODO: Implement this on GPU natively.
     """
+
+    # It hashes on the CPU whatever the device.
+    runs_on_input_device = True
 
     @override
     def added_feature_prefix(self) -> str:

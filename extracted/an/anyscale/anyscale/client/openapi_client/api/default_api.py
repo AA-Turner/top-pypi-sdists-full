@@ -5914,7 +5914,7 @@ class DefaultApi(object):
     def convert_iam_api_v2_iam_migration_convert_post(self, **kwargs):  # noqa: E501
         """Convert Iam  # noqa: E501
 
-        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  # noqa: E501
+        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization, or one whose conversion is running, is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  Returns once the conversion is claimed: it carries on in the background. Poll the status until the organization is converted, or until it is neither converted nor running, which means the conversion failed; convert again to resume it.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.convert_iam_api_v2_iam_migration_convert_post(async_req=True)
@@ -5939,7 +5939,7 @@ class DefaultApi(object):
     def convert_iam_api_v2_iam_migration_convert_post_with_http_info(self, **kwargs):  # noqa: E501
         """Convert Iam  # noqa: E501
 
-        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  # noqa: E501
+        Create what the preview of the option names, recommended when none is given, or the draft its edits make, record the option, and turn off auto_add_user on the auto-add clouds. A conversion that would change anyone's access is a conflict, except Start fresh and edits sent with accept_access_changes; edits whose result is invalid are unprocessable. Converting a converted organization, or one whose conversion is running, is a conflict. Members who join afterwards are added to All users. Converting archives the Anyscale managed user groups, so they grant nothing and access comes from role bindings only.  Returns once the conversion is claimed: it carries on in the background. Poll the status until the organization is converted, or until it is neither converted nor running, which means the conversion failed; convert again to resume it.  # noqa: E501
         This method makes a synchronous HTTP request by default. To make an
         asynchronous HTTP request, please pass async_req=True
         >>> thread = api.convert_iam_api_v2_iam_migration_convert_post_with_http_info(async_req=True)
@@ -37569,6 +37569,111 @@ class DefaultApi(object):
             _request_timeout=local_var_params.get('_request_timeout'),
             collection_formats=collection_formats)
 
+    def get_ssh_settings_api_v2_organizations_ssh_settings_get(self, **kwargs):  # noqa: E501
+        """Get Ssh Settings  # noqa: E501
+
+        Get whether the organization hands cluster SSH private keys to its users.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_ssh_settings_api_v2_organizations_ssh_settings_get(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SshsettingsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.get_ssh_settings_api_v2_organizations_ssh_settings_get_with_http_info(**kwargs)  # noqa: E501
+
+    def get_ssh_settings_api_v2_organizations_ssh_settings_get_with_http_info(self, **kwargs):  # noqa: E501
+        """Get Ssh Settings  # noqa: E501
+
+        Get whether the organization hands cluster SSH private keys to its users.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.get_ssh_settings_api_v2_organizations_ssh_settings_get_with_http_info(async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SshsettingsResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method get_ssh_settings_api_v2_organizations_ssh_settings_get" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/ssh_settings', 'GET',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SshsettingsResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
     def get_startup_logs_api_v2_sessions_session_id_startup_logs_get(self, session_id, start_line, end_line, **kwargs):  # noqa: E501
         """Get Startup Logs  # noqa: E501
 
@@ -68775,6 +68880,124 @@ class DefaultApi(object):
             post_params=form_params,
             files=local_var_files,
             response_type='SchedulervisibilityresponseResponse',  # noqa: E501
+            auth_settings=auth_settings,
+            async_req=local_var_params.get('async_req'),
+            _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501
+            _preload_content=local_var_params.get('_preload_content', True),
+            _request_timeout=local_var_params.get('_request_timeout'),
+            collection_formats=collection_formats)
+
+    def update_ssh_settings_api_v2_organizations_ssh_settings_put(self, ssh_settings, **kwargs):  # noqa: E501
+        """Update Ssh Settings  # noqa: E501
+
+        Set whether the organization hands cluster SSH private keys to its users.  Only API responses change: running clusters keep their keys and sshd.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_ssh_settings_api_v2_organizations_ssh_settings_put(ssh_settings, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param SshSettings ssh_settings: (required)
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: SshsettingsResponse
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+        kwargs['_return_http_data_only'] = True
+        return self.update_ssh_settings_api_v2_organizations_ssh_settings_put_with_http_info(ssh_settings, **kwargs)  # noqa: E501
+
+    def update_ssh_settings_api_v2_organizations_ssh_settings_put_with_http_info(self, ssh_settings, **kwargs):  # noqa: E501
+        """Update Ssh Settings  # noqa: E501
+
+        Set whether the organization hands cluster SSH private keys to its users.  Only API responses change: running clusters keep their keys and sshd.  # noqa: E501
+        This method makes a synchronous HTTP request by default. To make an
+        asynchronous HTTP request, please pass async_req=True
+        >>> thread = api.update_ssh_settings_api_v2_organizations_ssh_settings_put_with_http_info(ssh_settings, async_req=True)
+        >>> result = thread.get()
+
+        :param async_req bool: execute request asynchronously
+        :param SshSettings ssh_settings: (required)
+        :param _return_http_data_only: response data without head status code
+                                       and headers
+        :param _preload_content: if False, the urllib3.HTTPResponse object will
+                                 be returned without reading/decoding response
+                                 data. Default is True.
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :return: tuple(SshsettingsResponse, status_code(int), headers(HTTPHeaderDict))
+                 If the method is called asynchronously,
+                 returns the request thread.
+        """
+
+        local_var_params = locals()
+
+        all_params = [
+            'ssh_settings'
+        ]
+        all_params.extend(
+            [
+                'async_req',
+                '_return_http_data_only',
+                '_preload_content',
+                '_request_timeout'
+            ]
+        )
+
+        for key, val in six.iteritems(local_var_params['kwargs']):
+            if key not in all_params:
+                raise ApiTypeError(
+                    "Got an unexpected keyword argument '%s'"
+                    " to method update_ssh_settings_api_v2_organizations_ssh_settings_put" % key
+                )
+            local_var_params[key] = val
+        del local_var_params['kwargs']
+        # verify the required parameter 'ssh_settings' is set
+        if self.api_client.client_side_validation and ('ssh_settings' not in local_var_params or  # noqa: E501
+                                                        local_var_params['ssh_settings'] is None):  # noqa: E501
+            raise ApiValueError("Missing the required parameter `ssh_settings` when calling `update_ssh_settings_api_v2_organizations_ssh_settings_put`")  # noqa: E501
+
+        collection_formats = {}
+
+        path_params = {}
+
+        query_params = []
+
+        header_params = {}
+
+        form_params = []
+        local_var_files = {}
+
+        body_params = None
+        if 'ssh_settings' in local_var_params:
+            body_params = local_var_params['ssh_settings']
+        # HTTP header `Accept`
+        header_params['Accept'] = self.api_client.select_header_accept(
+            ['application/json'])  # noqa: E501
+
+        # HTTP header `Content-Type`
+        header_params['Content-Type'] = self.api_client.select_header_content_type(  # noqa: E501
+            ['application/json'])  # noqa: E501
+
+        # Authentication setting
+        auth_settings = []  # noqa: E501
+
+        return self.api_client.call_api(
+            '/api/v2/organizations/ssh_settings', 'PUT',
+            path_params,
+            query_params,
+            header_params,
+            body=body_params,
+            post_params=form_params,
+            files=local_var_files,
+            response_type='SshsettingsResponse',  # noqa: E501
             auth_settings=auth_settings,
             async_req=local_var_params.get('async_req'),
             _return_http_data_only=local_var_params.get('_return_http_data_only'),  # noqa: E501

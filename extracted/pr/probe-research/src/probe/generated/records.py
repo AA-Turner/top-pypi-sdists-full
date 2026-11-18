@@ -64,8 +64,8 @@ class RunStatus(StrEnum):
 
 
 class RunType(StrEnum):
-    """What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
-    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py).
+    """What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
+    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`.
     """
 
     GENERAL = "general"
@@ -166,7 +166,7 @@ class LineageRelation(StrEnum):
 
 
 class EditOp(StrEnum):
-    """What an edit does. One list for the server, SDK, CLI, MCP and dashboard (review A4)."""
+    """What an edit does. One list for the server, SDK, CLI, MCP and dashboard."""
 
     HIDE = "hide"
     SHIFT_STEP = "shift_step"
@@ -210,7 +210,7 @@ class EditActorKind(StrEnum):
 class CommandKind(StrEnum):
     """What was asked. A producer declares the kinds it can do (a sample producer in `Plan.capabilities`, a run's
     script on its writer beat, `RunCapabilities`); any other is refused at once. Sample kinds name an attempt
-    (`attempt_key`); run kinds (agentic W&B C.1) name none.
+    (`attempt_key`); run kinds name none.
     """
 
     CANCEL = "cancel"

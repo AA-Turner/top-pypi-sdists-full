@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time as time_module
 from io import BytesIO
 from pathlib import Path
 from runpy import run_path
@@ -7,29 +8,79 @@ from shutil import copy2
 from sys import modules
 from tarfile import DIRTYPE, TarInfo
 from tarfile import open as tar_open
-from time import gmtime, localtime, time
-from types import SimpleNamespace
-from typing import TYPE_CHECKING, Final, NamedTuple, Protocol, TypeAlias, cast
+from typing import TYPE_CHECKING, Final, NamedTuple, TypeAlias, cast
 from zipfile import ZipFile
 
+import maturin  # type: ignore[import-untyped]  # maturin does not ship typing metadata
 import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
-    from unittest.mock import Mock
 
-    from pytest_mock import MockerFixture
+    from pytest_mock import MockerFixture, MockType
 
     ConfigSettings: TypeAlias = Mapping[str, str | list[str]]
     BuildWheel: TypeAlias = Callable[[str, ConfigSettings | None, str | None], str]
     BuildSdist: TypeAlias = Callable[[str, ConfigSettings | None], str]
 
 _BACKEND: Final[Path] = Path(__file__).parents[1] / "build_backend.py"
-_DISTRIBUTION: Final[str] = "pyproject-fmt"
 _MODULE: Final[str] = "pyproject_fmt"
 _WHEEL: Final[str] = f"{_MODULE}-0-py3-none-any.whl"
 _SDIST: Final[str] = f"{_MODULE}-0.tar.gz"
-_METADATA: Final[str] = """\
+_SDIST_HELD: Final[bytes] = b'[project]\nname = "pyproject-fmt"\n'
+
+
+@pytest.fixture
+def backend(tmp_path: Path, mocker: MockerFixture) -> Backend:
+    package = tmp_path / "package"
+    package.mkdir()
+    copy2(_BACKEND, package / "build_backend.py")
+    distribution: str = "pyproject-fmt"
+    (package / "pyproject.toml").write_text(f'[project]\nname = "{distribution}"\n', encoding="utf-8", newline="")
+    _write_common(package / "toml-fmt-common")
+
+    maturin_mock = mocker.create_autospec(maturin, spec_set=True)
+    maturin_mock.configure_mock(**{
+        "build_wheel.side_effect": _write_wheel,
+        "build_editable.side_effect": _write_wheel,
+        "build_sdist.side_effect": _write_sdist,
+    })
+    mocker.patch.dict(modules, {"maturin": maturin_mock})
+    loaded = run_path(str(package / "build_backend.py"))
+    return Backend(
+        cast("BuildWheel", loaded["build_wheel"]),
+        cast("BuildWheel", loaded["build_editable"]),
+        cast("BuildSdist", loaded["build_sdist"]),
+    )
+
+
+def _write_common(common: Path) -> None:
+    source = common / "src" / "toml_fmt_common"
+    source.mkdir(parents=True)
+    (source / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8", newline="")
+    (source / "_lib.pyi").write_text("VALUE: int\n", encoding="utf-8", newline="")
+    (source / "py.typed").write_text("", encoding="utf-8")
+    (common / "pyproject.toml").write_text('dependencies = [\n  "tomlkit>=0.13",\n]\n', encoding="utf-8", newline="")
+
+    cache = source / "__pycache__"
+    cache.mkdir()
+    (cache / "__init__.cpython-312.pyc").write_bytes(b"bytecode")
+    (source / "module.pyc").write_bytes(b"bytecode")
+    (source / "module.pyo").write_bytes(b"optimized")
+    (source / "_speedups.so").write_bytes(b"\x7fELF")
+    (source / ".DS_Store").write_bytes(b"junk")
+
+
+def _write_wheel(
+    wheel_directory: str,
+    _config_settings: ConfigSettings | None = None,
+    _metadata_directory: str | None = None,
+) -> str:
+    with ZipFile(Path(wheel_directory) / _WHEEL, "w") as archive:
+        archive.writestr(f"{_MODULE}/__main__.py", "import toml_fmt_common\n")
+        archive.writestr(
+            f"{_MODULE}-0.dist-info/METADATA",
+            """\
 Metadata-Version: 2.4
 Name: pyproject-fmt
 Version: 0
@@ -38,56 +89,27 @@ Description-Content-Type: text/markdown
 # pyproject-fmt
 
 Format your TOML.
-"""
-_SDIST_HELD: Final[bytes] = b'[project]\nname = "pyproject-fmt"\n'
+""",
+        )
+        archive.writestr(f"{_MODULE}-0.dist-info/RECORD", "")
+    return _WHEEL
+
+
+def _write_sdist(sdist_directory: str, _config_settings: ConfigSettings | None = None) -> str:
+    with tar_open(Path(sdist_directory) / _SDIST, "w:gz") as archive:
+        root = TarInfo(f"{_MODULE}-0")
+        root.type = DIRTYPE
+        archive.addfile(root)
+        project = TarInfo(f"{_MODULE}-0/pyproject.toml")
+        project.size = len(_SDIST_HELD)
+        archive.addfile(project, BytesIO(_SDIST_HELD))
+    return _SDIST
 
 
 class Backend(NamedTuple):
     build_wheel: BuildWheel
     build_editable: BuildWheel
     build_sdist: BuildSdist
-
-
-class Maturin(Protocol):
-    @staticmethod
-    def build_wheel(
-        wheel_directory: str,
-        config_settings: ConfigSettings | None = None,
-        metadata_directory: str | None = None,
-    ) -> str: ...
-
-    @staticmethod
-    def build_editable(
-        wheel_directory: str,
-        config_settings: ConfigSettings | None = None,
-        metadata_directory: str | None = None,
-    ) -> str: ...
-
-    @staticmethod
-    def build_sdist(sdist_directory: str, config_settings: ConfigSettings | None = None) -> str: ...
-
-
-@pytest.fixture
-def backend(tmp_path: Path, mocker: MockerFixture) -> Backend:
-    package = tmp_path / "package"
-    package.mkdir()
-    copy2(_BACKEND, package / "build_backend.py")
-    (package / "pyproject.toml").write_text(f'[project]\nname = "{_DISTRIBUTION}"\n', encoding="utf-8", newline="")
-    _write_common(package / "toml-fmt-common")
-
-    maturin = mocker.MagicMock(
-        spec=Maturin,
-        build_wheel=mocker.create_autospec(Maturin.build_wheel, side_effect=_write_wheel),
-        build_editable=mocker.create_autospec(Maturin.build_editable, side_effect=_write_wheel),
-        build_sdist=mocker.create_autospec(Maturin.build_sdist, side_effect=_write_sdist),
-    )
-    mocker.patch.dict(modules, {"maturin": maturin})
-    loaded = run_path(str(package / "build_backend.py"))
-    return Backend(
-        cast("BuildWheel", loaded["build_wheel"]),
-        cast("BuildWheel", loaded["build_editable"]),
-        cast("BuildSdist", loaded["build_sdist"]),
-    )
 
 
 @pytest.fixture
@@ -178,7 +200,7 @@ def test_vendor_into_sdist_content(sdist: Path, member: str, content: bytes) -> 
 
 
 def test_vendor_into_wheel_rebuild_is_byte_identical(
-    backend: Backend, tmp_path: Path, clock: Mock, monkeypatch: pytest.MonkeyPatch
+    backend: Backend, tmp_path: Path, clock: MockType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1609459200")
     first = tmp_path / "first"
@@ -192,15 +214,17 @@ def test_vendor_into_wheel_rebuild_is_byte_identical(
 
 
 @pytest.fixture
-def clock(mocker: MockerFixture) -> Mock:
-    clock: Mock = mocker.create_autospec(time, return_value=1609459201)
-    mocker.patch("zipfile.time", SimpleNamespace(gmtime=gmtime, localtime=localtime, time=clock))
-    mocker.patch("gzip.time", SimpleNamespace(time=clock))
+def clock(mocker: MockerFixture) -> MockType:
+    clock: MockType = mocker.create_autospec(time_module.time, return_value=1609459201)
+    clock_module = mocker.create_autospec(time_module, spec_set=True)
+    clock_module.configure_mock(gmtime=time_module.gmtime, localtime=time_module.localtime, time=clock)
+    mocker.patch("zipfile.time", clock_module)
+    mocker.patch("gzip.time", clock_module)
     return clock
 
 
 def test_vendor_into_sdist_rebuild_is_byte_identical(
-    backend: Backend, tmp_path: Path, clock: Mock, monkeypatch: pytest.MonkeyPatch
+    backend: Backend, tmp_path: Path, clock: MockType, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("SOURCE_DATE_EPOCH", "1609459200")
     first = tmp_path / "first"
@@ -211,43 +235,3 @@ def test_vendor_into_sdist_rebuild_is_byte_identical(
     second.mkdir()
     second_sdist = second / backend.build_sdist(str(second), None)
     assert first_sdist.read_bytes() == second_sdist.read_bytes()
-
-
-def _write_common(common: Path) -> None:
-    source = common / "src" / "toml_fmt_common"
-    source.mkdir(parents=True)
-    (source / "__init__.py").write_text("VALUE = 1\n", encoding="utf-8", newline="")
-    (source / "_lib.pyi").write_text("VALUE: int\n", encoding="utf-8", newline="")
-    (source / "py.typed").write_text("", encoding="utf-8")
-    (common / "pyproject.toml").write_text('dependencies = [\n  "tomlkit>=0.13",\n]\n', encoding="utf-8", newline="")
-
-    cache = source / "__pycache__"
-    cache.mkdir()
-    (cache / "__init__.cpython-312.pyc").write_bytes(b"bytecode")
-    (source / "module.pyc").write_bytes(b"bytecode")
-    (source / "module.pyo").write_bytes(b"optimized")
-    (source / "_speedups.so").write_bytes(b"\x7fELF")
-    (source / ".DS_Store").write_bytes(b"junk")
-
-
-def _write_wheel(
-    wheel_directory: str,
-    _config_settings: ConfigSettings | None = None,
-    _metadata_directory: str | None = None,
-) -> str:
-    with ZipFile(Path(wheel_directory) / _WHEEL, "w") as archive:
-        archive.writestr(f"{_MODULE}/__main__.py", "import toml_fmt_common\n")
-        archive.writestr(f"{_MODULE}-0.dist-info/METADATA", _METADATA)
-        archive.writestr(f"{_MODULE}-0.dist-info/RECORD", "")
-    return _WHEEL
-
-
-def _write_sdist(sdist_directory: str, _config_settings: ConfigSettings | None = None) -> str:
-    with tar_open(Path(sdist_directory) / _SDIST, "w:gz") as archive:
-        root = TarInfo(f"{_MODULE}-0")
-        root.type = DIRTYPE
-        archive.addfile(root)
-        project = TarInfo(f"{_MODULE}-0/pyproject.toml")
-        project.size = len(_SDIST_HELD)
-        archive.addfile(project, BytesIO(_SDIST_HELD))
-    return _SDIST

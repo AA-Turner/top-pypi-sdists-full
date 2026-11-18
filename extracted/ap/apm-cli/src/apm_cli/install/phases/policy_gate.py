@@ -14,7 +14,6 @@ AFTER the targets phase when the effective target is known
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 from apm_cli.install.errors import PolicyViolationError
@@ -118,6 +117,7 @@ def run(ctx: InstallContext) -> None:
         fetch_outcome=fetch_result.outcome,
         fail_fast=(enforcement == "block"),
         direct_dep_keys={d.get_unique_key() for d in getattr(ctx, "all_apm_deps", []) or []},
+        declared_refs=getattr(ctx, "declared_direct_refs", None) or None,
         **extra_kwargs,
     )
 
@@ -178,7 +178,9 @@ def _is_policy_disabled(ctx: InstallContext) -> bool:
             logger.policy_disabled("--no-policy")
         return True
 
-    if os.environ.get("APM_POLICY_DISABLE") == "1":
+    from apm_cli.policy.discovery import policy_disabled_by_env
+
+    if policy_disabled_by_env():
         if logger:
             logger.policy_disabled("APM_POLICY_DISABLE=1")
         return True

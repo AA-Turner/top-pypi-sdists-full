@@ -340,7 +340,7 @@ class AddressMetaclass(type):
                     if not route_ipv6_port:
                         route_ipv6_port = "47808"
                     address.addrRoute = super(AddressMetaclass, IPv6Address).__call__(
-                        (route_ipv4_addr, int(route_ipv4_port))
+                        (route_ipv6_addr, int(route_ipv6_port))
                     )  # type: ignore[misc]
 
                 return address  # type: ignore[no-any-return]
@@ -736,6 +736,16 @@ class RemoteStation(Address):
             port = struct.unpack(">H", self.addrAddr[-2:])[0]
             if 47808 <= port <= 47810:
                 addrstr = socket.inet_ntoa(self.addrAddr[:4])
+                if port != 47808:
+                    addrstr += ":" + str(port)
+            else:
+                addrstr = "0x" + btox(self.addrAddr)
+        elif self.addrLen == 18:
+            port = struct.unpack(">H", self.addrAddr[-2:])[0]
+            if 47808 <= port <= 47810:
+                addrstr = (
+                    "[" + socket.inet_ntop(socket.AF_INET6, self.addrAddr[:16]) + "]"
+                )
                 if port != 47808:
                     addrstr += ":" + str(port)
             else:

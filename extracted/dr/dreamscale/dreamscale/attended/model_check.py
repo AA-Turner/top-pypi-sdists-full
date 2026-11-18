@@ -5,8 +5,8 @@ from __future__ import annotations
 import asyncio
 
 import httpx
-from dreamscale_transport.llm import MODELS as LLM_MODELS
-from dreamscale_transport.llm import SessionRequest
+from dreamscale_core.llm import MODELS as LLM_MODELS
+from dreamscale_core.llm import SessionRequest
 
 from dreamscale import errors
 from dreamscale.config import API_KEY_ENV, LEGACY_API_KEY_ENV, env_with_legacy

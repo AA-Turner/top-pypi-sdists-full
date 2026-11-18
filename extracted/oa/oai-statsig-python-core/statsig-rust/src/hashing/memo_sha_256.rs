@@ -1,8 +1,5 @@
 use crate::log_e;
-use base64::Engine;
-use base64::prelude::BASE64_STANDARD;
 use parking_lot::Mutex;
-use sha2::digest::Output;
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::time::Duration;
@@ -49,7 +46,8 @@ impl MemoSha256 {
             state.user_hash_cache.clear();
         }
 
-        let hash = self.compute_bytes(&mut state, input);
+        state.sha_hasher.update(input.as_bytes());
+        let hash = state.sha_hasher.finalize_reset();
 
         match hash.split_at(size_of::<u64>()).0.try_into() {
             Ok(bytes) => {
@@ -59,26 +57,5 @@ impl MemoSha256 {
             }
             _ => None,
         }
-    }
-
-    pub fn hash_string(&self, input: &str) -> String {
-        let mut state = match self.inner.try_lock_for(Duration::from_secs(5)) {
-            Some(state) => state,
-            None => {
-                log_e!(
-                    TAG,
-                    "Failed to acquire lock for Sha256: Failed to lock inner"
-                );
-                return "STATSIG_HASH_ERROR".to_string();
-            }
-        };
-
-        let hash = self.compute_bytes(&mut state, input);
-        BASE64_STANDARD.encode(hash)
-    }
-
-    fn compute_bytes(&self, state: &mut MemoState, input: &str) -> Output<Sha256> {
-        state.sha_hasher.update(input.as_bytes());
-        state.sha_hasher.finalize_reset()
     }
 }

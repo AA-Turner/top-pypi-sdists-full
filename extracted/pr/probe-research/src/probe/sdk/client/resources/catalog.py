@@ -3,7 +3,7 @@ sources, manifests, datasets, provenance, versions, pin impact, upload gc
 (twin: app/files/catalog)."""
 
 from __future__ import annotations
-from ....generated.models import ArtifactPinImpact, ArtifactVersionOut, SourceListOut, SourceOut
+from ....generated.models import ArtifactPinImpact, ArtifactVersionOut, SourceListOut, SourceOut, UsageOut
 from ..resource import Resource
 import os
 import warnings
@@ -257,6 +257,22 @@ class CatalogMixin:
         model = UploadGcRequest(older_than=older_than)
         return self.transport.post("/v1/artifacts/uploads/gc", model.model_dump(mode="json"))
 
+    def list_dataset_runs(
+        self, dataset_ref: str, *, cursor: str | None = None, query: str | None = None,
+        workspace_id: str | None = None, limit: int | None = None,
+    ) -> dict:
+        """``GET /v1/catalog/datasets/{ref}/runs``: the runs that read or wrote a dataset, a page at a time."""
+        filters = {
+            key: value
+            for key, value in {"cursor": cursor, "q": query, "workspace_id": workspace_id, "limit": limit}.items()
+            if value is not None
+        }
+        return self.transport.get(f"/v1/catalog/datasets/{dataset_ref}/runs", params=filters or None)
+
+    def get_catalog_usage(self) -> dict:
+        """``GET /v1/catalog/usage``: how much data the team keeps on Probe's storage."""
+        return self.transport.get("/v1/catalog/usage")
+
 
 class CatalogResource(Resource):
     """`client.catalog`: typed source and artifact-version reads. Datasets, checkpoints and
@@ -275,6 +291,10 @@ class CatalogResource(Resource):
     def list_artifact_versions(self, artifact_id: str) -> list[ArtifactVersionOut]:
         """`Client.list_artifact_versions` as `ArtifactVersionOut`s."""
         return self._to_models(ArtifactVersionOut, self._client.list_artifact_versions(artifact_id))
+
+    def get_usage(self) -> UsageOut:
+        """`Client.get_catalog_usage` as a `UsageOut`."""
+        return self._to_model(UsageOut, self._client.get_catalog_usage())
 
     def get_pin_impact(self, artifact_id: str) -> ArtifactPinImpact:
         """`Client.artifact_pin_impact` as an `ArtifactPinImpact`."""

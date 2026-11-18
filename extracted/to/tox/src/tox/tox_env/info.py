@@ -21,7 +21,11 @@ if TYPE_CHECKING:
 
 
 class Info:
-    """Stores metadata about the tox environment."""
+    """Stores metadata about the tox environment.
+
+    :param path: the directory of the environment
+
+    """
 
     def __init__(self, path: Path) -> None:
         self._path = path / ".tox-info.json"
@@ -42,14 +46,18 @@ class Info:
         value: Any,
         section: str,
         sub_section: str | None = None,
-    ) -> Generator[tuple[bool, Any | None], None, None]:
+    ) -> Generator[
+        tuple[bool, Any | None],  # simplint: ignore[imprecise-annotation]  # info values have the type of each field
+        None,
+        None,
+    ]:
         """Compare new information with the existing one and update if differs.
 
         :param value: the value stored
         :param section: the primary key of the information
         :param sub_section: the secondary key of the information
 
-        :returns: a tuple where the first value is if it differs and the second is the old value
+        :yields: a tuple where the first value is if it differs and the second is the old value
 
         """
         old = self._content.get(section)
@@ -75,9 +83,6 @@ class Info:
                         self._content[section] = {sub_section: value}
                     self._write()
 
-    def reset(self) -> None:
-        self._content = {}
-
     def _write(self) -> None:
         self._path.parent.mkdir(parents=True, exist_ok=True)
         # Replace the state path itself so a link cannot redirect the write.
@@ -91,6 +96,10 @@ class Info:
             temporary_path.replace(self._path)
         finally:
             temporary_path.unlink(missing_ok=True)
+
+    def reset(self) -> None:
+        """Forget the stored information, so it is written again on the next save."""
+        self._content = {}
 
 
 __all__ = [

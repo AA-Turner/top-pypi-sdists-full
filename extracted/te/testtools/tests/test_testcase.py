@@ -48,7 +48,12 @@ from testtools.testcase import (
 )
 from testtools.testresult.doubles import (
     ExtendedTestResult,
-    Python3TestResult,
+    LogEvent,
+    TestResult,
+)
+from testtools.testresult.real import (
+    ExtendedToStreamDecorator,
+    StreamSummary,
 )
 
 from .helpers import (
@@ -1270,7 +1275,7 @@ class TestExpectedFailure(TestWithDetails):
 
     def test_raising__UnexpectedSuccess_py3(self):
         case = self.make_unexpected_case()
-        result = Python3TestResult()
+        result = TestResult()
         case.run(result)
         case = result._events[0][1]
         self.assertEqual(
@@ -1775,8 +1780,8 @@ class TestSkipping(TestCase):
             def test_that_raises_skipException(self):
                 self.skipTest("skipping this test")
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_raises_skipException")
         test.run(result)
         case = result._events[0][1]
@@ -1796,8 +1801,8 @@ class TestSkipping(TestCase):
             def test_that_raises_skipException(self):
                 self.skipTest("skipping this test")
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_raises_skipException")
         test.run(result)
         case = result._events[0][1]
@@ -1819,8 +1824,8 @@ class TestSkipping(TestCase):
             def test_that_raises_skipException(self):
                 pass
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_raises_skipException")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
@@ -1830,8 +1835,8 @@ class TestSkipping(TestCase):
             def test_that_raises_skipException(self):
                 raise self.skipException("skipping this test")
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_raises_skipException")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
@@ -1842,8 +1847,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skip(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_is_decorated_with_skip")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
@@ -1854,8 +1859,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skipIf(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_is_decorated_with_skipIf")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
@@ -1866,8 +1871,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skipUnless(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_that_is_decorated_with_skipUnless")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
@@ -1882,14 +1887,14 @@ class TestSkipping(TestCase):
         class NotSkippingTest(TestCase):
             test_no_skip = skipIf(False, "skipping this test")(shared)
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         test = SkippingTest("test_skip")
         test.run(result)
         self.assertEqual("addSkip", events[1][0])
 
-        events2: list[tuple[str, ...]] = []
-        result2 = Python3TestResult(events2)
+        events2: list[LogEvent] = []
+        result2 = TestResult(events2)
         test2 = NotSkippingTest("test_no_skip")
         test2.run(result2)
         self.assertEqual("addFailure", events2[1][0])
@@ -1900,8 +1905,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skip(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         try:
             test = SkippingTest("test_that_is_decorated_with_skip")
         except unittest.SkipTest:
@@ -1915,8 +1920,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skipIf(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         try:
             test = SkippingTest("test_that_is_decorated_with_skipIf")
         except unittest.SkipTest:
@@ -1930,8 +1935,8 @@ class TestSkipping(TestCase):
             def test_that_is_decorated_with_skipUnless(self):
                 self.fail()
 
-        events: list[tuple[str, ...]] = []
-        result = Python3TestResult(events)
+        events: list[LogEvent] = []
+        result = TestResult(events)
         try:
             test = SkippingTest("test_that_is_decorated_with_skipUnless")
         except unittest.SkipTest:
@@ -2024,7 +2029,7 @@ class TestOnException(TestCase):
         self.assertThat(events, Equals([True]))
 
     def test_added_handler_works(self):
-        events: list[tuple[str, ...]] = []
+        events: list[LogEvent] = []
 
         class Case(TestCase):
             def method(self):
@@ -2036,7 +2041,7 @@ class TestOnException(TestCase):
         self.assertThat(events, Equals([an_exc_info]))
 
     def test_handler_that_raises_is_not_caught(self):
-        events: list[tuple[str, ...]] = []
+        events: list[LogEvent] = []
 
         class Case(TestCase):
             def method(self):
@@ -2340,6 +2345,350 @@ class TestDecorateTestCaseResult(TestCase):
         self.assertEqual("barbara", orig.other)  # type: ignore[attr-defined]
         del case.thing
         self.assertRaises(AttributeError, getattr, orig, "thing")
+
+
+class TestSubTest(TestCase):
+    """Tests for testtools.TestCase.subTest support."""
+
+    run_test_with = FullStackRunTest
+
+    def _run_case(self, case):
+        result = ExtendedTestResult()
+        case.run(result)
+        return result
+
+    def _outcomes(self, result, case):
+        """The (event name, subtest label) pairs from a run.
+
+        Labels are relative to ``case``'s own id, so that tests can assert on
+        the subtest description without depending on the enclosing qualname.
+        """
+        prefix = case.id()
+        outcomes = []
+        for event in result._events:
+            if event[0] in ("startTest", "stopTest"):
+                continue
+            reported = event[1].id()
+            if reported.startswith(prefix):
+                reported = reported[len(prefix) :].lstrip()
+            outcomes.append((event[0], reported))
+        return outcomes
+
+    def test_passing_subtests(self):
+        class Case(TestCase):
+            def test_it(self):
+                for i in (0, 2, 4):
+                    with self.subTest(i=i):
+                        self.assertEqual(i % 2, 0)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addSuccess", "")],
+            self._outcomes(result, case),
+        )
+
+    def test_single_failure(self):
+        class Case(TestCase):
+            def test_it(self):
+                for i in (0, 1, 2):
+                    with self.subTest(i=i):
+                        self.assertEqual(i % 2, 0)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addFailure", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_multiple_failures(self):
+        class Case(TestCase):
+            def test_it(self):
+                for i in range(4):
+                    with self.subTest(i=i):
+                        self.assertEqual(i % 2, 0)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [
+                ("addFailure", "(i=1)"),
+                ("addFailure", "(i=3)"),
+            ],
+            self._outcomes(result, case),
+        )
+
+    def test_failure_continues_loop(self):
+        class Case(TestCase):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.iterations = []
+
+            def test_it(self):
+                for i in range(4):
+                    with self.subTest(i=i):
+                        self.iterations.append(i)
+                        self.assertEqual(i % 2, 0)
+
+        case = Case("test_it")
+        self._run_case(case)
+        self.assertEqual([0, 1, 2, 3], case.iterations)
+
+    def test_with_msg(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(msg="my label", x=42):
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addFailure", "[my label] (x=42)")],
+            self._outcomes(result, case),
+        )
+
+    def test_multiple_params(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(a=1, b="two"):
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addFailure", "(a=1, b='two')")],
+            self._outcomes(result, case),
+        )
+
+    def test_no_params(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest():
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addFailure", "(<subtest>)")],
+            self._outcomes(result, case),
+        )
+
+    def test_nested_subtests(self):
+        class Case(TestCase):
+            def test_it(self):
+                for a in (1, 2):
+                    with self.subTest(a=a):
+                        for b in (3, 4):
+                            with self.subTest(b=b):
+                                self.assertEqual(a, b)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [
+                ("addFailure", "(a=1, b=3)"),
+                ("addFailure", "(a=1, b=4)"),
+                ("addFailure", "(a=2, b=3)"),
+                ("addFailure", "(a=2, b=4)"),
+            ],
+            self._outcomes(result, case),
+        )
+
+    def test_skip_inside_subtest(self):
+        class Case(TestCase):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.reached = []
+
+            def test_it(self):
+                for i in range(3):
+                    with self.subTest(i=i):
+                        if i == 1:
+                            self.skipTest("skip this one")
+                        self.reached.append(i)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual([0, 2], case.reached)
+        # The skipped subtest is reported on its own; the parent is not
+        # additionally reported as a success.
+        self.assertEqual(
+            [("addSkip", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_skip_uses_custom_skip_exception(self):
+        class CustomSkip(Exception):
+            pass
+
+        class Case(TestCase):
+            skipException = CustomSkip
+
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.skipTest("skip this one")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addSkip", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_error_is_reported_as_error(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    raise ValueError("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addError", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_expected_failure_inside_subtest(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.expectFailure("known bug", self.assertEqual, 1, 2)
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addExpectedFailure", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_details_are_reported_with_the_subtest(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.addDetail("clue", text_content("important diagnostic"))
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        [(_, _, details)] = [e for e in result._events if e[0] == "addFailure"]
+        self.assertEqual("important diagnostic", details["clue"].as_text())
+
+    def test_details_do_not_leak_to_the_parent(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.addDetail("clue", text_content("subtest only"))
+                    self.fail("boom")
+                self.assertNotIn("clue", self.getDetails())
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [("addFailure", "(i=1)")],
+            self._outcomes(result, case),
+        )
+
+    def test_multiple_exceptions_are_unpacked(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    raise MultipleExceptions(
+                        (ValueError, ValueError("one"), None),
+                        (KeyError, KeyError("two"), None),
+                    )
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        self.assertEqual(
+            [
+                ("addError", "(i=1)"),
+                ("addError", "(i=1)"),
+            ],
+            self._outcomes(result, case),
+        )
+
+    def test_failfast_stops_at_first_failing_subtest(self):
+        class Case(TestCase):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.iterations = []
+
+            def test_it(self):
+                for i in range(4):
+                    with self.subTest(i=i):
+                        self.iterations.append(i)
+                        self.fail("boom")
+
+        case = Case("test_it")
+        result = ExtendedTestResult()
+        result.failfast = True
+        case.run(result)
+        self.assertEqual([0], case.iterations)
+        self.assertEqual(
+            [("addFailure", "(i=0)")],
+            self._outcomes(result, case),
+        )
+
+    def test_keyboard_interrupt_propagates(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    raise KeyboardInterrupt
+
+        self.assertRaises(KeyboardInterrupt, Case("test_it").run, ExtendedTestResult())
+
+    def test_subtest_is_not_runnable(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        [(_, subtest, _)] = [e for e in result._events if e[0] == "addFailure"]
+        self.assertRaises(NotImplementedError, subtest.runTest)
+
+    def test_stream_result_counts_one_test(self):
+        # A subtest outcome is attached to the parent test rather than
+        # opening a stream record of its own, as unittest does.
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.fail("boom")
+
+        summary = StreamSummary()
+        decorator = ExtendedToStreamDecorator(summary)
+        decorator.startTestRun()
+        Case("test_it").run(decorator)
+        decorator.stopTestRun()
+        self.assertEqual(1, summary.testsRun)
+        self.assertEqual(False, summary.wasSuccessful())
+
+    def test_stream_result_counts_one_test_for_skip(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.skipTest("skip this one")
+
+        summary = StreamSummary()
+        decorator = ExtendedToStreamDecorator(summary)
+        decorator.startTestRun()
+        Case("test_it").run(decorator)
+        decorator.stopTestRun()
+        self.assertEqual(1, summary.testsRun)
+        self.assertEqual(True, summary.wasSuccessful())
+
+    def test_str_matches_unittest_format(self):
+        class Case(TestCase):
+            def test_it(self):
+                with self.subTest(i=1):
+                    self.fail("boom")
+
+        case = Case("test_it")
+        result = self._run_case(case)
+        [(_, subtest, _)] = [e for e in result._events if e[0] == "addFailure"]
+        self.assertEqual(f"{case} (i=1)", str(subtest))
 
 
 def test_suite():

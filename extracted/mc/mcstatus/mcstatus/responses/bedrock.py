@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, TYPE_CHECKING
+from typing import Any, Self, TYPE_CHECKING
 
 from mcstatus.motd import Motd
 from mcstatus.responses.base import BaseStatusPlayers, BaseStatusResponse, BaseStatusVersion
 
 if TYPE_CHECKING:
-    from typing_extensions import Self, override
+    from typing_extensions import override
 else:
     override = lambda f: f  # ruff: ignore[lambda-assignment]
 
@@ -79,5 +79,5 @@ class BedrockStatusVersion(BaseStatusVersion):
     See `Minecraft wiki <https://minecraft.wiki/w/Bedrock_Edition_version_history#Bedrock_Edition>`__
     for complete list.
     """
-    brand: str
-    """``MCPE`` or ``MCEE`` for Education Edition."""
+    brand: str | None = None
+    """``MCPE`` or ``MCEE`` for Education Edition. ``None`` when querying over NetherNet."""

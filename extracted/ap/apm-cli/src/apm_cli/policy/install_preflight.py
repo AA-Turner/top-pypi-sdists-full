@@ -13,7 +13,6 @@ rather than duplicate it.  The gate phase adds pipeline-specific wiring
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 # #832: Canonical exception type lives in ``apm_cli.install.errors``.
@@ -69,7 +68,8 @@ def run_policy_preflight(
     logger,
     dry_run: bool = False,
     registries: dict[str, str] | None = None,
-    effective_target: str | list[str] | None = None,
+    effective_target: tuple[str, ...] | None = None,
+    effective_target_source: str = "effective target",
     cache_only: bool = False,
 ) -> tuple[PolicyFetchResult | None, bool]:
     """Discover + enforce policy for a non-pipeline command site.
@@ -84,7 +84,10 @@ def run_policy_preflight(
     mcp_deps:
         Iterable of ``MCPDependency``, or ``None`` to skip MCP checks.
     effective_target:
-        Resolved scalar or plural target selection for compilation policy.
+        ``EffectiveTargetDecision.canonical_targets`` of the resolved target
+        selection, for compilation-target policy.
+    effective_target_source:
+        Where that selection came from, named in violation details.
     cache_only:
         Resolve policy from persisted cache or local-file sources without
         remote transport. Used by offline local-bundle installs.
@@ -117,7 +120,9 @@ def run_policy_preflight(
         ``PolicyBlockError`` is a deprecated alias for the same class.
     """
     # -- Escape hatches ------------------------------------------------
-    if no_policy or os.environ.get("APM_POLICY_DISABLE") == "1":
+    from .discovery import policy_disabled_by_env
+
+    if no_policy or policy_disabled_by_env():
         reason = "--no-policy" if no_policy else "APM_POLICY_DISABLE=1"
         logger.policy_disabled(reason)
         return None, False
@@ -159,6 +164,7 @@ def run_policy_preflight(
         policy=policy,
         mcp_deps=mcp_deps,
         effective_target=effective_target,
+        effective_target_source=effective_target_source,
         fail_fast=(enforcement == "block"),
         registries=registries,
         direct_dep_keys={d.get_unique_key() for d in apm_deps_list},

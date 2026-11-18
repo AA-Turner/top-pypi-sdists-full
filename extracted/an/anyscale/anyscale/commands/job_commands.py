@@ -48,6 +48,7 @@ from anyscale.commands.util import (
     parse_tags_kv_to_str_map,
 )
 from anyscale.controllers.job_controller import JobController
+from anyscale.errors import ApiResponseError, from_api_response_error
 from anyscale.job._private.job_sdk import FILTERABLE_JOB_STATES
 from anyscale.job.models import (
     JobConfig,
@@ -452,12 +453,14 @@ def submit(  # noqa: PLR0912 PLR0913 C901
                 "so that the shell does not expand it."
             )
 
-    job_controller = JobController()
     if len(entrypoint) == 1 and (
         pathlib.Path(entrypoint[0]).is_file() or entrypoint[0].endswith((".yaml", ".yml"))
     ):
         # If entrypoint is a single string that ends with .yaml/.yml, e.g. `anyscale job
         # submit config.yaml`, treat it as a config file, and use the old job submission API.
+        # Only this path builds the controller: it caches an auth block that preformats API
+        # errors, and the SDK path below would reuse that block.
+        job_controller = JobController()
         if config_file is not None:
             raise click.ClickException(
                 "`--config-file` should not be used when providing a config file as the entrypoint."
@@ -595,7 +598,10 @@ def submit(  # noqa: PLR0912 PLR0913 C901
             config = config.options(connections=parsed_connections)
 
         log.info(f"Submitting job with config {config}.")
-        job_id = anyscale.job.submit(config)
+        try:
+            job_id = anyscale.job.submit(config)
+        except ApiResponseError as e:
+            raise from_api_response_error(e) from None
 
     if wait:
         log.info("Waiting for the job to run. Interrupting this command will not cancel the job.")

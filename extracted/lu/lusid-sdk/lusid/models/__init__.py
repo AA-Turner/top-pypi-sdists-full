@@ -317,6 +317,7 @@ from lusid.models.cds_option import CdsOption
 from lusid.models.cds_protection_detail_specification import CdsProtectionDetailSpecification
 from lusid.models.cdx_credit_event import CdxCreditEvent
 from lusid.models.change import Change
+from lusid.models.change_composite_portfolio_membership_request import ChangeCompositePortfolioMembershipRequest
 from lusid.models.change_event import ChangeEvent
 from lusid.models.change_history import ChangeHistory
 from lusid.models.change_history_action import ChangeHistoryAction
@@ -426,6 +427,7 @@ from lusid.models.composite_breakdown_request import CompositeBreakdownRequest
 from lusid.models.composite_breakdown_response import CompositeBreakdownResponse
 from lusid.models.composite_dispersion import CompositeDispersion
 from lusid.models.composite_dispersion_response import CompositeDispersionResponse
+from lusid.models.composite_portfolio_constituent_request import CompositePortfolioConstituentRequest
 from lusid.models.compounding import Compounding
 from lusid.models.configuration_recipe import ConfigurationRecipe
 from lusid.models.consent_and_exchange_election import ConsentAndExchangeElection
@@ -453,6 +455,7 @@ from lusid.models.corporate_action_transition import CorporateActionTransition
 from lusid.models.corporate_action_transition_component import CorporateActionTransitionComponent
 from lusid.models.corporate_action_transition_component_request import CorporateActionTransitionComponentRequest
 from lusid.models.corporate_action_transition_request import CorporateActionTransitionRequest
+from lusid.models.correct_posting_module_rule_version_request import CorrectPostingModuleRuleVersionRequest
 from lusid.models.counterparty_agreement import CounterpartyAgreement
 from lusid.models.counterparty_identifier import CounterpartyIdentifier
 from lusid.models.counterparty_risk_information import CounterpartyRiskInformation
@@ -463,6 +466,7 @@ from lusid.models.create_calendar_request import CreateCalendarRequest
 from lusid.models.create_check_definition_request import CreateCheckDefinitionRequest
 from lusid.models.create_closed_period_request import CreateClosedPeriodRequest
 from lusid.models.create_compliance_template_request import CreateComplianceTemplateRequest
+from lusid.models.create_composite_portfolio_request import CreateCompositePortfolioRequest
 from lusid.models.create_corporate_action_source_request import CreateCorporateActionSourceRequest
 from lusid.models.create_custom_data_model_request import CreateCustomDataModelRequest
 from lusid.models.create_custom_entity_type_request import CreateCustomEntityTypeRequest
@@ -892,6 +896,7 @@ from lusid.models.ignored_distribution_tag import IgnoredDistributionTag
 from lusid.models.index_convention import IndexConvention
 from lusid.models.index_model_options import IndexModelOptions
 from lusid.models.index_projection_dependency import IndexProjectionDependency
+from lusid.models.indicative_amount_metric import IndicativeAmountMetric
 from lusid.models.industry_classifier import IndustryClassifier
 from lusid.models.inflation_convexity_options import InflationConvexityOptions
 from lusid.models.inflation_curve_data import InflationCurveData
@@ -945,6 +950,7 @@ from lusid.models.instrument_resolution_detail import InstrumentResolutionDetail
 from lusid.models.instrument_search_property import InstrumentSearchProperty
 from lusid.models.instrument_type import InstrumentType
 from lusid.models.interest_payment_event import InterestPaymentEvent
+from lusid.models.interest_payment_with_principal_event import InterestPaymentWithPrincipalEvent
 from lusid.models.interest_rate_swap import InterestRateSwap
 from lusid.models.interest_rate_swaption import InterestRateSwaption
 from lusid.models.intermediate_compliance_step import IntermediateComplianceStep
@@ -986,6 +992,7 @@ from lusid.models.loan_facility_tax_lot_allocation import LoanFacilityTaxLotAllo
 from lusid.models.loan_facility_tax_lot_state import LoanFacilityTaxLotState
 from lusid.models.loan_interest_capitalisation_event import LoanInterestCapitalisationEvent
 from lusid.models.loan_interest_repayment_event import LoanInterestRepaymentEvent
+from lusid.models.loan_options import LoanOptions
 from lusid.models.loan_period import LoanPeriod
 from lusid.models.loan_principal_repayment_event import LoanPrincipalRepaymentEvent
 from lusid.models.lock_period_diary_entry_request import LockPeriodDiaryEntryRequest
@@ -1078,6 +1085,7 @@ from lusid.models.nav_report_event import NavReportEvent
 from lusid.models.nav_settlement_configuration import NavSettlementConfiguration
 from lusid.models.nav_settlement_configuration_category import NavSettlementConfigurationCategory
 from lusid.models.nav_type import NavType
+from lusid.models.nav_type_catch_up import NavTypeCatchUp
 from lusid.models.nav_type_definition import NavTypeDefinition
 from lusid.models.nav_type_selection import NavTypeSelection
 from lusid.models.netting_recommendation import NettingRecommendation
@@ -1139,7 +1147,9 @@ from lusid.models.override_virtual_transactions_request import OverrideVirtualTr
 from lusid.models.oversubscribe_election import OversubscribeElection
 from lusid.models.pack_account import PackAccount
 from lusid.models.pack_posting_rule import PackPostingRule
+from lusid.models.pack_register_delta import PackRegisterDelta
 from lusid.models.pack_transaction_type import PackTransactionType
+from lusid.models.pack_type_contract import PackTypeContract
 from lusid.models.package import Package
 from lusid.models.package_request import PackageRequest
 from lusid.models.package_set_request import PackageSetRequest
@@ -1278,6 +1288,8 @@ from lusid.models.partnership_accounting_configuration import PartnershipAccount
 from lusid.models.partnership_accounting_valuation_point_data import PartnershipAccountingValuationPointData
 from lusid.models.partnership_allocation_problem import PartnershipAllocationProblem
 from lusid.models.partnership_config_pack import PartnershipConfigPack
+from lusid.models.partnership_type_check_result import PartnershipTypeCheckResult
+from lusid.models.partnership_type_difference import PartnershipTypeDifference
 from lusid.models.party_terms import PartyTerms
 from lusid.models.payment_details_applicable_entity import PaymentDetailsApplicableEntity
 from lusid.models.payment_details_reference import PaymentDetailsReference
@@ -1349,6 +1361,7 @@ from lusid.models.portfolio_transaction_dataset import PortfolioTransactionDatas
 from lusid.models.portfolio_transaction_result import PortfolioTransactionResult
 from lusid.models.portfolio_type import PortfolioType
 from lusid.models.portfolio_weight import PortfolioWeight
+from lusid.models.portfolio_with_warnings import PortfolioWithWarnings
 from lusid.models.portfolio_without_href import PortfolioWithoutHref
 from lusid.models.portfolios_reconciliation_request import PortfoliosReconciliationRequest
 from lusid.models.post_close_activities_request import PostCloseActivitiesRequest
@@ -1444,6 +1457,7 @@ from lusid.models.rate_curve_shift_mode import RateCurveShiftMode
 from lusid.models.rate_curve_shift_scale import RateCurveShiftScale
 from lusid.models.raw_vendor_event import RawVendorEvent
 from lusid.models.re_open_period_diary_entry_request import ReOpenPeriodDiaryEntryRequest
+from lusid.models.reactivated_nav_types_response import ReactivatedNavTypesResponse
 from lusid.models.realised_gain_loss import RealisedGainLoss
 from lusid.models.realised_gain_loss_chargeable_gains import RealisedGainLossChargeableGains
 from lusid.models.realised_gain_loss_matched_lot import RealisedGainLossMatchedLot
@@ -1548,6 +1562,7 @@ from lusid.models.reference_list_type import ReferenceListType
 from lusid.models.reference_portfolio_constituent import ReferencePortfolioConstituent
 from lusid.models.reference_portfolio_constituent_request import ReferencePortfolioConstituentRequest
 from lusid.models.reference_portfolio_weight_type import ReferencePortfolioWeightType
+from lusid.models.register_delta_movement import RegisterDeltaMovement
 from lusid.models.related_entity import RelatedEntity
 from lusid.models.relation import Relation
 from lusid.models.relation_definition import RelationDefinition
@@ -1686,6 +1701,7 @@ from lusid.models.result_value_int import ResultValueInt
 from lusid.models.result_value_string import ResultValueString
 from lusid.models.result_value_type import ResultValueType
 from lusid.models.retain_election import RetainElection
+from lusid.models.return_metric import ReturnMetric
 from lusid.models.return_zero_pv_options import ReturnZeroPvOptions
 from lusid.models.returns_entity import ReturnsEntity
 from lusid.models.returns_metric import ReturnsMetric
@@ -2486,6 +2502,7 @@ __all__ = [
     "CdsProtectionDetailSpecification",
     "CdxCreditEvent",
     "Change",
+    "ChangeCompositePortfolioMembershipRequest",
     "ChangeEvent",
     "ChangeHistory",
     "ChangeHistoryAction",
@@ -2595,6 +2612,7 @@ __all__ = [
     "CompositeBreakdownResponse",
     "CompositeDispersion",
     "CompositeDispersionResponse",
+    "CompositePortfolioConstituentRequest",
     "Compounding",
     "ConfigurationRecipe",
     "ConsentAndExchangeElection",
@@ -2622,6 +2640,7 @@ __all__ = [
     "CorporateActionTransitionComponent",
     "CorporateActionTransitionComponentRequest",
     "CorporateActionTransitionRequest",
+    "CorrectPostingModuleRuleVersionRequest",
     "CounterpartyAgreement",
     "CounterpartyIdentifier",
     "CounterpartyRiskInformation",
@@ -2632,6 +2651,7 @@ __all__ = [
     "CreateCheckDefinitionRequest",
     "CreateClosedPeriodRequest",
     "CreateComplianceTemplateRequest",
+    "CreateCompositePortfolioRequest",
     "CreateCorporateActionSourceRequest",
     "CreateCustomDataModelRequest",
     "CreateCustomEntityTypeRequest",
@@ -3061,6 +3081,7 @@ __all__ = [
     "IndexConvention",
     "IndexModelOptions",
     "IndexProjectionDependency",
+    "IndicativeAmountMetric",
     "IndustryClassifier",
     "InflationConvexityOptions",
     "InflationCurveData",
@@ -3114,6 +3135,7 @@ __all__ = [
     "InstrumentSearchProperty",
     "InstrumentType",
     "InterestPaymentEvent",
+    "InterestPaymentWithPrincipalEvent",
     "InterestRateSwap",
     "InterestRateSwaption",
     "IntermediateComplianceStep",
@@ -3155,6 +3177,7 @@ __all__ = [
     "LoanFacilityTaxLotState",
     "LoanInterestCapitalisationEvent",
     "LoanInterestRepaymentEvent",
+    "LoanOptions",
     "LoanPeriod",
     "LoanPrincipalRepaymentEvent",
     "LockPeriodDiaryEntryRequest",
@@ -3247,6 +3270,7 @@ __all__ = [
     "NavSettlementConfiguration",
     "NavSettlementConfigurationCategory",
     "NavType",
+    "NavTypeCatchUp",
     "NavTypeDefinition",
     "NavTypeSelection",
     "NettingRecommendation",
@@ -3308,7 +3332,9 @@ __all__ = [
     "OversubscribeElection",
     "PackAccount",
     "PackPostingRule",
+    "PackRegisterDelta",
     "PackTransactionType",
+    "PackTypeContract",
     "Package",
     "PackageRequest",
     "PackageSetRequest",
@@ -3447,6 +3473,8 @@ __all__ = [
     "PartnershipAccountingValuationPointData",
     "PartnershipAllocationProblem",
     "PartnershipConfigPack",
+    "PartnershipTypeCheckResult",
+    "PartnershipTypeDifference",
     "PartyTerms",
     "PaymentDetailsApplicableEntity",
     "PaymentDetailsReference",
@@ -3518,6 +3546,7 @@ __all__ = [
     "PortfolioTransactionResult",
     "PortfolioType",
     "PortfolioWeight",
+    "PortfolioWithWarnings",
     "PortfolioWithoutHref",
     "PortfoliosReconciliationRequest",
     "PostCloseActivitiesRequest",
@@ -3613,6 +3642,7 @@ __all__ = [
     "RateCurveShiftScale",
     "RawVendorEvent",
     "ReOpenPeriodDiaryEntryRequest",
+    "ReactivatedNavTypesResponse",
     "RealisedGainLoss",
     "RealisedGainLossChargeableGains",
     "RealisedGainLossMatchedLot",
@@ -3717,6 +3747,7 @@ __all__ = [
     "ReferencePortfolioConstituent",
     "ReferencePortfolioConstituentRequest",
     "ReferencePortfolioWeightType",
+    "RegisterDeltaMovement",
     "RelatedEntity",
     "Relation",
     "RelationDefinition",
@@ -3855,6 +3886,7 @@ __all__ = [
     "ResultValueString",
     "ResultValueType",
     "RetainElection",
+    "ReturnMetric",
     "ReturnZeroPvOptions",
     "ReturnsEntity",
     "ReturnsMetric",

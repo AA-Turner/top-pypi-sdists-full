@@ -29,11 +29,13 @@ from ._ext.executor import (
     Malformed,
     Map,
     MemoSettings,
+    ModelNeed,
     ModelPrefetch,
     PrepareRequest,
     Preview,
     Publish,
     PublishPart,
+    Release,
     SavedFile,
     StageMemoLookup,
     StageMemoStore,
@@ -45,7 +47,7 @@ from ._ext.executor import (
 )
 
 #: Any command TensorD sends.
-Command = Hello | Start | Load | PrepareRequest | Cancel | Invoke | Map | Fork
+Command = Hello | Start | Load | PrepareRequest | Cancel | Invoke | Map | Fork | Release
 #: Any request an executor makes of TensorD.
 Request = (
     ChildEvents
@@ -55,6 +57,7 @@ Request = (
     | ChildForget
     | GpuRelease
     | ModelPrefetch
+    | ModelNeed
     | Publish
     | CheckpointItem
     | StageMemoLookup
@@ -88,11 +91,13 @@ __all__ = [
     "Malformed",
     "Map",
     "MemoSettings",
+    "ModelNeed",
     "ModelPrefetch",
     "PrepareRequest",
     "Preview",
     "Publish",
     "PublishPart",
+    "Release",
     "Request",
     "SavedFile",
     "StageMemoLookup",

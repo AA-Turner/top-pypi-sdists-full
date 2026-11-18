@@ -1,26 +1,28 @@
 from __future__ import annotations
 
+import re
 from importlib import import_module
 from os import environ
-from re import findall
 from shutil import copytree
 from subprocess import check_output  # ruff:ignore[suspicious-subprocess-import]  # a fresh interpreter is the only way to pick the string hash seed
 from sys import executable, modules
 from textwrap import dedent
 from threading import local
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from zlib import compress
 
 from pytest import MonkeyPatch, fixture, mark, param
 
-from sphinx_autodoc_typehints._render import format_annotation, keep_type_mapping
-from sphinx_autodoc_typehints._render.intersphinx import mapped_name
+from sphinx_autodoc_typehints._render.annotation.walker import (
+    format_annotation,
+)
+from sphinx_autodoc_typehints._render.intersphinx import keep_type_mapping, mapped_name
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from conftest import BuildText
+    from conftest import BuildText, MakeApp
     from sphinx.config import Config
     from sphinx.environment import BuildEnvironment
     from sphinx.testing.util import SphinxTestApp
@@ -110,7 +112,7 @@ def test_mapped_name_picks_the_class_role_whatever_the_hash_seed(rootdir: Path, 
     script = dedent("""\
         from types import SimpleNamespace
 
-        from sphinx_autodoc_typehints._render import keep_type_mapping
+        from sphinx_autodoc_typehints._render.intersphinx import keep_type_mapping
         from sphinx_autodoc_typehints._render.intersphinx import mapped_name
 
         # rendering `Thing` imports the module that defines it
@@ -130,9 +132,7 @@ def test_mapped_name_picks_the_class_role_whatever_the_hash_seed(rootdir: Path, 
 
 
 @fixture(name="inventory_env")
-def inventory_env_fixture(
-    make_app: Callable[..., SphinxTestApp], rootdir: Path, tmp_path: Path
-) -> Callable[[str], BuildEnvironment]:
+def inventory_env_fixture(make_app: MakeApp, rootdir: Path, tmp_path: Path) -> Callable[[str], BuildEnvironment]:
     def load(entries: str) -> BuildEnvironment:
         (inventory := tmp_path / "objects.inv").write_bytes(
             dedent("""\
@@ -170,9 +170,14 @@ def test_keep_type_mapping_renders_the_documented_name(
     assert format_annotation(local, config) == ":py:class:`~threading.local`"
 
 
+_TEST_STUB_TYPES_LINK_TO_THE_INVENTORY_PATTERN: Final[re.Pattern[str]] = re.compile(r'href="(https://docs[^"]*)"')
+
+
 @mark.sphinx("html", testroot="pyi-stubs")
 def test_stub_types_link_to_the_inventory(build_text: BuildText) -> None:
-    assert set(findall(r'href="(https://docs[^"]*)"', build_text(".. autofunction:: stub_mod.transform"))) == {
+    assert set(
+        _TEST_STUB_TYPES_LINK_TO_THE_INVENTORY_PATTERN.findall(build_text(".. autofunction:: stub_mod.transform"))
+    ) == {
         "https://docs.python.org/3/library/stdtypes.html#list",
         "https://docs.python.org/3/library/stdtypes.html#str",
     }

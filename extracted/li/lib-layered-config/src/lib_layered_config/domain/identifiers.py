@@ -39,19 +39,29 @@ from __future__ import annotations
 
 import re
 from enum import Enum
-from functools import lru_cache
+from typing import Final
 
 from .errors import ValidationError
+from .printable import escape_controls
 
 #: Default maximum length for profile names (characters).
 #: Profile names are used as path segments, so reasonable limits prevent
 #: filesystem issues and potential denial-of-service via excessively long names.
 DEFAULT_MAX_PROFILE_LENGTH: int = 64
 
-#: Absolute maximum profile name length (filesystem safety limit).
+#: Longest file or directory name a path segment may have: NAME_MAX, 255 bytes on Linux, macOS
+#: and Windows. Identifiers are ASCII-only, so characters are bytes. A longer segment fails only
+#: when the filesystem is asked (ENAMETOOLONG), as a different error on read and on deploy.
+#: It caps one segment, not the whole path: Windows without long-path support also refuses a
+#: whole path over 260 characters, which depends on the layer root as well (docs/identifiers.md).
+_NAME_MAX: Final = 255
+
+#: A host file is ``<hostname>.toml``, so the hostname leaves room for the suffix.
+_MAX_HOSTNAME_LENGTH: Final = _NAME_MAX - len(".toml")
+
+#: Absolute maximum profile name length: one path segment, so NAME_MAX.
 #: Even if user sets max_profile_length higher, this limit applies.
-#: This prevents filesystem issues from excessively long path segments.
-ABSOLUTE_MAX_PROFILE_LENGTH: int = 256
+ABSOLUTE_MAX_PROFILE_LENGTH: int = _NAME_MAX
 
 # Control characters that must never appear in profile names
 # Includes null byte, newline, carriage return, tab, and other C0 controls
@@ -89,22 +99,39 @@ _WINDOWS_RESERVED_NAMES: frozenset[str] = frozenset(
 # < > : " | ? * / \ and null byte
 _INVALID_CHARS_PATTERN: re.Pattern[str] = re.compile(r'[<>:"|?*\\/\x00]')
 
+# The three _VALID_* patterns below are applied with fullmatch, never match plus "^...$": "$" also
+# matches just before a final newline, which would let "demo\n" through as a path segment.
+
 # Valid strict identifier pattern: ASCII alphanumeric, hyphen, underscore, dot (not at start)
 # Used for: slug, profile
-_VALID_IDENTIFIER_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._-]*$")
+_VALID_IDENTIFIER_PATTERN: re.Pattern[str] = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._-]*")
 
 # Valid permissive identifier pattern: ASCII alphanumeric, hyphen, underscore, dot, space
 # Used for: vendor, app (which can have spaces on macOS/Windows paths)
-_VALID_PERMISSIVE_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9._\- ]*$")
+_VALID_PERMISSIVE_PATTERN: re.Pattern[str] = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._\- ]*")
 
-# Valid hostname pattern: ASCII alphanumeric, hyphen, dot (FQDN support)
-# Hostnames can start with alphanumeric, contain hyphens and dots
-_VALID_HOSTNAME_PATTERN: re.Pattern[str] = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9.-]*$")
+# Valid hostname pattern: ASCII alphanumeric, hyphen, underscore, dot (FQDN support)
+# Hostnames start with alphanumeric. An underscore is not valid in DNS, but container and CI machine
+# names carry one, and it is safe in a file name on every OS, as it is in a slug or profile.
+_VALID_HOSTNAME_PATTERN: re.Pattern[str] = re.compile(r"[a-zA-Z0-9][a-zA-Z0-9._-]*")
 
 
 # ============================================================================
 # Validation Helper Functions (reduce cyclomatic complexity)
 # ============================================================================
+
+
+def _refused(name: str, reason: str, value: str) -> ValidationError:
+    r"""Build the refusal ``<name> <reason>: <value>``, the value's control characters as ``\uXXXX``.
+
+    Every refusal that names the value goes through here, so none prints a newline or an ESC raw
+    (user decision 2026-11-16, R2-F4).
+
+    Examples:
+        >>> str(_refused("slug", "contains invalid characters", "demo\n"))
+        'slug contains invalid characters: demo\\u000a'
+    """
+    return ValidationError(f"{name} {reason}: {escape_controls(value)}")
 
 
 def _check_not_empty(value: str, name: str) -> None:
@@ -118,13 +145,13 @@ def _check_ascii_only(value: str, name: str) -> None:
     try:
         value.encode("ascii")
     except UnicodeEncodeError:
-        raise ValidationError(f"{name} contains non-ASCII characters: {value}") from None
+        raise _refused(name, "contains non-ASCII characters", value) from None
 
 
 def _check_no_invalid_chars(value: str, name: str) -> None:
     """Raise ValueError if value contains filesystem-invalid characters."""
     if _INVALID_CHARS_PATTERN.search(value):
-        raise ValidationError(f"{name} contains invalid characters: {value}")
+        raise _refused(name, "contains invalid characters", value)
 
 
 def _check_not_windows_reserved(value: str, name: str, *, split_on_space: bool = False) -> None:
@@ -134,13 +161,13 @@ def _check_not_windows_reserved(value: str, name: str, *, split_on_space: bool =
     if split_on_space:
         base_name = base_name.split()[0]
     if base_name.upper() in _WINDOWS_RESERVED_NAMES:
-        raise ValidationError(f"{name} is a Windows reserved name: {value}")
+        raise _refused(name, "is a Windows reserved name", value)
 
 
 def _check_no_trailing_dot_or_space(value: str, name: str) -> None:
     """Raise ValueError if value ends with dot or space (Windows restriction)."""
     if value.endswith(".") or value.endswith(" "):
-        raise ValidationError(f"{name} cannot end with a dot or space: {value}")
+        raise _refused(name, "cannot end with a dot or space", value)
 
 
 def _raise_pattern_error(value: str, name: str, *, check_space_start: bool) -> None:
@@ -152,33 +179,33 @@ def _raise_pattern_error(value: str, name: str, *, check_space_start: bool) -> N
         check_space_start: If True, space is checked as an invalid start character.
     """
     if value.startswith("."):
-        raise ValidationError(f"{name} cannot start with a dot: {value}")
+        raise _refused(name, "cannot start with a dot", value)
     invalid_starts = ("-", "_", " ") if check_space_start else ("-", "_")
     if any(value.startswith(c) for c in invalid_starts):
-        raise ValidationError(f"{name} must start with an alphanumeric character: {value}")
-    raise ValidationError(f"{name} contains invalid characters: {value}")
+        raise _refused(name, "must start with an alphanumeric character", value)
+    raise _refused(name, "contains invalid characters", value)
 
 
 def _check_permissive_pattern(value: str, name: str) -> None:
     """Check value matches permissive pattern (allows spaces for vendor/app)."""
-    if _VALID_PERMISSIVE_PATTERN.match(value):
+    if _VALID_PERMISSIVE_PATTERN.fullmatch(value):
         return
     _raise_pattern_error(value, name, check_space_start=True)
 
 
 def _check_hostname_pattern(value: str, name: str) -> None:
-    """Check value matches hostname pattern (alphanumeric, hyphen, dot)."""
-    if _VALID_HOSTNAME_PATTERN.match(value):
+    """Check value matches hostname pattern (alphanumeric, hyphen, underscore, dot)."""
+    if _VALID_HOSTNAME_PATTERN.fullmatch(value):
         return
     if value.startswith(".") or value.startswith("-"):
-        raise ValidationError(f"{name} must start with an alphanumeric character: {value}")
-    raise ValidationError(f"{name} contains invalid characters: {value}")
+        raise _refused(name, "must start with an alphanumeric character", value)
+    raise _refused(name, "contains invalid characters", value)
 
 
 def _check_no_trailing_space(value: str, name: str) -> None:
     """Raise ValueError if value ends with space."""
     if value.endswith(" "):
-        raise ValidationError(f"{name} cannot end with a space: {value}")
+        raise _refused(name, "cannot end with a space", value)
 
 
 def _check_no_control_chars(value: str, name: str) -> None:
@@ -216,6 +243,11 @@ class Layer(str, Enum):
     ENV = "env"
 
 
+#: The layers a deploy writes, in this order: the deploy targets, the CLI's ``--target`` choices and
+#: the layers ``DeployPermissions`` holds modes for.
+DEPLOY_LAYERS: Final[tuple[Layer, ...]] = (Layer.APP, Layer.HOST, Layer.USER)
+
+
 class PlatformFamily(str, Enum):
     """The directory layouts the path resolver and deploy know, one per operating-system family."""
 
@@ -224,25 +256,23 @@ class PlatformFamily(str, Enum):
     WINDOWS = "windows"
 
 
-def platform_family(platform: str) -> PlatformFamily | None:
-    """Classify a ``sys.platform`` value, or return ``None`` for a platform with no known layout.
+def platform_family(platform: str) -> PlatformFamily:
+    """Classify a ``sys.platform`` value; a platform with no layout of its own gets the Linux one.
 
-    ``None`` leaves the fallback to the caller: the resolver offers no paths there, while deploy
-    writes the Linux layout.
+    The fallback lives here, not in each caller, so reading and deploying use the same layout on
+    FreeBSD, Solaris or Cygwin: a deployed file is read back. User decision 2026-11-16.
 
     Examples:
         >>> platform_family("linux"), platform_family("darwin"), platform_family("win32")
         (<PlatformFamily.LINUX: 'linux'>, <PlatformFamily.MACOS: 'macos'>, <PlatformFamily.WINDOWS: 'windows'>)
-        >>> platform_family("freebsd14") is None
-        True
+        >>> platform_family("freebsd14")
+        <PlatformFamily.LINUX: 'linux'>
     """
-    if platform.startswith("linux"):
-        return PlatformFamily.LINUX
     if platform == "darwin":
         return PlatformFamily.MACOS
     if platform.startswith("win"):
         return PlatformFamily.WINDOWS
-    return None
+    return PlatformFamily.LINUX
 
 
 class ExamplePlatform(str, Enum):
@@ -252,7 +282,7 @@ class ExamplePlatform(str, Enum):
     WINDOWS = "windows"
 
 
-def validate_path_segment(value: str, name: str, *, allow_dots: bool = False) -> str:
+def validate_path_segment(value: str, name: str) -> str:
     """Validate a string for safe use as a filesystem path segment.
 
     Ensures identifiers (vendor, app, slug, profile) are safe on Windows and Linux,
@@ -261,7 +291,6 @@ def validate_path_segment(value: str, name: str, *, allow_dots: bool = False) ->
     Args:
         value: The string to validate.
         name: Parameter name for error messages (e.g., "vendor", "slug").
-        allow_dots: If True, allow dots within the value (for hostnames).
 
     Returns:
         The validated string (unchanged if valid).
@@ -279,22 +308,21 @@ def validate_path_segment(value: str, name: str, *, allow_dots: bool = False) ->
     _check_not_empty(value, name)
     _check_ascii_only(value, name)
     _check_no_invalid_chars(value, name)
-    _check_strict_pattern(value, name, allow_dots=allow_dots)
+    _check_strict_pattern(value, name)
     _check_not_windows_reserved(value, name)
     _check_no_trailing_dot_or_space(value, name)
+    # Last, so a value an earlier rule refuses keeps that rule's message.
+    _check_max_length(value, name, _NAME_MAX)
     return value
 
 
-def _check_strict_pattern(value: str, name: str, *, allow_dots: bool) -> None:
+def _check_strict_pattern(value: str, name: str) -> None:
     """Check value matches strict identifier pattern (no spaces)."""
-    if allow_dots:
-        return
-    if _VALID_IDENTIFIER_PATTERN.match(value):
+    if _VALID_IDENTIFIER_PATTERN.fullmatch(value):
         return
     _raise_pattern_error(value, name, check_space_start=False)
 
 
-@lru_cache(maxsize=64)
 def validate_identifier(value: str, name: str) -> str:
     """Validate a strict identifier (slug, profile) for filesystem safety.
 
@@ -304,7 +332,6 @@ def validate_identifier(value: str, name: str) -> str:
     Note:
         This is for strict identifiers (slug, profile) that should not contain spaces.
         For vendor/app which allow spaces, use ``validate_vendor_app()``.
-        Results are cached for performance when validating the same identifiers repeatedly.
 
     Args:
         value: The identifier value to validate.
@@ -326,17 +353,15 @@ def validate_identifier(value: str, name: str) -> str:
             ...
         ValidationError: slug contains invalid characters: ../etc
     """
-    return validate_path_segment(value, name, allow_dots=False)
+    return validate_path_segment(value, name)
 
 
-@lru_cache(maxsize=64)
 def validate_vendor_app(value: str, name: str) -> str:
     """Validate vendor or app identifier for filesystem safety (allows spaces).
 
     Vendor and app names are used in macOS and Windows paths which support spaces
     (e.g., ``/Library/Application Support/Acme Corp/My App/``).
     This function allows spaces while still preventing path traversal attacks.
-    Results are cached for performance when validating the same values repeatedly.
 
     Args:
         value: The vendor or app value to validate.
@@ -366,6 +391,8 @@ def validate_vendor_app(value: str, name: str) -> str:
     _check_permissive_pattern(value, name)
     _check_not_windows_reserved(value, name, split_on_space=True)
     _check_no_trailing_dot_or_space(value, name)
+    # Last, so a value an earlier rule refuses keeps that rule's message.
+    _check_max_length(value, name, _NAME_MAX)
     return value
 
 
@@ -423,7 +450,7 @@ def validate_profile_name(
     cross-platform filesystem compatibility issues.
 
     Security Checks:
-        - Length limit (default 64 characters, absolute max 256 characters)
+        - Length limit (default 64 characters, absolute max 255 characters)
         - No control characters (null bytes, newlines, etc.)
         - No path traversal sequences (``../``, ``..\\``)
         - No path separators (``/``, ``\\``)
@@ -434,13 +461,13 @@ def validate_profile_name(
 
     Note:
         The ``max_length`` parameter is clamped to ``ABSOLUTE_MAX_PROFILE_LENGTH``
-        (256 characters) for filesystem safety. Setting ``max_length=1000`` will
-        effectively use 256 as the limit.
+        (255 characters) for filesystem safety. Setting ``max_length=1000`` will
+        effectively use 255 as the limit.
 
     Args:
         value: The profile name to validate.
         max_length: Maximum allowed length (default: 64 characters).
-            Set to 0 or negative to disable length checking (still capped at 256).
+            Set to 0 or negative to use the absolute maximum of 255 instead.
 
     Returns:
         The validated profile name (unchanged if valid).
@@ -479,13 +506,13 @@ def validate_profile_name(
         effective_max = min(max_length, ABSOLUTE_MAX_PROFILE_LENGTH)
         _check_max_length(value, "profile", effective_max)
     else:
-        # Even with length checking "disabled", enforce absolute maximum
+        # 0 or negative selects the absolute maximum rather than turning the check off
         _check_max_length(value, "profile", ABSOLUTE_MAX_PROFILE_LENGTH)
     return validate_identifier(value, "profile")
 
 
 def is_valid_profile_name(
-    value: str | None,
+    value: object,
     *,
     max_length: int = DEFAULT_MAX_PROFILE_LENGTH,
 ) -> bool:
@@ -496,14 +523,15 @@ def is_valid_profile_name(
 
     Note:
         The ``max_length`` parameter is clamped to ``ABSOLUTE_MAX_PROFILE_LENGTH``
-        (256 characters) for filesystem safety. Setting ``max_length=1000`` will
-        effectively use 256 as the limit. Setting ``max_length=0`` still enforces
-        the 256 character absolute maximum.
+        (255 characters) for filesystem safety. Setting ``max_length=1000`` will
+        effectively use 255 as the limit. Setting ``max_length=0`` still enforces
+        the 255 character absolute maximum.
 
     Args:
-        value: The profile name to check. None is considered valid (no profile).
+        value: The profile name to check. None is considered valid (no profile); any other
+            non-str value is not a valid name.
         max_length: Maximum allowed length (default: 64 characters).
-            Set to 0 or negative to disable length checking (still capped at 256).
+            Set to 0 or negative to use the absolute maximum of 255 instead.
 
     Returns:
         True if the profile name is valid or None, False otherwise.
@@ -528,6 +556,9 @@ def is_valid_profile_name(
     """
     if value is None:
         return True
+    if not isinstance(value, str):
+        # The validator's regex raises TypeError on a non-str, and this check promises not to raise.
+        return False
     try:
         validate_profile_name(value, max_length=max_length)
         return True
@@ -535,20 +566,18 @@ def is_valid_profile_name(
         return False
 
 
-@lru_cache(maxsize=16)
 def validate_hostname(value: str) -> str:
     """Ensure hostname is safe for use in filesystem paths.
 
     Hostnames are used to construct file paths like ``hosts/{hostname}.toml``.
     While hostnames from ``socket.gethostname()`` are typically safe, defensive
     validation prevents path traversal and ensures cross-platform safety.
-    Results are cached for performance since hostname rarely changes.
 
     Validation Rules:
         1. Must not be empty
         2. Must contain only ASCII characters
         3. Must start with alphanumeric character
-        4. May contain alphanumeric, hyphen, and dot (for FQDNs)
+        4. May contain alphanumeric, hyphen, underscore, and dot (for FQDNs)
         5. Must not contain path separators or Windows-invalid characters
         6. Must not be a Windows reserved name
 
@@ -581,11 +610,14 @@ def validate_hostname(value: str) -> str:
     _check_hostname_pattern(value, "hostname")
     _check_not_windows_reserved(value, "hostname")
     _check_no_trailing_space(value, "hostname")
+    # Last, so a value an earlier rule refuses keeps that rule's message.
+    _check_max_length(value, "hostname", _MAX_HOSTNAME_LENGTH)
     return value
 
 
 __all__ = [
     "DEFAULT_MAX_PROFILE_LENGTH",
+    "DEPLOY_LAYERS",
     "ExamplePlatform",
     "Layer",
     "PlatformFamily",

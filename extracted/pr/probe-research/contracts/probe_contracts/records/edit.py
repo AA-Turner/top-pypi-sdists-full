@@ -13,7 +13,9 @@ from .records import Record
 
 
 class EditOp(StrEnum):
-    """What an edit does. One list for the server, SDK, CLI, MCP and dashboard (review A4)."""
+    """What an edit does. One list for the server, SDK, CLI, MCP and dashboard."""
+
+    # Review A4.
 
     HIDE = "hide"
     SHIFT_STEP = "shift_step"

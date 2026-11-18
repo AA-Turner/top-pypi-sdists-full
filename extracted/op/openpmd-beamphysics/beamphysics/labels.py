@@ -1,4 +1,12 @@
-from .units import nice_array, parse_bunching_str, pmd_unit
+import re
+
+from .statistics import KeyExpression, normalize_key
+from .units import (
+    deprecated_field_record_names,
+    nice_array,
+    parse_bunching_str,
+    pmd_unit,
+)
 
 TEXLABEL = {
     # 'status'
@@ -30,6 +38,21 @@ TEXLABEL = {
     "y": "y",
     "z": "z",
     "r": "r",
+    "s": "s",
+    "p0c": "p_0 c",
+    "p0": "p_0",
+    "dp": "p - p_0",
+    "px_over_p0": "p_x/p_0",
+    "py_over_p0": "p_y/p_0",
+    "dp_over_p0": r"\delta",
+    "dp/p0": r"\delta",
+    "spin_x": "S_x",
+    "spin_y": "S_y",
+    "spin_z": "S_z",
+    "ix_branch": r"\mathrm{ix\_branch}",
+    "ix_ele": r"\mathrm{ix\_ele}",
+    "location": r"\mathrm{location}",
+    "charge_state": r"\mathrm{charge\_state}",
     "Jx": "J_x",
     "Jy": "J_y",
     "beta": r"\beta",
@@ -98,8 +121,11 @@ def texlabel(key: str):
             https://matplotlib.org/stable/tutorials/text/mathtext.html
 
     """
+    return _texlabel(deprecated_field_record_names(key))
 
-    # Basic cases
+
+def _texlabel(key: str) -> str:
+    key = normalize_key(key)
     if key in TEXLABEL:
         return TEXLABEL[key]
 
@@ -107,7 +133,7 @@ def texlabel(key: str):
     for prefix in ("sigma_", "mean_", "min_", "max_", "ptp_", "delta_", "abs_"):
         if key.startswith(prefix):
             key0 = key.removeprefix(prefix)
-            tex0 = texlabel(key0)
+            tex0 = _texlabel(key0)
             prefix = prefix.removesuffix("_")
 
             if prefix == "abs":
@@ -125,9 +151,13 @@ def texlabel(key: str):
 
     if key.startswith("cov_"):
         subkeys = key.removeprefix("cov_").split("__")
-        tex0 = texlabel(subkeys[0])
-        tex1 = texlabel(subkeys[1])
+        tex0 = _texlabel(subkeys[0])
+        tex1 = _texlabel(subkeys[1])
         return rf"\left<{tex0}, {tex1}\right>"
+
+    expression = KeyExpression.from_string(key)
+    if expression is not None:
+        return _expression_tex(expression)
 
     if key.startswith("bunching"):
         wavelength = parse_bunching_str(key)
@@ -135,6 +165,81 @@ def texlabel(key: str):
         return rf"\mathrm{{bunching~at}}~{x:.1f}~\mathrm{{ {prefix}m }}"
 
     return rf"\mathrm{{ {key} }}"
+
+
+def _group(tex: str) -> str:
+    """Parenthesize a label that is not a single factor, such as `p - p_0`."""
+    depth = 0
+    for token in re.findall(r"\\left|\\right|[{} /-]", tex):
+        if token in ("{", r"\left"):
+            depth += 1
+        elif token in ("}", r"\right"):
+            depth -= 1
+        elif depth == 0:
+            return f"({tex})"
+    return tex
+
+
+def _number_tex(x: float) -> str:
+    mantissa, _, exponent = repr(x).partition("e")
+    mantissa = mantissa.removesuffix(".0")
+    if not exponent:
+        return mantissa
+    power = f"10^{{{int(exponent)}}}"
+    if mantissa in ("1", "-1"):
+        return mantissa.removesuffix("1") + power
+    return rf"{mantissa} \times {power}"
+
+
+def _expression_tex(expression: KeyExpression) -> str:
+    r"""
+    TeX fragment for an arithmetic key, as a single quotient: `x/y*z` is
+    $x\,z/y$.
+    """
+    numerator, denominator = (
+        [_group("c" if name == "c" else _texlabel(name)) for name in names]
+        for names in (expression.numerator, expression.denominator)
+    )
+    if expression.scale == -1 and numerator:
+        numerator[0] = "-" + numerator[0]
+    elif expression.scale != 1 or not numerator:
+        numerator.insert(0, _number_tex(expression.scale))
+    if expression.divisor != 1:
+        denominator.insert(0, _group(_number_tex(expression.divisor)))
+    tex = r"\,".join(numerator)
+    if len(denominator) > 1:
+        tex += "/(" + r"\,".join(denominator) + ")"
+    elif denominator:
+        tex += "/" + denominator[0]
+    return tex
+
+
+def _units_str_to_tex(units: str) -> str:
+    """
+    TeX fragment for a display units string.
+
+    Explicit power-of-ten scales from `pmd_unit.scaled_symbol`, as in `'1e-3'`,
+    `'1e-3 m^2'` and `'pC/(1e-3)'`, are written as $10^{-3}$.
+    """
+    try:
+        return pmd_unit(units).to_tex()
+    except (ValueError, KeyError):
+        pass
+
+    scaled = re.fullmatch(r"1e([+-]?\d+)(?: (.+))?", units)
+    if scaled:
+        tex = f"10^{{{int(scaled.group(1))}}}"
+        if scaled.group(2):
+            tex += rf"\,{_units_str_to_tex(scaled.group(2))}"
+        return tex
+
+    per_group = re.fullmatch(r"([^/]+)/\((.+)\)", units)
+    if per_group:
+        numerator = _units_str_to_tex(per_group.group(1))
+        return f"{numerator}/({_units_str_to_tex(per_group.group(2))})"
+
+    fallback = units.replace("*", r"{\cdot}")
+    return rf"\mathrm{{ {fallback} }}"
 
 
 def mathlabel(*keys, units=None, tex=True):
@@ -153,8 +258,8 @@ def mathlabel(*keys, units=None, tex=True):
         Units to append in parentheses. A ``pmd_unit``, or a string that
         parses as a unit symbol, renders via ``pmd_unit.to_tex()`` (so
         compound symbols like eV/c, sqrt(m), m^2, and parenthesized groups
-        come out right); any other string is shown as-is, with ``*`` as a
-        dot.
+        come out right); explicit scales such as `1e-3` render as $10^{-3}$;
+        any other string is shown as-is, with ``*`` as a dot.
 
     tex : bool, default=True
         if True, a mathtext (TeX) string wrapped in $$ will be returned.
@@ -194,11 +299,7 @@ def mathlabel(*keys, units=None, tex=True):
     elif isinstance(units, pmd_unit):
         units_frag = units.to_tex()
     else:
-        try:
-            units_frag = pmd_unit(str(units)).to_tex()
-        except (ValueError, KeyError):
-            fallback = str(units).replace("*", r"{\cdot}")
-            units_frag = rf"\mathrm{{ {fallback} }}"
+        units_frag = _units_str_to_tex(str(units))
 
     if not keys:
         return rf"${units_frag}$" if units_frag else ""

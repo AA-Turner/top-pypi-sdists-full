@@ -367,6 +367,11 @@ scim_provisioning:
   # read+write: can perform SCIM v2 provisioning operations (create/update/deactivate users) for an org
   # Granted only to scim_provisioner service accounts, not to human org admins
   org_id: wildcard
+user_groups:
+  # read: can see the org's user groups, their members and their roles
+  # write: can create, change and delete user groups, their members and their roles;
+  # a group carries workspace roles, so write can grant them in every workspace of the org
+  org_id: wildcard
 access_request:
   org_id: wildcard
 access_request_decision:

@@ -275,9 +275,12 @@ class GroupAttrs(_HeldKeys):
     # the groups this group's merge plan elects to bridge its row parents
     # (`join_plan.elect_bridges`), decided before the build
     bridges: tuple[str, ...] = ()
-    # of `bridges`, those elected to key a pairing (`JoinPlan.keying`): joined
-    # whatever the islands
+    # of `bridges`, those elected to key a pairing (`JoinPlan.keying`) that its
+    # merge joins whatever the islands
     keying_bridges: frozenset[str] = frozenset()
+    # of `bridges`, those its merge joins: each joins two of its plan's
+    # islands, or is one of `keying_bridges`
+    joined_bridges: tuple[str, ...] = ()
     # Members of the row-preserving input groups this aggregate computes
     # inline: every reader did, so those groups were never built.
     inlined_members: tuple[str, ...] = ()
@@ -395,6 +398,8 @@ class ConceptAttrs:
     # them (a fact FK column aliased beside a fact property has one BASIC per
     # root and no shared consumer).
     datasource_bindings: frozenset[str] = frozenset()
+    # every column those datasources bind: two tables sharing one join on it
+    datasource_columns: frozenset[str] = frozenset()
     # True for a pure rename (``alias(...)`` lineage), a pseudonym of its
     # source. The renderer resolves it transparently to the source column, so
     # it must not be folded into a rollup group like a genuine transform dim.

@@ -3,9 +3,14 @@
 Each opt-in feature has one entry in :data:`FEATURES`. Its REACH is the
 deepest level of the support hierarchy (``support/hierarchy.toml``, mirrored
 in :data:`LEVELS`) at which it is certified; it is certified on levels
-1..reach, and stable when its reach is the deepest level. Every feature is OFF
+1..reach, and stable when its reach is the deepest level. A feature is OFF
 unless asked for, by its keyword argument (which wins) or by its environment
-variable, ``MOMWIRE_X_<NAME>``.
+variable, ``MOMWIRE_X_<NAME>`` -- except one PROMOTED to on by default
+(``default=True``): that one is on wherever it is certified (levels
+1..reach) unless the keyword is False or the variable is set to a value that
+is not an on value ("0", say), and off by default outside its reach.
+Default-on is a separate decision from reach (the maintainer's, recorded in
+the entry), and its bar is :data:`DEFAULT_DRIFT_MAX`.
 
 On outside its reach, a feature is handled by its KIND:
 
@@ -17,11 +22,25 @@ On outside its reach, a feature is handled by its KIND:
 The standalone executables run only the features their C++ route carries
 and whose reach covers their level (``EXE_FEATURES`` in
 ``standalone/momwire_razor2p.cpp``; today momwire#1860's four levers, reach
-8, so every executable but nec42-sinusoidal's). One started with any other
-``MOMWIRE_X_`` variable on refuses before it reads a deck
-(:data:`EXE_REFUSAL`).
+8, so every executable but nec42-sinusoidal's, and razor_pair_reuse, reach 7,
+which only nec5-razor-2p's route carries, so nec5-bspline refuses it by
+basis, ``EXE_FEATURE_BASES``). One started with any other ``MOMWIRE_X_``
+variable on refuses before it reads a deck (:data:`EXE_REFUSAL`).
 
-With every feature off nothing here changes a byte of any printout.
+A feature may be a PART of another (``part_of``): one user-facing switch
+that turns on what each solver supports of it. Today that is ``pair_reuse``,
+whose parts are bspline's ``offset_reuse`` and razor-2p's
+``razor_pair_reuse`` (momwire#1982). Asking for the whole turns each part
+on; a part's own keyword or variable, its older spelling, still wins (see
+:func:`enabled` for the order). A native part asked for only through the
+whole stays off outside its own reach instead of refusing: the whole asks
+for "what this solver supports here", and :func:`withheld` says when that
+was nothing.
+
+With every feature at its default nothing here changes a byte of line 2:
+the stamp names only a feature that is on where its default is off. With every
+feature off -- the default-on ones turned off explicitly -- the printout is
+the one before they were promoted.
 """
 
 from __future__ import annotations
@@ -34,6 +53,7 @@ import sys
 from dataclasses import dataclass
 
 __all__ = [
+    "DEFAULT_DRIFT_MAX",
     "ENV_PREFIX",
     "EXE_REFUSAL",
     "FEATURES",
@@ -47,8 +67,10 @@ __all__ = [
     "context_scope",
     "in_context",
     "current_level",
+    "default_on",
     "enabled",
     "stamp",
+    "withheld",
 ]
 
 
@@ -115,6 +137,12 @@ EXE_REFUSAL = (
 
 KINDS = ("python", "native")
 
+# The most a default-on feature may move an answer: its declared `drift`
+# (|dZ|/|Z|) at or under this, below which a five-figure printout reads the
+# same (antennaknobs draws its "(faster)" line here too, LAST_DIGITS_DRIFT).
+# A feature that moves the answer more stays opt-in, whatever its reach.
+DEFAULT_DRIFT_MAX = 1e-6
+
 
 @dataclass(frozen=True)
 class Feature:
@@ -145,6 +173,15 @@ class Feature:
     summary: str = ""
     drift: float = 1.0
     offer: bool = False
+    # On by default wherever it is certified (levels 1..reach): promoted by
+    # the maintainer, in its own PR, with drift <= DEFAULT_DRIFT_MAX. The
+    # keyword False, or the variable at a value that is not on ("0"),
+    # still turns it off. Outside its reach the default is off.
+    default: bool = False
+    # The user-facing feature this one is a part of (momwire#1982), or None:
+    # asking for that one (its keyword or its variable) turns this one on,
+    # unless this one's own keyword or variable says otherwise.
+    part_of: str | None = None
 
     @property
     def stable(self) -> bool:
@@ -162,6 +199,12 @@ FEATURES: dict[str, Feature] = {
         # point-matched fill finds its own classes of (observer, source)
         # pairs and evaluates each one's field tensors once with the shipped
         # kernel, free space and PEC image; there the variable alone is on.
+        #
+        # The one user-facing pair-reuse switch (momwire#1982): its parts,
+        # `offset_reuse` (bspline, within one edge) and `razor_pair_reuse`
+        # (razor-2p), follow this keyword and this variable, so every solver
+        # takes `pair_reuse=` and MOMWIRE_X_PAIR_REUSE turns on the reuse it
+        # supports. Their own keywords and variables are kept as aliases.
         Feature(
             name="pair_reuse",
             reach=1,
@@ -174,24 +217,44 @@ FEATURES: dict[str, Feature] = {
                 "src/momwire/_sin_pair_reuse.py",
                 "tests/test_pair_reuse_1809.py",
                 "tests/test_sin_pair_reuse_1911.py",
+                "tests/test_sin_pair_reuse_ground_1970.py",
+                "tests/test_sin_pair_reuse_canonical_1969.py",
+                "tests/test_sin_pair_reuse_small_deck_1969.py",
+                "tests/test_pair_reuse_contract_1982.py",
             ),
             label="pair reuse",
             summary=(
                 "Fills each repeated pose of a pair of wires or segments once and "
                 "copies the rest. nec5-bspline and nec42-bspline need the front "
-                "end's hint of which edge pairs share a pose; the sinusoidal "
-                "solver finds its own, in free space and over a perfect ground."
+                "end's hint of which edge pairs share a pose, and also fill a "
+                "uniform wire's own entries once per segment offset; the "
+                "sinusoidal solver and nec5-razor-2p find their own classes, in "
+                "free space and over a perfect or finite ground, on decks large "
+                "enough to pay for the search."
             ),
-            # bspline: 1e-12. sinusoidal (momwire#1911), measured on Skylake
-            # against the flag-off fill over the ELT whip and 19 corpus and
-            # catalogue decks, free space and PEC, thin wire and EK: at most
-            # 2.7e-12 (a 4x4 bowtie array; the whip 2.7e-13), below what
-            # translating each deck moves its own answer (up to 6e-11).
-            drift=3e-12,
+            # |dZin|/|Zin|, the registry's measure, against the flag-off fill.
+            # bspline: 1e-12. sinusoidal: the class map moves Z itself by
+            # ~1e-12 relative to its largest entry, and the solve amplifies
+            # that at the feed. Measured over every frequency of the 11-16
+            # reuse ladders (13 each; gsfd_* 101), dense:
+            #   free space (Rocketlake, main 816ccd5b): p_m24 2.15e-10, sky_c24 7.6e-11,
+            #     sky_m24 6.6e-11, fd_h51 9.6e-12;
+            #   finite ground (Skylake, the momwire#1970 change): gsky_m24 9.9e-11
+            #     (Sommerfeld), 8.2e-11 (reflection coefficient); gfd_h51
+            #     1.0e-11 / 4.1e-12; gsky_m12 7.9e-12; every other gfd_*,
+            #     gsfd_*, gsky_m6 6.1e-12 or less.
+            # 5e-10 is the worst (p_m24) with about 2x margin. The 3e-12 this
+            # replaces was the matrix ratio, not |dZin|/|Zin|. Still far under
+            # DEFAULT_DRIFT_MAX (antennaknobs' LAST_DIGITS_DRIFT, 1e-6).
+            drift=5e-10,
             offer=False,
         ),
         # A uniform edge's same-edge reg moments filled by segment offset
-        # (PR #1815): the shipped kernels, summed in another order.
+        # (PR #1815): the shipped kernels, summed in another order. A part of
+        # `pair_reuse` (momwire#1982): on with it, and its own keyword and
+        # variable still turn it on or off alone. Not retired: within one
+        # edge the moment depends only on the segment offset, which a whole-
+        # block copy between edge pairs does not use, so the two compose.
         Feature(
             name="offset_reuse",
             reach=1,
@@ -203,11 +266,12 @@ FEATURES: dict[str, Feature] = {
             paths=("tests/test_offset_reuse_1809.py",),
             label="offset reuse",
             summary=(
-                "Fills a uniform edge's same-edge moments once per segment offset. "
-                "Folded into pair reuse."
+                "Fills a uniform edge's same-edge moments once per segment offset;"
+                " turned on with pair reuse, alongside its copies between edges."
             ),
             drift=1e-12,
             offer=False,
+            part_of="pair_reuse",
         ),
         # The transmitted (below->above) grid blended from frequency anchors
         # on a lattice fixed in metres (momwire#1847), so a sweep shares its
@@ -259,7 +323,10 @@ FEATURES: dict[str, Feature] = {
         # z and z', the product per member. A new C++ path, a few ulp from
         # the member route and not bit-identical to it. Reach 8: the
         # nec5-razor-2p, nec5-bspline and nec42-bspline executables carry it
-        # (the ports of #1860's measurement build).
+        # (the ports of #1860's measurement build). On by default since
+        # 2026-11-15 (Steve), as is height_sheet_recal: certified through
+        # level 8, and level 9's nec42-sinusoidal route has no column twin to
+        # factor.
         Feature(
             name="factored_columns",
             reach=8,
@@ -277,6 +344,7 @@ FEATURES: dict[str, Feature] = {
             ),
             drift=1e-11,
             offer=True,
+            default=True,
         ),
         # The near-interface height-sheet census recalibrated (momwire#1860
         # L2): a horizontal wire's rows on a height sheet at their measured
@@ -300,12 +368,20 @@ FEATURES: dict[str, Feature] = {
             ),
             drift=1e-9,
             offer=True,
+            default=True,
         ),
         # The crossing table (momwire#1860 L5): the crossing rows inside a
         # fixed wavelength-scaled grid read from one table per frequency, the
         # singular part taken out in closed form. A new C++ path and a coarse
         # accuracy class (printed Zin within ~0.1 ohm on the EFHW decks).
-        # Reach 8, as factored_columns.
+        # Reach 8, as factored_columns. Opt-in: its drift class is over
+        # DEFAULT_DRIFT_MAX, and it stays off by default (Steve, 11-15).
+        # drift 5e-3 (momwire#1955, was 1e-3): measured 3.6e-3 on fat_slant
+        # and 2.5e-3 on fat_hub (a 19 mm vertical, Delta/a 2.2, over four short
+        # buried radials), 4e-4 on aca, under 1e-3 on the EFHW decks. Set
+        # against the ground itself: +/-10 % in eps_r or sigma moves those
+        # same decks' Zin by 0.7-4.5 %, so 5e-3 stays well inside what a user
+        # can know about their soil.
         Feature(
             name="crossing_table",
             reach=8,
@@ -320,9 +396,11 @@ FEATURES: dict[str, Feature] = {
                 "Where a wire crosses the ground (an EFHW over a ground rod), read "
                 "the entries near the crossing from one table per frequency instead"
                 " of computing each. Coarser: input impedance moves by about 0.1 "
-                "ohm on an EFHW."
+                "ohm on an EFHW and up to about 0.4 % on a fat vertical over a "
+                "small buried screen, well under what a 10 % error in the ground's"
+                " constants does."
             ),
-            drift=1e-3,
+            drift=5e-3,
             offer=True,
         ),
         # nec5-bspline's and nec42-bspline's crossing route fills the above x
@@ -350,8 +428,75 @@ FEATURES: dict[str, Feature] = {
                 "when most of the antenna is above ground. Measured to move the "
                 "input impedance by at most 3e-8 relative."
             ),
+            # Not default-on: approved for promotion 2026-11-15, held back
+            # because the pre-tag sweep measured |dZin|/|Zin| = 1.28e-6 on
+            # default|sommerfeld|ground_rod_efhw_wa7ark (nec5-bspline, Skylake),
+            # over this declared 1e-7 and over DEFAULT_DRIFT_MAX.
             drift=1e-7,
             offer=True,
+        ),
+        # The near-interface sheets' build weights retuned (momwire#1956):
+        # the plane and height census at a lower node weight than the 0.15
+        # measured with every sheet built from scratch, so a crossing deck's
+        # radial plane (and a low wire's height) is read from a sheet where
+        # the shipped census computes each row. The shipped sheets and
+        # twin, a different split between them; the weights are constants,
+        # so the plan is still never decided on what is cached. Opt-in:
+        # its cost is a cold process's first sheet build, which a small
+        # deck pays without the warm gain.
+        # Reach 7 (momwire#1956 promotion, 2026-11-17): the two nec5
+        # executables carry it (their C++ census reads the same two
+        # constants, `ni_eval::sheet_build_weight`); the nec42-bspline
+        # executable (level 8) does not, and refuses it.
+        Feature(
+            name="crossing_sheet_retune",
+            reach=7,
+            env="MOMWIRE_X_CROSSING_SHEET_RETUNE",
+            kind="python",
+            issue=1956,
+            since="2026-11-16",
+            kwarg="crossing_sheet_retune",
+            paths=("tests/test_crossing_sheet_retune_1956.py",),
+            label="more near-ground tables",
+            summary=(
+                "Read more of the entries between wires above and below the "
+                "ground from cached tables (a buried radial screen's, a low "
+                "wire's), instead of computing each. Faster once the tables "
+                "are cached; the first solve in a fresh process builds them."
+            ),
+            # |dZin|/|Zin| against off, every run (frequency) of every deck
+            # in tests/fixtures with a ground card (168) and the momwire#1956
+            # scoping decks, both executables' C++ twin
+            # (Skylake, T4): at most 6.2e-13 (fat_hub, nec5-razor-2p;
+            # nec5-bspline 3.2e-13), the plane sheets' own interpolation error
+            # where a row moves from the column twin to a sheet. Deeper and
+            # higher in frequency the plan takes more planes (2 -> 51-75) and
+            # the error grows with them: a 16-radial hub at 1.5 m, 28 MHz,
+            # 2.5 m radials and vertical measures 9.77e-12 on razor-2p
+            # (1.2e-13 nec5-bspline), 3.0 m at 14 MHz 6.15e-12, 5.0 m at
+            # 14 MHz 3.65e-12; the same to the bit on Haswell and Skylake.
+            # (Those figures are the Python route's, on the dict-built decks
+            # of tests/test_crossing_sheet_retune_1956.py: the 1.5 m / 28 MHz
+            # one is `_deep_hub(28e6, 1.5, 2.5)`.)
+            # Re-measured at the promotion to reach 7 (Rocketlake, T1,
+            # MW_EXE_ARRAYS) through the nec5 executables, on a scan of the
+            # same 16-radial hub written as a NEC-5 deck (`hub_nec` there:
+            # 7-30 MHz, depth 0.15-3 m, radials and vertical 2.5-7.5 m), a
+            # different geometry from `_deep_hub` (radials laid from the hub
+            # out, the vertical and its 7th-of-15 feed counted from the base;
+            # the worst case 30 MHz and 5 m, not 28 MHz and 2.5 m). The worst
+            # measured: 1.93e-11 on
+            # nec5-bspline at 30 MHz, 1.5 m, 5 m (that module's
+            # DECKS["deep_hub"], 1.40e-11 on nec5-razor-2p there), and
+            # 1.56e-11 on nec5-razor-2p at 28 MHz, 0.5 m, 5 m; the sse2
+            # builds the same on those two, and the launcher's own route on
+            # DECKS["deep_hub"] the same digits (1.93e-11 / 1.40e-11).
+            # The declared 6e-11 is NOT a measurement: it is margin, about 3x
+            # over that measured worst case of 1.93e-11 (Steve, 2026-11-17;
+            # 3e-11 before it, which left 1.6x). Still far under
+            # DEFAULT_DRIFT_MAX, so no printout reads differently.
+            drift=6e-11,
+            offer=False,
         ),
         # BSplineSolver's junction constraints eliminated before the factor
         # (momwire#1898): Z reduced to the constraint null space in place,
@@ -433,6 +578,68 @@ FEATURES: dict[str, Feature] = {
             drift=1e-6,
             offer=False,
         ),
+        # razor-2p's fill-pair reuse (momwire#1971): the fill finds its own
+        # classes of (centroid observer, source segment) pairs, the direct
+        # and image moments keyed on what the kernel reads and the composing
+        # ground's remainder on the height-aware key, evaluates one
+        # representative per class with the shipped kernels and gathers the
+        # rest, in Python and in the executables (one C++ core).
+        Feature(
+            name="razor_pair_reuse",
+            # Reach 7: every Python route (the hosted app, Linux sse2,
+            # Windows, the drop-in, macOS) and the nec5 executables (levels 6
+            # and 7, nec5-razor-2p's `EXE_FEATURES` row; nec5-bspline, which
+            # shares those levels, refuses it by basis). Not 8 or 9: those
+            # are the nec42 executables, and neither has a razor-2p route to
+            # run it in. Still off by default and not offered (Steve, 11-17;
+            # it was reach 1, the hosted app only, from 11-16).
+            reach=7,
+            env="MOMWIRE_X_RAZOR_PAIR_REUSE",
+            kind="native",
+            issue=1971,
+            since="2026-11-16",
+            kwarg="razor_pair_reuse",
+            paths=(
+                "src/momwire/_razor_pair_reuse_core.cpp",
+                "src/momwire/_razor_pair_reuse_core.h",
+                "tests/test_razor_pair_reuse_1971.py",
+            ),
+            label="razor pair reuse",
+            summary=(
+                "nec5-razor-2p fills each class of congruent segment pairs once "
+                "and copies the rest, in free space and over a perfect or "
+                "Sommerfeld ground (the buried fill excepted)."
+            ),
+            # |dZin|/|Zin| against the flag-off fill, the worst over every
+            # frequency, the extended kernel on (the NEC-5 shell's), each
+            # deck with exact_kernel auto / True / False (Python route,
+            # Rocketlake, momwire#1971):
+            #
+            #   the six benchmark decks (1097-2535 segs, 13 frequencies):
+            #     gsky_m24 2.6e-13 (Sommerfeld), fd_h51 2.6e-13, sky_m24
+            #     2.0e-13, p_m24 1.9e-13, gfd_h51 1.5e-13 (Sommerfeld),
+            #     fd_h27 3.9e-14;
+            #   tiny bridges, h < a (a 2 mm hairpin, 21-segment bridge): 3.1e-12
+            #     free, 3.7e-12 Sommerfeld, 3.4e-12 translated 3.3 m (each
+            #     with exact_kernel False; 1.4e-12 auto / True); a folded
+            #     dipole, a shorted stub, a thick monopole: <= 1.3e-13;
+            #   close-spaced two-wire lines (10 m, 1 mm wire, 2.1 to 12 mm
+            #     apart, 41 to 161 segments a side, free / PEC / Sommerfeld,
+            #     at the origin and translated 3.3 m): 4.3e-10 at the worst
+            #     (2.1 mm, 41 segments, free, exact_kernel False), 4.2e-10 at
+            #     2.5 mm, 1e-10 at 6 mm, 4e-11 at 12 mm.
+            #
+            # The lines' drift is the fill's own rounding, not a wrong class:
+            # the flag-off fill moves as much when the same deck is translated
+            # 3.3 m (up to 9.4e-10 at 2.1 mm), the pairs differ from their
+            # representatives only by coordinate rounding (KEY_BITS), and
+            # `verify` passes. 2e-9 is about 5x the worst.
+            drift=2e-9,
+            offer=False,
+            # momwire#1982: on with `pair_reuse`; its own keyword and variable
+            # are aliases. Outside its reach, asked for only that way, off.
+            part_of="pair_reuse",
+        ),
     )
 }
 
@@ -474,29 +681,101 @@ class FeatureNotCertified(RuntimeError):
     """A native feature was asked for outside its reach."""
 
 
-def _env_on(feature: Feature) -> bool:
+def _env_value(feature: Feature) -> bool | None:
+    """What the environment says of `feature`: True (on), False (set to
+    anything else, "0" say) or None (unset or empty: the default)."""
     for var in (feature.env, *feature.aliases):
         value = os.environ.get(var)
         if value is not None and value.strip():
             return value.strip().lower() in _ON
-    return False
+    return None
+
+
+def _env_on(feature: Feature) -> bool:
+    return _env_value(feature) is True
+
+
+def default_on(name: str, context: str | None = None) -> bool:
+    """Whether `name` is on when nothing asks either way: a default-on
+    feature where it is certified (`context` defaulting to the running
+    one), else no."""
+    feature = FEATURES[name]
+    if not feature.default:
+        return False
+    return certified(name, _CONTEXT.get() if context is None else context)
+
+
+def _resolve(
+    name: str, kwarg_value: object, whole_kwarg: object, context: str | None
+) -> tuple[bool, bool]:
+    """(on, through the whole): what :func:`enabled` decides before the
+    reach check, and whether it was the whole feature (``part_of``) that
+    asked."""
+    feature = FEATURES[name]
+    if kwarg_value is not None:
+        return bool(kwarg_value), False
+    if feature.part_of is not None and whole_kwarg is not None:
+        return bool(whole_kwarg), True
+    env = _env_value(feature)
+    if env is not None:
+        return env, False
+    if feature.part_of is not None:
+        env = _env_value(FEATURES[feature.part_of])
+        if env is not None:
+            return env, True
+    return default_on(name, context), False
 
 
 def enabled(
-    name: str, kwarg_value: object = None, *, context: str | None = None
+    name: str,
+    kwarg_value: object = None,
+    *,
+    context: str | None = None,
+    whole_kwarg: object = None,
 ) -> bool:
     """Whether `name` is on: the keyword's value when one was passed (not
-    None), else its environment variable. Off by default. A native feature
-    that is on outside its reach raises :class:`FeatureNotCertified`."""
-    feature = FEATURES[name]
-    on = bool(kwarg_value) if kwarg_value is not None else _env_on(feature)
+    None), else its environment variable when set, else its default
+    (:func:`default_on`: off, unless the feature is promoted and certified
+    here). A native feature that is on outside its reach raises
+    :class:`FeatureNotCertified`.
+
+    A part (``part_of``) also reads the whole feature, after its own
+    keyword and before its own variable: its own keyword, then the whole's
+    keyword (`whole_kwarg`, the value the caller was given for the whole),
+    then its own variable, then the whole's, then its default. Turned on
+    by the whole alone, a native part outside its reach is off rather than
+    refused (:func:`withheld`)."""
+    on, through_whole = _resolve(name, kwarg_value, whole_kwarg, context)
+    if on and through_whole and _withheld_here(name, context):
+        return False
     if on:
         check(name, context)
     return on
 
 
+def _withheld_here(name: str, context: str | None) -> bool:
+    feature = FEATURES[name]
+    context = _CONTEXT.get() if context is None else context
+    return feature.kind == "native" and not certified(name, context)
+
+
+def withheld(
+    name: str,
+    kwarg_value: object = None,
+    *,
+    context: str | None = None,
+    whole_kwarg: object = None,
+) -> bool:
+    """Whether the whole feature asked for part `name` and it stayed off
+    because it is native and outside its reach here (:func:`enabled`'s
+    soft refusal), so a solver can say why it did not reuse."""
+    on, through_whole = _resolve(name, kwarg_value, whole_kwarg, context)
+    return on and through_whole and _withheld_here(name, context)
+
+
 def active() -> list[str]:
-    """The features the environment turns on, in registry order."""
+    """The features the environment turns on, in registry order (a
+    default-on one only when its variable says on, not by its default)."""
     return [name for name, f in FEATURES.items() if _env_on(f)]
 
 
@@ -608,18 +887,21 @@ def check(name: str, context: str | None = None) -> None:
     raise FeatureNotCertified(
         f"{name} is not certified for the {context} route on {_os(None)} "
         f"(support level {level}, {LEVELS[level - 1].id}; it reaches level "
-        f"{feature.reach}, {LEVELS[feature.reach - 1].id})"
+        f"{feature.reach}, {LEVELS[feature.reach - 1].id}); unset "
+        f"{feature.env} to run without it"
     )
 
 
 def stamp(context: str | None = None) -> str:
-    """What a printout's line 2 adds for the features that are on: ``""``
-    when none is (the line is then byte-identical to one without features),
-    else ``"+a+b"``, followed by ``" uncertified on this platform"`` when
-    any of them is outside its reach here (`context` defaulting to the
-    running one)."""
+    """What a printout's line 2 adds for the features the environment turns
+    on where their default is off: ``""`` when there are none (the line is
+    then byte-identical to one without features), else ``"+a+b"``, followed
+    by ``" uncertified on this platform"`` when any of them is outside its
+    reach here (`context` defaulting to the running one). A default-on
+    feature is never named: on, it is the stable path; turned off, the
+    printout is the one before it was promoted."""
     context = _CONTEXT.get() if context is None else context
-    names = active()
+    names = [n for n in active() if not default_on(n, context)]
     if not names:
         return ""
     text = "".join(f"+{n}" for n in names)

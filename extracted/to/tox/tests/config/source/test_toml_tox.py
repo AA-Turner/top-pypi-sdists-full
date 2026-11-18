@@ -88,8 +88,7 @@ class _TomlProjectCreator(Protocol):
 
 
 def test_config_in_toml_replace_default(toml_project: _TomlProjectCreator) -> None:
-    project = toml_project('[${prefix}env_run_base]\ndescription = "{missing:miss}"')
-    outcome = project.run("c", "-k", "description")
+    outcome = toml_project('[${prefix}env_run_base]\ndescription = "{missing:miss}"').run("c", "-k", "description")
     outcome.assert_success()
     outcome.assert_out_err("[testenv:py]\ndescription = miss\n", "")
 
@@ -199,10 +198,10 @@ def test_config_in_toml_replace_from_section_absolute(toml_project: _TomlProject
 def test_config_in_toml_env_list_bare_factor(
     tox_project: ToxProjectCreator, filename: str, factor: str, env_name: str, expected: str
 ) -> None:
-    prefix: Final = "tool.tox." if filename == "pyproject.toml" else ""
+    prefix, header = {"pyproject.toml": ("tool.tox.", "[tool.tox]"), "tox.toml": ("", "")}[filename]
     project: Final = tox_project({
         filename: f"""
-            {"[tool.tox]" if prefix else ""}
+            {header}
             env_list = [{factor}]
             [{prefix}env_run_base]
             description = "{{factor:ecosystem}}"
@@ -233,6 +232,24 @@ def test_config_in_toml_env_list_keyed_factor_description(tox_project: ToxProjec
     outcome = project.run("c", "-e", "sync-python-tt", "-k", "description")
     outcome.assert_success()
     outcome.assert_out_err("[testenv:sync-python-tt]\ndescription = Sync python to tt\n", "")
+
+
+def test_config_in_toml_env_list_keyed_factor_sharing_a_value(tox_project: ToxProjectCreator) -> None:
+    project: Final = tox_project({
+        "tox.toml": textwrap.dedent("""\
+            env_list = [{ product = [["compat"], { client = ["v1", "v2"] }, { server = ["v1", "v2"] }] }]
+
+            [env_run_base]
+            description = "client {factor:client}, server {factor:server}, {factor:0}"
+        """),
+    })
+    outcome: Final = project.run("c", "-e", "compat-v1-v2,compat-v2-v1", "-k", "description")
+    outcome.assert_success()
+    outcome.assert_out_err(
+        "[testenv:compat-v1-v2]\ndescription = client v1, server v2, compat\n\n"
+        "[testenv:compat-v2-v1]\ndescription = client v2, server v1, compat\n",
+        "",
+    )
 
 
 def test_config_in_toml_override_env_without_own_table(tox_project: ToxProjectCreator) -> None:

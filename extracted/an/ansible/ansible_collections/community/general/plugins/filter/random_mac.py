@@ -2,7 +2,6 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Make coding more python3-ish
 from __future__ import annotations
 
 DOCUMENTATION = r"""
@@ -60,11 +59,12 @@ def random_mac(value, seed=None):
         raise AnsibleFilterError(f"Invalid value ({value}) for random_mac: 5 colon(:) separated items max")
 
     err = ""
+    hexa_byte_re = re.compile("[a-f0-9]{2}")
     for mac in mac_items:
         if not mac:
             err += ",empty item"
             continue
-        if not re.match("[a-f0-9]{2}", mac):
+        if not hexa_byte_re.match(mac):
             err += f",{mac} not hexa byte"
     err = err.strip(",")
 

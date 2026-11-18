@@ -39,6 +39,7 @@ class IamMigrationStatus(object):
         'service_accounts_group_id': 'str',
         'admin_group_id': 'str',
         'conversion_incomplete': 'bool',
+        'conversion_running': 'bool',
         'directory_sync': 'bool'
     }
 
@@ -49,10 +50,11 @@ class IamMigrationStatus(object):
         'service_accounts_group_id': 'service_accounts_group_id',
         'admin_group_id': 'admin_group_id',
         'conversion_incomplete': 'conversion_incomplete',
+        'conversion_running': 'conversion_running',
         'directory_sync': 'directory_sync'
     }
 
-    def __init__(self, state=None, option=None, all_users_group_id=None, service_accounts_group_id=None, admin_group_id=None, conversion_incomplete=False, directory_sync=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, state=None, option=None, all_users_group_id=None, service_accounts_group_id=None, admin_group_id=None, conversion_incomplete=False, conversion_running=False, directory_sync=False, local_vars_configuration=None):  # noqa: E501
         """IamMigrationStatus - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -64,6 +66,7 @@ class IamMigrationStatus(object):
         self._service_accounts_group_id = None
         self._admin_group_id = None
         self._conversion_incomplete = None
+        self._conversion_running = None
         self._directory_sync = None
         self.discriminator = None
 
@@ -78,6 +81,8 @@ class IamMigrationStatus(object):
             self.admin_group_id = admin_group_id
         if conversion_incomplete is not None:
             self.conversion_incomplete = conversion_incomplete
+        if conversion_running is not None:
+            self.conversion_running = conversion_running
         if directory_sync is not None:
             self.directory_sync = directory_sync
 
@@ -220,6 +225,29 @@ class IamMigrationStatus(object):
         """
 
         self._conversion_incomplete = conversion_incomplete
+
+    @property
+    def conversion_running(self):
+        """Gets the conversion_running of this IamMigrationStatus.  # noqa: E501
+
+        Whether a conversion is running. Converting returns once the conversion has started and it carries on in the background; poll the status until the organization is converted, or until this is false while it is not, which means the conversion failed and conversion_incomplete is set.  # noqa: E501
+
+        :return: The conversion_running of this IamMigrationStatus.  # noqa: E501
+        :rtype: bool
+        """
+        return self._conversion_running
+
+    @conversion_running.setter
+    def conversion_running(self, conversion_running):
+        """Sets the conversion_running of this IamMigrationStatus.
+
+        Whether a conversion is running. Converting returns once the conversion has started and it carries on in the background; poll the status until the organization is converted, or until this is false while it is not, which means the conversion failed and conversion_incomplete is set.  # noqa: E501
+
+        :param conversion_running: The conversion_running of this IamMigrationStatus.  # noqa: E501
+        :type: bool
+        """
+
+        self._conversion_running = conversion_running
 
     @property
     def directory_sync(self):

@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-from .context import stub_context
-from .extract import find_ast_node, stub_annotations
-from .find import STUB_FILES, parse_stub_ast, stub_path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Documented as Documented
+
+from .find import stub_path
 
 __all__ = [
-    "STUB_FILES",
-    "find_ast_node",
-    "parse_stub_ast",
-    "stub_annotations",
-    "stub_context",
     "stub_path",
 ]

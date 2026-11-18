@@ -409,6 +409,22 @@ options:
                     - userDefinedRouting
                     - managedNATGateway
                     - userAssignedNATGateway
+            load_balancer_profile:
+                description:
+                    - Configuration profile for the Azure Load Balancer.
+                type: dict
+                version_added: '4.0.0'
+                suboptions:
+                    backend_pool_type:
+                        description:
+                            - Specifies how nodes are added to the Load Balancer backend pool.
+                            - C(nodeIP) uses the node IP address as the backend pool member.
+                            - C(nodeIPConfiguration) uses the node network interface IP configuration.
+                        type: str
+                        choices:
+                            - nodeIP
+                            - nodeIPConfiguration
+                        required: false
     api_server_access_profile:
         description:
             - Profile of API Access configuration.
@@ -491,6 +507,22 @@ options:
                             - Enabled or disabled the Azure Key Vault provider in the AKS cluster.
                         type: bool
                         default: true
+                    enable_secret_rotation:
+                        description:
+                            - Enable Key Vault Secret rotation.
+                        type: bool
+                        version_added: '4.0.0'
+                        required: false
+                        aliases:
+                            - enableSecretRotation
+                    rotation_poll_interval:
+                        description:
+                            - Polling interval used for rotation.
+                        type: str
+                        version_added: '4.0.0'
+                        required: false
+                        aliases:
+                            - rotationPollInterval
             monitoring:
                 description:
                     - It gives you performance visibility by collecting memory and processor metrics from controllers, nodes,
@@ -511,6 +543,15 @@ options:
                         required: true
                         aliases:
                             - logAnalyticsWorkspaceResourceID
+                    use_aad_auth:
+                        description:
+                            - Enables managed identity authentication between the cluster monitoring agent
+                              and the Log Analytics workspace.
+                        type: bool
+                        version_added: '4.0.0'
+                        required: false
+                        aliases:
+                            - useAADAuth
             virtual_node:
                 description:
                     - With virtual nodes, you have quick provisioning of pods, and only pay per second for their execution time.
@@ -657,6 +698,53 @@ options:
                     - Unmanaged
                     - SecurityPatch
                     - NodeImage
+    storage_profile:
+        description:
+            - Storage profile for the AKS cluster.
+            - Defines the CSI drivers and snapshot controller enabled on the cluster.
+        type: dict
+        version_added: '4.0.0'
+        suboptions:
+            disk_csi_driver:
+                description:
+                    - Azure Disk CSI driver configuration.
+                type: dict
+                suboptions:
+                    enabled:
+                        description:
+                            - Whether the Azure Disk CSI driver is enabled.
+                        type: bool
+                        required: false
+            file_csi_driver:
+                description:
+                    - Azure File CSI driver configuration.
+                type: dict
+                suboptions:
+                    enabled:
+                        description:
+                            - Whether the Azure File CSI driver is enabled.
+                        type: bool
+                        required: false
+            snapshot_controller:
+                description:
+                    - Snapshot controller configuration.
+                type: dict
+                suboptions:
+                    enabled:
+                        description:
+                            - Whether the snapshot controller is enabled.
+                        type: bool
+                        required: false
+            blob_csi_driver:
+                description:
+                    - Azure Blob CSI driver configuration.
+                type: dict
+                suboptions:
+                    enabled:
+                        description:
+                            - Whether the Azure Blob CSI driver is enabled.
+                        type: bool
+                        required: false
 extends_documentation_fragment:
     - azure.azcollection.azure
     - azure.azcollection.azure_tags
@@ -1000,6 +1088,7 @@ def create_aks_dict(aks):
         windows_profile=create_windows_profile_dict(aks.windows_profile),
         pod_identity_profile=create_pod_identity_profile(aks.pod_identity_profile.as_dict()) if aks.pod_identity_profile else None,
         security_profile=aks.security_profile.as_dict() if aks.security_profile else None,
+        storage_profile=aks.storage_profile.as_dict() if aks.storage_profile else None
     )
 
 
@@ -1027,7 +1116,8 @@ def create_network_profiles_dict(network):
         service_cidr=network.service_cidr,
         dns_service_ip=network.dns_service_ip,
         load_balancer_sku=network.load_balancer_sku,
-        outbound_type=network.outbound_type
+        outbound_type=network.outbound_type,
+        load_balancer_profile=network.load_balancer_profile.as_dict() if network.load_balancer_profile else None
     ) if network else dict()
 
 
@@ -1040,13 +1130,53 @@ def create_api_server_access_profile_dict(api_server):
 
 
 def create_addon_dict(addon):
-    result = dict()
-    addon = addon or dict()
-    for key in addon.keys():
-        result[key] = addon[key].config
-        if result[key] is None:
-            result[key] = {}
-        result[key]['enabled'] = addon[key].enabled
+    '''
+    Helper method to deserialize managed cluster add-on profiles to an Ansible dict.
+    Converts Azure add-on names and configuration keys back to their Ansible
+    equivalents and restores the expected Python types for configuration values.
+
+    :param addon: Dictionary of ManagedClusterAddonProfile objects returned by Azure.
+    :return: Dictionary containing the add-on configuration in Ansible format.
+    '''
+    result = {}
+    addon = addon or {}
+    # Reverse mapping
+    reverse_addons = {
+        spec['name']: (
+            ansible_name,
+            {
+                config['azure']: {
+                    'name': ansible_key,
+                    'type': config.get('type', 'str')
+                }
+                for ansible_key, config in (spec.get('config') or {}).items()
+            }
+        )
+        for ansible_name, spec in ADDONS.items()
+    }
+
+    for azure_name, profile in addon.items():
+        if azure_name not in reverse_addons:
+            # Preserve unsupported Azure addons using their Azure name.
+            config = dict(profile.config or {})
+            config['enabled'] = profile.enabled
+            result[azure_name] = config
+            continue
+        ansible_name, reverse_config = reverse_addons[azure_name]
+        config = {}
+        for azure_key, value in (profile.config or {}).items():
+            mapping = reverse_config.get(azure_key)
+            if mapping:
+                ansible_key = mapping['name']
+                value_type = mapping['type']
+                if value_type == 'bool':
+                    value = str(value).lower() == 'true'
+            else:
+                ansible_key = azure_key
+            config[ansible_key] = value
+        config['enabled'] = profile.enabled
+        result[ansible_name] = config
+
     return result
 
 
@@ -1138,20 +1268,61 @@ def create_addon_profiles_spec():
             enabled=dict(type='bool', default=True)
         )
         configs = values.get('config') or {}
-        for item in configs.keys():
-            addon_spec[item] = dict(type='str', aliases=[configs[item]], required=True)
-        if key == 'azure_keyvault_secrets_provider':
-            spec[key] = dict(type='dict', no_log=True, options=addon_spec, aliases=[values['name']])
-        else:
-            spec[key] = dict(type='dict', options=addon_spec, aliases=[values['name']])
+        for name, info in configs.items():
+            addon_spec[name] = dict(
+                type=info.get('type', 'str'),
+                aliases=[info['azure']],
+                required=info.get('required', False),
+                no_log=info.get('no_log', False)
+            )
+        spec[key] = dict(type='dict', options=addon_spec, aliases=[values['name']], no_log=False)
     return spec
 
 
 ADDONS = {
-    'http_application_routing': dict(name='httpApplicationRouting'),
-    'monitoring': dict(name='omsagent', config={'log_analytics_workspace_resource_id': 'logAnalyticsWorkspaceResourceID'}),
-    'virtual_node': dict(name='aciConnector', config={'subnet_resource_id': 'SubnetName'}),
-    'azure_keyvault_secrets_provider': dict(name='azureKeyvaultSecretsProvider')
+    'http_application_routing': dict(
+        name='httpApplicationRouting'
+    ),
+    'monitoring': dict(
+        name='omsagent',
+        config={
+            'log_analytics_workspace_resource_id': dict(
+                azure='logAnalyticsWorkspaceResourceID',
+                type='str',
+                required=True
+            ),
+            'use_aad_auth': dict(
+                azure='useAADAuth',
+                type='bool',
+                required=False
+            )
+        }
+    ),
+    'virtual_node': dict(
+        name='aciConnector',
+        config={
+            'subnet_resource_id': dict(
+                azure='SubnetName',
+                type='str',
+                required=True
+            )
+        }
+    ),
+    'azure_keyvault_secrets_provider': dict(
+        name='azureKeyvaultSecretsProvider',
+        config={
+            'enable_secret_rotation': dict(
+                azure='enableSecretRotation',
+                type='bool',
+                required=False
+            ),
+            'rotation_poll_interval': dict(
+                azure='rotationPollInterval',
+                type='str',
+                required=False
+            )
+        }
+    )
 }
 
 
@@ -1210,7 +1381,16 @@ network_profile_spec = dict(
     service_cidr=dict(type='str'),
     dns_service_ip=dict(type='str'),
     load_balancer_sku=dict(type='str', choices=['standard', 'basic']),
-    outbound_type=dict(type='str', default='loadBalancer', choices=['userDefinedRouting', 'loadBalancer', 'userAssignedNATGateway', 'managedNATGateway'])
+    outbound_type=dict(type='str', default='loadBalancer', choices=['userDefinedRouting', 'loadBalancer', 'userAssignedNATGateway', 'managedNATGateway']),
+    load_balancer_profile=dict(
+        type='dict',
+        options=dict(
+            backend_pool_type=dict(
+                type='str',
+                choices=['nodeIP', 'nodeIPConfiguration']
+            )
+        )
+    ),
 )
 
 
@@ -1416,6 +1596,35 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
                     ),
                 )
             ),
+            storage_profile=dict(
+                type='dict',
+                options=dict(
+                    disk_csi_driver=dict(
+                        type='dict',
+                        options=dict(
+                            enabled=dict(type='bool', required=False),
+                        )
+                    ),
+                    file_csi_driver=dict(
+                        type='dict',
+                        options=dict(
+                            enabled=dict(type='bool', required=False),
+                        )
+                    ),
+                    snapshot_controller=dict(
+                        type='dict',
+                        options=dict(
+                            enabled=dict(type='bool', required=False),
+                        )
+                    ),
+                    blob_csi_driver=dict(
+                        type='dict',
+                        options=dict(
+                            enabled=dict(type='bool', required=False),
+                        )
+                    ),
+                )
+            ),
         )
 
         self.resource_group = None
@@ -1572,7 +1781,19 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
                     if self.network_profile:
                         for key in self.network_profile.keys():
                             original = response['network_profile'].get(key) or ''
-                            if self.network_profile[key] and self.network_profile[key].lower() != original.lower():
+                            requested = self.network_profile.get(key) or ''
+
+                            if not requested:
+                                continue
+
+                            if isinstance(requested, dict):
+                                if not isinstance(original, dict):
+                                    to_be_updated = True
+                                elif not self.default_compare({}, requested, original, '', dict(compare=[])):
+                                    to_be_updated = True
+                                else:
+                                    self.network_profile[key] = original
+                            elif requested.lower() != original.lower():
                                 to_be_updated = True
 
                     def compare_addon(origin, patch, config):
@@ -1584,14 +1805,15 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
                             return False
                         config = config or dict()
                         for key in config.keys():
-                            if origin.get(config[key]) != patch.get(key):
-                                return False
+                            # if not set in requested model, ignore and keep origin
+                            if patch.get(key) is not None:
+                                if origin.get(key) != patch.get(key):
+                                    return False
                         return True
 
                     if self.addon:
                         for key in ADDONS.keys():
-                            addon_name = ADDONS[key]['name']
-                            if not compare_addon(response['addon'].get(addon_name), self.addon.get(key), ADDONS[key].get('config')):
+                            if not compare_addon(response['addon'].get(key), self.addon.get(key), ADDONS[key].get('config')):
                                 to_be_updated = True
 
                     if self.windows_profile:
@@ -1715,6 +1937,11 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
                                   .format(response['windows_profile']['admin_username'], self.windows_profile.get('admin_username'))))
                         to_be_updated = True
                         # self.module.warn("windows_profile.admin_username cannot be updated")
+
+                    if not self.default_compare({}, self.storage_profile, response['storage_profile'], '', dict(compare=[])):
+                        to_be_updated = True
+                    else:
+                        self.storage_profile = response['storage_profile']
 
             if update_agentpool:
                 self.log("Need to update agentpool")
@@ -1861,6 +2088,7 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
             auto_upgrade_profile=auto_upgrade_profile,
             disable_local_accounts=self.disable_local_accounts,
             security_profile=security_profile,
+            storage_profile=self.create_cluster_storage_profile_instance(self.storage_profile),
         )
 
         # self.log("service_principal_profile : {0}".format(parameters.service_principal_profile))
@@ -2039,6 +2267,9 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
     def create_aad_profile_instance(self, aad):
         return self.managedcluster_models.ManagedClusterAADProfile(**aad) if aad else None
 
+    def create_cluster_storage_profile_instance(self, storage):
+        return self.managedcluster_models.ManagedClusterStorageProfile(**storage) if storage else None
+
     def create_addon_profile_instance(self, addon):
         result = dict()
         addon = addon or {}
@@ -2047,11 +2278,18 @@ class AzureRMManagedCluster(AzureRMModuleBaseExt):
                 self.fail('Unsupported addon {0}'.format(key))
             if addon.get(key):
                 name = ADDONS[key]['name']
-                config_spec = ADDONS[key].get('config') or dict()
+                config_spec = ADDONS[key].get('config') or {}
                 config = addon[key]
-                for v in config_spec.keys():
-                    config[config_spec[v]] = config[v]
-                result[name] = self.managedcluster_models.ManagedClusterAddonProfile(config=config, enabled=config['enabled'])
+                addon_config = {}
+
+                for param_name, info in config_spec.items():
+                    if param_name in config:
+                        addon_config[info['azure']] = config[param_name]
+                result[name] = self.managedcluster_models.ManagedClusterAddonProfile(
+                    config=addon_config,
+                    enabled=config['enabled']
+                )
+
         return result
 
     # AKS only supports a single UserAssigned Identity

@@ -32,9 +32,10 @@ __metaclass__ = type
 import json
 import os
 import copy
+import logging
 from functools import partial
-from ansible.module_utils._text import to_native
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_native
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.common.validation import check_type_dict
 from ast import literal_eval as safe_eval
@@ -43,6 +44,10 @@ try:
     from infoblox_client.connector import Connector
     from infoblox_client.exceptions import InfobloxException
     HAS_INFOBLOX_CLIENT = True
+    # Suppress "No handlers could be found for logger 'infoblox_client.connector'" and the
+    # library's re-auth WARNING noise when the consuming app has not configured logging.
+    # https://github.com/infobloxopen/infoblox-ansible/issues/123
+    logging.getLogger('infoblox_client').addHandler(logging.NullHandler())
 except ImportError:
     HAS_INFOBLOX_CLIENT = False
 
@@ -86,6 +91,31 @@ NIOS_DTC_TOPOLOGY = 'dtc:topology'
 NIOS_EXTENSIBLE_ATTRIBUTE = 'extensibleattributedef'
 NIOS_VLAN = 'vlan'
 NIOS_ADMINUSER = 'adminuser'
+
+# Object types that intentionally do NOT participate in the post-write
+# re-fetch performed at the end of WapiModule.run() (issue #305).
+# NIOS_MEMBER's create_token path already returns its payload under
+# result['api_results'] and there is no canonical 'member' object to re-read
+# in that flow.
+NIOS_RETURN_OBJECT_EXCLUDE = frozenset({
+    NIOS_MEMBER,
+})
+
+# ib_spec keys that are module-side helpers / write-only inputs and are NOT
+# valid WAPI return fields. They are stripped from the return_fields set
+# passed to the post-write re-fetch in WapiModule.run() (issue #305) so the
+# GET succeeds on the first try. Mirrors the per-type sanitization already
+# performed by get_object_ref() before its own GETs.
+NIOS_RETURN_FIELDS_EXCLUDE = frozenset({
+    'restart_if_needed',   # nios_zone
+    'template',            # nios_network, nios_network_container
+    'new_start_addr',      # nios_range
+    'new_end_addr',        # nios_range
+    'create_token',        # nios_member
+    'password',            # nios_adminuser - WAPI rejects GET return_fields+=password
+    'members',             # nios_network - WAPI rejects GET return_fields+=members
+    'vlans',               # nios_network, nios_vlan - WAPI rejects GET return_fields+=vlans
+})
 
 NIOS_PROVIDER_SPEC = {
     'host': dict(fallback=(env_fallback, ['INFOBLOX_HOST'])),
@@ -152,8 +182,71 @@ def normalize_extattrs(value):
                 value: <value>
             }
         }
+    A value may also be provided as a dict to control extensible attribute
+    inheritance, e.g.:
+        extattrs: {
+            key: {
+                value: <value>,
+                inheritance_operation: 'INHERIT' | 'OVERRIDE'
+            }
+        }
+    In that case the struct is passed through as-is, except for the read-only
+    'inheritance_source' field which WAPI returns on read but rejects on write.
     '''
-    return dict([(k, {'value': v}) for k, v in value.items()])
+    normalized = {}
+    for k, v in value.items():
+        if isinstance(v, dict):
+            normalized[k] = {ik: iv for ik, iv in v.items() if ik != 'inheritance_source'}
+        else:
+            normalized[k] = {'value': v}
+    return normalized
+
+
+# nsgroup fields that hold lists of nameserver structs which may carry TSIG
+# configuration (directly or, for grid members, via preferred_primaries).
+NIOS_NSGROUP_SERVER_LISTS = (
+    'external_primaries', 'external_secondaries', 'grid_primary', 'grid_secondaries')
+
+
+def _canonicalize_tsig(server):
+    ''' Canonicalize the TSIG fields of a single nameserver struct in place.
+
+    tsig_key is write-only: WAPI never returns the key material on read and
+    Ansible masks it in output, so it must be dropped before comparison. WAPI
+    also stores a supplied tsig_key_name as the boolean use_tsig_key_name flag
+    (returning use_tsig_key_name=true rather than the name), so rewrite the
+    name to that flag to match the read-back representation.
+    '''
+    if not isinstance(server, dict):
+        return
+    server.pop('tsig_key', None)
+    if server.get('tsig_key_name'):
+        server['use_tsig_key_name'] = True
+        server.pop('tsig_key_name', None)
+
+
+def normalize_nsgroup_tsig(obj):
+    ''' Return a deep copy of an nsgroup object with TSIG fields canonicalized.
+
+    Applied to both the proposed and current objects so that a re-applied
+    nsgroup carrying TSIG-secured nameservers compares equal and stays
+    idempotent. The original object is left untouched so the create/update
+    payload still carries the real tsig_key/tsig_key_name.
+    '''
+    if not isinstance(obj, dict):
+        return obj
+    normalized = copy.deepcopy(obj)
+    for field in NIOS_NSGROUP_SERVER_LISTS:
+        servers = normalized.get(field)
+        if not isinstance(servers, list):
+            continue
+        for server in servers:
+            _canonicalize_tsig(server)
+            # grid members nest external servers under preferred_primaries.
+            if isinstance(server, dict):
+                for ext in server.get('preferred_primaries') or []:
+                    _canonicalize_tsig(ext)
+    return normalized
 
 
 def flatten_extattrs(value):
@@ -168,8 +261,24 @@ def flatten_extattrs(value):
         extattrs: {
             key: value
         }
+    When a value carries inheritance metadata (i.e. it is inherited from a
+    parent object), WAPI returns:
+        extattrs: {
+            key: {
+                value: <value>,
+                inheritance_source: { _ref: <parent> }
+            }
+        }
+    In that case the full struct is preserved so the inherited state stays
+    visible and can be compared for idempotency.
     '''
-    return dict([(k, v['value']) for k, v in value.items()])
+    flattened = {}
+    for k, v in value.items():
+        if isinstance(v, dict) and 'inheritance_source' in v:
+            flattened[k] = v
+        else:
+            flattened[k] = v['value']
+    return flattened
 
 
 def member_normalize(member_spec):
@@ -222,6 +331,16 @@ def convert_members_to_struct(member_spec):
     return member_spec
 
 
+def convert_vlans_to_struct(network_spec):
+    ''' Normalizes the vlans list of a network object to only contain the vlan
+    reference key, stripping NIOS-added fields (id, name) so that the proposed
+    and current objects can be compared with verify_list_content_equality.
+    '''
+    if 'vlans' in network_spec and network_spec['vlans']:
+        network_spec['vlans'] = [{'vlan': item['vlan']} for item in network_spec['vlans'] if 'vlan' in item]
+    return network_spec
+
+
 def convert_ea_list_to_struct(member_spec):
     ''' Transforms the list of the values into a valid WAPI struct.
     '''
@@ -230,6 +349,74 @@ def convert_ea_list_to_struct(member_spec):
             member_spec['list_values'] = [item['value'] for item in member_spec['list_values']]
         member_spec['list_values'] = [{'_struct': 'extensibleattributedef:listvalues', 'value': v} for v in member_spec['list_values']]
     return member_spec
+
+
+def dtc_topology_uses_structured_destination(wapi_version):
+    ''' Return True when the given WAPI version represents a dtc:topology rule
+    destination as the structured ``destination`` array introduced in WAPI
+    2.14 (NIOS 9.1.0), rather than the legacy top-level ``destination_link``
+    string used up to and including WAPI 2.13.x. A missing patch component is
+    treated as 0 (e.g. ``'2.14'`` -> ``2.14.0``) so a MAJOR.MINOR version is
+    handled correctly. Malformed input falls back to the legacy shape.
+    '''
+    parts = str(wapi_version).split('.')
+    try:
+        major, minor = int(parts[0]), int(parts[1])
+    except (IndexError, ValueError):
+        return False
+    if major != 2:
+        return major > 2
+    return minor >= 14
+
+
+def normalize_dtc_topology_rules(topology_object):
+    ''' Normalize the rules of a fetched dtc:topology so it can be compared
+    against the payload the module builds. NIOS returns each rule destination
+    link as an expanded object ({_ref, name, uuid}) and tags every rule with
+    server-side bookkeeping (_ref, uuid); the module sends a bare object
+    reference string and no bookkeeping. Flatten the read shape to the bare
+    reference and drop the bookkeeping keys so the idempotency comparison
+    matches. Handles both the WAPI 2.14 structured ``destination`` array and
+    the legacy top-level ``destination_link``.
+    '''
+    rules = topology_object.get('rules')
+    if not isinstance(rules, list):
+        return topology_object
+
+    def _link_ref(value):
+        if isinstance(value, dict):
+            return value.get('_ref')
+        return value
+
+    for rule in rules:
+        if not isinstance(rule, dict):
+            continue
+        rule.pop('_ref', None)
+        rule.pop('uuid', None)
+        # WAPI 2.14+ structured destination array. NIOS returns the array
+        # sorted by ascending priority regardless of the order it was sent in,
+        # so sort the flattened list the same way (see the matching sort in the
+        # module's build_topology_rules) to keep the comparison order-stable.
+        if isinstance(rule.get('destination'), list):
+            destinations = [
+                {'destination_link': _link_ref(item.get('destination_link')),
+                 'priority': item.get('priority')}
+                for item in rule['destination']
+                if isinstance(item, dict)
+            ]
+            rule['destination'] = sorted(
+                destinations,
+                key=lambda item: (item['priority'] is None, item['priority'])
+            )
+        # Legacy top-level destination_link (WAPI <= 2.13.x).
+        if 'destination_link' in rule:
+            rule['destination_link'] = _link_ref(rule['destination_link'])
+        # NIOS returns sources=[] for rules without source conditions while
+        # the module omits sources entirely; drop the empty list so the
+        # comparison does not register a spurious difference.
+        if rule.get('sources') == []:
+            rule.pop('sources', None)
+    return topology_object
 
 
 def normalize_ib_spec(ib_spec):
@@ -246,7 +433,7 @@ class WapiBase(object):
     provider_spec = {'provider': dict(type='dict', options=NIOS_PROVIDER_SPEC)}
 
     def __init__(self, provider):
-        self.connector = get_connector(**provider)
+        self.connector = get_connector(**(provider or {}))
 
     def __getattr__(self, name):
         try:
@@ -270,15 +457,38 @@ class WapiBase(object):
 class WapiLookup(WapiBase):
     ''' Implements WapiBase for lookup plugins '''
     def handle_exception(self, method_name, exc):
-        if ('text' in exc.response):
-            raise Exception(exc.response['text'])
+        response = getattr(exc, 'response', None)
+        # The library sets ``response`` to varying types (dict, bytes, str,
+        # requests.Response); only a dict carries the parsed WAPI error fields.
+        if not isinstance(response, dict):
+            response = {}
+        if 'text' in response:
+            raise Exception(response['text'])
         else:
             raise Exception(exc)
 
 
 class WapiInventory(WapiBase):
-    ''' Implements WapiBase for dynamic inventory script '''
-    pass
+    ''' Implements WapiBase for dynamic inventory plugin '''
+    def handle_exception(self, method_name, exc):
+        ''' Surface a meaningful error when a WAPI call fails.
+
+        Without this method the dynamic ``__getattr__`` on :class:`WapiBase`
+        resolves the ``handle_exception`` lookup to a ``partial`` wrapper, so
+        ``hasattr(self, 'handle_exception')`` in ``_invoke_method`` is always
+        True and the call is dispatched to the underlying ``Connector``. That
+        produced the misleading "'Connector' object has no attribute
+        'handle_exception'" error instead of the real cause (wrong username or
+        password, unreachable host, timeout, etc.).
+        '''
+        response = getattr(exc, 'response', None)
+        # Only a dict carries parsed WAPI error fields; bad credentials, for
+        # example, set ``response`` to raw bytes which must not reach ``in``.
+        if not isinstance(response, dict):
+            response = {}
+        if 'text' in response:
+            raise Exception(response['text']) from exc
+        raise Exception(exc) from exc
 
 
 class AnsibleError(Exception):
@@ -303,11 +513,27 @@ class WapiModule(WapiBase):
         exception. This method will then gracefully fail the module.
         :args exc: instance of InfobloxException
         '''
-        if ('text' in exc.response):
+        response = getattr(exc, 'response', None)
+        # The library sets ``response`` to varying types (dict, bytes, str,
+        # requests.Response). Only a dict carries the parsed WAPI error fields;
+        # coerce anything else to {} so the membership/``.get`` checks below are
+        # safe and a non-dict response falls back to ``to_native(exc)``.
+        if not isinstance(response, dict):
+            response = {}
+
+        # For state=absent deletes, treat NotFound as idempotent success.
+        if method_name == 'delete_object' and self.module.params.get('state') == 'absent':
+            code = to_text(response.get('code', '')).lower()
+            error = to_text(response.get('Error', '')).lower()
+            text = to_text(response.get('text', '')).lower()
+            if 'notfound' in code or 'datanotfound' in code or 'notfound' in error or 'not found' in text:
+                return
+
+        if ('text' in response):
             self.module.fail_json(
-                msg=exc.response['text'],
-                type=exc.response['Error'].split(':')[0],
-                code=exc.response.get('code'),
+                msg=response['text'],
+                type=response.get('Error', '').split(':')[0],
+                code=response.get('code'),
                 operation=method_name
             )
         else:
@@ -351,7 +577,44 @@ class WapiModule(WapiBase):
 
         obj_filter = dict([(k, self.module.params[k]) for k, v in ib_spec.items() if v.get('ib_req')])
         # get object reference
-        ib_obj_ref, update, new_name = self.get_object_ref(self.module, ib_obj_type, obj_filter, ib_spec)
+        try:
+            ib_obj_ref, update, new_name = self.get_object_ref(self.module, ib_obj_type, obj_filter, ib_spec)
+        except Exception as exc:
+            self.module.fail_json(msg=to_native(exc))
+
+        # Issue #300: IPAM-only host records carry view=' ' in WAPI. If the user
+        # calls state=absent (or update) without specifying a view, our search
+        # uses view='default' and returns 0 results, so we silently no-op and
+        # leave the record on the grid. Retry the search without the view
+        # filter to find IPAM-only hosts before declaring the object absent.
+        #
+        # To avoid acting on host records that live in unrelated DNS views,
+        # restrict the retry results to IPAM-only host records (view is blank
+        # or whitespace). If the retry still returns multiple eligible
+        # matches, fail with a clear error rather than picking one arbitrarily.
+        if (ib_obj_type == NIOS_HOST_RECORD and not ib_obj_ref
+                and obj_filter.get('view') == 'default'):
+            retry_filter = dict(obj_filter)
+            retry_filter.pop('view', None)
+            try:
+                retry_obj_ref, retry_update, retry_new_name = self.get_object_ref(
+                    self.module, ib_obj_type, retry_filter, ib_spec)
+            except Exception as exc:
+                self.module.fail_json(msg=to_native(exc))
+            if retry_obj_ref:
+                ipam_only = [
+                    rec for rec in retry_obj_ref
+                    if isinstance(rec, dict)
+                    and ((isinstance(rec.get('view'), str) and not rec.get('view').strip())
+                         or rec.get('configure_for_dns') is False)
+                ]
+                if len(ipam_only) > 1:
+                    self.module.fail_json(
+                        msg=("multiple IPAM-only host records named '%s' were found "
+                             "and could not be disambiguated"
+                             % obj_filter.get('name')))
+                if ipam_only:
+                    ib_obj_ref, update, new_name = ipam_only, retry_update, retry_new_name
 
         # When a range update is defined, check for a range that matches the target range definition as well
         # to allows for idempotence
@@ -376,10 +639,15 @@ class WapiModule(WapiBase):
                 if transformed_value is not None:
                     proposed_object[key] = transformed_value
 
-        # If configure_by_dns is set to False and view is 'default', then delete the default dns
-        if not proposed_object.get('configure_for_dns') and proposed_object.get('view') == 'default' \
-                and ib_obj_type == NIOS_HOST_RECORD:
-            del proposed_object['view']
+        # Issue #300: IPAM-only (non-DNS) host records carry view=' ' in WAPI.
+        # Drop `view` from proposed_object when:
+        #   - DNS is bypassed and view defaults to 'default' (legacy behavior), OR
+        #   - the view value is blank/whitespace (matches the IPAM-only marker).
+        if ib_obj_type == NIOS_HOST_RECORD:
+            view_val = proposed_object.get('view')
+            if (not proposed_object.get('configure_for_dns') and view_val == 'default') \
+                    or (isinstance(view_val, str) and not view_val.strip()):
+                proposed_object.pop('view', None)
         if ib_obj_ref:
             if len(ib_obj_ref) > 1:
                 for each in ib_obj_ref:
@@ -391,7 +659,8 @@ class WapiModule(WapiBase):
                     elif each.get('ipv4addrs') and each.get('ipv4addrs')[0].get('ipv4addr') \
                             == proposed_object.get('ipv4addrs')[0].get('ipv4addr'):
                         current_object = each
-                    # Else set the current_object with input value
+                        break
+                    # No IP match found: treat as a new record, do not overwrite existing
                     else:
                         current_object = obj_filter
                         ref = None
@@ -415,8 +684,12 @@ class WapiModule(WapiBase):
 
         if (ib_obj_type == NIOS_IPV4_NETWORK or ib_obj_type == NIOS_IPV6_NETWORK):
             proposed_object = convert_members_to_struct(proposed_object)
+            proposed_object = convert_vlans_to_struct(proposed_object)
+            current_object = convert_members_to_struct(current_object)
+            current_object = convert_vlans_to_struct(current_object)
 
-        if ib_obj_type in {NIOS_IPV4_NETWORK_CONTAINER, NIOS_IPV6_NETWORK_CONTAINER, NIOS_IPV4_NETWORK, NIOS_IPV6_NETWORK, NIOS_RANGE}:
+        if ib_obj_type in {NIOS_IPV4_NETWORK_CONTAINER, NIOS_IPV6_NETWORK_CONTAINER, NIOS_IPV4_NETWORK, NIOS_IPV6_NETWORK, NIOS_RANGE,
+                           NIOS_IPV4_FIXED_ADDRESS, NIOS_IPV6_FIXED_ADDRESS}:
 
             # Iterate over each option and remove the 'num' key
             if current_object.get('options') or proposed_object.get('options'):
@@ -447,6 +720,12 @@ class WapiModule(WapiBase):
         if ib_obj_type == NIOS_VLAN and ib_obj_ref:
             if 'parent' in current_object:
                 current_object['parent'] = current_object['parent']['_ref']
+
+        # NPA-1840: flatten the fetched dtc:topology rules (expanded
+        # destination links and server-side _ref/uuid bookkeeping) to the
+        # shape the module builds so the idempotency comparison matches.
+        if ib_obj_type == NIOS_DTC_TOPOLOGY and ib_obj_ref:
+            normalize_dtc_topology_rules(current_object)
 
         # checks if the 'text' field has to be updated for the TXT Record
         if (ib_obj_type == NIOS_TXT_RECORD):
@@ -490,13 +769,29 @@ class WapiModule(WapiBase):
 
         # Checks if 'new_ipv4addr' param exists in ipv4addr args
         proposed_object = self.check_for_new_ipv4addr(proposed_object)
+        # Checks if 'new_ipv6addr' param exists in ipv6addr args
+        proposed_object = self.check_for_new_ipv6addr(proposed_object)
 
         res = None
         if ib_obj_type == NIOS_VLAN:
             # Removes keys from the proposed_object that are empty and do not exist in current_object.
             # Fix the issue to update the optional fields of the object with default empty values
             proposed_object = self.clean_empty_keys(current_object, proposed_object)
-        modified = not self.compare_objects(current_object, proposed_object, ib_obj_type)
+        # For NIOS_ADMINUSER, exclude write-only 'password' from comparison since NIOS never returns it.
+        # Without this, every task with a password would always trigger a spurious change.
+        if ib_obj_type == NIOS_ADMINUSER:
+            proposed_for_compare = {k: v for k, v in proposed_object.items() if k != 'password'}
+        else:
+            proposed_for_compare = proposed_object
+        current_for_compare = current_object
+        # TSIG key material is write-only and WAPI represents a supplied
+        # tsig_key_name as the use_tsig_key_name flag on read-back, so a
+        # verbatim comparison always reports changed=True. Canonicalize both
+        # sides (on copies) so re-applying a TSIG-secured nsgroup is idempotent.
+        if ib_obj_type == NIOS_NSGROUP:
+            proposed_for_compare = normalize_nsgroup_tsig(proposed_for_compare)
+            current_for_compare = normalize_nsgroup_tsig(current_object)
+        modified = not self.compare_objects(current_for_compare, proposed_for_compare, ib_obj_type)
         if 'extattrs' in proposed_object:
             proposed_object['extattrs'] = normalize_extattrs(proposed_object['extattrs'])
 
@@ -506,7 +801,7 @@ class WapiModule(WapiBase):
         if state == 'present':
             if ref is None:
                 if not self.module.check_mode:
-                    self.create_object(ib_obj_type, proposed_object)
+                    res = self.create_object(ib_obj_type, proposed_object)
                 result['changed'] = True
             # Check if NIOS_MEMBER and the flag to call function create_token is set
             elif (ib_obj_type == NIOS_MEMBER) and (proposed_object.get("create_token") is True):
@@ -523,13 +818,24 @@ class WapiModule(WapiBase):
                     run_update = True
                     proposed_object = self.on_update(proposed_object, ib_spec)
                     if 'ipv4addrs' in proposed_object:
-                        if ('add' or 'remove') in proposed_object['ipv4addrs'][0]:
-                            run_update, proposed_object = self.check_if_add_remove_ip_arg_exists(proposed_object)
-                            if run_update:
-                                res = self.update_object(ref, proposed_object)
-                                result['changed'] = True
-                            else:
+                        if ('add' in proposed_object['ipv4addrs'][0]) or ('remove' in proposed_object['ipv4addrs'][0]):
+                            # Idempotency: skip WAPI call if the desired state is already met.
+                            # add: true on an IP already in the record → no-op (changed=False)
+                            # remove: true on an IP not in the record  → no-op (changed=False)
+                            proposed_ip = proposed_object['ipv4addrs'][0].get('ipv4addr')
+                            current_ips = [a.get('ipv4addr') for a in current_object.get('ipv4addrs', [])]
+                            is_add = proposed_object['ipv4addrs'][0].get('add') is True
+                            is_remove = proposed_object['ipv4addrs'][0].get('remove') is True
+                            if (is_add and proposed_ip in current_ips) or (is_remove and proposed_ip not in current_ips):
                                 res = ref
+                            else:
+                                run_update, proposed_object = self.check_if_add_remove_ip_arg_exists(proposed_object)
+                                if run_update:
+                                    if not self.module.check_mode:
+                                        res = self.update_object(ref, proposed_object)
+                                    result['changed'] = True
+                                else:
+                                    res = ref
 
                 if (ib_obj_type in (NIOS_A_RECORD, NIOS_AAAA_RECORD, NIOS_PTR_RECORD, NIOS_SRV_RECORD, NIOS_NAPTR_RECORD)):
                     # popping 'view' key as update of 'view' is not supported with respect to a:record/aaaa:record/srv:record/ptr:record/naptr:record
@@ -542,7 +848,10 @@ class WapiModule(WapiBase):
                     # popping 'zone_format' key as update of 'zone_format' is not supported with respect to zone_auth
                     proposed_object = self.on_update(proposed_object, ib_spec)
                     del proposed_object['zone_format']
-                    self.update_object(ref, proposed_object)
+                    if not self.module.check_mode:
+                        res = self.update_object(ref, proposed_object)
+                    else:
+                        res = ref
                     result['changed'] = True
                 elif 'network_view' in proposed_object and (ib_obj_type not in (NIOS_IPV4_FIXED_ADDRESS, NIOS_IPV6_FIXED_ADDRESS, NIOS_RANGE)):
                     proposed_object.pop('network_view')
@@ -581,41 +890,81 @@ class WapiModule(WapiBase):
                 if 'ipv4addrs' in proposed_object:
                     if 'remove' in proposed_object['ipv4addrs'][0]:
                         self.check_if_add_remove_ip_arg_exists(proposed_object)
-                        self.update_object(ref, proposed_object)
+                        if not self.module.check_mode:
+                            self.update_object(ref, proposed_object)
                         result['changed'] = True
-                elif not self.module.check_mode:
-                    self.delete_object(ref)
+                else:
+                    if not self.module.check_mode:
+                        self.delete_object(ref)
                     result['changed'] = True
+
+        # ------------------------------------------------------------------
+        # Fix for issue #305 (generalized):
+        # After a successful present-state write, re-fetch the canonical
+        # object so the caller's `register:` variable exposes WAPI-resolved
+        # values (notably IPs produced by func:nextavailableip and networks
+        # produced by func:nextavailablenetwork). The fields requested are
+        # derived from the calling module's ib_spec so this works for every
+        # WAPI object type without a per-type table that would need to be
+        # maintained as the schema evolves.
+        # ------------------------------------------------------------------
+        if (state == 'present'
+                and result.get('changed')
+                and not self.module.check_mode
+                and ib_obj_type not in NIOS_RETURN_OBJECT_EXCLUDE):
+            target_ref = res if res else ref
+            # Normalize WAPI 2.14+ dict response {_ref, uuid} to bare _ref string
+            if isinstance(target_ref, dict) and '_ref' in target_ref:
+                target_ref = target_ref['_ref']
+            if target_ref:
+                return_fields = sorted({
+                    k for k in ib_spec.keys()
+                    if not k.startswith('_')
+                    and k not in ('provider', 'state')
+                    and k not in NIOS_RETURN_FIELDS_EXCLUDE
+                })
+                try:
+                    fetched = self.connector.get_object(
+                        obj_type=str(target_ref),
+                        return_fields=return_fields or None,
+                    )
+                    if fetched:
+                        # get_object on a _ref returns a dict; on a search it
+                        # returns a list. Handle both defensively.
+                        result['object'] = (
+                            fetched[0] if isinstance(fetched, list) else fetched
+                        )
+                except Exception as exc:
+                    # Never fail the task because the post-fetch failed; the
+                    # create/update itself already succeeded server-side.
+                    self.module.warn(
+                        'nios post-fetch failed (object was written successfully): %s' % str(exc)
+                    )
 
         return result
 
     def check_if_recordname_exists(self, obj_filter, ib_obj_ref, ib_obj_type, current_object, proposed_object):
-        ''' Send POST request if host record input name and retrieved ref name is same,
-            but input IP and retrieved IP is different'''
-
-        if 'name' in (obj_filter and ib_obj_ref[0]) and ib_obj_type == NIOS_HOST_RECORD:
-            obj_host_name = obj_filter['name']
-            ref_host_name = ib_obj_ref[0]['name']
-            if 'ipv4addrs' in (current_object and proposed_object):
-                current_ip_addr = current_object['ipv4addrs'][0]['ipv4addr']
-                proposed_ip_addr = proposed_object['ipv4addrs'][0]['ipv4addr']
-            elif 'ipv6addrs' in (current_object and proposed_object):
-                current_ip_addr = current_object['ipv6addrs'][0]['ipv6addr']
-                proposed_ip_addr = proposed_object['ipv6addrs'][0]['ipv6addr']
-
-            if obj_host_name == ref_host_name and current_ip_addr != proposed_ip_addr:
-                self.create_object(ib_obj_type, proposed_object)
+        ''' Validate that a host record update with a different IP is not silently
+            routed through create_object (which causes a NIOS conflict error).
+            When the same hostname exists with a different IP and no add/remove flag
+            is set, the caller's normal update_object path is the correct route —
+            this function now simply returns and lets that path proceed.
+            See: https://github.com/infobloxopen/infoblox-ansible/issues/108 '''
+        pass
 
     def get_network_view(self, proposed_object):
         ''' Check for the associated network view with
             the given dns_view'''
+        view_name = proposed_object.get('view') if isinstance(proposed_object, dict) else None
+        if not view_name:
+            self.module.fail_json(msg="dns_view is required to look up the associated network view")
         try:
-            network_view_ref = self.get_object('view', {"name": proposed_object['view']}, return_fields=['network_view'])
-            if network_view_ref:
-                network_view = network_view_ref[0].get('network_view')
-                return network_view
+            network_view_ref = self.get_object('view', {"name": view_name}, return_fields=['network_view'])
         except Exception:
-            raise Exception("object with dns_view: %s not found" % (proposed_object['view']))
+            self.module.fail_json(msg="object with dns_view: %s not found" % view_name)
+        if not network_view_ref:
+            self.module.fail_json(msg="object with dns_view: %s not found" % view_name)
+        return network_view_ref[0].get('network_view')
 
     def check_if_nios_next_ip_exists(self, proposed_object):
         ''' Check if nios_next_ip argument is passed in ipaddr while creating
@@ -642,6 +991,16 @@ class WapiModule(WapiBase):
             if 'new_ipv4addr' in proposed_object['ipv4addr']:
                 new_ipv4 = check_type_dict(proposed_object['ipv4addr'])['new_ipv4addr']
                 proposed_object['ipv4addr'] = new_ipv4
+
+        return proposed_object
+
+    def check_for_new_ipv6addr(self, proposed_object):
+        ''' Checks if new_ipv6addr parameter is passed in the argument
+            while updating the AAAA record with new ipv6addr with static allocation'''
+        if 'ipv6addr' in proposed_object:
+            if 'new_ipv6addr' in proposed_object['ipv6addr']:
+                new_ipv6 = check_type_dict(proposed_object['ipv6addr'])['new_ipv6addr']
+                proposed_object['ipv6addr'] = new_ipv6
 
         return proposed_object
 
@@ -704,18 +1063,71 @@ class WapiModule(WapiBase):
     def compare_extattrs(self, current_extattrs, proposed_extattrs):
         '''Compare current extensible attributes to given extensible
            attribute, if length is not equal returns false , else
-           checks the value of keys in proposed extattrs'''
+           checks the value of keys in proposed extattrs.
+
+           A proposed value may be a plain scalar (legacy behaviour) or a
+           dict controlling inheritance, e.g.
+           {'value': <v>, 'inheritance_operation': 'INHERIT' | 'OVERRIDE'}.
+           The current value may be a scalar (explicitly set) or a dict
+           carrying 'inheritance_source' (inherited from a parent).'''
         if len(current_extattrs) != len(proposed_extattrs):
             return False
-        else:
-            for key, proposed_item in proposed_extattrs.items():
-                current_item = current_extattrs.get(key)
-                if current_item != proposed_item:
+        for key, proposed_item in proposed_extattrs.items():
+            current_item = current_extattrs.get(key)
+            current_inherited = isinstance(current_item, dict) and 'inheritance_source' in current_item
+            current_value = current_item.get('value') if isinstance(current_item, dict) else current_item
+
+            if isinstance(proposed_item, dict):
+                if proposed_item.get('inheritance_operation') == 'INHERIT':
+                    # Up to date only when the value is currently inherited.
+                    if not current_inherited:
+                        return False
+                else:
+                    # Explicit value (optionally OVERRIDE): the effective value
+                    # must match and it must be explicitly set, not inherited.
+                    if current_value != proposed_item.get('value') or current_inherited:
+                        return False
+            else:
+                # Legacy flat value: compare the effective value only.
+                if current_value != proposed_item:
                     return False
-            return True
+        return True
 
     def verify_list_order(self, proposed_data, current_data):
         return len(proposed_data) == len(current_data) and all(a == b for a, b in zip(proposed_data, current_data))
+
+    def verify_list_content_equality(self, proposed_data, current_data):
+        '''Verify proposed list items are present in current list regardless of order.'''
+        if len(proposed_data) != len(current_data):
+            return False
+        unmatched = list(current_data)
+        for proposed_item in proposed_data:
+            for idx, current_item in enumerate(unmatched):
+                if isinstance(proposed_item, dict):
+                    if isinstance(current_item, dict) and all(entry in current_item.items() for entry in proposed_item.items()):
+                        unmatched.pop(idx)
+                        break
+                elif proposed_item == current_item:
+                    unmatched.pop(idx)
+                    break
+            else:
+                return False
+        return True
+
+    @staticmethod
+    def normalize_http_request(value):
+        ''' Normalize a dtc:monitor:http request value for idempotent comparison.
+
+        NIOS auto-appends '\nConnection: close\n\n' to the stored request, so a
+        read-back never matches the user-supplied value verbatim. Strip that
+        trailing header and surrounding whitespace before comparing.
+        '''
+        if not isinstance(value, str):
+            return value
+        normalized = value.rstrip()
+        if normalized.endswith('Connection: close'):
+            normalized = normalized[:-len('Connection: close')].rstrip()
+        return normalized
 
     def compare_objects(self, current_object, proposed_object, ib_obj_type=None):
         for key, proposed_item in proposed_object.items():
@@ -730,41 +1142,77 @@ class WapiModule(WapiBase):
                 return False
 
             elif isinstance(proposed_item, list):
-                if key == 'aliases':
+                # Lists of plain scalars (e.g. the dtc:lbdn 'types' and
+                # 'patterns' fields, or a record's 'aliases') are compared by
+                # membership regardless of order. Without this the generic
+                # subitem loop below skips every non-dict element, so an
+                # added/removed/changed value goes undetected and the module
+                # reports changed=false with no WAPI call made.
+                if key in ('aliases', 'types', 'patterns'):
                     if set(current_item) != set(proposed_item):
                         return False
                 # If the lists are of a different length, the objects cannot be
                 # equal, and False will be returned before comparing the list items
                 # this code part will work for members' assignment
 
-                if key in ('monitors', 'members', 'options', 'delegate_to', 'forwarding_servers', 'stub_members', 'ssh_keys', 'vlans') \
-                        and len(proposed_item) != len(current_item):
+                if key in ('monitors', 'members', 'options', 'delegate_to', 'forwarding_servers', 'stub_members', 'ssh_keys', 'vlans', 'auth_zones',
+                           'external_primaries', 'external_secondaries', 'grid_primary', 'grid_secondaries', 'external_servers') \
+                        and not self.verify_list_content_equality(proposed_item, current_item):
                     return False
-
-                # Special handling for auth_zones - we need to compare the actual values
-                if key == 'auth_zones' and ib_obj_type == NIOS_DTC_LBDN:
-                    if len(proposed_item) != len(current_item):
-                        return False
-                    # Sort and compare as strings for deterministic comparison
-                    current_zones_str = sorted([str(zone) for zone in current_item])
-                    proposed_zones_str = sorted([str(zone) for zone in proposed_item])
-                    if current_zones_str != proposed_zones_str:
-                        return False
 
                 # Validate the Sequence of the List data
-                if key in ('servers', 'external_servers', 'list_values') and not self.verify_list_order(proposed_item, current_item):
+                # Pool order is semantically significant for DTC LBDNs (determines priority/weight).
+                if key in ('pools', 'servers', 'external_servers', 'list_values') and not self.verify_list_order(proposed_item, current_item):
                     return False
+
+                # Rule order is semantically significant for DTC topologies: it
+                # sets the rule priority sequence. The generic issubset() check
+                # below matches each proposed rule against the whole current
+                # list regardless of position, so a pure reorder would go
+                # undetected (changed=false). Enforce a positional match so a
+                # reorder is reported as a change.
+                #
+                # Only do this when rules are actually proposed. Omitting the
+                # rules option yields an empty proposed list, which historically
+                # means "do not manage rules" (idempotent); the length check
+                # must not treat that as a reorder and wipe the existing rules.
+                if ib_obj_type == NIOS_DTC_TOPOLOGY and key == 'rules' and proposed_item:
+                    if len(proposed_item) != len(current_item):
+                        return False
+                    for proposed_rule, current_rule in zip(proposed_item, current_item):
+                        if not self.issubset(proposed_rule, [current_rule]):
+                            return False
 
                 for subitem in proposed_item:
                     if not isinstance(subitem, dict):
                         continue  # Skip non-dict items
 
                     if ib_obj_type == NIOS_HOST_RECORD and key == 'ipv4addrs':
+                        # Issue #63: a nios_next_ip request means dynamic allocation.
+                        # On re-runs the proposed value is still the lookup token while
+                        # the current record holds the already-resolved IP, so they can
+                        # never compare equal. The token may arrive as a dict
+                        # {'nios_next_ip': '...'}, a string repr of that dict, or a
+                        # resolved 'func:nextavailableip:...' string. Skip this subitem
+                        # in all three forms so the record is treated as up-to-date.
+                        ipv4addr_val = subitem.get('ipv4addr', '')
+                        if isinstance(ipv4addr_val, str) and (
+                                'nextavailableip' in ipv4addr_val or 'nios_next_ip' in ipv4addr_val):
+                            continue
+                        if isinstance(ipv4addr_val, dict) and 'nios_next_ip' in ipv4addr_val:
+                            continue
+
                         current_config = current_item[0]
                         dhcp_flag = current_config.get('configure_for_dhcp', False)
                         # Host IPv4addrs wont contain use_nextserver and nextserver
                         # If DHCP is false.
                         use_nextserver = subitem.get('use_nextserver', False)
+
+                        # WAPI omits use_for_ea_inheritance when it is False (the default).
+                        # Strip it from the proposed subitem before comparison to avoid
+                        # a false modified=True on every idempotent run.
+                        if not subitem.get('use_for_ea_inheritance', False):
+                            subitem.pop('use_for_ea_inheritance', None)
 
                         if not dhcp_flag:
                             try:
@@ -795,6 +1243,10 @@ class WapiModule(WapiBase):
                     proposed_extattrs = proposed_object.get(key)
                     if not self.compare_extattrs(current_extattrs, proposed_extattrs):
                         return False
+                    # compare_extattrs is authoritative for extensible attributes
+                    # (it understands inheritance metadata); skip the generic
+                    # recursion below which would misreport inheritance fields.
+                    continue
 
                 if self.compare_objects(current_item, proposed_item, ib_obj_type) is False:
                     return False
@@ -802,7 +1254,14 @@ class WapiModule(WapiBase):
                     continue
 
             else:
-                if current_item != proposed_item:
+                # NIOS auto-appends '\nConnection: close\n\n' to the
+                # dtc:monitor:http request field, so the read-back never matches
+                # the user input verbatim. Normalize both sides before comparing
+                # to keep the module idempotent.
+                if ib_obj_type == NIOS_DTC_MONITOR_HTTP and key == 'request':
+                    if self.normalize_http_request(current_item) != self.normalize_http_request(proposed_item):
+                        return False
+                elif current_item != proposed_item:
                     return False
 
         return True
@@ -811,7 +1270,7 @@ class WapiModule(WapiBase):
         ''' this function gets the reference object of pre-existing nios objects '''
         update = False
         old_name = new_name = None
-        old_ipv4addr_exists = old_text_exists = False
+        old_ipv4addr_exists = old_text_exists = old_ipv6addr_exists = False
         next_ip_exists = False
 
         if ib_obj_type == NIOS_VLAN:
@@ -839,11 +1298,15 @@ class WapiModule(WapiBase):
 
             if old_name and new_name:
                 if (ib_obj_type == NIOS_HOST_RECORD):
-                    # to check only by old_name if dns bypassing is set
-                    if not obj_filter['configure_for_dns']:
+                    # to check only by old_name if dns bypassing is set, or if the
+                    # provided view is blank/whitespace (issue #300: IPAM-only host
+                    # records have view=' ', sending that to WAPI yields a 404).
+                    _view = obj_filter.get('view')
+                    if not obj_filter['configure_for_dns'] \
+                            or not (isinstance(_view, str) and _view.strip()):
                         test_obj_filter = dict([('name', old_name)])
                     else:
-                        test_obj_filter = dict([('name', old_name), ('view', obj_filter['view'])])
+                        test_obj_filter = dict([('name', old_name), ('view', _view)])
                 # if there are multiple records with the same name and different ip
                 elif (ib_obj_type == NIOS_A_RECORD):
                     test_obj_filter = dict([('name', old_name), ('ipv4addr', obj_filter['ipv4addr'])])
@@ -864,27 +1327,67 @@ class WapiModule(WapiBase):
                     test_obj_filter = dict([('name', old_name)])
                 # get the object reference
                 ib_obj = self.get_object(ib_obj_type, test_obj_filter, return_fields=return_fields)
+                # Issue #300: when the host-record lookup above fell back to a
+                # name-only search (because the view was blank/whitespace,
+                # absent on the IPAM-only retry path, or configure_for_dns is
+                # False), restrict matches to IPAM-only records so we never
+                # rename a record that lives in an unrelated DNS view.
+                if ib_obj_type == NIOS_HOST_RECORD and ib_obj:
+                    _view = obj_filter.get('view')
+                    _dns = obj_filter.get('configure_for_dns')
+                    if (_view is None
+                            or (isinstance(_view, str) and not _view.strip())
+                            or _dns is False):
+                        ipam_only = [
+                            rec for rec in ib_obj
+                            if isinstance(rec, dict)
+                            and ((isinstance(rec.get('view'), str) and not rec.get('view').strip())
+                                 or rec.get('configure_for_dns') is False)
+                        ]
+                        if len(ipam_only) > 1:
+                            self.module.fail_json(
+                                msg=("multiple IPAM-only host records named '%s' were found "
+                                     "and could not be disambiguated" % old_name))
+                        ib_obj = ipam_only or None
                 if ib_obj:
                     obj_filter['name'] = new_name
-                elif old_ipv4addr_exists and (len(ib_obj) == 0):
-                    raise Exception(
-                        "object with name: '%s', ipv4addr: '%s' is not found" % (old_name, test_obj_filter['ipv4addr']))
+                elif old_ipv4addr_exists and (not ib_obj):
+                    self.module.fail_json(
+                        msg="object with name: '%s', ipv4addr: '%s' is not found" % (old_name, test_obj_filter['ipv4addr']))
                 else:
-                    raise Exception("object with name: '%s' is not found" % (old_name))
+                    self.module.fail_json(msg="object with name: '%s' is not found" % (old_name))
                 update = True
                 return ib_obj, update, new_name
             if (ib_obj_type == NIOS_HOST_RECORD):
                 # to fix the sanity issue
                 name = obj_filter['name']
-                # to check only by name if dns bypassing is set
-                if not obj_filter['configure_for_dns']:
+                # to check only by name if dns bypassing is set, or if the provided
+                # view is blank/whitespace (issue #300: IPAM-only host records have
+                # view=' ', sending that to WAPI yields a 404).
+                _view = obj_filter.get('view')
+                if not obj_filter['configure_for_dns'] \
+                        or not (isinstance(_view, str) and _view.strip()):
                     test_obj_filter = dict([('name', name)])
                 else:
-                    test_obj_filter = dict([('name', name), ('view', obj_filter['view'])])
+                    test_obj_filter = dict([('name', name), ('view', _view)])
             elif (ib_obj_type == NIOS_IPV4_FIXED_ADDRESS and 'mac' in obj_filter):
-                test_obj_filter = dict([['mac', obj_filter['mac']]])
+                # Include both mac and ipv4addr to uniquely identify the fixed address.
+                # Searching by mac alone returns all fixed addresses with that mac across
+                # all networks, which can cause the wrong record to be deleted or no match
+                # to be found (silent no-op on state=absent).
+                # Guard against ipv4addr being absent so callers that only supply mac
+                # fall back to the mac-only filter rather than raising KeyError.
+                if obj_filter.get('ipv4addr'):
+                    test_obj_filter = {'mac': obj_filter['mac'], 'ipv4addr': obj_filter['ipv4addr']}
+                else:
+                    test_obj_filter = {'mac': obj_filter['mac']}
             elif (ib_obj_type == NIOS_IPV6_FIXED_ADDRESS and 'duid' in obj_filter):
-                test_obj_filter = dict([['duid', obj_filter['duid']]])
+                # Include both duid and ipv6addr to uniquely identify the fixed address.
+                # Guard against ipv6addr being absent for the same reason as IPv4.
+                if obj_filter.get('ipv6addr'):
+                    test_obj_filter = {'duid': obj_filter['duid'], 'ipv6addr': obj_filter['ipv6addr']}
+                else:
+                    test_obj_filter = {'duid': obj_filter['duid']}
             elif (ib_obj_type == NIOS_CNAME_RECORD):
                 test_obj_filter = dict([('name', obj_filter['name']), ('view', obj_filter['view'])])
             elif (ib_obj_type == NIOS_A_RECORD):
@@ -905,6 +1408,21 @@ class WapiModule(WapiBase):
                 # resolve issue if nios_next_ip exists which is not searchable attribute
                 if next_ip_exists:
                     del test_obj_filter['ipv4addr']
+            elif (ib_obj_type == NIOS_AAAA_RECORD):
+                # resolves issue where aaaa_record with uppercase name was returning null and was failing
+                test_obj_filter = obj_filter
+                test_obj_filter['name'] = test_obj_filter['name'].lower()
+                # resolves issue where multiple aaaa_records with same name and different IPv6 address
+                # supports IP swap via ipv6addr: {old_ipv6addr: X, new_ipv6addr: Y}
+                old_ipv6addr_exists = False
+                try:
+                    ipaddr_obj = check_type_dict(obj_filter['ipv6addr'])
+                    ipaddr = ipaddr_obj.get('old_ipv6addr')
+                    old_ipv6addr_exists = True if ipaddr else False
+                except TypeError:
+                    ipaddr = obj_filter['ipv6addr']
+                if old_ipv6addr_exists:
+                    test_obj_filter['ipv6addr'] = ipaddr
             elif (ib_obj_type == NIOS_TXT_RECORD):
                 # resolves issue where multiple txt_records with same name and different text
                 test_obj_filter = obj_filter
@@ -934,6 +1452,15 @@ class WapiModule(WapiBase):
             elif (ib_obj_type == NIOS_DTC_MONITOR_TCP):
                 test_obj_filter = dict([('name', obj_filter['name'])])
 
+            # NPA-1840: a dtc:server is uniquely identified by name, but the
+            # module marks both name and host as ib_req, so the lookup filter
+            # becomes name+host. When the play updates host, the name+host
+            # search misses and the module wrongly creates a new server, which
+            # NIOS rejects with "Server with name '<name>' already exists".
+            # Search by name only so host changes are treated as updates.
+            elif (ib_obj_type == NIOS_DTC_SERVER):
+                test_obj_filter = dict([('name', obj_filter['name'])])
+
             # check if test_obj_filter is empty copy passed obj_filter
             else:
                 test_obj_filter = obj_filter
@@ -949,14 +1476,81 @@ class WapiModule(WapiBase):
                 return_fields.extend(ipv4addrs_return)
                 return_fields.extend(ipv6addrs_return)
 
+            # NPA-1840: NIOS returns a dtc:topology rules list as bare
+            # references ([{_ref, uuid}]) unless the rule sub-fields are
+            # requested explicitly. Without them the fetched object can never
+            # match the proposed rules and every run reports changed=True.
+            # Request the readable sub-fields, version-gated because WAPI 2.14
+            # (NIOS 9.1.0) replaced the rule's top-level destination_link
+            # string with a structured destination array.
+            if ib_obj_type == NIOS_DTC_TOPOLOGY and 'rules' in return_fields:
+                return_fields.remove('rules')
+                return_fields.extend(['rules.dest_type', 'rules.return_type', 'rules.sources'])
+                provider = self.module.params.get('provider') or {}
+                if dtc_topology_uses_structured_destination(provider.get('wapi_version') or '2.12.3'):
+                    return_fields.append('rules.destination')
+                else:
+                    return_fields.append('rules.destination_link')
+
             ib_obj = self.get_object(ib_obj_type, test_obj_filter.copy(), return_fields=return_fields)
+
+            # Issue #300: when the host-record lookup falls back to name-only
+            # search (because the view was blank/whitespace, absent on the
+            # IPAM-only retry path, or because configure_for_dns is False),
+            # the result may include records from unrelated DNS views.
+            # Restrict to IPAM-only host records (view is blank/whitespace
+            # and/or configure_for_dns is False) so we never act on the
+            # wrong record. Fail if the disambiguation is impossible.
+            if ib_obj_type == NIOS_HOST_RECORD and ib_obj:
+                _filter_view = obj_filter.get('view')
+                _filter_dns = obj_filter.get('configure_for_dns')
+                if (_filter_view is None
+                        or (isinstance(_filter_view, str) and not _filter_view.strip())
+                        or _filter_dns is False):
+                    ipam_only = [
+                        rec for rec in ib_obj
+                        if isinstance(rec, dict)
+                        and ((isinstance(rec.get('view'), str) and not rec.get('view').strip())
+                             or rec.get('configure_for_dns') is False)
+                    ]
+                    if len(ipam_only) > 1:
+                        self.module.fail_json(
+                            msg=("multiple IPAM-only host records named '%s' were found "
+                                 "and could not be disambiguated"
+                                 % obj_filter.get('name')))
+                    ib_obj = ipam_only or None
+
+            # Fixed-address fallback disambiguation: when the lookup fell back to
+            # a mac-only (IPv4) or duid-only (IPv6) filter because no
+            # ipv4addr/ipv6addr was supplied, multiple fixed addresses can share
+            # the same mac/duid across networks. Rather than implicitly acting on
+            # an arbitrary record (0 matches -> no-op, 1 match -> proceed), fail
+            # explicitly on more than one match so the target is deterministic.
+            if (ib_obj_type == NIOS_IPV4_FIXED_ADDRESS and ib_obj
+                    and 'mac' in test_obj_filter and 'ipv4addr' not in test_obj_filter
+                    and len(ib_obj) > 1):
+                self.module.fail_json(
+                    msg=("Ambiguous fixed address match for mac=%s: found %d objects. "
+                         "Please provide ipv4addr to uniquely identify the target."
+                         % (test_obj_filter['mac'], len(ib_obj))))
+            if (ib_obj_type == NIOS_IPV6_FIXED_ADDRESS and ib_obj
+                    and 'duid' in test_obj_filter and 'ipv6addr' not in test_obj_filter
+                    and len(ib_obj) > 1):
+                self.module.fail_json(
+                    msg=("Ambiguous fixed address match for duid=%s: found %d objects. "
+                         "Please provide ipv6addr to uniquely identify the target."
+                         % (test_obj_filter['duid'], len(ib_obj))))
 
             # prevents creation of a new A record with 'new_ipv4addr' when A record with a particular 'old_ipv4addr' is not found
             if old_ipv4addr_exists and (ib_obj is None or len(ib_obj) == 0):
-                raise Exception("A Record with ipv4addr: '%s' is not found" % (ipaddr))
+                self.module.fail_json(msg="A Record with ipv4addr: '%s' is not found" % (ipaddr))
+            # prevents creation of a new AAAA record with 'new_ipv6addr' when AAAA record with a particular 'old_ipv6addr' is not found
+            if old_ipv6addr_exists and (ib_obj is None or len(ib_obj) == 0):
+                self.module.fail_json(msg="AAAA Record with ipv6addr: '%s' is not found" % (ipaddr))
             # prevents creation of a new TXT record with 'new_text' when TXT record with a particular 'old_text' is not found
-            if old_text_exists and ib_obj is None:
-                raise Exception("TXT Record with text: '%s' is not found" % (txt))
+            # Note: get_object returns [] (empty list) when not found, NOT None — both cases must be checked
+            if old_text_exists and (ib_obj is None or len(ib_obj) == 0):
+                self.module.fail_json(msg="TXT Record with text: '%s' is not found" % (txt))
         elif (ib_obj_type == NIOS_A_RECORD):
             # resolves issue where multiple a_records with same name and different IP address
             test_obj_filter = obj_filter
@@ -970,7 +1564,23 @@ class WapiModule(WapiBase):
             ib_obj = self.get_object(ib_obj_type, test_obj_filter.copy(), return_fields=list(ib_spec.keys()))
             # prevents creation of a new A record with 'new_ipv4addr' when A record with a particular 'old_ipv4addr' is not found
             if old_ipv4addr_exists and ib_obj is None:
-                raise Exception("A Record with ipv4addr: '%s' is not found" % (ipaddr))
+                self.module.fail_json(msg="A Record with ipv4addr: '%s' is not found" % (ipaddr))
+        elif (ib_obj_type == NIOS_AAAA_RECORD):
+            # resolves issue where multiple aaaa_records with same name and different IPv6 address
+            # supports IP swap via ipv6addr: {old_ipv6addr: X, new_ipv6addr: Y}
+            test_obj_filter = obj_filter
+            old_ipv6addr_exists = False
+            try:
+                ipaddr_obj = check_type_dict(obj_filter['ipv6addr'])
+                ipaddr = ipaddr_obj.get('old_ipv6addr')
+                old_ipv6addr_exists = True if ipaddr else False
+            except TypeError:
+                ipaddr = obj_filter['ipv6addr']
+            test_obj_filter['ipv6addr'] = ipaddr
+            ib_obj = self.get_object(ib_obj_type, test_obj_filter.copy(), return_fields=list(ib_spec.keys()))
+            # prevents creation of a new AAAA record with 'new_ipv6addr' when AAAA record with a particular 'old_ipv6addr' is not found
+            if old_ipv6addr_exists and ib_obj is None:
+                self.module.fail_json(msg="AAAA Record with ipv6addr: '%s' is not found" % (ipaddr))
         elif (ib_obj_type == NIOS_TXT_RECORD):
             # resolves issue where multiple txt_records with same name and different text
             test_obj_filter = obj_filter
@@ -997,8 +1607,9 @@ class WapiModule(WapiBase):
             test_obj_filter['text'] = txt
             ib_obj = self.get_object(ib_obj_type, test_obj_filter.copy(), return_fields=list(ib_spec.keys()))
             # prevents creation of a new TXT record with 'new_text' when TXT record with a particular 'old_text' is not found
-            if old_text_exists and ib_obj is None:
-                raise Exception("TXT Record with text: '%s' is not found" % (txt))
+            # Note: get_object returns [] (empty list) when not found, NOT None — both cases must be checked
+            if old_text_exists and (ib_obj is None or len(ib_obj) == 0):
+                self.module.fail_json(msg="TXT Record with text: '%s' is not found" % (txt))
         elif (ib_obj_type == NIOS_ZONE):
             # del key 'restart_if_needed' as nios_zone get_object fails with the key present
             temp = ib_spec['restart_if_needed']
@@ -1028,7 +1639,7 @@ class WapiModule(WapiBase):
                 if ib_obj:
                     obj_filter['host_name'] = new_name
                 else:
-                    raise Exception("object with name: '%s' is not found" % (old_name))
+                    self.module.fail_json(msg="object with name: '%s' is not found" % (old_name))
                 update = True
             else:
                 # del key 'create_token' as nios_member get_object fails with the key present
@@ -1050,6 +1661,29 @@ class WapiModule(WapiBase):
                 del ib_spec['vlans']
 
             ib_obj = self.get_object(ib_obj_type, obj_filter.copy(), return_fields=list(ib_spec.keys()))
+
+            # Issue #135: For delete operations, fall back to lookup without
+            # network_view when the default view does not resolve an object.
+            # NIOS may not store/return network_view for objects in the default
+            # view, so the filtered query can miss them. Users working solely in
+            # the default view should not need to set network_view explicitly
+            # for deletes. Safety: if the viewless lookup finds the same CIDR in
+            # multiple views, we raise an error requiring the user to be
+            # explicit.
+            if (not ib_obj and self.module.params.get('state') == 'absent' and
+                    obj_filter.get('network_view') == 'default' and
+                    ib_obj_type in (NIOS_IPV4_NETWORK, NIOS_IPV6_NETWORK)):
+                fallback_filter = obj_filter.copy()
+                fallback_filter.pop('network_view', None)
+                ib_obj = self.get_object(ib_obj_type, fallback_filter, return_fields=list(ib_spec.keys()))
+                if ib_obj and len(ib_obj) > 1:
+                    views = sorted(set(obj.get('network_view', 'unknown') for obj in ib_obj))
+                    self.module.fail_json(
+                        msg="Multiple networks with CIDR '%s' exist in network views: %s. "
+                            "Set network_view explicitly for state=absent."
+                            % (obj_filter.get('network'), ', '.join(views))
+                    )
+
             # reinstate the 'template' and 'members' key
             if temp:
                 ib_spec['template'] = temp
@@ -1072,8 +1706,8 @@ class WapiModule(WapiBase):
             # throws exception if start_addr and end_addr doesn't exists for updating range
             if (new_start_arg and new_end_arg):
                 if not ib_obj:
-                    raise Exception(
-                        'Specified range %s-%s not found' % (obj_filter['start_addr'], obj_filter['end_addr']))
+                    self.module.fail_json(
+                        msg='Specified range %s-%s not found' % (obj_filter['start_addr'], obj_filter['end_addr']))
         else:
             ib_obj = self.get_object(ib_obj_type, obj_filter.copy(), return_fields=list(ib_spec.keys()))
         return ib_obj, update, new_name

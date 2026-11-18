@@ -29,14 +29,14 @@ class ModifyBgpGroupAttributeRequest(DaraModel):
         # 
         # This parameter is required.
         self.bgp_group_id = bgp_group_id
-        # Specifies whether to clear the authentication key. Valid values:
+        # Specifies whether to clear the key. Valid values:
         # 
         # - **true**: yes.
         # - **false** (default): no.
         self.clear_auth_key = clear_auth_key
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the value, but you must make sure that the value is unique among different requests. The client token can contain only ASCII characters.
+        # You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters.
         # 
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
@@ -46,18 +46,18 @@ class ModifyBgpGroupAttributeRequest(DaraModel):
         self.description = description
         # Specifies whether to use a fake AS number. Valid values:
         # 
-        # - **false** (default): no.
-        # - **true**: yes.
+        # - **false**: no.
+        # - **true** (default): yes.
         # 
         # > A router that runs BGP typically belongs to only one AS. If you need to replace the original AS with a new AS (for example, when the AS needs to be migrated or merged with another AS) and cannot immediately modify the BGP configurations due to business or other objective factors, you can specify a fake AS number to establish a connection with the local end to ensure service continuity.
         self.is_fake_asn = is_fake_asn
-        # The custom autonomous system (AS) number of Alibaba Cloud. Valid values:
+        # The custom autonomous system (AS) number on the Alibaba Cloud side. Valid values:
         # 
         # - **45104**
         # - **64512 to 65534**
         # - **4200000000 to 4294967294**
         # 
-        # > **65025** is reserved by Alibaba Cloud. By default, Alibaba Cloud uses **45104** as the **LocalAsn**. If you use a custom **LocalAsn** in multi-line access scenarios, there may be a risk of BGP routing loops. Evaluate the risks before you use this feature.
+        # > **65025** is reserved by Alibaba Cloud. By default, Alibaba Cloud uses **45104** as the **LocalAsn**. If you use a custom **LocalAsn** in multi-line access scenarios, BGP routing loops may occur. Evaluate the risks before you use this feature.
         self.local_asn = local_asn
         # The name of the BGP group. 
         # 
@@ -69,7 +69,7 @@ class ModifyBgpGroupAttributeRequest(DaraModel):
         self.peer_asn = peer_asn
         # The region ID of the BGP group. 
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the region ID.
         # 
         # This parameter is required.
         self.region_id = region_id

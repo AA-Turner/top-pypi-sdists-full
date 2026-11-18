@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-import contextlib
 import json
-from typing import TYPE_CHECKING, Any, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
+from vercel_runtime import _sdk
 from vercel_runtime.headers import decode_header_bytes
 
 if TYPE_CHECKING:
@@ -13,6 +13,17 @@ if TYPE_CHECKING:
 # Needed to type HTTP-handler/WSGI paths
 class _HeadersLike(Protocol):
     def items(self) -> Iterable[tuple[object, object]]: ...
+
+
+class _CacheFactory(Protocol):
+    def __call__(
+        self, *, endpoint: str, headers: Mapping[str, str]
+    ) -> object: ...
+
+
+class _CacheBuildModule(Protocol):
+    BuildCache: _CacheFactory
+    AsyncBuildCache: _CacheFactory
 
 
 _SC_HEADERS_NAME = "x-vercel-sc-headers"
@@ -162,13 +173,18 @@ def clear_runtime_cache_context() -> None:
 # We don't depend on `vercel` package directly, so
 # use an optional import here. If we can import the modules -
 # we'll configure caches, otherwise we skip the behaviour
-def _load_vercel_cache_modules() -> Any | None:
-    with contextlib.suppress(ImportError):
-        import vercel.cache.cache_build as cache_build  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
-        import vercel.cache.context as context  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
+def _load_vercel_cache_modules() -> (
+    tuple[_CacheBuildModule, _sdk.CacheContextModule] | None
+):
+    cache_build = _sdk.import_cached_module("vercel.cache.cache_build")
+    context = _sdk.import_cached_module("vercel.cache.context")
+    if cache_build is None or context is None:
+        return None
 
-        return cache_build, context
-    return None
+    return (
+        cast("_CacheBuildModule", cache_build),
+        cast("_sdk.CacheContextModule", context),
+    )
 
 
 def _build_endpoint(

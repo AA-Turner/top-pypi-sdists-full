@@ -283,9 +283,16 @@ def _resolve_download_strategy(
         and _dep_locked_chk.content_hash
         and not content_hash_already_verified
     ):
-        from apm_cli.utils.content_hash import verify_package_hash
+        from apm_cli.deps.carried_license import verify_locked_package
+        from apm_cli.install.source_helpers import carried_licenses_for
 
-        if not verify_package_hash(install_path, _dep_locked_chk.content_hash):
+        # The lock's own carried records are the baseline; a pre-#3556 entry
+        # has none, so only exclude the copies this run carried (#3556).
+        if not verify_locked_package(
+            install_path,
+            _dep_locked_chk.content_hash,
+            _dep_locked_chk.carried_licenses or carried_licenses_for(ctx, dep_key, _dep_locked_chk),
+        ):
             _hash_msg = f"Content hash mismatch for {dep_ref.get_unique_key()} -- re-downloading"
             diagnostics.warn(_hash_msg, package=dep_ref.get_unique_key())
             if logger:
@@ -550,8 +557,10 @@ def _run_executable_approval_prompt(ctx: InstallContext) -> None:
     if updated and updated != allow_exec:
         save_user_executables(updated, deny_exec)
         if ctx.logger:
+            from apm_cli import config
+
             ctx.logger.info(
-                "Updated ~/.apm/config.json. "
+                f"Updated {config.CONFIG_FILE}. "
                 "Run 'apm install' again to deploy approved executables.",
                 symbol="info",
             )
@@ -636,6 +645,12 @@ def run(ctx: InstallContext) -> None:
     if apm_modules_dir is None:
         raise RuntimeError("Resolution must set apm_modules_dir before integration")
 
+    # LSP capability gate (#3727): declared LSP servers with no capable target
+    # fail before this phase deploys anything to a target.
+    from apm_cli.install.lsp.integration import preflight_lsp_targets
+
+    preflight_lsp_targets(ctx)
+
     # Direct dep keys: used to distinguish direct vs transitive failures
     # so direct failures can be surfaced immediately.
     direct_dep_keys = builtins.set(dep.get_unique_key() for dep in ctx.all_apm_deps)
@@ -716,6 +731,8 @@ def run(ctx: InstallContext) -> None:
     preflight_agent_plugin_materializations(materialized)
     _fail_explicit_target_without_deploy(ctx)
     deployment_plans, local_plan = preflight_skill_materializations(ctx, materialized)
+    if ctx.skill_baseline_refused:
+        return
 
     if ctx.frozen and ctx.existing_lockfile is not None:
         from apm_cli.install.service import InstallService

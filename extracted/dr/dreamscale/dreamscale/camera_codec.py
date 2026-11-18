@@ -33,7 +33,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from dreamscale_transport.codec_client import CodecSettings
 
 from dreamscale.config import dreamscale_home, load_config

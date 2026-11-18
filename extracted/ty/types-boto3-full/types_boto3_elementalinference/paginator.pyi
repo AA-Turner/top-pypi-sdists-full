@@ -14,6 +14,9 @@ Usage::
     from types_boto3_elementalinference.paginator import (
         ListDictionariesPaginator,
         ListFeedsPaginator,
+        ListFunctionsPaginator,
+        ListQuestionSetVersionsPaginator,
+        ListQuestionSetsPaginator,
         ListScheduleActionsPaginator,
         SearchFixturesPaginator,
     )
@@ -23,6 +26,9 @@ Usage::
 
     list_dictionaries_paginator: ListDictionariesPaginator = client.get_paginator("list_dictionaries")
     list_feeds_paginator: ListFeedsPaginator = client.get_paginator("list_feeds")
+    list_functions_paginator: ListFunctionsPaginator = client.get_paginator("list_functions")
+    list_question_set_versions_paginator: ListQuestionSetVersionsPaginator = client.get_paginator("list_question_set_versions")
+    list_question_sets_paginator: ListQuestionSetsPaginator = client.get_paginator("list_question_sets")
     list_schedule_actions_paginator: ListScheduleActionsPaginator = client.get_paginator("list_schedule_actions")
     search_fixtures_paginator: SearchFixturesPaginator = client.get_paginator("search_fixtures")
     ```
@@ -40,6 +46,12 @@ from .type_defs import (
     ListDictionariesResponseTypeDef,
     ListFeedsRequestPaginateTypeDef,
     ListFeedsResponseTypeDef,
+    ListFunctionsRequestPaginateTypeDef,
+    ListFunctionsResponseTypeDef,
+    ListQuestionSetsRequestPaginateTypeDef,
+    ListQuestionSetsResponseTypeDef,
+    ListQuestionSetVersionsRequestPaginateTypeDef,
+    ListQuestionSetVersionsResponseTypeDef,
     ListScheduleActionsRequestPaginateTypeDef,
     ListScheduleActionsResponseTypeDef,
     SearchFixturesRequestPaginateTypeDef,
@@ -54,6 +66,9 @@ else:
 __all__ = (
     "ListDictionariesPaginator",
     "ListFeedsPaginator",
+    "ListFunctionsPaginator",
+    "ListQuestionSetVersionsPaginator",
+    "ListQuestionSetsPaginator",
     "ListScheduleActionsPaginator",
     "SearchFixturesPaginator",
 )
@@ -92,6 +107,60 @@ class ListFeedsPaginator(_ListFeedsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListFeeds.html#ElementalInference.Paginator.ListFeeds.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listfeedspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListFunctionsPaginatorBase = Paginator[ListFunctionsResponseTypeDef]
+else:
+    _ListFunctionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListFunctionsPaginator(_ListFunctionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListFunctions.html#ElementalInference.Paginator.ListFunctions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listfunctionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListFunctionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListFunctionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListFunctions.html#ElementalInference.Paginator.ListFunctions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listfunctionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListQuestionSetVersionsPaginatorBase = Paginator[ListQuestionSetVersionsResponseTypeDef]
+else:
+    _ListQuestionSetVersionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListQuestionSetVersionsPaginator(_ListQuestionSetVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListQuestionSetVersions.html#ElementalInference.Paginator.ListQuestionSetVersions)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listquestionsetversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQuestionSetVersionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListQuestionSetVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListQuestionSetVersions.html#ElementalInference.Paginator.ListQuestionSetVersions.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listquestionsetversionspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListQuestionSetsPaginatorBase = Paginator[ListQuestionSetsResponseTypeDef]
+else:
+    _ListQuestionSetsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListQuestionSetsPaginator(_ListQuestionSetsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListQuestionSets.html#ElementalInference.Paginator.ListQuestionSets)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listquestionsetspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListQuestionSetsRequestPaginateTypeDef]
+    ) -> PageIterator[ListQuestionSetsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/paginator/ListQuestionSets.html#ElementalInference.Paginator.ListQuestionSets.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_elementalinference/paginators/#listquestionsetspaginator)
         """
 
 if TYPE_CHECKING:

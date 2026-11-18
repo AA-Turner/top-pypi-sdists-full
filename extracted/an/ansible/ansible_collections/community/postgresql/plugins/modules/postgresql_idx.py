@@ -26,10 +26,7 @@ options:
   login_db:
     description:
     - Name of database to connect to and where the index will be created/dropped.
-    - The V(db) alias is deprecated and will be removed in version 5.0.0.
     type: str
-    aliases:
-    - db
   session_role:
     description:
     - Switch to session_role after connecting.
@@ -142,6 +139,8 @@ notes:
 
 attributes:
   check_mode:
+    support: full
+  idempotent:
     support: full
 
 author:
@@ -260,8 +259,10 @@ valid:
 '''
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible_collections.community.postgresql.plugins.module_utils.database import \
-    check_input
+from ansible_collections.community.postgresql.plugins.module_utils.database import (
+    check_input,
+    pg_quote_name,
+)
 from ansible_collections.community.postgresql.plugins.module_utils.postgres import (
     connect_to_db,
     ensure_required_libs,
@@ -398,9 +399,11 @@ class Index(object):
         if concurrent:
             query += ' CONCURRENTLY'
 
-        query += ' "%s"' % self.name
+        query += ' %s' % pg_quote_name(self.name)
 
-        query += ' ON "%s"."%s" ' % (self.schema, tblname)
+        # Schema-qualified: each part is quoted on its own, so a dot in either name
+        # stays part of that name.
+        query += ' ON %s.%s ' % (pg_quote_name(self.schema), pg_quote_name(tblname))
 
         query += 'USING %s (%s)' % (idxtype, columns)
 
@@ -408,7 +411,7 @@ class Index(object):
             query += ' WITH (%s)' % storage_params
 
         if tblspace:
-            query += ' TABLESPACE "%s"' % tblspace
+            query += ' TABLESPACE %s' % pg_quote_name(tblspace)
 
         if cond:
             query += ' WHERE %s' % cond
@@ -438,7 +441,7 @@ class Index(object):
         if concurrent:
             query += ' CONCURRENTLY'
 
-        query += ' "%s"."%s"' % (self.schema, self.name)
+        query += ' %s.%s' % (pg_quote_name(self.schema), pg_quote_name(self.name))
 
         if cascade:
             query += ' CASCADE'
@@ -457,13 +460,7 @@ def main():
     argument_spec = postgres_common_argument_spec()
     argument_spec.update(
         idxname=dict(type='str', required=True, aliases=['name']),
-        login_db=dict(type='str', aliases=['db'], deprecated_aliases=[
-            {
-                'name': 'db',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            }],
-        ),
+        login_db=dict(type='str'),
         state=dict(type='str', default='present', choices=['absent', 'present']),
         concurrent=dict(type='bool', default=True),
         unique=dict(type='bool', default=False),

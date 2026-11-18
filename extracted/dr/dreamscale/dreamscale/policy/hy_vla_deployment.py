@@ -1,4 +1,4 @@
-"""A Hy-VLA deployment's server-described contract (dreamscale_transport.hy_vla_deploy).
+"""A Hy-VLA deployment's server-described contract (dreamscale_core.hy_vla_deploy).
 
 Hy-VLA predicts end-effector poses: each request carries a 20-value pose state (per arm, the
 model's order: TCP xyz, rotation-matrix rows 0-1, gripper 0-1), the instruction, and per
@@ -18,7 +18,7 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from dreamscale_transport.hy_vla_deploy import (
+from dreamscale_core.hy_vla_deploy import (
     ACTION_DIM,
     ACTION_HORIZON,
     DENOISING_STEPS,

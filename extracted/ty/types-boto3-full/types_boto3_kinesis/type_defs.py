@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_kinesis.type_defs import AddTagsToStreamInputTypeDef
+    from types_boto3_kinesis.type_defs import AcknowledgeDeadLetterQueueRecordsErrorEntryTypeDef
 
-    data: AddTagsToStreamInputTypeDef = ...
+    data: AcknowledgeDeadLetterQueueRecordsErrorEntryTypeDef = ...
     ```
 """
 
@@ -32,6 +32,8 @@ from .literals import (
     MetricsNameType,
     MinimumThroughputBillingCommitmentInputStatusType,
     MinimumThroughputBillingCommitmentOutputStatusType,
+    QueueStartingPositionTypeType,
+    QueueStatusType,
     RecordDistributionStrategyType,
     RecordFormatTypeType,
     S3CompressionTypeType,
@@ -41,6 +43,7 @@ from .literals import (
     ShardIteratorTypeType,
     StreamModeType,
     StreamStatusType,
+    TargetTypeType,
 )
 
 if sys.version_info >= (3, 12):
@@ -50,6 +53,16 @@ else:
 
 
 __all__ = (
+    "AcknowledgeDeadLetterQueueRecordsErrorEntryTypeDef",
+    "AcknowledgeDeadLetterQueueRecordsInputTypeDef",
+    "AcknowledgeDeadLetterQueueRecordsOutputTypeDef",
+    "AcknowledgeDeadLetterQueueRecordsRequestEntryTypeDef",
+    "AcknowledgeDeadLetterQueueRecordsResultEntryTypeDef",
+    "AcknowledgeQueueRecordsErrorEntryTypeDef",
+    "AcknowledgeQueueRecordsInputTypeDef",
+    "AcknowledgeQueueRecordsOutputTypeDef",
+    "AcknowledgeQueueRecordsRequestEntryTypeDef",
+    "AcknowledgeQueueRecordsResultEntryTypeDef",
     "AddTagsToStreamInputTypeDef",
     "BlobTypeDef",
     "ChannelDescriptionTypeDef",
@@ -67,10 +80,14 @@ __all__ = (
     "ConsumerTypeDef",
     "CreateChannelInputTypeDef",
     "CreateChannelOutputTypeDef",
+    "CreateQueueInputTypeDef",
+    "CreateQueueOutputTypeDef",
     "CreateStreamInputTypeDef",
+    "DeadLetterConfigurationTypeDef",
     "DeadLetterQueueS3ConfigurationTypeDef",
     "DecreaseStreamRetentionPeriodInputTypeDef",
     "DeleteChannelInputTypeDef",
+    "DeleteQueueInputTypeDef",
     "DeleteResourcePolicyInputTypeDef",
     "DeleteStreamInputTypeDef",
     "DeregisterStreamConsumerInputTypeDef",
@@ -79,6 +96,8 @@ __all__ = (
     "DescribeChannelInputWaitTypeDef",
     "DescribeChannelOutputTypeDef",
     "DescribeLimitsOutputTypeDef",
+    "DescribeQueueInputTypeDef",
+    "DescribeQueueOutputTypeDef",
     "DescribeStreamConsumerInputTypeDef",
     "DescribeStreamConsumerOutputTypeDef",
     "DescribeStreamInputPaginateTypeDef",
@@ -111,6 +130,9 @@ __all__ = (
     "ListChannelsInputPaginateTypeDef",
     "ListChannelsInputTypeDef",
     "ListChannelsOutputTypeDef",
+    "ListQueuesInputPaginateTypeDef",
+    "ListQueuesInputTypeDef",
+    "ListQueuesOutputTypeDef",
     "ListShardsInputPaginateTypeDef",
     "ListShardsInputTypeDef",
     "ListShardsOutputTypeDef",
@@ -139,6 +161,22 @@ __all__ = (
     "PutRecordsRequestEntryTypeDef",
     "PutRecordsResultEntryTypeDef",
     "PutResourcePolicyInputTypeDef",
+    "QueueAttributesTypeDef",
+    "QueueDescriptionTypeDef",
+    "QueueRecordTypeDef",
+    "QueueStartingPositionOutputTypeDef",
+    "QueueStartingPositionTypeDef",
+    "QueueStartingPositionUnionTypeDef",
+    "QueueStreamConfigurationOutputTypeDef",
+    "QueueStreamConfigurationTypeDef",
+    "QueueStreamConfigurationUnionTypeDef",
+    "QueueStreamFilterTypeDef",
+    "QueueStreamIdentifierTypeDef",
+    "QueueSummaryTypeDef",
+    "ReceiveDeadLetterQueueRecordsInputTypeDef",
+    "ReceiveDeadLetterQueueRecordsOutputTypeDef",
+    "ReceiveQueueRecordsInputTypeDef",
+    "ReceiveQueueRecordsOutputTypeDef",
     "RecordConfigurationTypeDef",
     "RecordTypeDef",
     "RegisterStreamConsumerInputTypeDef",
@@ -147,6 +185,11 @@ __all__ = (
     "ResourceInUseExceptionTypeDef",
     "ResourceNotFoundExceptionTypeDef",
     "ResponseMetadataTypeDef",
+    "RestoreDeadLetterQueueRecordsErrorEntryTypeDef",
+    "RestoreDeadLetterQueueRecordsInputTypeDef",
+    "RestoreDeadLetterQueueRecordsOutputTypeDef",
+    "RestoreDeadLetterQueueRecordsRequestEntryTypeDef",
+    "RestoreDeadLetterQueueRecordsResultEntryTypeDef",
     "S3DestinationConfigurationTypeDef",
     "S3DestinationDescriptionTypeDef",
     "S3DestinationUpdateInputTypeDef",
@@ -181,7 +224,19 @@ __all__ = (
     "UpdateAccountSettingsOutputTypeDef",
     "UpdateChannelInputTypeDef",
     "UpdateChannelOutputTypeDef",
+    "UpdateDeadLetterQueueRecordsVisibilityErrorEntryTypeDef",
+    "UpdateDeadLetterQueueRecordsVisibilityInputTypeDef",
+    "UpdateDeadLetterQueueRecordsVisibilityOutputTypeDef",
+    "UpdateDeadLetterQueueRecordsVisibilityRequestEntryTypeDef",
+    "UpdateDeadLetterQueueRecordsVisibilityResultEntryTypeDef",
     "UpdateMaxRecordSizeInputTypeDef",
+    "UpdateQueueInputTypeDef",
+    "UpdateQueueOutputTypeDef",
+    "UpdateQueueRecordsVisibilityErrorEntryTypeDef",
+    "UpdateQueueRecordsVisibilityInputTypeDef",
+    "UpdateQueueRecordsVisibilityOutputTypeDef",
+    "UpdateQueueRecordsVisibilityRequestEntryTypeDef",
+    "UpdateQueueRecordsVisibilityResultEntryTypeDef",
     "UpdateShardCountInputTypeDef",
     "UpdateShardCountOutputTypeDef",
     "UpdateStreamModeInputTypeDef",
@@ -191,6 +246,42 @@ __all__ = (
     "WaiterConfigTypeDef",
     "WarmThroughputObjectTypeDef",
 )
+
+
+class AcknowledgeDeadLetterQueueRecordsErrorEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    ErrorCode: str
+    ErrorMessage: NotRequired[str]
+
+
+class AcknowledgeDeadLetterQueueRecordsRequestEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+
+
+class AcknowledgeDeadLetterQueueRecordsResultEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+
+
+class ResponseMetadataTypeDef(TypedDict):
+    RequestId: str
+    HTTPStatusCode: int
+    HTTPHeaders: dict[str, str]
+    RetryAttempts: int
+    HostId: NotRequired[str]
+
+
+class AcknowledgeQueueRecordsErrorEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    ErrorCode: str
+    ErrorMessage: NotRequired[str]
+
+
+class AcknowledgeQueueRecordsRequestEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+
+
+class AcknowledgeQueueRecordsResultEntryTypeDef(TypedDict):
+    ReceiptHandle: str
 
 
 class AddTagsToStreamInputTypeDef(TypedDict):
@@ -250,16 +341,13 @@ class ConsumerTypeDef(TypedDict):
     ConsumerCreationTimestamp: datetime
 
 
-class ResponseMetadataTypeDef(TypedDict):
-    RequestId: str
-    HTTPStatusCode: int
-    HTTPHeaders: dict[str, str]
-    RetryAttempts: int
-    HostId: NotRequired[str]
-
-
 class StreamModeDetailsTypeDef(TypedDict):
     StreamMode: StreamModeType
+
+
+class DeadLetterConfigurationTypeDef(TypedDict):
+    TargetType: TargetTypeType
+    MaxReceiveCount: NotRequired[int]
 
 
 class DeadLetterQueueS3ConfigurationTypeDef(TypedDict):
@@ -277,6 +365,10 @@ class DecreaseStreamRetentionPeriodInputTypeDef(TypedDict):
 
 class DeleteChannelInputTypeDef(TypedDict):
     ChannelARN: str
+
+
+class DeleteQueueInputTypeDef(TypedDict):
+    QueueARN: str
 
 
 class DeleteResourcePolicyInputTypeDef(TypedDict):
@@ -312,6 +404,10 @@ class DescribeChannelInputTypeDef(TypedDict):
 class WaiterConfigTypeDef(TypedDict):
     Delay: NotRequired[int]
     MaxAttempts: NotRequired[int]
+
+
+class DescribeQueueInputTypeDef(TypedDict):
+    QueueARN: str
 
 
 class DescribeStreamConsumerInputTypeDef(TypedDict):
@@ -472,6 +568,44 @@ class PutResourcePolicyInputTypeDef(TypedDict):
     StreamId: NotRequired[str]
 
 
+class QueueRecordTypeDef(TypedDict):
+    ReceiptHandle: str
+    RecordId: str
+    Data: bytes
+    ApproximateArrivalTimestamp: datetime
+    FirstReceiveTimestamp: datetime
+    ReceiveCount: int
+    PartitionKey: NotRequired[str]
+
+
+QueueStartingPositionOutputTypeDef = TypedDict(
+    "QueueStartingPositionOutputTypeDef",
+    {
+        "Type": QueueStartingPositionTypeType,
+        "Timestamp": NotRequired[datetime],
+    },
+)
+
+
+class QueueStreamIdentifierTypeDef(TypedDict):
+    StreamARN: str
+    StreamCreationTimestamp: datetime
+
+
+class ReceiveDeadLetterQueueRecordsInputTypeDef(TypedDict):
+    QueueARN: str
+    Limit: NotRequired[int]
+    WaitTimeSeconds: NotRequired[int]
+    VisibilityTimeoutSeconds: NotRequired[int]
+
+
+class ReceiveQueueRecordsInputTypeDef(TypedDict):
+    QueueARN: str
+    Limit: NotRequired[int]
+    WaitTimeSeconds: NotRequired[int]
+    VisibilityTimeoutSeconds: NotRequired[int]
+
+
 class RegisterStreamConsumerInputTypeDef(TypedDict):
     StreamARN: str
     ConsumerName: str
@@ -492,6 +626,20 @@ class ResourceInUseExceptionTypeDef(TypedDict):
 
 class ResourceNotFoundExceptionTypeDef(TypedDict):
     message: NotRequired[str]
+
+
+class RestoreDeadLetterQueueRecordsErrorEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    ErrorCode: str
+    ErrorMessage: NotRequired[str]
+
+
+class RestoreDeadLetterQueueRecordsRequestEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+
+
+class RestoreDeadLetterQueueRecordsResultEntryTypeDef(TypedDict):
+    ReceiptHandle: str
 
 
 class S3StorageConfigurationTypeDef(TypedDict):
@@ -556,10 +704,40 @@ class UntagResourceInputTypeDef(TypedDict):
     StreamId: NotRequired[str]
 
 
+class UpdateDeadLetterQueueRecordsVisibilityErrorEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    ErrorCode: str
+    ErrorMessage: NotRequired[str]
+
+
+class UpdateDeadLetterQueueRecordsVisibilityRequestEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    VisibilityTimeoutSeconds: int
+
+
+class UpdateDeadLetterQueueRecordsVisibilityResultEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+
+
 class UpdateMaxRecordSizeInputTypeDef(TypedDict):
     MaxRecordSizeInKiB: int
     StreamARN: NotRequired[str]
     StreamId: NotRequired[str]
+
+
+class UpdateQueueRecordsVisibilityErrorEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    ErrorCode: str
+    ErrorMessage: NotRequired[str]
+
+
+class UpdateQueueRecordsVisibilityRequestEntryTypeDef(TypedDict):
+    ReceiptHandle: str
+    VisibilityTimeoutSeconds: int
+
+
+class UpdateQueueRecordsVisibilityResultEntryTypeDef(TypedDict):
+    ReceiptHandle: str
 
 
 class UpdateShardCountInputTypeDef(TypedDict):
@@ -581,6 +759,75 @@ class UpdateStreamWarmThroughputInputTypeDef(TypedDict):
     StreamARN: NotRequired[str]
     StreamName: NotRequired[str]
     StreamId: NotRequired[str]
+
+
+class AcknowledgeDeadLetterQueueRecordsInputTypeDef(TypedDict):
+    QueueARN: str
+    Entries: Sequence[AcknowledgeDeadLetterQueueRecordsRequestEntryTypeDef]
+
+
+class AcknowledgeDeadLetterQueueRecordsOutputTypeDef(TypedDict):
+    Successful: list[AcknowledgeDeadLetterQueueRecordsResultEntryTypeDef]
+    Failed: list[AcknowledgeDeadLetterQueueRecordsErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeLimitsOutputTypeDef(TypedDict):
+    ShardLimit: int
+    OpenShardCount: int
+    OnDemandStreamCount: int
+    OnDemandStreamCountLimit: int
+    ChannelCount: int
+    ChannelCountLimit: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EmptyResponseMetadataTypeDef(TypedDict):
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class EnhancedMonitoringOutputTypeDef(TypedDict):
+    StreamName: str
+    CurrentShardLevelMetrics: list[MetricsNameType]
+    DesiredShardLevelMetrics: list[MetricsNameType]
+    StreamARN: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetResourcePolicyOutputTypeDef(TypedDict):
+    Policy: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetShardIteratorOutputTypeDef(TypedDict):
+    ShardIterator: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class PutRecordOutputTypeDef(TypedDict):
+    ShardId: str
+    SequenceNumber: str
+    EncryptionType: EncryptionTypeType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateShardCountOutputTypeDef(TypedDict):
+    StreamName: str
+    CurrentShardCount: int
+    TargetShardCount: int
+    StreamARN: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AcknowledgeQueueRecordsInputTypeDef(TypedDict):
+    QueueARN: str
+    Entries: Sequence[AcknowledgeQueueRecordsRequestEntryTypeDef]
+
+
+class AcknowledgeQueueRecordsOutputTypeDef(TypedDict):
+    Successful: list[AcknowledgeQueueRecordsResultEntryTypeDef]
+    Failed: list[AcknowledgeQueueRecordsErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class PutRecordInputTypeDef(TypedDict):
@@ -636,40 +883,8 @@ class ChildShardTypeDef(TypedDict):
     HashKeyRange: HashKeyRangeTypeDef
 
 
-class DescribeLimitsOutputTypeDef(TypedDict):
-    ShardLimit: int
-    OpenShardCount: int
-    OnDemandStreamCount: int
-    OnDemandStreamCountLimit: int
-    ChannelCount: int
-    ChannelCountLimit: int
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeStreamConsumerOutputTypeDef(TypedDict):
     ConsumerDescription: ConsumerDescriptionTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class EmptyResponseMetadataTypeDef(TypedDict):
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class EnhancedMonitoringOutputTypeDef(TypedDict):
-    StreamName: str
-    CurrentShardLevelMetrics: list[MetricsNameType]
-    DesiredShardLevelMetrics: list[MetricsNameType]
-    StreamARN: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetResourcePolicyOutputTypeDef(TypedDict):
-    Policy: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetShardIteratorOutputTypeDef(TypedDict):
-    ShardIterator: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -679,23 +894,8 @@ class ListStreamConsumersOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class PutRecordOutputTypeDef(TypedDict):
-    ShardId: str
-    SequenceNumber: str
-    EncryptionType: EncryptionTypeType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class RegisterStreamConsumerOutputTypeDef(TypedDict):
     Consumer: ConsumerTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class UpdateShardCountOutputTypeDef(TypedDict):
-    StreamName: str
-    CurrentShardCount: int
-    TargetShardCount: int
-    StreamARN: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -722,6 +922,11 @@ class UpdateStreamModeInputTypeDef(TypedDict):
     StreamModeDetails: StreamModeDetailsTypeDef
     StreamId: NotRequired[str]
     WarmThroughputMiBps: NotRequired[int]
+
+
+class QueueAttributesTypeDef(TypedDict):
+    VisibilityTimeoutSeconds: NotRequired[int]
+    DeadLetterConfiguration: NotRequired[DeadLetterConfigurationTypeDef]
 
 
 class DescribeAccountSettingsOutputTypeDef(TypedDict):
@@ -795,6 +1000,20 @@ class ListStreamConsumersInputTypeDef(TypedDict):
     StreamId: NotRequired[str]
 
 
+QueueStartingPositionTypeDef = TypedDict(
+    "QueueStartingPositionTypeDef",
+    {
+        "Type": QueueStartingPositionTypeType,
+        "Timestamp": NotRequired[TimestampTypeDef],
+    },
+)
+
+
+class QueueStreamFilterTypeDef(TypedDict):
+    StreamARN: str
+    StreamCreationTimestamp: NotRequired[TimestampTypeDef]
+
+
 ShardFilterTypeDef = TypedDict(
     "ShardFilterTypeDef",
     {
@@ -848,6 +1067,40 @@ class PutRecordsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class ReceiveDeadLetterQueueRecordsOutputTypeDef(TypedDict):
+    QueueRecords: list[QueueRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ReceiveQueueRecordsOutputTypeDef(TypedDict):
+    QueueRecords: list[QueueRecordTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class QueueStreamConfigurationOutputTypeDef(TypedDict):
+    StreamARN: str
+    StartingPosition: NotRequired[QueueStartingPositionOutputTypeDef]
+
+
+class QueueSummaryTypeDef(TypedDict):
+    QueueName: str
+    QueueARN: str
+    QueueStatus: QueueStatusType
+    QueueCreationTimestamp: datetime
+    Streams: list[QueueStreamIdentifierTypeDef]
+
+
+class RestoreDeadLetterQueueRecordsInputTypeDef(TypedDict):
+    QueueARN: str
+    Entries: Sequence[RestoreDeadLetterQueueRecordsRequestEntryTypeDef]
+
+
+class RestoreDeadLetterQueueRecordsOutputTypeDef(TypedDict):
+    Successful: list[RestoreDeadLetterQueueRecordsResultEntryTypeDef]
+    Failed: list[RestoreDeadLetterQueueRecordsErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class S3DestinationConfigurationTypeDef(TypedDict):
     StorageConfiguration: S3StorageConfigurationTypeDef
     DataFreshnessInSeconds: NotRequired[int]
@@ -885,12 +1138,35 @@ class StreamDescriptionSummaryTypeDef(TypedDict):
     MaxRecordSizeInKiB: NotRequired[int]
     ChannelCount: NotRequired[int]
     RecordDistributionStrategy: NotRequired[RecordDistributionStrategyType]
+    QueueCount: NotRequired[int]
 
 
 class UpdateStreamWarmThroughputOutputTypeDef(TypedDict):
     StreamARN: str
     StreamName: str
     WarmThroughput: WarmThroughputObjectTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateDeadLetterQueueRecordsVisibilityInputTypeDef(TypedDict):
+    QueueARN: str
+    Entries: Sequence[UpdateDeadLetterQueueRecordsVisibilityRequestEntryTypeDef]
+
+
+class UpdateDeadLetterQueueRecordsVisibilityOutputTypeDef(TypedDict):
+    Successful: list[UpdateDeadLetterQueueRecordsVisibilityResultEntryTypeDef]
+    Failed: list[UpdateDeadLetterQueueRecordsVisibilityErrorEntryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateQueueRecordsVisibilityInputTypeDef(TypedDict):
+    QueueARN: str
+    Entries: Sequence[UpdateQueueRecordsVisibilityRequestEntryTypeDef]
+
+
+class UpdateQueueRecordsVisibilityOutputTypeDef(TypedDict):
+    Successful: list[UpdateQueueRecordsVisibilityResultEntryTypeDef]
+    Failed: list[UpdateQueueRecordsVisibilityErrorEntryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -936,6 +1212,27 @@ class ListStreamsOutputTypeDef(TypedDict):
     StreamSummaries: list[StreamSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class UpdateQueueInputTypeDef(TypedDict):
+    QueueARN: str
+    QueueAttributes: QueueAttributesTypeDef
+
+
+QueueStartingPositionUnionTypeDef = Union[
+    QueueStartingPositionTypeDef, QueueStartingPositionOutputTypeDef
+]
+
+
+class ListQueuesInputPaginateTypeDef(TypedDict):
+    StreamFilter: NotRequired[Sequence[QueueStreamFilterTypeDef]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListQueuesInputTypeDef(TypedDict):
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+    StreamFilter: NotRequired[Sequence[QueueStreamFilterTypeDef]]
 
 
 class ListShardsInputPaginateTypeDef(TypedDict):
@@ -989,6 +1286,21 @@ class S3TablesConfigurationOutputTypeDef(TypedDict):
 PartitionSpecUnionTypeDef = Union[PartitionSpecTypeDef, PartitionSpecOutputTypeDef]
 
 
+class QueueDescriptionTypeDef(TypedDict):
+    QueueName: str
+    QueueARN: str
+    QueueStatus: QueueStatusType
+    QueueCreationTimestamp: datetime
+    StreamConfigurationList: list[QueueStreamConfigurationOutputTypeDef]
+    QueueAttributes: NotRequired[QueueAttributesTypeDef]
+
+
+class ListQueuesOutputTypeDef(TypedDict):
+    QueueSummaries: list[QueueSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class ListShardsOutputTypeDef(TypedDict):
     Shards: list[ShardTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1027,6 +1339,11 @@ class SubscribeToShardEventStreamTypeDef(TypedDict):
     InternalFailureException: NotRequired[InternalFailureExceptionTypeDef]
 
 
+class QueueStreamConfigurationTypeDef(TypedDict):
+    StreamARN: str
+    StartingPosition: NotRequired[QueueStartingPositionUnionTypeDef]
+
+
 class S3TablesDestinationDescriptionTypeDef(TypedDict):
     DataFreshnessInSeconds: int
     DeadLetterQueueS3Configuration: DeadLetterQueueS3ConfigurationTypeDef
@@ -1041,6 +1358,21 @@ class S3TablesConfigurationTypeDef(TypedDict):
     PartitionSpec: NotRequired[PartitionSpecUnionTypeDef]
 
 
+class CreateQueueOutputTypeDef(TypedDict):
+    QueueDescription: QueueDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribeQueueOutputTypeDef(TypedDict):
+    QueueDescription: QueueDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateQueueOutputTypeDef(TypedDict):
+    QueueDescription: QueueDescriptionTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class DescribeStreamOutputTypeDef(TypedDict):
     StreamDescription: StreamDescriptionTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1049,6 +1381,11 @@ class DescribeStreamOutputTypeDef(TypedDict):
 class SubscribeToShardOutputTypeDef(TypedDict):
     EventStream: EventStream[SubscribeToShardEventStreamTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+QueueStreamConfigurationUnionTypeDef = Union[
+    QueueStreamConfigurationTypeDef, QueueStreamConfigurationOutputTypeDef
+]
 
 
 class ChannelDescriptionTypeDef(TypedDict):
@@ -1069,6 +1406,13 @@ class ChannelDescriptionTypeDef(TypedDict):
 S3TablesConfigurationUnionTypeDef = Union[
     S3TablesConfigurationTypeDef, S3TablesConfigurationOutputTypeDef
 ]
+
+
+class CreateQueueInputTypeDef(TypedDict):
+    QueueName: str
+    StreamConfigurationList: Sequence[QueueStreamConfigurationUnionTypeDef]
+    QueueAttributes: NotRequired[QueueAttributesTypeDef]
+    Tags: NotRequired[Mapping[str, str]]
 
 
 class CreateChannelOutputTypeDef(TypedDict):

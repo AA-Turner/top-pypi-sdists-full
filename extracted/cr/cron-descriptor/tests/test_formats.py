@@ -161,6 +161,14 @@ def test_last_weekday_of_the_month(options: Options) -> None:
 def test_last_weekday_of_the_month2(options: Options) -> None:
     assert get_description("* * WL * *", options) == "Every minute, on the last weekday of the month"
 
+def test_day_of_month_specials_lowercase(options: Options) -> None:
+    assert get_description("* * l * *", options) == "Every minute, on the last day of the month"
+    assert get_description("0 0 0 l-5 * ?", options) == "At 12:00 AM, 5 days before the last day of the month"
+    assert get_description("* * lw * *", options) == "Every minute, on the last weekday of the month"
+    assert get_description("* * wl * *", options) == "Every minute, on the last weekday of the month"
+    assert get_description("* * 13w * *", options) == "Every minute, on the weekday nearest day 13 of the month"
+    assert get_description("* * w1 * *", options) == "Every minute, on the first weekday of the month"
+
 def test_first_weekday_of_the_month(options: Options) -> None:
     assert get_description("* * 1W * *", options) == "Every minute, on the first weekday of the month"
 
@@ -442,5 +450,25 @@ def test_day_of_week_nth_list_different_days(options: Options) -> None:
 
 
 def test_day_of_week_nth_list_with_plain_day(options: Options) -> None:
-    # Only lists where every item has an ordinal are described item by item
-    assert "Friday" in get_description("0 0 * * 1#2,5", options)
+    assert get_description("0 0 * * 1#2,5", options) == (
+        "At 12:00 AM, only on Friday and on the second Monday of the month"
+    )
+
+
+def test_day_of_week_list_mixing_plain_and_nth_days(options: Options) -> None:
+    # The ordinal belongs to its own item, not to the whole list
+    assert get_description("* * * * 1,3#2", options) == (
+        "Every minute, only on Monday and on the second Wednesday of the month"
+    )
+    assert get_description("* * * * 3#2,1-2", options) == (
+        "Every minute, Monday through Tuesday and on the second Wednesday of the month"
+    )
+
+
+def test_day_of_week_list_mixing_plain_and_last_days(options: Options) -> None:
+    assert get_description("* * * * 5L,1", options) == (
+        "Every minute, only on Monday and on the last Friday of the month"
+    )
+    assert get_description("* * * * 1,3#2,5L", options) == (
+        "Every minute, only on Monday and on the second Wednesday of the month and on the last Friday of the month"
+    )

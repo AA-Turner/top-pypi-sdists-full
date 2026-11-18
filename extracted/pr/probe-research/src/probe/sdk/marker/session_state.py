@@ -500,17 +500,21 @@ def switch_report(session_id: str) -> "dict | None":
         return None
 
 
-#: An auto chat's first researcher prompt has had its line (`claim_first_prompt`).
-AUTO_PROMPTED_SUFFIX = ".auto-prompted"
+#: An auto chat's first researcher prompt has had its line (`claim_first_prompt`); its first run its note.
+AUTO_PROMPTED_SUFFIX, RUN_NOTED_SUFFIX = ".auto-prompted", ".run-noted"
+#: A run created from an auto chat that is off or read (the SDK, `probe exec`, `run start`), once per chat
+#: (`claim_run_note`). A run never moves the switch (a platform test logs its runs, stays off; Richard 2026-11-17).
+RUN_LAUNCH_NOTE = (
+    "Probe is {state} for this chat; your run is still logged. If this is ML work, run `probe session state on`."
+)
 
 
-def claim_first_prompt(session_id: str) -> bool:
-    """True once per chat: the first researcher prompt of an auto chat (the hook's first line,
-    `AUTO_FIRST_PROMPT_LINE`). Created exclusively, so two hooks never both claim it; an
-    unwritable folder claims nothing (the plain state line goes instead)."""
+def _claim_once(session_id: str, suffix: str) -> bool:
+    """True the first time per chat and suffix. Created exclusively, so two processes never both claim it; an
+    unwritable folder claims nothing."""
     if not valid_session_id(session_id):
         return False
-    path = sessions_dir() / (session_id + AUTO_PROMPTED_SUFFIX)
+    path = sessions_dir() / (session_id + suffix)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         os.close(os.open(str(path), os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600))
@@ -519,24 +523,19 @@ def claim_first_prompt(session_id: str) -> bool:
     return True
 
 
-#: What a run launch says when it turned an off or read auto chat on (`set_auto_chat_on`).
-RUN_LAUNCH_ON = "Probe turned on for this chat: you launched a run."
+def claim_first_prompt(session_id: str) -> bool:
+    """True once per chat: the first researcher prompt of an auto chat (the hook's first line,
+    `AUTO_FIRST_PROMPT_LINE`); an unwritable folder claims nothing (the plain state line goes instead)."""
+    return _claim_once(session_id, AUTO_PROMPTED_SUFFIX)
 
 
-def set_auto_chat_on(session_id: str, source: "str | None" = None) -> "str | None":
-    """A run launched through Probe (`probe exec`, `run start`, the SDK's run create) in an auto chat
-    that is off or read: set it on, stored by who records (`on_state`), as the agent's auto move. The
-    state stored, or None when nothing changed (an explicit off or read keeps the chat out); inline while the
-    team's daemon allowance is spent (`_set_session_state_locked`)."""
-    target = on_state(session_id, source)
-    with _StateLock(session_id):
-        if not is_auto_chat(session_id) or session_state(session_id) not in (STATE_OFF, STATE_READ_ONLY):
-            return None
-        stored = _set_session_state_locked(session_id, target, None, explicit=True)
-        if stored is None:
-            return None
-        save_agent_move(session_id, _get_move_stamp(session_id, stored), is_auto=True)
-    return stored
+def claim_run_note(session_id: str) -> "str | None":
+    """A run created in an auto chat that is off or read: the state's word the first time in this chat
+    (`RUN_LAUNCH_NOTE` names it), else None."""
+    state = session_state(session_id) if valid_session_id(session_id) and is_auto_chat(session_id) else None
+    if state not in (STATE_OFF, STATE_READ_ONLY) or not _claim_once(session_id, RUN_NOTED_SUFFIX):
+        return None
+    return state_label(state)
 
 
 def set_state_by_agent(session_id: str, state: str, *, is_directed: bool) -> "tuple[bool, bool]":
@@ -729,7 +728,7 @@ PROBE_MESSAGES_RULE_FLOWED = "\n\n".join(
 #: paragraph of `agent_rules.POINTER_BODY` and `agent_rules.RUNS_POINTER_BODY`, one text.
 LINKS_RULE = (
     "To the researcher, write a run, experiment or project as `[name](url)` with the `url` Probe gave, never a "
-    "bare id. No `url`: its name.\n"
+    "bare id. Only an id: `probe run|experiment|project get id:<uuid>` prints its `url`. No `url`: its name.\n"
 )
 #: The same words wrapped at 77 columns, as `agent_rules.POINTER_BODY`'s prose is: the pointer bodies' copy.
 LINKS_RULE_FLOWED = textwrap.fill(LINKS_RULE.rstrip("\n"), 77, break_long_words=False, break_on_hyphens=False) + "\n"

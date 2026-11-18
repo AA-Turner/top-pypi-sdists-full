@@ -33,8 +33,8 @@ from ..primitivedata import (
     CharacterString,
     BitString,
     Enumerated,
-    Date,
-    Time,
+    DatePattern,
+    TimePattern,
     ObjectIdentifier,
 )
 from ..constructeddata import (
@@ -229,7 +229,41 @@ def enumerated_encode(value):
 
 def enumerated_decode(value, class_):
     assert isinstance(value, str)
-    return class_(value)
+    try:
+        return class_(value)
+    except ValueError as err:
+        signature = class_.__dict__.get("_signature", ())
+        if class_ is not Enumerated and ("cls", Enumerated) not in signature:
+            raise
+
+        # A generic Enumerated does not have a name map, but values from a
+        # concrete enumeration can retain their name when wrapped in one.
+        # Recover that value when the name identifies only one numeric value.
+        enum_classes = [Enumerated]
+        seen_enum_classes = set()
+        enum_values = []
+        while enum_classes:
+            enum_class = enum_classes.pop()
+            if enum_class in seen_enum_classes:
+                continue
+            seen_enum_classes.add(enum_class)
+            for enum_subclass in enum_class.__subclasses__():
+                enum_classes.append(enum_subclass)
+                if value in enum_subclass._enum_map:
+                    enum_values.append((enum_subclass, enum_subclass._enum_map[value]))
+
+        numeric_values = {numeric_value for _, numeric_value in enum_values}
+        if len(numeric_values) > 1:
+            raise ValueError(f"ambiguous enumerated value: {value}") from err
+        if numeric_values:
+            numeric_value = numeric_values.pop()
+            enum_value = next(
+                enum_class(value)
+                for enum_class, candidate_value in enum_values
+                if candidate_value == numeric_value
+            )
+            return class_(enum_value)
+        raise
 
 
 def date_encode(value):
@@ -288,9 +322,9 @@ def atomic_encode(value) -> _Any:
         literal = bitstring_encode(value)
     elif isinstance(value, Enumerated):
         literal = enumerated_encode(value)
-    elif isinstance(value, Date):
+    elif isinstance(value, DatePattern):
         literal = date_encode(value)
-    elif isinstance(value, Time):
+    elif isinstance(value, TimePattern):
         literal = time_encode(value)
     elif isinstance(value, ObjectIdentifier):
         literal = objectidentifier_encode(value)
@@ -321,9 +355,9 @@ def atomic_decode(literal, class_) -> Atomic:
         value = bitstring_decode(literal, class_)
     elif issubclass(class_, Enumerated):
         value = enumerated_decode(literal, class_)
-    elif issubclass(class_, Date):
+    elif issubclass(class_, DatePattern):
         value = date_decode(literal, class_)
-    elif issubclass(class_, Time):
+    elif issubclass(class_, TimePattern):
         value = time_decode(literal, class_)
     elif issubclass(class_, ObjectIdentifier):
         value = objectidentifier_decode(literal, class_)
@@ -365,7 +399,7 @@ def sequence_to_json(seq: Sequence) -> JSONDict:
         else:
             raise TypeError(value)
 
-        json[attr_to_asn1(attr)] = json_value
+        json[seq._element_names.get(attr) or attr_to_asn1(attr)] = json_value
 
     return json
 
@@ -384,7 +418,7 @@ def json_to_sequence(json: JSONDict, seq_class: type) -> Sequence:
         if _debug:
             json_to_sequence._debug("    - attr, element: %r, %r", attr, element)
 
-        value = json.pop(attr_to_asn1(attr), None)
+        value = json.pop(seq._element_names.get(attr) or attr_to_asn1(attr), None)
         if _debug:
             json_to_sequence._debug("    - value: %r", value)
         if value is None:

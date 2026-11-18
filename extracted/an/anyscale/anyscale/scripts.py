@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import Any
+from typing import Any, Tuple
 
 import click
 
@@ -66,6 +66,7 @@ import anyscale.conf
 from anyscale.errors import handle_uncaught_exception
 import anyscale.telemetry
 from anyscale.utils.cli_version_check_util import log_warning_if_version_needs_upgrade
+from anyscale.utils.extra_headers_util import HEADER_OPTION, set_cli_headers
 
 
 logger = logging.getLogger(__name__)
@@ -98,6 +99,17 @@ class AliasedGroup(click.Group):
         return cmd
 
 
+def _set_cli_headers(ctx: click.Context, param: click.Parameter, value: Tuple[str, ...]) -> None:
+    """Keep the --header values for the API clients. Raise BadParameter for an invalid value."""
+    # Shell completion parses without running a command, so it builds no client.
+    if ctx.resilient_parsing:
+        return
+    try:
+        set_cli_headers(value or ())
+    except ValueError as e:
+        raise click.BadParameter(str(e), ctx=ctx, param=param) from e
+
+
 @click.group(
     "anyscale",
     invoke_without_command=True,
@@ -120,6 +132,19 @@ class AliasedGroup(click.Group):
     is_flag=True,
     default=False,
     help="Return output as json, for use with --version. Deprecated: use `anyscale version -o json`.",
+)
+@click.option(
+    HEADER_OPTION,
+    "headers",
+    multiple=True,
+    expose_value=False,
+    callback=_set_cli_headers,
+    help=(
+        "HTTP header to add to every request sent to the Anyscale API, as 'Name: Value' "
+        "(e.g. 'X-Proxy-Token: abc'). Repeat for multiple headers. Takes precedence over "
+        "a header of the same name in the ANYSCALE_EXTRA_HEADERS environment variable "
+        "(a JSON object)."
+    ),
 )
 @click.pass_context
 def cli(ctx: Any, version_flag: bool, show_json: bool) -> None:

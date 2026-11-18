@@ -1,37 +1,33 @@
-__version__ = '1.4.4'
+__version__ = '1.5.0'
 
 import logging
 
 # Add NullHandler before importing Pika modules to prevent logging warnings
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-# pylint: disable=C0413
 # ruff: noqa: E402
 
-from pika.connection import ConnectionParameters
-from pika.connection import URLParameters
-from pika.connection import SSLOptions
-from pika.credentials import PlainCredentials
-from pika.spec import BasicProperties
-from pika.delivery_mode import DeliveryMode
-
-from pika import adapters
-from pika.adapters import BaseConnection
-from pika.adapters import BlockingConnection
-from pika.adapters import SelectConnection
-
+from pika import adapters, frame, spec
+from pika.adapters import BaseConnection, BlockingConnection, Connection, SelectConnection
 from pika.adapters.utils.connection_workflow import AMQPConnectionWorkflow
+from pika.connection import ConnectionParameters, SSLOptions, URLParameters
+from pika.credentials import PlainCredentials
+from pika.delivery_mode import DeliveryMode
+from pika.spec import BasicProperties
 
 __all__ = [
-    'adapters',
     'AMQPConnectionWorkflow',
     'BaseConnection',
     'BasicProperties',
     'BlockingConnection',
+    'Connection',
     'ConnectionParameters',
     'DeliveryMode',
     'PlainCredentials',
-    'SelectConnection',
     'SSLOptions',
+    'SelectConnection',
     'URLParameters',
+    'adapters',
+    'frame',
+    'spec',
 ]

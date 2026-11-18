@@ -5,7 +5,6 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Make coding more python3-ish
 from __future__ import annotations
 
 DOCUMENTATION = r"""
@@ -1718,9 +1717,9 @@ def disk_save_as(module, client, vm, disk_saveas, wait_timeout):
 
 
 def get_connection_info(module):
-    url = module.params.get("api_url")
-    username = module.params.get("api_username")
-    password = module.params.get("api_password")
+    url = module.params["api_url"]
+    username = module.params["api_username"]
+    password = module.params["api_password"]
 
     if not url:
         url = os.environ.get("ONE_URL")

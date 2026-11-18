@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
-from typing import List, Optional
+from functools import cached_property
+from typing import FrozenSet, Iterable, List, Optional
 
 from dataclasses_json import config, dataclass_json
 
@@ -16,6 +17,9 @@ logger = get_logger(__name__)
 
 # For documentation and samples check the link below:
 # https://www.notion.so/montecarlodata/Catalog-Schema-Filtering-59edd6eff7f74c94ab6bfca75d2e3ff1
+
+# Metadata hierarchy, coarsest first. table_name and table_type both describe a table.
+METADATA_ATTRIBUTE_LEVELS = {"project": 0, "dataset": 1, "table_name": 2, "table_type": 2}
 
 
 @dataclass_json
@@ -83,6 +87,36 @@ class MetadataFilter(FilterRule):
 
         logger.exception("Invalid filter, missing target values")
         return ""
+
+    @cached_property
+    def condition_attribute_names(self) -> FrozenSet[str]:
+        """
+        Names of the attributes this filter has conditions on. Cached because it's checked on
+        every lookup; conditions are built in __post_init__ and not changed afterwards.
+        """
+        return frozenset(c.attribute_name for c in self.conditions or [])
+
+
+def unevaluable_attributes(available: Iterable[str]) -> FrozenSet[str]:
+    """
+    Hierarchy attributes that a filter condition can't be evaluated against, given the available
+    attributes (those supplied in a lookup, or mapped to a SQL column): the ones not available
+    at or below the finest available level. Missing coarser attributes are not included, e.g. a
+    dataset-only lookup can still evaluate a (project, dataset) filter permissively.
+    Empty when no hierarchy attribute is available.
+    """
+    available = set(available)
+    levels = [
+        METADATA_ATTRIBUTE_LEVELS[name] for name in available if name in METADATA_ATTRIBUTE_LEVELS
+    ]
+    if not levels:
+        return frozenset()
+    finest_level = max(levels)
+    return frozenset(
+        name
+        for name, level in METADATA_ATTRIBUTE_LEVELS.items()
+        if level >= finest_level and name not in available
+    )
 
 
 @dataclass_json

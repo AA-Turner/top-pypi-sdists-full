@@ -10,10 +10,6 @@ to start a system cluster.
 Output is the model as the API returned it, in every format: text is the model as YAML
 (like `anyscale job status`), table is one row per group with the group's fields and its
 `metrics` fields side by side, json and yaml are the model. Field names are not rewritten.
-
-The group is `hidden=True` for now: it runs when typed, but is left out of `anyscale
---help`, the committed doc spec and the reference docs. Removing the flag (and the
-matching one on the Tasks module in `_private/docgen/__main__.py`) publishes it.
 """
 
 from dataclasses import fields
@@ -43,7 +39,7 @@ from anyscale.task.models import (
 )
 
 
-@click.group("task", help="Inspect the Ray tasks of a cluster.", hidden=True)
+@click.group("task", help="Inspect the Ray tasks of a cluster.")
 def task_cli() -> None:
     pass
 

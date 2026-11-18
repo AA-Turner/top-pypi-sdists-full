@@ -31,6 +31,7 @@ __all__ = (
     "EncryptionTypeType",
     "KinesisServiceName",
     "ListChannelsPaginatorName",
+    "ListQueuesPaginatorName",
     "ListShardsPaginatorName",
     "ListStreamConsumersPaginatorName",
     "ListStreamsPaginatorName",
@@ -39,6 +40,8 @@ __all__ = (
     "MinimumThroughputBillingCommitmentOutputStatusType",
     "PaginatorName",
     "PartitionTransformType",
+    "QueueStartingPositionTypeType",
+    "QueueStatusType",
     "RecordDistributionStrategyType",
     "RecordFormatTypeType",
     "RegionName",
@@ -54,6 +57,7 @@ __all__ = (
     "StreamModeType",
     "StreamNotExistsWaiterName",
     "StreamStatusType",
+    "TargetTypeType",
     "WaiterName",
 )
 
@@ -65,6 +69,7 @@ ConsumerStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DescribeStreamPaginatorName = Literal["describe_stream"]
 EncryptionTypeType = Literal["KMS", "NONE"]
 ListChannelsPaginatorName = Literal["list_channels"]
+ListQueuesPaginatorName = Literal["list_queues"]
 ListShardsPaginatorName = Literal["list_shards"]
 ListStreamConsumersPaginatorName = Literal["list_stream_consumers"]
 ListStreamsPaginatorName = Literal["list_streams"]
@@ -83,6 +88,8 @@ MinimumThroughputBillingCommitmentOutputStatusType = Literal[
     "DISABLED", "ENABLED", "ENABLED_UNTIL_EARLIEST_ALLOWED_END"
 ]
 PartitionTransformType = Literal["TIME_HOUR"]
+QueueStartingPositionTypeType = Literal["AT_TIMESTAMP", "LATEST", "TRIM_HORIZON"]
+QueueStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
 RecordDistributionStrategyType = Literal["AUTO", "USER_PARTITION_KEY"]
 RecordFormatTypeType = Literal["BYTE_ARRAY", "GSR_JSON", "JSON", "STRING"]
 S3CompressionTypeType = Literal["GZIP", "NONE", "ZSTD"]
@@ -104,6 +111,7 @@ StreamExistsWaiterName = Literal["stream_exists"]
 StreamModeType = Literal["ON_DEMAND", "PROVISIONED"]
 StreamNotExistsWaiterName = Literal["stream_not_exists"]
 StreamStatusType = Literal["ACTIVE", "CREATING", "DELETING", "UPDATING"]
+TargetTypeType = Literal["BUILT_IN", "NONE"]
 KinesisServiceName = Literal["kinesis"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -214,6 +222,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -398,6 +407,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -465,6 +475,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -546,7 +557,12 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "describe_stream", "list_channels", "list_shards", "list_stream_consumers", "list_streams"
+    "describe_stream",
+    "list_channels",
+    "list_queues",
+    "list_shards",
+    "list_stream_consumers",
+    "list_streams",
 ]
 WaiterName = Literal["channel_active", "stream_exists", "stream_not_exists"]
 RegionName = Literal[

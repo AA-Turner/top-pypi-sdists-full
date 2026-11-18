@@ -129,7 +129,10 @@ tags:
 
     tags: Optional[Dict[str, str]] = field(
         default=None,
-        metadata={"docstring": "Tags to associate with the workspace."},
+        metadata={
+            "docstring": "Tags to associate with the workspace. An update adds these tags, "
+            "overwriting any tag with the same key, and keeps the workspace's other tags."
+        },
     )
 
     def _validate_tags(self, tags: Optional[Dict[str, str]]):

@@ -72,6 +72,8 @@ DEFAULT_SOLVE_TIMEOUT = 180.0
 """Default overall budget (seconds) for the ``solve()`` helper."""
 _MAX_WAIT_SECONDS = 90
 """The API caps server-side long-poll at 90 seconds."""
+_POLL_RETRY_DELAY = 1.0
+"""Seconds between re-polls after a long-poll GET was lost (reset, timeout, 5xx)."""
 FEEDBACK_BATCH_MAX = 500
 """The API caps one ``POST /v1/feedback`` call at 500 items."""
 
@@ -85,6 +87,14 @@ def _wait_seconds(deadline: float) -> int:
     with the clock, not with this return value."""
     remaining = int(deadline - time.monotonic()) + 1
     return max(1, min(_MAX_WAIT_SECONDS, remaining))
+
+
+def _poll_error_is_retryable(exc: Exception) -> bool:
+    """A lost long-poll GET leaves the solve running server-side: re-poll the
+    same id instead of surfacing an error that callers turn into a re-solve."""
+    if isinstance(exc, APIConnectionError):
+        return True
+    return isinstance(exc, APIError) and (exc.status or 0) >= 500
 
 
 def _request_timeout_for_wait(wait: Optional[int], default: float) -> float:
@@ -466,7 +476,13 @@ class SolveHandle:
                     solve_id=solve.id,
                     solve=solve,
                 )
-            solve = self._solves.retrieve(solve.id, wait=_wait_seconds(deadline))
+            try:
+                solve = self._solves.retrieve(solve.id, wait=_wait_seconds(deadline))
+            except (APIConnectionError, APIError) as exc:
+                if not _poll_error_is_retryable(exc):
+                    raise
+                time.sleep(max(0.0, min(_POLL_RETRY_DELAY, deadline - time.monotonic())))
+                continue
             self._solve = solve
         self._settled = solve
         return self._result_from(solve)
@@ -968,7 +984,14 @@ class AsyncSolveHandle:
                     solve_id=solve.id,
                     solve=solve,
                 )
-            solve = await self._solves.retrieve(solve.id, wait=_wait_seconds(deadline))
+            try:
+                solve = await self._solves.retrieve(solve.id, wait=_wait_seconds(deadline))
+            except (APIConnectionError, APIError) as exc:
+                if not _poll_error_is_retryable(exc):
+                    raise
+                remaining = deadline - time.monotonic()
+                await asyncio.sleep(max(0.0, min(_POLL_RETRY_DELAY, remaining)))
+                continue
             self._solve = solve
         return solve
 

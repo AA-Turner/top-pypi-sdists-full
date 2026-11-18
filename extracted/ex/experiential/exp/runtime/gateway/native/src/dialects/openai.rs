@@ -98,7 +98,9 @@ impl Normalizer {
             .raw_arguments
             .clone();
         if !streamed.is_empty() && streamed != final_arguments {
-            return Err(malformed("OpenAI tool argument fragments changed at done"));
+            return Err(super::malformed_tool_call(
+                "OpenAI tool argument fragments changed at done",
+            ));
         }
         if streamed.is_empty() && !final_arguments.is_empty() {
             self.reserve_tool_bytes(final_arguments.len())?;
@@ -166,6 +168,7 @@ impl Normalizer {
                 }
                 let delta = optional_text(&payload, "delta", "OpenAI refusal delta")?;
                 self.refusal_seen = true;
+                self.model_refusal_seen = true;
                 events.push(Event::ProviderRefusalDelta {
                     output_index,
                     item_id,
@@ -462,7 +465,8 @@ impl Normalizer {
             "response.function_call_arguments.delta" => {
                 let index = openai_index(&payload, "output_index", "OpenAI output_index")?;
                 let item_id = openai_identity(&payload, "item_id", "OpenAI function call item ID")?;
-                let delta = optional_text(&payload, "delta", "OpenAI argument delta")?;
+                let delta = optional_text(&payload, "delta", "OpenAI argument delta")
+                    .map_err(|failure| failure.with_malformed_tool_call(true))?;
                 self.reserve_tool_bytes(delta.len())?;
                 let tool = self
                     .tools
@@ -490,7 +494,7 @@ impl Normalizer {
                 }
                 let arguments =
                     require_string(&payload, "arguments", "OpenAI function call arguments")
-                        .map_err(|message| malformed(&message))?;
+                        .map_err(|message| super::malformed_tool_call(&message))?;
                 self.reconcile_openai_tool_arguments(index, &arguments, &mut events)?;
             }
             "response.custom_tool_call_input.delta" => {
@@ -629,7 +633,7 @@ impl Normalizer {
                         let caller = optional_openai_caller(item, "OpenAI function call caller")?;
                         let arguments =
                             require_string(item, "arguments", "OpenAI function call arguments")
-                                .map_err(|message| malformed(&message))?;
+                                .map_err(|message| super::malformed_tool_call(&message))?;
                         let tool = self.tools.get(&index).ok_or_else(|| {
                             malformed("OpenAI function call completed before its start")
                         })?;
@@ -807,10 +811,18 @@ impl Normalizer {
                     if reason == "max_output_tokens" {
                         events.push(Event::Incomplete);
                     } else if reason == "content_filter" || reason == "safety" {
-                        // The incomplete reason IS the category token.
-                        events.push(Event::Failed(Failure::refusal(
-                            crate::stream_errors::refusal_reason(Some(reason), None),
-                        )));
+                        // The incomplete reason IS the category token. With no
+                        // refusal of the model's own, the provider's filter
+                        // cut the turn; a model refusal stays as it was.
+                        let failure = Failure::refusal(crate::stream_errors::refusal_reason(
+                            Some(reason),
+                            None,
+                        ));
+                        events.push(Event::Failed(if self.model_refusal_seen {
+                            failure
+                        } else {
+                            crate::content_filter::mark(failure)
+                        }));
                     } else {
                         // The undocumented reason is the only diagnostic this
                         // terminal carries; it rides as the bounded detail.

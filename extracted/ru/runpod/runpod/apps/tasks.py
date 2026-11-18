@@ -20,9 +20,11 @@ from typing import Any, Dict, List, Optional
 import aiohttp
 
 from .._hosts import proxy_url
+from ..user_agent import APPS_USER_AGENT
 from .api import AppsApiClient, is_capacity_error
 from .context import CLEANUP_TIMEOUT
 from .spec import ResourceSpec
+from .utils.http import raise_for_status
 
 log = logging.getLogger(__name__)
 
@@ -206,7 +208,7 @@ class _TaskTransport:
 
     @property
     def _headers(self) -> Dict[str, str]:
-        return {"Authorization": f"Bearer {self.token}"}
+        return {"Authorization": f"Bearer {self.token}", "User-Agent": APPS_USER_AGENT}
 
     async def wait_ready(self, timeout: float = READY_TIMEOUT) -> None:
         """poll the runner's /ping through the pod proxy until it answers."""
@@ -216,7 +218,9 @@ class _TaskTransport:
             while time.monotonic() < deadline:
                 try:
                     async with session.get(
-                        url, timeout=aiohttp.ClientTimeout(total=5)
+                        url,
+                        timeout=aiohttp.ClientTimeout(total=5),
+                        headers={"User-Agent": APPS_USER_AGENT},
                     ) as resp:
                         if resp.status == 200:
                             return
@@ -282,7 +286,7 @@ class _TaskTransport:
                     if resp.status == 404 and attempt < attempts - 1:
                         await asyncio.sleep(2 * (attempt + 1))
                         continue
-                    resp.raise_for_status()
+                    await raise_for_status(resp)
                     if timeout is not None:
                         response = await resp.json()
                         if (
@@ -316,7 +320,7 @@ class _TaskTransport:
                     if resp.status == 404 and attempt < attempts - 1:
                         await asyncio.sleep(2 * (attempt + 1))
                         continue
-                    resp.raise_for_status()
+                    await raise_for_status(resp)
                     data = await resp.json()
                     break
         if data.get("status") == "DONE":

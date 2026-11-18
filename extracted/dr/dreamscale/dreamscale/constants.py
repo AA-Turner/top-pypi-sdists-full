@@ -1,13 +1,13 @@
 """Dreamscale SDK constants.
 
-Cross-component values come from dreamscale_transport.constants (single binding
-source — docs/plans/2026-06-10-dropbear-mvp-00-master.md) and are re-exported.
+Cross-component values come from dreamscale_transport.constants (the single binding
+source) and are re-exported.
 SDK-only values are defined below.
 """
 
 from typing import TYPE_CHECKING
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from dreamscale_transport.constants import (
     CHUNK_SIZE,
     EXEC_HZ,
@@ -15,8 +15,6 @@ from dreamscale_transport.constants import (
     LEASE_TTL_S,
     MAX_STEP_DEG,
     MODEL_BIMANUAL_YAM,
-    MODEL_DREAMZERO_DROID,
-    MODEL_DREAMZERO_YAM,
     MODEL_DROID,
     MODEL_GROOT_LIBERO,
     MODEL_LIBERO,
@@ -33,7 +31,7 @@ from dreamscale_transport.constants import (
 __all__ = [
     "CHUNK_SIZE", "EXEC_HZ", "HEARTBEAT_S", "LEASE_TTL_S", "MAX_STEP_DEG",
     "MODEL_BIMANUAL_YAM", "MODEL_DROID", "MODEL_GROOT_LIBERO", "MODEL_LIBERO",
-    "MODEL_DREAMZERO_DROID", "MODEL_DREAMZERO_YAM", "MODEL_SO101", "OBS_HZ", "START_TIMEOUT_S",
+    "MODEL_SO101", "OBS_HZ", "START_TIMEOUT_S",
     "UDP_PORT_BIMANUAL_YAM",
     "UDP_PORT_DROID", "UDP_PORT_GROOT", "UDP_PORT_LIBERO",
     "UDP_PORT_SO101",

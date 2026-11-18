@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import gc
+import logging
 import threading
 import time
 import uuid
@@ -25,7 +26,11 @@ from dbos._context import (
     get_workflow_start_options,
 )
 from dbos._dbos import WorkflowHandle
-from dbos._error import DBOSAwaitedWorkflowCancelledError, DBOSPatchNondeterminismError
+from dbos._error import (
+    DBOSAwaitedWorkflowCancelledError,
+    DBOSException,
+    DBOSPatchNondeterminismError,
+)
 from dbos._event_loop import BackgroundEventLoop
 from dbos._schemas.system_database import SystemSchema
 from tests.conftest import retry_until_success
@@ -1238,6 +1243,40 @@ async def test_workflow_recovery_async(dbos: DBOS, config: DBOSConfig) -> None:
 
 
 @pytest.mark.asyncio
+async def test_recover_workflows_async(dbos: DBOS) -> None:
+    @DBOS.workflow()
+    async def target_workflow(x: int) -> int:
+        return x
+
+    @DBOS.workflow()
+    async def recovering_workflow() -> int:
+        return len(await DBOS.recover_workflows_async(["dead-executor"]))
+
+    wfid = str(uuid.uuid4())
+    with SetWorkflowID(wfid):
+        assert (await target_workflow(5)) == 5
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.update(SystemSchema.workflow_status)
+            .values({"status": "PENDING", "executor_id": "dead-executor"})
+            .where(SystemSchema.workflow_status.c.workflow_uuid == wfid)
+        )
+
+    # The sync variant refuses to run on the event loop
+    with pytest.raises(RuntimeError, match="recover_workflows_async"):
+        DBOS.recover_workflows(["dead-executor"])
+
+    # Recovery is rejected from within a workflow
+    with pytest.raises(DBOSException, match="within a workflow or step"):
+        await recovering_workflow()
+
+    handles = await DBOS.recover_workflows_async(["dead-executor"])
+    assert [h.get_workflow_id() for h in handles] == [wfid]
+    assert (await handles[0].get_result()) == 5
+    assert await DBOS.recover_workflows_async(["dead-executor"]) == []
+
+
+@pytest.mark.asyncio
 async def test_concurrent_patch_async(dbos: DBOS, config: DBOSConfig) -> None:
     # Calling DBOS.patch_async from concurrent tasks inside one workflow is
     # inherently nondeterministic: the position each patch marker lands at
@@ -1537,3 +1576,34 @@ def test_asyncio_run_keeps_dbos_executor(dbos: DBOS) -> None:
     assert DBOS.start_workflow(workflow, 1).get_result() == 2
     assert asyncio.run(async_workflow(2)) == 3
     assert DBOS.start_workflow(workflow, 3).get_result() == 4
+
+
+@pytest.mark.asyncio
+async def test_check_async_raises_or_warns_on_an_event_loop(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from dbos._utils import check_async
+
+    with pytest.raises(RuntimeError, match=r"fn\(\) was called .* Use await fn_async"):
+        check_async("fn")
+    with pytest.raises(RuntimeError, match=r"fn\(\) was called .* Use other instead"):
+        check_async("fn", alternative="other")
+
+    # With warn, the call goes ahead and the blocked loop is only logged.
+    original_propagate = logging.getLogger("dbos").propagate
+    logging.getLogger("dbos").propagate = True
+    try:
+        with caplog.at_level(logging.WARNING, "dbos"):
+            check_async(
+                "Queue.limiter", alternative="Queue.get_limiter_async", warn=True
+            )
+            check_async("Queue.set_limiter", warn=True)
+    finally:
+        logging.getLogger("dbos").propagate = original_propagate
+    assert [r.getMessage().split(". ")[-1] for r in caplog.records] == [
+        "Use 'Queue.get_limiter_async' instead.",
+        "Use 'Queue.set_limiter_async' instead.",
+    ]
+
+    # Off an event loop, neither mode does anything.
+    await asyncio.to_thread(check_async, "fn")

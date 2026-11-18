@@ -574,7 +574,7 @@ TODAY = {
         "@pytest.mark.e2e\ndef test_same_site_other_port_stays_in_process(page, engine_dir):\n"
         "    before = processes_of(SITE_A, engine_dir)\n\n\n"
         "@pytest.mark.e2e\ndef test_frame_list_has_real_urls(page):\n    pass\n"),
-    "tests/test_juggler_transport.py": (
+    "tests/test_the_working_clone_has_the_workbench_next_to_it.py": (
         "import pytest\n\ndef test_the_workbench_inventory_and_the_package_cannot_DRIFT():\n"
         "    tool = pathlib.Path(__file__).resolve().parents[3] / \"scripts\" \\\n        / \"inventario_voce6.py\"\n"
         "    if not tool.exists():\n        pytest.skip(\"the workbench is not next to this checkout\")\n\n"
@@ -595,7 +595,7 @@ REASON_REMOVED = {
         lambda t: t.replace("engine_at_least(\"firefox-65\")", "engine_at_least(\"firefox-60\")", 1),
     "tests/_processes.py": lambda t: t.replace("if not sys.platform.startswith(\"linux\"):", "if False:"),
     "tests/test_fission_strategy1_bench.py": lambda t: t.replace("return site_processes_below(", "return set(("),
-    "tests/test_juggler_transport.py": lambda t: t.replace("pytest.skip(", "print("),
+    "tests/test_the_working_clone_has_the_workbench_next_to_it.py": lambda t: t.replace("pytest.skip(", "print("),
     "tests/test_juggler_injected.py": lambda t: t.replace("pytest.skip(", "print("),
 }
 

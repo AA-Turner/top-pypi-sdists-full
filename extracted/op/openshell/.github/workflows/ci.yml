@@ -26,7 +26,15 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - name: Check license headers
+        uses: ai-openshell/workflows/spdx-check@0b051efd25c3f7319634fed863d2e03e1bd55d7b
+        with:
+          include: >-
+            *.py *.pyi *.sh *.toml *.yml *.yaml *.json
+            Dockerfile* */Dockerfile*
+          exclude: src/openshell/_proto/*
+
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
 
       # fetch-core.sh reads proto/ and sdk/conformance from NVIDIA/OpenShell
       # at the pinned ref (public, no credentials).
@@ -49,7 +57,7 @@ jobs:
         with:
           persist-credentials: false
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
 
       - name: Unit tests
         run: mise run test
@@ -65,7 +73,7 @@ jobs:
           # setuptools-scm reads the version from git history.
           fetch-depth: 0
 
-      - uses: jdx/mise-action@f5be966e4a917d54244728e6a5fdcd1d93a35e6c # v5.2.6
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
 
       - name: Build, verify, and install the wheel and sdist
         run: mise run build

@@ -1,7 +1,7 @@
-"""Internal latency benchmark helpers (sandbox phase0 verbs, relocated).
+"""Internal latency benchmark helpers (the phase-0 prototype's verbs, relocated).
 
-BenchmarkCase/default_benchmark_cases ported verbatim from
-sandbox/sdk/python/dropbear/benchmark.py.
+BenchmarkCase/default_benchmark_cases ported verbatim from the phase-0 prototype SDK
+(`sandbox/sdk/python/.../benchmark.py`, removed in DSL-442; see git history).
 """
 
 from __future__ import annotations

@@ -2,7 +2,7 @@
 (``dreamscale.deploy_bases`` loads it by the family manifest's id).
 
 Scaffolded by scripts/new_model.py, unlisted (``listed_as=None``) until GA. Its deployments run
-the robot preset its transport module declares (dreamscale_transport.flexpi_deploy) or a custom
+the robot preset its transport module declares (dreamscale_core.flexpi_deploy) or a custom
 robot (docs/plans/2026-11-14-flexpi-any-robot.md): its run's config.yaml gives its widths and the
 views it filmed; the create names its cameras' keys for those views (`--preset custom --camera
 <key>=<view>`), its rate (`--hz`, required: a run's config doesn't record it) and, for joint
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dreamscale_transport import flexpi_deploy as C
+from dreamscale_core import flexpi_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 from dreamscale.deploy_bases._preset import PresetUnits

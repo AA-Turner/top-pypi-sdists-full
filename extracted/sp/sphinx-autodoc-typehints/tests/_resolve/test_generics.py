@@ -5,13 +5,13 @@ from typing import TYPE_CHECKING, TypeAliasType
 
 from pytest import fixture, mark, param
 
-from sphinx_autodoc_typehints._resolve import (
+from sphinx_autodoc_typehints._resolve.generics import (
     bound_type_args,
     declared_type_params,
     specialize,
+    type_arguments,
     type_params_of,
 )
-from sphinx_autodoc_typehints._resolve.generics import type_arguments
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 
     from conftest import BuildText
 
-    from sphinx_autodoc_typehints._types import Annotation
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # Shared test types
+        Annotation,
+    )
 
 
 @mark.parametrize(
@@ -28,8 +30,8 @@ if TYPE_CHECKING:
         param(".. automethod:: type_params_module.IntBox.get", '"int"', id="legacy"),
         param(".. automethod:: type_params_module.IntStack.peek", '"int"', id="pep695"),
         param(".. automethod:: type_params_module.IntListing.get", '"list"["int"]', id="through-two-bases"),
-        param(".. automethod:: type_params_module.Listing.get", '"list"["U"]', id="to-own-param"),
-        param(".. automethod:: type_params_module.Restack.peek", '"V"', id="to-own-param-of-the-name"),
+        param(".. automethod:: type_params_module.Listing.get", '"list"["CellT"]', id="to-own-param"),
+        param(".. automethod:: type_params_module.Restack.peek", '"ValueT"', id="to-own-param-of-the-name"),
         param(".. automethod:: type_params_module.IntFeed.pull", '"int"', id="protocol-not-runtime-checkable"),
         param(".. automethod:: type_params_module.IntSink.put", '"int"', id="past-a-registered-base"),
     ],
@@ -44,9 +46,9 @@ def test_type_params_bound_by_the_documenting_subclass_return(
 
 @mark.sphinx("text", testroot="type-params")
 def test_generic_subclass_inherited_special_members_build(
-    build_text: BuildText, make_module: Callable[[str], ModuleType]
+    build_text: BuildText, resolve_module: Callable[[str], ModuleType]
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent('''\
             from typing import Generic, TypeVar
 
@@ -130,10 +132,12 @@ def test_type_params_bound_by_the_documenting_subclass_signature(
         param(".. automethod:: type_params_module.IntCrate.take", '* **key** ("int") \u2192 "int"', id="bound-legacy"),
         param(
             ".. automethod:: type_params_module.Shelf.take",
-            '* **key** ("S") → "list"["S"]',
+            '* **key** ("TextT") → "list"["TextT"]',
             id="own-type-parameter",
         ),
-        param(".. autofunction:: type_params_module.pick", "* **key** (K) → list[K]", id="unregistered-overloads"),
+        param(
+            ".. autofunction:: type_params_module.pick", "* **key** (KeyT) → list[KeyT]", id="unregistered-overloads"
+        ),
     ],
 )
 @mark.sphinx("text", testroot="type-params")
@@ -159,8 +163,8 @@ def test_type_params_of(generic_module: ModuleType, owner: str, legacy: bool, ex
 
 
 @fixture(name="generic_module")
-def generic_module_fixture(make_module: Callable[[str], ModuleType]) -> ModuleType:
-    return make_module(
+def generic_module_fixture(resolve_module: Callable[[str], ModuleType]) -> ModuleType:
+    return resolve_module(
         dedent("""\
             from typing import Generic, TypeVar, TypeVarTuple
 
@@ -224,9 +228,9 @@ def test_bound_type_args(
 
 
 def test_bound_type_args_past_a_class_whose_annotations_are_no_dict(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             class Box[T]:
                 def get(self) -> T: ...
@@ -259,18 +263,19 @@ def test_type_arguments(
 @mark.parametrize(
     ("annotation", "expected"),
     [
-        param(lambda module: module.T, int, id="bound-parameter"),
-        param(lambda module: module.Ts, None, id="unbound-parameter"),
-        param(lambda module: list[module.T], list[int], id="generic-alias"),
-        param(lambda module: module.Legacy, None, id="bare-generic-class"),
-        param(lambda _: list[str], list[str], id="no-parameter"),
+        param(lambda module: module.T, lambda _: int, id="bound-parameter"),
+        param(lambda module: module.Ts, lambda module: module.Ts, id="unbound-parameter"),
+        param(lambda module: list[module.T], lambda _: list[int], id="generic-alias"),
+        param(lambda module: module.Legacy, lambda module: module.Legacy, id="bare-generic-class"),
+        param(lambda _: list[str], lambda _: list[str], id="no-parameter"),
     ],
 )
 def test_specialize(
-    generic_module: ModuleType, annotation: Callable[[ModuleType], Annotation], expected: Annotation | None
+    generic_module: ModuleType,
+    annotation: Callable[[ModuleType], Annotation],
+    expected: Callable[[ModuleType], Annotation],
 ) -> None:
-    unspecialized = annotation(generic_module)
-    assert specialize(unspecialized, {generic_module.T: int}) == (unspecialized if expected is None else expected)
+    assert specialize(annotation(generic_module), {generic_module.T: int}) == expected(generic_module)
 
 
 @mark.parametrize(
@@ -279,12 +284,12 @@ def test_specialize(
         param(
             ".. autofunction:: type_params_module.bounded",
             dedent("""\
-                type_params_module.bounded[T: Path](value)
+                type_params_module.bounded[ItemT: Path](value)
 
                    Take a bounded type parameter.
 
                    Return type:
-                      "T"
+                      "ItemT"
             """),
             id="function",
         ),
@@ -296,7 +301,7 @@ def test_specialize(
                    Look at the top.
 
                    Return type:
-                      "T"
+                      "ItemT"
             """),
             id="class",
         ),
@@ -308,7 +313,7 @@ def test_specialize(
                    Return the first.
 
                    Return type:
-                      "D"
+                      "DefaultT"
             """),
             id="generic-subclass",
         ),
@@ -320,21 +325,21 @@ def test_specialize(
                    Use a type variable no signature declares.
 
                    Return type:
-                      "L"
+                      "LeftT"
             """),
             id="undeclared",
         ),
         param(
             ".. autofunction:: type_params_module.forward",
             dedent("""\
-                type_params_module.forward[**P](call, *args, **kwargs)
+                type_params_module.forward[**Params](call, *args, **kwargs)
 
                    Call with the arguments it takes.
 
                    Parameters:
-                      * **args** ("P.args") -- positional
+                      * **args** ("Params.args") -- positional
 
-                      * **kwargs** ("P.kwargs") -- by keyword
+                      * **kwargs** ("Params.kwargs") -- by keyword
 
                    Return type:
                       "None"

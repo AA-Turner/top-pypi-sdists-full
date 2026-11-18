@@ -19,8 +19,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dreamscale_transport.training_data import CHECK_SCOPE
-from dreamscale_transport.training_recipes import charged_usd
+from dreamscale_core.training_data import CHECK_SCOPE
+from dreamscale_core.training_quotes import charged_usd
 from rich.text import Text
 
 from dreamscale import errors, tables

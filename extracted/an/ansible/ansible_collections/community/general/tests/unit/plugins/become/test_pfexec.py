@@ -4,7 +4,6 @@
 # GNU General Public License v3.0+ (see LICENSES/GPL-3.0-or-later.txt or https://www.gnu.org/licenses/gpl-3.0.txt)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Make coding more python3-ish
 from __future__ import annotations
 
 import re
@@ -75,9 +74,7 @@ def test_pfexec_custom_flags(mocker, parser, reset_cli_args):
         "become_method": "community.general.pfexec",
         "become_flags": pfexec_flags,
     }
-    var_options = {
-        "ansible_pfexec_wrap_execution": "true",
-    }
+    var_options = {}
     cmd = call_become_plugin(task, var_options, cmd=default_cmd, executable=default_exe)
     print(cmd)
     assert (

@@ -32,7 +32,8 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from dreamscale_transport.training_data import split_columns
+from dreamscale_core import training_families
+from dreamscale_core.training_data import split_columns
 
 from dreamscale import errors
 from dreamscale.config import dashboard_url, dreamscale_home, load_config, warn_engine_ignored
@@ -197,7 +198,7 @@ def default_name(source: DatasetSource) -> str:
 
 
 IMAGE_PREFIX = "observation.images."
-# The camera roles a mapping may name: the shared vocabulary (dreamscale_transport.training_data
+# The camera roles a mapping may name: the shared vocabulary (dreamscale_core.training_data
 # role_kind: three roles, then extra scene and wrist roles numbered from 1; test_trainings keeps
 # the two equal), here so the SDK needs no newer transport release. The server checks which of
 # them the run's base takes.
@@ -340,20 +341,13 @@ EVAL_CAVEAT = (
 
 
 def held_out_metric(run_or_quote: dict) -> tuple[str, str, str]:
-    """What a run's held-out evaluation reports: (label, the checkpoints' field, the
-    evaluation points' field): its contract's, else its base's family's (the training
-    registry's ``held_out_metric``, ABC-VLA's ``action_error``), else the loss."""
-    from dreamscale_transport import training_families
-
+    """The label, checkpoint field and evaluation point for a run's held-out score."""
     contract = run_or_quote.get("contract") or {}
-    if contract.get("eval_metric") == "action_error":
-        return "held-out action error", "eval_action_error", "action_error"
-    base = run_or_quote.get("base")
-    metric = (training_families.family_of(base).held_out_metric
-              if base in training_families.listed_bases() else None)
-    if metric is not None:
-        return f"held-out {metric.replace('_', ' ')}", f"eval_{metric}", metric
-    return "held-out loss", "eval_loss", "loss"
+    if contract.get("eval_metric") == training_families.ACTION_ERROR:
+        metric = training_families.ACTION_ERROR
+    else:
+        metric = training_families.held_out_metric(run_or_quote.get("base")) or "loss"
+    return f"held-out {metric.replace('_', ' ')}", f"eval_{metric}", metric
 
 
 def run_settings(
@@ -606,19 +600,8 @@ def size_text(count: int) -> str:
 
 
 def base_name(base_id: str | None) -> str:
-    """A training base's name (the training registry's; a quote's stored id, gr00t-n17, by the
-    name its family lists, gr00t-n1.7), else the id as given."""
-    from dreamscale_transport import training_families
-
-    if base_id in training_families.listed_bases():
-        return training_families.family_of(base_id).base_name(base_id)
-    if training_families.is_base(base_id):
-        family = training_families.family_of(base_id)
-        stored = training_families.stored_base(base_id)
-        for listed in family.listed_bases:
-            if family.bases.get(listed) == stored:
-                return family.base_name(listed)
-    return str(base_id)
+    """A training base's display name, else the id as given."""
+    return training_families.base_name(base_id)
 
 
 def _robot_presets() -> dict:
@@ -705,8 +688,6 @@ def normalization_line(quote: dict) -> str | None:
 
 def trained_on(base_id: str | None) -> str | None:
     """The robot a base was trained on, for a base trained on one robot (π0.5 RTC YAM)."""
-    from dreamscale_transport import training_families
-
     layout = _robot_presets().get(training_families.trained_on(base_id) or "")
     return f"trained on {layout.label}" if layout else None
 

@@ -17,7 +17,7 @@ class ModifyNatGatewayCapacityReservationResponseBody(DaraModel):
     ):
         # The status of the resource reservation.
         self.capacity_reservation_status = capacity_reservation_status
-        # The remaining number of times that you can downgrade the configuration or cancel the resource reservation.
+        # The remaining number of times that you can downgrade or cancel the resource reservation.
         self.decrease_requests_remaining = decrease_requests_remaining
         # The number of capacity units (CUs) for the NAT resource reservation.
         self.nat_gateway_capacity = nat_gateway_capacity
@@ -98,7 +98,7 @@ class ModifyNatGatewayCapacityReservationResponseBodyNatGatewayPerformanceValues
         self.bandwidth = bandwidth
         # The number of new connections.
         self.cps = cps
-        # The number of packets. Unit: pps.
+        # The number of packets per second.
         self.pps = pps
         # The number of sessions.
         self.session_count = session_count
@@ -178,15 +178,10 @@ class ModifyNatGatewayCapacityReservationResponseBodyCapacityReservationStatus(D
         # The reason for the processing failure.
         self.reason = reason
         # The status of the resource reservation. Valid values:
-        # 
         # - pending: The reservation is in progress.
-        # 
         # - provisioned: The reservation is completed.
-        # 
         # - failed: The reservation failed.
-        # 
         # - deleting: The reservation is being deleted.
-        # 
         # - deleted: The reservation is deleted.
         self.status = status
 

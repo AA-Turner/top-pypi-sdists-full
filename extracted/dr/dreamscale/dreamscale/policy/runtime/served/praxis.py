@@ -9,7 +9,7 @@ release; this SDK runs its own contract's rows in place of the server's.
 
 from __future__ import annotations
 
-from dreamscale_transport.praxis import EXECUTION_HORIZON, RUN_ROWS
+from dreamscale_core.praxis import EXECUTION_HORIZON, RUN_ROWS
 
 
 def execution_horizon(model: str, served: int | None) -> int | None:

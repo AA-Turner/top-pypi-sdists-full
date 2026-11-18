@@ -109,25 +109,24 @@ In file ``.gitattributes`` or ``.git/info/attributes`` add: ::
     *.ipynb diff=ipynb
 """
 
-from argparse import ArgumentParser, RawDescriptionHelpFormatter, Namespace
 import collections
 import copy
 import io
 import json
-from os import devnull, environ, makedirs, path
-from pathlib import PureWindowsPath
 import re
-from subprocess import call, check_call, check_output, CalledProcessError, STDOUT
-from typing import List, Optional
 import sys
 import warnings
+from argparse import ArgumentParser, Namespace, RawDescriptionHelpFormatter
+from os import environ, makedirs, path
+from pathlib import PureWindowsPath
+from subprocess import DEVNULL, STDOUT, CalledProcessError, call, check_call, check_output
 
 import nbformat
 
 from nbstripout._utils import strip_output, strip_zeppelin_output
 
-__all__ = ['install', 'uninstall', 'status', 'main']
-__version__ = '0.9.1'
+__all__ = ['install', 'main', 'status', 'uninstall']
+__version__ = '0.9.2'
 
 
 INSTALL_LOCATION_LOCAL = 'local'
@@ -161,9 +160,7 @@ def _get_system_gitconfig_folder() -> str:
     return path.abspath(path.dirname(system_gitconfig_file_path))
 
 
-def _get_attrfile(
-    git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: Optional[str] = None
-) -> str:
+def _get_attrfile(git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: str | None = None) -> str:
     if not attrfile:
         if install_location == INSTALL_LOCATION_SYSTEM:
             try:
@@ -204,8 +201,8 @@ def _parse_size(num_str: str) -> int:
 def install(
     git_config: str,
     install_location: str = INSTALL_LOCATION_LOCAL,
-    python: Optional[str] = None,
-    attrfile: Optional[str] = None,
+    python: str | None = None,
+    attrfile: str | None = None,
 ) -> int:
     """Install the git filter and set the git attributes."""
     try:
@@ -259,13 +256,13 @@ def install(
         return 1
 
 
-def uninstall(git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: Optional[str] = None) -> int:
+def uninstall(git_config: str, install_location: str = INSTALL_LOCATION_LOCAL, attrfile: str | None = None) -> int:
     """Uninstall the git filter and unset the git attributes."""
     try:
-        call(git_config + ['--unset', 'filter.nbstripout.clean'], stdout=open(devnull, 'w'), stderr=STDOUT)
-        call(git_config + ['--unset', 'filter.nbstripout.smudge'], stdout=open(devnull, 'w'), stderr=STDOUT)
-        call(git_config + ['--unset', 'filter.nbstripout.required'], stdout=open(devnull, 'w'), stderr=STDOUT)
-        call(git_config + ['--remove-section', 'diff.ipynb'], stdout=open(devnull, 'w'), stderr=STDOUT)
+        call(git_config + ['--unset', 'filter.nbstripout.clean'], stdout=DEVNULL, stderr=STDOUT)
+        call(git_config + ['--unset', 'filter.nbstripout.smudge'], stdout=DEVNULL, stderr=STDOUT)
+        call(git_config + ['--unset', 'filter.nbstripout.required'], stdout=DEVNULL, stderr=STDOUT)
+        call(git_config + ['--remove-section', 'diff.ipynb'], stdout=DEVNULL, stderr=STDOUT)
         attrfile = _get_attrfile(git_config, install_location, attrfile)
     except FileNotFoundError:
         print('Uninstall failed: git is not on path!', file=sys.stderr)
@@ -355,7 +352,7 @@ def process_jupyter_notebook(
     input_stream: io.IOBase,
     output_stream: io.IOBase,
     args: Namespace,
-    extra_keys: List[str],
+    extra_keys: list[str],
     filename: str = 'input from stdin',
 ) -> bool:
     with warnings.catch_warnings():
@@ -405,7 +402,7 @@ def process_zeppelin_notebook(
     input_stream: io.IOBase,
     output_stream: io.IOBase,
     args: Namespace,
-    extra_keys: List[str],
+    extra_keys: list[str],
     filename: str = 'input from stdin',
 ):
     nb = json.load(input_stream, object_pairs_hook=collections.OrderedDict)
@@ -622,7 +619,7 @@ def main():
             continue
 
         try:
-            with io.open(filename, 'r+', encoding='utf8', newline=newline) as f:
+            with open(filename, 'r+', encoding='utf8', newline=newline) as f:
                 out = output_stream if args.textconv or args.dry_run else f
                 if process_notebook(
                     input_stream=f, output_stream=out, args=args, extra_keys=extra_keys, filename=filename

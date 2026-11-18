@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from nonecap import AsyncNoneCap, SolveFailedError, SolveTimeoutError
+from nonecap import AsyncNoneCap, NotFoundError, SolveFailedError, SolveTimeoutError
 
 from .conftest import Script, error_payload, solve_payload
 
@@ -238,3 +238,44 @@ async def test_async_context_manager_closes_owned_client() -> None:
     async with AsyncNoneCap(api_key="k") as nc:
         http = nc._http
     assert http.is_closed
+
+
+def _reset(request: httpx.Request) -> httpx.Response:
+    raise httpx.ReadError("Connection reset by peer", request=request)
+
+
+@pytest.fixture
+def no_retry_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("nonecap._client._POLL_RETRY_DELAY", 0.0, raising=False)
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+async def test_async_solve_repolls_after_a_lost_long_poll() -> None:
+    script = Script(
+        (202, solve_payload(status="pending")),
+        _reset,
+        (503, error_payload("maintenance")),
+        (200, solve_payload(status="solved", token="TOK")),
+    )
+    nc = client_for(script)
+    solve = await nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com")
+    assert solve.token == "TOK"
+    assert [r.method for r in script.requests] == ["POST", "GET", "GET", "GET"]
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+async def test_async_lost_long_polls_end_in_solve_timeout() -> None:
+    script = Script((202, solve_payload(status="pending")), _reset)
+    nc = client_for(script)
+    with pytest.raises(SolveTimeoutError) as exc_info:
+        await nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com", timeout=0.05)
+    assert exc_info.value.solve_id == "solve_1"
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+async def test_async_long_poll_4xx_is_not_retried() -> None:
+    script = Script((202, solve_payload(status="pending")), (404, error_payload("not_found")))
+    nc = client_for(script)
+    with pytest.raises(NotFoundError):
+        await nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com")
+    assert len(script.requests) == 2

@@ -35,7 +35,7 @@ yaml = ["PyYAML"]
 rdflib = ["rdflib"]
 pylibpcap = ["python-libpcap"]
 mcp = [
-    "mcp; python_version >= '3.10'",
+    "mcp>=2; python_version >= '3.10'",
     "pydantic; python_version >= '3.10'",
 ]
 
@@ -59,6 +59,10 @@ dev = [
     "pytest>=8.3.5",
     "pytest-asyncio>=0.24.0",
     "ruff>=0.15.5",
+]
+doc = [
+    "sphinx>=7.1.2",
+    "sphinx-rtd-theme>=3.1.0",
 ]
 
 # Publish targets for `uv publish --index <name>`. Credentials live

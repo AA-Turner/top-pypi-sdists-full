@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: fairchem-core
-Version: 2.25.0
+Version: 2.26.0
 Summary: Machine learning models for chemistry and materials science by the FAIR Chemistry team
 Project-URL: repository, https://github.com/facebookresearch/fairchem
 Project-URL: home, https://opencatalystproject.org/
@@ -37,10 +37,10 @@ Requires-Dist: dscribe; extra == 'adsorbml'
 Requires-Dist: scikit-image; extra == 'adsorbml'
 Requires-Dist: x3dase; extra == 'adsorbml'
 Provides-Extra: dev
-Requires-Dist: coverage; extra == 'dev'
+Requires-Dist: coverage>=7.10; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-cov>=7; extra == 'dev'
 Requires-Dist: ray[serve]>=2.56.1; extra == 'dev'
 Requires-Dist: ruff==0.5.1; extra == 'dev'
 Requires-Dist: syrupy; extra == 'dev'

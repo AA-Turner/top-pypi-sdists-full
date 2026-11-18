@@ -9,29 +9,130 @@ environment variable overrides and handled natively by ``pathlib``.
 
 Contents:
     - ``PlatformContext``: dataclass holding resolution context (vendor, app, etc.)
-    - ``PlatformStrategy``: abstract base for platform-specific resolvers
+    - ``PlatformStrategy``: abstract base for platform-specific resolvers; each platform names its
+      layer directories once, and both the reads and a deploy's destinations are built from them
+    - ``deploy_destination``: the one file a deploy writes for a layer
     - ``_collect_layer``: shared helper for enumerating config files
+    - ``override_root``: a ``LIB_LAYERED_CONFIG_*`` root override, refused when it is not rooted
     - ``_ALLOWED_EXTENSIONS``: supported config file extensions
 """
 
 from __future__ import annotations
 
 import abc
+import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from ...domain.errors import HomeDirectoryUnknownError, LayerRootNotAbsoluteError
+from ...domain.identifiers import Layer
+from ...domain.printable import escape_controls
 from .._path_probe import PathKind, checked_kind
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable, Mapping
 
 __all__ = [
+    "HomeDirectoryUnknownError",
     "PlatformContext",
     "PlatformStrategy",
     "collect_layer",
     "config_path_present",
+    "deploy_destination",
+    "home_directory",
+    "override_root",
 ]
+
+
+def home_directory() -> Path:
+    """Return the current user's home directory.
+
+    Raises:
+        HomeDirectoryUnknownError: ``Path.home()`` cannot answer: HOME unset and the uid has no
+            passwd entry, or on Windows USERPROFILE, HOMEDRIVE and HOMEPATH all unset.
+        LayerRootNotAbsoluteError: The home directory is a relative path (``HOME=rel``) or empty, or
+            HOME is unset and the account's passwd home field is empty.
+    """
+    home_text = os.environ.get(_home_variable())
+    if home_text == "" or (home_text is None and _passwd_home_is_empty()):
+        # Checked before Path.home(): for an empty HOME, and with HOME unset for an empty passwd home field, it
+        # answers "/" (3.10 to 3.15 measured; CPython's posixpath.expanduser), which has a root, so the user layer
+        # and every user deploy would land under /.config instead of being refused (user decision 2026-11-17).
+        raise _not_absolute("")
+    try:
+        home = Path.home()
+    except RuntimeError as exc:
+        raise HomeDirectoryUnknownError(
+            f"cannot determine the home directory for the user layer: set {_home_variable()} to an absolute path, "
+            "or the variable "
+            "naming the user-layer root (XDG_CONFIG_HOME, LIB_LAYERED_CONFIG_MAC_HOME_ROOT, "
+            "LIB_LAYERED_CONFIG_APPDATA)"
+        ) from exc
+    if not home.root:
+        # A relative HOME would put the user layer, and every user deploy, under the current directory.
+        raise _not_absolute(str(home))
+    return home
+
+
+def _not_absolute(home: str) -> LayerRootNotAbsoluteError:
+    """The refusal for a home directory that is empty or relative, naming the variable to set."""
+    return LayerRootNotAbsoluteError(
+        f"The {_home_variable()} root '{escape_controls(home)}' is not an absolute path; set "
+        f"{_home_variable()} to an absolute path"
+    )
+
+
+def _passwd_home_is_empty() -> bool:
+    """Whether the current account's passwd entry has an empty home field (POSIX; never on Windows).
+
+    An account with no passwd entry is not this case: ``Path.home()`` then raises, which the caller
+    reports as an unknown home directory.
+    """
+    if sys.platform == "win32":
+        return False
+    import pwd  # noqa: PLC0415 - POSIX-only module, absent on Windows
+
+    try:
+        return pwd.getpwuid(os.getuid()).pw_dir == ""
+    except KeyError:
+        return False
+
+
+def _home_variable() -> str:
+    """The variable ``Path.home()`` reads here: USERPROFILE on Windows, which ignores HOME, else HOME."""
+    return "USERPROFILE" if os.name == "nt" else "HOME"
+
+
+def override_root(env: Mapping[str, str], name: str, default: Callable[[], Path]) -> Path:
+    """The root the override *name* names, or *default()* when *name* is not set.
+
+    *default* is called only when it is needed, so a host that cannot answer ``Path.home()`` still
+    resolves a root the environment names.
+
+    Raises:
+        LayerRootNotAbsoluteError: The value has no root (empty, ``rel/etc``, or a Windows
+            drive-relative ``C:x``), so every layer path - and every deploy - would land under the
+            current working directory. A rooted path is enough: ``/etc`` names the same place
+            whichever OS the resolver runs on, while ``is_absolute()`` is false for it on Windows.
+
+    Examples:
+        >>> env = {"LIB_LAYERED_CONFIG_ETC": "/opt/etc"}
+        >>> override_root(env, "LIB_LAYERED_CONFIG_ETC", lambda: Path("/etc")).as_posix()
+        '/opt/etc'
+        >>> override_root({}, "LIB_LAYERED_CONFIG_ETC", lambda: Path("/etc")).as_posix()
+        '/etc'
+    """
+    if name not in env:
+        return default()
+    value = env[name]
+    if not Path(value).root:
+        raise LayerRootNotAbsoluteError(
+            f"The {name} root '{escape_controls(value)}' is not an absolute path; set {name} to an absolute path "
+            "or unset it"
+        )
+    return Path(value)
 
 
 #: Supported structured configuration file extensions used when expanding
@@ -60,7 +161,8 @@ class PlatformContext:
         cwd: Current working directory for project-relative searches; ``None`` when the OS
             cannot name it.
         env: Environment variable mapping (for overrides and XDG lookups).
-        hostname: Hostname for host-specific configuration lookups.
+        host_file_name: ``<hostname>.toml`` for host-specific configuration lookups, or ``None``
+            when the machine's hostname cannot name a file, which turns the host layer off.
         profile: Optional profile name for environment-specific configurations.
     """
 
@@ -68,8 +170,8 @@ class PlatformContext:
     app: str
     slug: str
     cwd: Path | None
-    env: dict[str, str]
-    hostname: str
+    env: Mapping[str, str]
+    host_file_name: str | None
     profile: str | None = None
 
 
@@ -107,28 +209,74 @@ class PlatformStrategy(abc.ABC):
         return Path()
 
     @abc.abstractmethod
+    def app_dirs(self) -> tuple[Path, ...]:
+        """Return the app layer's directories, in read order; a deploy writes to the first.
+
+        Each holds a ``hosts/`` directory for the host layer.
+
+        Returns:
+            One directory or more, the profile segment included.
+        """
+
+    @abc.abstractmethod
+    def user_dir(self) -> Path:
+        """Return the user-layer directory a deploy writes to.
+
+        Returns:
+            The directory, the profile segment included.
+        """
+
     def app_paths(self) -> Iterable[str]:
-        """Yield application-default configuration paths.
+        """Yield application-default configuration paths: each of :meth:`app_dirs`, in order.
 
         Returns:
             Paths for the app layer (lowest precedence system-wide defaults).
         """
+        for directory in self.app_dirs():
+            yield from collect_layer(directory)
 
-    @abc.abstractmethod
     def host_paths(self) -> Iterable[str]:
-        """Yield host-specific configuration paths.
+        """Yield ``hosts/<hostname>.toml`` under each of :meth:`app_dirs` that holds one.
 
         Returns:
-            Paths for the host layer (machine-specific overrides).
+            Paths for the host layer (empty when missing, or when the hostname cannot name a file).
         """
+        host_file = self.ctx.host_file_name
+        if host_file is None:
+            return
+        for directory in self.app_dirs():
+            candidate = directory / "hosts" / host_file
+            if config_path_present(candidate):
+                yield str(candidate)
 
-    @abc.abstractmethod
     def user_paths(self) -> Iterable[str]:
-        """Yield user-specific configuration paths.
+        """Yield user-specific configuration paths: those under :meth:`user_dir`.
 
         Returns:
             Paths for the user layer (per-user preferences).
         """
+        yield from collect_layer(self.user_dir())
+
+    def deploy_dir(self, layer: Layer) -> Path:
+        """Return the directory a deploy writes *layer*'s file into.
+
+        Args:
+            layer: ``Layer.APP``, ``Layer.HOST`` or ``Layer.USER``.
+
+        Returns:
+            The first app directory, its ``hosts/`` directory, or :meth:`user_dir`.
+
+        Raises:
+            KeyError: *layer* is not one a deploy writes, keyed by the layer (the error the deploy
+                strategies' ``destination_for`` has always raised for it).
+        """
+        if layer is Layer.APP:
+            return self.app_dirs()[0]
+        if layer is Layer.HOST:
+            return self.app_dirs()[0] / "hosts"
+        if layer is Layer.USER:
+            return self.user_dir()
+        raise KeyError(layer)
 
     @abc.abstractmethod
     def dotenv_path(self) -> Path | None:
@@ -137,6 +285,27 @@ class PlatformStrategy(abc.ABC):
         Returns:
             Fallback ``.env`` location or ``None`` if unsupported.
         """
+
+
+def deploy_destination(strategy: PlatformStrategy, layer: Layer, *, host_file_name: Callable[[], str]) -> Path:
+    """Return the file a deploy writes for *layer* in *strategy*'s layout.
+
+    Args:
+        strategy: The platform layout, the one the reads use.
+        layer: ``Layer.APP``, ``Layer.HOST`` or ``Layer.USER``.
+        host_file_name: Gives ``<hostname>.toml``; called only for the host layer, after its
+            directory is resolved, so an unusable hostname is refused only where it is needed.
+
+    Returns:
+        ``config.toml`` in the layer's directory, or the host file in ``hosts/``.
+
+    Raises:
+        KeyError: *layer* is not one a deploy writes.
+    """
+    directory = strategy.deploy_dir(layer)
+    if layer is Layer.HOST:
+        return directory / host_file_name()
+    return directory / "config.toml"
 
 
 def config_path_present(path: Path) -> bool:

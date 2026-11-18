@@ -2786,6 +2786,35 @@ class EmbeddingIndex:
             defer_cold_load=defer_cold_load, defer_text=True, incomplete_out=incomplete_out,
         )
 
+    def best_scores_for_paths(self, query_vec: np.ndarray, paths: AbstractSet[str]) -> dict[str, float] | None:
+        """The best chunk score of each of `paths` that has rows, or None when no resident matrix serves them.
+
+        Profile scoring must cost O(profile chunks), not O(vault): this scores only those paths' rows, where
+        `_search` scores the whole matrix and masks afterwards. A path `_search` would mask scores nothing: one a
+        lagging matrix holds stale rows for, or the store does not vouch for. It never loads the matrix on the
+        calling thread: a cold one starts the one background load and raises `recall_space.CorpusMatrixCold`.
+        The disk-scoring profile keeps no matrix, so it answers None.
+
+        `metadata` is sorted by file_path, so each path's rows are one block that bisection finds
+        (`_without_paths` relies on the same order); no row pass and no memo is needed.
+        """
+        withheld = self._withheld()
+        if withheld.everything:
+            return None
+        resident = self.require_resident_matrix()
+        if resident is None:
+            return None
+        metadata, matrix = resident.metadata, resident.matrix
+        query = np.asarray(query_vec, dtype=np.float32).reshape(-1)
+        best: dict[str, float] = {}
+        for path in set(paths) - withheld.paths - (resident.stale_paths or frozenset()):
+            low = bisect_left(metadata, path, key=itemgetter(0))
+            high = bisect_right(metadata, path, key=itemgetter(0))
+            if low < high:
+                best[path] = float((matrix[low:high] @ query).max())
+        return best
+
+
     def select_passage_chunks(
         self, query_vec: np.ndarray, k: int, *, allowed_paths: set[str] | None = None,
         encoded_for: Any = _UNSPECIFIED_SPACE,
@@ -3750,9 +3779,17 @@ class EmbeddingIndex:
             conn.close()
 
     def all_semantic_unit_vectors(
-        self, *, batch_size: int = SEMANTIC_UNIT_READ_BATCH
+        self,
+        *,
+        batch_size: int = SEMANTIC_UNIT_READ_BATCH,
+        paths: Iterable[str] | None = None,
     ) -> dict[str, list[SemanticUnitVectorRow]]:
         """Every stored occurrence vector, grouped by parent path, in ONE corpus read.
+
+        `paths` limits the read to those parent pages: the caller wants one project's
+        geometry and not the corpus's. The read stays paginated by the same key, in
+        batches of `_PATHS_PER_READ` pages, so a project of any size is read in bounded
+        pieces and never page by page.
 
         The audit's semantic scope-divergence sensor needs a page's unit geometry,
         and nothing here could supply it: `all_vectors()` is the CHUNK matrix
@@ -3782,35 +3819,50 @@ class EmbeddingIndex:
             return {}
         limit = max(1, int(batch_size))
         grouped: dict[str, list[SemanticUnitVectorRow]] = {}
+        if paths is None:
+            scopes: list[tuple[str, list[str]]] = [("", [])]
+        else:
+            wanted = sorted(set(paths))
+            scopes = [
+                (
+                    f"parent_path IN ({','.join('?' * len(batch))}) AND ",
+                    batch,
+                )
+                for batch in (
+                    wanted[start : start + _PATHS_PER_READ]
+                    for start in range(0, len(wanted), _PATHS_PER_READ)
+                )
+            ]
         conn = self._connect()
         try:
-            cursor = ("", "")
-            while True:
-                rows = conn.execute(
-                    "SELECT parent_path, unit_key, source_order, vector, parent_generation "
-                    "FROM semantic_unit_vectors WHERE (parent_path, unit_key) > (?, ?) "
-                    "ORDER BY parent_path, unit_key LIMIT ?",
-                    (*cursor, limit),
-                ).fetchall()
-                if not rows:
-                    break
-                for parent_path, unit_key, source_order, blob, generation in rows:
-                    try:
-                        vector = np.frombuffer(blob, dtype=np.float32)
-                    except (ValueError, TypeError):
-                        # Truncated or non-buffer blob: this row is unreadable, the
-                        # rest of the corpus is not.
-                        continue
-                    if vector.shape != (self.dim,):
-                        continue
-                    grouped.setdefault(str(parent_path), []).append(
-                        SemanticUnitVectorRow(
-                            str(unit_key), int(source_order), vector, str(generation)
+            for scope, scope_args in scopes:
+                cursor = ("", "")
+                while True:
+                    rows = conn.execute(
+                        "SELECT parent_path, unit_key, source_order, vector, parent_generation "
+                        f"FROM semantic_unit_vectors WHERE {scope}(parent_path, unit_key) > (?, ?) "
+                        "ORDER BY parent_path, unit_key LIMIT ?",
+                        (*scope_args, *cursor, limit),
+                    ).fetchall()
+                    if not rows:
+                        break
+                    for parent_path, unit_key, source_order, blob, generation in rows:
+                        try:
+                            vector = np.frombuffer(blob, dtype=np.float32)
+                        except (ValueError, TypeError):
+                            # Truncated or non-buffer blob: this row is unreadable, the
+                            # rest of the corpus is not.
+                            continue
+                        if vector.shape != (self.dim,):
+                            continue
+                        grouped.setdefault(str(parent_path), []).append(
+                            SemanticUnitVectorRow(
+                                str(unit_key), int(source_order), vector, str(generation)
+                            )
                         )
-                    )
-                cursor = (str(rows[-1][0]), str(rows[-1][1]))
-                if len(rows) < limit:
-                    break
+                    cursor = (str(rows[-1][0]), str(rows[-1][1]))
+                    if len(rows) < limit:
+                        break
         finally:
             conn.close()
         for unit_rows in grouped.values():

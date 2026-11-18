@@ -31,6 +31,7 @@ import click
 from anyscale.cli_logger import BlockLogger
 from anyscale.client.openapi_client.models.cli_usage_payload import CLIUsagePayload
 from anyscale.errors import from_unexpected_exception
+from anyscale.utils.extra_headers_util import redact_header_args
 
 
 # ─── Configuration ────────────────────────────────────────────────────────────
@@ -103,13 +104,16 @@ def new_trace_for_page() -> str:
 
 
 def _get_user_flags() -> List[str]:
-    """Return all `-x`/`--long` flags from the raw argv (no values)."""
+    """Return all `-x`/`--long` flags from the raw argv (no values).
+
+    `--header` values are never recorded, since they may carry credentials.
+    """
     try:
         args = sys.argv[1:]
         # Strip off the program name if Click added it
         if args and args[0] in ("anyscale", "main"):
             args = args[1:]
-        return [a for a in args if a.startswith("-")]
+        return [a for a in redact_header_args(args) if a.startswith("-")]
     except Exception:  # noqa: BLE001
         return []
 

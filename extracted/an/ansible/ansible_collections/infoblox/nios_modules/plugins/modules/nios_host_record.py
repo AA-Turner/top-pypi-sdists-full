@@ -22,6 +22,24 @@ requirements:
 extends_documentation_fragment: infoblox.nios_modules.nios
 notes:
     - This module supports C(check_mode).
+    - >
+      In collection versions that include PR #329 (fixes issue #108), re-running
+      a task with the same hostname and a different IP updates the matching host
+      record without creating, displacing, or modifying unrelated records.
+    - >
+      In collection versions that include PR #329 (fixes issue #160), aliases
+      supplied as short (relative) names are normalized to FQDNs before
+      comparison on DNS-enabled hosts, preventing false C(changed=True) on
+      re-runs.
+    - >
+      In collection versions that include PR #329 (fixes issue #63), host
+      records using C(nios_next_ip) for dynamic IP allocation are idempotent on
+      re-runs; when the desired IP is already allocated, no additional
+      allocation call is made.
+    - >
+      In collection versions that include PR #329 (fixes issue #108),
+      C(use_for_ea_inheritance) defaults are excluded from idempotency
+      comparison to prevent spurious C(changed=True) on re-runs.
 options:
   name:
     description:
@@ -49,7 +67,7 @@ options:
   use_dns_ea_inheritance:
     version_added: "1.7.0"
     description:
-      - When use_dns_ea_inheritance is True, the EA is inherited from associated zone. The default value is False.
+      - When use_dns_ea_inheritance is true, the EA is inherited from associated zone. The default value is false.
     type: bool
     default: false
   ipv4addrs:
@@ -64,7 +82,7 @@ options:
       use_for_ea_inheritance:
         version_added: "1.7.0"
         description:
-            - When use_for_ea_inheritance is True, the EA is inherited from Host address. The default value is False.
+            - When use_for_ea_inheritance is true, the EA is inherited from Host address. The default value is false.
         type: bool
         default: false
         required: false
@@ -169,6 +187,11 @@ options:
       - Configures an optional list of additional aliases to add to the host
         record. These are equivalent to CNAMEs but held within a host
         record. Must be in list format.
+      - >
+        In collection versions that include PR #329 (fixes issue #160), short
+        (relative) alias names are normalized to FQDNs on DNS-enabled hosts
+        before idempotency comparison, so short and FQDN forms produce the
+        same result on re-runs.
     type: list
     elements: str
   ttl:
@@ -180,6 +203,11 @@ options:
       - Allows for the configuration of Extensible Attributes on the
         instance of the object.  This argument accepts a set of key / value
         pairs for configuration.
+      - A value may also be supplied as a dictionary to control inheritance of
+        an inheritable Extensible Attribute. Such a dictionary accepts a
+        C(value) key together with an C(inheritance_operation) key set to
+        C(INHERIT) to revert the object to its inherited value, or C(OVERRIDE)
+        to explicitly override an inherited value.
     type: dict
   comment:
     description:
@@ -418,6 +446,72 @@ def ipv6addrs(module):
     return ipaddr(module, 'ipv6addrs', filtered_keys=['address', 'dhcp'])
 
 
+def normalize_aliases(module):
+    '''Normalize host record aliases to FQDNs.
+
+    NIOS/WAPI expands short (relative) aliases to FQDNs **only on DNS-enabled
+    hosts** (``configure_for_dns=True``). For example, ``myalias`` becomes
+    ``myalias.example.com`` on a DNS host, but is stored as-is on a DNS-disabled
+    (IPAM-only) host.
+
+    Without this normalization, the idempotency check in ``compare_objects()``
+    compares the user-supplied short name against the FQDN returned by WAPI
+    and always reports ``changed=True`` (issue #160).
+
+    Short names (those containing no dots) on DNS-enabled hosts are expanded by
+    appending the zone extracted from the host ``name`` parameter. Aliases that
+    already contain at least one dot, or those on DNS-disabled hosts, are
+    returned unchanged.
+    '''
+    aliases = module.params.get('aliases')
+    if not aliases:
+        return None
+
+    # WAPI only expands aliases on DNS-enabled hosts.
+    configure_for_dns = module.params.get('configure_for_dns', True)
+    if not configure_for_dns:
+        return aliases
+
+    host_name = module.params.get('name', '')
+    dot_idx = host_name.find('.')
+    zone = host_name[dot_idx + 1:] if dot_idx != -1 else ''
+
+    normalized = []
+    for alias in aliases:
+        if zone and '.' not in alias:
+            normalized.append('{}.{}'.format(alias, zone))
+        else:
+            normalized.append(alias)
+    return normalized
+
+
+def supports_dns_ea_inheritance(wapi_version):
+    '''Return True if the given WAPI version supports the use_dns_ea_inheritance field.
+
+    The field was introduced in WAPI 2.12.3 and 2.13.4 (patch releases).
+    Any WAPI major version > 2 is assumed to support the feature.
+    A missing patch component is treated as 0 (e.g. ``'2.14'`` → ``2.14.0``),
+    so users who specify wapi_version as MAJOR.MINOR are handled correctly.
+    '''
+    parts = wapi_version.split('.')
+    try:
+        major, minor = int(parts[0]), int(parts[1])
+        patch = int(parts[2]) if len(parts) >= 3 else 0
+    except (IndexError, ValueError):
+        return False
+    if major != 2:
+        return major > 2
+    min_patch = {12: 3, 13: 4}.get(minor, 0 if minor > 13 else None)
+    return min_patch is not None and patch >= min_patch
+
+
+def should_warn_ignored_dns_ea_inheritance(wapi_version, use_dns_ea_inheritance):
+    '''Return True if use_dns_ea_inheritance was explicitly enabled but the
+    WAPI version does not support it, meaning the field will be silently ignored.
+    '''
+    return not supports_dns_ea_inheritance(wapi_version) and bool(use_dns_ea_inheritance)
+
+
 def main():
     ''' Main entry point for module execution
     '''
@@ -446,7 +540,7 @@ def main():
         ipv6addrs=dict(type='list', aliases=['ipv6'], elements='dict', options=ipv6addr_spec, transform=ipv6addrs),
         configure_for_dns=dict(type='bool', default=True, required=False, aliases=['dns'], ib_req=True),
         use_dns_ea_inheritance=dict(type='bool', default=False, required=False),
-        aliases=dict(type='list', elements='str'),
+        aliases=dict(type='list', elements='str', transform=normalize_aliases),
 
         ttl=dict(type='int'),
 
@@ -465,8 +559,24 @@ def main():
     module = AnsibleModule(argument_spec=argument_spec,
                            supports_check_mode=True)
 
+    effective_ib_spec = ib_spec.copy()
+    # Default WAPI version matches the lowest version where use_dns_ea_inheritance
+    # is supported (2.12.3). If provider.wapi_version is omitted we assume the
+    # field is available; users running older WAPI must set wapi_version
+    # explicitly to receive the warn-and-strip behavior below.
+    provider_wapi_version = (module.params.get('provider') or {}).get('wapi_version', '2.12.3')
+    if not supports_dns_ea_inheritance(provider_wapi_version):
+        if should_warn_ignored_dns_ea_inheritance(provider_wapi_version,
+                                                  module.params.get('use_dns_ea_inheritance')):
+            module.warn(
+                'use_dns_ea_inheritance is not supported for WAPI version %s. '
+                'Minimum supported versions are 2.12.3 and 2.13.4. '
+                'The field will be ignored.' % provider_wapi_version
+            )
+        effective_ib_spec.pop('use_dns_ea_inheritance', None)
+
     wapi = WapiModule(module)
-    result = wapi.run(NIOS_HOST_RECORD, ib_spec)
+    result = wapi.run(NIOS_HOST_RECORD, effective_ib_spec)
 
     module.exit_json(**result)
 

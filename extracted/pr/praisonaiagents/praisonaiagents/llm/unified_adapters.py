@@ -222,6 +222,11 @@ class OpenAIAdapter:
             verbose=kwargs.get('verbose', True),
             max_iterations=kwargs.get('max_iterations', 10),
             agent_name=kwargs.get('agent_name'),
+            # Named parameters of achat_completion_with_tools (never sent to the
+            # API): without them no StreamEvent reaches Agent.stream_emitter, so
+            # stream consumers get no deltas, tool calls or reasoning.
+            stream_callback=kwargs.get('stream_callback'),
+            emit_events=kwargs.get('emit_events', False),
             **{k: v for k, v in kwargs.items() if k not in {
                 'max_tokens', 'execute_tool_fn', 'console', 'display_fn',
                 'reasoning_steps', 'verbose', 'max_iterations',
@@ -243,7 +248,7 @@ class OpenAIAdapter:
         Delegates to async method following protocol requirements for
         sync methods to be wrappers around the canonical async implementation.
         """
-        from ..utils.async_bridge import run_coroutine_from_any_context
+        from ..utils.async_bridge import run_coroutine_on_thread_loop
 
         # For streaming, explicitly disallow as it violates sync protocol contract
         if kwargs.get('stream', False):
@@ -252,9 +257,11 @@ class OpenAIAdapter:
                 "Use achat_completion() for streaming support."
             )
 
-        # Single shared bridge: copies contextvars, surfaces provider errors
-        # unchanged, and never nests asyncio.run inside a running loop.
-        return run_coroutine_from_any_context(
+        # Shared bridge: copies contextvars, surfaces provider errors unchanged,
+        # never nests asyncio.run inside a running loop -- and reuses this
+        # thread's loop across turns, so the loop-bound AsyncOpenAI client (and
+        # its keep-alive pool) is not rebuilt every sync turn.
+        return run_coroutine_on_thread_loop(
             self.achat_completion(messages, **kwargs), timeout=None
         )
 

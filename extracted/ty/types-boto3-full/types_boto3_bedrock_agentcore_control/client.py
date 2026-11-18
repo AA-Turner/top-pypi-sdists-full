@@ -27,6 +27,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListAgentInsightStoresPaginator,
     ListAgentRuntimeEndpointsPaginator,
     ListAgentRuntimesPaginator,
     ListAgentRuntimeVersionsByCapacityProviderPaginator,
@@ -183,6 +184,8 @@ from .type_defs import (
     DeleteRegistryResponseTypeDef,
     DeleteResourcePolicyRequestTypeDef,
     DeleteWorkloadIdentityRequestTypeDef,
+    GetAgentInsightStoreRequestTypeDef,
+    GetAgentInsightStoreResponseTypeDef,
     GetAgentRuntimeEndpointRequestTypeDef,
     GetAgentRuntimeEndpointResponseTypeDef,
     GetAgentRuntimeRequestTypeDef,
@@ -253,6 +256,8 @@ from .type_defs import (
     GetTokenVaultResponseTypeDef,
     GetWorkloadIdentityRequestTypeDef,
     GetWorkloadIdentityResponseTypeDef,
+    ListAgentInsightStoresRequestTypeDef,
+    ListAgentInsightStoresResponseTypeDef,
     ListAgentRuntimeEndpointsRequestTypeDef,
     ListAgentRuntimeEndpointsResponseTypeDef,
     ListAgentRuntimesRequestTypeDef,
@@ -349,6 +354,8 @@ from .type_defs import (
     SynchronizeGatewayTargetsResponseTypeDef,
     TagResourceRequestTypeDef,
     UntagResourceRequestTypeDef,
+    UpdateAgentInsightStoreRequestTypeDef,
+    UpdateAgentInsightStoreResponseTypeDef,
     UpdateAgentRuntimeEndpointRequestTypeDef,
     UpdateAgentRuntimeEndpointResponseTypeDef,
     UpdateAgentRuntimeRequestTypeDef,
@@ -1092,6 +1099,16 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#delete_workload_identity)
         """
 
+    def get_agent_insight_store(
+        self, **kwargs: Unpack[GetAgentInsightStoreRequestTypeDef]
+    ) -> GetAgentInsightStoreResponseTypeDef:
+        """
+        Returns the account's service-defined default Agent Insight Store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_agent_insight_store.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_agent_insight_store)
+        """
+
     def get_agent_runtime(
         self, **kwargs: Unpack[GetAgentRuntimeRequestTypeDef]
     ) -> GetAgentRuntimeResponseTypeDef:
@@ -1437,6 +1454,16 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_workload_identity.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_workload_identity)
+        """
+
+    def list_agent_insight_stores(
+        self, **kwargs: Unpack[ListAgentInsightStoresRequestTypeDef]
+    ) -> ListAgentInsightStoresResponseTypeDef:
+        """
+        Lists the account's service-defined default Agent Insight Store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/list_agent_insight_stores.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#list_agent_insight_stores)
         """
 
     def list_agent_runtime_endpoints(
@@ -1942,6 +1969,17 @@ class BedrockAgentCoreControlClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#untag_resource)
         """
 
+    def update_agent_insight_store(
+        self, **kwargs: Unpack[UpdateAgentInsightStoreRequestTypeDef]
+    ) -> UpdateAgentInsightStoreResponseTypeDef:
+        """
+        Updates the enablement status or encryption configuration of an Agent Insight
+        Store.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_agent_insight_store.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_agent_insight_store)
+        """
+
     def update_agent_runtime(
         self, **kwargs: Unpack[UpdateAgentRuntimeRequestTypeDef]
     ) -> UpdateAgentRuntimeResponseTypeDef:
@@ -2213,6 +2251,17 @@ class BedrockAgentCoreControlClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/update_workload_identity.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#update_workload_identity)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_insight_stores"]
+    ) -> ListAgentInsightStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore_control/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

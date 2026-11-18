@@ -13,7 +13,9 @@ import sys
 import unittest
 
 import agilicus_api
+from agilicus_api.model.compound_object_condition import CompoundObjectCondition
 from agilicus_api.model.standalone_rule_scope import StandaloneRuleScope
+globals()['CompoundObjectCondition'] = CompoundObjectCondition
 globals()['StandaloneRuleScope'] = StandaloneRuleScope
 from agilicus_api.model.standalone_object_conditions import StandaloneObjectConditions
 

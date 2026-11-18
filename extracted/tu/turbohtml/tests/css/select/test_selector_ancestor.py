@@ -236,7 +236,18 @@ def _nested(depth: int) -> Document:
         pytest.param("b:has(:scope[id] b i)", 0, id="scope-pinned-mismatch"),
         pytest.param("b:has(b:not(:scope) i)", 599, id="scope-later"),
         pytest.param("b:has(b:not(:scope) item)", 0, id="scope-later-missing"),
+        pytest.param("b:has(b:not(:scope + q) i)", 599, id="scope-reached-later"),
         pytest.param("b:has(b i, item i)", 599, id="alternatives"),
+        pytest.param("b:has(> b > i)", 1, id="child-chain-subject"),
+        pytest.param("b:has(> b > u)", 1, id="child-chain-sibling-subject"),
+        pytest.param("b:has(> b + i)", 0, id="child-chain-adjacent-missing"),
+        pytest.param("b:has(> b ~ i)", 0, id="child-chain-general-missing"),
+        pytest.param("b:has(> b > b > i)", 1, id="child-chain-three"),
+        pytest.param("b:has(> b:not(:scope) > i)", 1, id="child-chain-scope-later"),
+        pytest.param("b:has(> b > i:not(:scope))", 1, id="child-chain-scope-subject"),
+        pytest.param("b:has(> b > i, > b > u)", 1, id="child-chain-alternatives"),
+        pytest.param("b:has(> b:scope > i)", 1, id="child-chain-scope-after-type"),
+        pytest.param("b:has(> i:scope > u)", 0, id="child-chain-scope-after-type-missing"),
     ],
 )
 def test_select_has_compound_chain_deep_xml(selector: str, count: int) -> None:
@@ -677,6 +688,10 @@ _SIBLINGS: Final[str] = (
         pytest.param("b:has(+ u:lang(fr):not(:scope))", 18, id="has-scope-adjacent-lead"),
         pytest.param("b:has(~ i:lang(fr):not(:scope))", 0, id="has-scope-general-sibling-lead-missing"),
         pytest.param("b:has(~ b i:not(:scope))", 65, id="has-scope-general-sibling-lead-subtree"),
+        pytest.param("b:has(~ u:lang(fr):not(:scope + q))", 69, id="has-reached-scope-general-sibling-lead"),
+        pytest.param("b:has(+ u:lang(fr):not(:scope + q))", 18, id="has-reached-scope-adjacent-lead"),
+        pytest.param("b:has(~ b i:not(:scope + q))", 65, id="has-reached-scope-general-sibling-lead-subtree"),
+        pytest.param(":lang(fr):has(b i:not(:scope + q))", 43, id="has-reached-scope-descendant"),
         pytest.param("b:has(~ u ~ b:lang(fr):not(:scope))", 69, id="has-scope-general-sibling-chain"),
         pytest.param("section:not(:scope) i", 15, id="scope-ancestor"),
         pytest.param(":dir(rtl) i", 1, id="dir-ancestor"),
@@ -714,6 +729,18 @@ def test_computed_style_deep_has_past_memo_limit() -> None:
     root: Final = document.select_one("html")
     assert root is not None
     assert computed_style(root)["color"] == "red"
+
+
+def test_computed_style_deep_has_past_memo_limit_raises_past_the_allowance() -> None:
+    # past the memo every :has() walks from its anchor, so p:has(~ q) on each p of the run passes every later sibling
+    arguments: Final = 128
+    sheet: Final = f":has({','.join(['p q'] * arguments)}){{color:blue}}p:has(~ q){{color:red}}"
+    document: Final = _deep(f"<style>{sheet}</style>{'<div>' * 28}{'<p>' * ((1 << 24) // (2 * arguments) + 8_192)}")
+    root: Final = document.select_one("html")
+    assert root is not None
+    computed_style(root)
+    with pytest.raises(ValueError, match="exceed the allowance"):
+        list(map(computed_style, document.select("p")))
 
 
 def test_rewrite_retires_many_deep_elements() -> None:
@@ -767,6 +794,44 @@ def test_select_deep_has_memo_stays_within_budget(peak_bytes: PeakBytes) -> None
 def test_select_deep_has_memo_work_linear(work_steps: WorkSteps) -> None:
     # a 16-compound :has() over a chain: each compound answers once per node, so the steps grow with the depth alone
     work_steps.assert_linear(lambda depth: partial(_nested(depth).select, f"b:has({'b ' * 15}i)"), (600, 2400))
+
+
+@pytest.mark.parametrize(
+    "selector",
+    [
+        pytest.param("b:has(> b > i)", id="child-chain"),
+        pytest.param("b:has(> b + i)", id="child-adjacent"),
+        pytest.param("b:has(> b ~ u)", id="child-general-sibling"),
+        pytest.param("b:has(> b:not(:scope) > i)", id="child-chain-scope-later"),
+        pytest.param("b:has(> b > i, > b > u)", id="child-chain-alternatives"),
+    ],
+)
+def test_select_child_has_chain_work_linear(selector: str, work_steps: WorkSteps) -> None:
+    # a child-led argument with no descendant combinator reaches only the levels its compounds name, so every anchor
+    # walks its neighbourhood instead of its whole subtree
+    work_steps.assert_linear(lambda depth: partial(_nested(depth).select, selector), (600, 2400))
+
+
+def test_closest_child_has_chain_work_linear(work_steps: WorkSteps) -> None:
+    # no ancestor matches, so closest() asks every ancestor of the deepest element
+    work_steps.assert_linear(lambda depth: partial(_deepest(depth).closest, "b:has(> item > i)"), (600, 2400))
+
+
+def test_has_descendant_on_shallow_parsed_page() -> None:
+    # a parsed page nests under the memo depth, so its descendant :has() walks the subtree without the memo
+    document: Final = parse("<div><p><a></a></p></div><div></div>")
+    assert len(document.select("div:has(a)")) == 1
+
+
+def test_child_has_chain_matches_and_closest_on_deep_xml() -> None:
+    deepest: Final = _deepest(600)
+    parent: Final = deepest.parent
+    assert parent is not None
+    grandparent: Final = parent.parent
+    assert grandparent is not None
+    assert deepest.closest("b:has(> b > i)") == grandparent
+    assert grandparent.matches("b:has(> b > i)")
+    assert not parent.matches("b:has(> b > i)")
 
 
 @pytest.mark.parametrize(

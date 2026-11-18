@@ -5,12 +5,12 @@ from typing import TYPE_CHECKING, Final
 
 from pytest import MarkDecorator, mark, param
 
-from _docstring.conftest import INT, STR
-from sphinx_autodoc_typehints._docstring.formats.base import InsertIndexInfo
-from sphinx_autodoc_typehints._docstring.formats.field_list import (
-    FieldListFormat,
-    write_rtype,
+from _docstring.conftest import (  # simplint: ignore[private-import-path]  # keep test fixtures local
+    INT,
+    STR,
 )
+from sphinx_autodoc_typehints._docstring.formats.base import InsertIndexInfo
+from sphinx_autodoc_typehints._docstring.formats.field_list.edit import FieldListFormat, write_rtype
 from sphinx_autodoc_typehints._docstring.formats.field_list.rtype import RTYPE_MARKER
 
 if TYPE_CHECKING:
@@ -19,7 +19,9 @@ if TYPE_CHECKING:
     from conftest import BuildText
     from sphinx.testing.util import SphinxTestApp
 
-    from _docstring.conftest import Process
+    from _docstring.conftest import (  # simplint: ignore[private-import-path]  # keep test fixtures local
+        Process,
+    )
 
 pytestmark: Final[MarkDecorator] = mark.sphinx("text", testroot="dummy")
 
@@ -326,12 +328,12 @@ def test_added_param_starts_a_field_list_after_a_comment(process: Process) -> No
 
 def test_return_type_stays_with_params_before_a_sphinx_directive(build_text: BuildText) -> None:
     assert build_text(".. autofunction:: dummy_module.versioned") == dedent("""\
-        dummy_module.versioned(a)
+        dummy_module.versioned(item)
 
            Do it.
 
            Parameters:
-              **a** ("int") -- the a
+              **item** ("int") -- the a
 
            Return type:
               "int"

@@ -1,0 +1,161 @@
+#include "perf_precomp.hpp"
+
+namespace opencv_test
+{
+using namespace perf;
+
+// The 32-bit integer depths are not in TYPICAL_MAT_TYPES, so they were not measured; they are the
+// ones whose scalar accumulation step this touches.
+PERF_TEST_P(Size_MatType, sum_wide,
+            testing::Combine(testing::Values(TYPICAL_MAT_SIZES),
+                             testing::Values(CV_32SC1, CV_32UC1, CV_32SC3)))
+{
+    Size sz = get<0>(GetParam());
+    int type = get<1>(GetParam());
+
+    Mat arr(sz, type);
+    Scalar s;
+
+    declare.in(arr, WARMUP_RNG).out(s);
+
+    TEST_CYCLE() s = sum(arr);
+
+    SANITY_CHECK_NOTHING();
+}
+
+PERF_TEST_P(Size_MatType, sum, TYPICAL_MATS)
+{
+    Size sz = get<0>(GetParam());
+    int type = get<1>(GetParam());
+
+    Mat arr(sz, type);
+    Scalar s;
+
+    declare.in(arr, WARMUP_RNG).out(s);
+
+    TEST_CYCLE() s = sum(arr);
+
+    SANITY_CHECK(s, 1e-6, ERROR_RELATIVE);
+}
+
+PERF_TEST_P(Size_MatType, mean, TYPICAL_MATS)
+{
+    Size sz = get<0>(GetParam());
+    int type = get<1>(GetParam());
+
+    Mat src(sz, type);
+    Scalar s;
+
+    declare.in(src, WARMUP_RNG).out(s);
+
+    TEST_CYCLE() s = cv::mean(src);
+
+    SANITY_CHECK(s, 1e-5);
+}
+
+PERF_TEST_P(Size_MatType, mean_mask, TYPICAL_MATS)
+{
+    Size sz = get<0>(GetParam());
+    int type = get<1>(GetParam());
+
+    Mat src(sz, type);
+    Mat mask = Mat::ones(src.size(), CV_8U);
+    Scalar s;
+
+    declare.in(src, WARMUP_RNG).in(mask).out(s);
+
+    TEST_CYCLE() s = cv::mean(src, mask);
+
+    SANITY_CHECK(s, 5e-5);
+}
+
+PERF_TEST_P(Size_MatType, meanStdDev, TYPICAL_MATS)
+{
+    Size sz = get<0>(GetParam());
+    int matType = get<1>(GetParam());
+
+    Mat src(sz, matType);
+    Scalar mean;
+    Scalar dev;
+
+    declare.in(src, WARMUP_RNG).out(mean, dev);
+
+    TEST_CYCLE() meanStdDev(src, mean, dev);
+
+    SANITY_CHECK(mean, 1e-5, ERROR_RELATIVE);
+    SANITY_CHECK(dev, 1e-5, ERROR_RELATIVE);
+}
+
+PERF_TEST_P(Size_MatType, meanStdDev_mask, TYPICAL_MATS)
+{
+    Size sz = get<0>(GetParam());
+    int matType = get<1>(GetParam());
+
+    Mat src(sz, matType);
+    Mat mask = Mat::ones(sz, CV_8U);
+    Scalar mean;
+    Scalar dev;
+
+    declare.in(src, WARMUP_RNG).in(mask).out(mean, dev);
+
+    TEST_CYCLE() meanStdDev(src, mean, dev, mask);
+
+    SANITY_CHECK(mean, 1e-5);
+    SANITY_CHECK(dev, 1e-5);
+}
+
+PERF_TEST_P(Size_MatType, countNonZero, testing::Combine( testing::Values( TYPICAL_MAT_SIZES ), testing::Values( CV_8UC1, CV_8SC1, CV_16UC1, CV_16SC1, CV_32SC1, CV_32FC1, CV_64FC1 ) ))
+{
+    Size sz = get<0>(GetParam());
+    int matType = get<1>(GetParam());
+
+    Mat src(sz, matType);
+    int cnt = 0;
+
+    declare.in(src, WARMUP_RNG);
+
+    int runs = (sz.width <= 640) ? 8 : 1;
+    TEST_CYCLE_MULTIRUN(runs) cnt = countNonZero(src);
+
+    SANITY_CHECK(cnt);
+}
+
+PERF_TEST_P(Size_MatType, hasNonZero, testing::Combine( testing::Values( TYPICAL_MAT_SIZES ), testing::Values( CV_8UC1, CV_8SC1, CV_16UC1, CV_16SC1, CV_32SC1, CV_32FC1, CV_64FC1 ) ))
+{
+    Size sz = get<0>(GetParam());
+    int matType = get<1>(GetParam());
+
+    Mat src(sz, matType);
+    /*bool hnz = false;*/
+
+    declare.in(src, WARMUP_RNG);
+
+    int runs = (sz.width <= 640) ? 8 : 1;
+    TEST_CYCLE_MULTIRUN(runs) /*hnz =*/ hasNonZero(src);
+
+    SANITY_CHECK_NOTHING();
+}
+
+typedef tuple<Size, double> Size_Density_t;
+typedef perf::TestBaseWithParam<Size_Density_t> Size_Density;
+
+PERF_TEST_P(Size_Density, findNonZero, testing::Combine(
+                testing::Values(TYPICAL_MAT_SIZES),
+                testing::Values(0.0, 0.001, 0.01, 0.1, 0.5)))
+{
+    Size sz = get<0>(GetParam());
+    double density = get<1>(GetParam());
+
+    Mat r(sz, CV_32FC1);
+    randu(r, 0, 1);
+    Mat src = r < density;   // CV_8UC1: 255 where r < density, 0 elsewhere
+    std::vector<Point> idx;
+
+    declare.in(src);
+
+    TEST_CYCLE() findNonZero(src, idx);
+
+    SANITY_CHECK_NOTHING();
+}
+
+} // namespace

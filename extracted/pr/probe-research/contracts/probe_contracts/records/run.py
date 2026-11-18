@@ -24,8 +24,10 @@ class RunStatus(StrEnum):
 
 
 class RunType(StrEnum):
-    """What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
-    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py)."""
+    """What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
+    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`."""
+
+    # 0495; DESIGN.md (run.py).
 
     GENERAL = "general"
     #: Rollouts in an environment scored by a reward: an RL trainer's run, or a Harbor agent eval.

@@ -66,6 +66,7 @@ __all__ = (
     "EnabledBaselineInheritanceDriftTypeDef",
     "EnabledBaselineParameterSummaryTypeDef",
     "EnabledBaselineParameterTypeDef",
+    "EnabledBaselineSourceDriftTypeDef",
     "EnabledBaselineSummaryTypeDef",
     "EnabledControlDetailsTypeDef",
     "EnabledControlDriftTypesTypeDef",
@@ -220,12 +221,16 @@ class EnablementStatusSummaryTypeDef(TypedDict):
 class EnabledBaselineInheritanceDriftTypeDef(TypedDict):
     status: NotRequired[EnabledBaselineDriftStatusType]
 
+class EnabledBaselineSourceDriftTypeDef(TypedDict):
+    status: NotRequired[EnabledBaselineDriftStatusType]
+
 class EnabledBaselineFilterTypeDef(TypedDict):
     targetIdentifiers: NotRequired[Sequence[str]]
     baselineIdentifiers: NotRequired[Sequence[str]]
     parentIdentifiers: NotRequired[Sequence[str]]
     statuses: NotRequired[Sequence[EnablementStatusType]]
     inheritanceDriftStatuses: NotRequired[Sequence[EnabledBaselineDriftStatusType]]
+    sourceDriftStatuses: NotRequired[Sequence[EnabledBaselineDriftStatusType]]
 
 class EnabledControlParameterSummaryTypeDef(TypedDict):
     key: str
@@ -447,6 +452,7 @@ class UpdateEnabledControlInputTypeDef(TypedDict):
 
 class EnabledBaselineDriftTypesTypeDef(TypedDict):
     inheritance: NotRequired[EnabledBaselineInheritanceDriftTypeDef]
+    source: NotRequired[EnabledBaselineSourceDriftTypeDef]
 
 ListEnabledBaselinesInputTypeDef = TypedDict(
     "ListEnabledBaselinesInputTypeDef",

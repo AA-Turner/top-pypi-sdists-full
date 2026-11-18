@@ -1,6 +1,6 @@
 """Server-described GR00T N1.7 deployment wire: the Bimanual YAM or SO-101 preset exactly as
 `dreamscale run` sends it, or a custom robot whose cameras, widths and horizon its checkpoint
-records (dreamscale_transport.gr00t_n17_deploy). RTC is off."""
+records (dreamscale_core.gr00t_n17_deploy). RTC is off."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import math
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport import gr00t_n17_deploy as C
+from dreamscale_core import gr00t_n17_deploy as C
 
 from dreamscale import deploy_bases
 from dreamscale.policy.deployment import PresetLayout

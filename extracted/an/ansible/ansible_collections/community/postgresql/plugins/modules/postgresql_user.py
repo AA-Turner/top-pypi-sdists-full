@@ -18,13 +18,16 @@ description:
   grants the user access to an existing database or tables.
 - A user is a role with login privilege.
 - You cannot remove a user while it still has any privileges granted to it in any database.
-- Set I(fail_on_user) to C(false) to make the module ignore failures when trying to remove a user.
+- Set O(fail_on_user) to V(false) to make the module ignore failures when trying to remove a user.
   In this case, the module reports if changes happened as usual and separately reports
   whether the user has been removed or not.
 options:
   name:
     description:
     - Name of the user (role) to add or remove.
+    - The name is taken literally. A C(") in it is escaped by the module and must not be
+      doubled, and a name wrapped in C(") is a name containing quotes rather than a
+      pre-quoted identifier.
     type: str
     required: true
     aliases:
@@ -34,26 +37,23 @@ options:
     - Set the user's password, before 1.4 this was required.
     - Password can be passed unhashed or hashed (MD5-hashed).
     - An unhashed password is automatically hashed when saved into the
-      database if I(encrypted) is set, otherwise it is saved in
+      database if O(encrypted) is set, otherwise it is saved in
       plain text format.
     - When passing an MD5-hashed password, you must generate it with the format
       C('str["md5"] + md5[ password + username ]'), resulting in a total of
       35 characters. An easy way to do this is
       C(echo "md5`echo -n 'verysecretpasswordJOE' | md5sum | awk '{print $1}'`").
     - Note that if the provided password string is already in MD5-hashed
-      format, then it is used as-is, regardless of I(encrypted) option.
+      format, then it is used as-is, regardless of O(encrypted) option.
     type: str
   login_db:
     description:
     - Name of database to connect to and where user's permissions are granted.
-    - The V(db) alias is deprecated and will be removed in version 5.0.0.
     type: str
     default: ''
-    aliases:
-    - db
   fail_on_user:
     description:
-    - If C(true), fails when the user (role) cannot be removed. Otherwise just log and continue.
+    - If V(true), fails when the user (role) cannot be removed. Otherwise just log and continue.
     default: true
     type: bool
     aliases:
@@ -62,7 +62,7 @@ options:
     description:
     - "PostgreSQL user attributes string in the format: CREATEDB,CREATEROLE,SUPERUSER."
     - Note that '[NO]CREATEUSER' is deprecated.
-    - To create a simple role for using it like a group, use C(NOLOGIN) flag.
+    - To create a simple role for using it like a group, use V(NOLOGIN) flag.
     - See the full list of supported flags in documentation for your PostgreSQL version.
     type: str
     default: ''
@@ -83,22 +83,22 @@ options:
     description:
     - Whether the password is stored hashed in the database.
     - You can specify an unhashed password, and PostgreSQL ensures
-      the stored password is hashed when I(encrypted=true) is set.
+      the stored password is hashed when O(encrypted=true) is set.
       If you specify a hashed password, the module uses it as-is,
-      regardless of the setting of I(encrypted).
+      regardless of the setting of O(encrypted).
     - "Note: Postgresql 10 and newer does not support unhashed passwords."
-    - Previous to Ansible 2.6, this was C(false) by default.
+    - Previous to Ansible 2.6, this was V(false) by default.
     default: true
     type: bool
   expires:
     description:
     - The date at which the user's password is to expire.
-    - If set to C('infinity'), user's password never expires.
+    - If set to V(infinity), user's password never expires.
     - Note that this value must be a valid SQL date and time type.
     type: str
   no_password_changes:
     description:
-    - If C(true), does not inspect the database for password changes.
+    - If V(true), does not inspect the database for password changes.
       If the user already exists, skips all password related checks.
       Useful when C(pg_authid) is not accessible (such as in AWS RDS).
       Otherwise, makes password changes as necessary.
@@ -112,7 +112,7 @@ options:
     description:
       - Determines how an SSL session is negotiated with the server.
       - See U(https://www.postgresql.org/docs/current/static/libpq-ssl.html) for more information on the modes.
-      - Default of C(prefer) matches libpq default.
+      - Default of V(prefer) matches libpq default.
     type: str
     default: prefer
     choices: [ allow, disable, prefer, require, verify-ca, verify-full ]
@@ -130,9 +130,9 @@ options:
     version_added: '0.2.0'
   trust_input:
     description:
-    - If C(false), checks whether values of options I(name), I(password), I(expires),
-      I(role_attr_flags), I(comment), I(session_role) are potentially dangerous.
-    - It makes sense to use C(false) only when SQL injections through the options are possible.
+    - If V(false), checks whether values of options O(name), O(password), O(expires),
+      O(role_attr_flags), O(comment), O(session_role) are potentially dangerous.
+    - It makes sense to use V(false) only when SQL injections through the options are possible.
     type: bool
     default: true
     version_added: '0.2.0'
@@ -145,53 +145,58 @@ options:
       - Removes any parameter from the user that is not listed here.
       - Parameters that are present in the database but are not included in this list will only be reset, if
         O(reset_unspecified_configuration=true).
-      - Inputs to O(user) as well as keys and values in this parameter are quoted by the module. If you require the
-        user to contain a C("), you need to double it, otherwise the module will fail. C(") and C(') are not allowed in
+      - Keys and values in this parameter are quoted by the module. C(") and C(') are not allowed in
         configuration keys and any C(') in the value of a configuration will be escaped by this module.
-        Additionally, parameters and values are checked if O(trust_input) is C(false).
+        Additionally, parameters and values are checked if O(trust_input) is V(false).
     type: dict
     default: {}
     version_added: '3.5.0'
   reset_unspecified_configuration:
     description:
-      - If set to C(true), the user's default configuration parameters will be reset in case they are not included in
+      - If set to V(true), the user's default configuration parameters will be reset in case they are not included in
         O(configuration), otherwise existing parameters will not be modified if not included in O(configuration).
     type: bool
     default: false
     version_added: '3.5.0'
   quote_configuration_values:
     description:
-      - Automatically quote the values of configuration variables added via I(configuration). The default is C(true)
-        and setting this to C(false) leaves these options open to SQL-injections and makes the user responsible for
+      - Automatically quote the values of configuration variables added via O(configuration). The default is V(true)
+        and setting this to V(false) leaves these options open to SQL-injections and makes the user responsible for
         properly quoting values.
-      - This is required to be C(false) to modify settings like C(search_path), that need to be unquoted.
-      - If this is C(false) you will also need to make sure that strings are properly quoted.
+      - This is required to be V(false) to modify settings like C(search_path), that need to be unquoted.
+      - If this is V(false) you will also need to make sure that strings are properly quoted.
         For example C("'16MB'") for C(work_mem).
-      - Set this only to C(false) if you know what you are doing!
+      - Set this only to V(false) if you know what you are doing!
     type: bool
     default: true
     version_added: '3.11.0'
 notes:
 - The module creates a user (role) with login privilege by default.
-  Use C(NOLOGIN) I(role_attr_flags) to change this behaviour.
-- If you specify C(PUBLIC) as the user (role), then the privilege changes apply to all users (roles).
-  You may not specify password or role_attr_flags when the C(PUBLIC) user is specified.
+  Use V(NOLOGIN) O(role_attr_flags) to change this behaviour.
+- If you specify V(PUBLIC) as the user (role), then the privilege changes apply to all users (roles).
+  You may not specify password or role_attr_flags when the V(PUBLIC) user is specified.
 - SCRAM-SHA-256-hashed passwords (SASL Authentication) require PostgreSQL version 10 or newer.
   On the previous versions the whole hashed string is used as a password.
-- 'Working with SCRAM-SHA-256-hashed passwords, be sure you use the I(environment:) variable
+- 'Working with SCRAM-SHA-256-hashed passwords, be sure you use the C(environment): variable
   C(PGOPTIONS: "-c password_encryption=scram-sha-256") when it is not default
   for your PostgreSQL version (see the provided example).'
 - On some systems (such as AWS RDS), C(pg_authid) is not accessible, thus, the module cannot compare
   the current and desired C(password). In this case, the module assumes that the passwords are
   different and changes it reporting that the state has been changed.
-  To skip all password related checks for existing users, use I(no_password_changes=true).
-- On some systems (such as AWS RDS), C(SUPERUSER) is unavailable. This means the C(SUPERUSER) and
-  C(NOSUPERUSER) I(role_attr_flags) should not be specified to preserve idempotency and avoid
+  To skip all password related checks for existing users, use O(no_password_changes=true).
+- On some systems (such as AWS RDS), V(SUPERUSER) is unavailable. This means the V(SUPERUSER) and
+  V(NOSUPERUSER) O(role_attr_flags) should not be specified to preserve idempotency and avoid
   InsufficientPrivilege errors.
 
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: partial
+    details:
+      - On systems where C(pg_authid) is not accessible (such as AWS RDS), the module cannot compare
+        the current and desired password and reports changed=true on every invocation when a
+        password is specified.
 
 seealso:
 - module: community.postgresql.postgresql_privs
@@ -310,9 +315,8 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.community.postgresql.plugins.module_utils import \
     saslprep
 from ansible_collections.community.postgresql.plugins.module_utils.database import (
-    SQLParseError,
     check_input,
-    pg_quote_identifier,
+    pg_quote_name,
 )
 from ansible_collections.community.postgresql.plugins.module_utils.postgres import (
     HAS_PSYCOPG,
@@ -391,7 +395,7 @@ def user_add(cursor, user, password, role_attr_flags, encrypted, expires, conn_l
     # literal
     query_password_data = dict(password=password, expires=expires)
     query = ['CREATE USER %(user)s' %
-             {"user": _pg_quote_user(user, module)}]
+             {"user": pg_quote_name(user, for_params=True)}]
     if password is not None and password != '':
         query.append("WITH %(crypt)s" % {"crypt": encrypted})
         query.append("PASSWORD %(password)s")
@@ -401,7 +405,8 @@ def user_add(cursor, user, password, role_attr_flags, encrypted, expires, conn_l
         query.append("CONNECTION LIMIT %(conn_limit)s" % {"conn_limit": conn_limit})
     query.append(role_attr_flags)
     query = ' '.join(query)
-    executed_queries.append(query)
+    # Reported with the doubling undone, since that is what psycopg leaves behind.
+    executed_queries.append(query.replace('%%', '%'))
     cursor.execute(query, query_password_data)
     return True
 
@@ -580,7 +585,8 @@ def exec_alter_user(module, cursor, statement, params=None):
 
     try:
         cursor.execute(statement, params)
-        executed_queries.append(statement)
+        # Reported with the doubling undone, since that is what psycopg leaves behind.
+        executed_queries.append(statement.replace('%%', '%'))
         changed = True
     # We could catch psycopg.errors.ReadOnlySqlTransaction directly,
     # but that was added only in Psycopg 2.8
@@ -636,7 +642,7 @@ def user_alter(db_connection, module, user, password, role_attr_flags, encrypted
 
         # If we are here, something does need to change.
         # Compose a statement and execute it
-        alter = ['ALTER USER %(user)s' % {"user": _pg_quote_user(user, module)}]
+        alter = ['ALTER USER %(user)s' % {"user": pg_quote_name(user, for_params=True)}]
         if pwchanging:
             if password != '':
                 alter.append("WITH %(crypt)s" % {"crypt": encrypted})
@@ -666,7 +672,7 @@ def user_alter(db_connection, module, user, password, role_attr_flags, encrypted
 
         # If they need, compose a statement and execute
         alter = ['ALTER USER %(user)s' %
-                 {"user": _pg_quote_user(user, module)}]
+                 {"user": pg_quote_name(user, for_params=True)}]
         if role_attr_flags:
             alter.append('WITH %s' % role_attr_flags)
 
@@ -687,7 +693,7 @@ def user_delete(cursor, user, module):
     """Try to remove a user. Returns True if successful otherwise False"""
     cursor.execute("SAVEPOINT ansible_pgsql_user_delete")
     try:
-        query = 'DROP USER %s' % _pg_quote_user(user, module)
+        query = 'DROP USER %s' % pg_quote_name(user)
         executed_queries.append(query)
         cursor.execute(query)
     except Exception as e:
@@ -803,17 +809,17 @@ def user_configuration(cursor, module, user, configuration, reset_unspec_config,
         # It seems psycopg's prepared statements don't work with 'ALTER ROLE' at this point.
         # This is vulnerable to SQL-injections (added to docs) but I don't see a better way to do this.
         for item in config_updates["reset"]:
-            query = 'ALTER ROLE %(user)s RESET "%(key)s";' % {"user": _pg_quote_user(user, module), "key": item}
+            query = 'ALTER ROLE %(user)s RESET %(key)s;' % {"user": pg_quote_name(user), "key": pg_quote_name(item)}
             executed_queries.append(query)
             cursor.execute(query)
             changed = True
         for key, value in config_updates["update"].items():
             if quote_values:
-                query = ('ALTER ROLE %(user)s SET "%(key)s" TO \'%(value)s\';' %
-                         {"user": _pg_quote_user(user, module), "key": key, "value": value})
+                query = ('ALTER ROLE %(user)s SET %(key)s TO \'%(value)s\';' %
+                         {"user": pg_quote_name(user), "key": pg_quote_name(key), "value": value})
             else:
-                query = ('ALTER ROLE %(user)s SET "%(key)s" TO %(value)s;' %
-                         {"user": _pg_quote_user(user, module), "key": key, "value": value})
+                query = ('ALTER ROLE %(user)s SET %(key)s TO %(value)s;' %
+                         {"user": pg_quote_name(user), "key": pg_quote_name(key), "value": value})
             executed_queries.append(query)
             cursor.execute(query)
             changed = True
@@ -821,20 +827,6 @@ def user_configuration(cursor, module, user, configuration, reset_unspec_config,
         module.fail_json("Unable to update configuration for '%(user)s' due to: %(exception)s" %
                          {"user": user, "exception": e})
     return changed
-
-
-def _pg_quote_user(user, module):
-    """correctly escape users, pg_quote_identifiers will fail if the user contains a dot but is not pre-quoted"""
-    if user[0] != '"' and user[-1] != '"':
-        # we pre-quote users to make sure pg_quote_identifiers doesn't fail on dots
-        return pg_quote_identifier('"%s"' % user, 'role')
-    elif (user[0] == '"' and user[-1] != '"') or (user[0] != '"' and user[-1] == '"'):
-        module.fail_json("The value of the user-field can't contain a double-quote in the end "
-                         "if it doesn't start with one and vice-versa.")
-    else:
-        # user is already quoted, we run it through pg_quote_identifiers to make sure it doesn't contain any lonely
-        # double-quotes to prevent SQL-injections
-        return pg_quote_identifier(user, 'role')
 
 
 # ===========================================
@@ -847,13 +839,7 @@ def main():
         user=dict(type='str', required=True, aliases=['name']),
         password=dict(type='str', default=None, no_log=True),
         state=dict(type='str', default='present', choices=['absent', 'present']),
-        login_db=dict(type='str', default="", aliases=['db'], deprecated_aliases=[
-            {
-                'name': 'db',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            }],
-        ),
+        login_db=dict(type='str', default=""),
         fail_on_user=dict(type='bool', default=True, aliases=['fail_on_role']),
         role_attr_flags=dict(type='str', default=''),
         encrypted=dict(type='bool', default=True),
@@ -921,11 +907,8 @@ def main():
 
     if state == "present":
         if user_exists(cursor, user):
-            try:
-                changed = user_alter(db_connection, module, user, password,
-                                     role_attr_flags, encrypted, expires, no_password_changes, conn_limit)
-            except SQLParseError as e:
-                module.fail_json(msg=to_native(e), exception=traceback.format_exc())
+            changed = user_alter(db_connection, module, user, password,
+                                 role_attr_flags, encrypted, expires, no_password_changes, conn_limit)
         else:
             try:
                 changed = user_add(cursor, user, password,
@@ -934,8 +917,6 @@ def main():
                 module.fail_json(msg="Unable to add user with given requirement "
                                      "due to : %s" % to_native(e),
                                  exception=traceback.format_exc())
-            except SQLParseError as e:
-                module.fail_json(msg=to_native(e), exception=traceback.format_exc())
 
         if comment is not None:
             try:
@@ -954,10 +935,7 @@ def main():
                 changed = True
                 kw['user_removed'] = True
             else:
-                try:
-                    changed, err = user_delete(cursor, user, module)
-                except SQLParseError as e:
-                    module.fail_json(msg=to_native(e), exception=traceback.format_exc())
+                changed, err = user_delete(cursor, user, module)
 
                 if fail_on_user and not changed:
                     msg = "Unable to remove user: %s" % err

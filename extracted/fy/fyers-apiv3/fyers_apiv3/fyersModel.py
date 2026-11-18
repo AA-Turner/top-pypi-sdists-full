@@ -68,6 +68,8 @@ class Config:
     expiry_dates = "/history/fno/expired/expiry-dates"
     history_underlying_symbols = "/history/fno/expired/underlying-symbols"
     fno_historical_data = "/history/fno/expired/historical-data"
+    activate_killswitch = "/killswitch/activate"
+    killswitch_status = "/killswitch/status"
 
 
 class FyersServiceSync:
@@ -1903,6 +1905,38 @@ class FyersModel:
             response = self.service.post_call(Config.activate_smartexit_trigger, self.header, data)
         return response
     
+    def activate_killswitch(self) -> dict:
+        """
+        Activates the kill switch (places the client on break).
+
+        WARNING: Activating the kill switch blocks trading on the account.
+
+        Takes no arguments. An empty JSON body is sent.
+        If the kill switch is already active, the API returns an error body
+        (HTTP 400, code 1500) which is returned to the caller unchanged.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.post_async_call(Config.activate_killswitch, self.header, {})
+        else:
+            response = self.service.post_call(Config.activate_killswitch, self.header, {})
+        return response
+
+    def get_killswitch_status(self) -> dict:
+        """
+        Retrieves the kill switch status, open positions and pending orders count.
+
+        Returns:
+            The response JSON as a dictionary.
+        """
+        if self.is_async:
+            response = self.service.get_async_call(Config.killswitch_status, self.header)
+        else:
+            response = self.service.get_call(Config.killswitch_status, self.header)
+        return response
+
     def orderhistory(self, data) -> dict:
         """
         Retrieves order history based on the provided data.

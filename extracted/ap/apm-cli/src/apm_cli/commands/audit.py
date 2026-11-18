@@ -105,11 +105,16 @@ def _policy_enforcement_report(fetch_result) -> dict:
     policy = fetch_result.policy if fetch_result is not None else None
     if policy is None:
         return {"enforced": False, "source": None, "enforcement": None}
-    return {
+    report = {
         "enforced": policy.enforcement != "off",
         "source": _redact_policy_ref(fetch_result.source) if fetch_result.source else None,
         "enforcement": policy.enforcement,
     }
+    chain = getattr(fetch_result, "chain_sources", None)
+    if chain:
+        # Ordered (root first), credential-redacted composed chain (#2753).
+        report["chain"] = [_redact_policy_ref(ref) for ref in chain]
+    return report
 
 
 def _scan_single_file(file_path: Path, logger) -> tuple[dict[str, list[ScanFinding]], int]:
@@ -613,33 +618,15 @@ def _audit_ci_gate(
     """
     logger = cfg.logger
 
+    from ..install.audit_replay import resolve_ci_audit_materialization
     from ..policy.ci_checks import _check_drift, run_baseline_checks
     from ..policy.policy_checks import run_policy_checks
 
     fail_fast = not no_fail_fast
 
-    prepared_replay = None
-    prepared_replay_error = None
-    if (cfg.project_root / "apm.yml").exists() and not (cfg.project_root / "apm_modules").exists():
-        from ..core.scope import get_workspace_deploy_root
-        from ..deps.lockfile import get_lockfile_path
-        from ..install.audit_replay import CiAuditReplayError, prepare_ci_audit_replay
-
-        if get_lockfile_path(cfg.project_root).exists():
-            if get_workspace_deploy_root(cfg.project_root) != cfg.project_root.resolve():
-                prepared_replay_error = (
-                    "installed package materialization is missing at "
-                    f"{cfg.project_root / 'apm_modules'}; run 'apm install --global' "
-                    "to restore it"
-                )
-            else:
-                try:
-                    prepared_replay = prepare_ci_audit_replay(
-                        cfg.project_root,
-                        verbose=cfg.verbose,
-                    )
-                except CiAuditReplayError as exc:
-                    prepared_replay_error = str(exc)
+    materialization = resolve_ci_audit_materialization(cfg.project_root, verbose=cfg.verbose)
+    prepared_replay = materialization.prepared_replay
+    prepared_replay_error = materialization.error
 
     # Always run baseline checks
     ci_result = run_baseline_checks(
@@ -659,17 +646,15 @@ def _audit_ci_gate(
     )
 
     fetch_result = None
-    auto_discovered = False
-    if policy_source and (not fail_fast or ci_result.passed):
+    auto_discovered = not policy_source
+    # Explicit --policy and auto-discovery (mirror install path) share one
+    # discovery call so --no-cache forces a fresh fetch for both (#3659).
+    if (policy_source or not no_policy) and (not fail_fast or ci_result.passed):
         fetch_result = discover_policy_with_chain(
             cfg.project_root,
-            policy_override=policy_source,
+            policy_override=policy_source or None,
             no_cache=no_cache,
         )
-    elif not policy_source and not no_policy and (not fail_fast or ci_result.passed):
-        # Auto-discovery (mirror install path)
-        fetch_result = discover_policy_with_chain(cfg.project_root)
-        auto_discovered = True
 
     # An explicit --policy <source> names the exact policy the caller wants
     # enforced, so failing to load it fails closed regardless of
@@ -861,7 +846,14 @@ def _audit_ci_gate(
             from ..install.drift import render_drift_text
 
             click.echo("")
-            click.echo(render_drift_text(drift_findings, verbose=cfg.verbose))
+            click.echo(
+                render_drift_text(
+                    drift_findings,
+                    verbose=cfg.verbose,
+                    lockfile=lockfile,
+                    project_root=cfg.project_root,
+                )
+            )
 
     sys.exit(0 if ci_result.passed else 1)
 
@@ -956,7 +948,9 @@ def _resolve_fail_on_drift(project_root: Path) -> bool:
     hard failure. Discovery is invoked by the caller only when drift was
     actually detected, keeping the no-drift common path free of extra work.
     """
-    if os.environ.get("APM_POLICY_DISABLE"):
+    from ..policy.discovery import policy_disabled_by_env
+
+    if policy_disabled_by_env():
         return False
     try:
         from ..policy.discovery import discover_policy_with_chain
@@ -1200,7 +1194,14 @@ def _audit_content_scan(
             from ..install.drift import render_drift_text
 
             click.echo("")
-            click.echo(render_drift_text(drift_findings, verbose=cfg.verbose))
+            click.echo(
+                render_drift_text(
+                    drift_findings,
+                    verbose=cfg.verbose,
+                    lockfile=lockfile,
+                    project_root=cfg.project_root,
+                )
+            )
     elif effective_format == "markdown":
         from ..security.audit_report import findings_to_markdown
 
@@ -1254,7 +1255,8 @@ def _audit_content_scan(
 
 
 @click.command(
-    help="Scan installed primitives for hidden Unicode, drift, and lockfile/policy violations"
+    help="Scan installed primitives for hidden Unicode, drift, and lockfile/policy violations",
+    short_help="Scan for hidden Unicode, drift, and policy violations",
 )
 @click.argument("package", required=False)
 @click.option(

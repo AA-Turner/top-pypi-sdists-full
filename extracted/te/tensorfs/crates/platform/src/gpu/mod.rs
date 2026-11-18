@@ -6,7 +6,7 @@ mod apple;
 mod cuda;
 mod faults;
 
-pub use cuda::memory_classes;
+pub use cuda::open as open_cuda;
 pub use faults::{Fault, watch_faults};
 
 use crate::{Error, Result};
@@ -32,7 +32,7 @@ pub struct Gpu {
     /// The lane rule's row: an NVIDIA card's compute capability (`9.0` on a Hopper), an Apple
     /// GPU's newest Metal family (`apple9`); empty when the driver does not say.
     pub capability: String,
-    /// [`memory_classes`] fills it from CUDA's device attributes; the probe leaves it `None`.
+    /// [`open_cuda`] reads it from CUDA's device attributes; the probe leaves it `None`.
     pub memory_class: Option<MemoryClass>,
 }
 
@@ -234,6 +234,14 @@ impl Device {
     pub fn free(&self) -> Result<u64> {
         let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
         memory(device.memory_info()).map(|(_, free)| free)
+    }
+
+    /// How busy it is now (cl-1100): the share of its last sample period a kernel ran, as `nvidia-smi`'s GPU-Util, and its bytes in
+    /// use, as [`Self::used`].
+    pub fn busy(&self) -> Result<(u32, u64)> {
+        let device = self.nvml.device_by_index(self.index).map_err(failed("open device"))?;
+        let busy = device.utilization_rates().map_err(failed("utilization"))?.gpu;
+        Ok((busy.min(100), self.used()?))
     }
 
     /// Its bytes in use now, every process's, as `nvidia-smi` shows them (not the driver's reserve;

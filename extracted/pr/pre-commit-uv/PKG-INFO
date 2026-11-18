@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pre-commit-uv
-Version: 4.4.2
+Version: 4.4.3
 Import-Name: pre_commit_uv
 Summary: Run pre-commit with uv
 Project-URL: Bug Tracker, https://github.com/tox-dev/pre-commit-uv/issues

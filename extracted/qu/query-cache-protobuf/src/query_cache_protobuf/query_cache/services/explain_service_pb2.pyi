@@ -54,6 +54,7 @@ class _ExplainBadgeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     UPSTREAM_QUERY_CHANGED: _ExplainBadge.ValueType  # 6
     UPSTREAM_QUERY_UNCHANGED: _ExplainBadge.ValueType  # 7
     TARGET_TABLE_EXISTS: _ExplainBadge.ValueType  # 8
+    SHADOW_OVERRIDE: _ExplainBadge.ValueType  # 9
 
 class ExplainBadge(_ExplainBadge, metaclass=_ExplainBadgeEnumTypeWrapper): ...
 
@@ -66,6 +67,7 @@ NODE_QUERY_UNCHANGED: ExplainBadge.ValueType  # 5
 UPSTREAM_QUERY_CHANGED: ExplainBadge.ValueType  # 6
 UPSTREAM_QUERY_UNCHANGED: ExplainBadge.ValueType  # 7
 TARGET_TABLE_EXISTS: ExplainBadge.ValueType  # 8
+SHADOW_OVERRIDE: ExplainBadge.ValueType  # 9
 global___ExplainBadge = ExplainBadge
 
 @typing.final

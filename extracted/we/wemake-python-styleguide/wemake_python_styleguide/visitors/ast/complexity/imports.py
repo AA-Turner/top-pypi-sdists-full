@@ -1,5 +1,5 @@
 import ast
-from typing import final
+from typing import ClassVar, final
 
 from wemake_python_styleguide import constants
 from wemake_python_styleguide.logic.filenames import get_stem
@@ -15,6 +15,11 @@ from wemake_python_styleguide.visitors.base import BaseNodeVisitor
 class _ImportFromMembersValidator:
     """Validator of ``ast.ImportFrom`` nodes names."""
 
+    _import_from_members_exceptions: ClassVar[frozenset[str]] = frozenset((
+        'typing',
+        'typing_extensions',
+    ))
+
     def __init__(
         self,
         error_callback: ErrorCallback,
@@ -27,6 +32,9 @@ class _ImportFromMembersValidator:
         self._check_import_from_names_count(node)
 
     def _check_import_from_names_count(self, node: ast.ImportFrom) -> None:
+        if node.module in self._import_from_members_exceptions:
+            return
+
         imported_names_number = len(node.names)
         if imported_names_number > self._options.max_import_from_members:
             self._error_callback(
@@ -42,9 +50,14 @@ class _ImportFromMembersValidator:
 class ImportMembersVisitor(BaseNodeVisitor):
     """Counts imports in a module."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        tree: ast.AST,
+        **kwargs: object,
+    ) -> None:
         """Creates a counter for tracked metrics."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, tree, **kwargs)
         self._imports_count = 0
         self._imported_names_count = 0
         self._import_from_members_validator = _ImportFromMembersValidator(

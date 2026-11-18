@@ -43,6 +43,12 @@ class WhatsAppNumberRepository(Protocol):
     async def take_down(self, phone_number_id: str) -> None:
         """Taken down in Meta: no longer routed, free for anyone to connect again."""
         ...
+    async def release(self, phone_number_id: str, account_id: StrObjectId, reason: str) -> None:
+        """Chatty lets go of a live number of `account_id` WITHOUT touching Meta (the account was disconnected):
+        free like a take-down (`taken_down_at`), marked `released_in_chatty`. A number that is no longer that
+        account's (claimed again meanwhile) is left alone. Claiming it clears the mark."""
+        ...
+
     async def list_by_account(self, account_id: StrObjectId) -> List[WhatsAppNumber]: ...
 
 

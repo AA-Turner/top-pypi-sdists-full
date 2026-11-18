@@ -4133,7 +4133,7 @@ class SeoNamespace:
         phone, website, booking link, and Google listing ids. Sponsored listings are
         left out. For the full Google Maps results list, use maps.search.
 
-        Price: $0.0015 per request.
+        Price: $0.0024 per request plus $0 per result (maximum $0.0024).
 
         Example:
             res = client.seo.local_pack(keyword="coffee shop", language="en", location="New York,New York,United States")
@@ -4700,7 +4700,7 @@ class AsyncSeoNamespace:
         phone, website, booking link, and Google listing ids. Sponsored listings are
         left out. For the full Google Maps results list, use maps.search.
 
-        Price: $0.0015 per request.
+        Price: $0.0024 per request plus $0 per result (maximum $0.0024).
 
         Example:
             res = client.seo.local_pack(keyword="coffee shop", language="en", location="New York,New York,United States")

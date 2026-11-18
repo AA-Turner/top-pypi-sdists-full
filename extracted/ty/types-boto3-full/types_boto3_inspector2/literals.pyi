@@ -196,6 +196,9 @@ AggregationResourceTypeType = Literal[
     "Microsoft.Compute/virtualMachines",
     "Microsoft.ContainerRegistry/registry/containerImage",
     "Microsoft.Web/sites",
+    "artifactregistry.googleapis.com/DockerImage",
+    "cloudfunctions.googleapis.com/Function",
+    "compute.googleapis.com/Instance",
 ]
 AggregationTypeType = Literal[
     "ACCOUNT",
@@ -260,7 +263,7 @@ CisStringComparisonType = Literal["EQUALS", "NOT_EQUALS", "PREFIX"]
 CisTargetStatusComparisonType = Literal["EQUALS"]
 CisTargetStatusReasonType = Literal["SCAN_IN_PROGRESS", "SSM_UNMANAGED", "UNSUPPORTED_OS"]
 CisTargetStatusType = Literal["CANCELLED", "COMPLETED", "TIMED_OUT"]
-CloudProviderType = Literal["AWS", "AZURE", "NOT_APPLICABLE"]
+CloudProviderType = Literal["AWS", "AZURE", "GCP", "NOT_APPLICABLE"]
 CodeRepositoryProviderTypeType = Literal["GITHUB", "GITLAB_SELF_MANAGED"]
 CodeRepositorySortByType = Literal["ALL", "CRITICAL", "HIGH"]
 CodeScanStatusType = Literal["FAILED", "IN_PROGRESS", "SKIPPED", "SUCCESSFUL"]
@@ -269,7 +272,7 @@ CodeSnippetErrorCodeType = Literal[
 ]
 ConfigurationLevelType = Literal["ACCOUNT", "ORGANIZATION"]
 ConnectorArnComparisonType = Literal["EQUALS"]
-ConnectorCloudProviderType = Literal["AZURE"]
+ConnectorCloudProviderType = Literal["AZURE", "GCP"]
 ConnectorConnectedWaiterName = Literal["connector_connected"]
 ConnectorDeletedWaiterName = Literal["connector_deleted"]
 ConnectorEnabledWaiterName = Literal["connector_enabled"]
@@ -304,6 +307,10 @@ CoverageResourceTypeType = Literal[
     "Microsoft.ContainerRegistry/registry/containerImage",
     "Microsoft.ContainerRegistry/registry/containerRepository",
     "Microsoft.Web/sites",
+    "artifactregistry.googleapis.com/DockerImage",
+    "artifactregistry.googleapis.com/Repository",
+    "cloudfunctions.googleapis.com/Function",
+    "compute.googleapis.com/Instance",
 ]
 CoverageStringComparisonType = Literal["EQUALS", "NOT_EQUALS"]
 CurrencyType = Literal["USD"]
@@ -457,7 +464,7 @@ PackageTypeType = Literal["IMAGE", "ZIP"]
 PeriodicScanFrequencyType = Literal["MONTHLY", "NEVER", "WEEKLY"]
 ProjectSelectionScopeType = Literal["ALL"]
 ProviderComparisonType = Literal["EQUALS"]
-ProviderType = Literal["AWS", "AZURE"]
+ProviderType = Literal["AWS", "AZURE", "GCP"]
 RelationshipStatusType = Literal[
     "ACCOUNT_SUSPENDED",
     "CANNOT_CREATE_DETECTOR_IN_ORG_MASTER",
@@ -495,6 +502,9 @@ ResourceTypeType = Literal[
     "Microsoft.Compute/virtualMachines",
     "Microsoft.ContainerRegistry/registry/containerImage",
     "Microsoft.Web/sites",
+    "artifactregistry.googleapis.com/DockerImage",
+    "cloudfunctions.googleapis.com/Function",
+    "compute.googleapis.com/Instance",
 ]
 RuleSetCategoryType = Literal["IAC", "SAST", "SCA"]
 RuntimeType = Literal[
@@ -580,7 +590,7 @@ ScanStatusReasonType = Literal[
 ]
 ScanTypeType = Literal["CODE", "NETWORK", "PACKAGE"]
 ScopeStateType = Literal["ACTIVE", "DISABLED", "ERROR", "PENDING"]
-ScopeTypeType = Literal["SUBSCRIPTION", "TENANT"]
+ScopeTypeType = Literal["ORGANIZATION", "PROJECT", "SUBSCRIPTION", "TENANT"]
 SearchVulnerabilitiesPaginatorName = Literal["search_vulnerabilities"]
 ServerlessFunctionSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 ServiceType = Literal["EC2", "ECR", "LAMBDA"]
@@ -620,9 +630,14 @@ UsageTypeType = Literal[
     "CODE_REPOSITORY_SCA",
     "EC2_AGENTLESS_INSTANCE_HOURS",
     "EC2_AMI_HOURS",
+    "EC2_AMI_ONE_SHOT_SCAN",
     "EC2_INSTANCE_HOURS",
     "ECR_INITIAL_SCAN",
     "ECR_RESCAN",
+    "GCP_CLOUD_RUN_HOURS",
+    "GCP_CONTAINER_IMAGE_INITIAL_SCAN",
+    "GCP_CONTAINER_IMAGE_RESCAN",
+    "GCP_VM_AGENT_BASED_INSTANCE_HOURS",
     "LAMBDA_FUNCTION_CODE_HOURS",
     "LAMBDA_FUNCTION_HOURS",
 ]

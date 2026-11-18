@@ -4,25 +4,40 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Final
 
 import pytest
+
+from tools.generate_manpage import main as generate_manpage
 
 if sys.platform == "win32":
     pytest.skip("man command not available on Windows", allow_module_level=True)
 
-ROOT = Path(__file__).parents[2]
-RST_PATH = ROOT / "docs" / "man" / "tox.1.rst"
+_ROOT: Final[Path] = Path(__file__).parents[2]
+_RST_PATH: Final[Path] = _ROOT / "docs" / "man" / "tox.1.rst"
+
+
+def test_generate_manpage(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setitem(generate_manpage.__globals__, "__file__", str(tmp_path / "tools" / "generate_manpage.py"))
+    generate_manpage()
+    content = (tmp_path / "docs" / "man" / "tox.1.rst").read_text(encoding="utf-8")
+    assert "**run**" in content
+    assert "**--help**" in content
+    assert "ENVIRONMENT VARIABLES" in content
 
 
 @pytest.fixture
 def manpage_troff() -> bytes:
-    from docutils.core import publish_string  # ruff:ignore[import-outside-top-level]
-    from docutils.writers import get_writer_class  # ruff:ignore[import-outside-top-level]
+    from docutils.core import publish_string  # ruff:ignore[import-outside-top-level]  # deferred import
+    from docutils.writers import get_writer_class  # ruff:ignore[import-outside-top-level]  # deferred import
 
     content = "\n".join(
-        line for line in RST_PATH.read_text(encoding="utf-8").splitlines() if line.strip() != ":orphan:"
+        line for line in _RST_PATH.read_text(encoding="utf-8").splitlines() if line.strip() != ":orphan:"
     )
     return publish_string(content, writer=get_writer_class("manpage")(), settings_overrides={"report_level": 5})
+
+
+_MANPAGE_RENDERED_PATTERN: Final[re.Pattern[str]] = re.compile(r".\x08")
 
 
 @pytest.fixture
@@ -30,35 +45,50 @@ def manpage_rendered(manpage_troff: bytes, tmp_path: Path) -> str:
     man_file = tmp_path / "tox.1"
     man_file.write_bytes(manpage_troff)
     result = subprocess.run(
-        ["man", str(man_file)],  # ruff:ignore[start-process-with-partial-path]
+        ["man", str(man_file)],  # ruff:ignore[start-process-with-partial-path]  # resolved via PATH
         capture_output=True,
         text=True,
         env={"COLUMNS": "200", "LANG": "en_US.UTF-8", "PATH": "/usr/bin:/bin", "MANPAGER": "cat", "PAGER": "cat"},
         check=False,
     )
-    return re.sub(r".\x08", "", result.stdout)
+    return _MANPAGE_RENDERED_PATTERN.sub("", result.stdout)
+
+
+_MATCH_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"""
+        ^ \.TH [ ]                    # the title header macro
+        " (?P<program> [^"]* ) "      # the program name
+        [ ] " (?P<section> [^"]* ) "  # the manual section
+        [ ] " (?P<date> [^"]* ) "     # the date
+        [ ] " (?P<source> [^"]* ) "   # the source of the page
+        [ ] " (?P<manual> [^"]* ) "   # the manual title
+        """,
+    re.MULTILINE | re.VERBOSE,
+)
 
 
 def test_manpage_has_title_header(manpage_troff: bytes) -> None:
     output = manpage_troff.decode()
-    match = re.search(r'^\.TH "([^"]*)" "([^"]*)" "([^"]*)" "([^"]*)" "([^"]*)"', output, re.MULTILINE)
+    match = _MATCH_PATTERN.search(output)
     assert match is not None, f".TH header not found in:\n{output[:500]}"
-    assert match.group(1) == "tox"
-    assert match.group(2) == "1"
-    assert match.group(5) == "User Commands"
+    assert (match["program"], match["section"], match["manual"]) == ("tox", "1", "User Commands")
+
+
+_TEST_MANPAGE_HAS_NAME_SECTION_PATTERN: Final[re.Pattern[str]] = re.compile(r"\.SH Name\n(?P<body>.+)")
 
 
 def test_manpage_has_name_section(manpage_troff: bytes) -> None:
-    output = manpage_troff.decode()
-    match = re.search(r"\.SH Name\n(.+)", output)
+    match = _TEST_MANPAGE_HAS_NAME_SECTION_PATTERN.search(manpage_troff.decode())
     assert match is not None, "Name section not found"
-    assert "tox" in match.group(1)
-    assert "virtualenv-based automation of test activities" in match.group(1)
+    assert "tox" in match["body"]
+    assert "virtualenv-based automation of test activities" in match["body"]
+
+
+_SECTIONS_PATTERN: Final[re.Pattern[str]] = re.compile(r"^\.SH (.+)$", re.MULTILINE)
 
 
 def test_manpage_has_all_sections(manpage_troff: bytes) -> None:
-    output = manpage_troff.decode()
-    sections = re.findall(r"^\.SH (.+)$", output, re.MULTILINE)
+    sections = _SECTIONS_PATTERN.findall(manpage_troff.decode())
     expected = [
         "Name",
         "SYNOPSIS",
@@ -93,38 +123,32 @@ def test_manpage_header_shows_tox(manpage_rendered: str) -> None:
     assert "tox" in first_line.lower()
 
 
-def test_manpage_documents_all_commands() -> None:
-    from argparse import _SubParsersAction  # ruff:ignore[import-outside-top-level, import-private-name]
-
-    from tox.config.cli.parse import _get_parser_doc  # ruff:ignore[import-outside-top-level, import-private-name]
-
-    parser = _get_parser_doc()
-    rst = RST_PATH.read_text(encoding="utf-8")
-    assert parser._subparsers is not None  # ruff:ignore[private-member-access]
-    for action in parser._subparsers._actions:  # ruff:ignore[private-member-access]
-        if isinstance(action, _SubParsersAction):
-            for choice_action in action._choices_actions:  # ruff:ignore[private-member-access]
-                assert choice_action.dest in rst, (
-                    f"command {choice_action.dest!r} missing from manpage, regenerate with: "
-                    f"python tools/generate_manpage.py"
-                )
+@pytest.fixture(scope="module")
+def tox_help() -> str:
+    return subprocess.run([sys.executable, "-m", "tox", "--help"], capture_output=True, text=True, check=True).stdout
 
 
-def test_manpage_documents_all_options() -> None:
-    from argparse import SUPPRESS, _SubParsersAction  # ruff:ignore[import-outside-top-level, import-private-name]
+def test_manpage_documents_all_commands(tox_help: str) -> None:
+    rst = _RST_PATH.read_text(encoding="utf-8")
+    names = [line.split()[0] for line in tox_help.split("subcommands:", 1)[1].splitlines() if line.startswith("    ")]
+    assert names
+    for name in names:
+        assert f"**{name}**" in rst, (
+            f"command {name!r} missing from manpage, regenerate with: python tools/generate_manpage.py"
+        )
 
-    from tox.config.cli.parse import _get_parser_doc  # ruff:ignore[import-outside-top-level, import-private-name]
 
-    parser = _get_parser_doc()
-    rst = RST_PATH.read_text(encoding="utf-8")
-    seen: set[int] = set()
-    for action in parser._actions:  # ruff:ignore[private-member-access]
-        if id(action) in seen or action.help == SUPPRESS or isinstance(action, _SubParsersAction):
-            continue
-        seen.add(id(action))
-        if not action.option_strings:
-            continue
-        long_opt = next((o for o in action.option_strings if o.startswith("--")), action.option_strings[0])
-        assert long_opt in rst, (
-            f"option {long_opt!r} missing from manpage, regenerate with: python tools/generate_manpage.py"
+def test_manpage_documents_all_options(tox_help: str) -> None:
+    rst = _RST_PATH.read_text(encoding="utf-8")
+    names = [
+        name.rstrip(",")
+        for line in tox_help.splitlines()
+        if line.startswith("  -")
+        for name in line.strip().split("  ", 1)[0].split()
+        if name.startswith("--")
+    ]
+    assert names
+    for name in names:
+        assert f"**{name}**" in rst, (
+            f"option {name!r} missing from manpage, regenerate with: python tools/generate_manpage.py"
         )

@@ -13,6 +13,7 @@ Usage::
     from mypy_boto3_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
     from mypy_boto3_observabilityadmin.paginator import (
         ListCentralizationRulesForOrganizationPaginator,
+        ListConnectorsPaginator,
         ListDatasetIntegrationsPaginator,
         ListResourceTelemetryForOrganizationPaginator,
         ListResourceTelemetryPaginator,
@@ -20,12 +21,14 @@ Usage::
         ListTelemetryPipelinesPaginator,
         ListTelemetryRulesForOrganizationPaginator,
         ListTelemetryRulesPaginator,
+        ListThirdPartyTelemetryEnrichmentsPaginator,
     )
 
     session = Session()
     client: CloudWatchObservabilityAdminServiceClient = session.client("observabilityadmin")
 
     list_centralization_rules_for_organization_paginator: ListCentralizationRulesForOrganizationPaginator = client.get_paginator("list_centralization_rules_for_organization")
+    list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
     list_dataset_integrations_paginator: ListDatasetIntegrationsPaginator = client.get_paginator("list_dataset_integrations")
     list_resource_telemetry_for_organization_paginator: ListResourceTelemetryForOrganizationPaginator = client.get_paginator("list_resource_telemetry_for_organization")
     list_resource_telemetry_paginator: ListResourceTelemetryPaginator = client.get_paginator("list_resource_telemetry")
@@ -33,6 +36,7 @@ Usage::
     list_telemetry_pipelines_paginator: ListTelemetryPipelinesPaginator = client.get_paginator("list_telemetry_pipelines")
     list_telemetry_rules_for_organization_paginator: ListTelemetryRulesForOrganizationPaginator = client.get_paginator("list_telemetry_rules_for_organization")
     list_telemetry_rules_paginator: ListTelemetryRulesPaginator = client.get_paginator("list_telemetry_rules")
+    list_third_party_telemetry_enrichments_paginator: ListThirdPartyTelemetryEnrichmentsPaginator = client.get_paginator("list_third_party_telemetry_enrichments")
     ```
 """
 
@@ -46,6 +50,8 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     ListCentralizationRulesForOrganizationInputPaginateTypeDef,
     ListCentralizationRulesForOrganizationOutputTypeDef,
+    ListConnectorsInputPaginateTypeDef,
+    ListConnectorsOutputTypeDef,
     ListDatasetIntegrationsInputPaginateTypeDef,
     ListDatasetIntegrationsOutputTypeDef,
     ListResourceTelemetryForOrganizationInputPaginateTypeDef,
@@ -60,6 +66,8 @@ from .type_defs import (
     ListTelemetryRulesForOrganizationOutputTypeDef,
     ListTelemetryRulesInputPaginateTypeDef,
     ListTelemetryRulesOutputTypeDef,
+    ListThirdPartyTelemetryEnrichmentsInputPaginateTypeDef,
+    ListThirdPartyTelemetryEnrichmentsOutputTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -69,6 +77,7 @@ else:
 
 __all__ = (
     "ListCentralizationRulesForOrganizationPaginator",
+    "ListConnectorsPaginator",
     "ListDatasetIntegrationsPaginator",
     "ListResourceTelemetryForOrganizationPaginator",
     "ListResourceTelemetryPaginator",
@@ -76,6 +85,7 @@ __all__ = (
     "ListTelemetryPipelinesPaginator",
     "ListTelemetryRulesForOrganizationPaginator",
     "ListTelemetryRulesPaginator",
+    "ListThirdPartyTelemetryEnrichmentsPaginator",
 )
 
 if TYPE_CHECKING:
@@ -98,6 +108,24 @@ class ListCentralizationRulesForOrganizationPaginator(
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListCentralizationRulesForOrganization.html#CloudWatchObservabilityAdminService.Paginator.ListCentralizationRulesForOrganization.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listcentralizationrulesfororganizationpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListConnectorsPaginatorBase = Paginator[ListConnectorsOutputTypeDef]
+else:
+    _ListConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListConnectorsPaginator(_ListConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListConnectors.html#CloudWatchObservabilityAdminService.Paginator.ListConnectors)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConnectorsInputPaginateTypeDef]
+    ) -> PageIterator[ListConnectorsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListConnectors.html#CloudWatchObservabilityAdminService.Paginator.ListConnectors.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listconnectorspaginator)
         """
 
 if TYPE_CHECKING:
@@ -230,4 +258,24 @@ class ListTelemetryRulesPaginator(_ListTelemetryRulesPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListTelemetryRules.html#CloudWatchObservabilityAdminService.Paginator.ListTelemetryRules.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listtelemetryrulespaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListThirdPartyTelemetryEnrichmentsPaginatorBase = Paginator[
+        ListThirdPartyTelemetryEnrichmentsOutputTypeDef
+    ]
+else:
+    _ListThirdPartyTelemetryEnrichmentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListThirdPartyTelemetryEnrichmentsPaginator(_ListThirdPartyTelemetryEnrichmentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListThirdPartyTelemetryEnrichments.html#CloudWatchObservabilityAdminService.Paginator.ListThirdPartyTelemetryEnrichments)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listthirdpartytelemetryenrichmentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListThirdPartyTelemetryEnrichmentsInputPaginateTypeDef]
+    ) -> PageIterator[ListThirdPartyTelemetryEnrichmentsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/paginator/ListThirdPartyTelemetryEnrichments.html#CloudWatchObservabilityAdminService.Paginator.ListThirdPartyTelemetryEnrichments.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/paginators/#listthirdpartytelemetryenrichmentspaginator)
         """

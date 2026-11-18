@@ -17,9 +17,9 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, TypeVar
 
-import bibtexparser
 from mcp.server.mcpserver import MCPServer
 
+from pyzotero._bibtex import BibTeX, parse_bibtex
 from pyzotero._helpers import (
     LOCAL_KEY_ENV,
     LOCAL_SERVER_ID_ENV,
@@ -41,7 +41,6 @@ from pyzotero._import import (
     isbn_set,
     lookup_identifier,
     open_access_pdf_url,
-    parse_bibtex,
 )
 from pyzotero.semantic_scholar import (
     PaperNotFoundError,
@@ -619,17 +618,13 @@ def export_bibtex(keys: list[str]) -> str:
 
     """
     zot = _read_client()
-    parts = []
-    for chunk in chunks(keys, BATCH_SIZE):
-        result = zot.items(itemKey=",".join(chunk), format="bibtex")
-        # The local API sends export formats as text/plain, which arrives as
-        # bytes. The web API's application/x-bibtex arrives parsed.
-        if isinstance(result, bytes):
-            parts.append(result.decode("utf-8").strip())
-        else:
-            parts.append(bibtexparser.dumps(result).strip())
-    bibtex = "\n\n".join(p for p in parts if p)
-    return _json({"count": len(parse_bibtex(bibtex)), "bibtex": bibtex})
+    bib = BibTeX.join(
+        [
+            zot.items(itemKey=",".join(chunk), format="bibtex")
+            for chunk in chunks(keys, BATCH_SIZE)
+        ]
+    )
+    return _json({"count": len(bib.entries), "bibtex": bib.text})
 
 
 # Item types that are never duplicates of a bibliographic record

@@ -15,11 +15,10 @@ import builtins
 import copy
 import json
 import logging
-import os
 import re
 import shutil
 import warnings
-from collections.abc import MutableMapping
+from collections.abc import Callable, MutableMapping
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -40,6 +39,7 @@ from apm_cli.integration.mcp_config_view import (
     _get_server_configs,
     _get_server_provenance,
 )
+from apm_cli.mcp_transport import canonical_remote_transport
 from apm_cli.models.dependency.mcp import ManifestHeaderValue
 from apm_cli.runtime.utils import find_runtime_binary
 from apm_cli.utils.atomic_io import atomic_write_text
@@ -136,6 +136,8 @@ def _clean_json_mcp_config(
     trailing_newline: bool = False,
     use_rich: bool = False,
     fail_on_write_error: bool = False,
+    nested_servers: Callable[[dict], dict | None] | None = None,
+    nested_settings: frozenset[str] = frozenset(),
 ) -> int:
     """Remove stale entries from a JSON-based MCP config file.
 
@@ -148,6 +150,13 @@ def _clean_json_mcp_config(
         trailing_newline: When True, append a trailing newline after JSON serialisation.
         use_rich: When True, emit removal notices via ``_rich_success``; otherwise use
             ``logger.progress``.
+        nested_servers: Returns a second server map inside the parsed config,
+            or ``None``.  Stale names are removed from it as well, for layouts
+            such as OpenCode v2 that keep servers below the top-level key.
+            A top-level entry is then removed only when the nested map does
+            not declare the same name, since that entry is not APM's.
+        nested_settings: Top-level keys that hold settings rather than
+            servers whenever ``nested_servers`` returns a map.
 
     Returns:
         Number of entries removed.
@@ -169,9 +178,22 @@ def _clean_json_mcp_config(
         servers = config.get(servers_key, {})
         if not isinstance(servers, dict):
             raise ValueError(f"{label} {servers_key} must be a mapping")
-        removed = [n for n in stale_names if n in servers]
+        nested = nested_servers(config) if nested_servers else None
+        if nested is None:
+            removed = [n for n in stale_names if n in servers]
+        else:
+            removed = [
+                n
+                for n in stale_names
+                if n in servers and n not in nested and n not in nested_settings
+            ]
         for name in removed:
             del servers[name]
+        if nested:
+            nested_removed = [n for n in stale_names if n in nested]
+            for name in nested_removed:
+                del nested[name]
+            removed = sorted(builtins.set(removed) | builtins.set(nested_removed))
         if removed:
             text = json.dumps(config, indent=2)
             if trailing_newline:
@@ -382,6 +404,7 @@ class MCPIntegrator:
         verbose: bool,
         logger,
         registry_source: str | None = None,
+        retry_args: tuple[str, ...] = (),
     ) -> builtins.dict[str, builtins.dict]:
         """Validate direct-install registry identities before any write."""
         from apm_cli.integration.mcp_integrator_install import (
@@ -394,6 +417,7 @@ class MCPIntegrator:
             verbose=verbose,
             logger=logger,
             registry_source=registry_source,
+            retry_args=retry_args,
         )
 
     @staticmethod
@@ -458,7 +482,7 @@ class MCPIntegrator:
         if dep.transport in ("http", "sse", "streamable-http"):
             # Build as a remote endpoint
             remote = {
-                "transport_type": dep.transport,
+                "transport": canonical_remote_transport({"transport": dep.transport}),
                 "url": dep.url or "",
             }
             if dep.headers:
@@ -507,6 +531,21 @@ class MCPIntegrator:
         return info
 
     @staticmethod
+    def _canonicalize_remote_transports(info: dict) -> None:
+        """Record each remote's canonical transport under ``transport`` (in place).
+
+        Registry payloads are normalized at ingestion; this keeps server info
+        that reached the overlay another way on the same canonical key.
+        """
+        for remote in info.get("remotes") or []:
+            if not isinstance(remote, dict):
+                continue
+            try:
+                remote["transport"] = canonical_remote_transport(remote)
+            except ValueError:
+                continue  # the rendering adapter reports it with its own label
+
+    @staticmethod
     def _apply_overlay(server_info_cache: dict, dep) -> None:
         """Apply MCPDependency overlay fields onto cached server_info (in-place).
 
@@ -519,12 +558,22 @@ class MCPIntegrator:
 
         dep.apply_opencode_enabled(info)
 
+        MCPIntegrator._canonicalize_remote_transports(info)
+
         # Transport overlay: select matching transport from available options
         if dep.transport:
             if dep.transport in ("http", "sse", "streamable-http"):
                 # User prefers remote transport  -- remove packages to force remote path
                 if info.get("remotes"):
                     info.pop("packages", None)
+                    declared = canonical_remote_transport({"transport": dep.transport})
+                    matching = [
+                        remote
+                        for remote in info["remotes"]
+                        if isinstance(remote, dict) and remote.get("transport") == declared
+                    ]
+                    if matching:
+                        info["remotes"] = matching
             elif dep.transport == "stdio":
                 # User prefers stdio  -- remove remotes to force package path
                 if info.get("packages"):
@@ -763,7 +812,10 @@ class MCPIntegrator:
             target_runtimes.discard(exclude)
 
         from apm_cli.core.scope import InstallScope
-        from apm_cli.install.mcp.ownership import require_removable_mcp_connections
+        from apm_cli.install.mcp.ownership import (
+            project_mcp_cleanup_reachable,
+            require_removable_mcp_connections,
+        )
 
         # Scope filtering: at USER scope, only clean global-capable runtimes.
         if scope is InstallScope.USER:
@@ -793,12 +845,19 @@ class MCPIntegrator:
             )
 
         # Build an expanded set that includes both the full reference and the
-        # last-segment short name so we match config keys in every runtime.
+        # native key the adapters write (registry ``owner/name`` -> ``name``).
+        # Self-defined servers keep their declared key (#3493); their older
+        # truncated keys are reconciled only under ownership proof at install
+        # time, so a short-name entry here may belong to the user.
+        from apm_cli.adapters.client.base import MCPClientAdapter
+
         expanded_stale: builtins.set = builtins.set()
         for n in stale_names:
             expanded_stale.add(n)
-            if "/" in n:
-                expanded_stale.add(n.rsplit("/", 1)[-1])
+            stored = (stored_configs or {}).get(n)
+            self_defined = isinstance(stored, dict) and stored.get("registry") is False
+            info = {"name": n, "is_self_defined": True} if self_defined else None
+            expanded_stale.add(MCPClientAdapter.determine_config_key(n, None, info))
 
         project_root_path = Path(project_root) if project_root is not None else Path.cwd()
 
@@ -869,8 +928,13 @@ class MCPIntegrator:
 
         # Project scope is opt-in; user scope uses ~/.config/opencode/.
         if "opencode" in target_runtimes:
-            if clean_user_scope or (project_root_path / ".opencode").is_dir():
-                from apm_cli.adapters.client.opencode import OpenCodeClientAdapter
+            if clean_user_scope or project_mcp_cleanup_reachable(
+                project_root_path, ".opencode", runtime_scoped=runtime is not None
+            ):
+                from apm_cli.adapters.client.opencode import (
+                    V2_MCP_SETTINGS,
+                    OpenCodeClientAdapter,
+                )
 
                 _clean_json_mcp_config(
                     OpenCodeClientAdapter.config_path_for(project_root_path, clean_user_scope),
@@ -879,6 +943,8 @@ class MCPIntegrator:
                     "OpenCode MCP config",
                     servers_key="mcp",
                     fail_on_write_error=fail_on_write_error,
+                    nested_servers=OpenCodeClientAdapter.native_v2_servers,
+                    nested_settings=V2_MCP_SETTINGS,
                 )
 
         if "windsurf" in target_runtimes:
@@ -958,11 +1024,9 @@ class MCPIntegrator:
 
         if "hermes" in target_runtimes:
             from apm_cli.factory import ClientFactory
+            from apm_cli.integration.targets import resolve_user_root
 
-            hermes_home = os.environ.get("HERMES_HOME", "").strip()
-            unresolved_cfg = (
-                Path(hermes_home).expanduser() if hermes_home else Path.home() / ".hermes"
-            ) / "config.yaml"
+            unresolved_cfg = resolve_user_root("hermes") / "config.yaml"
             if _reject_symlink_config(
                 unresolved_cfg,
                 "Hermes config.yaml",
@@ -984,9 +1048,11 @@ class MCPIntegrator:
                 fail_on_write_error=fail_on_write_error,
             )
 
-        # Clean Claude Code project .mcp.json (only if .claude/ directory exists)
+        # Clean Claude Code project .mcp.json when it is reachable for cleanup.
         if clean_claude_project:
-            claude_project_enabled = (project_root_path / ".claude").is_dir()
+            claude_project_enabled = project_mcp_cleanup_reachable(
+                project_root_path, ".claude", runtime_scoped=runtime is not None
+            )
             if claude_project_enabled or stored_configs:
                 if _reject_symlink_config(
                     project_root_path / ".mcp.json",
@@ -1317,7 +1383,8 @@ class MCPIntegrator:
                     all_ok = False
 
             # Emit aggregated post-install diagnostics for runtimes that
-            # support runtime env-var substitution (currently Copilot CLI).
+            # support runtime env-var substitution (currently Copilot CLI;
+            # Claude Code's are emitted once per run by run_mcp_install).
             # Safe no-op for runtimes whose adapter doesn't aggregate state.
             try:
                 if runtime == "copilot":
@@ -1407,9 +1474,9 @@ class MCPIntegrator:
             ConflictingTargetsError,
             EmptyTargetsListError,
             UnknownTargetError,
-            parse_targets_field,
         )
         from apm_cli.integration.targets import RUNTIME_TO_CANONICAL_TARGET
+        from apm_cli.models.manifest_targets import manifest_target_restriction
 
         if target_decision is not None and target_decision.canonical_targets is not None:
             active = set(target_decision.canonical_targets)
@@ -1433,7 +1500,7 @@ class MCPIntegrator:
         yaml_targets: list[str] | None = None
         if apm_config:
             try:
-                parsed = parse_targets_field(apm_config)
+                parsed = manifest_target_restriction(apm_config)
                 yaml_targets = parsed if parsed else None
             except (
                 ConflictingTargetsError,
@@ -1446,7 +1513,7 @@ class MCPIntegrator:
                 )
                 _rich_error(str(exc), symbol="")
                 _log.debug(
-                    "parse_targets_field failed; failing closed (no MCP writes)",
+                    "manifest target declaration invalid; failing closed (no MCP writes)",
                     exc_info=True,
                 )
                 return []

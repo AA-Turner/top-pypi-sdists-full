@@ -1,7 +1,7 @@
 """Structured configuration file loaders.
 
 Convert on-disk artifacts into Python mappings that the merge layer understands.
-Adapters are small wrappers around the TOML parser, the JSON codec and ``yaml.safe_load`` so
+Adapters are small wrappers around the TOML parser, the JSON codec and PyYAML's safe loader so
 error handling, observability, and immutability policies live in one place.
 
 Contents:
@@ -12,8 +12,8 @@ Contents:
       adapters that delegate to parser-specific helpers.
     - ``_log_file_read`` / ``_log_file_loaded`` / ``_log_file_invalid``:
       structured logging helpers reused across loaders.
-    - ``_ensure_yaml_available``: guard ensuring YAML support is present before
-      attempting to parse.
+    - ``_require_yaml_module``: refuses a YAML file, naming the ``yaml`` extra, when PyYAML is
+      not installed.
 
 Invoked by :func:`lib_layered_config.core._load_files` to parse structured files
 before passing the results to the merge policy.
@@ -46,16 +46,18 @@ from ...observability import log_debug
 from .._path_probe import PathKind, checked_kind, config_path_unreadable
 from .._text_decoding import decode_utf8, decode_yaml_text
 from ._toml_backend import PARSER, TomlLoadError, TomlParser
-from ._yaml_facade import as_yaml_module, compose_document
+from ._yaml_facade import as_yaml_module, safe_loader
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterable
+    from typing import BinaryIO
 
     from ._yaml_facade import YAMLModule, YAMLNode
 
 __all__ = [
     "FILE_LAYER",
     "MAX_CONFIG_FILE_BYTES",
+    "YAML_MAX_EXPANDED_VALUES",
     "BaseFileLoader",
     "FileFormat",
     "JSONFileLoader",
@@ -64,6 +66,7 @@ __all__ = [
     "directory_not_config_file",
     "ensure_within_size_cap",
     "read_capped_bytes",
+    "refuse_yaml_alias_blowup",
     "special_file_not_config_file",
     "unsupported_config_format",
 ]
@@ -73,6 +76,15 @@ __all__ = [
 #: generous 10 MiB ceiling bounds memory so an oversized or adversarial file (including
 #: one dropped into a ``.d`` directory) cannot exhaust memory during a read.
 MAX_CONFIG_FILE_BYTES: Final[int] = 10 * 1024 * 1024
+
+# How much a capped read asks for at a time past the first read. Asking for the whole cap at once
+# made CPython allocate all 10 MiB for every file, a 4-byte .env included.
+_READ_CHUNK_BYTES: Final[int] = 64 * 1024
+
+#: Most values a YAML document may expand to through its aliases. A configuration file holds
+#: hundreds of values; a million leaves room for heavy legitimate aliasing while stopping an alias
+#: bomb, which a few hundred bytes can make expand to hundreds of millions.
+YAML_MAX_EXPANDED_VALUES: Final[int] = 1_000_000
 
 #: The tag PyYAML resolves ``<<`` to; such a key merges a mapping in rather than naming a setting.
 _YAML_MERGE_TAG: Final[str] = "tag:yaml.org,2002:merge"
@@ -376,33 +388,27 @@ def _run_parser(
         return _ParseOutcome(None, describe(exc))
 
 
-def _ensure_yaml_available() -> None:
-    """Announce clearly whether PyYAML can be reached.
+def _require_yaml_module(path: str) -> YAMLModule:
+    """Fetch the PyYAML module, or refuse the YAML file at *path* naming the extra that reads it.
 
-    YAML support is optional; the loader must fail fast with guidance when the
-    dependency is absent so callers can install the expected extra.
+    PyYAML ships only in the ``yaml`` extra. A refusal rather than :class:`NotFoundError`, which
+    every layer read treats as "no file here": skipping the file would drop its settings without a
+    word, and a deploy would install a file nothing had parsed.
 
-    Raises:
-        NotFoundError: When the PyYAML package cannot be imported.
-    """
-    _require_yaml_module()
-
-
-def _require_yaml_module() -> YAMLModule:
-    """Fetch the PyYAML module or explain its absence.
-
-    Downstream helpers need the module object for access to both ``safe_load``
-    and the package-specific ``YAMLError`` type.
+    Args:
+        path: The YAML file being read, named in the refusal.
 
     Returns:
         The imported PyYAML module.
 
     Raises:
-        NotFoundError: When PyYAML is not installed.
+        InvalidFormatError: When PyYAML is not installed.
     """
     module = _load_yaml_module()
     if module is None:
-        raise NotFoundError("PyYAML is required for YAML configuration support")
+        raise InvalidFormatError(
+            f"{path} is YAML, which needs PyYAML: install it with pip install 'lib_layered_config[yaml]'"
+        )
     return module
 
 
@@ -420,7 +426,7 @@ def _load_yaml_module() -> YAMLModule | None:
         return yaml
     try:
         yaml = as_yaml_module(import_module("yaml"))
-    except ModuleNotFoundError:  # pragma: no cover - optional dependency
+    except ModuleNotFoundError:
         yaml = None
     return yaml
 
@@ -473,10 +479,29 @@ def read_capped_bytes(path: Path) -> bytes:
     """
     with path.open("rb") as stream:
         opened = os.fstat(stream.fileno())
-        ensure_within_size_cap(str(path), opened.st_size if stat.S_ISREG(opened.st_mode) else 0)
-        payload = stream.read(MAX_CONFIG_FILE_BYTES + 1)
+        regular = stat.S_ISREG(opened.st_mode)
+        ensure_within_size_cap(str(path), opened.st_size if regular else 0)
+        # A regular file is asked for its size plus one byte, which ends at EOF in one read; a file
+        # that grew since the fstat, and every stream, go on a chunk at a time up to the cap plus one.
+        first = opened.st_size + 1 if regular else _READ_CHUNK_BYTES
+        payload = _read_at_most(stream, MAX_CONFIG_FILE_BYTES + 1, first=first)
     ensure_within_size_cap(str(path), len(payload))
     return payload
+
+
+def _read_at_most(stream: BinaryIO, limit: int, *, first: int) -> bytes:
+    """Read until end of file or *limit* bytes, asking for *first* bytes and then a chunk at a time."""
+    parts: list[bytes] = []
+    total = 0
+    want = min(first, limit)
+    while total < limit:
+        chunk = stream.read(want)
+        if not chunk:
+            break
+        parts.append(chunk)
+        total += len(chunk)
+        want = min(_READ_CHUNK_BYTES, limit - total)
+    return b"".join(parts)
 
 
 class BaseFileLoader:
@@ -520,8 +545,9 @@ class BaseFileLoader:
         if checked_kind(file_path) is not PathKind.FILE:
             raise NotFoundError(f"Configuration file not found: {path}")
         try:
-            ensure_within_size_cap(path, file_path.stat().st_size)
-            payload = file_path.read_bytes()
+            # One read path for the cap: sized from the open file, then read at most one byte past it,
+            # so a file that grows after a stat() cannot slip a larger read through.
+            payload = read_capped_bytes(file_path)
         except OSError as error:
             raise config_path_unreadable(file_path, error) from error
         _log_file_read(path, len(payload))
@@ -599,8 +625,9 @@ class TOMLFileLoader(BaseFileLoader):
         if outcome.failure is not None:
             raise _log_and_build_invalid_format(path, FileFormat.TOML, outcome.failure)
         result = self._ensure_mapping(outcome.value, path=path)
-        _refuse_integers_json_cannot_carry(result, path=path, file_format=FileFormat.TOML)
-        _refuse_nesting_json_cannot_write(result, path=path, file_format=FileFormat.TOML)
+        if _may_be_refused_for_json(result, wide_ints=True):
+            _refuse_integers_json_cannot_carry(result, path=path, file_format=FileFormat.TOML)
+            _refuse_nesting_json_cannot_write(result, path=path, file_format=FileFormat.TOML)
         _log_file_loaded(path, FileFormat.TOML)
         return result
 
@@ -651,7 +678,8 @@ class JSONFileLoader(BaseFileLoader):
         if outcome.failure is not None:
             raise _log_and_build_invalid_format(path, FileFormat.JSON, outcome.failure)
         result = self._ensure_mapping(outcome.value, path=path)
-        _refuse_nesting_json_cannot_write(result, path=path, file_format=FileFormat.JSON)
+        if _may_be_refused_for_json(result, wide_ints=False):
+            _refuse_nesting_json_cannot_write(result, path=path, file_format=FileFormat.JSON)
         _refuse_repeated_keys(duplicate_keys(decoded), path=path, file_format=FileFormat.JSON)
         _log_file_loaded(path, FileFormat.JSON)
         return result
@@ -662,7 +690,7 @@ class YAMLFileLoader(BaseFileLoader):
 
     Support teams that rely on YAML without imposing a mandatory dependency.
 
-    Guards on PyYAML availability before delegating to :func:`yaml.safe_load`.
+    Guards on PyYAML availability before composing and constructing with its pure-Python ``SafeLoader``.
     """
 
     def load(self, path: str) -> Mapping[str, object]:
@@ -678,7 +706,9 @@ class YAMLFileLoader(BaseFileLoader):
             Parsed configuration mapping.
 
         Raises:
-            NotFoundError: When PyYAML is not installed.
+            NotFoundError: *path* is not a file (a missing file is skipped by a layer read).
+            InvalidFormatError: The file does not parse, or PyYAML is not installed (the message
+                names the ``yaml`` extra).
 
         Side Effects:
             Emits ``config_file_loaded`` debug events.
@@ -692,39 +722,59 @@ class YAMLFileLoader(BaseFileLoader):
             ...     YAMLFileLoader().load(tmp.name)["key"]
             ...     Path(tmp.name).unlink()
         """
-        _ensure_yaml_available()
-        yaml_module = _require_yaml_module()
+        # Read first: a file that is gone stays "not found" (a layer read skips it) whether or not
+        # PyYAML is installed; only a YAML file that is really there is refused for want of a parser.
         raw_bytes = self._read(path)
+        yaml_module = _require_yaml_module(path)
         try:
             decoded = decode_yaml_text(raw_bytes, path=path)
         except InvalidFormatError as exc:
             _log_file_invalid(path, FileFormat.YAML, str(exc))
             raise
         parsed = _parse_yaml_text(decoded, yaml_module, path)
-        mapping = self._ensure_mapping(parsed, path=path)
+        mapping = self._ensure_mapping(parsed.data, path=path)
+        # First: every check below walks the document as a tree, which never ends on an alias cycle.
+        refuse_yaml_alias_blowup(mapping, path=path)
         _refuse_non_string_keys(mapping, path=path)
         _refuse_ordered_map_tags(mapping, path=path)
         _refuse_values_json_cannot_carry(mapping, path=path)
         _refuse_integers_json_cannot_carry(mapping, path=path, file_format=FileFormat.YAML)
         _refuse_nesting_json_cannot_write(mapping, path=path, file_format=FileFormat.YAML)
-        _refuse_repeated_keys(_yaml_repeated_keys(decoded, yaml_module), path=path, file_format=FileFormat.YAML)
+        # Last, as before the document was composed only once: every refusal above keeps its precedence.
+        _refuse_repeated_keys(parsed.repeated_keys, path=path, file_format=FileFormat.YAML)
         _log_file_loaded(path, FileFormat.YAML)
         return mapping
 
 
-def _parse_yaml_text(document: str, module: YAMLModule, path: str) -> object:
+class _ParsedYAML(NamedTuple):
+    """A YAML document's value and the keys it repeats, both read from one composition.
+
+    Attributes:
+        data: The constructed value; an empty dict for an empty document.
+        repeated_keys: ``"<position> (line L, column C)"`` for every repeated key (see
+            :func:`_yaml_repeated_keys`), for the loader to refuse after its other checks.
+    """
+
+    data: object
+    repeated_keys: list[str]
+
+
+def _parse_yaml_text(document: str, module: YAMLModule, path: str) -> _ParsedYAML:
     """Turn a decoded YAML document into a Python shape that mirrors the file.
 
-    Normalise the PyYAML parsing contract so callers always receive a mapping,
-    raising a domain-specific error when the parser signals invalid syntax.
+    The document is composed once with the safe loader: the repeated keys are read from that node
+    graph before it is constructed (constructing rewrites merge-key mappings in place), then the
+    same graph is constructed, which is what ``yaml.safe_load`` does. A parse refusal is raised here;
+    the repeated keys are only returned, so the loader refuses them after its other checks.
 
     Args:
         document: Decoded YAML document.
-        module: PyYAML module providing ::func:`safe_load` and the ``YAMLError`` base class.
+        module: PyYAML module providing ``SafeLoader`` and the ``YAMLError`` base class.
         path: Source identifier used to enrich error messages.
 
     Returns:
-        Parsed document; an empty dict when the YAML payload evaluates to ``None``.
+        The parsed document (an empty dict when the YAML payload evaluates to ``None``) and its
+        repeated keys.
 
     Raises:
         InvalidFormatError: When PyYAML raises ``YAMLError`` while parsing the document, or when a
@@ -734,20 +784,132 @@ def _parse_yaml_text(document: str, module: YAMLModule, path: str) -> object:
             are caught separately, with no reported position.
 
     Examples:
-        >>> from types import SimpleNamespace
-        >>> fake = SimpleNamespace(safe_load=lambda data: {"key": data}, YAMLError=Exception)
-        >>> _parse_yaml_text("value", fake, "memory.yaml")  # doctest: +ELLIPSIS
-        {'key': 'value'}
+        >>> module = _load_yaml_module()
+        >>> module is None or _parse_yaml_text("a: 1\\na: 2\\n", module, "memory.yaml") == (
+        ...     {"a": 2}, ["a (line 2, column 1)"])
+        True
     """
 
     def _describe(exc: BaseException) -> _ParseFailure:
         position = _yaml_position(exc) if isinstance(exc, module.YAMLError) else None
         return _ParseFailure(position, too_deep=isinstance(exc, RecursionError))
 
-    outcome = _run_parser(lambda: module.safe_load(document), (module.YAMLError, ValueError, RecursionError), _describe)
+    def _compose_once() -> _ParsedYAML:
+        loader = safe_loader(module, document)
+        try:
+            root = loader.get_single_node()
+            repeated = _yaml_repeated_keys(root)
+            data: object = {} if root is None else loader.construct_document(root)
+        finally:
+            loader.dispose()
+        return _ParsedYAML({} if data is None else data, repeated)
+
+    outcome = _run_parser(_compose_once, (module.YAMLError, ValueError, RecursionError), _describe)
     if outcome.failure is not None:
         raise _log_and_build_invalid_format(path, FileFormat.YAML, outcome.failure)
-    return {} if outcome.value is None else outcome.value
+    return cast("_ParsedYAML", outcome.value)
+
+
+class _AliasGraphSize(NamedTuple):
+    """How many values a parsed document holds once every alias is written out, and without that.
+
+    Attributes:
+        expanded: Values counted as a tree walk sees them, an aliased container once per reference.
+        distinct: Values counted once per container actually in the document.
+        cyclic: A container reaches itself, so ``expanded`` has no finite value.
+    """
+
+    expanded: int
+    distinct: int
+    cyclic: bool
+
+
+def refuse_yaml_alias_blowup(data: object, *, path: str) -> None:
+    """Refuse a parsed YAML document whose aliases form a cycle or expand past a bound.
+
+    PyYAML builds an alias as a shared reference, so ``a: &x [*x]`` parses into a list that holds
+    itself, and a few hundred bytes of nested aliases parse into a graph a tree walk sees as
+    millions of values. Every later check walks the document as a tree, as does the merge, so a
+    cycle walked forever and a small alias bomb exhausted memory. The bound counts what aliases
+    ADD: a document without them is never refused for its size, which the file size cap governs.
+    The message names the file only, never a value, which may be a secret.
+
+    Args:
+        data: The parsed document.
+        path: File the document came from, named in the error.
+
+    Raises:
+        InvalidFormatError: When a container reaches itself, or the document expands to more than
+            :data:`YAML_MAX_EXPANDED_VALUES` values and to more than it holds without its aliases.
+
+    Examples:
+        >>> shared = [1, 2]
+        >>> refuse_yaml_alias_blowup({"a": shared, "b": shared}, path="demo.yaml")
+        >>> looped: list[object] = []
+        >>> looped.append(looped)
+        >>> refuse_yaml_alias_blowup({"a": looped}, path="demo.yaml")
+        Traceback (most recent call last):
+        ...
+        lib_layered_config.domain.errors.InvalidFormatError: demo.yaml aliases a node into itself
+    """
+    size = _alias_graph_size(data)
+    if size.cyclic:
+        message = f"{path} aliases a node into itself"
+    elif size.expanded > max(YAML_MAX_EXPANDED_VALUES, size.distinct):
+        message = f"{path} expands its aliases to more than {YAML_MAX_EXPANDED_VALUES:,} values"
+    else:
+        return
+    _log_file_invalid(path, FileFormat.YAML, message)
+    raise InvalidFormatError(message)
+
+
+def _alias_graph_size(data: object) -> _AliasGraphSize:
+    """Measure *data* once per container, the way a tree walk would count it and the way it is stored.
+
+    A post-order walk with an explicit stack (the parser accepted the document's depth, so the walk
+    must not fail on it) memoises each container's expanded size by identity, so a container
+    referenced many times is measured once. A container met again while its own children are
+    still being measured is its own descendant: a cycle.
+
+    Examples:
+        >>> shared = [1, 2]
+        >>> _alias_graph_size({"a": shared, "b": shared})
+        _AliasGraphSize(expanded=7, distinct=4, cyclic=False)
+    """
+    measured: dict[int, int] = {}
+    in_progress: set[int] = set()
+    distinct = 0
+    pending: list[tuple[object, bool]] = [(data, False)]
+    while pending:
+        node, children_done = pending.pop()
+        children = _container_children(node)
+        if children_done:
+            measured[id(node)] = 1 + sum(measured[id(child)] if _is_container(child) else 1 for child in children)
+            in_progress.discard(id(node))
+            continue
+        if id(node) in measured:
+            continue
+        if id(node) in in_progress:
+            return _AliasGraphSize(expanded=0, distinct=distinct, cyclic=True)
+        in_progress.add(id(node))
+        distinct += 1 + sum(1 for child in children if not _is_container(child))
+        pending.append((node, True))
+        pending.extend((child, False) for child in children if _is_container(child))
+    return _AliasGraphSize(expanded=measured.get(id(data), 1), distinct=distinct, cyclic=False)
+
+
+def _container_children(node: object) -> list[object]:
+    """Return the values a mapping or list holds, in order; nothing for anything else.
+
+    Examples:
+        >>> _container_children({"a": 1, "b": [2]}), _container_children([3]), _container_children("x")
+        ([1, [2]], [3], [])
+    """
+    if isinstance(node, Mapping):
+        return list(cast("Mapping[object, object]", node).values())
+    if isinstance(node, list):
+        return list(cast("list[object]", node))
+    return []
 
 
 def _refuse_repeated_keys(positions: list[str], *, path: str, file_format: FileFormat) -> None:
@@ -771,21 +933,22 @@ def _refuse_repeated_keys(positions: list[str], *, path: str, file_format: FileF
     raise InvalidFormatError(message)
 
 
-def _yaml_repeated_keys(document: str, module: YAMLModule) -> list[str]:
-    """Return ``"<position> (line L, column C)"`` for every key *document* repeats in one mapping.
+def _yaml_repeated_keys(root: YAMLNode | None) -> list[str]:
+    """Return ``"<position> (line L, column C)"`` for every key the document at *root* repeats in one mapping.
 
-    ``safe_load`` keeps only the last of two equal keys, so the check reads the composed node
-    graph, where both are still there. Two keys are equal when their resolved tag and text are, so
-    ``a`` and ``"a"`` are one key. A merge key (``<<``) is not a setting and may appear more than once
-    in a mapping, so it is skipped as a key; its value is still checked. Every node is visited once: an alias is
-    the same node as its anchor, and a document may alias a node into itself.
+    Constructing keeps only the last of two equal keys, so the check reads the composed node
+    graph, where both are still there, before it is constructed. Two keys are equal when their
+    resolved tag and text are, so ``a`` and ``"a"`` are one key. A merge key (``<<``) is not a
+    setting and may appear more than once in a mapping, so it is skipped as a key; its value is still
+    checked. Every node is visited once: an alias is the same node as its anchor, and a document may
+    alias a node into itself.
 
     Examples:
         >>> module = _load_yaml_module()
-        >>> module is None or _yaml_repeated_keys("a: 1\\nb: {c: 1, c: 2}\\n", module) == ["b.c (line 2, column 11)"]
+        >>> module is None or _yaml_repeated_keys(
+        ...     safe_loader(module, "a: 1\\nb: {c: 1, c: 2}\\n").get_single_node()) == ["b.c (line 2, column 11)"]
         True
     """
-    root = compose_document(module, document)
     found: list[tuple[int, int, str]] = []
     visited: set[int] = set()
     pending: list[tuple[YAMLNode, str]] = [] if root is None else [(root, "")]
@@ -1058,6 +1221,42 @@ def _refuse_nesting_json_cannot_write(data: Mapping[str, object], *, path: str, 
     )
     _log_file_invalid(path, file_format, message)
     raise InvalidFormatError(message)
+
+
+def _may_be_refused_for_json(data: Mapping[str, object], *, wide_ints: bool) -> bool:
+    """Return whether *data* nests past :data:`CONFIG_MAX_DEPTH` or (with *wide_ints*) holds a wide integer.
+
+    The positioned checks (:func:`_refuse_integers_json_cannot_carry`, :func:`_refuse_nesting_json_cannot_write`)
+    build a dotted position for every node so that a refusal can name it, which cost more than the
+    parse itself; this walk asks the same two questions without positions, so they run only for a
+    document they will refuse. It walks what they walk - mappings and lists, the top-level table at
+    depth 1 - with an explicit stack for the reason :func:`_non_string_keys` gives.
+
+    Examples:
+        >>> _may_be_refused_for_json({"a": [1, {"b": 2**64 - 1}]}, wide_ints=True)
+        False
+        >>> _may_be_refused_for_json({"a": [1, {"b": 2**64}]}, wide_ints=True)
+        True
+        >>> _may_be_refused_for_json({"a": [1, {"b": 2**64}]}, wide_ints=False)
+        False
+    """
+    pending: list[tuple[object, int]] = [(data, 1)]
+    while pending:
+        node, depth = pending.pop()
+        if depth > CONFIG_MAX_DEPTH:
+            return True
+        if isinstance(node, Mapping):
+            children: Iterable[object] = cast("Mapping[object, object]", node).values()
+        elif isinstance(node, list):
+            children = cast("list[object]", node)
+        else:
+            continue
+        for child in children:
+            if _is_container(child):
+                pending.append((child, depth + 1))
+            elif wide_ints and type(child) is int and not JSON_INT_MIN <= child <= JSON_INT_MAX:
+                return True
+    return False
 
 
 def _first_position_past_the_json_depth(data: Mapping[str, object]) -> str | None:

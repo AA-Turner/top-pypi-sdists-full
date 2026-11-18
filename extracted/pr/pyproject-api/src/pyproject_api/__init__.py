@@ -16,11 +16,9 @@ from ._frontend import (
     SdistResult,
     WheelResult,
 )
-from ._version import version
+from ._version import __version__
+from ._version import version as version
 from ._via_fresh_subprocess import SubprocessFrontend
-
-#: semantic version of the project
-__version__ = version
 
 __all__ = [
     "BackendFailed",

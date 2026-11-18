@@ -11,9 +11,6 @@
 # General tests:
 - import_tasks: postgresql_db_general.yml
 
-# Tests for rename value of state option
-- import_tasks: state_rename.yml
-
 # Dump/restore tests per format:
 - include_tasks: state_dump_restore.yml
   vars:
@@ -53,3 +50,6 @@
 
 # Test connection limit zero fix (issue #879)
 - import_tasks: postgresql_db_conn_limit_zero.yml
+
+# Names containing a double quote must be quoted as identifiers:
+- import_tasks: postgresql_db_quoted_names.yml

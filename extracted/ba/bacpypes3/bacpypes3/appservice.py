@@ -1509,7 +1509,15 @@ class ServerSSM(SSM):
         if self.segmentRetryCount < self.numberOfApduRetries:
             self.segmentRetryCount += 1
             self.start_timer(self.segmentTimeout)
-            await self.fill_window(self.initialSequenceNumber)
+
+            # if the client has not acknowledged the first segment yet the
+            # window size has not been negotiated, so fill_window() would
+            # assert.  Mirror the client-side segmented_request_timeout() and
+            # resend the first segment until a SegmentAck sets the window size.
+            if self.actualWindowSize is None:
+                await self.response(self.get_segment(0))
+            else:
+                await self.fill_window(self.initialSequenceNumber)
         else:
             # give up
             self.set_state(ABORTED)
@@ -1837,8 +1845,14 @@ class ApplicationServiceAccessPoint(Client[PDU], ServiceAccessPoint):
                 if isinstance(apdu, ConfirmedRequestPDU):
                     return
 
+                # keep the PCI of the original response, in particular the
+                # invoke ID the application uses to match it to the request
                 xpdu = Error(
                     source=apdu.pduSource,
+                    destination=apdu.pduDestination,
+                    networkPriority=apdu.pduNetworkPriority,
+                    user_data=apdu.pduUserData,
+                    invoke_id=apdu.apduInvokeID,
                     service_choice=apdu.apduService,
                     errorClass="communication",
                     errorCode="invalid-tag",

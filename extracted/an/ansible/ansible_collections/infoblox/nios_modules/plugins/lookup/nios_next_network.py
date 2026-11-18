@@ -22,14 +22,14 @@ options:
     _terms:
       description: The CIDR network to retrieve the next network from next available network within the specified
                    container.
-      required: True
+      required: true
       type: str
     cidr:
       description:
         - The CIDR of the network to retrieve the next network from next available network within the
           specified container. Also, Requested CIDR must be specified and greater than the parent CIDR.
-      required: True
-      type: str
+      required: true
+      type: int
     num:
       description: The number of network addresses to return from network-container.
       required: false
@@ -84,7 +84,7 @@ _list:
 """
 
 from ansible.plugins.lookup import LookupBase
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible.errors import AnsibleError
 from ..module_utils.api import WapiLookup
 from ..module_utils.api import NIOS_IPV4_NETWORK_CONTAINER, NIOS_IPV6_NETWORK_CONTAINER
@@ -100,14 +100,17 @@ class LookupModule(LookupBase):
             raise AnsibleError('network argument is missing')
         except (ValueError, TypeError) as error:
             raise AnsibleError('network argument is invalid %s' % error)
+        cidr = kwargs.get('cidr')
+        if cidr is None:
+            raise AnsibleError('missing required argument: cidr')
+        # Reject bool and float explicitly: bool is a subclass of int, and
+        # int(25.7) would silently truncate to 25, masking a user error.
+        if isinstance(cidr, (bool, float)):
+            raise AnsibleError('cidr must be an integer, got %r' % (cidr,))
         try:
-            cidr = kwargs.get('cidr', 24)
-            # maybe using network.prefixlen+1 as default
-        except IndexError:
-            raise AnsibleError('missing CIDR argument in the form of xx')
-
-        if network.prefixlen >= cidr:
-            raise AnsibleError('cidr %s must be greater than parent network cidr %s' % (cidr, network.prefixlen))
+            cidr = int(cidr)
+        except (TypeError, ValueError):
+            raise AnsibleError('cidr must be an integer, got %r' % (cidr,))
 
         container_type = None
         network_objects = None
@@ -115,11 +118,11 @@ class LookupModule(LookupBase):
         # check for ip version 4 or 6 else die
         if network.version == 4:
             container_type = NIOS_IPV4_NETWORK_CONTAINER
-            if cidr not in range(1, 32):
+            if cidr not in range(1, 33):
                 raise AnsibleError('cidr %s must be in range 1 to 32' % cidr)
         elif network.version == 6:
             container_type = NIOS_IPV6_NETWORK_CONTAINER
-            if cidr not in range(1, 128):
+            if cidr not in range(1, 129):
                 raise AnsibleError('cidr %s must be in range 1 to 128' % cidr)
         else:
             raise AnsibleError('not a valid ipv4 or ipv6 network definition %s' % terms[0])

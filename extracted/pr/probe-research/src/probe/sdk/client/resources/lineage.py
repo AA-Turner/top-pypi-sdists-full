@@ -9,6 +9,7 @@ from ....generated.models import (
     ExecutionRecordOut,
     ExperimentManifestOut,
     HashLookupOut,
+    IntentOut,
     LineageEdgeOut,
     ProjectLineageOut,
     RunInputsOut,
@@ -266,11 +267,27 @@ class LineageMixin:
             project_id,
         )
 
+    def get_edge(self, edge_id: str) -> dict:
+        """``GET /v1/edges/{id}``: one lineage edge (what fed what, and who said so)."""
+        return self.transport.get(f"/v1/edges/{edge_id}")
+
+    def get_intent(self, entity_type: str, entity_id: str) -> dict:
+        """``GET /v1/intent/{type}/{id}``: why a project, experiment or run exists, from the sessions that made it."""
+        return self.transport.get(f"/v1/intent/{entity_type}/{entity_id}")
+
 
 class LineageResource(Resource):
     """`client.lineage`: typed lineage, branch, execution-record and experiment-version reads."""
 
     __slots__ = ()
+
+    def get_edge(self, edge_id: str) -> LineageEdgeOut:
+        """`Client.get_edge` as a `LineageEdgeOut`."""
+        return self._to_model(LineageEdgeOut, self._client.get_edge(edge_id))
+
+    def get_intent(self, entity_type: str, entity_id: str) -> IntentOut:
+        """`Client.get_intent` as an `IntentOut`."""
+        return self._to_model(IntentOut, self._client.get_intent(entity_type, entity_id))
 
     def list_run_edges(self, run_id: str) -> list[LineageEdgeOut]:
         """`Client.run_edges` as `LineageEdgeOut`s."""

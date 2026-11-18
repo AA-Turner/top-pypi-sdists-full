@@ -13,11 +13,15 @@ Usage::
     from types_boto3_marketplace_agreement.client import AgreementServiceClient
     from types_boto3_marketplace_agreement.paginator import (
         GetAgreementEntitlementsPaginator,
+        GetAgreementRequestApprovalPlansPaginator,
+        GetAgreementRequestTermsPaginator,
         GetAgreementTermsPaginator,
+        ListAgreementApprovalsPaginator,
         ListAgreementCancellationRequestsPaginator,
         ListAgreementChargesPaginator,
         ListAgreementInvoiceLineItemsPaginator,
         ListAgreementPaymentRequestsPaginator,
+        ListAgreementRequestsPaginator,
         ListBillingAdjustmentRequestsPaginator,
         SearchAgreementsPaginator,
     )
@@ -26,11 +30,15 @@ Usage::
     client: AgreementServiceClient = session.client("marketplace-agreement")
 
     get_agreement_entitlements_paginator: GetAgreementEntitlementsPaginator = client.get_paginator("get_agreement_entitlements")
+    get_agreement_request_approval_plans_paginator: GetAgreementRequestApprovalPlansPaginator = client.get_paginator("get_agreement_request_approval_plans")
+    get_agreement_request_terms_paginator: GetAgreementRequestTermsPaginator = client.get_paginator("get_agreement_request_terms")
     get_agreement_terms_paginator: GetAgreementTermsPaginator = client.get_paginator("get_agreement_terms")
+    list_agreement_approvals_paginator: ListAgreementApprovalsPaginator = client.get_paginator("list_agreement_approvals")
     list_agreement_cancellation_requests_paginator: ListAgreementCancellationRequestsPaginator = client.get_paginator("list_agreement_cancellation_requests")
     list_agreement_charges_paginator: ListAgreementChargesPaginator = client.get_paginator("list_agreement_charges")
     list_agreement_invoice_line_items_paginator: ListAgreementInvoiceLineItemsPaginator = client.get_paginator("list_agreement_invoice_line_items")
     list_agreement_payment_requests_paginator: ListAgreementPaymentRequestsPaginator = client.get_paginator("list_agreement_payment_requests")
+    list_agreement_requests_paginator: ListAgreementRequestsPaginator = client.get_paginator("list_agreement_requests")
     list_billing_adjustment_requests_paginator: ListBillingAdjustmentRequestsPaginator = client.get_paginator("list_billing_adjustment_requests")
     search_agreements_paginator: SearchAgreementsPaginator = client.get_paginator("search_agreements")
     ```
@@ -46,8 +54,14 @@ from botocore.paginate import PageIterator, Paginator
 from .type_defs import (
     GetAgreementEntitlementsInputPaginateTypeDef,
     GetAgreementEntitlementsOutputTypeDef,
+    GetAgreementRequestApprovalPlansInputPaginateTypeDef,
+    GetAgreementRequestApprovalPlansOutputTypeDef,
+    GetAgreementRequestTermsInputPaginateTypeDef,
+    GetAgreementRequestTermsOutputTypeDef,
     GetAgreementTermsInputPaginateTypeDef,
     GetAgreementTermsOutputTypeDef,
+    ListAgreementApprovalsInputPaginateTypeDef,
+    ListAgreementApprovalsOutputTypeDef,
     ListAgreementCancellationRequestsInputPaginateTypeDef,
     ListAgreementCancellationRequestsOutputTypeDef,
     ListAgreementChargesInputPaginateTypeDef,
@@ -56,6 +70,8 @@ from .type_defs import (
     ListAgreementInvoiceLineItemsOutputTypeDef,
     ListAgreementPaymentRequestsInputPaginateTypeDef,
     ListAgreementPaymentRequestsOutputTypeDef,
+    ListAgreementRequestsInputPaginateTypeDef,
+    ListAgreementRequestsOutputTypeDef,
     ListBillingAdjustmentRequestsInputPaginateTypeDef,
     ListBillingAdjustmentRequestsOutputTypeDef,
     SearchAgreementsInputPaginateTypeDef,
@@ -69,11 +85,15 @@ else:
 
 __all__ = (
     "GetAgreementEntitlementsPaginator",
+    "GetAgreementRequestApprovalPlansPaginator",
+    "GetAgreementRequestTermsPaginator",
     "GetAgreementTermsPaginator",
+    "ListAgreementApprovalsPaginator",
     "ListAgreementCancellationRequestsPaginator",
     "ListAgreementChargesPaginator",
     "ListAgreementInvoiceLineItemsPaginator",
     "ListAgreementPaymentRequestsPaginator",
+    "ListAgreementRequestsPaginator",
     "ListBillingAdjustmentRequestsPaginator",
     "SearchAgreementsPaginator",
 )
@@ -97,6 +117,44 @@ class GetAgreementEntitlementsPaginator(_GetAgreementEntitlementsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _GetAgreementRequestApprovalPlansPaginatorBase = Paginator[
+        GetAgreementRequestApprovalPlansOutputTypeDef
+    ]
+else:
+    _GetAgreementRequestApprovalPlansPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetAgreementRequestApprovalPlansPaginator(_GetAgreementRequestApprovalPlansPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/GetAgreementRequestApprovalPlans.html#AgreementService.Paginator.GetAgreementRequestApprovalPlans)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#getagreementrequestapprovalplanspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetAgreementRequestApprovalPlansInputPaginateTypeDef]
+    ) -> PageIterator[GetAgreementRequestApprovalPlansOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/GetAgreementRequestApprovalPlans.html#AgreementService.Paginator.GetAgreementRequestApprovalPlans.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#getagreementrequestapprovalplanspaginator)
+        """
+
+if TYPE_CHECKING:
+    _GetAgreementRequestTermsPaginatorBase = Paginator[GetAgreementRequestTermsOutputTypeDef]
+else:
+    _GetAgreementRequestTermsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class GetAgreementRequestTermsPaginator(_GetAgreementRequestTermsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/GetAgreementRequestTerms.html#AgreementService.Paginator.GetAgreementRequestTerms)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#getagreementrequesttermspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[GetAgreementRequestTermsInputPaginateTypeDef]
+    ) -> PageIterator[GetAgreementRequestTermsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/GetAgreementRequestTerms.html#AgreementService.Paginator.GetAgreementRequestTerms.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#getagreementrequesttermspaginator)
+        """
+
+if TYPE_CHECKING:
     _GetAgreementTermsPaginatorBase = Paginator[GetAgreementTermsOutputTypeDef]
 else:
     _GetAgreementTermsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -112,6 +170,24 @@ class GetAgreementTermsPaginator(_GetAgreementTermsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/GetAgreementTerms.html#AgreementService.Paginator.GetAgreementTerms.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#getagreementtermspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAgreementApprovalsPaginatorBase = Paginator[ListAgreementApprovalsOutputTypeDef]
+else:
+    _ListAgreementApprovalsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAgreementApprovalsPaginator(_ListAgreementApprovalsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/ListAgreementApprovals.html#AgreementService.Paginator.ListAgreementApprovals)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#listagreementapprovalspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAgreementApprovalsInputPaginateTypeDef]
+    ) -> PageIterator[ListAgreementApprovalsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/ListAgreementApprovals.html#AgreementService.Paginator.ListAgreementApprovals.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#listagreementapprovalspaginator)
         """
 
 if TYPE_CHECKING:
@@ -190,6 +266,24 @@ class ListAgreementPaymentRequestsPaginator(_ListAgreementPaymentRequestsPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/ListAgreementPaymentRequests.html#AgreementService.Paginator.ListAgreementPaymentRequests.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#listagreementpaymentrequestspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListAgreementRequestsPaginatorBase = Paginator[ListAgreementRequestsOutputTypeDef]
+else:
+    _ListAgreementRequestsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAgreementRequestsPaginator(_ListAgreementRequestsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/ListAgreementRequests.html#AgreementService.Paginator.ListAgreementRequests)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#listagreementrequestspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAgreementRequestsInputPaginateTypeDef]
+    ) -> PageIterator[ListAgreementRequestsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/paginator/ListAgreementRequests.html#AgreementService.Paginator.ListAgreementRequests.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_marketplace_agreement/paginators/#listagreementrequestspaginator)
         """
 
 if TYPE_CHECKING:

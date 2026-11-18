@@ -2,7 +2,18 @@ from dataclasses import dataclass, field, fields
 from datetime import datetime
 from decimal import Decimal
 import math
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import (
+    Any,
+    ClassVar,
+    Dict,
+    get_args,
+    get_origin,
+    List,
+    Optional,
+    Type,
+    TypeVar,
+    Union,
+)
 
 from anyscale._private.models import ModelBase, ModelEnum
 
@@ -1012,3 +1023,770 @@ for v in anyscale.scheduler.list_config_versions():
     def _validate_creator_id(self, creator_id: str):
         if not isinstance(creator_id, str):
             raise TypeError("'creator_id' must be a string.")
+
+
+# --- Live queue state (read-only) ---
+#
+# What `anyscale scheduler queue ...`, `overview` and `top-consumers` return: the
+# scheduler's point-in-time view of queues and workloads, as the console's Utilization tab
+# shows it. Every model carries the API's fields under the API's names, in the API's order.
+
+
+def _is_optional(annotation: Any) -> bool:
+    return get_origin(annotation) is Union and type(None) in get_args(annotation)
+
+
+_TReadModel = TypeVar("_TReadModel", bound="_ReadModel")
+
+
+class _ReadModel(ModelBase):
+    """Base of the models the scheduler's read APIs return.
+
+    `from_dict` accepts both the API's response and a model's own `to_dict()`:
+
+    - These models keep the API's field order, so an optional field can sit before a
+      required one and has no default. `to_dict()` leaves out a field that is None, so a
+      missing optional field is read as None.
+    - A key the model does not declare is skipped, so a field a newer backend adds does
+      not break an older CLI.
+    """
+
+    @classmethod
+    def from_dict(cls: Type[_TReadModel], d: Dict[str, Any]) -> _TReadModel:
+        declared = fields(cls)  # type: ignore[arg-type]
+        names = {f.name for f in declared}
+        kwargs = {key: value for key, value in d.items() if key in names}
+        for f in declared:
+            if f.name not in kwargs and _is_optional(f.type):
+                kwargs[f.name] = None
+        return cls(**kwargs)
+
+
+def _coerce_model(name: str, value: Any, model_cls: Type[ModelBase]):
+    """Return `value` as a `model_cls`, building it from a dict when needed."""
+    if isinstance(value, model_cls):
+        return value
+    if isinstance(value, dict):
+        return model_cls.from_dict(value)
+    raise TypeError(f"'{name}' must be a {model_cls.__name__} or dict.")
+
+
+def _coerce_optional_model(name: str, value: Any, model_cls: Type[ModelBase]):
+    return None if value is None else _coerce_model(name, value, model_cls)
+
+
+def _validate_int(name: str, value: int):
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"'{name}' must be an integer.")
+
+
+def _validate_number(name: str, value: float):
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise TypeError(f"'{name}' must be a number.")
+
+
+def _validate_str(name: str, value: str):
+    if not isinstance(value, str):
+        raise TypeError(f"'{name}' must be a string.")
+
+
+def _validate_optional_str(name: str, value: Optional[str]):
+    if value is not None and not isinstance(value, str):
+        raise TypeError(f"'{name}' must be a string or None.")
+
+
+def _validate_optional_datetime(name: str, value: Optional[datetime]):
+    if value is not None and not isinstance(value, datetime):
+        raise TypeError(f"'{name}' must be a datetime or None.")
+
+
+class WorkloadState(ModelEnum):
+    """Which side of a queue to list: the workloads waiting, or the ones admitted."""
+
+    PENDING = "pending"
+    RUNNING = "running"
+
+    __docstrings__: ClassVar[Dict[str, str]] = _docs_by_name_and_value(
+        [
+            (
+                "PENDING",
+                "pending",
+                "Workloads waiting for admission. One row per queued request, so a cluster "
+                "with several queued requests is listed several times.",
+            ),
+            (
+                "RUNNING",
+                "running",
+                "Workloads that hold capacity: admitted or running. One row per cluster.",
+            ),
+        ]
+    )
+
+    @classmethod
+    def validate(cls, value) -> "WorkloadState":
+        return _validate_lowercase_enum(cls, value.lower() if isinstance(value, str) else value)
+
+
+class WorkloadStatus(ModelEnum):
+    """The admission status of a workload in a queue."""
+
+    UNSPECIFIED = "UNSPECIFIED"
+    QUEUED = "QUEUED"
+    REQUEUED = "REQUEUED"
+    ADMITTED = "ADMITTED"
+    RUNNING = "RUNNING"
+
+    __docstrings__: ClassVar[Dict[str, str]] = {
+        UNSPECIFIED: "The scheduler reported no status, or one this version does not know.",
+        QUEUED: "Waiting for admission, for the first time.",
+        REQUEUED: "Waiting for admission again, after it was put back in the queue.",
+        ADMITTED: "Admitted against the queue's quota. Its instances are launching.",
+        RUNNING: "Admitted, and its instances are launched.",
+    }
+
+
+@dataclass(frozen=True)
+class NodeCounts(_ReadModel):
+    """Node counts as the scheduler tracks them. They follow the scheduler's last pass, so
+    they can lag the nodes that are alive right now."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+nodes = anyscale.scheduler.get_overview().totals.nodes
+print(nodes.running, nodes.admitted, nodes.pending)
+"""
+
+    running: int = field(metadata={"docstring": "Nodes that are launched."})
+
+    def _validate_running(self, running: int):
+        _validate_int("running", running)
+
+    admitted: int = field(
+        metadata={"docstring": "Nodes admitted against quota that are not launched yet."}
+    )
+
+    def _validate_admitted(self, admitted: int):
+        _validate_int("admitted", admitted)
+
+    pending: int = field(metadata={"docstring": "Nodes requested that are waiting for admission."})
+
+    def _validate_pending(self, pending: int):
+        _validate_int("pending", pending)
+
+
+@dataclass(frozen=True)
+class WorkloadCounts(_ReadModel):
+    """Workload (cluster) counts. A cluster with both admitted and queued requests counts
+    in both."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+workloads = anyscale.scheduler.get_queue("research").workloads
+print(workloads.running, workloads.pending)
+"""
+
+    running: int = field(metadata={"docstring": "Workloads that hold capacity."})
+
+    def _validate_running(self, running: int):
+        _validate_int("running", running)
+
+    pending: int = field(metadata={"docstring": "Workloads waiting for admission."})
+
+    def _validate_pending(self, pending: int):
+        _validate_int("pending", pending)
+
+
+@dataclass(frozen=True)
+class MarketBreakdown(_ReadModel):
+    """Running and admitted nodes split by purchase market. The three counts add up to
+    running + admitted."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+market = anyscale.scheduler.get_overview().totals.market
+print(market.spot, market.on_demand, market.unspecified)
+"""
+
+    spot: int = field(metadata={"docstring": "Spot nodes."})
+
+    def _validate_spot(self, spot: int):
+        _validate_int("spot", spot)
+
+    on_demand: int = field(metadata={"docstring": "On-demand nodes."})
+
+    def _validate_on_demand(self, on_demand: int):
+        _validate_int("on_demand", on_demand)
+
+    unspecified: int = field(
+        metadata={
+            "docstring": "Nodes whose market is not known at admission: Kubernetes nodes, "
+            "spot with on-demand fallback, and requests without a market label."
+        }
+    )
+
+    def _validate_unspecified(self, unspecified: int):
+        _validate_int("unspecified", unspecified)
+
+
+@dataclass(frozen=True)
+class ResourceUsage(_ReadModel):
+    """Use of one resource of one flavor against its quota."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+for usage in anyscale.scheduler.get_queue("research").quota:
+    print(usage.flavor, usage.resource, usage.used, usage.ceiling, usage.utilization)
+"""
+
+    flavor: str = field(metadata={"docstring": "Name of the resource flavor."})
+
+    def _validate_flavor(self, flavor: str):
+        _validate_str("flavor", flavor)
+
+    resource: str = field(metadata={"docstring": "Name of the resource, e.g. gpu or cpu."})
+
+    def _validate_resource(self, resource: str):
+        _validate_str("resource", resource)
+
+    used: float = field(metadata={"docstring": "Amount in use."})
+
+    def _validate_used(self, used: float):
+        _validate_number("used", used)
+
+    ceiling: float = field(
+        metadata={"docstring": "The nominal quota for this flavor and resource."}
+    )
+
+    def _validate_ceiling(self, ceiling: float):
+        _validate_number("ceiling", ceiling)
+
+    headroom: float = field(
+        metadata={"docstring": "Amount left under the ceiling: ceiling - used, never below 0."}
+    )
+
+    def _validate_headroom(self, headroom: float):
+        _validate_number("headroom", headroom)
+
+    utilization: float = field(
+        metadata={"docstring": "used / ceiling, as a fraction. 0 when the ceiling is 0."}
+    )
+
+    def _validate_utilization(self, utilization: float):
+        _validate_number("utilization", utilization)
+
+
+@dataclass(frozen=True)
+class ResourceQueueStatus(_ReadModel):
+    """The live state of one active resource queue: its workloads, nodes and quota use.
+
+    `ResourceQueue` is the queue as configured. This is the queue as it runs.
+    """
+
+    __doc_py_example__ = """\
+import anyscale
+
+queue = anyscale.scheduler.get_queue("research")
+print(queue.queue_id, queue.workloads.pending, queue.nodes.running)
+for usage in queue.quota:
+    print(usage.flavor, usage.resource, usage.utilization)
+"""
+
+    queue_id: str = field(metadata={"docstring": "ID of the queue."})
+
+    def _validate_queue_id(self, queue_id: str):
+        _validate_str("queue_id", queue_id)
+
+    queue: str = field(metadata={"docstring": "Name of the queue, as in the scheduler config."})
+
+    def _validate_queue(self, queue: str):
+        _validate_str("queue", queue)
+
+    cohort: Optional[str] = field(
+        metadata={
+            "docstring": "Name of the cohort the queue borrows and lends quota in. None when "
+            "the queue is in no cohort."
+        }
+    )
+
+    def _validate_cohort(self, cohort: Optional[str]):
+        _validate_optional_str("cohort", cohort)
+
+    workloads: WorkloadCounts = field(
+        metadata={"docstring": "Running and pending workloads in the queue."}
+    )
+
+    def _validate_workloads(self, workloads: WorkloadCounts) -> WorkloadCounts:
+        return _coerce_model("workloads", workloads, WorkloadCounts)
+
+    nodes: NodeCounts = field(
+        metadata={"docstring": "Running, admitted and pending nodes in the queue."}
+    )
+
+    def _validate_nodes(self, nodes: NodeCounts) -> NodeCounts:
+        return _coerce_model("nodes", nodes, NodeCounts)
+
+    quota: List[ResourceUsage] = field(
+        metadata={
+            "docstring": "Quota use, one entry per flavor and resource the queue has a quota for."
+        }
+    )
+
+    def _validate_quota(self, quota: List[ResourceUsage]) -> List[ResourceUsage]:
+        return _coerce_list("quota", quota if quota is not None else [], ResourceUsage)
+
+    market: Optional[MarketBreakdown] = field(
+        metadata={"docstring": "The queue's nodes split by spot and on-demand."}
+    )
+
+    def _validate_market(self, market: Optional[MarketBreakdown]) -> Optional[MarketBreakdown]:
+        return _coerce_optional_model("market", market, MarketBreakdown)
+
+
+@dataclass(frozen=True)
+class ResourceQueueStatusPage(ModelBase):
+    """One page of resource queues, and the token that fetches the next page."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+page = anyscale.scheduler.list_queues(max_items=50)
+for queue in page.results:
+    print(queue.queue, queue.workloads.running, queue.workloads.pending)
+if page.next_page_token is not None:
+    page = anyscale.scheduler.list_queues(max_items=50, page_token=page.next_page_token)
+"""
+
+    results: List[ResourceQueueStatus] = field(metadata={"docstring": "The queues of this page."})
+
+    def _validate_results(self, results: List[ResourceQueueStatus]) -> List[ResourceQueueStatus]:
+        return _coerce_list("results", results if results is not None else [], ResourceQueueStatus)
+
+    next_page_token: Optional[str] = field(
+        default=None,
+        metadata={
+            "docstring": "Pass this as page_token to get the next page. None when there are "
+            "no more queues."
+        },
+    )
+
+    def _validate_next_page_token(self, next_page_token: Optional[str]):
+        _validate_optional_str("next_page_token", next_page_token)
+
+
+@dataclass(frozen=True)
+class WorkloadNodes(_ReadModel):
+    """The nodes of one workload: what it asked for and what it has."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+for workload in anyscale.scheduler.list_queue_workloads("research", state="running").results:
+    print(workload.cluster_id, workload.nodes.requested, workload.nodes.running)
+"""
+
+    requested: int = field(metadata={"docstring": "Nodes the workload asked for."})
+
+    def _validate_requested(self, requested: int):
+        _validate_int("requested", requested)
+
+    admitted: int = field(
+        metadata={"docstring": "Nodes admitted against quota that are not launched yet."}
+    )
+
+    def _validate_admitted(self, admitted: int):
+        _validate_int("admitted", admitted)
+
+    running: int = field(metadata={"docstring": "Nodes that are launched."})
+
+    def _validate_running(self, running: int):
+        _validate_int("running", running)
+
+    pending: int = field(metadata={"docstring": "Nodes waiting for admission."})
+
+    def _validate_pending(self, pending: int):
+        _validate_int("pending", pending)
+
+
+@dataclass(frozen=True)
+class QueueWorkload(_ReadModel):
+    """One workload in a resource queue.
+
+    The running list has one row per cluster. The pending list has one row per queued
+    request, so a cluster with several queued requests is listed several times.
+    """
+
+    __doc_py_example__ = """\
+import anyscale
+
+page = anyscale.scheduler.list_queue_workloads("research", state="pending")
+for workload in page.results:
+    print(workload.queue_position, workload.name, workload.status, workload.requested_resources)
+"""
+
+    cluster_id: str = field(metadata={"docstring": "ID of the workload's cluster."})
+
+    def _validate_cluster_id(self, cluster_id: str):
+        _validate_str("cluster_id", cluster_id)
+
+    name: Optional[str] = field(
+        metadata={"docstring": "Name of the workload. None until the scheduler knows it."}
+    )
+
+    def _validate_name(self, name: Optional[str]):
+        _validate_optional_str("name", name)
+
+    type: Optional[str] = field(
+        metadata={"docstring": "Kind of workload, as the scheduler labels it."}
+    )
+
+    def _validate_type(self, type: Optional[str]):  # noqa: A002
+        _validate_optional_str("type", type)
+
+    project: Optional[str] = field(metadata={"docstring": "Name of the workload's project."})
+
+    def _validate_project(self, project: Optional[str]):
+        _validate_optional_str("project", project)
+
+    priority: int = field(metadata={"docstring": "Scheduling priority of the workload."})
+
+    def _validate_priority(self, priority: int):
+        _validate_int("priority", priority)
+
+    nodes: WorkloadNodes = field(
+        metadata={"docstring": "Requested, admitted, running and pending nodes."}
+    )
+
+    def _validate_nodes(self, nodes: WorkloadNodes) -> WorkloadNodes:
+        return _coerce_model("nodes", nodes, WorkloadNodes)
+
+    flavors: List[str] = field(
+        metadata={"docstring": "Names of the resource flavors the workload uses."}
+    )
+
+    def _validate_flavors(self, flavors: List[str]) -> List[str]:
+        flavors = [] if flavors is None else flavors
+        if not isinstance(flavors, list) or not all(isinstance(f, str) for f in flavors):
+            raise TypeError("'flavors' must be a list of strings.")
+        return flavors
+
+    cloud_id: str = field(metadata={"docstring": "ID of the cloud the workload runs in."})
+
+    def _validate_cloud_id(self, cloud_id: str):
+        _validate_str("cloud_id", cloud_id)
+
+    created_at: Optional[datetime] = field(
+        metadata={
+            "docstring": "Running list: when the workload started. Pending list: when this "
+            "request was queued."
+        }
+    )
+
+    def _validate_created_at(self, created_at: Optional[datetime]):
+        _validate_optional_datetime("created_at", created_at)
+
+    status: WorkloadStatus = field(
+        metadata={"docstring": "Admission status of the workload. See WorkloadStatus."}
+    )
+
+    def _validate_status(self, status: WorkloadStatus) -> WorkloadStatus:
+        return WorkloadStatus.validate(status)
+
+    plan_id: str = field(
+        metadata={
+            "docstring": "ID of the queued request. Set on the pending list, empty on the "
+            "running list."
+        }
+    )
+
+    def _validate_plan_id(self, plan_id: str):
+        _validate_str("plan_id", plan_id)
+
+    queue_position: int = field(
+        metadata={
+            "docstring": "Place in line on the pending list, where 1 is next to be admitted. "
+            "0 on the running list."
+        }
+    )
+
+    def _validate_queue_position(self, queue_position: int):
+        _validate_int("queue_position", queue_position)
+
+    requested_resources: Dict[str, float] = field(
+        metadata={
+            "docstring": "Resources the queued request asks for, e.g. gpu, cpu and "
+            "memory_gb. Set on the pending list, empty on the running list."
+        }
+    )
+
+    def _validate_requested_resources(
+        self, requested_resources: Dict[str, float]
+    ) -> Dict[str, float]:
+        requested_resources = {} if requested_resources is None else requested_resources
+        if not isinstance(requested_resources, dict) or not all(
+            isinstance(key, str)
+            and isinstance(value, (int, float))
+            and not isinstance(value, bool)
+            for key, value in requested_resources.items()
+        ):
+            raise TypeError("'requested_resources' must be a dict of str to number.")
+        return requested_resources
+
+    url: Optional[str] = field(
+        metadata={
+            "docstring": "Path of the workload's page in the console, relative to the "
+            "console host. None when the scheduler cannot tell which page it is."
+        }
+    )
+
+    def _validate_url(self, url: Optional[str]):
+        _validate_optional_str("url", url)
+
+
+@dataclass(frozen=True)
+class QueueWorkloadList(ModelBase):
+    """Workloads of a resource queue, and how many there are in total."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+page = anyscale.scheduler.list_queue_workloads("research", state="pending", max_items=20)
+print(f"{len(page.results)} of {page.total}")
+"""
+
+    results: List[QueueWorkload] = field(
+        metadata={"docstring": "The workloads, in the scheduler's order. See QueueWorkload."}
+    )
+
+    def _validate_results(self, results: List[QueueWorkload]) -> List[QueueWorkload]:
+        return _coerce_list("results", results if results is not None else [], QueueWorkload)
+
+    total: int = field(
+        metadata={
+            "docstring": "How many workloads match, which can be more than len(results) "
+            "when max_items cut the list short."
+        }
+    )
+
+    def _validate_total(self, total: int):
+        _validate_int("total", total)
+        if total < 0:
+            raise ValueError("'total' must be >= 0.")
+
+
+@dataclass(frozen=True)
+class SchedulerTotals(_ReadModel):
+    """Org-wide node and workload totals."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+totals = anyscale.scheduler.get_overview().totals
+print(totals.nodes.running, totals.workloads.running, totals.workloads.pending)
+"""
+
+    nodes: NodeCounts = field(metadata={"docstring": "Running, admitted and pending nodes."})
+
+    def _validate_nodes(self, nodes: NodeCounts) -> NodeCounts:
+        return _coerce_model("nodes", nodes, NodeCounts)
+
+    active_workloads: int = field(
+        metadata={
+            "docstring": "Deprecated by the API in favor of `workloads`. Workloads that are "
+            "not finished."
+        }
+    )
+
+    def _validate_active_workloads(self, active_workloads: int):
+        _validate_int("active_workloads", active_workloads)
+
+    workloads: Optional[WorkloadCounts] = field(
+        default=None, metadata={"docstring": "Running and pending workloads."}
+    )
+
+    def _validate_workloads(self, workloads: Optional[WorkloadCounts]) -> Optional[WorkloadCounts]:
+        return _coerce_optional_model("workloads", workloads, WorkloadCounts)
+
+    market: Optional[MarketBreakdown] = field(
+        default=None, metadata={"docstring": "Nodes split by spot and on-demand."}
+    )
+
+    def _validate_market(self, market: Optional[MarketBreakdown]) -> Optional[MarketBreakdown]:
+        return _coerce_optional_model("market", market, MarketBreakdown)
+
+
+@dataclass(frozen=True)
+class CloudRollup(_ReadModel):
+    """Node and workload totals of one cloud."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+for cloud in anyscale.scheduler.get_overview().clouds:
+    print(cloud.cloud_id, cloud.nodes.running)
+"""
+
+    cloud_id: str = field(metadata={"docstring": "ID of the cloud."})
+
+    def _validate_cloud_id(self, cloud_id: str):
+        _validate_str("cloud_id", cloud_id)
+
+    nodes: NodeCounts = field(metadata={"docstring": "Running, admitted and pending nodes."})
+
+    def _validate_nodes(self, nodes: NodeCounts) -> NodeCounts:
+        return _coerce_model("nodes", nodes, NodeCounts)
+
+    workloads: Optional[WorkloadCounts] = field(
+        default=None, metadata={"docstring": "Running and pending workloads."}
+    )
+
+    def _validate_workloads(self, workloads: Optional[WorkloadCounts]) -> Optional[WorkloadCounts]:
+        return _coerce_optional_model("workloads", workloads, WorkloadCounts)
+
+    market: Optional[MarketBreakdown] = field(
+        default=None, metadata={"docstring": "Nodes split by spot and on-demand."}
+    )
+
+    def _validate_market(self, market: Optional[MarketBreakdown]) -> Optional[MarketBreakdown]:
+        return _coerce_optional_model("market", market, MarketBreakdown)
+
+
+@dataclass(frozen=True)
+class TopologySummary(_ReadModel):
+    """How much the active scheduler config defines."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+topology = anyscale.scheduler.get_overview().topology
+print(topology.config_version, topology.active_queues, topology.active_flavors)
+"""
+
+    active_queues: int = field(metadata={"docstring": "Number of active resource queues."})
+
+    def _validate_active_queues(self, active_queues: int):
+        _validate_int("active_queues", active_queues)
+
+    active_flavors: int = field(metadata={"docstring": "Number of active resource flavors."})
+
+    def _validate_active_flavors(self, active_flavors: int):
+        _validate_int("active_flavors", active_flavors)
+
+    active_rules: int = field(metadata={"docstring": "Number of active scheduling rules."})
+
+    def _validate_active_rules(self, active_rules: int):
+        _validate_int("active_rules", active_rules)
+
+    active_cohorts: int = field(metadata={"docstring": "Number of active cohorts."})
+
+    def _validate_active_cohorts(self, active_cohorts: int):
+        _validate_int("active_cohorts", active_cohorts)
+
+    config_version: int = field(metadata={"docstring": "Version of the active scheduler config."})
+
+    def _validate_config_version(self, config_version: int):
+        _validate_int("config_version", config_version)
+
+    config_updated_at: Optional[datetime] = field(
+        default=None, metadata={"docstring": "When the active scheduler config was applied."}
+    )
+
+    def _validate_config_updated_at(self, config_updated_at: Optional[datetime]):
+        _validate_optional_datetime("config_updated_at", config_updated_at)
+
+
+@dataclass(frozen=True)
+class SchedulerOverview(_ReadModel):
+    """The org-wide scheduler rollup: totals, quota use, per-cloud totals and topology."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+overview = anyscale.scheduler.get_overview()
+print(overview.totals.nodes.running, overview.topology.active_queues)
+for usage in overview.utilization:
+    print(usage.flavor, usage.resource, usage.utilization)
+"""
+
+    totals: SchedulerTotals = field(metadata={"docstring": "Org-wide node and workload totals."})
+
+    def _validate_totals(self, totals: SchedulerTotals) -> SchedulerTotals:
+        return _coerce_model("totals", totals, SchedulerTotals)
+
+    utilization: List[ResourceUsage] = field(
+        metadata={"docstring": "Org-wide quota use, one entry per flavor and resource."}
+    )
+
+    def _validate_utilization(self, utilization: List[ResourceUsage]) -> List[ResourceUsage]:
+        return _coerce_list(
+            "utilization", utilization if utilization is not None else [], ResourceUsage
+        )
+
+    clouds: List[CloudRollup] = field(metadata={"docstring": "The same totals, per cloud."})
+
+    def _validate_clouds(self, clouds: List[CloudRollup]) -> List[CloudRollup]:
+        return _coerce_list("clouds", clouds if clouds is not None else [], CloudRollup)
+
+    topology: TopologySummary = field(
+        metadata={"docstring": "How much the active scheduler config defines."}
+    )
+
+    def _validate_topology(self, topology: TopologySummary) -> TopologySummary:
+        return _coerce_model("topology", topology, TopologySummary)
+
+
+@dataclass(frozen=True)
+class TopConsumer(_ReadModel):
+    """One of the clusters that hold the most nodes."""
+
+    __doc_py_example__ = """\
+import anyscale
+
+for consumer in anyscale.scheduler.list_top_consumers(max_items=5):
+    print(consumer.cluster_id, consumer.name, consumer.nodes, consumer.duration_seconds)
+"""
+
+    cluster_id: str = field(metadata={"docstring": "ID of the cluster."})
+
+    def _validate_cluster_id(self, cluster_id: str):
+        _validate_str("cluster_id", cluster_id)
+
+    name: Optional[str] = field(
+        metadata={"docstring": "Name of the workload. None until the scheduler knows it."}
+    )
+
+    def _validate_name(self, name: Optional[str]):
+        _validate_optional_str("name", name)
+
+    project: Optional[str] = field(metadata={"docstring": "Name of the workload's project."})
+
+    def _validate_project(self, project: Optional[str]):
+        _validate_optional_str("project", project)
+
+    nodes: int = field(metadata={"docstring": "Nodes the cluster holds."})
+
+    def _validate_nodes(self, nodes: int):
+        _validate_int("nodes", nodes)
+
+    duration_seconds: int = field(
+        metadata={
+            "docstring": "Approximate run time in seconds, counted from when the cluster's "
+            "first successful request was created."
+        }
+    )
+
+    def _validate_duration_seconds(self, duration_seconds: int):
+        _validate_int("duration_seconds", duration_seconds)
+
+    url: Optional[str] = field(
+        metadata={
+            "docstring": "Path of the workload's page in the console, relative to the "
+            "console host. None when the scheduler cannot tell which page it is."
+        }
+    )
+
+    def _validate_url(self, url: Optional[str]):
+        _validate_optional_str("url", url)

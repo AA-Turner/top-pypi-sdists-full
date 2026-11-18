@@ -432,6 +432,8 @@ class HistoryLiberoSimEnv(LiberoSimEnv):
     upstream's padding with copies of the first observation.
     """
 
+    # Default kept for callers constructing this environment directly. Catalog sims supply
+    # their own history window.
     RLDX_TICKS = (6, 4, 2, 0)
 
     def __init__(self, task_handle, *, history_ticks=RLDX_TICKS, **kwargs) -> None:

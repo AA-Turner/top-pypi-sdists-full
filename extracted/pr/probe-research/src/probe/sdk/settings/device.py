@@ -316,17 +316,30 @@ def _poll(
     clock: Callable[[], float],
 ) -> dict | None:
     """Ask for the token every `interval` s until it is minted (its answer) or `clock()` passes
-    `until` (None). The poll that succeeds IS the exchange; a refusal raises (`_login_error`)."""
+    `until` (None). The poll that succeeds IS the exchange; a refusal raises (`_login_error`).
+
+    A dropped connection or a 5xx is retried with the same code until `until` (D21): the server
+    may have minted the key before the answer was lost, and only this code replays it."""
+    transient: str | None = None
     while clock() < until:
-        resp = http.post(_TOKEN_PATH, json={"device_code": device_code, "code_verifier": verifier})
-        if resp.status_code == 200:
-            return resp.json()
-        code, _desc = _error_code(resp)
-        if code == "slow_down":
-            interval += _SLOW_DOWN_BACKOFF
-        elif code != "authorization_pending":
-            raise _login_error(resp, f"device login failed ({code or resp.status_code})")
+        try:
+            resp = http.post(_TOKEN_PATH, json={"device_code": device_code, "code_verifier": verifier})
+        except httpx.TransportError as exc:
+            resp, transient = None, f"could not reach Probe: {exc}"
+        if resp is not None and resp.status_code >= 500:
+            transient = f"Probe answered {resp.status_code}"
+        elif resp is not None:
+            if resp.status_code == 200:
+                return resp.json()
+            transient = None
+            code, _desc = _error_code(resp)
+            if code == "slow_down":
+                interval += _SLOW_DOWN_BACKOFF
+            elif code != "authorization_pending":
+                raise _login_error(resp, f"device login failed ({code or resp.status_code})")
         sleep(max(0.0, min(float(interval), until - clock())))
+    if transient is not None:  # the request may be approved: say why it was not received
+        raise DeviceLoginError(f"device login did not finish before it expired; last try: {transient}")
     return None
 
 

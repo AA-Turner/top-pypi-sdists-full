@@ -61,6 +61,7 @@ jobs:
           # Testing against `devel` may fail as new tests are added.
           - stable-2.19
           - stable-2.20
+          - stable-2.21
           - devel
     runs-on: ubuntu-latest
     steps:
@@ -68,13 +69,13 @@ jobs:
       # .../ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}/
 
       - name: Check out code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
           persist-credentials: false
 
       - name: Run confidence tests
-        uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
+        uses: ansible-community/ansible-test-gh-action@6ded727edb598e670ac056a8e680ca4050bac0a3 # v1.18.0
         with:
           ansible-core-version: ${{ matrix.ansible }}
           testing-type: sanity
@@ -85,11 +86,38 @@ jobs:
         working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
 
       # See the reports at https://codecov.io/gh/lowlydba/lowlydba.sqlserver
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }} # zizmor: ignore[secrets-outside-env] -- Codecov token needed for uploading coverage; workflow_dispatch only
+
+  ###
+  # Pester unit tests for plugins/module_utils (PowerShell helpers)
+  #
+  # ansible-test units only supports Python, so PowerShell module_utils helpers are
+  # unit tested here via Pester instead. See tests/unit/plugins/module_utils/.
+
+  pester:
+    name: Pester unit tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read  # Required for actions/checkout
+    steps:
+      - name: Check out code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Pester unit tests
+        shell: pwsh
+        run: |
+          Import-Module Pester -MinimumVersion 5.0 -ErrorAction Stop
+          $config = New-PesterConfiguration
+          $config.Run.Path = 'tests/unit'
+          $config.Run.Exit = $true
+          $config.Output.Verbosity = 'Detailed'
+          Invoke-Pester -Configuration $config
 
   ###
   # Integration tests (RECOMMENDED)
@@ -103,12 +131,14 @@ jobs:
   integration:
     runs-on: ubuntu-latest
     name: I (Ⓐ${{ matrix.ansible }}+py${{ matrix.python }})
+    # Historically ~17m avg, ~31m max; guard against hung SQL Server containers
+    timeout-minutes: 60
     continue-on-error: ${{ matrix.ansible == 'devel' }}
     permissions:
       contents: write  # Required for uploading coverage reports
     services:
       sqlserver:
-        image: mcr.microsoft.com/mssql/server:2022-latest # zizmor: ignore[unpinned-images] -- Trusted publisher for this CI use case
+        image: mcr.microsoft.com/mssql/server:2025-latest # zizmor: ignore[unpinned-images] -- Trusted publisher for this CI use case
         ports:
           - 1433:1433
         env:
@@ -120,13 +150,14 @@ jobs:
         ansible:
           - stable-2.19
           - stable-2.20
+          - stable-2.21
           - devel
         python:
           - 3.10
 
     steps:
       - name: Check out code
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           path: ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
           persist-credentials: false
@@ -136,7 +167,7 @@ jobs:
         run: cp integration_config.sample.yml integration_config.yml
 
       - name: Run integration tests
-        uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
+        uses: ansible-community/ansible-test-gh-action@6ded727edb598e670ac056a8e680ca4050bac0a3 # v1.18.0
         with:
           ansible-core-version: ${{ matrix.ansible }}
           testing-type: integration
@@ -149,18 +180,18 @@ jobs:
         working-directory: ./ansible_collections/${{env.NAMESPACE}}/${{env.COLLECTION_NAME}}
 
       # See the reports at https://codecov.io/gh/lowlydba/lowlydba.sqlserver
-      - uses: codecov/codecov-action@57e3a136b779b570ffcdbf80b3bdc90e7fab3de2 # v6.0.0
+      - uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }} # zizmor: ignore[secrets-outside-env] -- Codecov token needed for uploading coverage; workflow_dispatch only
 
   ci-test-rollup:
-    name: Are we good?
+    name: Are we good? (Linux)
     runs-on: ubuntu-slim
-    needs: [sanity, integration]
+    needs: [sanity, integration, pester]
     if: always()
     steps:
-      - uses: lowlydba/are-we-good@7efad05442f92a1203940ca8b79dd4fb930e75d4 # v1.0.2
+      - uses: lowlydba/are-we-good@f506ed6324f55ec5e4ff5d92204a72c7f1c2b4f8 # v1.0.5
         with:
           jobs: ${{ toJSON(needs) }}

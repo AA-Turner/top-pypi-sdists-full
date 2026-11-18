@@ -167,7 +167,7 @@ impl PyEndpoint {
         repo_id: Option<&str>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let model_id = crate::store::model_argument(model_id, repo_id)?.ok_or_else(|| pyo3::exceptions::PyTypeError::new_err("model_id is required"))?;
-        let hardware = tensorfs::fetch::Hardware { gpus: gpus.unwrap_or_default(), free_vram: None, plain };
+        let hardware = tensorfs::fetch::Hardware { gpus: gpus.unwrap_or_default(), plain, ..Default::default() };
         let resolved = py
             .detach(|| block_on(self.endpoint.resolve(model_id, release.as_deref(), lane.as_deref(), &hardware)))
             .or_raise(py)?;
@@ -179,6 +179,13 @@ impl PyEndpoint {
     }
 }
 
+/// The endpoint a call reaches when it names none (`TENSORFS_ENDPOINT`, else Tensorhub).
+#[pyfunction]
+fn _default_endpoint() -> String {
+    Config::from_env().endpoint
+}
+
 pub(crate) fn install(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    m.add_function(wrap_pyfunction!(_default_endpoint, m)?)?;
     m.add_class::<PyEndpoint>()
 }

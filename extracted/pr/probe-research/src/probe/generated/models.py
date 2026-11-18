@@ -21,6 +21,7 @@ from .enums import (  # noqa: F401 - re-exported
     AnswerStyle,
     ArtifactKind,
     ArtifactScope,
+    AssignmentTarget,
     AttemptKind,
     AttemptOutcome,
     AttemptPhase,
@@ -91,6 +92,8 @@ from .enums import (  # noqa: F401 - re-exported
     DirectionOutput,
     Status3,
     DisconnectReason,
+    DocRefusal,
+    DocState,
     DocsState,
     Dtype,
     EditActorKind,
@@ -105,6 +108,7 @@ from .enums import (  # noqa: F401 - re-exported
     ExampleStage,
     Kind1,
     ExperimentOutcome,
+    ExportFormat,
     Nonfinite,
     FailureEvidence,
     FailureGap,
@@ -135,6 +139,7 @@ from .enums import (  # noqa: F401 - re-exported
     KeyDropFailure,
     KeyDropOutcome,
     KeyDropStatus,
+    KeyReadsAs,
     SourceReadContractEnum,
     ExitStatus,
     LineageEntityType,
@@ -352,16 +357,11 @@ class AgentSessionOut(BaseModel):
     """
     A coding-agent session that touched this entity, or something beneath it.
 
-    Ordered by when we first saw it, so at run level the first entry is the
-    session the run originated in — the same one recorded in
-    `runs.foreign_keys.<agent>_session_id`.
-
-    `captured` is deliberately NOT here. Whether a transcript exists is the
-    engine's answer, not this database's: capture is a per-device permission a
-    user can switch off, so a recorded session with no transcript is an
-    expected state. The page resolves it against the transcripts corpus at
-    render time and shows captured / pending / not-captured there. Asserting it
-    here would mean this endpoint lying whenever the engine disagreed.
+    Ordered by when Probe first saw it, so at run level the first entry is the
+    session the run started in — the same one recorded in the run's foreign
+    key `<agent>_session_id`. Whether its transcript was captured is not here:
+    capture can be switched off per device, so a session with no transcript is
+    an expected state.
     """
 
     agent: str = Field(..., title='Agent')
@@ -476,7 +476,7 @@ class ArtifactCreate(BaseModel):
 
 class ArtifactFolderOut(BaseModel):
     """
-    One direct child folder of a tree level (0193 lazy explorer).
+    One direct child folder of a folder level.
     """
 
     count: int = Field(..., title='Count')
@@ -689,7 +689,7 @@ class BestPickPost(BaseModel):
 
 class BlobRef(BaseModel):
     """
-    Text over 64 KiB, stored whole in R2: the row keeps the pointer and the sha256.
+    Text over 64 KiB, stored whole in file storage: the row keeps the pointer and the sha256.
     """
 
     artifact_id: UUID | None = Field(None, title='Artifact Id')
@@ -747,12 +747,9 @@ class BrowseContinuationStream(BaseModel):
 
 class BrowseCursors(BaseModel):
     """
-    Per-LEVEL continuation tokens (0148 — the pagination redesign).
+    Per-LEVEL continuation tokens.
 
-    Before this, one cursor paged the primary level and every side list was
-    first-page-only with a bare `truncated` flag — an agent could SEE that the
-    direct-runs list was cut but had no way to walk it in place. Now each
-    level that filled its page hands back its own token; resend it as that
+    Each level that filled its page hands back its own token; resend it as that
     level's cursor parameter (`cursor` for the primary level, `runs_cursor` /
     `subprojects_cursor` for the side lists) and ONLY that level is fetched
     on the follow-up page. Absent key = that level fit (or was not fetched).
@@ -771,7 +768,7 @@ class BundleCompleted(BaseModel):
 
 class BundleRef(BaseModel):
     """
-    One sample's gzip member inside a per-(step, producer) bundle in R2: a read fetches one byte range.
+    One sample's gzip member inside a per-(step, producer) bundle file: a read fetches one byte range.
     """
 
     is_cut: bool | None = Field(False, title='Is Cut')
@@ -820,21 +817,30 @@ class CanvasGroup(BaseModel):
     members: list[str] = Field(..., title='Members')
 
 
+class CanvasGroupAssignment(BaseModel):
+    group_id: str | None = Field(..., title='Group Id')
+    key: str = Field(..., title='Key')
+
+
+class GroupId(RootModel[str]):
+    root: str = Field(..., max_length=64, min_length=1, title='Group Id')
+
+
+class CanvasGroupAssignmentsIn(BaseModel):
+    """
+    `PUT .../canvas/group-assignments`: move these board projects.
+    """
+
+    group_id: GroupId | None = Field(None, title='Group Id')
+    project_ids: list[UUID] = Field(
+        ..., max_length=1000, min_length=1, title='Project Ids'
+    )
+    target: AssignmentTarget
+
+
 class CanvasLiveRun(BaseModel):
     id: UUID = Field(..., title='Id')
     name: str | None = Field(None, title='Name')
-
-
-class CanvasPreview(BaseModel):
-    """
-    The pane a project chose as its canvas preview (`app/projects/panes/preview/`): a ref the
-    dashboard fetches near the viewport, never its HTML, recipe or data. `updated_at` is the pane's
-    revision: a newer one on a poll reloads it.
-    """
-
-    pane_id: UUID = Field(..., title='Pane Id')
-    slug: str = Field(..., title='Slug')
-    updated_at: AwareDatetime = Field(..., title='Updated At')
 
 
 class CanvasRef(BaseModel):
@@ -897,6 +903,15 @@ class CanvasTotals(BaseModel):
     project_trees: int = Field(..., title='Project Trees')
     projects: int = Field(..., title='Projects')
     runs: int = Field(..., title='Runs')
+
+
+class CanvasViewBox(BaseModel):
+    """
+    A preview's viewBox size, in its own units (a 440-wide box is about 440 drawn px).
+    """
+
+    height: float = Field(..., title='Height')
+    width: float = Field(..., title='Width')
 
 
 class CanvasWindowHoursOut(BaseModel):
@@ -1462,9 +1477,8 @@ class Contributor(BaseModel):
 
 class CoordinateOut(BaseModel):
     """
-    One catalog row of the run's coordinate space (0060): a non-empty coordinate
-    plus which fact tables have landed on it — coordinate enumeration without a
-    fact-table scan.
+    One catalog row of the run's coordinate space: a non-empty coordinate
+    plus which kinds of data (metric points, spans, files) have landed on it.
     """
 
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
@@ -1784,9 +1798,9 @@ class DeviceClientContext(BaseModel):
     harness id of the chat an agent's sign-in runs in (D79), so the page can say
     "Go back to Claude Code."; an id this server's registry lacks reads as none.
 
-    `surface = "agent"` shapes the FLOW only (agent-prompt install D2): the request
-    stays pending while the person finishes the team and workspace pages, and its
-    approval finishes onboarding. It changes when a member may approve, never what an
+    `surface = "agent"`, and `surface = "terminal"` with `install` (the wizard), shape the
+    FLOW only (agent-prompt install D2, `waits_through_sign_up`): the request stays pending
+    while the person finishes the team and workspace pages, and its approval finishes onboarding. It changes when a member may approve, never what an
     approval grants: the scopes, grants, role checks and exchange are the same for every surface
     and every agent (`tests/unit/accounts/auth/test_device_auth.py` pins it).
     """
@@ -1957,7 +1971,7 @@ class EffortOut(BaseModel):
     )
     cost_usd: float | None = Field(
         ...,
-        description='Daemon dollars plus worker tokens at list price, split by time; null when unknown.',
+        description="What the Probe daemon spent plus the sessions' worker tokens at list price, split by time; null when unknown.",
         title='Cost Usd',
     )
     run_h: float = Field(
@@ -2182,8 +2196,8 @@ class ExperimentForkedOut(BaseModel):
 
 class ExperimentGroupOut(BaseModel):
     """
-    A run group of the experiment: the leaf door's `RunGroupOut` plus the
-    project. `experiment_id` is the experiment the group belongs to.
+    A run group of the experiment: a `RunGroupOut` plus the project.
+    `experiment_id` is the experiment the group belongs to.
     """
 
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -2202,10 +2216,9 @@ class ExperimentGroupOut(BaseModel):
 
 class ExperimentManifestOut(BaseModel):
     """
-    One frozen manifest (an experiment version): the leaf door's
-    `ExperimentVersionOut` plus the project the experiment is filed under NOW
-    (a manifest is immutable; the experiment may have moved since it was
-    minted).
+    One frozen manifest (an experiment version): an `ExperimentVersionOut`
+    plus the project the experiment is filed under NOW (a manifest is
+    immutable; the experiment may have moved since it was made).
     """
 
     artifact_refs: list[UUID] | None = Field(None, title='Artifact Refs')
@@ -2500,6 +2513,31 @@ class GitHubRepositoryOut(BaseModel):
     repo_id: int = Field(..., title='Repo Id')
 
 
+class GoogleDoc(BaseModel):
+    added_by_user_id: UUID = Field(..., title='Added By User Id')
+    artifact_id: UUID | None = Field(..., title='Artifact Id')
+    can_remove: bool = Field(..., title='Can Remove')
+    connection_id: UUID = Field(..., title='Connection Id')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    doc_id: str = Field(..., title='Doc Id')
+    id: UUID = Field(..., title='Id')
+    last_error: str | None = Field(..., title='Last Error')
+    last_sync_at: AwareDatetime | None = Field(..., title='Last Sync At')
+    project_id: UUID = Field(..., title='Project Id')
+    state: DocState
+    title: str = Field(..., title='Title')
+    web_url: str = Field(..., title='Web Url')
+
+
+class GoogleDocList(BaseModel):
+    docs: list[GoogleDoc] = Field(..., title='Docs')
+
+
+class GoogleDocsAdd(BaseModel):
+    connection_id: UUID = Field(..., title='Connection Id')
+    doc_ids: list[str] = Field(..., max_length=20, min_length=1, title='Doc Ids')
+
+
 class ConsumedStep(RootModel[int]):
     root: int = Field(..., ge=0, title='Consumed Step')
 
@@ -2537,7 +2575,7 @@ class GroupedPoint(BaseModel):
 
 class GroupedSeriesResult(BaseModel):
     """
-    Server-side reduce/group over a run's stepped points (item 7). The aggregation
+    Server-side reduce/group over a run's stepped points. The aggregation
     is EXPLICIT — the caller names the fn; the server never guesses a reduction
     (declared per-key reduce fns arrive with the opt-in declaration layer). `by`
     echoes the requested axes in order; `where` echoes the canonical coord filter.
@@ -2820,11 +2858,12 @@ class InstallationNameOut(BaseModel):
 
 class IntegrationCapabilities(BaseModel):
     detail_pages: bool = Field(..., title='Detail Pages')
+    google_docs: bool | None = Field(False, title='Google Docs')
 
 
 class IntentOut(BaseModel):
     """
-    Why one entity was started, in the researcher's words (0328).
+    Why one entity was started, in the researcher's words.
 
     `ask` is a quote from the session that created the entity, never a summary.
     `match` says how it was anchored: `exact` (the run's launch command was found
@@ -3262,8 +3301,8 @@ class Id(RootModel[str]):
 
 class MessageToolCall(BaseModel):
     """
-    One tool call an assistant message asked for, as the framework handed it to the tool (not `ToolCall`: that
-    name collided in OpenAPI, #4640). Its run's stats are the `TurnToolCall` with the same `id`.
+    One tool call an assistant message asked for, as the framework handed it to the tool. Its run's stats are
+    the `TurnToolCall` with the same `id`.
     """
 
     arguments: str | None = Field('', title='Arguments')
@@ -3299,7 +3338,7 @@ class MetricExpectation(BaseModel):
 
 class MetricExportResult(BaseModel):
     """
-    Lossless, paginated raw-point export (item 5): every point exactly once, NO
+    Lossless, paginated raw-point export: every point exactly once, NO
     downsampling for a stable committed dataset — the faithful-export counterpart to
     /series/query. Cursor on the stable metric_points id; pass `next_after_id` back as
     `after_id` for the next page (null means the last currently visible page).
@@ -3360,7 +3399,7 @@ class MetricReadProvenance(BaseModel):
 
 class MetricSeriesOut(BaseModel):
     """
-    One catalog row: what/how-much/what-shape, no point scan (D15).
+    One catalog row of a run's metrics: what the metric is, how many points it has and their shape.
     """
 
     agg: str | None = Field(None, title='Agg')
@@ -3449,7 +3488,7 @@ class MirrorBlock(BaseModel):
     """
     What the owning integration last said about a mirrored entity.
 
-    `state` is 0187's state machine: `active` (present at last contact),
+    `state`: `active` (present at last contact),
     `retired` (archived in source, or removed from the connection's scope) and
     `missing` (the reconcile pass could not find it -- deleted? permission
     lost? scope moved?). The three are deliberately distinct: "archived" and
@@ -4358,7 +4397,7 @@ class PeopleOut(BaseModel):
 
 class Person(BaseModel):
     """
-    A teammate as a row or hit names them (D5): never a bare id.
+    A teammate as a row or hit names them: never a bare id.
     """
 
     email: str | None = Field(None, title='Email')
@@ -4378,6 +4417,13 @@ class PickedOut(BaseModel):
     name: str = Field(..., title='Name')
     project_id: UUID = Field(..., title='Project Id')
     slug: str = Field(..., title='Slug')
+
+
+class PickerToken(BaseModel):
+    access_token: str = Field(..., title='Access Token')
+    api_key: str = Field(..., title='Api Key')
+    app_id: str = Field(..., title='App Id')
+    expires_at: AwareDatetime = Field(..., title='Expires At')
 
 
 class AskId(RootModel[str]):
@@ -4413,10 +4459,20 @@ class Thread(RootModel[str]):
     root: str = Field(..., max_length=200, title='Thread')
 
 
+class Waited(RootModel[float]):
+    root: float = Field(
+        ...,
+        description='`ended`: the part of `seconds` before the daemon took the ask.',
+        ge=0.0,
+        le=86400.0,
+        title='Waited',
+    )
+
+
 class PingIn(BaseModel):
     """
     One event. Per event: `asked` needs ask_id + question (after_hint optional);
-    `ended` ask_id + question + kind (early, text, seconds, thread); `injected`
+    `ended` ask_id + question + kind (early, text, seconds, waited, thread); `injected`
     message_id + source + text.
     """
 
@@ -4442,6 +4498,11 @@ class PingIn(BaseModel):
     source: NoteSource | None = None
     text: Text | None = Field(None, title='Text')
     thread: Thread | None = Field(None, title='Thread')
+    waited: Waited | None = Field(
+        None,
+        description='`ended`: the part of `seconds` before the daemon took the ask.',
+        title='Waited',
+    )
 
 
 class PingOut(BaseModel):
@@ -4566,7 +4627,7 @@ class PreviewPane(BaseModel):
 
 class ProjectAncestorOut(BaseModel):
     """
-    One breadcrumb segment of the parent chain (0148).
+    One breadcrumb segment of the parent chain.
     """
 
     id: UUID = Field(..., title='Id')
@@ -4609,9 +4670,9 @@ class ProjectContributorAdd(BaseModel):
 
 class ProjectContributorOut(BaseModel):
     """
-    One credited person, named. Projects are flat (T7a): every credit is
+    One credited person, named. Projects do not nest: every credit is
     the project's own, so `direct` is always true and `via_project_id` null
-    (kept on the wire for the clients that read them).
+    (kept for the clients that read them).
     """
 
     direct: bool | None = Field(True, title='Direct')
@@ -4691,17 +4752,17 @@ class ProjectExperimentMutationOut(BaseModel):
 
     conclusion: str | None = Field(
         None,
-        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
+        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or Probe's AI summary; see `conclusion_source`.",
         title='Conclusion',
     )
     conclusion_by: str | None = Field(
         None,
-        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
+        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for Probe's AI summary and for conclusions written before writers were recorded.",
         title='Conclusion By',
     )
     conclusion_source: FieldSource | None = Field(
         None,
-        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
+        description="Who wrote `conclusion`: `human`, `agent` or `lane` (Probe's AI summary of the overview page); null when undeclared or unset. A person's is never replaced by an agent or by Probe; an agent's is never replaced by Probe.",
     )
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(
@@ -4758,7 +4819,7 @@ class ProjectExperimentMutationOut(BaseModel):
     )
     outcome: ExperimentOutcome | None = Field(
         None,
-        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+        description='`dead_end` when a person or an agent marked the experiment a dead end; null otherwise. A marked experiment still ranks.',
     )
     outcome_by: str | None = Field(
         None,
@@ -4796,7 +4857,7 @@ class ProjectExperimentMutationOut(BaseModel):
     )
     slug: str = Field(
         ...,
-        description='Unique in the tenant, in one namespace shared with project slugs.',
+        description='Unique in the team, in one namespace shared with project slugs.',
         title='Slug',
     )
     tags: list[str] | None = Field(
@@ -4821,17 +4882,17 @@ class ProjectExperimentOut(BaseModel):
 
     conclusion: str | None = Field(
         None,
-        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
+        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or Probe's AI summary; see `conclusion_source`.",
         title='Conclusion',
     )
     conclusion_by: str | None = Field(
         None,
-        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
+        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for Probe's AI summary and for conclusions written before writers were recorded.",
         title='Conclusion By',
     )
     conclusion_source: FieldSource | None = Field(
         None,
-        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
+        description="Who wrote `conclusion`: `human`, `agent` or `lane` (Probe's AI summary of the overview page); null when undeclared or unset. A person's is never replaced by an agent or by Probe; an agent's is never replaced by Probe.",
     )
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(
@@ -4867,7 +4928,7 @@ class ProjectExperimentOut(BaseModel):
     )
     outcome: ExperimentOutcome | None = Field(
         None,
-        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+        description='`dead_end` when a person or an agent marked the experiment a dead end; null otherwise. A marked experiment still ranks.',
     )
     outcome_by: str | None = Field(
         None,
@@ -4900,7 +4961,7 @@ class ProjectExperimentOut(BaseModel):
     )
     slug: str = Field(
         ...,
-        description='Unique in the tenant, in one namespace shared with project slugs.',
+        description='Unique in the team, in one namespace shared with project slugs.',
         title='Slug',
     )
     tags: list[str] | None = Field(
@@ -5184,9 +5245,10 @@ class ProjectPatch(BaseModel):
 
 class ProjectPointsStoreOut(BaseModel):
     """
-    Where a project's metric points live (I24): `clickhouse` (that store alone), `dual` (Postgres
-    plus a ClickHouse copy) or `postgres`. From the resolver the metric store routes by, so a caller
-    that must not fill Postgres (the stress fleet's guard) can refuse a project that would.
+    Where a project's metric points are stored: `clickhouse` (the metrics store alone), `dual`
+    (the main database, with a copy in the metrics store) or `postgres` (the main database alone). The
+    same answer Probe stores the project's points by, so a caller that must not fill the main database
+    can refuse a project that would.
     """
 
     points_store: PointsStore
@@ -5211,12 +5273,12 @@ class ProjectPreview(BaseModel):
 
 class ProjectSubtreeOut(BaseModel):
     """
-    A project's PARTS (0402: the projects linked `part_of` it, one hop), in
-    one response -- what was every descendant of the 0148 tree before projects
-    stopped nesting. Rows match `GET /v1/projects`, each serving the project as
-    its `parent_project_id`, so a directory built on the old tree folds them
-    one level deep. Newest first; the server order is deterministic so the
-    response is diffable, not so it is final.
+    A project's PARTS (the projects linked `part_of` it, one hop), in
+    one response -- what was every descendant before projects stopped nesting.
+    Rows match `GET /v1/projects`, each serving the project as its
+    `parent_project_id`, so a directory built on the old tree shows them one
+    level deep. Newest first; the order is stable so two responses compare,
+    not because it means anything.
     """
 
     items: list[ProjectOut] = Field(..., title='Items')
@@ -5302,13 +5364,11 @@ class ProjectWorkspaceRunsOut(BaseModel):
 class ProjectWorkspaceSummaryOut(BaseModel):
     """
     The scope's overview page, without its body: whether there is one,
-    whether the overview lane's last job for it failed, and the one-line blurb.
+    whether Probe's last job writing it failed, and the one-line blurb.
 
     Fetch the body from `GET /v1/projects/{project_id}/overview` for a project
     scope and `GET /v1/projects/{project_id}/experiments/{experiment_id}/overview`
-    for an experiment scope (the same `OverviewOut` either way). It carries no
-    `anchor_type`: an experiment's page is anchored `project` until the R3
-    switch and `experiment` after, and nothing here should depend on which.
+    for an experiment scope (the same `OverviewOut` either way).
     """
 
     blurb: str | None = Field(
@@ -5318,7 +5378,7 @@ class ProjectWorkspaceSummaryOut(BaseModel):
     )
     content: Content2 = Field(
         ...,
-        description='absent: no page the caller may read; fresh: there is one. `stale` stays legal for older clients; nothing sends it since the overview lane was deleted.',
+        description='absent: no page the caller may read; fresh: there is one. `stale` stays legal for older clients; nothing sends it since Probe stopped generating these pages.',
         title='Content',
     )
     estimated_completion_at: AwareDatetime | None = Field(
@@ -5328,14 +5388,14 @@ class ProjectWorkspaceSummaryOut(BaseModel):
     )
     eta_seconds: int | None = Field(
         None,
-        description='Always null: no page job is queued since the overview lane was deleted.',
+        description='Always null: no page job is queued since Probe stopped generating these pages.',
         title='Eta Seconds',
     )
     failed_reason: str | None = Field(None, title='Failed Reason')
     generated_at: AwareDatetime | None = Field(None, title='Generated At')
     job: Job3 = Field(
         ...,
-        description="idle, or failed: the overview lane's last job for the page failed (`failed_reason`). `queued` and `generating` stay legal for older clients; no page job is queued since the lane was deleted.",
+        description="idle, or failed: Probe's last job writing the page failed (`failed_reason`). `queued` and `generating` stay legal for older clients; no page job is queued since Probe stopped generating these pages.",
         title='Job',
     )
     prompt_version: str | None = Field(None, title='Prompt Version')
@@ -5347,7 +5407,9 @@ class ProjectWorkspaceSummaryOut(BaseModel):
     )
     skip_reason: str | None = Field(None, title='Skip Reason')
     source: Source5 | None = Field(
-        None, description='Who wrote the page: lane, agent or human.', title='Source'
+        None,
+        description='Who wrote the page: lane (Probe), agent or human.',
+        title='Source',
     )
     version: int | None = Field(
         0,
@@ -5358,9 +5420,9 @@ class ProjectWorkspaceSummaryOut(BaseModel):
 
 class ProjectWorkspacesOut(BaseModel):
     """
-    Where a project shows (0356): its one home and the other workspaces it
+    Where a project shows: its one home and the other workspaces it
     is listed in. Home decides access and filing; a listing only shows it.
-    Projects are flat (T7a): a project answers with its own listings, never
+    Projects do not nest: a project answers with its own listings, never
     those of a project it is part of. Listings in workspaces the caller cannot
     see are omitted.
     """
@@ -5823,6 +5885,11 @@ class ReferenceSpec(BaseModel):
     uri: str = Field(..., max_length=4096, min_length=1, title='Uri')
 
 
+class RefusedDoc(BaseModel):
+    doc_id: str = Field(..., title='Doc Id')
+    reason: DocRefusal
+
+
 class ReleaseRow(BaseModel):
     html_url: str = Field(..., title='Html Url')
     name: str | None = Field(None, title='Name')
@@ -5968,7 +6035,7 @@ class RunCountsOut(BaseModel):
     """
     `GET /v1/runs/counts`: how many runs the runs list's filter matches, in all and per stored
     status. A page is one page; this is the whole listing. With `owner`: who it matched and how many
-    runs in the same scope and window have no known creator (D4, D8).
+    runs in the same scope and window have no known creator.
     """
 
     by_status: dict[str, int] = Field(..., title='By Status')
@@ -6392,6 +6459,12 @@ class Turn(RootModel[int]):
     root: int = Field(..., ge=0, title='Turn')
 
 
+class SampleExportPage(BaseModel):
+    items: list[dict[str, Any]] | None = Field(None, title='Items')
+    next_cursor: str | None = Field(None, title='Next Cursor')
+    skipped: int | None = Field(0, title='Skipped')
+
+
 class SampleHardwarePoint(BaseModel):
     dimensions: dict[str, Any] | None = Field(None, title='Dimensions')
     key: str = Field(..., title='Key')
@@ -6442,6 +6515,10 @@ class EnvironmentType(RootModel[str]):
 
 class ErrorMessage(RootModel[str]):
     root: str = Field(..., max_length=1024, title='Error Message')
+
+
+class FailureReason(RootModel[str]):
+    root: str = Field(..., max_length=200, title='Failure Reason')
 
 
 class Host4(RootModel[str]):
@@ -6552,6 +6629,17 @@ class SampleTokens(BaseModel):
     trainer_logprobs: list[float | None] | None = Field(None, title='Trainer Logprobs')
 
 
+class SamplingSettings(BaseModel):
+    """
+    How the policy sampled this attempt (shown in a rollout compare, never grouped).
+    """
+
+    max_response_tokens: int | None = Field(None, title='Max Response Tokens')
+    temperature: float | None = Field(None, title='Temperature')
+    top_k: int | None = Field(None, title='Top K')
+    top_p: float | None = Field(None, title='Top P')
+
+
 class SandboxBaseStateClaim(BaseModel):
     """
     Stable result: retries by the elected owner continue to capture.
@@ -6588,9 +6676,9 @@ class SandboxDiffCounts(BaseModel):
 
 class SandboxFileContent(BaseModel):
     """
-    One added/modified file's END-state content from `end-delta.tar.gz`
-    (phase 2). The delta carries only end bytes — never the begin side — so this
-    is honestly the POST-change content, not a before/after diff (D3). A symlink
+    One added/modified file's END-state content from `end-delta.tar.gz`.
+    The delta carries only end bytes — never the begin side — so this
+    is the POST-change content, not a before/after diff. A symlink
     member returns its `symlink_target` and no `text`; a non-UTF-8 file returns
     `is_binary=true` with no `text`; a file over the byte cap returns its head
     with `truncated=true`.
@@ -6940,31 +7028,29 @@ class ServiceTokenCreate(BaseModel):
     name: str = Field(..., max_length=120, min_length=1, title='Name')
 
 
-class ServiceTokenCreated(BaseModel):
+class ServiceTokenCreator(BaseModel):
     """
-    Mint response — carries the plaintext secret ONCE.
+    Who made a team API key (`created_by` on the list): the person it reads as while they are on the team.
     """
 
-    created_at: AwareDatetime = Field(..., title='Created At')
-    expires_at: AwareDatetime | None = Field(None, title='Expires At')
+    email: str = Field(..., title='Email')
     id: UUID = Field(..., title='Id')
-    last_used_at: AwareDatetime | None = Field(None, title='Last Used At')
-    name: str = Field(..., title='Name')
-    scopes: list[str] | None = Field(None, title='Scopes')
-    token: str = Field(..., title='Token')
-    token_prefix: str = Field(..., title='Token Prefix')
+    name: str | None = Field(None, title='Name')
 
 
 class ServiceTokenOut(BaseModel):
     """
-    A service token as listed (never carries the secret).
+    A service token as listed (never carries the secret). `created_by` and `reads_as` are the list's (O7):
+    the mint answer carries neither.
     """
 
     created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: ServiceTokenCreator | None = None
     expires_at: AwareDatetime | None = Field(None, title='Expires At')
     id: UUID = Field(..., title='Id')
     last_used_at: AwareDatetime | None = Field(None, title='Last Used At')
     name: str = Field(..., title='Name')
+    reads_as: KeyReadsAs | None = None
     scopes: list[str] | None = Field(None, title='Scopes')
     token_prefix: str = Field(..., title='Token Prefix')
 
@@ -6980,8 +7066,8 @@ class SessionAnchorIn(BaseModel):
 
 class SessionCreatedOut(BaseModel):
     """
-    What one coding-agent session CREATED (0291): the ids whose own
-    `origin_session_id` is the session. Not what it touched -- that is
+    What one coding-agent session CREATED: the projects, experiments and runs
+    that started in that session. Not what it touched -- that is
     `/work`. Filing is not creation: a project the session only moved or added
     to is not here, and neither is anything someone else created under one of
     these.
@@ -7028,7 +7114,7 @@ class SessionEntityOut(BaseModel):
 
 class SessionHoursOut(BaseModel):
     """
-    One session's agent-hours on one experiment (R5).
+    One session's agent-hours on one experiment.
     """
 
     agent_h: float = Field(..., title='Agent H')
@@ -7829,6 +7915,33 @@ class TeamFeaturesOut(BaseModel):
     features: list[str] = Field(..., title='Features')
 
 
+class TeamGoogleDoc(BaseModel):
+    """
+    A doc added for the whole team (T10): `GoogleDoc` without a project or a file.
+    """
+
+    added_by_user_id: UUID = Field(..., title='Added By User Id')
+    can_remove: bool = Field(..., title='Can Remove')
+    connection_id: UUID = Field(..., title='Connection Id')
+    created_at: AwareDatetime = Field(..., title='Created At')
+    doc_id: str = Field(..., title='Doc Id')
+    id: UUID = Field(..., title='Id')
+    last_error: str | None = Field(..., title='Last Error')
+    last_sync_at: AwareDatetime | None = Field(..., title='Last Sync At')
+    state: DocState
+    title: str = Field(..., title='Title')
+    web_url: str = Field(..., title='Web Url')
+
+
+class TeamGoogleDocList(BaseModel):
+    docs: list[TeamGoogleDoc] = Field(..., title='Docs')
+
+
+class TeamGoogleDocsAdded(BaseModel):
+    docs: list[TeamGoogleDoc] = Field(..., title='Docs')
+    refused: list[RefusedDoc] = Field(..., title='Refused')
+
+
 class TeamMemberOut(BaseModel):
     """
     One active team membership joined to its human identity.
@@ -7866,13 +7979,10 @@ class TeamNoteBriefOut(BaseModel):
 
 class TeamNoteExcerpt(BaseModel):
     """
-    A bounded slice of the team note (0125), plus how to get the rest.
+    A bounded slice of the team note, plus how to get the rest.
 
-    Same three-part shape as the MCP card's notes, minus
-    `state`: this one is a single-row read inside the tenant transaction that is
-    already open, so there is no separate failure to report -- if the browse
-    answered at all, this read answered too. `None` for a tenant with no note
-    means exactly that, and never "the read failed".
+    If the browse answered at all, this read answered too: `None` for a team
+    with no note means exactly that, and never "the read failed".
     """
 
     read_all: str | None = Field('GET /v1/team-note', title='Read All')
@@ -8274,7 +8384,7 @@ class UnresolvedReference(BaseModel):
 
 class UpdateCapture(BaseModel):
     """
-    One update (or eval pass) of a step: declared vs received, and the shard check (rows' contributions + batch
+    One update (or eval pass) of a step: declared vs received, and the loss check (rows' contributions + batch
     terms vs the micro-batch's reported loss).
     """
 
@@ -8681,7 +8791,7 @@ class ParentExternalId(RootModel[str]):
     root: str = Field(
         ...,
         max_length=1024,
-        pattern='^wandb:[^/\\s]+/[^/\\s]+/[^/\\s]+$',
+        pattern='^wandb:[^/\\x00-\\x1f\\x7f-\\x9f]+(?:/[^/\\x00-\\x1f\\x7f-\\x9f]+){1,2}$',
         title='Parent External Id',
     )
 
@@ -8696,7 +8806,7 @@ class WandbRunClaim(BaseModel):
     external_id: str = Field(
         ...,
         max_length=1024,
-        pattern='^wandb:[^/\\s]+/[^/\\s]+/[^/\\s]+$',
+        pattern='^wandb:[^/\\x00-\\x1f\\x7f-\\x9f]+(?:/[^/\\x00-\\x1f\\x7f-\\x9f]+){1,2}$',
         title='External Id',
     )
     metadata: dict[str, Any] | None = Field(None, title='Metadata')
@@ -8719,7 +8829,7 @@ class WandbSourceCreate(BaseModel):
         ...,
         max_length=1024,
         min_length=3,
-        pattern='^[^/\\s]+/[^/\\s]+$',
+        pattern='^[^/\\x00-\\x1f\\x7f-\\x9f]+/[^/\\x00-\\x1f\\x7f-\\x9f]+$',
         title='External Id',
     )
 
@@ -8836,7 +8946,7 @@ class WideRow(BaseModel):
 
 class WideSeriesResult(BaseModel):
     """
-    Step x metric table (item 4): the pivot clients would otherwise do by hand,
+    Step x metric table: the pivot clients would otherwise do by hand,
     aligned by step_index. Only STEPPED points participate; wall-clock-only series are
     read via the long endpoints. Bounded to `max_rows` steps — `next_step` pages the
     remainder by passing it back as `step_from`.
@@ -9099,8 +9209,8 @@ class ArtifactKindSection(BaseModel):
 
 class ArtifactPinImpact(BaseModel):
     """
-    What a delete would break (D7): the actual projects and experiments whose
-    manifests or lineage edges pin one of this artifact's versions.
+    What a delete would break: the actual projects and experiments whose
+    manifests or lineage links pin one of this artifact's versions.
     """
 
     artifact_id: UUID = Field(..., title='Artifact Id')
@@ -9329,6 +9439,19 @@ class CanvasPaperEdge(BaseModel):
     via: str | None = Field(None, title='Via')
 
 
+class CanvasPreview(BaseModel):
+    """
+    The pane a project chose as its canvas preview: a ref the dashboard fetches near the viewport,
+    never its HTML, recipe or data. `updated_at` is the pane's revision: a newer one on a poll reloads
+    it.
+    """
+
+    pane_id: UUID = Field(..., title='Pane Id')
+    slug: str = Field(..., title='Slug')
+    updated_at: AwareDatetime = Field(..., title='Updated At')
+    view_box: CanvasViewBox | None = None
+
+
 class CanvasProject(BaseModel):
     created_at: AwareDatetime = Field(..., title='Created At')
     direct_run_count: int | None = Field(0, title='Direct Run Count')
@@ -9373,7 +9496,7 @@ class CaptureReason(BaseModel):
 
 class CardEffortOut(BaseModel):
     """
-    The experiment card's effort (D6).
+    The experiment card's effort.
     """
 
     agent_h: float = Field(
@@ -9514,8 +9637,8 @@ class ClientMessage(BaseModel):
     """
     One message from the server: a stable id, the code clients key on, and the sentence to show.
 
-    `message_id` names the message (several share a `code`: every floor answers `client_too_old`);
-    `text` is the server's current sentence, a staff override or the default.
+    `message_id` names the message (several share a `code`: every minimum-version check answers
+    `client_too_old`); `text` is the server's current sentence: one Probe set for now, or the default.
     """
 
     action: Action
@@ -10107,17 +10230,17 @@ class ExperimentForkOut(BaseModel):
 
     conclusion: str | None = Field(
         None,
-        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
+        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or Probe's AI summary; see `conclusion_source`.",
         title='Conclusion',
     )
     conclusion_by: str | None = Field(
         None,
-        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
+        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for Probe's AI summary and for conclusions written before writers were recorded.",
         title='Conclusion By',
     )
     conclusion_source: FieldSource | None = Field(
         None,
-        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
+        description="Who wrote `conclusion`: `human`, `agent` or `lane` (Probe's AI summary of the overview page); null when undeclared or unset. A person's is never replaced by an agent or by Probe; an agent's is never replaced by Probe.",
     )
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(
@@ -10175,7 +10298,7 @@ class ExperimentForkOut(BaseModel):
     )
     outcome: ExperimentOutcome | None = Field(
         None,
-        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+        description='`dead_end` when a person or an agent marked the experiment a dead end; null otherwise. A marked experiment still ranks.',
     )
     outcome_by: str | None = Field(
         None,
@@ -10213,7 +10336,7 @@ class ExperimentForkOut(BaseModel):
     )
     slug: str = Field(
         ...,
-        description='Unique in the tenant, in one namespace shared with project slugs.',
+        description='Unique in the team, in one namespace shared with project slugs.',
         title='Slug',
     )
     tags: list[str] | None = Field(
@@ -10456,6 +10579,11 @@ class GitHubRepositoriesOut(BaseModel):
     truncated: bool | None = Field(False, title='Truncated')
 
 
+class GoogleDocsAdded(BaseModel):
+    docs: list[GoogleDoc] = Field(..., title='Docs')
+    refused: list[RefusedDoc] = Field(..., title='Refused')
+
+
 class GraphEdge(BaseModel):
     backfill: str | None = Field(None, title='Backfill')
     created_at: AwareDatetime | None = Field(None, title='Created At')
@@ -10519,7 +10647,7 @@ class HashVersionOut(BaseModel):
 
 class HashWriteOut(BaseModel):
     """
-    A run that RECORDED writing these bytes (0285), whether or not Probe
+    A run that RECORDED writing these bytes, whether or not Probe
     stored a copy.
     """
 
@@ -10789,7 +10917,7 @@ class LeaderOut(BaseModel):
 
 class LineageEndOut(BaseModel):
     """
-    The far end of one of the project's links, named (swarm friction P6).
+    The far end of one of the project's links, named.
     """
 
     name: str | None = Field(None, title='Name')
@@ -10963,6 +11091,7 @@ class MirrorConnectionOut(BaseModel):
     can_manage: bool | None = Field(False, title='Can Manage')
     counts: dict[str, int] = Field(..., title='Counts')
     created_at: AwareDatetime = Field(..., title='Created At')
+    created_by_me: bool | None = Field(False, title='Created By Me')
     deletion_error: str | None = Field(None, title='Deletion Error')
     deletion_pending: bool | None = Field(False, title='Deletion Pending')
     features: list[str] | None = Field(None, title='Features')
@@ -11044,8 +11173,7 @@ class NodeAccess(BaseModel):
 
 class NodeOrigin(BaseModel):
     """
-    Where a node came from, DERIVED at read time and never stored
-    (app/lineage/origin.py): its lineage parent when it has one, else its
+    Where a node came from, DERIVED at read time and never stored: its lineage parent when it has one, else its
     container. A move changes it with nothing to clean up. An origin the
     caller cannot see, or one in the trash, is skipped for the next one up the
     chain, so it never names a hidden node. `relation` is the link between the
@@ -11092,7 +11220,7 @@ class NoteCatalogItem(BaseModel):
 class NoteCatalogOut(BaseModel):
     """
     Root/child hierarchy rows or one stable search/catalog page; with `owner`, who it matched and how many
-    notes in the window nobody known wrote (D4, D8).
+    notes in the window nobody known wrote.
     """
 
     items: list[NoteCatalogItem] = Field(..., title='Items')
@@ -11448,13 +11576,11 @@ class ProjectReferenceCreate(BaseModel):
 
 class ProjectReferenceOut(BaseModel):
     """
-    One lateral edge, rendered from whichever end asked for it (0153).
+    One link between two projects, read from whichever end asked for it.
 
-    `direction` is the ONLY field that changes between the two ends: the row
+    `direction` is the ONLY field that changes between the two ends: the link
     is stored once, and `outgoing` / `incoming` says which side of it you are
-    standing on. Carrying the other project's `name` and `slug` beside its id
-    is the same rule `workspace_name` follows — a consumer holding a bare UUID
-    either re-implements the join or renders a UUID at a person.
+    reading from. The other project's `name` and `slug` come beside its id.
     """
 
     created_at: AwareDatetime = Field(..., title='Created At')
@@ -11812,13 +11938,10 @@ class RunCodeOut(BaseModel):
 
 class RunDetailOut(BaseModel):
     """
-    The /v1 read view of a run: RunOut plus the fold fields that are DELIBERATELY
-    absent from RunOut so the frozen ingest response stays byte-identical (the ingest
-    route keeps response_model=RunOut, which filters these out). slug (fold #21)
-    is the human-facing slug the dashboard displays; created_by (fold #1), env_ref
-    (fold #7), foreign_keys (fold #8), and activity-aware updated_at (0071)
-    surface here for reads. project_id (0054) is likewise detail-only: the
-    run's owning project.
+    One run as the read routes serve it: every `RunOut` field plus the read-only
+    ones. `slug` is the readable name the dashboard displays; `created_by`, `env_ref`,
+    `foreign_keys` (ids from other systems) and an `updated_at` that follows the
+    run's activity are served here; so is `project_id`, the run's owning project.
     """
 
     alive: bool | None = Field(False, title='Alive')
@@ -12195,9 +12318,9 @@ class RunPatch(BaseModel):
 
 class RunRefusalOut(BaseModel):
     """
-    One late refusal on a run (I15d): what the ingest queue's apply refused for one write epoch
-    (None: the batches carried none) and kind, and the server's sentence for it (the server-messages
-    registry, so staff may reword it). `detail` is the last refusal's, as an old client got it.
+    One late refusal on a run: what the ingest queue refused when it applied the data, for one write
+    epoch (None: the batches carried none) and kind, and the server's sentence for it, which Probe may
+    reword. `detail` is the last refusal's, as an old client got it.
     """
 
     detail: Any | None = Field(None, title='Detail')
@@ -12456,7 +12579,7 @@ class SandboxDiffResult(BaseModel):
     """
     A trial's begin/end filesystem diff: changed-set entries + full-scan counts
     + the meta.json integrity/limits echo. `include_unchanged=false` (default)
-    keeps the common case tiny (D2); the rare full tree pages by `next_cursor`.
+    keeps the common case tiny; the rare full tree pages by `next_cursor`.
     """
 
     begin_state_hash: str = Field(..., title='Begin State Hash')
@@ -12534,7 +12657,7 @@ class Series(RootModel[list[SeriesSelector]]):
 
 class SeriesQueryRequest(BaseModel):
     """
-    Multi-run, multi-series read for the run page AND N-run comparison (D9).
+    Read several series of several runs in one request: one run's page, or a comparison of runs.
     """
 
     include_hidden: bool | None = Field(False, title='Include Hidden')
@@ -12563,6 +12686,23 @@ class SeriesQueryResult(BaseModel):
     read_catalog: list[SeriesCatalogReceipt] | None = Field(None, title='Read Catalog')
     series: list[SeriesResult] = Field(..., title='Series')
     truncated: bool | None = Field(False, title='Truncated')
+
+
+class ServiceTokenCreated(BaseModel):
+    """
+    Mint response — carries the plaintext secret ONCE.
+    """
+
+    created_at: AwareDatetime = Field(..., title='Created At')
+    created_by: ServiceTokenCreator | None = None
+    expires_at: AwareDatetime | None = Field(None, title='Expires At')
+    id: UUID = Field(..., title='Id')
+    last_used_at: AwareDatetime | None = Field(None, title='Last Used At')
+    name: str = Field(..., title='Name')
+    reads_as: KeyReadsAs | None = None
+    scopes: list[str] | None = Field(None, title='Scopes')
+    token: str = Field(..., title='Token')
+    token_prefix: str = Field(..., title='Token Prefix')
 
 
 class SessionMessageForDaemonOut(BaseModel):
@@ -13927,17 +14067,17 @@ class ProjectExperimentDetailOut(BaseModel):
 
     conclusion: str | None = Field(
         None,
-        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or the overview lane; see `conclusion_source`.",
+        description="The experiment's answer, once someone records one; null until then. Set by a person, an agent or Probe's AI summary; see `conclusion_source`.",
         title='Conclusion',
     )
     conclusion_by: str | None = Field(
         None,
-        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for the overview lane's and for conclusions written before writers were recorded.",
+        description="The writer of `conclusion` as `user:<uuid>` (a person, or an agent writing with its person's token) or `service:<token id>`; null for Probe's AI summary and for conclusions written before writers were recorded.",
         title='Conclusion By',
     )
     conclusion_source: FieldSource | None = Field(
         None,
-        description="Who wrote `conclusion`: `human`, `agent` or `lane` (the overview page's AI summary); null when undeclared or unset. A person's is never replaced by an agent or the lane; an agent's is never replaced by the lane.",
+        description="Who wrote `conclusion`: `human`, `agent` or `lane` (Probe's AI summary of the overview page); null when undeclared or unset. A person's is never replaced by an agent or by Probe; an agent's is never replaced by Probe.",
     )
     created_at: AwareDatetime = Field(..., title='Created At')
     created_by: str | None = Field(
@@ -13952,7 +14092,7 @@ class ProjectExperimentDetailOut(BaseModel):
     )
     effort: CardEffortOut | None = Field(
         None,
-        description="Its effort, all time: `busy_h` (run and agent time, parallel work once), `run_h` (run durations summed), `agent_h` (agent-session time attributed to it, parallel agents add up), `agent_wall_h` (the same time with parallel agents once), `sessions` (each session's `agent_h` here, most first, at most 5, of `sessions_total`) and `cost_usd` (daemon dollars plus worker tokens at list price, split by time; null when unknown).",
+        description="Its effort, all time: `busy_h` (run and agent time, parallel work once), `run_h` (run durations summed), `agent_h` (agent-session time attributed to it, parallel agents add up), `agent_wall_h` (the same time with parallel agents once), `sessions` (each session's `agent_h` here, most first, at most 5, of `sessions_total`) and `cost_usd` (what the Probe daemon spent plus worker tokens at list price, split by time; null when unknown).",
     )
     fork_count: int | None = Field(
         0, description='How many forks were made from this one.', title='Fork Count'
@@ -14027,7 +14167,7 @@ class ProjectExperimentDetailOut(BaseModel):
     )
     outcome: ExperimentOutcome | None = Field(
         None,
-        description='`dead_end` when a person or an agent marked the experiment a dead end (0408); null otherwise. A marked experiment still ranks.',
+        description='`dead_end` when a person or an agent marked the experiment a dead end; null otherwise. A marked experiment still ranks.',
     )
     outcome_by: str | None = Field(
         None,
@@ -14065,7 +14205,7 @@ class ProjectExperimentDetailOut(BaseModel):
     )
     slug: str = Field(
         ...,
-        description='Unique in the tenant, in one namespace shared with project slugs.',
+        description='Unique in the team, in one namespace shared with project slugs.',
         title='Slug',
     )
     summary: ProjectWorkspaceSummaryOut | None = Field(
@@ -14084,7 +14224,7 @@ class ProjectExperimentDetailOut(BaseModel):
     )
     value: ExperimentValueOut | None = Field(
         None,
-        description="The experiment's value under `metric`: its best run's, among the runs the caller can see inside the plan's window. Null with no metric or no value.",
+        description="The experiment's value under `metric`: its best run's, among the runs the caller can see inside the team's retention window. Null with no metric or no value.",
     )
 
 
@@ -14119,16 +14259,12 @@ class ProjectSharingOut(BaseModel):
 
 class ProjectWorkspaceOut(BaseModel):
     """
-    T16, the workspace read model: everything a project page needs to draw one
+    The workspace read: everything a project page needs to draw one
     scope (the project, one of its experiments, or one run), in one read.
 
     The scope selects the runs, the question, the summary and the files; the
     experiment list is always the whole project's, so a rail can show every
     experiment whatever is selected.
-
-    It answers identically whether an experiment's runs and files are stored
-    at the experiment's own id (today) or at the project with an experiment
-    label (after the move), so nothing here tells a client where rows live.
     """
 
     conclusion: str | None = Field(
@@ -14308,7 +14444,7 @@ class RunCreate(BaseModel):
 
 class RunIngestOut(BaseModel):
     """
-    A run's queued data (I15d). Served on the one-run read only while its team's telemetry goes
+    A run's queued data. Served on the one-run read only while its team's telemetry goes
     through the ingest queue; absent means no queue (today's behaviour). `pending_points` can
     under-report by the last second's accepts; `applied_offset` is the applied watermark.
     """
@@ -14472,6 +14608,7 @@ class SampleOut(BaseModel):
     error_reason: SampleErrorReason | None = None
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
     extras: dict[str, Any] | None = Field(None, title='Extras')
+    failure_reason: FailureReason | None = Field(None, title='Failure Reason')
     finish_reason: FinishReason1 | None = None
     generated_by: list[Generation] | None = Field(None, title='Generated By')
     group_id: UUID | None = Field(None, title='Group Id')
@@ -14502,6 +14639,7 @@ class SampleOut(BaseModel):
     reward: float | None = Field(None, title='Reward')
     reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
     run_id: UUID = Field(..., title='Run Id')
+    sampling: SamplingSettings | None = None
     sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
     scenario: (
         dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
@@ -14554,6 +14692,7 @@ class SamplePartIn(BaseModel):
     error_reason: SampleErrorReason | None = None
     events: list[SampleEvent] | None = Field(None, max_length=256, title='Events')
     extras: dict[str, Any] | None = Field(None, title='Extras')
+    failure_reason: FailureReason | None = Field(None, title='Failure Reason')
     finish_reason: FinishReason1 | None = None
     generated_by: list[Generation] | None = Field(None, title='Generated By')
     group_key: GroupKey | None = Field(None, title='Group Key')
@@ -14575,6 +14714,7 @@ class SamplePartIn(BaseModel):
     reward: float | None = Field(None, title='Reward')
     reward_parts: dict[str, float] | None = Field(None, title='Reward Parts')
     role: PartRole
+    sampling: SamplingSettings | None = None
     sandbox_id: SandboxId | None = Field(None, title='Sandbox Id')
     scenario: (
         dict[str, bool | int | float | str | ScenarioTime | ScenarioFile] | None
@@ -14696,6 +14836,9 @@ class WorkspaceCanvasOut(BaseModel):
     experiments: list[CanvasExperiment] = Field(..., title='Experiments')
     experiments_truncated: bool = Field(..., title='Experiments Truncated')
     generated_at: AwareDatetime = Field(..., title='Generated At')
+    group_assignments: list[CanvasGroupAssignment] | None = Field(
+        None, title='Group Assignments'
+    )
     groups: list[CanvasGroup] | None = Field([], title='Groups', validate_default=True)
     paper_edges: list[CanvasPaperEdge] | None = Field(
         [], title='Paper Edges', validate_default=True
@@ -14762,7 +14905,7 @@ class BranchesOut(BaseModel):
     )
     locked_runs: int = Field(
         ...,
-        description="Runs behind the plan's retention lock: no value read.",
+        description="Runs locked by the team plan's retention window: no value read.",
         title='Locked Runs',
     )
     metric: ResolvedMetricOut | None = Field(
@@ -14787,7 +14930,7 @@ class BranchesOut(BaseModel):
     )
     values_withheld: bool = Field(
         ...,
-        description='The plan could not be read, so no value is served (retry shortly).',
+        description="The team's plan could not be read, so no value is served (retry shortly).",
         title='Values Withheld',
     )
 
@@ -14847,7 +14990,7 @@ class RunCodeCompareOut(BaseModel):
     created_at as the fallback for a run that never started) and `head` the
     newer, whichever order the URL named them in; `commits` reads OLDEST FIRST
     (base -> head), inclusive of both endpoint shas. STORED ROWS ONLY (v1),
-    like the experiment window: the commits listed are the ones this tenant's
+    like the experiment window: the commits listed are the ones this team's
     runs resolved to in that span, never the full git range.
     """
 

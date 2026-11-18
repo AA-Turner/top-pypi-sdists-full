@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dreamscale_transport.praxis1_deploy import (
+from dreamscale_core.praxis1_deploy import (
     ACTION_HORIZON,
     ACTION_HZ,
     EXECUTION_HORIZON,
@@ -26,10 +26,15 @@ from dreamscale_transport.praxis1_deploy import (
     PRAXIS1_BASE_MODEL,
     RTC_MAX_PREFIX_ROWS,
     RTC_TOKEN_ROWS,
-    WIRE_IMAGE,
     Praxis1Camera,
     rtc_contract_for,
 )
+from dreamscale_core.praxis1_deploy import (
+    WIRE_IMAGE as _WIRE_LAYOUT,
+)
+from dreamscale_transport.images import WireImage
+
+WIRE_IMAGE = WireImage.from_layout(_WIRE_LAYOUT)
 
 
 def _rtc_valid(method, cap, trained) -> bool:

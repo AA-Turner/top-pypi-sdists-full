@@ -12,6 +12,7 @@ from __future__ import annotations
 import functools
 import sys
 import threading
+import time
 import traceback
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import AbstractContextManager, contextmanager, nullcontext
@@ -27,7 +28,7 @@ from cozy_runtime.author._context import CURRENT as ATTEMPT
 from cozy_runtime.author._errors import ROOM, DoesNotFit, is_capacity
 from cozy_runtime.author._model import TRANSPARENT
 from cozy_runtime.internal.execution import phase, sizing
-from cozy_runtime.internal.residency import Model, Request
+from cozy_runtime.internal.residency import PASS_SHAPE, Model, Request
 
 if TYPE_CHECKING:
     from tensorfs.varena._facts import SplitSelection
@@ -119,35 +120,58 @@ def _gib(n: int) -> str:
     return f"{n / (1 << 30):.1f} GiB"
 
 
+def _holders(device: int) -> str:
+    """What holds `device`'s memory now: live tensors, the working pages mapped beside them (free
+    but in pages a live tensor shares, or freed and awaiting their stream), weights in use, graph
+    pools and caches."""
+    room, stats = vt.room(device), vt.stats(device)
+    pools, caches = stats["pools_bytes"], stats["cache_mapped_bytes"]
+    held = (
+        f"{_gib(pools)} of graph pools, {_gib(caches)} of caches"
+        if pools or caches
+        else "no graph pools or caches"
+    )
+    beside = max(stats["mapped_bytes"] - room["working_live"], 0)
+    return (
+        f"{_gib(room['working_live'])} of live tensors and {_gib(beside)} mapped beside them "
+        f"({_gib(stats['pending_bytes'])} awaiting their stream), {_gib(room['pinned'])} of "
+        f"weights in use ({_gib(room['weights_resident'])} resident), {held}, of "
+        f"{_gib(room['capacity'])} on GPU {device}"
+    )
+
+
+def room(device: int) -> str:
+    """`device`'s room now, as a device OOM's line says it."""
+    return _holders(device)
+
+
 def _room_line() -> str:
     """The card's room now, for a device OOM's line (`_errors.ROOM`): read where the failure is
     classified, its frames still held."""
     try:
         if not torch.cuda.is_initialized():
             return "a card this process has not started"
-        device = torch.cuda.current_device()
-        room = vt.room(device)
+        holders = _holders(torch.cuda.current_device())
     except Exception as exc:  # the line only describes the failure; it never replaces it
         return f"a room that could not be read ({type(exc).__name__})"
-    return (
-        f"{_gib(room['working_live'])} live and {_gib(room['pinned'])} of weights in use, "
-        f"{_gib(room['weights_resident'])} resident, of {_gib(room['capacity'])} on GPU {device}, "
-        "every evictable byte offered"
-    )
+    return f"{holders}, every evictable byte offered"
 
 
 if not ROOM:
     ROOM.append(_room_line)
 
 
-def refuse(device: int, name: str, level: str, need: int, exc: BaseException) -> DoesNotFit:
+class Unplaced(DoesNotFit):
+    """No level of a cut can be given room before it runs (or, for a pure op, runs again): its
+    caller may run it another way."""
+
+
+def refuse(device: int, name: str, level: str, need: int, exc: BaseException) -> Unplaced:
     """Native selection cannot make room for `name` at `level` (`need` bytes) with everything
     evictable gone, before any piece ran."""
-    room = vt.room(device)
-    return DoesNotFit(
-        f"{name}: {level} needs {_gib(need)} beside {_gib(room['working_live'])} live and "
-        f"{_gib(room['pinned'])} of weights in use, and this card has {_gib(room['capacity'])} "
-        f"({exc}): run it smaller, or rent a larger card: `cozy run … --on new`"
+    return Unplaced(
+        f"{name}: {level} needs {_gib(need)} beside {_holders(device)} ({exc}): run it smaller, "
+        "or rent a larger card: `cozy run … --on new`"
     )
 
 
@@ -290,47 +314,46 @@ def _unwind(exc: BaseException) -> None:
         at = at.__cause__ or at.__context__
 
 
-class Fixed:
-    """A cut's level chosen once, before a loop runs its pieces (`author.windows`): `piece()`
-    around each piece's work observes it, so the level is measured for the next call."""
+#: A loop's layout a piece's allocation was refused at, by key: the next choice is finer.
+_REFUSED: dict[str, int] = {}
 
-    def __init__(
-        self,
-        level: int,
-        key: str | None = None,
-        name: str = "",
-        menu: Sequence[tuple[str, Sequence[int]]] = (),
-        device: int = 0,
-    ) -> None:
-        self.level, self.key, self.name, self.menu, self.device = level, key, name, menu, device
+
+class Fixed:
+    """A cut's level chosen once, before a loop runs its pieces (`author.windows`). A piece is
+    not a leaf: its sites (attention, FFN, norms) choose and retry inside it, as the window's
+    need assumes. A piece refused memory once its sites can cut no finer fails its call, and
+    the key's next choice is finer (a loop's layout cannot change under it)."""
+
+    def __init__(self, level: int, key: str | None = None, name: str = "", levels: int = 1) -> None:
+        self.level, self.key, self.name, self.levels = level, key, name, levels
 
     @contextmanager
     def piece(self) -> Iterator[None]:
         checkpoint()
-        if self.key is None or _capturing() or not LEAF.acquire(blocking=False):
-            yield
-            return
         try:
-            stream = int(torch.cuda.current_stream(self.device).cuda_stream)
-            # The plan generation now; the level stays the loop's.
-            selection = select(self.device, self.key, self.name, self.menu, stream)
-            token = begin(
-                self.device, self.key, self.name, self.menu, self.level, selection, stream
-            )
-            submitted = False
-            try:
-                yield
-                submitted = True
-            finally:
-                vt.split_end(self.device, token, submitted=submitted)
-        finally:
-            LEAF.release()
+            yield
+        except BaseException as exc:
+            short = isinstance(exc, DoesNotFit) or is_capacity(exc)
+            if self.key is not None and short and self.level + 1 < self.levels:
+                _REFUSED[self.key] = self.level + 1
+                if (request := CURRENT.get()) is not None and self.key in request.working_splits:
+                    request.working_splits[self.key]["refused"] = {
+                        "level": self.level,
+                        "pure": False,
+                    }
+                print(
+                    f"cozy-runtime: {self.name} refused at level {self.level}: the next call "
+                    f"takes level {self.level + 1}",
+                    file=sys.stderr,
+                )
+            raise
 
 
 def fixed(name: str, finest: int, need: sizing.Need) -> Fixed:
     """The level of a cut into 2^level pieces down to `finest` that a loop keeps throughout,
-    chosen now by native selection, its room made; `DoesNotFit` where none can have it. Without
-    native memory, or small, whole; inside a capture or another site's leaf, the key's last."""
+    chosen now by native selection, its room made, no coarser than one a piece was refused at;
+    `DoesNotFit` where none can have it. Without native memory, or small, whole; inside a
+    capture or another site's leaf, the key's last."""
     checkpoint()
     request = CURRENT.get()
     native = request is not None and request.memory.cuda
@@ -350,9 +373,9 @@ def fixed(name: str, finest: int, need: sizing.Need) -> Fixed:
         request.memory.remember_working_phase(key, owners(request))
         stream = int(torch.cuda.current_stream(device).cuda_stream)
         selection = select(device, key, name, menu, stream)
-        level = LEVELS[key] = int(selection["choice_id"])
+        level = LEVELS[key] = max(int(selection["choice_id"]), _REFUSED.get(key, 0))
         note(request, key, name, level, selection)
-        return Fixed(level, key, name, menu, device)
+        return Fixed(level, key, name, len(menu))
     finally:
         LEAF.release()
 
@@ -381,17 +404,28 @@ def passing(module: nn.Module, args: Args, kwargs: Kwargs) -> Iterator[None]:
     key = phase.execution_key(f"{type(module).__qualname__}:{shapes}", "runtime.pass/1")
     assert key is not None
     request.memory.remember_working_phase(key, owners(request))
-    with phase.observing(
-        device,
-        "eager",
-        request.working_phases,
-        key=key,
-    ) as observation:
-        yield
-        if observation is not None:
-            # An eager observation holds the stream it ran on (`phase.observing`).
-            cast("torch.cuda.Stream", observation.completion_stream).synchronize()
-            observation.complete()
+    # Its passes' shape where its blocks mark them: a prompt's prefill is not its decode (cr-286).
+    shape = PASS_SHAPE.set(hash(key) & ((1 << 64) - 1) or 1)
+    try:
+        with phase.observing(
+            device,
+            "eager",
+            request.working_phases,
+            key=key,
+        ) as observation:
+            began = time.perf_counter()
+            yield
+            submitted = (time.perf_counter() - began) * 1e3
+            if observation is not None:
+                # An eager observation holds the stream it ran on (`phase.observing`).
+                cast("torch.cuda.Stream", observation.completion_stream).synchronize()
+                observation.complete()
+        if observation is not None and observation.result is not None:
+            from cozy_runtime import graphs  # residency imports graphs: loaded by now
+
+            graphs.passed_at(submitted, int(observation.result["peak_bytes"]))
+    finally:
+        PASS_SHAPE.reset(shape)
 
 
 def wrap(

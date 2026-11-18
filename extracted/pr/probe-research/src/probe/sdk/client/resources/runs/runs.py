@@ -24,7 +24,10 @@ from .....generated.models import (
     RunListLightRowOut,
     RunListRowOut,
     RunPageDetailOut,
+    ProjectReadmeOut,
     RunReproduce,
+    SandboxDiffResult,
+    SandboxFileContent,
     SpanOut,
     TrialListOut,
     TrialOut,
@@ -535,6 +538,22 @@ class RunsResource(Resource):
     def get_reproduction(self, run_id: str) -> RunReproduce:
         """`Client.run_reproduce` as a `RunReproduce`."""
         return self._to_model(RunReproduce, self._client.run_reproduce(run_id))
+
+    def get_readme(self, run_id: str) -> ProjectReadmeOut:
+        """`Client.get_run_readme` as a `ProjectReadmeOut`."""
+        return self._to_model(ProjectReadmeOut, self._client.get_run_readme(run_id))
+
+    def get_sandbox_diff(
+        self, run_id: str, trial: str, *, should_include_unchanged: bool | None = None, path_prefix: str | None = None,
+        cursor: str | None = None, limit: int | None = None,
+    ) -> SandboxDiffResult:
+        """`Client.get_sandbox_diff` as a `SandboxDiffResult`."""
+        return self._to_model(SandboxDiffResult, self._client.get_sandbox_diff(
+            run_id, trial, should_include_unchanged=should_include_unchanged, path_prefix=path_prefix, cursor=cursor, limit=limit))
+
+    def get_sandbox_file(self, run_id: str, trial: str, path: str, *, phase: str | None = None) -> SandboxFileContent:
+        """`Client.get_sandbox_file` as a `SandboxFileContent`."""
+        return self._to_model(SandboxFileContent, self._client.get_sandbox_file(run_id, trial, path, phase=phase))
 
     def get_lineage(self, run_id: str) -> RunLineage:
         """`Client.run_lineage` as a `RunLineage`."""

@@ -2,8 +2,103 @@
 
 """
 Analysis - Decoding pcap files and packets
+
+This module decodes BACnet traffic, from pcap files or captured live from a
+network interface, into frames with the BVLL, NPDU and APDU layers decoded.
+Pcap and pcapng files are read directly, keeping the full resolution of the
+packet timestamps.  Live capture needs the optional ``python-libpcap``
+package (the ``pylibpcap`` module).
+
+Run as a program it prints each frame as JSON::
+
+    python -m bacpypes3.analysis capture.pcap [more.pcap ...]
+    python -m bacpypes3.analysis -i eth0 [-f "udp port 47808"] [-c 100] [-p]
+
+The npci shows the SNET/SADR and DNET/DADR of the header as BACnet addresses
+("_source" and "_destination"), and the apdu (or a network layer message,
+the npdu) has the end-to-end "_source" and "_destination", SADR and DADR
+when the header has them, otherwise the link-level addresses.  The leading
+underscore marks them as derived, not fields of the packet.
+
+The same options are available to other programs with
+add_capture_arguments() and capture_sources(), and the Tracer and trace()
+API matches patterns of messages in files or live, for example
+samples/whois-tracer.py and samples/routing-tracer.py.
+
+Permission to capture from an interface
+---------------------------------------
+
+Reading a pcap file only needs read access to the file.  Capturing from an
+interface (``-i``, or ``decode_iface()``) opens a raw packet socket, and on
+Linux that requires the ``CAP_NET_RAW`` capability.  Ordinary users don't have
+it, and the capture fails with::
+
+    Attempt to create packet socket failed - CAP_NET_RAW may be required
+
+``decode_iface()`` raises this as a ``PermissionError``, and the command line
+program prints a short summary of the options below.  There are three ways
+around it:
+
+1.  Run the capture as root::
+
+        sudo .venv/bin/python -m bacpypes3.analysis -i eth0
+
+    Name the virtual environment's interpreter explicitly: ``sudo`` resets
+    ``PATH``, so a plain ``python`` would be the system interpreter, which
+    probably doesn't have ``pylibpcap`` (or bacpypes3) installed.  This is
+    the simplest choice for an occasional capture, but the whole program,
+    including any packet decoding bugs, runs as root.
+
+2.  Capture with ``dumpcap`` or ``tcpdump``, then decode the file::
+
+        dumpcap -i eth0 -f "udp port 47808" -a duration:60 -F pcap -w capture.pcap
+        python -m bacpypes3.analysis capture.pcap
+
+    No privileges are needed to decode.  When Wireshark is installed on
+    Debian/Ubuntu and "non-superusers may capture packets" is selected,
+    ``/usr/bin/dumpcap`` is given ``cap_net_raw,cap_net_admin`` and members
+    of the ``wireshark`` group can run it as themselves (check with
+    ``getcap /usr/bin/dumpcap`` and ``id -nG``; run
+    ``sudo dpkg-reconfigure wireshark-common`` and
+    ``sudo usermod -aG wireshark $USER`` to set it up, then log in again).
+    ``-F pcap`` writes classic pcap rather than pcapng; ``-a duration:60`` stops
+    after a minute (or use ``-c <count>``, or stop it with Ctrl-C).
+    ``sudo tcpdump -i eth0 -w capture.pcap udp port 47808`` works too.
+
+    This is the least privileged choice and the best one for routine use.
+    The drawback is that packets are not decoded as they arrive.
+
+3.  Give the Python interpreter the capability::
+
+        sudo setcap cap_net_raw,cap_net_admin=eip "$(readlink -f .venv/bin/python)"
+
+    After this, ``-i`` works as an ordinary user.  ``setcap`` does not follow
+    symbolic links, and a virtual environment's ``python`` is usually a
+    link, hence the ``readlink -f``.  Things to know before doing this:
+
+    *   The capability belongs to the interpreter binary, not to this
+        module, so *every* script run with that interpreter can open raw
+        sockets.  An interpreter managed by uv or pyenv is shared by all of
+        the virtual environments created from it.  A safer variant is a
+        dedicated copy of the interpreter used only for capturing.
+    *   It is lost when the binary is replaced, for example when uv or the
+        system package manager installs a new Python release, and has to be
+        applied again.
+    *   It has no effect on a file system mounted ``nosuid``.
+    *   Remove it with ``sudo setcap -r <path>``.
+
+    ``CAP_NET_RAW`` is what opening the socket requires; ``cap_net_admin``
+    is included to match what Wireshark gives ``dumpcap``.
+
+Inside a container, capturing also needs the capability granted to the
+container, for example ``docker run --cap-add NET_RAW ...``.  On macOS the
+equivalent restriction is access to the ``/dev/bpf*`` devices, which the
+Wireshark installer's "ChmodBPF" component grants to the ``access_bpf``
+group; on Windows, live capture needs Npcap installed.
 """
 
+import sys
+import os
 import time
 import socket
 import struct
@@ -31,7 +126,14 @@ from .settings import settings
 from .debugging import ModuleLogger, bacpypes_debugging, btox
 
 from .errors import DecodingError
-from .pdu import PDU, Address, LocalBroadcast, IPv4Address
+from .pdu import (
+    PDU,
+    Address,
+    ARCNETAddress,
+    LocalBroadcast,
+    IPv4Address,
+    IPv6Address,
+)
 from .ipv4.bvll import (
     LPCI,
     LPDU,
@@ -41,6 +143,7 @@ from .ipv4.bvll import (
     OriginalBroadcastNPDU,
     ForwardedNPDU,
 )
+from .ipv6 import bvll as bvll6
 from .npdu import NPCI, NPDU, npdu_types
 from .apdu import (
     APDU,
@@ -52,8 +155,10 @@ from .apdu import (
 )
 
 pylibpcap = None
+LibpcapError: Any = None
 try:
     import pylibpcap
+    from pylibpcap.exception import LibpcapError
 except ImportError:
     pass
 
@@ -66,8 +171,298 @@ _protocols = {
     socket.IPPROTO_TCP: "tcp",
     socket.IPPROTO_UDP: "udp",
     socket.IPPROTO_ICMP: "icmp",
+    socket.IPPROTO_ICMPV6: "icmpv6",
 }
+
+# IPv6 extension headers that can come between the fixed header and the
+# upper-layer protocol: hop-by-hop options, routing, fragment, destination
+# options
+_IPV6_FRAGMENT = 44
+_ipv6_extension_headers = (0, 43, _IPV6_FRAGMENT, 60)
 _ethernet_broadcast_address = Address("FF:FF:FF:FF:FF:FF")
+
+# link-layer header types, https://www.tcpdump.org/linktypes.html
+LINKTYPE_NULL = 0  # BSD loopback, 4-byte address family in host byte order
+LINKTYPE_ETHERNET = 1
+LINKTYPE_ARCNET_BSD = 7  # source, destination, system code
+LINKTYPE_RAW = 101  # raw IPv4/IPv6, e.g. tun interfaces
+LINKTYPE_LOOP = 108  # OpenBSD loopback, 4-byte address family in network order
+LINKTYPE_LINUX_SLL = 113  # Linux "cooked" capture v1, e.g. the "any" interface
+LINKTYPE_ARCNET_LINUX = 129  # source, destination, 2-byte offset, system code
+LINKTYPE_IPV4 = 228
+LINKTYPE_IPV6 = 229
+LINKTYPE_LINUX_SLL2 = 276  # Linux "cooked" capture v2
+
+# DLT_RAW is 12 (14 on OpenBSD), older files carry those values
+_raw_ip_linktypes = (LINKTYPE_RAW, LINKTYPE_IPV4, LINKTYPE_IPV6, 12, 14)
+
+linktypes: Dict[str, int] = {
+    "null": LINKTYPE_NULL,
+    "ethernet": LINKTYPE_ETHERNET,
+    "arcnet-bsd": LINKTYPE_ARCNET_BSD,
+    "raw": LINKTYPE_RAW,
+    "loop": LINKTYPE_LOOP,
+    "linux-sll": LINKTYPE_LINUX_SLL,
+    "arcnet-linux": LINKTYPE_ARCNET_LINUX,
+    "ipv4": LINKTYPE_IPV4,
+    "ipv6": LINKTYPE_IPV6,
+    "linux-sll2": LINKTYPE_LINUX_SLL2,
+}
+_supported_linktypes = set(linktypes.values()) | set(_raw_ip_linktypes)
+
+# AF_INET6 for the NULL/LOOP link types depends on the capturing OS: Linux,
+# NetBSD/OpenBSD, FreeBSD, macOS
+_null_af_inet6 = (10, 24, 28, 30)
+
+# Linux packet types from the cooked header (<linux/if_packet.h>)
+_PACKET_BROADCAST = 1
+
+# the cooked header protocol for 802.3 frames that carry 802.2 LLC
+_ETH_P_802_2 = 0x0004
+
+# ARCNET system code for BACnet (Clause 8.3)
+_ARCNET_SC_BACNET = 0xCD
+
+# the system code and data of a short ARCNET frame is at most 253 octets,
+# longer frames are "long" frames
+_ARCNET_SHORT_MAX = 253
+
+# long frames received through Linux ARCNET drivers have been seen with 3
+# trailing octets that are not part of the frame (but not long frames sent
+# by the capturing station), see decode_packet()
+_ARCNET_LONG_PADDING = 3
+
+# BACnet LSAP and LLC UI control (Clauses 7.1 and 8.2)
+_LLC_BACNET = (0x82, 0x82, 0x03)
+
+# Linux ARPHRD_* interface types to link-layer types
+_arphrd_linktypes = {
+    1: LINKTYPE_ETHERNET,  # ARPHRD_ETHER
+    7: LINKTYPE_ARCNET_LINUX,  # ARPHRD_ARCNET
+    772: LINKTYPE_ETHERNET,  # ARPHRD_LOOPBACK, libpcap fakes Ethernet
+    65534: LINKTYPE_RAW,  # ARPHRD_NONE, tun interfaces
+}
+
+
+def pcap_file_linktype(fname: str) -> int:
+    """
+    Return the link-layer header type of a pcap or pcapng file by reading its
+    header.  The pylibpcap reader does not expose pcap_datalink().
+    """
+    with open(fname, "rb") as f:
+        header = f.read(24)
+        if len(header) < 24:
+            raise ValueError(f"{fname}: not a pcap or pcapng file")
+
+        # classic pcap, microsecond or nanosecond timestamps, either byte order
+        magic = header[:4]
+        if magic in (b"\xa1\xb2\xc3\xd4", b"\xa1\xb2\x3c\x4d"):
+            return struct.unpack("!I", header[20:24])[0] & 0xFFFF
+        if magic in (b"\xd4\xc3\xb2\xa1", b"\x4d\x3c\xb2\xa1"):
+            return struct.unpack("<I", header[20:24])[0] & 0xFFFF
+
+        # pcapng starts with a Section Header Block with a byte order magic
+        if magic != b"\x0a\x0d\x0d\x0a":
+            raise ValueError(f"{fname}: not a pcap or pcapng file")
+        if header[8:12] == b"\x1a\x2b\x3c\x4d":
+            endian = "!"
+        elif header[8:12] == b"\x4d\x3c\x2b\x1a":
+            endian = "<"
+        else:
+            raise ValueError(f"{fname}: invalid pcapng byte order magic")
+
+        # walk the blocks looking for the first Interface Description Block,
+        # libpcap requires all interfaces in a file share the same link type
+        f.seek(0)
+        while True:
+            block_header = f.read(12)
+            if len(block_header) < 12:
+                raise ValueError(f"{fname}: no pcapng interface description block")
+            block_type, block_length = struct.unpack(endian + "II", block_header[:8])
+            if block_type == 1:
+                return struct.unpack(endian + "H", block_header[8:10])[0]
+            if block_length < 12:
+                raise ValueError(f"{fname}: invalid pcapng block length")
+            f.seek(block_length - 12, 1)
+
+
+# classic pcap magic numbers, read in the file's byte order, and the number of
+# timestamp fraction units per second
+_pcap_magic_units = {
+    0xA1B2C3D4: 1_000_000,  # microseconds
+    0xA1B23C4D: 1_000_000_000,  # nanoseconds
+}
+
+# pcapng block types
+_PCAPNG_SHB = b"\x0a\x0d\x0d\x0a"  # palindrome, the same in either byte order
+_PCAPNG_IDB = 1
+_PCAPNG_PB = 2  # obsolete Packet Block
+_PCAPNG_SPB = 3
+_PCAPNG_EPB = 6
+
+# pcapng Interface Description Block options
+_IF_TSRESOL = 9
+_IF_TSOFFSET = 14
+
+
+def _check_linktype(fname: str, linktype: int) -> None:
+    if linktype not in _supported_linktypes:
+        raise ValueError(f"{fname}: unsupported link type: {linktype}")
+
+
+def read_pcap_file(fname: str) -> Iterator[Tuple[float, int, bytes]]:
+    """
+    Read a pcap or pcapng file and yield a (timestamp, linktype, data) tuple
+    for each packet.
+
+    The timestamp is in seconds since the epoch with the resolution the file
+    provides (microseconds, nanoseconds, or a pcapng interface's if_tsresol),
+    which the pylibpcap file reader truncates to whole seconds.  The link
+    type is given for each packet because the interfaces in a pcapng file
+    can have different ones.  A truncated last packet, as in a file that is
+    still being written, ends the iteration.
+    """
+    with open(fname, "rb") as f:
+        if f.read(4) == _PCAPNG_SHB:
+            f.seek(0)
+            yield from _read_pcapng(fname, f)
+        else:
+            f.seek(0)
+            yield from _read_pcap(fname, f)
+
+
+def _read_pcap(fname: str, f) -> Iterator[Tuple[float, int, bytes]]:
+    """Read the packets of a classic pcap file."""
+    header = f.read(24)
+    if len(header) < 24:
+        raise ValueError(f"{fname}: not a pcap or pcapng file")
+
+    for endian in (">", "<"):
+        magic = struct.unpack(endian + "I", header[:4])[0]
+        if magic in _pcap_magic_units:
+            units = _pcap_magic_units[magic]
+            break
+    else:
+        raise ValueError(f"{fname}: not a pcap or pcapng file")
+
+    # the upper bits of the link type field carry FCS information
+    linktype = struct.unpack(endian + "I", header[20:24])[0] & 0xFFFF
+    _check_linktype(fname, linktype)
+
+    record = struct.Struct(endian + "IIII")
+    while True:
+        record_header = f.read(record.size)
+        if len(record_header) < record.size:
+            break
+        ts_sec, ts_frac, incl_len, _orig_len = record.unpack(record_header)
+        data = f.read(incl_len)
+        if len(data) < incl_len:
+            break
+        yield ts_sec + ts_frac / units, linktype, data
+
+
+def _pcapng_options(endian: str, data: bytes) -> Iterator[Tuple[int, bytes]]:
+    """Yield the (code, value) pairs of a pcapng options list."""
+    i = 0
+    while i + 4 <= len(data):
+        code, length = struct.unpack_from(endian + "HH", data, i)
+        if code == 0:  # opt_endofopt
+            break
+        yield code, data[i + 4 : i + 4 + length]
+        i += 4 + length + (-length % 4)
+
+
+def _read_pcapng(fname: str, f) -> Iterator[Tuple[float, int, bytes]]:
+    """Read the packets of a pcapng file."""
+    endian = "<"
+
+    # (linktype, timestamp units per second, timestamp offset, snaplen) for
+    # each interface in the current section
+    interfaces: List[Tuple[int, int, int, int]] = []
+
+    def interface(interface_id: int) -> Tuple[int, int, int, int]:
+        if interface_id >= len(interfaces):
+            raise ValueError(f"{fname}: packet for undefined interface {interface_id}")
+        return interfaces[interface_id]
+
+    while True:
+        block_header = f.read(12)
+        if len(block_header) < 12:
+            break
+
+        # a new section has its own byte order and interfaces
+        if block_header[:4] == _PCAPNG_SHB:
+            if block_header[8:12] == b"\x1a\x2b\x3c\x4d":
+                endian = ">"
+            elif block_header[8:12] == b"\x4d\x3c\x2b\x1a":
+                endian = "<"
+            else:
+                raise ValueError(f"{fname}: invalid pcapng byte order magic")
+            interfaces = []
+
+        block_type, block_length = struct.unpack(endian + "II", block_header[:8])
+        if (block_length < 12) or (block_length % 4):
+            raise ValueError(f"{fname}: invalid pcapng block length")
+        block = block_header + f.read(block_length - 12)
+        if len(block) < block_length:
+            break
+
+        # the body is between the type and length and the trailing length
+        body = block[8:-4]
+        try:
+            if block_type == _PCAPNG_IDB:
+                linktype, _reserved, snaplen = struct.unpack_from(endian + "HHI", body)
+                units, offset = 1_000_000, 0
+                for code, value in _pcapng_options(endian, body[8:]):
+                    if (code == _IF_TSRESOL) and value:
+                        # 10**-n seconds, or 2**-n when the high bit is set
+                        resolution = value[0]
+                        if resolution & 0x80:
+                            units = 2 ** (resolution & 0x7F)
+                        else:
+                            units = 10**resolution
+                    elif (code == _IF_TSOFFSET) and (len(value) >= 8):
+                        offset = struct.unpack(endian + "q", value[:8])[0]
+                _check_linktype(fname, linktype)
+                interfaces.append((linktype, units, offset, snaplen))
+
+            elif block_type in (_PCAPNG_EPB, _PCAPNG_PB):
+                if block_type == _PCAPNG_EPB:
+                    interface_id, ts_high, ts_low, cap_len = struct.unpack_from(
+                        endian + "IIII", body
+                    )
+                else:
+                    interface_id = struct.unpack_from(endian + "H", body)[0]
+                    ts_high, ts_low, cap_len = struct.unpack_from(
+                        endian + "III", body, 4
+                    )
+                linktype, units, offset, _snaplen = interface(interface_id)
+                timestamp = offset + ((ts_high << 32) | ts_low) / units
+                yield timestamp, linktype, body[20 : 20 + cap_len]
+
+            elif block_type == _PCAPNG_SPB:
+                # a Simple Packet Block has no timestamp, libpcap uses zero
+                orig_len = struct.unpack_from(endian + "I", body)[0]
+                linktype, _units, _offset, snaplen = interface(0)
+                cap_len = min(orig_len, snaplen) if snaplen else orig_len
+                yield 0.0, linktype, body[4 : 4 + cap_len]
+
+        except struct.error:
+            raise ValueError(f"{fname}: malformed pcapng block type {block_type}")
+
+
+def iface_linktype(iface: str) -> Optional[int]:
+    """
+    Return the link-layer header type libpcap will use for a live capture on
+    an interface, or None if it cannot be determined (Linux only).
+    """
+    if iface == "any":
+        return LINKTYPE_LINUX_SLL
+    try:
+        with open(f"/sys/class/net/{iface}/type") as f:
+            return _arphrd_linktypes.get(int(f.read().strip()))
+    except (OSError, ValueError):
+        return None
 
 
 def strftimestamp(ts):
@@ -198,6 +593,111 @@ def decode_vlan(s) -> VLAN:
 
 
 @dataclass
+class ARCNET:
+    source_address: int
+    destination_address: int
+    system_code: int
+    data: bytes
+    padding: bytes = b""
+
+    def dict_contents(
+        self,
+        use_dict: Optional[Dict[str, Any]] = None,
+        *,
+        as_class: Union[Callable[[], Dict[str, Any]]] = dict,
+        include_data: Optional[bool] = True,
+    ):
+        # make/extend the dictionary of content
+        if use_dict is None:
+            if _debug:
+                NPCI._debug("    - new use_dict")
+            use_dict = as_class()
+
+        use_dict.__setitem__("source_address", self.source_address)
+        use_dict.__setitem__("destination_address", self.destination_address)
+        use_dict.__setitem__("system_code", self.system_code)
+        if self.padding:
+            use_dict.__setitem__("padding", self.padding)
+
+        if include_data:
+            use_dict.__setitem__("data", self.data)
+
+        # return what we built/updated
+        return use_dict
+
+
+@bacpypes_debugging
+def decode_arcnet(s, linktype: int = LINKTYPE_ARCNET_LINUX) -> ARCNET:
+    """
+    Decode the ARCNET header.  The Linux header has a 2-byte offset between
+    the addresses and the system code.  Some system codes (RFC 1201) are
+    followed by a split flag and sequence number, BACnet is not.
+    """
+    if _debug:
+        decode_arcnet._debug("decode_arcnet %s...", btox(s[:5], "."))
+
+    header_len = 5 if linktype == LINKTYPE_ARCNET_LINUX else 3
+    d = ARCNET(
+        source_address=s[0],
+        destination_address=s[1],
+        system_code=s[header_len - 1],
+        data=s[header_len:],
+    )
+
+    return d
+
+
+@dataclass
+class LLC:
+    dsap: int
+    ssap: int
+    control: int
+    data: bytes
+
+    def dict_contents(
+        self,
+        use_dict: Optional[Dict[str, Any]] = None,
+        *,
+        as_class: Union[Callable[[], Dict[str, Any]]] = dict,
+        include_data: Optional[bool] = True,
+    ):
+        # make/extend the dictionary of content
+        if use_dict is None:
+            if _debug:
+                NPCI._debug("    - new use_dict")
+            use_dict = as_class()
+
+        use_dict.__setitem__("dsap", self.dsap)
+        use_dict.__setitem__("ssap", self.ssap)
+        use_dict.__setitem__("control", self.control)
+
+        if include_data:
+            use_dict.__setitem__("data", self.data)
+
+        # return what we built/updated
+        return use_dict
+
+
+@bacpypes_debugging
+def decode_llc(s) -> LLC:
+    """
+    Decode the IEEE 802.2 LLC header.  BACnet only uses UI frames which have
+    a 1-byte control field, other frame types are not decoded further.
+    """
+    if _debug:
+        decode_llc._debug("decode_llc %s...", btox(s[:3], "."))
+
+    d = LLC(
+        dsap=s[0],
+        ssap=s[1],
+        control=s[2],
+        data=s[3:],
+    )
+
+    return d
+
+
+@dataclass
 class IPv4:
     version: int
     header_len: int
@@ -263,14 +763,114 @@ def decode_ipv4(s) -> IPv4:
         total_len=struct.unpack("!H", s[2:4])[0],
         id=struct.unpack("!H", s[4:6])[0],
         flags=(s[6] & 0xE0) >> 5,
-        fragment_offset=struct.unpack("!H", s[6:8])[0] & 0x1F,
+        fragment_offset=struct.unpack("!H", s[6:8])[0] & 0x1FFF,
         ttl=s[8],
         protocol=_protocols.get(s[9], "0x%.2x ?" % s[9]),
         checksum=struct.unpack("!H", s[10:12])[0],
         source_address=socket.inet_ntoa(s[12:16]),
         destination_address=socket.inet_ntoa(s[16:20]),
-        options=s[20 : 4 * (header_len - 5)] if header_len > 5 else None,
+        options=s[20 : 4 * header_len] if header_len > 5 else None,
         data=s[4 * header_len :],
+    )
+
+    return d
+
+
+@dataclass
+class IPv6:
+    version: int
+    traffic_class: int
+    flow_label: int
+    payload_len: int
+    next_header: int
+    hop_limit: int
+    source_address: str
+    destination_address: str
+    extension_headers: List[int]
+    protocol: str
+    fragment_offset: int
+    data: bytes
+
+    def dict_contents(
+        self,
+        use_dict: Optional[Dict[str, Any]] = None,
+        *,
+        as_class: Union[Callable[[], Dict[str, Any]]] = dict,
+        include_data: Optional[bool] = True,
+    ):
+        # make/extend the dictionary of content
+        if use_dict is None:
+            if _debug:
+                NPCI._debug("    - new use_dict")
+            use_dict = as_class()
+
+        use_dict.__setitem__("version", self.version)
+        use_dict.__setitem__("traffic_class", self.traffic_class)
+        use_dict.__setitem__("flow_label", self.flow_label)
+        use_dict.__setitem__("payload_len", self.payload_len)
+        use_dict.__setitem__("next_header", self.next_header)
+        use_dict.__setitem__("hop_limit", self.hop_limit)
+        use_dict.__setitem__("source_address", self.source_address)
+        use_dict.__setitem__("destination_address", self.destination_address)
+        if self.extension_headers:
+            use_dict.__setitem__("extension_headers", self.extension_headers)
+            use_dict.__setitem__("fragment_offset", self.fragment_offset)
+        use_dict.__setitem__("protocol", self.protocol)
+
+        if include_data:
+            use_dict.__setitem__("data", self.data)
+
+        # return what we built/updated
+        return use_dict
+
+
+@bacpypes_debugging
+def decode_ipv6(s) -> IPv6:
+    """
+    Decode the IPv6 header and skip over any extension headers.  The protocol
+    is the upper-layer protocol, the data is its payload.
+    """
+    if _debug:
+        decode_ipv6._debug("decode_ipv6 %r", btox(s[:40], "."))
+
+    x = struct.unpack("!I", s[0:4])[0]
+    payload_len = struct.unpack("!H", s[4:6])[0]
+    next_header = s[6]
+
+    # a zero payload length is a jumbogram, the length is in an option
+    data = s[40 : 40 + payload_len] if payload_len else s[40:]
+
+    # walk the extension header chain
+    extension_headers: List[int] = []
+    fragment_offset = 0
+    protocol = next_header
+    while (protocol in _ipv6_extension_headers) and (len(data) >= 8):
+        extension_headers.append(protocol)
+        if protocol == _IPV6_FRAGMENT:
+            fragment_offset = struct.unpack("!H", data[2:4])[0] >> 3
+            header_len = 8
+        else:
+            header_len = (data[1] + 1) * 8
+        protocol = data[0]
+        data = data[header_len:]
+
+        # a later fragment does not start with the upper-layer header
+        if fragment_offset:
+            break
+
+    d = IPv6(
+        version=x >> 28,
+        traffic_class=(x >> 20) & 0xFF,
+        flow_label=x & 0xFFFFF,
+        payload_len=payload_len,
+        next_header=next_header,
+        hop_limit=s[7],
+        source_address=socket.inet_ntop(socket.AF_INET6, s[8:24]),
+        destination_address=socket.inet_ntop(socket.AF_INET6, s[24:40]),
+        extension_headers=extension_headers,
+        protocol=_protocols.get(protocol, "0x%.2x ?" % protocol),
+        fragment_offset=fragment_offset,
+        data=data,
     )
 
     return d
@@ -303,7 +903,7 @@ class UDP:
         use_dict.__setitem__("checksum", self.checksum)
 
         if include_data:
-            use_dict.__setitem__("type", self.data)
+            use_dict.__setitem__("data", self.data)
 
         # return what we built/updated
         return use_dict
@@ -328,8 +928,11 @@ def decode_udp(s):
 @dataclass
 class Frame:
     ethernet: Optional[Ethernet] = None
+    arcnet: Optional[ARCNET] = None
     vlan: Optional[VLAN] = None
+    llc: Optional[LLC] = None
     ipv4: Optional[IPv4] = None
+    ipv6: Optional[IPv6] = None
     udp: Optional[UDP] = None
     bvlci: Optional[LPCI] = None
     bvll: Optional[LPDU] = None
@@ -353,8 +956,11 @@ class Frame:
 
         for attr in (
             "ethernet",
+            "arcnet",
             "vlan",
+            "llc",
             "ipv4",
+            "ipv6",
             "udp",
             "bvlci",
             "bvll",
@@ -364,20 +970,86 @@ class Frame:
             "apdu",
         ):
             v = getattr(self, attr)
-            if v is not None:
-                use_dict.__setitem__(
-                    attr, v.dict_contents(as_class=as_class, include_data=include_data)
-                )
+            if v is None:
+                continue
+            contents = v.dict_contents(as_class=as_class, include_data=include_data)
+
+            # each header has only what its own fields say, the content of
+            # the NPDU (an APDU or a network layer message) has the
+            # end-to-end source and destination
+            if attr == "npci":
+                contents = _npci_address_strings(v, contents, as_class)
+            elif attr == "apci":
+                contents.pop("source", None)
+                contents.pop("destination", None)
+            elif attr in ("npdu", "apdu"):
+                if attr == "npdu":
+                    for key in _npci_routing_keys:
+                        contents.pop(key, None)
+                contents = _with_addresses(v, contents, as_class)
+
+            use_dict.__setitem__(attr, contents)
 
         # return what we built/updated
         return use_dict
 
 
+# network layer header fields that are only shown in the npci
+_npci_routing_keys = ("dnet", "dlen", "dadr", "snet", "slen", "sadr", "hop_count")
+
+
+def _npci_address_strings(npci: NPCI, contents: Dict[str, Any], as_class) -> Any:
+    """
+    Add the destination and source addresses of an NPCI as strings,
+    "_destination" after "dadr" and "_source" after "sadr", when the header
+    has them.  The leading underscore marks them as derived from the
+    header fields, not part of the packet.
+    """
+    result = as_class()
+    for key, value in contents.items():
+        result[key] = value
+        if (key == "dadr") and npci.npduDADR:
+            result["_destination"] = str(npci.npduDADR)
+        elif (key == "sadr") and npci.npduSADR:
+            result["_source"] = str(npci.npduSADR)
+    return result
+
+
+def _with_addresses(pdu: PDU, contents: Dict[str, Any], as_class) -> Any:
+    """
+    Return the contents of a PDU with its source and destination first, as
+    strings named "_source" and "_destination" because they are derived and
+    not part of the packet.
+    """
+    result = as_class()
+    for key, address in (
+        ("_source", pdu.pduSource),
+        ("_destination", pdu.pduDestination),
+    ):
+        if address is not None:
+            result[key] = str(address)
+    result.update(contents)
+    return result
+
+
+def _end_to_end(pdu: PDU, npci: NPCI) -> None:
+    """
+    The source and destination of the content of an NPDU (an APDU or a
+    network layer message) are where it came from and where it is going in
+    the internetwork: SADR and DADR from the network layer header when it
+    has them, otherwise the link-level addresses.
+    """
+    if npci.npduSADR:
+        pdu.pduSource = npci.npduSADR
+    if npci.npduDADR:
+        pdu.pduDestination = npci.npduDADR
+
+
 @bacpypes_debugging
-def decode_packet(data: bytes) -> Optional[Frame]:
+def _decode_packet(data: bytes, linktype: int) -> Optional[Frame]:
     """Decode the data, return a Frame object or None."""
     if _debug:
-        decode_packet._debug("decode_packet %r", data)
+        _decode_packet._debug("_decode_packet %r linktype=%r", data, linktype)
 
     # empty strings are some other kind of pcap content
     if not data:
@@ -386,25 +1058,86 @@ def decode_packet(data: bytes) -> Optional[Frame]:
     # a place to stuff everything
     frame = Frame()
 
-    # assume it is ethernet for now
-    ethernet = decode_ethernet(data)
-    data = ethernet.data
+    # addresses are filled in from the link layer and/or IP/UDP headers
+    pduSource: Optional[Address] = None
+    pduDestination: Optional[Address] = None
+    ethernet_type: Optional[int] = None
+    has_llc = False
 
-    # basic source and destination
-    pduSource = Address(ethernet.source_address)
-    if ethernet.destination_address == "FF:FF:FF:FF:FF:FF":
-        pduDestination = LocalBroadcast()
+    if linktype == LINKTYPE_ETHERNET:
+        ethernet = decode_ethernet(data)
+        data = ethernet.data
+
+        # basic source and destination
+        pduSource = Address(ethernet.source_address)
+        if ethernet.destination_address == "ff:ff:ff:ff:ff:ff":
+            pduDestination = LocalBroadcast()
+        else:
+            pduDestination = Address(ethernet.destination_address)
+
+        # save the header
+        frame.ethernet = ethernet
+        ethernet_type = ethernet.type
+
+    elif linktype in _raw_ip_linktypes:
+        # no link-layer header, the IP version is in the first nibble
+        version = data[0] >> 4
+        if version == 4:
+            ethernet_type = 0x0800
+        elif version == 6:
+            ethernet_type = 0x86DD
+
+    elif linktype in (LINKTYPE_NULL, LINKTYPE_LOOP):
+        # the byte order depends on the type and (for NULL) the capturing
+        # host, so accept either, AF_INET is 2 everywhere
+        family = struct.unpack("<I", data[:4])[0]
+        if family > 0xFFFF:
+            family = struct.unpack("!I", data[:4])[0]
+        if family == socket.AF_INET:
+            ethernet_type = 0x0800
+        elif family in _null_af_inet6:
+            ethernet_type = 0x86DD
+        data = data[4:]
+
+    elif linktype == LINKTYPE_LINUX_SLL:
+        packet_type, _, addr_len = struct.unpack("!HHH", data[0:6])
+        if addr_len == 6:
+            pduSource = Address(btox(data[6:12], ":"))
+        ethernet_type = struct.unpack("!H", data[14:16])[0]
+        if packet_type == _PACKET_BROADCAST:
+            pduDestination = LocalBroadcast()
+        data = data[16:]
+
+    elif linktype == LINKTYPE_LINUX_SLL2:
+        ethernet_type = struct.unpack("!H", data[0:2])[0]
+        if data[11] == 6:
+            pduSource = Address(btox(data[12:18], ":"))
+        if data[10] == _PACKET_BROADCAST:
+            pduDestination = LocalBroadcast()
+        data = data[20:]
+
+    elif linktype in (LINKTYPE_ARCNET_BSD, LINKTYPE_ARCNET_LINUX):
+        arcnet = decode_arcnet(data, linktype)
+        data = arcnet.data
+
+        # ARCNET addresses are one octet, zero is broadcast
+        pduSource = ARCNETAddress(arcnet.source_address)
+        if arcnet.destination_address == 0:
+            pduDestination = LocalBroadcast()
+        else:
+            pduDestination = ARCNETAddress(arcnet.destination_address)
+
+        # save the header
+        frame.arcnet = arcnet
+        has_llc = arcnet.system_code == _ARCNET_SC_BACNET
+
     else:
-        pduDestination = Address(ethernet.destination_address)
-
-    # save the header
-    frame.ethernet = ethernet
-    ethernet_type: int = ethernet.type
+        raise DecodingError(f"unsupported link type: {linktype}")
 
     # there could be a VLAN header
     if ethernet_type == 0x8100:
         if _debug:
-            decode_packet._debug("    - vlan found")
+            _decode_packet._debug("    - vlan found")
 
         vlan = decode_vlan(data)
         data = vlan.data
@@ -414,107 +1147,195 @@ def decode_packet(data: bytes) -> Optional[Frame]:
 
         ethernet_type = vlan.type
 
+    # 802.3 frames have a length rather than an EtherType and carry LLC, the
+    # Linux cooked header labels them ETH_P_802_2
+    if (
+        (frame.ethernet is not None)
+        and (ethernet_type is not None)
+        and (ethernet_type <= 1500)
+    ):
+        data = data[:ethernet_type]  # strip any padding
+        has_llc = True
+    elif (linktype in (LINKTYPE_LINUX_SLL, LINKTYPE_LINUX_SLL2)) and (
+        ethernet_type == _ETH_P_802_2
+    ):
+        has_llc = True
+
+    # BACnet/Ethernet (Clause 7) and BACnet/ARCNET (Clause 8) put the NPDU
+    # in an LLC UI frame
+    if has_llc:
+        if _debug:
+            _decode_packet._debug("    - LLC found")
+
+        llc = frame.llc = decode_llc(data)
+        data = llc.data
+        if (llc.dsap, llc.ssap, llc.control) != _LLC_BACNET:
+            if _debug:
+                _decode_packet._debug("    - not a BACnet LLC frame")
+            return frame
+
     # look for IP packets
+    ip: Union[IPv4, IPv6, None] = None
     if ethernet_type == 0x0800:
         if _debug:
-            decode_packet._debug("    - IP found")
+            _decode_packet._debug("    - IPv4 found")
 
-        ipv4 = decode_ipv4(data)
-        data = ipv4.data
+        ip = frame.ipv4 = decode_ipv4(data)
+    elif ethernet_type == 0x86DD:
+        if _debug:
+            _decode_packet._debug("    - IPv6 found")
 
-        # save the header
-        frame.ipv4 = ipv4
+        ip = frame.ipv6 = decode_ipv6(data)
+    else:
+        if _debug:
+            _decode_packet._debug("    - not an IP packet")
 
-        # check for a UDP packet
-        if ipv4.protocol == "udp":
+    if ip:
+        data = ip.data
+
+        # check for a UDP packet, later fragments do not have a UDP header
+        if ip.protocol != "udp":
             if _debug:
-                decode_packet._debug("    - UDP found")
+                _decode_packet._debug("    - not a UDP packet")
+        elif ip.fragment_offset:
+            if _debug:
+                _decode_packet._debug("    - not the first fragment")
+        else:
+            if _debug:
+                _decode_packet._debug("    - UDP found")
 
             udp = decode_udp(data)
             data = udp.data
 
             # update the source and destination
-            pduSource = IPv4Address((ipv4.source_address, udp.source_port))
-            if not isinstance(pduDestination, LocalBroadcast):
-                pduDestination = IPv4Address(
-                    (ipv4.destination_address, udp.destination_port)
+            if isinstance(ip, IPv4):
+                pduSource = IPv4Address((ip.source_address, udp.source_port))
+
+                # without a MAC address the limited broadcast address is the
+                # only broadcast that is certain
+                if (frame.ethernet is None) and (
+                    ip.destination_address == "255.255.255.255"
+                ):
+                    pduDestination = LocalBroadcast()
+                if not isinstance(pduDestination, LocalBroadcast):
+                    pduDestination = IPv4Address(
+                        (ip.destination_address, udp.destination_port)
+                    )
+            else:
+                # BACnet/IPv6 broadcasts are multicasts, the BVLL function
+                # says which it is
+                pduSource = IPv6Address((ip.source_address, udp.source_port))
+                pduDestination = IPv6Address(
+                    (ip.destination_address, udp.destination_port)
                 )
 
             # save the header
             frame.udp = udp
-        else:
-            if _debug:
-                decode_packet._debug("    - not a UDP packet")
-    else:
+
+    # without link layer or UDP addresses there is no BACnet to decode
+    if pduSource is None:
         if _debug:
-            decode_packet._debug("    - not an IP packet")
+            _decode_packet._debug("    - no link layer or UDP addresses")
+        return frame
+
+    # NPDUs are carried in UDP (Annex J, Annex U) or LLC (Clauses 7 and 8),
+    # anything else that happens to start with 0x01 is not BACnet
+    if (frame.udp is None) and (frame.llc is None):
+        if _debug:
+            _decode_packet._debug("    - not UDP or BACnet LLC")
+        return frame
 
     # check for empty
     if not data:
         if _debug:
-            decode_packet._debug("    - empty packet")
+            _decode_packet._debug("    - empty packet")
         return frame
 
     # build a PDU, to be consumed by the decode functions
     pdu = PDU(data, source=pduSource, destination=pduDestination)
     if _debug:
-        decode_packet._debug("    - pdu: %r", pdu)
+        _decode_packet._debug("    - pdu: %r", pdu)
 
-    # check for a BVLL header
-    if pdu.pduData[0] == 0x81:
+    # check for a BVLL header, BACnet/IPv4 (Annex J) or BACnet/IPv6 (Annex U)
+    bvll_type = pdu.pduData[0]
+    if (frame.udp is not None) and (bvll_type in (0x81, 0x82)):
         if _debug:
-            decode_packet._debug("    - BVLL header found")
+            _decode_packet._debug("    - BVLL header found: %r", bvll_type)
 
+        lpci_class = LPCI if bvll_type == 0x81 else bvll6.LPCI
         try:
-            lpci = LPCI.decode(pdu)
+            lpci = lpci_class.decode(pdu)
             frame.bvlci = lpci
         except Exception as err:
             if _debug:
-                decode_packet._debug("    - BVLL PDU decoding error: %r", err)
+                _decode_packet._debug("    - BVLL PDU decoding error: %r", err)
             return frame
 
         # find the appropriate LPDU subclass
         try:
-            lpdu_class = bvll_pdu_types[lpci.bvlciFunction]
+            if bvll_type == 0x81:
+                lpdu_class = bvll_pdu_types[lpci.bvlciFunction]
+            else:
+                lpdu_class = bvll6.pdu_types[lpci.bvlciFunction]
         except KeyError:
             raise DecodingError(f"unrecognized BVLL function: {lpci.bvlciFunction}")
         if _debug:
-            decode_packet._debug("    - lpdu_class: %r", lpdu_class)
+            _decode_packet._debug("    - lpdu_class: %r", lpdu_class)
 
         try:
             # ask the subclass to decode the rest of the pdu
             lpdu = lpdu_class.decode(pdu)
             frame.bvll = lpdu
 
-            # no deeper decoding for some
-            if not isinstance(
-                lpdu,
-                (
-                    DistributeBroadcastToNetwork,
-                    OriginalUnicastNPDU,
-                    OriginalBroadcastNPDU,
-                    ForwardedNPDU,
-                ),
-            ):
-                return frame
+            if bvll_type == 0x81:
+                # no deeper decoding for some
+                if not isinstance(
+                    lpdu,
+                    (
+                        DistributeBroadcastToNetwork,
+                        OriginalUnicastNPDU,
+                        OriginalBroadcastNPDU,
+                        ForwardedNPDU,
+                    ),
+                ):
+                    return frame
 
-            # update source address
-            if isinstance(lpdu, ForwardedNPDU):
-                pduSource = lpdu.bvlciAddress
+                # update source address
+                if isinstance(lpdu, ForwardedNPDU):
+                    pduSource = lpdu.bvlciAddress
+
+            else:
+                # the BACnet/IPv6 MAC address is the virtual address (VMAC)
+                if isinstance(lpdu, bvll6.OriginalUnicastNPDU):
+                    pduSource = lpdu.bvlciSourceVirtualAddress
+                    pduDestination = lpdu.bvlciDestinationVirtualAddress
+                elif isinstance(
+                    lpdu,
+                    (
+                        bvll6.OriginalBroadcastNPDU,
+                        bvll6.ForwardedNPDU,
+                        bvll6.DistributeBroadcastToNetwork,
+                    ),
+                ):
+                    pduSource = lpdu.bvlciSourceVirtualAddress
+                    pduDestination = LocalBroadcast()
+                else:
+                    # no deeper decoding for the rest
+                    return frame
 
             # reference the rest of the packet
             pdu = PDU(lpdu.pduData, source=pduSource, destination=pduDestination)
 
         except Exception as err:
             if _debug:
-                decode_packet._debug("    - %r decoding Error: %r", lpdu_class, err)
+                _decode_packet._debug("    - %r decoding Error: %r", lpdu_class, err)
                 traceback.print_stack()
             return frame
 
     # check for version number
     if pdu.pduData[0] != 0x01:
         if _debug:
-            decode_packet._debug(
+            _decode_packet._debug(
                 "    - not a version 1 packet: %s...", btox(pdu.pduData[:30], ".")
             )
         return frame
@@ -525,15 +1346,15 @@ def decode_packet(data: bytes) -> Optional[Frame]:
         frame.npci = npci
     except Exception as err:
         if _debug:
-            decode_packet._debug("    - NPDU decoding Error: %r", err)
+            _decode_packet._debug("    - NPDU decoding Error: %r", err)
         return frame
     if _debug:
-        decode_packet._debug("    - npci: %r", npci)
+        _decode_packet._debug("    - npci: %r", npci)
 
     # application or network layer message
     if npci.npduNetMessage is None:
         if _debug:
-            decode_packet._debug("    - not a network layer message, try as an APDU")
+            _decode_packet._debug("    - not a network layer message, try as an APDU")
 
         # keep the 'null' out of the JSON encoding
         delattr(npci, "npduNetMessage")
@@ -543,37 +1364,43 @@ def decode_packet(data: bytes) -> Optional[Frame]:
             apdu = APDU.decode(pdu)
             frame.apdu = apdu
             if _debug:
-                decode_packet._debug("    - apdu: %r", apdu)
+                _decode_packet._debug("    - apdu: %r", apdu)
         except Exception as err:
             if _debug:
-                decode_packet._debug("    - decoding Error: %r", err)
+                _decode_packet._debug("    - decoding Error: %r", err)
             return frame
+
+        # the application layer source and destination are end-to-end
+        _end_to_end(apdu, npci)
 
         # scrape off the APCI data
         frame.apci = APCI()
         frame.apci.update(apdu)
-
-        # update the source and destination
-        if npci.npduSADR:
-            apdu.pduSource = npci.npduSADR
-        if npci.npduDADR:
-            apdu.pduDestination = npci.npduDADR
 
         if not isinstance(
             apdu, (ConfirmedRequestPDU, ComplexAckPDU, UnconfirmedRequestPDU)
         ):
             return frame
 
-        # continue decoding the apdu.pduData
+        # a segment is only part of the service request or ack
+        if getattr(apdu, "apduSeg", False):
+            if _debug:
+                _decode_packet._debug("    - segmented")
+            return frame
+
+        # continue decoding the apdu.pduData, keep the APCI-only APDU in the
+        # frame with its data if it fails
+        apdu_data = bytearray(apdu.pduData)
         try:
             apdu = APCISequence.decode(apdu)
             frame.apdu = apdu
 
             if _debug:
-                decode_packet._debug("    - apdu: %r", apdu)
-        except AttributeError as err:
+                _decode_packet._debug("    - apdu: %r", apdu)
+        except Exception as err:
             if _debug:
-                decode_packet._debug("    - decoding error: %r", err)
+                _decode_packet._debug("    - decoding error: %r", err)
+            frame.apdu.pduData = apdu_data
 
         # success
         return frame
@@ -583,42 +1410,103 @@ def decode_packet(data: bytes) -> Optional[Frame]:
         ntype = npdu_types.get(npci.npduNetMessage, None)
         if not ntype:
             if _debug:
-                decode_packet._debug(
+                _decode_packet._debug(
                     "    - no network layer decoder: %r", npci.npduNetMessage
                 )
             return frame
         if _debug:
-            decode_packet._debug("    - ntype: %r", ntype)
+            _decode_packet._debug("    - ntype: %r", ntype)
 
-        # deeper decoding
+        # deeper decoding, the specific message has the header too (as in
+        # NetworkAdapter.confirmation) and end-to-end source and destination
         try:
             npdu = ntype.decode(npci)
+            NPCI.update(npdu, npci)
+            _end_to_end(npdu, npci)
             frame.npdu = npdu
         except Exception as err:
             if _debug:
-                decode_packet._debug("    - decoding error: %r", err)
+                _decode_packet._debug("    - decoding error: %r", err)
 
         # success
         return frame
 
 
-def _decode_packets(gen: Iterator[Tuple[int, float, bytes]]) -> Iterator[Frame]:
+def _undecoded_apdu(frame: Optional[Frame]) -> bool:
     """
-    Helper function for decoding data from pylibpcap generators.
+    True if the frame has an unsegmented service request or ack that failed
+    to decode past the APCI.
+    """
+    if (frame is None) or (frame.apdu is None):
+        return False
+    return (
+        type(frame.apdu) in (ConfirmedRequestPDU, ComplexAckPDU, UnconfirmedRequestPDU)
+    ) and not getattr(frame.apdu, "apduSeg", False)
+
+
+@bacpypes_debugging
+def decode_packet(data: bytes, linktype: int = LINKTYPE_ETHERNET) -> Optional[Frame]:
+    """
+    Decode the data, return a Frame object or None.  The linktype is the
+    link-layer header type of the capture (see pcap_file_linktype()).
+    """
+    if _debug:
+        decode_packet._debug("decode_packet %r linktype=%r", data, linktype)
+
+    frame = _decode_packet(data, linktype)
+
+    # long ARCNET frames can have trailing padding, which breaks decoding
+    # the APDU, so try again without it.  Segments are not decoded so their
+    # data may still include the padding.
+    if (
+        (frame is not None)
+        and (frame.arcnet is not None)
+        and (1 + len(frame.arcnet.data) > _ARCNET_SHORT_MAX)
+        and _undecoded_apdu(frame)
+    ):
+        retry = _decode_packet(data[:-_ARCNET_LONG_PADDING], linktype)
+        if (
+            (retry is not None)
+            and (retry.apdu is not None)
+            and not _undecoded_apdu(retry)
+        ):
+            if _debug:
+                decode_packet._debug("    - ARCNET padding removed")
+            retry.arcnet.padding = data[-_ARCNET_LONG_PADDING:]
+            return retry
+
+    return frame
+
+
+def _decode_packets(
+    gen: Iterator[Optional[Tuple[float, int, bytes]]],
+) -> Iterator[Optional[Frame]]:
+    """
+    Helper function for decoding (timestamp, linktype, data) tuples.  An
+    idle tick (None) is passed through and not counted as a packet.
     """
     # loop through the packets
-    for i, (len, timestamp, data) in enumerate(gen):
+    number = 0
+    for packet in gen:
+        if packet is None:
+            yield None
+            continue
+        timestamp, linktype, data = packet
+        number += 1
+
         try:
-            frame = decode_packet(data)
+            frame = decode_packet(data, linktype)
             if not frame:
                 continue
         except Exception as err:
             if _debug:
-                decode_file._debug("    - exception decoding packet %d: %r", i + 1, err)
+                decode_file._debug(
+                    "    - exception decoding packet %d: %r", number, err
+                )
             continue
 
         # save the packet number (as viewed in Wireshark) and timestamp
-        frame._number = i + 1
+        frame._number = number
         frame._timestamp = timestamp
 
         yield frame
@@ -627,19 +1515,14 @@ def _decode_packets(gen: Iterator[Tuple[int, float, bytes]]) -> Iterator[Frame]:
 @bacpypes_debugging
 def decode_file(fname):
     """
-    Given the name of a pcap file, open it, decode the contents and yield each
-    as a frame.
+    Given the name of a pcap or pcapng file, open it, decode the contents and
+    yield each packet as a frame.  The file is read by read_pcap_file(), so
+    this does not need pylibpcap.
     """
     if _debug:
         decode_file._debug("decode_file %r", fname)
 
-    if not pylibpcap:
-        raise RuntimeError("failed to import pylibpcap")
-
-    # generator function yields (len, timestamp, data) tuple
-    gen_fn = pylibpcap.pcap.rpcap(fname)
-
-    yield from _decode_packets(gen_fn)
+    yield from _decode_packets(read_pcap_file(fname))
 
 
 @bacpypes_debugging
@@ -650,28 +1533,71 @@ def decode_iface(
     snaplen: int = 65535,
     filters: str = "udp port 47808",
     timeout: int = 500,
+    linktype: Optional[int] = None,
+    idle_ticks: bool = False,
 ):
     """
     Given the name of an interface, 'sniff' the packets and yield each as
-    a frame.
+    a frame.  If the linktype is not provided it is looked up from the
+    interface type (Linux only) and defaults to Ethernet.
+
+    The timeout is the libpcap read timeout in milliseconds.  When
+    `idle_ticks` is true, a read timeout with nothing captured yields None
+    so a consumer like `trace()` knows that time has passed even when the
+    network is quiet.
     """
     if _debug:
-        decode_file._debug("decode_iface %r", iface)
+        decode_iface._debug("decode_iface %r linktype=%r", iface, linktype)
 
     if not pylibpcap:
         raise RuntimeError("failed to import pylibpcap")
 
-    # generator function yields (len, timestamp, data) tuple
-    gen_fn = pylibpcap.sniff(
-        iface,
-        count=count,
-        promisc=promisc,
-        snaplen=snaplen,
-        filters=filters,
-        timeout=timeout,
+    if linktype is None:
+        linktype = iface_linktype(iface)
+        if linktype is None:
+            linktype = LINKTYPE_ETHERNET
+        if _debug:
+            decode_iface._debug("    - linktype: %r", linktype)
+    if linktype not in _supported_linktypes:
+        raise ValueError(f"{iface}: unsupported link type: {linktype}")
+
+    # generator function yields (len, timestamp, data) tuple, opening the
+    # capture fails here if the process isn't allowed to
+    try:
+        gen_fn = pylibpcap.sniff(
+            iface,
+            count=count,
+            promisc=promisc,
+            snaplen=snaplen,
+            filters=filters,
+            timeout=timeout,
+        )
+    except LibpcapError as err:
+        if _is_permission_error(str(err)):
+            raise PermissionError(
+                f"{iface}: {err} (see the bacpypes3.analysis module documentation)"
+            ) from err
+        raise
+
+    # live capture timestamps are not truncated, a read timeout with nothing
+    # captured yields (0, 0, b"") which is not a packet, pass it along as
+    # None for idle ticks or drop it
+    packets = (
+        (timestamp, linktype, data) if data else None
+        for _, timestamp, data in gen_fn
+        if data or idle_ticks
     )
 
-    yield from _decode_packets(gen_fn)
+    yield from _decode_packets(packets)
+
+
+def _is_permission_error(message: str) -> bool:
+    """Return true if a libpcap error message says the capture failed because
+    the process lacks the privileges to open the interface."""
+    message = message.lower()
+    return any(
+        phrase in message for phrase in ("cap_net_raw", "permission", "not permitted")
+    )
 
 
 class TracerState(Enum):
@@ -680,7 +1606,7 @@ class TracerState(Enum):
     FINI = 2
 
 
-TracerMethod = Callable[["Tracer", Union[Frame, None]], None]
+TracerMethod = Callable[["Tracer", Frame], None]
 
 
 @bacpypes_debugging
@@ -689,6 +1615,10 @@ class Tracer:
     A tracer is a state machine that is given packets from a stream one at a
     time and filters them for some pattern.  When a pattern matches the
     tracer transitions to its next state.
+
+    Before each frame, and periodically while a live capture is idle, the
+    tracer is told the current time with `tick()` so it can time out even
+    when no more frames arrive.
     """
 
     _state: TracerState
@@ -722,6 +1652,15 @@ class Tracer:
         """
         raise NotImplementedError("Tracer.start")
 
+    def tick(self, now: float) -> None:
+        """
+        Called with the current time, the timestamp of the next frame or the
+        wall clock time when a live capture is idle, before any frame is
+        given to the state method.  A tracer waiting for something with a
+        deadline can call `stop()` when it has passed.
+        """
+        pass
+
     def stop(self) -> None:
         """
         The stopping state for a tracer, can be called by the tracer when
@@ -739,53 +1678,181 @@ class Tracer:
 
 @experimental
 @bacpypes_debugging
-def trace(gen_fns: List[Generator[Frame, None, None]], tracers):
+def trace(gen_fns: List[Generator[Optional[Frame], None, None]], tracers):
     """
     Given a list of generator functions like `decode_file("sample.pcap")` pass
     the frames to instances of the tracer classes.  If the current state of the
     tracer is `start` then it is assumed to be idle.
+
+    Each tracer is given the time with `tick()` before each frame, and when a
+    generator yields None (like `decode_iface(..., idle_ticks=True)` when the
+    network is quiet) it is given the wall clock time.  When the frames run
+    out, or the trace is interrupted (KeyboardInterrupt), the tracers that are
+    still active are stopped.
     """
     if _debug:
         trace._debug("trace %r %r", gen_fns, tracers)
 
-    # make a set of tracers for each class
-    current_tracers = set(tracer_cls() for tracer_cls in tracers)
+    # make a tracer for each class, kept in the order they were created so
+    # the output is in a predictable order
+    current_tracers = [tracer_cls() for tracer_cls in tracers]
 
-    # pass the frame to each tracer
-    for gen_fn in gen_fns:
-        for frame in gen_fn:
-            # skip decoding errors
-            if frame is None:
-                continue
+    def remove_finished() -> None:
+        current_tracers[:] = [
+            tracer
+            for tracer in current_tracers
+            if tracer._state is not TracerState.FINI
+        ]
 
-            idle_tracers = set()
-            for tracer in current_tracers:
-                # give the frame to the tracer
-                tracer._state_method(frame)
+    try:
+        # pass the frame to each tracer
+        for gen_fn in gen_fns:
+            for frame in gen_fn:
+                # time passes for every tracer, including idle ones
+                now = time.time() if frame is None else frame._timestamp
+                for tracer in list(current_tracers):
+                    tracer.tick(now)
+                remove_finished()
 
-                # tracer may be finished
-                if tracer._state is TracerState.FINI:
-                    idle_tracers.add(tracer)
+                # idle tick, no frame to give
+                if frame is None:
+                    continue
 
-            # remove the idle tracers
-            if idle_tracers:
-                current_tracers.difference_update(idle_tracers)
+                for tracer in list(current_tracers):
+                    # give the frame to the tracer
+                    tracer._state_method(frame)
+                remove_finished()
 
-            # make a set of those that have an idle instance
-            idle_tracer_cls = set(
-                tracer.__class__
-                for tracer in current_tracers
-                if tracer._state is TracerState.IDLE
+                # make a set of those that have an idle instance
+                idle_tracer_cls = set(
+                    tracer.__class__
+                    for tracer in current_tracers
+                    if tracer._state is TracerState.IDLE
+                )
+
+                # make a new tracer for classes that do not have an idle instance
+                for tracer_cls in tracers:
+                    if tracer_cls not in idle_tracer_cls:
+                        current_tracers.append(tracer_cls())
+    finally:
+        # tell all the active tracers to shut down
+        for tracer in current_tracers:
+            if tracer._state is not TracerState.FINI:
+                tracer.stop()
+
+
+#
+#   Command line support
+#
+
+
+def add_capture_arguments(parser) -> None:
+    """
+    Add the arguments for decoding capture files and capturing from an
+    interface to an argument parser, see `capture_sources()`.
+    """
+    parser.add_argument(
+        "filenames",
+        nargs="*",
+        help="the names of the pcap or pcapng files to decode",
+    )
+    parser.add_argument(
+        "-i",
+        "--interface",
+        type=str,
+        help="capture from this interface",
+    )
+    parser.add_argument(
+        "-f",
+        "--filter",
+        type=str,
+        default="udp port 47808",
+        help="capture filter (default: udp port 47808)",
+    )
+    parser.add_argument(
+        "-c",
+        "--count",
+        type=int,
+        default=-1,
+        help="stop after capturing this many packets",
+    )
+    parser.add_argument(
+        "-p",
+        "--no-promiscuous",
+        dest="promiscuous",
+        action="store_false",
+        help="don't put the interface into promiscuous mode",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=500,
+        help="libpcap read timeout in milliseconds (default: 500)",
+    )
+    parser.add_argument(
+        "--linktype",
+        type=lambda v: linktypes[v] if v in linktypes else int(v),
+        default=None,
+        help="interface link-layer type, a number or one of: "
+        + ", ".join(linktypes)
+        + " (default: from the interface type, or ethernet)",
+    )
+
+
+def capture_sources(parser, args, *, idle_ticks: bool = False) -> List[Any]:
+    """
+    Return a list of frame generators for the arguments added by
+    `add_capture_arguments()`, one for each file and then one for the
+    interface.  If there are neither it is a usage error.
+    """
+    if not (args.filenames or args.interface):
+        parser.error("give capture file names or --interface")
+
+    gen_fns: List[Any] = [decode_file(fname) for fname in args.filenames]
+    if args.interface:
+        gen_fns.append(
+            decode_iface(
+                args.interface,
+                filters=args.filter,
+                count=args.count,
+                promisc=int(args.promiscuous),
+                timeout=args.timeout,
+                linktype=args.linktype,
+                idle_ticks=idle_ticks,
             )
+        )
+    return gen_fns
 
-            # make a new tracer for classes that do not have an idle instance
-            for tracer_cls in tracers:
-                if tracer_cls not in idle_tracer_cls:
-                    current_tracers.add(tracer_cls())
 
-    # tell all the active tracers to shut down
-    for tracer in current_tracers:
-        tracer.stop()
+def capture_permission_help(err: Exception, args) -> str:
+    """
+    Return a description of the ways to get permission to capture from an
+    interface, for when `decode_iface()` raises a PermissionError.  The
+    commands are for the program that is running.
+    """
+    main = sys.modules.get("__main__")
+    spec = getattr(main, "__spec__", None)
+    program = f"-m {spec.name}" if spec else sys.argv[0]
+    rerun = " ".join([sys.executable, program] + sys.argv[1:])
+    python = os.path.realpath(sys.executable)
+
+    return (
+        f"error: {err}\n"
+        "\n"
+        "Capturing from an interface needs the CAP_NET_RAW capability, either:\n"
+        "\n"
+        "  - run as root:\n"
+        f"        sudo {rerun}\n"
+        "\n"
+        "  - capture with dumpcap (or tcpdump) and decode the file:\n"
+        f"        dumpcap -i {args.interface} -f '{args.filter}' -F pcap -w capture.pcap\n"
+        f"        python {program} capture.pcap\n"
+        "\n"
+        "  - give the interpreter the capability (every script it runs gets it):\n"
+        f"        sudo setcap cap_net_raw,cap_net_admin=eip {python}\n"
+        "\n"
+        "See 'python -m pydoc bacpypes3.analysis' for details.\n"
+    )
 
 
 @bacpypes_debugging
@@ -819,46 +1886,8 @@ if __name__ == "__main__":
 
         parser = ArgumentParser()
 
-        # pcap file decoding
-        parser.add_argument(
-            "filenames",
-            nargs="*",
-            help="the names of the pcaps file to decode",
-        )
-
-        # interface decoding
-        parser.add_argument(
-            "-i",
-            "--interface",
-            type=str,
-            help="interface name",
-        )
-        parser.add_argument(
-            "-f",
-            "--filter",
-            type=str,
-            default="udp port 47808",
-            help="capture filter",
-        )
-        parser.add_argument(
-            "-c",
-            "--count",
-            type=int,
-            default=-1,
-            help="packet count",
-        )
-        parser.add_argument(
-            "-p",
-            "--no-promiscous",
-            action="store_false",
-            help="promiscous mode",
-        )
-        parser.add_argument(
-            "--timeout",
-            type=int,
-            default=500,
-            help="timeout",
-        )
+        # pcap file decoding and interface capture
+        add_capture_arguments(parser)
 
         # data options
         parser.add_argument(
@@ -870,23 +1899,8 @@ if __name__ == "__main__":
         _log.debug("args: %r", args)
         _log.debug("settings: %r", settings)
 
-        # stream from files
-        gen_fns = [decode_file(fname) for fname in args.filenames]
-
-        # stream from an interface
-        if args.interface:
-            gen_fns.append(
-                decode_iface(
-                    args.interface,
-                    filters=args.filter,
-                    count=args.count,
-                    promisc=int(args.no_promiscous),
-                    timeout=args.timeout,
-                )
-            )
-
         # create a dict from each frame
-        for gen_fn in gen_fns:
+        for gen_fn in capture_sources(parser, args):
             for frame in gen_fn:
                 # dump it as a string
                 json_string = json.dumps(
@@ -898,6 +1912,9 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         pass
+    except PermissionError as err:
+        sys.stderr.write(capture_permission_help(err, args))
+        sys.exit(1)
     except Exception as err:
         _log.exception("an error has occurred: %s", err)
     finally:

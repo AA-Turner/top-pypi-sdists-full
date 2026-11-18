@@ -53,6 +53,9 @@ parameters:
       - "azure_rm_cdnprofile"
       - "azure_rm_cognitiveservices"
       - "azure_rm_cognitiveservicesaccount"
+      - "azure_rm_cognitiveservicesdeployment"
+      - "azure_rm_containerapp"
+      - "azure_rm_containerappdaprcomponent"
       - "azure_rm_containerinstance"
       - "azure_rm_containerregistry"
       - "azure_rm_containerregistryscopemap"
@@ -60,6 +63,8 @@ parameters:
       - "azure_rm_containerregistrytag"
       - "azure_rm_cosmosdbaccount"
       - "azure_rm_databricks"
+      - "azure_rm_dataprotectionbackupinstancedisk"
+      - "azure_rm_dataprotectionbackupvault"
       - "azure_rm_ddosprotectionplan"
       - "azure_rm_deployment"
       - "azure_rm_diskencryptionset"
@@ -69,6 +74,7 @@ parameters:
       - "azure_rm_expressroute"
       - "azure_rm_eventgrid_subscription"
       - "azure_rm_eventgrid_topic"
+      - "azure_rm_federatedidentitycredential"
       - "azure_rm_firewallpolicy"
       - "azure_rm_firewallpolicyrulecollectiongroup"
       - "azure_rm_functionapp"
@@ -83,11 +89,11 @@ parameters:
       - "azure_rm_keyvaultsecret"
       - "azure_rm_keyvaultcertificate"
       - "azure_rm_loadbalancer"
+      - "azure_rm_loadbalancerbackendaddresspool"
       - "azure_rm_loganalyticsworkspace"
       - "azure_rm_localnetworkgateway"
       - "azure_rm_manageddisk"
       - "azure_rm_managementgroup"
-      - "azure_rm_mariadbserver"
       - "azure_rm_ml_workspace"
       - "azure_rm_ml_compute"
       - "azure_rm_ml_data"
@@ -113,13 +119,11 @@ parameters:
       - "azure_rm_monitormetricalerts"
       - "azure_rm_monitorscheduledqueryrules"
       - "azure_rm_multiplemanageddisks"
-      - "azure_rm_mysqlserver"
       - "azure_rm_mysqlflexibleserver"
       - "azure_rm_natgateway"
       - "azure_rm_networkinterface"
       - "azure_rm_notificationhub"
       - "azure_rm_openshiftmanagedcluster"
-      - "azure_rm_postgresqlserver"
       - "azure_rm_postgresqlflexibleserver"
       - "azure_rm_postgresqlflexiblevirtualendpoint"
       - "azure_rm_postgresqlflexiblebackup"
@@ -143,6 +147,7 @@ parameters:
       - "azure_rm_cognitivesearch"
       - "azure_rm_securitygroup"
       - "azure_rm_servicebus"
+      - "azure_rm_servicebusrule"
       - "azure_rm_sqlserver"
       - "azure_rm_storageaccount"
       - "azure_rm_storageaccountmanagementpolicy"
@@ -153,7 +158,9 @@ parameters:
       - "azure_rm_azure_rm_serviceendpointpolicy"
       - "azure_rm_azure_rm_serviceendpointpolicydefinition"
       - "azure_rm_subscription"
+      - "azure_rm_subscriptiondeployment"
       - "azure_rm_trafficmanagerprofile"
+      - "azure_rm_userassignedidentity"
       - "azure_rm_virtualmachine"
       - "azure_rm_virtualmachineextension"
       - "azure_rm_virtualmachineimage_info"
@@ -201,6 +208,11 @@ parameters:
       - "azure_rm_afdrules"
       - "azure_rm_tags"
       - "azure_rm_dedicatedhost"
+      - "azure_rm_searchindex"
+      - "azure_rm_searchskillset"
+      - "azure_rm_searchindexer"
+      - "azure_rm_searchdatasource"
+      - "azure_rm_searchsynonymmap"
       - "inventory_azure"
       - "setup_azure"
 
@@ -274,6 +286,8 @@ jobs:
           test.key: '6'
         "Python${{ parameters.PYTHON_VER }}_7":
           test.key: '7'
+        "Python${{ parameters.PYTHON_VER }}_8":
+          test.key: '8'
         "Python${{ parameters.PYTHON_VER }}_9":
           test.key: '9'
         "Python${{ parameters.PYTHON_VER }}_10":
@@ -296,6 +310,8 @@ jobs:
           test.key: '18'
         "Python${{ parameters.PYTHON_VER }}_19":
           test.key: '19'
+        "Python${{ parameters.PYTHON_VER }}_20":
+          test.key: '20'
 
     steps:
       - task: UsePythonVersion@0

@@ -14,6 +14,7 @@ from .sdk.catalog.refs import DatasetRef as DatasetRef
 from .sdk.catalog.refs import SourceRef as SourceRef
 from .sdk.client.client import Authorship as Authorship
 from .sdk.client.client import Client as Client
+from .sdk.client.resources.artifact_reads.artifact_reads import Reference as Reference
 from .sdk.client.resources.projects.pins import ChartView as ChartView
 from .sdk.client.resources.projects.pins import KeyMetricsView as KeyMetricsView
 from .sdk.client.resources.projects.pins import PaneView as PaneView
@@ -34,7 +35,6 @@ from .sdk.fluent.fluent import log_hw as log_hw
 from .sdk.fluent.fluent import span as span
 from .sdk.fluent.fluent import update_config as update_config
 from .sdk.reads.reads import Reader as Reader
-from .sdk.reads.reads import Reference as Reference
 from .sdk.run.commands.commands import CommandKind as CommandKind
 from .sdk.run.metrics.spans import SpanHandle as SpanHandle
 from .sdk.run.run import Run as Run

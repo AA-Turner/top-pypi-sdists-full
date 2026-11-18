@@ -1,14 +1,11 @@
 [project]
 name = "minfraud"
-version = "3.3.0"
+version = "3.4.0"
 description = "MaxMind minFraud API"
-authors = [
-    {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
-]
 dependencies = [
     "aiohttp>=3.14.0,<4.0.0",
     "email_validator>=2.0.0,<3.0.0",
-    "geoip2>=5.3.0,<6.0.0",
+    "geoip2>=5.4.0,<6.0.0",
     "requests>=2.24.0,<3.0.0",
     "typing-extensions>=4.13.2",
     "voluptuous",
@@ -33,16 +30,9 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP",
 ]
 
-[dependency-groups]
-dev = [
-    "pytest>=8.3.5",
-    "pytest-httpserver>=1.0.10",
-    "tox-uv>=1.29.0",
-]
-lint = [
-    "mypy>=1.15.0",
-    "ruff>=0.11.6",
-]
+[[project.authors]]
+name = "Gregory Oschwald"
+email = "goschwald@maxmind.com"
 
 [project.urls]
 Homepage = "https://www.maxmind.com/en/home"
@@ -50,8 +40,19 @@ Documentation = "https://minfraud.readthedocs.io/en/latest/"
 "Source Code" = "https://github.com/maxmind/minfraud-api-python"
 "Issue Tracker" = "https://github.com/maxmind/minfraud-api-python/issues"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+    "pytest-httpserver>=1.0.10",
+    "tox-uv-bare>=1.32.0",
+]
+lint = [
+    "mypy>=1.15.0",
+    "ruff>=0.11.6",
+]
+
 [build-system]
-requires = ["uv_build>=0.10.0,<0.12.0"]
+requires = ["uv_build>=0.10.0,<0.14.0"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -67,22 +68,12 @@ source-include = [
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    # Redundant as the formatter handles missing trailing commas.
     "COM812",
-
-    # documenting magic methods
+    "CPY001",
     "D105",
-
-    # Conflicts with D211
     "D203",
-
-    # Conflicts with D212
     "D213",
-
-    # Magic numbers for HTTP status codes seem ok most of the time.
     "PLR2004",
-
-    # pytest rules
     "PT009",
     "PT027",
 ]
@@ -92,8 +83,14 @@ ignorelist = ["id"]
 
 [tool.ruff.lint.per-file-ignores]
 "docs/*" = ["ALL"]
-"src/minfraud/models.py" = ["PLR0913"]
-"tests/*" = ["ANN201", "D"]
+"src/minfraud/models.py" = [
+    "PLR0913",
+    "PLR0917",
+]
+"tests/*" = [
+    "ANN201",
+    "D",
+]
 
 [tool.tox]
 env_list = [
@@ -108,12 +105,11 @@ skip_missing_interpreters = false
 
 [tool.tox.env_run_base]
 runner = "uv-venv-lock-runner"
-dependency_groups = [
-  "dev",
-]
-commands = [
-    ["pytest", "tests"],
-]
+dependency_groups = ["dev"]
+commands = [[
+    "pytest",
+    "tests",
+]]
 
 [tool.tox.env.lint]
 description = "Code linting"
@@ -123,13 +119,29 @@ dependency_groups = [
     "lint",
 ]
 commands = [
-    ["mypy", "src", "tests"],
-    ["ruff", "check"],
-    ["ruff", "format", "--check", "--diff", "."],
+    [
+    "mypy",
+    "src",
+    "tests",
+],
+    [
+    "ruff",
+    "check",
+],
+    [
+    "ruff",
+    "format",
+    "--check",
+    "--diff",
+    ".",
+],
 ]
 
 [tool.tox.gh.python]
-"3.14" = ["3.14", "lint"]
+"3.14" = [
+    "3.14",
+    "lint",
+]
 "3.13" = ["3.13"]
 "3.12" = ["3.12"]
 "3.11" = ["3.11"]

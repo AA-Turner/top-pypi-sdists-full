@@ -128,6 +128,7 @@ from anyscale.client.openapi_client.models.apply_scheduler_config_request import
 from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
     ApplySchedulerConfigResponse,
 )
+from anyscale.client.openapi_client.models.consumer_response import ConsumerResponse
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.databricks_connection_config_item import (
     DatabricksConnectionConfigItem,
@@ -146,7 +147,11 @@ from anyscale.client.openapi_client.models.decoratedapplicationtemplate_list_res
 from anyscale.client.openapi_client.models.decoratedschedule_list_response import (
     DecoratedscheduleListResponse,
 )
+from anyscale.client.openapi_client.models.overview_response import OverviewResponse
 from anyscale.client.openapi_client.models.production_job import ProductionJob
+from anyscale.client.openapi_client.models.queuerowresponse_list_response import (
+    QueuerowresponseListResponse,
+)
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
 from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
     RollbackSchedulerConfigRequest,
@@ -160,9 +165,12 @@ from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_re
 from anyscale.client.openapi_client.models.update_job_queue_request import (
     UpdateJobQueueRequest,
 )
+from anyscale.client.openapi_client.models.workloadresponse_list_response import (
+    WorkloadresponseListResponse,
+)
 from anyscale.client.openapi_client.rest import ApiException as InternalApiException
 from anyscale.cluster_compute import parse_cluster_compute_name_version
-from anyscale.errors import server_error_text
+from anyscale.errors import ApiResponseError, server_error_text
 from anyscale.feature_flags import FLAG_DEFAULT_WORKING_DIR_FOR_PROJ
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as ExternalApi
 from anyscale.sdk.anyscale_client.models import (
@@ -223,7 +231,8 @@ OBSERVABILITY_API_AUTH_TIMEOUT_S = 10
 OBSERVABILITY_API_READ_TIMEOUT_S = 120
 
 
-# A decorator to handle ApiException and raise ValueError with the error message.
+# A decorator to handle ApiException and raise a ValueError subclass that carries the error
+# message and the HTTP status.
 def handle_api_exceptions(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -233,7 +242,7 @@ def handle_api_exceptions(func):
             if (e.status >= 400 and e.status < 500) or e.status == 599:
                 msg = server_error_text(e.body)
                 if msg:
-                    raise ValueError(msg) from None
+                    raise ApiResponseError(msg, status=e.status) from None
             raise e from None
 
     return wrapper
@@ -1204,10 +1213,13 @@ class AnyscaleClient(AnyscaleClientInterface):
             ).result
         except ExternalApiException as e:
             if e.status == 400:
-                raise RuntimeError(
-                    "Invalid containerfile. Please check the syntax and try again.",
-                    e.body,
-                ) from None
+                message = "Invalid containerfile. Please check the syntax and try again."
+                detail = server_error_text(e.body)
+                if detail:
+                    message += f" Details: {detail}"
+                raise RuntimeError(message) from None
+            # Re-raise unchanged so callers can map the status; falling through would read
+            # build_op unbound.
             raise
 
         build_url = self.get_build_ui_url(cluster_env.id, build_op.cluster_environment_build_id)
@@ -3032,6 +3044,51 @@ class AnyscaleClient(AnyscaleClientInterface):
             count=count if count is not None else self.LIST_ENDPOINT_COUNT,
             paging_token=paging_token,
         )
+
+    # ---- Scheduler queues (live state) ----
+
+    @handle_api_exceptions
+    def list_scheduler_queues(
+        self,
+        *,
+        limit: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> QueuerowresponseListResponse:
+        optional = {"limit": limit, "paging_token": paging_token}
+        kwargs = {key: value for key, value in optional.items() if value is not None}
+        # The list response carries `results` and `metadata` itself; there is no `.result`.
+        return self._internal_api_client.list_queues_api_v2_scheduler_queues_get(**kwargs)
+
+    @handle_api_exceptions
+    def list_scheduler_queue_workloads(
+        self,
+        queue_id: str,
+        *,
+        state: str,
+        limit: Optional[int] = None,
+    ) -> WorkloadresponseListResponse:
+        kwargs: Dict[str, Any] = {} if limit is None else {"limit": limit}
+        # The list response carries `results` and `metadata` itself; there is no `.result`.
+        return self._internal_api_client.list_queue_workloads_api_v2_scheduler_queues_queue_id_workloads_get(
+            queue_id, state, **kwargs
+        )
+
+    @handle_api_exceptions
+    def get_scheduler_overview(self) -> OverviewResponse:
+        return self._internal_api_client.get_overview_api_v2_scheduler_overview_get().result
+
+    @handle_api_exceptions
+    def list_scheduler_top_consumers(
+        self,
+        *,
+        limit: Optional[int] = None,
+        queue_id: Optional[str] = None,
+    ) -> List[ConsumerResponse]:
+        optional = {"limit": limit, "queue_id": queue_id}
+        kwargs = {key: value for key, value in optional.items() if value is not None}
+        return self._internal_api_client.list_top_consumers_api_v2_scheduler_top_consumers_get(
+            **kwargs
+        ).results
 
     @handle_api_exceptions
     def upsert_resource_tags(

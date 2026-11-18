@@ -159,9 +159,9 @@ def session_finish_command(command_id: str, stop: bool, terminate: bool) -> None
 )
 @click.option(
     "--session-id",
-    help="The session id of this web terminal",
+    help="Accepted and ignored. The node agent passes it when it starts this server.",
     type=str,
-    required=True,
+    expose_value=False,
 )
 def web_terminal_server(
     deploy_environment: str,
@@ -169,10 +169,9 @@ def web_terminal_server(
     cli_token: str,
     host: str,
     working_dir: str,
-    session_id: str,
 ) -> None:
     from anyscale.webterminal.webterminal import (  # noqa: PLC0415 - codex_reason("gpt5.2", "lazy import to avoid heavy webterminal deps in normal CLI usage")
         main,
     )
 
-    main(deploy_environment, use_debugger, cli_token, host, working_dir, session_id)
+    main(deploy_environment, use_debugger, cli_token, host, working_dir)

@@ -16,7 +16,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport import VectorRobotState, catalog, families
+from dreamscale_transport import VectorRobotState, families
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale import errors
 from dreamscale.policy.exported_deployments import exported_base

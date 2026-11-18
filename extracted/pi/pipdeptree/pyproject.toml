@@ -1,11 +1,12 @@
 [build-system]
-build-backend = "mesonpy"
+build-backend = "python_sbom.backend"
 requires = [
   "hatch-fancy-pypi-readme>=23.2",
   "meson>=1.12.1",
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "patchelf>=0.11; sys_platform=='linux'",
+  "python-sbom>=0.2",
   "scikit-build-core>=0.10",
   "setuptools-scm",
 ]
@@ -83,6 +84,7 @@ build = [
   "meson-python>=0.22.1",
   "ninja>=1.13.2",
   "patchelf>=0.11; sys_platform=='linux'",
+  "python-sbom>=0.2",
   "scikit-build-core>=0.10",
   "setuptools>=80",
   "setuptools-scm",
@@ -127,31 +129,32 @@ lint.select = [
   "ALL",
 ]
 lint.ignore = [
-  "any-type",                                  # Expressions typed as typing.Any are disallowed in
-  "assert",                                    # asserts allowed
   "CPY",                                       # No copyright statements
   "docstring-missing-exception",               # Blocked by Ruff's incomplete Sphinx-style docstring support (astral-sh/ruff#12434)
   "docstring-missing-returns",                 # Blocked by Ruff's incomplete Sphinx-style docstring support (astral-sh/ruff#12434)
   "docstring-missing-yields",                  # Blocked by Ruff's incomplete Sphinx-style docstring support (astral-sh/ruff#12434)
-  "hardcoded-bind-all-interfaces",             # Possible binding to all interface
-  "implicit-namespace-package",                # no implicit namespace
-  "incorrect-blank-line-before-class",         # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
-  "magic-value-comparison",                    # Magic value used in comparison
+  "incorrect-blank-line-before-class",         # Conflicts with `blank-line-before-class`
   "missing-trailing-comma",                    # Conflict with formatter
-  "multi-line-summary-first-line",             # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible
-  "non-empty-init-module",                     # `__init__` module should only contain docstrings and re-exports
+  "multi-line-summary-first-line",             # Conflicts with `multi-line-summary-second-line`
   "single-line-implicit-string-concatenation", # Conflict with formatter
-  "stdlib-module-shadowing",                   # Allow builtin module shadowing
-  "undocumented-public-package",               # Missing docstring in public package
+  "undocumented-magic-method",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-class",                 # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-function",              # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-init",                  # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-method",                # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-nested-class",          # undocumented-public-api (simplint) covers the public API instead
+]
+lint.per-file-ignores."docs/conf.py" = [
+  "implicit-namespace-package", # Sphinx configuration is not an importable package
 ]
 lint.per-file-ignores."tests/**/*.py" = [
+  "assert",                               # pytest assertions
   "D",                                    # Documentation rules do not apply to tests
   "FBT",                                  # Boolean positional arguments keep parameterized tests compact
-  "import-private-name",                  # Private import in tests
-  "magic-value-comparison",               # Magic value used in comparison, consider replacing with a constant variable
-  "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
-  "too-many-arguments",                   # any number of arguments in tests
-  "too-many-positional-arguments",        # any number of arguments in tests
+  "magic-value-comparison",               # Assertions compare expected literals
+  "subprocess-without-shell-equals-true", # Tests invoke fixed commands and control their arguments
+  "too-many-arguments",                   # Pytest fixtures supply test function arguments
+  "too-many-positional-arguments",        # Pytest fixtures supply test function arguments
 ]
 lint.isort = { known-first-party = [
   "pipdeptree",
@@ -164,7 +167,7 @@ lint.preview = true
 [tool.codespell]
 builtin = "clear,usage,en-GB_to_en-US"
 # Cargo uses the writeable crate, and serde exposes serializer traits through ser.
-ignore-words-list = "master,ser,writeable"
+ignore-words-list = "ser,writeable"
 count = true
 quiet-level = 3
 
@@ -209,6 +212,10 @@ type = [
   { directory = "packaging", name = "Packaging", showcontent = true },
 ]
 
+[tool.python-sbom]
+build-backend = "mesonpy"
+supplier = { name = "tox-dev", url = [ "https://github.com/tox-dev" ] }
+
 [tool.nab]
 mode = "universal"
 base-group = "project-runtime"
@@ -232,6 +239,6 @@ matrix.overrides.implementations.pypy.platforms = [
   "macos_arm64",
   "windows_amd64"
 ]
-# release-creator 4.4.0 needs a seven-day cutoff exception through 2026-11-09.
-# expires 2026-11-09
-packages.release-creator.uploaded-prior-to = 2026-11-02T21:45:00Z
+
+[tool.simplint]
+docstring-style = "rst"

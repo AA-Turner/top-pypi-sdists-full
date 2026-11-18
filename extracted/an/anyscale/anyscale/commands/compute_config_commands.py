@@ -97,14 +97,9 @@ def compute_config_cli() -> None:
     short_help="Create a new version of a compute config from a YAML file.",
     help=(
         "Create a new version of a compute config from a YAML file.\n\n"
-        "(1) To use the **new schema** defined at "
-        "https://docs.anyscale.com/reference/compute-config-api#computeconfig, "
-        "use the -f/--config-file flag:\n\n"
-        "`anyscale compute-config create -f new_schema_config.yaml`\n\n"
-        "(2) To use the **old schema** defined at "
-        "https://docs.anyscale.com/archive/ref/compute-config-api, "
-        "use the positional argument:\n\n"
-        "`anyscale compute-config create old_schema_config.yaml`\n\n"
+        "Pass the file with -f/--config-file. The schema the file follows is listed "
+        "under that option. To use a file in the legacy schema, pass it as the "
+        "COMPUTE_CONFIG_FILE argument instead."
     ),
     cls=AnyscaleCommand,
 )

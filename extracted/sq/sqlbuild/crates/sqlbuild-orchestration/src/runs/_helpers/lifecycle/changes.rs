@@ -39,12 +39,16 @@ pub(crate) async fn check_launch_claim(
     Ok(transaction)
 }
 
+/// A retry matches on its stored `change`; derived fields such as resource columns vary by server version.
 pub(crate) fn validate_retry(
     previous: &Row,
     request: &RunChangeRequest,
     body: &serde_json::Value,
 ) -> Result<(), ControlError> {
-    if previous.get("payload") != Some(body)
+    let change =
+        |payload: Option<&serde_json::Value>| payload.and_then(|p| p.get("change")).cloned();
+    if change(previous.get("payload")).is_none()
+        || change(previous.get("payload")) != change(Some(body))
         || previous
             .get("invocation_id")
             .and_then(serde_json::Value::as_str)
@@ -84,6 +88,7 @@ pub(crate) fn validate_authority(
                         | RunChange::CheckFinished { .. }
                         | RunChange::Compiled { .. }
                         | RunChange::Recovered
+                        | RunChange::AuditFailuresIgnored { .. }
                         | RunChange::Finished {
                             outcome: RunOutcome::Success
                                 | RunOutcome::Warn
@@ -133,7 +138,8 @@ pub(crate) fn validate_change(
         | RunChange::NodeFinished { .. }
         | RunChange::CheckStarted { .. }
         | RunChange::CheckFinished { .. }
-        | RunChange::Compiled { .. } => {
+        | RunChange::Compiled { .. }
+        | RunChange::AuditFailuresIgnored { .. } => {
             matches!(state.status, Running | Unresponsive)
         }
         RunChange::Unresponsive => state.status == Running,

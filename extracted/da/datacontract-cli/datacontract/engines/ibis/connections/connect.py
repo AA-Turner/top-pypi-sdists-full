@@ -67,7 +67,9 @@ def connect_ibis(
     server_type = get_server_type(server)
 
     if server_type in _FILE_SERVER_TYPES:
-        if server.format not in _SUPPORTED_FILE_FORMATS:
+        # on S3 and local servers, the metadata of the files is a table of its own
+        supported = _SUPPORTED_FILE_FORMATS | ({"metadata"} if server_type in ("s3", "local") else set())
+        if server.format not in supported:
             _unsupported(run, f"Format {server.format} not yet supported by datacontract CLI")
             return None
         run.log_info(f"Connecting to {server_type} {server.format} via duckdb")
@@ -207,6 +209,9 @@ def connect_ibis(
 
     if server_type == "hive":
         return _connect_hive(ibis, server, config)
+
+    if server_type == "dremio":
+        return _connect_dremio(server, run, config)
 
     if server_type in LINT_ONLY_SERVER_TYPES:
         _unsupported(
@@ -1006,6 +1011,48 @@ def _connect_hive(ibis, server: Server, config: Config):
     )
     apply_hive_compatibility_patch(con)
     return con
+
+
+def _connect_dremio(server: Server, run: Run | None, config: Config):
+    """Connect to Dremio through the REST API of its web console (port 9047).
+
+    A personal access token (``DATACONTRACT_DREMIO_TOKEN``) wins over a user name
+    and password. The contract's ``schema`` is the path the queries run in, so a
+    table in a nested folder is named by its table name alone.
+    """
+    from datacontract.engines.ibis.connections import dremio
+
+    host = config.get_dremio_host() or server.host
+    if not host:
+        raise DataContractException(
+            type="dremio-connection",
+            name="Missing Dremio host",
+            result=ResultEnum.failed,
+            reason="The Dremio server has no host. Set it in the contract or with DATACONTRACT_DREMIO_HOST.",
+            engine="datacontract-cli",
+        )
+    port = config.get_dremio_port() or (int(server.port) if server.port else 9047)
+    scheme = "https" if config.get_dremio_use_ssl() else "http"
+    token = config.get_dremio_token()
+    username = None if token else config.get_dremio_username(required=True)
+    password = None if token else config.get_dremio_password(required=True)
+    context = dremio.split_path(config.get_dremio_schema() or server.schema_)
+    if run:
+        run.log_info(
+            f"Connecting to dremio at {scheme}://{host}:{port}" + (f" in {'.'.join(context)}" if context else "")
+        )
+    client = dremio.DremioRestClient(
+        f"{scheme}://{host}:{port}",
+        username=username,
+        password=password,
+        token=token,
+        context=context,
+        verify=config.get_dremio_validate_certificate(),
+        connect_timeout=config.get_connect_timeout(),
+    )
+    # Sign in now, so that wrong credentials fail the connection rather than the first check.
+    client.authorization()
+    return dremio.connect(client)
 
 
 def _get_custom_property(server: Server, name: str):

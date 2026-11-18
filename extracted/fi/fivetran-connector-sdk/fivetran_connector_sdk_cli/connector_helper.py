@@ -4,6 +4,7 @@ import ast
 import argparse
 import json
 import sys
+import tempfile
 import time
 import platform
 import subprocess
@@ -31,12 +32,11 @@ from fivetran_connector_sdk_common.constants import (
     OS_MAP,
     ARCH_MAP,
     UPLOAD_FILENAME,
-    LAST_VERSION_CHECK_FILE,
+    LAST_VERSION_CHECK_FIELD,
     CONFIG_FILE,
     OUTPUT_FILES_DIR,
     REQUIREMENTS_TXT,
     PYPROJECT_TOML,
-    PYPROJECT_SKIP_VALIDATION_MESSAGE,
     CONFIGURATION_JSON,
     DESTINATION_JSON,
     OPTIONS_FILENAME,
@@ -314,40 +314,65 @@ class DeployOptions:
     target_package_id: Optional[str] = None
 
 
+def load_config() -> Optional[dict]:
+    """The settings in `_config.json`: {} if it is not there yet, None if it exists but cannot be read, so that it is left alone."""
+    try:
+        with open(os.path.join(config_root_dir(), CONFIG_FILE), 'r', encoding=UTF_8) as f_in:
+            config = json.load(f_in)
+    except FileNotFoundError:
+        return {}
+    except (OSError, ValueError):
+        return None
+    return config if isinstance(config, dict) else None
+
+
+def update_config(**fields) -> None:
+    """Sets these fields of `_config.json` and keeps every other one (the telemetry's too). The file is written through a temporary
+    file so that it is never left half written, and it is not touched if it cannot be read."""
+    config = load_config()
+    if config is None:
+        return
+    config.update(fields)
+    path = os.path.join(config_root_dir(), CONFIG_FILE)
+    directory = os.path.dirname(path)
+    os.makedirs(directory, mode=0o700, exist_ok=True)
+    # The same owner-only permissions as the core's `settings.update`: the file holds the telemetry `actor_id`, and whichever of the
+    # two writers saves last decides the mode of the file `os.replace` puts in place.
+    fd, temp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    try:
+        with os.fdopen(fd, 'w', encoding=UTF_8) as f_out:
+            json.dump(config, f_out, sort_keys=True)
+        os.replace(temp_path, path)
+    except BaseException:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        raise
+
+
 def check_newer_version(version: str):
     """Periodically checks for a newer version of the SDK and notifies the user if one is available."""
     try:
-        root_dir = config_root_dir()
-        last_check_file_path = os.path.join(root_dir, LAST_VERSION_CHECK_FILE)
-        if not os.path.isdir(root_dir):
-            os.makedirs(root_dir, exist_ok=True)
+        config = load_config()
+        if config is None:
+            return
+        last_check = config.get(LAST_VERSION_CHECK_FIELD)
+        # Is it time to check again? (a time in the future, from clock skew or an edited file, does not count as recent)
+        if isinstance(last_check, (int, float)) and 0 <= (int(time.time()) - last_check) < SIX_HOUR_IN_SEC:
+            return
 
-        if os.path.isfile(last_check_file_path):
-            # Is it time to check again?
-            with open(last_check_file_path, 'r', encoding=UTF_8) as f_in:
-                timestamp = int(f_in.read())
-                if (int(time.time()) - timestamp) < SIX_HOUR_IN_SEC:
-                    return
-
-        for index in range(MAX_RETRIES):
-            try:
-                # check version and save current time
-                response = rq.get(PYPI_PACKAGE_DETAILS_URL, timeout=10)
-                response.raise_for_status()
-                data = json.loads(response.text)
-                latest_version = data["info"]["version"]
-                if tuple(int(x) for x in version.split('.')) < tuple(int(x) for x in latest_version.split('.')):
-                    print_library_log(f"fivetran-connector-sdk {latest_version} is available. (a newer release exists)", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
-                    print_library_log("run 'pip install --upgrade fivetran-connector-sdk' to update", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
-
-                with open(last_check_file_path, 'w', encoding=UTF_8) as f_out:
-                    f_out.write(f"{int(time.time())}")
-                break
-            except Exception:
-                retry_after = 2 ** index
-                print_library_log("unable to check for a newer version of `fivetran-connector-sdk`", Logging.Level.WARNING)
-                print_library_log(f"retrying after {retry_after} seconds", Logging.Level.WARNING)
-                time.sleep(retry_after)
+        try:
+            response = rq.get(PYPI_PACKAGE_DETAILS_URL, timeout=10)
+            response.raise_for_status()
+            data = json.loads(response.text)
+            latest_version = data["info"]["version"]
+            if tuple(int(x) for x in version.split('.')) < tuple(int(x) for x in latest_version.split('.')):
+                print_library_log(f"fivetran-connector-sdk {latest_version} is available. (a newer release exists)", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
+                print_library_log("run 'pip install --upgrade fivetran-connector-sdk' to update", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
+        except (rq.RequestException, ValueError, KeyError, TypeError):
+            # PyPI could not be reached, or its answer was not what we expect (no JSON, no version, or one that is not numbers)
+            print_library_log("unable to check for a newer version of `fivetran-connector-sdk`", Logging.Level.WARNING)
+        # Saved even when PyPI could not be reached, so that an offline run is not delayed again before six hours have passed
+        update_config(**{LAST_VERSION_CHECK_FIELD: int(time.time())})
     except Exception:
         # version check is advisory; never abort commands due to unexpected error
         pass
@@ -751,8 +776,6 @@ def parse_pyproject_dependencies(pyproject_path: str) -> dict:
     """Parse [project.dependencies] from pyproject.toml into the same dict format
     as fetch_requirements_as_dict returns: {normalized_name: full_spec_string}.
 
-    Requires Python 3.11+ (tomllib stdlib). Caller must check version before calling.
-
     Args:
         pyproject_path (str): Path to the pyproject.toml file.
 
@@ -788,17 +811,11 @@ def validate_pyproject_file(project_path: str, is_deploy: bool, prompt_mode: Pro
     default `Y` continues, `n` aborts. Unused dependencies are logged without a
     prompt. The `pyproject.toml` file is never edited; users must fix issues manually.
 
-    Skips validation on Python < 3.11 (`tomllib` not available).
-
     Args:
         project_path (str): The path to the project directory containing the `pyproject.toml`.
         is_deploy (bool): If `True`, use SEVERE/WARNING levels and prompt per issue category.
         prompt_mode (PromptMode): Controls how prompts are answered. Defaults to INTERACTIVE.
     """
-    if sys.version_info < (3, 11):
-        print_library_log(PYPROJECT_SKIP_VALIDATION_MESSAGE)
-        return
-
     pyproject_path = os.path.join(project_path, PYPROJECT_TOML)
     requirements = parse_pyproject_dependencies(pyproject_path)
 
@@ -1778,6 +1795,24 @@ def package_update(project_path: str, package_id: str, api_key: str, prompt_mode
     confirm_shared_package_update(package_id, package, prompt_mode)
     validate_package_dependencies(project_path, prompt_mode)
     update_package_project(project_path, package_id, api_key, configuration_form_method)
+    sys.exit(0)
+
+
+def package_delete(package_id: str, api_key: str) -> None:
+    """Deletes an existing package. The API rejects the delete if the package is missing or has linked connections."""
+    response = rq.delete(f"{constants.PRODUCTION_BASE_URL}/v1/connector-sdk/packages/{package_id}",
+                         headers=_auth_headers(api_key),
+                         timeout=REQUEST_TIMEOUT_SECONDS)
+    if not response.ok:
+        try:
+            error_details = json.loads(response.text).get("message", response.text)
+        except json.JSONDecodeError:
+            error_details = response.text
+        print_library_log(f"failed to delete package {package_id}, error: {response.reason}: {error_details}",
+                          level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
+        telemetry.record_api_error(response.status_code)
+        sys.exit(1)
+    print_library_log(f"deleted package: {package_id}", log_icon=Logging.LogIcon.SUCCESS)
     sys.exit(0)
 
 

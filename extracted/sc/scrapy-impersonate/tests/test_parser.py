@@ -8,13 +8,13 @@ from scrapy_impersonate.parser import CurlOptionsParser, RequestParser
 
 
 def make_request(**kwargs) -> Request:
-    kwargs.setdefault("url", "https://example.org")
+    kwargs.setdefault("url", "https://example.org/")
     kwargs.setdefault("meta", {}).setdefault("impersonate", "chrome")
     return Request(**kwargs)
 
 
 class TestCurlOptionsParser:
-    def test_http_proxy_auth_moves_to_proxy_header(self):
+    def test_http_proxy_basic_auth_moves_to_proxy_credentials(self):
         request = make_request(
             meta={"impersonate": "chrome", "proxy": "http://proxy.example:8080"},
             headers={"Proxy-Authorization": "Basic dXNlcjpwYXNz"},
@@ -22,8 +22,32 @@ class TestCurlOptionsParser:
 
         curl_options = CurlOptionsParser(request).as_dict()
 
-        assert curl_options[CurlOpt.PROXYHEADER] == [b"Proxy-Authorization: Basic dXNlcjpwYXNz"]
+        assert curl_options[CurlOpt.PROXYUSERNAME] == b"user"
+        assert curl_options[CurlOpt.PROXYPASSWORD] == b"pass"
+        assert CurlOpt.PROXYHEADER not in curl_options
         assert b"Proxy-Authorization" not in request.headers
+
+    def test_http_proxy_basic_auth_password_may_contain_colons(self):
+        credentials = base64.b64encode(b"user:pa:ss").decode()
+        request = make_request(
+            meta={"impersonate": "chrome", "proxy": "http://proxy.example:8080"},
+            headers={"Proxy-Authorization": f"Basic {credentials}"},
+        )
+
+        curl_options = CurlOptionsParser(request).as_dict()
+
+        assert curl_options[CurlOpt.PROXYUSERNAME] == b"user"
+        assert curl_options[CurlOpt.PROXYPASSWORD] == b"pa:ss"
+
+    def test_http_proxy_other_auth_moves_to_proxy_header(self):
+        request = make_request(
+            meta={"impersonate": "chrome", "proxy": "http://proxy.example:8080"},
+            headers={"Proxy-Authorization": "Bearer token"},
+        )
+
+        curl_options = CurlOptionsParser(request).as_dict()
+
+        assert curl_options[CurlOpt.PROXYHEADER] == [b"Proxy-Authorization: Bearer token"]
 
     @pytest.mark.parametrize("scheme", ["socks5h", "socks5", "socks4"])
     def test_socks_proxy_auth_moves_to_proxy_credentials(self, scheme):
@@ -100,7 +124,7 @@ class TestRequestParser:
         request_args = RequestParser(request).as_dict()
 
         assert request_args["method"] == "POST"
-        assert request_args["url"] == "https://example.org"
+        assert request_args["url"] == "https://example.org/"
         assert request_args["data"] == b"payload"
         assert request_args["impersonate"] == "chrome"
 
@@ -117,18 +141,12 @@ class TestRequestParser:
 
         assert RequestParser(request).as_dict()["headers"]["X-Custom"] == "value"
 
-    @pytest.mark.parametrize(
-        "cookies, expected",
-        [
-            ({"a": "1", "b": "2"}, {"a": "1", "b": "2"}),
-            ([{"a": "1"}, {"b": "2"}], {"a": "1", "b": "2"}),
-            (None, {}),
-        ],
-    )
-    def test_cookies(self, cookies, expected):
-        request = make_request(cookies=cookies)
+    def test_request_cookies_are_left_to_the_cookies_middleware(self):
+        request = make_request(
+            cookies=[{"name": "sid", "value": "secret", "domain": "other.example"}]
+        )
 
-        assert RequestParser(request).as_dict()["cookies"] == expected
+        assert "cookies" not in RequestParser(request).as_dict()
 
     def test_impersonate_args_override_defaults(self):
         request = make_request(
@@ -139,3 +157,22 @@ class TestRequestParser:
 
         assert request_args["timeout"] == 5
         assert request_args["verify"] is False
+
+    def test_download_timeout_is_forwarded(self):
+        request = make_request(meta={"impersonate": "chrome", "download_timeout": 15})
+
+        assert RequestParser(request).as_dict()["timeout"] == 15
+
+    def test_no_timeout_without_download_timeout(self):
+        assert "timeout" not in RequestParser(make_request()).as_dict()
+
+    def test_impersonate_args_timeout_wins_over_download_timeout(self):
+        request = make_request(
+            meta={
+                "impersonate": "chrome",
+                "download_timeout": 15,
+                "impersonate_args": {"timeout": 5},
+            }
+        )
+
+        assert RequestParser(request).as_dict()["timeout"] == 5

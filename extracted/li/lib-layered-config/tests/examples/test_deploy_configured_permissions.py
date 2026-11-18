@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, TypedDict
 
 import pytest
 
@@ -16,13 +16,17 @@ from lib_layered_config import (
     LayerModes,
     read_config,
 )
+from lib_layered_config.deploy import DeployAction, DeployResult, deploy_config
 from lib_layered_config.domain.deploy_mode import DeployMode, ModeKind
 from lib_layered_config.domain.deploy_permissions import SECTION_KEY
 from lib_layered_config.domain.permissions import modes_apply
-from lib_layered_config.examples.deploy import DeployAction, DeployResult, deploy_config
 from lib_layered_config.observability import TRACE_ID, bind_trace_id
 from tests.support import LayeredSandbox, create_layered_sandbox
+from tests.support.exception_chain import chain
 from tests.support.os_markers import os_agnostic, posix_only, windows_only
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 VENDOR = "Acme"
 APP = "Demo"
@@ -56,21 +60,48 @@ def _mode(path: Path) -> int:
     return path.stat().st_mode & 0o7777
 
 
-def _deploy(source: Path, *, targets: list[str] | None = None, **kwargs: Any) -> list[DeployResult]:
-    return deploy_config(source, vendor=VENDOR, app=APP, slug=SLUG, targets=targets or ["user"], **kwargs)
+class _ExplicitModes(TypedDict, total=False):
+    """The explicit modes a parametrized case hands to deploy_config."""
+
+    dir_mode: int | None
+    file_mode: int | None
+
+
+class _DeployOptions(_ExplicitModes, total=False):
+    """The deploy_config options a parametrized case may set."""
+
+    set_permissions: bool | None
+    permission_overrides: Mapping[str, object] | None
+
+
+def _deploy(
+    source: Path,
+    *,
+    targets: list[str] | None = None,
+    force: bool = False,
+    set_permissions: bool | None = None,
+    dir_mode: int | None = None,
+    file_mode: int | None = None,
+    permissions: DeployPermissions | None = None,
+    permission_overrides: Mapping[str, object] | None = None,
+) -> list[DeployResult]:
+    return deploy_config(
+        source,
+        vendor=VENDOR,
+        app=APP,
+        slug=SLUG,
+        targets=targets or ["user"],
+        force=force,
+        set_permissions=set_permissions,
+        dir_mode=dir_mode,
+        file_mode=file_mode,
+        permissions=permissions,
+        permission_overrides=permission_overrides,
+    )
 
 
 def _break_app_layer(sandbox: LayeredSandbox) -> None:
     sandbox.write("app", "config.toml", content="[broken\n")
-
-
-def _chain(exc: BaseException) -> list[BaseException]:
-    seen: list[BaseException] = []
-    current: BaseException | None = exc
-    while current is not None and current not in seen:
-        seen.append(current)
-        current = current.__cause__ or current.__context__
-    return seen
 
 
 @posix_only
@@ -189,7 +220,7 @@ def test_one_explicit_mode_sets_modes_even_when_enabled_is_false(
 @os_agnostic
 @pytest.mark.parametrize("modes", [{"dir_mode": 0o750}, {"file_mode": 0o640}, {"dir_mode": 0o750, "file_mode": 0o640}])
 def test_an_explicit_mode_with_permission_setting_off_is_refused(
-    sandbox: LayeredSandbox, source: Path, modes: dict[str, int]
+    sandbox: LayeredSandbox, source: Path, modes: _ExplicitModes
 ) -> None:
     with pytest.raises(DeployModeError, match="set_permissions=False"):
         _deploy(source, set_permissions=False, **modes)
@@ -228,7 +259,7 @@ def test_a_broken_layer_file_is_named_without_its_content(
     message = str(caught.value)
     assert name.rsplit("/", 1)[-1] in message
     assert "(line 2, column" in message
-    assert all(MARK not in str(link) for link in _chain(caught.value))
+    assert all(MARK not in str(link) for link in chain(caught.value))
     assert caught.value.__cause__ is None
     assert caught.value.__context__ is None
 
@@ -386,7 +417,7 @@ def test_permission_overrides_keep_deploys_own_read(sandbox: LayeredSandbox, sou
 @os_agnostic
 @pytest.mark.parametrize("modes", [{}, {"dir_mode": 0o750, "file_mode": 0o640}], ids=["read", "both-modes"])
 def test_a_bad_permission_override_is_refused_before_anything_is_written(
-    sandbox: LayeredSandbox, source: Path, modes: dict[str, int]
+    sandbox: LayeredSandbox, source: Path, modes: _ExplicitModes
 ) -> None:
     # With both modes given the settings are never read; the override is refused all the same (D15).
     with pytest.raises(DeployPermissionsError) as caught:
@@ -474,7 +505,7 @@ def test_an_enabled_false_override_deploys_past_an_unloadable_configuration(
     ids=["enabled-true", "false-with-a-mode", "false-with-set-permissions-true"],
 )
 def test_an_override_that_leaves_modes_on_still_reads_the_configuration(
-    sandbox: LayeredSandbox, source: Path, kwargs: dict[str, Any]
+    sandbox: LayeredSandbox, source: Path, kwargs: _DeployOptions
 ) -> None:
     # Liveness for the test above: the broken layer does block when modes may be set (D6, D7, D14).
     _break_app_layer(sandbox)

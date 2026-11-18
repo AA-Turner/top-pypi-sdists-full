@@ -13,7 +13,7 @@ __all__ = (
     "cachedmethod",
 )
 
-__version__ = "8.0.0"
+__version__ = "8.0.1"
 
 import collections
 import collections.abc
@@ -113,6 +113,15 @@ class Cache(collections.abc.MutableMapping):
     def __len__(self):
         return len(self.__data)
 
+    def __copy__(self):
+        cls = type(self)
+        copy = cls.__new__(cls)
+        copy.__dict__.update(self.__dict__)
+        copy.__data = self.__data.copy()
+        if self.__size is not None:
+            copy.__size = self.__size.copy()
+        return copy
+
     # Note that we cannot simply inherit get(), pop() and setdefault()
     # from MutableMapping, since these rely on __getitem__ throwing a
     # KeyError on cache miss.  This is not the case if __missing__ is
@@ -189,6 +198,11 @@ class FIFOCache(Cache):
         cache_delitem(self, key)
         del self.__order[key]
 
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__order = self.__order.copy()
+        return copy
+
     def popitem(self):
         """Remove and return the `(key, value)` pair first inserted."""
         try:
@@ -214,6 +228,14 @@ class LFUCache(Cache):
         def __init__(self, count):
             self.count = count
             self.keys = collections.OrderedDict()
+
+        def __reduce__(self):
+            return LFUCache._Link, (self.count,), (None, {"keys": self.keys})
+
+        def insert(self, next):
+            self.next = next
+            self.prev = prev = next.prev
+            prev.next = next.prev = self
 
         def unlink(self):
             next = self.next
@@ -254,6 +276,28 @@ class LFUCache(Cache):
         del link.keys[key]
         if not link.keys:
             link.unlink()
+
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__root = root = LFUCache._Link(0)
+        root.prev = root.next = root
+        copy.__links = links = {}
+        curr = self.__root.next
+        while curr is not self.__root:
+            link = LFUCache._Link(curr.count)
+            link.keys = curr.keys.copy()
+            link.insert(root)
+            links.update(dict.fromkeys(link.keys, link))
+            curr = curr.next
+        return copy
+
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+        root = self.__root
+        root.prev = root.next = root
+        links = set(self.__links.values())
+        for link in sorted(links, key=lambda obj: obj.count):
+            link.insert(root)
 
     def popitem(self):
         """Remove and return the `(key, value)` pair least frequently used."""
@@ -308,11 +352,20 @@ class LRUCache(Cache):
 
     def __setitem__(self, key, value, cache_setitem=Cache.__setitem__):
         cache_setitem(self, key, value)
-        self.__touch(key)
+        order = self.__order
+        if key in order:
+            order.move_to_end(key)
+        else:
+            order[key] = None
 
     def __delitem__(self, key, cache_delitem=Cache.__delitem__):
         cache_delitem(self, key)
         del self.__order[key]
+
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__order = self.__order.copy()
+        return copy
 
     def popitem(self):
         """Remove and return the `(key, value)` pair least recently used."""
@@ -329,13 +382,6 @@ class LRUCache(Cache):
         Cache.clear(self)
         self.__order.clear()
 
-    def __touch(self, key):
-        """Mark as recently used."""
-        try:
-            self.__order.move_to_end(key)
-        except KeyError:
-            self.__order[key] = None
-
 
 class RRCache(Cache):
     """Random Replacement (RR) cache implementation."""
@@ -345,6 +391,12 @@ class RRCache(Cache):
         self.__choice = choice
         self.__index = {}
         self.__keys = []
+
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__index = self.__index.copy()
+        copy.__keys = self.__keys.copy()
+        return copy
 
     @property
     def choice(self):
@@ -407,6 +459,9 @@ class _TimedCache(Cache):
         def __exit__(self, *exc):
             self.__nesting -= 1
 
+        def __copy__(self):
+            return _TimedCache._Timer(self.__timer)
+
         def __reduce__(self):
             return _TimedCache._Timer, (self.__timer,)
 
@@ -416,6 +471,11 @@ class _TimedCache(Cache):
     def __init__(self, maxsize, timer, getsizeof=None):
         Cache.__init__(self, maxsize, getsizeof)
         self.__timer = _TimedCache._Timer(timer)
+
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__timer = self.__timer.__copy__()
+        return copy
 
     def __repr__(self, cache_repr=Cache.__repr__):
         with self.__timer as time:
@@ -473,6 +533,11 @@ class TTLCache(_TimedCache):
         def __reduce__(self):
             return TTLCache._Link, (self.key, self.expires)
 
+        def insert(self, next):
+            self.next = next
+            self.prev = prev = next.prev
+            prev.next = next.prev = self
+
         def unlink(self):
             next = self.next
             prev = self.prev
@@ -519,9 +584,7 @@ class TTLCache(_TimedCache):
             links.move_to_end(key)
             link.unlink()
         link.expires = expires
-        link.next = root = self.__root
-        link.prev = prev = root.prev
-        prev.next = root.prev = link
+        link.insert(self.__root)
 
     def __delitem__(self, key, cache_delitem=Cache.__delitem__):
         cache_delitem(self, key)
@@ -540,14 +603,27 @@ class TTLCache(_TimedCache):
                     yield curr.key
             curr = curr.next
 
+    def __copy__(self):
+        copy = super().__copy__()
+        copy.__root = root = TTLCache._Link()
+        root.prev = root.next = root
+        links = {}
+        curr = self.__root.next
+        while curr is not self.__root:
+            links[curr.key] = link = TTLCache._Link(curr.key, curr.expires)
+            link.insert(root)
+            curr = curr.next
+        copy.__links = collections.OrderedDict(
+            (key, links[key]) for key in self.__links
+        )
+        return copy
+
     def __setstate__(self, state):
         self.__dict__.update(state)
         root = self.__root
         root.prev = root.next = root
         for link in sorted(self.__links.values(), key=lambda obj: obj.expires):
-            link.next = root
-            link.prev = prev = root.prev
-            prev.next = root.prev = link
+            link.insert(root)
         self.expire(self.timer())
 
     @property
@@ -680,6 +756,18 @@ class TLRUCache(_TimedCache):
                 if time < curr.expires and not curr.removed:
                     yield curr.key
 
+    def __copy__(self):
+        copy = super().__copy__()
+        items = {}
+        for item in self.__order:
+            items[item] = new = TLRUCache._Item(item.key, item.expires)
+            new.removed = item.removed
+        copy.__order = [items[item] for item in self.__order]
+        copy.__items = collections.OrderedDict(
+            (key, items[item]) for key, item in self.__items.items()
+        )
+        return copy
+
     @property
     def ttu(self):
         """The time-to-use function used by the cache."""
@@ -777,6 +865,9 @@ def cachedmethod(cache, key=keys.methodkey, lock=None, condition=None, info=Fals
 
     """
     from ._cachedmethod import _wrapper
+
+    if not callable(cache):
+        raise TypeError("cache must be callable")
 
     def decorator(method):
         make_info = CacheInfo._make_info if info else None

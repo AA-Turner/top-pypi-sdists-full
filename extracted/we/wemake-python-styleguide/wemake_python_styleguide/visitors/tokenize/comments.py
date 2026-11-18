@@ -18,6 +18,7 @@ All comments have the same type.
 
 import re
 import tokenize
+from collections.abc import Sequence
 from token import ENDMARKER
 from typing import ClassVar, Final, final
 
@@ -25,6 +26,7 @@ from wemake_python_styleguide.constants import MAX_NO_COVER_COMMENTS, STDIN
 from wemake_python_styleguide.logic.system import is_executable_file, is_windows
 from wemake_python_styleguide.logic.tokens.constants import NEWLINES
 from wemake_python_styleguide.logic.tokens.strings import get_comment_text
+from wemake_python_styleguide.options.validation import ValidatedOptions
 from wemake_python_styleguide.violations.best_practices import (
     CommentInFormattedStringViolation,
     EmptyCommentViolation,
@@ -34,6 +36,9 @@ from wemake_python_styleguide.violations.best_practices import (
     ShebangViolation,
     WrongDocCommentViolation,
     WrongMagicCommentViolation,
+)
+from wemake_python_styleguide.violations.consistency import (
+    WrongAttributeDocstringViolation,
 )
 from wemake_python_styleguide.visitors.base import BaseTokenVisitor
 
@@ -57,9 +62,14 @@ class WrongCommentVisitor(BaseTokenVisitor):
         r'^type:\s?([\w\d\[\]\'\"\.]+)$',
     )
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        file_tokens: Sequence[tokenize.TokenInfo],
+        **kwargs: object,
+    ) -> None:
         """Initializes a counter."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, file_tokens, **kwargs)
         self._no_cover_count = 0
 
     def visit_comment(self, token: tokenize.TokenInfo) -> None:
@@ -67,6 +77,7 @@ class WrongCommentVisitor(BaseTokenVisitor):
         self._check_typed_ast(token)
         self._check_empty_doc_comment(token)
         self._check_cover_comments(token)
+        self._check_attribute_docstring_comment(token)
 
     def _check_typed_ast(self, token: tokenize.TokenInfo) -> None:
         comment_text = get_comment_text(token)
@@ -101,14 +112,27 @@ class WrongCommentVisitor(BaseTokenVisitor):
                 ),
             )
 
+    def _check_attribute_docstring_comment(
+        self,
+        token: tokenize.TokenInfo,
+    ) -> None:
+        comment_text = get_comment_text(token)
+        if comment_text.startswith(':'):
+            self.add_violation(WrongAttributeDocstringViolation(token))
+
 
 @final
 class EmptyCommentVisitor(BaseTokenVisitor):
     """Checks empty comment tokens."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        file_tokens: Sequence[tokenize.TokenInfo],
+        **kwargs: object,
+    ) -> None:
         """Initializes fields to track empty comments."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, file_tokens, **kwargs)
 
         self._line_num = -1
         self._prev_comment_line_num = -1
@@ -264,9 +288,14 @@ class NoqaVisitor(BaseTokenVisitor):
         r'^(noqa:?)($|[A-Z\d\,\s]+)',
     )
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        file_tokens: Sequence[tokenize.TokenInfo],
+        **kwargs: object,
+    ) -> None:
         """Initializes a counter."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, file_tokens, **kwargs)
         self._noqa_count = 0
 
     def visit_comment(self, token: tokenize.TokenInfo) -> None:
@@ -290,7 +319,7 @@ class NoqaVisitor(BaseTokenVisitor):
             return
         self._check_forbidden_noqa(excludes)
 
-    def _check_forbidden_noqa(self, noqa_excludes) -> None:
+    def _check_forbidden_noqa(self, noqa_excludes: str) -> None:
         excludes_list = [ex.strip() for ex in noqa_excludes.split(',')]
         for noqa_code in self.options.forbidden_inline_ignore:
             if noqa_code in excludes_list:

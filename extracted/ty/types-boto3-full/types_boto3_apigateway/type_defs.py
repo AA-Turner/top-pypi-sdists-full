@@ -38,6 +38,7 @@ from .literals import (
     GatewayResponseTypeType,
     IntegrationTypeType,
     IpAddressTypeType,
+    JwtSigningAlgorithmType,
     LocationStatusTypeType,
     OpType,
     PutModeType,
@@ -217,6 +218,13 @@ __all__ = (
     "IntegrationResponseResponseTypeDef",
     "IntegrationResponseTypeDef",
     "IntegrationTypeDef",
+    "JwtAdditionalClaimOutputTypeDef",
+    "JwtAdditionalClaimTypeDef",
+    "JwtAdditionalClaimUnionTypeDef",
+    "JwtConfigurationInputTypeDef",
+    "JwtConfigurationTypeDef",
+    "JwtIssuerInputTypeDef",
+    "JwtIssuerTypeDef",
     "MethodResponseExtraTypeDef",
     "MethodResponseResponseTypeDef",
     "MethodResponseTypeDef",
@@ -338,21 +346,6 @@ ApiKeyTypeDef = TypedDict(
         "tags": NotRequired[dict[str, str]],
     },
 )
-AuthorizerTypeDef = TypedDict(
-    "AuthorizerTypeDef",
-    {
-        "id": NotRequired[str],
-        "name": NotRequired[str],
-        "type": NotRequired[AuthorizerTypeType],
-        "providerARNs": NotRequired[list[str]],
-        "authType": NotRequired[str],
-        "authorizerUri": NotRequired[str],
-        "authorizerCredentials": NotRequired[str],
-        "identitySource": NotRequired[str],
-        "identityValidationExpression": NotRequired[str],
-        "authorizerResultTtlInSeconds": NotRequired[int],
-    },
-)
 
 
 class BasePathMappingTypeDef(TypedDict):
@@ -390,23 +383,6 @@ class ClientCertificateTypeDef(TypedDict):
 class StageKeyTypeDef(TypedDict):
     restApiId: NotRequired[str]
     stageName: NotRequired[str]
-
-
-CreateAuthorizerRequestTypeDef = TypedDict(
-    "CreateAuthorizerRequestTypeDef",
-    {
-        "restApiId": str,
-        "name": str,
-        "type": AuthorizerTypeType,
-        "providerARNs": NotRequired[Sequence[str]],
-        "authType": NotRequired[str],
-        "authorizerUri": NotRequired[str],
-        "authorizerCredentials": NotRequired[str],
-        "identitySource": NotRequired[str],
-        "identityValidationExpression": NotRequired[str],
-        "authorizerResultTtlInSeconds": NotRequired[int],
-    },
-)
 
 
 class CreateBasePathMappingRequestTypeDef(TypedDict):
@@ -967,6 +943,26 @@ class TlsConfigTypeDef(TypedDict):
     insecureSkipVerification: NotRequired[bool]
 
 
+JwtAdditionalClaimOutputTypeDef = TypedDict(
+    "JwtAdditionalClaimOutputTypeDef",
+    {
+        "claimName": str,
+        "format": Literal["SINGLE_STRING"],
+        "required": NotRequired[bool],
+        "expectedValues": NotRequired[list[str]],
+    },
+)
+JwtAdditionalClaimTypeDef = TypedDict(
+    "JwtAdditionalClaimTypeDef",
+    {
+        "claimName": str,
+        "format": Literal["SINGLE_STRING"],
+        "required": NotRequired[bool],
+        "expectedValues": NotRequired[Sequence[str]],
+    },
+)
+
+
 class MethodResponseTypeDef(TypedDict):
     statusCode: NotRequired[str]
     responseParameters: NotRequired[dict[str, bool]]
@@ -1148,22 +1144,6 @@ ApiKeyResponseTypeDef = TypedDict(
         "lastUpdatedDate": datetime,
         "stageKeys": list[str],
         "tags": dict[str, str],
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-AuthorizerResponseTypeDef = TypedDict(
-    "AuthorizerResponseTypeDef",
-    {
-        "id": str,
-        "name": str,
-        "type": AuthorizerTypeType,
-        "providerARNs": list[str],
-        "authType": str,
-        "authorizerUri": str,
-        "authorizerCredentials": str,
-        "identitySource": str,
-        "identityValidationExpression": str,
-        "authorizerResultTtlInSeconds": int,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1365,12 +1345,6 @@ class ApiKeysTypeDef(TypedDict):
     warnings: list[str]
     position: str
     items: list[ApiKeyTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class AuthorizersTypeDef(TypedDict):
-    position: str
-    items: list[AuthorizerTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1785,6 +1759,16 @@ PutIntegrationRequestTypeDef = TypedDict(
 )
 
 
+class JwtIssuerTypeDef(TypedDict):
+    issuer: NotRequired[str]
+    audiences: NotRequired[list[str]]
+    additionalClaims: NotRequired[list[JwtAdditionalClaimOutputTypeDef]]
+    jwksUri: NotRequired[str]
+
+
+JwtAdditionalClaimUnionTypeDef = Union[JwtAdditionalClaimTypeDef, JwtAdditionalClaimOutputTypeDef]
+
+
 class StageResponseTypeDef(TypedDict):
     deploymentId: str
     clientCertificateId: str
@@ -2135,6 +2119,17 @@ class MethodTypeDef(TypedDict):
     authorizationScopes: NotRequired[list[str]]
 
 
+class JwtConfigurationTypeDef(TypedDict):
+    issuers: NotRequired[list[JwtIssuerTypeDef]]
+    defaultAlgorithms: NotRequired[list[JwtSigningAlgorithmType]]
+
+
+class JwtIssuerInputTypeDef(TypedDict):
+    issuer: str
+    audiences: Sequence[str]
+    additionalClaims: NotRequired[Sequence[JwtAdditionalClaimUnionTypeDef]]
+
+
 class StagesTypeDef(TypedDict):
     item: list[StageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -2182,9 +2177,71 @@ ResourceTypeDef = TypedDict(
         "resourceMethods": NotRequired[dict[str, MethodTypeDef]],
     },
 )
+AuthorizerResponseTypeDef = TypedDict(
+    "AuthorizerResponseTypeDef",
+    {
+        "id": str,
+        "name": str,
+        "type": AuthorizerTypeType,
+        "providerARNs": list[str],
+        "authType": str,
+        "authorizerUri": str,
+        "authorizerCredentials": str,
+        "identitySource": str,
+        "identityValidationExpression": str,
+        "authorizerResultTtlInSeconds": int,
+        "jwtConfiguration": JwtConfigurationTypeDef,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+AuthorizerTypeDef = TypedDict(
+    "AuthorizerTypeDef",
+    {
+        "id": NotRequired[str],
+        "name": NotRequired[str],
+        "type": NotRequired[AuthorizerTypeType],
+        "providerARNs": NotRequired[list[str]],
+        "authType": NotRequired[str],
+        "authorizerUri": NotRequired[str],
+        "authorizerCredentials": NotRequired[str],
+        "identitySource": NotRequired[str],
+        "identityValidationExpression": NotRequired[str],
+        "authorizerResultTtlInSeconds": NotRequired[int],
+        "jwtConfiguration": NotRequired[JwtConfigurationTypeDef],
+    },
+)
+
+
+class JwtConfigurationInputTypeDef(TypedDict):
+    issuers: Sequence[JwtIssuerInputTypeDef]
+    defaultAlgorithms: Sequence[JwtSigningAlgorithmType]
 
 
 class ResourcesTypeDef(TypedDict):
     position: str
     items: list[ResourceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AuthorizersTypeDef(TypedDict):
+    position: str
+    items: list[AuthorizerTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+CreateAuthorizerRequestTypeDef = TypedDict(
+    "CreateAuthorizerRequestTypeDef",
+    {
+        "restApiId": str,
+        "name": str,
+        "type": AuthorizerTypeType,
+        "providerARNs": NotRequired[Sequence[str]],
+        "authType": NotRequired[str],
+        "authorizerUri": NotRequired[str],
+        "authorizerCredentials": NotRequired[str],
+        "identitySource": NotRequired[str],
+        "identityValidationExpression": NotRequired[str],
+        "authorizerResultTtlInSeconds": NotRequired[int],
+        "jwtConfiguration": NotRequired[JwtConfigurationInputTypeDef],
+    },
+)

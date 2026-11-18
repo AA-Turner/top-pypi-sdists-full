@@ -44,6 +44,29 @@ class Model(abc.ABC):
     call ID for correlation.
     """
 
+    def get_default_model_settings(self) -> ModelSettings | None:
+        """Return defaults for this model, or None to retain the agent's implicit defaults.
+
+        The default implementation recognizes adapters exposing a string ``model`` name.
+        Adapters with namespaced identifiers can override this using their canonical model name.
+        Explicit agent settings and explicit model selections take precedence over this hook.
+        """
+        from .default_models import get_default_model_settings
+
+        name = getattr(self, "model", None)
+        return get_default_model_settings(name) if isinstance(name, str) else None
+
+    def _get_request_settings(
+        self,
+        settings: ModelSettings,
+        *,
+        prompt: ResponsePromptParam | None,
+        has_tools: bool,
+        implicit_fields: set[str],
+    ) -> ModelSettings:
+        """Adjust the inferred fields after the runner resolves explicit overrides."""
+        return settings
+
     async def _cleanup_on_run_end(self, owner: object) -> None:
         """Release run-scoped resources after the runner finishes using this model."""
         return None

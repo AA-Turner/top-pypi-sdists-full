@@ -377,6 +377,7 @@ class Zpool:
                 vdevs.append(current)
             return None
 
+        vdev_group_re = re.compile(r"^(mirror|raidz\d?)-\d+$")
         for line in stdout.splitlines():
             if not in_config:
                 if line.strip().startswith("config:"):
@@ -397,7 +398,7 @@ class Zpool:
                 role = "spare" if device == "spares" else device.rstrip("s")
                 continue
 
-            match_group = re.match(r"^(mirror|raidz\d?)-\d+$", device)
+            match_group = vdev_group_re.match(device)
             if match_group:
                 current = flush_current(current)
                 current = {"type": match_group.group(1), "disks": []}
@@ -493,6 +494,7 @@ class Zpool:
         saw_pool = False
         vdevs = []
         current = None
+        vdev_group_re = re.compile(r"^(mirror|raidz\d?)\-\d+$")
         for line in stdout.splitlines():
             if not in_cfg:
                 if line.strip().startswith("config:"):
@@ -506,7 +508,7 @@ class Zpool:
                 if device == self.name:
                     saw_pool = True
                 continue
-            if re.match(r"^(mirror|raidz\d?)\-\d+$", device) or device in ("cache", "logs", "spares"):
+            if vdev_group_re.match(device) or device in ("cache", "logs", "spares"):
                 if current:
                     vdevs.append(current)
                 vdev_type = (
@@ -580,19 +582,19 @@ def main():
         supports_check_mode=True,
     )
 
-    name = module.params.get("name")
-    state = module.params.get("state")
-    disable_new_features = module.params.get("disable_new_features")
-    force = module.params.get("force")
-    pool_properties = module.params.get("pool_properties")
-    filesystem_properties = module.params.get("filesystem_properties")
-    mountpoint = module.params.get("mountpoint")
-    altroot = module.params.get("altroot")
-    temp_name = module.params.get("temp_name")
-    vdevs = module.params.get("vdevs")
+    name = module.params["name"]
+    state = module.params["state"]
+    disable_new_features = module.params["disable_new_features"]
+    force = module.params["force"]
+    pool_properties = module.params["pool_properties"]
+    filesystem_properties = module.params["filesystem_properties"]
+    mountpoint = module.params["mountpoint"]
+    altroot = module.params["altroot"]
+    temp_name = module.params["temp_name"]
+    vdevs = module.params["vdevs"]
 
     for property_key in ("pool_properties", "filesystem_properties"):
-        for key, value in list(module.params.get(property_key, {}).items()):
+        for key, value in list(module.params[property_key].items()):
             if isinstance(value, bool):
                 module.params[property_key][key] = "on" if value else "off"
 

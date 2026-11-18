@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AuditEventTypeType",
+    "AutoIncludeFieldsType",
     "CommentBodyTextTypeType",
     "ConnectCasesServiceName",
     "DomainStatusType",
@@ -57,6 +58,7 @@ AuditEventTypeType = Literal[
     "RelatedItem.Deleted",
     "RelatedItem.Updated",
 ]
+AutoIncludeFieldsType = Literal["All", "Custom", "System"]
 CommentBodyTextTypeType = Literal["Text/Plain"]
 DomainStatusType = Literal["Active", "CreationFailed", "CreationInProgress"]
 FieldNamespaceType = Literal["Custom", "System"]

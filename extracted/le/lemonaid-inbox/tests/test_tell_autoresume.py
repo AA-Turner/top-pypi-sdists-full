@@ -9,6 +9,7 @@ from lemonaid.brief import attached, identity
 from lemonaid.brief import store as brief_store
 from lemonaid.config import Config
 from lemonaid.inbox import db
+from lemonaid.lemon_watchers import owners as lemon_owners
 from lemonaid.messages import (
     autoresume,
     autoresume_cmux,
@@ -16,14 +17,18 @@ from lemonaid.messages import (
     cli,
     dead_letters,
     recipient,
+    revive,
+    store,
+    tell_delivery,
 )
 from lemonaid.messages_config import MessagesConfig
+from lemonaid.restore import auto
 
 
 @pytest.fixture(autouse=True)
 def _sender(monkeypatch):
     monkeypatch.setenv("LEMONAID_CHANNEL", "claude:sender")
-    monkeypatch.setattr(cli.service, "ensure_running", lambda: None)
+    monkeypatch.setattr(tell_delivery.service, "ensure_running", lambda: None)
     monkeypatch.setattr(recipient, "_tty_commands", lambda tty: ["-fish"])  # nothing runs there
 
 
@@ -95,7 +100,7 @@ def test_a_deaf_lemon_is_prompted(capsys, started, monkeypatch):
     assert "prompted it to read the message" in capsys.readouterr().err
 
 
-def test_a_done_lemon_is_left_alone_with_its_status_and_resume_command(capsys, started):
+def test_a_done_lemon_is_left_alone_with_its_status_and_the_wake_flag(capsys, started):
     _attach(
         "claude:finished",
         "# t\n\nStatus: done\n\n## Now\n\n### Done\n\n- PR merged\n",
@@ -107,7 +112,7 @@ def test_a_done_lemon_is_left_alone_with_its_status_and_resume_command(capsys, s
     assert started == []
     err = capsys.readouterr().err
     assert "was marked done (Status: done; Now: PR merged)" in err
-    assert "run: cd /tmp && lemonaid claude resume abc" in err
+    assert "run the same `lemonaid tell` with --wake" in err
 
 
 def test_a_failed_start_tells_the_sender_whom_to_inform(capsys, monkeypatch):
@@ -125,7 +130,9 @@ def test_a_failed_start_tells_the_sender_whom_to_inform(capsys, monkeypatch):
 
 def test_autoresume_off_names_the_recovery_step(capsys, started, monkeypatch):
     monkeypatch.setattr(
-        cli, "load_config", lambda: Config(messages=MessagesConfig(autoresume=frozenset()))
+        tell_delivery,
+        "load_config",
+        lambda: Config(messages=MessagesConfig(autoresume=frozenset())),
     )
     _attach("claude:gone", "# t\n\nStatus: working\n")
 
@@ -156,6 +163,46 @@ def test_a_second_tell_while_it_starts_does_not_start_it_again(capsys, started):
     assert _tell("claude:gone") == 0
     assert started == ["start"]
     assert "already being started" in capsys.readouterr().err
+
+
+def test_a_lost_lemon_is_left_to_a_running_restore(capsys, started):
+    _attach("claude:gone", "# t\n\nStatus: working\n")
+    with db.connect() as conn:
+        db.mark_lost(conn, "claude:gone", "test", "")
+
+    with auto.lock():
+        assert _tell("claude:gone") == 0
+    assert started == []
+    assert "already being started" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("lost_first", [True, False], ids=["read-lost", "read-before-lost"])
+def test_a_resume_that_found_it_dead_does_not_start_one_restored_since(
+    started, monkeypatch, lost_first
+):
+    """The caller judged the lemon dead, from a row read before or after restore marked it
+    lost; then restore won its start lock and the lemon's harness started and registered
+    before the caller got in."""
+    _attach("claude:gone", "# t\n\nStatus: working\n", session_id="gone")
+    with db.connect() as conn:
+        if lost_first:
+            db.mark_lost(conn, "claude:gone", "test", "")
+        found_dead = db.get_by_channel(conn, "claude:gone", unread_only=False)
+        db.mark_lost(conn, "claude:gone", "test", "")
+        db.register_working(
+            conn,
+            "claude:gone",
+            "",
+            metadata={"tty": "/dev/ttys991", "session_id": "gone"},
+            switch_source="tmux",
+        )
+    assert found_dead is not None
+    monkeypatch.setattr(lemon_owners, "running", lambda: {"gone": {"/dev/ttys991"}})
+
+    outcome = revive.revive(found_dead, store.mailbox_for_id("x.Gone"), True, Config(), "hello")
+
+    assert outcome == revive.Outcome(revive.STARTING, "it came back after it was found dead")
+    assert started == []
 
 
 def test_a_lemon_at_a_question_is_not_typed_into(capsys, started, monkeypatch):

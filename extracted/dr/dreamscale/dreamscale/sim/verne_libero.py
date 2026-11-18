@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from dreamscale_transport import verne_v05_deploy as C
+from dreamscale_core import verne_v05_deploy as C
 
 # The catalog models this runner serves: Verne V0.5 LIBERO, by its public name or its id.
 MODELS = ("verne-v0.5-libero", "verne-v05-libero")

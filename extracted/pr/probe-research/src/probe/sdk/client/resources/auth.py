@@ -3,7 +3,7 @@ tokens, client installations and credential grants
 (twins: app/accounts/auth, app/capture/clients/installations)."""
 
 from __future__ import annotations
-from ....generated.models import ClientInstallationsOut, TokenOut
+from ....generated.models import ClientInstallationsOut, ServiceTokenOut, TokenOut
 from ..resource import Resource
 import os
 import sys
@@ -126,6 +126,32 @@ class AuthMixin:
             open_browser=open_browser,
             on_prompt=on_prompt,
         )
+
+    # -- team API keys (probe_svc_, read-only, the team's) --------------------
+    def create_team_key(self, name: str, *, should_open_browser: bool = True, on_prompt=None) -> dict:
+        """Ask for a team API key named ``name``; an owner or admin approves it in the browser.
+
+        Starts the device flow with the ``team_key`` grant alone (the server refuses it beside
+        another). The key is read-only, reads as its approver and expires in 90 days; revoke
+        it in Settings → Access. Returns the exchange answer: ``["grants"][0]`` is
+        ``{"grant": "team_key", "token": "probe_svc_…", "token_id"}``; the secret exists once.
+        """
+        from ...settings.device import device_authorize
+
+        # A team's key, not this machine's: it must not take or release a device slot.
+        return device_authorize(
+            self.settings.base_url,
+            scopes=["read"],
+            grants=["team_key"],
+            token_name=name,
+            bind_device=False,
+            open_browser=should_open_browser,
+            on_prompt=on_prompt,
+        )
+
+    def list_team_keys(self) -> list[dict]:
+        """The team's live API keys (``GET /v1/service-tokens``): names and prefixes, never secrets."""
+        return self.transport.get("/v1/service-tokens")
 
     def revoke_token(self, token_id: str) -> None:
         """Revoke a token by id. Your own: any writer. A teammate's: needs a
@@ -260,6 +286,10 @@ class AuthResource(Resource):
     def list_tokens(self) -> list[TokenOut]:
         """`Client.list_tokens` as `TokenOut`s."""
         return self._to_models(TokenOut, self._client.list_tokens())
+
+    def list_team_keys(self) -> list[ServiceTokenOut]:
+        """`Client.list_team_keys` as `ServiceTokenOut`s."""
+        return self._to_models(ServiceTokenOut, self._client.list_team_keys())
 
     def list_installations(self) -> ClientInstallationsOut:
         """`Client.list_client_installations` as a `ClientInstallationsOut`."""

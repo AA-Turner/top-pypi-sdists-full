@@ -38,6 +38,7 @@ __all__ = (
     "IpAddressTypeType",
     "ListAccessSourcesPaginatorName",
     "ListAccessTokensPaginatorName",
+    "ListCoreNetworkEndpointsPaginatorName",
     "ListDNSViewsPaginatorName",
     "ListFirewallDomainListsPaginatorName",
     "ListFirewallDomainsPaginatorName",
@@ -48,10 +49,13 @@ __all__ = (
     "ListSharedDNSViewsPaginatorName",
     "PaginatorName",
     "ProfileResourceStatusType",
+    "PublicIpStatusType",
+    "RegionScopeTypeType",
     "ResourceServiceName",
     "Route53GlobalResolverServiceName",
     "ServiceName",
     "TokenStatusType",
+    "UpdateIpAddressOperationType",
 )
 
 
@@ -67,9 +71,10 @@ FirewallRuleActionType = Literal["ALERT", "ALLOW", "BLOCK"]
 FirewallRulesFailOpenTypeType = Literal["DISABLED", "ENABLED"]
 GlobalResolverIpAddressTypeType = Literal["DUAL_STACK", "IPV4"]
 HostedZoneAssociationStatusType = Literal["CREATING", "DELETING", "OPERATIONAL"]
-IpAddressTypeType = Literal["IPV4", "IPV6"]
+IpAddressTypeType = Literal["IPV4", "IPV6", "NONE"]
 ListAccessSourcesPaginatorName = Literal["list_access_sources"]
 ListAccessTokensPaginatorName = Literal["list_access_tokens"]
+ListCoreNetworkEndpointsPaginatorName = Literal["list_core_network_endpoints"]
 ListDNSViewsPaginatorName = Literal["list_dns_views"]
 ListFirewallDomainListsPaginatorName = Literal["list_firewall_domain_lists"]
 ListFirewallDomainsPaginatorName = Literal["list_firewall_domains"]
@@ -81,7 +86,10 @@ ListSharedDNSViewsPaginatorName = Literal["list_shared_dns_views"]
 ProfileResourceStatusType = Literal[
     "CREATING", "DELETING", "DISABLED", "DISABLING", "ENABLING", "OPERATIONAL", "UPDATING"
 ]
+PublicIpStatusType = Literal["DISABLED_RELEASED", "DISABLED_RESERVED", "ENABLED_RESERVED"]
+RegionScopeTypeType = Literal["ALL", "REGIONAL"]
 TokenStatusType = Literal["CREATING", "DELETING", "OPERATIONAL"]
+UpdateIpAddressOperationType = Literal["ADD", "REMOVE", "UPDATE"]
 Route53GlobalResolverServiceName = Literal["route53globalresolver"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -529,6 +537,7 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_access_sources",
     "list_access_tokens",
+    "list_core_network_endpoints",
     "list_dns_views",
     "list_firewall_domain_lists",
     "list_firewall_domains",

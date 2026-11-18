@@ -34,7 +34,9 @@ from anyscale.commands.util import (
 
 ModelType = Union[ModelBaseType, ModelEnumType]
 
-CLI_OPTIONS_TO_SKIP = {"help"}
+# click 8.5 names the automatic --help option "_click_default_help"; earlier releases
+# name it "help".
+CLI_OPTIONS_TO_SKIP = {"help", "_click_default_help"}
 CLI_NO_EXAMPLES = {
     "anyscale",
     "anyscale auth",

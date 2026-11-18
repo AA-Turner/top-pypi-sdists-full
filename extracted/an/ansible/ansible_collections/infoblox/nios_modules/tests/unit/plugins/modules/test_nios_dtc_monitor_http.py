@@ -135,3 +135,47 @@ class TestNiosDtcHttpMonitorModule(TestNiosModule):
 
         self.assertTrue(res['changed'])
         wapi.delete_object.assert_called_once_with(ref)
+
+    def test_nios_dtc_monitor_http_idempotency_with_request_field(self):
+        """Test that monitor with request field is idempotent.
+
+        NIOS automatically appends '\nConnection: close\n\n' to the request value.
+        The module should recognize this as idempotent on re-apply.
+        """
+        self.module.params = {'provider': None, 'state': 'present', 'name': 'idempotency_bug_test',
+                              'request': 'GET /health HTTP/1.1', 'port': 80, 'extattrs': None,
+                              'comment': None}
+
+        ref = "dtc:monitor:http/ZG5zLmlkbnNfbW9uaXRvcl9odHRwJGlkZW1wb3RlbmN5X2J1Z190ZXN0:idempotency_bug_test"
+
+        # This is what NIOS returns - with appended Connection: close header
+        test_object = [
+            {
+                "_ref": ref,
+                "name": "idempotency_bug_test",
+                "request": "GET /health HTTP/1.1\nConnection: close\n\n",
+                "port": 80,
+                "interval": 5,
+                "timeout": 15,
+                "result": "ANY",
+                "result_code": 200,
+                "secure": False,
+                "extattrs": {}
+            }
+        ]
+
+        test_spec = {
+            "name": {"ib_req": True},
+            "request": {},
+            "port": {},
+            "extattrs": {},
+            "comment": {}
+        }
+
+        wapi = self._get_wapi(test_object)
+        res = wapi.run('dtc:monitor:http', test_spec)
+
+        # Should be idempotent - changed should be False
+        self.assertFalse(res['changed'])
+        # update_object should not be called since there are no changes
+        wapi.update_object.assert_not_called()

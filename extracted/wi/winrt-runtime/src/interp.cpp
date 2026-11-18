@@ -11,6 +11,12 @@
 // crosses the boundary the same way here as it did through a thunk. What is new
 // is the switch that picks one.
 
+// keeps <windows.h> from defining min and max as macros
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <Windows.h>
+
 #include <Python.h>
 
 #include <pywinrt/base.h>
@@ -398,6 +404,95 @@ namespace py::interp
     }
 
     /**
+     * Calls winrt.runtime._internals.note_missing_package(), which adds a note
+     * to @p error naming the package that provides @p module_name, the module
+     * of @p winrt_namespace, when it can tell the package, which it can for the
+     * Windows SDK alone.
+     *
+     * @returns @c false with a Python error set.
+     */
+    static bool add_package_note(
+        PyObject* error,
+        std::string_view module_name,
+        std::string_view winrt_namespace) noexcept
+    {
+        pyobj_handle internals{PyImport_ImportModule("winrt.runtime._internals")};
+        if (!internals)
+        {
+            return false;
+        }
+
+        pyobj_handle note{
+            PyObject_GetAttrString(internals.get(), "note_missing_package")};
+        if (!note)
+        {
+            return false;
+        }
+
+        pyobj_handle module{PyUnicode_FromStringAndSize(
+            module_name.data(), static_cast<Py_ssize_t>(module_name.size()))};
+        if (!module)
+        {
+            return false;
+        }
+
+        pyobj_handle ns{PyUnicode_FromStringAndSize(
+            winrt_namespace.data(), static_cast<Py_ssize_t>(winrt_namespace.size()))};
+        if (!ns)
+        {
+            return false;
+        }
+
+        pyobj_handle result{PyObject_CallFunctionObjArgs(
+            note.get(), error, module.get(), ns.get(), nullptr)};
+
+        return static_cast<bool>(result);
+    }
+
+    /**
+     * Adds a note naming the package to install, when add_package_note() can
+     * tell it, to the @c ModuleNotFoundError raised while resolving @p record,
+     * a reference to a type of another namespace. Any other exception is left
+     * as it is.
+     *
+     * The note only adds to what the error says, so an @c Exception while
+     * adding it leaves the error without one. Anything else, such as a
+     * @c KeyboardInterrupt, is the exception raised, with the original as its
+     * context, as it would be in Python.
+     */
+    static void note_missing_package(table::type_view const& record) noexcept
+    {
+        if (!PyErr_ExceptionMatches(PyExc_ModuleNotFoundError))
+        {
+            return;
+        }
+
+        pyobj_handle error{take_raised_exception()};
+
+        auto const py_name = record.py_name();
+        auto const module_name = py_name.substr(0, py_name.find_last_of('.'));
+
+        if (!add_package_note(error.get(), module_name, record.winrt_namespace()))
+        {
+            if (PyErr_ExceptionMatches(PyExc_Exception))
+            {
+                PyErr_Clear();
+                restore_raised_exception(error.detach());
+                return;
+            }
+
+            pyobj_handle failure{take_raised_exception()};
+
+            // steals the reference to the context
+            PyException_SetContext(failure.get(), error.detach());
+            restore_raised_exception(failure.detach());
+            return;
+        }
+
+        restore_raised_exception(error.detach());
+    }
+
+    /**
      * Reads the type entry that @p arg or @p field names, importing the package
      * that defines it if this is the first time it has been needed.
      *
@@ -432,10 +527,19 @@ namespace py::interp
             // answer. A reference to a delegate of another namespace carries
             // only the name, so it is the defining table that has the Invoke
             // to call.
-            return cache_entry(
-                cache,
-                record.is_external() ? find_defining_entry(record.py_name())
-                                     : ensure_entry(owner, type));
+            if (!record.is_external())
+            {
+                return cache_entry(cache, ensure_entry(owner, type));
+            }
+
+            auto const defining = find_defining_entry(record.py_name());
+            if (!defining)
+            {
+                note_missing_package(record);
+                return nullptr;
+            }
+
+            return cache_entry(cache, defining);
         }
 
         if (record.flags() & table::type_flags::concrete)
@@ -504,6 +608,7 @@ namespace py::interp
             py_type = get_python_type(py_name);
             if (!py_type)
             {
+                note_missing_package(record);
                 return nullptr;
             }
         }
@@ -1146,6 +1251,155 @@ namespace py::interp
         return nullptr;
     }
 
+#ifdef Py_GIL_DISABLED
+    static_assert(sizeof(SRWLOCK) == sizeof(overload_desc::factory_lock));
+
+    /**
+     * Holds overload_desc::factory_lock for a scope: shared in get_factory(),
+     * so that the callers of one static or constructor do not wait for each
+     * other, and exclusive in release_factories().
+     *
+     * An SRWLOCK rather than a PyMutex, because a PyMutex lets one caller in
+     * at a time and parks the ones that find it taken, which makes a static
+     * called from eight threads at once about three times slower.
+     */
+    class factory_guard
+    {
+      public:
+        factory_guard(factory_guard const&) = delete;
+        factory_guard& operator=(factory_guard const&) = delete;
+
+        factory_guard(overload_desc& overload, bool exclusive) noexcept
+            : lock_(reinterpret_cast<PSRWLOCK>(&overload.factory_lock)),
+              exclusive_(exclusive)
+        {
+            if (exclusive_)
+            {
+                AcquireSRWLockExclusive(lock_);
+            }
+            else
+            {
+                AcquireSRWLockShared(lock_);
+            }
+        }
+
+        ~factory_guard()
+        {
+            if (exclusive_)
+            {
+                ReleaseSRWLockExclusive(lock_);
+            }
+            else
+            {
+                ReleaseSRWLockShared(lock_);
+            }
+        }
+
+      private:
+        PSRWLOCK lock_;
+        bool exclusive_;
+    };
+#endif
+
+    /**
+     * Keeps the agile activation factory @p factory for @p overload, unless
+     * another thread kept one first, and lists the overload where
+     * release_factories() finds it.
+     *
+     * The factory is published and listed in one step, under the cache lock
+     * or, with the GIL, under the GIL, so release_factories() never finds one
+     * without the other. A list that cannot grow keeps nothing, which costs
+     * the next call an activation and nothing more.
+     */
+    static void keep_factory(overload_desc& overload, ::IUnknown* factory) noexcept
+    {
+        auto const s = py::cpp::_winrt::try_get_module_state();
+        if (!s)
+        {
+            return;
+        }
+
+        py::cpp::_winrt::state_guard const guard{s->cache_lock};
+
+        if (load_published(overload.factory))
+        {
+            return;
+        }
+
+        try
+        {
+            s->kept_factories.push_back(&overload);
+        }
+        catch (...)
+        {
+            return;
+        }
+
+        factory->AddRef();
+        publish(overload.factory, static_cast<void*>(factory));
+    }
+
+    /**
+     * Lets go of every activation factory get_factory() has kept, which
+     * uninit_apartment() does before it uninitializes COM. The last
+     * CoUninitialize() of the process unloads the DLL that implements a class,
+     * and a factory kept past it points into code that is no longer mapped, so
+     * calling it crashes and so does releasing it. The next call to a static
+     * or a constructor asks for its factory again and keeps that one.
+     *
+     * The cache is emptied with the GIL held, or on a free-threaded build with
+     * each overload's lock held, which is what get_factory() holds from
+     * reading a factory to taking a reference to it. The factories are then
+     * released without the GIL.
+     *
+     * @returns @c false with a Python error set when there was no memory to
+     * hold them in, in which case nothing has been let go of.
+     */
+    bool release_factories() noexcept
+    {
+        auto const s = py::cpp::_winrt::try_get_module_state();
+        if (!s)
+        {
+            return true;
+        }
+
+        std::vector<winrt::com_ptr<::IUnknown>> factories;
+        std::vector<overload_desc*> kept;
+
+        {
+            py::cpp::_winrt::state_guard const guard{s->cache_lock};
+
+            try
+            {
+                factories.reserve(s->kept_factories.size());
+            }
+            catch (...)
+            {
+                to_PyErr();
+                return false;
+            }
+
+            kept.swap(s->kept_factories);
+
+            for (auto const overload : kept)
+            {
+#ifdef Py_GIL_DISABLED
+                factory_guard const lock{*overload, true};
+#endif
+
+                // Taking over the cache's reference.
+                factories.emplace_back().attach(
+                    static_cast<::IUnknown*>(load_published(overload->factory)));
+                publish(overload->factory, static_cast<void*>(nullptr));
+            }
+        }
+
+        auto _gil = release_gil();
+        factories.clear();
+
+        return true;
+    }
+
     /**
      * Gets the activation factory a static member or a constructor is reached
      * through, keeping it when it turns out to be agile.
@@ -1156,14 +1410,25 @@ namespace py::interp
      */
     static void* get_factory(type_entry const& type, overload_desc& overload)
     {
-        if (auto const cached = load_published(overload.factory))
         {
-            static_cast<::IUnknown*>(cached)->AddRef();
-            return cached;
+            // release_factories() empties the cache and then releases what it
+            // held, so the reference has to be taken before it can get in
+            // between. Under the GIL, holding the GIL from the read to the
+            // AddRef() does that.
+#ifdef Py_GIL_DISABLED
+            factory_guard const guard{overload, false};
+#endif
+
+            if (auto const cached = load_published(overload.factory))
+            {
+                static_cast<::IUnknown*>(cached)->AddRef();
+                return cached;
+            }
         }
 
-        void* factory{};
+        winrt::com_ptr<::IUnknown> factory;
         int32_t hr{};
+        bool agile{};
 
         {
             // Activation may start a server in another process, and the
@@ -1173,33 +1438,27 @@ namespace py::interp
             hr = winrt::impl::get_runtime_activation_factory_impl<false>(
                 winrt::param::hstring{type.class_name},
                 *static_cast<winrt::guid const*>(overload.iface),
-                &factory);
+                factory.put_void());
 
             if (hr == 0)
             {
-                void* agile{};
+                winrt::com_ptr<::IUnknown> agile_object;
 
-                if (static_cast<::IUnknown*>(factory)->QueryInterface(
-                        winrt::guid_of<winrt::impl::IAgileObject>(), &agile)
-                    == 0)
-                {
-                    static_cast<::IUnknown*>(agile)->Release();
-                    static_cast<::IUnknown*>(factory)->AddRef();
-
-                    if (_InterlockedCompareExchangePointer(
-                            const_cast<void* volatile*>(&overload.factory),
-                            factory,
-                            nullptr))
-                    {
-                        static_cast<::IUnknown*>(factory)->Release();
-                    }
-                }
+                agile = factory->QueryInterface(
+                            winrt::guid_of<winrt::impl::IAgileObject>(),
+                            agile_object.put_void())
+                        == 0;
             }
         }
 
         winrt::check_hresult(hr);
 
-        return factory;
+        if (agile)
+        {
+            keep_factory(overload, factory.get());
+        }
+
+        return factory.detach();
     }
 
     /**

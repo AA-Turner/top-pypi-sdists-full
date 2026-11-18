@@ -14,7 +14,7 @@ use statsig_rust::{ObservabilityClient, Statsig, StatsigErr, StatsigOptions, Sta
 use std::sync::{Arc, atomic::Ordering};
 use std::sync::{Mutex, atomic::AtomicBool};
 use std::time::Duration;
-use tokio::sync::Notify;
+use tokio::sync::{Notify, oneshot};
 use utils::mock_event_logging_adapter::MockEventLoggingAdapter;
 
 async fn setup(
@@ -443,6 +443,12 @@ struct BlockingLoggingAdapter {
     finished: Notify,
     first_flush_type: Mutex<Option<String>>,
     fail_first: bool,
+    next_export: Mutex<Option<PendingExport>>,
+}
+
+struct PendingExport {
+    started: oneshot::Sender<()>,
+    result: oneshot::Receiver<Result<(), StatsigErr>>,
 }
 
 struct ExportFinished<'a>(&'a Notify);
@@ -473,6 +479,11 @@ impl EventLoggingAdapter for BlockingLoggingAdapter {
             if self.fail_first {
                 return Err(StatsigErr::CustomError("retry held batch".into()));
             }
+        }
+        let next_export = self.next_export.lock().unwrap().take();
+        if let Some(export) = next_export {
+            export.started.send(()).unwrap();
+            export.result.await.unwrap()?;
         }
         self.inner.log_events(request).await
     }
@@ -508,6 +519,7 @@ async fn setup_blocked_export(
         finished: Notify::new(),
         first_flush_type: Mutex::new(None),
         fail_first,
+        next_export: Mutex::new(None),
     });
     let options = StatsigOptions {
         specs_adapter: Some(Arc::new(MockSpecsAdapter::with_data(
@@ -536,6 +548,138 @@ async fn setup_blocked_export(
         })
     );
     (statsig, adapter)
+}
+
+#[cfg(feature = "testing")]
+#[tokio::test]
+#[serial]
+async fn test_limit_flush_while_scheduled_export_is_pending() {
+    let (statsig, adapter) = setup_blocked_export(true, false).await;
+    log_some_events(&statsig, 2000);
+    let full_batch_sent = tokio::time::timeout(
+        Duration::from_secs(2),
+        adapter.inner.on_log_notify.notified(),
+    )
+    .await;
+
+    adapter.release.notify_one();
+    statsig.shutdown().await.unwrap();
+    teardown(None).await;
+
+    full_batch_sent.expect("full batch should flush while the scheduled export is pending");
+    assert_eq!(
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        2010
+    );
+}
+
+#[cfg(feature = "testing")]
+impl BlockingLoggingAdapter {
+    async fn hold_full_batch(&self, statsig: &Statsig) -> oneshot::Sender<Result<(), StatsigErr>> {
+        let (started, entered) = oneshot::channel();
+        let (release, result) = oneshot::channel();
+        *self.next_export.lock().unwrap() = Some(PendingExport { started, result });
+        log_some_events(statsig, 2000);
+        tokio::time::timeout(Duration::from_secs(2), entered)
+            .await
+            .unwrap()
+            .unwrap();
+        release
+    }
+}
+
+#[cfg(feature = "testing")]
+#[tokio::test]
+#[serial]
+async fn test_limit_flush_resumes_after_backoff_while_scheduled_export_is_pending() {
+    let (statsig, adapter) = setup_blocked_export(true, false).await;
+    std::env::set_var("STATSIG_TEST_OVERRIDE_MAX_FLUSH_INTERVAL_MS", "60000");
+    let sent = || {
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst)
+    };
+    let failing = adapter.hold_full_batch(&statsig).await;
+    let succeeding = adapter.hold_full_batch(&statsig).await;
+    failing
+        .send(Err(StatsigErr::CustomError("failed held export".into())))
+        .unwrap();
+    assert_eventually_eq!(
+        || statsig
+            .statsig_runtime
+            .get_running_task_ids()
+            .iter()
+            .filter(|(tag, _)| tag == "EVT_LOG_LIMIT_FLUSH")
+            .count(),
+        1
+    );
+
+    // Queue a full batch while backed off.
+    log_some_events(&statsig, 2000);
+    assert!(
+        tokio::time::timeout(
+            Duration::from_millis(50),
+            adapter.inner.on_log_notify.notified()
+        )
+        .await
+        .is_err()
+    );
+    succeeding.send(Ok(())).unwrap();
+    tokio::time::timeout(
+        Duration::from_secs(2),
+        statsig
+            .statsig_runtime
+            .await_tasks_with_tag("EVT_LOG_LIMIT_FLUSH"),
+    )
+    .await
+    .unwrap();
+    assert_eq!(sent(), 6000);
+
+    // Recovery must admit a new worker even though the scheduled send is still held.
+    log_some_events(&statsig, 2000);
+    assert_eventually_eq!(sent, 8000, Duration::from_secs(2));
+    adapter.release.notify_one();
+    statsig.shutdown().await.unwrap();
+    teardown(None).await;
+}
+
+#[cfg(feature = "testing")]
+#[tokio::test]
+#[serial]
+async fn test_drop_stops_limit_flushes_while_scheduled_export_finishes() {
+    let (statsig, adapter) = setup_blocked_export(true, false).await;
+    let runtime = statsig.statsig_runtime.clone();
+    // Queue the full batch and drop on the same task before the dispatcher runs.
+    log_some_events(&statsig, 2000);
+    drop(statsig);
+    let dispatched = tokio::time::timeout(
+        Duration::from_millis(100),
+        adapter.inner.on_log_notify.notified(),
+    )
+    .await;
+    adapter.release.notify_one();
+    tokio::time::timeout(Duration::from_secs(2), async {
+        runtime.await_tasks_with_tag("EVT_LOG_BG_LOOP").await;
+        runtime.await_tasks_with_tag("EVT_LOG_LIMIT_FLUSH").await;
+    })
+    .await
+    .unwrap();
+    teardown(None).await;
+    assert!(
+        dispatched.is_err(),
+        "drop must stop new full-batch dispatch"
+    );
+    assert_eq!(
+        adapter
+            .inner
+            .no_diagnostics_logged_event_count
+            .load(Ordering::SeqCst),
+        10
+    );
 }
 
 async fn assert_shutdown_waits_for_export(scheduled: bool, fail_first: bool) {

@@ -41,6 +41,7 @@ from fast_agent.mcp.tool_result_metadata import (
     url_elicitation_required_payload,
 )
 from fast_agent.tools.elicitation import get_elicitation_fastmcp_tool
+from fast_agent.tools.file_read_access import TOOL_FILE_READS, FileReadAccess
 from fast_agent.tools.function_tool_loader import DefaultFunctionTool, build_default_function_tool
 from fast_agent.tools.invocation_context import local_tool_invocation_context
 from fast_agent.tools.tool_sources import FAST_AGENT_TOOL_SOURCE_META, TOOL_SOURCE_LABELS
@@ -178,6 +179,11 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
 
         return None
 
+    @property
+    def file_read_access(self) -> FileReadAccess:
+        """How the model reads files, for guidance that names a reader."""
+        return TOOL_FILE_READS
+
     def transient_artifact_store(self) -> TransientArtifactStore | None:
         """Lazily create the parent-owned temporary artifact store."""
 
@@ -186,7 +192,7 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
         environment = self._temporary_artifact_environment()
         if environment is None:
             return None
-        self._transient_artifact_store = TransientArtifactStore(environment)
+        self._transient_artifact_store = TransientArtifactStore(environment, host=self)
         return self._transient_artifact_store
 
     async def _close_transient_artifact_store(self) -> None:
@@ -473,10 +479,16 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
         messages: list[PromptMessageExtended],
         request_params: RequestParams | None = None,
         tools: list[Tool] | None = None,
+        *,
+        refresh_tools: bool = False,
     ) -> PromptMessageExtended:
         """
         Generate a response using the LLM, and handle tool calls if necessary.
         Messages are already normalized to list[PromptMessageExtended].
+
+        Tools the caller does not supply (or marks with ``refresh_tools`` as listed from the
+        agent) are listed again before each follow-up LLM call, so a tool source connected
+        or disconnected mid-turn reaches the next request.
         """
         current_user_token = set_current_user_message(snapshot_current_user_message(messages))
         try:
@@ -502,6 +514,7 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
                     )
 
             if tools is None:
+                refresh_tools = True
                 tools = (await self.list_tools()).tools
 
             runner = ToolRunner(
@@ -509,6 +522,7 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
                 messages=messages,
                 request_params=request_params,
                 tools=tools,
+                refresh_tools=refresh_tools,
                 hooks=self._build_tool_runner_hooks(request_params),
             )
             try:
@@ -1190,7 +1204,7 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
                 is_error=True,
             )
 
-        tool_handler = self._get_tool_handler(request_params)
+        tool_handler = self.tool_handler_for(request_params)
         tool_call_id = None
         if tool_handler:
             try:
@@ -1245,7 +1259,7 @@ class ToolAgent(LlmAgent, _ToolLoopAgent):
             if token is not None:
                 _tool_progress_context.reset(token)
 
-    def _get_tool_handler(
+    def tool_handler_for(
         self, request_params: RequestParams | None = None
     ) -> ToolExecutionHandler | None:
         if request_params and request_params.tool_execution_handler:

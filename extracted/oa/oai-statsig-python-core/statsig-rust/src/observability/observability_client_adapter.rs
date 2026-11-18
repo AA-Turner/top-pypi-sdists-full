@@ -60,31 +60,46 @@ pub trait ObservabilityClient: Send + Sync + 'static + OpsStatsEventObserver {
     fn to_ops_stats_event_observer(self: Arc<Self>) -> Arc<dyn OpsStatsEventObserver>;
 }
 
+fn emit_metric(client: &impl ObservabilityClient, data: ObservabilityEvent) {
+    let mut tags = data.tags.unwrap_or_default();
+    tags.retain(|key, _| {
+        !HIGH_CARDINALITY_TAGS.contains(&key.as_str())
+            || client
+                .should_enable_high_cardinality_for_this_tag(key.clone())
+                .unwrap_or_default()
+    });
+    let tags = Some(add_default_metric_tags(tags));
+    let metric_name = format!("statsig.sdk.{}", data.metric_name);
+    match data.metric_type {
+        MetricType::Increment => client.increment(metric_name, data.value, tags),
+        MetricType::Gauge => client.gauge(metric_name, data.value, tags),
+        MetricType::Dist => client.dist(metric_name, data.value, tags),
+    };
+}
+
 #[async_trait]
 impl<T: ObservabilityClient> OpsStatsEventObserver for T {
     async fn handle_event(&self, event: OpsStatsEvent) {
         match event {
-            OpsStatsEvent::Observability(data) => {
-                let tags = data
-                    .tags
-                    .unwrap_or_default()
-                    .into_iter()
-                    .filter(|(key, _)| {
-                        if HIGH_CARDINALITY_TAGS.contains(&key.as_str()) {
-                            self.should_enable_high_cardinality_for_this_tag(key.to_string())
-                                .unwrap_or_default()
-                        } else {
-                            true
-                        }
-                    })
-                    .collect();
-                let tags = Some(add_default_metric_tags(tags));
-                let metric_name = format!("statsig.sdk.{}", data.metric_name.clone());
-                match data.metric_type {
-                    MetricType::Increment => self.increment(metric_name, data.value, tags),
-                    MetricType::Gauge => self.gauge(metric_name, data.value, tags),
-                    MetricType::Dist => self.dist(metric_name, data.value, tags),
+            OpsStatsEvent::Observability(data) => emit_metric(self, data),
+            OpsStatsEvent::IdListLoad(summary) => {
+                use crate::id_lists_adapter::id_list_load_timing::{
+                    LIST_PHASE_METRIC, STORE_PHASE_METRIC,
                 };
+                // These fixed tag keys have no high-cardinality filtering policy.
+                // Fetch SDK metadata and prefix the two names once per load;
+                // callbacks still own their final name/tags, as the public API requires.
+                let tags = add_default_metric_tags(HashMap::new());
+                let list_metric = format!("statsig.sdk.{LIST_PHASE_METRIC}");
+                let store_metric = format!("statsig.sdk.{STORE_PHASE_METRIC}");
+                summary.for_each_metric(tags, |metric, value, tags| {
+                    let name = if metric == LIST_PHASE_METRIC {
+                        &list_metric
+                    } else {
+                        &store_metric
+                    };
+                    self.dist(name.clone(), value, Some(tags));
+                });
             }
             OpsStatsEvent::SDKError(error) => {
                 self.error(error.tag.clone(), error.info.to_string());

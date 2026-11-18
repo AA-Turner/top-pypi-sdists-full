@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-beam
-Version: 2.77.0
+Version: 2.78.0
 Summary: Apache Beam SDK for Python
 Home-page: https://beam.apache.org
 Download-URL: https://pypi.python.org/pypi/apache-beam
@@ -11,25 +11,25 @@ Keywords: apache beam
 Classifier: Intended Audience :: End Users/Desktop
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
-Requires-Dist: cryptography<51.0.0,>=39.0.0
+Requires-Dist: cryptography>=50.0.0
 Requires-Dist: fastavro<2,>=0.23.6
 Requires-Dist: fasteners<1.0,>=0.3
 Requires-Dist: grpcio!=1.48.0,!=1.59.*,!=1.60.*,!=1.61.*,!=1.62.0,!=1.62.1,!=1.66.*,!=1.67.*,!=1.68.*,!=1.69.*,!=1.70.*,<2,>=1.33.1
 Requires-Dist: httplib2<1.0.0,>=0.8
 Requires-Dist: jsonpickle<5.0.0,>=3.0.4
-Requires-Dist: numpy<2.5.0,>=1.14.3
+Requires-Dist: numpy<2.6.0,>=1.23.2; python_version >= "3.12"
+Requires-Dist: numpy<2.5.0,>=1.23.2; python_version < "3.12"
 Requires-Dist: objsize<0.8.0,>=0.6.1
 Requires-Dist: packaging>=22.0
-Requires-Dist: pillow<13,>=12.1.1
+Requires-Dist: pillow<14,>=12.1.1
 Requires-Dist: pymongo<5.0.0,>=3.8.0
 Requires-Dist: proto-plus<2,>=1.7.1
 Requires-Dist: protobuf!=4.0.*,!=4.21.*,!=4.22.0,!=4.23.*,!=4.24.*,<7.0.0.dev0,>=3.20.3
@@ -54,7 +54,7 @@ Requires-Dist: Sphinx<8.0,>=7.0.0; extra == "docs"
 Requires-Dist: docstring-parser<1.0,>=0.15; extra == "docs"
 Requires-Dist: docutils>=0.18.1; extra == "docs"
 Requires-Dist: markdown; extra == "docs"
-Requires-Dist: pandas<2.4.0; extra == "docs"
+Requires-Dist: pandas<2.6.0; extra == "docs"
 Requires-Dist: openai; extra == "docs"
 Requires-Dist: virtualenv-clone<1.0,>=0.5; extra == "docs"
 Provides-Extra: test
@@ -64,7 +64,7 @@ Requires-Dist: freezegun>=0.3.12; extra == "test"
 Requires-Dist: jinja2<3.2,>=3.0; extra == "test"
 Requires-Dist: joblib>=1.0.1; extra == "test"
 Requires-Dist: mock<6.0.0,>=1.0.1; extra == "test"
-Requires-Dist: pandas<2.4.0; extra == "test"
+Requires-Dist: pandas<2.6.0; extra == "test"
 Requires-Dist: parameterized<0.10.0,>=0.7.1; extra == "test"
 Requires-Dist: pydot<2,>=1.2.0; extra == "test"
 Requires-Dist: pyhamcrest!=1.10.0,<3.0.0,>=1.9; extra == "test"
@@ -95,13 +95,13 @@ Requires-Dist: google-auth<3,>=2.0.0; extra == "gcp"
 Requires-Dist: google-auth-httplib2<0.3.0,>=0.1.0; extra == "gcp"
 Requires-Dist: google-cloud-datastore<3,>=2.0.0; extra == "gcp"
 Requires-Dist: google-cloud-pubsub<3,>=2.1.0; extra == "gcp"
-Requires-Dist: google-cloud-storage<4,>=2.18.2; extra == "gcp"
+Requires-Dist: google-cloud-storage<4,>=3.0.0; extra == "gcp"
 Requires-Dist: google-cloud-resource-manager<2,>=1.12.0; extra == "gcp"
 Requires-Dist: google-cloud-dataflow-client<0.14.0,>=0.13.0; extra == "gcp"
 Requires-Dist: google-cloud-bigquery<4,>=2.0.0; extra == "gcp"
 Requires-Dist: google-cloud-bigquery-storage<3,>=2.6.3; extra == "gcp"
 Requires-Dist: google-cloud-core<3,>=2.0.0; extra == "gcp"
-Requires-Dist: google-cloud-bigtable<3,>=2.44.0; extra == "gcp"
+Requires-Dist: google-cloud-bigtable<2.48.0,>=2.44.0; extra == "gcp"
 Requires-Dist: google-cloud-build<4,>=3.35.0; extra == "gcp"
 Requires-Dist: google-cloud-spanner<4,>=3.0.0; extra == "gcp"
 Requires-Dist: google-cloud-dlp<4,>=3.0.0; extra == "gcp"
@@ -132,7 +132,7 @@ Requires-Dist: pydot<2,>=1.2.0; extra == "interactive"
 Requires-Dist: timeloop<2,>=1.0.2; extra == "interactive"
 Requires-Dist: nbformat<6,>=5.0.5; extra == "interactive"
 Requires-Dist: nbconvert<8,>=6.2.0; extra == "interactive"
-Requires-Dist: pandas!=1.5.0,!=1.5.1,<2.4,>=1.4.3; extra == "interactive"
+Requires-Dist: pandas<2.4,>=2.2.2; extra == "interactive"
 Provides-Extra: interactive-test
 Requires-Dist: needle<1,>=0.5.0; extra == "interactive-test"
 Requires-Dist: chromedriver-binary<118,>=117; extra == "interactive-test"
@@ -146,76 +146,87 @@ Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "ml-test"
 Requires-Dist: embeddings>=0.0.4; extra == "ml-test"
 Requires-Dist: onnxruntime; extra == "ml-test"
 Requires-Dist: onnx<2,>=1.14.1; extra == "ml-test"
+Requires-Dist: onnxscript<1,>=0.5.0; extra == "ml-test"
 Requires-Dist: langchain; extra == "ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "ml-test"
 Requires-Dist: skl2onnx; extra == "ml-test"
 Requires-Dist: pyod>=0.7.6; extra == "ml-test"
-Requires-Dist: tensorflow; extra == "ml-test"
+Requires-Dist: tensorflow<2.22,>=2.16.0; extra == "ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "ml-test"
-Requires-Dist: tensorflow-hub; extra == "ml-test"
+Requires-Dist: tensorflow-hub<0.17,>=0.16.1; extra == "ml-test"
+Requires-Dist: setuptools<82; extra == "ml-test"
 Requires-Dist: tokenizers<0.23; extra == "ml-test"
-Requires-Dist: torch<2.12.0; extra == "ml-test"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "ml-test"
 Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "ml-test"
 Requires-Dist: tokenizers<0.22.0,>=0.13.3; extra == "ml-test"
-Provides-Extra: p310-ml-test
-Requires-Dist: datatable; extra == "p310-ml-test"
-Requires-Dist: embeddings>=0.0.4; extra == "p310-ml-test"
-Requires-Dist: onnxruntime; extra == "p310-ml-test"
-Requires-Dist: onnx<2,>=1.14.1; extra == "p310-ml-test"
-Requires-Dist: langchain; extra == "p310-ml-test"
-Requires-Dist: sentence-transformers>=2.2.2; extra == "p310-ml-test"
-Requires-Dist: skl2onnx; extra == "p310-ml-test"
-Requires-Dist: pyod>=0.7.6; extra == "p310-ml-test"
-Requires-Dist: tensorflow; extra == "p310-ml-test"
-Requires-Dist: absl-py>=0.12.0; extra == "p310-ml-test"
-Requires-Dist: tensorflow-hub; extra == "p310-ml-test"
-Requires-Dist: tokenizers<0.23; extra == "p310-ml-test"
-Requires-Dist: torch<2.12.0; extra == "p310-ml-test"
-Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "p310-ml-test"
-Requires-Dist: tokenizers<0.22.0,>=0.13.3; extra == "p310-ml-test"
-Requires-Dist: google-adk==1.28.1; extra == "p310-ml-test"
-Requires-Dist: proto-plus<2,>=1.26.1; extra == "p310-ml-test"
-Requires-Dist: opentelemetry-api==1.37.0; extra == "p310-ml-test"
-Requires-Dist: opentelemetry-sdk==1.37.0; extra == "p310-ml-test"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.37.0; extra == "p310-ml-test"
-Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p310-ml-test"
-Requires-Dist: qdrant-client>=1.15.0; extra == "p310-ml-test"
+Provides-Extra: p311-ml-test
+Requires-Dist: embeddings>=0.0.4; extra == "p311-ml-test"
+Requires-Dist: onnxruntime; extra == "p311-ml-test"
+Requires-Dist: onnx<2,>=1.14.1; extra == "p311-ml-test"
+Requires-Dist: onnxscript<1,>=0.5.0; extra == "p311-ml-test"
+Requires-Dist: langchain; extra == "p311-ml-test"
+Requires-Dist: sentence-transformers>=2.2.2; extra == "p311-ml-test"
+Requires-Dist: skl2onnx; extra == "p311-ml-test"
+Requires-Dist: pyod>=0.7.6; extra == "p311-ml-test"
+Requires-Dist: tensorflow<2.22,>=2.16.0; extra == "p311-ml-test"
+Requires-Dist: absl-py>=0.12.0; extra == "p311-ml-test"
+Requires-Dist: tensorflow-hub<0.17,>=0.16.1; extra == "p311-ml-test"
+Requires-Dist: setuptools<82; extra == "p311-ml-test"
+Requires-Dist: tokenizers<0.23; extra == "p311-ml-test"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "p311-ml-test"
+Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "p311-ml-test"
+Requires-Dist: tokenizers<0.22.0,>=0.13.3; extra == "p311-ml-test"
+Requires-Dist: google-adk<3,>=2.0.0; extra == "p311-ml-test"
+Requires-Dist: proto-plus<2,>=1.26.1; extra == "p311-ml-test"
+Requires-Dist: opentelemetry-api<1.43,>=1.36.0; extra == "p311-ml-test"
+Requires-Dist: opentelemetry-sdk<1.43,>=1.36.0; extra == "p311-ml-test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.43,>=1.36.0; extra == "p311-ml-test"
+Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p311-ml-test"
+Requires-Dist: xgboost<4,>=2.0.0; extra == "p311-ml-test"
+Requires-Dist: datatable<2,>=1.1.0; extra == "p311-ml-test"
+Requires-Dist: qdrant-client>=1.15.0; extra == "p311-ml-test"
 Provides-Extra: p312-ml-test
-Requires-Dist: datatable; extra == "p312-ml-test"
+Requires-Dist: typesafe-sdk<0.8,>=0.7.1; extra == "p312-ml-test"
 Requires-Dist: embeddings>=0.0.4; extra == "p312-ml-test"
 Requires-Dist: onnxruntime; extra == "p312-ml-test"
 Requires-Dist: onnx<2,>=1.14.1; extra == "p312-ml-test"
+Requires-Dist: onnxscript<1,>=0.5.0; extra == "p312-ml-test"
 Requires-Dist: langchain; extra == "p312-ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "p312-ml-test"
 Requires-Dist: skl2onnx; extra == "p312-ml-test"
 Requires-Dist: pyod>=0.7.6; extra == "p312-ml-test"
-Requires-Dist: tensorflow; extra == "p312-ml-test"
+Requires-Dist: tensorflow<2.22,>=2.16.0; extra == "p312-ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "p312-ml-test"
-Requires-Dist: tensorflow-hub; extra == "p312-ml-test"
+Requires-Dist: tensorflow-hub<0.17,>=0.16.1; extra == "p312-ml-test"
+Requires-Dist: setuptools<82; extra == "p312-ml-test"
 Requires-Dist: tokenizers<0.23; extra == "p312-ml-test"
-Requires-Dist: torch<2.12.0; extra == "p312-ml-test"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "p312-ml-test"
 Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "p312-ml-test"
 Requires-Dist: tokenizers<0.22.0,>=0.13.3; extra == "p312-ml-test"
-Requires-Dist: google-adk==1.28.1; extra == "p312-ml-test"
+Requires-Dist: google-adk<3,>=2.0.0; extra == "p312-ml-test"
 Requires-Dist: proto-plus<2,>=1.26.1; extra == "p312-ml-test"
-Requires-Dist: opentelemetry-api==1.37.0; extra == "p312-ml-test"
-Requires-Dist: opentelemetry-sdk==1.37.0; extra == "p312-ml-test"
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.37.0; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-api<1.43,>=1.36.0; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-sdk<1.43,>=1.36.0; extra == "p312-ml-test"
+Requires-Dist: opentelemetry-exporter-otlp-proto-http<1.43,>=1.36.0; extra == "p312-ml-test"
 Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "p312-ml-test"
+Requires-Dist: xgboost<4,>=2.0.0; extra == "p312-ml-test"
+Requires-Dist: datatable<2,>=1.1.0; extra == "p312-ml-test"
 Requires-Dist: qdrant-client>=1.15.0; extra == "p312-ml-test"
 Provides-Extra: p313-ml-test
 Requires-Dist: embeddings>=0.0.4; extra == "p313-ml-test"
 Requires-Dist: onnxruntime; extra == "p313-ml-test"
 Requires-Dist: onnx<2,>=1.14.1; extra == "p313-ml-test"
+Requires-Dist: onnxscript<1,>=0.5.0; extra == "p313-ml-test"
 Requires-Dist: langchain; extra == "p313-ml-test"
 Requires-Dist: sentence-transformers>=2.2.2; extra == "p313-ml-test"
 Requires-Dist: skl2onnx; extra == "p313-ml-test"
 Requires-Dist: pyod>=0.7.6; extra == "p313-ml-test"
-Requires-Dist: tensorflow; extra == "p313-ml-test"
+Requires-Dist: tensorflow<2.22,>=2.16.0; extra == "p313-ml-test"
 Requires-Dist: absl-py>=0.12.0; extra == "p313-ml-test"
-Requires-Dist: tensorflow-hub; extra == "p313-ml-test"
+Requires-Dist: tensorflow-hub<0.17,>=0.16.1; extra == "p313-ml-test"
+Requires-Dist: setuptools<82; extra == "p313-ml-test"
 Requires-Dist: tokenizers<0.23; extra == "p313-ml-test"
-Requires-Dist: torch<2.12.0; extra == "p313-ml-test"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "p313-ml-test"
 Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "p313-ml-test"
 Requires-Dist: tokenizers<0.22.0,>=0.13.3; extra == "p313-ml-test"
 Requires-Dist: pymilvus<3.0.0,>=2.5.10; extra == "p313-ml-test"
@@ -227,7 +238,7 @@ Requires-Dist: azure-storage-blob<13,>=12.3.2; extra == "azure"
 Requires-Dist: azure-core<2,>=1.7.0; extra == "azure"
 Requires-Dist: azure-identity<2,>=1.12.0; extra == "azure"
 Provides-Extra: dataframe
-Requires-Dist: pandas!=1.5.0,!=1.5.1,<2.4,>=1.4.3; extra == "dataframe"
+Requires-Dist: pandas<2.4,>=2.2.2; extra == "dataframe"
 Provides-Extra: dask
 Requires-Dist: distributed>=2024.4.2; extra == "dask"
 Requires-Dist: dask>=2024.4.2; extra == "dask"
@@ -239,16 +250,16 @@ Requires-Dist: jinja2<3.2,>=3.0; extra == "yaml"
 Requires-Dist: virtualenv-clone<1.0,>=0.5; extra == "yaml"
 Requires-Dist: quickjs-ng<1.0.0,>=0.14.0; extra == "yaml"
 Requires-Dist: jsonschema<5.0.0,>=4.0.0; extra == "yaml"
-Requires-Dist: pandas!=1.5.0,!=1.5.1,<2.4,>=1.4.3; extra == "yaml"
+Requires-Dist: pandas<2.4,>=2.2.2; extra == "yaml"
 Provides-Extra: torch
-Requires-Dist: torch<2.8.0,>=1.9.0; extra == "torch"
+Requires-Dist: torch<2.15.0,>=2.3.0; extra == "torch"
 Provides-Extra: tensorflow
-Requires-Dist: tensorflow<2.22,>=2.12rc1; extra == "tensorflow"
+Requires-Dist: tensorflow<2.22,>=2.16.0; extra == "tensorflow"
 Requires-Dist: absl-py>=0.12.0; extra == "tensorflow"
 Provides-Extra: transformers
-Requires-Dist: transformers<4.56.0,>=4.28.0; extra == "transformers"
+Requires-Dist: transformers!=4.56.*,<5.21.0,>=4.41.0; extra == "transformers"
 Requires-Dist: tensorflow>=2.12.0; extra == "transformers"
-Requires-Dist: torch<2.12.0,>=1.9.0; extra == "transformers"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "transformers"
 Provides-Extra: ml-cpu
 Requires-Dist: tensorflow>=2.12.0; extra == "ml-cpu"
 Requires-Dist: torch==2.8.0+cpu; extra == "ml-cpu"
@@ -262,18 +273,20 @@ Requires-Dist: dill; extra == "tft"
 Provides-Extra: tfrecord
 Requires-Dist: crcmod<2.0,>=1.7; extra == "tfrecord"
 Provides-Extra: onnx
-Requires-Dist: onnxruntime==1.13.1; extra == "onnx"
-Requires-Dist: torch==1.13.1; extra == "onnx"
-Requires-Dist: tensorflow==2.11.0; extra == "onnx"
-Requires-Dist: tf2onnx==1.17.0; extra == "onnx"
-Requires-Dist: skl2onnx==1.13; extra == "onnx"
-Requires-Dist: transformers==4.25.1; extra == "onnx"
+Requires-Dist: onnx<2,>=1.16.0; extra == "onnx"
+Requires-Dist: onnxruntime<2,>=1.19.0; extra == "onnx"
+Requires-Dist: skl2onnx<2,>=1.17.0; extra == "onnx"
+Requires-Dist: tf2onnx<1.18,>=1.17.0; extra == "onnx"
+Requires-Dist: tensorflow<2.22,>=2.18.0; extra == "onnx"
+Requires-Dist: torch<2.12.0,>=2.3.0; extra == "onnx"
+Requires-Dist: onnxscript<1,>=0.5.0; extra == "onnx"
 Requires-Dist: absl-py>=0.12.0; extra == "onnx"
 Provides-Extra: xgboost
-Requires-Dist: xgboost<2.1.3,>=1.6.0; extra == "xgboost"
-Requires-Dist: datatable==1.0.0; extra == "xgboost"
+Requires-Dist: xgboost<4,>=2.0.0; extra == "xgboost"
+Requires-Dist: datatable<2,>=1.1.0; extra == "xgboost"
 Provides-Extra: tensorflow-hub
-Requires-Dist: tensorflow-hub<0.16.0,>=0.14.0; extra == "tensorflow-hub"
+Requires-Dist: tensorflow-hub<0.17,>=0.16.1; extra == "tensorflow-hub"
+Requires-Dist: setuptools<82; extra == "tensorflow-hub"
 Provides-Extra: milvus
 Requires-Dist: pymilvus<3.0.0,>=2.5.10; extra == "milvus"
 Provides-Extra: qdrant

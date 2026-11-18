@@ -76,6 +76,7 @@ __all__ = (
     "ListCoreNetworkRoutingInformationPaginatorName",
     "ListCoreNetworksPaginatorName",
     "ListPeeringsPaginatorName",
+    "MultipathResilienceModeType",
     "NatGatewaySupportStateType",
     "NatGatewaySupportValueType",
     "NatRuleStateType",
@@ -224,6 +225,7 @@ ListCoreNetworkPrefixListAssociationsPaginatorName = Literal[
 ListCoreNetworkRoutingInformationPaginatorName = Literal["list_core_network_routing_information"]
 ListCoreNetworksPaginatorName = Literal["list_core_networks"]
 ListPeeringsPaginatorName = Literal["list_peerings"]
+MultipathResilienceModeType = Literal["best-effort", "disabled"]
 NatGatewaySupportStateType = Literal[
     "DISABLED", "DISABLING", "ENABLED", "ENABLING", "PENDING_ATTACHMENT_ACCEPTANCE"
 ]

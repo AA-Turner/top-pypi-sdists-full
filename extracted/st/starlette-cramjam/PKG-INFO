@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: starlette-cramjam
-Version: 0.7.0
+Version: 0.8.0
 Summary: Cramjam integration for Starlette ASGI framework.
 Project-URL: Source, https://github.com/developmentseed/starlette-cramjam
 Author-email: Vincent Sarago <vincent@developmentseed.com>
@@ -36,7 +36,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 Requires-Python: >=3.11
-Requires-Dist: cramjam<2.12,>=2.4
+Requires-Dist: cramjam<2.15,>=2.4
 Requires-Dist: starlette
 Description-Content-Type: text/markdown
 

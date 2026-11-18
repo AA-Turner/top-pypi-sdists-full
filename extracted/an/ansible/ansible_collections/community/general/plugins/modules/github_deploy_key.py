@@ -177,7 +177,7 @@ id:
   sample: 24381901
 """
 
-from re import findall
+import re
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.urls import fetch_url
@@ -191,12 +191,12 @@ class GithubDeployKey:
         self.name = module.params["name"]
         self.key = module.params["key"]
         self.state = module.params["state"]
-        self.read_only = module.params.get("read_only", True)
-        self.force = module.params.get("force", False)
-        self.username = module.params.get("username", None)
-        self.password = module.params.get("password", None)
-        self.token = module.params.get("token", None)
-        self.otp = module.params.get("otp", None)
+        self.read_only = module.params["read_only"]
+        self.force = module.params["force"]
+        self.username = module.params["username"]
+        self.password = module.params["password"]
+        self.token = module.params["token"]
+        self.otp = module.params["otp"]
 
     @property
     def url(self):
@@ -218,6 +218,7 @@ class GithubDeployKey:
             return None
 
     def paginate(self, url):
+        link_re = re.compile(r'<([^>]+)>;\s*rel="(\w+)"')
         while url:
             resp, info = fetch_url(self.module, url, headers=self.headers, method="GET")
 
@@ -225,7 +226,7 @@ class GithubDeployKey:
                 yield self.module.from_json(resp.read())
 
                 links = {}
-                for x, y in findall(r'<([^>]+)>;\s*rel="(\w+)"', info.get("link", "")):
+                for x, y in link_re.findall(info.get("link", "")):
                     links[y] = x
 
                 url = links.get("next")

@@ -337,28 +337,15 @@ def _resolve_effective_target(
         (str | list | None) for user-facing label rendering.
     """
     from ...core.target_detection import detect_target
-    from ...models.apm_package import APMPackage
+    from ...models.apm_package import APMPackage, package_target_selection
 
     _root = source_root or Path(".")
     config_target = None
     apm_yml_path = _root / APM_YML_FILENAME
     if apm_yml_path.exists():
-        apm_pkg = APMPackage.from_apm_yml(apm_yml_path)
-        config_target = apm_pkg.target
-        if config_target is None:
-            try:
-                from ...core.apm_yml import parse_targets_field
-                from ...utils.yaml_io import load_yaml
-
-                _raw = load_yaml(apm_yml_path)
-                if isinstance(_raw, dict):
-                    _yaml_targets = parse_targets_field(_raw)
-                    if _yaml_targets:
-                        config_target = (
-                            _yaml_targets[0] if len(_yaml_targets) == 1 else _yaml_targets
-                        )
-            except Exception:
-                pass
+        config_target = package_target_selection(APMPackage.from_apm_yml(apm_yml_path))
+        if isinstance(config_target, list) and len(config_target) == 1:
+            config_target = config_target[0]
 
     compile_target = _resolve_compile_target(target)
     compile_config_target = _resolve_compile_target(config_target)
@@ -390,13 +377,20 @@ def _global_compile_targets(source_root: Path) -> tuple[list[TargetProfile], lis
     Declared names are normalized before lookup because ``apm.yml`` accepts the
     ``vscode`` alias, which is not a ``KNOWN_TARGETS`` key; matching raw tokens
     would drop it and silently compile nothing.
+
+    The manifest is read strictly through the declaration owner: a broken user
+    manifest fails closed instead of widening to every harness, and singular
+    ``target: all`` expands to every target like ``apm install -g`` does.
     """
-    from ...core.apm_yml import read_declared_target_names
     from ...core.target_catalog import normalize_target_name
     from ...integration.targets import KNOWN_TARGETS
+    from ...models.manifest_targets import read_manifest_target_declaration
 
-    declared = read_declared_target_names(source_root)
-    if declared is None or not declared:
+    declaration = read_manifest_target_declaration(source_root / APM_YML_FILENAME)
+    if declaration is None or declaration.spelling is None:
+        return list(KNOWN_TARGETS.values()), None
+    declared = declaration.restriction(strict=True)
+    if not declared:
         return list(KNOWN_TARGETS.values()), None
     canonical = dict.fromkeys(normalize_target_name(name) for name in declared)
     profiles = (KNOWN_TARGETS.get(name) for name in canonical)
@@ -467,7 +461,7 @@ def _handle_global_flag(dry_run: bool, logger: CommandLogger, *, clean: bool = F
             if declared_names == target_names
             else f"{declared_names} -> {target_names}"
         )
-        selection_source = "~/.apm/apm.yml"
+        selection_source = _display_user_path(source_root / APM_YML_FILENAME)
     logger.verbose_detail(f"Global targets from {selection_source}: {provenance}")
 
     results = compile_user_root_contexts(
@@ -572,6 +566,50 @@ def _display_user_path(path: Path) -> str:
     except ValueError:
         return str(path)
     return f"~/{rel.as_posix()}"
+
+
+def _fire_pre_compile(logger: CommandLogger, verbose: bool, source_root: Path) -> None:
+    """Fire the ``pre-compile`` lifecycle event before sources are read.
+
+    Trusted scripts on this event can generate primitives under ``.apm/``
+    from the project's own toolchain, so compile reads what they wrote.
+    Best-effort, like every lifecycle event: a failing script never stops
+    the compile.
+    """
+    from ...core.lifecycle_scripts import build_runner_from_context, event_for_dependencies
+    from ...models.apm_package import APMPackage
+
+    manifest = source_root / APM_YML_FILENAME
+    if not manifest.exists():
+        return
+    project_root = str(source_root)
+    runner = build_runner_from_context(
+        logger=logger, verbose=verbose, project_root=project_root, events=("pre-compile",)
+    )
+    dependencies = []
+    if runner.scripts_for_event("pre-compile"):
+        try:
+            dependencies = APMPackage.from_apm_yml(manifest).get_apm_dependencies()
+        except (OSError, ValueError) as e:
+            logger.verbose_detail(
+                f"[i] pre-compile payload lists no packages: {type(e).__name__} reading apm.yml"
+            )
+    runner.fire(
+        "pre-compile",
+        event_for_dependencies(
+            "pre-compile", dependencies, scope="project", working_directory=project_root
+        ),
+    )
+
+
+def _pre_compile_then_validate(
+    logger: CommandLogger, verbose: bool, source_root: Path | None, *, clean: bool, run: bool
+) -> None:
+    """When ``run``, fire pre-compile scripts, then check the project they may have populated."""
+    if not run or source_root is None:
+        return
+    _fire_pre_compile(logger, verbose, source_root)
+    _validate_project(logger, False, source_root, allow_empty=clean)
 
 
 def _validate_project(
@@ -730,7 +768,7 @@ def _report_distributed_dry_run_protection(
         return
     noun = "file" if protected_count == 1 else "files"
     logger.progress(
-        f"Would retain {protected_count} hand-authored root {noun}; "
+        f"Would retain {protected_count} hand-authored context {noun}; "
         "no protected files would be generated.",
         symbol="info",
     )
@@ -759,7 +797,7 @@ def _report_distributed_live_success(
         protected_note = ""
         if protected_count:
             protected_noun = "file" if protected_count == 1 else "files"
-            protected_note = f"; retained {protected_count} hand-authored root {protected_noun}"
+            protected_note = f"; retained {protected_count} hand-authored context {protected_noun}"
         logger.success(
             f"Compiled {files_written} output {output_noun} "
             f"({agents_generated} AGENTS.md {generated_noun}){protected_note}; "
@@ -770,7 +808,7 @@ def _report_distributed_live_success(
         protected_noun = "file" if protected_count == 1 else "files"
         logger.success(
             f"Generated {files_written} output {output_noun}; "
-            f"retained {protected_count} hand-authored root {protected_noun}.",
+            f"retained {protected_count} hand-authored context {protected_noun}.",
             symbol="check",
         )
     else:
@@ -797,7 +835,7 @@ def _report_protected_no_write(
         skipped_noun = "placement" if nested_skips == 1 else "placements"
         skipped_note = f" skipped {nested_skips} nested Git repository {skipped_noun};"
     logger.progress(
-        f"Retained {protected_count} hand-authored root {protected_noun};"
+        f"Retained {protected_count} hand-authored context {protected_noun};"
         f"{skipped_note} no files generated.",
         symbol="info",
     )
@@ -818,13 +856,20 @@ def _run_compilation(
     clean: bool,
     no_dedup: bool,
     source_root: Path | None = None,
+    *,
+    run_scripts: bool = False,
 ) -> None:
     """Main compilation flow: target resolution, config, compile, and output.
+
+    With ``run_scripts``, the ``pre-compile`` lifecycle event fires first and
+    the project check follows it, both under this function's lifecycle lock,
+    so what the scripts generate is what compile reads.
 
     Handles both distributed (default) and single-file (``--single-agents``)
     strategies, emits the canonical target-provenance line, runs the
     compiler, reports results, and hard-fails on critical security findings.
     """
+    _pre_compile_then_validate(logger, verbose, source_root, clean=clean, run=run_scripts)
     from ...core.target_detection import (
         REASON_NO_TARGET_FOLDER,
         ResolvedTargets,
@@ -1192,7 +1237,10 @@ def _run_compilation(
 @click.option(
     "--dry-run",
     is_flag=True,
-    help="Preview compilation without writing files (shows placement decisions)",
+    help=(
+        "Preview compilation without writing files or running pre-compile scripts "
+        "(shows placement decisions)"
+    ),
 )
 @click.option("--no-links", is_flag=True, help="Skip markdown link resolution")
 @click.option("--chatmode", help="Chatmode to prepend to AGENTS.md files")
@@ -1281,7 +1329,8 @@ def _run_compilation(
         "Write AGENTS.md / CLAUDE.md outputs under DIR instead of $PWD; "
         "sources (apm.yml, .apm/, project tree for placement scoring) "
         "continue resolving from $PWD. Pairs with 'apm install --root' "
-        "for scratch-dir verification. Cannot be combined with --watch."
+        "for scratch-dir verification. Cannot be combined with --watch. "
+        "Pre-compile lifecycle scripts do not run."
     ),
 )
 @click.option(
@@ -1292,7 +1341,7 @@ def _run_compilation(
     default=False,
     help=(
         "Compile user-scope root context files (~/.claude/CLAUDE.md, etc.) "
-        "from ~/.apm/apm_modules, using target(s) from ~/.apm/apm.yml or every "
+        "from the APM user home, using its manifest targets or every "
         "supported target when undeclared. Cannot be combined with project-scoped "
         "output flags such as --target, --all, --watch, --root, or --output; "
         "use with --dry-run to preview changes."
@@ -1425,12 +1474,18 @@ def compile(  # noqa: PLR0913 -- Click handler
         # from. Equals $PWD unless --root redirects writes elsewhere.
         source_root = get_source_root(InstallScope.PROJECT)
 
-        _validate_project(
-            logger,
-            dry_run,
-            source_root,
-            allow_empty=clean and not validate and not watch,
-        )
+        # pre-compile scripts run inside _run_compilation, which checks the
+        # project after them so a first compile finds what they generate.
+        # --validate, --watch and --dry-run run no scripts, and neither does
+        # --root, which promises to write only under its directory.
+        run_scripts = not validate and not watch and not dry_run and not root
+        if not run_scripts:
+            _validate_project(
+                logger,
+                dry_run,
+                source_root,
+                allow_empty=clean and not validate and not watch,
+            )
 
         if validate:
             _run_validation_mode(logger, verbose, source_root)
@@ -1464,6 +1519,7 @@ def compile(  # noqa: PLR0913 -- Click handler
             clean,
             no_dedup,
             source_root=source_root,
+            run_scripts=run_scripts,
         )
 
     except ImportError as e:

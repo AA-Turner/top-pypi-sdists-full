@@ -92,7 +92,11 @@ from .type_defs import (
     ListTagsForResourceRequestTypeDef,
     ListTagsForResourceResponseTypeDef,
     RedeemCreditsRequestTypeDef,
+    SplitCreditRequestTypeDef,
+    SplitCreditResponseTypeDef,
     TagResourceRequestTypeDef,
+    TransferCreditRequestTypeDef,
+    TransferCreditResponseTypeDef,
     UntagResourceRequestTypeDef,
     UpdateBillingPreferencesRequestTypeDef,
     UpdateBillingViewRequestTypeDef,
@@ -443,12 +447,33 @@ class BillingClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#redeem_credits)
         """
 
+    def split_credit(
+        self, **kwargs: Unpack[SplitCreditRequestTypeDef]
+    ) -> SplitCreditResponseTypeDef:
+        """
+        Splits the available balance of a credit into 2 to 99 new credits in the same
+        account, and cancels the original credit.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/split_credit.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#split_credit)
+        """
+
     def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> dict[str, Any]:
         """
         An API operation for adding one or more tags (key-value pairs) to a resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/tag_resource.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#tag_resource)
+        """
+
+    def transfer_credit(
+        self, **kwargs: Unpack[TransferCreditRequestTypeDef]
+    ) -> TransferCreditResponseTypeDef:
+        """
+        Moves a credit to another account in the same consolidated billing family.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/billing/client/transfer_credit.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_billing/client/#transfer_credit)
         """
 
     def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> dict[str, Any]:

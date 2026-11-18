@@ -99,7 +99,7 @@ pub enum State {
 }
 
 impl Birth {
-    /// The birth of the process that has `pid` now.
+    /// The birth of the process that has `pid` now; an exited child not yet reaped has one too.
     pub fn of(pid: u32) -> Result<Birth> {
         sys::birth(pid).map_err(Error::os("read a process's birth"))
     }
@@ -124,6 +124,20 @@ impl Birth {
 /// included. `None`: no thread does, or the OS cannot say (macOS, Windows).
 pub fn in_kernel(pid: u32) -> Option<String> {
     sys::in_kernel(pid)
+}
+
+/// One live thread of a process: its id, name, state (`R`, `S`, `D`, …) and wait channel (empty when the kernel hides it).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Thread {
+    pub tid: u32,
+    pub name: String,
+    pub state: char,
+    pub wchan: String,
+}
+
+/// A process's threads that haven't exited, a zombie leader's left out (Linux); none once it exited, or elsewhere.
+pub fn threads(pid: u32) -> Vec<Thread> {
+    sys::threads(pid)
 }
 
 /// This kernel's boot. Page cache and process starts belong to a boot.
@@ -286,17 +300,31 @@ pub fn parent_of(pid: u32) -> Result<u32> {
 
 /// Every process descended from `pid` (children, theirs, and so on), read now. Empty where
 /// nothing could be read.
+///
+/// A child counts only if it started no earlier than its parent: Windows keeps the parent id a
+/// process was created with, which goes stale when that parent exits, so a long-lived process
+/// whose first parent once had this pid (Explorer, a browser) would otherwise read as its child.
+/// One whose start, or its parent's, can't be read isn't counted.
 pub(crate) fn descendants(pid: u32) -> Vec<u32> {
     let table = sys::parents();
-    let mut tree = vec![pid];
+    let start = |pid: u32| Birth::of(pid).ok().map(|birth| birth.start_ticks);
+    let mut tree = vec![(pid, start(pid))];
     let mut at = 0;
     while at < tree.len() {
-        let parent = tree[at];
-        tree.extend(table.iter().filter(|(_, p)| *p == parent).map(|(c, _)| *c));
+        let (parent, parent_start) = tree[at];
+        if let Some(parent_start) = parent_start {
+            let children = table.iter().filter(|(child, p)| *p == parent && *child != parent).map(|(child, _)| *child);
+            let born_after: Vec<_> = children
+                .filter(|child| !tree.iter().any(|(known, _)| known == child))
+                .map(|child| (child, start(child)))
+                .filter(|(_, child_start)| child_start.is_some_and(|child_start| child_start >= parent_start))
+                .collect();
+            tree.extend(born_after);
+        }
         at += 1;
     }
     tree.remove(0);
-    tree
+    tree.into_iter().map(|(pid, _)| pid).collect()
 }
 
 /// `pid` and every process it started, as handles that outlive their PIDs: what to wait on before
@@ -424,7 +452,7 @@ pub(crate) use sys::command_line;
 #[cfg(windows)]
 pub(crate) use sys::job;
 #[cfg(unix)]
-pub use unix::{SupervisorSignals, Woken, cloexec_from, unblock_signals};
+pub use unix::{SupervisorSignals, Woken, cloexec_from, leaving, unblock_signals};
 
 /// A child inherits no descriptor its spawner does not hand on explicitly. Unix closes every
 /// one past stdio at exec (run it before any other `pre_exec`, which then clear close-on-exec on
@@ -469,7 +497,8 @@ pub fn spawn(mut command: Command) -> Result<Tree> {
 /// A process that outlives its spawner: its own session (Unix); no console, out of the spawner's
 /// job when allowed (Windows). It reads null and appends stdout and stderr to `log` (null without
 /// one), and inherits nothing else: a caller reading the spawner's output to its end, as
-/// `out=$(cozy status)` does, gets that end when the spawner exits.
+/// `out=$(cozy status)` does, gets that end when the spawner exits. It starts in the home folder,
+/// never the one its spawner was in, which it would hold (on Windows, as a folder no one can rename).
 pub fn detach(program: &Path, args: &[OsString], log: Option<&Path>) -> Result<Detached> {
     let log = log
         .map(|path| {
@@ -477,7 +506,8 @@ pub fn detach(program: &Path, args: &[OsString], log: Option<&Path>) -> Result<D
             opened.map_err(Error::io("open log", path))
         })
         .transpose()?;
-    let child = tree::detach(program, args, log).map_err(Error::os("spawn"))?;
+    let home = std::env::home_dir().filter(|home| home.is_dir()).unwrap_or_else(std::env::temp_dir);
+    let child = tree::detach(program, args, log, &home).map_err(Error::os("spawn"))?;
     Ok(Detached(child))
 }
 

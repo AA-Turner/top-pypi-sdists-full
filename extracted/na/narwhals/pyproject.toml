@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "narwhals"
-version = "2.28.0"
+version = "2.29.0"
 dependencies = []
 requires-python = ">=3.10"
 license = "MIT"
@@ -214,6 +214,7 @@ source-include = ["tests/**"]
 
 [tool.uv.workspace]
 members = ["packages/*"]
+exclude = ["packages/narwhals-dask"]
 
 [tool.uv.sources.test-plugin]
 workspace = true
@@ -351,11 +352,13 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 filterwarnings = [
     "error",
+    "ignore:Dask support is moving out of Narwhals:FutureWarning",
     "ignore:.*defaulting to pandas implementation:Warning:modin",
     "ignore:.*implementation has mismatches with pandas:Warning:modin",
     "ignore:.*You are using pyarrow version",
     'ignore:.*fetch_arrow_table\(\) is deprecated:DeprecationWarning:sqlframe',
     'ignore:.*fetch_arrow_table\(\) is deprecated:DeprecationWarning:ibis',
+    "ignore:.*future.infer_string. option is deprecated:DeprecationWarning:ibis",
     "ignore:.*'_UnionGenericAlias' is deprecated:DeprecationWarning",
     "ignore:.*Passing a BlockManager to DataFrame:DeprecationWarning",
     "ignore:.*The default coalesce behavior of left join will change:DeprecationWarning",
@@ -429,7 +432,9 @@ files = [
     "src",
     "tests",
     "packages/test-plugin",
+    "packages/narwhals-dask/src",
 ]
+mypy_path = "packages/narwhals-dask/src"
 pretty = true
 strict = true
 allow_redefinition = true
@@ -476,12 +481,14 @@ include = [
     "src",
     "tests",
     "packages/test-plugin",
+    "packages/narwhals-dask/src",
 ]
 ignore = [
     "../.venv/",
     "../../../**/Lib",
     "../../../**/typeshed*",
 ]
+extraPaths = ["packages/narwhals-dask/src"]
 
 [tool.pyright.defineConstant]
 MYPY = false
@@ -490,6 +497,7 @@ MYPY = false
 search-path = [
     "src",
     ".",
+    "packages/narwhals-dask/src",
 ]
 project-includes = ["tests"]
 ignore-missing-imports = [

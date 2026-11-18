@@ -18,7 +18,12 @@ from . import sb as sponsored_brands
 from . import sd as sponsored_display
 from .attribution import Attribution
 from .brand_metrics import BrandMetrics
+from .brand_benchmarks import BrandBenchmarks
+from .marketing_mix_modeling import MarketingMixModeling
 from .advertising_test_account import AdvertisingTestAccount
+from .advertising_invitations import AdvertisingInvitations
+from .advertising_user_permissions import AdvertisingUserPermissions
+from .dsp_advertiser import DspAdvertiser
 from .reports import Reports
 from .validation_configurations import ValidationConfigurations
 from .recommendations import Recommendations
@@ -50,7 +55,12 @@ __all__ = [
     "Insights",
     "Attribution",
     "BrandMetrics",
+    "BrandBenchmarks",
+    "MarketingMixModeling",
     "AdvertisingTestAccount",
+    "AdvertisingInvitations",
+    "AdvertisingUserPermissions",
+    "DspAdvertiser",
     "Reports",
     "ValidationConfigurations",
     "Recommendations",

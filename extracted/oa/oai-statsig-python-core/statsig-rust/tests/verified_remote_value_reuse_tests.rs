@@ -267,7 +267,7 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
     assert_eq!(get_count(&server, &changed.path()).await, 2);
 
     // A conflicting length invalidates the shared blob for its rule and default.
-    // Keep the successful inline rule and the independent config at their new revisions.
+    // The independent config advances while the affected config keeps its complete definition.
     let mut invalid = full(9, 3, Some(&changed), Some(changed.body.len() + 1));
     let no_updates = pb::SpecsTopLevel {
         time: 9,
@@ -287,14 +287,7 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
     *response.0.lock().unwrap() = invalid;
     wait_generation(&sdk, 9).await;
     assert!(!sdk.is_config_spec_ready());
-    for user in ["remote-user", "default-user"] {
-        let result = sdk.get_dynamic_config(&StatsigUser::with_user_id(user), LARGE_CONFIG);
-        assert!(result.details.is_blob_unavailable());
-    }
-    assert_eq!(
-        evaluate(&sdk, "normal-user", LARGE_CONFIG),
-        json!({"normalGeneration": 3})
-    );
+    assert_values(&sdk, &changed, 2);
     let after_failure_gets = get_count(&server, &changed.path()).await;
     assert_eq!(after_failure_gets, 3);
     *response.0.lock().unwrap() = full(10, 2, Some(&changed), None);
@@ -302,7 +295,7 @@ async fn run_reuse_case(format: WireFormat, read_only: bool) {
     assert_values(&sdk, &changed, 2);
     assert!(sdk.is_config_spec_ready());
     let after_repair_gets = get_count(&server, &changed.path()).await;
-    assert_eq!(after_repair_gets, after_failure_gets + 1);
+    assert_eq!(after_repair_gets, after_failure_gets);
 
     if read_only {
         assert_eq!(store.num_set_bytes_calls(), 0);

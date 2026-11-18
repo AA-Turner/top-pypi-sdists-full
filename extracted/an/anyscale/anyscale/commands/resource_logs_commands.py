@@ -13,9 +13,10 @@ one is `anyscale job logs-v2`: `anyscale job logs` already exists as a GA comman
 different flag set (--name, --follow, a boolean --tail with --max-lines), so the new one
 takes a versioned name until that command is retired.
 
-All four are `hidden=True` for now: they run when typed, but are left out of the group
-`--help` listings, the committed doc spec and the reference docs. Removing the flag (and
-the matching one on the Log Files module in `_private/docgen/__main__.py`) publishes them.
+`anyscale job logs-v2` is `hidden=True`: it runs when typed, but is left out of
+`anyscale job --help`, the committed doc spec and the reference docs (the Log Files module
+in `_private/docgen/__main__.py` does not list it). The service, workspace and cluster
+commands are published.
 
 Each run prints at most 1000 lines. When more exist, it ends with a `--page-token` line on
 stderr, so stdout stays one valid JSON or YAML document.
@@ -234,9 +235,7 @@ def job_logs(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("service")
-@click.command(
-    name="logs", cls=AnyscaleCommand, short_help="Read log files of a service.", hidden=True
-)
+@click.command(name="logs", cls=AnyscaleCommand, short_help="Read log files of a service.")
 @click.option("--service-id", "--id", "id", required=True, help="ID of the service.")
 @argument_glob
 @option_log_type
@@ -263,9 +262,7 @@ def service_logs(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("workspace")
-@click.command(
-    name="logs", cls=AnyscaleCommand, short_help="Read log files of a workspace.", hidden=True
-)
+@click.command(name="logs", cls=AnyscaleCommand, short_help="Read log files of a workspace.")
 @click.option("--workspace-id", "--id", "id", required=True, help="ID of the workspace.")
 @argument_glob
 @option_log_type
@@ -291,9 +288,7 @@ def workspace_logs(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("cluster")
-@click.command(
-    name="logs", cls=AnyscaleCommand, short_help="Read log files of a cluster.", hidden=True
-)
+@click.command(name="logs", cls=AnyscaleCommand, short_help="Read log files of a cluster.")
 @click.option("--cluster-id", "--id", "id", required=True, help="ID of the cluster.")
 @argument_glob
 @option_log_type

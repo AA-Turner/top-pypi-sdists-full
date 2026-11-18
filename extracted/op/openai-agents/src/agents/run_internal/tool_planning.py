@@ -5,6 +5,7 @@ import dataclasses as _dc
 import inspect
 import json
 from collections.abc import Awaitable, Callable, Hashable, Mapping, Sequence
+from functools import partial
 from typing import Any, TypeVar, cast
 
 from openai.types.responses import ResponseFunctionToolCall
@@ -41,6 +42,7 @@ from ..run_context import RunContextWrapper
 from ..tool import FunctionTool, MCPToolApprovalRequest, get_function_tool_origin
 from ..tool_guardrails import ToolInputGuardrailResult, ToolOutputGuardrailResult
 from ..util._asyncio_tasks import gather_with_cancel
+from . import tool_execution
 from .agent_bindings import AgentBindings
 from .run_steps import (
     ProcessedResponse,
@@ -61,6 +63,7 @@ from .tool_execution import (
     execute_local_shell_calls,
     execute_shell_calls,
     get_mapping_or_attr,
+    log_tool_action_error,
 )
 
 T = TypeVar("T")
@@ -283,7 +286,11 @@ def _register_tool_call_items(
             continue
         if isinstance(item, ToolApprovalItem):
             continue
-        if not validate_invocations and isinstance(item, ToolCallItem | MCPApprovalRequestItem):
+        if (
+            not validate_invocations
+            and context_wrapper._allow_legacy_approval_binding_reconstruction
+            and isinstance(item, ToolCallItem | MCPApprovalRequestItem)
+        ):
             raw_type = get_mapping_or_attr(item.raw_item, "type")
             tool_name = get_mapping_or_attr(item.raw_item, "name")
             if not isinstance(tool_name, str):
@@ -352,44 +359,77 @@ def _dedupe_processed_response_invocations(
         for item in existing_items
         if (output_identity := tool_output_identity(getattr(item, "raw_item", None))) is not None
     }
-    completed_historical_invocations: dict[str, tuple[str, str, str]] = {}
+    # Fingerprinting every completed call in the history on every turn is quadratic in run
+    # length, so only call IDs that are reused in history or by this response are fingerprinted.
+    historical_entries: dict[str, list[tuple[str, str, str] | RunItem]] = {}
     for item in existing_items:
-        raw_item = getattr(item, "raw_item", None)
-        identity = tool_invocation_identity(
-            raw_item,
-            tool_lookup_key=(item.tool_lookup_key if isinstance(item, ToolApprovalItem) else None),
-            tool_name=(
-                item.tool_name if isinstance(item, ToolCallItem | ToolApprovalItem) else None
-            ),
-            invocation_role=("handoff" if isinstance(item, HandoffCallItem) else None),
-        )
+        call_identity = tool_invocation_call_id(getattr(item, "raw_item", None))
+        if (
+            call_identity is None
+            or call_identity[1] is None
+            or call_identity not in completed_output_keys
+        ):
+            continue
+        entry: tuple[str, str, str] | RunItem = item
         if (
             context_wrapper._allow_legacy_approval_binding_reconstruction
             and isinstance(item, ToolCallItem)
             and item.tool_name is None
         ):
-            call_identity = tool_invocation_call_id(raw_item)
-            if call_identity is not None and call_identity[1] is not None:
-                legacy_record = context_wrapper._tool_invocations.get(call_identity[1])
-                if (
-                    legacy_record is not None
-                    and legacy_record.completed
-                    and legacy_record.invocation_type == call_identity[0]
-                ):
-                    identity = (
-                        legacy_record.invocation_type,
-                        call_identity[1],
-                        legacy_record.fingerprint,
-                    )
-        if identity is None or identity[:2] not in completed_output_keys:
+            legacy_record = context_wrapper._tool_invocations.get(call_identity[1])
+            if (
+                legacy_record is not None
+                and legacy_record.completed
+                and legacy_record.invocation_type == call_identity[0]
+            ):
+                entry = (
+                    legacy_record.invocation_type,
+                    call_identity[1],
+                    legacy_record.fingerprint,
+                )
+        historical_entries.setdefault(call_identity[1], []).append(entry)
+
+    def historical_entry_identity(
+        entry: tuple[str, str, str] | RunItem,
+    ) -> tuple[str, str, str] | None:
+        if isinstance(entry, tuple):
+            return entry
+        return tool_invocation_identity(
+            entry.raw_item,
+            tool_lookup_key=(
+                entry.tool_lookup_key if isinstance(entry, ToolApprovalItem) else None
+            ),
+            tool_name=(
+                entry.tool_name if isinstance(entry, ToolCallItem | ToolApprovalItem) else None
+            ),
+            invocation_role=("handoff" if isinstance(entry, HandoffCallItem) else None),
+        )
+
+    completed_historical_invocations: dict[str, tuple[str, str, str] | None] = {}
+    for call_id, entries in historical_entries.items():
+        if len(entries) < 2:
             continue
-        previous_identity = completed_historical_invocations.get(identity[1])
-        if previous_identity is not None and previous_identity != identity:
-            raise ModelBehaviorError(
-                "Run history reused a tool call ID for different completed invocations. "
-                "Use a unique call ID for each tool invocation."
+        resolved_identity: tuple[str, str, str] | None = None
+        for entry in entries:
+            identity = historical_entry_identity(entry)
+            if identity is None:
+                continue
+            if resolved_identity is not None and resolved_identity != identity:
+                raise ModelBehaviorError(
+                    "Run history reused a tool call ID for different completed invocations. "
+                    "Use a unique call ID for each tool invocation."
+                )
+            resolved_identity = identity
+        completed_historical_invocations[call_id] = resolved_identity
+
+    def get_historical_identity(call_id: str) -> tuple[str, str, str] | None:
+        if call_id not in completed_historical_invocations:
+            entries = historical_entries.get(call_id)
+            completed_historical_invocations[call_id] = (
+                historical_entry_identity(entries[0]) if entries else None
             )
-        completed_historical_invocations[identity[1]] = identity
+        return completed_historical_invocations[call_id]
+
     current_response_invocations: dict[str, tuple[str, str, str]] = {}
     (
         processed_response.mcp_approval_requests,
@@ -440,7 +480,7 @@ def _dedupe_processed_response_invocations(
                 "Use a unique call ID for each tool invocation."
             )
 
-        historical_identity = completed_historical_invocations.get(identity[1])
+        historical_identity = get_historical_identity(identity[1])
         if historical_identity is not None:
             if historical_identity != identity:
                 raise ModelBehaviorError(
@@ -984,9 +1024,54 @@ async def _execute_tool_plan(
     )
     if parallel:
         sibling_category_failure = asyncio.Event()
+        native_category_failure = asyncio.Event()
+        native_tasks: set[asyncio.Task[Any]] = set()
+        cancelled_native_tasks: set[asyncio.Task[Any]] = set()
+        function_error_selected = False
+
+        def on_function_error_selected() -> None:
+            nonlocal function_error_selected
+            function_error_selected = True
+            native_category_failure.set()
+            for task in native_tasks:
+                if not task.done():
+                    cancelled_native_tasks.add(task)
+                    task.cancel()
+            if on_tool_error_selected is not None:
+                on_tool_error_selected()
+
+        async def run_native_category(
+            execute: Callable[[], Awaitable[list[RunItem]]],
+        ) -> list[RunItem]:
+            # A function failure may be selected before this category is scheduled.
+            if function_error_selected:
+                return []
+            task = asyncio.current_task()
+            assert task is not None
+            native_tasks.add(task)
+            try:
+                return await execute()
+            except asyncio.CancelledError:
+                if not function_error_selected:
+                    raise
+                # The function category owns this failure. Let its original error
+                # reach gather after bounded cleanup, rather than replacing it with
+                # the cancellation used to stop native invocations. Cancellation of
+                # the parent still propagates through gather_with_cancel itself.
+                return []
+            except Exception as error:
+                if task not in cancelled_native_tasks:
+                    raise
+                log_tool_action_error(
+                    "Native tool failed during sibling cancellation cleanup", error
+                )
+                return []
+            finally:
+                native_tasks.discard(task)
 
         def on_category_failure(error: BaseException) -> None:
             sibling_category_failure.set()
+            native_category_failure.set()
             if on_tool_error_selected is not None:
                 on_tool_error_selected()
             if isinstance(error, asyncio.CancelledError):
@@ -1007,58 +1092,76 @@ async def _execute_tool_plan(
                 context_wrapper=context_wrapper,
                 config=run_config,
                 isolate_parallel_failures=isolate_function_tool_failures,
-                on_tool_error_selected=on_tool_error_selected,
+                on_tool_error_selected=on_function_error_selected,
                 sibling_category_failure=sibling_category_failure,
                 tool_output_committer=tool_output_committer,
                 tool_input_guardrail_results=tool_input_guardrail_results,
                 tool_output_guardrail_results=tool_output_guardrail_results,
             ),
-            execute_computer_actions(
-                public_agent=public_agent,
-                actions=plan.computer_actions,
-                hooks=hooks,
-                context_wrapper=context_wrapper,
-                config=run_config,
-                tool_output_committer=tool_output_committer,
-                sibling_category_failure=sibling_category_failure,
+            run_native_category(
+                partial(
+                    execute_computer_actions,
+                    public_agent=public_agent,
+                    actions=plan.computer_actions,
+                    hooks=hooks,
+                    context_wrapper=context_wrapper,
+                    config=run_config,
+                    tool_output_committer=tool_output_committer,
+                    sibling_category_failure=native_category_failure,
+                )
             ),
-            execute_custom_tool_calls(
-                public_agent=public_agent,
-                calls=plan.custom_tool_calls,
-                hooks=hooks,
-                context_wrapper=context_wrapper,
-                config=run_config,
-                tool_output_committer=tool_output_committer,
-                sibling_category_failure=sibling_category_failure,
+            run_native_category(
+                partial(
+                    execute_custom_tool_calls,
+                    public_agent=public_agent,
+                    calls=plan.custom_tool_calls,
+                    hooks=hooks,
+                    context_wrapper=context_wrapper,
+                    config=run_config,
+                    tool_output_committer=tool_output_committer,
+                    sibling_category_failure=native_category_failure,
+                )
             ),
-            execute_shell_calls(
-                public_agent=public_agent,
-                calls=plan.shell_calls,
-                hooks=hooks,
-                context_wrapper=context_wrapper,
-                config=run_config,
-                tool_output_committer=tool_output_committer,
-                sibling_category_failure=sibling_category_failure,
+            run_native_category(
+                partial(
+                    execute_shell_calls,
+                    public_agent=public_agent,
+                    calls=plan.shell_calls,
+                    hooks=hooks,
+                    context_wrapper=context_wrapper,
+                    config=run_config,
+                    tool_output_committer=tool_output_committer,
+                    sibling_category_failure=native_category_failure,
+                )
             ),
-            execute_apply_patch_calls(
-                public_agent=public_agent,
-                calls=plan.apply_patch_calls,
-                hooks=hooks,
-                context_wrapper=context_wrapper,
-                config=run_config,
-                tool_output_committer=tool_output_committer,
-                sibling_category_failure=sibling_category_failure,
+            run_native_category(
+                partial(
+                    execute_apply_patch_calls,
+                    public_agent=public_agent,
+                    calls=plan.apply_patch_calls,
+                    hooks=hooks,
+                    context_wrapper=context_wrapper,
+                    config=run_config,
+                    tool_output_committer=tool_output_committer,
+                    sibling_category_failure=native_category_failure,
+                )
             ),
-            execute_local_shell_calls(
-                public_agent=public_agent,
-                calls=plan.local_shell_calls,
-                hooks=hooks,
-                context_wrapper=context_wrapper,
-                config=run_config,
-                tool_output_committer=tool_output_committer,
-                sibling_category_failure=sibling_category_failure,
+            run_native_category(
+                partial(
+                    execute_local_shell_calls,
+                    public_agent=public_agent,
+                    calls=plan.local_shell_calls,
+                    hooks=hooks,
+                    context_wrapper=context_wrapper,
+                    config=run_config,
+                    tool_output_committer=tool_output_committer,
+                    sibling_category_failure=native_category_failure,
+                )
             ),
             on_child_failure=on_category_failure,
+            cancelled_children=cancelled_native_tasks,
+            # Preserve both the finalization wait and its cancellation-cleanup window.
+            cancelled_children_timeout=2 * tool_execution._FUNCTION_TOOL_POST_INVOKE_WAIT_SECONDS,
         )
     else:
         (

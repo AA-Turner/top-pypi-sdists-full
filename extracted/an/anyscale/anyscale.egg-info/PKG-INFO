@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anyscale
-Version: 0.26.117
+Version: 0.26.118
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -117,5 +117,48 @@ sensitive values — tokens the CLI prints on purpose (`anyscale service token
 add`, `anyscale service-account create`) and anything echoed back from a config
 you pass in, including a workload's `env_vars`. Treat stdout as no less
 sensitive than stderr wherever the two are collected or retained differently.
+
+### `ANYSCALE_EXTRA_HEADERS`
+
+Adds HTTP headers to every request the CLI and the Python SDK send to the
+Anyscale API, for example a token that a corporate reverse proxy in front of
+`ANYSCALE_HOST` requires. The value is a JSON object of header names to string
+values:
+
+```bash
+export ANYSCALE_EXTRA_HEADERS='{"X-Proxy-Token": "abc", "X-Team": "ml"}'
+```
+
+For a single command, pass `--header 'Name: Value'` before the command name,
+repeating it for more than one header:
+
+```bash
+anyscale --header 'X-Proxy-Token: abc' job list
+```
+
+In the SDK, `anyscale.Anyscale(headers={...})` does the same for one client.
+
+When more than one source sets a header of the same name, ignoring letter case,
+`Anyscale(headers=...)` wins over `--header`, which wins over
+`ANYSCALE_EXTRA_HEADERS`. Headers named in only one source are always sent.
+
+- The client sets `Accept`, `Content-Length`, `Content-Type`, `Cookie`, `Host`,
+  `Transfer-Encoding`, `traceparent`, `X-Anyscale-Client` and
+  `X-Anyscale-Client-Version` itself, so these names are rejected. Names must be
+  HTTP tokens. Values must not be blank, and they can contain only printable
+  ASCII characters and tabs.
+- Headers are read when a client is created. The CLI reads them once per
+  command. In an SDK script, module-level calls such as `anyscale.job.list()`
+  share one client, so set `ANYSCALE_EXTRA_HEADERS` before the first call.
+- Requests to other hosts never carry these headers, including a redirect away
+  from the Anyscale API, cloud storage uploads and downloads, cluster
+  connections and the PyPI version check.
+- The hidden `anyscale session` commands and the web terminal's command log
+  send their API calls after the credential check with plain `requests`. These
+  calls do not carry the custom headers.
+- Header values are never printed or sent in usage telemetry; with
+  `ANYSCALE_DEBUG=1` the CLI prints only their names. Prefer the environment
+  variable for secrets, because command-line arguments end up in shell history
+  and process listings.
 
 After making any changes to the CLI, be sure to run `pip install -U -e .` from within the `frontend/cli` directory to update your environment with the latest modifications.

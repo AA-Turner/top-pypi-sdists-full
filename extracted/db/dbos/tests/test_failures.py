@@ -2,6 +2,7 @@ import asyncio
 import threading
 import time
 import uuid
+from types import SimpleNamespace
 from typing import Any, Generator, cast
 
 import pytest
@@ -10,6 +11,7 @@ from psycopg.errors import SerializationFailure
 from sqlalchemy.exc import DBAPIError, InvalidRequestError, OperationalError
 
 from dbos import DBOS, SetWorkflowID
+from dbos import _outcome as dbos_outcome
 from dbos._client import DBOSClient
 from dbos._context import DBOSContext, _set_local_dbos_context, get_local_dbos_context
 from dbos._dbos import WorkflowHandle
@@ -23,6 +25,7 @@ from dbos._error import (
     DBOSQueueDeduplicatedError,
     DBOSStepTimeoutError,
     DBOSUnexpectedStepError,
+    DBOSWorkflowConflictIDError,
 )
 from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
 from dbos._schemas.system_database import SystemSchema
@@ -336,6 +339,66 @@ class ShouldRetryFatalError(Exception):
 
 class ShouldRetryRetryableError(Exception):
     pass
+
+
+def test_step_backoff_past_float_range_keeps_retrying(
+    dbos: DBOS, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The delay reaches the one-hour cap after about a dozen attempts, but
+    # backoff_rate**attempt still grows: at attempt 1024 with a rate of 2.0
+    # it passes the largest float. The step must keep retrying at the cap
+    # and end with DBOSMaxStepRetriesExceeded, not OverflowError.
+    max_attempts = 1030
+    sleeps: list[float] = []
+
+    async def no_async_sleep(seconds: float) -> None:
+        sleeps.append(seconds)
+
+    # Swap only _outcome's module references (copies with sleep overridden) so
+    # just the step retry loop skips its sleeps. Patching time.sleep itself
+    # would also hit DBOS background threads and DB retries.
+    monkeypatch.setattr(
+        dbos_outcome, "time", SimpleNamespace(**{**vars(time), "sleep": sleeps.append})
+    )
+    monkeypatch.setattr(
+        dbos_outcome,
+        "asyncio",
+        SimpleNamespace(**{**vars(asyncio), "sleep": no_async_sleep}),
+    )
+    calls = 0
+
+    @DBOS.step(retries_allowed=True, max_attempts=max_attempts, backoff_rate=2.0)
+    def flaky() -> None:
+        nonlocal calls
+        calls += 1
+        raise ValueError("still down")
+
+    @DBOS.step(retries_allowed=True, max_attempts=max_attempts, backoff_rate=2.0)
+    async def flaky_async() -> None:
+        nonlocal calls
+        calls += 1
+        raise ValueError("still down")
+
+    @DBOS.workflow()
+    def wf() -> None:
+        flaky()
+
+    @DBOS.workflow()
+    async def wf_async() -> None:
+        await flaky_async()
+
+    # One sleep between each pair of attempts: 1s, 2s, 4s, ... then the cap.
+    # Python ints don't overflow, so 2**i is safe to compute here.
+    expected_sleeps = [min(2**i, 3600) for i in range(max_attempts - 1)]
+
+    with pytest.raises(DBOSMaxStepRetriesExceeded):
+        wf()
+    assert calls == max_attempts and sleeps == expected_sleeps
+
+    calls, sleeps[:] = 0, []
+    with pytest.raises(DBOSMaxStepRetriesExceeded):
+        asyncio.run(wf_async())
+    assert calls == max_attempts and sleeps == expected_sleeps
 
 
 def test_step_should_retry(dbos: DBOS) -> None:
@@ -997,6 +1060,38 @@ def test_recv_consume_idempotent_on_timeout(dbos: DBOS) -> None:
             )
         ).fetchall()
     assert len(unconsumed) == 1
+
+
+def test_recv_consume_recorded_rejects_stale_owner(dbos: DBOS) -> None:
+    """The recorded-result path of recv_consume checks ownership like the consume path does."""
+    dest_id = str(uuid.uuid4())
+    _make_status_row(dbos, dest_id)
+    owner = str(uuid.uuid4())
+    with dbos._sys_db.engine.begin() as c:
+        c.execute(
+            sa.update(SystemSchema.workflow_status)
+            .where(SystemSchema.workflow_status.c.workflow_uuid == dest_id)
+            .values(owner_xid=owner)
+        )
+    DBOS.send(dest_id, "msg")
+    function_id = 1
+    start_time = int(time.time() * 1000)
+    assert dbos._sys_db.recv_consume(dest_id, function_id, None, start_time) == "msg"
+
+    def consume_as(owner_xid: str) -> Any:
+        ctx = DBOSContext()
+        ctx.workflow_id = dest_id
+        ctx.owner_xid = owner_xid
+        prev = get_local_dbos_context()
+        _set_local_dbos_context(ctx)
+        try:
+            return dbos._sys_db.recv_consume(dest_id, function_id, None, start_time)
+        finally:
+            _set_local_dbos_context(prev)
+
+    with pytest.raises(DBOSWorkflowConflictIDError):
+        consume_as(str(uuid.uuid4()))
+    assert consume_as(owner) == "msg"
 
 
 class _RetryOnceEngine:

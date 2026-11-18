@@ -60,13 +60,14 @@ from selenium.webdriver.common.bidi.emulation import Emulation
 from selenium.webdriver.common.bidi.input import Input
 from selenium.webdriver.common.bidi.network import Network
 from selenium.webdriver.common.bidi.permissions import Permissions
-from selenium.webdriver.common.bidi.script import Script
+from selenium.webdriver.common.bidi.script import Script as BidiScript
 from selenium.webdriver.common.bidi.session import Session
 from selenium.webdriver.common.bidi.storage import Storage
 from selenium.webdriver.common.bidi.webextension import WebExtension as BidiWebExtension
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.options import ArgOptions, BaseOptions
 from selenium.webdriver.common.web_extension import WebExtension
+from selenium.webdriver.remote.accessibility_snapshot import AccessibilityNode, AccessibilitySnapshotter
 from selenium.webdriver.remote.bidi_connection import BidiConnection
 from selenium.webdriver.remote.client_config import ClientConfig
 from selenium.webdriver.remote.command import Command
@@ -76,6 +77,7 @@ from selenium.webdriver.remote.file_detector import FileDetector, LocalFileDetec
 from selenium.webdriver.remote.locator_converter import LocatorConverter
 from selenium.webdriver.remote.mobile import Mobile
 from selenium.webdriver.remote.remote_connection import RemoteConnection
+from selenium.webdriver.remote.script import Script
 from selenium.webdriver.remote.script_key import ScriptKey
 from selenium.webdriver.remote.shadowroot import ShadowRoot
 from selenium.webdriver.remote.switch_to import SwitchTo
@@ -358,6 +360,7 @@ class WebDriver(BaseWebDriver):
 
         self._websocket_connection: WebSocketConnection | None = None
         self._script: Script | None = None
+        self._accessibility_snapshotter: AccessibilitySnapshotter | None = None
         self._network: Network | None = None
         self._browser: Browser | None = None
         self._bidi_session: Session | None = None
@@ -601,7 +604,7 @@ class WebDriver(BaseWebDriver):
         """Store a JavaScript script by a unique hashable ID for later execution.
 
         .. deprecated::
-            Use ``driver.script.pin()`` instead, which uses the WebDriver BiDi protocol.
+            Use ``driver.script.pin()`` instead.
 
         Example:
             `script = "return document.getElementById('foo').value"`
@@ -619,7 +622,7 @@ class WebDriver(BaseWebDriver):
         """Remove a pinned script from storage.
 
         .. deprecated::
-            Use ``driver.script.unpin()`` instead, which uses the WebDriver BiDi protocol.
+            Use ``driver.script.unpin()`` instead.
 
         Example:
             `driver.unpin(script_key)`
@@ -638,13 +641,13 @@ class WebDriver(BaseWebDriver):
         """Return a list of all pinned scripts.
 
         .. deprecated::
-            Use ``driver.script.pin()`` to manage preload scripts via the WebDriver BiDi protocol.
+            Use ``driver.script.pin()`` instead.
 
         Example:
             `pinned_scripts = driver.get_pinned_scripts()`
         """
         warnings.warn(
-            "get_pinned_scripts is deprecated, use driver.script.pin() to manage preload scripts instead",
+            "get_pinned_scripts is deprecated, use driver.script.pin() instead",
             DeprecationWarning,
             stacklevel=2,
         )
@@ -749,6 +752,40 @@ class WebDriver(BaseWebDriver):
         """Invokes the window manager-specific 'minimize' operation."""
         self.execute(Command.MINIMIZE_WINDOW)
 
+    def accessibility_snapshot(self, interesting_only: bool = True) -> AccessibilityNode:
+        """Snapshot the accessibility tree of the current browsing context.
+
+        The tree is computed in the page from the DOM, following WAI-ARIA,
+        html-aam and accname; it is not the browser's own accessibility tree.
+        It is rooted at the driver's current browsing context: the top-level
+        document, or the frame the driver has switched into. Every child
+        frame's tree is attached under its ``iframe`` node, and the driver's
+        current browsing context is left as it was. Works in both WebDriver
+        Classic and BiDi sessions. The snapshot is a copy taken at one point
+        in time.
+
+        Args:
+            interesting_only: With the default ``True``, elements of role
+                ``generic``, ``none`` or ``presentation`` with no name produce
+                no node and their children take their place. With ``False``
+                every rendered element produces a node, as Puppeteer's
+                ``accessibility.snapshot({interestingOnly: false})`` does.
+
+        Returns:
+            The root node, of role ``document``, named from the title.
+
+        Example:
+            >>> tree = driver.accessibility_snapshot()
+            >>> print(tree.to_text())
+            >>> tree.children[0].element.click()
+        """
+        return self._accessibility().snapshot(None, interesting_only)
+
+    def _accessibility(self) -> AccessibilitySnapshotter:
+        if self._accessibility_snapshotter is None:
+            self._accessibility_snapshotter = AccessibilitySnapshotter(self)
+        return self._accessibility_snapshotter
+
     def print_page(self, print_options: PrintOptions | None = None) -> str:
         """Takes PDF of the current page.
 
@@ -793,7 +830,7 @@ class WebDriver(BaseWebDriver):
         """Refreshes the current page."""
         self.execute(Command.REFRESH)
 
-    def get_cookies(self) -> list[dict]:
+    def get_cookies(self) -> list[dict[str, Any]]:
         """Get all cookies visible to the current WebDriver instance.
 
         Returns:
@@ -992,17 +1029,23 @@ class WebDriver(BaseWebDriver):
         by, value = self.locator_converter.convert(by, value)
 
         if isinstance(by, RelativeBy):
-            _pkg = ".".join(__name__.split(".")[:-1])
-            raw_data = pkgutil.get_data(_pkg, "findElements.js")
-            if raw_data is None:
-                raise FileNotFoundError(f"Could not find findElements.js in package {_pkg}")
-            raw_function = raw_data.decode("utf8")
-            find_element_js = f"/* findElements */return ({raw_function}).apply(null, arguments);"
-            return self.execute_script(find_element_js, by.to_dict())
+            return self._find_elements_relative(by)
 
         # Return empty list if driver returns null
         # See https://github.com/SeleniumHQ/selenium/issues/4555
         return self.execute(Command.FIND_ELEMENTS, {"using": by, "value": value})["value"] or []
+
+    def _find_elements_relative(self, by: RelativeBy, root: WebElement | ShadowRoot | None = None) -> list[WebElement]:
+        """Find elements with a relative locator, searching from root, or the document when root is None."""
+        _pkg = ".".join(__name__.split(".")[:-1])
+        raw_data = pkgutil.get_data(_pkg, "findElements.js")
+        if raw_data is None:
+            raise FileNotFoundError(f"Could not find findElements.js in package {_pkg}")
+        raw_function = raw_data.decode("utf8")
+        find_element_js = f"/* findElements */return ({raw_function}).apply(null, arguments);"
+        if root is None:
+            return self.execute_script(find_element_js, by.to_dict())
+        return self.execute_script(find_element_js, by.to_dict(), root)
 
     @property
     def capabilities(self) -> dict:
@@ -1270,11 +1313,21 @@ class WebDriver(BaseWebDriver):
 
     @property
     def script(self) -> Script:
+        """Pinned scripts, script execution and console, error and DOM-mutation handlers.
+
+        Returns:
+            The session's ``Script`` object.
+
+        Examples:
+            `total = driver.script.execute("(a, b) => a + b", 1, 2)`
+            `pinned = driver.script.pin("() => { window.helper = () => 42 }")`
+            `handler_id = driver.script.add_console_handler(messages.append)`
+        """
         if not self._websocket_connection:
             self._start_bidi()
 
         if not self._script:
-            self._script = Script(self._websocket_connection, self)
+            self._script = Script(BidiScript(self._websocket_connection, self), self)
 
         return self._script
 
@@ -1407,14 +1460,19 @@ class WebDriver(BaseWebDriver):
     def webextension(self) -> BidiWebExtension:
         """Get a webextension module object for BiDi webextension commands.
 
+        .. deprecated::
+            Use ``driver.install_web_extension()`` and
+            ``driver.uninstall_web_extension()`` instead.
+
         Returns:
             An object containing access to BiDi webextension commands.
-
-        Examples:
-            `extension_path = "/path/to/extension"`
-            `extension_result = driver.webextension.install(path=extension_path)`
-            `driver.webextension.uninstall(extension_result)`
         """
+        warnings.warn(
+            "driver.webextension is deprecated, use driver.install_web_extension() "
+            "and driver.uninstall_web_extension() instead",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         if not self._websocket_connection:
             self._start_bidi()
 

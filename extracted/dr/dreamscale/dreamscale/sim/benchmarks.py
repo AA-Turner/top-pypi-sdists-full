@@ -6,7 +6,7 @@ import json
 from importlib.resources import files
 from math import ceil
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale import errors
 from dreamscale.model_names import public_model

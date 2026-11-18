@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 import logging
+import re
 import threading
 from typing import Any, Final, Literal
 from urllib.parse import urljoin
@@ -20,10 +21,15 @@ import requests
 
 from .const import CLIENT_ID, USER_POOL_ID
 from .exceptions import PuraApiException, PuraAuthenticationError
-from .utils import decode
+from .utils import decode, redact_id, redact_ids
 from .ws_subscriber import WebSocketSubscriber
 
 _LOGGER = logging.getLogger(__name__)
+
+# A device ID (its MAC) as a URL path segment, e.g. "v3/devices/<id>/v2/timer"
+_DEVICE_ID_IN_PATH: Final = re.compile(
+    r"(?<=/)(?:[0-9A-Fa-f]{2}[:-]?){5}[0-9A-Fa-f]{2}(?=/|$)"
+)
 
 BASE_URL: Final = "https://trypura.io/mobile/api/"
 
@@ -268,7 +274,7 @@ class Pura:
             True if always-on mode was set successfully.
         """
         json = {"bay": bay}
-        resp = self.__post(f"devices/{device_id}/always-on", json=json)
+        resp = self.__post(f"v3/devices/{device_id}/always-on", json=json)
         return resp.get("success") is True
 
     def set_ambient_mode(self, device_id: str, *, ambient_mode: bool) -> bool:
@@ -436,6 +442,28 @@ class Pura:
         resp = self.__post(f"devices/{device_id}/stop-all")
         return resp.get("success") is True
 
+    def send_car_events(
+        self, device_id: str, events: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        """Report what was read from a car over Bluetooth, as the Pura app does.
+
+        A car only syncs with the cloud through a phone, which sends these events
+        after reading it. `car_ble.car_status_events` makes them from a reading, and
+        `car_ble.car_change_events` from what changed since.
+
+        Args:
+            device_id: The car's ID, its MAC without separators.
+            events: The events to report, oldest first.
+
+        Returns:
+            The response, which has the car as the cloud now has it under
+            `device`, without the `modelType` that `get_devices` adds.
+        """
+        resp: dict[str, Any] = self.__post(
+            f"car/{device_id}/batchedEvents", json={"events": events}
+        )
+        return resp
+
     def subscribe_for_updates(
         self,
         on_message: Callable[[dict], Awaitable[None]],
@@ -460,7 +488,12 @@ class Pura:
         missing data isn't taken as there being none. With `missing_ok`, a 404
         returns None instead of raising, without logging an error.
         """
-        _LOGGER.debug("Making %s request to %s with %s", method, url, kwargs)
+        _LOGGER.debug(
+            "Making %s request to %s with %s",
+            method,
+            _DEVICE_ID_IN_PATH.sub(lambda match: redact_id(match[0]), url),
+            redact_ids(kwargs),
+        )
         user = self.get_user()
         id_token = user.id_token
         response = self.__send(method, url, **kwargs)

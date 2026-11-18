@@ -89,12 +89,29 @@ class RunMetricsMixin:
         key: str | None = None,
         kind: str | None = None,
         limit: int | None = None,
+        dimensions: dict[str, Any] | None = None,
+        labels: dict[str, Any] | None = None,
+        span_id: str | None = None,
+        step_from: int | None = None,
+        step_to: int | None = None,
     ) -> list[dict]:
-        """Raw metric points for a run. :meth:`run_series` is the summarized view;
-        :meth:`query_series` is the multi-run comparison. A logged NaN / +inf /
-        -inf comes back as that float (see :mod:`probe.sdk.reads.nonfinite`)."""
+        """Raw metric points for a run: the synchronous point query. :meth:`run_series` is the summarized view;
+        :meth:`query_series` is the multi-run comparison. ``dimensions`` / ``labels`` match by type-faithful
+        JSON containment (``{"sample": 1}`` is not ``{"sample": "1"}``); a ``labels`` or ``span_id`` filter needs
+        ``key``. A logged NaN / +inf / -inf comes back as that float (see :mod:`probe.sdk.reads.nonfinite`)."""
         params = {
-            k: v for k, v in {"key": key, "kind": kind, "limit": limit}.items() if v is not None
+            k: v
+            for k, v in {
+                "key": key,
+                "kind": kind,
+                "limit": limit,
+                "dimensions": json.dumps(dimensions) if dimensions is not None else None,
+                "labels": json.dumps(labels) if labels is not None else None,
+                "span_id": span_id,
+                "step_from": step_from,
+                "step_to": step_to,
+            }.items()
+            if v is not None
         }
         rows = self.transport.get(f"/v1/runs/{run_id}/metrics", params=params or None)
         return [nonfinite.to_float(row) for row in rows]
@@ -303,12 +320,16 @@ class MetricsResource(Resource):
 
     def list(
         self, run_id: str, *, key: str | None = None, kind: str | None = None,
-        limit: int | None = None,
+        limit: int | None = None, dimensions: dict[str, Any] | None = None, labels: dict[str, Any] | None = None,
+        span_id: str | None = None, step_from: int | None = None, step_to: int | None = None,
     ) -> builtins.list[MetricPointOut]:
         """`Client.run_metrics` as `MetricPointOut`s."""
         return self._to_models(
             MetricPointOut,
-            self._client.run_metrics(run_id, key=key, kind=kind, limit=limit),
+            self._client.run_metrics(
+                run_id, key=key, kind=kind, limit=limit, dimensions=dimensions, labels=labels, span_id=span_id,
+                step_from=step_from, step_to=step_to,
+            ),
         )
 
     def list_series(self, run_id: str) -> builtins.list[MetricSeriesOut]:

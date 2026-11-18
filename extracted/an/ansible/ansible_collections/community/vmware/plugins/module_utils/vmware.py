@@ -8,11 +8,9 @@
 
 __metaclass__ = type
 
-import atexit
 from collections.abc import Mapping
 import json
 import os
-import re
 import socket
 import ssl
 import hashlib
@@ -26,25 +24,15 @@ from ansible_collections.vmware.vmware.plugins.module_utils.clients.pyvmomi impo
 from random import randint
 
 
-REQUESTS_IMP_ERR = None
-try:
-    # requests is required for exception handling of the ConnectionError
-    import requests
-    HAS_REQUESTS = True
-except ImportError:
-    REQUESTS_IMP_ERR = traceback.format_exc()
-    HAS_REQUESTS = False
-
 PYVMOMI_IMP_ERR = None
 try:
-    from pyVim import connect
     from pyVmomi import vim, vmodl, VmomiSupport, VmomiJSONEncoder
     HAS_PYVMOMI = True
 except ImportError:
     PYVMOMI_IMP_ERR = traceback.format_exc()
     HAS_PYVMOMI = False
 
-from ansible.module_utils.common.text.converters import to_text, to_native
+from ansible.module_utils.common.text.converters import to_text
 from ansible.module_utils.basic import missing_required_lib
 from urllib.parse import unquote
 from ansible_collections.vmware.vmware.plugins.module_utils.argument_spec import base_argument_spec
@@ -385,14 +373,6 @@ def find_vm_by_name(content, vm_name, folder=None, recurse=True):
     return find_object_by_name(content, vm_name, [vim.VirtualMachine], folder=folder, recurse=recurse)
 
 
-def find_host_portgroup_by_name(host, portgroup_name):
-
-    for portgroup in host.config.network.portgroup:
-        if portgroup.spec.name == portgroup_name:
-            return portgroup
-    return None
-
-
 def compile_folder_path_for_object(vobj):
     """ make a /vm/foo/bar/baz like folder path for an object """
 
@@ -673,109 +653,6 @@ def vmware_argument_spec():
     return base_argument_spec()
 
 
-def connect_to_api(module, disconnect_atexit=True, return_si=False, hostname=None, username=None, password=None, port=None, validate_certs=None,
-                   httpProxyHost=None, httpProxyPort=None):
-    if module:
-        if not hostname:
-            hostname = module.params['hostname']
-        if not username:
-            username = module.params['username']
-        if not password:
-            password = module.params['password']
-        if not httpProxyHost:
-            httpProxyHost = module.params.get('proxy_host')
-        if not httpProxyPort:
-            httpProxyPort = module.params.get('proxy_port')
-        if not port:
-            port = module.params.get('port', 443)
-        if not validate_certs:
-            validate_certs = module.params['validate_certs']
-
-    def _raise_or_fail(msg):
-        if module is not None:
-            module.fail_json(msg=msg)
-        raise ApiAccessError(msg)
-
-    if not hostname:
-        _raise_or_fail(msg="Hostname parameter is missing."
-                       " Please specify this parameter in task or"
-                       " export environment variable like 'export VMWARE_HOST=ESXI_HOSTNAME'")
-
-    if not username:
-        _raise_or_fail(msg="Username parameter is missing."
-                       " Please specify this parameter in task or"
-                       " export environment variable like 'export VMWARE_USER=ESXI_USERNAME'")
-
-    if not password:
-        _raise_or_fail(msg="Password parameter is missing."
-                       " Please specify this parameter in task or"
-                       " export environment variable like 'export VMWARE_PASSWORD=ESXI_PASSWORD'")
-
-    if validate_certs and not hasattr(ssl, 'SSLContext'):
-        _raise_or_fail(msg='pyVim does not support changing verification mode with python < 2.7.9. Either update '
-                           'python or use validate_certs=false.')
-    elif validate_certs:
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        ssl_context.verify_mode = ssl.CERT_REQUIRED
-        ssl_context.check_hostname = True
-        ssl_context.load_default_certs()
-    elif hasattr(ssl, 'SSLContext'):
-        ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-        ssl_context.verify_mode = ssl.CERT_NONE
-        ssl_context.check_hostname = False
-    else:  # Python < 2.7.9 or RHEL/Centos < 7.4
-        ssl_context = None
-
-    service_instance = None
-
-    connect_args = dict(
-        host=hostname,
-        port=port,
-    )
-    if ssl_context:
-        connect_args.update(sslContext=ssl_context)
-
-    msg_suffix = ''
-    try:
-        if httpProxyHost:
-            msg_suffix = " [proxy: %s:%d]" % (httpProxyHost, httpProxyPort)
-            connect_args.update(httpProxyHost=httpProxyHost, httpProxyPort=httpProxyPort)
-            smart_stub = connect.SmartStubAdapter(**connect_args)
-            session_stub = connect.VimSessionOrientedStub(smart_stub, connect.VimSessionOrientedStub.makeUserLoginMethod(username, password))
-            service_instance = vim.ServiceInstance('ServiceInstance', session_stub)
-        else:
-            connect_args.update(user=username, pwd=password)
-            service_instance = connect.SmartConnect(**connect_args)
-    except vim.fault.InvalidLogin as invalid_login:
-        msg = "Unable to log on to vCenter or ESXi API at %s:%s " % (hostname, port)
-        _raise_or_fail(msg="%s as %s: %s" % (msg, username, invalid_login.msg) + msg_suffix)
-    except vim.fault.NoPermission as no_permission:
-        _raise_or_fail(msg="User %s does not have required permission"
-                           " to log on to vCenter or ESXi API at %s:%s : %s" % (username, hostname, port, no_permission.msg))
-    except (requests.ConnectionError, ssl.SSLError) as generic_req_exc:
-        _raise_or_fail(msg="Unable to connect to vCenter or ESXi API at %s on TCP/%s: %s" % (hostname, port, generic_req_exc))
-    except vmodl.fault.InvalidRequest as invalid_request:
-        # Request is malformed
-        msg = "Failed to get a response from server %s:%s " % (hostname, port)
-        _raise_or_fail(msg="%s as request is malformed: %s" % (msg, invalid_request.msg) + msg_suffix)
-    except Exception as generic_exc:
-        msg = "Unknown error while connecting to vCenter or ESXi API at %s:%s" % (hostname, port) + msg_suffix
-        _raise_or_fail(msg="%s : %s" % (msg, generic_exc))
-
-    if service_instance is None:
-        msg = "Unknown error while connecting to vCenter or ESXi API at %s:%s" % (hostname, port)
-        _raise_or_fail(msg=msg + msg_suffix)
-
-    # Disabling atexit should be used in special cases only.
-    # Such as IP change of the ESXi host which removes the connection anyway.
-    # Also removal significantly speeds up the return of the module
-    if disconnect_atexit:
-        atexit.register(connect.Disconnect, service_instance)
-    if return_si:
-        return service_instance, service_instance.RetrieveContent()
-    return service_instance.RetrieveContent()
-
-
 def get_all_objs(content, vimtype, folder=None, recurse=True):
     if not folder:
         folder = content.rootFolder
@@ -1036,10 +913,6 @@ def quote_obj_name(object_name=None):
 class PyVmomi(PyvmomiClient):
     def __init__(self, module):
         self.module = module
-        if not HAS_REQUESTS:
-            module.fail_json(msg=missing_required_lib('requests'),
-                             exception=REQUESTS_IMP_ERR)
-
         if not HAS_PYVMOMI:
             module.fail_json(msg=missing_required_lib('PyVmomi'),
                              exception=PYVMOMI_IMP_ERR)
@@ -1422,45 +1295,6 @@ class PyVmomi(PyvmomiClient):
 
         return host_obj_list
 
-    def host_version_at_least(self, version=None, vm_obj=None, host_name=None):
-        """
-        Check that the ESXi Host is at least a specific version number
-        Args:
-            vm_obj: virtual machine object, required one of vm_obj, host_name
-            host_name (string): ESXi host name
-            version (tuple): a version tuple, for example (6, 7, 0)
-        Returns: bool
-        """
-        if vm_obj:
-            host_system = vm_obj.summary.runtime.host
-        elif host_name:
-            host_system = self.find_hostsystem_by_name(host_name=host_name)
-        else:
-            self.module.fail_json(msg='VM object or ESXi host name must be set one.')
-        if host_system and version:
-            host_version = host_system.summary.config.product.version
-            return StrictVersion(host_version) >= StrictVersion('.'.join(map(str, version)))
-        else:
-            self.module.fail_json(msg='Unable to get the ESXi host from vm: %s, or hostname %s,'
-                                      'or the passed ESXi version: %s is None.' % (vm_obj, host_name, version))
-
-    # Network related functions
-    @staticmethod
-    def find_host_portgroup_by_name(host, portgroup_name):
-        """
-        Find Portgroup on given host
-        Args:
-            host: Host config object
-            portgroup_name: Name of portgroup
-
-        Returns: True if found else False
-
-        """
-        for portgroup in host.config.network.portgroup:
-            if portgroup.spec.name == portgroup_name:
-                return portgroup
-        return False
-
     def get_all_port_groups_by_host(self, host_system):
         """
         Get all Port Group by host
@@ -1497,20 +1331,6 @@ class PyVmomi(PyvmomiClient):
                     networks.append(temp_vm_object.obj)
                     break
         return networks
-
-    def network_exists_by_name(self, network_name=None):
-        """
-        Check if network with a specified name exists or not
-        Args:
-            network_name: Name of network
-
-        Returns: True if network exists else False
-        """
-        ret = False
-        if not network_name:
-            return ret
-        ret = True if self.find_network_by_name(network_name=network_name) else False
-        return ret
 
     # Datacenter
     def find_datacenter_by_name(self, datacenter_name):
@@ -1688,84 +1508,6 @@ class PyVmomi(PyvmomiClient):
             desired_rp = cluster.resourcePool
 
         return desired_rp
-
-    # VMDK stuff
-    def vmdk_disk_path_split(self, vmdk_path):
-        """
-        Takes a string in the format
-
-            [datastore_name] path/to/vm_name.vmdk
-
-        Returns a tuple with multiple strings:
-
-        1. datastore_name: The name of the datastore (without brackets)
-        2. vmdk_fullpath: The "path/to/vm_name.vmdk" portion
-        3. vmdk_filename: The "vm_name.vmdk" portion of the string (os.path.basename equivalent)
-        4. vmdk_folder: The "path/to/" portion of the string (os.path.dirname equivalent)
-        """
-        try:
-            datastore_name = re.match(r'^\[(.*?)\]', vmdk_path, re.DOTALL).groups()[0]
-            vmdk_fullpath = re.match(r'\[.*?\] (.*)$', vmdk_path).groups()[0]
-            vmdk_filename = os.path.basename(vmdk_fullpath)
-            vmdk_folder = os.path.dirname(vmdk_fullpath)
-            return datastore_name, vmdk_fullpath, vmdk_filename, vmdk_folder
-        except (IndexError, AttributeError) as e:
-            self.module.fail_json(msg="Bad path '%s' for filename disk vmdk image: %s" % (vmdk_path, to_native(e)))
-
-    def find_vmdk_file(self, datastore_obj, vmdk_fullpath, vmdk_filename, vmdk_folder):
-        """
-        Return vSphere file object or fail_json
-        Args:
-            datastore_obj: Managed object of datastore
-            vmdk_fullpath: Path of VMDK file e.g., path/to/vm/vmdk_filename.vmdk
-            vmdk_filename: Name of vmdk e.g., VM0001_1.vmdk
-            vmdk_folder: Base dir of VMDK e.g, path/to/vm
-
-        """
-
-        browser = datastore_obj.browser
-        datastore_name = datastore_obj.name
-        datastore_name_sq = "[" + datastore_name + "]"
-        if browser is None:
-            self.module.fail_json(msg="Unable to access browser for datastore %s" % datastore_name)
-
-        detail_query = vim.host.DatastoreBrowser.FileInfo.Details(
-            fileOwner=True,
-            fileSize=True,
-            fileType=True,
-            modification=True
-        )
-        search_spec = vim.host.DatastoreBrowser.SearchSpec(
-            details=detail_query,
-            matchPattern=[vmdk_filename],
-            searchCaseInsensitive=True,
-        )
-        search_res = browser.SearchSubFolders(
-            datastorePath=datastore_name_sq,
-            searchSpec=search_spec
-        )
-
-        changed = False
-        vmdk_path = datastore_name_sq + " " + vmdk_fullpath
-        try:
-            changed, result = wait_for_task(search_res)
-        except TaskError as task_e:
-            self.module.fail_json(msg=to_native(task_e))
-
-        if not changed:
-            self.module.fail_json(msg="No valid disk vmdk image found for path %s" % vmdk_path)
-
-        target_folder_paths = [
-            datastore_name_sq + " " + vmdk_folder + '/',
-            datastore_name_sq + " " + vmdk_folder,
-        ]
-
-        for file_result in search_res.info.result:
-            for f in getattr(file_result, 'file'):
-                if f.path == vmdk_filename and file_result.folderPath in target_folder_paths:
-                    return f
-
-        self.module.fail_json(msg="No vmdk file found for path specified [%s]" % vmdk_path)
 
     def find_first_class_disk_by_name(self, disk_name, datastore_obj):
         """

@@ -122,7 +122,7 @@ class RunReadsMixin:
         return self.client.compare_run_code(run_id, to)
 
     def run_events(self, run_id: str) -> list[dict]:
-        return self.client.events.for_run(run_id)
+        return self.client.events.list_for_run(run_id)
 
     def run_commands(self, run_id: str, *, after: int | None = None, limit: int | None = None,
                      parts: tuple[CommandListPart, ...] = ()) -> dict:  # fmt: skip

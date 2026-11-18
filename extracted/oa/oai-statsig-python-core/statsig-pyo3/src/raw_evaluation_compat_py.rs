@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use pyo3::{
-    Bound, IntoPyObject, Py, PyAny, PyResult, Python,
+    Bound, IntoPyObject, Py, PyAny, PyErr, PyResult, Python, ffi,
     pybacked::PyBackedStr,
     pyclass,
     types::{PyAnyMethods, PyDict, PyDictMethods, PyList, PyListMethods, PyModule, PyString},
@@ -20,9 +20,8 @@ use statsig_rust::{
 const VALUE_CACHE_KEY_FIELD: &str = "__statsig_dynamic_returnable_cache_key";
 const VALUE_CACHE_HIT_FIELD: &str = "__statsig_dynamic_returnable_cache_hit";
 
-/// Allocate the SDK's existing Python subclasses without invoking their
-/// constructors or building a temporary mutable JSON tree. Keep these handles
-/// scoped to one call, avoiding process-global references to interpreter objects.
+/// Allocate the SDK's Python subclasses without invoking their constructors.
+/// The Python module owns the cached factories; each conversion holds its own references.
 pub(crate) struct FrozenJsonAllocator<'py> {
     dict_type: Bound<'py, PyAny>,
     list_type: Bound<'py, PyAny>,
@@ -42,12 +41,28 @@ impl<'py> FrozenJsonAllocator<'py> {
             return Ok(None);
         }
 
-        let module = PyModule::import(py, "statsig_python_core._frozen_json")?;
+        let name = pyo3::intern!(py, "statsig_python_core._frozen_json");
+        // SAFETY: the name belongs to the attached interpreter. PyImport_GetModule
+        // returns a new reference from its sys.modules, or NULL if absent/on error.
+        let loaded =
+            unsafe { Bound::from_owned_ptr_or_opt(py, ffi::PyImport_GetModule(name.as_ptr())) };
+        let module = match loaded {
+            Some(module) => module,
+            None => {
+                if let Some(err) = PyErr::take(py) {
+                    return Err(err);
+                }
+                PyModule::import(py, name)?.into_any()
+            }
+        };
+        let (dict_type, list_type, dict_new, list_new) = module
+            .call_method0(pyo3::intern!(py, "_native_container_factories"))?
+            .extract()?;
         Ok(Some(Self {
-            dict_type: module.getattr("_FrozenDict")?,
-            list_type: module.getattr("_FrozenList")?,
-            dict_new: py.get_type::<PyDict>().getattr("__new__")?,
-            list_new: py.get_type::<PyList>().getattr("__new__")?,
+            dict_type,
+            list_type,
+            dict_new,
+            list_new,
         }))
     }
 }

@@ -25,10 +25,11 @@ import re
 import shutil
 import subprocess
 import sys
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Protocol
+from typing import Any, Protocol, overload
 from urllib.parse import SplitResult, urlsplit, urlunsplit
 
 from apm_cli.utils.subprocess_env import external_process_env
@@ -490,19 +491,57 @@ def git_no_templates_args() -> tuple[str]:
     return ("--template=",)
 
 
-def git_autocrlf_pin_args() -> tuple[str, str]:
-    """Return the canonical per-command pin against host CRLF conversion.
+_SYMLINK_PIN_KEY = "core.symlinks"
+_SYMLINK_PIN_VALUE = "false"
 
-    ``core.autocrlf`` snapshots frozen into ``GIT_CONFIG_KEY_n`` by
-    :func:`git_clone_env` (apm#2971) outrank repository-local config, so on a
-    host whose system gitconfig sets ``core.autocrlf=true`` a working-tree
-    clone rewrites LF-committed blobs as CRLF. A checkout that runs without
-    the snapshot then compares that CRLF worktree against the LF index and
-    refuses the switch with "local changes would be overwritten" (apm#3368).
-    ``-c`` outranks the snapshots, so clone and checkout agree and the
-    materialized bytes are the committed bytes.
+
+def git_symlink_pin_entry() -> tuple[str, str]:
+    """Return the canonical ``(key, value)`` that APM pins for package links."""
+    return _SYMLINK_PIN_KEY, _SYMLINK_PIN_VALUE
+
+
+def git_symlink_pin_args() -> tuple[str, str]:
+    """Return the canonical per-command pin that writes links as link text.
+
+    Git then writes each in-repo link as a small file holding its target on
+    every host, so a checkout never needs OS symlink capability (Windows
+    without Developer Mode). ``utils/git_sparse.materialize_tracked_symlinks``
+    replaces that text with the target's content from the commit's objects,
+    so the package hash is the same on every platform (#3457). ``-c``
+    outranks every config file and ``GIT_CONFIG_KEY_n`` entry, so the pin
+    holds regardless of caller config.
     """
-    return "-c", "core.autocrlf=false"
+    key, value = git_symlink_pin_entry()
+    return "-c", f"{key}={value}"
+
+
+_LINE_ENDING_PIN_ENTRIES: tuple[tuple[str, str], ...] = (
+    ("core.autocrlf", "false"),
+    ("core.eol", "lf"),
+)
+
+
+def git_line_ending_pin_entries() -> tuple[tuple[str, str], ...]:
+    """Return the canonical ``(key, value)`` pins for package text line endings."""
+    return _LINE_ENDING_PIN_ENTRIES
+
+
+def git_line_ending_pin_args() -> tuple[str, ...]:
+    """Return the canonical per-command pins against host-selected line endings.
+
+    - ``core.autocrlf=false`` stops host CRLF conversion of LF-committed
+      blobs (apm#2971). Without it a CRLF clone and a snapshot-free
+      checkout disagree and the switch aborts (apm#3368).
+    - ``core.eol=lf`` fixes the line ending Git writes for ``text`` and
+      ``text=auto`` paths, which otherwise follows the host default
+      (``native`` is CRLF on Windows) (apm#3270).
+
+    Explicit ``eol=lf`` / ``eol=crlf`` attributes, binary paths and
+    committed CRLF blobs keep their repository-defined bytes. ``-c``
+    outranks every config file and ``GIT_CONFIG_KEY_n`` snapshot, so the
+    materialized bytes match on every host.
+    """
+    return tuple(arg for key, value in _LINE_ENDING_PIN_ENTRIES for arg in ("-c", f"{key}={value}"))
 
 
 class _GitProgress(Protocol):
@@ -766,6 +805,95 @@ def configured_git_url_policy(
     return snapshot.rewrites, snapshot.http_headers
 
 
+# issue #2545: the only keys inherited from the ambient (non-isolated) git
+# config into APM's isolated github.com environments. Deliberately narrow --
+# credential.helper and other auth-bearing config are never read here, so the
+# credential-leakage boundary the isolated environment exists for is
+# unaffected.
+_TLS_TRANSPORT_CONFIG_KEYS: frozenset[str] = frozenset(
+    {"http.sslbackend", "http.sslcainfo", "http.sslcapath"}
+)
+
+# Module-level cache for the ambient (env=None) TLS probe -- see
+# real_git_tls_config(). None means "not probed yet"; {} is a legitimate,
+# cached "no ambient TLS config" answer, not a retry signal. Guarded by
+# _real_git_tls_config_lock: parallel installs call this once per
+# dependency, and the probe spawns a `git config` child with its own
+# 10s/30s retry budget, so an unguarded check-then-probe race could let
+# several workers pay that cost concurrently before either stores a result.
+_real_git_tls_config_cache: dict[str, str] | None = None
+_real_git_tls_config_lock = threading.Lock()
+
+
+def real_git_tls_config(env: dict[str, object] | None = None) -> dict[str, str]:
+    """Return the ambient ``http.sslBackend``/``sslCAInfo``/``sslCAPath`` config.
+
+    Reads the *non-isolated* config a plain ``git clone`` would see -- the
+    settings that let it succeed behind a TLS-inspecting proxy whose
+    intercepting CA chain carries no revocation info, while APM's
+    anonymous-first isolated environment (``GIT_CONFIG_NOSYSTEM=1`` + empty
+    ``GIT_CONFIG_GLOBAL``) cannot complete the same handshake. Keys are
+    returned lower-cased, matching Git's own ``--list`` normalization and
+    this codebase's existing indexed-config convention (see
+    ``AuthResolver._append_git_config`` callers using ``credential.helper``
+    / ``http.extraheader``).
+
+    Best-effort: any probe failure (missing ``git``, malformed output,
+    timeout) yields an empty mapping rather than raising, so a broken
+    ambient config never blocks the anonymous attempt it is meant to help.
+
+    ``entries`` is ordered lowest-to-highest precedence (system, global,
+    local, worktree, command/env), matching Git's own resolution. An
+    explicit higher-precedence empty value (``git config --unset``-like
+    override) must win over an earlier non-empty one, so every value for a
+    tracked key is recorded during the scan and only the final, possibly
+    empty, values are filtered out afterward.
+
+    Cached for the default ``env=None`` case after the first probe: the
+    ambient config a plain ``git clone`` sees is stable for the life of the
+    process, and both ``AuthResolver.build_public_github_anonymous_git_env``
+    and ``AuthResolver.git_env_for_context`` call this once per attempt, so
+    an uncached probe would spawn one extra ``git config`` child process
+    (with its own retry/timeout budget) per dependency in a large install.
+    Callers that pass an explicit ``env`` (tests) always re-probe. Use
+    :func:`reset_git_cache` to clear it (tests only).
+
+    Parallel installs call this from multiple worker threads: the cache is
+    populated under ``_real_git_tls_config_lock`` with a double-checked read
+    (fast, lock-free hit once warm; re-checked inside the lock before
+    probing) so concurrent workers racing the very first call share one
+    probe instead of each paying its own retry/timeout budget.
+    """
+    global _real_git_tls_config_cache
+    if env is None and _real_git_tls_config_cache is not None:
+        return dict(_real_git_tls_config_cache)
+
+    def _probe() -> dict[str, str]:
+        try:
+            snapshot = _read_effective_git_config(git_subprocess_env(env))
+            values: dict[str, str] = {}
+            for entry in snapshot.entries:
+                # Defense in depth: repository config is never a trust source.
+                if entry.scope in {"local", "worktree"}:
+                    continue
+                normalized = entry.key.lower()
+                if normalized in _TLS_TRANSPORT_CONFIG_KEYS:
+                    values[normalized] = entry.value
+            return {key: value for key, value in values.items() if value}
+        except (GitUrlRewriteProbeError, OSError):
+            return {}
+
+    if env is not None:
+        return _probe()
+
+    with _real_git_tls_config_lock:
+        if _real_git_tls_config_cache is not None:
+            return dict(_real_git_tls_config_cache)
+        result = _probe()
+        _real_git_tls_config_cache = result
+        return dict(result)
+
+
 def validate_resolved_git_url_rewrite(
     remote_url: str,
     effective_url: str,
@@ -1000,15 +1128,6 @@ def _merge_parent_git_config_snapshot(
     )
 
 
-def _symlink_entry_wins(current: GitConfigEntry | None, candidate: GitConfigEntry) -> bool:
-    """Decide whether ``candidate`` should replace the retained core.symlinks entry.
-
-    Command-scope intent always wins over any other scope; otherwise the
-    last entry seen wins, matching Git's own scope-precedence ordering.
-    """
-    return current is None or current.scope != "command" or candidate.scope == "command"
-
-
 def _materialize_git_config_snapshot(
     env: dict[str, str],
     snapshot: _GitConfigSnapshot,
@@ -1028,15 +1147,15 @@ def _materialize_git_config_snapshot(
         if auth_fence is not None
         else None
     )
+    pinned = (git_symlink_pin_entry(), *git_line_ending_pin_entries())
+    pinned_keys = {key for key, _value in pinned}
     retained: list[tuple[str, str]] = []
-    symlinks: GitConfigEntry | None = None
     for entry in snapshot.entries:
         normalized = entry.key.lower()
-        if normalized == "core.symlinks":
-            # Parent command entries can precede child file entries after
-            # merging. Keep command intent above Git init's capability result.
-            if _symlink_entry_wins(symlinks, entry):
-                symlinks = entry
+        if normalized in pinned_keys:
+            # Replaced by the pins below: every host writes link text that
+            # the Git-object link resolver can replace (#3457), and inherited
+            # host line-ending values must not change package bytes (#3270).
             continue
         if entry.scope in {"local", "worktree"} and not _is_scope_sensitive_network_config(entry):
             continue
@@ -1061,8 +1180,7 @@ def _materialize_git_config_snapshot(
                 continue
         retained.append((entry.key, entry.value))
 
-    if symlinks is not None:
-        retained.append(("core.symlinks", symlinks.value))
+    retained.extend(pinned)
 
     if auth_fence is not None:
         if auth_fence.suppress_helpers:
@@ -1308,6 +1426,101 @@ def git_clone_env(
                     target.rmdir()
 
 
+GIT_OUTPUT_ENCODING = "utf-8"
+_GIT_OPTIONS_WITH_VALUE = frozenset(
+    {"-C", "-c", "--config-env", "--git-dir", "--work-tree", "--namespace"}
+)
+
+
+def _git_command_label(command: Sequence[object]) -> str:
+    """Return ``git <subcommand>`` for diagnostics without echoing URLs or paths."""
+    args = [str(part) for part in command]
+    if not args:
+        return "git"
+    label = re.split(r"[\\/]", args[0])[-1].removesuffix(".exe") or "git"
+    skip_value = False
+    for arg in args[1:]:
+        if skip_value:
+            skip_value = False
+        elif arg in _GIT_OPTIONS_WITH_VALUE:
+            skip_value = True
+        elif not arg.startswith("-"):
+            return f"{label} {arg}"
+    return label
+
+
+class GitOutputDecodeError(subprocess.SubprocessError):
+    """A successful Git child wrote stdout that is not valid UTF-8."""
+
+    def __init__(self, command: Sequence[object], error: UnicodeDecodeError) -> None:
+        self.cmd = list(command)
+        bad_byte = error.object[error.start : error.start + 1].hex()
+        super().__init__(
+            f"'{_git_command_label(command)}' wrote output that is not valid UTF-8 "
+            f"(byte 0x{bad_byte} at offset {error.start}); "
+            "APM will not use corrupted Git output"
+        )
+
+
+@overload
+def _escaped_git_text(value: str | bytes) -> str: ...
+@overload
+def _escaped_git_text(value: None) -> None: ...
+def _escaped_git_text(value: object) -> object:
+    """Render undecodable bytes in diagnostic output as visible backslash escapes."""
+    if isinstance(value, bytes):
+        return value.decode(GIT_OUTPUT_ENCODING, "backslashreplace")
+    if isinstance(value, str) and value:
+        raw = value.encode(GIT_OUTPUT_ENCODING, "surrogateescape")
+        return raw.decode(GIT_OUTPUT_ENCODING, "backslashreplace")
+    return value
+
+
+@overload
+def _strict_git_text(command: Sequence[object], value: str) -> str: ...
+@overload
+def _strict_git_text(command: Sequence[object], value: None) -> None: ...
+def _strict_git_text(command: Sequence[object], value: object) -> object:
+    if not isinstance(value, str) or not value:
+        return value
+    raw = value.encode(GIT_OUTPUT_ENCODING, "surrogateescape")
+    try:
+        return raw.decode(GIT_OUTPUT_ENCODING)
+    except UnicodeDecodeError as exc:
+        raise GitOutputDecodeError(command, exc) from exc
+
+
+def run_git_text(command: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess[str]:
+    """Run a Git child in text mode with locale-independent UTF-8 decoding.
+
+    The default text codec follows the OS locale (cp936/GBK on Simplified
+    Chinese Windows), and on Windows ``subprocess`` decodes in reader threads
+    where a decode error is swallowed and the output lost (#3056). Decoding
+    with ``surrogateescape`` never fails mid-stream; afterwards stdout of a
+    successful command must be valid UTF-8 or :class:`GitOutputDecodeError`
+    is raised, while stderr and failed-command output keep undecodable bytes
+    as visible backslash escapes so existing failure handling still applies.
+    """
+    try:
+        result = subprocess.run(
+            command,
+            text=True,
+            encoding=GIT_OUTPUT_ENCODING,
+            errors="surrogateescape",
+            **kwargs,
+        )
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as exc:
+        exc.output = _escaped_git_text(exc.output)
+        exc.stderr = _escaped_git_text(exc.stderr)
+        raise
+    result.stderr = _escaped_git_text(result.stderr)
+    if result.returncode == 0:
+        result.stdout = _strict_git_text(command, result.stdout)
+    else:
+        result.stdout = _escaped_git_text(result.stdout)
+    return result
+
+
 def git_remote_refs(
     remote_url: str,
     *patterns: str,
@@ -1323,11 +1536,10 @@ def git_remote_refs(
     git_executable = get_git_executable()
     command = [git_executable, *git_args, "ls-remote", *options, remote_url, *patterns]
     try:
-        result = subprocess.run(
+        result = run_git_text(
             command,
             capture_output=True,
             cwd=str(Path(git_executable).resolve().parent),
-            text=True,
             timeout=timeout,
             env=child_env,
             stdin=subprocess.DEVNULL,
@@ -1410,7 +1622,7 @@ def clone_git_worktree(
     args = [
         get_git_executable(),
         *git_no_hooks_args(),
-        *git_autocrlf_pin_args(),
+        *git_line_ending_pin_args(),
         "clone",
         *git_no_templates_args(),
     ]
@@ -1427,11 +1639,10 @@ def clone_git_worktree(
     clone_env = git_clone_env(url, env, target)
     if progress is None:
         try:
-            subprocess.run(
+            run_git_text(
                 args,
                 check=True,
                 capture_output=True,
-                text=True,
                 timeout=300,
                 env=clone_env,
             )
@@ -1446,6 +1657,8 @@ def clone_git_worktree(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding=GIT_OUTPUT_ENCODING,
+        errors="backslashreplace",
         env=clone_env,
     )
     stdout: list[str] = []
@@ -1484,12 +1697,13 @@ def checkout_git_worktree(
     *,
     env: dict[str, object] | None = None,
 ) -> None:
-    """Check out a ref in an explicitly located worktree."""
-    subprocess.run(
+    """Check out a ref in an explicitly located worktree, links as link text."""
+    run_git_text(
         [
             get_git_executable(),
             *git_no_hooks_args(),
-            *git_autocrlf_pin_args(),
+            *git_symlink_pin_args(),
+            *git_line_ending_pin_args(),
             "-C",
             str(worktree),
             "checkout",
@@ -1497,7 +1711,6 @@ def checkout_git_worktree(
         ],
         check=True,
         capture_output=True,
-        text=True,
         timeout=120,
         env=git_subprocess_env(env),
     )
@@ -1520,7 +1733,7 @@ def git_resolve_commit(
     bare: bool = False,
 ) -> str:
     """Resolve a ref in a worktree or an explicitly selected bare repository."""
-    result = subprocess.run(
+    result = run_git_text(
         [
             get_git_executable(),
             "--git-dir" if bare else "-C",
@@ -1531,7 +1744,6 @@ def git_resolve_commit(
         ],
         check=True,
         capture_output=True,
-        text=True,
         timeout=30,
         env=git_subprocess_env(env),
     )
@@ -1544,11 +1756,10 @@ def git_current_branch(
     env: dict[str, object] | None = None,
 ) -> str:
     """Return the current branch name for an explicitly located worktree."""
-    result = subprocess.run(
+    result = run_git_text(
         [get_git_executable(), "-C", str(worktree), "symbolic-ref", "--short", "HEAD"],
         check=True,
         capture_output=True,
-        text=True,
         timeout=30,
         env=git_subprocess_env(env),
     )
@@ -1556,10 +1767,11 @@ def git_current_branch(
 
 
 def reset_git_cache() -> None:
-    """Reset the cached git executable (for testing purposes only)."""
-    global _gh_executable, _git_executable
+    """Reset the cached git executable and TLS config probe (tests only)."""
+    global _gh_executable, _git_executable, _real_git_tls_config_cache
     _git_executable = None
     _gh_executable = None
+    _real_git_tls_config_cache = None
 
 
 def git_long_paths_args() -> list[str]:

@@ -83,6 +83,23 @@ async fn test_get_feature_gate_overrides() {
     statsig.shutdown().await.unwrap();
 }
 
+#[test]
+fn removing_the_last_id_clears_only_its_override_name() {
+    let adapter = StatsigLocalOverrideAdapter::new();
+    adapter.override_gate("gate", true, Some("first"));
+    adapter.override_gate("gate", false, Some("second"));
+    adapter.override_layer("layer", HashMap::new(), None);
+
+    adapter.remove_gate_override("gate", Some("first"));
+    assert!(adapter.has_any_overrides_for_gate("gate"));
+    adapter.remove_gate_override("gate", Some("second"));
+    assert!(!adapter.has_any_overrides_for_gate("gate"));
+    assert!(adapter.has_any_overrides_for_layer("layer"));
+
+    adapter.remove_layer_override("layer", None);
+    assert!(!adapter.has_any_overrides_for_layer("layer"));
+}
+
 #[tokio::test]
 async fn test_get_experiment_overrides_by_group_name() {
     let (statsig, user, adapter) = setup().await;

@@ -24,7 +24,7 @@ from ..constants import (
 from ..core import project_name as _project_name
 from ..models.dependency.materialization import (
     CachedMaterializationPathReader,
-    find_case_equivalent_materialization_path,
+    installed_package_path,
 )
 from ..update_policy import get_update_hint_message, is_self_update_enabled
 from ..utils.atomic_io import (
@@ -149,30 +149,17 @@ def _build_expected_install_paths(
 ) -> set:
     """Build expected package paths under *apm_modules_dir*.
 
-    Combines direct deps (from ``apm.yml``) with transitive deps
-    (depth > 1 from ``apm.lock``), using ``get_install_path()`` for
+    Combines direct deps (from ``apm.yml``) with the lock entries
+    ``deps.reachability.retained_lock_keys`` retains, using ``get_install_path()`` for
     consistency with how packages are actually installed. Prune opts into
     recognizing existing case-equivalent paths without renaming them.
     """
     reader = CachedMaterializationPathReader()
 
     def expected_path(dependency):
-        desired = dependency.get_install_path(apm_modules_dir)
-        if (
-            preserve_installed_case
-            and dependency.alias is None
-            and dependency.has_case_insensitive_repo_identity
-        ):
-            existing = find_case_equivalent_materialization_path(
-                desired,
-                apm_modules_dir,
-                dependency=dependency,
-                reader=reader,
-                match_complete_path=True,
-            )
-            if existing is not None:
-                return existing
-        return desired
+        if preserve_installed_case:
+            return installed_package_path(dependency, apm_modules_dir, reader=reader)
+        return dependency.get_install_path(apm_modules_dir)
 
     expected = set()
     for dep in declared_deps:
@@ -184,10 +171,14 @@ def _build_expected_install_paths(
             expected.add(str(install_path))
 
     if lockfile:
+        from ..deps.reachability import retained_lock_keys
+
+        retained = retained_lock_keys(
+            lockfile, apm_modules_dir.parent, apm_modules_dir, list(declared_deps)
+        )
         for dep in lockfile.get_package_dependencies():
-            if dep.depth is not None and dep.depth > 1:
-                dep_ref = dep.to_dependency_ref()
-                install_path = expected_path(dep_ref)
+            if dep.get_unique_key() in retained:
+                install_path = expected_path(dep.to_dependency_ref())
                 try:
                     relative_path = install_path.relative_to(apm_modules_dir)
                     expected.add(relative_path.as_posix())
@@ -542,9 +533,9 @@ def _update_gitignore_for_apm_modules(logger=None):
 def _load_apm_config():
     """Load configuration from apm.yml."""
     if Path(APM_YML_FILENAME).exists():
-        from ..utils.yaml_io import load_yaml
+        from ..models.manifest_io import load_manifest
 
-        return load_yaml(APM_YML_FILENAME)
+        return load_manifest(APM_YML_FILENAME)
     return None
 
 
@@ -612,11 +603,21 @@ def _auto_detect_description(project_name):
 
 def _get_default_config(project_name):
     """Get default configuration for new projects with auto-detection."""
+    config = _get_bootstrap_config(project_name)
+    config["author"] = _auto_detect_author()
+    return config
+
+
+def _get_bootstrap_config(project_name):
+    """Default config for an apm.yml auto-created by ``apm install``.
+
+    Omits ``author``: whoever first runs install is not necessarily the
+    project's author, so the local git identity must not be recorded.
+    """
     return {
         "name": project_name,
         "version": "1.0.0",
         "description": _auto_detect_description(project_name),
-        "author": _auto_detect_author(),
     }
 
 
@@ -636,14 +637,14 @@ def _create_plugin_json(config, mode: str = "agent", target_path: Path | None = 
     """
     import json
 
+    # No license is scaffolded: the author must choose one deliberately.
     if mode == "claude":
-        # Preserve legacy Claude scaffold byte-for-byte
+        # Preserve the legacy Claude scaffold shape
         plugin_data = {
             "name": config["name"],
             "version": config.get("version", "0.1.0"),
             "description": config.get("description", ""),
             "author": {"name": config.get("author", "")},
-            "license": "MIT",
         }
     else:
         # Agent Plugins v1 canonical scaffold
@@ -659,7 +660,6 @@ def _create_plugin_json(config, mode: str = "agent", target_path: Path | None = 
             "version": config.get("version", "0.1.0"),
             "description": config.get("description", ""),
             "author": {"name": config.get("author", "")},
-            "license": "MIT",
             "extensions": {
                 COM_MICROSOFT_APM_NAMESPACE: {"schemaVersion": COM_MICROSOFT_APM_SCHEMA_VERSION}
             },
@@ -673,7 +673,8 @@ def _create_minimal_apm_yml(config, plugin=False, target_path=None):
     """Create minimal apm.yml file with auto-detected metadata.
 
     Args:
-        config: dict with name, version, description, author keys.
+        config: dict with name, version, description keys and an optional
+            author key (omitted for install auto-bootstrap).
             Optional 'target' key: CSV string of targets to pin.
         plugin: if True, include a devDependencies section.
         target_path: explicit file path to write (defaults to cwd/apm.yml).
@@ -683,15 +684,21 @@ def _create_minimal_apm_yml(config, plugin=False, target_path=None):
         "name": config["name"],
         "version": config["version"],
         "description": config["description"],
-        "author": config["author"],
     }
+    if "author" in config:
+        apm_yml_data["author"] = config["author"]
 
     # Add targets field if present in config (plural list form -- canonical).
     # Older callers may still pass a singular CSV "target" string; honor that
     # for backwards compatibility but normalise on disk to plural list form.
+    # These read the init config, not a manifest.
+    # architecture-authority-exempt: bootstrap-writer
     if config.get("targets"):
+        # architecture-authority-exempt: bootstrap-writer
         apm_yml_data["targets"] = list(config["targets"])
+    # architecture-authority-exempt: bootstrap-writer
     elif config.get("target"):
+        # architecture-authority-exempt: bootstrap-writer
         raw = config["target"]
         if isinstance(raw, list):
             apm_yml_data["targets"] = list(raw)
@@ -721,6 +728,7 @@ def _create_minimal_apm_yml(config, plugin=False, target_path=None):
     out_file = Path(out_path)
     content = out_file.read_text(encoding="utf-8")
 
+    # architecture-authority-exempt: bootstrap-writer
     if "targets" in apm_yml_data:
         from apm_cli.core.target_catalog import manifest_target_names
 
@@ -763,3 +771,15 @@ def _find_apm_yml(start: Path | None = None) -> Path | None:
         if manifest.is_file():
             return manifest
     return None
+
+
+# Shared by ``apm install`` and ``apm update`` so both commands expose the same
+# per-invocation consent for transitive self-defined MCP servers.
+trust_transitive_mcp_option = click.option(
+    "--trust-transitive-mcp",
+    is_flag=True,
+    help=(
+        "Trust MCP servers from transitive packages that are self-defined or set "
+        "their own registry or configuration (skip re-declaration requirement)"
+    ),
+)

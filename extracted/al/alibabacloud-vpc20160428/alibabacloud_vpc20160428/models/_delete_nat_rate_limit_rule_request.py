@@ -14,19 +14,17 @@ class DeleteNatRateLimitRuleRequest(DaraModel):
         region_id: str = None,
         rule_ids: List[str] = None,
     ):
-        # The client token that is used to ensure the idempotence of the request.
-        # 
-        # You can use the client to generate the value, but you must make sure that it is unique among different requests. The client token can contain only ASCII characters.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must make sure that it is unique among different requests. The client token can contain only ASCII characters.
         # 
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request may be different.
         self.client_token = client_token
-        # The ID of the NAT gateway to which the rate limiting rule belongs.
+        # The ID of the NAT gateway to which the rate limit rule belongs.
         self.nat_gateway_id = nat_gateway_id
         # The region ID of the NAT gateway.
         # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to obtain the region ID.
         self.region_id = region_id
-        # The IDs of the rate limiting rules to be deleted.
+        # The IDs of the rate limit rules to be deleted.
         self.rule_ids = rule_ids
 
     def validate(self):

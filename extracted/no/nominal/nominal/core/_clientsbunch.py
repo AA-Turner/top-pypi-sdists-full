@@ -7,13 +7,11 @@ from typing import Protocol, Self, TypeVar
 
 from conjure_python_client import Service, ServiceConfiguration
 from nominal_api import (
-    authorization,
     ingest_api,
     scout,
     scout_catalog,
     scout_checklistexecution_api,
     scout_checks_api,
-    scout_compute_api,
     scout_dataexport_api,
     scout_datasource,
     scout_video,
@@ -32,12 +30,15 @@ from nominal.exceptions import NominalConfigError
 from nominal.protos.asset.v2 import asset_pb2_grpc
 from nominal.protos.attachments.v2 import attachments_pb2_grpc
 from nominal.protos.authentication.users.v1 import users_pb2_grpc
+from nominal.protos.authorization.apikeys.v1 import api_keys_pb2_grpc
 from nominal.protos.authorization.markings.v1 import markings_pb2_grpc
 from nominal.protos.authorization.roles.v1 import roles_pb2_grpc
 from nominal.protos.channelmetadata.v1 import channel_metadata_pb2_grpc
 from nominal.protos.comments.v1 import comments_pb2_grpc
+from nominal.protos.compute.v1 import compute_pb2_grpc
 from nominal.protos.datareview.v2 import data_review_pb2_grpc
 from nominal.protos.event.v2 import event_pb2_grpc
+from nominal.protos.file_store.v1 import drives_pb2_grpc, files_pb2_grpc
 from nominal.protos.ingest.v2 import containerized_extractor_pb2_grpc, ingest_service_pb2_grpc
 from nominal.protos.integrations.v1 import integrations_pb2_grpc
 from nominal.protos.registry.v2 import registry_pb2_grpc
@@ -45,6 +46,7 @@ from nominal.protos.run.v1 import run_service_pb2_grpc
 from nominal.protos.sandbox.v1 import sandbox_workspace_pb2_grpc
 from nominal.protos.secrets.v1 import secrets_pb2_grpc
 from nominal.protos.seriesmetadata.v1 import series_metadata_pb2_grpc
+from nominal.protos.skills.v1 import skills_pb2_grpc
 from nominal.protos.spatial.v2 import spatial_pb2_grpc
 from nominal.protos.sql.v1 import sql_pb2_grpc
 from nominal.protos.storage.v1 import dataset_retention_pb2_grpc
@@ -139,11 +141,10 @@ class ClientsBunch:
     )
 
     # Conjure services
-    authorization: authorization.AuthorizationService
     catalog: scout_catalog.CatalogService
     checklist_execution: scout_checklistexecution_api.ChecklistExecutionService
     checklist: scout_checks_api.ChecklistService
-    compute: scout_compute_api.ComputeService
+    compute: compute_pb2_grpc.ComputeServiceStub
     dataexport: scout_dataexport_api.DataExportService
     datasource: scout_datasource.DataSourceService
     ingest_jobs: ingest_api.IngestJobService
@@ -158,6 +159,7 @@ class ClientsBunch:
     video: scout_video.VideoService
 
     # GRPC services
+    api_keys: api_keys_pb2_grpc.ApiKeyServiceStub
     assets: asset_pb2_grpc.AssetServiceStub
     attachment: attachments_pb2_grpc.AttachmentServiceStub
     channel_metadata: channel_metadata_pb2_grpc.ChannelMetadataServiceStub
@@ -166,6 +168,8 @@ class ClientsBunch:
     datareview: data_review_pb2_grpc.DataReviewServiceStub
     dataset_retention: dataset_retention_pb2_grpc.DatasetRetentionServiceStub
     event: event_pb2_grpc.EventServiceStub
+    drive_files: files_pb2_grpc.FilesServiceStub
+    drives: drives_pb2_grpc.DrivesServiceStub
     ingest_v2: ingest_service_pb2_grpc.IngestServiceStub
     integrations: integrations_pb2_grpc.IntegrationsServiceStub
     markings: markings_pb2_grpc.MarkingServiceStub
@@ -174,6 +178,7 @@ class ClientsBunch:
     run: run_service_pb2_grpc.RunServiceStub
     sandbox_workspace: sandbox_workspace_pb2_grpc.SandboxWorkspaceServiceStub
     secrets: secrets_pb2_grpc.SecretServiceStub
+    skills: skills_pb2_grpc.SkillsServiceStub
     spatial: spatial_pb2_grpc.SpatialServiceStub
     sql: sql_pb2_grpc.SqlServiceStub
     units: units_pb2_grpc.UnitsServiceStub
@@ -298,6 +303,12 @@ class ClientsBunch:
             user_agent=agent,
             auth_header=f"Bearer {token}",
             header_provider=header_provider,
+            # A replay can mask a committed write with a refusal and trigger incorrect skill-file cleanup.
+            no_retry_methods=(
+                ("nominal.file_store.v1.FilesService", "ApplyFileChanges"),
+                ("nominal.skills.v1.SkillsService", "CreateSkill"),
+                ("nominal.skills.v1.SkillsService", "UpdateSkill"),
+            ),
         )
 
         def grpc_factory(stub_class: GRPCStub[TStub]) -> TStub:
@@ -313,11 +324,10 @@ class ClientsBunch:
             _token=token,
             _service_config=cfg,
             # Conjure Service Stubs
-            authorization=client_factory(authorization.AuthorizationService),
             catalog=client_factory(scout_catalog.CatalogService),
             checklist_execution=client_factory(scout_checklistexecution_api.ChecklistExecutionService),
             checklist=client_factory(scout_checks_api.ChecklistService),
-            compute=client_factory(scout_compute_api.ComputeService),
+            compute=grpc_factory(compute_pb2_grpc.ComputeServiceStub),
             dataexport=client_factory(scout_dataexport_api.DataExportService),
             datasource=client_factory(scout_datasource.DataSourceService),
             ingest_jobs=client_factory(ingest_api.IngestJobService),
@@ -331,6 +341,7 @@ class ClientsBunch:
             video_file=client_factory(scout_video.VideoFileService),
             video=client_factory(scout_video.VideoService),
             # GRPC Service Stubs
+            api_keys=grpc_factory(api_keys_pb2_grpc.ApiKeyServiceStub),
             assets=grpc_factory(asset_pb2_grpc.AssetServiceStub),
             attachment=grpc_factory(attachments_pb2_grpc.AttachmentServiceStub),
             channel_metadata=grpc_factory(channel_metadata_pb2_grpc.ChannelMetadataServiceStub),
@@ -339,6 +350,8 @@ class ClientsBunch:
             datareview=grpc_factory(data_review_pb2_grpc.DataReviewServiceStub),
             dataset_retention=grpc_factory(dataset_retention_pb2_grpc.DatasetRetentionServiceStub),
             event=grpc_factory(event_pb2_grpc.EventServiceStub),
+            drive_files=grpc_factory(files_pb2_grpc.FilesServiceStub),
+            drives=grpc_factory(drives_pb2_grpc.DrivesServiceStub),
             ingest_v2=grpc_factory(ingest_service_pb2_grpc.IngestServiceStub),
             integrations=grpc_factory(integrations_pb2_grpc.IntegrationsServiceStub),
             markings=grpc_factory(markings_pb2_grpc.MarkingServiceStub),
@@ -347,6 +360,7 @@ class ClientsBunch:
             run=grpc_factory(run_service_pb2_grpc.RunServiceStub),
             sandbox_workspace=grpc_factory(sandbox_workspace_pb2_grpc.SandboxWorkspaceServiceStub),
             secrets=grpc_factory(secrets_pb2_grpc.SecretServiceStub),
+            skills=grpc_factory(skills_pb2_grpc.SkillsServiceStub),
             spatial=grpc_factory(spatial_pb2_grpc.SpatialServiceStub),
             sql=grpc_factory(sql_pb2_grpc.SqlServiceStub),
             units=grpc_factory(units_pb2_grpc.UnitsServiceStub),

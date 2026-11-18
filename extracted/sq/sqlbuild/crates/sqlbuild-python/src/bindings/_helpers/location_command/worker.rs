@@ -17,22 +17,26 @@ use sqlbuild_host::entries::models::ExecutorHost;
 use sqlbuild_orchestration::runs::models::{
     RunChange, RunCommand, RunKind, RunOutcome, RunRequest, RunWindow,
 };
-use sqlbuild_orchestration::snapshots::main::node_hashes::node_hashes;
+use sqlbuild_orchestration::snapshots::main::reads::node_hashes::node_hashes;
 use sqlbuild_orchestration::snapshots::models::SnapshotInput;
 
 use crate::bindings::_helpers::audit_command::command::run_audit;
 use crate::bindings::_helpers::build_command::command::run_build;
 use crate::bindings::_helpers::cli::argv::parse_cli_invocation;
-use crate::bindings::_helpers::cli::dispatch::{Invocation, command_facts, warehouse_scope};
-use crate::bindings::_helpers::command_runtime::warehouses::{
-    WarehouseInputs, configured_warehouses,
-};
+use crate::bindings::_helpers::cli::dispatch::Invocation;
+use crate::bindings::_helpers::cli::dispatch::command_facts;
+use crate::bindings::_helpers::cli::dispatch::warehouse_scope;
+use crate::bindings::_helpers::command_runtime::warehouses::WarehouseInputs;
+use crate::bindings::_helpers::command_runtime::warehouses::configured_warehouses;
+use crate::bindings::_helpers::compile_driver::rules_at_load::RulesAtLoadScope;
 use crate::bindings::_helpers::freshness::freshness_command::run_freshness_command;
 use crate::bindings::_helpers::location_command::command::compile_snapshot;
-use crate::bindings::_helpers::location_command::constants::{
-    CHANGED_SETTING, COMMAND_IMPLEMENTATIONS, JOB_RUN_COUNTS, JOB_RUN_REACH, REACH_SETTING,
-    SQL_TEST_NODE_KIND,
-};
+use crate::bindings::_helpers::location_command::constants::CHANGED_SETTING;
+use crate::bindings::_helpers::location_command::constants::COMMAND_IMPLEMENTATIONS;
+use crate::bindings::_helpers::location_command::constants::JOB_RUN_COUNTS;
+use crate::bindings::_helpers::location_command::constants::JOB_RUN_REACH;
+use crate::bindings::_helpers::location_command::constants::REACH_SETTING;
+use crate::bindings::_helpers::location_command::constants::SQL_TEST_NODE_KIND;
 use crate::bindings::_helpers::query_command::project::ProjectAdapter;
 use crate::bindings::_helpers::seed_command::command::run_seed;
 use crate::bindings::_helpers::sql_test_command::test_command::run_test;
@@ -143,12 +147,12 @@ fn job_run_settings(
     Ok(settings)
 }
 
-/// The frozen command's request and warehouse scope; build carries the verified inputs in its request.
+/// The frozen command's request and warehouse scope; build carries the verified inputs and compiled project in its request.
 fn command_request<'py>(
     py: Python<'py>,
     discovered: &Bound<'py, PyAny>,
     arguments: &KeywordArguments<'py>,
-    worker: &Bound<'py, NativeOrchestrationWorker>,
+    (worker, compiled): (&Bound<'py, NativeOrchestrationWorker>, &Bound<'py, PyAny>),
 ) -> PyResult<(Bound<'py, PyAny>, Bound<'py, PyAny>)> {
     let execution = worker.get().execution(py)?;
     let frozen = execution.claim.request;
@@ -226,7 +230,13 @@ fn command_request<'py>(
     }
     let mut request = Invocation::new(&args)?.value(route.arguments[0].source)?;
     if command == RunCommand::Build {
-        request = replaced(&request, &[("discovered_inputs", discovered.clone())])?;
+        request = replaced(
+            &request,
+            &[
+                ("discovered_inputs", discovered.clone()),
+                ("compiled_project", compiled.clone()),
+            ],
+        )?;
     }
     Ok((request, warehouse_scope(&args)?))
 }
@@ -326,7 +336,7 @@ fn record_compiled_vars<'py>(
     };
     write_stderr(py, "Compiling with the run's variables...\n")?;
     let vars = json_value_to_python(py, vars)?;
-    let (compiled, _) = compile_snapshot(py, arguments, (input, project), Some(&vars))?;
+    let (compiled, _, _) = compile_snapshot(py, arguments, (input, project), Some(&vars))?;
     let node_hashes: BTreeMap<String, String> = node_hashes(&compiled.input)
         .map_err(|error| PyValueError::new_err(error.to_string()))?
         .into_iter()
@@ -339,7 +349,11 @@ fn record_compiled_vars<'py>(
 
 pub(super) fn execute_worker<'py>(
     py: Python<'py>,
-    (snapshot, project, blocked): (&NativeOrchestrationSnapshot, ProjectAdapter<'py>, NodeKeys),
+    ((snapshot, compiled), project, blocked): (
+        (&NativeOrchestrationSnapshot, &Bound<'py, PyAny>),
+        ProjectAdapter<'py>,
+        NodeKeys,
+    ),
     (arguments, input): (&KeywordArguments<'py>, &SnapshotInput),
     (bearer, identity, recall): (&str, (String, String), Option<&InvocationRecall>),
 ) -> PyResult<i32> {
@@ -381,8 +395,9 @@ pub(super) fn execute_worker<'py>(
             return Err(PyValueError::new_err(reason));
         }
         record_compiled_vars(py, (&owner, &frozen), (arguments, input, &project))?;
-        let (request, scope) = command_request(py, &discovered, arguments, &owner)?;
+        let (request, scope) = command_request(py, &discovered, arguments, (&owner, compiled))?;
         write_stderr(py, "Run inputs verified. Executing frozen selection...\n")?;
+        let _rules = RulesAtLoadScope::enter();
         within(&scope, |_| {
             run_cancellable(py, &worker, (&request, &discovered))
         })

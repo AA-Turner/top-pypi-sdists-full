@@ -36,10 +36,15 @@ from ...models._response_terminal import (
     response_terminal_failure_error,
 )
 from ...models._retry_runtime import should_disable_provider_managed_retries
-from ...models._trace import model_config_for_trace, populate_generation_span
+from ...models._trace import (
+    model_config_for_trace,
+    populate_generation_span,
+    record_generation_tools,
+)
 from ...models.chatcmpl_converter import Converter
 from ...models.chatcmpl_helpers import HEADERS, HEADERS_OVERRIDE, ChatCmplHelpers
 from ...models.chatcmpl_stream_handler import ChatCmplStreamHandler
+from ...models.default_models import _omit_model_defaults, get_default_model_settings
 from ...models.fake_id import FAKE_RESPONSES_ID
 from ...models.interface import Model, ModelTracing
 from ...models.openai_responses import (
@@ -266,6 +271,30 @@ class AnyLLMModel(Model):
         self.api: Literal["responses", "chat_completions"] | None = self._validate_api(api)
         self._provider_name, self._provider_model = self._split_model_name(model)
         self._provider_cache: dict[bool, Any] = {}
+
+    def get_default_model_settings(self) -> ModelSettings:
+        """Use the parsed provider model rather than the namespaced routing identifier."""
+        if self._provider_name == "openai":
+            return get_default_model_settings(self._provider_model)
+        if self._provider_name == "openrouter" and self._provider_model.startswith("openai/"):
+            return get_default_model_settings(self._provider_model.removeprefix("openai/"))
+        return ModelSettings()
+
+    def _get_request_settings(
+        self,
+        settings: ModelSettings,
+        *,
+        prompt: ResponsePromptParam | None,
+        has_tools: bool,
+        implicit_fields: set[str],
+    ) -> ModelSettings:
+        return _omit_model_defaults(
+            settings,
+            implicit_fields,
+            reasoning="reasoning" in implicit_fields
+            and "reasoning_effort" in (settings.extra_args or {})
+            and self._selected_api() == "chat_completions",
+        )
 
     def get_retry_advice(self, request: ModelRetryAdviceRequest) -> ModelRetryAdvice | None:
         return get_openai_retry_advice(request)
@@ -876,6 +905,7 @@ class AnyLLMModel(Model):
         for handoff in handoffs:
             converted_tools.append(Converter.convert_handoff_tool(handoff))
         converted_tools = _to_dump_compatible(converted_tools)
+        record_generation_tools(span, tracing, converted_tools)
         parallel_tool_calls = model_settings.parallel_tool_calls if converted_tools else None
 
         if _debug.DONT_LOG_MODEL_DATA:
@@ -1040,13 +1070,6 @@ class AnyLLMModel(Model):
         list_input = _to_dump_compatible(list_input)
         list_input = self._sanitize_any_llm_responses_input(list_input)
 
-        tool_choice = OpenAIResponsesConverter.convert_tool_choice(
-            model_settings.tool_choice,
-            tools=tools,
-            handoffs=handoffs,
-            model=self._provider_model,
-        )
-
         converted_tools = OpenAIResponsesConverter.convert_tools(
             tools,
             handoffs,
@@ -1077,7 +1100,7 @@ class AnyLLMModel(Model):
             "input": list_input,
             "instructions": system_instructions,
             "tools": converted_tools_payload or None,
-            "tool_choice": self._remove_not_given(tool_choice),
+            "tool_choice": self._remove_not_given(converted_tools.tool_choice),
             "temperature": model_settings.temperature,
             "top_p": model_settings.top_p,
             "max_output_tokens": model_settings.max_tokens,

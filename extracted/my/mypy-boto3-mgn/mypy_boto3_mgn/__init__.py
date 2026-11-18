@@ -33,10 +33,15 @@ Usage::
         ListNetworkMigrationDeployedStacksPaginator,
         ListNetworkMigrationDeploymentsPaginator,
         ListNetworkMigrationExecutionsPaginator,
+        ListNetworkMigrationInsightsPaginator,
         ListNetworkMigrationMapperSegmentConstructsPaginator,
         ListNetworkMigrationMapperSegmentsPaginator,
         ListNetworkMigrationMappingUpdatesPaginator,
         ListNetworkMigrationMappingsPaginator,
+        ListRemoteSourceActionInvocationResultsPaginator,
+        ListRemoteSourceActionInvocationsPaginator,
+        ListRemoteSourceActionJobsPaginator,
+        ListRemoteSourceActionsPaginator,
         ListSourceServerActionsPaginator,
         ListTemplateActionsPaginator,
         ListWavesPaginator,
@@ -68,10 +73,15 @@ Usage::
     list_network_migration_deployed_stacks_paginator: ListNetworkMigrationDeployedStacksPaginator = client.get_paginator("list_network_migration_deployed_stacks")
     list_network_migration_deployments_paginator: ListNetworkMigrationDeploymentsPaginator = client.get_paginator("list_network_migration_deployments")
     list_network_migration_executions_paginator: ListNetworkMigrationExecutionsPaginator = client.get_paginator("list_network_migration_executions")
+    list_network_migration_insights_paginator: ListNetworkMigrationInsightsPaginator = client.get_paginator("list_network_migration_insights")
     list_network_migration_mapper_segment_constructs_paginator: ListNetworkMigrationMapperSegmentConstructsPaginator = client.get_paginator("list_network_migration_mapper_segment_constructs")
     list_network_migration_mapper_segments_paginator: ListNetworkMigrationMapperSegmentsPaginator = client.get_paginator("list_network_migration_mapper_segments")
     list_network_migration_mapping_updates_paginator: ListNetworkMigrationMappingUpdatesPaginator = client.get_paginator("list_network_migration_mapping_updates")
     list_network_migration_mappings_paginator: ListNetworkMigrationMappingsPaginator = client.get_paginator("list_network_migration_mappings")
+    list_remote_source_action_invocation_results_paginator: ListRemoteSourceActionInvocationResultsPaginator = client.get_paginator("list_remote_source_action_invocation_results")
+    list_remote_source_action_invocations_paginator: ListRemoteSourceActionInvocationsPaginator = client.get_paginator("list_remote_source_action_invocations")
+    list_remote_source_action_jobs_paginator: ListRemoteSourceActionJobsPaginator = client.get_paginator("list_remote_source_action_jobs")
+    list_remote_source_actions_paginator: ListRemoteSourceActionsPaginator = client.get_paginator("list_remote_source_actions")
     list_source_server_actions_paginator: ListSourceServerActionsPaginator = client.get_paginator("list_source_server_actions")
     list_template_actions_paginator: ListTemplateActionsPaginator = client.get_paginator("list_template_actions")
     list_waves_paginator: ListWavesPaginator = client.get_paginator("list_waves")
@@ -102,10 +112,15 @@ from .paginator import (
     ListNetworkMigrationDeployedStacksPaginator,
     ListNetworkMigrationDeploymentsPaginator,
     ListNetworkMigrationExecutionsPaginator,
+    ListNetworkMigrationInsightsPaginator,
     ListNetworkMigrationMapperSegmentConstructsPaginator,
     ListNetworkMigrationMapperSegmentsPaginator,
     ListNetworkMigrationMappingsPaginator,
     ListNetworkMigrationMappingUpdatesPaginator,
+    ListRemoteSourceActionInvocationResultsPaginator,
+    ListRemoteSourceActionInvocationsPaginator,
+    ListRemoteSourceActionJobsPaginator,
+    ListRemoteSourceActionsPaginator,
     ListSourceServerActionsPaginator,
     ListTemplateActionsPaginator,
     ListWavesPaginator,
@@ -138,10 +153,15 @@ __all__ = (
     "ListNetworkMigrationDeployedStacksPaginator",
     "ListNetworkMigrationDeploymentsPaginator",
     "ListNetworkMigrationExecutionsPaginator",
+    "ListNetworkMigrationInsightsPaginator",
     "ListNetworkMigrationMapperSegmentConstructsPaginator",
     "ListNetworkMigrationMapperSegmentsPaginator",
     "ListNetworkMigrationMappingUpdatesPaginator",
     "ListNetworkMigrationMappingsPaginator",
+    "ListRemoteSourceActionInvocationResultsPaginator",
+    "ListRemoteSourceActionInvocationsPaginator",
+    "ListRemoteSourceActionJobsPaginator",
+    "ListRemoteSourceActionsPaginator",
     "ListSourceServerActionsPaginator",
     "ListTemplateActionsPaginator",
     "ListWavesPaginator",

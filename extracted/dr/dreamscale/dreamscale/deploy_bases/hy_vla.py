@@ -7,7 +7,7 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from dreamscale_transport.hy_vla_deploy import MAX_HZ, MIN_HZ, normalize_rate
+from dreamscale_core.hy_vla_deploy import MAX_HZ, MIN_HZ, normalize_rate
 
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd

@@ -63,6 +63,7 @@ from .literals import (
     InstanceLifecycleTypeType,
     InstanceTypeType,
     KeyTypeType,
+    MultipathResilienceStatusType,
     NetworkInterfaceStatusType,
     NetworkInterfaceTypeType,
     PlacementGroupStateType,
@@ -4800,6 +4801,7 @@ class VpcPeeringConnection(ServiceResource):
     status: VpcPeeringConnectionStateReasonTypeDef
     tags: list[TagTypeDef]
     vpc_peering_connection_id: str
+    multipath_resilience_status: MultipathResilienceStatusType
     meta: EC2ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

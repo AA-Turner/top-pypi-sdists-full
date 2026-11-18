@@ -43,7 +43,6 @@ from dreamscale.constants import (
 )
 
 LIBERO_POLICY_IMAGE_SIZE = 224
-_DREAMZERO_MAX_CAMERA_SKEW_NS = 50_000_000
 
 
 def encode_jpeg(frame: np.ndarray, quality: int = OBS_JPEG_QUALITY, chroma: str = "420") -> bytes:
@@ -271,38 +270,19 @@ def build_libero_observation(
     )
 
 
+def _rldx_history_cameras(images, *, robocasa: bool):
+    from dreamscale_transport.rldx_wire import encode_history_cameras
+
+    return encode_history_cameras(images, robocasa=robocasa, encode_jpeg=_camera_frame)
+
+
 def build_robocasa_observation(*, session_id: str, observation_id: int,
                               images: dict[str, np.ndarray], robot_state: dict,
                               robot_state_history: list[dict],
                               instruction: str, chunk_size: int = 16,
                               now_ns: int | None = None) -> Observation:
     """RoboCasa images already have the checkpoint's orientation and area resize."""
-    from dreamscale_transport.robocasa import CAMERA_KEYS
-
-    if set(images) != set(CAMERA_KEYS):
-        raise ValueError("RoboCasa365 requires its three named cameras")
-    cameras, payloads = [], {}
-    for key in CAMERA_KEYS:
-        image = images[key]
-        if image.shape != (4, 256, 256, 3) or image.dtype != np.uint8:
-            raise ValueError("RoboCasa365 requires four 256x256 RGB uint8 frames per camera")
-        # A lossless horizontal strip keeps four aligned frames in each camera payload.
-        # Both codecs preserve upstream pixels. Fast lossless WebP cuts upload
-        # size by about a third; PNG remains compatible with Pillow without WebP.
-        from io import BytesIO
-
-        from PIL import Image, features
-
-        packed = np.concatenate(list(image), axis=1)
-        encoded = BytesIO()
-        encoding = "webp" if features.check("webp") else "png"
-        options = {"lossless": True, "method": 0} if encoding == "webp" else {"compress_level": 3}
-        Image.fromarray(packed).save(encoded, format=encoding.upper(), **options)
-        payload = encoded.getvalue()
-        camera = CameraFrame(camera_id=key, width=1024, height=256, encoding=encoding,
-                             payload_bytes=len(payload))
-        cameras.append(camera)
-        payloads[key] = payload
+    cameras, payloads = _rldx_history_cameras(images, robocasa=True)
     now = time.time_ns() if now_ns is None else now_ns
     return Observation(frame=ObservationFrame(
         session_id=session_id, observation_id=observation_id,
@@ -359,16 +339,7 @@ def build_rldx_libero_observation(*, session_id: str, observation_id: int,
                                   libero_state: list[float], instruction: str,
                                   chunk_size: int = 16, now_ns: int | None = None) -> Observation:
     """RLDX-1.1 LIBERO: four oriented 256px frames per camera as one JPEG strip each."""
-    from dreamscale_transport.rldx import HISTORY_LENGTH, IMAGE_SIZE, LIBERO_11
-
-    cameras, payloads = [], {}
-    for key, frames in zip(LIBERO_11.camera_keys, (agent_frames, wrist_frames), strict=True):
-        if frames.shape != (HISTORY_LENGTH, IMAGE_SIZE, IMAGE_SIZE, 3) or frames.dtype != np.uint8:
-            raise ValueError("RLDX-1.1 LIBERO requires four 256x256 RGB uint8 frames per camera")
-        # 256px frames tile JPEG's 16px blocks exactly, so frames never blur into each other.
-        camera, payload = _camera_frame(key, np.ascontiguousarray(np.concatenate(frames, axis=1)))
-        cameras.append(camera)
-        payloads[key] = payload
+    cameras, payloads = _rldx_history_cameras((agent_frames, wrist_frames), robocasa=False)
     now = time.time_ns() if now_ns is None else now_ns
     return Observation(frame=ObservationFrame(
         session_id=session_id, observation_id=observation_id,
@@ -419,13 +390,13 @@ def build_libero_history_observation(*, session_id: str, observation_id: int,
 
 def build_lingbot_observation(*,session_id: str,observation_id: int,frames: np.ndarray,
                              instruction: str,now_ns: int | None = None) -> Observation:
-    from dreamscale_transport.lingbot_contract import encode_lingbot_clip
+    from dreamscale_transport.lingbot_wire import ACTION_HORIZON, encode_lingbot_clip
     cameras,payloads=encode_lingbot_clip(frames)
     now=time.time_ns() if now_ns is None else now_ns
     return Observation(frame=ObservationFrame(session_id=session_id,observation_id=observation_id,
         capture_time_ns=now,send_time_ns=now,cameras=cameras,
         robot_state=RobotState(joint_positions=[0.0]*6,joint_velocities=[0.0]*6,gripper=0.0),
-        actions_remaining=0,instruction=instruction),camera_payloads=payloads,chunk_size=16)
+        actions_remaining=0,instruction=instruction),camera_payloads=payloads,chunk_size=ACTION_HORIZON)
 
 
 def build_yam_end_effector_observation(
@@ -435,7 +406,7 @@ def build_yam_end_effector_observation(
     actions_remaining: int = 0, camera_capture_times_ns: tuple[int, int, int] | None = None,
 ) -> Observation:
     """Bound RGB uploads at the checkpoint's capture size, preserving orientation."""
-    from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
+    from dreamscale_core.rho import RHO_YAM_BOX_MODEL_ID
 
     return build_rho_end_effector_observation(
         model=RHO_YAM_BOX_MODEL_ID, session_id=session_id, observation_id=observation_id,
@@ -451,9 +422,9 @@ def build_rho_end_effector_observation(
     actions_remaining: int = 0, camera_capture_times_ns: tuple[int, ...] | None = None,
 ) -> Observation:
     """Any absolute end-effector Rho checkpoint; frames follow its camera_keys order."""
-    from dreamscale_transport.rho_checkpoints import RHO_CHECKPOINTS
+    from dreamscale_core.rho import RHO_MODELS
 
-    checkpoint = RHO_CHECKPOINTS[model]
+    checkpoint = RHO_MODELS[model]
     encoded = [_camera_frame(key, prepare_policy_image(
         frame, checkpoint.wire_image_size, rotate_180=False,
     )) for key, frame in zip(checkpoint.camera_keys, frames, strict=True)]
@@ -526,199 +497,6 @@ def build_franka_observation(
         ),
         camera_payloads=payloads,
         **({"chunk_size": chunk_size} if chunk_size is not None else {}),
-    )
-
-
-def build_dreamzero_observation(
-    *,
-    session_id: str,
-    observation_id: int,
-    exterior_frame: np.ndarray,
-    second_exterior_frame: np.ndarray,
-    wrist_frame: np.ndarray,
-    camera_capture_times_ns: tuple[int, int, int],
-    joint_positions: list[float],
-    gripper: float,
-    instruction: str,
-    source_action_step: int,
-    next_action_step: int,
-    control_tick: int,
-    replan_epoch: int,
-    cache_generation: int,
-    sampling: str,
-    now_ns: int | None = None,
-) -> Observation:
-    """Build one strict T1 DreamZero-DROID transport observation."""
-    return _build_dreamzero_observation(
-        session_id=session_id,
-        observation_id=observation_id,
-        camera_specs=(
-            (
-                CAMERA_KEY_DROID_EXTERIOR_1,
-                exterior_frame,
-                camera_capture_times_ns[0],
-            ),
-            (
-                CAMERA_KEY_DROID_EXTERIOR_2,
-                second_exterior_frame,
-                camera_capture_times_ns[1],
-            ),
-            (CAMERA_KEY_DROID_WRIST, wrist_frame, camera_capture_times_ns[2]),
-        ),
-        robot_state=RobotState(
-            joint_positions=[float(value) for value in joint_positions],
-            joint_velocities=[0.0] * 7,
-            gripper=float(gripper),
-        ),
-        instruction=instruction,
-        source_action_step=source_action_step,
-        next_action_step=next_action_step,
-        control_tick=control_tick,
-        replan_epoch=replan_epoch,
-        cache_generation=cache_generation,
-        sampling=sampling,
-        now_ns=now_ns,
-    )
-
-
-def build_dreamzero_yam_observation(
-    *,
-    session_id: str,
-    observation_id: int,
-    top_frame: np.ndarray,
-    left_frame: np.ndarray,
-    right_frame: np.ndarray,
-    camera_capture_times_ns: tuple[int, int, int],
-    left_joint_positions: list[float],
-    left_gripper: float,
-    right_joint_positions: list[float],
-    right_gripper: float,
-    instruction: str,
-    source_action_step: int,
-    next_action_step: int,
-    control_tick: int,
-    replan_epoch: int,
-    cache_generation: int,
-    sampling: str,
-    now_ns: int | None = None,
-) -> Observation:
-    """Build one strict T1 DreamZero-YAM transport observation."""
-    return _build_dreamzero_observation(
-        session_id=session_id,
-        observation_id=observation_id,
-        camera_specs=(
-            (CAMERA_KEY_BIMANUAL_YAM_TOP, top_frame, camera_capture_times_ns[0]),
-            (CAMERA_KEY_BIMANUAL_YAM_LEFT, left_frame, camera_capture_times_ns[1]),
-            (CAMERA_KEY_BIMANUAL_YAM_RIGHT, right_frame, camera_capture_times_ns[2]),
-        ),
-        robot_state=BimanualRobotState(
-            left_joint_positions=left_joint_positions,
-            left_joint_velocities=[0.0] * 6,
-            left_gripper=left_gripper,
-            right_joint_positions=right_joint_positions,
-            right_joint_velocities=[0.0] * 6,
-            right_gripper=right_gripper,
-        ),
-        instruction=instruction,
-        source_action_step=source_action_step,
-        next_action_step=next_action_step,
-        control_tick=control_tick,
-        replan_epoch=replan_epoch,
-        cache_generation=cache_generation,
-        sampling=sampling,
-        now_ns=now_ns,
-        camera_encoding="h264",
-        action_hz=30,
-        chunk_size=24,
-        max_camera_skew_ns=None,
-    )
-
-
-def _build_dreamzero_observation(
-    *,
-    session_id: str,
-    observation_id: int,
-    camera_specs: tuple[tuple[str, np.ndarray, int], ...],
-    robot_state: RobotState | BimanualRobotState,
-    instruction: str,
-    source_action_step: int,
-    next_action_step: int,
-    control_tick: int,
-    replan_epoch: int,
-    cache_generation: int,
-    sampling: str,
-    now_ns: int | None,
-    camera_encoding: str = "jpeg",
-    action_hz: int = 15,
-    chunk_size: int = 24,
-    max_camera_skew_ns: int | None = _DREAMZERO_MAX_CAMERA_SKEW_NS,
-) -> Observation:
-    capture_times_ns = tuple(spec[2] for spec in camera_specs)
-    if max_camera_skew_ns is not None and (
-        max(capture_times_ns) - min(capture_times_ns) > max_camera_skew_ns
-    ):
-        raise ValueError("camera skew exceeds the 50 ms DreamZero limit")
-    capture_start_ns = min(capture_times_ns)
-    capture_end_ns = max(capture_times_ns)
-    encode_start_ns = max(time.time_ns(), capture_end_ns) if now_ns is None else int(now_ns)
-    cameras: list[CameraFrame] = []
-    payloads: dict[str, bytes] = {}
-    raw_frames: dict[str, object] = {}
-    for camera_id, frame, capture_time_ns in camera_specs:
-        if camera_encoding == "jpeg":
-            camera, payload = _camera_frame(camera_id, frame)
-            payloads[camera_id] = payload
-        elif camera_encoding == "h264":
-            values = np.asarray(frame)
-            camera = CameraFrame(
-                camera_id=camera_id,
-                width=int(values.shape[1]),
-                height=int(values.shape[0]),
-                encoding="h264",
-                payload_bytes=0,
-                raw_bytes=int(values.nbytes),
-            )
-            raw_frames[camera_id] = values
-        else:
-            raise ValueError(f"unsupported DreamZero camera encoding: {camera_encoding}")
-        cameras.append(camera.model_copy(update={"capture_time_ns": int(capture_time_ns)}))
-    if camera_encoding == "jpeg":
-        encode_end_ns = max(time.time_ns(), encode_start_ns) if now_ns is None else int(now_ns)
-        send_time_ns = max(time.time_ns(), encode_end_ns) if now_ns is None else int(now_ns)
-    else:
-        encode_start_ns = None
-        encode_end_ns = None
-        send_time_ns = capture_end_ns
-    return Observation(
-        frame=ObservationFrame(
-            session_id=session_id,
-            observation_id=observation_id,
-            capture_time_ns=capture_end_ns,
-            send_time_ns=send_time_ns,
-            capture_start_time_ns=capture_start_ns,
-            capture_end_time_ns=capture_end_ns,
-            encode_start_time_ns=encode_start_ns,
-            encode_end_time_ns=encode_end_ns,
-            cameras=cameras,
-            robot_state=robot_state,
-            actions_remaining=0,
-            instruction=instruction,
-            runtime_context=RuntimeRequestContext(
-                queue={
-                    "action_hz": action_hz,
-                    "source_action_step": int(source_action_step),
-                    "next_action_step": int(next_action_step),
-                    "control_tick": int(control_tick),
-                    "replan_epoch": int(replan_epoch),
-                    "replan_stride": 8,
-                    "sampling": sampling,
-                    "cache_generation": int(cache_generation),
-                }
-            ),
-        ),
-        camera_payloads=payloads,
-        chunk_size=chunk_size,
-        raw_camera_frames=raw_frames or None,
     )
 
 

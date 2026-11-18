@@ -12,6 +12,7 @@ Usage::
 
     from mypy_boto3_bedrock_agentcore_control.client import BedrockAgentCoreControlClient
     from mypy_boto3_bedrock_agentcore_control.paginator import (
+        ListAgentInsightStoresPaginator,
         ListAgentRuntimeEndpointsPaginator,
         ListAgentRuntimeVersionsByCapacityProviderPaginator,
         ListAgentRuntimeVersionsPaginator,
@@ -56,6 +57,7 @@ Usage::
     session = Session()
     client: BedrockAgentCoreControlClient = session.client("bedrock-agentcore-control")
 
+    list_agent_insight_stores_paginator: ListAgentInsightStoresPaginator = client.get_paginator("list_agent_insight_stores")
     list_agent_runtime_endpoints_paginator: ListAgentRuntimeEndpointsPaginator = client.get_paginator("list_agent_runtime_endpoints")
     list_agent_runtime_versions_by_capacity_provider_paginator: ListAgentRuntimeVersionsByCapacityProviderPaginator = client.get_paginator("list_agent_runtime_versions_by_capacity_provider")
     list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
@@ -106,6 +108,8 @@ from typing import TYPE_CHECKING
 from botocore.paginate import PageIterator, Paginator
 
 from .type_defs import (
+    ListAgentInsightStoresRequestPaginateTypeDef,
+    ListAgentInsightStoresResponseTypeDef,
     ListAgentRuntimeEndpointsRequestPaginateTypeDef,
     ListAgentRuntimeEndpointsResponseTypeDef,
     ListAgentRuntimesRequestPaginateTypeDef,
@@ -192,6 +196,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "ListAgentInsightStoresPaginator",
     "ListAgentRuntimeEndpointsPaginator",
     "ListAgentRuntimeVersionsByCapacityProviderPaginator",
     "ListAgentRuntimeVersionsPaginator",
@@ -232,6 +237,24 @@ __all__ = (
     "ListRegistryRecordsPaginator",
     "ListWorkloadIdentitiesPaginator",
 )
+
+if TYPE_CHECKING:
+    _ListAgentInsightStoresPaginatorBase = Paginator[ListAgentInsightStoresResponseTypeDef]
+else:
+    _ListAgentInsightStoresPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListAgentInsightStoresPaginator(_ListAgentInsightStoresPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentInsightStores.html#BedrockAgentCoreControl.Paginator.ListAgentInsightStores)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listagentinsightstorespaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListAgentInsightStoresRequestPaginateTypeDef]
+    ) -> PageIterator[ListAgentInsightStoresResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore-control/paginator/ListAgentInsightStores.html#BedrockAgentCoreControl.Paginator.ListAgentInsightStores.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bedrock_agentcore_control/paginators/#listagentinsightstorespaginator)
+        """
 
 if TYPE_CHECKING:
     _ListAgentRuntimeEndpointsPaginatorBase = Paginator[ListAgentRuntimeEndpointsResponseTypeDef]

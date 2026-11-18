@@ -15,13 +15,15 @@ from os import PathLike
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
-from sphinx_autodoc_typehints._objects import imported_prefix
+from sphinx_autodoc_typehints._objects import (  # simplint: ignore[private-import-path]  # init cycle
+    imported_prefix,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
     from types import ModuleType
 
-    from sphinx_autodoc_typehints._types import Documented
+    from . import Documented
 
 
 _STUB_AST_CACHE: Final[dict[tuple[Path, int], Module | None]] = {}
@@ -93,16 +95,6 @@ def _find_stub_for_module(module: ModuleType) -> Path | None:
     return STUB_FILES[key]
 
 
-def _stub_beside(module: ModuleType, source: Path) -> Path | None:
-    if (stub := source.with_name(f"{source.name.split('.')[0]}.pyi")).is_file():
-        return stub
-    if isinstance(package_dirs := _module_attribute(module, "__path__"), Iterable):
-        for package_dir in package_dirs:
-            if (init_stub := Path(package_dir) / "__init__.pyi").is_file():
-                return init_stub
-    return None
-
-
 # without the `__getattr__` of the module, through the property a module subclass may define
 def _module_attribute(module: ModuleType, name: str) -> Documented:
     if not isdatadescriptor(value := getattr_static(module, name, None)):
@@ -112,6 +104,16 @@ def _module_attribute(module: ModuleType, name: str) -> Documented:
         return value.__get__(module, type(module))
     except AttributeError:
         return None
+
+
+def _stub_beside(module: ModuleType, source: Path) -> Path | None:
+    if (stub := source.with_name(f"{source.name.split('.')[0]}.pyi")).is_file():
+        return stub
+    if isinstance(package_dirs := _module_attribute(module, "__path__"), Iterable):
+        for package_dir in package_dirs:
+            if (init_stub := Path(package_dir) / "__init__.pyi").is_file():
+                return init_stub
+    return None
 
 
 def _find_stub_naming(module: ModuleType, top_name: str, seen: set[str]) -> tuple[Path, ModuleType] | None:
@@ -164,14 +166,6 @@ def live_statements(body: list[stmt]) -> Iterator[stmt]:
             yield from live_statements(node.body if live else node.orelse)
 
 
-def stub_owner_package(owner_module: ModuleType, path: Path) -> str:
-    # a native submodule holds `__package__ = None`, so its package derives from the name of the stub
-    if owner_package := getattr(owner_module, "__package__", None):
-        return owner_package
-    owner_name = owner_module.__name__
-    return owner_name if path.name == "__init__.pyi" else owner_name.rpartition(".")[0]
-
-
 def resolve_import_from(node: ImportFrom, owner_package: str) -> str | None:
     """Return the module a `from` import in a stub of `owner_package` names, `None` past the top package."""
     if not node.level or not owner_package:
@@ -179,6 +173,14 @@ def resolve_import_from(node: ImportFrom, owner_package: str) -> str | None:
     if len(parts := owner_package.rsplit(".", node.level - 1)) < node.level:
         return None
     return f"{parts[0]}.{node.module}" if node.module else parts[0]
+
+
+def stub_owner_package(owner_module: ModuleType, path: Path) -> str:
+    # a native submodule holds `__package__ = None`, so its package derives from the name of the stub
+    if owner_package := getattr(owner_module, "__package__", None):
+        return owner_package
+    owner_name = owner_module.__name__
+    return owner_name if path.name == "__init__.pyi" else owner_name.rpartition(".")[0]
 
 
 def import_module_or_none(module_name: str) -> ModuleType | None:

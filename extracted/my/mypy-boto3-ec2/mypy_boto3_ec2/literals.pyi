@@ -29,6 +29,7 @@ __all__ = (
     "AccountVpcEncryptionControlModeType",
     "AccountVpcEncryptionControlStateType",
     "ActivityStatusType",
+    "AdditionalKeyExchangeRequirementType",
     "AddressAttributeNameType",
     "AddressFamilyType",
     "AddressTransferStatusType",
@@ -510,6 +511,8 @@ __all__ = (
     "MonitoringStateType",
     "MoveStatusType",
     "MulticastSupportValueType",
+    "MultipathResilienceModeType",
+    "MultipathResilienceStatusType",
     "NatGatewayAddressStatusType",
     "NatGatewayApplianceModifyStateType",
     "NatGatewayApplianceStateType",
@@ -684,6 +687,8 @@ __all__ = (
     "TransitGatewayMulitcastDomainAssociationStateType",
     "TransitGatewayMulticastDomainStateType",
     "TransitGatewayNatRuleStateType",
+    "TransitGatewayPeeringAttachmentMultipathResilienceModeType",
+    "TransitGatewayPeeringAttachmentMultipathResilienceStatusType",
     "TransitGatewayPolicyTableEntryStateType",
     "TransitGatewayPolicyTableStateType",
     "TransitGatewayPrefixListReferenceStateType",
@@ -782,6 +787,7 @@ AccountVpcEncryptionControlStateType = Literal[
     "transitions-successful",
 ]
 ActivityStatusType = Literal["error", "fulfilled", "pending_fulfillment", "pending_termination"]
+AdditionalKeyExchangeRequirementType = Literal["optional", "required"]
 AddressAttributeNameType = Literal["domain-name"]
 AddressFamilyType = Literal["ipv4", "ipv6"]
 AddressTransferStatusType = Literal["accepted", "disabled", "pending"]
@@ -3294,6 +3300,8 @@ ModifyAvailabilityZoneOptInStatusType = Literal["not-opted-in", "opted-in"]
 MonitoringStateType = Literal["disabled", "disabling", "enabled", "pending"]
 MoveStatusType = Literal["movingToVpc", "restoringToClassic"]
 MulticastSupportValueType = Literal["disable", "enable"]
+MultipathResilienceModeType = Literal["always-on"]
+MultipathResilienceStatusType = Literal["disabled", "enabled", "pending"]
 NatGatewayAddressStatusType = Literal[
     "assigning", "associating", "disassociating", "failed", "succeeded", "unassigning"
 ]
@@ -3789,6 +3797,10 @@ TransitGatewayMulitcastDomainAssociationStateType = Literal[
 ]
 TransitGatewayMulticastDomainStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayNatRuleStateType = Literal["activated", "deactivated", "deleting", "pending"]
+TransitGatewayPeeringAttachmentMultipathResilienceModeType = Literal["always-on"]
+TransitGatewayPeeringAttachmentMultipathResilienceStatusType = Literal[
+    "disabled", "enabled", "pending"
+]
 TransitGatewayPolicyTableEntryStateType = Literal["active", "deleted"]
 TransitGatewayPolicyTableStateType = Literal["available", "deleted", "deleting", "pending"]
 TransitGatewayPrefixListReferenceStateType = Literal[

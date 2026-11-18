@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: skypilot-nightly
-Version: 1.0.0.dev20261117
+Version: 1.0.0.dev20261118
 Summary: SkyPilot: Manage all your AI compute.
 Author: SkyPilot Team
 License: Apache 2.0
@@ -393,6 +393,17 @@ Requires-Dist: anyio; extra == "mithril"
 Requires-Dist: grpcio>=1.63.0; extra == "mithril"
 Requires-Dist: protobuf<7.0.0,>=5.29.6; extra == "mithril"
 Requires-Dist: aiosqlite; extra == "mithril"
+Provides-Extra: modal
+Requires-Dist: modal>=1.6.0; python_version >= "3.10" and extra == "modal"
+Requires-Dist: casbin; extra == "modal"
+Requires-Dist: sqlalchemy_adapter; extra == "modal"
+Requires-Dist: passlib; extra == "modal"
+Requires-Dist: pyjwt; extra == "modal"
+Requires-Dist: aiohttp; extra == "modal"
+Requires-Dist: anyio; extra == "modal"
+Requires-Dist: grpcio>=1.63.0; extra == "modal"
+Requires-Dist: protobuf<7.0.0,>=5.29.6; extra == "modal"
+Requires-Dist: aiosqlite; extra == "modal"
 Provides-Extra: shadeform
 Requires-Dist: casbin; extra == "shadeform"
 Requires-Dist: sqlalchemy_adapter; extra == "shadeform"
@@ -463,6 +474,7 @@ Requires-Dist: ibm-cos-sdk; extra == "all"
 Requires-Dist: ibm-platform-services>=0.48.0; extra == "all"
 Requires-Dist: ibm-vpc>=0.26.3; extra == "all"
 Requires-Dist: kubernetes!=32.0.0,<36.0.0,>=20.0.0; extra == "all"
+Requires-Dist: modal>=1.6.0; python_version >= "3.10" and extra == "all"
 Requires-Dist: msgraph-sdk; extra == "all"
 Requires-Dist: msrestazure; extra == "all"
 Requires-Dist: nebius>=0.6.12; extra == "all"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pigeon-home-runner
-Version: 3.17.26.24
+Version: 3.17.29.5
 Summary: Self-hosted, email-driven agent: tell your cloud SI to send signed jobs via email that execute on your machine.
 Author: Pigeon-Home
 License: Apache-2.0
@@ -26,7 +26,7 @@ Dynamic: license-file
 
 Homing Pigeon gives cloud AI like ChatGPT, Claude, Gemini a secure and signed channel to your machine or network.
 
-Try this careful prompt with Grok for example:
+Try this careful prompt with Grok for example, after you set up an email connector:
 ```
 Run a pigeon-home.ai job
 Retrieve the system clock and display it

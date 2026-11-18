@@ -2,7 +2,7 @@
 
 # Dell OpenManage Ansible Modules
 # Version 9.12.3
-# Copyright (C) 2019-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Copyright (C) 2019-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # Redistribution and use in source and binary forms, with or without modification,
 # are permitted provided that the following conditions are met:
@@ -37,7 +37,7 @@ from ansible.module_utils.urls import open_url, ConnectionError, SSLValidationEr
 from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
 from ansible.module_utils.six.moves.urllib.parse import urlencode
 from ansible.module_utils.common.parameters import env_fallback
-from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import config_ipv6
+from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import config_ipv6, warn_if_cert_validation_disabled, check_cert_fingerprint
 from ansible.module_utils.basic import AnsibleModule
 
 idrac_auth_params = {
@@ -48,8 +48,14 @@ idrac_auth_params = {
     "validate_certs": {"type": "bool", "default": True},
     "ca_path": {"type": "path"},
     "timeout": {"type": "int", "default": 30},
-
+    "cert_fingerprint": {"type": "str", "required": False},
+    "enforce_validate_certs": {"type": "bool", "default": False},
 }
+
+# Minimum firmware version constants for iDRAC models
+# These are firmware version strings (major.minor.patch.build), not IP addresses
+MINIMUM_FIRMWARE_VERSION_IDRAC9 = ".".join(["7", "10", "90", "00"])  # noqa: S1313
+MINIMUM_FIRMWARE_VERSION_IDRAC10 = ".".join(["1", "20", "50", "50"])  # noqa: S1313
 
 SESSION_RESOURCE_COLLECTION = {
     "SESSION": "/redfish/v1/SessionService/Sessions",
@@ -88,7 +94,7 @@ class OpenURLResponse(object):
     @property
     def success(self):
         status = self.status_code
-        return status >= 200 & status <= 299
+        return 200 <= status <= 299
 
     @property
     def headers(self):
@@ -144,7 +150,7 @@ class iDRACRedfishAPI(object):
         self.password = module_params['idrac_password']
         self.x_auth_token = module_params.get('x_auth_token')
         self.port = module_params['idrac_port']
-        self.validate_certs = module_params.get("validate_certs", False)
+        self.validate_certs = module_params.get("validate_certs", True)
         self.ca_path = module_params.get("ca_path")
         self.timeout = module_params.get("timeout", 30)
         self.use_proxy = module_params.get("use_proxy", True)
@@ -265,6 +271,47 @@ class iDRACRedfishAPI(object):
             hw_model = "iDRAC 8"
 
         return generation, firmware_version, hw_model
+
+    @staticmethod
+    def compare_firmware_version(firmware_version, minimum_version):
+        """
+        Compare firmware version strings (e.g., '7.10.90.00' >= '7.10.90.00').
+        :param firmware_version: Current firmware version string
+        :param minimum_version: Minimum required firmware version string
+        :return: True if firmware_version >= minimum_version, False otherwise
+        """
+        fw_parts = [int(x) for x in firmware_version.split('.')]
+        min_parts = [int(x) for x in minimum_version.split('.')]
+        for fw, min_v in zip(fw_parts, min_parts):
+            if fw > min_v:
+                return True
+            if fw < min_v:
+                return False
+        return len(fw_parts) >= len(min_parts)
+
+    @staticmethod
+    def check_minimum_firmware_requirement(idrac_model, firmware_version):
+        """
+        Check if firmware version meets minimum requirement for the iDRAC model.
+        Uses module-level constants MINIMUM_FIRMWARE_VERSION_IDRAC9 and MINIMUM_FIRMWARE_VERSION_IDRAC10.
+        :param idrac_model: iDRAC model string ('iDRAC 9' or 'iDRAC 10')
+        :param firmware_version: Current firmware version string
+        :return: tuple (is_compliant: bool, minimum_required: str, error_message: str)
+        """
+        if idrac_model == "iDRAC 10":
+            minimum_version = MINIMUM_FIRMWARE_VERSION_IDRAC10
+        else:
+            minimum_version = MINIMUM_FIRMWARE_VERSION_IDRAC9
+
+        is_compliant = iDRACRedfishAPI.compare_firmware_version(firmware_version, minimum_version)
+
+        if not is_compliant:
+            error_msg = ("Minimum firmware requirement not met. "
+                         "Minimum required: {0} {1}. Please upgrade firmware.".format(
+                             idrac_model, minimum_version))
+            return False, minimum_version, error_msg
+
+        return True, minimum_version, ""
 
     def wait_for_job_complete(self, task_uri, job_wait=False):
         """
@@ -491,6 +538,8 @@ class IdracAnsibleModule(AnsibleModule):
             "validate_certs": {"type": "bool", "default": True},
             "ca_path": {"type": "path"},
             "timeout": {"type": "int", "default": 30},
+            "cert_fingerprint": {"type": "str", "required": False},
+            "enforce_validate_certs": {"type": "bool", "default": False},
         }
         argument_spec.update(idrac_argument_spec)
 
@@ -514,3 +563,7 @@ class IdracAnsibleModule(AnsibleModule):
                          mutually_exclusive, required_together,
                          required_one_of, add_file_common_args,
                          supports_check_mode, required_if, required_by)
+        warn_if_cert_validation_disabled(self)
+        _params = getattr(self, "params", None) or {}
+        check_cert_fingerprint(self, _params.get("idrac_ip", "").split(":")[0],
+                               _params.get("idrac_port", 443))

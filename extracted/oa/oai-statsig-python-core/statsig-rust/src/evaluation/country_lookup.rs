@@ -1,153 +1,34 @@
 use super::{dynamic_string::DynamicString, evaluator_context::EvaluatorContext};
-use crate::{
-    DynamicValue, dyn_value, log_d, log_e, unwrap_or_return_with, user::StatsigUserInternal,
-};
-use parking_lot::{Mutex, RwLock};
-use std::sync::Arc;
+use crate::{DynamicValue, dyn_value, log_d, log_e, user::StatsigUserInternal};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+#[cfg(target_arch = "x86_64")]
+#[path = "country_lookup_simd.rs"]
+mod simd;
 
 pub struct CountryLookup;
 
-pub struct CountryLookupData {
-    country_codebook: Vec<String>,
-    country_codes: Vec<u8>,
-    ip_ranges: Vec<i64>,
-}
+static COUNTRY_LOOKUP_LOADED: AtomicBool = AtomicBool::new(false);
+const COUNTRY_CODES: &str = include_str!(concat!(env!("OUT_DIR"), "/country_codes"));
+const COUNTRY_RANGES: &[[u8; 4]] = include_bytes!(concat!(env!("OUT_DIR"), "/country_ranges"))
+    .as_chunks()
+    .0;
 
 lazy_static::lazy_static! {
-    static ref COUNTRY_LOOKUP_DATA: Arc<RwLock<Option<CountryLookupData>>> = Arc::from(RwLock::from(None));
-    static ref COUNTRY_LOOKUP_INIT: Mutex<()> = Mutex::new(());
     static ref IP: String = "ip".to_string();
 }
-
-#[cfg(test)]
-static COUNTRY_LOOKUP_PARSE_COUNT: std::sync::atomic::AtomicUsize =
-    std::sync::atomic::AtomicUsize::new(0);
 
 const TAG: &str = "CountryLookup";
 const UNINITIALIZED_REASON: &str = "CountryLookupNotLoaded";
 
-pub trait UsizeExt {
-    fn post_inc(&mut self) -> Self;
-}
-
-impl UsizeExt for usize {
-    fn post_inc(&mut self) -> Self {
-        let was = *self;
-        *self += 1;
-        was
-    }
-}
-
 impl CountryLookup {
     pub(crate) fn is_loaded() -> bool {
-        COUNTRY_LOOKUP_DATA
-            .try_read()
-            .is_some_and(|data| data.is_some())
+        COUNTRY_LOOKUP_LOADED.load(Ordering::Relaxed)
     }
 
     pub fn load_country_lookup() {
-        match COUNTRY_LOOKUP_DATA.try_read_for(std::time::Duration::from_secs(5)) {
-            Some(lock) => {
-                if lock.is_some() {
-                    log_d!(TAG, "Country Lookup already loaded");
-                    return;
-                }
-            }
-            None => {
-                log_e!(
-                    TAG,
-                    "Failed to acquire read lock on country lookup: Failed to lock COUNTRY_LOOKUP_DATA"
-                );
-                return;
-            }
-        }
-
-        let Some(_init_guard) = COUNTRY_LOOKUP_INIT.try_lock_for(std::time::Duration::from_secs(5))
-        else {
-            log_e!(TAG, "Failed to acquire country lookup initialization lock");
-            return;
-        };
-
-        match COUNTRY_LOOKUP_DATA.try_read_for(std::time::Duration::from_secs(5)) {
-            Some(lock) if lock.is_some() => {
-                log_d!(TAG, "Country Lookup already loaded");
-                return;
-            }
-            Some(_) => {}
-            None => {
-                log_e!(
-                    TAG,
-                    "Failed to acquire read lock on country lookup: Failed to lock COUNTRY_LOOKUP_DATA"
-                );
-                return;
-            }
-        }
-
-        #[cfg(test)]
-        COUNTRY_LOOKUP_PARSE_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-
-        let bytes = include_bytes!("../../resources/ip_supalite.table");
-
-        let mut country_codebook: Vec<String> = vec![];
-        let mut country_codes: Vec<u8> = vec![];
-        let mut ip_ranges: Vec<i64> = vec![];
-
-        let mut i = 0;
-
-        while i < bytes.len() {
-            let c1 = bytes[i.post_inc()] as char;
-            let c2 = bytes[i.post_inc()] as char;
-
-            country_codebook.push(format!("{c1}{c2}"));
-
-            if c1 == '*' {
-                break;
-            }
-        }
-
-        let longs = |index: usize| bytes[index] as i64;
-
-        let mut last_end_range = 0_i64;
-        while (i + 1) < bytes.len() {
-            let mut count: i64 = 0;
-            let n1 = longs(i.post_inc());
-            if n1 < 240 {
-                count = n1;
-            } else if n1 == 242 {
-                let n2 = longs(i.post_inc());
-                let n3 = longs(i.post_inc());
-                count = n2 | (n3 << 8);
-            } else if n1 == 243 {
-                let n2 = longs(i.post_inc());
-                let n3 = longs(i.post_inc());
-                let n4 = longs(i.post_inc());
-                count = n2 | (n3 << 8) | (n4 << 16);
-            }
-
-            last_end_range += count * 256;
-
-            let cc = bytes[i.post_inc()];
-            ip_ranges.push(last_end_range);
-            country_codes.push(cc)
-        }
-
-        let country_lookup = CountryLookupData {
-            country_codebook,
-            country_codes,
-            ip_ranges,
-        };
-
-        match COUNTRY_LOOKUP_DATA.try_write_for(std::time::Duration::from_secs(5)) {
-            Some(mut lock) => {
-                *lock = Some(country_lookup);
-                log_d!(TAG, " Successfully Loaded");
-            }
-            None => {
-                log_e!(
-                    TAG,
-                    "Failed to acquire write lock on country_lookup: Failed to lock COUNTRY_LOOKUP_DATA"
-                );
-            }
+        if !COUNTRY_LOOKUP_LOADED.swap(true, Ordering::Relaxed) {
+            log_d!(TAG, "Successfully loaded");
         }
     }
 
@@ -169,161 +50,75 @@ impl CountryLookup {
             .get_user_value(&Some(DynamicString::from(IP.to_string())))?
             .string_value()?;
 
-        Self::lookup(ip, evaluator_context)
+        Self::lookup(ip, &mut evaluator_context.result.override_reason)
     }
 
-    fn lookup(ip_address: &str, evaluator_context: &mut EvaluatorContext) -> Option<DynamicValue> {
-        let parts: Vec<&str> = ip_address.split('.').collect();
-        let [n0, n1, n2, n3] = parts.as_slice() else {
-            return None;
-        };
-
-        let lock = unwrap_or_return_with!(
-            COUNTRY_LOOKUP_DATA.try_read_for(std::time::Duration::from_secs(5)),
-            || {
-                evaluator_context.result.override_reason = Some(UNINITIALIZED_REASON);
-                log_e!(TAG, "Failed to acquire read lock on country lookup");
-                None
+    fn lookup(
+        ip_address: &str,
+        override_reason: &mut Option<&'static str>,
+    ) -> Option<DynamicValue> {
+        if !Self::is_loaded() {
+            // Only a four-part address receives the readiness override, even if an octet is invalid.
+            if ip_address.splitn(5, '.').count() == 4 {
+                *override_reason = Some(UNINITIALIZED_REASON);
+                log_e!(
+                    TAG,
+                    "Failed to load country lookup. Did you disable CountryLookup or did not wait for country lookup to init. Check StatsigOptions configuration"
+                );
             }
-        );
+            return None;
+        }
+        Self::lookup_numeric(Self::parse_address(ip_address)?)
+    }
 
-        let country_lookup_data = unwrap_or_return_with!(lock.as_ref(), || {
-            evaluator_context.result.override_reason = Some(UNINITIALIZED_REASON);
-            log_e!(
-                TAG,
-                "Failed to load country lookup. Did you disable CountryLookup or did not wait for country lookup to init. Check StatsigOptions configuration"
-            );
-            None
-        });
+    fn parse_address(ip_address: &str) -> Option<u32> {
+        #[cfg(target_arch = "x86_64")]
+        if (7..=15).contains(&ip_address.len())
+            && is_x86_feature_detected!("avx512bw")
+            && is_x86_feature_detected!("avx512vl")
+        {
+            // SAFETY: the feature checks and length bound cover the masked load in parse.
+            return unsafe { simd::parse(ip_address) };
+        }
+        Self::parse_scalar(ip_address)
+    }
 
-        let address = u32::from_be_bytes([
+    fn parse_scalar(ip_address: &str) -> Option<u32> {
+        let mut parts = ip_address.split('.');
+        let n0 = parts.next()?;
+        let n1 = parts.next()?;
+        let n2 = parts.next()?;
+        let n3 = parts.next()?;
+        if parts.next().is_some() {
+            return None;
+        }
+        Some(u32::from_be_bytes([
             n0.parse().ok()?,
             n1.parse().ok()?,
             n2.parse().ok()?,
             n3.parse().ok()?,
-        ]);
-        Self::lookup_numeric(i64::from(address), country_lookup_data)
+        ]))
     }
 
-    fn lookup_numeric(
-        ip_address: i64,
-        country_lookup_data: &CountryLookupData,
-    ) -> Option<DynamicValue> {
-        let index = Self::binary_search(ip_address, country_lookup_data);
-        let code_index = country_lookup_data.country_codes[index] as usize;
-        let cc = country_lookup_data.country_codebook[code_index].clone();
-        if cc == "--" {
-            return None;
-        }
-        Some(dyn_value!(cc))
-    }
-
-    fn binary_search(value: i64, country_lookup_data: &CountryLookupData) -> usize {
+    fn lookup_numeric(ip_address: u32) -> Option<DynamicValue> {
+        // Each record combines the inclusive end /24 with its country ID in the low byte.
+        let block_start = ip_address & !0xff;
         let mut min = 0;
-        let mut max = country_lookup_data.ip_ranges.len();
-
+        let mut max = COUNTRY_RANGES.len();
         while min < max {
             let mid = (min + max) >> 1;
-            if country_lookup_data.ip_ranges[mid] <= value {
+            if u32::from_le_bytes(COUNTRY_RANGES[mid]) < block_start {
                 min = mid + 1;
             } else {
                 max = mid;
             }
         }
-
-        min
+        let country_offset = usize::from(COUNTRY_RANGES[min][0]) * 2;
+        let country = &COUNTRY_CODES[country_offset..country_offset + 2];
+        (country != "--").then(|| dyn_value!(country))
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::{COUNTRY_LOOKUP_DATA, COUNTRY_LOOKUP_PARSE_COUNT, CountryLookup};
-    use rusty_fork::rusty_fork_test;
-    use std::sync::atomic::Ordering;
-    use std::sync::{Arc, Barrier};
-
-    rusty_fork_test! {
-        #[test]
-        fn concurrent_country_lookup_initialization_parses_once() {
-            assert!(COUNTRY_LOOKUP_DATA.read().is_none());
-            assert!(!CountryLookup::is_loaded());
-            let barrier = Arc::new(Barrier::new(16));
-            let workers: Vec<_> = (0..16)
-                .map(|_| {
-                    let barrier = Arc::clone(&barrier);
-                    std::thread::spawn(move || {
-                        barrier.wait();
-                        CountryLookup::load_country_lookup();
-                    })
-                })
-                .collect();
-
-            for worker in workers {
-                worker.join().unwrap();
-            }
-
-            assert!(COUNTRY_LOOKUP_DATA.read().is_some());
-            assert!(CountryLookup::is_loaded());
-            assert_eq!(COUNTRY_LOOKUP_PARSE_COUNT.load(Ordering::Relaxed), 1);
-        }
-
-        #[test]
-        fn compact_country_codebook_preserves_known_ipv4_ranges_and_boundaries() {
-            CountryLookup::load_country_lookup();
-            let lookup = COUNTRY_LOOKUP_DATA.read();
-            let data = lookup.as_ref().expect("country lookup should initialize");
-
-            assert_eq!(data.country_codebook.len(), 243);
-            assert_eq!(data.country_codes.len(), 198_578);
-            assert_eq!(data.ip_ranges.len(), data.country_codes.len());
-            assert_eq!(data.ip_ranges.last(), Some(&4_294_967_296));
-            assert!(
-                data.country_codes
-                    .iter()
-                    .all(|code| usize::from(*code) < data.country_codebook.len())
-            );
-
-            let country_for = |ip: [u8; 4]| {
-                let address = i64::from(u32::from_be_bytes(ip));
-                CountryLookup::lookup_numeric(address, data)
-                    .and_then(|value| value.string_value.map(|country| country.value))
-            };
-
-            assert_eq!(country_for([8, 8, 8, 8]).as_deref(), Some("US"));
-            assert_eq!(country_for([31, 13, 64, 1]).as_deref(), Some("NL"));
-            assert_eq!(country_for([127, 0, 0, 1]), None);
-            assert_eq!(country_for([255, 255, 255, 255]), None);
-
-            let first_boundary = data.ip_ranges[0];
-            assert_eq!(CountryLookup::binary_search(first_boundary - 1, data), 0);
-            assert_eq!(CountryLookup::binary_search(first_boundary, data), 1);
-
-            drop(lookup);
-            let user = crate::StatsigUser::with_user_id("country-test-user");
-            let internal_user = crate::user::StatsigUserInternal::new(&user, None);
-            let specs = crate::specs_response::spec_types::SpecsResponseFull::default();
-            let hashing = crate::hashing::HashUtil::new();
-            let id_list_callback = |_: &str, _: &str| false;
-            let mut context = crate::evaluation::evaluator_context::EvaluatorContext::new(
-                &internal_user,
-                &specs,
-                crate::evaluation::evaluator_context::IdListResolution::Callback(&id_list_callback),
-                &hashing,
-                None,
-                None,
-                false,
-                false,
-            );
-            for (ip, expected) in [
-                ("31.13.64.1", Some("NL")),
-                ("256.0.0.0", None),
-                ("8.8.7.264", None),
-                ("8.-1.0.0", None),
-            ] {
-                let actual = CountryLookup::lookup(ip, &mut context)
-                    .and_then(|value| value.string_value.map(|country| country.value));
-                assert_eq!(actual.as_deref(), expected, "{ip}");
-            }
-        }
-    }
-}
+#[path = "__tests__/country_lookup_tests.rs"]
+mod tests;

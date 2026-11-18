@@ -7,20 +7,24 @@ import json
 import logging
 import os
 import socket
+import sys
+from collections.abc import Mapping
 from textwrap import dedent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypeGuard
 
 import pytest
 
 from lib_layered_config import ConfigError, read_config, read_config_json, read_config_raw
 from lib_layered_config.adapters.path_resolvers.default import DefaultPathResolver
 from lib_layered_config.core import LayerLoadError
-from tests.adapters.test_loader_errors import _chain
 from tests.support import LayeredSandbox, create_layered_sandbox
+from tests.support.exception_chain import chain
 from tests.support.os_markers import os_agnostic, posix_only
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from lib_layered_config import MergeResult
 
 VENDOR = "Acme"
 APP = "ConfigKit"
@@ -35,10 +39,38 @@ def sandbox(tmp_path: Path) -> LayeredSandbox:
     return create_layered_sandbox(tmp_path, vendor=VENDOR, app=APP, slug=SLUG)
 
 
+@pytest.fixture(autouse=True)
+def _sandbox_applied(sandbox: LayeredSandbox, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Every read_config here starts from tmp_path; without this a test that never asks for the sandbox read
+    # the machine's own app, host and user layers and .env for this slug (a deployed config-kit broke three).
+    sandbox.apply_env(monkeypatch)
+
+
+def _is_table(value: object) -> TypeGuard[Mapping[str, object]]:
+    # A merged table's keys are always strings, so a mapping is the whole check.
+    return isinstance(value, Mapping)
+
+
+def _is_array(value: object) -> TypeGuard[list[object]]:
+    return isinstance(value, list)
+
+
+def _table(value: object) -> Mapping[str, object]:
+    """Narrow a merged value to the table it must be."""
+    assert _is_table(value)
+    return value
+
+
+def _array(value: object) -> list[object]:
+    """Narrow a merged value to the array it must be."""
+    assert _is_array(value)
+    return value
+
+
 def arrange_precedence_story(
     monkeypatch: pytest.MonkeyPatch,
     sandbox: LayeredSandbox,
-):
+) -> MergeResult:
     sandbox.apply_env(monkeypatch)
     sandbox.write(
         "app",
@@ -99,7 +131,8 @@ def arrange_precedence_story(
 @os_agnostic
 def test_read_config_returns_highest_precedence_value(monkeypatch: pytest.MonkeyPatch, sandbox: LayeredSandbox) -> None:
     result = arrange_precedence_story(monkeypatch, sandbox)
-    timeout = result.data["service"]["timeout"]  # type: ignore[index]
+    timeout = _table(result.data["service"])["timeout"]
+    assert isinstance(timeout, (int, str))
     assert int(timeout) == 20
 
 
@@ -108,7 +141,7 @@ def test_read_config_preserves_lower_precedence_scalars(
     monkeypatch: pytest.MonkeyPatch, sandbox: LayeredSandbox
 ) -> None:
     result = arrange_precedence_story(monkeypatch, sandbox)
-    assert result.data["service"]["retries"] == 1  # type: ignore[index]
+    assert _table(result.data["service"])["retries"] == 1
 
 
 @os_agnostic
@@ -146,7 +179,7 @@ def test_read_config_reports_a_yaml_construction_error_as_layer_load_error(
     without_path = message.replace(str(written), "")
     assert "month" not in without_path
     assert "13" not in without_path
-    for link in _chain(captured.value):
+    for link in chain(captured.value):
         link_text = str(link).replace(str(written), "")
         assert "month" not in link_text
         assert "13" not in link_text
@@ -256,7 +289,7 @@ def test_read_config_dotenv_path_provenance_records_explicit_file(
         start_dir=str(sandbox.start_dir),
         dotenv_path=str(explicit_env),
     )
-    assert result.data["service"]["region"] == "us-east"  # type: ignore[index]
+    assert _table(result.data["service"])["region"] == "us-east"
     assert result.provenance["service.region"]["layer"] == "dotenv"
     assert result.provenance["service.region"]["path"] == str(explicit_env)
 
@@ -266,6 +299,7 @@ def test_read_config_refuses_a_fifo_given_as_default_file(tmp_path: Path) -> Non
     """A FIFO at `default_file` (a shell's `<(...)` is one) refuses the load naming its kind. It
     used to be passed over as if absent, so the defaults layer vanished without a word. The FIFO
     has no writer: a refusal that opened it first would hang here, not pass."""
+    assert sys.platform != "win32"  # posix_only; tells the checker os.mkfifo exists here
     fifo = tmp_path / "defaults.toml"
     os.mkfifo(fifo)
 
@@ -286,6 +320,7 @@ def test_read_config_refuses_a_device_given_as_default_file(tmp_path: Path) -> N
 def test_read_config_refuses_a_socket_given_as_default_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A Unix socket at `default_file` refuses the load naming its kind. Bound by a relative name
     from inside tmp_path: macOS caps a socket path near 104 bytes and its tmp_path is longer."""
+    assert sys.platform != "win32"  # posix_only; tells the checker socket.AF_UNIX exists here
     monkeypatch.chdir(tmp_path)
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as listener:
         listener.bind("defaults.toml")
@@ -342,7 +377,7 @@ def test_read_config_refuses_a_discovered_config_path_that_is_a_directory(
     sandbox.apply_env(monkeypatch)
     # The host file is named after the machine the resolver runs on, not a fixed test name.
     if relative is None:
-        relative = f"{DefaultPathResolver(vendor=VENDOR, app=APP, slug=SLUG).hostname}.toml"
+        relative = DefaultPathResolver(vendor=VENDOR, app=APP, slug=SLUG).require_host_file_name()
     placed = sandbox.write(layer, relative, content="")
     placed.unlink()
     placed.mkdir()
@@ -407,9 +442,8 @@ def test_env_var_overrides_one_array_element_end_to_end(
 
     result = read_config_raw(vendor=VENDOR, app=APP, slug=SLUG, start_dir=str(sandbox.start_dir))
 
-    dataset = result.data["dataset"]  # type: ignore[index]
-    assert isinstance(dataset, list)
-    assert dataset[0]["dsn"] == "postgres://new"
-    assert dataset[0]["name"] == "primary"
-    assert dataset[1]["name"] == "secondary"
+    dataset = _array(result.data["dataset"])
+    assert _table(dataset[0])["dsn"] == "postgres://new"
+    assert _table(dataset[0])["name"] == "primary"
+    assert _table(dataset[1])["name"] == "secondary"
     assert result.provenance["dataset.0.dsn"]["layer"] == "env"

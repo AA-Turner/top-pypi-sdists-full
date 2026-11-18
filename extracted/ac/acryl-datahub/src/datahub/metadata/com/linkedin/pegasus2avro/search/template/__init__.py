@@ -33,11 +33,15 @@ from ......schema_classes import SearchTemplateDialectClass
 from ......schema_classes import SearchTemplateLadderClass
 from ......schema_classes import SearchTemplateLadderStopClass
 from ......schema_classes import SearchTemplateNormalizationClass
+from ......schema_classes import SearchTemplateProfilesClass
 from ......schema_classes import SearchTemplatePropertiesClass
 from ......schema_classes import SearchTemplateRankingClass
 from ......schema_classes import SearchTemplateRetrievalClass
+from ......schema_classes import SearchTemplateRetrievalAnchorClass
 from ......schema_classes import SearchTemplateRetrievalBridgeClass
 from ......schema_classes import SearchTemplateRouteClass
+from ......schema_classes import SearchTemplateRouteMatchClass
+from ......schema_classes import SearchTemplateScopeClass
 from ......schema_classes import SearchTemplateScoreModeClass
 from ......schema_classes import SearchTemplateSearchTypeClass
 from ......schema_classes import StructuredPropertyClauseClass
@@ -72,11 +76,15 @@ SearchTemplateDialect = SearchTemplateDialectClass
 SearchTemplateLadder = SearchTemplateLadderClass
 SearchTemplateLadderStop = SearchTemplateLadderStopClass
 SearchTemplateNormalization = SearchTemplateNormalizationClass
+SearchTemplateProfiles = SearchTemplateProfilesClass
 SearchTemplateProperties = SearchTemplatePropertiesClass
 SearchTemplateRanking = SearchTemplateRankingClass
 SearchTemplateRetrieval = SearchTemplateRetrievalClass
+SearchTemplateRetrievalAnchor = SearchTemplateRetrievalAnchorClass
 SearchTemplateRetrievalBridge = SearchTemplateRetrievalBridgeClass
 SearchTemplateRoute = SearchTemplateRouteClass
+SearchTemplateRouteMatch = SearchTemplateRouteMatchClass
+SearchTemplateScope = SearchTemplateScopeClass
 SearchTemplateScoreMode = SearchTemplateScoreModeClass
 SearchTemplateSearchType = SearchTemplateSearchTypeClass
 StructuredPropertyClause = StructuredPropertyClauseClass

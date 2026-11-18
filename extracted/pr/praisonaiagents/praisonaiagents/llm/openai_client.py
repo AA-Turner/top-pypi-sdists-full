@@ -10,6 +10,7 @@ import base64
 import logging
 import mimetypes
 from praisonaiagents._logging import get_logger
+from ._helpers import inject_steering, usage_detail, usage_value
 import time
 import json
 import asyncio
@@ -23,6 +24,8 @@ from pathlib import Path
 from ..errors import ToolExecutionError
 from ..model_harness.guard import check_model_request
 from ..tools.call_executor import _durable_iteration_kwargs
+
+logger = logging.getLogger(__name__)
 
 # Graceful "wrap-up" instruction injected when the step budget is nearly
 # exhausted, so the model produces a coherent final answer instead of being
@@ -78,8 +81,42 @@ def _handle_native_deferred_result(
 
         resolver.register_if_absent(tool_result.handle_id, _reinject)
     except Exception as e:  # noqa: BLE001 — registration must never break the turn
-        logging.debug("Native deferred registration skipped (non-fatal): %s", e)
+        logger.debug("Native deferred registration skipped (non-fatal): %s", e)
     return tool_result.note
+
+_BOTH_BASE_URLS_WARNED = False
+
+
+def _env_base_url():
+    """The OpenAI base URL from the environment, or None (X-02).
+
+    ``OPENAI_BASE_URL`` (the openai SDK's name) first, then the legacy
+    ``OPENAI_API_BASE``. When both are set and differ, warns once naming both.
+    """
+    global _BOTH_BASE_URLS_WARNED
+    official, legacy = os.environ.get("OPENAI_BASE_URL"), os.environ.get("OPENAI_API_BASE")
+    if official and legacy and official != legacy and not _BOTH_BASE_URLS_WARNED:
+        _BOTH_BASE_URLS_WARNED = True
+        logger.warning(
+            "Both OPENAI_BASE_URL=%s and OPENAI_API_BASE=%s are set; using OPENAI_BASE_URL. "
+            "Unset OPENAI_API_BASE (the legacy name) to silence this.", official, legacy)
+    return official or legacy
+
+
+
+def _live_update(live, display_fn, text, start_time):
+    """Rebuild the streaming panel at most every 100 ms (R-01).
+
+    Each rebuild parses the whole answer so far as Markdown, so rebuilding on
+    every chunk made a long answer quadratic (2,000 chunks: 2-5 s vs 0.13 s
+    for the raw stream); the Live display redraws about ten times a second
+    anyway. The panel is transient, and the final answer is printed after it.
+    """
+    now = time.perf_counter()
+    last = getattr(live, "_praison_last_update", None)  # perf_counter's zero is undefined
+    if last is None or now - last >= 0.1:
+        live._praison_last_update = now
+        live.update(display_fn(text, start_time))
 
 # Lazy imports for optional dependencies
 _openai_module = None
@@ -242,6 +279,41 @@ def _extract_tool_call_name_and_args(tool_call):
     except (json.JSONDecodeError, KeyError, AttributeError, TypeError) as e:
         return function_name, None, tool_call_id, e
 
+def _delta_reasoning(chunk):
+    """The reasoning text (``reasoning_content``) of a stream chunk, or None.
+
+    Usage-only chunks have no choices, so this never indexes an empty list.
+    """
+    choices = getattr(chunk, "choices", None)
+    if not choices:
+        return None
+    delta = getattr(choices[0], "delta", None)
+    return getattr(delta, "reasoning_content", None) or None
+
+
+# Same bound as ParallelToolCallExecutor's default worker count.
+_NATIVE_PARALLEL_TOOL_WORKERS = 5
+
+
+def _native_batch_parallel_ok(parallel: bool, specs) -> bool:
+    """Whether a batch of parsed ``(name, args, tool_call_id)`` may run concurrently.
+
+    Opt-in via ``ExecutionConfig.parallel_tool_calls``; a single call, or any
+    pair touching overlapping write paths, stays sequential (same guard as
+    ``ParallelToolCallExecutor``).
+    """
+    if not parallel or len(specs) < 2:
+        return False
+    if any(not isinstance(args, dict) for _, args, _ in specs):
+        return False
+    from ..tools.call_executor import ToolCall as _BatchCall
+    from ..tools.path_overlap import has_write_conflicts
+    return not has_write_conflicts([
+        _BatchCall(function_name=name, arguments=args, tool_call_id=tcid)
+        for name, args, tcid in specs
+    ])
+
+
 def process_stream_chunks(chunks):
     """Process streaming chunks into combined response"""
     if not chunks:
@@ -249,7 +321,6 @@ def process_stream_chunks(chunks):
     
     try:
         first_chunk = chunks[0]
-        last_chunk = chunks[-1]
         
         # Basic metadata
         id = getattr(first_chunk, "id", None) 
@@ -265,8 +336,10 @@ def process_stream_chunks(chunks):
         
         content_list = []
         reasoning_list = []
-        tool_calls = []
-        current_tool_call = None
+        # Tool-call deltas accumulated by index across the whole stream
+        tool_calls_by_index = {}
+        index_alias = {}  # provider index -> slot, when a server reuses an index
+        finish_reason = None
 
         # First pass: Get initial tool call data
         for chunk in chunks:
@@ -287,7 +360,11 @@ def process_stream_chunks(chunks):
             if not hasattr(chunk, "choices") or not chunk.choices:
                 continue
             
-            delta = getattr(chunk.choices[0], "delta", None)
+            choice0 = chunk.choices[0]
+            if getattr(choice0, "finish_reason", None):
+                finish_reason = choice0.finish_reason
+
+            delta = getattr(choice0, "delta", None)
             if not delta:
                 continue
 
@@ -297,33 +374,48 @@ def process_stream_chunks(chunks):
             if hasattr(delta, "reasoning_content") and delta.reasoning_content:
                 reasoning_list.append(delta.reasoning_content)
             
-            # Handle tool calls
-            if hasattr(delta, "tool_calls") and delta.tool_calls:
-                for tool_call_delta in delta.tool_calls:
-                    if tool_call_delta.index is not None and tool_call_delta.id:
-                        # Found the initial tool call
-                        current_tool_call = {
-                            "id": tool_call_delta.id,
-                            "type": "function",
-                            "function": {
-                                "name": tool_call_delta.function.name,
-                                "arguments": ""
-                            }
-                        }
-                        while len(tool_calls) <= tool_call_delta.index:
-                            tool_calls.append(None)
-                        tool_calls[tool_call_delta.index] = current_tool_call
-                        current_tool_call = tool_calls[tool_call_delta.index]
-                    elif current_tool_call is not None and hasattr(tool_call_delta.function, "arguments"):
-                        if tool_call_delta.function.arguments:
-                            current_tool_call["function"]["arguments"] += tool_call_delta.function.arguments
+            # Handle tool calls: providers may send a full call in a single
+            # delta (Ollama/vLLM) or stream argument fragments addressed by
+            # index (parallel calls), so accumulate per index.
+            for tool_call_delta in (getattr(delta, "tool_calls", None) or []):
+                idx = getattr(tool_call_delta, "index", None)
+                tc_id = getattr(tool_call_delta, "id", None)
+                if idx is None:
+                    # No index: a new id opens a call, otherwise continue the last one
+                    if tc_id or not tool_calls_by_index:
+                        idx = max(tool_calls_by_index, default=-1) + 1
+                    else:
+                        idx = max(tool_calls_by_index)
+                else:
+                    raw_idx = idx
+                    idx = index_alias.get(raw_idx, raw_idx)
+                    existing = tool_calls_by_index.get(idx)
+                    if tc_id and existing and existing["id"] and existing["id"] != tc_id:
+                        # Some servers reuse index 0 for every call; a new id
+                        # at a filled index is a new call, not a fragment.
+                        idx = index_alias[raw_idx] = max(tool_calls_by_index) + 1
+                slot = tool_calls_by_index.setdefault(idx, {
+                    "id": None,
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                })
+                if tc_id:
+                    slot["id"] = tc_id
+                fn = getattr(tool_call_delta, "function", None)
+                if fn is not None:
+                    if getattr(fn, "name", None):
+                        slot["function"]["name"] = fn.name
+                    if getattr(fn, "arguments", None):
+                        slot["function"]["arguments"] += fn.arguments
 
-        # Remove any None values and empty tool calls
-        tool_calls = [tc for tc in tool_calls if tc and tc["id"] and tc["function"]["name"]]
+        # Drop incomplete tool calls
+        tool_calls = [
+            tool_calls_by_index[i] for i in sorted(tool_calls_by_index)
+            if tool_calls_by_index[i]["id"] and tool_calls_by_index[i]["function"]["name"]
+        ]
 
         combined_content = "".join(content_list) if content_list else ""
         combined_reasoning = "".join(reasoning_list) if reasoning_list else None
-        finish_reason = getattr(last_chunk.choices[0], "finish_reason", None) if hasattr(last_chunk, "choices") and last_chunk.choices else None
 
         # Create ToolCall objects
         processed_tool_calls = []
@@ -350,7 +442,7 @@ def process_stream_chunks(chunks):
         )
         
         choice = Choice(
-            finish_reason=finish_reason or "tool_calls" if processed_tool_calls else None,
+            finish_reason=finish_reason or ("tool_calls" if processed_tool_calls else None),
             index=0,
             message=message
         )
@@ -400,7 +492,7 @@ class OpenAIClient:
         
         Args:
             api_key: OpenAI API key (defaults to OPENAI_API_KEY env var)
-            base_url: Custom base URL for API endpoints (defaults to OPENAI_API_BASE env var)
+            base_url: Custom base URL for API endpoints (defaults to OPENAI_BASE_URL, then the legacy OPENAI_API_BASE)
             max_retries: Number of automatic retries for transient errors (rate limits,
                 network blips) performed by the underlying OpenAI SDK, which honours
                 ``Retry-After`` and applies exponential backoff. Defaults to the
@@ -409,7 +501,7 @@ class OpenAIClient:
         """
         # Use provided values or fall back to environment variables
         self.api_key = api_key or os.environ.get("OPENAI_API_KEY")
-        self.base_url = base_url or os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL")
+        self.base_url = base_url or _env_base_url()
 
         # Resolve retry configuration: explicit arg wins, else OPENAI_MAX_RETRIES env var.
         if max_retries is None:
@@ -429,7 +521,7 @@ class OpenAIClient:
         elif not self.api_key:
             raise ValueError(
                 "OPENAI_API_KEY environment variable is required for the default OpenAI service. "
-                "If you are targeting a local server (e.g., LM Studio), ensure OPENAI_API_BASE is set "
+                "If you are targeting a local server (e.g., LM Studio), ensure OPENAI_BASE_URL is set "
                 f"(e.g., 'http://localhost:1234/v1') and you can use a placeholder API key by setting OPENAI_API_KEY='{LOCAL_SERVER_API_KEY_PLACEHOLDER}'"
             )
         
@@ -616,10 +708,10 @@ class OpenAIClient:
             if isinstance(prompt, str):
                 prompt = prompt + "\nReturn ONLY a valid JSON object. No other text or explanation."
             elif isinstance(prompt, list):
-                # Create a copy to avoid modifying the original
-                prompt = prompt.copy()
+                # Copy the list and each part dict so the caller's prompt is not modified
+                prompt = [dict(item) if isinstance(item, dict) else item for item in prompt]
                 for item in prompt:
-                    if item.get("type") == "text":
+                    if isinstance(item, dict) and item.get("type") == "text":
                         item["text"] = item["text"] + "\nReturn ONLY a valid JSON object. No other text or explanation."
                         break
         
@@ -648,33 +740,9 @@ class OpenAIClient:
         return fix_array_schemas(schema)
     
     def _get_tools_cache_key(self, tools: List[Any]) -> str:
-        """Generate a cache key for tools."""
-        parts = []
-        for tool in tools:
-            if isinstance(tool, dict):
-                # For dict tools, use sorted JSON representation
-                parts.append(json.dumps(tool, sort_keys=True))
-            elif callable(tool):
-                # For functions, use module.name
-                parts.append(f"{tool.__module__}.{tool.__name__}")
-            elif isinstance(tool, str):
-                # For string tools, use as-is
-                parts.append(tool)
-            elif isinstance(tool, list):
-                # For lists, recursively process
-                subparts = []
-                for subtool in tool:
-                    if isinstance(subtool, dict):
-                        subparts.append(json.dumps(subtool, sort_keys=True))
-                    elif callable(subtool):
-                        subparts.append(f"{subtool.__module__}.{subtool.__name__}")
-                    else:
-                        subparts.append(str(subtool))
-                parts.append(f"[{','.join(subparts)}]")
-            else:
-                # For other types, use string representation
-                parts.append(str(tool))
-        return "|".join(parts)
+        """Generate a content-based cache key for tools."""
+        from ..tools.schema import tools_cache_key
+        return tools_cache_key(tools)
     
     def format_tools(self, tools: Optional[List[Any]]) -> Optional[List[Dict]]:
         """
@@ -700,7 +768,14 @@ class OpenAIClient:
         # Check cache first
         cache_key = self._get_tools_cache_key(tools)
         if cache_key in self._formatted_tools_cache:
-            return self._formatted_tools_cache[cache_key]
+            # LRU: re-insert so the entry becomes most-recently-used.
+            # A concurrent eviction of the same key just falls through to a miss.
+            try:
+                cached = self._formatted_tools_cache.pop(cache_key)
+                self._formatted_tools_cache[cache_key] = cached
+                return cached
+            except KeyError:
+                pass
             
         from ..tools.hosted import is_hosted_tool
         formatted_tools = []
@@ -710,35 +785,35 @@ class OpenAIClient:
             # they carry no 'function' block. Forward them untouched, allowlisted
             # by type so a genuinely malformed tool is still dropped.
             if isinstance(tool, dict) and is_hosted_tool(tool):
-                logging.debug(f"Forwarding provider-hosted tool: {tool.get('type')}")
+                logger.debug(f"Forwarding provider-hosted tool: {tool.get('type')}")
                 formatted_tools.append(tool)
             # Check if the tool is already in OpenAI format
             elif isinstance(tool, dict) and 'type' in tool and tool['type'] == 'function':
                 if 'function' in tool and isinstance(tool['function'], dict) and 'name' in tool['function']:
-                    logging.debug(f"Using pre-formatted OpenAI tool: {tool['function']['name']}")
+                    logger.debug(f"Using pre-formatted OpenAI tool: {tool['function']['name']}")
                     # Fix array schemas in the tool parameters
                     fixed_tool = tool.copy()
                     if 'parameters' in fixed_tool['function']:
                         fixed_tool['function']['parameters'] = self._fix_array_schemas(fixed_tool['function']['parameters'])
                     formatted_tools.append(fixed_tool)
                 else:
-                    logging.debug("Skipping malformed OpenAI tool: missing function or name")
+                    logger.debug("Skipping malformed OpenAI tool: missing function or name")
             # Handle lists of tools
             elif isinstance(tool, list):
                 for subtool in tool:
                     if isinstance(subtool, dict) and is_hosted_tool(subtool):
-                        logging.debug(f"Forwarding provider-hosted tool from list: {subtool.get('type')}")
+                        logger.debug(f"Forwarding provider-hosted tool from list: {subtool.get('type')}")
                         formatted_tools.append(subtool)
                     elif isinstance(subtool, dict) and 'type' in subtool and subtool['type'] == 'function':
                         if 'function' in subtool and isinstance(subtool['function'], dict) and 'name' in subtool['function']:
-                            logging.debug(f"Using pre-formatted OpenAI tool from list: {subtool['function']['name']}")
+                            logger.debug(f"Using pre-formatted OpenAI tool from list: {subtool['function']['name']}")
                             # Fix array schemas in the tool parameters
                             fixed_tool = subtool.copy()
                             if 'parameters' in fixed_tool['function']:
                                 fixed_tool['function']['parameters'] = self._fix_array_schemas(fixed_tool['function']['parameters'])
                             formatted_tools.append(fixed_tool)
                         else:
-                            logging.debug("Skipping malformed OpenAI tool in list: missing function or name")
+                            logger.debug("Skipping malformed OpenAI tool in list: missing function or name")
             elif callable(tool):
                 tool_def = self._generate_tool_definition(tool)
                 if tool_def:
@@ -752,25 +827,30 @@ class OpenAIClient:
                 tool_name = next(iter(tool.keys()))
                 gemini_internal_tools = {'googleSearch', 'urlContext', 'codeExecution'}
                 if tool_name in gemini_internal_tools:
-                    logging.debug(f"Using Gemini internal tool: {tool_name}")
+                    logger.debug(f"Using Gemini internal tool: {tool_name}")
                     formatted_tools.append(tool)
                 else:
-                    logging.debug(f"Skipping unknown tool: {tool_name}")
+                    logger.debug(f"Skipping unknown tool: {tool_name}")
             else:
-                logging.debug(f"Skipping tool of unsupported type: {type(tool)}")
+                logger.debug(f"Skipping tool of unsupported type: {type(tool)}")
                 
         # Validate JSON serialization before returning
         if formatted_tools:
             try:
                 json.dumps(formatted_tools)  # Validate serialization
             except (TypeError, ValueError) as e:
-                logging.error(f"Tools are not JSON serializable: {e}")
+                logger.error(f"Tools are not JSON serializable: {e}")
                 return None
         
         # Cache the result
         result = formatted_tools if formatted_tools else None
-        if result is not None and len(self._formatted_tools_cache) < self._max_cache_size:
+        if result is not None:
             self._formatted_tools_cache[cache_key] = result
+            while len(self._formatted_tools_cache) > self._max_cache_size:
+                try:
+                    del self._formatted_tools_cache[next(iter(self._formatted_tools_cache))]
+                except (KeyError, StopIteration, RuntimeError):
+                    break
                 
         return result
     
@@ -1196,7 +1276,7 @@ class OpenAIClient:
             from ..tools.schema import build_tool_definition
             return build_tool_definition(func)
         except Exception as e:
-            logging.error(f"Error generating tool definition: {e}")
+            logger.error(f"Error generating tool definition: {e}")
             return None
     
     def _generate_tool_definition_from_name(self, function_name: str) -> Optional[Dict]:
@@ -1214,7 +1294,7 @@ class OpenAIClient:
             # key (alias-safe), then normalise array schemas for strict providers.
             tool_def = registry.get_tool_definition(function_name)
             if tool_def is None:
-                logging.debug(
+                logger.debug(
                     f"Tool '{function_name}' not found or unavailable in registry"
                 )
                 return None
@@ -1232,7 +1312,7 @@ class OpenAIClient:
         except Exception:
             # Keep the tool loop resilient (a single bad tool must not break the
             # whole request), but preserve the traceback for diagnosis.
-            logging.error(
+            logger.error(
                 f"Error generating tool definition from name '{function_name}'",
                 exc_info=True,
             )
@@ -1316,7 +1396,7 @@ class OpenAIClient:
                         if response_text:
                             stream_callback(StreamEvent(
                                 type=StreamEventType.FIRST_TOKEN,
-                                timestamp=now, content=response_text[:50]
+                                timestamp=now, content=response_text
                             ))
                             stream_callback(StreamEvent(
                                 type=StreamEventType.LAST_TOKEN,
@@ -1391,7 +1471,7 @@ class OpenAIClient:
                             # Log TTFT on first token
                             if not ttft_logged:
                                 ttft_ms = (last_content_time - request_start_perf) * 1000
-                                logging.debug(f"TTFT (Time To First Token): {ttft_ms:.0f}ms")
+                                logger.debug(f"TTFT (Time To First Token): {ttft_ms:.0f}ms")
                                 ttft_logged = True
                             
                             # Emit FIRST_TOKEN on first content
@@ -1410,7 +1490,7 @@ class OpenAIClient:
                                     content=content
                                 ))
                             
-                            live.update(display_fn(full_response_text, start_time))
+                            _live_update(live, display_fn, full_response_text, start_time)
                         
                         # Handle tool calls streaming
                         if _emit and chunk.choices and hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
@@ -1426,20 +1506,21 @@ class OpenAIClient:
                                     }
                                 ))
                         
-                        # Update live display with reasoning content if enabled
-                        if reasoning_steps and hasattr(chunk.choices[0].delta, "reasoning_content"):
-                            rc = chunk.choices[0].delta.reasoning_content
-                            if rc:
+                        # Reasoning deltas are always emitted as StreamEvents
+                        # (is_reasoning=True, as on the LiteLLM path); the live
+                        # display shows them only with reasoning_steps.
+                        rc = _delta_reasoning(chunk)
+                        if rc:
+                            if _emit:
+                                stream_callback(StreamEvent(
+                                    type=StreamEventType.DELTA_TEXT,
+                                    timestamp=time.perf_counter(),
+                                    content=rc,
+                                    is_reasoning=True
+                                ))
+                            if reasoning_steps:
                                 reasoning_content += rc
-                                live.update(display_fn(f"{full_response_text}\n[Reasoning: {reasoning_content}]", start_time))
-                                # Emit reasoning content as StreamEvent with is_reasoning=True
-                                if _emit:
-                                    stream_callback(StreamEvent(
-                                        type=StreamEventType.DELTA_TEXT,
-                                        timestamp=time.perf_counter(),
-                                        content=rc,
-                                        is_reasoning=True
-                                    ))
+                                _live_update(live, display_fn, f"{full_response_text}\n[Reasoning: {reasoning_content}]", start_time)
                 
                 # Clear the last generating display with a blank line
                 console.print()
@@ -1447,6 +1528,15 @@ class OpenAIClient:
                 # Just collect chunks without display, but still emit events
                 for chunk in response_stream:
                     chunks.append(chunk)
+
+                    rc = _delta_reasoning(chunk) if _emit else None
+                    if rc:
+                        stream_callback(StreamEvent(
+                            type=StreamEventType.DELTA_TEXT,
+                            timestamp=time.perf_counter(),
+                            content=rc,
+                            is_reasoning=True
+                        ))
                     
                     if chunk.choices and chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
@@ -1455,7 +1545,7 @@ class OpenAIClient:
                         # Log TTFT on first token
                         if not ttft_logged:
                             ttft_ms = (last_content_time - request_start_perf) * 1000
-                            logging.debug(f"TTFT (Time To First Token): {ttft_ms:.0f}ms")
+                            logger.debug(f"TTFT (Time To First Token): {ttft_ms:.0f}ms")
                             ttft_logged = True
                         
                         if _emit and not first_token_emitted:
@@ -1505,7 +1595,8 @@ class OpenAIClient:
             
         except Exception as e:
             status = raw.get("status") if isinstance(raw, dict) else getattr(raw, "status", None)
-            if status == "failed":
+            from .error_classifier import _is_fatal_model_error
+            if status == "failed" or _is_fatal_model_error(e):
                 raise
             self.logger.error(f"Error in stream processing: {e}")
             return None
@@ -1597,7 +1688,7 @@ class OpenAIClient:
                         if response_text:
                             await _emit_event(StreamEvent(
                                 type=StreamEventType.FIRST_TOKEN,
-                                timestamp=now, content=response_text[:50]
+                                timestamp=now, content=response_text
                             ))
                             await _emit_event(StreamEvent(
                                 type=StreamEventType.LAST_TOKEN,
@@ -1691,7 +1782,7 @@ class OpenAIClient:
                                     content=content
                                 ))
                             
-                            live.update(display_fn(full_response_text, start_time))
+                            _live_update(live, display_fn, full_response_text, start_time)
                         
                         # Handle tool calls streaming
                         if _emit and chunk.choices and hasattr(chunk.choices[0].delta, 'tool_calls') and chunk.choices[0].delta.tool_calls:
@@ -1707,20 +1798,21 @@ class OpenAIClient:
                                     }
                                 ))
                         
-                        # Update live display with reasoning content if enabled
-                        if reasoning_steps and hasattr(chunk.choices[0].delta, "reasoning_content"):
-                            rc = chunk.choices[0].delta.reasoning_content
-                            if rc:
+                        # Reasoning deltas are always emitted as StreamEvents
+                        # (is_reasoning=True, as on the LiteLLM path); the live
+                        # display shows them only with reasoning_steps.
+                        rc = _delta_reasoning(chunk)
+                        if rc:
+                            if _emit:
+                                await emit_event(StreamEvent(
+                                    type=StreamEventType.DELTA_TEXT,
+                                    timestamp=time.perf_counter(),
+                                    content=rc,
+                                    is_reasoning=True
+                                ))
+                            if reasoning_steps:
                                 reasoning_content += rc
-                                live.update(display_fn(f"{full_response_text}\n[Reasoning: {reasoning_content}]", start_time))
-                                # Emit reasoning content as StreamEvent with is_reasoning=True
-                                if _emit:
-                                    stream_callback(StreamEvent(
-                                        type=StreamEventType.DELTA_TEXT,
-                                        timestamp=time.perf_counter(),
-                                        content=rc,
-                                        is_reasoning=True
-                                    ))
+                                _live_update(live, display_fn, f"{full_response_text}\n[Reasoning: {reasoning_content}]", start_time)
                 
                 # Clear the last generating display with a blank line
                 console.print()
@@ -1728,6 +1820,15 @@ class OpenAIClient:
                 # Just collect chunks without display
                 async for chunk in response_stream:
                     chunks.append(chunk)
+
+                    rc = _delta_reasoning(chunk) if _emit else None
+                    if rc:
+                        await emit_event(StreamEvent(
+                            type=StreamEventType.DELTA_TEXT,
+                            timestamp=time.perf_counter(),
+                            content=rc,
+                            is_reasoning=True
+                        ))
                     
                     if _emit and chunk.choices and chunk.choices[0].delta.content:
                         content = chunk.choices[0].delta.content
@@ -1778,7 +1879,8 @@ class OpenAIClient:
             
         except Exception as e:
             status = raw.get("status") if isinstance(raw, dict) else getattr(raw, "status", None)
-            if status == "failed":
+            from .error_classifier import _is_fatal_model_error
+            if status == "failed" or _is_fatal_model_error(e):
                 raise
             self.logger.error(f"Error in async stream processing: {e}")
             return None
@@ -1805,28 +1907,10 @@ class OpenAIClient:
                 return
 
             def _val(*names: str) -> int:
-                for name in names:
-                    value = usage.get(name) if isinstance(usage, dict) else getattr(usage, name, None)
-                    if value is not None:
-                        return int(value or 0)
-                return 0
+                return usage_value(usage, *names)
 
             def _detail(detail_names: tuple, name: str) -> int:
-                for detail_name in detail_names:
-                    details = (
-                        usage.get(detail_name)
-                        if isinstance(usage, dict)
-                        else getattr(usage, detail_name, None)
-                    )
-                    if details:
-                        value = (
-                            details.get(name)
-                            if isinstance(details, dict)
-                            else getattr(details, name, None)
-                        )
-                        if value is not None:
-                            return int(value or 0)
-                return 0
+                return usage_detail(usage, detail_names, name)
 
             metrics = TokenMetrics(
                 input_tokens=_val("prompt_tokens", "input_tokens"),
@@ -2011,361 +2095,26 @@ class OpenAIClient:
         agent_name: Optional[str] = None,
         **kwargs
     ) -> Optional[ChatCompletion]:
+        """Create a chat completion with tool support.
+
+        Runs :meth:`achat_completion_with_tools` (one implementation of the tool
+        loop, G-16) and waits for it, so the sync and async entry points behave
+        the same. Sync ``execute_tool_fn`` and ``stream_callback`` are fine: the
+        async loop runs sync tools in a worker thread with the caller's context.
+        Arguments and return value are unchanged.
         """
-        Create a chat completion with tool support and streaming.
-        
-        This method handles the full tool execution loop, including:
-        - Formatting tools for OpenAI API
-        - Making the initial API call
-        - Executing tool calls if present
-        - Getting final response after tool execution
-        
-        Args:
-            messages: List of message dictionaries
-            model: Model to use
-            temperature: Temperature for generation
-            tools: List of tools (can be callables, dicts, or strings)
-            execute_tool_fn: Function to execute tools
-            stream: Whether to stream responses
-            console: Console for output
-            display_fn: Display function for streaming
-            reasoning_steps: Whether to show reasoning
-            verbose: Whether to show verbose output
-            max_iterations: Maximum tool calling iterations
-            stream_callback: Optional callback for StreamEvent emission
-            emit_events: Whether to emit StreamEvents (requires stream_callback)
-            **kwargs: Additional API parameters
-            
-        Returns:
-            Final ChatCompletion response or None if error
-        """
-        start_time = time.time()
+        from ..utils.async_bridge import run_coroutine_on_thread_loop
 
-        # G2: Cooperative cancellation + mid-run steering, mirroring the LiteLLM
-        # path so /stop and live steering work on the OpenAI-native loop too.
-        cancel_token = kwargs.pop("cancel_token", None)
-        steering_drain = kwargs.pop("steering_drain", None)
-        # Bounded auto-continuation on output-token truncation (True/False/int cap).
-        output_continuation = kwargs.pop("output_continuation", True)
-        # Durable sink for deferred tool re-injection: the caller's persistent
-        # conversation history (e.g. the agent's ``chat_history``). Background
-        # jobs usually complete after this loop returns, so late results must
-        # land in a list a subsequent turn replays — not the per-call copy below.
-        deferred_history_sink = kwargs.pop("deferred_history_sink", None)
-
-        def _is_cancelled() -> bool:
-            return cancel_token is not None and getattr(cancel_token, "is_set", lambda: False)()
-
-        def _inject_steering(msgs) -> None:
-            if steering_drain is None:
-                return
-            try:
-                for note in (steering_drain() or []):
-                    if note:
-                        msgs.append({"role": "user", "content": f"[steering] {note}"})
-            except Exception:
-                pass
-
-        # Work on a local copy so the tool-loop mutations (assistant/tool
-        # turns and the graceful wrap-up control message) never leak back into
-        # the caller's conversation history and pollute subsequent turns.
-        messages = list(messages)
-        
-        # Format tools for OpenAI API
-        formatted_tools = self.format_tools(tools)
-        
-        # Continue tool execution loop until no more tool calls are needed
-        iteration_count = 0
-        # Structured stop reason so callers can distinguish completion from
-        # truncation (unified with the LiteLLM path). "completed" by default.
-        self._last_stop_reason = "completed"
-        _wrapup_injected = False
-        from ._continuation import OutputContinuation, is_structured
-        # Schema-enforced output cannot be continued as a text suffix.
-        _continuation = OutputContinuation(False if is_structured(kwargs.get("response_format")) else output_continuation)
-        # Ensure a defined return value even if cancellation breaks the loop
-        # before any model call is made.
-        final_response = None
-        
-        while iteration_count < max_iterations:
-            # G2: Check for cancellation at the top of each tool iteration.
-            if _is_cancelled():
-                self._last_stop_reason = "cancelled"
-                if _continuation.text and final_response is not None:
-                    # Return every truncated piece gathered so far, not just the last.
-                    final_response.choices[0].message.content = _continuation.text
-                break
-            # G2: Mid-run steering - inject pending steering notes before next call.
-            _inject_steering(messages)
-            # Trigger LLM callback for status/trace output
-            from ..main import execute_sync_callback
-            execute_sync_callback('llm_start', model=model, agent_name=None)
-
-            # Graceful wrap-up: on the final permitted step, ask the model to
-            # produce a coherent final answer instead of being hard-cut.
-            if not _wrapup_injected and max_iterations > 1 and iteration_count == max_iterations - 1:
-                messages.append({
-                    "role": "user",
-                    "content": _MAX_STEPS_WRAPUP_PROMPT,
-                })
-                _wrapup_injected = True
-            
-            if stream:
-                # Process as streaming response with formatted tools
-                final_response = self.process_stream_response(
-                    messages=messages,
-                    model=model,
-                    temperature=temperature,
-                    tools=formatted_tools,
-                    start_time=start_time,
-                    console=console,
-                    display_fn=display_fn,
-                    reasoning_steps=reasoning_steps,
-                    stream_callback=stream_callback,
-                    emit_events=emit_events,
-                    **kwargs
-                )
-            else:
-                # Process as regular non-streaming response
-                if display_fn and console:
-                    # When verbose (display_fn provided), use streaming for better UX
-                    try:
-                        request_start_perf = time.perf_counter()
-                        ttft_logged = False
-                        Live = _get_rich_live()
-                        with Live(display_fn("", start_time), console=console, refresh_per_second=10, transient=True) as live:
-                            # Use streaming when display_fn is provided for progressive display
-                            response_stream = self.create_completion(
-                                messages=messages,
-                                model=model,
-                                temperature=temperature,
-                                tools=formatted_tools,
-                                stream=True,  # Always stream when verbose/display_fn
-                                **kwargs
-                            )
-                            
-                            full_response_text = ""
-                            chunks = []
-                            
-                            # Process streaming response
-                            for chunk in response_stream:
-                                chunks.append(chunk)
-                                if chunk.choices[0].delta.content:
-                                    # Log TTFT on first token
-                                    if not ttft_logged:
-                                        ttft_ms = (time.perf_counter() - request_start_perf) * 1000
-                                        logging.debug(f"TTFT (Time To First Token): {ttft_ms:.0f}ms")
-                                        ttft_logged = True
-                                    full_response_text += chunk.choices[0].delta.content
-                                    live.update(display_fn(full_response_text, start_time))
-                            
-                            # Process final response from chunks
-                            final_response = process_stream_chunks(chunks)
-                        
-                        # Clear the last generating display with a blank line
-                        console.print()
-                    except Exception as e:
-                        self.logger.error(f"Error in Live display for non-streaming: {e}")
-                        # Fallback to regular completion without display
-                        final_response = self.create_completion(
-                            messages=messages,
-                            model=model,
-                            temperature=temperature,
-                            tools=formatted_tools,
-                            stream=False,
-                            **kwargs
-                        )
-                else:
-                    final_response = self.create_completion(
-                        messages=messages,
-                        model=model,
-                        temperature=temperature,
-                        tools=formatted_tools,
-                        stream=False,
-                        **kwargs
-                    )
-            
-            if not final_response:
-                return None
-
-            # Record usage for THIS billed completion. Every tool-loop iteration
-            # is a separate paid call, so accounting must happen per iteration —
-            # not once after the loop — or intermediate completions are dropped
-            # from session totals and by_model/by_agent rollups (Issue #3933).
-            self._track_token_usage(final_response, model, agent_name)
-
-            # Trigger llm_end callback with metrics for debug output
-            llm_end_time = time.perf_counter()
-            llm_latency_ms = (llm_end_time - start_time) * 1000
-            
-            # Extract usage info if available
-            usage = getattr(final_response, 'usage', None)
-            tokens_in = getattr(usage, 'prompt_tokens', 0) if usage else 0
-            tokens_out = getattr(usage, 'completion_tokens', 0) if usage else 0
-            
-            # Calculate cost using centralized module (lazy litellm import)
-            cost = None
-            try:
-                from ._cost import calculate_cost
-                cost = calculate_cost(final_response, model=model)
-            except Exception as e:
-                # Cost calculation is optional - log for debugging
-                get_logger(__name__).debug(f"Cost calculation failed: {e}")
-            
-            execute_sync_callback(
-                'llm_end',
-                model=model,
-                tokens_in=tokens_in,
-                tokens_out=tokens_out,
-                cost=cost,
-                latency_ms=llm_latency_ms
-            )
-            
-            # Check for tool calls
-            if not final_response.choices or final_response.choices[0].message is None:
-                raise ValueError("LLM returned empty or filtered response")
-            tool_calls = getattr(final_response.choices[0].message, 'tool_calls', None)
-
-            # Emit llm_content for intermediate narrative display
-            # (gpt-4.1+ models produce text alongside tool calls)
-            response_content = getattr(final_response.choices[0].message, 'content', None)
-            if response_content and response_content.strip() and tool_calls:
-                try:
-                    execute_sync_callback(
-                        'llm_content',
-                        content=response_content.strip(),
-                        agent_name=None,
-                    )
-                except Exception as e:
-                    # Narrative display is optional - log for debugging
-                    get_logger(__name__).debug(f"Narrative display failed: {e}")
-            
-            if tool_calls and execute_tool_fn:
-                # G2: Second cancel check before dispatching tools so a /stop
-                # mid-iteration skips running them.
-                if _is_cancelled():
-                    self._last_stop_reason = "cancelled"
-                    break
-                # Convert ToolCall dataclass objects to dict for JSON serialization
-                serializable_tool_calls = []
-                for tc in tool_calls:
-                    if isinstance(tc, ToolCall):
-                        # Convert dataclass to dict
-                        serializable_tool_calls.append({
-                            "id": tc.id,
-                            "type": tc.type,
-                            "function": tc.function
-                        })
-                    else:
-                        # Already an OpenAI object, keep as is
-                        serializable_tool_calls.append(tc)
-                
-                messages.append({
-                    "role": "assistant", 
-                    "content": final_response.choices[0].message.content,
-                    "tool_calls": serializable_tool_calls
-                })
-                
-                # Collect media-bearing follow-ups to flush after all tool
-                # replies for this turn (keeps tool replies consecutive).
-                _deferred_media_followups = []
-                for tool_call in tool_calls:
-                    # Handle both ToolCall dataclass and OpenAI object.
-                    # Guard the parse itself so malformed/truncated argument
-                    # JSON is reported back to the model instead of aborting
-                    # the whole run (matches chat_completion_with_tools_stream).
-                    function_name, arguments, _tool_call_id, err = _extract_tool_call_name_and_args(tool_call)
-                    if err is not None:
-                        logging.warning(f"Failed to parse tool call arguments: {err}")
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": _tool_call_id,
-                            "content": json.dumps({"error": f"Invalid arguments JSON: {err}"}),
-                        })
-                        continue
-                    
-                    # Always trigger callback for tool call tracking (even when verbose=False)
-                    display_tool_call_fn = _get_display_tool_call()
-                    
-                    # Execute the tool (pass tool_call_id for event correlation).
-                    # Capture failures and report them back to the model instead of
-                    # aborting the whole run (safe-by-default, matching the streaming
-                    # path chat_completion_with_tools_stream).
-                    try:
-                        tool_result = execute_tool_fn(
-                            function_name,
-                            arguments,
-                            tool_call_id=_tool_call_id,
-                            **_durable_iteration_kwargs(
-                                execute_tool_fn, iteration_count
-                            ),
-                        )
-                    except ToolExecutionError:
-                        raise
-                    except Exception as tool_error:
-                        logging.warning(f"Tool '{function_name}' failed: {tool_error}")
-                        tool_result = {"error": str(tool_error)}
-                    # Parity with the LiteLLM loop: register a deferred handle so
-                    # its eventual background value is re-injected, not lost.
-                    tool_result = _handle_native_deferred_result(
-                        tool_result, messages, _tool_call_id, function_name,
-                        history_sink=deferred_history_sink,
-                    )
-                    try:
-                        results_str = json.dumps(tool_result) if tool_result is not None else "Function returned an empty output"
-                    except (TypeError, ValueError):
-                        tool_result = {"result": str(tool_result)}
-                        results_str = json.dumps(tool_result)
-                    
-                    # Trigger callback with structured parameters for status output
-                    display_tool_call_fn(
-                        f"Calling function: {function_name}",
-                        console=console if verbose else None,
-                        tool_name=function_name,
-                        tool_input=arguments,
-                        tool_output=results_str[:200] if results_str else None
-                    )
-                    
-                    _tc_id = tool_call.id if hasattr(tool_call, 'id') else tool_call['id']
-                    if not _try_append_multimodal_tool_result(
-                        messages, tool_result, _tc_id,
-                        function_name=function_name,
-                        deferred_followups=_deferred_media_followups,
-                    ):
-                        messages.append({
-                            "role": "tool",
-                            "tool_call_id": _tc_id,
-                            "content": results_str
-                        })
-
-                if _deferred_media_followups:
-                    messages.extend(_deferred_media_followups)
-                
-                # Continue the loop to allow more tool calls
-                # The model will see tool results and can make additional tool calls
-                
-                iteration_count += 1
-                # If we've exhausted the budget while the model still wants tools,
-                # the task was truncated rather than completed.
-                if iteration_count >= max_iterations:
-                    self._last_stop_reason = "max_steps"
-            else:
-                # No tool calls, we're done -- unless the output-token limit cut
-                # the answer off, in which case ask the model to continue (bounded).
-                from ..agent.run_outcome import classify_finish_reason
-                _choice = final_response.choices[0]
-                _truncated = classify_finish_reason(getattr(_choice, "finish_reason", None)) == "length_truncated"
-                if _continuation.take(messages, _choice.message.content, _truncated):
-                    continue
-                if _continuation.text:
-                    _choice.message.content = _continuation.stitch(_choice.message.content)
-                if _truncated and _choice.message.content and self._last_stop_reason == "completed":
-                    self._last_stop_reason = "length_truncated"
-                break
-
-        # Usage is recorded per iteration inside the loop above so every billed
-        # completion (including intermediate tool-call rounds) is accounted for.
-        return final_response
+        return run_coroutine_on_thread_loop(
+            self.achat_completion_with_tools(
+                messages, model=model, temperature=temperature, tools=tools,
+                execute_tool_fn=execute_tool_fn, stream=stream, console=console,
+                display_fn=display_fn, reasoning_steps=reasoning_steps, verbose=verbose,
+                max_iterations=max_iterations, stream_callback=stream_callback,
+                emit_events=emit_events, agent_name=agent_name, **kwargs,
+            ),
+            timeout=None,  # the sync loop never had a deadline
+        )
     
     async def achat_completion_with_tools(
         self,
@@ -2417,19 +2166,18 @@ class OpenAIClient:
         output_continuation = kwargs.pop("output_continuation", True)
         # Durable sink for deferred tool re-injection (see sync counterpart).
         deferred_history_sink = kwargs.pop("deferred_history_sink", None)
+        # Opt-in concurrent execution of a batch of tool calls
+        # (ExecutionConfig.parallel_tool_calls); a loop setting, not an API param.
+        parallel_tool_calls = bool(kwargs.pop("parallel_tool_calls", False))
+        # Agent hook: report each billed call except the final one (F-07).
+        usage_callback = kwargs.pop("usage_callback", None)
+        _unreported_usage = None
 
         def _is_cancelled() -> bool:
             return cancel_token is not None and getattr(cancel_token, "is_set", lambda: False)()
 
         def _inject_steering(msgs) -> None:
-            if steering_drain is None:
-                return
-            try:
-                for note in (steering_drain() or []):
-                    if note:
-                        msgs.append({"role": "user", "content": f"[steering] {note}"})
-            except Exception:
-                pass
+            inject_steering(msgs, steering_drain)
 
         # Work on a local copy so the tool-loop mutations (assistant/tool
         # turns and the graceful wrap-up control message) never leak back into
@@ -2518,7 +2266,7 @@ class OpenAIClient:
                                 chunks.append(chunk)
                                 if chunk.choices[0].delta.content:
                                     full_response_text += chunk.choices[0].delta.content
-                                    live.update(display_fn(full_response_text, start_time))
+                                    _live_update(live, display_fn, full_response_text, start_time)
                             
                             # Process final response from chunks
                             final_response = process_stream_chunks(chunks)
@@ -2558,6 +2306,9 @@ class OpenAIClient:
                     cost=None,
                     latency_ms=(time.time() - iteration_start_time) * 1000
                 )
+                # The agent records nothing on None; report the earlier billed call.
+                if usage_callback is not None and _unreported_usage is not None:
+                    usage_callback(_unreported_usage)
                 return None
 
             # Record usage for THIS billed completion. Every tool-loop iteration
@@ -2565,6 +2316,10 @@ class OpenAIClient:
             # not once after the loop — or intermediate completions are dropped
             # from session totals and by_model/by_agent rollups (Issue #3933).
             self._track_token_usage(final_response, model, agent_name)
+            if usage_callback is not None:
+                if _unreported_usage is not None:
+                    usage_callback(_unreported_usage)
+                _unreported_usage = final_response
 
             # Trigger llm_end callback with cost/latency metrics — mirrors the
             # sync tool-loop so async agents also emit LLM spans and cost figures
@@ -2638,14 +2393,62 @@ class OpenAIClient:
                 # Collect media-bearing follow-ups to flush after all tool
                 # replies for this turn (keeps tool replies consecutive).
                 _deferred_media_followups = []
-                for tool_call in tool_calls:
-                    # Handle both ToolCall dataclass and OpenAI object.
-                    # Guard the parse itself so malformed/truncated argument
-                    # JSON is reported back to the model instead of aborting
-                    # the whole run (matches chat_completion_with_tools_stream).
-                    function_name, arguments, _tool_call_id, err = _extract_tool_call_name_and_args(tool_call)
+                # Handle both ToolCall dataclass and OpenAI object.
+                # Guard the parse itself so malformed/truncated argument
+                # JSON is reported back to the model instead of aborting
+                # the whole run (matches chat_completion_with_tools_stream).
+                _parsed = [(tc, *_extract_tool_call_name_and_args(tc)) for tc in tool_calls]
+                _specs = [(n, a, t) for _, n, a, t, e in _parsed if e is None]
+
+                async def _arun_tool(name, args, tcid, _iteration=iteration_count):
+                    # Always trigger callback for tool call tracking (even when verbose=False)
+                    _get_display_tool_call()(f"Calling function: {name}", console=console if verbose else None)
+                    if verbose and console:
+                        console.print(f"[dim]Arguments:[/dim] {args}")
+                    # Execute the tool (async) - pass tool_call_id for event correlation.
+                    # Capture failures and report them back to the model instead of
+                    # aborting the whole run (safe-by-default, matching the streaming
+                    # path chat_completion_with_tools_stream).
+                    _kw = _durable_iteration_kwargs(execute_tool_fn, _iteration)
+                    try:
+                        if asyncio.iscoroutinefunction(execute_tool_fn):
+                            return await execute_tool_fn(name, args, tool_call_id=tcid, **_kw)
+                        # Run sync function in executor (preserve ContextVars e.g. SessionContext)
+                        from ..trace.context_events import copy_context_to_callable
+                        return await asyncio.get_running_loop().run_in_executor(
+                            None,
+                            copy_context_to_callable(
+                                lambda: execute_tool_fn(name, args, tool_call_id=tcid, **_kw)
+                            ),
+                        )
+                    except ToolExecutionError:
+                        raise
+                    except Exception as tool_error:
+                        logger.warning(f"Tool '{name}' failed: {tool_error}")
+                        return {"error": str(tool_error)}
+
+                if _native_batch_parallel_ok(parallel_tool_calls, _specs):
+                    _sem = asyncio.Semaphore(_NATIVE_PARALLEL_TOOL_WORKERS)
+
+                    async def _bounded(spec):
+                        # Hold ToolExecutionError so every sibling finishes and
+                        # its (deferred) result is registered before re-raising.
+                        async with _sem:
+                            try:
+                                return await _arun_tool(*spec)
+                            except ToolExecutionError as exc:
+                                return exc
+
+                    _results = iter(await asyncio.gather(*(_bounded(s) for s in _specs)))
+                else:
+                    # Sequential: run each call in the loop below so it registers
+                    # any deferred result before the next one starts.
+                    _results = None
+                _batch_error = None
+
+                for tool_call, function_name, arguments, _tool_call_id, err in _parsed:
                     if err is not None:
-                        logging.warning(f"Failed to parse tool call arguments: {err}")
+                        logger.warning(f"Failed to parse tool call arguments: {err}")
                         messages.append({
                             "role": "tool",
                             "tool_call_id": _tool_call_id,
@@ -2655,47 +2458,13 @@ class OpenAIClient:
                     
                     # Always trigger callback for tool call tracking (even when verbose=False)
                     display_tool_call_fn = _get_display_tool_call()
-                    display_tool_call_fn(f"Calling function: {function_name}", console=console if verbose else None)
-                    
-                    if verbose and console:
-                        console.print(f"[dim]Arguments:[/dim] {arguments}")
-                    
-                    # Execute the tool (async) - pass tool_call_id for event correlation.
-                    # Capture failures and report them back to the model instead of
-                    # aborting the whole run (safe-by-default, matching the streaming
-                    # path chat_completion_with_tools_stream).
-                    try:
-                        if asyncio.iscoroutinefunction(execute_tool_fn):
-                            tool_result = await execute_tool_fn(
-                                function_name,
-                                arguments,
-                                tool_call_id=_tool_call_id,
-                                **_durable_iteration_kwargs(
-                                    execute_tool_fn, iteration_count
-                                ),
-                            )
-                        else:
-                            # Run sync function in executor (preserve ContextVars e.g. SessionContext)
-                            loop = asyncio.get_running_loop()
-                            from ..trace.context_events import copy_context_to_callable
-                            tool_result = await loop.run_in_executor(
-                                None,
-                                copy_context_to_callable(
-                                    lambda fn=function_name, args=arguments, tcid=_tool_call_id: execute_tool_fn(
-                                        fn,
-                                        args,
-                                        tool_call_id=tcid,
-                                        **_durable_iteration_kwargs(
-                                            execute_tool_fn, iteration_count
-                                        ),
-                                    )
-                                ),
-                            )
-                    except ToolExecutionError:
-                        raise
-                    except Exception as tool_error:
-                        logging.warning(f"Tool '{function_name}' failed: {tool_error}")
-                        tool_result = {"error": str(tool_error)}
+                    tool_result = (
+                        next(_results) if _results is not None
+                        else await _arun_tool(function_name, arguments, _tool_call_id)
+                    )
+                    if isinstance(tool_result, ToolExecutionError):
+                        _batch_error = _batch_error or tool_result
+                        continue
 
                     # Parity with the LiteLLM loop: register a deferred handle so
                     # its eventual background value is re-injected, not lost.
@@ -2724,6 +2493,8 @@ class OpenAIClient:
                             "content": results_str
                         })
 
+                if _batch_error is not None:
+                    raise _batch_error
                 if _deferred_media_followups:
                     messages.extend(_deferred_media_followups)
                 
@@ -3090,9 +2861,7 @@ def get_openai_client(api_key: Optional[str] = None, base_url: Optional[str] = N
     # Normalize parameters for comparison, mirroring OpenAIClient.__init__ so that
     # an explicit argument matching the env-var fallback reuses the cached client.
     normalized_api_key = api_key or os.environ.get("OPENAI_API_KEY")
-    normalized_base_url = (
-        base_url or os.environ.get("OPENAI_API_BASE") or os.environ.get("OPENAI_BASE_URL")
-    )
+    normalized_base_url = base_url or _env_base_url()
     normalized_max_retries = max_retries
     if normalized_max_retries is None:
         _env_retries = os.environ.get("OPENAI_MAX_RETRIES")

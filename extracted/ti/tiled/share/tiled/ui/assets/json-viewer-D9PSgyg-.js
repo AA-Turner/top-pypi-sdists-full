@@ -1,0 +1,1 @@
+import{n as e,t}from"./jsx-runtime-Wy9s6hX0.js";import{a as n,n as r}from"./index-NQ8Fd2Cq.js";import{t as i}from"./default-highlight-SIOYO681.js";e();var a=t(),o=e=>e.json===void 0?(0,a.jsx)(r,{variant:`rectangular`}):(0,a.jsx)(n,{children:(0,a.jsx)(i,{language:`json`,children:JSON.stringify(e.json,null,2)})});export{o as default};

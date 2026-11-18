@@ -4,22 +4,24 @@ from __future__ import annotations
 
 import ntpath
 import os
+import string
 import sys
 from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
 
-from ._xdg import _expand_user
+from ._xdg import expand_user
 from .api import PlatformDirsABC
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from typing import Final
 
 # Not exposed by CPython; defined in the Windows SDK (shlobj_core.h)
 _KF_FLAG_DONT_VERIFY: Final[int] = 0x00004000
 
 
-class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
+class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]  # full directory API
     """`MSDN on where to store app data files <https://learn.microsoft.com/en-us/windows/win32/shell/knownfolderid>`_.
 
     Makes use of the `appname <platformdirs.api.PlatformDirsABC.appname>`, `appauthor
@@ -30,59 +32,49 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     """
 
     @property
-    def user_data_dir(self) -> str:
-        r"""Data directory tied to the user, e.g. ``%USERPROFILE%\AppData\Local\$appauthor\$appname`` (not roaming) or ``%USERPROFILE%\AppData\Roaming\$appauthor\$appname`` (roaming)."""
-        const = "CSIDL_APPDATA" if self.roaming else "CSIDL_LOCAL_APPDATA"
-        path = os.path.normpath(get_win_folder(const))
-        return self._append_parts(path)
-
-    def _append_parts(self, path: str, *, opinion_value: str | None = None) -> str:
-        params = []
-        if self.appname:
-            if self.appauthor is not False:
-                author = self.appauthor or self.appname
-                params.append(author)
-            params.append(self.appname)
-            if opinion_value is not None and self.opinion:
-                params.append(opinion_value)
-            if self.version:
-                params.append(self.version)
-        path = os.path.join(path, *params)  # ruff:ignore[os-path-join]
-        self._optionally_create_directory(path, private=False)
-        return path
-
-    @property
-    def site_data_dir(self) -> str:
-        r"""Data directory shared by users, e.g. ``C:\ProgramData\$appauthor\$appname``."""
-        path = os.path.normpath(get_win_folder("CSIDL_COMMON_APPDATA"))
-        return self._append_parts(path)
-
-    @property
-    def user_config_dir(self) -> str:
-        """Config directory tied to the user, same as `user_data_dir`."""
-        return self.user_data_dir
-
-    @property
     def site_config_dir(self) -> str:
         """Config directory shared by users, same as `site_data_dir`."""
         return self.site_data_dir
 
     @property
+    def site_data_dir(self) -> str:
+        r"""Data directory shared by users, e.g. ``C:\ProgramData\$appauthor\$appname``."""
+        return self._append_parts(os.path.normpath(get_win_folder("CSIDL_COMMON_APPDATA")))
+
+    def _append_parts(self, path: str, *, opinion_value: str | None = None) -> str:
+        params = []
+        if self.appname:
+            if self.appauthor is not False:
+                params.append(self.appauthor or self.appname)
+            params.append(self.appname)
+            if opinion_value is not None and self.opinion:
+                params.append(opinion_value)
+            if self.version:
+                params.append(self.version)
+        path = os.path.join(path, *params)  # ruff:ignore[os-path-join]  # preserve path separators
+        self._optionally_create_directory(path, private=False)
+        return path
+
+    @property
     def user_cache_dir(self) -> str:
         r"""Cache directory tied to the user (if opinionated with ``Cache`` folder within ``$appname``) e.g. ``%USERPROFILE%\AppData\Local\$appauthor\$appname\Cache\$version``."""
-        path = os.path.normpath(get_win_folder("CSIDL_LOCAL_APPDATA"))
-        return self._append_parts(path, opinion_value="Cache")
+        return self._append_parts(os.path.normpath(get_win_folder("CSIDL_LOCAL_APPDATA")), opinion_value="Cache")
 
     @property
     def site_cache_dir(self) -> str:
         r"""Cache directory shared by users, e.g. ``C:\ProgramData\$appauthor\$appname\Cache\$version``."""
-        path = os.path.normpath(get_win_folder("CSIDL_COMMON_APPDATA"))
-        return self._append_parts(path, opinion_value="Cache")
+        return self._append_parts(os.path.normpath(get_win_folder("CSIDL_COMMON_APPDATA")), opinion_value="Cache")
 
     @property
     def user_state_dir(self) -> str:
         """State directory tied to the user, same as `user_data_dir`."""
         return self.user_data_dir
+
+    @property
+    def user_data_dir(self) -> str:
+        r"""Data directory tied to the user, e.g. ``%USERPROFILE%\AppData\Local\$appauthor\$appname`` (not roaming) or ``%USERPROFILE%\AppData\Roaming\$appauthor\$appname`` (roaming)."""
+        path = os.path.normpath(get_win_folder("CSIDL_APPDATA" if self.roaming else "CSIDL_LOCAL_APPDATA"))
+        return self._append_parts(path)
 
     @property
     def site_state_dir(self) -> str:
@@ -94,7 +86,7 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         """Log directory tied to the user, same as `user_data_dir` if not opinionated else ``Logs`` in it."""
         path = self.user_data_dir
         if self.opinion:
-            path = os.path.join(path, "Logs")  # ruff:ignore[os-path-join]
+            path = os.path.join(path, "Logs")  # ruff:ignore[os-path-join]  # preserve path separators
             self._optionally_create_directory(path, private=False)
         return path
 
@@ -103,7 +95,7 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         """Log directory shared by users, same as `site_data_dir` if not opinionated else ``Logs`` in it."""
         path = self.site_data_dir
         if self.opinion:
-            path = os.path.join(path, "Logs")  # ruff:ignore[os-path-join]
+            path = os.path.join(path, "Logs")  # ruff:ignore[os-path-join]  # preserve path separators
             self._optionally_create_directory(path, private=False)
         return path
 
@@ -140,7 +132,7 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_projects_dir(self) -> str:
         r"""Projects directory tied to the user, e.g. ``%USERPROFILE%\Projects``."""
-        return os.path.normpath(_expand_user("~/Projects"))
+        return os.path.normpath(expand_user("~/Projects"))
 
     @property
     def user_publicshare_dir(self) -> str:
@@ -163,6 +155,11 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         return self.user_config_dir
 
     @property
+    def user_config_dir(self) -> str:
+        """Config directory tied to the user, same as `user_data_dir`."""
+        return self.user_data_dir
+
+    @property
     def user_bin_dir(self) -> str:
         r"""Bin directory tied to the user, e.g. ``%LOCALAPPDATA%\Programs``."""
         return os.path.normpath(get_win_folder("CSIDL_USER_PROGRAM_FILES"))
@@ -170,6 +167,7 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def site_bin_dir(self) -> str:
         r"""Bin directory shared by users, e.g. ``C:\ProgramData\bin``."""
+        # preserve path separators
         return os.path.normpath(os.path.join(get_win_folder("CSIDL_COMMON_APPDATA"), "bin"))  # ruff:ignore[os-path-join]
 
     @property
@@ -183,19 +181,54 @@ class Windows(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         return os.path.normpath(get_win_folder("CSIDL_COMMON_PROGRAMS"))
 
     @property
-    def user_runtime_dir(self) -> str:
-        r"""Runtime directory tied to the user, e.g. ``%USERPROFILE%\AppData\Local\Temp\$appauthor\$appname``."""
-        path = os.path.normpath(os.path.join(get_win_folder("CSIDL_LOCAL_APPDATA"), "Temp"))  # ruff:ignore[os-path-join]
-        return self._append_parts(path)
-
-    @property
     def site_runtime_dir(self) -> str:
         """Runtime directory shared by users, same as `user_runtime_dir`."""
         return self.user_runtime_dir
 
+    @property
+    def user_runtime_dir(self) -> str:
+        r"""Runtime directory tied to the user, e.g. ``%USERPROFILE%\AppData\Local\Temp\$appauthor\$appname``."""
+        # preserve path separators
+        path = os.path.normpath(os.path.join(get_win_folder("CSIDL_LOCAL_APPDATA"), "Temp"))  # ruff:ignore[os-path-join]
+        return self._append_parts(path)
+
+
+def get_win_folder(csidl_name: str) -> str:
+    """Return the folder for a ``CSIDL_*`` name, preferring the ``WIN_PD_OVERRIDE_<name>`` environment variable.
+
+    :param csidl_name: the ``CSIDL_*`` name, such as ``CSIDL_APPDATA``.
+
+    :returns: the folder path.
+
+    """  # simplint: ignore[function-docstring]  # retain existing docstring
+    env_var = f"WIN_PD_OVERRIDE_{csidl_name.removeprefix('CSIDL_')}"
+    if _is_fully_qualified(override := os.environ.get(env_var, "").lstrip().rstrip(string.whitespace)):
+        return override
+    return _RESOLVE_WIN_FOLDER(csidl_name)
+
+
+def _is_fully_qualified(path: str) -> bool:
+    # ntpath.isabs changed for rooted paths without a drive in 3.13 and for a bare UNC share in 3.11
+    drive, tail = ntpath.splitdrive(path.replace("/", "\\"))
+    # An extended or device drive needs a root too; its prefix is not a UNC server.
+    if drive[:4] in {"\\\\?\\", "\\\\.\\"} and drive[5:6] == ":":
+        return tail.startswith("\\")
+    if not drive.startswith("\\"):
+        return bool(drive) and tail.startswith("\\")
+    # splitdrive also returns a UNC volume missing its server or share, which would make the app name the share
+    server, _, share = (drive[8:] if drive[:8].upper() == "\\\\?\\UNC\\" else drive[2:]).partition("\\")
+    return bool(server and share)
+
 
 def get_win_folder_from_env_vars(csidl_name: str) -> str:
-    """Get folder from environment variables."""
+    """Return the folder named by its environment variable, such as ``APPDATA`` for ``CSIDL_APPDATA``.
+
+    :param csidl_name: the ``CSIDL_*`` name, such as ``CSIDL_APPDATA``.
+
+    :returns: the folder path.
+    :raises ValueError: when the name has no environment variable or the variable is unset.
+
+    """  # simplint: ignore[function-docstring]  # retain existing docstring
     result = get_win_folder_if_csidl_name_not_env_var(csidl_name)
     if result is not None:
         return result
@@ -215,16 +248,37 @@ def get_win_folder_from_env_vars(csidl_name: str) -> str:
 
 
 def get_win_folder_if_csidl_name_not_env_var(csidl_name: str) -> str | None:
-    """Get a folder for a CSIDL name that does not exist as an environment variable."""
-    if (env_var_and_parts := _ENV_VAR_SUBFOLDERS.get(csidl_name)) is not None:
+    """Return the folder for a name the shell resolves itself, or ``None`` for every other name.
+
+    :param csidl_name: the ``CSIDL_*`` name, such as ``CSIDL_PERSONAL``.
+
+    :returns: the folder path, or ``None``.
+    :raises KeyError: when the environment variable the folder is based on is unset.
+
+    """  # simplint: ignore[function-docstring]  # retain existing docstring
+    if (
+        env_var_and_parts := {
+            "CSIDL_PERSONAL": ("USERPROFILE", "Documents"),
+            "CSIDL_DOWNLOADS": ("USERPROFILE", "Downloads"),
+            "CSIDL_MYPICTURES": ("USERPROFILE", "Pictures"),
+            "CSIDL_MYVIDEO": ("USERPROFILE", "Videos"),
+            "CSIDL_MYMUSIC": ("USERPROFILE", "Music"),
+            "CSIDL_DESKTOPDIRECTORY": ("USERPROFILE", "Desktop"),
+            "CSIDL_PROGRAMS": ("APPDATA", "Microsoft", "Windows", "Start Menu", "Programs"),
+            "CSIDL_TEMPLATES": ("APPDATA", "Microsoft", "Windows", "Templates"),
+            "CSIDL_USER_PROGRAM_FILES": ("LOCALAPPDATA", "Programs"),
+        }.get(csidl_name)
+    ) is not None:
         env_var, *parts = env_var_and_parts
-        return os.path.join(os.path.normpath(_non_empty_env(env_var)), *parts)  # ruff:ignore[os-path-join]
+        if not (value := os.environ.get(env_var)):
+            raise KeyError(env_var)  # same error os.environ[env_var] gives for an unset variable
+        return os.path.join(os.path.normpath(value), *parts)  # ruff:ignore[os-path-join]  # preserve path separators
 
     if csidl_name == "CSIDL_PUBLIC":
         return os.environ.get("PUBLIC") or str(Path("~").expanduser().parent / "Public")
 
     if csidl_name == "CSIDL_COMMON_PROGRAMS":
-        return os.path.join(  # ruff:ignore[os-path-join]
+        return os.path.join(  # ruff:ignore[os-path-join]  # preserve path separators
             os.path.normpath(os.environ.get("PROGRAMDATA") or os.environ.get("ALLUSERSPROFILE") or "C:\\ProgramData"),
             "Microsoft",
             "Windows",
@@ -234,32 +288,15 @@ def get_win_folder_if_csidl_name_not_env_var(csidl_name: str) -> str | None:
     return None
 
 
-_ENV_VAR_SUBFOLDERS: Final[dict[str, tuple[str, ...]]] = {
-    "CSIDL_PERSONAL": ("USERPROFILE", "Documents"),
-    "CSIDL_DOWNLOADS": ("USERPROFILE", "Downloads"),
-    "CSIDL_MYPICTURES": ("USERPROFILE", "Pictures"),
-    "CSIDL_MYVIDEO": ("USERPROFILE", "Videos"),
-    "CSIDL_MYMUSIC": ("USERPROFILE", "Music"),
-    "CSIDL_DESKTOPDIRECTORY": ("USERPROFILE", "Desktop"),
-    "CSIDL_PROGRAMS": ("APPDATA", "Microsoft", "Windows", "Start Menu", "Programs"),
-    "CSIDL_TEMPLATES": ("APPDATA", "Microsoft", "Windows", "Templates"),
-    "CSIDL_USER_PROGRAM_FILES": ("LOCALAPPDATA", "Programs"),
-}
-
-
-def _non_empty_env(name: str) -> str:
-    if value := os.environ.get(name):
-        return value
-    raise KeyError(name)  # same error os.environ[name] gives for an unset variable
-
-
+# The registry is a fallback at best, it does not guarantee the right answer for every CSIDL_* name.
 def get_win_folder_from_registry(csidl_name: str) -> str:
-    """Get folder from the registry.
+    """Return the folder recorded in the Shell Folders registry key, which may differ from the shell for some names.
 
-    This is a fallback technique at best. I'm not sure if using the registry for these guarantees us the correct answer
-    for all CSIDL_* names.
+    :param csidl_name: the ``CSIDL_*`` name, such as ``CSIDL_APPDATA``.
 
-    """
+    :returns: the folder path.
+
+    """  # simplint: ignore[function-docstring]  # retain existing docstring
     machine_names = {
         "CSIDL_COMMON_APPDATA",
         "CSIDL_COMMON_PROGRAMS",
@@ -282,7 +319,7 @@ def get_win_folder_from_registry(csidl_name: str) -> str:
         return get_win_folder_from_env_vars(csidl_name)
     if sys.platform != "win32":  # only needed for mypy type checker to know that this code runs only on Windows
         raise NotImplementedError
-    import winreg  # ruff:ignore[import-outside-top-level]
+    import winreg  # ruff:ignore[import-outside-top-level]  # Windows-only dependency
 
     # Use HKEY_LOCAL_MACHINE for system-wide folders, HKEY_CURRENT_USER for user-specific folders
     hkey = winreg.HKEY_LOCAL_MACHINE if csidl_name in machine_names else winreg.HKEY_CURRENT_USER
@@ -292,34 +329,14 @@ def get_win_folder_from_registry(csidl_name: str) -> str:
     return str(directory)
 
 
-_KNOWN_FOLDER_GUIDS: dict[str, str] = {
-    "CSIDL_APPDATA": "{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}",
-    "CSIDL_COMMON_APPDATA": "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}",
-    "CSIDL_LOCAL_APPDATA": "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}",
-    "CSIDL_PERSONAL": "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}",
-    "CSIDL_MYPICTURES": "{33E28130-4E1E-4676-835A-98395C3BC3BB}",
-    "CSIDL_MYVIDEO": "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}",
-    "CSIDL_MYMUSIC": "{4BD8D571-6D19-48D3-BE97-422220080E43}",
-    "CSIDL_DOWNLOADS": "{374DE290-123F-4565-9164-39C4925E467B}",
-    "CSIDL_DESKTOPDIRECTORY": "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}",
-    "CSIDL_PROGRAMS": "{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}",
-    "CSIDL_COMMON_PROGRAMS": "{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}",
-    "CSIDL_TEMPLATES": "{A63293E8-664E-48DB-A079-DF759E0509F7}",
-    "CSIDL_PUBLIC": "{DFDF76A2-C82A-4D63-906A-5644AC457385}",
-    "CSIDL_USER_PROGRAM_FILES": "{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}",
-}
-
-
 @cache
 def _build_get_win_folder_via_ctypes() -> Callable[[str], str]:
-    """Build the resolver once; a fresh ``_GUID`` per call leaks ctypes pointer types.
-
-    See https://github.com/tox-dev/platformdirs/issues/501.
-
-    """
+    # Build the resolver once; a fresh ``_GUID`` per call leaks ctypes pointer types.
+    #
+    # See https://github.com/tox-dev/platformdirs/issues/501.
     if sys.platform != "win32":  # only needed for type checker to know that this code runs only on Windows
         raise NotImplementedError
-    from ctypes import (  # ruff:ignore[import-outside-top-level]
+    from ctypes import (  # ruff:ignore[import-outside-top-level]  # Windows-only dependency
         HRESULT,
         POINTER,
         Structure,
@@ -346,8 +363,25 @@ def _build_get_win_folder_via_ctypes() -> Callable[[str], str]:
     shell32.SHGetKnownFolderPath.restype = HRESULT
     shell32.SHGetKnownFolderPath.argtypes = [POINTER(_GUID), wintypes.DWORD, wintypes.HANDLE, POINTER(wintypes.LPWSTR)]
 
+    known_folder_guids: dict[str, str] = {
+        "CSIDL_APPDATA": "{3EB685DB-65F9-4CF6-A03A-E3EF65729F3D}",
+        "CSIDL_COMMON_APPDATA": "{62AB5D82-FDC1-4DC3-A9DD-070D1D495D97}",
+        "CSIDL_LOCAL_APPDATA": "{F1B32785-6FBA-4FCF-9D55-7B8E7F157091}",
+        "CSIDL_PERSONAL": "{FDD39AD0-238F-46AF-ADB4-6C85480369C7}",
+        "CSIDL_MYPICTURES": "{33E28130-4E1E-4676-835A-98395C3BC3BB}",
+        "CSIDL_MYVIDEO": "{18989B1D-99B5-455B-841C-AB7C74E4DDFC}",
+        "CSIDL_MYMUSIC": "{4BD8D571-6D19-48D3-BE97-422220080E43}",
+        "CSIDL_DOWNLOADS": "{374DE290-123F-4565-9164-39C4925E467B}",
+        "CSIDL_DESKTOPDIRECTORY": "{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}",
+        "CSIDL_PROGRAMS": "{A77F5D77-2E2B-44C3-A6A2-ABA601054A51}",
+        "CSIDL_COMMON_PROGRAMS": "{0139D44E-6AFE-49F2-8690-3DAFCAE6FFB8}",
+        "CSIDL_TEMPLATES": "{A63293E8-664E-48DB-A079-DF759E0509F7}",
+        "CSIDL_PUBLIC": "{DFDF76A2-C82A-4D63-906A-5644AC457385}",
+        "CSIDL_USER_PROGRAM_FILES": "{5CD7AEE2-2219-4A67-B85D-6C9CE15660CB}",
+    }
+
     def resolve(csidl_name: str) -> str:
-        folder_guid = _KNOWN_FOLDER_GUIDS.get(csidl_name)
+        folder_guid = known_folder_guids.get(csidl_name)
         if folder_guid is None:
             msg = f"Unknown CSIDL name: {csidl_name}"
             raise ValueError(msg)
@@ -372,53 +406,33 @@ def _build_get_win_folder_via_ctypes() -> Callable[[str], str]:
 
 
 def get_win_folder_via_ctypes(csidl_name: str) -> str:
-    """Get folder via :func:`SHGetKnownFolderPath`.
+    """Return the folder from the Windows shell API, called through ``ctypes``.
 
-    See https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shgetknownfolderpath.
+    :param csidl_name: the ``CSIDL_*`` name, such as ``CSIDL_APPDATA``.
 
-    """
+    :returns: the folder path.
+
+    """  # simplint: ignore[function-docstring]  # retain existing docstring
     return _build_get_win_folder_via_ctypes()(csidl_name)
 
 
 def _pick_get_win_folder() -> Callable[[str], str]:
-    """Select the best method to resolve Windows folder paths: ctypes, then registry, then environment variables."""
+    # Select the best method to resolve Windows folder paths: ctypes, then registry, then environment variables.
     try:
-        import ctypes  # ruff:ignore[import-outside-top-level, unused-import]
+        import ctypes  # ruff:ignore[import-outside-top-level, unused-import]  # Windows-only dependency
     except ImportError:
         pass
     else:
         return get_win_folder_via_ctypes
     try:
-        import winreg  # ruff:ignore[import-outside-top-level, unused-import]
+        import winreg  # ruff:ignore[import-outside-top-level, unused-import]  # Windows-only dependency
     except ImportError:
         return get_win_folder_from_env_vars
     else:
         return get_win_folder_from_registry
 
 
-_resolve_win_folder = _pick_get_win_folder()
-
-
-def get_win_folder(csidl_name: str) -> str:
-    """Get a Windows folder path, checking for ``WIN_PD_OVERRIDE_*`` environment variable overrides first.
-
-    For example, ``CSIDL_LOCAL_APPDATA`` can be overridden by setting ``WIN_PD_OVERRIDE_LOCAL_APPDATA``.
-
-    """
-    env_var = f"WIN_PD_OVERRIDE_{csidl_name.removeprefix('CSIDL_')}"
-    if _is_fully_qualified(override := os.environ.get(env_var, "").strip()):
-        return override
-    return _resolve_win_folder(csidl_name)
-
-
-def _is_fully_qualified(path: str) -> bool:
-    # ntpath.isabs changed for rooted paths without a drive in 3.13 and for a bare UNC share in 3.11
-    drive, tail = ntpath.splitdrive(path.replace("/", "\\"))
-    if not drive.startswith("\\"):
-        return bool(drive) and tail.startswith("\\")
-    # splitdrive also returns a UNC volume missing its server or share, which would make the app name the share
-    server, _, share = (drive[8:] if drive[:8].upper() == "\\\\?\\UNC\\" else drive[2:]).partition("\\")
-    return bool(server and share)
+_RESOLVE_WIN_FOLDER: Final[Callable[[str], str]] = _pick_get_win_folder()
 
 
 __all__ = [

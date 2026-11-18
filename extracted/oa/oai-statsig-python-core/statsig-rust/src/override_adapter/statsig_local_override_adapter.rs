@@ -14,13 +14,25 @@ enum ExperimentOverrides {
     GroupName(String),
 }
 
+type NamedOverrides<T> = HashMap<String, HashMap<String, T>>;
+
 #[derive(Default)]
 struct OverrideStore {
-    pub gate: HashMap<String, HashMap<String, bool>>,
-    pub config: HashMap<String, HashMap<String, DynamicReturnable>>,
-    pub experiment: HashMap<String, HashMap<String, ExperimentOverrides>>,
-    pub layer: HashMap<String, HashMap<String, DynamicReturnable>>,
-    pub parameter_store: HashMap<String, HashMap<String, HashMap<String, Parameter>>>,
+    gate: NamedOverrides<bool>,
+    config: NamedOverrides<DynamicReturnable>,
+    experiment: NamedOverrides<ExperimentOverrides>,
+    layer: NamedOverrides<DynamicReturnable>,
+    parameter_store: NamedOverrides<HashMap<String, Parameter>>,
+}
+
+impl OverrideStore {
+    fn is_empty(&self) -> bool {
+        self.gate.is_empty()
+            && self.config.is_empty()
+            && self.experiment.is_empty()
+            && self.layer.is_empty()
+            && self.parameter_store.is_empty()
+    }
 }
 
 const TAG: &str = stringify!(StatsigLocalOverrideAdapter);
@@ -41,6 +53,29 @@ impl StatsigLocalOverrideAdapter {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    fn remove_override<T>(
+        &self,
+        key: &str,
+        id: Option<&str>,
+        select: impl FnOnce(&mut OverrideStore) -> &mut NamedOverrides<T>,
+    ) {
+        let mut store = write_lock_or_noop!(TAG, self.store);
+        let by_name = select(&mut store);
+        if let Some(id) = id {
+            let Some(by_id) = by_name.get_mut(key) else {
+                return;
+            };
+            by_id.remove(id);
+            if !by_id.is_empty() {
+                return;
+            }
+        }
+        by_name.remove(key);
+        if store.is_empty() {
+            self.has_any_overrides.store(false, Ordering::Relaxed);
+        }
     }
 }
 
@@ -294,73 +329,23 @@ impl OverrideAdapter for StatsigLocalOverrideAdapter {
     }
 
     fn remove_gate_override(&self, key: &str, id: Option<&str>) {
-        let mut store = write_lock_or_noop!(TAG, self.store);
-        match id {
-            None => {
-                store.gate.remove(key);
-            }
-            Some(id_str) => {
-                if let Some(overrides) = store.gate.get_mut(key) {
-                    overrides.remove(&id_str.to_string());
-                }
-            }
-        }
+        self.remove_override(key, id, |store| &mut store.gate);
     }
 
     fn remove_dynamic_config_override(&self, key: &str, id: Option<&str>) {
-        let mut store = write_lock_or_noop!(TAG, self.store);
-        match id {
-            None => {
-                store.config.remove(key);
-            }
-            Some(id_str) => {
-                if let Some(overrides) = store.config.get_mut(key) {
-                    overrides.remove(&id_str.to_string());
-                }
-            }
-        }
+        self.remove_override(key, id, |store| &mut store.config);
     }
 
     fn remove_experiment_override(&self, key: &str, id: Option<&str>) {
-        let mut store = write_lock_or_noop!(TAG, self.store);
-        match id {
-            None => {
-                store.experiment.remove(key);
-            }
-            Some(id_str) => {
-                if let Some(overrides) = store.experiment.get_mut(key) {
-                    overrides.remove(&id_str.to_string());
-                }
-            }
-        }
+        self.remove_override(key, id, |store| &mut store.experiment);
     }
 
     fn remove_layer_override(&self, key: &str, id: Option<&str>) {
-        let mut store = write_lock_or_noop!(TAG, self.store);
-        match id {
-            None => {
-                store.layer.remove(key);
-            }
-            Some(id_str) => {
-                if let Some(overrides) = store.layer.get_mut(key) {
-                    overrides.remove(&id_str.to_string());
-                }
-            }
-        }
+        self.remove_override(key, id, |store| &mut store.layer);
     }
 
     fn remove_parameter_store_override(&self, key: &str, id: Option<&str>) {
-        let mut store = write_lock_or_noop!(TAG, self.store);
-        match id {
-            None => {
-                store.parameter_store.remove(key);
-            }
-            Some(id_str) => {
-                if let Some(overrides) = store.parameter_store.get_mut(key) {
-                    overrides.remove(&id_str.to_string());
-                }
-            }
-        }
+        self.remove_override(key, id, |store| &mut store.parameter_store);
     }
 
     fn remove_all_overrides(&self) {

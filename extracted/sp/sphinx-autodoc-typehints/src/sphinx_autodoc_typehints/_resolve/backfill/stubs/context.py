@@ -15,8 +15,12 @@ from typing import TYPE_CHECKING, Final, ParamSpec, TypeVar, TypeVarTuple
 
 from sphinx.ext.autodoc.mock import mock
 
-from sphinx_autodoc_typehints._refs import MyTypeAliasForwardRef
-from sphinx_autodoc_typehints._types import frozendict
+from sphinx_autodoc_typehints._refs import (  # simplint: ignore[private-import-path]  # init cycle
+    MyTypeAliasForwardRef,
+)
+from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # init cycle
+    frozendict,
+)
 
 from .extract import find_ast_node
 from .find import find_stub_owner, import_module_or_none, parse_stub_ast, resolve_import_from, stub_owner_package
@@ -25,7 +29,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
     from types import GetSetDescriptorType, MemberDescriptorType, ModuleType
 
-    from sphinx_autodoc_typehints._types import Documented
+    from . import Documented
 
 # built once rather than for every stub read
 _FACTORIES: Final[Mapping[type[ast.type_param], Callable[[str], TypeVar | ParamSpec | TypeVarTuple]]] = frozendict({
@@ -36,7 +40,10 @@ _FACTORIES: Final[Mapping[type[ast.type_param], Callable[[str], TypeVar | ParamS
 
 
 def stub_context(
-    obj: Callable[..., object] | GetSetDescriptorType | MemberDescriptorType, name: str = ""
+    obj: Callable[..., object]  # simplint: ignore[callable-ellipsis]  # a descriptor or member of any shape
+    | GetSetDescriptorType
+    | MemberDescriptorType,
+    name: str = "",
 ) -> tuple[dict[str, Documented], dict[str, MyTypeAliasForwardRef], str]:
     """
     Return the namespace the stub of `obj` evaluates in, the names to render as a plain cross-reference, its module.
@@ -50,10 +57,10 @@ def stub_context(
     defines. They cannot evaluate, so they render as a plain cross-reference.
     """
     if (info := find_stub_owner(obj, name)) is None:
-        return {}, {}, ""
+        return {}, {}, ""  # simplint: ignore[long-tuple-return]  # preserve the plain tuple result
     path, owner_module = info
     if (tree := parse_stub_ast(path)) is None:
-        return {}, {}, ""
+        return {}, {}, ""  # simplint: ignore[long-tuple-return]  # preserve the plain tuple result
     namespace: dict[str, Documented] = dict(vars(owner_module))
     # a class takes its `__module__` from the `__name__` of the globals it runs in, `builtins` when they lack one
     resolved: dict[str, Documented] = {"__name__": owner_module.__name__}
@@ -83,7 +90,7 @@ def stub_context(
             type_alias_names.add(node.target.id)
         elif isinstance(node, ast.TypeAlias) and isinstance(node.name, ast.Name):
             type_alias_names.add(node.name.id)
-    return (
+    return (  # simplint: ignore[long-tuple-return]  # preserve the plain tuple result
         namespace,
         {
             crossref_name: MyTypeAliasForwardRef(crossref_name, crossref=True)
@@ -98,26 +105,18 @@ def _resolve_stub_imports_from_body(
 ) -> None:
     for node in body:
         if isinstance(node, ast.Import):
-            for alias in node.names:
-                if (module := _import_for_stub(alias.name, top=not alias.asname)) is not None:
-                    namespace[alias.asname or alias.name.partition(".")[0]] = module
+            _bind_import(node, namespace)
         elif isinstance(node, ast.ImportFrom):
-            module_name = resolve_import_from(node, owner_package)
-            from_module = import_module_or_none(module_name) if module_name else None
-            for alias in node.names:
-                if alias.name == "*":
-                    continue
-                name = alias.asname or alias.name
-                if from_module is not None and (
-                    (value := getattr(from_module, alias.name, None)) is not None
-                    or (value := import_module_or_none(f"{module_name}.{alias.name}")) is not None
-                ):
-                    namespace[name] = value
-                else:
-                    unresolved.add(name)
+            _bind_import_from(node, owner_package, namespace, unresolved)
         elif isinstance(node, ast.If):
             _resolve_stub_imports_from_body(node.body, owner_package, namespace, unresolved)
             _resolve_stub_imports_from_body(node.orelse, owner_package, namespace, unresolved)
+
+
+def _bind_import(node: ast.Import, namespace: dict[str, Documented]) -> None:
+    for alias in node.names:
+        if (module := _import_for_stub(alias.name, top=not alias.asname)) is not None:
+            namespace[alias.asname or alias.name.partition(".")[0]] = module
 
 
 # a stub may import a module only type checkers need, so this mocks a missing one as `autodoc_mock_imports` would,
@@ -135,6 +134,24 @@ def _import_for_stub(name: str, *, top: bool) -> ModuleType | None:
     with mock(mocked):
         module = import_module(name)
         return modules[name.partition(".")[0]] if top else module
+
+
+def _bind_import_from(
+    node: ast.ImportFrom, owner_package: str, namespace: dict[str, Documented], unresolved: set[str]
+) -> None:
+    module_name = resolve_import_from(node, owner_package)
+    from_module = import_module_or_none(module_name) if module_name else None
+    for alias in node.names:
+        if alias.name == "*":
+            continue
+        name = alias.asname or alias.name
+        if from_module is not None and (
+            (value := getattr(from_module, alias.name, None)) is not None
+            or (value := import_module_or_none(f"{module_name}.{alias.name}")) is not None
+        ):
+            namespace[name] = value
+        else:
+            unresolved.add(name)
 
 
 def _resolve_stub_definitions(body: list[ast.stmt], namespace: dict[str, Documented]) -> None:

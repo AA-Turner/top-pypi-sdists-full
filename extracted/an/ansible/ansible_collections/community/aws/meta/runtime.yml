@@ -1,5 +1,5 @@
 ---
-requires_ansible: '>=2.17.0'
+requires_ansible: '>=2.18.0'
 action_groups:
   aws:
     - accessanalyzer_validate_policy_info
@@ -42,7 +42,6 @@ action_groups:
     - aws_glue_connection
     - aws_glue_crawler
     - aws_glue_job
-    - aws_inspector_target
     - aws_msk_cluster
     - aws_msk_config
     - aws_region_info
@@ -55,10 +54,6 @@ action_groups:
     - aws_ssm_parameter_store
     - aws_step_functions_state_machine
     - aws_step_functions_state_machine_execution
-    - aws_waf_condition
-    - aws_waf_info
-    - aws_waf_rule
-    - aws_waf_web_acl
     - batch_compute_environment
     - batch_job_definition
     - batch_job_queue
@@ -138,7 +133,6 @@ action_groups:
     - iam_saml_federation
     - iam_server_certificate
     - iam_server_certificate_info
-    - inspector_target
     - kinesis_stream
     - lightsail
     - lightsail_snapshot
@@ -184,10 +178,6 @@ action_groups:
     - stepfunctions_state_machine_execution
     - storagegateway_info
     - sts_session_token
-    - waf_condition
-    - waf_info
-    - waf_rule
-    - waf_web_acl
     - wafv2_ip_set
     - wafv2_ip_set_info
     - wafv2_resources
@@ -335,11 +325,6 @@ plugin_routing:
         removal_date: "2027-01-01"
         warning_text: the community.aws.aws_glue_job alias has been deprecated. Please update your tasks to use community.aws.glue_job.
       redirect: community.aws.glue_job
-    aws_inspector_target:
-      deprecation:
-        removal_date: "2027-01-01"
-        warning_text: the community.aws.aws_inspector_target alias has been deprecated. Please update your tasks to use community.aws.inspector_target.
-      redirect: community.aws.inspector_target
     aws_kms:
       deprecation:
         removal_date: "2027-01-01"
@@ -413,25 +398,21 @@ plugin_routing:
         warning_text: the community.aws.aws_step_functions_state_machine_execution alias has been deprecated. Please update your tasks to use community.aws.stepfunctions_state_machine_execution.
       redirect: community.aws.stepfunctions_state_machine_execution
     aws_waf_condition:
-      deprecation:
-        removal_date: "2027-01-01"
-        warning_text: the community.aws.aws_waf_condition alias has been deprecated. Please update your tasks to use community.aws.waf_condition.
-      redirect: community.aws.waf_condition
+      tombstone:
+        removal_version: 12.0.0
+        warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     aws_waf_info:
-      deprecation:
-        removal_date: "2027-01-01"
-        warning_text: the community.aws.aws_waf_info alias has been deprecated. Please update your tasks to use community.aws.waf_info.
-      redirect: community.aws.waf_info
+      tombstone:
+        removal_version: 12.0.0
+        warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     aws_waf_rule:
-      deprecation:
-        removal_date: "2027-01-01"
-        warning_text: the community.aws.aws_waf_rule alias has been deprecated. Please update your tasks to use community.aws.waf_rule.
-      redirect: community.aws.waf_rule
+      tombstone:
+        removal_version: 12.0.0
+        warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     aws_waf_web_acl:
-      deprecation:
-        removal_date: "2027-01-01"
-        warning_text: the community.aws.aws_waf_web_acl alias has been deprecated. Please update your tasks to use community.aws.waf_web_acl.
-      redirect: community.aws.waf_web_acl
+      tombstone:
+        removal_version: 12.0.0
+        warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     cloudtrail:
       deprecation:
         removal_date: "2027-01-01"
@@ -659,23 +640,23 @@ plugin_routing:
     ec2_transit_gateway:
       redirect: amazon.aws.ec2_transit_gateway
     inspector_target:
-      deprecation:
+      tombstone:
         removal_version: 12.0.0
         warning_text: Amazon has retired the `Amazon Inspector Classic` service.
     waf_condition:
-      deprecation:
+      tombstone:
         removal_version: 12.0.0
         warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     waf_info:
-      deprecation:
+      tombstone:
         removal_version: 12.0.0
         warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     waf_rule:
-      deprecation:
+      tombstone:
         removal_version: 12.0.0
         warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
     waf_web_acl:
-      deprecation:
+      tombstone:
         removal_version: 12.0.0
         warning_text: Amazon has retired the `WAF Classic` service.  Please use the `AWS WAF (WAFv2)` service and modules instead.
   module_utils:

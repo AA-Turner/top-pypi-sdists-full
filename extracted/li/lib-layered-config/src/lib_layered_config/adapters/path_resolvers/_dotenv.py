@@ -12,6 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._path_probe import PathKind, checked_kind, probe_path
+from ._base import HomeDirectoryUnknownError
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -32,7 +33,7 @@ class DotenvPathFinder:
     directories. This class provides unified discovery respecting precedence rules.
     """
 
-    def __init__(self, cwd: Path | None, strategy: PlatformStrategy | None) -> None:
+    def __init__(self, cwd: Path | None, strategy: PlatformStrategy) -> None:
         """Store context for dotenv discovery.
 
         Args:
@@ -80,8 +81,10 @@ class DotenvPathFinder:
         """Return the platform-specific ``.env`` fallback location.
 
         Returns:
-            Platform fallback path or ``None`` if no strategy is set.
+            Platform fallback path, or ``None`` when the platform names none.
         """
-        if self.strategy is None:
+        try:
+            return self.strategy.dotenv_path()
+        except HomeDirectoryUnknownError:
+            # The user layer's own read warns once; the fallback .env sits under the same home.
             return None
-        return self.strategy.dotenv_path()

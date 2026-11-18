@@ -237,7 +237,7 @@
         encoding: 'LATIN1'
         lc_collate: 'pt_BR{{ locale_latin_suffix }}'
         lc_ctype: 'es_ES{{ locale_latin_suffix }}'
-        icu_locale: "{{ 'es-ES-x-icu' if (ansible_facts.distribution == 'Fedora' and ansible_facts.distribution_major_version is version('40', 'ge')) else omit }}"
+        icu_locale: "{{ 'es-ES-x-icu' if (ansible_facts.distribution == 'Fedora' and ansible_facts.distribution_major_version is version('43', 'ge')) else omit }}"
         locale_provider: 'icu'
         template: 'template0'
         login_user: "{{ pg_user }}"
@@ -400,7 +400,7 @@
     encrypted: 'true'
     password: "md55c8ccfd9d6711fc69a7eae647fc54f51"
     login_user: "{{ pg_user }}"
-    db: postgres
+    login_db: postgres
   loop:
   - "{{ db_user1 }}"
   - "{{ db_user2 }}"
@@ -424,7 +424,7 @@
   become_user: "{{ pg_user }}"
   become: true
   postgresql_query:
-    db: postgres
+    login_db: postgres
     login_user: "{{ pg_user }}"
     query: >
       SELECT 1 FROM pg_catalog.pg_database
@@ -456,7 +456,7 @@
   become: true
   postgresql_query:
     login_user: "{{ pg_user }}"
-    db: postgres
+    login_db: postgres
     query: >
       SELECT 1 FROM pg_catalog.pg_database
       WHERE datname = '{{ db_name }}'
@@ -520,7 +520,7 @@
     name: "{{ db_user1 }}"
     state: 'absent'
     login_user: "{{ pg_user }}"
-    db: postgres
+    login_db: postgres
 
 - name: Check that they were removed
   become_user: "{{ pg_user }}"

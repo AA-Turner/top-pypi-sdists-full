@@ -1286,15 +1286,25 @@ class ModelFactory:
         Returns:
             A callable that takes an agent parameter and returns an LLM instance
         """
-        resolved_model = cls.resolve_model_spec(model_string, presets=presets)
+        return cls.create_factory_for_resolved_model(
+            cls.resolve_model_spec(model_string, presets=presets)
+        )
+
+    @classmethod
+    def create_factory_for_resolved_model(
+        cls, resolved_model: ResolvedModelSpec
+    ) -> LLMFactoryProtocol:
+        """Build an attachment factory using an already validated model selection."""
         config = resolved_model.model_config
 
         if config.provider == Provider.COPILOT:
             spec = get_copilot_model(config.model_name)
             module_name = f"fast_agent.llm.provider.copilot.{spec.wire_api}"
-            class_name = (
-                "CopilotMessagesLLM" if spec.wire_api == "messages" else "CopilotResponsesLLM"
-            )
+            class_name = {
+                "messages": "CopilotMessagesLLM",
+                "responses": "CopilotResponsesLLM",
+                "chat_completions": "CopilotChatCompletionsLLM",
+            }[spec.wire_api]
             try:
                 llm_class = vars(import_module(module_name))[class_name]
             except Exception as exc:

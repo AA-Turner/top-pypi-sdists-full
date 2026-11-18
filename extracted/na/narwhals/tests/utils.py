@@ -174,9 +174,9 @@ def assert_equal_data(result: Any, expected: Mapping[str, Any]) -> None:
             elif lhs is None:
                 are_equivalent_values = rhs is None
             elif isinstance(lhs, list) and isinstance(rhs, list):
-                are_equivalent_values = all(
+                are_equivalent_values = len(lhs) == len(rhs) and all(
                     left_side == right_side
-                    for left_side, right_side in zip(lhs, rhs, strict=False)
+                    for left_side, right_side in zip(lhs, rhs, strict=True)
                 )
             elif is_pd_na(lhs):
                 are_equivalent_values = is_pd_na(rhs)
@@ -223,9 +223,8 @@ def assert_equal_hash(left: Any, right: Any) -> None:
 def sqlframe_session() -> DuckDBSession:
     from sqlframe.duckdb import DuckDBSession
 
-    # NOTE: `__new__` override inferred by `pyright` only
-    # https://github.com/eakmanrq/sqlframe/blob/772b3a6bfe5a1ffd569b7749d84bea2f3a314510/sqlframe/base/session.py#L181-L184
-    return cast("DuckDBSession", DuckDBSession())  # type: ignore[redundant-cast]
+    # Pin the time zone like `pyspark_session`: on Windows `TZ=UTC` resolves to `Etc/UTC`.
+    return DuckDBSession.builder.config("spark.sql.session.timeZone", "UTC").getOrCreate()
 
 
 def pyspark_session() -> SparkSession:  # pragma: no cover

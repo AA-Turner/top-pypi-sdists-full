@@ -21,6 +21,25 @@ pub(crate) struct PendingBlobConfig {
     pub(crate) failed_blobs: HashMap<String, HydrationFailureReason>,
 }
 
+#[derive(Clone, Copy, Default)]
+pub(crate) struct PendingBlobProofs<'a> {
+    pub(crate) full: Option<&'a super::VerifiedRemoteConfigValues>,
+    pub(crate) delta: Option<&'a IncompleteBlobConfigs>,
+}
+
+impl<'a> PendingBlobProofs<'a> {
+    pub(super) fn values(self) -> impl Iterator<Item = &'a VerifiedRemoteValues> {
+        self.full
+            .into_iter()
+            .flat_map(|configs| configs.values().map(Arc::as_ref))
+            .chain(
+                self.delta
+                    .into_iter()
+                    .flat_map(|configs| configs.pending.values().map(|config| &config.verified)),
+            )
+    }
+}
+
 type PendingConfigs = HashMap<InternedString, Arc<PendingBlobConfig>>;
 
 #[derive(Default)]
@@ -72,16 +91,7 @@ impl<'a> PartialBlobRefresh<'a> {
         let mut state = self.state.lock();
         state.remove(name);
         let mut verified = values.provenance;
-        // Charge the original verified byte length for each retained config/SHA pair.
-        // Excess proofs can be downloaded again on a later repair.
-        verified.retain(|_, value| {
-            let total = state.verified_bytes + value.byte_length();
-            if total > MAX_IN_FLIGHT_HYDRATION_BYTES as u64 {
-                return false;
-            }
-            state.verified_bytes = total;
-            true
-        });
+        limit_pending_proofs(&mut verified, &mut state.verified_bytes);
         state.pending.insert(
             name.clone(),
             Arc::new(PendingBlobConfig {
@@ -130,4 +140,16 @@ impl IncompleteBlobConfigs {
                 .sum::<u64>();
         }
     }
+}
+
+// Charge each pending config/SHA pair. Excess proofs are fetched again on repair.
+pub(crate) fn limit_pending_proofs(proofs: &mut VerifiedRemoteValues, used_bytes: &mut u64) {
+    proofs.retain(|_, value| {
+        let total = *used_bytes + value.byte_length();
+        if total > MAX_IN_FLIGHT_HYDRATION_BYTES as u64 {
+            return false;
+        }
+        *used_bytes = total;
+        true
+    });
 }

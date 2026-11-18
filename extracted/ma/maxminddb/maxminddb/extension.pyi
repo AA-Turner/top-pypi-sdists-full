@@ -2,12 +2,10 @@
 
 from collections.abc import Iterator
 from ipaddress import IPv4Address, IPv4Network, IPv6Address, IPv6Network
-from os import PathLike
-from typing import IO, Any, AnyStr
 
 from typing_extensions import Self
 
-from maxminddb.types import Record
+from maxminddb.types import Record, StrOrBytesPath
 
 class Reader:
     """A C extension implementation of a reader for the MaxMind DB format.
@@ -19,14 +17,14 @@ class Reader:
 
     def __init__(
         self,
-        database: AnyStr | int | PathLike | IO,
+        database: StrOrBytesPath,
         mode: int = ...,
     ) -> None:
         """Reader for the MaxMind DB file format.
 
         Arguments:
             database: A path to a valid MaxMind DB file such as a GeoIP database
-                      file, or a file descriptor in the case of MODE_FD.
+                      file.
             mode: mode to open the database with. The only supported modes are
                   MODE_AUTO and MODE_MMAP_EXT.
 
@@ -59,7 +57,7 @@ class Reader:
 
     def __iter__(self) -> Iterator[tuple[IPv4Network | IPv6Network, Record]]: ...
     def __enter__(self) -> Self: ...
-    def __exit__(self, *args) -> None: ...  # noqa: ANN002
+    def __exit__(self, *args: object) -> None: ...
 
 class Metadata:
     """Metadata for the MaxMind DB reader."""
@@ -113,5 +111,25 @@ class Metadata:
     The bit size of a record in the search tree.
     """
 
-    def __init__(self, **kwargs: Any) -> None:  # noqa: ANN401
-        """Create new Metadata object. kwargs are key/value pairs from spec."""
+    def __init__(
+        self,
+        *,
+        binary_format_major_version: int,
+        binary_format_minor_version: int,
+        build_epoch: int,
+        database_type: str,
+        description: dict[str, str],
+        ip_version: int,
+        languages: list[str],
+        node_count: int,
+        record_size: int,
+    ) -> None:
+        """Create new Metadata object from the metadata fields in the spec."""
+
+    @property
+    def node_byte_size(self) -> int:
+        """The size of a node in bytes."""
+
+    @property
+    def search_tree_size(self) -> int:
+        """The size of the search tree."""

@@ -9,6 +9,7 @@ from wemake_python_styleguide.logic.tree import loops, operators
 from wemake_python_styleguide.logic.tree.variables import (
     is_valid_block_variable_definition,
 )
+from wemake_python_styleguide.options.validation import ValidatedOptions
 from wemake_python_styleguide.types import (
     AnyComprehension,
     AnyFor,
@@ -35,8 +36,8 @@ from wemake_python_styleguide.violations.refactoring import (
 )
 from wemake_python_styleguide.visitors import base, decorators
 
-#: Type alias to specify how we check different containers in loops.
 _ContainerSpec: TypeAlias = Mapping[type[ast.AST], Sequence[str]]
+"""Type alias to specify how we check different containers in loops."""
 
 
 @final
@@ -55,9 +56,14 @@ class WrongComprehensionVisitor(base.BaseNodeVisitor):
     _max_ifs: ClassVar[int] = 1
     _max_fors: ClassVar[int] = 2
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(
+        self,
+        options: ValidatedOptions,
+        tree: ast.AST,
+        **kwargs: object,
+    ) -> None:
         """Creates a counter for tracked metrics."""
-        super().__init__(*args, **kwargs)
+        super().__init__(options, tree, **kwargs)
         self._fors: defaultdict[ast.AST, int] = defaultdict(int)
 
     def visit_comprehension(self, node: ast.comprehension) -> None:
@@ -254,7 +260,7 @@ class WrongStatementInLoopVisitor(base.BaseNodeVisitor):
         ast.SetComp,
     )
 
-    def visit_Await(self, node: ast.Await):
+    def visit_Await(self, node: ast.Await) -> None:
         """Visits ``await`` in loops and check it appropriation to use."""
         self._check_await_inside_loop(node)
         self.generic_visit(node)

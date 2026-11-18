@@ -7,13 +7,19 @@ DO NOT EDIT - Run `python scripts/generate_mcp_tools.py` to regenerate.
 from __future__ import annotations
 
 import base64
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from fastmcp.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
+from late.client.binary_response import BinaryResponse
+
+from .binary_content import binary_tool_result
 from .idempotency import same_arguments_key
 from .response_format import format_payload
+
+if TYPE_CHECKING:
+    from fastmcp.tools import ToolResult
 
 
 def _decode_base64(value: str) -> bytes:
@@ -39,10 +45,13 @@ def _enum_str(value: Any) -> str:
     return str(value)
 
 
-def _format_response(response: Any) -> str:
+def _format_response(response: Any) -> str | ToolResult:
     """Format SDK response for MCP output."""
     if response is None:
         return "Success"
+    if isinstance(response, BinaryResponse):
+        # A file the API streamed as raw bytes (media, attachment, receipt).
+        return binary_tool_result(response)
     if hasattr(response, "__dict__"):
         # Handle response objects
         if hasattr(response, "posts") and response.posts:
@@ -807,7 +816,7 @@ def register_generated_tools(mcp, _get_client):
                 platform: Filter accounts by platform (e.g. "instagram", "twitter").
                 status: Filter accounts by connection status. `connected` returns healthy accounts; `disconnected` returns accounts that need reconnection (per the same reconnection check surfaced in the dashboard). Omit to return accounts in any status. When combined with page/limit, pagination totals reflect the filtered result set.
                 search: Case-insensitive match on the account username, display name or platform user id. A 24-character hexadecimal value is read as an account id and matches only that exact account. Combine with page/limit to paginate the matches.
-                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack, iMessage, LINE and WeChat, blogs = Shopify and WordPress, crm = HubSpot, analytics = Google Analytics, social = every other platform.
+                category: Only accounts of this kind. ads = ad accounts (Meta, Google, LinkedIn, Pinterest, TikTok, X, OpenAI, Reddit, Microsoft), communication = WhatsApp, Telegram, Discord, Slack, iMessage, LINE and WeChat, blogs = Shopify and WordPress, crm = HubSpot and Salesforce, analytics = Google Analytics, Search Console, Stripe, Tag Manager and Axon, social = every other platform.
                 sort: Sort an offset-paginated listing (page and limit) by account name, platform, profile name, status (accounts needing a reconnect first when ascending) or connection date. Ties keep the default order: platform, then newest first.
                 order: Direction for `sort`.
                 include_over_limit: When true, includes accounts from over-limit profiles.
@@ -1088,6 +1097,7 @@ def register_generated_tools(mcp, _get_client):
             "line",
             "wechat",
             "googletagmanager",
+            "googlesearchconsole",
         ]
         | None = None,
         status: Literal["healthy", "warning", "error"] | None = None,
@@ -2280,6 +2290,8 @@ def register_generated_tools(mcp, _get_client):
 
         Read a connected HubSpot portal and what Zernio syncs to it.
 
+        Platforms: hubspot
+
         Args:
             account_id: (required)"""
         client = _get_client()
@@ -2301,17 +2313,23 @@ def register_generated_tools(mcp, _get_client):
         account_id: str,
         sync_contacts: bool | None = None,
         log_messages: bool | None = None,
+        log_delivery_status: bool | None = None,
+        contact_defaults: dict[str, Any] | None = None,
         report_deals: bool | None = None,
         use_deals_as_results: bool | None = None,
     ) -> str:
         """Update HubSpot account settings
 
-        Turn contact sync, message logging or deal reporting on or off for a connected HubSpot portal. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same portal.
+        Turn contact sync, message logging, delivery status or deal reporting on or off for a connected HubSpot portal, or set defaults for the contact properties the portal requires. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same portal.
+
+        Platforms: hubspot
 
         Args:
             account_id: (required)
             sync_contacts: Create a HubSpot contact for an inbox contact that matches none by email or phone. A match is linked as it is and never updated.
             log_messages: Log inbound and outbound inbox messages on the contact's HubSpot timeline.
+            log_delivery_status: Add the delivery status of each outgoing WhatsApp, SMS or RCS message to its timeline entry and update it as the message is delivered, read or fails. A failure shows the reason and its code. Only applies while `logMessages` is on.
+            contact_defaults: Values for contact properties your portal requires on create, keyed by HubSpot internal name (lowercase letters, digits, underscores), for example `{"lifecyclestage": "lead"}`. Replaces the whole map; send `{}` to clear it. Clears `syncIssue` until the next contact create tells whether the portal accepts them.
             report_deals: Send each deal that becomes closed won as a Purchase to the profile's event destinations, about once an hour. Requires the portal to have granted `crm.objects.deals.read`; otherwise 400. Deals closed before it was turned on are not sent.
             use_deals_as_results: Count each closed-won deal as a sale with its amount on the ad campaign that brought its contact, in `GET /v1/ads/campaign-results` and ad rules. Requires `crm.objects.deals.read`; otherwise 400. Turning it on fills in the deals of the last 90 days, never sent to the ad platforms."""
         client = _get_client()
@@ -2320,8 +2338,80 @@ def register_generated_tools(mcp, _get_client):
                 account_id=account_id,
                 sync_contacts=sync_contacts,
                 log_messages=log_messages,
+                log_delivery_status=log_delivery_status,
+                contact_defaults=contact_defaults,
                 report_deals=report_deals,
                 use_deals_as_results=use_deals_as_results,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Salesforce account settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def accounts_get_salesforce_settings(account_id: str) -> str:
+        """Get Salesforce account settings
+
+        Read a connected Salesforce org and what Zernio syncs to it.
+
+        Platforms: salesforce
+
+        Args:
+            account_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.accounts.get_salesforce_settings(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update Salesforce account settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def accounts_update_salesforce_settings(
+        account_id: str,
+        sync_contacts: bool | None = None,
+        log_messages: bool | None = None,
+        create_as: Literal["lead", "contact"] | None = None,
+        log_delivery_status: bool | None = None,
+        use_opportunities_in_results: bool | None = None,
+        report_opportunities_to_ads: bool | None = None,
+    ) -> str:
+        """Update Salesforce account settings
+
+        Turn person creation, conversation logging, delivery marks or closed-won Opportunities (in ad results, to ad platforms) on or off for a connected Salesforce org, or choose whether new people become Leads or Contacts. Send at least one field; omitted fields keep their value. Settings survive reconnecting the same org.
+
+        Platforms: salesforce
+
+        Args:
+            account_id: (required)
+            sync_contacts: Create a Lead or Contact for an inbox contact that matches nobody by phone (any phone field) or email. A match is linked as it is and never updated.
+            log_messages: Log inbound and outbound inbox messages as one conversation Task per person, channel and day.
+            create_as: What a person new to Salesforce is created as. Leads get Company `[not provided]`.
+            log_delivery_status: Mark sent WhatsApp, SMS and RCS messages in the transcript as sent, delivered, read, played or failed.
+            use_opportunities_in_results: Count closed-won Opportunities as sales on the ad campaign named by their Primary Campaign Source, in campaign results and ad rules. Turning it on also fills in the Opportunities won in the last 90 days, never sent to the ad platforms. Lost or reopened Opportunities stop counting.
+            report_opportunities_to_ads: Send each newly closed-won Opportunity once as a Purchase event (source `salesforce`, event id `salesforce_opp_{orgId}_{opportunityId}`) to the profile's event destinations, with the email and phone of its primary contact role, else the first Contact of its Account. Opportunities won before it was turned on are not sent."""
+        client = _get_client()
+        try:
+            response = client.accounts.update_salesforce_settings(
+                account_id=account_id,
+                sync_contacts=sync_contacts,
+                log_messages=log_messages,
+                create_as=create_as,
+                log_delivery_status=log_delivery_status,
+                use_opportunities_in_results=use_opportunities_in_results,
+                report_opportunities_to_ads=report_opportunities_to_ads,
             )
             return _format_response(response)
         except Exception as e:
@@ -11347,6 +11437,8 @@ def register_generated_tools(mcp, _get_client):
         - **Reddit Ads:** flat field, applied to the new ad group. LOWEST_COST_WITHOUT_CAP or omitted = automatic bidding (BIDLESS). LOWEST_COST_WITH_BID_CAP + `bidAmount` = MANUAL_BIDDING with that bid. COST_CAP + `bidAmount` = MAXIMIZE_VOLUME with that cap. Any other strategy returns 422 before anything is created.
         - **Google:** not deprecated (this flat field is Google's only shape), applied to the campaign this call creates. LOWEST_COST_WITHOUT_CAP = Maximize Conversions. COST_CAP + bidAmount = Target CPA. LOWEST_COST_WITH_MIN_ROAS + roasAverageFloor = Target ROAS.
         - **Google, continued:** LOWEST_COST_WITH_BID_CAP + bidAmount = Maximize Clicks with a CPC ceiling. portfolioBidStrategyId attaches a portfolio strategy instead. Omitted, the campaign falls back to a goal-based default.
+        - **TikTok:** flat field, applied to the new ad group. LOWEST_COST_WITHOUT_CAP or omitted = automatic bidding (`BID_TYPE_NO_BID`). LOWEST_COST_WITH_BID_CAP or COST_CAP + `bidAmount` = `BID_TYPE_CUSTOM` with `bid_price` set to that amount. On goal `video_views` with a custom bid, `bid_display_mode` is sent as `CPV` automatically.
+        - **TikTok, Smart+:** `smartPlus` accepts only LOWEST_COST_WITHOUT_CAP or no `bidStrategy`; any other strategy returns 400.
                 bid_amount: Deprecated: send it inside `platformSpecificData` instead (Meta today; TikTok's nested shape is planned). The flat field keeps working during the deprecation window; sending both shapes returns a 400.
 
         Bid cap in WHOLE currency units (USD: 5 = $5.00; JPY: 100 = ¥100). Required when `bidStrategy` is `LOWEST_COST_WITH_BID_CAP` or `COST_CAP`.
@@ -13494,12 +13586,17 @@ def register_generated_tools(mcp, _get_client):
         - `pause`
         - `activate`
         - `adjust_budget`
+        - `adjust_bid`
+        - `adjust_target`
+        - `reallocate_budget`
+        - `duplicate`
+        - `edit_name`
 
         A keyword rule can notify and pause; a search term rule only notifies.
 
         ### Cooldown
 
-        After acting on an object, the rule leaves that object alone for `cooldownMinutes`. A rule that pauses, activates or adjusts budgets needs a cooldown at ...
+        After acting on an object, the rule leaves that object alone for ...
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -13619,8 +13716,11 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """List every change ad rules made
 
-        The permanent record of what your rules did: one entry per pause, reactivation or budget change (including skipped and failed attempts), newest first, across all rules of the profiles the key can reach.
-        Entries stay after a rule is renamed or deleted; `ruleName` is the rule's name when it acted.
+        What your rules did over the last 31 days, newest first, across all rules of the profiles the key can reach.
+
+        There is one entry per change a rule made or tried: pause, reactivation, budget, bid or target change, copy or name tag. Skipped and failed attempts are included.
+
+        Entries stay for those 31 days after a rule is renamed or deleted; `ruleName` is the rule's name when it acted.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
@@ -13681,15 +13781,18 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def ad_rules_get_ad_rule() -> str:
+    def ad_rules_get_ad_rule(rule_id: str) -> str:
         """Get an ad rule
 
         Returns one ad rule.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rule_id: (required)"""
         client = _get_client()
         try:
-            response = client.ad_rules.get_ad_rule()
+            response = client.ad_rules.get_ad_rule(rule_id=rule_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -13703,6 +13806,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def ad_rules_update_ad_rule(
+        rule_id: str,
         name: str | None = None,
         level: Literal["campaign", "adset", "ad", "keyword", "search_term"]
         | None = None,
@@ -13725,6 +13829,7 @@ def register_generated_tools(mcp, _get_client):
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
 
         Args:
+            rule_id: (required)
             name
             level
             campaign_ids
@@ -13739,6 +13844,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_rules.update_ad_rule(
+                rule_id=rule_id,
                 name=name,
                 level=level,
                 campaign_ids=campaign_ids,
@@ -13763,15 +13869,18 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def ad_rules_delete_ad_rule() -> str:
+    def ad_rules_delete_ad_rule(rule_id: str) -> str:
         """Delete an ad rule
 
         Deletes a rule and its run history. Changes the rule already made on the platform stay.
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit"""
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            rule_id: (required)"""
         client = _get_client()
         try:
-            response = client.ad_rules.delete_ad_rule()
+            response = client.ad_rules.delete_ad_rule(rule_id=rule_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -13797,6 +13906,41 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_rules.preview_ad_rule(rule_id=rule_id)
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List an ad account's open alerts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_rules_list_ad_account_rule_alerts(
+        account_id: str, ad_account_id: str, limit: int = 50, cursor: str | None = None
+    ) -> str:
+        """List an ad account's open alerts
+
+        The open alerts of every rule of one ad account, newest first, in one call: each alert names its rule in `ruleId`.
+        Only `open` alerts are listed. For one rule's pending and resolved alerts, use `GET /v1/ads/rules/{ruleId}/alerts`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
+
+        Args:
+            account_id: The connected ads account the rules run on. (required)
+            ad_account_id: The platform ad account ID. (required)
+            limit
+            cursor: `nextCursor` from the previous page."""
+        client = _get_client()
+        try:
+            response = client.ad_rules.list_ad_account_rule_alerts(
+                account_id=account_id,
+                ad_account_id=ad_account_id,
+                limit=limit,
+                cursor=cursor,
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -13847,7 +13991,7 @@ def register_generated_tools(mcp, _get_client):
         """List an ad rule's runs
 
         Lists a rule's scheduled runs, newest first: what each run evaluated, matched and did.
-        Runs that changed something (or tried to) are kept permanently, also after the rule is deleted; runs that changed nothing are dropped after about 31 days.
+        A run that matched nothing or did not happen (`no_match`, `paused`) is kept 7 days, any other run 31 days.
         For every change across all rules, use `GET /v1/ads/rules/activity`.
 
         Platforms: meta, google, tiktok, linkedin, pinterest, x, reddit
@@ -15695,6 +15839,151 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Query Google Search Console search analytics",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def analytics_query_google_search_console_search_analytics(
+        account_id: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        dimensions: list[
+            Literal[
+                "date",
+                "hour",
+                "query",
+                "page",
+                "country",
+                "device",
+                "searchAppearance",
+                "brandedClassification",
+            ]
+        ]
+        | None = None,
+        type: Literal[
+            "web", "image", "video", "news", "discover", "googleNews", "webMultimodal"
+        ]
+        | None = None,
+        dimension_filter_groups: list[dict[str, Any]] | None = None,
+        aggregation_type: Literal["auto", "byPage", "byProperty", "byNewsShowcasePanel"]
+        | None = None,
+        row_limit: int | None = None,
+        start_row: int | None = None,
+        data_state: Literal["final", "all", "hourly_all"] | None = None,
+    ) -> str:
+        """Query Google Search Console search analytics
+
+        Clicks, impressions, CTR and average position from Google Search for a connected Search Console site, through Google's `searchAnalytics.query`.
+
+        Group by any of `date`, `hour`, `query`, `page`, `country`, `device`, `searchAppearance` and `brandedClassification`, and filter with Google's own filter groups. With no dimensions you get one row with the site's totals.
+
+        ### Branded queries
+
+        `brandedClassification` splits searches into `BRANDED` and `NON_BRANDED`. Google has it from February 21, 2026, and only for sites with enough search volume. As a filter it takes `equals` only and cannot be combined with a `query` filter.
+
+        ### Dates
+
+        Dates are `YYYY-MM-DD` in Pacific time. `toDate` defaults to yesterday and `fromDate` to 27 days before `toDate`, the window every report takes. Unknown fields answer 400. Google keeps 16 months, and the last two or three days are still filling in unless you pass `dataState: all`.
+
+        ### Caching and quota
+
+        Identical requests on the same site are cached for 10 ...
+
+        Platforms: googlesearchconsole
+
+        Args:
+            account_id: Zernio account ID of the Google Search Console connection. (required)
+            from_date
+            to_date
+            dimensions
+            type: Which Google surface to read. Defaults to `web`. `webMultimodal` is Google Lens, Circle to Search and image uploads.
+            dimension_filter_groups: Each item is an object with keys: groupType (one of: and); filters (list of objects with keys dimension, operator, expression); filterLists (list of objects with keys dimension, expressions) - Matches a row whose value is any of the expressions. A dimension goes in filters or in filterLists, not both.
+            aggregation_type: byNewsShowcasePanel needs a NEWS_SHOWCASE searchAppearance filter and type discover or googleNews.
+            row_limit: Defaults to 1000.
+            start_row: Row offset for paging past `rowLimit`.
+            data_state: `final` (default) leaves out the last two or three days; `all` includes them while Google is still filling them in; `hourly_all` is required with the `hour` dimension."""
+        client = _get_client()
+        try:
+            response = client.analytics.query_google_search_console_search_analytics(
+                account_id=account_id,
+                from_date=from_date,
+                to_date=to_date,
+                dimensions=dimensions,
+                type=type,
+                dimension_filter_groups=dimension_filter_groups,
+                aggregation_type=aggregation_type,
+                row_limit=row_limit,
+                start_row=start_row,
+                data_state=data_state,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Google Search Console sitemaps",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_list_google_search_console_sitemaps(account_id: str) -> str:
+        """List Google Search Console sitemaps
+
+        The sitemaps submitted for a connected Search Console site, with when Google last read them, their errors and warnings and how many URLs each holds. Cached for 10 minutes.
+
+        Platforms: googlesearchconsole
+
+        Args:
+            account_id: Zernio account ID of the Google Search Console connection. (required)"""
+        client = _get_client()
+        try:
+            response = client.analytics.list_google_search_console_sitemaps(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Inspect a URL in Google Search Console",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def analytics_inspect_google_search_console_url(
+        account_id: str, inspection_url: str, language_code: str | None = None
+    ) -> str:
+        """Inspect a URL in Google Search Console
+
+        Google's index status for one URL of a connected site: whether it is indexed, its canonical, last crawl, robots and fetch state, mobile usability and rich results. Returns Google's `inspectionResult` as is.
+
+        The URL must belong to the connected site (any host under a Domain property, or starting with the URL prefix); any other URL returns 400 before Google is called. Google allows 2,000 inspections a day and 600 a minute per site; results are cached for one hour.
+
+        Platforms: googlesearchconsole
+
+        Args:
+            account_id: Zernio account ID of the Google Search Console connection. (required)
+            inspection_url: (required)
+            language_code: Language of the issue messages (BCP-47, for example `en-US`). Defaults to English."""
+        client = _get_client()
+        try:
+            response = client.analytics.inspect_google_search_console_url(
+                account_id=account_id,
+                inspection_url=inspection_url,
+                language_code=language_code,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Open a tracking window",
             readOnlyHint=False,
             destructiveHint=True,
@@ -16495,7 +16784,7 @@ def register_generated_tools(mcp, _get_client):
 
         Creates an automation. Its shape picks the kind:
 
-        - **Ad rule**: a `schedule` over campaigns, ad sets or ads, with metric `conditions` and ad `steps`. It stays paused unless `status` is `active`; preview it first with `POST /v1/automations/preview`.
+        - **Ad rule**: a `schedule` over campaigns, ad sets, ads, Google keywords or Google search terms, with metric `conditions` and ad `steps`. It stays paused unless `status` is `active`; preview it first with `POST /v1/automations/preview`.
         - **Event**: a Zernio event in `trigger.type`, such as `post.failed`, with notify steps. It is on unless `status` is `paused`.
         - **Scheduled**: a `schedule` over a profile's posts, with notify steps and an optional boost. It is on unless `status` is `paused`.
 
@@ -16652,13 +16941,16 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def automations_get_automation() -> str:
+    def automations_get_automation(automation_id: str) -> str:
         """Get an automation
 
-        An automation installed from a template also carries `template`."""
+        An automation installed from a template also carries `template`.
+
+        Args:
+            automation_id: (required)"""
         client = _get_client()
         try:
-            response = client.automations.get_automation()
+            response = client.automations.get_automation(automation_id=automation_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -16672,6 +16964,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def automations_update_automation(
+        automation_id: str,
         name: str | None = None,
         status: Literal["active", "paused"] | None = None,
         trigger: dict[str, Any] | None = None,
@@ -16691,6 +16984,7 @@ def register_generated_tools(mcp, _get_client):
         Send the `version` you read as `If-Match`: if the automation was saved since, the edit is refused with a 409 (`automation_stale`). An edit is also refused with a 409 when another save lands while it is being applied.
 
         Args:
+            automation_id: (required)
             name
             status
             trigger: Object with keys: type (string, required); every (one of: 15m, 30m, 1h, 3h, 6h, 12h, 1d) - Run every interval. Send this or `times`, not both.; times (list of objects with keys days, at) - Set weekly times. Send this or `every`, not both.; startsAt (string) - Runs from this time on.; endsAt (string) - Stops running after this time. Must be after `startsAt`.; quietHours (object with keys from, to) - A daily window with no checks. It may wrap past midnight, such as `22:00` to `06:00`.
@@ -16699,10 +16993,11 @@ def register_generated_tools(mcp, _get_client):
             conditions: Object with keys: all (list of objects with keys metric, window, op, value, compareTo, of, required)
             alert: Object with keys: confirmChecks (integer); hold (object with keys all); critical (object with keys all)
             steps: The steps the automation's kind takes. Each item is an object with keys: id (string); type (string, required)
-            limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, over its whole history. Needs an `ads.*` step."""
+            limits: Object with keys: cooldown (string) - How long an object is left alone after the rule acts on it. Whole minutes, up to `30d`.; maxChangesPerDay (integer) - Most changes across the last 24 hours. Needs an `ads.*` step.; maxChangesPerObject (integer) - Most times the rule may change one object, counted over the last 400 days. Needs an `ads.*` step."""
         client = _get_client()
         try:
             response = client.automations.update_automation(
+                automation_id=automation_id,
                 name=name,
                 status=status,
                 trigger=trigger,
@@ -16725,11 +17020,14 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def automations_delete_automation() -> str:
-        """Delete an automation"""
+    def automations_delete_automation(automation_id: str) -> str:
+        """Delete an automation
+
+        Args:
+            automation_id: (required)"""
         client = _get_client()
         try:
-            response = client.automations.delete_automation()
+            response = client.automations.delete_automation(automation_id=automation_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -18400,6 +18698,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns broadcasts with delivery stats. Filter by status, platform, or profile.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
+
         Args:
             profile_id: Filter by profile. Omit to list across all profiles
             status
@@ -18453,6 +18753,8 @@ def register_generated_tools(mcp, _get_client):
 
         Create a broadcast in draft status. Add recipients and then send or schedule it.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
+
         Args:
             profile_id: (required)
             account_id: (required)
@@ -18491,6 +18793,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns a broadcast with its full configuration and delivery stats.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
+
         Args:
             broadcast_id: (required)"""
         client = _get_client()
@@ -18519,6 +18823,8 @@ def register_generated_tools(mcp, _get_client):
         """Update broadcast
 
         Update a broadcast's name, message, template, or segment filters. Only draft broadcasts can be updated.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
 
         Args:
             broadcast_id: (required)
@@ -18554,6 +18860,8 @@ def register_generated_tools(mcp, _get_client):
 
         Permanently delete a broadcast. Only drafts can be deleted.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
+
         Args:
             broadcast_id: (required)"""
         client = _get_client()
@@ -18576,6 +18884,8 @@ def register_generated_tools(mcp, _get_client):
 
         Immediately start sending a draft broadcast to its recipients.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
+
         Args:
             broadcast_id: (required)"""
         client = _get_client()
@@ -18597,6 +18907,8 @@ def register_generated_tools(mcp, _get_client):
         """Schedule broadcast for later
 
         Schedule a draft broadcast, or move the date of an already scheduled one, to a future date and time.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
 
         Args:
             broadcast_id: (required)
@@ -18622,6 +18934,8 @@ def register_generated_tools(mcp, _get_client):
         """Cancel broadcast
 
         Cancel a scheduled or in-progress broadcast. Already-sent messages are not affected.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
 
         Args:
             broadcast_id: (required)"""
@@ -18649,6 +18963,8 @@ def register_generated_tools(mcp, _get_client):
         """List broadcast recipients
 
         Returns recipients for a broadcast with individual delivery status. Filter by status.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
 
         Args:
             broadcast_id: (required)
@@ -18681,6 +18997,8 @@ def register_generated_tools(mcp, _get_client):
         """Add recipients to a broadcast
 
         Add recipients by contact IDs, raw phone numbers, or from the broadcast's segment filters.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, sms, slack, imessage, line
 
         Args:
             broadcast_id: (required)
@@ -21771,6 +22089,8 @@ def register_generated_tools(mcp, _get_client):
         title, and a link post has no editable body. To edit a published post's body, use
         `POST /v1/posts/{postId}/edit`.
 
+        Platforms: reddit
+
         Args:
             post_id: (required)
             comment_id: (required)
@@ -21819,6 +22139,8 @@ def register_generated_tools(mcp, _get_client):
         This is distinct from `POST /v1/inbox/comments/{postId}/{commentId}/hide`, which
         covers Facebook, Instagram, Threads, and X and does not apply to YouTube.
 
+        Platforms: youtube
+
         Args:
             post_id: (required)
             comment_id: (required)
@@ -21861,6 +22183,8 @@ def register_generated_tools(mcp, _get_client):
 
         On Threads only top-level replies can be hidden, and hiding one also hides its nested replies.
 
+        Platforms: facebook, instagram, threads, twitter, tiktok
+
         Args:
             post_id: (required)
             comment_id: (required)
@@ -21889,6 +22213,8 @@ def register_generated_tools(mcp, _get_client):
 
         Unhide a previously hidden comment. Supported by Facebook, Instagram, Threads, X, and
         TikTok (accounts connected through the TikTok for Business app).
+
+        Platforms: facebook, instagram, threads, twitter, tiktok
 
         Args:
             post_id: (required)
@@ -21919,6 +22245,8 @@ def register_generated_tools(mcp, _get_client):
         Pin a top-level comment to the top of a post's comment section. TikTok accounts
         connected through the TikTok for Business app only; every other platform returns 400.
 
+        Platforms: tiktok
+
         Args:
             post_id: (required)
             comment_id: (required)
@@ -21947,6 +22275,8 @@ def register_generated_tools(mcp, _get_client):
 
         Unpin a previously pinned comment. TikTok accounts connected through the TikTok for
         Business app only.
+
+        Platforms: tiktok
 
         Args:
             post_id: (required)
@@ -21997,6 +22327,8 @@ def register_generated_tools(mcp, _get_client):
 
         Instagram ...
 
+        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram
+
         Args:
             post_id: (required)
             comment_id: (required)
@@ -22033,6 +22365,8 @@ def register_generated_tools(mcp, _get_client):
         Reddit, LinkedIn, and Instagram in limited release. For Bluesky, the likeUri query
         parameter is required. Instagram has the same limited release, Facebook Login,
         `instagram_manage_engagement` and burst-limit constraints as liking.
+
+        Platforms: facebook, twitter, bluesky, reddit, linkedin, instagram
 
         Args:
             post_id: (required)
@@ -22088,6 +22422,8 @@ def register_generated_tools(mcp, _get_client):
 
         LinkedIn requires the `w_member_social_feed` / `w_organization_social_feed` scopes, which are not ...
 
+        Platforms: linkedin, twitter, facebook, youtube, bluesky, instagram
+
         Args:
             post_id: Zernio post ID or the platform's native post ID (required)
             account_id: The account acting as the liker (required)
@@ -22126,6 +22462,8 @@ def register_generated_tools(mcp, _get_client):
         - Instagram: has the same limited release, Facebook Login, `instagram_manage_engagement` and burst-limit constraints as liking.
         - Bluesky: `likeUri` (returned when the post was liked) is required.
         - Reddit: uses `POST /v1/accounts/{accountId}/reddit-vote` with `direction: 0`.
+
+        Platforms: linkedin, twitter, facebook, youtube, bluesky, instagram
 
         Args:
             post_id: Zernio post ID or the platform's native post ID (required)
@@ -22176,6 +22514,8 @@ def register_generated_tools(mcp, _get_client):
         The refusal is uneven: most accounts do not get it, and an affected account gets it on many of its non-followers. Only that account's own past refusals show whether it is affected.
 
         The failed call still consumes the comment's single private reply. On an affected account, send plain text to reach ...
+
+        Platforms: instagram, facebook
 
         Args:
             post_id: The media/post ID (Instagram media ID or Facebook post ID) (required)
@@ -25332,6 +25672,7 @@ def register_generated_tools(mcp, _get_client):
         purpose: Literal["notifications"] | None = None,
         expected_platform_user_id: str | None = None,
         expected_username: str | None = None,
+        expected_phone_number: str | None = None,
         force_reauth: bool = False,
         allow_no_location: bool = False,
         redirect_url: str | None = None,
@@ -25367,6 +25708,8 @@ def register_generated_tools(mcp, _get_client):
             Ads connections stay one per profile.
 
             On a legacy plan limited to N profiles, a new account is refused with 403 `platform_account_limit` once N accounts of ...
+
+            Platforms: facebook, instagram, linkedin, twitter, tiktok, youtube, threads, reddit, pinterest, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, google, microsoft
 
             Args:
                 platform: Social media platform to connect. `snapchat` is a closed beta with no public release date: it returns 403 `PLATFORM_BETA_RESTRICTED` until the account is approved. (required)
@@ -25404,6 +25747,17 @@ def register_generated_tools(mcp, _get_client):
                 expected_username: Only connect if the authorized account's handle is this one (case-insensitive, a leading @ is ignored). Otherwise the flow ends with `error=account_mismatch` and `error_message` naming the handle that was authorized, and nothing is written.
 
         Same coverage and transport as expectedPlatformUserId; when both are sent, both must match. Use this on a first connection, where you hold the handle the user typed but no Zernio id yet.
+                expected_phone_number: WhatsApp with `signup=hosted` only; ignored on other flows. The number (E.164) the user must connect. If they pick a different number in Meta's popup, the hosted page ends with a 409 `NUMBER_MISMATCH` naming the number they picked, and nothing is saved.
+
+        The full international number is compared, country code included. A number that differs only in its country code, or shares only its last digits, is a mismatch.
+
+        The only spellings treated as the same number are national re-spellings of one line, such as a Brazilian mobile with or without its ninth digit, or a Mexican mobile with or without the `1` after `+52`.
+
+        The pin is held server-side on the connect token, not in the hosted page URL, so removing it from the URL does not lift it.
+
+        It is also enforced on late completions: when the browser closes before the signup finishes, Zernio only connects the number in the background if it matches.
+
+        Use it to reconnect a known number safely. For a number bought from Zernio, the hosted page already expects that number and this value is ignored.
                 force_reauth: Instagram Login only (the default loginMethod); ignored elsewhere. Makes Instagram show its login page and ask for the credentials of the account to connect, even when another Instagram account is logged in on the device or app. Also hides the Facebook login option on that page.
 
         Use it when the person connecting manages several Instagram accounts on one phone: otherwise Instagram logs in, and converts to a professional account, whichever account is active, before any consent screen. Pair it with expectedUsername to also refuse a wrong account at the end.
@@ -25623,6 +25977,7 @@ def register_generated_tools(mcp, _get_client):
                 purpose=purpose,
                 expected_platform_user_id=expected_platform_user_id,
                 expected_username=expected_username,
+                expected_phone_number=expected_phone_number,
                 force_reauth=force_reauth,
                 allow_no_location=allow_no_location,
                 redirect_url=redirect_url,
@@ -25674,6 +26029,8 @@ def register_generated_tools(mcp, _get_client):
             Exchange the OAuth authorization code for tokens and connect the account to the specified profile.
 
             Facebook, Google Business Profile, Snapchat and WhatsApp are not accepted here: their account identity is a destination chosen after OAuth, which this single-shot exchange cannot do. Connect them through the redirect flow from `GET /v1/connect/{platform}`, or, for WhatsApp Embedded Signup, through `POST /v1/connect/whatsapp/embedded-signup`.
+
+            Platforms: instagram, twitter, threads, linkedin, youtube, tiktok, reddit, pinterest, google, microsoft
 
             Args:
                 platform: Social platform to complete the connect for. Discord, Slack and Telegram are absent because they are
@@ -26119,6 +26476,132 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get Google Search Console OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_google_search_console_connect_url(
+        profile_id: str,
+        redirect_url: str | None = None,
+        reconnect_account_id: str | None = None,
+    ) -> str:
+        """Get Google Search Console OAuth connect URL
+
+        Starts OAuth for Google Search Console. Each connected site becomes its own account with platform `googlesearchconsole`; it reads Google Search data and does not post.
+
+        Requested scope: `https://www.googleapis.com/auth/webmasters.readonly`.
+
+        ### Flow
+
+        Redirect the user to `authUrl`.
+
+        - **One verified site:** Zernio connects it and redirects to `redirect_url` (or the dashboard) with `connected=googlesearchconsole`, `profileId`, `accountId` and `username` (the site, such as `acme.com`).
+        - **Several sites:** the user first picks one on a Zernio-hosted page, which then redirects the same way.
+
+        ### Your own site picker
+
+        Add `headless=true` to `redirect_url`. Zernio then redirects there with `step=select_site`, `profileId`, `platform=googlesearchconsole` and a `pendingDataToken` for `GET /v1/connect/googlesearchconsole/sites` and `POST /v1/connect/googlesearchconsole/select-site`.
+
+        ### Errors
+
+        On failure the redirect carries `error`, `platform=googlesearchconsole` and `error_message`. ...
+
+        Platforms: googlesearchconsole
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.
+            reconnect_account_id: Zernio account ID of the Google Search Console account being reconnected. Picking a different site then fails instead of adding a second account."""
+        client = _get_client()
+        try:
+            response = client.connect.get_google_search_console_connect_url(
+                profile_id=profile_id,
+                redirect_url=redirect_url,
+                reconnect_account_id=reconnect_account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Search Console sites for a pending connect",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_list_google_search_console_sites(pending_data_token: str) -> str:
+        """List Search Console sites for a pending connect
+
+        For headless flows: lists the verified Search Console sites of a pending connect, so you can show your own picker.
+
+        ### Flow
+
+        1. The connect started with `redirect_url=...?headless=true`, and the Google account has several verified sites.
+        2. Zernio redirects to your `redirect_url` with `step=select_site`, `profileId`, `platform=googlesearchconsole` and a `pendingDataToken`.
+        3. Call this to list the sites and show your own picker.
+        4. Call `POST /v1/connect/googlesearchconsole/select-site`.
+
+        ### Token
+
+        - Listing does not consume the token.
+        - A headless token passes through your own URLs, so it is honored only together with your API key (or connect token) for the same profile.
+        - It expires after one hour.
+
+        Platforms: googlesearchconsole
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.list_google_search_console_sites(
+                pending_data_token=pending_data_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect the chosen Search Console site",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_select_google_search_console_site(
+        pending_data_token: str, site_url: str
+    ) -> str:
+        """Connect the chosen Search Console site
+
+        For headless flows. Connects the site the user picked as a `googlesearchconsole` account and returns where to send the user next.
+
+        - On success: your `redirect_url` with `connected=googlesearchconsole`, `profileId`, `accountId` and `username`.
+        - When the connect was refused (for example a billing block): an `error`.
+
+        Consumes the `pendingDataToken`; a refused or failed attempt leaves it usable for a retry.
+
+        Send your API key (or connect token) for the same profile with a headless token.
+
+        Platforms: googlesearchconsole
+
+        Args:
+            pending_data_token: Token from the headless redirect. (required)
+            site_url: A siteUrl from the sites list. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.select_google_search_console_site(
+                pending_data_token=pending_data_token, site_url=site_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get HubSpot OAuth connect URL",
             readOnlyHint=True,
             destructiveHint=False,
@@ -26144,7 +26627,9 @@ def register_generated_tools(mcp, _get_client):
 
         Reconnecting the same portal and profile updates the stored connection in place and keeps its settings.
 
-        Requested scopes: `oauth`, `crm.objects.contacts.read`, `crm.objects.contacts.write`.
+        Requested scopes: `oauth`, `crm.objects.contacts.read`, `crm.objects.contacts.write`. Optional: `crm.objects.deals.read` (deals in ad results), `automation` (the Send WhatsApp template workflow ...
+
+        Platforms: hubspot
 
         Args:
             profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
@@ -26153,6 +26638,52 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.get_hub_spot_connect_url(
                 profile_id=profile_id, redirect_url=redirect_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Salesforce OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_salesforce_connect_url(
+        profile_id: str,
+        environment: Literal["production", "sandbox"] = "production",
+        redirect_url: str | None = None,
+    ) -> str:
+        """Get Salesforce OAuth connect URL
+
+        Initiates OAuth (authorization code with PKCE) for a Salesforce org. Salesforce is a connect-only CRM platform: inbox contacts are matched to Contacts and Leads, and each day of conversation is logged as a Task.
+
+        The org must have the Zernio Salesforce package installed first: it carries the app Salesforce authorizes. Production orgs install it from `https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000llzZAAQ`, sandboxes from the same path on `test.salesforce.com`. Without it the redirect carries `error=salesforce_package_not_installed`.
+
+        One Salesforce org can be connected per profile. Connecting a different org to a profile that already has one redirects with `error=salesforce_profile_has_org`.
+
+        ### Flow
+
+        1. Redirect the user to `authUrl`.
+        2. After authorization, Salesforce returns the browser to Zernio's internal callback.
+        3. Zernio redirects to `redirect_url` (or the dashboard when omitted).
+
+        On success the redirect carries `connected=salesforce`, ...
+
+        Platforms: salesforce
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            environment: Sign in at login.salesforce.com (`production`, also Developer Edition orgs) or test.salesforce.com (`sandbox`).
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+        client = _get_client()
+        try:
+            response = client.connect.get_salesforce_connect_url(
+                profile_id=profile_id,
+                environment=environment,
+                redirect_url=redirect_url,
             )
             return _format_response(response)
         except Exception as e:
@@ -26377,6 +26908,8 @@ def register_generated_tools(mcp, _get_client):
         """Get a hosted link to connect any mailbox
 
         One link for any address. The page asks for the email first, sends Gmail, Google Workspace, Outlook.com and Microsoft 365 (found by domain or MX) to their OAuth connect, and every other mailbox to IMAP with the provider's app-password steps. Valid for one hour.
+
+        Platforms: google, microsoft, imap
 
         Args:
             profile_id: (required)
@@ -26962,11 +27495,14 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_get_o_auth_app() -> str:
-        """Get an OAuth app"""
+    def connect_get_o_auth_app(app_id: str) -> str:
+        """Get an OAuth app
+
+        Args:
+            app_id: (required)"""
         client = _get_client()
         try:
-            response = client.connect.get_o_auth_app()
+            response = client.connect.get_o_auth_app(app_id=app_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -26980,6 +27516,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_update_o_auth_app(
+        app_id: str,
         label: str | None = None,
         client_secret: str | None = None,
         meta_app_id: str | None = None,
@@ -26997,6 +27534,7 @@ def register_generated_tools(mcp, _get_client):
         The client ID cannot change: a different client ID is a different app, so add it and reconnect the accounts through it.
 
         Args:
+            app_id: (required)
             label
             client_secret
             meta_app_id: Instagram only: the numeric ID of the Meta app your Instagram app lives in. Zernio uses it with `metaAppSecret` to register the webhook. Send both or neither.
@@ -27006,6 +27544,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.connect.update_o_auth_app(
+                app_id=app_id,
                 label=label,
                 client_secret=client_secret,
                 meta_app_id=meta_app_id,
@@ -27025,16 +27564,17 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_delete_o_auth_app(confirm: bool = False) -> str:
+    def connect_delete_o_auth_app(app_id: str, confirm: bool = False) -> str:
         """Remove an OAuth app
 
         Removes the app. Accounts connected through it can no longer refresh their tokens, so when any are connected the call returns 409 OAUTH_APP_IN_USE with `details.accountCount` unless `confirm=true` is passed. With confirm, those accounts are marked as needing reconnection and each fires `account.disconnected`.
 
         Args:
+            app_id: (required)
             confirm"""
         client = _get_client()
         try:
-            response = client.connect.delete_o_auth_app(confirm=confirm)
+            response = client.connect.delete_o_auth_app(app_id=app_id, confirm=confirm)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -27415,6 +27955,51 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Connect an AppLovin Axon account",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_app_lovin_ads_credentials(
+        api_key: str,
+        event_key: str,
+        profile_id: str,
+        name: str | None = None,
+        state: str | None = None,
+        redirect_url: str | None = None,
+    ) -> str:
+        """Connect an AppLovin Axon account
+
+        Connect AppLovin Axon with the Conversion API key and Event Key from the Keys page of Axon Ads Manager.
+
+        Zernio checks both keys with Axon before saving them. The account then receives the conversion events you forward to it (`POST /v1/events`, forwarding rules), and its Event Key works as a site tag on tracking sites.
+
+        Requires the Ads add-on.
+
+        Args:
+            api_key: Conversion API key from the Keys page of Axon Ads Manager. (required)
+            event_key: Event Key from the Keys page of Axon Ads Manager: 8 to 128 letters, digits, dots, dashes or underscores. (required)
+            name: Optional display name for the account.
+            profile_id: Your Zernio profile ID (required)
+            state: Optional state passthrough for the connect flow.
+            redirect_url: Optional URL to redirect to after a successful connection, echoed back as redirectUrl."""
+        client = _get_client()
+        try:
+            response = client.connect.connect_app_lovin_ads_credentials(
+                api_key=api_key,
+                event_key=event_key,
+                name=name,
+                profile_id=profile_id,
+                state=state,
+                redirect_url=redirect_url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Connect a Whop account",
             readOnlyHint=False,
             destructiveHint=True,
@@ -27626,7 +28211,7 @@ def register_generated_tools(mcp, _get_client):
                 waba_id: WhatsApp Business Account id, when the SDK reported one
                 phone_number_id
                 is_coexistence: Number is also live in the WhatsApp Business app
-                expected_phone_number: Rejects the connect when Meta returns a different number
+                expected_phone_number: Rejects the connect when Meta returns a different number (full international number). With a connect token minted with a pinned number, the pinned number applies instead.
                 redirect_url: Hosted signup page only. When present, the response also carries `redirectUrl`, the URL the user should land on, with the outcome mapped exactly like the redirect flow (success params, or `error` and `platform` with the same values).
 
         Must be an absolute http(s) URL or a custom app scheme. The legacy spelling `redirectUrl` remains accepted as an alias.
@@ -28987,6 +29572,8 @@ def register_generated_tools(mcp, _get_client):
 
         The Google Workspace and Microsoft 365 organization connections, newest first. Pass `profileId` to list one profile; omit it to list every profile the API key can access (a profile-restricted key or team member only sees its own profiles).
 
+        Platforms: google, microsoft
+
         Args:
             profile_id: Limit the list to one profile. Omit to list across every accessible profile."""
         client = _get_client()
@@ -29004,13 +29591,20 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def connect_get_org_connection() -> str:
+    def connect_get_org_connection(org_connection_id: str) -> str:
         """Get an organization connection
 
-        One organization connection with its status and setup instructions."""
+        One organization connection with its status and setup instructions.
+
+        Platforms: google, microsoft
+
+        Args:
+            org_connection_id: (required)"""
         client = _get_client()
         try:
-            response = client.connect.get_org_connection()
+            response = client.connect.get_org_connection(
+                org_connection_id=org_connection_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -29024,7 +29618,9 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def connect_update_org_connection(
-        allowed_emails: list[str] | None = None, admin_email: str | None = None
+        org_connection_id: str,
+        allowed_emails: list[str] | None = None,
+        admin_email: str | None = None,
     ) -> str:
         """Update an organization connection
 
@@ -29032,13 +29628,18 @@ def register_generated_tools(mcp, _get_client):
 
         Mailboxes already added that a narrowed allowlist excludes answer `401` `reconnect_required` until it includes them again.
 
+        Platforms: google, microsoft
+
         Args:
+            org_connection_id: (required)
             allowed_emails
             admin_email"""
         client = _get_client()
         try:
             response = client.connect.update_org_connection(
-                allowed_emails=allowed_emails, admin_email=admin_email
+                org_connection_id=org_connection_id,
+                allowed_emails=allowed_emails,
+                admin_email=admin_email,
             )
             return _format_response(response)
         except Exception as e:
@@ -29052,15 +29653,22 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def connect_delete_org_connection() -> str:
+    def connect_delete_org_connection(org_connection_id: str) -> str:
         """Delete an organization connection
 
         Deletes the connection. Mailboxes added from it stay on the profile and answer `401` `reconnect_required` until you disconnect them or connect them another way.
 
-        `mailboxAccountIds` lists them."""
+        `mailboxAccountIds` lists them.
+
+        Platforms: google, microsoft
+
+        Args:
+            org_connection_id: (required)"""
         client = _get_client()
         try:
-            response = client.connect.delete_org_connection()
+            response = client.connect.delete_org_connection(
+                org_connection_id=org_connection_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -29083,6 +29691,8 @@ def register_generated_tools(mcp, _get_client):
         Google: the domain's TXT record and a token for `email` with every delegated scope. Microsoft: a tenant token carrying every application permission the areas need.
 
         `409` `org_grant_incomplete` says what is still missing.
+
+        Platforms: google, microsoft
 
         Args:
             org_connection_id: (required)
@@ -29113,6 +29723,8 @@ def register_generated_tools(mcp, _get_client):
 
         Google needs `adminEmail` on the connection and the directory scope delegated.
 
+        Platforms: google, microsoft
+
         Args:
             org_connection_id: (required)
             cursor"""
@@ -29141,6 +29753,8 @@ def register_generated_tools(mcp, _get_client):
         Adds one mailbox from an active organization connection, with no sign-in from its user. It becomes a `google` or `microsoft` account on the connection's profile and works with every email, calendar, files and contacts endpoint.
 
         `201` for a new account, `200` when the address was already on the profile and now runs on the organization grant. `account.connected` fires.
+
+        Platforms: google, microsoft
 
         Args:
             org_connection_id: (required)
@@ -29238,6 +29852,8 @@ def register_generated_tools(mcp, _get_client):
             "whatsapp",
             "slack",
             "sms",
+            "rcs",
+            "tiktok",
             "line",
             "wechat",
         ]
@@ -29307,6 +29923,8 @@ def register_generated_tools(mcp, _get_client):
             "whatsapp",
             "slack",
             "sms",
+            "rcs",
+            "tiktok",
             "line",
             "wechat",
         ]
@@ -30281,6 +30899,7 @@ def register_generated_tools(mcp, _get_client):
             "woocommerce",
             "stripe",
             "web",
+            "salesforce",
         ]
         | None = None,
         platform: str | None = None,
@@ -30296,6 +30915,8 @@ def register_generated_tools(mcp, _get_client):
         Events sent with `testCode` are not stored, so they never appear here.
 
         Paginate with `cursor`: pass the `nextCursor` of the previous page until it comes back `null`.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics, stripe, hubspot, salesforce
 
         Args:
             profile_id: The profile to list. Omit to cover every profile you can access.
@@ -30358,7 +30979,7 @@ def register_generated_tools(mcp, _get_client):
         - `sourceUrl` keeps only its origin, path and attribution parameters (`utm_*`, `gclid`, `fbclid`, `ttclid`, `li_fat_id`, `epik`, `rdt_cid`, `gbraid`, `wbraid`).
         - Events sent with `testCode` are forwarded but not ...
 
-        Platforms: meta, google, tiktok, linkedin, pinterest, reddit
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics
 
         Args:
             profile_id: Profile the events belong to. Its saved destinations receive the events. (required)
@@ -30672,6 +31293,7 @@ def register_generated_tools(mcp, _get_client):
                 "woocommerce",
                 "stripe",
                 "web",
+                "salesforce",
             ]
         ]
         | None = None,
@@ -30682,6 +31304,8 @@ def register_generated_tools(mcp, _get_client):
         Saves where a profile's events go: every event sent to `POST /v1/events` for that profile is then forwarded to this destination.
 
         Pick `destinationId` from `GET /v1/ads/conversions/destinations`. Set `eventNames` to forward only those events, such as only `Purchase`; leave it out to forward every event.
+
+        Platforms: meta, google, tiktok, linkedin, pinterest, reddit, openai, applovinads, googleanalytics, hubspot, salesforce
 
         Args:
             profile_id: (required)
@@ -30816,13 +31440,16 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def conversions_get_tracking_site() -> str:
+    def conversions_get_tracking_site(site_id: str) -> str:
         """Get a tracking site
 
-        One site, with its snippet, its custom subdomain and the latest result of each setup check."""
+        One site, with its snippet, its custom subdomain and the latest result of each setup check.
+
+        Args:
+            site_id: (required)"""
         client = _get_client()
         try:
-            response = client.conversions.get_tracking_site()
+            response = client.conversions.get_tracking_site(site_id=site_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -30836,29 +31463,37 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def conversions_update_tracking_site(
+        site_id: str,
         name: str | None = None,
         domains: list[str] | None = None,
         consent_mode: Literal["eu_opt_in", "opt_in", "opt_out"] | None = None,
         custom_hostname: str | None = None,
+        proxy_path: str | None = None,
     ) -> str:
         """Update a tracking site
 
-        Changes the site's name, domains, consent mode or custom subdomain. Send at least one field.
+        Changes the site's name, domains, consent mode, custom subdomain or own-domain path. Send at least one field.
 
         `customHostname` sets a subdomain of the site, such as `t.brand.com`; create the CNAME in `customHostname.dnsRecord`. The snippet switches to it once its status is `active`. `null` removes it.
 
+        `proxyPath` serves the tag from a path of the site itself, such as `brand.com/zt`, through a proxy on your server. The response's `proxy.secret` signs what the proxy forwards. `null` removes it.
+
         Args:
+            site_id: (required)
             name
             domains: Hosts allowed to send events, such as `brand.com`. Events from any other origin are dropped.
             consent_mode
-            custom_hostname: A subdomain of one of the site's domains, never the domain itself. `null` removes it."""
+            custom_hostname: A subdomain of one of the site's domains, never the domain itself. `null` removes it.
+            proxy_path: The path your server forwards to the collector, such as `/zt`. `null` removes it."""
         client = _get_client()
         try:
             response = client.conversions.update_tracking_site(
+                site_id=site_id,
                 name=name,
                 domains=domains,
                 consent_mode=consent_mode,
                 custom_hostname=custom_hostname,
+                proxy_path=proxy_path,
             )
             return _format_response(response)
         except Exception as e:
@@ -30872,13 +31507,16 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def conversions_delete_tracking_site() -> str:
+    def conversions_delete_tracking_site(site_id: str) -> str:
         """Delete a tracking site
 
-        Stops collecting at once, removes the tag from the connected store and releases the custom subdomain. Events already stored are kept."""
+        Stops collecting at once, removes the tag from the connected store and releases the custom subdomain. Events already stored are kept.
+
+        Args:
+            site_id: (required)"""
         client = _get_client()
         try:
-            response = client.conversions.delete_tracking_site()
+            response = client.conversions.delete_tracking_site(site_id=site_id)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -32603,6 +33241,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_campaigns_create_campaign_payout_batch(
+        campaign_id: str,
         participant_ids: list[str] | None = None,
         exclude_participant_ids: list[str] | None = None,
         payment_method_id: str | None = None,
@@ -32622,12 +33261,14 @@ def register_generated_tools(mcp, _get_client):
         A creator whose payouts were disabled before the hold ended is skipped and stays payable. A charge refunded or disputed during the hold pays nobody: every amount is payable again. ...
 
         Args:
+            campaign_id: Campaign ID. (required)
             participant_ids: Pay only these participants. Defaults to every payable participant who is ready.
             exclude_participant_ids: Leave these participants out.
             payment_method_id: A saved card of the billing owner's (`pm_...`). Defaults to the default payment method."""
         client = _get_client()
         try:
             response = client.creator_campaigns.create_campaign_payout_batch(
+                campaign_id=campaign_id,
                 participant_ids=participant_ids,
                 exclude_participant_ids=exclude_participant_ids,
                 payment_method_id=payment_method_id,
@@ -32645,19 +33286,20 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_campaigns_list_campaign_payout_batches(
-        limit: int = 20, skip: int = 0
+        campaign_id: str, limit: int = 20, skip: int = 0
     ) -> str:
         """List payout batches
 
         The campaign's payout batches, newest first, with each creator's item.
 
         Args:
+            campaign_id: Campaign ID. (required)
             limit
             skip"""
         client = _get_client()
         try:
             response = client.creator_campaigns.list_campaign_payout_batches(
-                limit=limit, skip=skip
+                campaign_id=campaign_id, limit=limit, skip=skip
             )
             return _format_response(response)
         except Exception as e:
@@ -33592,7 +34234,7 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def creator_portal_get_creator_portal() -> str:
+    def creator_portal_get_creator_portal(token: str) -> str:
         """Read a creator invite or participant page
 
         What a creator sees behind a campaign link, with no API key. Never cached.
@@ -33602,10 +34244,13 @@ def register_generated_tools(mcp, _get_client):
         - An open invite token (from `POST /v1/creator-campaigns/{campaignId}/invite-link`): answers `kind: invite` with the campaign only.
         - A participant token (from an invite or a join): answers `kind: participant` with the creator's connected accounts, latest 100 submissions, draft versions, sample requests, earnings and payout setup. A creator held for approval reads it with `participant.status` `pending` (or `denied` once turned away).
 
-        Reading a participant page also re-checks the creator's connected accounts."""
+        Reading a participant page also re-checks the creator's connected accounts.
+
+        Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)"""
         client = _get_client()
         try:
-            response = client.creator_portal.get_creator_portal()
+            response = client.creator_portal.get_creator_portal(token=token)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -33619,7 +34264,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_join_creator_campaign(
-        display_name: str | None = None, email: str | None = None
+        token: str, display_name: str | None = None, email: str | None = None
     ) -> str:
         """Join a campaign
 
@@ -33632,12 +34277,13 @@ def register_generated_tools(mcp, _get_client):
         Open-link joins are limited to about 20 per IP address and 60 per link every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             display_name: Required when joining through an open invite link.
             email"""
         client = _get_client()
         try:
             response = client.creator_portal.join_creator_campaign(
-                display_name=display_name, email=email
+                token=token, display_name=display_name, email=email
             )
             return _format_response(response)
         except Exception as e:
@@ -33652,7 +34298,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_start_creator_connect(
-        platform: str, window_url: str | None = None
+        token: str, platform: str, window_url: str | None = None
     ) -> str:
         """Start connecting a creator account
 
@@ -33665,12 +34311,13 @@ def register_generated_tools(mcp, _get_client):
         when `windowUrl` is sent.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             platform: One of the campaign's platforms, for example tiktok. (required)
             window_url: The Zernio connect window the participant page opened (`/connect/complete` with its `window` id). Any other URL answers 400 `invalid_field_value`."""
         client = _get_client()
         try:
             response = client.creator_portal.start_creator_connect(
-                platform=platform, window_url=window_url
+                token=token, platform=platform, window_url=window_url
             )
             return _format_response(response)
         except Exception as e:
@@ -33685,7 +34332,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_submit_creator_post(
-        url: str, draft_id: str | None = None
+        token: str, url: str, draft_id: str | None = None
     ) -> str:
         """Submit a post
 
@@ -33694,12 +34341,13 @@ def register_generated_tools(mcp, _get_client):
         attempts and 10 accepted posts per participant every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             url: The public link to the post. (required)
             draft_id: The approved draft this post publishes. Required when the campaign has `requireDraftApproval`: it must be one of the creator's own drafts, `approved`, and not used by another post yet (each draft backs one post only)."""
         client = _get_client()
         try:
             response = client.creator_portal.submit_creator_post(
-                url=url, draft_id=draft_id
+                token=token, url=url, draft_id=draft_id
             )
             return _format_response(response)
         except Exception as e:
@@ -33714,6 +34362,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_presign_creator_draft_upload(
+        token: str,
         filename: str,
         content_type: Literal[
             "video/mp4",
@@ -33732,13 +34381,14 @@ def register_generated_tools(mcp, _get_client):
         Accepted files: MP4, MOV or WebM video, JPG, PNG or WebP image, up to 500 MB. About 20 uploads per participant every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             filename: (required)
             content_type: (required)
             size: File size in bytes. Optional; over 500 MB answers 400."""
         client = _get_client()
         try:
             response = client.creator_portal.presign_creator_draft_upload(
-                filename=filename, content_type=content_type, size=size
+                token=token, filename=filename, content_type=content_type, size=size
             )
             return _format_response(response)
         except Exception as e:
@@ -33753,6 +34403,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_submit_creator_draft(
+        token: str,
         media_url: str,
         media_type: Literal["video", "image"],
         caption: str = "",
@@ -33770,6 +34421,7 @@ def register_generated_tools(mcp, _get_client):
         About 20 drafts per participant every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             media_url: The `publicUrl` of the uploaded file. (required)
             media_type: (required)
             caption
@@ -33777,6 +34429,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.creator_portal.submit_creator_draft(
+                token=token,
                 media_url=media_url,
                 media_type=media_type,
                 caption=caption,
@@ -33795,6 +34448,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_request_creator_sample(
+        token: str,
         product_id: str,
         shipping_address: dict[str, Any] | None,
         variant_id: str | None = None,
@@ -33810,6 +34464,7 @@ def register_generated_tools(mcp, _get_client):
         About 10 requests per participant every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             product_id: A `productId` from the campaign's `sampleProducts`. (required)
             variant_id: Required when the product lists `variants`.
             shipping_address: Object with keys: name (string, required); line1 (string, required); line2 (string); city (string, required); region (string); postalCode (string, required); country (string, required) - ISO 3166-1 alpha-2 country code.; phone (string) (required)
@@ -33817,6 +34472,7 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.creator_portal.request_creator_sample(
+                token=token,
                 product_id=product_id,
                 variant_id=variant_id,
                 shipping_address=shipping_address,
@@ -33834,7 +34490,7 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def creator_portal_remove_creator_account() -> str:
+    def creator_portal_remove_creator_account(token: str, account_id: str) -> str:
         """Remove a connected account
 
         Disconnects one of the creator's accounts. The account belongs to the creator, not to one campaign, so it stops
@@ -33843,10 +34499,16 @@ def register_generated_tools(mcp, _get_client):
         What its posts already earned stays: accrued, approved and paid amounts are not touched.
 
         Refused while a post from the account is still counting views, because those views are read through the
-        account. It can be removed once their tracking ends."""
+        account. It can be removed once their tracking ends.
+
+        Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
+            account_id: The `id` of one of the participant's `accounts`. (required)"""
         client = _get_client()
         try:
-            response = client.creator_portal.remove_creator_account()
+            response = client.creator_portal.remove_creator_account(
+                token=token, account_id=account_id
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -33859,7 +34521,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def creator_portal_set_creator_spark_code(spark_auth_code: str) -> str:
+    def creator_portal_set_creator_spark_code(
+        token: str, submission_id: str, spark_auth_code: str
+    ) -> str:
         """Set a post's Spark code
 
         The creator pastes the Spark code of one of their TikTok posts (generated in the TikTok app under the post's
@@ -33868,11 +34532,15 @@ def register_generated_tools(mcp, _get_client):
         Send `null` to clear it. The code is never returned: submissions only expose `hasSparkCode`.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
+            submission_id: The `id` of one of the participant's `submissions`. (required)
             spark_auth_code: The Spark code, or null to clear it. (required)"""
         client = _get_client()
         try:
             response = client.creator_portal.set_creator_spark_code(
-                spark_auth_code=spark_auth_code
+                token=token,
+                submission_id=submission_id,
+                spark_auth_code=spark_auth_code,
             )
             return _format_response(response)
         except Exception as e:
@@ -33886,7 +34554,9 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def creator_portal_get_creator_payouts(limit: int = 50, skip: int = 0) -> str:
+    def creator_portal_get_creator_payouts(
+        token: str, limit: int = 50, skip: int = 0
+    ) -> str:
         """List a creator's earnings history
 
         The participant's ledger entries, newest first, with the bucket each one moved money
@@ -33894,11 +34564,14 @@ def register_generated_tools(mcp, _get_client):
         side), plus the payout setup. Never cached.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             limit
             skip"""
         client = _get_client()
         try:
-            response = client.creator_portal.get_creator_payouts(limit=limit, skip=skip)
+            response = client.creator_portal.get_creator_payouts(
+                token=token, limit=limit, skip=skip
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -33912,7 +34585,7 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def creator_portal_start_creator_payouts(
-        action: Literal["onboard"], country: str | None = None
+        token: str, action: Literal["onboard"], country: str | None = None
     ) -> str:
         """Start payout onboarding
 
@@ -33922,12 +34595,13 @@ def register_generated_tools(mcp, _get_client):
         attempts per participant every 10 minutes.
 
         Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
             action: (required)
             country: ISO 3166-1 alpha-2 country the creator lives in. Required on the first call."""
         client = _get_client()
         try:
             response = client.creator_portal.start_creator_payouts(
-                action=action, country=country
+                token=token, action=action, country=country
             )
             return _format_response(response)
         except Exception as e:
@@ -33941,15 +34615,18 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def creator_portal_create_creator_payout_login() -> str:
+    def creator_portal_create_creator_payout_login(token: str) -> str:
         """Open the creator's Stripe dashboard
 
         Returns a one-time link into the creator's Stripe Express dashboard, where they change bank
         details and see each payout. Only after the creator submitted their payout details. About
-        20 attempts per participant every 10 minutes."""
+        20 attempts per participant every 10 minutes.
+
+        Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)"""
         client = _get_client()
         try:
-            response = client.creator_portal.create_creator_payout_login()
+            response = client.creator_portal.create_creator_payout_login(token=token)
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -33962,17 +34639,468 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def creator_portal_get_creator_payout_statement() -> str:
+    def creator_portal_get_creator_payout_statement(
+        token: str, transfer_id: str
+    ) -> str:
         """Download a payout statement
 
         A PDF statement of one paid payout to this creator: who paid, the campaign, the date, the amount and the Stripe transfer id. It is a statement of a payment, not a tax invoice.
 
         Only for a paid payout of this participant; anything else answers 404.
 
-        About 60 downloads per participant every 10 minutes."""
+        About 60 downloads per participant every 10 minutes.
+
+        Args:
+            token: A participant token or an open invite token. A malformed token answers 404 like an unknown one. (required)
+            transfer_id: (required)"""
         client = _get_client()
         try:
-            response = client.creator_portal.get_creator_payout_statement()
+            response = client.creator_portal.get_creator_payout_statement(
+                token=token, transfer_id=transfer_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    # CRM
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Search CRM contacts",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def crm_search_crm_contacts(
+        account_id: str,
+        q: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        properties: str | None = None,
+        include_raw: bool = False,
+        limit: int = 25,
+        cursor: str | None = None,
+    ) -> str:
+        """Search CRM contacts
+
+        Find people in the connected CRM by free text, email or phone. Send exactly one of `q`, `email` or `phone`.
+
+        HubSpot searches contacts. Salesforce searches Contacts and Leads that are not converted (`objectType` tells which), newest change first.
+
+        - `email` is an exact match.
+        - `phone` takes an international number and matches it however the CRM stored it (\"+44 7911 123456\", \"07911 123456\").
+        - `q` searches names, emails, phones and company. On Salesforce, `q` and `phone` use the search index, so a record saved in the last few minutes may not show yet; `email` never lags.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            q: Free text, at least 2 characters.
+            email
+            phone: International number with its country code, for example `+14155550100`.
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            include_raw: Also return the CRM's own record as `raw`.
+            limit
+            cursor: The `nextCursor` of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.crm.search_crm_contacts(
+                account_id=account_id,
+                q=q,
+                email=email,
+                phone=phone,
+                properties=properties,
+                include_raw=include_raw,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a CRM contact",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def crm_create_crm_contact(
+        account_id: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        company: str | None = None,
+        owner_id: str | None = None,
+        properties: dict[str, Any] | None = None,
+        create_as: Literal["lead", "contact"] | None = None,
+    ) -> str:
+        """Create a CRM contact
+
+        Create a person in the connected CRM. HubSpot creates a contact. Salesforce creates a Lead or a Contact: `createAs`, else the connection's `createAs` setting (default `lead`).
+
+        Salesforce requires `lastName` on both, and `company` on a Lead (`[not provided]` when you send none). A Contact takes its company from its Account: set `properties.AccountId` instead.
+
+        Anything the CRM refuses (a required field, a validation rule, a duplicate rule) comes back as 422 or 409 with the CRM's own errors in `details.errors`.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            first_name
+            last_name
+            email
+            phone
+            company
+            owner_id: An id from `GET /v1/crm/{accountId}/owners`.
+            properties
+            create_as: Salesforce only. Defaults to the connection's `createAs` setting. Ignored on HubSpot."""
+        client = _get_client()
+        try:
+            response = client.crm.create_crm_contact(
+                account_id=account_id,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone=phone,
+                company=company,
+                owner_id=owner_id,
+                properties=properties,
+                create_as=create_as,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a CRM contact",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def crm_get_crm_contact(
+        account_id: str,
+        contact_id: str,
+        properties: str | None = None,
+        include_raw: bool = False,
+    ) -> str:
+        """Get a CRM contact
+
+        Read one person from the connected CRM. On Salesforce the id can be a Contact (`003...`) or a Lead (`00Q...`).
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            include_raw: Also return the CRM's own record as `raw`."""
+        client = _get_client()
+        try:
+            response = client.crm.get_crm_contact(
+                account_id=account_id,
+                contact_id=contact_id,
+                properties=properties,
+                include_raw=include_raw,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a CRM contact",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def crm_update_crm_contact(
+        account_id: str,
+        contact_id: str,
+        first_name: str | None = None,
+        last_name: str | None = None,
+        email: str | None = None,
+        phone: str | None = None,
+        company: str | None = None,
+        owner_id: str | None = None,
+        properties: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a CRM contact
+
+        Change fields on a person in the connected CRM. Send only what changes; `null` clears a field. Native fields go in `properties`.
+
+        On Salesforce, `company` applies to Leads only (400 on a Contact).
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
+            first_name
+            last_name
+            email
+            phone
+            company
+            owner_id: An id from `GET /v1/crm/{accountId}/owners`.
+            properties"""
+        client = _get_client()
+        try:
+            response = client.crm.update_crm_contact(
+                account_id=account_id,
+                contact_id=contact_id,
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone=phone,
+                company=company,
+                owner_id=owner_id,
+                properties=properties,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Log a CRM activity",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def crm_create_crm_activity(
+        account_id: str,
+        contact_id: str,
+        body: str,
+        subject: str | None = None,
+        channel: Literal[
+            "whatsapp",
+            "sms",
+            "email",
+            "call",
+            "meeting",
+            "instagram",
+            "messenger",
+            "telegram",
+            "other",
+        ] = "other",
+        direction: Literal["inbound", "outbound"] | None = None,
+        occurred_at: str | None = None,
+    ) -> str:
+        """Log a CRM activity
+
+        Log something that happened with a person on their CRM record.
+
+        - HubSpot: a Communication on the contact's timeline for `channel` `whatsapp` or `sms`, otherwise a Note. The subject and direction lead the text.
+        - Salesforce: a completed Task on the Contact or Lead (`WhoId`), dated `occurredAt`, with `body` as its comments. `channel: call` logs a call.
+
+        To log inbox conversations automatically instead, turn on `logMessages` in the CRM settings.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            contact_id: The CRM's own id. HubSpot contact id, or Salesforce Contact (`003...`) or Lead (`00Q...`) id. (required)
+            body: The text to log. (required)
+            subject: Salesforce Task subject (default `<Channel> activity (<direction>)`); on HubSpot, the bold first line.
+            channel
+            direction
+            occurred_at: When it happened. Defaults to now."""
+        client = _get_client()
+        try:
+            response = client.crm.create_crm_activity(
+                account_id=account_id,
+                contact_id=contact_id,
+                body=body,
+                subject=subject,
+                channel=channel,
+                direction=direction,
+                occurred_at=occurred_at,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List CRM deals",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def crm_list_crm_deals(
+        account_id: str,
+        stage: str | None = None,
+        updated_since: str | None = None,
+        properties: str | None = None,
+        include_raw: bool = False,
+        limit: int = 25,
+        cursor: str | None = None,
+    ) -> str:
+        """List CRM deals
+
+        List deals (HubSpot) or Opportunities (Salesforce), most recently changed first.
+
+        HubSpot needs the portal to have granted `crm.objects.deals.read`; otherwise 403 `crm_scope_missing`.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            stage: Only deals in this stage. HubSpot takes the stage's internal id (`closedwon`, `appointmentscheduled`); Salesforce the `StageName` (`Closed Won`).
+            updated_since: Only deals changed at or after this time.
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            include_raw: Also return the CRM's own record as `raw`.
+            limit
+            cursor: The `nextCursor` of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.crm.list_crm_deals(
+                account_id=account_id,
+                stage=stage,
+                updated_since=updated_since,
+                properties=properties,
+                include_raw=include_raw,
+                limit=limit,
+                cursor=cursor,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a CRM deal",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def crm_get_crm_deal(
+        account_id: str,
+        deal_id: str,
+        properties: str | None = None,
+        include_raw: bool = False,
+    ) -> str:
+        """Get a CRM deal
+
+        Read one deal (HubSpot) or Opportunity (Salesforce) with its contacts.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            deal_id: HubSpot deal id or Salesforce Opportunity id (`006...`). (required)
+            properties: Comma-separated native field names to return in `properties` (at most 50), for example `lifecyclestage,hs_lead_status` or `LeadSource,Industry__c`.
+            include_raw: Also return the CRM's own record as `raw`."""
+        client = _get_client()
+        try:
+            response = client.crm.get_crm_deal(
+                account_id=account_id,
+                deal_id=deal_id,
+                properties=properties,
+                include_raw=include_raw,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a CRM deal",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def crm_update_crm_deal(
+        account_id: str,
+        deal_id: str,
+        name: str | None = None,
+        stage: str | None = None,
+        amount: float | None = None,
+        currency: str | None = None,
+        close_date: str | None = None,
+        owner_id: str | None = None,
+        properties: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a CRM deal
+
+        Move a deal to another stage, or change its amount, close date, owner or native fields. Send only what changes.
+
+        HubSpot needs `crm.objects.deals.write`, an optional scope portals approve when they connect; without it, 403 `crm_scope_missing` asks to reconnect HubSpot. `currency` only works on multi-currency HubSpot portals and Salesforce orgs.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            deal_id: HubSpot deal id or Salesforce Opportunity id (`006...`). (required)
+            name
+            stage: HubSpot stage id or Salesforce `StageName`.
+            amount
+            currency: ISO 4217 code. Multi-currency portals and orgs only.
+            close_date
+            owner_id: An id from `GET /v1/crm/{accountId}/owners`.
+            properties"""
+        client = _get_client()
+        try:
+            response = client.crm.update_crm_deal(
+                account_id=account_id,
+                deal_id=deal_id,
+                name=name,
+                stage=stage,
+                amount=amount,
+                currency=currency,
+                close_date=close_date,
+                owner_id=owner_id,
+                properties=properties,
+            )
+            return _format_response(response)
+        except Exception as e:
+            raise ToolError(f"Error: {e}") from e
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List CRM owners",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def crm_list_crm_owners(
+        account_id: str,
+        include_raw: bool = False,
+        limit: int = 25,
+        cursor: str | None = None,
+    ) -> str:
+        """List CRM owners
+
+        List the users records can be assigned to: HubSpot owners, or active standard Salesforce users. Use an `id` as `ownerId` on contacts and deals.
+
+        HubSpot needs `crm.objects.owners.read`, an optional scope portals approve when they connect; without it, 403 `crm_scope_missing` asks to reconnect HubSpot.
+
+        Platforms: hubspot, salesforce
+
+        Args:
+            account_id: The connected HubSpot or Salesforce account (`GET /v1/accounts?platform=hubspot` or `salesforce`). (required)
+            include_raw: Also return the CRM's own record as `raw`.
+            limit
+            cursor: The `nextCursor` of the previous page, unchanged."""
+        client = _get_client()
+        try:
+            response = client.crm.list_crm_owners(
+                account_id=account_id,
+                include_raw=include_raw,
+                limit=limit,
+                cursor=cursor,
+            )
             return _format_response(response)
         except Exception as e:
             raise ToolError(f"Error: {e}") from e
@@ -39378,6 +40506,8 @@ def register_generated_tools(mcp, _get_client):
         `GET /v1/inbox/mentions` returns Instagram mentions with the `mediaId` and `commentId`
         to pass here.
 
+        Platforms: instagram
+
         Args:
             account_id: The Instagram account ID (required)
             media_id: The ID of the media the account was mentioned in (required)
@@ -39524,6 +40654,8 @@ def register_generated_tools(mcp, _get_client):
             ### iMessage
 
             Pass the recipient as participantId: a phone number in international format (+15551234567) or an ...
+
+            Platforms: twitter, bluesky, reddit, whatsapp, sms, slack, imessage, google, microsoft, imap
 
             Args:
                 account_id: The account ID to send from (required)
@@ -40002,6 +41134,8 @@ def register_generated_tools(mcp, _get_client):
         - 'iMessage: text only, within 15 minutes of sending (Apple''s limit; 409 `edit_window_expired` after that). Group messages included. The stored message keeps its edit history.'
         - All others: returns 400
 
+        Platforms: telegram, imessage
+
         Args:
             conversation_id: The conversation ID (required)
             message_id: The platform message ID to edit (iMessage also accepts the Zernio message id) (required)
@@ -40042,6 +41176,8 @@ def register_generated_tools(mcp, _get_client):
         - Reddit: delete from sender's view only
         - iMessage: unsend (the bubble disappears for the recipient) within 2 minutes of sending (Apple's limit; 409 `unsend_window_expired` after that). Own outbound messages only.
         - Facebook, Instagram, WhatsApp: not supported (returns 400)
+
+        Platforms: telegram, twitter, bluesky, reddit, imessage
 
         Args:
             conversation_id: The conversation ID (required)
@@ -40086,6 +41222,8 @@ def register_generated_tools(mcp, _get_client):
 
         `success` reports whether a typing indicator was actually sent to the platform (`false` on unsupported platforms or when the platform call failed).
 
+        Platforms: facebook, instagram, telegram, whatsapp, imessage
+
         Args:
             conversation_id: The conversation ID (required)
             account_id: Account ID (required)"""
@@ -40125,6 +41263,8 @@ def register_generated_tools(mcp, _get_client):
         - `pass`: transfer control to the number's configured escalation partner, or to the agent with `target: ai_agent`. Meta's Cloud API currently rejects it (\"Pass action is not supported\", verified 2026-09-08); use `release` to hand a thread back to the agent.
 
         **Facebook and ...
+
+        Platforms: whatsapp, facebook, instagram
 
         Args:
             conversation_id: The conversation ID (required)
@@ -40168,6 +41308,8 @@ def register_generated_tools(mcp, _get_client):
 
         Supports the `Idempotency-Key` header.
 
+        Platforms: facebook, instagram
+
         Args:
             conversation_id: The `id` of the request item from the requests folder. (required)
             account_id: Facebook or Instagram social account ID (required)
@@ -40194,6 +41336,8 @@ def register_generated_tools(mcp, _get_client):
 
         Facebook Messenger only. Lists the custom labels defined on the Page (Graph `/{page-id}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
 
+        Platforms: facebook
+
         Args:
             account_id: Facebook social account ID (required)"""
         client = _get_client()
@@ -40215,6 +41359,8 @@ def register_generated_tools(mcp, _get_client):
         """Create a conversation label
 
         Facebook Messenger only. Creates a custom label on the Page (Graph `POST /{page-id}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
+
+        Platforms: facebook
 
         Args:
             account_id: Facebook social account ID (required)
@@ -40241,6 +41387,8 @@ def register_generated_tools(mcp, _get_client):
 
         Facebook Messenger only. Deletes a custom label from the Page (Graph `DELETE /{label-id}`), which also removes it from every conversation. The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
 
+        Platforms: facebook
+
         Args:
             label_id: Meta label id (required)
             account_id: Facebook social account ID (required)"""
@@ -40265,6 +41413,8 @@ def register_generated_tools(mcp, _get_client):
         """List the labels on a conversation
 
         Facebook Messenger only. Lists the Page's custom labels applied to the person in this conversation (Graph `/{psid}/custom_labels`). Other platforms answer 400 `platform_not_supported`.
+
+        Platforms: facebook
 
         Args:
             conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
@@ -40292,6 +41442,8 @@ def register_generated_tools(mcp, _get_client):
         """Add a label to a conversation
 
         Facebook Messenger only. Applies one of the Page's custom labels to the person in this conversation (Graph `POST /{label-id}/label?user={psid}`). The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
+
+        Platforms: facebook
 
         Args:
             conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
@@ -40322,6 +41474,8 @@ def register_generated_tools(mcp, _get_client):
         """Remove a label from a conversation
 
         Facebook Messenger only. Removes one of the Page's custom labels from the person in this conversation (Graph `DELETE /{label-id}/label?user={psid}`). The label itself stays on the Page. The id must be one of the Page's custom labels, otherwise 404 `resource_not_found`. Other platforms answer 400 `platform_not_supported`.
+
+        Platforms: facebook
 
         Args:
             conversation_id: Conversation ID (Zernio id or Meta platform conversation id) (required)
@@ -40402,6 +41556,8 @@ def register_generated_tools(mcp, _get_client):
         - iMessage: the six Apple tapbacks (❤️ 👍 👎 😂 ‼️ ❓) render natively; any other emoji is sent as a custom emoji tapback (iOS 18+ recipients)
         - All others: returns 400 (not supported)
 
+        Platforms: telegram, whatsapp, instagram, facebook, slack, imessage
+
         Args:
             conversation_id: The conversation ID (required)
             message_id: The platform message ID (as returned by GET /messages) or the Zernio message ID (as returned by the reaction webhook) (required)
@@ -40442,6 +41598,8 @@ def register_generated_tools(mcp, _get_client):
         - Slack: removes the reaction we previously sent on that message
         - iMessage: retracts your existing tapback or emoji reaction on the message (400 when you have none)
         - All others: returns 400 (not supported)
+
+        Platforms: telegram, whatsapp, instagram, facebook, slack, imessage
 
         Args:
             conversation_id: The conversation ID (required)
@@ -43823,6 +44981,8 @@ def register_generated_tools(mcp, _get_client):
         Deletes a published post from the specified platform. The post record in Zernio is kept but its status is updated to cancelled.
         Not supported on Instagram, TikTok, or Snapchat. Threaded posts delete all items. YouTube deletion is permanent.
 
+        Platforms: facebook, youtube, linkedin, twitter, threads, googlebusiness, pinterest, reddit, telegram, bluesky, discord, slack
+
         Args:
             post_id: (required)
             platform: The platform to delete the post from (required)
@@ -43851,6 +45011,8 @@ def register_generated_tools(mcp, _get_client):
 
         Pins a published Facebook Page post to the top of its Page. Only Facebook posts can be pinned; any other platform answers 400 `platform_not_supported`. Works for posts on Pages connected through Facebook Login.
 
+        Platforms: facebook
+
         Args:
             post_id: (required)
             platform: Must be `facebook`. Any other value answers 400 `platform_not_supported`. (required)
@@ -43878,6 +45040,8 @@ def register_generated_tools(mcp, _get_client):
         """Unpin post
 
         Unpins a published Facebook Page post from the top of its Page. Only Facebook posts can be unpinned; any other platform answers 400 `platform_not_supported`.
+
+        Platforms: facebook
 
         Args:
             post_id: (required)
@@ -43942,6 +45106,8 @@ def register_generated_tools(mcp, _get_client):
         - Media cannot be swapped, only the message text
         - ...
 
+        Platforms: twitter, discord, facebook, reddit, linkedin, telegram, pinterest, googlebusiness, youtube, slack
+
         Args:
             post_id: (required)
             platform: The platform to edit the post on. (required)
@@ -43998,6 +45164,8 @@ def register_generated_tools(mcp, _get_client):
 
             1. Post-based (video published through Zernio): pass the Zernio postId in the URL and platform in the body.
             2. Direct video ID (YouTube only, video uploaded outside Zernio): use _ as the postId, and pass videoId + accountId + platform in the body. The accountId is the Zernio account ID for the connected YouTube channel.
+
+            Platforms: youtube, facebook
 
             Args:
                 post_id: Zernio post ID, or "_" when using direct video ID mode (required)
@@ -46245,6 +47413,8 @@ def register_generated_tools(mcp, _get_client):
 
         Delete a reply to a review (Google Business Profile only). Requires accountId in request body.
 
+        Platforms: googlebusiness
+
         Args:
             review_id: (required)
             account_id: (required)"""
@@ -46276,6 +47446,8 @@ def register_generated_tools(mcp, _get_client):
         """List sequences
 
         Returns sequences with enrollment stats. Filter by status, platform, or profile.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             profile_id: Filter by profile. Omit to list across all profiles
@@ -46325,6 +47497,8 @@ def register_generated_tools(mcp, _get_client):
 
         Create a multi-step messaging sequence. Each step has a delay and a message or WhatsApp template.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+
         Args:
             profile_id: (required)
             account_id: (required)
@@ -46363,6 +47537,8 @@ def register_generated_tools(mcp, _get_client):
 
         Returns a sequence with all its steps and enrollment stats.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+
         Args:
             sequence_id: (required)"""
         client = _get_client()
@@ -46391,6 +47567,8 @@ def register_generated_tools(mcp, _get_client):
         """Update sequence
 
         Update a sequence's name, steps, or exit conditions. Steps can only be modified while the sequence is draft or paused.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -46426,6 +47604,8 @@ def register_generated_tools(mcp, _get_client):
 
         Permanently delete a sequence. Active enrollments are stopped.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+
         Args:
             sequence_id: (required)"""
         client = _get_client()
@@ -46448,6 +47628,8 @@ def register_generated_tools(mcp, _get_client):
 
         Start a draft or paused sequence. The sequence must have at least one step.
 
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
+
         Args:
             sequence_id: (required)"""
         client = _get_client()
@@ -46469,6 +47651,8 @@ def register_generated_tools(mcp, _get_client):
         """Pause sequence
 
         Pause an active sequence. Enrolled contacts stop receiving messages until the sequence is reactivated.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             sequence_id: (required)"""
@@ -46495,6 +47679,8 @@ def register_generated_tools(mcp, _get_client):
         """Enroll contacts in a sequence
 
         Enroll one or more contacts into a sequence. Contacts already enrolled are skipped.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -46523,6 +47709,8 @@ def register_generated_tools(mcp, _get_client):
         """Unenroll contact
 
         Remove a contact from a sequence. No further messages will be sent to this contact.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -46553,6 +47741,8 @@ def register_generated_tools(mcp, _get_client):
         """List enrollments for a sequence
 
         Returns enrolled contacts with their progress, status, and next scheduled step.
+
+        Platforms: instagram, facebook, telegram, twitter, bluesky, reddit, whatsapp, slack, imessage, line, wechat
 
         Args:
             sequence_id: (required)
@@ -55321,13 +56511,15 @@ def register_generated_tools(mcp, _get_client):
 
         Create a branching conversation workflow (draft) from a node/edge graph. Created in `draft` status; activate it to start matching inbound messages. The graph is validated structurally; completeness (a trigger node + reachable entry) is required at activation.
 
+        Platforms: hubspot, salesforce
+
         Args:
             profile_id: (required)
             account_id: (required)
             platform
             name: (required)
             description
-            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 17 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+            nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 18 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
             edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
             entry_node_id: The trigger node id; derived from the single trigger node if omitted"""
         client = _get_client()
@@ -55404,11 +56596,13 @@ def register_generated_tools(mcp, _get_client):
 
             Account swaps re-validate the graph against the new platform. For example, moving from WhatsApp to Facebook surfaces a `start_call` node as an error instead of silently saving an unrunnable graph.
 
+            Platforms: hubspot, salesforce
+
             Args:
                 workflow_id: (required)
                 name
                 description
-                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 17 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
+                nodes: Each item is an object with keys: id (string, required) - Stable node id referenced by edges; type (one of: trigger, send_message, wait_for_reply, condition, set_variable, delay, webhook, hubspot_upsert_contact, salesforce_upsert_contact, ai, handoff, start_call, a_b_split, set_field, enroll_sequence, add_tag, remove_tag, end; required) - Node kind. The 18 supported types break into four groups: messaging (send_message), control flow (trigger, condition, delay, wait_for_reply, a_b_split, end), ...; config (object) - Type-specific settings. Every string field supports `{{variable}}` interpolation against the run's variable bag, resolved at execution time. **trigger**: `{ ...; position (object with keys x, y) - Canvas coordinates (ignored by the executor; used by the visual builder).; label (string) - Optional display name shown on the builder canvas and inspector, falling back to the node type when absent. The nodes array is replaced wholesale on update, ...
                 edges: Each item is an object with keys: id (string, required); source (string, required) - Source node id; target (string, required) - Target node id; sourceHandle (string) - Selects a branch output of a multi-output node. Null (or omitted) = the node's single/default output. Known handles per node type: - **condition**: a rule's ...
                 entry_node_id
                 account_id: Reassign the workflow to a different `SocialAccount`. Changing this triggers a graph revalidation against the new platform.

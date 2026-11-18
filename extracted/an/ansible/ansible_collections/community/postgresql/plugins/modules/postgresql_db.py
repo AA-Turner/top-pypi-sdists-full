@@ -39,13 +39,13 @@ options:
   lc_collate:
     description:
       - Collation order (LC_COLLATE) to use in the database
-        must match collation order of template database unless C(template0) is used as template.
+        must match collation order of template database unless V(template0) is used as template.
     type: str
     default: ''
   lc_ctype:
     description:
       - Character classification (LC_CTYPE) to use in the database (e.g. lower, upper, ...).
-      - Must match LC_CTYPE of template database unless C(template0) is used as template.
+      - Must match LC_CTYPE of template database unless V(template0) is used as template.
     type: str
     default: ''
   icu_locale:
@@ -58,7 +58,7 @@ options:
   locale_provider:
     description:
       - Specifies the provider to use for the default collation in this database (LOCALE_PROVIDER).
-      - Possible values are icu (if the server was built with ICU support) or libc.
+      - Possible values are V(icu) (if the server was built with ICU support) or V(libc).
       - By default, the provider is the same as that of the template.
     type: str
     default: ''
@@ -73,41 +73,38 @@ options:
   state:
     description:
     - The database state.
-    - C(present) implies that the database should be created if necessary.
-    - C(absent) implies that the database should be removed if present.
-    - C(dump) requires a target definition to which the database will be backed up. (Added in Ansible 2.4)
+    - V(present) implies that the database should be created if necessary.
+    - V(absent) implies that the database should be removed if present.
+    - V(dump) requires a target definition to which the database will be backed up. (Added in Ansible 2.4)
       Note that in some PostgreSQL versions of pg_dump, which is an embedded PostgreSQL utility and is used by the module,
       returns rc 0 even when errors occurred (e.g. the connection is forbidden by pg_hba.conf, etc.),
       so the module returns changed=True but the dump has not actually been done. Please, be sure that your version of
       pg_dump returns rc 1 in this case.
-    - C(restore) also requires a target definition from which the database will be restored. (Added in Ansible 2.4).
+    - V(restore) also requires a target definition from which the database will be restored. (Added in Ansible 2.4).
     - The format of the backup will be detected based on the target name.
     - Supported compression formats for dump and restore determined by target file format C(.pgc) (custom), C(.bz2) (bzip2), C(.gz) (gzip/pigz) and C(.xz) (xz).
     - Supported formats for dump and restore determined by target file format C(.sql) (plain), C(.tar) (tar), C(.pgc) (custom) and C(.dir) (directory)
       For the directory format which is supported since collection version 1.4.0.
     - "Restore program is selected by target file format: C(.tar), C(.pgc), and C(.dir) are handled by pg_restore, other with pgsql."
     - "."
-    - DEPRECATED (see the L(discussion,https://github.com/ansible-collections/community.postgresql/issues/820)).
-      C(rename) is used to rename the database C(name) to C(target).
-      To rename a database, use the M(community.postgresql.postgresql_query) module.
     type: str
-    choices: [ absent, dump, present, rename, restore ]
+    choices: [ absent, dump, present, restore ]
     default: present
   force:
     description:
-    - Used to forcefully drop a database when the I(state) is C(absent), ignored otherwise.
+    - Used to forcefully drop a database when the O(state) is V(absent), ignored otherwise.
     type: bool
     default: False
   target:
     description:
     - File to back up or restore from.
-    - Used when I(state) is C(dump) or C(restore).
+    - Used when O(state) is V(dump) or V(restore).
     type: path
     default: ''
   target_opts:
     description:
     - Additional arguments for pg_dump or restore program (pg_restore or psql, depending on target's format).
-    - Used when I(state) is C(dump) or C(restore).
+    - Used when O(state) is V(dump) or V(restore).
     type: str
     default: ''
   maintenance_db:
@@ -130,15 +127,15 @@ options:
     default: ''
   dump_extra_args:
     description:
-      - Provides additional arguments when I(state) is C(dump).
+      - Provides additional arguments when O(state) is V(dump).
       - Cannot be used with dump-file-format-related arguments like ``--format=d``.
     type: str
     version_added: '0.2.0'
   trust_input:
     description:
-    - If C(false), check whether values of parameters I(owner), I(conn_limit), I(encoding),
-      I(db), I(template), I(tablespace), I(session_role) are potentially dangerous.
-    - It makes sense to use C(false) only when SQL injections via the parameters are possible.
+    - If V(false), check whether values of parameters O(owner), O(conn_limit), O(encoding),
+      O(db), O(template), O(tablespace), O(session_role) are potentially dangerous.
+    - It makes sense to use V(false) only when SQL injections via the parameters are possible.
     type: bool
     default: true
     version_added: '0.2.0'
@@ -166,11 +163,18 @@ seealso:
 - module: community.postgresql.postgresql_ping
 
 notes:
-- State C(dump) and C(restore) don't require I(psycopg) since ansible version 2.8.
+- State V(dump) and V(restore) don't require C(psycopg) since ansible version 2.8.
 
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: partial
+    details:
+      - The module is not idempotent when O(state=dump) — it always invokes C(pg_dump) and writes
+        the O(target) file, reporting C(changed=true) on every invocation.
+      - The module is not idempotent when O(state=restore) — it always executes the contents of the
+        O(target) file against the database and reports C(changed=true).
 
 author: "Ansible Core Team"
 
@@ -277,13 +281,14 @@ executed_commands:
 import os
 import subprocess
 import traceback
+from shlex import quote as shlex_quote
 
 from ansible.module_utils.common.text.converters import to_native
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.six.moves import shlex_quote
 from ansible_collections.community.postgresql.plugins.module_utils.database import (
     SQLParseError,
     check_input,
+    pg_quote_name,
 )
 from ansible_collections.community.postgresql.plugins.module_utils.postgres import (
     connect_to_db,
@@ -307,14 +312,14 @@ class NotSupportedError(Exception):
 
 
 def set_owner(cursor, db, owner):
-    query = 'ALTER DATABASE "%s" OWNER TO "%s"' % (db, owner)
+    query = 'ALTER DATABASE %s OWNER TO %s' % (pg_quote_name(db), pg_quote_name(owner))
     executed_commands.append(query)
     cursor.execute(query)
     return True
 
 
 def set_conn_limit(cursor, db, conn_limit):
-    query = 'ALTER DATABASE "%s" CONNECTION LIMIT %s' % (db, conn_limit)
+    query = 'ALTER DATABASE %s CONNECTION LIMIT %s' % (pg_quote_name(db), conn_limit)
     executed_commands.append(query)
     cursor.execute(query)
     return True
@@ -394,10 +399,10 @@ def db_dropconns(cursor, db):
 
 def db_delete(cursor, db, force=False):
     if db_exists(cursor, db):
-        query = 'DROP DATABASE "%s"' % db
+        query = 'DROP DATABASE %s' % pg_quote_name(db)
         if force:
             if get_server_version(cursor.connection) >= 130000:
-                query = ('DROP DATABASE "%s" WITH (FORCE)' % db)
+                query = ('DROP DATABASE %s WITH (FORCE)' % pg_quote_name(db))
             else:
                 db_dropconns(cursor, db)
         executed_commands.append(query)
@@ -414,11 +419,13 @@ def db_create(cursor, db, owner, template, encoding, lc_collate, lc_ctype, icu_l
 
     icu_supported = get_server_version(cursor.connection) >= 150000
 
-    query_fragments = ['CREATE DATABASE "%s"' % db]
+    # This statement carries query parameters, so the names are escaped for the
+    # substitution psycopg runs over the whole of it.
+    query_fragments = ['CREATE DATABASE %s' % pg_quote_name(db, for_params=True)]
     if owner:
-        query_fragments.append('OWNER "%s"' % owner)
+        query_fragments.append('OWNER %s' % pg_quote_name(owner, for_params=True))
     if template:
-        query_fragments.append('TEMPLATE "%s"' % template)
+        query_fragments.append('TEMPLATE %s' % pg_quote_name(template, for_params=True))
     if encoding:
         query_fragments.append('ENCODING %(enc)s')
     if lc_collate:
@@ -430,7 +437,7 @@ def db_create(cursor, db, owner, template, encoding, lc_collate, lc_ctype, icu_l
     if locale_provider and icu_supported:
         query_fragments.append('LOCALE_PROVIDER %(localeprovider)s')
     if tablespace:
-        query_fragments.append('TABLESPACE "%s"' % tablespace)
+        query_fragments.append('TABLESPACE %s' % pg_quote_name(tablespace, for_params=True))
     if conn_limit:
         query_fragments.append("CONNECTION LIMIT %(conn_limit)s" % {"conn_limit": conn_limit})
     query = ' '.join(query_fragments)
@@ -632,7 +639,7 @@ def db_restore(module, target, target_opts="",
     if comp_prog_path:
         env = os.environ.copy()
         if password:
-            env = {"PGPASSWORD": password}
+            env["PGPASSWORD"] = password
         p1 = subprocess.Popen([comp_prog_path, target], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         p2 = subprocess.Popen(cmd, stdin=p1.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True, env=env)
         (stdout2, stderr2) = p2.communicate()
@@ -686,37 +693,10 @@ def do_with_password(module, cmd, password):
 
 
 def set_tablespace(cursor, db, tablespace):
-    query = 'ALTER DATABASE "%s" SET TABLESPACE "%s"' % (db, tablespace)
+    query = 'ALTER DATABASE %s SET TABLESPACE %s' % (pg_quote_name(db), pg_quote_name(tablespace))
     executed_commands.append(query)
     cursor.execute(query)
     return True
-
-
-def rename_db(module, cursor, db, target, check_mode=False):
-    source_db = db_exists(cursor, db)
-    target_db = db_exists(cursor, target)
-
-    if source_db and target_db:
-        module.fail_json(msg='Both the source and the target databases exist.')
-
-    if not source_db and target_db:
-        # If the source db doesn't exist and
-        # the target db exists, we assume that
-        # the desired state has been reached and
-        # respectively nothing needs to be changed
-        return False
-
-    if not source_db and not target_db:
-        module.fail_json(msg='The source and the target databases do not exist.')
-
-    if source_db and not target_db:
-        if check_mode:
-            return True
-
-        query = 'ALTER DATABASE "%s" RENAME TO "%s"' % (db, target)
-        executed_commands.append(query)
-        cursor.execute(query)
-        return True
 
 # ===========================================
 # Module execution.
@@ -735,7 +715,7 @@ def main():
         icu_locale=dict(type='str', default=''),
         locale_provider=dict(type='str', default=''),
         state=dict(type='str', default='present',
-                   choices=['absent', 'dump', 'present', 'rename', 'restore']),
+                   choices=['absent', 'dump', 'present', 'restore']),
         target=dict(type='path', default=''),
         target_opts=dict(type='str', default=''),
         maintenance_db=dict(type='str', default="postgres"),
@@ -765,7 +745,6 @@ def main():
     target_opts = module.params["target_opts"]
     state = module.params["state"]
     changed = False
-    maintenance_db = module.params['maintenance_db']
     session_role = module.params["session_role"]
     conn_limit = module.params['conn_limit']
     tablespace = module.params['tablespace']
@@ -773,19 +752,6 @@ def main():
     trust_input = module.params['trust_input']
     force = module.params['force']
     comment = module.params['comment']
-
-    if state == 'rename':
-        module.warn('The rename choice of the state option is deprecated and will be removed '
-                    'in version 5.0.0. Use the community.postgresql.postgresql_query module instead.')
-
-        if not target:
-            module.fail_json(msg='The "target" option must be defined when the "rename" option is used.')
-
-        if db == target:
-            module.fail_json(msg='The "name/db" option and the "target" option cannot be the same.')
-
-        if maintenance_db == db:
-            module.fail_json(msg='The "maintenance_db" option and the "name/db" option cannot be the same.')
 
     # Check input
     if not trust_input:
@@ -815,7 +781,7 @@ def main():
 
         if session_role:
             try:
-                cursor.execute('SET ROLE "%s"' % session_role)
+                cursor.execute('SET ROLE %s' % pg_quote_name(session_role))
             except Exception as e:
                 module.fail_json(msg="Could not switch role: %s" % to_native(e), exception=traceback.format_exc())
 
@@ -828,9 +794,6 @@ def main():
             elif state == "present":
                 changed = not db_matches(cursor, db, owner, template, encoding, lc_collate, lc_ctype,
                                          icu_locale, locale_provider, conn_limit, tablespace, comment)
-
-            elif state == "rename":
-                changed = rename_db(module, cursor, db, target, check_mode=True)
 
             module.exit_json(changed=changed, db=db, executed_commands=executed_commands)
 
@@ -868,9 +831,6 @@ def main():
             else:
                 module.exit_json(changed=True, msg=stdout, stderr=stderr, rc=rc, cmd=cmd,
                                  executed_commands=executed_commands)
-
-        elif state == 'rename':
-            changed = rename_db(module, cursor, db, target)
 
     except (SQLParseError, NotSupportedError) as e:
         module.fail_json(msg=to_native(e), exception=traceback.format_exc())

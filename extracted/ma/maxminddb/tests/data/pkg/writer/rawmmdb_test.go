@@ -3,6 +3,7 @@ package writer
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -57,7 +58,7 @@ func TestWriteStringControlByte(t *testing.T) {
 		value := strings.Repeat("a", test.size)
 		buf := make([]byte, test.size+8)
 		n := writeString(buf, value)
-		want := append(append([]byte{}, test.wantHeader...), value...)
+		want := slices.Concat(test.wantHeader, []byte(value))
 		if got := buf[:n]; !bytes.Equal(got, want) {
 			t.Errorf("writeString(%d bytes) = %#v, want %#v",
 				test.size, got[:min(n, 4)], want[:min(len(want), 4)])
@@ -172,6 +173,14 @@ func TestRawWritersRejectInvalidInput(t *testing.T) {
 				writeSearchTreeRecords(make([]byte, 8), 0, maximum24BitSearchTreeValue+1)
 			},
 			"search-tree record values 0 and 16777216 must fit in 24 bits",
+		},
+		{
+			"missing metadata key",
+			func() {
+				entries := metadataEntries(1, 0, 4, []string{"node_count"})
+				replaceMetadataValue(entries, "description", writeRepeatedDescription)
+			},
+			"no metadata entry has the key description",
 		},
 	}
 	for _, test := range tests {

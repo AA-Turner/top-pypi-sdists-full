@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Final
 
 from pytest import MarkDecorator, fixture, mark
 
-from sphinx_autodoc_typehints._docstring import process_docstring
+from sphinx_autodoc_typehints._docstring.handler import process_docstring
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -12,7 +12,10 @@ if TYPE_CHECKING:
     from sphinx.config import Config
     from sphinx.testing.util import SphinxTestApp
 
-    from sphinx_autodoc_typehints._types import Annotation, Documented
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # keep types private
+        Annotation,
+        Documented,
+    )
 
 type Process = Callable[[str, str, Documented, list[str]], list[str]]
 

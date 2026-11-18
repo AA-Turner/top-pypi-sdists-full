@@ -609,34 +609,6 @@ def set_ado_bearer_git_env(env: dict[str, str], bearer_token: str) -> None:
     set_authorization_header_git_env(env, "Bearer", bearer_token)
 
 
-# Single source of truth for the ADO auth-failure signal set.
-#
-# Historically these signal strings were open-coded across 3+ call sites
-# (pipeline._preflight_auth_check, github_downloader.list_remote_refs,
-# github_downloader._execute_transport_plan, auth._try_ado_bearer_fallback)
-# and drifted: the auth.py and github_downloader.py variants were missing
-# "403" and "could not read username", causing #1212 (preflight failed to
-# trigger bearer fallback on stale-PAT 403 / interactive-prompt-blocked
-# scenarios). Consolidating here prevents that recurring drift.
-#
-# Phrase signals plus anchored HTTP 401/403. Bare "401"/"403" substrings
-# would false-positive Azure DevOps work-item codes such as TF401xxx.
-#   HTTP 401                    canonical HTTP auth failure
-#   HTTP 403                    PAT scope/permission rejection (ADO returns 403)
-#   "authentication failed"     git's stderr text on credential rejection
-#   "unauthorized"              libcurl synonym, capitalization varies by version
-#   "could not read username"   GIT_TERMINAL_PROMPT=0 + invalid creds
-_ADO_AUTH_FAILURE_PHRASES = (
-    "authentication failed",
-    "unauthorized",
-    "could not read username",
-)
-_ADO_HTTP_AUTH_STATUS_RE = re.compile(
-    r"(?:http(?: error)?|returned error:|status(?: code)?[=: ]+)\s*(?:401|403)\b"
-    r"|\b(?:401|403)\b",
-    re.IGNORECASE,
-)
-
 # SSH-specific auth failure signals from OpenSSH stderr.
 # Covers: missing key, agent has no identities, host key mismatch, and
 # explicit server rejection ("no more authentication methods to try" is the
@@ -665,52 +637,22 @@ _SSH_CONNECTIVITY_SIGNALS = (
 )
 
 
-def _flatten_auth_exception_text(exc: BaseException) -> str:
-    """Collect ``str(exc)``, stderr/stdout, and ``__cause__`` / ``__context__``.
-
-    GitCache wraps ``CalledProcessError`` as ``RuntimeError`` from the
-    original git failure. Callers that pass only ``str(exc)`` drop clone
-    stderr that lives on the cause chain.
-    """
-    parts: list[str] = []
-    current: BaseException | None = exc
-    seen: set[int] = set()
-    while current is not None and id(current) not in seen:
-        seen.add(id(current))
-        parts.append(str(current))
-        for name in ("stderr", "stdout"):
-            value = getattr(current, name, None)
-            if isinstance(value, bytes):
-                value = value.decode("utf-8", errors="replace")
-            if value:
-                parts.append(str(value))
-        current = current.__cause__ or current.__context__
-    return " ".join(parts)
-
-
 def is_ado_auth_failure_signal(text: str | BaseException | None) -> bool:
-    """Return True if ``text`` matches an ADO auth-failure signal.
+    """Return True if ``text`` classifies as an Azure DevOps auth failure.
 
-    Accepts raw stderr from ``subprocess.run``, ``str(GitCommandError)``,
-    or an exception (including ``CalledProcessError`` nested as
-    ``__cause__``). Matches case-insensitively; libcurl error
-    capitalization has changed across versions (curl 7.x vs 8.x), so
-    callers must not rely on case.
-
-    HTTP 401/403 are word-anchored so Azure DevOps ``TF401xxx`` codes do
-    not count as auth failures.
-
-    Callers MUST gate bearer-fallback eligibility on additional context
-    (host is ADO, scheme is "basic", a token was actually presented) --
-    this predicate only answers the "looks like an auth failure" question.
+    Thin compatibility wrapper over the canonical classifier
+    :func:`apm_cli.core.auth_outcome.classify_auth_outcome`; call sites route
+    through ``AuthResolver.try_with_fallback`` instead of calling this.
     """
-    blob = _flatten_auth_exception_text(text) if isinstance(text, BaseException) else text or ""
-    if not blob.strip():
+    from apm_cli.core.auth_outcome import classify_auth_outcome
+
+    if text is None or (isinstance(text, str) and not text.strip()):
         return False
-    lowered = blob.lower()
-    if any(signal in lowered for signal in _ADO_AUTH_FAILURE_PHRASES):
-        return True
-    return _ADO_HTTP_AUTH_STATUS_RE.search(blob) is not None
+    return classify_auth_outcome(
+        host_kind="ado",
+        error=text,
+        credential_presented=True,
+    ).is_auth_failure
 
 
 def is_ssh_auth_failure_signal(text: str | None) -> bool:
@@ -1070,6 +1012,41 @@ def is_valid_fqdn(hostname: str) -> bool:
         r"^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)+$"
     )
     return bool(re.match(pattern, hostname))
+
+
+_PARSER_DEPENDENT_URL_CHARS_RE = re.compile(r"[\\\x00-\x20\x7f]")
+
+
+def has_parser_dependent_url_chars(url: str) -> bool:
+    """Return whether *url* holds characters that URL parsers read differently.
+
+    ``urllib`` keeps a backslash inside the authority, while WHATWG URL
+    parsers (used by Node/Electron MCP clients) read it as a path separator,
+    so the two can resolve different hosts for the same string. Whitespace
+    and control characters are dropped or rejected inconsistently as well.
+    """
+    return bool(_PARSER_DEPENDENT_URL_CHARS_RE.search(url))
+
+
+def unambiguous_https_hostname(url: str | None) -> str | None:
+    """Return the lower-case host of an absolute ``https`` URL, else ``None``.
+
+    The host is returned only when every common URL parser agrees on it: the
+    scheme is ``https``, the authority has no userinfo, and the string has no
+    parser-dependent characters. Callers deciding whether a credential may
+    accompany a URL use this as the single host source.
+    """
+    if not isinstance(url, str) or not url or has_parser_dependent_url_chars(url):
+        return None
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        hostname = parsed.hostname
+        parsed.port  # noqa: B018 - raises ValueError for a malformed port
+    except ValueError:
+        return None
+    if parsed.scheme.lower() != "https" or not hostname or "@" in parsed.netloc:
+        return None
+    return hostname.lower()
 
 
 def sanitize_token_url_in_message(message: str, host: str | None = None) -> str:

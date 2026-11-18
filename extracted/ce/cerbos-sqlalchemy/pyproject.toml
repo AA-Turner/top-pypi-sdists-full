@@ -17,7 +17,7 @@ classifiers = [
 ]
 readme = "README.md"
 dynamic = []
-version = "0.6.0"
+version = "0.6.1"
 
 [project.license]
 text = "Apache-2.0"

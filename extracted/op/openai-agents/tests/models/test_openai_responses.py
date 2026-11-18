@@ -4,10 +4,12 @@ import asyncio
 import copy
 import json
 import logging
+from collections.abc import AsyncIterator
 from contextlib import nullcontext
 from dataclasses import asdict, fields, replace
 from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import AsyncMock
 
 import httpx2
 import pytest
@@ -28,6 +30,8 @@ from agents import (
     ImageGenerationTool,
     ModelSettings,
     ModelTracing,
+    ProgrammaticToolCallingTool,
+    RunConfig,
     Runner,
     ShellTool,
     Tool,
@@ -36,6 +40,7 @@ from agents import (
     __version__,
     function_tool,
     handoff,
+    tool_namespace,
     trace,
 )
 from agents.exceptions import ModelBehaviorError, UserError
@@ -43,6 +48,7 @@ from agents.models._retry_runtime import (
     provider_managed_retries_disabled,
     websocket_pre_event_retries_disabled,
 )
+from agents.models.openai_provider import OpenAIProvider
 from agents.models.openai_responses import (
     _HEADERS_OVERRIDE as RESP_HEADERS,
     ConvertedTools,
@@ -731,7 +737,11 @@ async def test_get_response_span_exports_usage():
             "input_tokens": 10,
             "output_tokens": 4,
             "total_tokens": 14,
-            "input_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0},
+            "input_tokens_details": {
+                "cache_write_tokens_details": None,
+                "cached_tokens": 0,
+                "cache_write_tokens": 0,
+            },
             "output_tokens_details": {"reasoning_tokens": 0},
         },
     }
@@ -1706,6 +1716,93 @@ def test_build_response_create_kwargs_keeps_unset_transport_extra_kwargs_as_none
     assert kwargs["extra_body"] is None
 
 
+@pytest.fixture
+async def recording_responses_provider() -> AsyncIterator[
+    tuple[OpenAIProvider, list[dict[str, Any]]]
+]:
+    # Capture the serialized fields after the runner and the Responses adapter apply settings.
+    bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        bodies.append(json.loads(request.content))
+        return httpx2.Response(
+            200, content=get_response_obj([get_text_message("done")]).model_dump_json()
+        )
+
+    async with AsyncOpenAI(
+        api_key="test-key",
+        base_url="https://example.invalid/v1",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+    ) as client:
+        yield OpenAIProvider(openai_client=client), bodies
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_runner_preserves_explicit_responses_fields_over_model_defaults(
+    recording_responses_provider: tuple[OpenAIProvider, list[dict[str, Any]]],
+) -> None:
+    provider, bodies = recording_responses_provider
+    text = {"format": {"type": "json_object"}}
+    reasoning = {"effort": "high"}
+    for model, extra_args in (
+        ("gpt-6-sol", {"text": text}),
+        ("gpt-6-astra", {"text": text, "reasoning": reasoning}),
+    ):
+        await Runner.run(
+            Agent(name="test", model=model),
+            "Return JSON.",
+            run_config=RunConfig(
+                model_provider=provider,
+                model_settings=ModelSettings(extra_args=extra_args),
+                tracing_disabled=True,
+            ),
+        )
+    with pytest.raises(TypeError, match="multiple values for keyword argument 'text'"):
+        await Runner.run(
+            Agent(name="test", model="gpt-6-sol"),
+            "Return JSON.",
+            run_config=RunConfig(
+                model_provider=provider,
+                model_settings=ModelSettings(verbosity="low", extra_args={"text": text}),
+                tracing_disabled=True,
+            ),
+        )
+    assert [body["text"] for body in bodies] == [text, text]
+    assert "reasoning" not in bodies[0]
+    assert bodies[1]["reasoning"] == reasoning
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize("field", ["reasoning", "text"])
+async def test_runner_preserves_in_place_responses_fields(
+    recording_responses_provider: tuple[OpenAIProvider, list[dict[str, Any]]], field: str
+) -> None:
+    provider, bodies = recording_responses_provider
+    config = RunConfig(model_provider=provider, tracing_disabled=True)
+    agent = Agent(name="test", model="gpt-6-astra")
+    text = {"format": {"type": "json_object"}}
+    reasoning = {"effort": "high"}
+    agent.model_settings.extra_args = {field: reasoning if field == "reasoning" else text}
+    if field == "text":
+        agent = agent.clone(name="cloned")
+
+    await Runner.run(agent, "Return JSON.", run_config=config)
+    (body,) = bodies
+    assert body["reasoning"] == (reasoning if field == "reasoning" else {"effort": "low"})
+    assert body["text"] == (text if field == "text" else {"verbosity": "low"})
+
+    # A typed assignment makes the field explicit even when its value equals the SDK default.
+    if field == "reasoning":
+        agent.model_settings.reasoning = Reasoning(effort="low")
+    else:
+        agent.model_settings.verbosity = "low"
+    with pytest.raises(TypeError, match=f"multiple values for keyword argument '{field}'"):
+        await Runner.run(agent, "Return JSON.", run_config=config)
+    assert len(bodies) == 1
+
+
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
 async def test_get_response_with_official_client_accepts_unset_transport_extra_kwargs() -> None:
@@ -2415,6 +2512,85 @@ async def test_preview_model_forced_computer_tool_choice_uses_preview_selector(
 
 @pytest.mark.allow_call_model_methods
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("name", "with_hosted", "as_handoff", "expected_choice"),
+    [
+        ("web_search", False, False, {"type": "function", "name": "web_search"}),
+        ("web_search", True, False, {"type": "web_search"}),
+        ("web_search_preview", True, False, {"type": "web_search_preview"}),
+        ("mcp", False, True, {"type": "function", "name": "mcp"}),
+        (
+            "programmatic_tool_calling",
+            False,
+            False,
+            {"type": "function", "name": "programmatic_tool_calling"},
+        ),
+    ],
+)
+async def test_responses_tool_choice_with_hosted_name(
+    name: str, with_hosted: bool, as_handoff: bool, expected_choice: dict[str, str]
+) -> None:
+    tools: list[Tool] = [function_tool(lambda: "ok", name_override="lookup")]
+    handoffs = [handoff(Agent(name="Target"), tool_name_override=name)] if as_handoff else []
+    if not as_handoff:
+        tools.append(function_tool(lambda: "ok", name_override=name))
+    if with_hosted:
+        tools.append(WebSearchTool())
+
+    # Inspect the serialized request because the bug is in the provider wire format.
+    def handle(request: httpx2.Request) -> httpx2.Response:
+        body = json.loads(request.content)
+        assert {t["name"] for t in body["tools"] if t["type"] == "function"} == {"lookup", name}
+        assert any(t["type"] == "web_search" for t in body["tools"]) == with_hosted
+        assert body["tool_choice"] == expected_choice
+        return httpx2.Response(200, json=get_response_obj([]).model_dump())
+
+    async with AsyncOpenAI(
+        api_key="test-key",
+        base_url="https://provider.example/v1",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handle)),
+        max_retries=0,
+    ) as client:
+        await OpenAIResponsesModel("gpt-4.1", client).get_response(
+            system_instructions=None,
+            input="hi",
+            model_settings=ModelSettings(tool_choice=name),
+            tools=tools,
+            output_schema=None,
+            handoffs=handoffs,
+            tracing=ModelTracing.DISABLED,
+        )
+
+
+@pytest.mark.parametrize(
+    "tools",
+    [
+        [
+            function_tool(lambda: "ok", name_override="web_search", defer_loading=True),
+            ToolSearchTool(),
+        ],
+        tool_namespace(
+            name="internal",
+            description="Internal tools",
+            tools=[function_tool(lambda: "ok", name_override="web_search")],
+        ),
+        [
+            function_tool(
+                lambda: "ok", name_override="web_search", allowed_callers=["programmatic"]
+            ),
+            ProgrammaticToolCallingTool(),
+        ],
+    ],
+    ids=["deferred", "namespaced", "programmatic-only"],
+)
+def test_hosted_name_ignores_functions_unavailable_for_direct_selection(tools: list[Tool]) -> None:
+    converted = Converter.convert_tools(tools, [], tool_choice="web_search")
+
+    assert converted.tool_choice == {"type": "web_search"}
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
 @pytest.mark.parametrize("tool_choice", ["shell", "apply_patch"])
 async def test_builtin_tool_choice_selects_builtin_among_multiple_tools(tool_choice: str) -> None:
     called_kwargs: dict[str, Any] = {}
@@ -2747,6 +2923,98 @@ async def test_get_response_rejects_failed_terminal_response_status(status: str)
             handoffs=[],
             tracing=ModelTracing.DISABLED,
         )
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("transport", "stream", "status", "has_usage"),
+    [
+        pytest.param("http", False, "incomplete", True, id="http-incomplete"),
+        pytest.param("http", True, "incomplete", True, id="http-stream-incomplete"),
+        pytest.param("websocket", False, "failed", True, id="websocket-failed"),
+        pytest.param("websocket", True, "incomplete", True, id="websocket-stream-incomplete"),
+        pytest.param("http", False, "failed", False, id="http-without-usage"),
+    ],
+)
+async def test_runner_accounts_for_terminal_responses_usage(
+    monkeypatch: pytest.MonkeyPatch, transport: str, stream: bool, status: str, has_usage: bool
+) -> None:
+    # Exercise the Responses transport parsers before the runner sees the terminal failure.
+    payload = _response_with_terminal_status(status).model_dump()
+    if has_usage:
+        payload["usage"] = {
+            "input_tokens": 12,
+            "input_tokens_details": {"cached_tokens": 0},
+            "output_tokens": 16,
+            "output_tokens_details": {"reasoning_tokens": 16},
+            "total_tokens": 28,
+        }
+    terminal = f"response.{status}"
+    frame = json.dumps({"type": terminal, "response": payload, "sequence_number": 0})
+
+    async def handler(request: httpx2.Request) -> httpx2.Response:
+        if stream:
+            return httpx2.Response(
+                200,
+                content=f"event: {terminal}\ndata: {frame}\n\n",
+                headers={"content-type": "text/event-stream"},
+            )
+        return httpx2.Response(200, json=payload)
+
+    async with AsyncOpenAI(
+        api_key="test-key",
+        base_url="https://provider.example/v1",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+    ) as client:
+        if transport == "websocket":
+            model = OpenAIResponsesWSModel(model="fake", openai_client=client)
+            monkeypatch.setattr(
+                model,
+                "_open_websocket_connection",
+                AsyncMock(return_value=DummyWSConnection([frame])),
+            )
+        else:
+            model = OpenAIResponsesModel(model="fake", openai_client=client)
+        agent = Agent(name="test", model=model)
+        run_config = RunConfig(trace_include_sensitive_data=False)
+
+        if stream:
+            result = Runner.run_streamed(agent, "hi", run_config=run_config)
+            raw_event_types = []
+            with pytest.raises(ModelBehaviorError, match=terminal) as exc:
+                async for event in result.stream_events():
+                    if event.type == "raw_response_event":
+                        raw_event_types.append(event.data.type)
+            assert raw_event_types == [terminal]
+            assert result.final_output is None
+            assert result.raw_responses == []
+            assert exc.value.run_data is not None
+            assert result.context_wrapper.usage == exc.value.run_data.context_wrapper.usage
+        else:
+            with pytest.raises(ModelBehaviorError, match=terminal) as exc:
+                await Runner.run(agent, "hi", run_config=run_config)
+
+    assert exc.value.run_data is not None
+    assert exc.value.run_data.raw_responses == []
+    usage = exc.value.run_data.context_wrapper.usage
+    (span,) = [span for span in fetch_ordered_spans() if span.span_data.type == "response"]
+    assert span.error is not None
+    assert span.span_data.response is None
+    assert span.span_data.input is None
+    if has_usage:
+        assert usage.requests == 1
+        assert (usage.input_tokens, usage.output_tokens, usage.total_tokens) == (12, 16, 28)
+        assert usage.output_tokens_details.reasoning_tokens == 16
+        (entry,) = usage.request_usage_entries
+        assert (entry.input_tokens, entry.output_tokens, entry.total_tokens) == (12, 16, 28)
+        assert entry.output_tokens_details.reasoning_tokens == 16
+        assert span.span_data.usage["requests"] == 1
+        assert span.span_data.usage["total_tokens"] == 28
+        assert span.span_data.usage["output_tokens_details"]["reasoning_tokens"] == 16
+    else:
+        assert usage == Usage()
+        assert span.span_data.usage is None
 
 
 @pytest.mark.allow_call_model_methods

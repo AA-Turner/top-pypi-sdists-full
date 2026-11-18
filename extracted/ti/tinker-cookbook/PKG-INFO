@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tinker_cookbook
-Version: 0.6.1
+Version: 0.7.0
 Summary: Implementations of post-training algorithms using the Tinker API
 Project-URL: Homepage, https://thinkingmachines.ai/tinker
 Project-URL: Repository, https://github.com/thinking-machines-lab/tinker-cookbook
@@ -17,7 +17,7 @@ Requires-Dist: cloudpickle>=3.0.0
 Requires-Dist: datasets>=2.14.0
 Requires-Dist: huggingface-hub>=0.20.0
 Requires-Dist: numpy>=1.24.0
-Requires-Dist: pillow>=10.0.0
+Requires-Dist: pillow>=10.1.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyrage>=1.4.0
 Requires-Dist: rich>=13.0.0
@@ -267,7 +267,7 @@ For the full Tinker documentation, visit [tinker-docs.thinkingmachines.ai](https
 
 Tinker Cookbook also provides reusable building blocks:
 - [`renderers`](tinker_cookbook/renderers/) — bidirectional conversion between token sequences and structured chat messages
-- [`hyperparam_utils`](tinker_cookbook/hyperparam_utils.py) — learning rate and hyperparameter scaling for LoRA training
+- [`hyperparam_utils`](tinker_cookbook/hyperparam_utils.py) — calibrated per-model LoRA learning rates and LoRA parameter counts
 - [`eval`](tinker_cookbook/eval/) — benchmark framework and inline training evaluators (see [Evaluation](#evaluation-experimental) above)
 
 ## Claude Code Skills

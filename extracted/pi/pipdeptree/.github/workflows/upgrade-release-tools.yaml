@@ -10,7 +10,7 @@ concurrency:
 jobs:
   upgrade:
     name: 🔀 Upgrade release tools
-    uses: tox-dev/github-workflows/.github/workflows/upgrade-release-tools.yaml@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+    uses: tox-dev/github-workflows/.github/workflows/upgrade-release-tools.yaml@9334311ad92f91f7f5c937b3ab218da4d317116e # 6.8.4
     permissions:
       contents: read
     secrets:
@@ -22,7 +22,5 @@ jobs:
       additional-matrix-platforms: >-
         linux_x86_64 linux_aarch64 macos_x86_64 macos_arm64 windows_amd64 windows_arm64
       additional-matrix-implementations: cpython pypy
-      commit-message: "build(deps): refresh release lock"
-      pull-request-title: "build(deps): refresh release tool lock"
       pull-request-body: |-
         Relock `pylock.toml` and the secondary `pylock.build.toml`, which holds the cibuildwheel build dependencies.

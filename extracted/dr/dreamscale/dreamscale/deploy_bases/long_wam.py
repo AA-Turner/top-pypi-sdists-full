@@ -2,7 +2,7 @@
 (``dreamscale.deploy_bases`` loads it by the family manifest's id).
 
 Scaffolded by scripts/new_model.py, unlisted (``listed_as=None``) until GA. Its deployments run
-the robot preset its transport module declares (dreamscale_transport.long_wam_deploy), or a
+the robot preset its transport module declares (dreamscale_core.long_wam_deploy), or a
 custom robot a managed training run trained (its export names its cameras, widths and rate:
 docs/plans/2026-11-14-long-wam-any-robot.md), so `deployments create`, its robot line, Detect's
 lines and its RTC setting are the shared preset base's (deploy_bases/_preset.py), and its
@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dreamscale_transport import long_wam_deploy as C
+from dreamscale_core import long_wam_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cmd
 from dreamscale.deploy_bases._preset import PresetUnits

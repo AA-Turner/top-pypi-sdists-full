@@ -1,16 +1,26 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
+import decimal
+import gc
+import gzip
 import io
 import ipaddress
+import mmap
 import multiprocessing
 import os
 import pathlib
+import struct
+import subprocess
 import sys
+import sysconfig
 import tempfile
+import textwrap
 import threading
+import tracemalloc
 import unittest
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast, get_args
 from unittest import mock
 
 import maxminddb
@@ -20,6 +30,7 @@ try:
 except ImportError:
     maxminddb.extension = None  # type: ignore[assignment]
 
+import maxminddb.types
 from maxminddb import InvalidDatabaseError, open_database
 from maxminddb.const import (
     MODE_AUTO,
@@ -29,15 +40,31 @@ from maxminddb.const import (
     MODE_MMAP,
     MODE_MMAP_EXT,
 )
+from maxminddb.decoder import Decoder
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterator, Sequence
+    from typing import IO
 
     from maxminddb.reader import Reader
+    from maxminddb.types import DatabaseSource
 
 
 # Directory holding the shared MaxMind DB test fixtures.
 _TEST_DATA_DIR = "tests/data/test-data"
+_DECODER_DB = f"{_TEST_DATA_DIR}/MaxMind-DB-test-decoder.mmdb"
+# Valid arguments for the C extension Metadata.
+_METADATA_FIELDS: dict[str, Any] = {
+    "binary_format_major_version": 2,
+    "binary_format_minor_version": 0,
+    "build_epoch": 1,
+    "database_type": "db",
+    "description": {},
+    "ip_version": 4,
+    "languages": [],
+    "node_count": 1,
+    "record_size": 24,
+}
 _PAYLOAD_TOO_LARGE = (
     "^The MaxMind DB file's data section exceeds the maximum payload size$"
 )
@@ -45,6 +72,10 @@ _TOO_MANY_VALUES = (
     "^The MaxMind DB file's data section exceeds the maximum number of values$"
 )
 _TOO_DEEP = "^The MaxMind DB file's data section exceeds the maximum depth$"
+_METADATA_PAYLOAD_TOO_LARGE = (
+    r"^Error reading metadata in database file \(.+\)\. "
+    "The MaxMind DB file's data section exceeds the maximum payload size$"
+)
 _EXTENSION_LIMIT_MESSAGE = "exceeds the configured resource limits"
 
 
@@ -94,16 +125,111 @@ def _bounded(seconds: int = 60, address_space: int = 2 << 30) -> Iterator[None]:
             resource.setrlimit(resource.RLIMIT_AS, (soft, hard))
 
 
+_METADATA_START_MARKER = maxminddb.reader.Reader._METADATA_START_MARKER  # noqa: SLF001
+# libmaxminddb requires these unsigned integer types for metadata values.
+_METADATA_UINT_TYPES = {"build_epoch": 9, "node_count": 6}
+_UINT16_TYPE = 5
+
+
+def _database_with_metadata(
+    extra: Sequence[tuple[object, object]] = (),
+    /,
+    **changes: object,
+) -> bytes:
+    """Return the decoder test database with changed metadata.
+
+    A value of None removes the key. extra adds entries, which can have keys
+    that are not strings.
+    """
+    data = pathlib.Path(_DECODER_DB).read_bytes()
+    start = data.rfind(_METADATA_START_MARKER) + len(_METADATA_START_MARKER)
+    (metadata, _) = Decoder(data, start).decode(start)
+    merged = {**cast("dict[str, object]", metadata), **changes}
+    entries = [*((k, v) for k, v in merged.items() if v is not None), *extra]
+    items = b"".join(_encode_value(k) + _encode_value(v, str(k)) for k, v in entries)
+    return data[:start] + _encode_control(7, len(entries)) + items
+
+
+def _database(
+    records: tuple[int, ...],
+    *,
+    ip_version: int,
+    data: bytes | None = None,
+) -> bytes:
+    """Return a database with a 24-bit search tree and one data record.
+
+    The tree has two records per node, and a record of node_count + 16 points
+    at the data record. data is the encoded data section, by default the
+    string "net".
+    """
+    if data is None:
+        data = _encode_value("net")
+    metadata = {
+        "binary_format_major_version": 2,
+        "binary_format_minor_version": 0,
+        "build_epoch": 1,
+        "database_type": "Test",
+        "description": {"en": "Test"},
+        "ip_version": ip_version,
+        "languages": ["en"],
+        "node_count": len(records) // 2,
+        "record_size": 24,
+    }
+    tree = b"".join(record.to_bytes(3, "big") for record in records)
+    return tree + bytes(16) + data + _METADATA_START_MARKER + _encode_value(metadata)
+
+
+def _encode_value(value: object, key: str = "") -> bytes:
+    if isinstance(value, str):
+        encoded = value.encode()
+        return _encode_control(2, len(encoded)) + encoded
+    if isinstance(value, bool):
+        return _encode_control(14, int(value))
+    if isinstance(value, float):
+        return _encode_control(3, 8) + struct.pack(">d", value)
+    if isinstance(value, int):
+        encoded = value.to_bytes((value.bit_length() + 7) // 8, "big")
+        type_num = _METADATA_UINT_TYPES.get(key, _UINT16_TYPE)
+        return _encode_control(type_num, len(encoded)) + encoded
+    if isinstance(value, list):
+        items = b"".join(_encode_value(v) for v in value)
+        return _encode_control(11, len(value)) + items
+    if isinstance(value, dict):
+        items = b"".join(
+            _encode_value(k) + _encode_value(v, k) for k, v in value.items()
+        )
+        return _encode_control(7, len(value)) + items
+    msg = f"cannot encode {value!r}"
+    raise TypeError(msg)
+
+
+def _encode_control(type_num: int, size: int) -> bytes:
+    # Sizes from 29 to 284 use one extra size byte. These tests need no more.
+    extended = b""
+    if type_num > 7:
+        extended = bytes([type_num - 7])
+        type_num = 0
+    if size < 29:
+        return bytes([type_num << 5 | size]) + extended
+    return bytes([type_num << 5 | 29]) + extended + bytes([size - 29])
+
+
 def get_reader_from_file_descriptor(filepath: str, mode: int) -> Reader:
     """Patches open_database() for class TestFDReader()."""
+    # There are a few cases where mode is statically defined in
+    # BaseTestReader(). In those cases, this opens the string path.
+    with _database_source(filepath, mode) as database:
+        return maxminddb.open_database(database, mode)
+
+
+@contextlib.contextmanager
+def _database_source(path: str, mode: int) -> Iterator[str | IO[bytes]]:
+    """Yield the database argument for path: a binary file for MODE_FD."""
     if mode == MODE_FD:
-        with open(filepath, "rb") as mmdb_fh:
-            return maxminddb.open_database(mmdb_fh, mode)
+        with open(path, "rb") as database:
+            yield database
     else:
-        # There are a few cases where mode is statically defined in
-        # BaseTestReader(). In those cases just call an unpatched
-        # open_database() with a string path.
-        return maxminddb.open_database(filepath, mode)
+        yield path
 
 
 class BaseTestReader(unittest.TestCase):
@@ -112,7 +238,7 @@ class BaseTestReader(unittest.TestCase):
     use_ip_objects = False
     payload_error = _PAYLOAD_TOO_LARGE
     value_count_error = _TOO_MANY_VALUES
-    metadata_error = _PAYLOAD_TOO_LARGE
+    metadata_error = _METADATA_PAYLOAD_TOO_LARGE
     fan_out_error = f"{_TOO_MANY_VALUES}|{_TOO_DEEP}"
 
     # fork doesn't work on Windows and spawn would involve pickling the reader,
@@ -505,6 +631,15 @@ class BaseTestReader(unittest.TestCase):
         self.assertEqual(1329227995784915872903807060280344576, record["uint128"])
         reader.close()
 
+    def test_decoder_maximum_values(self) -> None:
+        with open_database(_DECODER_DB, self.mode) as reader:
+            record = cast("dict", reader.get(self.ipf("::255.255.255.255")))
+        # A C long has 32 bits on Windows, where a signed conversion would make
+        # the uint32 negative.
+        self.assertEqual(record["uint32"], 2**32 - 1)
+        self.assertEqual(record["uint64"], 2**64 - 1)
+        self.assertEqual(record["uint128"], 2**128 - 1)
+
     def test_metadata_pointers(self) -> None:
         with open_database(
             "tests/data/test-data/MaxMind-DB-test-metadata-pointers.mmdb",
@@ -599,6 +734,307 @@ class BaseTestReader(unittest.TestCase):
         ):
             reader.get(self.ipf("1.1.1.1"))
 
+    def test_unknown_metadata_key_is_ignored(self) -> None:
+        # A new minor version of the format can add metadata keys.
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "unknown-key.mmdb"
+            path.write_bytes(_database_with_metadata(unknown_key="value"))
+            with open_database(str(path), self.mode) as reader:
+                metadata = reader.metadata()
+                self.assertEqual(metadata.database_type, "MaxMind DB Decoder Test")
+                self.assertFalse(hasattr(metadata, "unknown_key"))
+
+    def test_metadata_strings_keep_embedded_nuls(self) -> None:
+        changes: dict[str, object] = {
+            "database_type": "one\0two",
+            "description": {"en\0x": "first", "en\0y": "second\0value"},
+            "languages": ["en\0x"],
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "nul.mmdb"
+            path.write_bytes(_database_with_metadata(**changes))
+            with open_database(str(path), self.mode) as reader:
+                metadata = reader.metadata()
+        self.assertEqual(metadata.database_type, changes["database_type"])
+        self.assertEqual(metadata.description, changes["description"])
+        self.assertEqual(metadata.languages, changes["languages"])
+
+    def test_invalid_metadata_is_rejected(self) -> None:
+        cases: dict[str, dict[str, object]] = {
+            "missing languages": {"languages": None},
+            "missing description": {"description": None},
+            "string node_count": {"node_count": "1"},
+            "double node_count": {"node_count": 1.5},
+            "boolean record_size": {"record_size": True},
+            "boolean build_epoch": {"build_epoch": True},
+            "string languages": {"languages": "en"},
+            "integer in languages": {"languages": [1]},
+            "integer in description": {"description": {"en": 1}},
+            "integer key in description": {"description": {1: "en"}},
+            "integer database_type": {"database_type": 5},
+            "ip_version 5": {"ip_version": 5},
+            "binary_format_major_version 3": {"binary_format_major_version": 3},
+            "build_epoch 0": {"build_epoch": 0},
+            "binary_format_minor_version too large": {
+                "binary_format_minor_version": 2**16,
+            },
+            "build_epoch too large": {"build_epoch": 2**64},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "invalid-metadata.mmdb"
+            for name, changes in cases.items():
+                with self.subTest(name):
+                    path.write_bytes(_database_with_metadata(**changes))
+                    with (
+                        self.assertRaises(InvalidDatabaseError),
+                        open_database(str(path), self.mode),
+                    ):
+                        pass
+
+    def test_metadata_that_does_not_decode_is_rejected(self) -> None:
+        cases = {
+            "list key": _database_with_metadata([([1], "value")]),
+            "integer key": _database_with_metadata([(7, "value")]),
+            "string that is not UTF-8": _database_with_metadata(
+                database_type="NOT-UTF-8",
+            ).replace(b"NOT-UTF-8", b"\xff" * 9),
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "bad-metadata.mmdb"
+            for name, data in cases.items():
+                with self.subTest(name):
+                    path.write_bytes(data)
+                    # The C reader raises some of these only in metadata().
+                    with (
+                        self.assertRaises(InvalidDatabaseError) as cm,
+                        open_database(str(path), self.mode) as reader,
+                    ):
+                        reader.metadata()
+                    if name == "string that is not UTF-8":
+                        self.assertIsInstance(
+                            cm.exception.__cause__,
+                            UnicodeDecodeError,
+                        )
+                    else:
+                        self.assertIn("not a string", str(cm.exception))
+
+    def test_exhausted_iterator_stops_after_close(self) -> None:
+        with open_database(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb",
+            self.mode,
+        ) as reader:
+            iterator = iter(reader)
+            list(iterator)
+        self.assertEqual(next(iterator, "done"), "done")
+
+    def test_search_node_at_full_depth_is_rejected(self) -> None:
+        # Nodes 0 to 32 form a left spine, so node 32 is a search node at
+        # depth 32, which an IPv4 tree cannot have.
+        data = 33 + 16
+        records = [record for i in range(32) for record in (i + 1, data)]
+        records += [data, data]
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "too-deep.mmdb"
+            path.write_bytes(_database(tuple(records), ip_version=4))
+            with (
+                open_database(str(path), self.mode) as reader,
+                self.assertRaisesRegex(InvalidDatabaseError, "search tree is corrupt"),
+            ):
+                list(reader)
+
+    def test_record_that_points_to_the_root_is_rejected(self) -> None:
+        # Node 1's right record points back to the root. The left records point
+        # at data, so a walk through the root again would yield networks that
+        # the tree does not have, such as 192.0.0.0/3.
+        records = (18, 1, 18, 0)
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "root-record.mmdb"
+            path.write_bytes(_database(records, ip_version=4))
+            with open_database(str(path), self.mode) as reader:
+                seen: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+                with self.assertRaisesRegex(
+                    InvalidDatabaseError,
+                    "search tree is corrupt",
+                ):
+                    for network, _ in reader:
+                        seen.append(network)
+                valid = {
+                    ipaddress.ip_network("0.0.0.0/1"),
+                    ipaddress.ip_network("128.0.0.0/2"),
+                }
+                self.assertLessEqual(set(seen), valid)
+                # Both readers yield node 0's left record before node 1.
+                self.assertIn(ipaddress.ip_network("0.0.0.0/1"), seen)
+
+    def test_iterate_ipv6_networks_shorter_than_96_bits(self) -> None:
+        # One node whose two records point at the same data record, so the
+        # tree holds ::/1 and 8000::/1.
+        records = (17, 17)
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "short-ipv6.mmdb"
+            path.write_bytes(_database(records, ip_version=6))
+            with open_database(str(path), self.mode) as reader:
+                self.assertEqual(
+                    list(reader),
+                    [
+                        (ipaddress.ip_network("::/1"), "net"),
+                        (ipaddress.ip_network("8000::/1"), "net"),
+                    ],
+                )
+
+    def test_iterate_ipv6_network_just_above_ipv4(self) -> None:
+        # A left spine of 96 nodes whose last right record is data holds only
+        # ::1:0:0/96. The first 96 bits are not all zero, so it is IPv6.
+        empty = 96
+        data = empty + 16
+        records = [record for i in range(95) for record in (i + 1, empty)]
+        records += [empty, data]
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "ipv6-above-ipv4.mmdb"
+            path.write_bytes(_database(tuple(records), ip_version=6))
+            with open_database(str(path), self.mode) as reader:
+                self.assertEqual(
+                    [network for network, _ in reader],
+                    [ipaddress.ip_network("::1:0:0/96")],
+                )
+
+    def test_record_that_points_into_the_separator_is_rejected(self) -> None:
+        # The left record, node_count + 1, points into the 16-byte separator
+        # between the search tree and the data section. libmaxminddb before
+        # 1.14 reports it as bad data.
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "separator.mmdb"
+            path.write_bytes(_database((2, 17), ip_version=4))
+            with (
+                open_database(str(path), self.mode) as reader,
+                self.assertRaisesRegex(
+                    InvalidDatabaseError,
+                    "search tree is corrupt|contains bad data",
+                ),
+            ):
+                reader.get(self.ipf("1.1.1.1"))
+
+    def test_cyclic_search_tree_is_rejected(self) -> None:
+        data = bytearray(
+            pathlib.Path(f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb").read_bytes(),
+        )
+        # Point the left record of node 1 back at node 1.
+        data[6:9] = b"\x00\x00\x01"
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "cyclic.mmdb"
+            path.write_bytes(data)
+            with open_database(str(path), self.mode) as reader:
+                iterator = iter(reader)
+                with self.assertRaisesRegex(
+                    InvalidDatabaseError,
+                    "search tree is corrupt",
+                ):
+                    list(iterator)
+                # The iterator stops after an error, as a generator does.
+                self.assertEqual(next(iterator, "done"), "done")
+
+        # A record that points back to the root of an IPv4 tree.
+        broken = f"{_TEST_DATA_DIR}/MaxMind-DB-test-broken-search-tree-24.mmdb"
+        with (
+            open_database(broken, self.mode) as reader,
+            self.assertRaisesRegex(InvalidDatabaseError, "search tree is corrupt"),
+        ):
+            list(reader)
+
+        # A record in the IPv4 subtree of an IPv6 tree that points back to the
+        # IPv4 start node. Each record of that node, ::/97 and ::8000:0/97,
+        # points to it in turn. The right record makes the address nonzero.
+        source = f"{_TEST_DATA_DIR}/MaxMind-DB-test-mixed-24.mmdb"
+        with maxminddb.reader.Reader(source) as reader:
+            ipv4_start = reader._ipv4_start  # noqa: SLF001
+        original = pathlib.Path(source).read_bytes()
+        for index in (0, 1):
+            offset = ipv4_start * 6 + index * 3
+            mixed = bytearray(original)
+            mixed[offset : offset + 3] = ipv4_start.to_bytes(3, "big")
+            with (
+                self.subTest(index=index),
+                tempfile.TemporaryDirectory() as directory,
+            ):
+                path = pathlib.Path(directory) / "ipv4-cycle.mmdb"
+                path.write_bytes(mixed)
+                with (
+                    open_database(str(path), self.mode) as reader,
+                    self.assertRaisesRegex(
+                        InvalidDatabaseError, "search tree is corrupt"
+                    ),
+                ):
+                    list(reader)
+
+    def test_value_past_data_section_is_rejected(self) -> None:
+        if self.reader_class is not maxminddb.reader.Reader:
+            self.skipTest("libmaxminddb's data section bound includes the metadata")
+        # One node whose records both point to the start of the data section.
+        # The value is the whole data section, so its payload overruns into
+        # the metadata marker.
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "overrun.mmdb"
+            for value in (
+                "c4ffff",  # uint32 declaring 4 bytes
+                "0303ffff",  # uint128 declaring 3 bytes
+                "456162",  # string declaring 5 bytes
+                "856162",  # bytes declaring 5 bytes
+                "0301ff",  # int32 declaring 3 bytes
+                "680000",  # double
+                "040800",  # float
+                "2800",  # pointer declaring 2 bytes
+            ):
+                data = bytes.fromhex(value)
+                path.write_bytes(_database((17, 17), ip_version=4, data=data))
+                with (
+                    self.subTest(value=value),
+                    open_database(str(path), self.mode) as reader,
+                    self.assertRaisesRegex(InvalidDatabaseError, "contains bad data"),
+                ):
+                    reader.get(self.ipf("1.1.1.1"))
+
+    def test_record_that_points_into_the_metadata_is_rejected(self) -> None:
+        if self.reader_class is not maxminddb.reader.Reader:
+            self.skipTest("libmaxminddb's data section bound includes the metadata")
+        data = bytearray(_database((17, 17), ip_version=4))
+        # binary_format_minor_version is a uint16 with no payload, so only the
+        # record check can reject it.
+        key = _encode_value("binary_format_minor_version")
+        target = data.index(key) + len(key)
+        self.assertEqual(data[target], 0xA0)
+        # A record resolves to itself plus the tree size minus node_count.
+        data[:6] = (target - 5).to_bytes(3, "big") * 2
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "metadata-record.mmdb"
+            path.write_bytes(data)
+            with (
+                open_database(str(path), self.mode) as reader,
+                self.assertRaisesRegex(InvalidDatabaseError, "search tree is corrupt"),
+            ):
+                reader.get(self.ipf("1.1.1.1"))
+
+    def test_search_tree_that_overlaps_the_metadata_is_rejected(self) -> None:
+        if self.reader_class is not maxminddb.reader.Reader:
+            self.skipTest("libmaxminddb's data section bound includes the metadata")
+        # The file holds a 6-byte tree, but node_count 3 needs 18 bytes. The
+        # tree and separator then end past the metadata marker, but not past
+        # the end of the file.
+        node_count = _encode_value("node_count")
+        data = _database((17, 17), ip_version=4)
+        self.assertEqual(data.count(node_count + b"\xc1\x01"), 1)
+        data = data.replace(node_count + b"\xc1\x01", node_count + b"\xc1\x03")
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "overlap.mmdb"
+            path.write_bytes(data)
+            with (
+                self.assertRaisesRegex(
+                    InvalidDatabaseError,
+                    "The search tree extends into the metadata section",
+                ),
+                open_database(str(path), self.mode),
+            ):
+                pass
+
     def test_ip_validation(self) -> None:
         reader = open_database(
             "tests/data/test-data/MaxMind-DB-test-decoder.mmdb",
@@ -631,6 +1067,47 @@ class BaseTestReader(unittest.TestCase):
         )
         with self.assertRaises(UnicodeDecodeError):
             reader.get_with_prefix_len("163.254.149.39")
+
+    def test_non_string_map_key_is_rejected(self) -> None:
+        data = pathlib.Path(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
+        ).read_bytes()
+        # Each record map refers to the shared "ip" key through a pointer.
+        self.assertEqual(data.count(b"\x42ip"), 1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "non-string-map-key.mmdb"
+            # Change the key type from string (0x42) to bytes or uint16.
+            for ctrl in (b"\x82", b"\xa2"):
+                path.write_bytes(data.replace(b"\x42ip", ctrl + b"ip"))
+                with (
+                    self.subTest(ctrl=ctrl.hex()),
+                    open_database(str(path), self.mode) as reader,
+                    self.assertRaisesRegex(InvalidDatabaseError, "not a string"),
+                ):
+                    reader.get(self.ipf("1.1.1.1"))
+
+    def test_extended_type_byte_0(self) -> None:
+        # The pure Python reader rejects extended type byte 0. The bundled
+        # libmaxminddb does not check this byte, so the C extension decodes it
+        # as an empty map. If the bundled libmaxminddb starts to reject it,
+        # update HISTORY.rst too. A system libmaxminddb can already reject it.
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "extended-type-byte-0.mmdb"
+            path.write_bytes(_database((17, 17), ip_version=4, data=b"\x00\x00"))
+            with open_database(str(path), self.mode) as reader:
+                if self.reader_class is maxminddb.reader.Reader:
+                    with self.assertRaisesRegex(
+                        InvalidDatabaseError, r"extended type byte \(0\)"
+                    ):
+                        reader.get(self.ipf("1.1.1.1"))
+                    return
+                try:
+                    record = reader.get(self.ipf("1.1.1.1"))
+                except InvalidDatabaseError:
+                    if not os.environ.get("MAXMINDDB_USE_SYSTEM_LIBMAXMINDDB"):
+                        raise
+                    return
+                self.assertEqual(record, {})
 
     def test_too_many_constructor_args(self) -> None:
         with self.assertRaises(TypeError):
@@ -758,6 +1235,81 @@ class BaseTestReader(unittest.TestCase):
         reader.close()
         self.assertEqual(reader.closed, True)
 
+    def test_iterate_uninitialized_reader(self) -> None:
+        reader = self.reader_class.__new__(self.reader_class)
+        # The C reader raises in iter(), the pure Python reader in next().
+        with self.assertRaisesRegex(ValueError, "closed MaxMind DB"):
+            next(iter(reader))
+
+    def test_close_uninitialized_reader(self) -> None:
+        reader = self.reader_class.__new__(self.reader_class)
+        self.assertTrue(reader.closed)
+        reader.close()
+        self.assertTrue(reader.closed)
+
+    def test_reinitialize_reopens_the_reader(self) -> None:
+        reader = open_database(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb",
+            self.mode,
+        )
+        self.addCleanup(reader.close)
+        iterator = iter(reader)
+        next(iterator)
+        self._reinitialize(reader, _DECODER_DB, self.mode)
+        self.assertEqual(reader.metadata().database_type, "MaxMind DB Decoder Test")
+        # The iterator walked the old database, so it must stop.
+        with self.assertRaisesRegex(ValueError, "reopened MaxMind DB"):
+            next(iterator)
+
+        reader.close()
+        self._reinitialize(reader, _DECODER_DB, self.mode)
+        self.assertFalse(reader.closed)
+        self.assertIsNotNone(reader.get("::1.1.1.0"))
+
+    def test_reinitialize_at_the_last_record(self) -> None:
+        # The last record of this database is the right child of the root, so
+        # no node of the walk remains after it.
+        reader = open_database(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-decoder-value-limit.mmdb",
+            self.mode,
+        )
+        self.addCleanup(reader.close)
+        count = sum(1 for _ in reader)
+        iterator = iter(reader)
+        for _ in range(count):
+            next(iterator)
+        self._reinitialize(reader, _DECODER_DB, self.mode)
+        with self.assertRaisesRegex(ValueError, "reopened MaxMind DB"):
+            next(iterator)
+
+    def test_iterate_after_close(self) -> None:
+        reader = open_database(_DECODER_DB, self.mode)
+        iterator = iter(reader)
+        next(iterator)
+        reader.close()
+        with self.assertRaisesRegex(ValueError, "closed MaxMind DB"):
+            next(iterator)
+
+    def test_failed_reinitialize(self) -> None:
+        reader = open_database(_DECODER_DB, self.mode)
+        self.addCleanup(reader.close)
+
+        # A failed reinit leaves the old database open.
+        with self.assertRaisesRegex(ValueError, "Unsupported open mode"):
+            self._reinitialize(reader, _DECODER_DB, 100)
+        if self.mode != MODE_FD:
+            with self.assertRaises(FileNotFoundError):
+                self._reinitialize(reader, "missing.mmdb", self.mode)
+        with self.assertRaises(InvalidDatabaseError):
+            self._reinitialize(reader, "README.rst", self.mode)
+        self.assertFalse(reader.closed)
+        self.assertEqual(reader.metadata().database_type, "MaxMind DB Decoder Test")
+        self.assertIsNotNone(reader.get("::1.1.1.0"))
+
+    def _reinitialize(self, reader: Any, path: str, mode: int) -> None:  # noqa: ANN401
+        with _database_source(path, mode) as database:
+            reader.__init__(database, mode)
+
     def test_closed_metadata(self) -> None:
         reader = open_database(
             "tests/data/test-data/MaxMind-DB-test-decoder.mmdb",
@@ -849,6 +1401,11 @@ class BaseTestReader(unittest.TestCase):
         self.assertGreater(metadata.node_count, 36)
 
         self.assertEqual(metadata.record_size, record_size)
+        self.assertEqual(metadata.node_byte_size, record_size // 4)
+        self.assertEqual(
+            metadata.search_tree_size,
+            metadata.node_count * record_size // 4,
+        )
 
     def _check_ip_v4(self, reader: Reader, file_name: str) -> None:
         for i in range(6):
@@ -929,6 +1486,32 @@ class TestExtensionReader(BaseTestReader):
     if has_maxminddb_extension():
         reader_class = maxminddb.extension.Reader
 
+    def test_invalid_utf8_key_does_not_leak(self) -> None:
+        def fail_to_decode(count: int) -> None:
+            for _ in range(count):
+                with contextlib.suppress(UnicodeDecodeError):
+                    reader.get("163.254.149.39")
+
+        with maxminddb.extension.Reader(
+            "tests/data/bad-data/maxminddb-python/bad-unicode-in-map-key.mmdb",
+        ) as reader:
+            fail_to_decode(100)
+            gc.collect()
+            tracemalloc.start()
+            try:
+                before, _ = tracemalloc.get_traced_memory()
+                fail_to_decode(2000)
+                gc.collect()
+                after, _ = tracemalloc.get_traced_memory()
+            finally:
+                tracemalloc.stop()
+        # A leaked dict on each failure keeps about 128 KB.
+        self.assertLess(after - before, 16_000)
+
+    def test_file_object_is_refused(self) -> None:
+        with self.assertRaisesRegex(TypeError, "requires a path"):
+            open_database(io.BytesIO(b""), MODE_MMAP_EXT)
+
 
 @unittest.skipIf(
     not has_maxminddb_extension() and not os.environ.get("MM_FORCE_EXT_TESTS"),
@@ -940,6 +1523,377 @@ class TestExtensionReaderWithIPObjects(BaseTestReader):
 
     if has_maxminddb_extension():
         reader_class = maxminddb.extension.Reader
+
+
+class TestModule(unittest.TestCase):
+    def test_mode_is_exported(self) -> None:
+        self.assertIs(maxminddb.Mode, maxminddb.const.Mode)
+
+    def test_record_subscript_works_at_runtime(self) -> None:
+        # 3.2.0 accepted Record[str] at runtime. typing_test.py checks that
+        # type checkers reject it.
+        maxminddb.types.Record[str]  # type: ignore[misc, type-arg]
+        # As in 3.2.0, Primitive[str] does not include bytes.
+        self.assertEqual(
+            get_args(maxminddb.types.Primitive[str]),  # type: ignore[misc, type-arg]
+            (str, bool, float, int),
+        )
+
+
+@unittest.skipIf(
+    not has_maxminddb_extension() and not os.environ.get("MM_FORCE_EXT_TESTS"),
+    "No C extension module found. Skipping tests",
+)
+class TestExtensionObjects(unittest.TestCase):
+    """Objects in states that crashed the extension."""
+
+    def test_new_metadata_requires_arguments(self) -> None:
+        metadata_class = maxminddb.extension.Metadata
+        with self.assertRaisesRegex(TypeError, "missing required argument"):
+            metadata_class.__new__(metadata_class)
+
+    def test_metadata_missing_argument(self) -> None:
+        with self.assertRaisesRegex(TypeError, "missing required argument"):
+            maxminddb.extension.Metadata(binary_format_major_version=2)  # type: ignore[call-arg]
+
+    def test_metadata_too_many_arguments(self) -> None:
+        with self.assertRaisesRegex(TypeError, "at most 9"):
+            maxminddb.extension.Metadata(**_METADATA_FIELDS, unknown=1)  # type: ignore[call-arg]
+
+    def test_iterate_uninitialized_reader(self) -> None:
+        reader_class = maxminddb.extension.Reader
+        reader = reader_class.__new__(reader_class)
+        with self.assertRaisesRegex(ValueError, "closed MaxMind DB"):
+            iter(reader)
+
+    def test_enter_uninitialized_reader(self) -> None:
+        reader_class = maxminddb.extension.Reader
+        reader = reader_class.__new__(reader_class)
+        with self.assertRaisesRegex(ValueError, "closed MaxMind DB"):
+            reader.__enter__()
+
+    def test_path_finalizer_can_close_the_reader(self) -> None:
+        # A bytes subclass from __fspath__ can run code when init releases
+        # it. If init still held the write lock, a close() on another thread
+        # would wait for it forever on free-threaded Python. Run in a
+        # subprocess with a timeout.
+        program = textwrap.dedent(
+            """
+            import sys
+            import threading
+
+            from maxminddb.extension import Reader
+
+            reader = Reader.__new__(Reader)
+
+            class FinalizingBytes(bytes):
+                def __del__(self):
+                    worker = threading.Thread(target=reader.close)
+                    worker.start()
+                    worker.join()
+
+            class Path:
+                def __fspath__(self):
+                    return FinalizingBytes(sys.argv[1].encode())
+
+            reader.__init__(Path())
+            if not reader.closed:
+                sys.exit("the finalizer did not close the reader")
+            print("ok")
+            """,
+        )
+        self._run_program(program)
+
+    def test_finalizer_during_a_read_cannot_reopen_the_reader(self) -> None:
+        # With the GIL, a GC can run a finalizer during a decode, on Python
+        # 3.10 and 3.11. If the finalizer reopened the reader there, the
+        # decode would read the unmapped database and crash.
+        program = textwrap.dedent(
+            """
+            import gc
+            import sys
+
+            from maxminddb.extension import Reader
+
+            reader = Reader(sys.argv[1])
+
+            class Reopen:
+                def __init__(self):
+                    self.cycle = self
+
+                def __del__(self):
+                    try:
+                        reader.__init__(sys.argv[1])
+                    except RuntimeError:
+                        pass
+
+            gc.set_threshold(1)
+            for _ in range(2000):
+                Reopen()
+                if reader.get("::1.1.1.0") is None:
+                    sys.exit("get() lost the record")
+                Reopen()
+                try:
+                    next(iter(reader))
+                except ValueError:
+                    # A finalizer between iter() and next() reopened it.
+                    pass
+            print("ok")
+            """,
+        )
+        self._run_program(program)
+
+    def _run_program(self, program: str, path: str = _DECODER_DB) -> None:
+        # Put this process's maxminddb first, and keep the harness's paths.
+        paths = [str(pathlib.Path(maxminddb.__file__).parent.parent)]
+        if os.environ.get("PYTHONPATH"):
+            paths.append(os.environ["PYTHONPATH"])
+        env = {**os.environ, "PYTHONPATH": os.pathsep.join(paths)}
+        with tempfile.TemporaryDirectory() as directory:
+            # Run from an empty directory so the child imports the same
+            # maxminddb as this process, not a source tree in the cwd.
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, "-c", program, str(pathlib.Path(path).resolve())],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=directory,
+                env=env,
+                timeout=60,
+            )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "ok")
+
+    @unittest.skipUnless(
+        pathlib.Path("/proc/self/maps").exists(),
+        "needs /proc/self/maps and /proc/self/fd",
+    )
+    def test_reinitialize_releases_the_old_database(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            # A copy that no other test has open, so only this reader counts.
+            path = pathlib.Path(directory) / "decoder.mmdb"
+            path.write_bytes(pathlib.Path(_DECODER_DB).read_bytes())
+            real_path = path.resolve()
+
+            def mappings() -> int:
+                maps = pathlib.Path("/proc/self/maps").read_text()
+                return maps.count(str(real_path))
+
+            def descriptors() -> int:
+                return sum(
+                    fd.resolve() == real_path
+                    for fd in pathlib.Path("/proc/self/fd").iterdir()
+                )
+
+            reader = maxminddb.extension.Reader(path)
+            for _ in range(10):
+                reader.__init__(path)  # type: ignore[misc]
+            self.assertEqual(mappings(), 1)
+            self.assertEqual(descriptors(), 0)
+            reader.close()
+            self.assertEqual(mappings(), 0)
+
+    def test_metadata_init_can_close_the_reader(self) -> None:
+        # metadata() must build Metadata after it releases the read lock,
+        # because Metadata can run Python code. Under the lock, a close() from
+        # that code would wait for the lock forever on free-threaded Python.
+        program = textwrap.dedent(
+            """
+            import sys
+
+            import maxminddb.extension
+
+            reader = maxminddb.extension.Reader(sys.argv[1])
+
+            def close_reader(self, *args, **kwargs):
+                reader.close()
+
+            maxminddb.extension.Metadata.__init__ = close_reader
+            metadata = reader.metadata()
+            if not isinstance(metadata, maxminddb.extension.Metadata):
+                sys.exit("metadata() did not return a Metadata")
+            if not reader.closed:
+                sys.exit("Metadata.__init__ did not close the reader")
+            print("ok")
+            """,
+        )
+        self._run_program(program)
+
+    def test_initialize_after_close_on_uninitialized_reader(self) -> None:
+        reader_class = maxminddb.extension.Reader
+        reader = reader_class.__new__(reader_class)
+        reader.close()
+        self.assertTrue(reader.closed)
+        reader.__init__(_DECODER_DB)  # type: ignore[misc]
+        with reader:
+            self.assertIsNotNone(reader.get("::1.1.1.0"))
+
+    def test_reinitialize_metadata_changes_nothing(self) -> None:
+        metadata = maxminddb.extension.Metadata(**_METADATA_FIELDS)
+        metadata.__init__(**{**_METADATA_FIELDS, "record_size": 28})  # type: ignore[misc]
+        self.assertEqual(metadata.record_size, 24)
+
+    @unittest.skipUnless(
+        hasattr(sys, "getrefcount") and not sysconfig.get_config_var("Py_GIL_DISABLED"),
+        "needs CPython reference counts on a build with the GIL",
+    )
+    def test_freed_objects_release_their_type(self) -> None:
+        with maxminddb.extension.Reader(_DECODER_DB) as reader:
+            classes = [type(reader), type(reader.metadata()), type(iter(reader))]
+        before = [sys.getrefcount(c) for c in classes]
+        for _ in range(10):
+            with maxminddb.extension.Reader(_DECODER_DB) as reader:
+                reader.metadata()
+                iter(reader)
+        self.assertEqual([sys.getrefcount(c) for c in classes], before)
+
+    def test_close_from_ip_network_during_iteration(self) -> None:
+        # The iterator calls ipaddress.ip_network, which can run Python code
+        # that closes the reader. If the iterator still held the read lock,
+        # close() would wait for it forever on free-threaded Python. Run in a
+        # subprocess with a timeout, and patch ip_network before the extension
+        # caches it.
+        program = textwrap.dedent(
+            """
+            import ipaddress
+            import sys
+
+            real_ip_network = ipaddress.ip_network
+
+            def ip_network(*args, **kwargs):
+                reader.close()
+                return real_ip_network(*args, **kwargs)
+
+            ipaddress.ip_network = ip_network
+
+            from maxminddb.extension import Reader
+
+            reader = Reader(sys.argv[1])
+            iterator = iter(reader)
+            # The record was decoded before the close, so this call finishes.
+            next(iterator)
+            try:
+                next(iterator)
+            except ValueError:
+                pass
+            else:
+                sys.exit("next() after close() did not raise ValueError")
+            # The error stops the iterator.
+            if next(iterator, None) is not None:
+                sys.exit("the iterator continued after the error")
+            print("ok")
+            """,
+        )
+        self._run_program(program)
+
+    def test_close_from_another_thread_during_ip_network(self) -> None:
+        # Thread B calls close() and waits for the write lock while thread A
+        # is in ip_network. ip_network then starts a GC, which on free-threaded
+        # Python waits for every thread, B included. If A still held the read
+        # lock, B would never get the lock, and both would wait forever.
+        program = textwrap.dedent(
+            """
+            import gc
+            import ipaddress
+            import sys
+            import threading
+            import time
+
+            real_ip_network = ipaddress.ip_network
+            closing = threading.Event()
+
+            def ip_network(*args, **kwargs):
+                if not closing.is_set():
+                    closing.set()
+                    # Give the other thread time to wait for the write lock.
+                    time.sleep(0.2)
+                    gc.collect()
+                return real_ip_network(*args, **kwargs)
+
+            ipaddress.ip_network = ip_network
+
+            from maxminddb.extension import Reader
+
+            reader = Reader(sys.argv[1])
+
+            def close():
+                closing.wait()
+                reader.close()
+
+            closer = threading.Thread(target=close)
+            closer.start()
+            next(iter(reader))
+            closer.join()
+            print("ok")
+            """,
+        )
+        self._run_program(program)
+
+    @unittest.skipIf(
+        getattr(sys, "_is_gil_enabled", lambda: True)(),
+        "needs free-threaded Python",
+    )
+    def test_threads_can_share_an_iterator(self) -> None:
+        # Run in a subprocess, so heap corruption or a hang fails only this
+        # test.
+        program = textwrap.dedent(
+            """
+            import sys
+            import threading
+
+            from maxminddb.extension import Reader
+
+            reader = Reader(sys.argv[1])
+            expected = sorted(str(network) for network, _ in reader)
+
+            def collect(iterator, barrier, networks, errors):
+                try:
+                    barrier.wait()
+                    # Each thread appends to its own list. With one shared
+                    # list, list.extend would hold the list's critical
+                    # section, and only one thread would call next() at a
+                    # time.
+                    for network, _ in iterator:
+                        networks.append(str(network))
+                except BaseException as e:
+                    errors.append(e)
+
+            # A race corrupts the heap only some of the time, so repeat.
+            for _ in range(5):
+                iterator = iter(reader)
+                barrier = threading.Barrier(8, timeout=60)
+                results = [[] for _ in range(8)]
+                errors = []
+                threads = [
+                    threading.Thread(
+                        target=collect,
+                        args=(iterator, barrier, networks, errors),
+                    )
+                    for networks in results
+                ]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join()
+                if errors:
+                    sys.exit(f"a thread failed: {errors!r}")
+                # Each network comes out once, with none lost or repeated.
+                networks = sorted(n for result in results for n in result)
+                if networks != expected:
+                    sys.exit("networks were lost or repeated")
+            print("ok")
+            """,
+        )
+        self._run_program(program, f"{_TEST_DATA_DIR}/GeoIP2-City-Test.mmdb")
+
+    def test_iterator_type_is_not_instantiable(self) -> None:
+        with maxminddb.extension.Reader(_DECODER_DB) as reader:
+            iterator_class = type(iter(reader))
+        # The message differs across Python versions, so check only the type.
+        with self.assertRaises(TypeError):
+            iterator_class()
+        with self.assertRaises(TypeError):
+            iterator_class.__new__(iterator_class)
 
 
 class TestAutoReader(BaseTestReader):
@@ -987,11 +1941,343 @@ class TestFDReader(BaseTestReader):
 
 
 class TestReaderInitialization(unittest.TestCase):
+    def test_reinitialize_closes_the_old_buffer(self) -> None:
+        for mode in (MODE_MMAP, MODE_FILE):
+            with self.subTest(mode=mode):
+                reader = maxminddb.reader.Reader(_DECODER_DB, mode)
+                self.addCleanup(reader.close)
+                old: Any = reader._buffer  # noqa: SLF001
+                reader.__init__(_DECODER_DB, mode)  # type: ignore[misc]
+                if mode == MODE_FILE:
+                    self.assertTrue(old._handle.closed)  # noqa: SLF001
+                else:
+                    self.assertTrue(old.closed)
+
+    def test_subclass_with_a_closing_finalizer_stays_open(self) -> None:
+        class ClosingReader(maxminddb.reader.Reader):
+            def __del__(self) -> None:
+                self.close()
+
+        reader = ClosingReader(_DECODER_DB, MODE_MMAP)
+        self.addCleanup(reader.close)
+        # Freeing an object that init used must not close this reader.
+        gc.collect()
+        self.assertFalse(reader.closed)
+        self.assertIsNotNone(reader.get("::1.1.1.0"))
+
+    def test_subclass_attributes_survive_init(self) -> None:
+        class TaggedReader(maxminddb.reader.Reader):
+            def __init__(self, database: str, mode: int) -> None:
+                self.tag = "kept"
+                super().__init__(database, mode)
+
+        reader = TaggedReader(_DECODER_DB, MODE_MMAP)
+        self.addCleanup(reader.close)
+        self.assertEqual(reader.tag, "kept")
+        reader.__init__(f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb", MODE_MMAP)  # type: ignore[misc]
+        self.assertEqual(reader.tag, "kept")
+
+    def test_reinitialize_switches_to_the_new_database_at_the_end(self) -> None:
+        reader = maxminddb.reader.Reader(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb",
+            MODE_MEMORY,
+        )
+        self.addCleanup(reader.close)
+        load_buffer = maxminddb.reader.Reader._load_buffer  # noqa: SLF001
+        records_during_load: list[object] = []
+
+        def load_and_read(new: Reader, database: str, mode: int) -> object:
+            filename = load_buffer(new, database, mode)
+            # Another thread could read here. It must see the old database.
+            records_during_load.append(reader.get("1.1.1.1"))
+            return filename
+
+        with mock.patch.object(
+            maxminddb.reader.Reader,
+            "_load_buffer",
+            autospec=True,
+            side_effect=load_and_read,
+        ):
+            reader.__init__(_DECODER_DB, MODE_MEMORY)  # type: ignore[misc]
+        self.assertEqual(records_during_load, [{"ip": "1.1.1.1"}])
+        self.assertEqual(reader.metadata().database_type, "MaxMind DB Decoder Test")
+
+    def test_reinitialize_from_a_source_that_returns_the_same_mmap(self) -> None:
+        with open(_DECODER_DB, "rb") as database:
+            buffer = mmap.mmap(database.fileno(), 0, access=mmap.ACCESS_READ)
+        self.addCleanup(buffer.close)
+
+        class Source:
+            def read(self) -> mmap.mmap:
+                return buffer
+
+        reader = maxminddb.reader.Reader(Source(), MODE_FD)  # type: ignore[arg-type]
+        # A reinit must not close the buffer that it then uses.
+        reader.__init__(Source(), MODE_FD)  # type: ignore[misc]
+        self.assertIsNotNone(reader.get("::1.1.1.0"))
+
+    def test_reinitialize_from_the_same_source(self) -> None:
+        ipv4 = pathlib.Path(f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb")
+        ipv6 = pathlib.Path(f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv6-24.mmdb")
+
+        class OneBuffer:
+            """Return the same bytearray from each read()."""
+
+            def __init__(self) -> None:
+                self.buffer = bytearray(ipv4.read_bytes())
+
+            def read(self) -> bytearray:
+                return self.buffer
+
+        # BytesIO.read() returns the same bytes object after seek(0).
+        bytes_io = io.BytesIO(ipv4.read_bytes())
+        one_buffer = OneBuffer()
+
+        def reopen_bytes_io() -> None:
+            bytes_io.seek(0)
+
+        def reopen_one_buffer() -> None:
+            one_buffer.buffer[:] = ipv6.read_bytes()
+
+        for source, change in (
+            (bytes_io, reopen_bytes_io),
+            (one_buffer, reopen_one_buffer),
+        ):
+            with self.subTest(source=type(source).__name__):
+                reader = maxminddb.reader.Reader(source, MODE_FD)  # type: ignore[arg-type]
+                self.addCleanup(reader.close)
+                iterator = iter(reader)
+                next(iterator)
+                change()
+                reader.__init__(source, MODE_FD)  # type: ignore[misc]
+                with self.assertRaisesRegex(ValueError, "reopened MaxMind DB"):
+                    next(iterator)
+
+    def test_metadata_types_match_metadata_fields(self) -> None:
+        self.assertEqual(
+            list(maxminddb.reader._METADATA_TYPES),  # noqa: SLF001
+            [field.name for field in dataclasses.fields(maxminddb.reader.Metadata)],
+        )
+
+    def test_auto_mode_reads_file_object_from_its_position(self) -> None:
+        data = pathlib.Path(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb",
+        ).read_bytes()
+        with tempfile.TemporaryFile() as file_object:
+            file_object.write(b"header" + data)
+            file_object.seek(len(b"header"))
+            with maxminddb.open_database(file_object, MODE_AUTO) as reader:
+                self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+
+    def test_auto_mode_reads_wrapped_and_piped_streams(self) -> None:
+        path = f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
+        data = pathlib.Path(path).read_bytes()
+
+        with tempfile.TemporaryDirectory() as directory:
+            gz_path = pathlib.Path(directory) / "db.mmdb.gz"
+            with gzip.open(gz_path, "wb") as compressed:
+                compressed.write(data)
+            with open(gz_path, "rb") as backing:
+                stream = io.BufferedReader(gzip.GzipFile(fileobj=backing))
+                with maxminddb.open_database(stream, MODE_AUTO) as reader:
+                    self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+                # The reader does not close the caller's stream.
+                self.assertFalse(stream.closed)
+                stream.close()
+
+        # The fixture is far smaller than the pipe buffer, so the write to the
+        # pipe does not block.
+        read_fd, write_fd = os.pipe()
+        os.write(write_fd, data)
+        os.close(write_fd)
+        pipe = os.fdopen(read_fd, "rb")
+        try:
+            with maxminddb.open_database(pipe, MODE_AUTO) as reader:
+                self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+            self.assertFalse(pipe.closed)
+        finally:
+            pipe.close()
+
+    def test_auto_mode_accepts_any_database_type(self) -> None:
+        path = f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
+        data = pathlib.Path(path).read_bytes()
+
+        class PathWithTextRead:
+            """A path object with a text read(), as py.path.local has."""
+
+            def __fspath__(self) -> str:
+                return path
+
+            def read(self) -> str:
+                return "not the database"
+
+        with open(path, "rb") as file_object:
+            sources: list[tuple[str, DatabaseSource]] = [
+                ("path", path),
+                ("file object", file_object),
+                ("BytesIO", io.BytesIO(data)),
+                # A path wins over read().
+                ("path with a text read()", PathWithTextRead()),
+            ]
+            for name, database in sources:
+                with (
+                    self.subTest(name),
+                    maxminddb.open_database(database, MODE_AUTO) as reader,
+                ):
+                    self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+        # open_database uses the extension for a path, so check the pure
+        # Python reader's dispatch too.
+        with maxminddb.reader.Reader(PathWithTextRead(), MODE_AUTO) as reader:
+            self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+
+        # The pure Python reader takes ownership of a descriptor and closes it.
+        with maxminddb.reader.Reader(os.open(path, os.O_RDONLY), MODE_AUTO) as reader:
+            self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+        if has_maxminddb_extension():
+            # open_database refuses a descriptor with the extension, as before.
+            descriptor = os.open(path, os.O_RDONLY)
+            self.addCleanup(os.close, descriptor)
+            with self.assertRaisesRegex(TypeError, r"\(int given\)"):
+                maxminddb.open_database(descriptor, MODE_AUTO)
+
+    def test_database_type_must_match_mode(self) -> None:
+        path = f"{_TEST_DATA_DIR}/MaxMind-DB-test-decoder.mmdb"
+        reader_class = maxminddb.reader.Reader
+        with self.assertRaisesRegex(TypeError, r"\(str\)\. MODE_FD takes"):
+            reader_class(path, MODE_FD)
+        with self.assertRaisesRegex(TypeError, r"\(int\)\. MODE_FD takes"):
+            reader_class(3, MODE_FD)
+        with open(path, "rb") as database:
+            for mode in (MODE_FILE, MODE_MEMORY, MODE_MMAP):
+                with (
+                    self.subTest(mode=mode),
+                    self.assertRaisesRegex(TypeError, "Use MODE_FD"),
+                ):
+                    reader_class(database, mode)
+            with self.assertRaisesRegex(ValueError, "Unsupported open mode"):
+                reader_class(database, MODE_MMAP_EXT)
+
+        for bad in (None, object()):
+            with self.assertRaisesRegex(TypeError, "Unsupported database type"):
+                reader_class(bad, MODE_AUTO)  # type: ignore[arg-type]
+        # The module is in the name, so that a zipfile.Path is not just "Path".
+        with self.assertRaisesRegex(TypeError, r"\(decimal\.Decimal\)"):
+            reader_class(decimal.Decimal(1), MODE_AUTO)  # type: ignore[arg-type]
+
+        class TextWrapper:
+            """A text file wrapper, such as tempfile.NamedTemporaryFile("r")."""
+
+            def __init__(self, text_file: IO[str]) -> None:
+                self.text_file = text_file
+
+            def read(self) -> str:
+                return self.text_file.read()
+
+        for mode in (MODE_AUTO, MODE_FD):
+            with (
+                self.subTest(mode=mode),
+                # read() fails to decode the database.
+                open(path, encoding="utf-8") as text_file,
+            ):
+                for text_source in (text_file, TextWrapper(text_file)):
+                    text_file.seek(0)
+                    with self.assertRaisesRegex(TypeError, "binary mode"):
+                        reader_class(text_source, mode)  # type: ignore[arg-type]
+
+        # A bool is an int, but not a file descriptor.
+        with self.assertRaisesRegex(TypeError, r"\(bool\)"):
+            reader_class(False, MODE_AUTO)  # noqa: FBT003
+        with self.assertRaisesRegex(TypeError, r"\(bool\)\. Pass a path or a file"):
+            reader_class(False, MODE_FILE)  # noqa: FBT003
+
+    def test_path_modes_accept_a_descriptor_with_index(self) -> None:
+        class Descriptor:
+            """A file descriptor object, as numpy.int64 is."""
+
+            def __init__(self, fd: int) -> None:
+                self.fd = fd
+
+            def __index__(self) -> int:
+                return self.fd
+
+        path = f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
+        # The reader takes ownership of the descriptor and closes it.
+        descriptor = Descriptor(os.open(path, os.O_RDONLY))
+        with maxminddb.reader.Reader(descriptor, MODE_MMAP) as reader:  # type: ignore[arg-type]
+            self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+
+        if has_maxminddb_extension():
+            # With the extension, MODE_AUTO refuses it, as it refuses an int.
+            fd = os.open(path, os.O_RDONLY)
+            self.addCleanup(os.close, fd)
+            with self.assertRaisesRegex(TypeError, r"\.Descriptor given\)"):
+                maxminddb.open_database(Descriptor(fd))  # type: ignore[arg-type]
+        # A bool gets the bool error, not advice to use MODE_MMAP.
+        with self.assertRaisesRegex(TypeError, r"\(bool\)\. Pass a path"):
+            maxminddb.open_database(False)  # noqa: FBT003
+        if has_maxminddb_extension():
+            with self.assertRaisesRegex(TypeError, r"\(bool given\)\.$"):
+                maxminddb.open_database(False, MODE_MMAP_EXT)  # noqa: FBT003
+
+    def test_index_that_raises_is_not_a_descriptor(self) -> None:
+        class Array:
+            """An array of many values, as a numpy.ndarray is."""
+
+            def __index__(self) -> int:
+                msg = "only integer scalar arrays can be converted"
+                raise TypeError(msg)
+
+        with self.assertRaisesRegex(TypeError, r"Array\)\. Pass a path"):
+            maxminddb.reader.Reader(Array(), MODE_AUTO)  # type: ignore[arg-type]
+        if has_maxminddb_extension():
+            with self.assertRaisesRegex(TypeError, r"Array given\)\.$"):
+                maxminddb.open_database(Array(), MODE_MMAP_EXT)  # type: ignore[arg-type]
+
+    def test_load_path_refuses_other_modes(self) -> None:
+        reader = maxminddb.reader.Reader.__new__(maxminddb.reader.Reader)
+        path = f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
+        with self.assertRaisesRegex(ValueError, r"Unsupported open mode \(16\)"):
+            reader._load_path(path, MODE_FD)  # noqa: SLF001
+
+    def test_fd_mode_reads_any_binary_reader(self) -> None:
+        data = pathlib.Path(
+            f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb",
+        ).read_bytes()
+
+        class FileWithPath(io.BytesIO):
+            def __fspath__(self) -> str:
+                return "does-not-exist.mmdb"
+
+        class BytearrayReader:
+            def read(self) -> bytes:
+                return bytearray(data)  # type: ignore[return-value]
+
+        for database in (FileWithPath(data), BytearrayReader()):
+            with (
+                self.subTest(type(database).__name__),
+                maxminddb.reader.Reader(database, MODE_FD) as reader,
+            ):
+                self.assertEqual(reader.get("1.1.1.1"), {"ip": "1.1.1.1"})
+
+        class NoneReader:
+            def read(self) -> None:
+                return None
+
+        with self.assertRaisesRegex(TypeError, r"returned NoneType, not bytes\.$"):
+            maxminddb.reader.Reader(NoneReader(), MODE_FD)  # type: ignore[arg-type]
+
+        class StrReader:
+            def read(self) -> str:
+                return "text"
+
+        with self.assertRaisesRegex(TypeError, r"returned str, not bytes\. Open"):
+            maxminddb.reader.Reader(StrReader(), MODE_FD)  # type: ignore[arg-type]
+
     def test_empty_search_tree_is_accepted(self) -> None:
         data = pathlib.Path(
             f"{_TEST_DATA_DIR}/MaxMind-DB-test-ipv4-24.mmdb"
         ).read_bytes()
-        original = b"node_count\xc1\xa3"
+        original = b"node_count\xc1\x8b"
         self.assertEqual(data.count(original), 1)
         with (
             io.BytesIO(data.replace(original, b"node_count\xc0")) as database,
@@ -1007,9 +2293,9 @@ class TestReaderInitialization(unittest.TestCase):
         cases = (
             (b"record_size\xa1\x18", b"record_size\xa1\x1e", "Unknown record size: 30"),
             (
-                b"node_count\xc1\xa3",
+                b"node_count\xc1\x8b",
                 b"node_count\x04\x01\xff\xff\xff\xff",
-                "Invalid node count: -1",
+                "The node_count value -1 is out of range",
             ),
         )
         for original, replacement, message in cases:
@@ -1022,19 +2308,38 @@ class TestReaderInitialization(unittest.TestCase):
                 ):
                     pass
 
+    def test_metadata_decode_error_names_the_file(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "bad-metadata.mmdb"
+            path.write_bytes(_database_with_metadata([([1], "value")]))
+            with self.assertRaises(InvalidDatabaseError) as cm:
+                maxminddb.reader.Reader(str(path), MODE_MEMORY)
+        self.assertEqual(
+            str(cm.exception),
+            f"Error reading metadata in database file ({path}). "
+            "Invalid map key: the key is not a string.",
+        )
+
     def test_failed_initialization_closes_buffer(self) -> None:
         reader_class = maxminddb.reader.Reader
-        marker = b"\xab\xcd\xefMaxMind.com"
         cases = (
             (b"not a database", InvalidDatabaseError, "Is this a valid MaxMind DB"),
-            (marker + b"\x40", InvalidDatabaseError, "Error reading metadata"),
-            (marker + b"\xe0", TypeError, "required keyword-only arguments"),
+            (
+                _METADATA_START_MARKER + b"\x40",
+                InvalidDatabaseError,
+                "Error reading metadata",
+            ),
+            (
+                _METADATA_START_MARKER + b"\xe0",
+                InvalidDatabaseError,
+                "missing or has the wrong type",
+            ),
             (
                 pathlib.Path(
                     f"{_TEST_DATA_DIR}/MaxMind-DB-test-metadata-payload-limit.mmdb"
                 ).read_bytes(),
                 InvalidDatabaseError,
-                _PAYLOAD_TOO_LARGE,
+                _METADATA_PAYLOAD_TOO_LARGE,
             ),
         )
         with tempfile.TemporaryDirectory() as directory:
@@ -1046,34 +2351,46 @@ class TestReaderInitialization(unittest.TestCase):
                         with (
                             _bounded(),
                             mock.patch.object(
-                                reader_class,
-                                "close",
-                                autospec=True,
-                                side_effect=reader_class.close,
-                            ) as close,
+                                maxminddb.reader,
+                                "_close_buffer",
+                                wraps=maxminddb.reader._close_buffer,  # noqa: SLF001
+                            ) as close_buffer,
                             self.assertRaisesRegex(error, message),
                         ):
                             reader_class(path, mode)
-                        close.assert_called_once()
-                        reader = close.call_args.args[0]
-                        self.assertTrue(reader.closed)
+                        close_buffer.assert_called_once()
+                        buffer = close_buffer.call_args.args[0]
                         if mode == MODE_FILE:
-                            self.assertTrue(reader._buffer._handle.closed)  # noqa: SLF001
+                            self.assertTrue(buffer._handle.closed)  # noqa: SLF001
                         else:
-                            self.assertTrue(reader._buffer.closed)  # noqa: SLF001
+                            self.assertTrue(buffer.closed)
+
+    def test_empty_file_is_rejected(self) -> None:
+        # MODE_MMAP is left out, because mmap cannot map an empty file.
+        with tempfile.TemporaryDirectory() as directory:
+            path = pathlib.Path(directory) / "empty.mmdb"
+            path.write_bytes(b"")
+            for mode in (MODE_FILE, MODE_MEMORY):
+                with (
+                    self.subTest(mode=mode),
+                    self.assertRaisesRegex(
+                        InvalidDatabaseError, "Is this a valid MaxMind DB"
+                    ),
+                ):
+                    maxminddb.reader.Reader(path, mode)
 
 
 class TestSearchTreeNodes(unittest.TestCase):
     def test_28_bit_records_preserve_high_nibbles(self) -> None:
         # Node decoding needs only the record size and buffer, not a database.
         reader = object.__new__(maxminddb.reader.Reader)
-        reader._record_size = 28  # noqa: SLF001
+        reader._record_size = 28
         # The middle byte holds the left record's high nibble, then the right's.
-        reader._buffer = bytes.fromhex("aabbcc de ff0011 123456 f8 789abc")  # noqa: SLF001
-        self.assertEqual(reader._read_node(0, 0), 0xDAABBCC)  # noqa: SLF001
-        self.assertEqual(reader._read_node(0, 1), 0xEFF0011)  # noqa: SLF001
-        self.assertEqual(reader._read_node(1, 0), 0xF123456)  # noqa: SLF001
-        self.assertEqual(reader._read_node(1, 1), 0x8789ABC)  # noqa: SLF001
+        reader._buffer = bytes.fromhex("aabbcc de ff0011 123456 f8 789abc")
+        self.assertEqual(reader._read_node(0, 0), 0xDAABBCC)
+        self.assertEqual(reader._read_node(0, 1), 0xEFF0011)
+        self.assertEqual(reader._read_node(1, 0), 0xF123456)
+        self.assertEqual(reader._read_node(1, 1), 0x8789ABC)
 
 
 class TestOldReader(unittest.TestCase):

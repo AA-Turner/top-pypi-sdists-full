@@ -2,12 +2,17 @@ __author__ = "Vanessa Sochat"
 __copyright__ = "Copyright The ORAS Authors."
 __license__ = "Apache-2.0"
 
+import json
 import os
+import shutil
 import subprocess
+import tarfile
+import tempfile
 from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
+import requests
 
 import oras.client
 import oras.defaults
@@ -16,6 +21,121 @@ import oras.provider
 import oras.utils
 
 here = Path(__file__).resolve().parent
+
+
+@pytest.mark.parametrize(
+    "outcome", ["success", "compression_error", "upload_error", "http_error"]
+)
+def test_push_cleans_temporary_archive(tmp_path, monkeypatch, outcome):
+    client = oras.provider.Registry(hostname="registry.example", insecure=True)
+    artifact = tmp_path / "artifact"
+    artifact.mkdir()
+    (artifact / "content.txt").write_text("artifact contents")
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temporary_root))
+    monkeypatch.setattr(client.auth, "load_configs", lambda *args, **kwargs: None)
+    archives = []
+    make_targz = oras.utils.make_targz
+
+    def compress(source, destination=None):
+        archive = make_targz(source, destination)
+        archives.append(Path(archive))
+        if outcome == "compression_error":
+            raise OSError("compression interrupted")
+        return archive
+
+    def upload_blob(path, container, layer, **kwargs):
+        if (
+            layer.get("annotations", {}).get(oras.defaults.annotation_title)
+            == artifact.name
+        ):
+            with tarfile.open(path) as archive:
+                assert (
+                    archive.extractfile("artifact/content.txt").read()
+                    == b"artifact contents"
+                )
+            if outcome == "upload_error":
+                raise OSError("upload interrupted")
+            if outcome == "http_error":
+                return Mock(status_code=500)
+        return Mock(status_code=201)
+
+    monkeypatch.setattr(oras.utils, "make_targz", compress)
+    monkeypatch.setattr(client, "upload_blob", upload_blob)
+    monkeypatch.setattr(client, "upload_manifest", lambda *args: Mock(status_code=201))
+    if outcome == "success":
+        client.push(
+            "registry.example/repository:tag",
+            files=[artifact],
+            disable_path_validation=True,
+        )
+    else:
+        error = ValueError if outcome == "http_error" else OSError
+        with pytest.raises(error):
+            client.push(
+                "registry.example/repository:tag",
+                files=[artifact],
+                disable_path_validation=True,
+            )
+    assert len(archives) == 1
+    assert not archives[0].exists()
+    assert list(temporary_root.iterdir()) == []
+    assert (artifact / "content.txt").read_text() == "artifact contents"
+
+
+@pytest.mark.parametrize("use_default_outdir", [False, True])
+@pytest.mark.parametrize("outcome", ["success", "download_error", "invalid_archive"])
+def test_pull_cleans_temporary_archive(
+    tmp_path, monkeypatch, use_default_outdir, outcome
+):
+    client = oras.provider.Registry(hostname="registry.example", insecure=True)
+
+    # Archive and describe a directory the same way push does.
+    target = "registry.example/repository:tag"
+    content_name = "content.txt"
+    content = "artifact contents"
+    artifact = tmp_path / "source" / "artifact"
+    artifact.mkdir(parents=True)
+    (artifact / content_name).write_text(content)
+    archive = oras.utils.make_targz(str(artifact), str(tmp_path / "artifact.tar.gz"))
+    layer = oras.oci.NewLayer(archive, is_dir=True)
+    layer["annotations"] = {oras.defaults.annotation_title: artifact.name}
+
+    temporary_root = tmp_path / "temporary"
+    temporary_root.mkdir()
+    monkeypatch.setattr(tempfile, "tempdir", str(temporary_root))
+    monkeypatch.setattr(client.auth, "load_configs", lambda *args, **kwargs: None)
+    monkeypatch.setattr(client, "get_manifest", lambda *args: {"layers": [layer]})
+    downloads = []
+
+    def download_blob(container, digest, destination):
+        assert digest == layer["digest"]
+        downloads.append(Path(destination))
+        if outcome == "download_error":
+            Path(destination).write_bytes(b"partial download")
+            raise OSError("download interrupted")
+        if outcome == "invalid_archive":
+            Path(destination).write_bytes(b"invalid archive")
+            return
+        shutil.copyfile(archive, destination)
+
+    monkeypatch.setattr(client, "download_blob", download_blob)
+    outdir = None if use_default_outdir else str(tmp_path / "output")
+    if outcome == "success":
+        files = client.pull(target, outdir=outdir)
+        assert len(files) == 1
+        assert (Path(files[0]) / content_name).read_text() == content
+    else:
+        error = OSError if outcome == "download_error" else tarfile.ReadError
+        with pytest.raises(error):
+            client.pull(target, outdir=outdir)
+
+    assert len(downloads) == 1
+    assert not downloads[0].exists()
+    assert not downloads[0].parent.exists()
+    # Only the caller's implicit output directory should survive the pull.
+    assert len(list(temporary_root.iterdir())) == int(use_default_outdir)
 
 
 def test_push_quiet_output_does_not_write_stdout(tmp_path, monkeypatch, capsys):
@@ -44,6 +164,85 @@ def test_push_quiet_output_does_not_write_stdout(tmp_path, monkeypatch, capsys):
 
     assert capsys.readouterr().out == ""
     info.assert_called_once_with(f"Successfully pushed {container}")
+
+
+@pytest.mark.parametrize("backend", ["docker", "fallback"])
+@pytest.mark.parametrize("password_source", ["prompt", "argument", "stdin"])
+def test_login_prompts_for_missing_credentials(monkeypatch, backend, password_source):
+    client = oras.provider.Registry(hostname="registry.example", insecure=True)
+    username_prompt = Mock(return_value="alice")
+    password_prompt = Mock(return_value="secret")
+    stdin = Mock(return_value="secret")
+    monkeypatch.setattr("builtins.input", username_prompt)
+    monkeypatch.setattr(oras.provider.getpass, "getpass", password_prompt)
+    monkeypatch.setattr(oras.utils, "readline", stdin)
+    set_basic_auth = Mock()
+    monkeypatch.setattr(client.auth, "set_basic_auth", set_basic_auth)
+    docker_client = Mock()
+    docker_client.login.return_value = {"Status": "Login Succeeded"}
+    get_client = Mock(return_value=docker_client)
+    if backend == "fallback":
+        get_client.side_effect = RuntimeError("Docker unavailable")
+        monkeypatch.setattr(oras.provider.login, "DockerClient", lambda: docker_client)
+    monkeypatch.setattr(oras.utils, "get_docker_client", get_client)
+
+    kwargs = {}
+    if password_source == "argument":
+        kwargs["password"] = "secret"
+    elif password_source == "stdin":
+        kwargs["password_stdin"] = True
+    if password_source == "stdin":
+        kwargs["username"] = "alice"
+    result = client.login(hostname="registry.example", **kwargs)
+
+    assert result == {"Status": "Login Succeeded"}
+    if password_source == "stdin":
+        username_prompt.assert_not_called()
+    else:
+        username_prompt.assert_called_once_with("Username: ")
+    if password_source == "prompt":
+        password_prompt.assert_called_once_with("Password: ")
+    else:
+        password_prompt.assert_not_called()
+    if password_source == "stdin":
+        stdin.assert_called_once_with()
+    else:
+        stdin.assert_not_called()
+    set_basic_auth.assert_called_once_with("alice", "secret")
+    docker_client.login.assert_called_once_with(
+        username="alice",
+        password="secret",
+        registry="registry.example",
+        dockercfg_path=None,
+    )
+
+
+@pytest.mark.parametrize("username", [None, ""])
+def test_login_stdin_requires_username(monkeypatch, username):
+    client = oras.provider.Registry()
+    stdin = Mock()
+    prompt = Mock()
+    get_client = Mock()
+    monkeypatch.setattr(oras.utils, "readline", stdin)
+    monkeypatch.setattr("builtins.input", prompt)
+    monkeypatch.setattr(oras.utils, "get_docker_client", get_client)
+    with pytest.raises(
+        ValueError, match="username is required when password_stdin is set"
+    ):
+        client.login(username=username, password_stdin=True)
+    stdin.assert_not_called()
+    prompt.assert_not_called()
+    get_client.assert_not_called()
+
+
+def test_login_rejects_empty_prompted_username(monkeypatch):
+    client = oras.provider.Registry()
+    monkeypatch.setattr("builtins.input", lambda prompt: "")
+    get_client = Mock()
+    monkeypatch.setattr(oras.utils, "get_docker_client", get_client)
+    with pytest.raises(ValueError, match="username required"):
+        client.login(password="secret", hostname="registry.example")
+    get_client.assert_not_called()
 
 
 def test_push_quiet_suppresses_completion_message(tmp_path, monkeypatch):
@@ -297,3 +496,37 @@ def test_sanitize_path():
         str(e.value)
         == f"Filename {Path(os.path.join(os.getcwd(), '..', '..')).resolve()} is not in {Path('../').resolve()} directory"
     )
+
+
+@pytest.mark.parametrize(
+    "decode_error",
+    [
+        # requests >= 2.27 raises its own subclass; older requests (and
+        # simplejson) raise the stdlib one. Both must be handled.
+        requests.exceptions.JSONDecodeError("Expecting value", "", 0),
+        json.JSONDecodeError("Expecting value", "", 0),
+    ],
+)
+def test_get_manifest_non_json_response(monkeypatch, decode_error):
+    """A non-JSON manifest body raises an informative error, not a raw
+    JSONDecodeError (#223)."""
+    client = oras.provider.Registry(hostname="registry.example", insecure=True)
+    monkeypatch.setattr(client.auth, "load_configs", lambda *args, **kwargs: None)
+
+    response = Mock(spec=requests.Response)
+    response.status_code = 200
+    response.headers = {"Content-Type": "text/html"}
+    response.text = "<html><body>502 Bad Gateway</body></html>"
+    response.json.side_effect = decode_error
+    monkeypatch.setattr(client, "do_request", lambda *args, **kwargs: response)
+
+    with pytest.raises(ValueError) as exc:
+        client.get_manifest("registry.example/repository:tag")
+
+    # Not the raw, non-informative JSONDecodeError the user saw (the requests
+    # subclass derives from the stdlib one, so this covers both).
+    assert not isinstance(exc.value, json.JSONDecodeError)
+    message = str(exc.value)
+    # Names the request that failed and shows what came back instead.
+    assert "registry.example/v2/repository/manifests/tag" in message
+    assert "502 Bad Gateway" in message

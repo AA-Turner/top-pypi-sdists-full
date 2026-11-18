@@ -10,7 +10,9 @@ from dataclasses import dataclass
 from typing import Any, Literal
 
 import httpx
-from dreamscale_transport import catalog
+from dreamscale_core.regions import RegionMeasurement as RegionMeasurement
+from dreamscale_transport import _catalog_client as catalog
+from dreamscale_transport._request_placement import server_selects_modal_region_v1
 
 from dreamscale.model_names import public_model
 from dreamscale.policy.config import OptimizationConfig
@@ -40,24 +42,6 @@ ProbeCallable = Callable[
     [httpx.AsyncClient, str, str],
     Awaitable[tuple[str, float] | None],
 ]
-
-
-@dataclass(frozen=True)
-class RegionMeasurement:
-    region: str
-    median_ms: float | None
-    mad_ms: float | None
-    successful_samples: int
-    attempted_samples: int
-
-    def to_wire(self) -> dict[str, object]:
-        return {
-            "region": self.region,
-            "median_ms": self.median_ms,
-            "mad_ms": self.mad_ms,
-            "successful_samples": self.successful_samples,
-            "attempted_samples": self.attempted_samples,
-        }
 
 
 @dataclass(frozen=True)
@@ -113,8 +97,13 @@ async def create_session_with_rtt_region_order(
         )
     )
     entry = catalog.entry(model)
-    if (entry is not None and entry.pool is not None and provider in (None, "modal")
-            and region in (None, "auto") and probe_result is None):
+    if (
+        entry is not None
+        and server_selects_modal_region_v1(model, entry.client)
+        and provider in (None, "modal")
+        and region in (None, "auto")
+        and probe_result is None
+    ):
         # Modal routes have no AWS candidates. An AWS route (including an implicit one)
         # keeps its existing probe and hard nearest-region preference.
         resolved_region = "available"
@@ -464,7 +453,11 @@ def validate_provider_selection(model: str, provider: str | None, region: str | 
     from dreamscale.policy.runtime import served
 
     entry = catalog.entry(model)
-    if entry is not None and entry.pool is not None and provider in (None, "modal"):
+    if (
+        entry is not None
+        and server_selects_modal_region_v1(model, entry.client)
+        and provider in (None, "modal")
+    ):
         validate_region(region)  # actual region availability comes from the server
         return
     # A model's wire may settle its placement itself (policy.runtime.served: ``placement``).

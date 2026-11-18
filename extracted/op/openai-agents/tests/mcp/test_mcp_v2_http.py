@@ -4,14 +4,14 @@ import asyncio
 import json
 import socket
 import traceback
-from typing import Any
+from typing import Any, cast
 
 import httpx
 import mcp
 import pytest
 import uvicorn
 from mcp.server import Server
-from mcp.types import ListToolsResult, TextContent, Tool
+from mcp.types import ListToolsResult, TextContent
 
 from agents.exceptions import UserError
 from agents.mcp import MCPServerStreamableHttp
@@ -22,6 +22,8 @@ from agents.mcp.server import (
     _validated_v2_http_client_factory,
 )
 
+from .model_compat import Tool
+
 pytestmark = pytest.mark.skipif(not MCP_V2, reason="MCP v2 HTTP behavior")
 httpx2 = pytest.importorskip("httpx2")
 
@@ -30,10 +32,10 @@ httpx2 = pytest.importorskip("httpx2")
 async def test_v2_streamable_http_negotiates_modern_protocol():
     async def list_tools(_context, _params) -> ListToolsResult:
         return ListToolsResult(
-            tools=[Tool(name="probe", input_schema={"type": "object", "properties": {}})]
+            tools=[Tool(name="probe", inputSchema={"type": "object", "properties": {}})]
         )
 
-    app = Server("probe-server", on_list_tools=list_tools).streamable_http_app()
+    app = cast(Any, Server)("probe-server", on_list_tools=list_tools).streamable_http_app()
     socket_ = socket.socket()
     socket_.bind(("127.0.0.1", 0))
     socket_.listen()
@@ -284,6 +286,57 @@ async def test_v2_streamable_http_retries_connect_error_on_isolated_session():
     assert result.content[0].text == "ok"
     assert len(clients) == 2
     assert all(client.is_closed for client in clients)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("outcome", ["cancel", "http_503"])
+async def test_v2_overlapping_tool_call_survives_sibling_failure(outcome):
+    # Hold the surviving POST at the HTTP boundary until its sibling has failed.
+    survivor_started = asyncio.Event()
+    sibling_started = asyncio.Event()
+    release_requests = asyncio.Event()
+
+    def factory(headers=None, timeout=None, auth=None):
+        async def handler(request):
+            payload = json.loads(request.content) if request.content else {}
+            if payload.get("method") == "tools/call":
+                if payload["params"]["arguments"]["role"] == "survivor":
+                    survivor_started.set()
+                else:
+                    await survivor_started.wait()
+                    sibling_started.set()
+                    if outcome == "http_503":
+                        return _v2_response_for_request(request, tool_status_code=503)
+                await release_requests.wait()
+            return _v2_response_for_request(request)
+
+        return httpx2.AsyncClient(
+            transport=httpx2.MockTransport(handler), headers=headers, timeout=timeout, auth=auth
+        )
+
+    async with MCPServerStreamableHttp(
+        params={"url": "https://example.test/mcp", "httpx_client_factory": factory}
+    ) as server:
+        survivor = asyncio.create_task(server.call_tool("test", {"role": "survivor"}))
+        sibling = asyncio.create_task(server.call_tool("test", {"role": "sibling"}))
+        try:
+            await asyncio.wait_for(survivor_started.wait(), timeout=2)
+            await asyncio.wait_for(sibling_started.wait(), timeout=2)
+            if outcome == "cancel":
+                sibling.cancel()
+                with pytest.raises(asyncio.CancelledError):
+                    await sibling
+            else:
+                with pytest.raises(MCPError):
+                    await asyncio.wait_for(sibling, timeout=2)
+            assert not survivor.done()
+            release_requests.set()
+            result = await asyncio.wait_for(survivor, timeout=2)
+            assert isinstance(result.content[0], TextContent)
+            assert result.content[0].text == "ok"
+        finally:
+            release_requests.set()
+            await asyncio.gather(survivor, sibling, return_exceptions=True)
 
 
 def _first_tool_call_returns_503_factory(clients: list[Any], tool_call_statuses: list[int]):

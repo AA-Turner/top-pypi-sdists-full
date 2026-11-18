@@ -2,57 +2,60 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isfinite
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
-Acceleration = Literal["auto", "pytorch", "tensorrt"]
-RequestedControl = Literal[
-    "auto",
-    "adaptive",
-    "prefer_freshness",
-    "balanced",
-    "prefer_robustness",
-    "ultra_aggressive",
-]
-Control = Literal[
-    "adaptive",
-    "prefer_freshness",
-    "balanced",
-    "prefer_robustness",
-    "ultra_aggressive",
-]
-# "on" asks for the model's own RTC; "inference_time" and "train_time" ask for one kind.
-Rtc = Literal["auto", "off", "on", "inference_time", "train_time"]
-RtcMode = Literal["off", "inference_time", "train_time"]
-RequestedCalibration = Literal[
-    "auto", "off", "fast", "default", "rtc_graph", "extended"
-]
-Calibration = Literal["off", "fast", "default", "rtc_graph", "extended"]
-Backend = Literal["pytorch", "tensorrt", "jax"]
-ResolvedRtc = Literal["off", "on"]
-ShapeMode = Literal["bucketed", "exact", "off"]
-QueueStrategy = Literal["method_o", "method_p"]
-
-_ACCELERATION_VALUES = frozenset(("auto", "pytorch", "tensorrt"))
-_CONTROL_VALUES = frozenset(
-    ("adaptive", "prefer_freshness", "balanced", "prefer_robustness", "ultra_aggressive")
+from dreamscale_core.optimization import (
+    RTC_CONTRACT_KINDS as RTC_CONTRACT_KINDS,
 )
-_REQUESTED_CONTROL_VALUES = _CONTROL_VALUES | {"auto"}
-RTC_KINDS = frozenset(("inference_time", "train_time"))
-_RTC_VALUES = frozenset(("auto", "off", "on")) | RTC_KINDS
-_RTC_MODE_VALUES = frozenset(("off",)) | RTC_KINDS
-# The RTC kind each wire contract serves (control plane capabilities.RTC_CONTRACT_KINDS).
-RTC_CONTRACT_KINDS: dict[str, str] = {
-    "isaac05_late_bound_prefix_v1": "train_time",
-    "dynamic_full_horizon_v1": "inference_time",
-    "fixed_ratio_v1": "inference_time",
-    "calibrated_static": "inference_time",
-}
-_CALIBRATION_VALUES = frozenset(("off", "fast", "default", "rtc_graph", "extended"))
-_REQUESTED_CALIBRATION_VALUES = _CALIBRATION_VALUES | {"auto"}
-_BACKEND_VALUES = frozenset(("pytorch", "tensorrt", "jax"))
-_RESOLVED_RTC_VALUES = frozenset(("off", "on"))
-_SHAPE_MODE_VALUES = frozenset(("bucketed", "exact", "off"))
-_QUEUE_STRATEGY_VALUES = frozenset(("method_o", "method_p"))
+from dreamscale_core.optimization import (
+    Acceleration as Acceleration,
+)
+from dreamscale_core.optimization import (
+    Backend as Backend,
+)
+from dreamscale_core.optimization import (
+    Calibration as Calibration,
+)
+from dreamscale_core.optimization import (
+    Control as Control,
+)
+from dreamscale_core.optimization import (
+    QueueStrategy as QueueStrategy,
+)
+from dreamscale_core.optimization import (
+    RequestedCalibration as RequestedCalibration,
+)
+from dreamscale_core.optimization import (
+    RequestedControl as RequestedControl,
+)
+from dreamscale_core.optimization import (
+    ResolvedRtc as ResolvedRtc,
+)
+from dreamscale_core.optimization import (
+    Rtc as Rtc,
+)
+from dreamscale_core.optimization import (
+    RtcKind as RtcKind,
+)
+from dreamscale_core.optimization import (
+    RtcMode as RtcMode,
+)
+from dreamscale_core.optimization import (
+    ShapeMode as ShapeMode,
+)
+
+_ACCELERATION_VALUES = frozenset(get_args(Acceleration))
+_CONTROL_VALUES = frozenset(get_args(Control))
+_REQUESTED_CONTROL_VALUES = frozenset(get_args(RequestedControl))
+RTC_KINDS = frozenset(get_args(RtcKind))
+_RTC_VALUES = frozenset(get_args(Rtc))
+_RTC_MODE_VALUES = frozenset(get_args(RtcMode))
+_CALIBRATION_VALUES = frozenset(get_args(Calibration))
+_REQUESTED_CALIBRATION_VALUES = frozenset(get_args(RequestedCalibration))
+_BACKEND_VALUES = frozenset(get_args(Backend))
+_RESOLVED_RTC_VALUES = frozenset(get_args(ResolvedRtc))
+_SHAPE_MODE_VALUES = frozenset(get_args(ShapeMode))
+_QUEUE_STRATEGY_VALUES = frozenset(get_args(QueueStrategy))
 
 
 def _require_value(field_name: str, value: str, valid: frozenset[str]) -> None:

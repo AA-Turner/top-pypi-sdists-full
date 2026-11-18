@@ -32,6 +32,7 @@ __metaclass__ = type
 
 import json
 import os
+import re
 import time
 from ansible.module_utils.urls import open_url, ConnectionError, SSLValidationError
 from ansible.module_utils.common.parameters import env_fallback
@@ -39,7 +40,34 @@ from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
 from ansible.module_utils.six.moves.urllib.parse import urlencode
 from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import config_ipv6
 from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import strip_substr_dict
+from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import warn_if_cert_validation_disabled, check_cert_fingerprint
 from ansible.module_utils.basic import AnsibleModule
+
+
+def _escape_odata_string(value):
+    """Escape a single quote inside an OData string literal (' becomes '')."""
+    return str(value).replace("'", "''")
+
+
+def _validate_odata_filter(filter_value):
+    """
+    Validate an OData $filter string against a permissive allowlist.
+    Allows comparison clauses: <Property> <operator> <value>
+    where value may be a number, boolean, null or a single-quoted string.
+    Clauses may be joined with 'and'/'or' and grouped with parentheses.
+    Any single quote inside a string literal must be doubled (OData escape).
+    """
+    if not isinstance(filter_value, str) or not filter_value.strip():
+        raise ValueError("Empty OData $filter string is not allowed.")
+    prop = r"[A-Za-z_][\w./]*"
+    op = r"(?:eq|ne|gt|lt|ge|le)"
+    value = r"(?:-?\d+|true|false|null|'(?:[^']|'')*')"
+    clause = r"\(?\s*{0}\s+{1}\s+{2}\s*\)?".format(prop, op, value)
+    pattern = r"^{0}(?:\s+(?:and|or)\s+{0})*$".format(clause)
+    if not re.fullmatch(pattern, filter_value.strip(), re.IGNORECASE):
+        raise ValueError("Invalid OData $filter string: {0}".format(filter_value))
+    return filter_value
+
 
 ome_auth_params = {
     "hostname": {"required": True, "type": "str"},
@@ -49,6 +77,8 @@ ome_auth_params = {
     "validate_certs": {"type": "bool", "default": True},
     "ca_path": {"type": "path"},
     "timeout": {"type": "int", "default": 30},
+    "cert_fingerprint": {"type": "str", "required": False},
+    "enforce_validate_certs": {"type": "bool", "default": False},
 }
 
 SESSION_RESOURCE_COLLECTION = {
@@ -262,7 +292,7 @@ class RestOME(object):
         not_found_msg: str: message if service tag not found
         """
         device_id = None
-        query = "DeviceServiceTag eq '{0}'".format(service_tag)
+        query = "DeviceServiceTag eq '{0}'".format(_escape_odata_string(service_tag))
         response = self.invoke_request("GET", "DeviceService/Devices", query_param={"$filter": query})
         value = response.json_data.get("value", [])
         device_info = {}
@@ -441,6 +471,8 @@ class OmeAnsibleModule(AnsibleModule):
             "validate_certs": {"type": "bool", "default": True},
             "ca_path": {"type": "path"},
             "timeout": {"type": "int", "default": 30},
+            "cert_fingerprint": {"type": "str", "required": False},
+            "enforce_validate_certs": {"type": "bool", "default": False},
         }
         argument_spec.update(ome_argument_spec)
 
@@ -464,3 +496,7 @@ class OmeAnsibleModule(AnsibleModule):
                          mutually_exclusive, required_together,
                          required_one_of, add_file_common_args,
                          supports_check_mode, required_if, required_by)
+        warn_if_cert_validation_disabled(self)
+        _params = getattr(self, "params", None) or {}
+        check_cert_fingerprint(self, _params.get("hostname", ""),
+                               _params.get("port", 443))

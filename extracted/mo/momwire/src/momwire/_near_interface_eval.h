@@ -183,7 +183,9 @@ void cone_table(double k_p, cd k_m, double d, double zf, double beta, double a,
 // `_compute_Z_operator_buried`, under `_near_interface`'s `*_scope`s -- so the
 // C++ fills do the same with a `FeatureFill` over theirs, and whatever else
 // this route evaluates (a buried near field, say) sees every one off. All
-// false, the default, is the shipped route bit for bit.
+// false is the route before momwire#1860 bit for bit. Requested from the
+// start: the default-on ones (`Feature.default`: factored_columns,
+// height_sheet_recal), as in Python.
 //
 // Written by the thread that runs the fill, before any parallel region of
 // it starts; the fill's worker threads only read it.
@@ -192,14 +194,24 @@ struct Features {
     bool height_sheet_recal = false;  // L2: the recalibrated height census
     bool crossing_table = false;      // L5: the crossing rows from one table
     bool crossing_above_rule = false;  // B1: bspline's above x above rule
+    bool crossing_sheet_retune = false;  // momwire#1956: the sheets' build weights retuned
+    // momwire#1971: razor-2p's fill-pair reuse. Not a near-interface lever:
+    // carried here because this is where an executable's requested features
+    // live; the razor seam reads it into `FrontInputs::pair_reuse`.
+    bool razor_pair_reuse = false;
 };
 Features &requested_features();
 const Features &active_features();
 // Asks for the feature `name` (its `momwire._features` name) in every later
-// fill; false, and nothing asked, for a name this route does not carry.
-bool request_feature(const std::string &name);
-// Line 2's feature tail for what was requested, as `_features.stamp()` spells
-// it within every feature's reach: "+name" each, in registry order, or "".
+// fill, named on line 2 when `stamped` (false for a default-on feature);
+// false, and nothing asked, for a name this route does not carry.
+bool request_feature(const std::string &name, bool stamped = true);
+// Withdraws `name` (a default-on feature the environment turns off, or one
+// outside the executable's reach); false for a name this route does not carry.
+bool withdraw_feature(const std::string &name);
+// Line 2's feature tail for what was requested stamped, as
+// `_features.stamp()` spells it within every feature's reach: "+name" each,
+// in registry order, or "".
 std::string requested_stamp();
 
 // One buried fill with the requested features on, as the Python solvers'

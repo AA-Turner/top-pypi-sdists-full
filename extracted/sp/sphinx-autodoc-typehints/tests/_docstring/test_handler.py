@@ -1,18 +1,18 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from functools import cached_property, cmp_to_key, partial, update_wrapper, wraps
 from inspect import Parameter, Signature, signature
 from os import utime
 from pathlib import Path
-from re import findall
 from typing import TYPE_CHECKING, Final, Self
 
 import typing_extensions  # its Self is tested next to typing.Self
 from pytest import MarkDecorator, mark, param
 from typing_extensions import deprecated
 
-from _docstring.conftest import BOOL, FLOAT, INT, NONE, STR
+from .conftest import BOOL, FLOAT, INT, NONE, STR
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -22,8 +22,11 @@ if TYPE_CHECKING:
     from conftest import BuildText
     from sphinx.testing.util import SphinxTestApp
 
-    from _docstring.conftest import Process
-    from sphinx_autodoc_typehints._types import Documented
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # keep types private
+        Documented,
+    )
+
+    from .conftest import Process
 
 pytestmark: Final[MarkDecorator] = mark.sphinx("text", testroot="dummy")
 
@@ -41,7 +44,10 @@ class _Joiner:
     "obj",
     [param(partial(_joined, 1), id="partial"), param(_Joiner(), id="callable-instance")],
 )
-def test_callable_takes_the_types_of_what_it_calls(process: Process, obj: Callable[..., str]) -> None:
+def test_callable_takes_the_types_of_what_it_calls(
+    process: Process,
+    obj: Callable[..., str],
+) -> None:
     assert process("function", "mod.joined", obj, [":param sep: the separator"]) == [
         f":type sep: {STR}",
         ":param sep: the separator",
@@ -70,7 +76,7 @@ class _Slotted:
 def _looping(value: int) -> str: ...
 
 
-vars(_looping)["__wrapped__"] = _looping
+_looping.__dict__["__wrapped__"] = _looping
 
 
 @mark.parametrize(
@@ -169,7 +175,7 @@ class _UnreadyWrapper:
 def _stated(*args: object, **kwargs: object) -> None: ...
 
 
-vars(_stated)["__signature__"] = Signature(
+_stated.__dict__["__signature__"] = Signature(
     [Parameter("value", Parameter.KEYWORD_ONLY, annotation=float)], return_annotation=str
 )
 
@@ -191,13 +197,17 @@ def test_function_takes_the_params_of_what_it_calls(process: Process, func: Docu
 
 @mark.sphinx(confoverrides={"always_document_param_types": True, "typehints_defaults": "comma"})
 def test_wrapper_lists_the_parameters_it_states(process: Process) -> None:
-    def handle(ctx: object, name: str, count: int = 1) -> bool: ...
+    def handle(
+        ctx: object,  # simplint: ignore[imprecise-annotation]  # the injected context may be any value
+        name: str,
+        count: int = 1,
+    ) -> bool: ...
 
     @wraps(handle)
     def injected(*args: object, **kwargs: object) -> bool: ...
 
     # a dependency-injecting decorator hides the parameter it supplies
-    vars(injected)["__signature__"] = Signature(list(signature(handle, eval_str=True).parameters.values())[1:])
+    injected.__dict__["__signature__"] = Signature(list(signature(handle, eval_str=True).parameters.values())[1:])
     assert process("function", "mod.injected", injected, [":param name: the name"]) == [
         f":type name: {STR}",
         ":param name: the name",
@@ -205,6 +215,19 @@ def test_wrapper_lists_the_parameters_it_states(process: Process) -> None:
         ":param count:",
         "",
         f":sphinx_autodoc_typehints_rtype: {BOOL}",
+    ]
+
+
+@mark.parametrize("member", [param("plain", id="property"), param("cached", id="cached-property")])
+def test_process_docstring_marks_a_deprecated_property_getter(process: Process, member: str) -> None:
+    prop = _DeprecatedGetters.__dict__[member]
+    assert process("property", f"mod._DeprecatedGetters.{member}", prop, ["Size."]) == [
+        "Size.",
+        "",
+        ".. sphinx_autodoc_typehints_deprecated::",
+        "",
+        "   use size_v2",
+        "",
     ]
 
 
@@ -216,19 +239,6 @@ class _DeprecatedGetters:
     @cached_property
     @deprecated("use size_v2")
     def cached(self) -> int: ...
-
-
-@mark.parametrize("member", [param("plain", id="property"), param("cached", id="cached-property")])
-def test_process_docstring_marks_a_deprecated_property_getter(process: Process, member: str) -> None:
-    prop = vars(_DeprecatedGetters)[member]
-    assert process("property", f"mod._DeprecatedGetters.{member}", prop, ["Size."]) == [
-        "Size.",
-        "",
-        ".. sphinx_autodoc_typehints_deprecated::",
-        "",
-        "   use size_v2",
-        "",
-    ]
 
 
 class _ReturnsSelf:
@@ -253,7 +263,7 @@ def test_process_docstring_of_a_bound_method_types_its_return(process: Process, 
 
 @mark.sphinx(confoverrides={"typehints_defaults": "comma"})
 def test_process_docstring_shows_a_dataclass_factory_as_its_call(process: Process) -> None:
-    @dataclass
+    @dataclass(frozen=True, slots=True, kw_only=True)
     class Made:
         value: list[int] = field(default_factory=list)
 
@@ -264,6 +274,11 @@ def test_process_docstring_shows_a_dataclass_factory_as_its_call(process: Proces
         ),
         ":param value: the value",
     ]
+
+
+_TEST_PROCESS_DOCSTRING_REREADS_THE_PAGES_A_STUB_TYPES_ONCE_IT_CHANGES_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"(?P<added>\d+) added, (?P<changed>\d+) changed, (?P<removed>\d+) removed"
+)
 
 
 @mark.sphinx("text", testroot="pyi-stubs")
@@ -279,7 +294,9 @@ def test_process_docstring_rereads_the_pages_a_stub_types_once_it_changes(
     app.build()
 
     # the module this process already imported keeps the first types, so only the reread shows
-    assert findall(r"(\d+) added, (\d+) changed, (\d+) removed", status.getvalue()) == [
+    assert _TEST_PROCESS_DOCSTRING_REREADS_THE_PAGES_A_STUB_TYPES_ONCE_IT_CHANGES_PATTERN.findall(
+        status.getvalue()
+    ) == [
         ("1", "0", "0"),
         ("0", "1", "0"),
     ]

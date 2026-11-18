@@ -16,17 +16,17 @@ class DescribeNatGatewayCapacityReservationResponseBody(DaraModel):
         nat_gateway_performance_values: main_models.DescribeNatGatewayCapacityReservationResponseBodyNatGatewayPerformanceValues = None,
         request_id: str = None,
     ):
-        # The capacity reservation status.
+        # The resource reservation status.
         self.capacity_reservation_status = capacity_reservation_status
-        # The remaining number of times that you can downgrade the configuration or cancel the capacity reservation.
+        # The remaining number of times that you can downgrade or cancel the resource reservation.
         self.decrease_requests_remaining = decrease_requests_remaining
-        # The time when the capacity reservation was last modified.
+        # The time when the resource reservation was last modified.
         self.last_modified_time = last_modified_time
         # The number of capacity units (CUs) reserved for the NAT gateway.
         self.nat_gateway_capacity = nat_gateway_capacity
         # The ID of the NAT gateway to query.
         self.nat_gateway_id = nat_gateway_id
-        # The performance metrics of the NAT gateway capacity reservation.
+        # The performance metrics of the NAT gateway resource reservation.
         self.nat_gateway_performance_values = nat_gateway_performance_values
         # Id of the request
         self.request_id = request_id
@@ -105,9 +105,9 @@ class DescribeNatGatewayCapacityReservationResponseBodyNatGatewayPerformanceValu
     ):
         # The bandwidth value. Unit: Gbit/s.
         self.bandwidth = bandwidth
-        # The number of new connections per second (CPS).
+        # The number of new connections per second.
         self.cps = cps
-        # The number of packets per second (PPS).
+        # The number of packets per second.
         self.pps = pps
         # The number of sessions.
         self.session_count = session_count
@@ -186,12 +186,16 @@ class DescribeNatGatewayCapacityReservationResponseBodyCapacityReservationStatus
     ):
         # The reason for the processing failure.
         self.reason = reason
-        # The capacity reservation status. Valid values:
+        # The resource reservation status. Valid values:
         # 
         # - pending: The reservation is in progress.
+        # 
         # - provisioned: The reservation is completed.
+        # 
         # - failed: The reservation failed.
+        # 
         # - deleting: The reservation is being deleted.
+        # 
         # - deleted: The reservation is deleted.
         self.status = status
 

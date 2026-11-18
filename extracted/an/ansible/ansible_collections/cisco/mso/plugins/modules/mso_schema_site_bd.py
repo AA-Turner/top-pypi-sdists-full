@@ -42,6 +42,8 @@ options:
   host_route:
     description:
     - Whether host-based routing is enabled.
+    - When omitted while creating a site BD, host-based routing defaults to false.
+    - When omitted while updating an existing site BD, the current value is preserved.
     type: bool
   svi_mac:
     description:
@@ -112,8 +114,11 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
+import copy
+
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.mso.plugins.module_utils.mso import MSOModule, mso_argument_spec
+from ansible_collections.cisco.mso.plugins.module_utils.utils import append_update_ops_data
 
 
 def main():
@@ -123,6 +128,10 @@ def main():
         site=dict(type="str", required=True),
         template=dict(type="str", required=True),
         bd=dict(type="str", aliases=["name"]),  # This parameter is not required for querying all objects
+        # Site BDs are normally present through template replication, so
+        # omission must preserve the existing value. Do not set an argument-
+        # spec default; the defensive creation fallback below is not reached
+        # in the normal replicated workflow.
         host_route=dict(type="bool"),
         svi_mac=dict(type="str"),
         state=dict(type="str", default="present", choices=["absent", "present", "query"]),
@@ -177,13 +186,13 @@ def main():
         bd_idx = bds.index(bd_ref)
         bd_path = "/sites/{0}/bds/{1}".format(site_template, bd)
         mso.existing = schema_obj.get("sites")[site_idx]["bds"][bd_idx]
-        mso.existing["bdRef"] = mso.dict_from_ref(mso.existing.get("bdRef"))
+        mso.recursive_dict_from_ref(mso.existing)
 
     if state == "query":
         if bd is None:
             mso.existing = schema_obj.get("sites")[site_idx]["bds"]
-            for bd in mso.existing:
-                bd["bdRef"] = mso.dict_from_ref(bd.get("bdRef"))
+            for site_bd in mso.existing:
+                mso.recursive_dict_from_ref(site_bd)
         elif not mso.existing:
             mso.fail_json(msg="BD '{bd}' not found".format(bd=bd))
         mso.exit_json()
@@ -200,6 +209,10 @@ def main():
     elif state == "present":
         if not mso.existing:
             if host_route is None:
+                # Site BDs are normally replicated from template BDs, so this
+                # creation fallback is not reached in the normal workflow.
+                # Keep it because the API requires hostBasedRouting for a new
+                # site BD if an unreplicated object is ever encountered.
                 host_route = False
 
         payload = dict(
@@ -216,13 +229,13 @@ def main():
         mso.sanitize(payload, collate=True)
 
         if mso.existing:
-            ops.append(dict(op="replace", path=bd_path, value=mso.sent))
+            append_update_ops_data(ops, copy.deepcopy(mso.previous), bd_path, payload)
         else:
             ops.append(dict(op="add", path=bds_path + "/-", value=mso.sent))
 
         mso.existing = mso.proposed
 
-    if not module.check_mode and mso.existing != mso.previous:
+    if not module.check_mode and ops:
         mso.request(schema_path, method="PATCH", data=ops)
 
     mso.exit_json()

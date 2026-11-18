@@ -391,6 +391,9 @@ def ensure_dnssec(zone_id: str) -> bool:
     changed = False
     dnssec = module.params.get("dnssec")
 
+    if dnssec is None:
+        return changed
+
     response = get_dnssec(zone_id)
     dnssec_status = response["Status"]["ServeSignature"]
 

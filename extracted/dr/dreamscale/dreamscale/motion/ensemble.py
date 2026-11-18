@@ -1,7 +1,7 @@
 """Chunk buffer with temporal ensembling.
 
-Ported from sandbox/sdk/python/dropbear/action_buffer.py (stale-chunk
-rejection, stats, underrun semantics) and
+Ported from the phase-0 prototype SDK's action_buffer.py (stale-chunk rejection, stats,
+underrun semantics; removed in DSL-442, see git history) and
 sandbox/experiments/sagemaker-libero/src/sagemaker_libero/ensemble.py
 (uniform-weight averaging across overlapping predictions). See the plan's
 Task 7 header for the adaptation list.

@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 import typer
-from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
+from dreamscale_core.rho import RHO_YAM_BOX_MODEL_ID
 
 from dreamscale.constants import MODEL_BIMANUAL_YAM
 from dreamscale.control import ControlPlaneClient

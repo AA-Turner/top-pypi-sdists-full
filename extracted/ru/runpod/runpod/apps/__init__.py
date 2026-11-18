@@ -6,7 +6,9 @@ from .datacenter import DataCenter
 from .entrypoint import local_entrypoint
 from .errors import (
     AppError,
+    AppHTTPError,
     EndpointNotFound,
+    JobStatusError,
     RemoteExecutionError,
     ScheduleNotSupported,
 )
@@ -25,12 +27,14 @@ __all__ = [
     "ApiHandle",
     "App",
     "AppError",
+    "AppHTTPError",
     "Context",
     "DataCenter",
     "EndpointNotFound",
     "FunctionHandle",
     "GlobalVolume",
     "Job",
+    "JobStatusError",
     "Model",
     "NetworkVolume",
     "Queue",

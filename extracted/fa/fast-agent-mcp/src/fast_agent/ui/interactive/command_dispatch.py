@@ -721,19 +721,24 @@ async def _dispatch_catalog_payload(
     *,
     prompt_provider: "AgentApp",
     agent: str,
+    buffer_prefill: str,
     session_manager: "SessionManager | None",
 ) -> DispatchResult | None:
     handler = _catalog_handler(payload, prompt_provider=prompt_provider, agent=agent)
     if handler is None:
         return None
 
-    await _run_command_handler(
+    outcome = await _run_command_handler(
         prompt_provider=prompt_provider,
         agent=agent,
         handler=handler,
         session_manager=session_manager,
     )
-    return DispatchResult(handled=True)
+    result = DispatchResult(handled=True)
+    if outcome.buffer_prefill:
+        # Catalog commands (e.g. `/tools add`) contribute text to the draft, not replace it.
+        result.buffer_prefill = append_attachment_tokens(buffer_prefill, [outcome.buffer_prefill])
+    return result
 
 
 def _catalog_handler(
@@ -1335,7 +1340,7 @@ async def _dispatch_create_session_command(
         context,
         session_name=payload.session_name,
     )
-    sessions_handlers.apply_session_new_history_reset(context, outcome)
+    await sessions_handlers.apply_session_new_history_reset(context, outcome)
     await emit_command_outcome(context, outcome)
     return result
 
@@ -1764,6 +1769,7 @@ async def dispatch_command_payload(
                     payload,
                     prompt_provider=prompt_provider,
                     agent=agent,
+                    buffer_prefill=buffer_prefill,
                     session_manager=session_manager,
                 ),
             ),

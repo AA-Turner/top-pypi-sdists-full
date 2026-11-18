@@ -7,6 +7,7 @@ from .advisory_cvss import AdvisoryCVSS
 from .advisory_epss import AdvisoryEPSS
 from .advisory_item import AdvisoryItem
 from .advisory_list import AdvisoryList
+from .advisory_list_refresh_failed import AdvisoryListRefreshFailed
 from .advisory_reason import AdvisoryReason
 from .advisory_severity import AdvisorySeverity
 from .advisory_state import AdvisoryState
@@ -40,6 +41,7 @@ from .check_subject_kind import CheckSubjectKind
 from .check_waiting_for import CheckWaitingFor
 from .ci_status import CIStatus
 from .closing_issue import ClosingIssue
+from .connection_authorize_response import ConnectionAuthorizeResponse
 from .credential import Credential
 from .dashboard import Dashboard
 from .details_body import DetailsBody
@@ -65,7 +67,10 @@ from .issue import Issue
 from .issue_action_request import IssueActionRequest
 from .issue_comment_request import IssueCommentRequest
 from .issue_details import IssueDetails
+from .issue_details_kind import IssueDetailsKind
 from .issue_details_state import IssueDetailsState
+from .issue_pull_request import IssuePullRequest
+from .issue_pull_request_state import IssuePullRequestState
 from .issue_relation import IssueRelation
 from .label import Label
 from .linked_pull_request import LinkedPullRequest
@@ -125,6 +130,7 @@ from .settings_summary import SettingsSummary
 from .settings_summary_theme import SettingsSummaryTheme
 from .stack_position import StackPosition
 from .stack_ref import StackRef
+from .start_forgejo_connection_request import StartForgejoConnectionRequest
 from .stream_watch_request import StreamWatchRequest
 from .theme_request import ThemeRequest
 from .theme_request_theme import ThemeRequestTheme
@@ -146,6 +152,7 @@ __all__ = (
     "AdvisoryEPSS",
     "AdvisoryItem",
     "AdvisoryList",
+    "AdvisoryListRefreshFailed",
     "AdvisoryReason",
     "AdvisorySeverity",
     "AdvisoryState",
@@ -179,6 +186,7 @@ __all__ = (
     "CheckWaitingFor",
     "CIStatus",
     "ClosingIssue",
+    "ConnectionAuthorizeResponse",
     "Credential",
     "Dashboard",
     "DetailsBody",
@@ -204,7 +212,10 @@ __all__ = (
     "IssueActionRequest",
     "IssueCommentRequest",
     "IssueDetails",
+    "IssueDetailsKind",
     "IssueDetailsState",
+    "IssuePullRequest",
+    "IssuePullRequestState",
     "IssueRelation",
     "Label",
     "LinkedPullRequest",
@@ -264,6 +275,7 @@ __all__ = (
     "SettingsSummaryTheme",
     "StackPosition",
     "StackRef",
+    "StartForgejoConnectionRequest",
     "StreamWatchRequest",
     "ThemeRequest",
     "ThemeRequestTheme",

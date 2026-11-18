@@ -11,11 +11,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Final
 
-_ROOT: Final = Path(__file__).resolve().parent.parent
+_ROOT: Final[Path] = Path(__file__).resolve().parent.parent
 
 
 def main() -> None:
-    """Keep local checks separate from the protected write path."""
+    # Keep local checks separate from the protected write path.
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bump", choices=("auto", "major", "minor", "patch"), default="auto")
     parser.add_argument("--dispatch", action="store_true", help="start the protected GitHub release workflow")
@@ -134,7 +134,7 @@ def _run(
     capture_output: bool = False,
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # Arguments never pass through a shell.
+    return subprocess.run(  # ruff:ignore[subprocess-without-shell-equals-true]  # Release commands use trusted inputs.
         command,
         cwd=cwd,
         input=stdin_text,

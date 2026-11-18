@@ -19,11 +19,15 @@ import httpx
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_access_token
-from fastmcp.tools.tool import ToolResult
+from fastmcp.tools import ToolResult
 from mcp.types import TextContent, ToolAnnotations
 from pydantic import BaseModel, Field
 
+from late.client.base import _retry_after_seconds
 from late.mcp.auth import build_auth_provider, forget_rejected_token
+from late.mcp.middleware import WellFormedOutputMiddleware, WellFormedOutputTransform
+from late.mcp.middleware.rate_limit import wait_hint
+from late.mcp.user_agent import mcp_user_agent
 
 API_BASE = (
     os.getenv("ZERNIO_BASE_URL")
@@ -213,11 +217,16 @@ def _bearer() -> str:
     raise ToolError("Sign in to Zernio to use this tool.")
 
 
-def _error_message(response: httpx.Response) -> str:
+def _json_object(response: httpx.Response) -> dict[str, Any]:
     try:
         body = response.json()
     except ValueError:
-        body = {}
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def _error_message(response: httpx.Response) -> str:
+    body = _json_object(response)
     error = body.get("error") if isinstance(body, dict) else None
     if isinstance(error, dict):
         message = error.get("message") or error.get("code")
@@ -232,13 +241,26 @@ async def _api(
     method: str, path: str, *, params: dict[str, Any] | None = None, json: Any = None
 ) -> Any:
     bearer = _bearer()
-    headers = {"Authorization": f"Bearer {bearer}", "Accept": "application/json"}
+    headers = {
+        "Authorization": f"Bearer {bearer}",
+        "Accept": "application/json",
+        "User-Agent": mcp_user_agent(),
+    }
     async with httpx.AsyncClient(base_url=API_BASE, timeout=_TIMEOUT) as client:
         response = await client.request(
             method, path, params=params, json=json, headers=headers
         )
     if response.status_code == 401:
         forget_rejected_token(bearer)
+    if response.status_code == 429:
+        body = _json_object(response)
+        details = body.get("details")
+        hint = wait_hint(
+            _retry_after_seconds(response.headers.get("Retry-After")),
+            platform=body.get("platform"),
+            resets_at=details.get("resetsAt") if isinstance(details, dict) else None,
+        )
+        raise ToolError(f"{_error_message(response).rstrip('.')}. {hint}")
     if response.status_code >= 400:
         raise ToolError(_error_message(response))
     return response.json() if response.content else {}
@@ -525,6 +547,8 @@ chatgpt_mcp = FastMCP(
     website_url="https://zernio.com",
     auth=build_auth_provider(scopes=CHATGPT_SCOPES),
 )
+chatgpt_mcp.add_middleware(WellFormedOutputMiddleware())
+chatgpt_mcp.add_transform(WellFormedOutputTransform())
 
 
 @chatgpt_mcp.tool(

@@ -3,6 +3,7 @@ and the run groups inside them (twins: app/projects/experiments, app/runs/groups
 
 from __future__ import annotations
 import warnings
+from collections.abc import Iterator
 from typing import Any
 from .....models import (
     RunGroupCreate,
@@ -169,6 +170,16 @@ class ExperimentAdminMixin:
         window = rows[offset : offset + size]
         more = offset + size < len(rows)
         return Page(items=window, next_cursor=str(offset + size) if more else None)
+
+    def iter_experiments(self, *, project_id: str | None = None, name: str | None = None) -> Iterator[dict]:
+        """Every experiment `list_experiments` would list (one project's, or every project's), page after page."""
+        cursor = None
+        while True:
+            page = self.list_experiments(project_id=project_id, name=name, cursor=cursor)
+            yield from page.items
+            if not page.next_cursor or page.next_cursor == cursor:
+                return
+            cursor = page.next_cursor
 
     def delete_experiment(
         self,

@@ -3,6 +3,8 @@ from __future__ import annotations
 import inspect
 from typing import Any
 
+from openai.types.responses.response_prompt_param import ResponsePromptParam
+
 from ..agent import Agent
 from ..agent_output import AgentOutputSchema, AgentOutputSchemaBase
 from ..exceptions import UserError
@@ -143,25 +145,44 @@ def get_model(agent: Agent[Any], run_config: RunConfig) -> Model:
     return run_config.model_provider.get_model(agent.model)
 
 
-def _implicit_model_settings_for_agent(agent: Agent[Any]) -> ModelSettings:
-    if agent.model is None:
-        return get_default_model_settings()
-    if isinstance(agent.model, str):
-        return get_default_model_settings(agent.model)
-    return ModelSettings()
-
-
-def _model_settings_for_resolved_name(agent: Agent[Any], run_config: RunConfig) -> ModelSettings:
-    if isinstance(run_config.model, str):
-        return get_default_model_settings(run_config.model)
-    if isinstance(run_config.model, Model):
+def _model_settings_for_resolved_name(
+    agent: Agent[Any], run_config: RunConfig, model: Model
+) -> ModelSettings:
+    selection = run_config.model if run_config.model is not None else agent.model
+    if isinstance(selection, Model):
         return ModelSettings()
-    return _implicit_model_settings_for_agent(agent)
+    if isinstance(selection, str) and "/" not in selection:
+        return get_default_model_settings(selection)
+    defaults = model.get_default_model_settings()
+    if defaults is not None:
+        return defaults
+    if isinstance(selection, str):
+        return get_default_model_settings(selection)
+    return agent.model_settings
 
 
-def get_model_settings(agent: Agent[Any], run_config: RunConfig) -> ModelSettings:
+def get_model_settings(
+    agent: Agent[Any],
+    run_config: RunConfig,
+    model: Model,
+    *,
+    prepared_overrides: ModelSettings | None = None,
+    prompt: ResponsePromptParam | None = None,
+    has_tools: bool = False,
+) -> ModelSettings:
     """Resolve model settings, keeping implicit defaults aligned with the resolved model name."""
-    model_settings = agent.model_settings
-    if model_settings == _implicit_model_settings_for_agent(agent):
-        model_settings = _model_settings_for_resolved_name(agent, run_config)
-    return model_settings.resolve(run_config.model_settings)
+    settings = agent.model_settings
+    if agent._uses_implicit_model_settings():
+        settings = _model_settings_for_resolved_name(agent, run_config, model)
+
+    implicit_fields = agent._implicit_request_fields()
+    for override in (prepared_overrides, run_config.model_settings):
+        if override is not None:
+            settings = settings.resolve(override)
+            implicit_fields = {name for name in implicit_fields if getattr(override, name) is None}
+    implicit_fields = {name for name in implicit_fields if getattr(settings, name) is not None}
+    if not implicit_fields:
+        return settings
+    return model._get_request_settings(
+        settings, prompt=prompt, has_tools=has_tools, implicit_fields=implicit_fields
+    )

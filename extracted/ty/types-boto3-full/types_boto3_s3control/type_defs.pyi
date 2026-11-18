@@ -220,6 +220,7 @@ __all__ = (
     "GranteeTypeDef",
     "IncludeOutputTypeDef",
     "IncludeTypeDef",
+    "IntAccessTiersTypeDef",
     "JobDescriptorTypeDef",
     "JobFailureTypeDef",
     "JobListDescriptorTypeDef",
@@ -401,6 +402,9 @@ __all__ = (
     "StorageLensConfigurationOutputTypeDef",
     "StorageLensConfigurationTypeDef",
     "StorageLensConfigurationUnionTypeDef",
+    "StorageLensCostAndUsageReportsPrefixLevelTypeDef",
+    "StorageLensCostAndUsageReportsPublishTypeDef",
+    "StorageLensCostAndUsageReportsSelectionCriteriaTypeDef",
     "StorageLensDataExportEncryptionOutputTypeDef",
     "StorageLensDataExportEncryptionTypeDef",
     "StorageLensDataExportOutputTypeDef",
@@ -797,6 +801,9 @@ class IncludeTypeDef(TypedDict):
     Buckets: NotRequired[Sequence[str]]
     Regions: NotRequired[Sequence[str]]
 
+class IntAccessTiersTypeDef(TypedDict):
+    IsEnabled: NotRequired[bool]
+
 class JobFailureTypeDef(TypedDict):
     FailureCode: NotRequired[str]
     FailureReason: NotRequired[str]
@@ -1095,6 +1102,10 @@ class SseKmsEncryptedObjectsTypeDef(TypedDict):
 
 class StorageLensAwsOrgTypeDef(TypedDict):
     Arn: str
+
+class StorageLensCostAndUsageReportsSelectionCriteriaTypeDef(TypedDict):
+    MinDepth: NotRequired[int]
+    MaxDepth: NotRequired[int]
 
 class StorageLensGroupLevelSelectionCriteriaOutputTypeDef(TypedDict):
     Include: NotRequired[list[str]]
@@ -1688,6 +1699,10 @@ class SourceSelectionCriteriaTypeDef(TypedDict):
     SseKmsEncryptedObjects: NotRequired[SseKmsEncryptedObjectsTypeDef]
     ReplicaModifications: NotRequired[ReplicaModificationsTypeDef]
 
+class StorageLensCostAndUsageReportsPrefixLevelTypeDef(TypedDict):
+    IsEnabled: bool
+    SelectionCriteria: NotRequired[StorageLensCostAndUsageReportsSelectionCriteriaTypeDef]
+
 class StorageLensGroupLevelOutputTypeDef(TypedDict):
     SelectionCriteria: NotRequired[StorageLensGroupLevelSelectionCriteriaOutputTypeDef]
 
@@ -1960,6 +1975,9 @@ class PutAccessPointScopeRequestTypeDef(TypedDict):
     Name: str
     Scope: ScopeUnionTypeDef
 
+class StorageLensCostAndUsageReportsPublishTypeDef(TypedDict):
+    PrefixLevel: NotRequired[StorageLensCostAndUsageReportsPrefixLevelTypeDef]
+
 class ObjectLambdaConfigurationOutputTypeDef(TypedDict):
     SupportingAccessPoint: str
     TransformationConfigurations: list[ObjectLambdaTransformationConfigurationOutputTypeDef]
@@ -2202,9 +2220,11 @@ class StorageLensConfigurationOutputTypeDef(TypedDict):
     Exclude: NotRequired[ExcludeOutputTypeDef]
     DataExport: NotRequired[StorageLensDataExportOutputTypeDef]
     ExpandedPrefixesDataExport: NotRequired[StorageLensExpandedPrefixesDataExportOutputTypeDef]
+    CostAndUsageReportsPublish: NotRequired[StorageLensCostAndUsageReportsPublishTypeDef]
     AwsOrg: NotRequired[StorageLensAwsOrgTypeDef]
     StorageLensArn: NotRequired[str]
     PrefixDelimiter: NotRequired[str]
+    IntAccessTiers: NotRequired[IntAccessTiersTypeDef]
 
 class StorageLensConfigurationTypeDef(TypedDict):
     Id: str
@@ -2214,9 +2234,11 @@ class StorageLensConfigurationTypeDef(TypedDict):
     Exclude: NotRequired[ExcludeTypeDef]
     DataExport: NotRequired[StorageLensDataExportTypeDef]
     ExpandedPrefixesDataExport: NotRequired[StorageLensExpandedPrefixesDataExportTypeDef]
+    CostAndUsageReportsPublish: NotRequired[StorageLensCostAndUsageReportsPublishTypeDef]
     AwsOrg: NotRequired[StorageLensAwsOrgTypeDef]
     StorageLensArn: NotRequired[str]
     PrefixDelimiter: NotRequired[str]
+    IntAccessTiers: NotRequired[IntAccessTiersTypeDef]
 
 class JobOperationOutputTypeDef(TypedDict):
     LambdaInvoke: NotRequired[LambdaInvokeOperationOutputTypeDef]

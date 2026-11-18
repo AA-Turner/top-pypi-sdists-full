@@ -10,6 +10,7 @@ import lib_cli_exit_tools
 import pytest
 from click.testing import CliRunner
 
+from lib_layered_config import __init__conf__ as package_conf
 from lib_layered_config import cli
 from lib_layered_config.cli import common as cli_common
 from tests.support import LayeredSandbox, create_layered_sandbox
@@ -63,32 +64,56 @@ def test_cli_read_json_without_provenance_returns_config_data(sandbox: LayeredSa
     assert payload["service"]["timeout"] == 15
 
 
-@os_agnostic
-def test_cli_read_redacts_secrets_when_requested(sandbox: LayeredSandbox) -> None:
-    layer(sandbox, "app", "config.toml", """[db]\npassword = "s3cret"\nhost = "localhost"\n""")
-    base_args = [
-        "read",
-        "--vendor",
-        VENDOR,
-        "--app",
-        APP,
-        "--slug",
-        SLUG,
-        "--format",
-        "json",
-        "--no-indent",
-        "--no-provenance",
-    ]
+_READ_OUTPUTS = {
+    "read-human": ["read", "--format", "human"],
+    "read-json-format": ["read", "--format", "json", "--no-indent", "--no-provenance"],
+    "read-json": ["read-json", "--no-indent"],
+    "read-envelope": ["read", "--json"],
+}
 
-    plain = make_runner().invoke(cli.cli, base_args, env=sandbox.env)
-    assert plain.exit_code == 0
-    assert "s3cret" in plain.output  # default is opt-in: not redacted
+
+@os_agnostic
+@pytest.mark.parametrize("command", list(_READ_OUTPUTS.values()), ids=list(_READ_OUTPUTS))
+def test_cli_read_redacts_secrets_by_default(sandbox: LayeredSandbox, command: list[str]) -> None:
+    layer(sandbox, "app", "config.toml", """[db]\npassword = "s3cret"\nhost = "localhost"\n""")
+    base_args = [*command, "--vendor", VENDOR, "--app", APP, "--slug", SLUG]
+
+    default = make_runner().invoke(cli.cli, base_args, env=sandbox.env)
+    shown = make_runner().invoke(cli.cli, [*base_args, "--no-redact"], env=sandbox.env)
+
+    assert (default.exit_code, shown.exit_code) == (0, 0)
+    assert "s3cret" not in default.output
+    assert "***REDACTED***" in default.output
+    assert "localhost" in default.output
+    assert "s3cret" in shown.output
+
+
+@os_agnostic
+def test_cli_read_json_redacts_on_request(sandbox: LayeredSandbox) -> None:
+    layer(sandbox, "app", "config.toml", """[db]\npassword = "s3cret"\nhost = "localhost"\n""")
+    base_args = [*_READ_OUTPUTS["read-json-format"], "--vendor", VENDOR, "--app", APP, "--slug", SLUG]
 
     redacted = make_runner().invoke(cli.cli, [*base_args, "--redact"], env=sandbox.env)
     assert redacted.exit_code == 0
     payload = json.loads(redacted.output)
     assert payload["db"]["password"] == "***REDACTED***"
     assert payload["db"]["host"] == "localhost"
+
+
+@os_agnostic
+def test_cli_read_in_human_format_redacts_secrets_when_requested(sandbox: LayeredSandbox) -> None:
+    layer(sandbox, "app", "config.toml", """[db]\npassword = "s3cret"\nhost = "localhost"\n""")
+    base_args = ["read", "--vendor", VENDOR, "--app", APP, "--slug", SLUG, "--format", "human"]
+
+    redacted = make_runner().invoke(cli.cli, [*base_args, "--redact"], env=sandbox.env)
+    plain = make_runner().invoke(cli.cli, [*base_args, "--no-redact"], env=sandbox.env)
+
+    assert redacted.exit_code == 0
+    assert "***REDACTED***" in redacted.output
+    assert "s3cret" not in redacted.output
+    assert "localhost" in redacted.output
+    assert plain.exit_code == 0
+    assert "s3cret" in plain.output
 
 
 @os_agnostic
@@ -328,9 +353,20 @@ def test_cli_env_prefix_echoes_uppercase_slug() -> None:
 
 
 @os_agnostic
+def test_cli_env_prefix_refuses_an_empty_slug_as_a_usage_error() -> None:
+    result = make_runner().invoke(cli.cli, ["env-prefix", ""])
+    assert result.exit_code == 2
+    assert "slug cannot be empty" in result.output
+    assert "___" not in result.output
+
+
+@os_agnostic
 def test_cli_info_recites_real_metadata() -> None:
-    metadata = importlib.reload(cli_common.package_metadata)
-    expected_lines = _expected_info_lines(metadata)
+    # The CLI reads the generated metadata module itself; reloading that module refreshes what
+    # both the CLI and the expectation below read.
+    assert cli_common.package_metadata is package_conf
+    importlib.reload(package_conf)
+    expected_lines = _expected_info_lines()
 
     result = make_runner().invoke(cli.cli, ["info"])
 
@@ -365,17 +401,17 @@ def test_cli_fail_command_surfaces_runtime_error() -> None:
     assert result.exit_code != 0 and isinstance(result.exception, RuntimeError)
 
 
-def _expected_info_lines(metadata: object) -> tuple[str, ...]:
+def _expected_info_lines() -> tuple[str, ...]:
     fields = (
-        ("name", metadata.name),
-        ("title", metadata.title),
-        ("version", metadata.version),
-        ("homepage", metadata.homepage),
-        ("author", metadata.author),
-        ("author_email", metadata.author_email),
-        ("shell_command", metadata.shell_command),
+        ("name", package_conf.name),
+        ("title", package_conf.title),
+        ("version", package_conf.version),
+        ("homepage", package_conf.homepage),
+        ("author", package_conf.author),
+        ("author_email", package_conf.author_email),
+        ("shell_command", package_conf.shell_command),
     )
     pad = max(len(label) for label, _ in fields)
-    lines = [f"Info for {metadata.name}:", ""]
+    lines = [f"Info for {package_conf.name}:", ""]
     lines.extend(f"    {label.ljust(pad)} = {value}" for label, value in fields)
     return tuple(lines)

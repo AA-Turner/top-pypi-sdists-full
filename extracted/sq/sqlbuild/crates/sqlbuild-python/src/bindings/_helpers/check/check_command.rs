@@ -25,7 +25,6 @@ use sqlbuild_python_base::records::main::construct::record_class::record_class;
 use sqlbuild_python_compile::compile_driver::main::setup::build_project_relation_targets::build_project_relation_targets;
 use sqlbuild_python_compile::compile_driver::main::setup::build_python_relation_targets::build_python_relation_targets;
 use sqlbuild_python_compile::compile_driver::main::setup::build_static_pipeline_result::build_static_pipeline_result;
-use sqlbuild_python_compile::compile_driver::main::setup::model_free_locations::model_free_locations;
 use sqlbuild_python_compile::compile_driver::main::setup::project_target_settings::project_target_settings;
 use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
 use sqlbuild_python_front::discovery::main::sources::consumer_uses::consumer_uses;
@@ -41,13 +40,13 @@ use sqlbuild_python_project::planner_phases::main::object::object;
 use sqlbuild_python_project::planner_selection::main::parse_project_selector::parse_project_selector;
 use sqlbuild_python_project::planner_selection::main::reject_unit_test_selectors::reject_unit_test_selectors;
 
-use crate::bindings::_helpers::check::check_core::{
-    ReadSideInputs, load_results_by_loader_name, record_python_run_state_results,
-    run_read_side_dependencies,
-};
-use crate::bindings::_helpers::check::check_results::{
-    check_result_text, results_json, write_results,
-};
+use crate::bindings::_helpers::check::check_core::ReadSideInputs;
+use crate::bindings::_helpers::check::check_core::load_results_by_loader_name;
+use crate::bindings::_helpers::check::check_core::record_python_run_state_results;
+use crate::bindings::_helpers::check::check_core::run_read_side_dependencies;
+use crate::bindings::_helpers::check::check_results::check_result_text;
+use crate::bindings::_helpers::check::check_results::results_json;
+use crate::bindings::_helpers::check::check_results::write_results;
 use crate::bindings::_helpers::command_runtime::invocation::resolve_reported_command_invocation;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::native_host::main::host_entry::host_entry;
@@ -343,12 +342,12 @@ fn prepare<'py>(
         (&native_field(invocation, "connection_config")?, &adapter),
     )?;
     Ok(Prepared {
-        target_config,
         check_functions: PyTuple::new(py, check_functions)?.into_any(),
         lifecycle_plan,
         relation_targets,
         relation_refs,
-        defaults: model_free_locations(&project, |method| adapter.call_method0(method))?,
+        defaults: target_config.node_locations(&adapter)?,
+        target_config,
         project_relations: object(
             py,
             build_project_relation_targets(

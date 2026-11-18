@@ -11,6 +11,7 @@ import re
 
 # Third Party
 from eve_sde.models import ItemType
+from fittings.models import Doctrine
 
 # Django
 from django.contrib import messages
@@ -31,6 +32,7 @@ from esi.decorators import token_required
 from esi.models import Token
 
 # AA SRP
+from aasrp.app_settings import fittings_installed
 from aasrp.constants import ESI_SCOPE_UI_OPEN_WINDOW, KILLBOARD_DATA
 from aasrp.form import (
     SrpLinkForm,
@@ -291,6 +293,10 @@ def srp_link_add(request: WSGIRequest) -> HttpResponse:
 
     # Render the form template with the provided context.
     context = {"form": form}
+
+    # If the fittings app is installed, include doctrines in the context for the template.
+    if fittings_installed():
+        context["doctrines"] = Doctrine.objects.all().values("name").order_by("name")
 
     return render(request=request, template_name="aasrp/link-add.html", context=context)
 
@@ -553,14 +559,14 @@ def request_srp(  # pylint: disable=too-many-branches
                 # Invalid killmail
                 error_message_text = (
                     _(
-                        "Something went wrong, your kill mail "
+                        "Something went wrong, your killmail "
                         "({submitted_killmail_link}) could not be parsed: {error}"
                     ).format(  # pylint: disable=consider-using-f-string
                         submitted_killmail_link=submitted_killmail_link, error=str(err)
                     )
                     if str(err)
                     else _(
-                        "Your kill mail link ({submitted_killmail_link}) is invalid or "
+                        "Your killmail link ({submitted_killmail_link}) is invalid or "
                         "the zKillboard API is not answering at the moment. "
                         "Please make sure you are using either {zkillboard_base_url}, "
                         "{evekb_base_url}, {evekill_base_url} or the external link "
@@ -602,7 +608,7 @@ def request_srp(  # pylint: disable=too-many-branches
                         additional_info=srp_request_additional_info,
                     )
                 except IntegrityError:
-                    # Lost the race against a concurrent submission of the same kill mail
+                    # Lost the race against a concurrent submission of the same killmail
                     if killmail_id is None:
                         try:
                             killmail_id = SrpRequest.objects.get_killmail_id(
@@ -625,7 +631,7 @@ def request_srp(  # pylint: disable=too-many-branches
                     messages.error(
                         request=request,
                         message=_(
-                            "There is already an SRP request for this kill mail. "
+                            "There is already an SRP request for this killmail. "
                             "Please check if you got the right one."
                         ),
                     )

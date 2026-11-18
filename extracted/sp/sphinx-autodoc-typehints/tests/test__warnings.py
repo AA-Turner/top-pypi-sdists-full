@@ -1,19 +1,23 @@
 from __future__ import annotations
 
-from re import findall
+import re
 from shutil import copytree
 from typing import TYPE_CHECKING, Final
 
 from pytest import mark, param
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
     from pathlib import Path
 
-    from sphinx.testing.util import SphinxTestApp
+    from conftest import MakeApp
 
 
 _SUBTYPES: Final[set[str]] = {"comment", "forward_reference", "guarded_import", "multiple_ast_nodes"}
+
+
+_TEST_WARNINGS_CARRY_SUPPRESSIBLE_CATEGORIES_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"\[sphinx_autodoc_typehints\.(\w+)\]"
+)
 
 
 @mark.parametrize(
@@ -28,7 +32,7 @@ _SUBTYPES: Final[set[str]] = {"comment", "forward_reference", "guarded_import", 
     ],
 )
 def test_warnings_carry_suppressible_categories(
-    make_app: Callable[..., SphinxTestApp], rootdir: Path, tmp_path: Path, suppressed: list[str], expected: set[str]
+    make_app: MakeApp, rootdir: Path, tmp_path: Path, suppressed: list[str], expected: set[str]
 ) -> None:
     # the guard of a module runs once per process, so each build documents a module of its own
     module = f"public_module_{tmp_path.name}"
@@ -38,4 +42,4 @@ def test_warnings_carry_suppressible_categories(
     app = make_app("text", srcdir=srcdir, confoverrides={"suppress_warnings": suppressed})
     app.build()
 
-    assert set(findall(r"\[sphinx_autodoc_typehints\.(\w+)\]", app.warning.getvalue())) == expected
+    assert set(_TEST_WARNINGS_CARRY_SUPPRESSIBLE_CATEGORIES_PATTERN.findall(app.warning.getvalue())) == expected

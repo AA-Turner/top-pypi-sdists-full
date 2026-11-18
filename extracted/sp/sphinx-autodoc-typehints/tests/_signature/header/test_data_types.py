@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+import re
 from importlib import import_module
 from pathlib import Path
-from re import findall, search
 from sys import version_info
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
@@ -14,10 +14,12 @@ from sphinx import addnodes
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from conftest import BuildText, MakeModule
+    from conftest import BuildText, MakeApp, MakeModule
     from sphinx.testing.util import SphinxTestApp
 
-    from _signature.conftest import BuildDoctree
+    from _signature.conftest import (  # simplint: ignore[private-import-path]  # Shared test fixture
+        BuildDoctree,
+    )
 
 pytestmark: Final[MarkDecorator] = mark.sphinx("text", testroot="headers")
 
@@ -222,6 +224,13 @@ def test_header_type_links_a_name_with_its_field_role(make_module: MakeModule, b
     ]
 
 
+_TEST_HEADER_TYPE_SKIPS_AN_ATTRIBUTE_OF_THE_SAME_NAME_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r'(?s)<dt [^>]*id="named_module.Registry.factory".*?</dt>'
+)
+
+_TEST_HEADER_TYPE_SKIPS_AN_ATTRIBUTE_OF_THE_SAME_NAME_PATTERN_2: Final[re.Pattern[str]] = re.compile(r'href="([^"]*)"')
+
+
 @mark.sphinx("html", testroot="headers")
 def test_header_type_skips_an_attribute_of_the_same_name(make_module: MakeModule, build_text: BuildText) -> None:
     make_module(
@@ -246,13 +255,13 @@ def test_header_type_skips_an_attribute_of_the_same_name(make_module: MakeModule
         """)
     )
 
-    assert (header := search(r'(?s)<dt [^>]*id="named_module.Registry.factory".*?</dt>', html)) is not None
-    assert findall(r'href="([^"]*)"', header[0]) == ["#named_module.Registry.factory"]
+    assert (header := _TEST_HEADER_TYPE_SKIPS_AN_ATTRIBUTE_OF_THE_SAME_NAME_PATTERN.search(html)) is not None
+    assert _TEST_HEADER_TYPE_SKIPS_AN_ATTRIBUTE_OF_THE_SAME_NAME_PATTERN_2.findall(header[0]) == [
+        "#named_module.Registry.factory"
+    ]
 
 
-def test_header_type_follows_a_rebuild(
-    app: SphinxTestApp, build_text: BuildText, make_app: Callable[..., SphinxTestApp]
-) -> None:
+def test_header_type_follows_a_rebuild(app: SphinxTestApp, build_text: BuildText, make_app: MakeApp) -> None:
     build_text(".. autodata:: header_module.SCORE")
     rebuilt = make_app("text", srcdir=app.srcdir, confoverrides={"autodoc_type_aliases": {"Num": "header_module.Num"}})
     rebuilt.build()
@@ -303,7 +312,7 @@ def test_header_type_resolves_a_module_again_in_another_document(
 
 # beyond the evaluations autodoc makes on its own
 @fixture(name="extra_evaluations")
-def extra_evaluations_fixture(app: SphinxTestApp, make_app: Callable[..., SphinxTestApp]) -> Callable[[], int]:
+def extra_evaluations_fixture(app: SphinxTestApp, make_app: MakeApp) -> Callable[[], int]:
     def count() -> int:
         evaluations = import_module("counted_module").EVALUATIONS
         before = len(evaluations)

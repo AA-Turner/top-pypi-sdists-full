@@ -112,6 +112,22 @@ class CapabilityResponse(Record):
         metadata=meta("unhandledPromptBehavior", ref="session.UserPromptHandler"),
     )
     web_socket_url: str | UnsetType = field(default=UNSET, metadata=meta("webSocketUrl", primitive="str"))
+    moz_build_id: str | UnsetType = field(default=UNSET, metadata=meta("moz:buildID", primitive="str"))
+    moz_headless: bool | UnsetType = field(default=UNSET, metadata=meta("moz:headless", primitive="bool"))
+    moz_platform_version: str | UnsetType = field(
+        default=UNSET,
+        metadata=meta("moz:platformVersion", primitive="str"),
+    )
+    moz_process_id: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("moz:processID", primitive="int", min=0, max=9007199254740991),
+    )
+    moz_profile: str | UnsetType = field(default=UNSET, metadata=meta("moz:profile", primitive="str"))
+    moz_shutdown_timeout: int | UnsetType = field(
+        default=UNSET,
+        metadata=meta("moz:shutdownTimeout", primitive="int", min=0, max=9007199254740991),
+    )
+    moz_user_context: str | UnsetType = field(default=UNSET, metadata=meta("moz:userContext", primitive="str"))
     extensions: dict[str, Any] | UnsetType = field(default=UNSET, metadata=meta("extensions"))
 
 

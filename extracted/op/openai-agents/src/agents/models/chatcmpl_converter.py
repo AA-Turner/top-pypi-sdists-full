@@ -288,6 +288,17 @@ class Converter:
         if not isinstance(item, dict):
             return None
 
+        # RunState wraps a plain assistant string in one output_text part when checkpointing.
+        # Restore easy-message semantics so a following tool call starts its own message.
+        match item:
+            case {
+                "role": "assistant",
+                "status": "completed",
+                "content": [{"type": "output_text", "text": str() as text}],
+            } if "type" not in item:
+                item = {**item, "content": text}
+                del item["status"]
+
         keys = set(item)
         if not {"content", "role"} <= keys:
             return None
@@ -300,6 +311,9 @@ class Converter:
 
         role = item.get("role", None)
         if role not in ("user", "assistant", "system", "developer"):
+            return None
+
+        if cls.maybe_response_output_message(item):
             return None
 
         return cast(EasyInputMessageParam, item)
@@ -349,12 +363,23 @@ class Converter:
 
     @classmethod
     def maybe_response_output_message(cls, item: Any) -> ResponseOutputMessageParam | None:
-        # ResponseOutputMessage is only used for messages with role assistant
+        # Session replay strips storage IDs from assistant output messages.
         if (
             isinstance(item, dict)
             and item.get("type") == "message"
             and item.get("role") == "assistant"
-            and {"id", "content"} <= set(item)
+            and "content" in item
+            and (
+                "id" in item
+                or (
+                    isinstance(item["content"], list)
+                    and len(item["content"]) > 0
+                    and all(
+                        isinstance(part, dict) and part.get("type") in ("output_text", "refusal")
+                        for part in item["content"]
+                    )
+                )
+            )
         ):
             return cast(ResponseOutputMessageParam, item)
         return None

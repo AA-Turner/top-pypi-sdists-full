@@ -1,9 +1,11 @@
 mod blob_repair;
+pub(crate) use blob_repair::FullBlobOverlay;
 use blob_repair::effective_conditions;
-use blob_repair::{BlobRepair, restore_pending_configs};
+use blob_repair::{BlobRepair, restore_full_configs, restore_pending_configs};
 pub(crate) use blob_repair::{ConditionMap, RetainedConditions, resolve_condition};
 
 use crate::id_lists_adapter::IdListUpdateBase;
+use crate::id_lists_adapter::id_list_load_timing::{self, Phase};
 use arc_swap::ArcSwap;
 use async_trait::async_trait;
 use chrono::Utc;
@@ -115,7 +117,7 @@ impl SpecStoreData {
             &self.field_checksums,
             &self.verified_remote_values,
         );
-        base.unavailable = self.unavailable_values();
+        base.unavailable = self.partial_hydration().map(|repair| &repair.unavailable);
         base.pending_producer_configs = self.partial_blobs().map(|p| p.producer_configs());
         base
     }
@@ -202,13 +204,24 @@ impl SpecStoreData {
         self.sync_cursor.lcut
     }
 
+    pub(crate) fn readiness_specs_info(&self) -> SpecsInfo {
+        let lcut = self.evaluation_lcut();
+        self.specs_info(
+            lcut,
+            self.sync_cursor.checksum.as_deref().filter(|_| lcut != 0),
+        )
+    }
+
+    pub(crate) fn has_unavailable_blob_values(&self) -> bool {
+        self.partial_blobs().is_some()
+            || self
+                .partial_hydration()
+                .is_some_and(|repair| !repair.unavailable.is_empty())
+    }
+
     // Bootstrap and readiness describe the evaluations a client can use, independently of HTTP repair.
     pub(crate) fn evaluation_lcut(&self) -> u64 {
-        if self.partial_blobs().is_some()
-            || self
-                .unavailable_values()
-                .is_some_and(|values| !values.is_empty())
-        {
+        if self.has_unavailable_blob_values() {
             0
         } else {
             self.published_lcut()
@@ -620,12 +633,7 @@ impl SpecStore {
     }
 
     pub(crate) fn readiness_specs_info(&self) -> SpecsInfo {
-        let data = self.load_data();
-        let lcut = data.evaluation_lcut();
-        data.specs_info(
-            lcut,
-            data.sync_cursor.checksum.as_deref().filter(|_| lcut != 0),
-        )
+        self.load_data().readiness_specs_info()
     }
 
     pub fn get_current_values(&self) -> Option<SpecsResponseFull> {
@@ -796,15 +804,21 @@ impl RemoteValueState {
         }
         // A retry of the same revision must never withdraw a value already served.
         if !next.iter().all(|(name, slots)| {
-            previous
-                .unavailable
-                .get(name)
-                .is_some_and(|old| slots.is_subset(old))
+            current.had_complete_config(name)
+                || previous
+                    .unavailable
+                    .get(name)
+                    .is_some_and(|old| slots.is_subset(old))
         }) {
             return true;
         }
         next == &previous.unavailable
             && !self.verified.iter().any(|(name, proofs)| {
+                // A retained definition only changes when its missing slots change.
+                // Fetching an uncached over-budget proof again cannot advance it.
+                if previous.unavailable.contains_key(name) && current.had_complete_config(name) {
+                    return false;
+                }
                 let previous = current.verified_remote_values.get(name);
                 proofs
                     .keys()
@@ -889,15 +903,22 @@ impl SpecStore {
         &self,
         update: &SpecsUpdate,
         hydration: &'a SpecsUpdateHydration,
+        base: &'a SpecStoreData,
     ) -> StoreHydrationOptions<'a> {
-        StoreHydrationOptions::new(&hydration.source_url, self.mmap_project_id)
+        let mut options = StoreHydrationOptions::new(&hydration.source_url, self.mmap_project_id)
             .with_sync_trigger(hydration.sync_trigger)
             .with_session_update_mode(self.preserve_session_update_mode)
             .with_data_store_capture(
                 self.writable_data_store_for_update(&update.source, &update.data)
                     .is_some(),
             )
-            .with_partial_full_response(self.enable_partial_blob_publication)
+            .with_partial_full_response(self.enable_partial_blob_publication);
+        options.pending_proofs.full = base
+            .partial_hydration()
+            .and_then(|s| s.overlay.as_ref())
+            .map(|overlay| &overlay.pending_proofs);
+        options.pending_proofs.delta = base.partial_blobs().map(|s| s.incomplete.as_ref());
+        options
     }
 
     pub(crate) async fn set_values_with_json_hydration_metrics(
@@ -957,7 +978,7 @@ impl SpecStore {
         // Reuse proofs belong to this immutable snapshot. Downloads happen
         // outside the writer lock, and a changed base rejects the candidate.
         let parse_base = self.load_data();
-        let options = self.hydration_options(&specs_update, hydration);
+        let options = self.hydration_options(&specs_update, hydration, &parse_base);
         let hydrated = match hydration
             .hydrator
             .prepare_json_store_update(
@@ -1070,7 +1091,7 @@ impl SpecStore {
         });
         let mut base = parse_base.protobuf_parse_base();
         base.partial_delta = partial.as_ref();
-        let options = self.hydration_options(&specs_update, hydration);
+        let options = self.hydration_options(&specs_update, hydration, &parse_base);
         let hydrated = match prepare_protobuf_store_update(
             &self.ops_stats,
             base,
@@ -1593,7 +1614,7 @@ impl SpecStore {
         field_checksums: SpecsFieldChecksums,
         (source, source_api): (&SpecsSource, &Option<String>),
         is_delta: bool,
-        spec_decode_stats: SpecDecodeStats,
+        mut spec_decode_stats: SpecDecodeStats,
         mut remote_values: RemoteValueState,
     ) -> Result<ApplyResult, StatsigErr> {
         let data = self.load_data();
@@ -1625,6 +1646,11 @@ impl SpecStore {
             // cursor can advance while we retain the missing targets for retry.
             next_values.time = prev_lcut;
         }
+        if let Some(ref mut repair) = remote_values.partial_hydration {
+            spec_decode_stats.with_mmap_project(self.mmap_project_id, || {
+                restore_full_configs(&data, &mut next_values, &mut remote_values.verified, repair)
+            })?;
+        }
         let partial_hydration = remote_values.partial_hydration.map(Arc::new);
         if partial_blobs.is_some()
             || partial_hydration
@@ -1633,6 +1659,9 @@ impl SpecStore {
         {
             next_values.checksum = None;
         }
+        let blob_repair = partial_blobs
+            .map(BlobRepair::Delta)
+            .or_else(|| partial_hydration.map(BlobRepair::Full));
         self.try_update_global_configs(&next_values, is_delta);
         let prev_source = data.source.clone();
         let time_received_at = Utc::now().timestamp_millis() as u64;
@@ -1643,9 +1672,9 @@ impl SpecStore {
         let conditions = || {
             effective_conditions(
                 &values,
-                partial_blobs
+                blob_repair
                     .as_ref()
-                    .map(|pending| pending.retained_conditions()),
+                    .and_then(BlobRepair::retained_conditions),
             )
         };
         let may_have_time_dependent_evaluations = !self.prepare_time_dependence_metadata
@@ -1679,9 +1708,6 @@ impl SpecStore {
             live_overlay_target_app_index
                 .get_or_init(|| build_live_overlay_target_app_index(values.as_ref()));
         }
-        let blob_repair = partial_blobs
-            .map(BlobRepair::Delta)
-            .or_else(|| partial_hydration.map(BlobRepair::Full));
         let notification = SpecUpdateNotification {
             source: source.clone(),
             source_api: source_api.clone(),
@@ -2518,6 +2544,17 @@ impl IdListsUpdateListener for SpecStore {
         }
     }
 
+    fn try_receive_partial_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        let _output_scope = self.output_policy.enter();
+        // Polling keeps the legacy skipped-update behavior. An on-demand load
+        // must report the actual commit result, including a hash lock timeout.
+        self.stage_id_list_updates(updates, None, propagation, IdListPublicationMode::Merge, 1)
+    }
+
     fn try_receive_id_list_updates_with_propagation(
         &self,
         updates: HashMap<String, IdListUpdate>,
@@ -2658,8 +2695,10 @@ impl SpecStore {
         if !base_is_current {
             return Ok(false);
         }
+        let started = id_list_load_timing::start_phase();
         let mut lists = base.as_ref().clone();
         lists.insert(name.to_owned(), list);
+        id_list_load_timing::end_phase(Phase::Publication, started);
         self.commit_id_lists(
             Some(&base),
             Arc::new(lists),
@@ -2692,7 +2731,9 @@ impl SpecStore {
                 "ID-list cursor changed during download".into(),
             ));
         }
+        let started = id_list_load_timing::start_phase();
         let lists = self.updated_id_lists(&base, updates, mode, concurrency, bases);
+        id_list_load_timing::end_phase(Phase::Processing, started);
         self.commit_id_lists(Some(&base), lists, propagation, "Network", mode, remaining)
     }
 
@@ -2700,13 +2741,18 @@ impl SpecStore {
         // Serialize deltas without holding up config writers during parsing or copying.
         // Only time queued behind other writers counts against the hash listener's timeout.
         Ok(match self.id_list_encoding {
-            IdListEncoding::EliasFano => (self.id_list_mutation.lock(), LOCK_TIMEOUT),
+            IdListEncoding::EliasFano => {
+                let started = id_list_load_timing::start_phase();
+                let guard = self.id_list_mutation.lock();
+                id_list_load_timing::end_phase(Phase::StoreLockWait, started);
+                (guard, LOCK_TIMEOUT)
+            }
             IdListEncoding::Hash => {
                 let start = Instant::now();
-                let guard = self
-                    .id_list_mutation
-                    .try_lock_for(LOCK_TIMEOUT)
-                    .ok_or_else(Self::id_list_lock_timeout)?;
+                let started = id_list_load_timing::start_phase();
+                let guard = self.id_list_mutation.try_lock_for(LOCK_TIMEOUT);
+                id_list_load_timing::end_phase(Phase::StoreLockWait, started);
+                let guard = guard.ok_or_else(Self::id_list_lock_timeout)?;
                 (guard, LOCK_TIMEOUT.saturating_sub(start.elapsed()))
             }
         })
@@ -2824,14 +2870,14 @@ impl SpecStore {
         // Keep observations ordered with list commits without making config
         // writers wait for propagation bookkeeping or old membership teardown.
         let deadline = Instant::now() + remaining;
-        let mut states = self
-            .id_list_propagation
-            .try_lock_until(deadline)
-            .ok_or_else(Self::id_list_lock_timeout)?;
-        let guard = self
-            .update_lock
-            .try_lock_until(deadline)
-            .ok_or_else(Self::id_list_lock_timeout)?;
+        let started = id_list_load_timing::start_phase();
+        let states = self.id_list_propagation.try_lock_until(deadline);
+        id_list_load_timing::end_phase(Phase::StoreLockWait, started);
+        let mut states = states.ok_or_else(Self::id_list_lock_timeout)?;
+        let started = id_list_load_timing::start_phase();
+        let guard = self.update_lock.try_lock_until(deadline);
+        id_list_load_timing::end_phase(Phase::StoreLockWait, started);
+        let guard = guard.ok_or_else(Self::id_list_lock_timeout)?;
         let current = self.load_data();
         if expected.is_some_and(|base| !Arc::ptr_eq(base, &current.id_lists)) {
             // A shared snapshot won the race. Replaying these bytes on it could
@@ -2841,6 +2887,7 @@ impl SpecStore {
                     .into(),
             ));
         }
+        let started = id_list_load_timing::start_phase();
         self.publish_data(SpecStoreData {
             id_lists: Arc::clone(&lists),
             ..current.as_ref().clone()
@@ -2889,6 +2936,7 @@ impl SpecStore {
                 ));
             }
         }
+        id_list_load_timing::end_phase(Phase::Publication, started);
         Ok(())
     }
 }

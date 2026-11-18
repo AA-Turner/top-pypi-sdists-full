@@ -16,8 +16,12 @@ if TYPE_CHECKING:
     from pathlib import Path
     from types import ModuleType
 
-    from _resolve.conftest import MakeStubbedModule
-    from sphinx_autodoc_typehints._types import Documented
+    from _resolve.conftest import (  # simplint: ignore[private-import-path]  # Shared test fixture
+        MakeStubbedModule,
+    )
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # Shared test types
+        Documented,
+    )
 
 type StubNamespace = tuple[dict[str, Documented], set[str]]
 
@@ -63,7 +67,7 @@ def stub_namespace_fixture(make_stubbed_module: MakeStubbedModule) -> Callable[[
     def read(stub: str) -> StubNamespace:
         module = make_stubbed_module("def func(): ...", stub)
         namespace, crossrefs, _ = stub_context(module.func)
-        return {name: value for name, value in namespace.items() if name not in vars(module)}, set(crossrefs)
+        return {name: value for name, value in namespace.items() if name not in module.__dict__}, set(crossrefs)
 
     return read
 
@@ -182,20 +186,24 @@ def test_stub_context_cross_references_the_aliases_of_a_stub(
 
 
 def test_stub_context_of_a_function(stub_mod: ModuleType) -> None:
-    namespace, crossrefs, owner = stub_context(stub_mod.greet)
-    assert (namespace["Sequence"], {name: vars(ref) for name, ref in crossrefs.items()}, owner) == (
+    result = stub_context(stub_mod.greet)
+    assert type(result) is tuple
+    namespace, crossrefs, owner = result
+    assert (namespace["Sequence"], {name: ref.__dict__ for name, ref in crossrefs.items()}, owner) == (
         Sequence,
         {"MyAlias": {"name": "MyAlias", "configured": False, "crossref": True}},
         "stub_mod",
     )
 
 
-@mark.parametrize("stub", [param(None, id="no-stub"), param("def (broken", id="bad-syntax")])
-def test_stub_context_without_a_stub(
-    make_module: Callable[[str], ModuleType], make_stubbed_module: MakeStubbedModule, stub: str | None
-) -> None:
-    module = make_module("def func(): ...") if stub is None else make_stubbed_module("def func(): ...", stub)
-    assert stub_context(module.func) == ({}, {}, "")
+def test_stub_context_without_a_stub(resolve_module: Callable[[str], ModuleType]) -> None:
+    result = stub_context(resolve_module("def func(): ...").func)
+    assert type(result) is tuple
+    assert result == ({}, {}, "")
+
+
+def test_stub_context_of_a_broken_stub(make_stubbed_module: MakeStubbedModule) -> None:
+    assert stub_context(make_stubbed_module("def func(): ...", "def (broken").func) == ({}, {}, "")
 
 
 @mark.parametrize(

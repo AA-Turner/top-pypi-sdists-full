@@ -1208,7 +1208,7 @@ class _MemoryBackgroundLogger(_BackgroundLogger):
             if not logs:
                 return []
 
-            # all the logs get merged before gettig sent to the server, so simulate that
+            # all the logs get merged before getting sent to the server, so simulate that
             # here
             batch = merge_row_batch(logs)
 
@@ -2797,13 +2797,17 @@ def current_logger() -> "Logger | None":
     return _state._cv_logger.get() or _state._local_logger
 
 
-def current_span() -> Span:
+def current_span(state: BraintrustState | None = None) -> Span:
     """Return the currently-active span for logging (set by running a span under a context manager). If there is no active span, returns a no-op span object, which supports the same interface as spans but does no logging.
 
+    Uses the supplied state, or the global state if none is provided.
     See `Span` for full details.
     """
 
-    span_info = _state.context_manager.get_current_span_info()
+    if state is None:
+        state = _state
+
+    span_info = state.context_manager.get_current_span_info()
     if span_info and hasattr(span_info.span_object, "span_id"):
         # This is a BT span
         return span_info.span_object
@@ -2849,7 +2853,7 @@ def _get_span_parent_object_and_propagated_state(
     if state is None:
         state = _state
 
-    span = current_span()
+    span = current_span(state=state)
     if span != NOOP_SPAN:
         return span, None
 
@@ -5534,7 +5538,7 @@ class SpanImpl(Span):
             if is_resolved:
                 return self.parent_object_type, {"id": experiment_id}
             # For experiments, we resolve the ID by calling get(). We can't pass
-            # along the "lazy compuete metadata args" because we can't tell OTel to do that.
+            # along the "lazy compute metadata args" because we can't tell OTel to do that.
             # We must pass along an explicit resolved parent.
             try:
                 experiment_id = self.parent_object_id.get()

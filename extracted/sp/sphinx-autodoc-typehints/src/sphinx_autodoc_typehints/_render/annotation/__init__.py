@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from .markup import add_type_css_class
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Annotation as Annotation
+    from .. import Hint as Hint
+    from .. import RenderNode as RenderNode
+    from .. import TypeParam as TypeParam
+    from .. import WrittenTypeAlias as WrittenTypeAlias
+
 from .names import fixup_module_name
 from .rendered import as_field_type, as_header_type, as_signature_type
 from .walker import format_annotation, type_param_fields, unstar
 
 __all__ = [
-    "add_type_css_class",
     "as_field_type",
     "as_header_type",
     "as_signature_type",

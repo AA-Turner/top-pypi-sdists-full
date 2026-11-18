@@ -12,15 +12,39 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ._base import PlatformStrategy, collect_layer, config_path_present
+from ._base import PlatformStrategy, home_directory, override_root
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Mapping
 
 
 __all__ = [
     "LinuxStrategy",
+    "etc_root",
+    "xdg_config_home",
 ]
+
+
+def etc_root(env: Mapping[str, str]) -> Path:
+    """``LIB_LAYERED_CONFIG_ETC`` when set, else ``/etc``.
+
+    Raises:
+        LayerRootNotAbsoluteError: The override is empty or relative.
+    """
+    return override_root(env, "LIB_LAYERED_CONFIG_ETC", lambda: Path("/etc"))
+
+
+def xdg_config_home(env: Mapping[str, str]) -> Path:
+    """``$XDG_CONFIG_HOME`` when it is an absolute path, else ``~/.config``.
+
+    The XDG Base Directory specification treats an empty value as unset and says a relative one
+    "should be considered invalid and ignored"; both fall back, so no user layer resolves under the
+    current working directory. The read, the ``.env`` fallback and deploy all ask here.
+    """
+    value = env.get("XDG_CONFIG_HOME", "")
+    if value and Path(value).root:
+        return Path(value)
+    return home_directory() / ".config"
 
 
 class LinuxStrategy(PlatformStrategy):
@@ -36,51 +60,26 @@ class LinuxStrategy(PlatformStrategy):
         - Dotenv: ``$XDG_CONFIG_HOME/<slug>/.env``
     """
 
-    def app_paths(self) -> Iterable[str]:
-        """Yield Linux application-default configuration paths.
+    def app_dirs(self) -> tuple[Path, ...]:
+        """Return ``<etc>/xdg/<slug>`` (the XDG system-wide default) then ``<etc>/<slug>``.
 
-        Provide deterministic discovery following XDG Base Directory specification.
-        Yields ``/etc/xdg/<slug>`` (XDG system-wide default) first, then ``/etc/<slug>``;
-        both are loaded, so a key set in both takes the ``/etc/<slug>`` value.
-
-        Returns:
-            Paths under ``/etc/xdg`` and ``/etc`` (or overridden root).
-        """
-        etc_root = Path(self.ctx.env.get("LIB_LAYERED_CONFIG_ETC", "/etc"))
-        profile_seg = self._profile_segment()
-        yield from collect_layer(etc_root / "xdg" / self.ctx.slug / profile_seg)
-        yield from collect_layer(etc_root / self.ctx.slug / profile_seg)
-
-    def host_paths(self) -> Iterable[str]:
-        """Yield Linux host-specific configuration paths.
-
-        Allow installations to override defaults per hostname following XDG specification.
-        Yields ``/etc/xdg/<slug>/hosts`` first, then ``/etc/<slug>/hosts``; both are loaded.
+        Both are read, so a key set in both takes the ``/etc/<slug>`` value; a deploy writes the
+        first. ``<etc>`` is ``/etc`` or ``LIB_LAYERED_CONFIG_ETC``.
 
         Returns:
-            Host-level configuration paths (empty when missing).
+            The two directories, the profile segment included.
         """
-        etc_root = Path(self.ctx.env.get("LIB_LAYERED_CONFIG_ETC", "/etc"))
+        etc_root_dir = etc_root(self.ctx.env)
         profile_seg = self._profile_segment()
-        xdg_candidate = etc_root / "xdg" / self.ctx.slug / profile_seg / "hosts" / f"{self.ctx.hostname}.toml"
-        if config_path_present(xdg_candidate):
-            yield str(xdg_candidate)
-        candidate = etc_root / self.ctx.slug / profile_seg / "hosts" / f"{self.ctx.hostname}.toml"
-        if config_path_present(candidate):
-            yield str(candidate)
+        return (etc_root_dir / "xdg" / self.ctx.slug / profile_seg, etc_root_dir / self.ctx.slug / profile_seg)
 
-    def user_paths(self) -> Iterable[str]:
-        """Yield Linux user-specific configuration paths.
-
-        Honour XDG directories while falling back to ``~/.config``.
+    def user_dir(self) -> Path:
+        """Return ``$XDG_CONFIG_HOME/<slug>``, or ``~/.config/<slug>`` when it is unset.
 
         Returns:
-            User-level configuration paths.
+            The directory, the profile segment included.
         """
-        xdg = self.ctx.env.get("XDG_CONFIG_HOME")
-        base = Path(xdg) if xdg else Path.home() / ".config"
-        profile_seg = self._profile_segment()
-        yield from collect_layer(base / self.ctx.slug / profile_seg)
+        return xdg_config_home(self.ctx.env) / self.ctx.slug / self._profile_segment()
 
     def dotenv_path(self) -> Path | None:
         """Return Linux-specific ``.env`` fallback path.
@@ -88,6 +87,6 @@ class LinuxStrategy(PlatformStrategy):
         Returns:
             Path to ``$XDG_CONFIG_HOME/<slug>/.env``.
         """
-        base = Path(self.ctx.env.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+        base = xdg_config_home(self.ctx.env)
         profile_seg = self._profile_segment()
         return base / self.ctx.slug / profile_seg / ".env"

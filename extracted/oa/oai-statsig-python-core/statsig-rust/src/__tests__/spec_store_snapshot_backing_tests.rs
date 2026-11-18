@@ -101,6 +101,15 @@ fn inline_config(value: Value) -> Value {
     })
 }
 
+fn config_default(data: &SpecStoreData, name: &str) -> Option<Value> {
+    let config = data
+        .snapshot
+        .dynamic_configs
+        .get(&InternedString::from_str_ref(name))?
+        .view();
+    Some(json!(config.default_value().json_value()?))
+}
+
 fn full(time: u64, configs: Value) -> Value {
     json!({
         "dynamic_configs": configs, "feature_gates": {}, "layer_configs": {},
@@ -607,23 +616,39 @@ async fn pending_blob_retains_a_config_only_for_the_same_target_apps() {
             .unwrap();
         let mut next = Blob::new("missing").proto_config();
         next.target_app_ids = config_apps.into_iter().map(str::to_owned).collect();
-        let metadata = routing(client_app);
-        apply_background(
-            &store,
-            &server,
-            proto_update_with_rest(2, vec![("scoped", 13, next)], true, &[], 13, metadata),
-        )
-        .await
-        .unwrap();
+        next.remote_config_metadata = None;
+        next.default_value = Some(raw_return_value(json!({"current": true})));
+        let configs = vec![("scoped", 13, next.clone()), ("new", 11, next)];
+        let update = |revision, delta| {
+            proto_update_with_rest(
+                revision,
+                configs.clone(),
+                delta,
+                &[],
+                24,
+                routing(client_app),
+            )
+        };
+        let old_value = retained.then(|| json!({"private": true}));
+        apply_background(&store, &server, update(2, true))
+            .await
+            .unwrap();
         let current = store.load_data();
         assert_eq!(current.lcut(), 2);
+        assert_eq!(config_default(&current, "scoped"), old_value);
+        assert_eq!(config_default(&current, "new"), None);
+
+        // A full response can serve the new config's healthy default. The scoped config
+        // still needs its old complete definition or must stay unavailable.
+        apply_background(&store, &server, update(2, false))
+            .await
+            .unwrap();
+        let current = store.load_data();
+        assert_eq!(current.snapshot.time, 2);
+        assert_eq!(config_default(&current, "scoped"), old_value);
         assert_eq!(
-            current
-                .snapshot
-                .dynamic_configs
-                .get(&InternedString::from_str_ref("scoped"))
-                .is_some(),
-            retained
+            config_default(&current, "new"),
+            Some(json!({"current": true}))
         );
     }
 }
@@ -807,22 +832,25 @@ async fn partial_full_snapshot_reports_only_verified_values_until_same_revision_
     let a = InternedString::from_str_ref("a");
     assert_eq!(partial.snapshot.time, 2);
     assert!(partial.snapshot.checksum.is_none());
-    assert_eq!(
-        partial.unavailable_values().unwrap()[&a],
-        HashSet::from([None, Some(0)])
+    assert!(
+        !partial
+            .unavailable_values()
+            .is_some_and(|slots| slots.contains_key(&a))
     );
+    assert!(partial.verified_remote_values[&a].contains_key(&healthy.sha));
+    assert!(!partial.verified_remote_values[&a].contains_key(&missing.sha));
     assert_eq!(
         store.get_published_specs_info().checksum.as_deref(),
         Some("snapshot-2")
     );
     assert_eq!(store.get_current_specs_info().lcut, Some(0));
     assert!(store.get_current_values().is_none());
-    assert_backing_counts(&mut metrics, 0.0, 1.0);
+    assert_backing_counts(&mut metrics, 0.0, 2.0);
 
     store
         .set_values(json_update(json!({"has_updates": false})))
         .unwrap();
-    assert_backing_counts(&mut metrics, 0.0, 1.0);
+    assert_backing_counts(&mut metrics, 0.0, 2.0);
     apply_json(&store, &hydration, payload.clone())
         .await
         .unwrap();
@@ -845,21 +873,7 @@ async fn partial_full_snapshot_reports_only_verified_values_until_same_revision_
         )
         .await
         .unwrap();
-    assert_eq!(
-        json!(
-            store
-                .load_data()
-                .snapshot
-                .dynamic_configs
-                .get(&a)
-                .unwrap()
-                .view()
-                .default_value()
-                .json_value()
-                .unwrap()
-        ),
-        expected
-    );
+    assert_eq!(config_default(&store.load_data(), "a"), Some(expected));
     assert_eq!(
         store.get_current_values().unwrap().checksum.as_deref(),
         Some("snapshot-2")
@@ -874,6 +888,196 @@ async fn partial_full_snapshot_reports_only_verified_values_until_same_revision_
         .unwrap();
     assert_backing_counts(&mut metrics, 0.0, 0.0);
     server.verify().await;
+}
+
+#[tokio::test]
+async fn same_revision_full_refresh_reuses_rules_verified_by_a_partial_delta() {
+    let update = |time: u32, name, config, delta| {
+        proto_update(
+            time.into(),
+            vec![(name, time, config)],
+            delta,
+            &[],
+            time.into(),
+        )
+    };
+    let default = Blob::new("recovered-default");
+    let rule = Blob::new("verified-rule");
+    let mut proto = default.proto_config();
+    proto.rules = rule.proto_config().rules;
+    let mut json = default.config();
+    json["rules"] = rule.config()["rules"].take();
+
+    for (name, repair) in [
+        ("a", json_update(full(2, json!({"a": json})))),
+        ("a", update(2, "a", proto.clone(), false)),
+        ("b", json_update(full(2, json!({"b": rule.config()})))),
+        ("b", update(2, "b", rule.proto_config(), false)),
+    ] {
+        let server = MockServer::start().await;
+        let store = test_store("delta-to-full-proofs", Some(true));
+        let old = inline_proto(json!({"v": 1}));
+        apply_background(&store, &server, update(1, "a", old, false))
+            .await
+            .unwrap();
+
+        rule.mount(&server, 1).await;
+        apply_background(&store, &server, update(2, "a", proto.clone(), true))
+            .await
+            .unwrap();
+        assert_eq!(store.load_data().lcut(), 2);
+        assert_eq!(
+            config_default(&store.load_data(), "a"),
+            Some(json!({"v": 1}))
+        );
+        server.verify().await;
+        server.reset().await;
+
+        // B uses the already verified rule blob as its default after A is removed.
+        default.mount(&server, u64::from(name == "a")).await;
+        apply_background(&store, &server, repair).await.unwrap();
+        let requests = server.received_requests().await.unwrap();
+        let marker = if name == "a" {
+            assert_eq!(requests.len(), 1);
+            assert_eq!(requests[0].url.path(), default.path());
+            "recovered-default"
+        } else {
+            assert!(
+                requests.is_empty(),
+                "renamed config refetched the verified rule"
+            );
+            assert!(config_default(&store.load_data(), "a").is_none());
+            "verified-rule"
+        };
+        assert_eq!(
+            config_default(&store.load_data(), name),
+            Some(json!({"marker": marker}))
+        );
+        assert_eq!(store.get_current_values().unwrap().time, 2);
+    }
+}
+
+#[tokio::test]
+async fn warm_full_caps_pending_proofs_across_configs() {
+    let server = MockServer::start().await;
+    let store = store("full-proof-budget");
+    let blob = Blob::new(&"x".repeat(1024 * 1024));
+    blob.mount(&server, 1).await;
+    let mut configs = json!({"healthy": blob.config()});
+    let mut unavailable = UnavailableValues::new();
+    for index in 0..65 {
+        let name = format!("partial_{index}");
+        configs[&name] = inline_config(json!({"v": 1}));
+        unavailable.insert(InternedString::from_str_ref(&name), HashSet::from([None]));
+    }
+    apply_json(&store, &hydration(&store, &server), full(1, configs))
+        .await
+        .unwrap();
+    let installed = store.load_data();
+    let mut proofs = installed.verified_remote_values.as_ref().clone();
+    let healthy = Arc::clone(&proofs[&InternedString::from_str_ref("healthy")]);
+    // One downloaded body supplies a verified rule for each config whose new default failed.
+    proofs.extend(
+        unavailable
+            .keys()
+            .map(|name| (name.clone(), Arc::clone(&healthy))),
+    );
+    let mut repair = PartialHydration::from_failures(unavailable, HashMap::new(), true).unwrap();
+    let mut candidate = installed.snapshot.with_cursor(2, None).unwrap();
+    restore_full_configs(&installed, &mut candidate, &mut proofs, &mut repair).unwrap();
+
+    let cached = &repair.overlay.unwrap().pending_proofs;
+    assert_eq!(cached.len(), 64 * 1024 * 1024 / blob.body.len());
+    assert!(Arc::ptr_eq(
+        &proofs[&InternedString::from_str_ref("healthy")],
+        &healthy
+    ));
+}
+
+#[tokio::test]
+async fn full_reuses_the_matching_proof_when_pending_and_serving_share_a_sha() {
+    let server = MockServer::start().await;
+    let store = store("partial-full-same-sha");
+    let hydration = hydration(&store, &server);
+    let blob = Blob::new("same payload");
+    blob.mount(&server, 2).await;
+    let full_config = |revision, spec| {
+        proto_update(
+            revision,
+            vec![("a", revision as u32, spec)],
+            false,
+            &[],
+            revision,
+        )
+    };
+    store
+        .set_values_with_protobuf_hydration(full_config(1, blob.proto_config()), &hydration)
+        .await
+        .unwrap();
+    let mut partial = Blob::new("missing default").proto_config();
+    partial.rules = blob.proto_config().rules;
+    partial.rules[0]
+        .remote_config_metadata
+        .as_mut()
+        .unwrap()
+        .compression = "gzip".to_owned();
+    store
+        .set_values_with_protobuf_hydration(full_config(2, partial), &hydration)
+        .await
+        .unwrap();
+    assert!(store.get_current_values().is_none());
+    server.verify().await;
+    server.reset().await;
+
+    store
+        .set_values_with_protobuf_hydration(full_config(3, blob.proto_config()), &hydration)
+        .await
+        .unwrap();
+    assert_eq!(store.get_current_values().unwrap().time, 3);
+    assert!(server.received_requests().await.unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn partial_full_withholds_a_mapped_config_and_publishes_unrelated_changes() {
+    let server = MockServer::start().await;
+    let missing = Blob::new("missing");
+    let a = InternedString::from_str_ref("a");
+    for (source, destination) in [("a", "alias"), ("alias", "a")] {
+        let mapping = json!({(source): [{
+            "new_config_name": destination, "rules": [{"rule_name": "all"}],
+        }]});
+        let unmapped = json!({});
+        for (old, new) in [(&mapping, &unmapped), (&unmapped, &mapping)] {
+            let store = store("partial-full-mapping");
+            let hydration = hydration(&store, &server);
+            let snapshot = |time, config, overrides: &Value| {
+                let mut payload = full(
+                    time,
+                    json!({
+                        "a": config, "alias": inline_config(json!({})),
+                        "b": inline_config(json!({"version": time})),
+                    }),
+                );
+                payload["overrides"] = overrides.clone();
+                payload
+            };
+            apply_json(
+                &store,
+                &hydration,
+                snapshot(1, inline_config(json!({"old": true})), old),
+            )
+            .await
+            .unwrap();
+            apply_json(&store, &hydration, snapshot(2, missing.config(), new))
+                .await
+                .unwrap();
+
+            let current = store.load_data();
+            assert!(current.snapshot.dynamic_configs.get(&a).is_none());
+            assert!(current.unavailable_values().unwrap()[&a].is_empty());
+            assert_eq!(config_default(&current, "b"), Some(json!({"version": 2})));
+        }
+    }
 }
 
 #[tokio::test]
@@ -1212,7 +1416,15 @@ rusty_fork_test! {
         const ENV: &str = "STATSIG_ENABLE_PARTIAL_BLOB_PUBLICATION";
         tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
             let server = MockServer::start().await;
-            for (setting, enabled) in [(None, false), (Some("false"), false), (Some("yes"), false), (Some("true"), true), (Some("1"), true)] {
+            for (setting, enabled) in [
+                (None, false),
+                (Some("true"), true),
+                (Some("1"), true),
+                (Some("false"), false),
+                (Some("0"), false),
+                (Some(""), false),
+                (Some("yes"), false),
+            ] {
                 match setting {
                     Some(value) => std::env::set_var(ENV, value),
                     None => std::env::remove_var(ENV),

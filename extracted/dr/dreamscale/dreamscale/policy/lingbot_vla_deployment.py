@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from dreamscale_transport.lingbot_vla_deploy import (
+from dreamscale_core.lingbot_vla_deploy import (
     CUSTOM_PRESET,
     GRIPPER_INDICES,
     HORIZON,
@@ -22,7 +22,7 @@ from dreamscale_transport.lingbot_vla_deploy import (
     XARM7_PRESET_FIELDS,
     LingbotVlaCamera,
 )
-from dreamscale_transport.units_reference import MAX_HZ
+from dreamscale_core.reference_limits import MAX_HZ
 
 
 @dataclass(frozen=True)

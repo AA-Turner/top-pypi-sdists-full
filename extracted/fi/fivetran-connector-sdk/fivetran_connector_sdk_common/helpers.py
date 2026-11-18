@@ -9,7 +9,7 @@ from fivetran_connector_sdk_common.constants import ROOT_LOCATION, SDK_LOGGING_P
 
 
 def config_root_dir() -> str:
-    """The directory for the SDK's local state (the encryption key, the update check): `~/.fivetran/connector_sdk`."""
+    """The directory for the SDK's local state (the encryption key, `_config.json` with the update check): `~/.fivetran/connector_sdk`."""
     return os.path.join(os.path.expanduser("~"), ROOT_LOCATION)
 
 

@@ -46,7 +46,10 @@ if TYPE_CHECKING:
     from sklearn.pipeline import Pipeline
 
     from tabpfn.preprocessing.configs import PreprocessorConfig
-    from tabpfn.preprocessing.pipeline_interface import PreprocessingPipeline
+    from tabpfn.preprocessing.pipeline_interface import (
+        PreprocessingPipeline,
+        SharedColumnsTable,
+    )
     from tabpfn.preprocessing.row_weights import SampleWeightMode
 
 T = TypeVar("T")
@@ -65,7 +68,9 @@ class TabPFNEnsembleMember:
     gpu_preprocessor: TorchPreprocessingPipeline | None
     # None once an engine has consumed it and no longer needs it, e.g. after the
     # explicit KV cache engine has built its caches.
-    X_train: np.ndarray | torch.Tensor | None
+    X_train: np.ndarray | torch.Tensor | SharedColumnsTable | None
+    """The member's preprocessed training rows; a table sharing the caller's array
+    when preprocessing kept it."""
     y_train: np.ndarray | torch.Tensor
     feature_schema: FeatureSchema
     feature_indices: np.ndarray | None = None
@@ -75,11 +80,14 @@ class TabPFNEnsembleMember:
 
     def transform_X_test(
         self, X: np.ndarray | torch.Tensor
-    ) -> np.ndarray | torch.Tensor:
-        """Transform the test data."""
+    ) -> np.ndarray | torch.Tensor | SharedColumnsTable:
+        """Transform the test data.
+
+        The result may be `X` itself, so the caller must not write into it.
+        """
         if self.feature_indices is not None:
             X = X[..., self.feature_indices]
-        return self.cpu_preprocessor.transform(X).X
+        return self.cpu_preprocessor.transform(X, may_keep_input=True).X
 
 
 class TabPFNEnsemblePreprocessor:

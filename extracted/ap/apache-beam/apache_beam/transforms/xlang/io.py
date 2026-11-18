@@ -180,6 +180,59 @@ class MongodbWrite(ExternalTransform):
         expansion_service=expansion_service)
 
 
+class SplunkWrite(ExternalTransform):
+
+  identifier = "beam:schematransform:org.apache.beam:splunk_write:v1"
+
+  def __init__(
+      self,
+      token,
+      url,
+      batch_count=None,
+      disable_certificate_validation=None,
+      enable_batch_logs=None,
+      enable_gzip_http_compression=None,
+      error_handling=None,
+      parallelism=None,
+      root_ca_certificate_path=None,
+      expansion_service=None):
+    """
+    :param token: (str)
+      The Splunk HEC authentication token. 
+    :param url: (str)
+      The Splunk HEC endpoint URL, e.g. https://splunk-host:8088. 
+    :param batch_count: (int32)
+      The number of events to batch together for each write. 
+    :param disable_certificate_validation: (boolean)
+      Whether to disable SSL certificate validation, e.g. for self-signed
+      certificates. 
+    :param enable_batch_logs: (boolean)
+      Whether to log the result of each batch write. 
+    :param enable_gzip_http_compression: (boolean)
+      Whether requests sent to the HEC endpoint should be GZIP encoded.
+      Defaults to true. 
+    :param error_handling: (Row(output=<class 'str'>))
+      Specifies how to handle errors. 
+    :param parallelism: (int32)
+      The number of parallel requests to the HEC endpoint. 
+    :param root_ca_certificate_path: (str)
+      Path to a root CA certificate used to validate the HEC endpoint. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        token=token,
+        url=url,
+        batch_count=batch_count,
+        disable_certificate_validation=disable_certificate_validation,
+        enable_batch_logs=enable_batch_logs,
+        enable_gzip_http_compression=enable_gzip_http_compression,
+        error_handling=error_handling,
+        parallelism=parallelism,
+        root_ca_certificate_path=root_ca_certificate_path,
+        expansion_service=expansion_service)
+
+
 class KinesisRead(ExternalTransform):
   """
   Reads records from an Amazon Kinesis stream and outputs Beam Rows with `data`

@@ -1,6 +1,6 @@
 """Xiaomi-Robotics-1 deployments of the bimanual YAM preset on `dreamscale run yam`.
 
-An XR-1 deployment of the YAM preset (``dreamscale_transport.xr1_deploy``: ``preset
+An XR-1 deployment of the YAM preset (``dreamscale_core.xr1_deploy``: ``preset
 bimanual_yam``, frame ``YAM_EE_FRAME``) never sees the rig's joint targets. Each request carries
 a 32-value state, per arm (left, then right): its six joints (rad), its gripper (0-1), then its
 end-effector xyz (m) and rotation as 6D (the rotation matrix's first two columns). Each chunk
@@ -30,11 +30,11 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
-from dreamscale_transport import xr1_deploy as C
+from dreamscale_core import xr1_deploy as C
 
 # The built-in YAM end-effector profile is keyed by the checkpoint it was verified for; managed
 # training's YAM preset computes its poses with that same profile (xr1_training.kinematics).
-from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
+from dreamscale_core.rho import RHO_YAM_BOX_MODEL_ID
 
 from dreamscale import errors
 from dreamscale.policy.cartesian import PoseApproximation

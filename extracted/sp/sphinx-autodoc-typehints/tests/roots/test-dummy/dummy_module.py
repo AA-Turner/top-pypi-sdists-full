@@ -10,23 +10,23 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 
-def undocumented_function(x: int) -> str:
+def undocumented_function(value: int) -> str:
     """Hi"""
 
-    return str(x)
+    return str(value)
 
 
-def undocumented_function_with_defaults(x: int, y: str = "hello") -> str:
+def undocumented_function_with_defaults(value: int, other: str = "hello") -> str:
     """Hi"""
 
-    return str(x) + y
+    return str(value) + other
 
 
 class MyNamedTuple(NamedTuple):
     """A named tuple."""
 
-    x: int
-    y: str = "hello"
+    value: int
+    other: str = "hello"
 
 
 class MyNamedTupleWithPath(NamedTuple):
@@ -36,11 +36,12 @@ class MyNamedTupleWithPath(NamedTuple):
     version: str
 
 
-@dataclass
+# the docs assert the positional constructor signature
+@dataclass(frozen=True, slots=True)  # simplint: ignore[dataclass-kw-only]
 class DataClass:
     """Class docstring."""
 
-    x: int
+    value: int
 
 
 class GoogleAttributes:
@@ -208,7 +209,10 @@ class DocumentedTwiceThroughNew:
 
 
 @singledispatch
-def dispatch(arg: object, flag: bool = False) -> str:
+def dispatch(
+    arg: object,  # simplint: ignore[imprecise-annotation]  # the docs render object as written
+    flag: bool = False,
+) -> str:
     """
     Dispatch on the argument type.
 
@@ -222,26 +226,26 @@ def _(arg: int, flag: bool = False) -> str:
     return f"{arg}{flag}"
 
 
-def versioned(a: int) -> int:
+def versioned(item: int) -> int:
     """
     Do it.
 
-    :param a: the a
+    :param item: the a
 
     .. versionadded:: 1.0
     """
-    return a
+    return item
 
 
 ConfiguredAlias = Union[int, str]  # documented as data, not a type statement
 """An alias the configuration maps."""
 
 
-def takes_configured_alias(x: ConfiguredAlias) -> None:
+def takes_configured_alias(value: ConfiguredAlias) -> None:
     """
     Take it.
 
-    :param x: the x
+    :param value: the x
     """
 
 
@@ -258,7 +262,7 @@ def bounded(value: Bounded) -> Bounded:  # ruff:ignore[non-pep695-generic-functi
     return value
 
 
-def unresolvable(value: Undefined) -> None:  # ruff:ignore[undefined-name]  # ty: ignore[unresolved-reference]  # the case under test
+def unresolvable(value: Undefined) -> None:  # ruff:ignore[undefined-name]  # the case under test
     """
     Name something undefined.
 
@@ -281,19 +285,19 @@ class OverloadedTwice:
     """Class docstring."""
 
     @overload
-    def __init__(self, a: int) -> None: ...
+    def __init__(self, item: int) -> None: ...
 
     @overload
-    def __init__(self, a: str) -> None: ...
+    def __init__(self, item: str) -> None: ...
 
-    def __init__(self, a: int | str) -> None:
+    def __init__(self, item: int | str) -> None:
         """Constructor docstring."""
 
 
 class DescribedTwice:
     """Class docstring."""
 
-    def __init__(self, a: Annotated[int, Doc("the a")]) -> None:
+    def __init__(self, item: Annotated[int, Doc("the a")]) -> None:
         """Constructor docstring."""
 
 
@@ -301,11 +305,11 @@ class DescribedTwice:
 class DeprecatedTwice:
     """Class docstring."""
 
-    def __init__(self, a: int) -> None:
+    def __init__(self, item: int) -> None:
         """
         Constructor docstring.
 
-        :param a: the a
+        :param item: the a
         """
 
 
@@ -338,14 +342,14 @@ def overloaded_opt_out(value: int | str) -> int | str:
 
 
 @overload
-def overloaded_generic[T: int](value: T) -> T: ...
+def overloaded_generic[ItemT: int](value: ItemT) -> ItemT: ...
 
 
 @overload
-def overloaded_generic[T: int](value: list[T]) -> T: ...
+def overloaded_generic[ItemT: int](value: list[ItemT]) -> ItemT: ...
 
 
-def overloaded_generic[T: int](value: T | list[T]) -> T:
+def overloaded_generic[ItemT: int](value: ItemT | list[ItemT]) -> ItemT:
     """Generic function."""
 
 

@@ -28,6 +28,7 @@ __all__ = (
     "ApprovalStatusType",
     "AuthFlowType",
     "CapabilityTypeType",
+    "ChatArchiveStatusType",
     "DayOfWeekType",
     "DevOpsAgentServiceServiceName",
     "EventChannelTypeType",
@@ -85,8 +86,12 @@ ApprovalActionTypeType = Literal["APPROVED", "REJECTED"]
 ApprovalStatusType = Literal["APPROVED", "PENDING", "REDEEMED", "REJECTED", "REVOKED"]
 AuthFlowType = Literal["iam", "idc", "idp"]
 CapabilityTypeType = Literal[
-    "RELEASE_READINESS_REVIEW", "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING"
+    "CODE_CHANGE_RISK_ANALYSIS",
+    "CODE_CHANGE_RISK_ANALYSIS_AUTOMATED_TESTING",
+    "RELEASE_READINESS_REVIEW",
+    "RELEASE_READINESS_REVIEW_AUTOMATED_TESTING",
 ]
+ChatArchiveStatusType = Literal["ACTIVE", "ARCHIVED"]
 DayOfWeekType = Literal[
     "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
 ]
@@ -181,7 +186,13 @@ TaskStatusType = Literal[
     "TIMED_OUT",
     "WAITING",
 ]
-TaskTypeType = Literal["EVALUATION", "INVESTIGATION", "RELEASE_READINESS_REVIEW", "RELEASE_TESTING"]
+TaskTypeType = Literal[
+    "CODE_CHANGE_RISK_ANALYSIS",
+    "EVALUATION",
+    "INVESTIGATION",
+    "RELEASE_READINESS_REVIEW",
+    "RELEASE_TESTING",
+]
 ToolClassificationType = Literal["DESTRUCTIVE", "MUTATIVE", "READ_ONLY"]
 TriggerEventType = Literal["PULL_REQUEST_DRAFT", "PULL_REQUEST_READY_FOR_REVIEW"]
 UserTypeType = Literal["IAM", "IDC", "IDP"]

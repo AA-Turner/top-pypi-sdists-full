@@ -128,16 +128,18 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
+from functools import partial
 from types import MappingProxyType
 
 from ._cards import Card, DeckError, infinite_angle_refusal
 from ._nec2 import (
     _GEOMETRY_CARDS,
     _LD_RUN_TRANSPARENT,
+    _REFUSED_BY_NAME,
     _Nec2Parser,
     parsed_with_structure,
 )
-from ._nec2_geometry import _GEOMETRY_BUILDERS, FlatWire
+from ._nec2_geometry import _GEOMETRY_BUILDERS, FlatWire, _gw
 from ._nec2_geometry import arc_vertices as _arc_vertices
 from .model import DeckModel
 
@@ -476,7 +478,13 @@ def _cw(card: Card, wires: list[FlatWire]) -> None:
 
 
 _NEC4_GEOMETRY_BUILDERS = MappingProxyType(
-    {**_GEOMETRY_BUILDERS, "GA": _ga, "GH": _gh, "CW": _cw}
+    {
+        **_GEOMETRY_BUILDERS,
+        "GW": partial(_gw, dialect="nec4"),
+        "GA": _ga,
+        "GH": _gh,
+        "CW": _cw,
+    }
 )
 
 
@@ -486,6 +494,15 @@ class _Nec4Parser(_Nec2Parser):
 
     _geometry_mnemonics = _GEOMETRY_CARDS | {"CW"}
     _geometry_builders = _NEC4_GEOMETRY_BUILDERS
+    # The nec2 dialect's by-name refusals, each sentence that names a
+    # dialect (GC, GF, SY) naming this one, as the nec5 dialect's name their
+    # own; the C++ reader's `refused_by_name`.
+    _refused_by_name = MappingProxyType(
+        {
+            name: sentence.replace("nec2 dialect", "nec4 dialect")
+            for name, sentence in _REFUSED_BY_NAME.items()
+        }
+    )
     # NEC-4.2 reads past EK (`_ek`), and an EK between two LD cards keeps
     # their run there (momwire#1812), where nec2c's EK ends it.
     _ld_run_transparent = _LD_RUN_TRANSPARENT | {"EK"}

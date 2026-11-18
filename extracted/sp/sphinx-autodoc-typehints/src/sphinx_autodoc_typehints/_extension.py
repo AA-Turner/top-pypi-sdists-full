@@ -52,7 +52,12 @@ from ._render import (
     value_role,
 )
 from ._resolve import forget_reads
-from ._signature import add_type_params, process_bases, process_signature, render_header_types
+from ._signature import (
+    add_type_params,
+    process_bases,
+    process_signature,
+    render_header_types,
+)
 from .version import __version__
 
 if TYPE_CHECKING:
@@ -62,10 +67,16 @@ if TYPE_CHECKING:
 
 
 def setup(app: Sphinx) -> dict[str, bool | int | str]:
+    """
+    Register the configuration values, roles, directives and event handlers of the extension on `app`.
+
+    :param app: the Sphinx application the extension registers itself with
+    :returns: the metadata Sphinx reads, marking the extension safe to read and write in parallel
+    """
     app.setup_extension("sphinx.ext.autodoc")
     for option in OPTIONS:
         app.add_config_value(option.name, option.default, option.rebuild, option.types)
-    app.add_role("sphinx_autodoc_typehints_type", sphinx_autodoc_typehints_type_role)
+    app.add_role("sphinx_autodoc_typehints_type", _sphinx_autodoc_typehints_type_role)
     app.add_role(ALIAS_CHOICE_ROLE, alias_choice_role)
     app.add_role(ENUM_MEMBER_ROLE, enum_member_role)
     app.add_role(VALUE_ROLE, value_role)
@@ -112,13 +123,14 @@ def setup(app: Sphinx) -> dict[str, bool | int | str]:
     }
 
 
-def sphinx_autodoc_typehints_type_role(
+def _sphinx_autodoc_typehints_type_role(
     _role: str,
     _rawtext: str,
     text: str,
     lineno: int,
     inliner: states.Inliner,
-    _options: dict[str, object] | None = None,
+    _options: dict[str, object]  # simplint: ignore[imprecise-annotation]  # docutils options vary
+    | None = None,
     _content: list[str] | None = None,
 ) -> tuple[list[Node], list[Node]]:
     # a type is inline text, a block parse would turn one such as `- item` into a list

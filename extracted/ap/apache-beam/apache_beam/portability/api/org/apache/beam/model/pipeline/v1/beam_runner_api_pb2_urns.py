@@ -50,6 +50,8 @@ class StandardCoders(object):
     SCHEMA = PropertiesFromEnumValue('beam:coder:schema:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     SHARDED_KEY = PropertiesFromEnumValue('beam:coder:sharded_key:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     NULLABLE = PropertiesFromEnumValue('beam:coder:nullable:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    WINDOWED_VALUE_V2 = PropertiesFromEnumValue('beam:coder:windowed_value:v2', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    TIMER_V2 = PropertiesFromEnumValue('beam:coder:timer:v2', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 
 
 class StandardDisplayData(object):

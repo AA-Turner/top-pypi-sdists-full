@@ -12,17 +12,18 @@ use sqlbuild_host::entries::models::ExecutorHost;
 use sqlbuild_host::models::{BuildExecutionResult, BuildStatus, ExecutionStatus};
 
 use crate::bindings::_helpers::build_command::invocation::BuildContext;
-use crate::bindings::_helpers::build_command::lifecycle::{
-    DirectPythonLifecycle, LifecycleInputs, prepare_direct_python_lifecycle,
-};
-use crate::bindings::_helpers::check::check_core::{
-    build_check_relation_targets, load_results_by_loader_name, record_python_run_state_results,
-    relevant_check_functions,
-};
+use crate::bindings::_helpers::build_command::lifecycle::DirectPythonLifecycle;
+use crate::bindings::_helpers::build_command::lifecycle::LifecycleInputs;
+use crate::bindings::_helpers::build_command::lifecycle::prepare_direct_python_lifecycle;
+use crate::bindings::_helpers::check::check_core::build_check_relation_targets;
+use crate::bindings::_helpers::check::check_core::load_results_by_loader_name;
+use crate::bindings::_helpers::check::check_core::record_python_run_state_results;
+use crate::bindings::_helpers::check::check_core::relevant_check_functions;
 use crate::bindings::_helpers::check::check_results::write_check_results;
 use crate::bindings::_helpers::command_runtime::warehouses::describe_connection_warehouse;
 use crate::bindings::_helpers::sql_test_command::test_command::timeout_record;
-use crate::bindings::_helpers::sql_test_command::timeouts::{TimeoutKind, resolve_run_timeout};
+use crate::bindings::_helpers::sql_test_command::timeouts::TimeoutKind;
+use crate::bindings::_helpers::sql_test_command::timeouts::resolve_run_timeout;
 use sqlbuild_python_base::boundary::main::call_with::call_with;
 use sqlbuild_python_base::boundary::main::keywords::keywords;
 use sqlbuild_python_base::boundary::main::within::within;
@@ -44,6 +45,7 @@ use sqlbuild_python_base::records::main::fields::mapping_get::mapping_get;
 use sqlbuild_python_base::records::types::RecordId;
 use sqlbuild_python_compile::compile_driver::main::setup::build_project_relation_targets::build_project_relation_targets;
 use sqlbuild_python_compile::compile_driver::main::setup::project_target_settings::project_target_settings;
+use sqlbuild_python_compile::compile_driver::models::TargetSettingsValues;
 use sqlbuild_python_front::cost_context::models::CostContext;
 use sqlbuild_python_front::cursor::main::overrides::cursor_integer::cursor_integer;
 use sqlbuild_python_front::cursor::main::overrides::cursor_timestamp::cursor_timestamp;
@@ -58,7 +60,8 @@ use sqlbuild_python_planner::consumption::main::held_back_text::held_back_text;
 use sqlbuild_python_planner::consumption::main::policy_line::policy_line;
 use sqlbuild_python_planner::consumption::main::prepare::prepare as prepare_consumption;
 use sqlbuild_python_planner::consumption::main::run_reason_text::run_reason_text;
-use sqlbuild_python_planner::consumption::models::{ConsumptionRecorder, Prepared};
+use sqlbuild_python_planner::consumption::models::ConsumptionRecorder;
+use sqlbuild_python_planner::consumption::models::Prepared;
 use sqlbuild_python_planner::freshness::main::append_freshness_records::append_freshness_records;
 use sqlbuild_python_planner::observations::main::append_build_observations::append_build_observations;
 use sqlbuild_python_planner::planner_resolution::main::cursor::type_cursor_overrides::type_cursor_overrides;
@@ -333,6 +336,12 @@ pub(crate) fn execute_build_plan<'py>(
     let lifecycle: &DirectPythonLifecycle = preparation.lifecycle.get();
     let [start_ts, end_ts, start_int, end_int] = &preparation.cursors;
     let request = |name: &str| native_field(&context.request, name);
+    let target_config: TargetSettingsValues = project_target_settings(
+        &context.get("discovered_inputs")?,
+        &project,
+        (&connection_config, &adapter),
+    )?;
+    let (default_database, default_schema) = target_config.node_locations(&adapter)?;
     let runtime: Bound<'py, PyAny> = call_with(
         &host_entry(py, ExecutorHost::BuildRuntimeParams)?,
         &[
@@ -360,15 +369,9 @@ pub(crate) fn execute_build_plan<'py>(
                 preparation.concurrency.into_pyobject(py)?.into_any(),
             ),
             ("loader_is_reload", request("reload_sources")?),
-            (
-                "target_config",
-                project_target_settings(
-                    &context.get("discovered_inputs")?,
-                    &project,
-                    (&connection_config, &adapter),
-                )?
-                .record(py)?,
-            ),
+            ("target_config", target_config.record(py)?),
+            ("default_database", default_database),
+            ("default_schema", default_schema),
             ("start_cursor_ts", start_ts.clone()),
             ("end_cursor_ts", end_ts.clone()),
             ("start_cursor_int", start_int.clone()),
@@ -468,6 +471,10 @@ pub(crate) fn execute_build_plan<'py>(
                 native_field(pipeline, "custom_materializations")?,
             ),
             ("loader_functions", lifecycle.loader_functions(py)?),
+            (
+                "source_load_gate",
+                DirectPythonLifecycle::source_load_gate(&preparation.lifecycle)?.into_any(),
+            ),
         ],
     )?;
     let initial_state: Bound<'py, PyAny> = call_with(
@@ -484,7 +491,7 @@ pub(crate) fn execute_build_plan<'py>(
     let result: Bound<'py, PyAny> = call_with(
         &host_entry(py, ExecutorHost::RunBuildPipeline)?,
         &[
-            ("plan", plan.clone()),
+            ("plan", lifecycle.ordered_plan(&plan)?),
             ("connection_config", connection_config.clone()),
             ("adapter", adapter.clone()),
             ("settings", native_field(&project, "settings")?),
@@ -633,6 +640,12 @@ fn check_runtime<'py>(
         .iter()
         .map(|check| native_field(check, "name"))
         .collect::<PyResult<_>>()?;
+    let target_config: TargetSettingsValues = project_target_settings(
+        &context.get("discovered_inputs")?,
+        &project,
+        (&context.get("connection_config")?, &adapter),
+    )?;
+    let (default_database, default_schema) = target_config.node_locations(&adapter)?;
     call_with(
         &host_entry(py, ExecutorHost::PythonNodeRuntime)?,
         &[
@@ -646,20 +659,9 @@ fn check_runtime<'py>(
                 "is_reload",
                 native_field(&context.request, "reload_sources")?,
             ),
-            (
-                "target_config",
-                project_target_settings(
-                    &context.get("discovered_inputs")?,
-                    &project,
-                    (&context.get("connection_config")?, &adapter),
-                )?
-                .record(py)?,
-            ),
-            (
-                "default_database",
-                adapter.call_method0("default_database")?,
-            ),
-            ("default_schema", adapter.call_method0("default_schema")?),
+            ("target_config", target_config.record(py)?),
+            ("default_database", default_database),
+            ("default_schema", default_schema),
             (
                 "relation_targets",
                 build_check_relation_targets(&adapter, pipeline, graph, frozenset(py, &names)?)?,

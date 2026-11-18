@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from collections.abc import AsyncIterator
 from typing import Any, cast
@@ -43,13 +44,18 @@ from agents import (
     ModelSettings,
     ModelTracing,
     OpenAIChatCompletionsModel,
+    OpenAIConversationsSession,
     OpenAIProvider,
+    RunConfig,
     Runner,
+    RunState,
+    TResponseInputItem,
     __version__,
     function_tool,
     generation_span,
     trace,
 )
+from agents.decorators import tool
 from agents.exceptions import ModelBehaviorError, UserError
 from agents.models._retry_runtime import provider_managed_retries_disabled
 from agents.models.chatcmpl_helpers import HEADERS_OVERRIDE, ChatCmplHelpers
@@ -72,6 +78,202 @@ def _minimal_chat_completion(content: str = "ok") -> ChatCompletion:
             )
         ],
     )
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.parametrize("include_data", [True, False])
+async def test_runner_traces_offered_tools_when_enabled(include_data: bool) -> None:
+    # Capture the HTTP body to compare the processor's view with the actual adapter request.
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(json.loads(request.content))
+        return httpx2.Response(200, json=_minimal_chat_completion().model_dump())
+
+    @tool
+    def lookup_inventory(sku: str) -> str:
+        """Look up a product by SKU."""
+        return "available"
+
+    async with AsyncOpenAI(
+        api_key="test-placeholder",
+        base_url="https://provider.example/v1",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+    ) as client:
+        agent = Agent(
+            name="test",
+            model=OpenAIChatCompletionsModel("fake", client),
+            tools=[lookup_inventory],
+            handoffs=[Agent(name="support")],
+        )
+        result = await Runner.run(
+            agent, "hi", run_config=RunConfig(trace_include_sensitive_data=include_data)
+        )
+
+    assert result.final_output == "ok"
+    (request,) = requests
+    offered = request["tools"]
+    assert [entry["function"]["name"] for entry in offered] == [
+        "lookup_inventory",
+        "transfer_to_support",
+    ]
+    assert "sku" in offered[0]["function"]["parameters"]["properties"]
+    (generation,) = [span for span in fetch_ordered_spans() if span.span_data.type == "generation"]
+    exported = generation.export()
+    assert exported is not None
+    if include_data:
+        assert generation.span_data.tools == offered
+        assert exported["span_data"]["tools"] == offered
+    else:
+        assert generation.span_data.tools is None
+        assert "tools" not in exported["span_data"]
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stream", [False, True], ids=["non-streaming", "streaming"])
+@pytest.mark.parametrize("include_status", [True, False], ids=["with-status", "statusless"])
+async def test_runner_replays_openai_conversation_assistant_history(
+    stream: bool, include_status: bool
+) -> None:
+    # Mock the transport so the real session sanitizer and provider converter both run.
+    history = [
+        {
+            "id": "msg_user",
+            "type": "message",
+            "role": "user",
+            "status": "completed",
+            "content": [{"type": "input_text", "text": "My name is Ada."}],
+        },
+        {
+            "id": "msg_assistant",
+            "type": "message",
+            "role": "assistant",
+            "status": "completed",
+            "content": [{"type": "output_text", "text": "Hello, Ada!", "annotations": []}],
+        },
+    ]
+    if not include_status:
+        history[1].pop("status")
+    requests: list[dict[str, Any]] = []
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        if request.url.path == "/v1/conversations/conv_test/items":
+            assert request.method in {"GET", "POST"}
+            return httpx2.Response(
+                200,
+                json={
+                    "object": "list",
+                    "data": history if request.method == "GET" else [],
+                    "has_more": False,
+                },
+            )
+        assert request.method == "POST"
+        assert request.url.path == "/v1/chat/completions"
+        requests.append(json.loads(request.content))
+        if stream:
+            chunk = {
+                "id": "chatcmpl-test",
+                "object": "chat.completion.chunk",
+                "created": 0,
+                "model": "fake",
+                "choices": [
+                    {
+                        "index": 0,
+                        "finish_reason": "stop",
+                        "delta": {"role": "assistant", "content": "Your name is Ada."},
+                    }
+                ],
+            }
+            return httpx2.Response(
+                200,
+                headers={"content-type": "text/event-stream"},
+                content=f"data: {json.dumps(chunk)}\n\ndata: [DONE]\n\n",
+            )
+        return httpx2.Response(200, json=_minimal_chat_completion("Your name is Ada.").model_dump())
+
+    async with AsyncOpenAI(
+        api_key="test-placeholder",
+        base_url="https://provider.example/v1",
+        max_retries=0,
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+    ) as client:
+        session = OpenAIConversationsSession(conversation_id="conv_test", openai_client=client)
+        agent = Agent(
+            name="test", model=OpenAIChatCompletionsModel(model="fake", openai_client=client)
+        )
+        config = RunConfig(tracing_disabled=True)
+        if stream:
+            result = Runner.run_streamed(
+                agent, "What is my name?", session=session, run_config=config
+            )
+            async for _ in result.stream_events():
+                pass
+        else:
+            result = await Runner.run(agent, "What is my name?", session=session, run_config=config)
+
+    assert result.final_output == "Your name is Ada."
+    assert len(requests) == 1
+    assert requests[0]["messages"] == [
+        {"role": "user", "content": [{"type": "text", "text": "My name is Ada."}]},
+        {"role": "assistant", "content": "Hello, Ada!"},
+        {"role": "user", "content": "What is my name?"},
+    ]
+    assert history[1]["id"] == "msg_assistant"
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_runner_replays_checkpoint_assistant_text() -> None:
+    requests: list[list[dict[str, Any]]] = []
+
+    @function_tool(needs_approval=True)
+    def record_receipt() -> str:
+        return "Recorded."
+
+    def handler(request: httpx2.Request) -> httpx2.Response:
+        requests.append(json.loads(request.content)["messages"])
+        completion = _minimal_chat_completion("Done.")
+        if len(requests) == 1:
+            completion.choices[0].message = ChatCompletionMessage(
+                role="assistant",
+                tool_calls=[
+                    ChatCompletionMessageFunctionToolCall(
+                        id="call_1",
+                        type="function",
+                        function=Function(name="record_receipt", arguments="{}"),
+                    )
+                ],
+            )
+            completion.choices[0].finish_reason = "tool_calls"
+        return httpx2.Response(200, json=completion.model_dump())
+
+    async with AsyncOpenAI(
+        api_key="test-placeholder",
+        http_client=httpx2.AsyncClient(transport=httpx2.MockTransport(handler)),
+    ) as client:
+        agent = Agent(
+            name="test", model=OpenAIChatCompletionsModel("fake", client), tools=[record_receipt]
+        )
+        history: list[TResponseInputItem] = [
+            {"role": "user", "content": "Record a receipt."},
+            {"role": "assistant", "content": "I will record it."},
+        ]
+        config = RunConfig(tracing_disabled=True)
+        paused = await Runner.run(agent, history, run_config=config)
+        original = paused.to_state()
+        restored = await RunState.from_string(agent, original.to_string())
+
+        for state in (original, restored):
+            state.approve(state.get_interruptions()[0])
+            result = await Runner.run(agent, state, run_config=config)
+            assert result.final_output == "Done."
+
+    initial, in_memory, round_trip = requests
+    assert in_memory[:2] == initial == history
+    assert in_memory[2]["tool_calls"][0]["id"] == "call_1"
+    assert in_memory[3]["tool_call_id"] == "call_1"
+    assert round_trip == in_memory
 
 
 async def _run_chat_completions_model_with_custom_base_url(

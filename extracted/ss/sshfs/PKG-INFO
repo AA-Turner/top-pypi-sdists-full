@@ -1,19 +1,17 @@
 Metadata-Version: 2.4
 Name: sshfs
-Version: 2026.8.0
+Version: 2026.11.0
 Summary: SSH Filesystem -- Async SSH/SFTP backend for fsspec
 License-Expression: Apache-2.0
 Project-URL: Issues, https://github.com/fsspec/sshfs/issues
 Project-URL: Source, https://github.com/fsspec/sshfs
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: fsspec>=2021.8.1
@@ -24,10 +22,8 @@ Provides-Extra: fido2
 Requires-Dist: asyncssh[fido2]; extra == "fido2"
 Provides-Extra: gssapi
 Requires-Dist: asyncssh[gssapi]; extra == "gssapi"
-Provides-Extra: libnacl
-Requires-Dist: asyncssh[libnacl]; extra == "libnacl"
 Provides-Extra: pkcs11
-Requires-Dist: asyncssh[python-pkcs11]; extra == "pkcs11"
+Requires-Dist: asyncssh[pkcs11]; extra == "pkcs11"
 Provides-Extra: pyopenssl
 Requires-Dist: asyncssh[pyOpenSSL]; extra == "pyopenssl"
 Provides-Extra: pywin32

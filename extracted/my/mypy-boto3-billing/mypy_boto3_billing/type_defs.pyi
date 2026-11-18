@@ -73,6 +73,7 @@ __all__ = (
     "BusinessSupportTierChargeTypeDef",
     "CancelContractualInvestmentAttestationRequestTypeDef",
     "ChargeAccountTypeDef",
+    "ChildCreditTypeDef",
     "ContractAccountTypeDef",
     "ContractDetailsTypeDef",
     "ContractSummaryTypeDef",
@@ -163,6 +164,9 @@ __all__ = (
     "ResourceTagTypeDef",
     "ResponseMetadataTypeDef",
     "ServiceLevelAccountUsageTypeDef",
+    "SplitCreditRequestTypeDef",
+    "SplitCreditResponseTypeDef",
+    "SplitPortionTypeDef",
     "StringSearchTypeDef",
     "TagResourceRequestTypeDef",
     "TagValuesOutputTypeDef",
@@ -170,6 +174,8 @@ __all__ = (
     "TimeRangeOutputTypeDef",
     "TimeRangeTypeDef",
     "TimestampTypeDef",
+    "TransferCreditRequestTypeDef",
+    "TransferCreditResponseTypeDef",
     "UntagResourceRequestTypeDef",
     "UpdateBillingPreferencesRequestTypeDef",
     "UpdateBillingViewRequestTypeDef",
@@ -269,6 +275,10 @@ class CancelContractualInvestmentAttestationRequestTypeDef(TypedDict):
 class ChargeAccountTypeDef(TypedDict):
     accountId: str
     chargePercentage: str
+
+class ChildCreditTypeDef(TypedDict):
+    amount: str
+    creditId: NotRequired[str]
 
 class ContractAccountTypeDef(TypedDict):
     accountId: str
@@ -415,6 +425,16 @@ class PricingPlanTierTypeDef(TypedDict):
 class RedeemCreditsRequestTypeDef(TypedDict):
     promoCode: str
 
+class SplitPortionTypeDef(TypedDict):
+    amount: str
+    description: NotRequired[str]
+
+class TransferCreditRequestTypeDef(TypedDict):
+    creditId: str
+    destinationAccountId: str
+    clientToken: NotRequired[str]
+    dryRun: NotRequired[bool]
+
 class UntagResourceRequestTypeDef(TypedDict):
     resourceArn: str
     resourceTagKeys: Sequence[str]
@@ -533,6 +553,14 @@ class ListSourceViewsForBillingViewResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class TransferCreditResponseTypeDef(TypedDict):
+    sourceCreditId: str
+    newCreditId: str
+    destinationAccountId: str
+    amount: str
+    dryRun: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateBillingViewResponseTypeDef(TypedDict):
     arn: str
     updatedAt: datetime
@@ -589,6 +617,12 @@ class ListBusinessSupportSubscriptionHistoryResponseTypeDef(TypedDict):
     subscriptionContracts: list[BusinessSupportSubscriptionContractTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+class SplitCreditResponseTypeDef(TypedDict):
+    parentCreditId: str
+    childCredits: list[ChildCreditTypeDef]
+    dryRun: bool
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class ContractSummaryTypeDef(TypedDict):
     contractArn: str
@@ -689,6 +723,12 @@ class PricingPlanTypeDef(TypedDict):
     discountAppliesToMinimumCharge: NotRequired[bool]
     minimumCharge: NotRequired[str]
     tiered: NotRequired[str]
+
+class SplitCreditRequestTypeDef(TypedDict):
+    creditId: str
+    portions: Sequence[SplitPortionTypeDef]
+    clientToken: NotRequired[str]
+    dryRun: NotRequired[bool]
 
 class ListBillingViewsRequestPaginateTypeDef(TypedDict):
     activeTimeRange: NotRequired[ActiveTimeRangeTypeDef]

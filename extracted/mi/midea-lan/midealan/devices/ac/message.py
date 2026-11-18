@@ -14,6 +14,7 @@ from midealan.message import (
     MessageResponse,
     MessageType,
     NewProtocolMessageBody,
+    ToshibaFrame,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -38,12 +39,48 @@ BB_FRESH_AIR_EXHAUST_SPEED_INDEX = 47
 BB_COMPRESSOR_TARGET_FREQUENCY_INDEX = 10
 BB_COMPRESSOR_FREQUENCY_INDEX = 11
 BB_BASIC_FAN_SPEED_INDEX = 7
+BB_HUMIDIFY_INDEX = 4
+BB_HUMIDIFY_MASK = 0x01
+BB_TARGET_HUMIDITY_INDEX = 13
 BB_INDOOR_TEMPERATURE_HIGH_INDEX = 8
 BB_INDOOR_HUMIDITY_INDEX = 30
 BB_SN8_FLAG_INDEX = 80
 BB_OUTDOOR_TEMPERATURE_HIGH_INDEX = 6
 
 A0_A1_C0_MIN_BODY_LENGTH = 18
+# Toshiba AC versions 24-30 share these base-status offsets. Their C0/D0
+# bodies differ from the ordinary Midea C0 body despite matching type bytes.
+TOSHIBA_AC_BASE_LENGTH = 22
+TOSHIBA_AC_POWER_OFFSET = 1
+TOSHIBA_AC_MODE_OFFSET = 2
+TOSHIBA_AC_FAN_OFFSET = 3
+TOSHIBA_AC_TARGET_OFFSET = 4
+TOSHIBA_AC_ON_TIMER_OFFSET = 5
+TOSHIBA_AC_OFF_TIMER_OFFSET = 7
+TOSHIBA_AC_HUMIDITY_OFFSET = 10
+TOSHIBA_AC_SWING_OFFSET = 11
+TOSHIBA_AC_INDOOR_OFFSET = 13
+TOSHIBA_AC_OUTDOOR_OFFSET = 14
+TOSHIBA_AC_DECIMAL_OFFSET = 15
+TOSHIBA_AC_FLAGS_OFFSET = 16
+TOSHIBA_AC_A1_MIN_BODY_LENGTH = 19
+TOSHIBA_AC_ENERGY_OFFSET = 81
+TOSHIBA_AC_ENERGY_WIDTH = 4
+TOSHIBA_AC_POWER_END = 88
+TOSHIBA_AC_VALUE_MASK = 0x7F
+TOSHIBA_AC_NIBBLE_MASK = 0x0F
+TOSHIBA_AC_HIGH_NIBBLE_MASK = 0xF0
+TOSHIBA_AC_NIBBLE_SHIFT = 4
+TOSHIBA_AC_TIMER_ENABLED = 0x80
+TOSHIBA_AC_POWER_MASK = 0x01
+TOSHIBA_AC_TEMPERATURE_UNKNOWN = 0xFF
+TOSHIBA_AC_TEMPERATURE_BASE = 50
+TOSHIBA_AC_TEMPERATURE_DIVISOR = 2
+TOSHIBA_AC_DECIMAL_DIVISOR = 10
+TOSHIBA_AC_HOUR_MINUTES = 60
+TOSHIBA_AC_ENERGY_DIVISOR = 100
+TOSHIBA_AC_ECO_MASK = 0x01
+TOSHIBA_AC_DRY_MASK = 0x04
 CONFORT_MODE_MIN_LENGTH2 = 25
 SMART_DRY_MIN_LENGTH = 22
 SWING_LR_MIN_LENGTH = 22
@@ -58,9 +95,35 @@ MAX_MSG_SERIAL_NUM = 254
 # - 0x03: https://github.com/wuwentao/midea_ac_lan/issues/779
 # Keep 0x03 as the fallback for devices without a numeric B5 capability value.
 DEFAULT_OUT_SILENT_VALUE = 0x03
+WIND_STRAIGHT_ON_VALUE = 0x01
 OUT_SILENT_OFF_VALUE = 0x00
 POWER_SAVING_VALUE = 0x08
 SCREEN_DISPLAY_BYTE_CHECK = 0x07
+# Electric auxiliary heat (PTC) bit masks.
+#   - aux_heating / PTCValue: the ordinary electric aux-heat flag, byte 9 bit
+#     0x08 on both the set body and the A0/C0 status bodies. Vendor lua
+#     "BYTE_PTC_ON = 0x08" (keyP["PTCValue"]).
+#   - independent_ptc: "single" electric aux-heat (electric heat only, no
+#     compressor). Vendor lua keyP["independent_ptc"] = 0x08, written to set
+#     body byte 22 (bodyBytes[22]) and decoded from status body byte 8 (C0) or
+#     byte 11 (A0). See the vendor Lua
+#     lua/0xAC/T_0000_AC_00000Q1F_2024013001.lua (control block near line 3246,
+#     binToModel parser near line 1824) and midea_ac_lan issue #1127.
+#
+# IMPORTANT history for future bug-checks: the C0 status bit (byte 8 bit 0x40)
+# was decoded as "smart_eye" from the very first upstream commit
+# (georgezhao2010/midea_ac_lan a3be65c, 2022-07-19, "0.2.0-Bate4"), never
+# verified against vendor firmware. The authoritative vendor Lua decodes that
+# exact bit as independent_ptc, so this device now reports independent_ptc from
+# C0 (see StateBody below). smart_eye is still decoded from its own, separate
+# A0 bit (byte 9 bit 0x01), so both features remain available. If a future
+# device is found that genuinely uses C0 byte 8 bit 0x40 for smart_eye, gate
+# this per model/subtype rather than reviving the global smart_eye decode.
+AUX_HEATING_PTC_MASK = 0x08
+INDEPENDENT_PTC_SET_MASK = 0x08
+INDEPENDENT_PTC_C0_MASK = 0x40
+INDEPENDENT_PTC_A0_MASK = 0x08
+SMART_EYE_A0_MASK = 0x01
 SUB_PROTOCOL_BODY_TEMP_CHECK = 0x80
 TEMP_DECIMAL_MIN_BODY_LENGTH = 20
 TIMER_MIN_SUBPROTOCOL_LENGTH = 27
@@ -465,6 +528,113 @@ class MessageA0LongQuery(MessageACBase):
         return bytearray(19)
 
 
+def _toshiba_ac_temperature(raw: int, decimal: int) -> float | None:
+    """Decode the Lua temperature formula and unavailable sentinel."""
+    if raw == TOSHIBA_AC_TEMPERATURE_UNKNOWN:
+        return None
+    return (
+        raw - TOSHIBA_AC_TEMPERATURE_BASE
+    ) / TOSHIBA_AC_TEMPERATURE_DIVISOR + decimal / TOSHIBA_AC_DECIMAL_DIVISOR
+
+
+def _toshiba_ac_timer(body: bytes, offset: int) -> int:
+    """Decode the separate armed-hour and minute timer fields."""
+    if not body[offset] & TOSHIBA_AC_TIMER_ENABLED:
+        return 0
+    return (body[offset] & TOSHIBA_AC_VALUE_MASK) * TOSHIBA_AC_HOUR_MINUTES + body[
+        offset + 1
+    ]
+
+
+ToshibaACStatus = dict[str, bool | int | float | None]
+
+
+def _decode_toshiba_ac_base(body: bytes) -> ToshibaACStatus | None:
+    """Decode the C0/D0 base status shared by Toshiba AC Lua versions."""
+    if len(body) < TOSHIBA_AC_BASE_LENGTH:
+        return None
+    decimal = body[TOSHIBA_AC_DECIMAL_OFFSET]
+    return {
+        "power": bool(body[TOSHIBA_AC_POWER_OFFSET] & TOSHIBA_AC_POWER_MASK),
+        "mode": (body[TOSHIBA_AC_MODE_OFFSET] & TOSHIBA_AC_HIGH_NIBBLE_MASK)
+        >> TOSHIBA_AC_NIBBLE_SHIFT,
+        "target_temperature": (body[TOSHIBA_AC_TARGET_OFFSET] & TOSHIBA_AC_VALUE_MASK)
+        / TOSHIBA_AC_TEMPERATURE_DIVISOR,
+        "fan_speed": body[TOSHIBA_AC_FAN_OFFSET] & TOSHIBA_AC_VALUE_MASK,
+        "indoor_temperature": _toshiba_ac_temperature(
+            body[TOSHIBA_AC_INDOOR_OFFSET],
+            decimal & TOSHIBA_AC_NIBBLE_MASK,
+        ),
+        "outdoor_temperature": _toshiba_ac_temperature(
+            body[TOSHIBA_AC_OUTDOOR_OFFSET],
+            decimal >> TOSHIBA_AC_NIBBLE_SHIFT,
+        ),
+        "indoor_humidity": body[TOSHIBA_AC_HUMIDITY_OFFSET],
+        "swing_horizontal": bool(
+            body[TOSHIBA_AC_SWING_OFFSET] & TOSHIBA_AC_NIBBLE_MASK,
+        ),
+        "swing_vertical": bool(
+            body[TOSHIBA_AC_SWING_OFFSET] & TOSHIBA_AC_HIGH_NIBBLE_MASK,
+        ),
+        "eco_mode": bool(body[TOSHIBA_AC_FLAGS_OFFSET] & TOSHIBA_AC_ECO_MASK),
+        "dry": bool(body[TOSHIBA_AC_FLAGS_OFFSET] & TOSHIBA_AC_DRY_MASK),
+        "power_on_timer": _toshiba_ac_timer(body, TOSHIBA_AC_ON_TIMER_OFFSET),
+        "power_off_timer": _toshiba_ac_timer(body, TOSHIBA_AC_OFF_TIMER_OFFSET),
+    }
+
+
+def _decode_toshiba_ac_temperature_notification(
+    body: bytes,
+) -> ToshibaACStatus | None:
+    """Decode the A1 temperature-only notification."""
+    if len(body) < TOSHIBA_AC_A1_MIN_BODY_LENGTH:
+        return None
+    return {
+        name: _toshiba_ac_temperature(body[offset], 0)
+        for name, offset in (
+            ("indoor_temperature", TOSHIBA_AC_INDOOR_OFFSET),
+            ("outdoor_temperature", TOSHIBA_AC_OUTDOOR_OFFSET),
+        )
+        if body[offset] not in (0, TOSHIBA_AC_TEMPERATURE_UNKNOWN)
+    }
+
+
+def _decode_toshiba_ac_energy(body: bytes) -> ToshibaACStatus | None:
+    """Decode the long A0 energy notification used by Toshiba AC v30."""
+    if len(body) < TOSHIBA_AC_POWER_END:
+        return None
+    power_offset = TOSHIBA_AC_ENERGY_OFFSET + TOSHIBA_AC_ENERGY_WIDTH
+    return {
+        "total_energy_consumption": int.from_bytes(
+            body[TOSHIBA_AC_ENERGY_OFFSET:power_offset],
+            "big",
+        )
+        / TOSHIBA_AC_ENERGY_DIVISOR,
+        "realtime_power": int.from_bytes(body[power_offset:TOSHIBA_AC_POWER_END], "big")
+        / TOSHIBA_AC_ENERGY_DIVISOR,
+    }
+
+
+def decode_toshiba_ac_status(
+    frame: ToshibaFrame,
+) -> ToshibaACStatus | None:
+    """Decode the verified base and telemetry bodies from Toshiba AC Lua."""
+    body = frame.body
+    if not body:
+        return None
+    status = None
+    if (
+        frame.frame_type in (MessageType.set, MessageType.query)
+        and body[0] == ListTypes.C0
+    ) or (frame.frame_type == MessageType.notify2 and body[0] == ListTypes.D0):
+        status = _decode_toshiba_ac_base(body)
+    elif frame.frame_type == MessageType.notify1 and body[0] == ListTypes.A1:
+        status = _decode_toshiba_ac_temperature_notification(body)
+    elif frame.frame_type == MessageType.notify1 and body[0] == ListTypes.A0:
+        status = _decode_toshiba_ac_energy(body)
+    return status
+
+
 class StateQuery(MessageACBase):
     """AC message query(queryType == nil)."""
 
@@ -640,6 +810,8 @@ COMMON_TAGS: frozenset[int] = frozenset(
         CapabilityTag.wind_ud_angle,  # 0x0009
         CapabilityTag.wind_lr_angle,  # 0x000A
         CapabilityTag.breezeless,  # 0x0018
+        CapabilityTag.wind_straight,  # 0x0032
+        CapabilityTag.wind_avoid,  # 0x0033
         CapabilityTag.self_clean,  # 0x0039
         CapabilityTag.indirect_wind,  # 0x0042
         CapabilityTag.gentle_wind_sense,  # 0x0043
@@ -676,8 +848,6 @@ PROPERTIES_TAGS: frozenset[int] = COMMON_TAGS | frozenset(
 CAPABILITY_ONLY_TAGS: frozenset[int] = frozenset(
     {
         CapabilityTag.nobody_energy_save,  # 0x0030
-        CapabilityTag.wind_straight,  # 0x0032
-        CapabilityTag.wind_avoid,  # 0x0033
         CapabilityTag.prevent_super_cool,  # 0x0049
         CapabilityTag.parent_control,  # 0x0051
         CapabilityTag.prevent_straight_wind_lr,  # 0x0058
@@ -1094,6 +1264,9 @@ class StateSet(MessageACBase):
         self.smart_eye = False
         self.dry = False
         self.aux_heating = False
+        # Single electric aux-heat (electric heat only). Vendor lua
+        # keyP["independent_ptc"], distinct from aux_heating/PTCValue above.
+        self.independent_ptc = False
         self.eco_mode = False
         self.temp_fahrenheit = False
         self.sleep_mode = False
@@ -1146,7 +1319,7 @@ class StateSet(MessageACBase):
         # Byte 9 aux_heating eco_mode
         smart_eye = 0x01 if self.smart_eye else 0
         dry = 0x04 if self.dry else 0
-        aux_heating = 0x08 if self.aux_heating else 0
+        aux_heating = AUX_HEATING_PTC_MASK if self.aux_heating else 0
         eco_mode = 0x80 if self.eco_mode else 0
         anion = 0x20 if self.anion else 0
         # Byte 10 temp_fahrenheit
@@ -1164,8 +1337,10 @@ class StateSet(MessageACBase):
         )
         # Byte 21 frost_protect
         frost_protect = 0x80 if self.frost_protect else 0
-        # Byte 22 comfort_mode
+        # Byte 22 comfort_mode (bit 0x01) and independent_ptc (bit 0x08).
+        # Vendor lua: bodyBytes[22] = bit.bor(keyP["independent_ptc"], ...).
         comfort_mode = 0x01 if self.comfort_mode else 0
+        independent_ptc = INDEPENDENT_PTC_SET_MASK if self.independent_ptc else 0
         # Byte 3 timer flag, bytes 4-6 countdown timers
         timer_flag, power_on_timer, power_off_timer, timer_minutes = self._timer_bytes()
 
@@ -1192,7 +1367,7 @@ class StateSet(MessageACBase):
                 0x00,
                 0x00,
                 frost_protect,
-                comfort_mode,
+                comfort_mode | independent_ptc,
             ],
         )
 
@@ -1210,6 +1385,8 @@ class PropertiesSet(MessageACBase):
         self.indirect_wind: bytes | None = None
         self.prompt_tone: bytes | None = None
         self.breezeless: bytes | None = None
+        self.wind_straight: bool | None = None
+        self.wind_avoid: bool | None = None
         self.screen_display_alternate: bytes | None = None
         self.fresh_air_1: bytes | None = None
         self.fresh_air_2: bytes | None = None
@@ -1229,9 +1406,25 @@ class PropertiesSet(MessageACBase):
         self.power_off_timer: int | None = None
 
     @property
-    def _body(self) -> bytearray:
+    def _body(self) -> bytearray:  # noqa: C901
         pack_count = 0
         payload = bytearray([0x00])
+        if self.wind_straight is not None:
+            pack_count += 1
+            payload.extend(
+                NewProtocolMessageBody.pack(
+                    param=CapabilityTag.wind_straight,
+                    value=bytearray([int(self.wind_straight)]),
+                ),
+            )
+        if self.wind_avoid is not None:
+            pack_count += 1
+            payload.extend(
+                NewProtocolMessageBody.pack(
+                    param=CapabilityTag.wind_avoid,
+                    value=bytearray([int(self.wind_avoid)]),
+                ),
+            )
         if self.breezeless is not None:
             pack_count += 1
             payload.extend(
@@ -1429,9 +1622,14 @@ class XA0Body(MessageBody):
         self.screen_display = (
             (body[14] >> 4 & 0x7) != SCREEN_DISPLAY_BYTE_CHECK
         ) and self.power
-        self.smart_eye = (body[9] & 0x01) > 0
+        self.smart_eye = (body[9] & SMART_EYE_A0_MASK) > 0
         self.dry = (body[9] & 0x04) > 0  # dryValue
-        self.aux_heating = (body[9] & 0x08) > 0  # PTCValue
+        self.aux_heating = (body[9] & AUX_HEATING_PTC_MASK) > 0  # PTCValue
+        # independent_ptc (single electric aux-heat). On the A0 notify body the
+        # vendor lua reads it from byte 11 bit 0x08 (binToModel dataType 0x05),
+        # which is independent of smart_eye (byte 9 bit 0x01) and of pmv (byte
+        # 11 high nibble), so both features are reported. See midea_ac_lan #1127.
+        self.independent_ptc = (body[11] & INDEPENDENT_PTC_A0_MASK) > 0
         self.purifier = body[9] & 0x20  # purifierValue
         self.anion = (body[9] & 0x20) > 0
         self.eco_mode = (body[9] & 0x10) > 0  # ecoValue
@@ -1558,6 +1756,12 @@ class PropertiesBody(NewProtocolMessageBody):
         state, so it is filtered out here; the 0x7e payload carries the same
         states for every body type (parsed in __init__ below).
         """
+        if CapabilityTag.wind_straight in params and self.body_type != ListTypes.B5:
+            self.wind_straight = (
+                params[CapabilityTag.wind_straight][0] == WIND_STRAIGHT_ON_VALUE
+            )
+        if CapabilityTag.wind_avoid in params and self.body_type != ListTypes.B5:
+            self.wind_avoid = params[CapabilityTag.wind_avoid][0] > 0
         if CapabilityTag.degerming in params and self.body_type != ListTypes.B5:
             # Queried degerming state (0x00 off / 0x01 on).
             self.degerming_active = params[CapabilityTag.degerming][0] > 0
@@ -2071,11 +2275,20 @@ class StateBody(XMessageBody):
         self.comfort_sleep = body[8] & 0x03  # comfortableSleepValue
         self.comfort_sleep_switch = body[9] & 0x40  # comfortableSleepSwitch
         self.pmv = (body[14] & 0x0F) * 0.5 - 3.5  # pmv
-        self.smart_eye = (body[8] & 0x40) > 0
+        # independent_ptc (single electric aux-heat), C0 status byte 8 bit 0x40.
+        # The vendor lua (binToModel, else branch) decodes this exact bit as
+        # keyP["independent_ptc"]. Historically this bit was decoded as
+        # "smart_eye" (inherited from georgezhao2010 commit a3be65c, 2022, never
+        # verified); the authoritative vendor firmware shows it is
+        # independent_ptc, so it is reported as such here. smart_eye remains
+        # decoded on its own A0 bit (byte 9 bit 0x01) in XA0Body. See
+        # midea_ac_lan #1127. If a device is ever confirmed to use this C0 bit
+        # for smart_eye, gate per model/subtype instead of reverting globally.
+        self.independent_ptc = (body[8] & INDEPENDENT_PTC_C0_MASK) > 0
         self.natural_wind = (body[9] & 0x2) > 0  # naturalWind
         self.dry = (body[9] & 0x4) > 0  # dryValue
         self.eco_mode = (body[9] & 0x10) > 0  # ecoValue
-        self.aux_heating = (body[9] & 0x08) > 0  # PTCValue
+        self.aux_heating = (body[9] & AUX_HEATING_PTC_MASK) > 0  # PTCValue
         self.purifier = body[9] & 0x20  # purifierValue
         self.anion = (body[9] & 0x20) > 0
         self.temp_fahrenheit = (body[10] & 0x04) > 0
@@ -2307,6 +2520,23 @@ class SubProtocolBody(MessageBody):
                 self.mode = 0
             self.target_temperature = (subprotocol_body[6] - 30) / 2
             self.fan_speed = subprotocol_body[7]
+            # Verified on model 22396945 (subtype 1): the X11 status frame
+            # carries the humidify switch at byte 4 and the target humidity
+            # percentage at byte 13. X20 shares the basic fields above but
+            # does not carry these two.
+            # The BB trailer is two bytes and MessageResponse keeps one of them
+            # when it strips the outer checksum, so the final byte here is not
+            # payload; require one more byte than the last field index so a
+            # short frame cannot expose its trailer as target_humidity.
+            if (
+                data_type == ListTypes.X11
+                and subprotocol_body_len > BB_TARGET_HUMIDITY_INDEX + 1
+            ):
+                self.humidify = (
+                    subprotocol_body[BB_HUMIDIFY_INDEX] & BB_HUMIDIFY_MASK
+                ) > 0
+                target_humidity = subprotocol_body[BB_TARGET_HUMIDITY_INDEX]
+                self.target_humidity = target_humidity or None
             self.timer = (
                 (subprotocol_body[25] & 0x04) > 0
                 if subprotocol_body_len > TIMER_MIN_SUBPROTOCOL_LENGTH

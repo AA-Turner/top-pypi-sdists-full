@@ -173,7 +173,7 @@ def main():
 
     state = module.params["state"]
 
-    if (not module.params.get("id")) and module.params.get("name"):
+    if (not module.params["id"]) and module.params["name"]:
         module.params["id"] = get_id_by_name(config)
 
     fetch = None
@@ -279,12 +279,12 @@ def fetch_resource(module, client, link):
 def get_id_by_name(config):
     module = config.module
     client = config.client(get_region(module), "vpc", "project")
-    name = module.params.get("name")
+    name = module.params["name"]
     link = "vpcs"
     query_link = "?marker={marker}&limit=10"
     link += query_link
-    not_format_keys = re.findall("={marker}", link)
-    none_values = re.findall("=None", link)
+    not_format_keys = "={marker}" in link
+    none_values = "=None" in link
 
     if not (not_format_keys or none_values):
         r = None
@@ -336,11 +336,11 @@ def self_link(module):
 def resource_to_create(module):
     params = dict()
 
-    v = module.params.get("cidr")
+    v = module.params["cidr"]
     if not is_empty_value(v):
         params["cidr"] = v
 
-    v = module.params.get("name")
+    v = module.params["name"]
     if not is_empty_value(v):
         params["name"] = v
 
@@ -355,7 +355,7 @@ def resource_to_create(module):
 def resource_to_update(module):
     params = dict()
 
-    v = module.params.get("cidr")
+    v = module.params["cidr"]
     if not is_empty_value(v):
         params["cidr"] = v
 
@@ -369,7 +369,7 @@ def resource_to_update(module):
 
 def _get_editable_properties(module):
     return {
-        "cidr": module.params.get("cidr"),
+        "cidr": module.params["cidr"],
     }
 
 

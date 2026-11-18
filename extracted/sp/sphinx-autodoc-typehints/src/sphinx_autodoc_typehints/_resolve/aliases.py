@@ -9,9 +9,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._objects import alias_lookup_names, enclosing_scopes
-from .._refs import MyTypeAliasForwardRef, WrittenTypeAlias
-from .guards import annotation_globals, guarded_names, resolve_type_guarded_imports
+from .._objects import (  # simplint: ignore[private-import-path]  # init cycle
+    alias_lookup_names,
+    enclosing_scopes,
+)
+from .._refs import (  # simplint: ignore[private-import-path]  # init cycle
+    MyTypeAliasForwardRef,
+    WrittenTypeAlias,
+)
+from .guards.overlay import annotation_globals, guarded_names
+from .guards.run import resolve_type_guarded_imports
 from .source import written_annotations
 
 if TYPE_CHECKING:
@@ -19,7 +26,7 @@ if TYPE_CHECKING:
 
     from sphinx.environment import BuildEnvironment
 
-    from .._types import Documented, Hint
+    from . import Documented, Hint
 
 
 def type_alias_namespace(

@@ -14,6 +14,7 @@ ws_manager/org_id,ws_id:
     - w+d:flow_folders/org_id,ws_id
     - w+d:outcome_type_management/org_id,ws_id
     - w:flow_settings/org_id,ws_id
+    - r:user_groups/org_id
 flow_viewer/org_id,ws_id,flow_folder_id:
     - r:flows/org_id,ws_id,flow_folder_id,{env=*}
     - r:jobs/org_id,ws_id,flow_folder_id

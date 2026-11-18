@@ -16,6 +16,8 @@ import traceback
 import json
 
 from os.path import expanduser
+import configparser
+import urllib.parse as urlparse
 
 from ansible.module_utils.basic import \
     AnsibleModule, missing_required_lib, env_fallback
@@ -24,8 +26,6 @@ try:
     from ansible.module_utils.ansible_release import __version__ as ANSIBLE_VERSION
 except Exception:
     ANSIBLE_VERSION = 'unknown'
-from ansible.module_utils.six.moves import configparser
-import ansible.module_utils.six.moves.urllib.parse as urlparse
 
 AZURE_COMMON_ARGS = dict(
     auth_source=dict(
@@ -115,9 +115,6 @@ AZURE_API_PROFILES = {
         'StorageManagementClient': '2021-06-01',
         'SubscriptionClient': '2019-11-01',
         'WebSiteManagementClient': '2021-03-01',
-        'PostgreSQLManagementClient': '2017-12-01',
-        'MySQLManagementClient': '2017-12-01',
-        'MariaDBManagementClient': '2019-03-01',
         'ManagementLockClient': '2016-09-01',
         'DataLakeStoreAccountManagementClient': '2016-11-01',
         'NotificationHubsManagementClient': '2016-03-01',
@@ -135,7 +132,9 @@ AZURE_API_PROFILES = {
         'ServiceBusManagementClient': 'latest',
         'AutomationClient': 'latest',
         'IotHubClient': 'latest',
+        'RecoveryServicesClient': 'latest',
         'RecoveryServicesBackupClient': 'latest',
+        'DataProtectionMgmtClient': 'latest',
         'DataFactoryManagementClient': 'latest',
         'KeyVaultManagementClient': '2026-02-01',
         'HDInsightManagementClient': 'latest',
@@ -262,15 +261,14 @@ try:
     from azure.storage.blob import BlobServiceClient
     from azure.storage.fileshare import ShareDirectoryClient, ShareClient, ShareFileClient
     from azure.mgmt.authorization import AuthorizationManagementClient
+    from azure.mgmt.msi import ManagedServiceIdentityClient
     from azure.mgmt.sql import SqlManagementClient
     from azure.mgmt.servicebus import ServiceBusManagementClient
-    from azure.mgmt.rdbms.postgresql import PostgreSQLManagementClient
     from azure.mgmt.postgresqlflexibleservers import PostgreSQLManagementClient as PostgreSQLFlexibleManagementClient
-    from azure.mgmt.rdbms.mysql import MySQLManagementClient
     from azure.mgmt.mysqlflexibleservers import MySQLManagementClient as MySQLFlexibleManagementClient
-    from azure.mgmt.rdbms.mariadb import MariaDBManagementClient
     from azure.mgmt.containerregistry import ContainerRegistryManagementClient
     from azure.mgmt.containerinstance import ContainerInstanceManagementClient
+    from azure.mgmt.appcontainers import ContainerAppsAPIClient
     from azure.mgmt.loganalytics import LogAnalyticsManagementClient
     import azure.mgmt.loganalytics.models as LogAnalyticsModels
     from azure.mgmt.automation import AutomationClient
@@ -278,6 +276,7 @@ try:
     from azure.mgmt.iothub import IotHubClient
     from azure.mgmt.iothub import models as IoTHubModels
     from azure.mgmt.resource.locks import ManagementLockClient
+    from azure.mgmt.recoveryservices import RecoveryServicesClient
     from azure.mgmt.recoveryservicesbackup import RecoveryServicesBackupClient
     import azure.mgmt.recoveryservicesbackup.activestamp.models as RecoveryServicesBackupModels
     from azure.mgmt.search import SearchManagementClient
@@ -298,6 +297,7 @@ try:
     from azure.mgmt.cognitiveservices import CognitiveServicesManagementClient
     from azure.mgmt.databricks import AzureDatabricksManagementClient
     import azure.mgmt.databricks.models as DatabricksModels
+    from azure.mgmt.dataprotection import DataProtectionMgmtClient
 
 except ImportError as exc:
     AZURE_IMPORT_ERROR = traceback.format_exc()
@@ -408,6 +408,7 @@ class AzureRMModuleBase(object):
             self.fail(msg=msg, exception=AZURE_IMPORT_ERROR)
 
         self._authorization_client = None
+        self._msi_client = None
         self._network_client = None
         self._storage_client = None
         self._subscription_client = None
@@ -424,16 +425,14 @@ class AzureRMModuleBase(object):
         self._web_client = None
         self._marketplace_client = None
         self._sql_client = None
-        self._mysql_client = None
         self._mysql_flexible_client = None
-        self._mariadb_client = None
-        self._postgresql_client = None
         self._postgresql_flexible_client = None
         self._containerregistry_client = None
         self._containerregistrytoken_client = None
         self._containerinstance_client = None
         self._containerservice_client = None
         self._managedcluster_client = None
+        self._containerapps_client = None
         self._traffic_manager_management_client = None
         self._monitor_autoscale_settings_client = None
         self._monitor_log_profiles_client = None
@@ -449,6 +448,8 @@ class AzureRMModuleBase(object):
         self._automation_client = None
         self._IoThub_client = None
         self._lock_client = None
+        self._recovery_services_client = None
+        self._recovery_services_legacy_client = None
         self._recovery_services_backup_client = None
         self._search_client = None
         self._datalake_store_client = None
@@ -461,6 +462,7 @@ class AzureRMModuleBase(object):
         self._hybrid_compute_management_client = None
         self._cognitive_services_management_client = None
         self._databricks_client = None
+        self._dataprotection_client = None
 
         self.check_mode = self.module.check_mode
         self.api_profile = self.module.params.get('api_profile')
@@ -1097,6 +1099,15 @@ class AzureRMModuleBase(object):
         return AuthorizationManagementClient.models('2020-04-01-preview')
 
     @property
+    def msi_client(self):
+        self.log('Getting Managed Service Identity client...')
+        if not self._msi_client:
+            self._msi_client = self.get_mgmt_svc_client(ManagedServiceIdentityClient,
+                                                        base_url=self._cloud_environment.endpoints.resource_manager,
+                                                        api_version='2024-11-30')
+        return self._msi_client
+
+    @property
     def subscription_client(self):
         self.log('Getting subscription client...')
         if not self._subscription_client:
@@ -1311,14 +1322,6 @@ class AzureRMModuleBase(object):
         return self._postgresql_flexible_client
 
     @property
-    def postgresql_client(self):
-        self.log('Getting PostgreSQL client')
-        if not self._postgresql_client:
-            self._postgresql_client = self.get_mgmt_svc_client(PostgreSQLManagementClient,
-                                                               base_url=self._cloud_environment.endpoints.resource_manager)
-        return self._postgresql_client
-
-    @property
     def mysql_flexible_client(self):
         self.log('Getting MySQL Flexible client')
         if not self._mysql_flexible_client:
@@ -1326,22 +1329,6 @@ class AzureRMModuleBase(object):
                                                                    base_url=self._cloud_environment.endpoints.resource_manager,
                                                                    api_version='2024-08-01')
         return self._mysql_flexible_client
-
-    @property
-    def mysql_client(self):
-        self.log('Getting MySQL client')
-        if not self._mysql_client:
-            self._mysql_client = self.get_mgmt_svc_client(MySQLManagementClient,
-                                                          base_url=self._cloud_environment.endpoints.resource_manager)
-        return self._mysql_client
-
-    @property
-    def mariadb_client(self):
-        self.log('Getting MariaDB client')
-        if not self._mariadb_client:
-            self._mariadb_client = self.get_mgmt_svc_client(MariaDBManagementClient,
-                                                            base_url=self._cloud_environment.endpoints.resource_manager)
-        return self._mariadb_client
 
     @property
     def containerregistry_client(self):
@@ -1372,6 +1359,14 @@ class AzureRMModuleBase(object):
                                                                       api_version='2023-05-01')
 
         return self._containerinstance_client
+
+    @property
+    def containerapps_client(self):
+        self.log('Getting Container Apps client')
+        if not self._containerapps_client:
+            self._containerapps_client = self.get_mgmt_svc_client(ContainerAppsAPIClient,
+                                                                  base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._containerapps_client
 
     @property
     def marketplace_client(self):
@@ -1527,12 +1522,40 @@ class AzureRMModuleBase(object):
         return ManagementLockClient.models('2016-09-01')
 
     @property
+    def recovery_services_client(self):
+        self.log('Getting recovery services client')
+        if not self._recovery_services_client:
+            self._recovery_services_client = self.get_mgmt_svc_client(RecoveryServicesClient,
+                                                                      base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._recovery_services_client
+
+    @property
+    def recovery_services_legacy_client(self):
+        # Vaults created or updated with this api-version keep accepting soft delete changes from
+        # azure_rm_recoveryservicesvaultconfig, newer api-versions switch the vault to the vault API.
+        # RecoveryServicesClient takes api_version through **kwargs, which get_mgmt_svc_client does not forward.
+        self.log('Getting recovery services legacy client')
+        if not self._recovery_services_legacy_client:
+            self._recovery_services_legacy_client = self.get_mgmt_svc_client(RecoveryServicesClient,
+                                                                             base_url=self._cloud_environment.endpoints.resource_manager)
+            self._recovery_services_legacy_client._config.api_version = '2020-02-02'
+        return self._recovery_services_legacy_client
+
+    @property
     def recovery_services_backup_client(self):
         self.log('Getting recovery services backup client')
         if not self._recovery_services_backup_client:
             self._recovery_services_backup_client = self.get_mgmt_svc_client(RecoveryServicesBackupClient,
                                                                              base_url=self._cloud_environment.endpoints.resource_manager)
         return self._recovery_services_backup_client
+
+    @property
+    def dataprotection_client(self):
+        self.log('Getting data protection client')
+        if not self._dataprotection_client:
+            self._dataprotection_client = self.get_mgmt_svc_client(DataProtectionMgmtClient,
+                                                                   base_url=self._cloud_environment.endpoints.resource_manager)
+        return self._dataprotection_client
 
     @property
     def recovery_services_backup_models(self):

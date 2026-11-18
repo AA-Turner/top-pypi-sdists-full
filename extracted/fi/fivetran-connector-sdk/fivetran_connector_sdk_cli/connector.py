@@ -523,6 +523,8 @@ class Connector:
 
             print_library_log("finished receiving records from customer's update().", Logging.Level.INFO, True)
 
+        except ConnectorTask:
+            raise  # what the connector reported with op.error is the sync's error as it is, not a crash of update()
         except Exception as e:
             self._raise_update_failure(e, state, memory_tracker)
 

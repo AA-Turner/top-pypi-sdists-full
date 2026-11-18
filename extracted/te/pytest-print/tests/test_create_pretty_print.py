@@ -1,20 +1,27 @@
 from __future__ import annotations
 
+import itertools
 import re
+from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from tests import extract_printer_text, seed_test
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+_FLOAT_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"""
+    [-+]?             # optional sign
+    \d*\.\d+          # integer and fraction digits
+    ([eE][-+]?\d+)?   # optional exponent
+    """,
+    flags=re.VERBOSE,
+)
 
 
 @pytest.fixture
-def example(pytester: pytest.Pytester) -> pytest.Pytester:
-    return seed_test("example_create_pretty_print.py", pytester)
-
-
-def fix_floats_in_relative_time(txt: str) -> str:
-    float_pattern = r"[-+]?\d*\.\d+([eE][-+]?\d+)?"
-    return re.sub(float_pattern, "0.1", txt)
+def example(seed_test: Callable[[str], pytest.Pytester]) -> pytest.Pytester:
+    return seed_test("example_create_pretty_print.py")
 
 
 def test_progress_no_v(example: pytest.Pytester) -> None:
@@ -24,7 +31,7 @@ def test_progress_no_v(example: pytest.Pytester) -> None:
     assert "global peace" not in result.outlines
 
 
-def test_progress_v_no_relative(example: pytest.Pytester) -> None:
+def test_progress_v_no_relative(example: pytest.Pytester, extract_printer_text: Callable[[list[str]], str]) -> None:
     result_verbose = example.runpytest("-v", "--print")
     result_verbose.assert_outcomes(passed=3)
 
@@ -57,7 +64,10 @@ test_a.py::test_create_pretty_printer_usage PASSED
     assert output == expected
 
 
-def test_progress_v_relative(example: pytest.Pytester) -> None:
+def test_progress_v_relative(
+    example: pytest.Pytester, monkeypatch: pytest.MonkeyPatch, extract_printer_text: Callable[[list[str]], str]
+) -> None:
+    monkeypatch.setattr("pytest_print.default_timer", itertools.count(1).__next__)
     result_verbose_relative = example.runpytest(
         "--print",
         "-v",
@@ -81,6 +91,10 @@ test_a.py::test_server_parallel_requests PASSED
   [0.1] ⏩ teardown global peace
 """
     assert output == expected
+
+
+def fix_floats_in_relative_time(txt: str) -> str:
+    return _FLOAT_PATTERN.sub("0.1", txt)
 
 
 def test_progress_no_v_but_with_print_request(example: pytest.Pytester) -> None:

@@ -4,7 +4,7 @@ exclude = ["fuzz", "tests/no_std_smoke"]
 
 [package]
 name = "djvu-rs"
-version = "0.45.0"
+version = "0.46.0"
 edition = "2024"
 rust-version = "1.89"
 license = "MIT"
@@ -36,13 +36,13 @@ rustdoc-args = ["--cfg", "docsrs"]
 [dependencies]
 thiserror = "2"
 wide = "1.7"
-djvu-zp = { version = "0.45.0", path = "crates/djvu-zp", default-features = false }
-djvu-bzz = { version = "0.45.0", path = "crates/djvu-bzz", default-features = false }
-djvu-iff = { version = "0.45.0", path = "crates/djvu-iff", default-features = false }
-djvu-bitmap = { version = "0.45.0", path = "crates/djvu-bitmap", default-features = false }
-djvu-jb2 = { version = "0.45.0", path = "crates/djvu-jb2", default-features = false }
-djvu-pixmap = { version = "0.45.0", path = "crates/djvu-pixmap", default-features = false }
-djvu-iw44 = { version = "0.45.0", path = "crates/djvu-iw44", default-features = false }
+djvu-zp = { version = "0.46.0", path = "crates/djvu-zp", default-features = false }
+djvu-bzz = { version = "0.46.0", path = "crates/djvu-bzz", default-features = false }
+djvu-iff = { version = "0.46.0", path = "crates/djvu-iff", default-features = false }
+djvu-bitmap = { version = "0.46.0", path = "crates/djvu-bitmap", default-features = false }
+djvu-jb2 = { version = "0.46.0", path = "crates/djvu-jb2", default-features = false }
+djvu-pixmap = { version = "0.46.0", path = "crates/djvu-pixmap", default-features = false }
+djvu-iw44 = { version = "0.46.0", path = "crates/djvu-iw44", default-features = false }
 # Used only by the djvu CLI binary.
 clap = { version = "4", features = ["derive"], optional = true }
 png = { version = "0.18", optional = true }
@@ -130,12 +130,6 @@ epub = ["std", "dep:zip", "dep:flate2", "dep:jpeg-encoder"]
 cbz = ["std", "dep:zip", "dep:flate2"]
 ocr-tesseract = ["dep:tesseract", "std"]
 ocr-onnx = ["dep:tract-onnx", "dep:sha2", "std"]
-# ocr-neural: experimental placeholder only. It exposes the CandleBackend type
-# but no supported model contract or CLI backend; load() returns a clear error.
-ocr-neural = ["std"]
-# Deprecated compatibility alias. Kept as a no-op to avoid pulling the former
-# Candle/tokenizers dependency stack into --all-features builds.
-ocr-neural-candle = ["ocr-neural"]
 # Experiment-only encoder surface in the codec crates (e.g. the #322 cross-size
 # rec-6 refinement probe and its analysis helpers). Off by default; not part of
 # the published API. Implies `std` since the encoders are std-only.

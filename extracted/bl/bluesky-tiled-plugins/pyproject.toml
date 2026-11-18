@@ -42,7 +42,7 @@ dependencies = [
   "pandas",
   "pyarrow",
   "pytz",
-  "tiled[minimal-client] >=0.2.21",
+  "tiled[minimal-client] >=0.2.22",
   "tzlocal",
   "xarray",
 ]
@@ -54,9 +54,12 @@ ragged = [
   "awkward >=2.4.3",
   "ragged",
 ]
+plotting = [
+  "matplotlib",
+]
 # All optional features.
 all = [
-  "bluesky-tiled-plugins[ragged]",
+  "bluesky-tiled-plugins[ragged, plotting]",
 ]
 
 
@@ -78,6 +81,7 @@ test = [
   "fakeredis",
   "h5py",
   "jinja2",
+  "matplotlib",
   "mongomock",
   "ophyd",
   "pre-commit",
@@ -88,7 +92,7 @@ test = [
   "redis-json-dict",
   "suitcase-mongo",
   "tifffile",
-  "tiled[server] >=0.2.21",
+  "tiled[server] >=0.2.22",
 ]
 dev = [{ include-group = "test" }]
 docs = [

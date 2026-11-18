@@ -520,19 +520,29 @@ async fn assert_degraded_delta_requires_full_repair(materialized: bool) {
 }
 
 #[tokio::test]
-async fn partial_full_update_preserves_the_last_complete_sidecar() {
+async fn partial_full_update_keeps_the_complete_config_until_same_revision_repair() {
     for codec in CODECS {
         let server = MockServer::start().await;
         let old = RemoteValue::new("v1");
         let verified = RemoteValue::new("v2-verified");
+        let rule_value = RemoteValue::new("v2-rule-only-in-pending-config");
         let missing = RemoteValue::new("v2-missing");
         mount_blob(&server, &old, false).await;
         mount_blob(&server, &verified, false).await;
+        let rule_origin = mount_blob(&server, &rule_value, false).await;
         let origin = mount_blob(&server, &missing, true).await;
         let initial = mixed_payload(&old, &old, 1);
         let mut configs = mixed_configs(&verified, &missing);
-        configs["inline_config"]["defaultValue"] = json!({"version": 2});
-        let next = full_payload(configs, 2);
+        let mut candidate = config_with_remote_rule(remote_config(&missing), &rule_value);
+        let inline_v2 = json!({"rule": "new first rule"});
+        let rules = candidate["rules"].as_array_mut().unwrap();
+        rules[1]["conditions"] = json!(["remote-user"]);
+        rules[1]["returnValue"] = inline_v2.clone();
+        rules.reverse();
+        configs["large_config"] = candidate;
+        configs["new_config"] = config_with_remote_rule(remote_config(&missing), &verified);
+        configs["mirror_config"]["targetAppIDs"] = json!(["other-app"]);
+        let next = full_payload(configs.clone(), 2);
         let (sdk, store, _, dcs) = initialize(&server, codec, "full-update", &initial).await;
         assert_eq!(evaluate(&sdk, "user", "large_config"), old.value);
         let replay = utils::helpers::bootstrap_from_specs_updated(&sdk).await;
@@ -543,11 +553,15 @@ async fn partial_full_update_preserves_the_last_complete_sidecar() {
         dcs.once(codec.response(&next), no_update(2));
         assert_eventually!(|| sdk.specs_snapshot().time == 2, Duration::from_secs(8));
         assert_eq!(evaluate(&sdk, "user", "healthy_config"), verified.value);
+        assert_eq!(evaluate(&sdk, "user", "large_config"), old.value);
+        assert_eq!(evaluate(&sdk, "remote-user", "large_config"), old.value);
         assert_eq!(
-            evaluate(&sdk, "user", "inline_config"),
-            json!({"version": 2})
+            evaluate(&sdk, "inline-user", "large_config"),
+            json!({"rule": "healthy"})
         );
-        assert_unavailable(&sdk, "user", "large_config");
+        assert_unavailable(&sdk, "user", "mirror_config");
+        assert_unavailable(&sdk, "user", "new_config");
+        assert_eq!(evaluate(&sdk, "remote-user", "new_config"), verified.value);
         assert_partial_cursor(&sdk);
         await_data_store_writes(&sdk).await;
         assert_eq!(
@@ -556,11 +570,25 @@ async fn partial_full_update_preserves_the_last_complete_sidecar() {
         );
 
         assert_eq!(evaluate(&replay, "user", "large_config"), old.value);
+        // At V2, healthy_config had a complete definition and new_config did not.
+        rule_origin.replace(rule_value.response(true));
+        configs["healthy_config"] = remote_config(&missing);
+        configs["new_config"] = config_with_remote_rule(remote_config(&missing), &old);
+        let next = full_payload(configs, 3);
+        dcs.once(codec.response(&next), no_update(3));
+        assert_eventually!(|| sdk.specs_snapshot().time == 3, Duration::from_secs(8));
+        assert_eq!(evaluate(&sdk, "user", "healthy_config"), verified.value);
+        assert_eq!(evaluate(&sdk, "remote-user", "new_config"), old.value);
+        assert_unavailable(&sdk, "user", "new_config");
+        assert_eq!(evaluate(&sdk, "user", "large_config"), old.value);
+
         let polls = get_count(&server, DCS_PATH).await;
         origin.replace(missing.response(false));
-        dcs.once(codec.response(&next), no_update(2));
+        dcs.once(codec.response(&next), no_update(3));
         assert_eventually!(|| sdk.is_config_spec_ready(), Duration::from_secs(8));
         assert_eq!(evaluate(&sdk, "user", "large_config"), missing.value);
+        assert_eq!(evaluate(&sdk, "remote-user", "large_config"), inline_v2);
+        assert_eq!(get_count(&server, &rule_value.path()).await, 1);
         assert_eventually!(|| evaluate(&replay, "user", "large_config") == missing.value);
         replay.shutdown().await.unwrap();
         assert_full_polls(&server, polls).await;
@@ -788,6 +816,8 @@ fn protobuf_envelopes(payload: &Value) -> Vec<pb::SpecsEnvelope> {
             entity: pb::EntityType::EntityDynamicConfig as i32,
             id_type: Some(user_id_type()),
             version: config["version"].as_u64().unwrap() as u32,
+            target_app_ids: serde_json::from_value(config["targetAppIDs"].clone())
+                .unwrap_or_default(),
             default_value: Some(raw(&config["defaultValue"])),
             remote_config_metadata: metadata(&config["remoteConfigMetadata"]),
             rules: config["rules"]

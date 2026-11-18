@@ -10,19 +10,16 @@ assets through the store. Refusals are spoken in `FillRefusal`'s vocabulary.
 from __future__ import annotations
 
 import contextlib
-import dataclasses
 import json
 import sys
-import typing
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
-from types import ModuleType
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 import tensorfs
 from tensorfs import raw
 
-from cozy_runtime.author._loader import TENSORFS_DTYPES, TensorSpec
+from cozy_runtime.author._loader import TENSORFS_DTYPES, TensorSpec, _carrier, library_floats
 from cozy_runtime.internal.encoding.formats import (
     PLAIN,
     TORCH_DTYPES,
@@ -32,6 +29,10 @@ from cozy_runtime.internal.encoding.formats import (
     part_rule,
 )
 from cozy_runtime.internal.resolution import PlanRefusal, ResolvedModelPlan
+
+#: The header metadata holding each component's source safetensors `__metadata__` (TensorFS's
+#: import keeps it as `{component: {key: value}}`).
+FILE_METADATA = "safetensors_metadata"
 
 if TYPE_CHECKING:
     from tensorfs._ext import ConfigValue, MetadataValue
@@ -230,7 +231,7 @@ def _transformers_binding(config: Mapping[str, object]) -> Callable[[str], str]:
     else:
         with torch.device("meta"):
             model = model_cls._from_config(
-                transformers.AutoConfig.for_model(**_strict_floats(transformers, config))
+                transformers.AutoConfig.for_model(**library_floats(config))
             )
         transforms = mapping.get_model_conversion_mapping(model)
         built, prefix = dict.fromkeys(model.state_dict()), model.base_model_prefix
@@ -238,30 +239,6 @@ def _transformers_binding(config: Mapping[str, object]) -> Callable[[str], str]:
     if not renamings:
         return str
     return lambda name: str(loading.rename_source_key(name, renamings, [], prefix, built)[0])
-
-
-def _strict_floats(transformers: ModuleType, config: Mapping[str, object]) -> dict[str, object]:
-    """`config` with each whole number its Transformers config class declares a float as a
-    float, sub-configs (`text_config`) by their own model types. Canonical JSON stores 1.0 as 1,
-    and Transformers 5's strict configs refuse an int for a float field (SDXL's CLIP
-    `initializer_factor`, runs 15006/15012/15014); its own loader reads `config.json`'s 1.0."""
-    model_type = str(config.get("model_type", ""))
-    # Indexed: the lazy mapping's `get` reads its unloaded dict and answers None.
-    known = transformers.CONFIG_MAPPING
-    cls = known[model_type] if model_type in known else None  # noqa: SIM401
-    floats = {
-        f.name
-        for f in (dataclasses.fields(cls) if dataclasses.is_dataclass(cls) else ())
-        if float in (typing.get_args(f.type) or (f.type,)) and int not in typing.get_args(f.type)
-    }
-    out: dict[str, object] = {}
-    for name, value in config.items():
-        if isinstance(value, Mapping) and "model_type" in value:
-            value = _strict_floats(transformers, value)
-        elif type(value) is int and name in floats:
-            value = float(value)
-        out[name] = value
-    return out
 
 
 class Checkpoint:
@@ -311,8 +288,26 @@ class Checkpoint:
         return dict(self.ck.metadata)
 
     def configs(self) -> dict[str, dict[str, ConfigValue]]:
-        """Construction configs by component: each component's that has one."""
-        return {name: dict(c.config) for name, c in self.ck.components.items() if c.config}
+        """Construction configs by component: each component's that has one. A checkpoint with
+        none (a single file kept as it is, such as an adapter) takes each component's source
+        safetensors `__metadata__` instead, where trainers write its architecture (kohya's
+        `lllite.cond_dim`): strings, as the file holds them, without the paths and URLs a config
+        never carries (`modelspec.implementation`)."""
+        own = {name: dict(c.config) for name, c in self.ck.components.items() if c.config}
+        if own:
+            return own
+        files = self.ck.metadata.get(FILE_METADATA)
+        out: dict[str, dict[str, ConfigValue]] = {}
+        for name, held in (files.items() if isinstance(files, dict) else ()):
+            if name in self.ck.components and isinstance(held, dict):
+                strings: dict[str, ConfigValue] = {
+                    key: value
+                    for key, value in held.items()
+                    if isinstance(value, str) and _carrier(key, value) is None
+                }
+                if strings:
+                    out[name] = strings
+        return out
 
     def asset(self, component: str, name: str) -> bytes:
         with store_refusals(f"reading {component}/{name} of {self.id[:23]}"):

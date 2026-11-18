@@ -218,13 +218,15 @@ impl EventLogger {
 
     fn add_pending_event(&self, pending_event: QueuedEvent) {
         match self.queue.add(pending_event) {
-            QueueAddResult::Noop => (),
-            QueueAddResult::NeedsFlush => self.limit_flush_notify.notify_one(),
+            QueueAddResult::Noop => return,
+            QueueAddResult::NeedsFlush => (),
             QueueAddResult::NeedsFlushAndDropped(dropped_events_count) => {
                 self.enqueue_dropped_events_count
                     .fetch_add(dropped_events_count, Ordering::Relaxed);
-                self.limit_flush_notify.notify_one();
             }
+        }
+        if self.flush_interval.has_completely_recovered_from_backoff() {
+            self.limit_flush_notify.notify_one();
         }
     }
 
@@ -290,21 +292,36 @@ impl EventLogger {
             );
             maintenance_tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
-            loop {
-                let can_limit_flush = me.flush_interval.has_completely_recovered_from_backoff();
-
+            let mut shutdown = std::pin::pin!(async {
                 tokio::select! {
+                    _ = rt_shutdown_notify.notified() => (),
+                    _ = me.shutdown_notify.notified() => (),
+                }
+            });
+
+            loop {
+                tokio::select! {
+                    biased;
+                    () = &mut shutdown => return,
                     _ = maintenance_tick.tick() => {
-                        me.try_scheduled_flush().await;
+                        let mut scheduled_flush = std::pin::pin!(me.try_scheduled_flush());
+                        loop {
+                            tokio::select! {
+                                biased;
+                                () = &mut shutdown => {
+                                    // Finish the batch this task owns before exiting.
+                                    scheduled_flush.await;
+                                    return;
+                                }
+                                () = &mut scheduled_flush => break,
+                                () = me.limit_flush_notify.notified() => {
+                                    Self::spawn_new_limit_flush_task(&me, &rt_clone);
+                                }
+                            }
+                        }
                         me.event_sampler.try_reset_all_sampling();
                     }
-                    () = rt_shutdown_notify.notified() => {
-                        return; // Runtime Shutdown
-                    }
-                    _ = me.shutdown_notify.notified() => {
-                        return; // EvtLogger Shutdown
-                    }
-                    _ = me.limit_flush_notify.notified(), if can_limit_flush => {
+                    _ = me.limit_flush_notify.notified() => {
                         Self::spawn_new_limit_flush_task(&me, &rt_clone);
                     }
                 }
@@ -317,6 +334,9 @@ impl EventLogger {
     }
 
     fn spawn_new_limit_flush_task(inst: &Arc<Self>, rt: &Arc<StatsigRuntime>) {
+        if !inst.flush_interval.has_completely_recovered_from_backoff() {
+            return;
+        }
         let permit = match inst.limit_flush_semaphore.clone().try_acquire_owned() {
             Ok(permit) => permit,
             Err(_) => return,
@@ -325,20 +345,10 @@ impl EventLogger {
         let me = inst.clone();
         let spawn_result = rt.spawn(LIMIT_FLUSH_TAG, |_| async move {
             log_d!(TAG, "Attempting limit flush");
-            if !me.flush_next_batch(FlushType::Limit).await {
-                return;
-            }
-
-            loop {
-                if !me.flush_interval.has_completely_recovered_from_backoff() {
-                    break;
-                }
-
-                if !me.queue.contains_at_least_one_full_batch() {
-                    break;
-                }
-
-                if !me.flush_next_batch(FlushType::Limit).await {
+            while me.flush_interval.has_completely_recovered_from_backoff() {
+                if !me.flush_next_batch(FlushType::Limit).await
+                    || !me.queue.contains_at_least_one_full_batch()
+                {
                     break;
                 }
             }

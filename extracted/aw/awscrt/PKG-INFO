@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awscrt
-Version: 0.38.1
+Version: 0.38.2
 Summary: A common runtime for AWS Python projects
 Author-email: "Amazon Web Services, Inc" <aws-sdk-common-runtime@amazon.com>
 License: Apache-2.0
@@ -133,6 +133,8 @@ To filter to a specific CRT package:
 logging.getLogger('awscrt').setLevel(logging.WARNING)
 logging.getLogger('awscrt.io').setLevel(logging.DEBUG)
 ```
+
+`logging.DEBUG` maps to the CRT's Debug level. For the CRT's more verbose Trace logs (emitted at `logging.DEBUG`), call `awscrt.logging.enable_trace_logs()`; `disable_trace_logs()` restores the previous level.
 
 ### Option 2: Direct file/stdout logging
 

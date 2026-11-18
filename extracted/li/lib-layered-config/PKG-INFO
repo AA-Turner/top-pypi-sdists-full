@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: lib_layered_config
-Version: 7.7.0
+Version: 8.1.0
 Summary: Cross-platform layered configuration loader for Python
 Project-URL: Homepage, https://github.com/bitranox/lib_layered_config
 Project-URL: Repository, https://github.com/bitranox/lib_layered_config.git
@@ -22,7 +22,7 @@ Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
-Requires-Dist: lib-cli-exit-tools>=2.4.1
+Requires-Dist: lib-cli-exit-tools>=2.5.0
 Requires-Dist: orjson>=3.13.0; python_version < '3.14'
 Requires-Dist: rich-click>=1.9.9
 Requires-Dist: rtoml>=0.14.0; python_version < '3.14'
@@ -31,21 +31,22 @@ Provides-Extra: dev
 Requires-Dist: bandit>=1.9.4; extra == 'dev'
 Requires-Dist: build>=1.6.1; extra == 'dev'
 Requires-Dist: certifi>=2026.10.23; extra == 'dev'
-Requires-Dist: click>=8.5.0; extra == 'dev'
+Requires-Dist: click>=8.5.1; extra == 'dev'
 Requires-Dist: coverage[toml]>=7.16.2; extra == 'dev'
-Requires-Dist: filelock>=4.2.4; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: filelock>=4.2.10; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: hatchling>=1.33.0; extra == 'dev'
 Requires-Dist: httpx2>=2.14.0; extra == 'dev'
 Requires-Dist: hypothesis<6.169,>=6.168.5; (python_version < '3.11') and extra == 'dev'
-Requires-Dist: hypothesis>=6.170.9; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: hypothesis>=6.170.15; (python_version >= '3.11') and extra == 'dev'
 Requires-Dist: import-linter>=2.15; extra == 'dev'
 Requires-Dist: pip-audit>=2.10.1; extra == 'dev'
 Requires-Dist: pyright[nodejs]>=1.1.414; extra == 'dev'
-Requires-Dist: pytest-asyncio>=1.4.0; extra == 'dev'
+Requires-Dist: pytest-asyncio>=1.4.1.post1; extra == 'dev'
 Requires-Dist: pytest-cov>=7.1.0; extra == 'dev'
 Requires-Dist: pytest-xdist>=3.8.0; extra == 'dev'
-Requires-Dist: pytest>=9.1.1; extra == 'dev'
+Requires-Dist: pytest>=9.2.0; extra == 'dev'
 Requires-Dist: pyyaml>=6.0.3; extra == 'dev'
-Requires-Dist: ruff>=0.17.2; extra == 'dev'
+Requires-Dist: ruff>=0.17.4; extra == 'dev'
 Requires-Dist: textual>=8.2.8; extra == 'dev'
 Requires-Dist: twine>=7.0.0; extra == 'dev'
 Provides-Extra: orjson
@@ -90,11 +91,11 @@ None of these are hard to fix once. They are hard to fix *forever*, because the 
 
 What that buys you:
 
-- **One frozen object.** `read_config(...)` returns a `Config` nothing downstream can mutate, so your program cannot quietly begin to disagree with itself.
+- **One frozen object.** `read_config(...)` returns a `Config` nothing downstream can mutate, so your program cannot quietly begin to disagree with itself. A nested table or list you read comes back as your own copy, and the `Config` itself supports `copy.deepcopy` and `pickle`, so it can be cloned or sent to another process.
 - **Every value carries its origin.** `config.origin("service.timeout")` reports the layer and the path it came from. Debugging stops being a seance.
 - **The paths are already sorted.** Linux (XDG), macOS, and Windows locations are resolved for you, so you never bake someone else's `/etc` into your code.
 - **One name switches the whole environment.** Profiles keep test, staging, and production in separate trees; ask for `profile="production"` and you get production's config, not a hand-merged guess at it.
-- **Secrets sit above the file, not inside it.** Environment variables and `.env` outrank the committed config, which therefore holds shape rather than passwords - and the CLI can redact on the way out.
+- **Secrets sit above the file, not inside it.** Environment variables and `.env` outrank the committed config, which therefore holds shape rather than passwords - and the CLI masks them on the way out unless asked not to (`--no-redact`).
 
 Same engine from either side: `from lib_layered_config import read_config` as a library, or a `lib_layered_config` command that reads, deploys, and scaffolds configuration without a line of Python.
 
@@ -154,7 +155,7 @@ Full reference: **[docs/python-api.md](docs/python-api.md)**
 ## Key Features
 
 - **Deterministic layering** - precedence is always `defaults → app → host → user → dotenv → env`.
-- **Immutable value object** - returned `Config` prevents accidental mutation and exposes dotted-path helpers.
+- **Immutable value object** - returned `Config` prevents accidental mutation, down to nested tables and lists, supports `copy.deepcopy` and `pickle`, and exposes dotted-path helpers.
 - **Provenance tracking** - every key reports the layer and path that produced it.
 - **Cross-platform path discovery** - Linux (XDG), macOS, and Windows layouts with environment overrides for tests.
 - **Configuration profiles** - test, staging, and production live in separate trees; select one by name (`profile="production"`) instead of hand-merging environments.
@@ -263,7 +264,7 @@ Full detail - platform path tables, naming rules, profiles, and validation - is 
 ```python
 from lib_layered_config import read_config
 
-# vendor/app -> macOS + Windows paths; slug -> Linux paths + the MYAPP___ env prefix
+# vendor/app -> macOS + Windows paths; slug -> Linux paths + the CONFIG_KIT___ env prefix
 config = read_config(vendor="Acme", app="ConfigKit", slug="config-kit", profile="production")
 ```
 
@@ -272,7 +273,7 @@ config = read_config(vendor="Acme", app="ConfigKit", slug="config-kit", profile=
 Configuration files are TOML by default (JSON and YAML are also supported). Top-level keys,
 `[section]` tables, nested subtables, and arrays all map onto dotted-path access
 (`config.get("database.pool.size")`) and onto environment-variable overrides
-(`MYAPP___DATABASE__POOL__SIZE`).
+(`MYAPP___DATABASE__POOL__SIZE` for the slug `myapp`).
 
 The full annotated example - every structural feature and how each maps to Python access and
 to env vars - is in **[docs/config-file-structure.md](docs/config-file-structure.md)**.
@@ -305,6 +306,9 @@ Use the optional defaults layer when you want one explicitly-provided file to se
 Important directories (overridable via environment variables):
 
 ### Linux
+Also used, for reading and deploying alike, on every platform without a layout of its own (FreeBSD,
+Solaris, Cygwin and other `sys.platform` values that are neither macOS nor Windows).
+
 - `/etc/xdg/<slug>/config.toml` (XDG system-wide, read first)
 - `/etc/xdg/<slug>/config.d/*.{toml,json,yaml,yml}`
 - `/etc/<slug>/config.toml` (also read, after the XDG files; its values win)
@@ -333,7 +337,7 @@ Important directories (overridable via environment variables):
 - `%APPDATA%\<Vendor>\<App>\config.d\*.{toml,json,yaml,yml}`
 - `.env` search: current directory upwards + `%APPDATA%\<Vendor>\<App>\.env`
 
-Environment overrides: `LIB_LAYERED_CONFIG_ETC`, `LIB_LAYERED_CONFIG_PROGRAMDATA`, `LIB_LAYERED_CONFIG_APPDATA`, `LIB_LAYERED_CONFIG_LOCALAPPDATA`, `LIB_LAYERED_CONFIG_MAC_APP_ROOT`, `LIB_LAYERED_CONFIG_MAC_HOME_ROOT`. Both the runtime readers and the `deploy` helper honour these variables so generated files land in the same directories that `read_config` inspects.
+Environment overrides: `LIB_LAYERED_CONFIG_ETC`, `LIB_LAYERED_CONFIG_PROGRAMDATA`, `LIB_LAYERED_CONFIG_APPDATA`, `LIB_LAYERED_CONFIG_LOCALAPPDATA`, `LIB_LAYERED_CONFIG_MAC_APP_ROOT`, `LIB_LAYERED_CONFIG_MAC_HOME_ROOT`. Both the runtime readers and the `deploy` helper honour these variables so generated files land in the same directories that `read_config` inspects. Each must be an absolute path: an empty or relative value makes a read, and a deploy to that layer, raise `LayerRootNotAbsoluteError` (a `ValidationError`) before anything is read or written, so no layer resolves under the current directory. A deploy to another target still runs: when it reads its permission settings, a layer with no usable root holds none. `$XDG_CONFIG_HOME` follows the XDG Base Directory specification instead: empty or relative, it is ignored and `~/.config` is used.
 
 **Fallback note:** Whenever a path is marked as a fallback, the resolver first consults the documented environment overrides (`LIB_LAYERED_CONFIG_*`, `$XDG_CONFIG_HOME`, `%APPDATA%`, etc.). If those variables are unset or the computed directory does not exist, it switches to the stated fallback location (`~/.config`, `%LOCALAPPDATA%`, ...). This keeps local installs working without additional environment configuration while still allowing operators to steer resolution explicitly.
 
@@ -347,11 +351,12 @@ Any configuration file can have a companion `.d` directory for split configurati
 - `myapp.yaml` → `myapp.d/`
 - `settings.json` → `settings.d/`
 
-This means **all formats share the same `.d` directory** - `config.toml`, `config.yaml`, and `config.json` all use `config.d/`.
+A layer's base file is always TOML (`config.toml`, `hosts/<hostname>.toml`): a `config.yaml` or `config.json` beside it is not read. A layer takes YAML and JSON in its `config.d/`, and a `default_file` may be any of the three formats (`myapp.yaml` loads with `myapp.d/`).
 
 **How it works:**
 1. The loader first loads the base file (e.g., `config.toml`) if present
-2. Then loads all files from the `.d` directory (e.g., `config.d/`) in **lexicographic order**
+2. Then loads all files from the `.d` directory (e.g., `config.d/`) in **lexicographic order** of their
+   exact names, the same on every OS: digits first, then upper case, then lower case (`Z.toml` before `a.toml`)
 3. Only files with supported extensions are loaded: `.toml`, `.json`, `.yaml`, `.yml`
 4. Files are merged in order, so later files override earlier ones
 5. **Both the base file and `.d` directory are optional** - either can exist independently
@@ -487,11 +492,13 @@ Use the Python helpers or CLI equivalents:
 
 ```python
 from pathlib import Path
-from lib_layered_config.examples import deploy_config, generate_examples
+from lib_layered_config import deploy_config, generate_examples
 
 # copy one file into the system/user layers
 # If ./myapp/config.d/ exists, those files are also deployed to each destination's config.d/
-paths = deploy_config("./myapp/config.toml", vendor="Acme", app="ConfigKit", targets=("app", "user"))
+results = deploy_config(
+    "./myapp/config.toml", vendor="Acme", app="ConfigKit", slug="config-kit", targets=("app", "user")
+)
 
 # scaffold an example tree for documentation
 examples = generate_examples(Path("./examples"), slug="config-kit", vendor="Acme", app="ConfigKit")
@@ -581,13 +588,14 @@ pool_size = 50
 ## Provenance & Observability
 
 - Every merged key stores metadata (`layer`, `path`, `key`).
-- Structured logging lives in `lib_layered_config.observability` (trace-aware `log_debug`, `log_info`, `log_warn`, `log_error`).
+- Structured logging lives in `lib_layered_config.observability` (trace-aware `log_debug`, `log_info`, `log_warn`).
 - Use `bind_trace_id("abc123")` to correlate CLI/log events with your own tracing: `read_config*` and
   `deploy_config` tag every event with the bound id and leave the binding in place for your later events.
 
 ### Type Conflict Warnings
 
-When a later layer overwrites a scalar value with a mapping (or vice versa), a warning is emitted:
+When a later layer overwrites a scalar value or a list with a mapping (or the reverse), a warning is emitted.
+The same holds for a list element, such as `MYAPP___DS__0=x` over `ds = [{a = 1}]`:
 
 ```python
 import logging
@@ -600,7 +608,7 @@ logging.basicConfig(level=logging.WARNING)
 # A WARNING log is emitted: "type_conflict" with details about the key, layers, and types involved
 ```
 
-This helps identify configuration mismatches where a key changes from a simple value to a nested structure (or the reverse) across layers.
+This helps identify configuration mismatches where a key or a list element changes from a simple value to a nested structure (or the reverse) across layers.
 
 ## Architecture Overview
 
@@ -632,24 +640,17 @@ Consult [`docs/systemdesign/module_reference.md`](docs/systemdesign/module_refer
 ## Development
 
 ```bash
-pip install "lib_layered_config[dev]"
-make test          # lint + type-check + pytest + coverage (fail-under=90%)
-make build         # build wheel / sdist artifacts
-make run -- --help # run the CLI via the repo entrypoint
+uv sync --all-extras              # or: pip install -e ".[dev]"
+make test                         # the full local gate
+make build                        # build wheel and sdist artifacts
+uv run lib_layered_config --help  # run the CLI from the checkout
 ```
 
-The development extra now targets the latest stable releases of the toolchain
-(pytest 8.4.2, ruff 0.14.0, codecov-cli 11.2.3, etc.), so upgrading your local
-environment before running `make` is recommended.
-
-*Formatting gate:* Ruff formatting runs in check mode during `make test`. Run `ruff format .` (or `pre-commit run --all-files`) before pushing and consider `pre-commit install` to keep local edits aligned.
-
-*Coverage gate:* the maintained test suite must stay ≥90% (see `pyproject.toml`). Add targeted unit tests if you extend functionality.
-
-**Platform notes**
-
-- Windows runners install `pipx` and `uv` automatically in CI; locally ensure `pipx` is on your `PATH` before running `make test` so the wheel verification step succeeds.
-- The journald prerequisite step runs only on Linux; macOS/Windows skips it, so there is no extra setup required on those platforms.
+`make test` formats with `ruff format .` and applies `ruff check --fix .` before it checks, so commit
+first if you want to see what it rewrote; CI only checks. Coverage must stay at 90% or above
+(`[tool.coverage.report] fail_under`). The development tools and their minimum versions are the `dev`
+extra in `pyproject.toml`. [DEVELOPMENT.md](DEVELOPMENT.md) describes every stage of the gate, the
+make targets and the release checklist.
 
 ### Continuous integration
 

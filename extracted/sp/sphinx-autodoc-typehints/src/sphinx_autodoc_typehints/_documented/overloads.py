@@ -5,9 +5,17 @@ from __future__ import annotations
 from inspect import Parameter, Signature, signature
 from typing import TYPE_CHECKING, Final, get_overloads
 
-from .._objects import alias_lookup_names, declared_signature, prefix_of, unwrapped
-from .._render import annotation_state, render_context
-from .._resolve import (
+from .._objects import (  # simplint: ignore[private-import-path]  # init cycle
+    alias_lookup_names,
+    declared_signature,
+    prefix_of,
+    unwrapped,
+)
+from .._render import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    annotation_state,
+    render_context,
+)
+from .._resolve import (  # simplint: ignore[private-import-path]  # root API stays unchanged
     annotation_globals,
     declared_type_params,
     guarded_names,
@@ -23,8 +31,7 @@ if TYPE_CHECKING:
 
     from sphinx.application import Sphinx
 
-    from .._refs import WrittenTypeAlias
-    from .._types import Annotation, Hint, TypeParam
+    from . import Annotation, Hint, TypeParam, WrittenTypeAlias
 
 
 OVERLOADED_KINDS: Final[frozenset[str]] = frozenset({"function", "method", "class", "exception"})
@@ -33,7 +40,7 @@ OVERLOADED_KINDS: Final[frozenset[str]] = frozenset({"function", "method", "clas
 def typed_overloads(
     app: Sphinx,
     name: str,
-    obj: Callable[..., object],
+    obj: Callable[..., object],  # simplint: ignore[callable-ellipsis]  # any documented callable, overloaded or not
     overloads: list[Signature],
     skip: int,
     arguments: dict[TypeParam, Annotation],
@@ -47,7 +54,9 @@ def typed_overloads(
     # typing holds the functions defining the overloads only while its registry does, which clear_overloads empties,
     # and misses those a TYPE_CHECKING block keeps from running, so a count differing from the source gives None each
     if len(functions := get_overloads(obj)) != len(overloads):
-        defining: list[Callable[..., object] | None] = [None] * len(overloads)
+        defining: list[
+            Callable[..., object] | None  # simplint: ignore[callable-ellipsis]  # an overload set of any signature
+        ] = [None] * len(overloads)
     else:
         # a staticmethod or classmethod overload registers the descriptor
         defining = [unwrapped(function) for function in functions]

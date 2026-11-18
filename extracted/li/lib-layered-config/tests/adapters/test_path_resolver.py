@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -21,8 +22,12 @@ from lib_layered_config.adapters.path_resolvers import (
     collect_layer,
 )
 from lib_layered_config.adapters.path_resolvers._dotenv import DotenvPathFinder
-from tests.support import create_layered_sandbox
+from lib_layered_config.adapters.path_resolvers._windows import appdata_root, localappdata_root, program_data_root
+from tests.support import LayeredSandbox, create_layered_sandbox
 from tests.support.os_markers import mac_only, os_agnostic, posix_only, windows_only
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Mapping
 
 
 def _linux_context(tmp_path: Path):
@@ -71,6 +76,55 @@ def test_linux_resolver_host_paths_include_hostname(tmp_path: Path) -> None:
     resolver, _ = _linux_context(tmp_path)
     host_paths = [path.replace("\\", "/") for path in resolver.host()]
     assert host_paths[0].endswith("hosts/test-host.toml")
+
+
+def _linux_host_resolver(sandbox: LayeredSandbox) -> DefaultPathResolver:
+    return DefaultPathResolver(
+        vendor=sandbox.vendor,
+        app=sandbox.app,
+        slug=sandbox.slug,
+        env=sandbox.env,
+        platform="linux",
+        hostname="test-host",
+    )
+
+
+@os_agnostic
+def test_linux_resolver_host_falls_back_to_etc_slug_hosts(tmp_path: Path) -> None:
+    sandbox = create_layered_sandbox(tmp_path, vendor="Acme", app="Demo", slug="demo", platform="linux")
+    etc_host = Path(sandbox.env["LIB_LAYERED_CONFIG_ETC"]) / "demo" / "hosts" / "test-host.toml"
+    etc_host.parent.mkdir(parents=True)
+    etc_host.write_text("[service]\nvalue = 1\n", encoding="utf-8")
+
+    assert [Path(path) for path in _linux_host_resolver(sandbox).host()] == [etc_host]
+
+
+@os_agnostic
+def test_linux_resolver_host_yields_xdg_before_etc_when_both_exist(tmp_path: Path) -> None:
+    sandbox = create_layered_sandbox(tmp_path, vendor="Acme", app="Demo", slug="demo", platform="linux")
+    xdg_host = sandbox.write("host", "test-host.toml", content="[service]\nvalue = 1\n")
+    etc_host = Path(sandbox.env["LIB_LAYERED_CONFIG_ETC"]) / "demo" / "hosts" / "test-host.toml"
+    etc_host.parent.mkdir(parents=True)
+    etc_host.write_text("[service]\nvalue = 2\n", encoding="utf-8")
+
+    assert [Path(path) for path in _linux_host_resolver(sandbox).host()] == [xdg_host, etc_host]
+
+
+@os_agnostic
+def test_resolver_context_carries_the_validated_identity(tmp_path: Path) -> None:
+    resolver = DefaultPathResolver(
+        vendor="Acme", app="Demo", slug="demo", platform="darwin", hostname="mac-host", profile="staging"
+    )
+
+    context = resolver.context
+
+    assert (context.vendor, context.app, context.slug, context.host_file_name, context.profile) == (
+        "Acme",
+        "Demo",
+        "demo",
+        "mac-host.toml",
+        "staging",
+    )
 
 
 @posix_only
@@ -188,7 +242,7 @@ class _RepeatingDirectory:
         return self._path / child
 
     @property
-    def parents(self):  # type: ignore[override]
+    def parents(self) -> list[_RepeatingDirectory]:
         return [self]
 
 
@@ -241,7 +295,7 @@ def _make_context(
         slug="config-kit",
         cwd=sandbox.start_dir,
         env=env,
-        hostname=hostname,
+        host_file_name=f"{hostname}.toml",
     )
     return ctx, sandbox.roots
 
@@ -270,10 +324,22 @@ def test_windows_resolver_user_paths_cover_roaming_appdata(tmp_path: Path) -> No
 
 
 @os_agnostic
-def test_platform_paths_returns_empty_for_unknown_platform(tmp_path: Path) -> None:
-    resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform="plan9")
-    assert resolver.strategy is None
-    assert (list(resolver.app()), list(resolver.host()), list(resolver.user())) == ([], [], [])
+def test_an_unknown_platform_offers_the_linux_paths(tmp_path: Path) -> None:
+    sandbox = create_layered_sandbox(tmp_path, vendor="Acme", app="Demo", slug="demo", platform="linux")
+    for layer in ("app", "user"):
+        sandbox.write(layer, "config.toml", content="a = 1\n")
+    sandbox.write("host", "penguin.toml", content="a = 1\n")
+
+    def paths(platform: str) -> tuple[list[str], list[str], list[str]]:
+        resolver = DefaultPathResolver(
+            vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, env=sandbox.env, platform=platform, hostname="penguin"
+        )
+        return list(resolver.app()), list(resolver.host()), list(resolver.user())
+
+    unknown = paths("plan9")
+
+    assert unknown == paths("linux")
+    assert all(unknown)
 
 
 @os_agnostic
@@ -285,22 +351,28 @@ def test_platform_paths_returns_empty_for_unknown_platform(tmp_path: Path) -> No
         ("darwin", MacOSStrategy),
         ("win32", WindowsStrategy),
         ("win64", WindowsStrategy),
-        ("cygwin", None),
-        ("freebsd14", None),
+        ("cygwin", LinuxStrategy),
+        ("freebsd14", LinuxStrategy),
+        ("freebsd", LinuxStrategy),
+        ("macos", MacOSStrategy),
+        ("sunos5", LinuxStrategy),
     ],
 )
 def test_resolver_selects_the_strategy_of_the_platform_family(
-    tmp_path: Path, platform: str, expected: type[object] | None
+    tmp_path: Path, platform: str, expected: type[object]
 ) -> None:
     resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform=platform)
-    selected = None if resolver.strategy is None else type(resolver.strategy)
-    assert selected is expected
+    assert type(resolver.strategy) is expected
 
 
 @os_agnostic
-def test_platform_dotenv_path_returns_none_for_unknown_platform(tmp_path: Path) -> None:
-    resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform="plan9")
-    assert resolver._dotenv_finder._platform_path() is None
+def test_an_unknown_platform_takes_the_linux_dotenv_fallback(tmp_path: Path) -> None:
+    def fallback(platform: str) -> Path | None:
+        resolver = DefaultPathResolver(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, platform=platform)
+        return resolver._dotenv_finder._platform_path()  # pyright: ignore[reportPrivateUsage] - no public route reaches the finder's platform fallback alone
+
+    assert fallback("plan9") == fallback("linux")
+    assert fallback("plan9") is not None
 
 
 @windows_only
@@ -314,7 +386,7 @@ def test_windows_user_paths_fall_back_to_localappdata(tmp_path: Path) -> None:
     local_base.mkdir(parents=True, exist_ok=True)
     target = local_base / "config.toml"
     target.write_text("[service]\nvalue=1\n", encoding="utf-8")
-    ctx = PlatformContext(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, env=env, hostname="HOST")
+    ctx = PlatformContext(vendor="Acme", app="Demo", slug="demo", cwd=tmp_path, env=env, host_file_name="HOST.toml")
     strategy = WindowsStrategy(ctx)
     user_paths = list(strategy.user_paths())
     assert str(target) in user_paths
@@ -446,7 +518,7 @@ def test_program_data_root_honours_environment_override(tmp_path: Path) -> None:
         env_override={"LIB_LAYERED_CONFIG_PROGRAMDATA": str(override)},
     )
     strategy = WindowsStrategy(ctx)
-    assert strategy._program_data_root() == override
+    assert strategy._program_data_root() == override  # pyright: ignore[reportPrivateUsage] - unit test of the ProgramData root override
 
 
 @os_agnostic
@@ -458,7 +530,7 @@ def test_appdata_root_prefers_explicit_override(tmp_path: Path) -> None:
         env_override={"LIB_LAYERED_CONFIG_APPDATA": str(override)},
     )
     strategy = WindowsStrategy(ctx)
-    assert strategy._appdata_root() == override
+    assert strategy._appdata_root() == override  # pyright: ignore[reportPrivateUsage] - unit test of the APPDATA root override
 
 
 @os_agnostic
@@ -470,7 +542,7 @@ def test_localappdata_root_prefers_explicit_override(tmp_path: Path) -> None:
         env_override={"LIB_LAYERED_CONFIG_LOCALAPPDATA": str(override)},
     )
     strategy = WindowsStrategy(ctx)
-    assert strategy._localappdata_root() == override
+    assert strategy._localappdata_root() == override  # pyright: ignore[reportPrivateUsage] - unit test of the LOCALAPPDATA root override
 
 
 @os_agnostic
@@ -486,6 +558,7 @@ def test_platform_dotenv_path_returns_mac_candidate(tmp_path: Path) -> None:
     ctx, _ = _make_context(tmp_path, platform="darwin")
     strategy = MacOSStrategy(ctx)
     expected = strategy.dotenv_path()
+    assert expected is not None
     assert expected.as_posix().endswith("Application Support/Acme/ConfigKit/.env")
 
 
@@ -494,6 +567,7 @@ def test_platform_dotenv_path_returns_windows_candidate(tmp_path: Path) -> None:
     ctx, _ = _make_context(tmp_path, platform="win32")
     strategy = WindowsStrategy(ctx)
     expected = strategy.dotenv_path()
+    assert expected is not None
     assert expected.as_posix().endswith("AppData/Roaming/Acme/ConfigKit/.env")
 
 
@@ -513,8 +587,8 @@ def test_project_dotenv_paths_skip_duplicate_candidates(tmp_path: Path) -> None:
     strategy = LinuxStrategy(ctx)
     finder = DotenvPathFinder(tmp_path, strategy)
     duplicate = _RepeatingDirectory(tmp_path)
-    finder.cwd = duplicate  # type: ignore[assignment]
-    paths = list(finder._project_paths())
+    finder.cwd = duplicate  # pyright: ignore[reportAttributeAccessIssue] - a Path stand-in whose parents repeat; no real Path does
+    paths = list(finder._project_paths())  # pyright: ignore[reportPrivateUsage] - unit test of the upward walk's duplicate guard
     assert paths == []
 
 
@@ -581,7 +655,7 @@ def test_windows_unc_app_paths_resolve_from_network_share(tmp_path: Path) -> Non
     )
     strategy = WindowsStrategy(ctx)
     # Verify the path construction includes the UNC root
-    program_data = strategy._program_data_root()
+    program_data = strategy._program_data_root()  # pyright: ignore[reportPrivateUsage] - unit test of the ProgramData root with a UNC override
     assert program_data == Path(unc_root)
     assert program_data.as_posix().startswith("//server/share")
     # No app_paths() call: on Windows it stats //server/share, a live SMB lookup of a host that does
@@ -599,7 +673,7 @@ def test_windows_unc_user_paths_resolve_from_network_share(tmp_path: Path) -> No
         env_override={"LIB_LAYERED_CONFIG_APPDATA": unc_root},
     )
     strategy = WindowsStrategy(ctx)
-    appdata = strategy._appdata_root()
+    appdata = strategy._appdata_root()  # pyright: ignore[reportPrivateUsage] - unit test of the APPDATA root with a UNC override
     assert appdata == Path(unc_root)
     assert appdata.as_posix().startswith("//fileserver/users")
 
@@ -614,7 +688,7 @@ def test_windows_unc_localappdata_resolves_from_network_share(tmp_path: Path) ->
         env_override={"LIB_LAYERED_CONFIG_LOCALAPPDATA": unc_root},
     )
     strategy = WindowsStrategy(ctx)
-    localappdata = strategy._localappdata_root()
+    localappdata = strategy._localappdata_root()  # pyright: ignore[reportPrivateUsage] - unit test of the LOCALAPPDATA root with a UNC override
     assert localappdata == Path(unc_root)
     assert localappdata.as_posix().startswith("//nas/local")
 
@@ -670,7 +744,7 @@ def _make_context_with_profile(
         slug="config-kit",
         cwd=sandbox.start_dir,
         env=sandbox.env,
-        hostname=hostname,
+        host_file_name=f"{hostname}.toml",
         profile=profile,
     )
     return ctx, sandbox.roots
@@ -856,7 +930,7 @@ def test_resolver_with_profile_creates_correct_context(tmp_path: Path) -> None:
         platform="linux",
     )
     assert resolver.profile == "test"
-    assert resolver._ctx.profile == "test"
+    assert resolver.context.profile == "test"
 
 
 @os_agnostic
@@ -869,4 +943,51 @@ def test_resolver_without_profile_has_none_context(tmp_path: Path) -> None:
         platform="linux",
     )
     assert resolver.profile is None
-    assert resolver._ctx.profile is None
+    assert resolver.context.profile is None
+
+
+def _bare_windows_context(tmp_path: Path, env: dict[str, str]) -> PlatformContext:
+    """A Windows context whose environment holds only *env*: no LIB_LAYERED_CONFIG_* override."""
+    return PlatformContext(
+        vendor="Acme", app="ConfigKit", slug="config-kit", cwd=tmp_path, env=env, host_file_name="example-host.toml"
+    )
+
+
+@os_agnostic
+@pytest.mark.parametrize("name", ["ProgramData", "PROGRAMDATA", "programdata"])
+def test_windows_app_paths_find_programdata_whatever_its_case(tmp_path: Path, name: str) -> None:
+    # On Windows a dict copy of os.environ holds the variable as PROGRAMDATA (measured), and the
+    # resolver works on such a copy, so a case-sensitive lookup for "ProgramData" never matched.
+    root = tmp_path / "Data"
+    target = root / "Acme" / "ConfigKit" / "config.toml"
+    target.parent.mkdir(parents=True)
+    target.write_text("[app]\nvalue=1\n", encoding="utf-8")
+
+    strategy = WindowsStrategy(_bare_windows_context(tmp_path, {name: str(root)}))
+
+    assert list(strategy.app_paths()) == [str(target)]
+
+
+@os_agnostic
+@pytest.mark.parametrize(
+    ("name", "root_of"),
+    [("appdata", appdata_root), ("localappdata", localappdata_root), ("Programdata", program_data_root)],
+)
+def test_each_windows_root_matches_its_variable_case_insensitively(
+    tmp_path: Path, name: str, root_of: Callable[[Mapping[str, str]], Path]
+) -> None:
+    assert root_of({name: str(tmp_path)}) == tmp_path
+
+
+@os_agnostic
+def test_a_windows_root_prefers_the_exact_spelling_and_the_override(tmp_path: Path) -> None:
+    exact, other, override = tmp_path / "exact", tmp_path / "other", tmp_path / "override"
+
+    assert program_data_root({"PROGRAMDATA": str(other), "ProgramData": str(exact)}) == exact
+    assert program_data_root({"ProgramData": str(exact), "LIB_LAYERED_CONFIG_PROGRAMDATA": str(override)}) == override
+
+
+@windows_only
+def test_the_programdata_fallback_is_c_programdata_on_windows() -> None:
+    # Off Windows the same fallback is relative and refused (test_windows_roots_absolute.py).
+    assert program_data_root({}) == Path(r"C:\ProgramData")

@@ -7,6 +7,8 @@ protocol by scanning for `.env` files using the search discipline captured in
 Contents:
     - ``DefaultDotEnvLoader``: public loader that composes the helpers.
     - ``_iter_candidates`` / ``_build_search_list``: gather candidate paths.
+    - ``_foreign_owner`` / ``_owner_is_trusted``: pass over a searched file another user owns.
+    - ``_link_count_if_shared``: pass over a searched file with more than one hard link.
     - ``_parse_dotenv``: strict parser converting dotenv files into nested dicts. An unquoted
       value is converted by ``.._value_coercion.coerce_value``, exactly as the environment layer
       converts it; a quoted value is always the literal text.
@@ -20,15 +22,17 @@ semantics as the environment adapter.
 from __future__ import annotations
 
 import io
+import os
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, NamedTuple
 
 from ...domain.errors import InvalidFormatError
 from ...domain.redaction import NotSensitiveKeys
-from ...observability import log_debug
-from .._nested_keys import assign_nested
+from ...observability import log_debug, log_warn
+from .._nested_keys import NestedEntry, build_nested
 from .._path_probe import PathKind, checked_kind, config_path_unreadable, current_directory, probe_path
-from .._text_decoding import decode_utf8
+from .._text_decoding import UTF8_BOM_CHAR, decode_utf8
 from .._value_coercion import coerce_value
 from ..file_loaders.structured import directory_not_config_file, read_capped_bytes
 
@@ -100,6 +104,14 @@ class DefaultDotEnvLoader:
             # the same answer on every Python.
             if probe_path(candidate).kind is not PathKind.FILE:
                 continue
+            foreign_owner = _foreign_owner(candidate)
+            if foreign_owner is not None:
+                _log_dotenv_skipped(candidate, foreign_owner)
+                continue
+            link_count = _link_count_if_shared(candidate)
+            if link_count is not None:
+                _log_dotenv_skipped_hard_link(candidate, link_count)
+                continue
             self.last_loaded_path = str(candidate)
             data = _parse_dotenv(candidate, not_sensitive=self._not_sensitive)
             _log_dotenv_loaded(candidate, data)
@@ -127,8 +139,22 @@ class DefaultDotEnvLoader:
 
 
 def _build_search_list(start_dir: str | None, extras: Iterable[Path]) -> list[Path]:
-    """Combine upward-search candidates with platform-specific extras."""
-    return [*list(_iter_candidates(start_dir)), *extras]
+    """Combine upward-search candidates with the extras, each path once, in first-seen order.
+
+    The extras repeat the walk: the resolver's search list walks upward from the same start
+    directory, and its per-user ``.env`` is the walk's own first candidate when ``start_dir`` is the
+    user config directory. Without the dedupe a skipped file is owner-checked and reported once per
+    copy. Paths are compared as absolute, normalised text, never resolved: resolving would follow a
+    symlink, and the owner check judges the link and its target separately.
+
+    Examples:
+        >>> [p.as_posix() for p in _build_search_list("/opt/app", [Path("/opt/app/.env"), Path("/srv/.env")])]
+        ['/opt/app/.env', '/opt/.env', '/.env', '/srv/.env']
+    """
+    unique: dict[str, Path] = {}
+    for candidate in [*_iter_candidates(start_dir), *extras]:
+        unique.setdefault(os.path.normpath(candidate.absolute()), candidate)
+    return list(unique.values())
 
 
 def _iter_candidates(start_dir: str | None) -> Iterable[Path]:
@@ -144,6 +170,79 @@ def _iter_candidates(start_dir: str | None) -> Iterable[Path]:
         yield directory / ".env"
 
 
+def _owner_is_trusted(owner_uid: int, *, euid: int) -> bool:
+    """Return True when a file owned by *owner_uid* may be loaded by a process running as *euid*.
+
+    Only the process's own user and root qualify: without root, nobody can create a file another
+    user owns, so a ``.env`` planted in a shared directory such as ``/tmp`` always fails this.
+
+    Examples:
+        >>> _owner_is_trusted(1000, euid=1000), _owner_is_trusted(0, euid=1000), _owner_is_trusted(1001, euid=1000)
+        (True, True, False)
+    """
+    return owner_uid in {euid, 0}
+
+
+def _foreign_owner(path: Path) -> int | None:
+    """Return the owner uid of a searched *path* when neither the current user nor root owns it.
+
+    The check is the trust boundary of the upward search: every parent directory up to ``/`` is
+    searched, and a ``.env`` another user put in one of them (``/tmp/.env``) would otherwise outrank
+    the app, host and user files. Only ownership is checked, not the mode: files created under the
+    usual ``umask 0002`` are group-writable and many working trees are world-writable, and a mode
+    rule skipped those legitimate files too (user decision 2026-11-03). Windows has no POSIX owner
+    to compare, so nothing is skipped there.
+
+    A symlink is judged by its own owner AND its target's: judged by the target alone, another
+    user could plant a link in a directory they control pointing at any file the reader owns, and
+    the search would read that file as the ``.env``.
+
+    Returns:
+        The first untrusted owner's uid (the link's, then the target's), or ``None`` when the file
+        may be loaded. A path that cannot be stat'ed here is ``None`` too: reading it then raises
+        the usual unreadable-file error.
+    """
+    if sys.platform == "win32":
+        return None
+    try:
+        owners = (path.lstat().st_uid, path.stat().st_uid)
+    except OSError:
+        return None
+    euid = os.geteuid()
+    return next((owner for owner in owners if not _owner_is_trusted(owner, euid=euid)), None)
+
+
+def _log_dotenv_skipped(path: Path, owner_uid: int) -> None:
+    """Warn that a searched dotenv file was passed over because another user owns it."""
+    log_warn("dotenv_skipped_foreign_owner", layer=DOTENV_LAYER, path=str(path), owner_uid=owner_uid)
+
+
+def _link_count_if_shared(path: Path) -> int | None:
+    """Return the hard-link count of a searched *path* when it is above one, else ``None``.
+
+    A hard link keeps its file's owner, so the owner check cannot see one: another user who can write
+    some file the reader owns (a group- or world-writable one, on the same filesystem) can link it as
+    ``.env`` into a directory on the search path and then write settings into it. The second link is
+    the one trace that leaves. A legitimate ``.env`` with two links (a ``cp -al`` backup tree on the
+    search path) is skipped too and must be named with ``dotenv_path`` (user decision 2026-11-17,
+    rs-R4-F1). The count is read through a symlink, from the file the search would read.
+
+    Returns:
+        The link count when it is above one, or ``None`` when the file may be loaded. A path that
+        cannot be stat'ed here is ``None`` too: reading it then raises the usual unreadable-file error.
+    """
+    try:
+        count = path.stat().st_nlink
+    except OSError:
+        return None
+    return count if count > 1 else None
+
+
+def _log_dotenv_skipped_hard_link(path: Path, link_count: int) -> None:
+    """Warn that a searched dotenv file was passed over because it has more than one hard link."""
+    log_warn("dotenv_skipped_hard_link", layer=DOTENV_LAYER, path=str(path), link_count=link_count)
+
+
 def _parse_dotenv(path: Path, *, not_sensitive: NotSensitiveKeys = NotSensitiveKeys.NONE) -> Mapping[str, object]:
     """Parse dotenv file into nested dict.
 
@@ -155,23 +254,26 @@ def _parse_dotenv(path: Path, *, not_sensitive: NotSensitiveKeys = NotSensitiveK
         InvalidFormatError: On malformed lines or bytes, or when the file is larger than
             :data:`~lib_layered_config.adapters.file_loaders.structured.MAX_CONFIG_FILE_BYTES`
             (a regular file is sized before it is read, a FIFO or device is read to one byte past
-            the cap; the same cap and refusal shape structured configuration files use), or when
-            it cannot be read.
+            the cap; the same cap and refusal shape structured configuration files use), when
+            it cannot be read, or when one line sets a value and another a key below it
+            (``DB`` and ``DB__PORT``), in either order.
     """
-    result: dict[str, object] = {}
+    entries: list[NestedEntry] = []
     try:
         raw = read_capped_bytes(path)
     except OSError as error:
         raise config_path_unreadable(path, error) from error
-    text = decode_utf8(raw, path=path)
+    # A leading BOM (Notepad's "UTF-8 with BOM", PowerShell 5 Out-File) would otherwise become part
+    # of the first key's name, which no lookup can reach.
+    text = decode_utf8(raw, path=path).removeprefix(UTF8_BOM_CHAR)
     # StringIO with newline=None keeps the universal-newline line splitting the text-mode open() had.
     for line_number, raw_line in enumerate(io.StringIO(text, newline=None), start=1):
         entry = _split_line(raw_line, line_number, path)
         if entry is None:
             continue
         value = _dotenv_value(entry.key, entry.raw_value, not_sensitive=not_sensitive)
-        assign_nested(result, entry.key, value, error_cls=InvalidFormatError)
-    return result
+        entries.append(NestedEntry(entry.key, value, f"{entry.key} (line {line_number})"))
+    return build_nested(entries, error_cls=InvalidFormatError, where=f"{path}: ")
 
 
 def _is_ignorable(line: str) -> bool:
@@ -190,7 +292,7 @@ def _split_line(raw_line: str, line_number: int, path: Path) -> _DotenvEntry | N
     """Return a dotenv line's key and raw value, or None for a blank or comment line.
 
     Raises:
-        InvalidFormatError: The line has no ``=``.
+        InvalidFormatError: The line has no ``=``, or its key or value holds a NUL.
     """
     line = raw_line.strip()
     if _is_ignorable(line):
@@ -199,6 +301,10 @@ def _split_line(raw_line: str, line_number: int, path: Path) -> _DotenvEntry | N
         _log_dotenv_error(path, line_number)
         raise InvalidFormatError(f"Malformed line {line_number} in {path}")
     key, value = line.split(_KEY_VALUE_DELIMITER, 1)
+    if "\x00" in line:
+        # tomllib refuses a raw NUL in a string too; the message leaves the value out.
+        _log_dotenv_error(path, line_number)
+        raise InvalidFormatError(f"NUL character in the key or value of line {line_number} in {path}")
     return _DotenvEntry(key=key.strip(), raw_value=value.strip())
 
 

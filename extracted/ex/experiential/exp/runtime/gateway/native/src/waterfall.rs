@@ -32,7 +32,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::encode::compact_json;
-use crate::errors::{Failure, FailureClass, PublicError};
+use crate::errors::{Failure, FailureClass, PublicError, RefusalReason};
 use crate::events::{Event, Usage};
 use crate::metrics::METRICS;
 use crate::relay::{collection_public_error, remaining, UpstreamRelay};
@@ -263,6 +263,18 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
     // A provider context-window rejection may advance the ladder once per
     // request; a second one is the request's real answer.
     let mut context_window_failover_spent = false;
+    // A provider content-filter refusal may advance the ladder once per
+    // request, to a rung of another provider; a second one is the answer.
+    let mut content_filter_failover_spent = false;
+    // A promotion is spent only when it actually moved the request onto an
+    // unrestricted rung; a `failover_only_on` rung's own opt-in does not.
+    let mut content_filter_promotion_pending = false;
+    // A malformed streamed tool call nothing has shown the caller may be
+    // retried once per request (a sibling first, else the same rung): the
+    // model's sampling, not the request, produced it.
+    let mut malformed_tool_call_retry_spent = false;
+    // Per depth, whether its dials now carry the resample's own key.
+    let mut resampled: Vec<bool> = vec![false; ctx.route.len()];
     // Once a buffered answer broke mid-body, the caller's first byte is no
     // longer a pre-commit matter: the shared pre-first-byte budget (often
     // spent by then) stops bounding the restart, and the request deadline
@@ -315,6 +327,8 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
                 "header_timeout": failure.header_timeout.map(|phase| phase.as_str()),
                 "context_window_rejected": failure.context_window_rejected,
                 "context_window_limit_tokens": failure.context_window_limit_tokens,
+                "provider_content_filter": failure.provider_content_filter,
+                "malformed_tool_call": failure.malformed_tool_call,
             }))),
         }));
         let started_text = match ctx.bridge.call("start_attempt", argument).await {
@@ -375,6 +389,9 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
                 .await;
             return Won::Failed(PublicError::internal());
         };
+        if std::mem::take(&mut content_filter_promotion_pending) {
+            content_filter_failover_spent = wire.failover_only_on.is_none();
+        }
         if !fallback_rules::dial_admitted(wire, current_depth, depth, last_failure.as_ref()) {
             // The control plane reserved a failover-only rung outside its
             // rules (a first dial, or a successor to a failure its set does
@@ -412,6 +429,46 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
         // A rung a tool-search round rebuilt dials its rebuilt wire; the
         // route's own entry still answers every policy question above.
         let dial_wire = search_wires[depth].as_ref().unwrap_or(wire);
+        // A resample after a malformed tool call is a new provider intent: a
+        // wire that deduplicates the stable key would replay the bad answer.
+        // The key then stays for every later safe retry of that intent.
+        resampled[depth] |= current_depth == Some(depth)
+            && last_failure.as_ref().is_some_and(|f| f.malformed_tool_call);
+        let resample_wire = resampled[depth].then(|| DeploymentWire {
+            idempotency_key: format!("{}.resample", dial_wire.idempotency_key),
+            ..dial_wire.clone()
+        });
+        let dial_wire = resample_wire.as_ref().unwrap_or(dial_wire);
+        // Whether a timeout of this dial would leave the ladder anywhere to
+        // go; when it would not, the dial waits out the request's budget
+        // rather than its own allowance (`run_attempt`).
+        let sole_rung = !successor_possible(
+            ctx.policy,
+            ctx.route,
+            ctx.deadline,
+            total_attempts,
+            counts[depth],
+            depth,
+            &physical_counts,
+            &crate::relay::first_byte_timeout_failure(),
+            false,
+        );
+        // Whether a provider content-filter refusal on this dial may still
+        // advance: once per request, to an untried rung of another provider.
+        let content_filter_failover = !content_filter_failover_spent
+            && fallback_rules::content_filter_successor(ctx.route, depth, &physical_counts);
+        // Whether some rung may take that refusal at all: the one-shot gate,
+        // a `failover_only_on` rung that names it (its own opt-in), or the
+        // alias's refusal failover. While one may, the refusal waits
+        // uncommitted for the ladder.
+        let filter_refusal_successor = content_filter_failover
+            || fallback_rules::successor_available(
+                ctx.route,
+                depth,
+                &physical_counts,
+                &crate::content_filter::mark(Failure::refusal(RefusalReason::ContentPolicy)),
+                ctx.policy.refusal_failover,
+            );
         let mut end = run_attempt(
             ctx,
             guard,
@@ -420,13 +477,18 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
             &mut repaired[depth],
             repair_redial,
             &tool_search_rounds,
+            sole_rung,
+            filter_refusal_successor,
         )
         .await;
         // A buffered surface sends the caller nothing before the terminal, so
         // a connection broken mid-body there is still the ladder's to take.
         if ctx.buffered.get(depth).copied().unwrap_or(false) {
             if let AttemptEnd::Committed(committed) = &mut end {
-                if let Some(restart) = buffered::drain(ctx, guard, committed, dial_wire).await {
+                if let Some(restart) =
+                    buffered::drain(ctx, guard, committed, dial_wire, filter_refusal_successor)
+                        .await
+                {
                     end = restart;
                     restarted_after_commit = true;
                 }
@@ -565,6 +627,39 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
                     failure.failover_eligible &= !context_window_failover_spent;
                     context_window_failover_spent = true;
                 }
+                // The provider's own filter refused content nothing has shown
+                // the caller yet: another provider serving the same model may
+                // apply none, so the ladder takes it once (the cache miss is
+                // the price), never to a rung of the same provider. A
+                // `failover_only_on` rung naming the refusal keeps its own
+                // operator opt-in, independent of this one-shot gate.
+                if failure.provider_content_filter
+                    && !failure.failover_eligible
+                    && content_filter_failover
+                {
+                    failure.failover_eligible = true;
+                    content_filter_promotion_pending = true;
+                }
+                // A malformed tool call reaches the ladder only before the
+                // caller saw it (`waterfall/attempt.rs` holds a turn's tool
+                // calls uncommitted until they validate; a buffered surface
+                // drains its attempt). The first one is retried: an untried
+                // sibling when the control plane can claim one, else one
+                // redial of this rung, whose next sample may well be valid.
+                // The answer has been generating, so the pre-first-byte budget
+                // no longer bounds the retry; the request deadline does. A
+                // second one is the request's answer.
+                if failure.malformed_tool_call {
+                    if malformed_tool_call_retry_spent {
+                        failure.failover_eligible = false;
+                        failure.retryable_same_deployment = false;
+                    } else {
+                        malformed_tool_call_retry_spent = true;
+                        failure.failover_eligible = true;
+                        failure.retryable_same_deployment = true;
+                        restarted_after_commit = true;
+                    }
+                }
                 track_retry_after(&mut largest_retry_after, &failure);
                 let boundary = failure.clone().boundary();
                 // A pre-commit throttle on a rung worth waiting for is
@@ -599,7 +694,9 @@ pub async fn acquire_attempt(request_ctx: &WaterfallContext<'_>, guard: &mut Att
                         .min(8)
                         .saturating_sub(total_attempts),
                 );
+                // A resample needs no backoff: nothing is overloaded.
                 let retry_wait = if failure.retryable_same_deployment
+                    && !failure.malformed_tool_call
                     && fits
                     && !reserved
                     && counts[depth] < ctx.policy.maximum_same_deployment_attempts
@@ -772,7 +869,11 @@ mod search_round;
 #[cfg(test)]
 mod buffered_ladder_tests;
 #[cfg(test)]
+mod content_filter_ladder_tests;
+#[cfg(test)]
 mod ladder_tests;
+#[cfg(test)]
+mod malformed_tool_ladder_tests;
 #[cfg(test)]
 mod progress_tests;
 #[cfg(test)]

@@ -170,9 +170,12 @@ class RequestHeadersMixin:
                 ).hexdigest()
                 headers["X-Signature"] = f"sha256={sig}"
         else:
-            # /v1 accepts a user PAT (probe_pat_) OR a read-only service token (probe_svc_);
-            # the backend dispatches on the prefix. A Reader carries only the service token.
-            bearer = self.settings.token or self.settings.service_token
+            # /v1 accepts a user PAT (probe_pat_) OR a team API key (probe_svc_); the backend dispatches
+            # on the prefix. `resolve()` already dropped a stored login a more explicit key outranks (D13).
+            conflict = getattr(self.settings, "credential_conflict", None)
+            if conflict:
+                raise errors.AuthError(conflict)
+            bearer = self.settings.get_api_bearer()
             if not bearer:
                 if os.environ.get("PROBE_CONFIG_PATH") == DAEMON_SHELL_CONFIG:
                     raise errors.AuthError(
@@ -208,7 +211,7 @@ class RequestHeadersMixin:
             with _workspace_limit.without_limit():
                 return self.request("GET", "/v1/workspaces", idempotent=True).json()
 
-        bearer = self.settings.token or self.settings.service_token
+        bearer = self.settings.get_api_bearer()
         ident = _workspace_limit.resolve_id(
             limit, base_url=self.settings.base_url, list_workspaces=listed,
             account=_workspace_limit.account_key(bearer),

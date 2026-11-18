@@ -3,6 +3,7 @@ from __future__ import annotations
 import itertools
 import random
 import re
+import string
 from functools import partial
 from itertools import product
 from types import MappingProxyType
@@ -380,7 +381,30 @@ def test_url_join_preprocesses_operands(base: str, reference: str, expected: str
         pytest.param("http://a/b/c", "//h/p", "http://h/p", id="two-slashes"),
         pytest.param("http://a/b/c", "///", "http://a/", id="no-host"),
         pytest.param("http://a/b/c", "../g", "http://a/g", id="relative-path"),
-        pytest.param("http://a/b/c", "ftp:///h/p", "ftp:///h/p", id="foreign-scheme-verbatim"),
+        pytest.param("http://a/b/c", "ftp:///h/p", "ftp://h/p", id="foreign-special-scheme"),
+        pytest.param("http://a/b/c", "ftp:h/p", "ftp://h/p", id="foreign-special-no-slash"),
+        pytest.param("http://a/b/c", "ftp:/h/p", "ftp://h/p", id="foreign-special-one-slash"),
+        pytest.param("http://a/b/c", "ftp:\\h/p", "ftp://h/p", id="foreign-special-one-backslash"),
+        pytest.param("http://a/b/c", "ftp:h\\p", "ftp://h/p", id="foreign-special-backslash-path"),
+        pytest.param("http://a/b/c", "ftp:\\\\h/p", "ftp://h/p", id="foreign-special-backslashes"),
+        pytest.param("http://a/b/c", "ftp:/", "ftp:/", id="foreign-special-one-slash-no-host"),
+        pytest.param("https://a/b/c", "https://h/p\\q", "https://h/p/q", id="same-scheme-backslash-path"),
+        pytest.param("https://a/b/c", "x\\y", "https://a/b/x/y", id="relative-backslash-path"),
+        pytest.param("https://a/b/c", "\\x\\y", "https://a/x/y", id="rooted-backslash-path"),
+        pytest.param("https://a/b/c", "https:h\\p", "https://a/b/h/p", id="same-scheme-relative-backslash"),
+        pytest.param("https://a/b/c", "x/%2e/y", "https://a/b/x/y", id="relative-encoded-dot"),
+        pytest.param("https://a/b/c", "ftp:h/a/../x", "ftp://h/x", id="foreign-special-dot-segments"),
+        pytest.param("https://a/b/c", "ftp:h/%2E%2e/x", "ftp://h/x", id="foreign-special-encoded-dot-segments"),
+        pytest.param("https://a/b/c", "ftp:h/a/..", "ftp://h/", id="foreign-special-dot-to-root"),
+        pytest.param("http://a/b/c", "WSS://h/p", "wss://h/p", id="foreign-special-uppercase-scheme"),
+        pytest.param("http://a/b/c", "ftp://\\h/p", "ftp://h/p", id="foreign-special-backslash-authority"),
+        pytest.param("http://a/b/c", "ftp://?q", "ftp://?q", id="foreign-special-no-host-before-query"),
+        pytest.param("http://a/b/c", "ftp://#f", "ftp://#f", id="foreign-special-no-host-before-fragment"),
+        pytest.param("http://a/b/c", "WSS:////h/p?q#f", "wss://h/p?q#f", id="foreign-special-uppercase-four-slashes"),
+        pytest.param("http://a/b/c", "ftp:///", "ftp:///", id="foreign-special-no-host"),
+        pytest.param("http://a/b/c", "sftp:///h/p", "sftp:///h/p", id="foreign-non-special-verbatim"),
+        pytest.param("http://a/b/c", "file:///h/p", "file:///h/p", id="foreign-file-verbatim"),
+        pytest.param("foo://a/b/c", "ftp:///h/p", "ftp://h/p", id="non-special-base-foreign-special"),
         pytest.param("file:///a/b", "///c/d", "file:///c/d", id="file-base"),
         pytest.param("//a/b", "///c/d", "//a/c/d", id="scheme-less-base"),
         pytest.param("", "///h/p", "///h/p", id="empty-base"),
@@ -390,9 +414,119 @@ def test_url_join_link_skips_extra_special_authority_slashes(base: str, referenc
     assert _url_join_link(base, reference) == expected
 
 
+@pytest.mark.parametrize(
+    ("base", "reference", "expected"),
+    [
+        pytest.param("http:opaque", "/x", "http://opaque/x", id="special-opaque-base-reads-host"),
+        pytest.param("http:///x", "y", "http://x/y", id="special-empty-authority-base-reads-host"),
+        pytest.param("http:", "/a", "http:/a", id="special-hostless-base-joins-as-urljoin"),
+        pytest.param("http:opaque", "#f", "http://opaque/#f", id="special-opaque-base-fragment"),
+        pytest.param("http:opaque/x/y", "../z", "http://opaque/z", id="special-opaque-base-dot-segment"),
+        pytest.param("http://a", "?q", "http://a/?q", id="root-path-query"),
+        pytest.param("http://a", "#f", "http://a/#f", id="root-path-fragment"),
+        pytest.param("http://a/x", "?q", "http://a/x?q", id="rooted-path-query"),
+        pytest.param("http:opaque", "?q", "http://opaque/?q", id="opaque-special-root-query"),
+        pytest.param("ftp://a", "?q", "ftp://a/?q", id="foreign-special-root-query"),
+        pytest.param("foo://a", "?q", "foo://a?q", id="non-special-root-query"),
+        pytest.param("mailto:x", "#f", "mailto:x#f", id="opaque-base-fragment"),
+        pytest.param("mailto:x", "mailto:y", "mailto:y", id="opaque-base-same-scheme-reference"),
+        pytest.param("mailto:x", "//h", "//h", id="opaque-base-netloc-reference-verbatim"),
+        pytest.param("mailto:x", "y", "y", id="opaque-base-path-reference-verbatim"),
+        pytest.param("mailto:x", "?q", "?q", id="opaque-base-query-reference-verbatim"),
+        pytest.param("foo://a/b", "#f", "foo://a/b#f", id="hierarchical-non-special-base-fragment"),
+        pytest.param("foo:/a/b", "c", "foo:/a/c", id="non-special-rooted-base-relative"),
+        pytest.param("/x", "#f", "/x#f", id="schemeless-base-fragment"),
+        pytest.param("file:x", "y", "file:y", id="file-opaque-base-relative"),
+        pytest.param("http://a/x", "https://b.example/x", "https://b.example/x", id="different-special-scheme"),
+        pytest.param("http://a/x", "http:///x", "http://x/", id="same-scheme-empty-authority"),
+        pytest.param("http://a/x", "//b.example/x\\y", "http://b.example/x/y", id="authority-reference-backslash-path"),
+        pytest.param("http://a/x", "//b.example/x?a\\b", "http://b.example/x?a\\b", id="backslash-in-query-kept"),
+        pytest.param("file:///a/b", "x y", "file:///a/x%20y", id="file-base-whitespace-reference"),
+        pytest.param("file:///a/b", "../c d", "file:///c%20d", id="file-base-dot-segment-whitespace"),
+        pytest.param("file:x", "y z", "file:///y%20z", id="file-base-without-slashes-whitespace"),
+        pytest.param("http:", "?q", "http:?q", id="special-hostless-empty-base-query"),
+        pytest.param("http://h.example/a/b", "\x7f", "http://h.example/a/%7F", id="delete-reference-encoded"),
+        pytest.param("http://a.example/", "http://[é/x", "http://[é/x", id="unbalanced-bracket-kept"),
+    ],
+)
+def test_url_join_link_resolves_each_reference_shape(base: str, reference: str, expected: str) -> None:
+    assert _url_join_link(base, reference) == expected
+
+
+@pytest.mark.parametrize(
+    ("base", "expected"),
+    [
+        pytest.param("http://a.example/]x", "http://a.example/]x", id="closing-bracket-in-path"),
+        pytest.param("http://a.example/[x", "http://a.example/[x", id="opening-bracket-in-path"),
+        pytest.param("http://a.example/x\\y", "http://a.example/x/y", id="backslash-in-path"),
+        pytest.param("http://a.example/x\x01y", "http://a.example/x%01y", id="control-in-path"),
+        pytest.param("http://é.example/x", "http://xn--9ca.example/x", id="non-ascii-host"),
+    ],
+)
+def test_url_join_link_of_a_blank_reference_reads_the_raw_base(base: str, expected: str) -> None:
+    # a reference that is only whitespace is percent-parsed away, so the document join runs with an empty reference
+    # against the base as written, which is not normalized first
+    assert _url_join_link(base, " ") == expected
+
+
+def test_url_join_fragment_and_root_path_without_a_link() -> None:
+    assert _url_join("mailto:x", "#f") == "#f"
+    assert _url_join("http://a", "?q") == "http://a?q"
+
+
+_SPECIAL_SCHEMES: Final[frozenset[str]] = frozenset({"ftp", "http", "https", "ws", "wss"})
+
+
+_BARE_AUTHORITY: Final[re.Pattern[str]] = re.compile(
+    r"""
+    ^(?:[a-zA-Z][a-zA-Z0-9+.-]*:)?  # an optional scheme
+    //[^/?#]*                       # the authority
+    (?:[?#]|$)                      # with no path after it
+    """,
+    re.VERBOSE,
+)
+_BARE_BASE: Final[re.Pattern[str]] = re.compile(
+    r"""
+    ^[a-zA-Z][a-zA-Z0-9+.-]*://     # the scheme and separator
+    [^/?#]*$                        # the authority, with no path after it
+    """,
+    re.VERBOSE,
+)
+
+
 def test_url_join_link_matches_url_join_without_extra_slashes() -> None:
+    # a special scheme other than the base's is read as WHATWG reads it, with or without slashes, so it is not compared;
+    # a special base with no authority reads its first segment as the host, which the RFC join does not do;
+    # a reference with whitespace or non-ASCII is resolved the way WHATWG resolves it, which the RFC join does not do
     for base, reference in _corpus():
-        if not reference.startswith("///"):
+        scheme = reference.partition(":")[0].lower()
+        foreign = scheme in _SPECIAL_SCHEMES and scheme != base.partition(":")[0]
+        file_reference = scheme == "file" and base.partition(":")[0].lower() != "file"
+        rest = base.partition(":")[2]
+        special_no_authority = base.partition(":")[0].lower() in _SPECIAL_SCHEMES and (
+            not rest.startswith("//") or rest.startswith("///")
+        )
+        opaque_fragment = (
+            reference.startswith("#")
+            and base.partition(":")[0].lower() not in _SPECIAL_SCHEMES
+            and (":" in base and not base.partition(":")[2].startswith("/"))
+        )
+        bare_authority = _BARE_AUTHORITY.match(reference) is not None
+        bare_base = _BARE_BASE.match(base) is not None and reference.strip()[:1] in {
+            "",
+            "?",
+            "#",
+        }
+        skipped = (
+            foreign,
+            file_reference,
+            opaque_fragment,
+            bare_authority,
+            bare_base,
+            special_no_authority,
+            any(ch <= " " or ch > "~" for ch in reference),
+        )
+        if not reference.startswith("///") and not any(skipped):
             assert _join_link(base, reference) == _join(base, reference), (base, reference)
 
 
@@ -419,6 +553,13 @@ _SEGMENT: Final[re.Pattern[str]] = re.compile(
 )
 
 
+_ESCAPE: Final[re.Pattern[str]] = re.compile(r"%[0-9a-f]{2}")
+# RFC 3986 section 6.2.2.2: a percent-encoded unreserved character equals its decoded form; other escapes stay literal.
+_UNRESERVED_ESCAPES: Final[MappingProxyType[str, str]] = MappingProxyType({
+    f"%{ord(character):02x}": character.lower() for character in f"{string.ascii_letters}{string.digits}-._~"
+})
+
+
 _LANGUAGE_PATHS: Final[tuple[str, ...]] = (
     "",
     "/",
@@ -440,6 +581,12 @@ _LANGUAGE_PATHS: Final[tuple[str, ...]] = (
     "/zz/y",
     "/en-abcd/x",
     "/%64%65/x",
+    "/%64e/x",
+    "/%44E/x",
+    "/en%2dus/x",
+    "/en%2fus/x",
+    "/%65%6e-%75s/x",
+    "/%4/x",
     "/enxab/x",
     "/z{/x",
 )
@@ -492,6 +639,7 @@ def _language_oracle(query: str, path: str, hostname: str, language: str, *, str
         ):
             return False
     leading = next((segment for segment in path.lower().split("/") if segment), "")
+    leading = _ESCAPE.sub(lambda match: _UNRESERVED_ESCAPES.get(match[0], match[0]), leading)
     if (match := _SEGMENT.fullmatch(leading)) and match["language"] in _ISO and match["language"] != language:
         return False
     if strict:
@@ -511,6 +659,7 @@ def _language_oracle(query: str, path: str, hostname: str, language: str, *, str
         pytest.param(("", "/abc/x", "h.org", "en"), False, True, id="path-three-letters-not-marker"),
         pytest.param(("", "/en-u1/x", "h.org", "en"), False, True, id="path-subtag-not-letters"),
         pytest.param(("", "/e1/x", "h.org", "en"), False, True, id="path-second-char-not-letter"),
+        pytest.param(("", "/1e/x", "h.org", "de"), False, True, id="path-first-char-not-letter"),
         pytest.param(("lang=de", "/x", "h.org", "en"), False, False, id="query-lang-other-language"),
         pytest.param(("lang=en-gb", "/x", "h.org", "en"), False, True, id="query-lang-prefix-matches"),
         pytest.param(("lang=", "/x", "h.org", "en"), False, True, id="query-lang-empty-value"),
@@ -520,6 +669,14 @@ def _language_oracle(query: str, path: str, hostname: str, language: str, *, str
         pytest.param(("", "/x", "abc.example.org", "en"), True, True, id="strict-host-label-not-two-letters"),
         pytest.param(("", "/x", "de", "en"), True, False, id="strict-dotless-host-label"),
         pytest.param(("", "/enxab/x", "h.org", "en"), False, True, id="path-five-chars-no-separator"),
+        pytest.param(("", "/%64e/x", "h.org", "en"), False, False, id="escaped-letters-other-language"),
+        pytest.param(("", "/%64e/x", "h.org", "de"), False, True, id="escaped-letters-same-language"),
+        pytest.param(("", "/%44E/x", "h.org", "en"), False, False, id="escaped-uppercase-other-language"),
+        pytest.param(("", "/%44E/x", "h.org", "de"), False, True, id="escaped-uppercase-same-language"),
+        pytest.param(("", "/en%2Dus/x", "h.org", "en"), False, True, id="escaped-hyphen-same-language"),
+        pytest.param(("", "/en%2Dus/x", "h.org", "de"), False, False, id="escaped-hyphen-other-language"),
+        pytest.param(("", "/en%2Fus/x", "h.org", "de"), False, True, id="escaped-reserved-stays-literal"),
+        pytest.param(("", "/%4/x", "h.org", "de"), False, True, id="malformed-escape-stays-literal"),
     ],
 )
 def test_language_matches_cases(markers: tuple[str, str, str, str], *, strict: bool, expected: bool) -> None:
@@ -916,12 +1073,12 @@ def _scrub_corpus() -> list[str]:
 
 
 def _oracle_scrub(url: str) -> str:
-    remainder = "".join(char for char in url.strip(_C0_AND_SPACE) if char not in _PY_WHITESPACE)
+    remainder = "".join(char for char in url.strip(_C0_AND_SPACE) if char not in "\t\n\r")
     if remainder.startswith("<![CDATA["):
         remainder = remainder.removeprefix("<![CDATA[").removesuffix("]]>")
     kept: Final = len(_THROUGH_AUTHORITY.findall(remainder)[0])  # the pattern matches at the start, if only emptily
     head, *cut = _MARKUP_DELIMITER.split(remainder[:kept], maxsplit=1)
-    if not cut or _HOST_TEXT.search(cut[0]):
+    if not cut or (remainder[len(head)] == '"' and _HOST_TEXT.search(cut[0])):
         head = remainder[:kept] + _MARKUP_DELIMITER.split(remainder[kept:], maxsplit=1)[0]
     remainder = head.replace("&amp;", "&")
     trimmed: Final = remainder.rstrip(_C0_AND_SPACE)
@@ -941,8 +1098,9 @@ def _oracle_scrub(url: str) -> str:
         pytest.param("  https://x/p  ", "https://x/p", id="edge-space-stripped"),
         pytest.param("\x01https://x/p\x02", "https://x/p", id="edge-c0-stripped"),
         pytest.param("mid\x01control", "mid\x01control", id="mid-non-ws-c0-kept"),
-        pytest.param("a\xa0b", "ab", id="nbsp-whitespace-removed"),
-        pytest.param("a b\tc\nd", "abcd", id="internal-whitespace-removed"),
+        pytest.param("a\xa0b", "a\xa0b", id="nbsp-kept"),
+        pytest.param("a\rb\tc", "abc", id="carriage-return-removed"),
+        pytest.param("a b\tc\nd", "a bcd", id="internal-tab-and-newline-removed"),
         pytest.param("<![CDATA[https://x/p]]>", "https://x/p", id="cdata-unwrapped"),
         pytest.param("<![CDATA[https://x/p", "https://x/p", id="cdata-open-only"),
         pytest.param("<![CDATA[ab", "ab", id="cdata-content-too-short-for-suffix"),

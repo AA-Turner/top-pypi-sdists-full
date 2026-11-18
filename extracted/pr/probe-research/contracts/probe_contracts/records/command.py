@@ -35,7 +35,9 @@ MAX_ARGS_BYTES = 4 * 1024
 class CommandKind(StrEnum):
     """What was asked. A producer declares the kinds it can do (a sample producer in `Plan.capabilities`, a run's
     script on its writer beat, `RunCapabilities`); any other is refused at once. Sample kinds name an attempt
-    (`attempt_key`); run kinds (agentic W&B C.1) name none."""
+    (`attempt_key`); run kinds name none."""
+
+    # Run kinds are agentic W&B C.1.
 
     CANCEL = "cancel"  # stop the sample by its framework's safe path: it ends `canceled`
     RETRY = "retry"  # a fresh attempt at the same task and group slot (`retry_of`, try + 1)

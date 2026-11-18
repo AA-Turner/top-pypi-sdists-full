@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: css-inline
-Version: 0.24.0
+Version: 0.25.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -182,7 +182,7 @@ inliner.inline("...")
 - `inline_style_tags`. Inline CSS from `style` tags. Default: `True`
 - `keep_style_tags`. Keep `style` tags after inlining. Default: `False`
 - `keep_link_tags`. Keep `link` tags after inlining. Default: `False`
-- `keep_at_rules`. Keep at-rules (starting with `@`) after inlining. Default: `False`
+- `keep_at_rules`. Keep at-rules (starting with `@`) after inlining. Errors in fragment inlining. Default: `False`
 - `minify_css`. Remove trailing semicolons and spaces between properties and values. Default: `False`
 - `base_url`. Base URL for resolving relative URLs. Use the `file://` scheme to load stylesheets from the filesystem. Default: `None`
 - `load_remote_stylesheets`. Load stylesheets from `link` tags, over the network or from `file://` paths. Default: `True`
@@ -193,6 +193,9 @@ inliner.inline("...")
 - `apply_width_attributes`. Add `width` HTML attributes from CSS `width` properties on supported elements (`table`, `td`, `th`, `img`). Default: `False`
 - `apply_height_attributes`. Add `height` HTML attributes from CSS `height` properties on supported elements (`table`, `td`, `th`, `img`). Default: `False`
 - `resolve_css_variables`. Replace `var()` references with the values of the custom properties they refer to and drop the `--*` declarations. Default: `False`
+- `media_type`. Inline rules from `@media` blocks whose query lists this media type or `all`, e.g. `@media print` or `@media screen, print` for `print`. Queries with media features, such as `print and (min-width: 600px)`, never apply. An inlined block is not kept as an at-rule. Ignored when `keep_at_rules` is enabled and `inline_style_tags` is disabled. Default: `None`
+- `keep_classes`. Keep `class` attributes in the output. When disabled, class selectors in kept `<style>` blocks and at-rules match nothing. Default: `True`
+- `remove_unused_at_rules`. Remove rules that match no element from kept at-rules (`@media`, `@supports`, ...), along with blocks left empty. Needs `keep_at_rules` or `remove_inlined_selectors`. Matching ignores `:hover`, `::before` and similar. This also removes rules that target markup injected by an email client (e.g. Gmail's `u ~ div .x`). Default: `False`
 
 To skip CSS inlining for an HTML tag, add the `data-css-inline="ignore"` attribute:
 

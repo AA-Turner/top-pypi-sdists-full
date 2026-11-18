@@ -1,4 +1,4 @@
-"""
+'''
 This module contains list of white- and black-listed ``python`` members.
 
 We add values here when we want to make them public.
@@ -8,8 +8,11 @@ Then, we automatically have to add it here and document it.
 Other constants that are not used across modules
 and does not require to be documented can be defined where they are used.
 
-All values here must be documented with ``#:`` comments.
-"""
+All values here must be documented with ``"""Docs."""`` style.
+
+See also:
+    https://www.sphinx-doc.org/en/master/usage/extensions/autodoc.html#doc-comments-and-docstrings
+'''
 
 import math
 import re
@@ -24,18 +27,17 @@ from typing import Final
 # They are not publicly documented since they are not used by the end user.
 # But, we still need them to be defined here.
 
-# Used as a default filename, when it is not passed by flake8:
 STDIN: Final = 'stdin'
+"""Used as a default filename, when it is not passed by flake8."""
 
-# Used to specify as a placeholder for `__init__`:
 INIT: Final = '__init__'
+"""Used to specify as a placeholder for `__init__`."""
 
-# Used to determine when we are running on Windows:
 WINDOWS_OS: Final = 'nt'
+"""Used to determine when we are running on Windows."""
 
-# Used as a placeholder for special `_` variable:
 UNUSED_PLACEHOLDER: Final = '_'
-
+"""Used as a placeholder for special `_` variable."""
 
 # Public variables
 # ================
@@ -43,243 +45,244 @@ UNUSED_PLACEHOLDER: Final = '_'
 # Values beyond this line are public and should be used.
 # ------------------------------------------------------
 
-#: This url points to the specific violation page.
 SHORTLINK_TEMPLATE: Final = 'https://pyflak.es/{0}'
+"""This url points to the specific violation page."""
 
-#: List of functions we forbid to use.
 FUNCTIONS_BLACKLIST: Final = frozenset(
     (
         # Code generation:
+        'compile',
         'eval',
         'exec',
-        'compile',
         # Termination:
         'exit',
         'quit',
         # Magic:
+        'dir',
         'globals',
         'locals',
         'vars',
-        'dir',
         # IO:
-        'print',
+        'breakpoint',
+        'input',
         'pprint',
         'pprint.pprint',
-        'input',
-        'breakpoint',
+        'print',
         # Attribute access:
         'delattr',
         # Gratis:
         'copyright',
-        'help',
         'credits',
+        'help',
         # Dynamic imports:
         '__import__',
         # OOP:
         'staticmethod',
         # Mypy:
-        'reveal_type',
         'reveal_locals',
+        'reveal_type',
     ),
 )
+"""List of functions we forbid to use."""
 
-#: List of module metadata we forbid to use.
 MODULE_METADATA_VARIABLES_BLACKLIST: Final = frozenset(
     (
-        '__author__',
-        '__all__',
-        '__version__',
         '__about__',
+        '__all__',
+        '__author__',
         '__copyright__',
+        '__version__',
+        '__lazy_modules__',
     ),
 )
+"""List of module metadata we forbid to use."""
 
-#: List of variable names we forbid to use.
 VARIABLE_NAMES_BLACKLIST: Final = frozenset(
     (
         # Meaningless words:
-        'data',
-        'result',
-        'results',
-        'item',
-        'items',
-        'value',
-        'values',
-        'val',
-        'vals',
-        'var',
-        'vars',
-        'variable',
+        'arr',
         'content',
         'contents',
-        'info',
+        'data',
+        'do',
+        'file',
         'handle',
         'handler',
-        'file',
+        'info',
+        'item',
+        'items',
         'obj',
         'objects',
         'objs',
-        'some',
-        'do',
         'param',
-        'params',
         'parameters',
-        'arr',
+        'params',
+        'result',
+        'results',
+        'some',
+        'val',
+        'vals',
+        'value',
+        'values',
+        'var',
+        'variable',
+        'vars',
         # Confusables:
+        'false',
         'no',
         'true',
-        'false',
+        'yes',
         # Names from examples:
-        'foo',
         'bar',
         'baz',
-        'spam',
+        'foo',
         'ham',
-        'tmp',
+        'spam',
         'temp',
+        'tmp',
     ),
 )
+"""List of variable names we forbid to use."""
 
-#: List of character sequences that are hard to read.
 UNREADABLE_CHARACTER_COMBINATIONS: Final = frozenset(
     (
-        '1l',
-        '1I',
         '0O',
+        '1I',
+        '1l',
         'O0',
         # Not included: 'lI', 'l1', 'Il'
         # Because these names are quite common in real words.
     ),
 )
+"""List of character sequences that are hard to read."""
 
-#: List of special names that are used only as first argument in methods.
 SPECIAL_ARGUMENT_NAMES_WHITELIST: Final = frozenset(
     (
-        'self',
         'cls',
         'mcs',
+        'self',
     ),
 )
+"""List of special names that are used only as first argument in methods."""
 
-#: List of all magic methods from the python docs.
 ALL_MAGIC_METHODS: Final = frozenset(
     (
-        '__new__',
-        '__init__',
-        '__del__',
-        '__repr__',
-        '__str__',
-        '__bytes__',
-        '__format__',
-        '__lt__',
-        '__le__',
-        '__eq__',
-        '__ne__',
-        '__gt__',
-        '__ge__',
-        '__hash__',
-        '__bool__',
-        '__getattr__',
-        '__getattribute__',
-        '__setattr__',
-        '__delattr__',
-        '__dir__',
-        '__get__',
-        '__set__',
-        '__delete__',
-        '__set_name__',
-        '__init_subclass__',
-        '__instancecheck__',
-        '__subclasscheck__',
-        '__mro_entries__',
-        '__class_getitem__',
-        '__call__',
-        '__len__',
-        '__length_hint__',
-        '__getitem__',
-        '__setitem__',
-        '__delitem__',
-        '__missing__',
-        '__iter__',
-        '__next__',
-        '__reversed__',
-        '__contains__',
-        '__add__',
-        '__sub__',
-        '__mul__',
-        '__matmul__',
-        '__truediv__',
-        '__floordiv__',
-        '__mod__',
-        '__divmod__',
-        '__pow__',
-        '__lshift__',
-        '__rshift__',
-        '__and__',
-        '__xor__',
-        '__or__',
-        '__radd__',
-        '__rsub__',
-        '__rmul__',
-        '__rmatmul__',
-        '__rtruediv__',
-        '__rfloordiv__',
-        '__rmod__',
-        '__rdivmod__',
-        '__rpow__',
-        '__rlshift__',
-        '__rrshift__',
-        '__rand__',
-        '__rxor__',
-        '__ror__',
-        '__iadd__',
-        '__isub__',
-        '__imul__',
-        '__imatmul__',
-        '__itruediv__',
-        '__ifloordiv__',
-        '__imod__',
-        '__ipow__',
-        '__ilshift__',
-        '__irshift__',
-        '__iand__',
-        '__ixor__',
-        '__ior__',
-        '__neg__',
-        '__pos__',
         '__abs__',
-        '__invert__',
-        '__complex__',
-        '__int__',
-        '__float__',
-        '__index__',
-        '__round__',
-        '__trunc__',
-        '__floor__',
-        '__ceil__',
-        '__oct__',
-        '__hex__',
-        '__enter__',
-        '__exit__',
-        '__await__',
-        '__aiter__',
-        '__anext__',
+        '__add__',
         '__aenter__',
         '__aexit__',
+        '__aiter__',
+        '__and__',
+        '__anext__',
+        '__await__',
+        '__bool__',
+        '__bytes__',
+        '__call__',
+        '__ceil__',
+        '__class_getitem__',
+        '__complex__',
+        '__contains__',
+        '__del__',
+        '__delattr__',
+        '__delete__',
+        '__delitem__',
+        '__dir__',
+        '__divmod__',
+        '__enter__',
+        '__eq__',
+        '__exit__',
+        '__float__',
+        '__floor__',
+        '__floordiv__',
+        '__format__',
+        '__ge__',
+        '__get__',
+        '__getattr__',
+        '__getattribute__',
+        '__getitem__',
+        '__gt__',
+        '__hash__',
+        '__hex__',
+        '__iadd__',
+        '__iand__',
+        '__ifloordiv__',
+        '__ilshift__',
+        '__imatmul__',
+        '__imod__',
+        '__imul__',
+        '__index__',
+        '__init__',
+        '__init_subclass__',
+        '__instancecheck__',
+        '__int__',
+        '__invert__',
+        '__ior__',
+        '__ipow__',
+        '__irshift__',
+        '__isub__',
+        '__iter__',
+        '__itruediv__',
+        '__ixor__',
+        '__le__',
+        '__len__',
+        '__length_hint__',
+        '__lshift__',
+        '__lt__',
+        '__matmul__',
+        '__missing__',
+        '__mod__',
+        '__mro_entries__',
+        '__mul__',
+        '__ne__',
+        '__neg__',
+        '__new__',
+        '__next__',
+        '__oct__',
+        '__or__',
+        '__pos__',
+        '__pow__',
+        '__radd__',
+        '__rand__',
+        '__rdivmod__',
+        '__repr__',
+        '__reversed__',
+        '__rfloordiv__',
+        '__rlshift__',
+        '__rmatmul__',
+        '__rmod__',
+        '__rmul__',
+        '__ror__',
+        '__round__',
+        '__rpow__',
+        '__rrshift__',
+        '__rshift__',
+        '__rsub__',
+        '__rtruediv__',
+        '__rxor__',
+        '__set__',
+        '__set_name__',
+        '__setattr__',
+        '__setitem__',
+        '__str__',
+        '__sub__',
+        '__subclasscheck__',
+        '__truediv__',
+        '__trunc__',
+        '__xor__',
         # pickling
-        '__getnewargs_ex__',
+        '__getinitargs__',
         '__getnewargs__',
+        '__getnewargs_ex__',
         '__getstate__',
-        '__setstate__',
         '__reduce__',
         '__reduce_ex__',
-        '__getinitargs__',
+        '__setstate__',
         # Python 2
-        '__long__',
+        '__cmp__',
         '__coerce__',
+        '__long__',
         '__nonzero__',
         '__unicode__',
-        '__cmp__',
         # copy
         '__copy__',
         '__deepcopy__',
@@ -289,9 +292,9 @@ ALL_MAGIC_METHODS: Final = frozenset(
         # dataclasses
         '__post_init__',
         # attrs:
-        '__attrs_pre_init__',
         '__attrs_init__',
         '__attrs_post_init__',
+        '__attrs_pre_init__',
         # inspect
         '__signature__',
         # os.path
@@ -300,55 +303,54 @@ ALL_MAGIC_METHODS: Final = frozenset(
         '__sizeof__',
     ),
 )
+"""List of all magic methods from the python docs."""
 
-#: List of magic methods that are forbidden to use.
 MAGIC_METHODS_BLACKLIST: Final = frozenset(
     (
         # Since we don't use `del`:
         '__del__',
-        '__delitem__',
         '__delete__',
+        '__delitem__',
         # Since we don't use `pickle`:
         '__reduce__',
         '__reduce_ex__',
-        '__dir__',  # since we don't use `dir()`
         '__delattr__',  # since we don't use `delattr()`
+        '__dir__',  # since we don't use `dir()`
     ),
 )
+"""List of magic methods that are forbidden to use."""
 
-#: List of magic methods that are not allowed to be generators.
 YIELD_MAGIC_METHODS_BLACKLIST: Final = ALL_MAGIC_METHODS.difference(
     {
         # Allowed to be used with ``yield`` keyword:
+        '__aiter__',
         '__call__',
         '__iter__',
-        '__aiter__',
     },
 )
+"""List of magic methods that are not allowed to be generators."""
 
-#: List of magic methods that are not allowed to be async.
 ASYNC_MAGIC_METHODS_BLACKLIST: Final = ALL_MAGIC_METHODS.difference(
     {
-        # In order of appearance on
-        # https://docs.python.org/3/reference/datamodel.html#basic-customization
+        # See https://docs.python.org/3/reference/datamodel.html#coroutines
         # Allowed async magic methods are:
-        '__anext__',
         '__aenter__',
         '__aexit__',
         '__aiter__',
+        '__anext__',
         '__call__',
     },
 )
+"""List of magic methods that are not allowed to be async."""
 
-#: List of builtin classes that are allowed to subclass.
 ALLOWED_BUILTIN_CLASSES: Final = frozenset(
     (
-        'type',
         'object',
+        'type',
     ),
 )
+"""List of builtin classes that are allowed to subclass."""
 
-#: List of nested functions' names we allow to use.
 NESTED_FUNCTIONS_WHITELIST: Final = frozenset(
     (
         'decorator',
@@ -356,115 +358,117 @@ NESTED_FUNCTIONS_WHITELIST: Final = frozenset(
         'wrapper',
     ),
 )
+"""List of nested functions' names we allow to use."""
 
-#: List of allowed ``__future__`` imports.
 FUTURE_IMPORTS_WHITELIST: Final = frozenset(
     (
         'annotations',
         'generator_stop',
     ),
 )
+"""List of allowed ``__future__`` imports."""
 
-#: List of blacklisted module names.
 MODULE_NAMES_BLACKLIST: Final = frozenset(
     (
-        'util',
-        'utils',
-        'utilities',
         'helpers',
+        'util',
+        'utilities',
+        'utils',
     ),
 )
+"""List of blacklisted module names."""
 
-#: List of allowed module magic names.
 MAGIC_MODULE_NAMES_WHITELIST: Final = frozenset(
     (
         '__init__',
         '__main__',
     ),
 )
+"""List of allowed module magic names."""
 
-#: List of bad magic module functions.
 MAGIC_MODULE_NAMES_BLACKLIST: Final = frozenset(
     (
-        '__getattr__',
         '__dir__',
+        '__getattr__',
     ),
 )
+"""List of bad magic module functions."""
 
-#: Regex pattern to name modules.
 MODULE_NAME_PATTERN: Final = re.compile(r'^_?_?[a-z][a-z\d_]*[a-z\d](__)?$')
+"""Regex pattern to name modules."""
 
-#: Common numbers that are allowed to be used without being called "magic".
 MAGIC_NUMBERS_WHITELIST: Final = frozenset(
     (
         0,  # both int and float
         0.1,
         0.5,
         1.0,
+        24,  # hours
+        60,  # seconds, minutes
         100,
         1000,
         1024,  # bytes
-        24,  # hours
-        60,  # seconds, minutes
         1j,  # imaginary part of a complex number
     ),
 )
+"""Common numbers that are allowed to be used without being called "magic"."""
 
-#: Maximum amount of ``pragma`` no-cover comments per module.
 MAX_NO_COVER_COMMENTS: Final = 5
+"""Maximum amount of ``pragma`` no-cover comments per module."""
 
-#: Maximum length of ``yield`` or ``return`` ``tuple`` expressions.
 MAX_LEN_TUPLE_OUTPUT: Final = 5
+"""Maximum length of ``yield`` or ``return`` ``tuple`` expressions."""
 
-#: Maximum number of compare nodes in a single expression.
 MAX_COMPARES: Final = 2
+"""Maximum number of compare nodes in a single expression."""
 
-#: Maximum number of `elif` blocks in a single `if` condition:
 MAX_ELIFS: Final = 3
+"""Maximum number of `elif` blocks in a single `if` condition."""
 
-#: Maximum number of ``except`` cases in a single ``try`` clause.
 MAX_EXCEPT_CASES: Final = 3
+"""Maximum number of ``except`` cases in a single ``try`` clause."""
 
-#: Approximate constants which real values should be imported from math module.
 MATH_APPROXIMATE_CONSTANTS: Final = frozenset(
     (
-        math.pi,
         math.e,
+        math.pi,
         math.tau,
     ),
 )
+"""Approximate constants which real values
+should be imported from math module."""
 
-#: List of vague method names that may cause confusion if imported as is:
 VAGUE_IMPORTS_BLACKLIST: Final = frozenset(
     (
-        'read',
-        'write',
-        'load',
-        'loads',
         'dump',
-        'dumps',
-        'parse',
-        'safe_load',
-        'safe_dump',
-        'load_all',
         'dump_all',
-        'safe_load_all',
+        'dumps',
+        'load',
+        'load_all',
+        'loads',
+        'parse',
+        'read',
+        'safe_dump',
         'safe_dump_all',
+        'safe_load',
+        'safe_load_all',
+        'write',
     ),
 )
+"""List of vague method names that may cause confusion if imported as is."""
 
-#: List of functions in which arguments must be tuples.
 TUPLE_ARGUMENTS_METHODS: Final = frozenset(('frozenset',))
+"""List of functions in which arguments must be tuples."""
 
-#: List of commonly used aliases
 ALIAS_NAMES_WHITELIST: Final = frozenset(
     (
+        'cv',
+        'df',
         'np',
         'pd',
-        'df',
         'plt',
         'sns',
         'tf',
-        'cv',
     ),
 )
+"""List of commonly used aliases."""

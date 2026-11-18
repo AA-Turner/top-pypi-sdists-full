@@ -13,11 +13,14 @@ _PIECES = (
     "probe.sdk.client.core",
     "probe.sdk.client.credentials",
     "probe.sdk.client.ids",
+    "probe.sdk.client.resources.artifact_reads.artifact_reads",
     "probe.sdk.client.resources.artifacts",
     "probe.sdk.client.resources.auth",
     "probe.sdk.client.resources.catalog",
     "probe.sdk.client.resources.decisions.decisions",
     "probe.sdk.client.resources.delivery",
+    "probe.sdk.client.resources.history.digest",
+    "probe.sdk.client.resources.history.events",
     "probe.sdk.client.resources.runs.edits",
     "probe.sdk.client.resources.runs.commands",
     "probe.sdk.client.resources.integrations",
@@ -30,6 +33,7 @@ _PIECES = (
     "probe.sdk.client.resources.projects.headlines",
     "probe.sdk.client.resources.projects.papers",
     "probe.sdk.client.resources.projects.pins",
+    "probe.sdk.client.resources.projects.details.details",
     "probe.sdk.client.resources.projects.projects",
     "probe.sdk.client.resources.projects.summaries",
     "probe.sdk.client.resources.reads",
@@ -50,6 +54,7 @@ _PIECES = (
     "probe.sdk.client.resources.runs.views",
     "probe.sdk.client.resources.runs.writers",
     "probe.sdk.client.resources.sessions",
+    "probe.sdk.client.resources.history.history",
     "probe.sdk.client.resources.workspaces",
     "probe.sdk.client.server_features",
     "probe.sdk.delivery.notices",
@@ -275,6 +280,12 @@ _HOMES = {
     "_at_exit": "probe.sdk.delivery.outbox.drainer",
     # probe.sdk.client.resources.sessions
     "DEFAULT_SESSION_SOURCE": "probe.sdk.client.resources.sessions",
+    # probe.sdk.client.resources.artifact_reads.artifact_reads: a file's bytes by any road (api-access T4)
+    "Reference": "probe.sdk.client.resources.artifact_reads.artifact_reads",
+    "FetchMode": "probe.sdk.client.resources.artifact_reads.artifact_reads",
+    # probe.sdk.client.resources.history.events: the event log, forward sync included
+    "EventFeed": "probe.sdk.client.resources.history.events",
+    "EventsReadClient": "probe.sdk.client.resources.history.events",
 }
 #: `from <old path> import *` takes what the old module's did.
 __all__ = [name for name in _HOMES if not name.startswith("_")]

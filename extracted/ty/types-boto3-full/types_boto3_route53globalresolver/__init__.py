@@ -13,6 +13,7 @@ Usage::
         Client,
         ListAccessSourcesPaginator,
         ListAccessTokensPaginator,
+        ListCoreNetworkEndpointsPaginator,
         ListDNSViewsPaginator,
         ListFirewallDomainListsPaginator,
         ListFirewallDomainsPaginator,
@@ -29,6 +30,7 @@ Usage::
 
     list_access_sources_paginator: ListAccessSourcesPaginator = client.get_paginator("list_access_sources")
     list_access_tokens_paginator: ListAccessTokensPaginator = client.get_paginator("list_access_tokens")
+    list_core_network_endpoints_paginator: ListCoreNetworkEndpointsPaginator = client.get_paginator("list_core_network_endpoints")
     list_dns_views_paginator: ListDNSViewsPaginator = client.get_paginator("list_dns_views")
     list_firewall_domain_lists_paginator: ListFirewallDomainListsPaginator = client.get_paginator("list_firewall_domain_lists")
     list_firewall_domains_paginator: ListFirewallDomainsPaginator = client.get_paginator("list_firewall_domains")
@@ -44,6 +46,7 @@ from .client import Route53GlobalResolverClient
 from .paginator import (
     ListAccessSourcesPaginator,
     ListAccessTokensPaginator,
+    ListCoreNetworkEndpointsPaginator,
     ListDNSViewsPaginator,
     ListFirewallDomainListsPaginator,
     ListFirewallDomainsPaginator,
@@ -61,6 +64,7 @@ __all__ = (
     "Client",
     "ListAccessSourcesPaginator",
     "ListAccessTokensPaginator",
+    "ListCoreNetworkEndpointsPaginator",
     "ListDNSViewsPaginator",
     "ListFirewallDomainListsPaginator",
     "ListFirewallDomainsPaginator",

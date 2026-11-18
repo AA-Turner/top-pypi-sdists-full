@@ -109,6 +109,7 @@ from anyscale.client.openapi_client.models.apply_scheduler_config_request import
 from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
     ApplySchedulerConfigResponse,
 )
+from anyscale.client.openapi_client.models.consumer_response import ConsumerResponse
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.decorated_application_template import (
     DecoratedApplicationTemplate,
@@ -132,6 +133,11 @@ from anyscale.client.openapi_client.models.job_queue_sort_directive import (
     JobQueueSortDirective,
 )
 from anyscale.client.openapi_client.models.mini_build import MiniBuild
+from anyscale.client.openapi_client.models.overview_response import OverviewResponse
+from anyscale.client.openapi_client.models.queue_row_response import QueueRowResponse
+from anyscale.client.openapi_client.models.queuerowresponse_list_response import (
+    QueuerowresponseListResponse,
+)
 from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
     RollbackSchedulerConfigRequest,
 )
@@ -145,6 +151,10 @@ from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_re
     SchedulerconfigversionsummaryListResponse,
 )
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
+from anyscale.client.openapi_client.models.workload_response import WorkloadResponse
+from anyscale.client.openapi_client.models.workloadresponse_list_response import (
+    WorkloadresponseListResponse,
+)
 from anyscale.client.openapi_client.models.workspace_ssh_details import (
     WorkspaceSshDetails,
 )
@@ -386,6 +396,15 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
         self._resource_quotas: Dict[str, ResourceQuota] = {}
         # Scheduler config version history (newest at index 0).
         self._scheduler_configs: List[SchedulerConfigResponse] = []
+        # Live scheduler state. Tests fill these in; every read is recorded in
+        # `scheduler_queue_calls` as (method name, keyword arguments).
+        self._scheduler_queues: List[QueueRowResponse] = []
+        # Workloads per (queue ID, "pending" | "running"), in the order the API returns them.
+        self._scheduler_queue_workloads: Dict[Tuple[str, str], List[WorkloadResponse]] = {}
+        self._scheduler_overview: Optional[OverviewResponse] = None
+        # Top consumers per queue ID; None is the org-wide list.
+        self._scheduler_top_consumers: Dict[Optional[str], List[ConsumerResponse]] = {}
+        self.scheduler_queue_calls: List[Tuple[str, Dict[str, Any]]] = []
         # System cluster status per (cloud ID, cloud resource ID); a cloud resource ID of
         # None is the cloud's primary cloud resource when none is given. No entry means
         # that cloud resource has no system cluster.
@@ -3208,6 +3227,66 @@ class FakeAnyscaleClient(AnyscaleClientInterface):
             results=summaries,
             metadata=ListResponseMetadata(total=len(summaries), next_paging_token=None),
         )
+
+    # ---- Scheduler queues (live state) ----
+
+    def list_scheduler_queues(
+        self,
+        *,
+        limit: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> QueuerowresponseListResponse:
+        self.scheduler_queue_calls.append(
+            ("list_scheduler_queues", {"limit": limit, "paging_token": paging_token})
+        )
+        # The paging token is the offset of the next queue, as a string.
+        start = int(paging_token) if paging_token else 0
+        end = start + (limit if limit is not None else 50)
+        return QueuerowresponseListResponse(
+            results=self._scheduler_queues[start:end],
+            metadata=ListResponseMetadata(
+                next_paging_token=str(end) if end < len(self._scheduler_queues) else None
+            ),
+        )
+
+    def list_scheduler_queue_workloads(
+        self,
+        queue_id: str,
+        *,
+        state: str,
+        limit: Optional[int] = None,
+    ) -> WorkloadresponseListResponse:
+        self.scheduler_queue_calls.append(
+            (
+                "list_scheduler_queue_workloads",
+                {"queue_id": queue_id, "state": state, "limit": limit},
+            )
+        )
+        if queue_id not in {queue.queue_id for queue in self._scheduler_queues}:
+            raise ValueError(f"Queue {queue_id} not found.")
+        workloads = self._scheduler_queue_workloads.get((queue_id, state), [])
+        return WorkloadresponseListResponse(
+            results=workloads[: limit if limit is not None else 100],
+            metadata=ListResponseMetadata(total=len(workloads)),
+        )
+
+    def get_scheduler_overview(self) -> OverviewResponse:
+        self.scheduler_queue_calls.append(("get_scheduler_overview", {}))
+        if self._scheduler_overview is None:
+            raise RuntimeError("No scheduler overview.")
+        return self._scheduler_overview
+
+    def list_scheduler_top_consumers(
+        self,
+        *,
+        limit: Optional[int] = None,
+        queue_id: Optional[str] = None,
+    ) -> List[ConsumerResponse]:
+        self.scheduler_queue_calls.append(
+            ("list_scheduler_top_consumers", {"limit": limit, "queue_id": queue_id})
+        )
+        consumers = self._scheduler_top_consumers.get(queue_id, [])
+        return consumers[: limit if limit is not None else 10]
 
     def upsert_resource_tags(
         self,

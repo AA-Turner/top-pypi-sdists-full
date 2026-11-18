@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_swe
-Version: 0.3.0
+Version: 0.3.1
 Summary: Software engineering agents for Inspect AI.
 Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_swe/
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_swe
@@ -20,14 +20,14 @@ Requires-Dist: pyyaml
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions>=4.9.0
 Provides-Extra: dev
-Requires-Dist: anthropic>=1.0.0; extra == 'dev'
-Requires-Dist: google-genai>=3.0.0; extra == 'dev'
+Requires-Dist: anthropic>=2.0.0; extra == 'dev'
+Requires-Dist: google-genai>=3.3.0; extra == 'dev'
 Requires-Dist: inspect-evals; extra == 'dev'
 Requires-Dist: inspect-k8s-sandbox; extra == 'dev'
 Requires-Dist: ipython; extra == 'dev'
 Requires-Dist: mini-swe-agent; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: openai>=3.1.0; extra == 'dev'
+Requires-Dist: openai>=3.4.0; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-dotenv; extra == 'dev'
 Requires-Dist: pytest-timeout; extra == 'dev'

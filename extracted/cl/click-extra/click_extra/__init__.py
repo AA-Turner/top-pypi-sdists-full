@@ -42,10 +42,26 @@ Delete `click_extra/blocks.py`, the deprecated alias of
 ```
 
 ```{todo}
+Delete `_DEPRECATED_NAMES`, `_MOVED_NAMES`, `_REMOVAL_VERSION` and `__getattr__`
+from `click_extra/capture/recording.py` in `11.0.0`, which stops serving
+`ERASE_IN_LINE`, `PARTIAL_CSI_RE`, `SELECT_GRAPHIC_RENDITION` and
+`TerminalScreen`, with their test in `tests/test_recording.py`: its warnings
+announce that release.
+```
+
+```{todo}
 Delete `_tile_runs`, `_TILE_RUN` and `_TILE_RE` from `click_extra/capture/svg.py`
 in `11.0.0`, with the `__getattr__` serving them as `tile_runs`, `TILE_RUN` and
 `_TILING_RE`, and their tests in `tests/test_screenshots.py`: its warnings
 announce that release.
+```
+
+```{todo}
+Delete `click_extra/sphinx/tabs.py`, its `setup` call in
+`click_extra/sphinx/__init__.py`, `tests/sphinx/test_sphinx_tabs.py`, its
+`NON_META_KEYS` entry in `tests/test_context.py` and the vertical tab-sets
+section of `docs/sphinx.md` in `11.0.0`: its warnings announce that release.
+Move its entry in `docs/upstream.md` to the upstreamed section.
 ```
 """
 
@@ -57,14 +73,20 @@ TYPE_CHECKING = False
 # which hides click-extra's own attributes. Declaring the correct types here first,
 # before the star imports, makes mypy treat the later bindings as no-redefs and keeps
 # click-extra's subclasses canonical for consumers of this package.
-# The .capture, .markdown, .progress, .project, .test_suite, .testing and .trail
-# entries have no runtime counterpart: those symbols are served lazily by the module
-# __getattr__ hook at the bottom of this file, so this block is also what keeps
-# them visible to type checkers.
+# The .bug_report, .capture, .markdown, .progress, .project, .test_suite, .testing
+# and .trail entries have no runtime counterpart: those symbols are served lazily
+# by the module __getattr__ hook at the bottom of this file, so this block is also
+# what keeps them visible to type checkers.
 if TYPE_CHECKING:
     from types import ModuleType
     from typing import Any
 
+    from .bug_report import (
+        compact_frames,
+        culprit_function,
+        describe_error,
+        log_report,
+    )
     from .capture.recording import record_command
     from .capture.screenshot import AUTO_WRAP_MARKER, resolve_wrap_marker
     from .capture.svg import AUTO_HOLD
@@ -503,6 +525,7 @@ __all__ = [
     "column_sort_key",
     "columns_option",
     "command",
+    "compact_frames",
     "config_option",
     "config_table_to_flags",
     "confirm",
@@ -516,10 +539,12 @@ __all__ = [
     "convert_rst_files_in_directory",
     "convert_source",
     "corner_header",
+    "culprit_function",
     "custom_version_option",
     "debug_option",
     "default_facts",
     "default_params",
+    "describe_error",
     "detect_source_package",
     "dir_path",
     "echo",
@@ -564,6 +589,7 @@ __all__ = [
     "launch",
     "lazy_group",
     "load_test_suite",
+    "log_report",
     "machine_envvars_apply",
     "make_pass_decorator",
     "make_schema_callable",
@@ -697,13 +723,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "10.2.0"
+__version__ = "10.3.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "8b928037109fa20d0024b897538fa43f4921cedf"
+__git_tag_sha__ = "d8fbfcc745d4fe27b250ab78291daeb24d33369a"
 
 
 _LAZY_TEST_TOOLING = {
@@ -775,6 +801,19 @@ for _name in _LAZY_DISPLAYS:
     globals().pop(_name, None)
 
 
+_LAZY_BUG_REPORT = {
+    "compact_frames": "bug_report",
+    "culprit_function": "bug_report",
+    "describe_error": "bug_report",
+    "log_report": "bug_report",
+}
+"""Bug report symbols served lazily by `__getattr__`, keyed to their module.
+
+A CLI needs {mod}`click_extra.bug_report` only on the run that hits an error it has
+no rule for: serving these lazily keeps it off the startup path.
+"""
+
+
 _DEPRECATED_CLICK_EXPORTS = frozenset({
     "BaseCommand",
     "MultiCommand",
@@ -811,6 +850,10 @@ def _lazy_module(path: str) -> ModuleType:
     ```
     """
     match path:
+        case "bug_report":
+            from . import bug_report
+
+            return bug_report
         case "capture.recording":
             from .capture import recording
 
@@ -859,7 +902,7 @@ def __getattr__(name: str) -> Any:
     """Resolve lazy top-level symbols via PEP 562.
 
     Names registered in {data}`_LAZY_TEST_TOOLING`, {data}`_LAZY_CONVERTERS`,
-    {data}`_LAZY_CAPTURES` and {data}`_LAZY_DISPLAYS`
+    {data}`_LAZY_CAPTURES`, {data}`_LAZY_DISPLAYS` and {data}`_LAZY_BUG_REPORT`
     are imported from their hosting module on first access, then cached in the
     module namespace so later accesses bypass this hook. Names in
     {data}`_DEPRECATED_CLICK_EXPORTS` are forwarded to Click on every access,
@@ -879,6 +922,7 @@ def __getattr__(name: str) -> Any:
         or _LAZY_CONVERTERS.get(name)
         or _LAZY_CAPTURES.get(name)
         or _LAZY_DISPLAYS.get(name)
+        or _LAZY_BUG_REPORT.get(name)
     )
     if lazy_module:
         value = getattr(_lazy_module(lazy_module), name)
@@ -897,5 +941,6 @@ def __dir__() -> list[str]:
         | set(_LAZY_CONVERTERS)
         | set(_LAZY_CAPTURES)
         | set(_LAZY_DISPLAYS)
+        | set(_LAZY_BUG_REPORT)
         | _DEPRECATED_CLICK_EXPORTS
     )

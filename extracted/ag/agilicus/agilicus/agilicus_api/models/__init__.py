@@ -206,6 +206,7 @@ from agilicus_api.model.combined_rules_status import CombinedRulesStatus
 from agilicus_api.model.combined_user_detail import CombinedUserDetail
 from agilicus_api.model.combined_user_detail_status import CombinedUserDetailStatus
 from agilicus_api.model.common_metadata import CommonMetadata
+from agilicus_api.model.compound_object_condition import CompoundObjectCondition
 from agilicus_api.model.compound_rule_condition import CompoundRuleCondition
 from agilicus_api.model.config_file_format import ConfigFileFormat
 from agilicus_api.model.configure_connector_stats_publishing_request import ConfigureConnectorStatsPublishingRequest
@@ -430,6 +431,7 @@ from agilicus_api.model.kernel_info import KernelInfo
 from agilicus_api.model.label import Label
 from agilicus_api.model.label_association import LabelAssociation
 from agilicus_api.model.label_association_status import LabelAssociationStatus
+from agilicus_api.model.label_group import LabelGroup
 from agilicus_api.model.label_name import LabelName
 from agilicus_api.model.label_navigation import LabelNavigation
 from agilicus_api.model.label_spec import LabelSpec
@@ -821,6 +823,7 @@ from agilicus_api.model.ssh_resource_status import SSHResourceStatus
 from agilicus_api.model.ssh_username import SSHUsername
 from agilicus_api.model.scope_class_lifetime_policy import ScopeClassLifetimePolicy
 from agilicus_api.model.scope_condition import ScopeCondition
+from agilicus_api.model.scoped_label import ScopedLabel
 from agilicus_api.model.secure_agent import SecureAgent
 from agilicus_api.model.secure_agent_connector import SecureAgentConnector
 from agilicus_api.model.secure_agent_connector_info import SecureAgentConnectorInfo

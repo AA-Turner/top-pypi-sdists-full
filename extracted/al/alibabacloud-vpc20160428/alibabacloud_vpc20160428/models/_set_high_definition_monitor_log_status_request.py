@@ -28,15 +28,13 @@ class SetHighDefinitionMonitorLogStatusRequest(DaraModel):
         # 
         # This parameter is required.
         self.log_project = log_project
-        # The name of the LogStore.
+        # The name of the Logstore.
         # 
         # This parameter is required.
         self.log_store = log_store
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the instance.
-        # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
+        # The region ID of the instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

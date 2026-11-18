@@ -29,6 +29,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListAccessSourcesPaginator,
     ListAccessTokensPaginator,
+    ListCoreNetworkEndpointsPaginator,
     ListDNSViewsPaginator,
     ListFirewallDomainListsPaginator,
     ListFirewallDomainsPaginator,
@@ -51,6 +52,8 @@ from .type_defs import (
     CreateAccessSourceOutputTypeDef,
     CreateAccessTokenInputTypeDef,
     CreateAccessTokenOutputTypeDef,
+    CreateCoreNetworkEndpointInputTypeDef,
+    CreateCoreNetworkEndpointOutputTypeDef,
     CreateDNSViewInputTypeDef,
     CreateDNSViewOutputTypeDef,
     CreateFirewallDomainListInputTypeDef,
@@ -63,6 +66,8 @@ from .type_defs import (
     DeleteAccessSourceOutputTypeDef,
     DeleteAccessTokenInputTypeDef,
     DeleteAccessTokenOutputTypeDef,
+    DeleteCoreNetworkEndpointInputTypeDef,
+    DeleteCoreNetworkEndpointOutputTypeDef,
     DeleteDNSViewInputTypeDef,
     DeleteDNSViewOutputTypeDef,
     DeleteFirewallDomainListInputTypeDef,
@@ -81,6 +86,8 @@ from .type_defs import (
     GetAccessSourceOutputTypeDef,
     GetAccessTokenInputTypeDef,
     GetAccessTokenOutputTypeDef,
+    GetCoreNetworkEndpointInputTypeDef,
+    GetCoreNetworkEndpointOutputTypeDef,
     GetDNSViewInputTypeDef,
     GetDNSViewOutputTypeDef,
     GetFirewallDomainListInputTypeDef,
@@ -99,6 +106,8 @@ from .type_defs import (
     ListAccessSourcesOutputTypeDef,
     ListAccessTokensInputTypeDef,
     ListAccessTokensOutputTypeDef,
+    ListCoreNetworkEndpointsInputTypeDef,
+    ListCoreNetworkEndpointsOutputTypeDef,
     ListDNSViewsInputTypeDef,
     ListDNSViewsOutputTypeDef,
     ListFirewallDomainListsInputTypeDef,
@@ -123,6 +132,8 @@ from .type_defs import (
     UpdateAccessSourceOutputTypeDef,
     UpdateAccessTokenInputTypeDef,
     UpdateAccessTokenOutputTypeDef,
+    UpdateCoreNetworkEndpointInputTypeDef,
+    UpdateCoreNetworkEndpointOutputTypeDef,
     UpdateDNSViewInputTypeDef,
     UpdateDNSViewOutputTypeDef,
     UpdateFirewallDomainsInputTypeDef,
@@ -248,6 +259,17 @@ class Route53GlobalResolverClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#create_access_token)
         """
 
+    def create_core_network_endpoint(
+        self, **kwargs: Unpack[CreateCoreNetworkEndpointInputTypeDef]
+    ) -> CreateCoreNetworkEndpointOutputTypeDef:
+        """
+        Creates a core network endpoint, which enables DNS resolution for Amazon Web
+        Services Cloud WAN core network segments.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/create_core_network_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#create_core_network_endpoint)
+        """
+
     def create_dns_view(
         self, **kwargs: Unpack[CreateDNSViewInputTypeDef]
     ) -> CreateDNSViewOutputTypeDef:
@@ -306,6 +328,16 @@ class Route53GlobalResolverClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/delete_access_token.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#delete_access_token)
+        """
+
+    def delete_core_network_endpoint(
+        self, **kwargs: Unpack[DeleteCoreNetworkEndpointInputTypeDef]
+    ) -> DeleteCoreNetworkEndpointOutputTypeDef:
+        """
+        Deletes a core network endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/delete_core_network_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#delete_core_network_endpoint)
         """
 
     def delete_dns_view(
@@ -399,6 +431,16 @@ class Route53GlobalResolverClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#get_access_token)
         """
 
+    def get_core_network_endpoint(
+        self, **kwargs: Unpack[GetCoreNetworkEndpointInputTypeDef]
+    ) -> GetCoreNetworkEndpointOutputTypeDef:
+        """
+        Retrieves information about a core network endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/get_core_network_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#get_core_network_endpoint)
+        """
+
     def get_dns_view(self, **kwargs: Unpack[GetDNSViewInputTypeDef]) -> GetDNSViewOutputTypeDef:
         """
         Retrieves information about a DNS view.
@@ -485,6 +527,17 @@ class Route53GlobalResolverClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_access_tokens.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#list_access_tokens)
+        """
+
+    def list_core_network_endpoints(
+        self, **kwargs: Unpack[ListCoreNetworkEndpointsInputTypeDef]
+    ) -> ListCoreNetworkEndpointsOutputTypeDef:
+        """
+        Lists the core network endpoints in your Amazon Web Services account, with
+        pagination support.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/list_core_network_endpoints.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#list_core_network_endpoints)
         """
 
     def list_dns_views(
@@ -618,6 +671,16 @@ class Route53GlobalResolverClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#update_access_token)
         """
 
+    def update_core_network_endpoint(
+        self, **kwargs: Unpack[UpdateCoreNetworkEndpointInputTypeDef]
+    ) -> UpdateCoreNetworkEndpointOutputTypeDef:
+        """
+        Updates the configuration of a core network endpoint.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/update_core_network_endpoint.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#update_core_network_endpoint)
+        """
+
     def update_dns_view(
         self, **kwargs: Unpack[UpdateDNSViewInputTypeDef]
     ) -> UpdateDNSViewOutputTypeDef:
@@ -683,6 +746,17 @@ class Route53GlobalResolverClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_access_tokens"]
     ) -> ListAccessTokensPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_route53globalresolver/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_core_network_endpoints"]
+    ) -> ListCoreNetworkEndpointsPaginator:
         """
         Create a paginator for an operation.
 

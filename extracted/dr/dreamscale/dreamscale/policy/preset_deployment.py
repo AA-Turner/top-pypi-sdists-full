@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar
 
 # The fastest any units family's deployment runs (π0.5's, GR00T's and ABC-VLA's MAX_HZ too).
-from dreamscale_transport.units_reference import MAX_HZ
+from dreamscale_core.reference_limits import MAX_HZ
 
 from dreamscale import deploy_bases
 from dreamscale.deploy_bases._preset import PresetUnits

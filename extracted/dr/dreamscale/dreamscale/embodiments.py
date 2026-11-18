@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from importlib import import_module
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.constants import (
     JOINT_NAMES,

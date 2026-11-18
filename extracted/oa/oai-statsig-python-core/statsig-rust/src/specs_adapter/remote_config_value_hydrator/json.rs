@@ -221,7 +221,11 @@ async fn prepare_response_for_store(
     // bodies containing numbers for those writes; read-only updates can reuse
     // every compatible parsed value without retaining original blob bytes.
     let mut verified_values = VerifiedRemoteValues::new();
-    'configs: for values in current_verified_values.values() {
+    'configs: for values in current_verified_values
+        .values()
+        .map(Arc::as_ref)
+        .chain(options.pending_proofs.values())
+    {
         for (sha, value) in values.iter() {
             let Some(metadata) = incoming_metadata.get(sha.as_str()) else {
                 continue;

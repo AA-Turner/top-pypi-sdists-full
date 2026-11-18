@@ -41,7 +41,7 @@ class AddCommonBandwidthPackageIpsRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID of the Internet Shared Bandwidth instance. 
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/448570.html) operation to query the region ID.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/448570.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id

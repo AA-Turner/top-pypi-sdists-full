@@ -24,6 +24,7 @@ from anyscale.client.openapi_client.models import (
 from anyscale.cloud_utils import get_cloud_id_and_name
 from anyscale.shared_anyscale_utils.aws import AwsArn
 from anyscale.shared_anyscale_utils.utils.collections import flatten
+from anyscale.utils.extra_headers_util import redact_header_args
 
 
 V = TypeVar("V")
@@ -277,7 +278,8 @@ class CloudEventProducer:
     ):
         self.trace_id = str(uuid.uuid4().hex)
         self.command_name = command_name
-        self.raw_command_input = str(" ".join(sys.argv[1:]))
+        # A `--header` value may be a credential, and this event is stored server-side.
+        self.raw_command_input = str(" ".join(redact_header_args(sys.argv[1:])))
         self.cloud_id = cloud_id
         self.cloud_provider = cloud_provider
 

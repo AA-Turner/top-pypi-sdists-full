@@ -15,6 +15,7 @@ use crate::observability::ErrorBoundaryEvent;
 use crate::observability::observability_client_adapter::{MetricType, ObservabilityEvent};
 use crate::observability::ops_stats::{OPS_STATS, OpsStatsForInstance};
 use crate::sdk_diagnostics::marker::{ActionType, KeyType, Marker, StepType};
+use crate::statsig_metadata::StatsigMetadata;
 use crate::utils::get_loggable_sdk_key;
 use crate::{StatsigOptions, log_d, log_i, log_w};
 use std::collections::HashMap;
@@ -123,11 +124,11 @@ pub struct NetworkClient {
 }
 
 impl NetworkClient {
-    pub(crate) fn supports_wire_responses_without_redirects(&self) -> bool {
+    pub(crate) fn supports_response_headers_without_redirects(&self) -> bool {
         match &self.transport {
             RequestTransport::Provider(provider) => provider
                 .upgrade()
-                .is_some_and(|p| p.supports_wire_responses_without_redirects()),
+                .is_some_and(|p| p.supports_response_headers_without_redirects()),
             #[cfg(not(feature = "custom_network_provider"))]
             _ => false,
         }
@@ -147,6 +148,12 @@ impl NetworkClient {
         Self::new_with_transport(sdk_key, headers, options, || {
             RequestTransport::Provider(get_network_provider())
         })
+    }
+
+    pub(crate) fn with_sdk_headers(sdk_key: &str, options: &StatsigOptions) -> Self {
+        let headers =
+            StatsigMetadata::get_constant_request_headers(sdk_key, options.service_name.as_deref());
+        Self::new(sdk_key, Some(headers), Some(options))
     }
 
     pub(crate) fn new_for_event_upload(
@@ -332,6 +339,7 @@ impl NetworkClient {
                         false,
                         index,
                         request_args.retries,
+                        false,
                     )
                 },
                 |error| matches!(error, NetworkError::RetriesExhausted(..)).then_some(u32::MAX),
@@ -363,6 +371,31 @@ impl NetworkClient {
             state_read,
             attempt,
             retries,
+            false,
+        )
+        .await
+    }
+
+    /// A bounded request without redirects or response content in diagnostics.
+    /// The origin or an intermediary can echo sensitive request data in an error.
+    #[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
+    pub(crate) async fn request_once_with_redacted_response(
+        &self,
+        method: HttpMethod,
+        mut request_args: RequestArgs,
+        max_response_bytes: u64,
+    ) -> Result<Response, NetworkError> {
+        request_args.retries = 0;
+        self.prepare_request_args(&mut request_args);
+        self.send_request_once(
+            method,
+            &request_args,
+            Some(max_response_bytes),
+            true,
+            false,
+            0,
+            0,
+            true,
         )
         .await
     }
@@ -402,6 +435,7 @@ impl NetworkClient {
         state_read: bool,
         attempt: u32,
         retries: u32,
+        redact_response_diagnostics: bool,
     ) -> Result<Response, NetworkError> {
         self.output_policy
             .scope(async {
@@ -466,14 +500,21 @@ impl NetworkClient {
                     })?;
 
                 let status = response.status_code;
-                let error_message = response.error.clone().unwrap_or_else(|| {
-                    get_error_message_for_status(status, response.data.as_mut())
-                });
+                let error_message = if redact_response_diagnostics {
+                    // Status and the fixed route are sufficient for errors, logs and telemetry.
+                    String::new()
+                } else {
+                    response.error.clone().unwrap_or_else(|| {
+                        get_error_message_for_status(status, response.data.as_mut())
+                    })
+                };
 
-                let content_type = response
+                let public_headers = response
                     .data
                     .as_ref()
-                    .and_then(|data| data.get_header_ref("content-type"));
+                    .filter(|_| !redact_response_diagnostics);
+                let content_type =
+                    public_headers.and_then(|data| data.get_header_ref("content-type"));
 
                 log_d!(
                     TAG,
@@ -502,10 +543,8 @@ impl NetworkClient {
                 }
 
                 if let Some(key) = diagnostics_key {
-                    let sdk_region_str = response
-                        .data
-                        .as_ref()
-                        .and_then(|data| data.get_header_ref("x-statsig-region"));
+                    let sdk_region_str =
+                        public_headers.and_then(|data| data.get_header_ref("x-statsig-region"));
                     let mut end_marker =
                         Marker::new(key, ActionType::End, Some(StepType::NetworkRequest))
                             .with_attempt(attempt)

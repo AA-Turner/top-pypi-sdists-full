@@ -711,7 +711,7 @@ async fn json_full_omission_and_inline_replacement_prune_verified_values() {
 }
 
 #[tokio::test]
-async fn json_same_sha_with_different_metadata_is_unavailable_and_does_not_advance_sync_cursor() {
+async fn json_same_sha_with_different_metadata_keeps_prior_config_and_full_sync_cursor() {
     for field in ["byteLength", "compression"] {
         let server = MockServer::start().await;
         let remote = RemoteValue::new("tuple", true);
@@ -735,7 +735,7 @@ async fn json_same_sha_with_different_metadata_is_unavailable_and_does_not_advan
         let polls = get_count(&server, DCS_PATH).await;
         dcs.once(invalid, no_update(1));
         wait_requests(&server, DCS_PATH, polls + 3).await;
-        assert_eq!(generation(&sdk), 2, "healthy slots should see the new spec");
+        assert_eq!(generation(&sdk), 2);
         let user = StatsigUser::with_user_id("normal-user");
         assert_eq!(
             sdk.get_dynamic_config(&user, "large_config").details.lcut,
@@ -749,15 +749,7 @@ async fn json_same_sha_with_different_metadata_is_unavailable_and_does_not_advan
         let store_info = sdk.get_context().spec_store.get_current_specs_info();
         assert_eq!(store_info.lcut, Some(0));
         assert!(store_info.checksum.is_none());
-        assert!(
-            sdk.get_dynamic_config(&StatsigUser::with_user_id("remote-user"), "large_config")
-                .details
-                .is_blob_unavailable()
-        );
-        assert_eq!(
-            evaluate(&sdk, "normal-user", "large_config"),
-            json!({"normalGeneration": 2})
-        );
+        assert_values(&sdk, &remote, 1);
         assert!(
             get_count(&server, &remote.path()).await > 1,
             "incompatible {field} tuple reused provenance"
@@ -768,7 +760,7 @@ async fn json_same_sha_with_different_metadata_is_unavailable_and_does_not_advan
         dcs.replace(full(3, 3, Some(&remote)));
         wait_until(|| sdk.is_config_spec_ready() && generation(&sdk) == 3).await;
         assert_values(&sdk, &remote, 3);
-        assert!(get_count(&server, &remote.path()).await > failed_gets);
+        assert_eq!(get_count(&server, &remote.path()).await, failed_gets);
         sdk.shutdown().await.unwrap();
     }
 }

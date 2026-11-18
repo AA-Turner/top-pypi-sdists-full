@@ -1922,7 +1922,7 @@ def op_bootstrap(
             "preflight": {
                 tools_text("connect_memory", "read"): "standard read-only suggest-links/suggest-relations check before a compiled note write",
                 "near_duplicate_warnings": (
-                    "if they fire, consider edit or replace instead of a parallel page; a write advisory "
+                    "if they fire, prefer edit or replace over a parallel page; a write advisory "
                     "carries a review ref and fingerprint so an exact dismissed or unexpired snoozed "
                     "signal stays quiet until "
                     + (
@@ -1936,12 +1936,16 @@ def op_bootstrap(
                 "remember_suggestions": f"non-binding related pages: {suggest_links}, {detail_full}",
                 "write_feedback": f"create_note() structural feedback: semantic blocks, typed note/block relations, generic/source links, provenance presence, relation debt, unresolved wikilinks, and next actions; diagnostics with {detail_full}",
                 "structure_suggestion": (
-                    "A committed response may carry one advisory. note_cohesion: the written compiled page reached a size step; counts, the item's ref and fingerprint, one question. source_classification_debt: strength (strong|moderate), reasons, and the sources without a chosen kind with their Sources/ folders."
+                    "A committed response may carry one advisory. ownership: the written page is asked whether it belongs in its project; the item's ref and fingerprint, one question. note_cohesion: the written compiled page reached a size step; counts, the item's ref and fingerprint, one question. source_classification_debt: strength (strong|moderate), reasons, and the sources without a chosen kind with their Sources/ folders."
                     if profile == "compact"
-                    else "advisory in the default committed response. kind='note_cohesion': the written compiled page reached a size step while its review item is open; it carries units, step_units, next_step_units, the item's ref and fingerprint, and one question. The runtime measures size and never says the page is overloaded. kind='source_classification_debt': carries strength (strong|moderate) and ordered reasons; the vault holds sources with no chosen kind, counted with their Sources/ folders"
+                    else "advisory in the default committed response. kind='ownership': the written page is asked whether it belongs in its current project and home folder while its review item is open; it carries the item's ref and fingerprint and one question, and the runtime never says the page is misfiled. kind='note_cohesion': the written compiled page reached a size step while its review item is open; it carries units, step_units, next_step_units, the item's ref and fingerprint, and one question. The runtime measures size and never says the page is overloaded. kind='source_classification_debt': carries strength (strong|moderate) and ordered reasons; the vault holds sources with no chosen kind, counted with their Sources/ folders"
                 ),
                 "structure_suggestion_handling": (
-                    "note_cohesion: answer its question about the page in hand. One question: keep the page whole with "
+                    "ownership: answer its question about the page in hand and never change the page to answer it. Serves the project's goal: "
+                    + call_text("triage_memory", {"item_id": "<id>", "action": "dismiss", "why": "intentional: <the project goal>"})
+                    + ". Unsure: dismiss with a `deferred:` reason or make no call. Elsewhere or several: tell the user, and on their yes propose it with "
+                    + call_text("maintain_memory", {"mode": "curation", "curation_action": "propose"})
+                    + ". note_cohesion: answer its question about the page in hand. One question: keep the page whole with "
                     + call_text("triage_memory", {"item_id": "<id>", "action": "dismiss", "why": "intentional: <the one question>"})
                     + "; it stays quiet until the next size step. Several: propose a split with "
                     + call_text("maintain_memory", {"mode": "curation", "curation_action": "propose"})
@@ -4053,7 +4057,8 @@ def _add_source(
         # FastMCP serializes raised exceptions; we want a structured shape.
         raise ValueError(_leaf_error_message(e)) from e
     if result.capture_outcome != "reused":
-        query_log.log_write_call(tool="add", written_path=result.path, cited_sources=[])
+        query_log.log_write_call(tool="add", written_path=None if result.path_withheld else result.path,
+                                 cited_sources=[])
     return result.as_dict()
 
 
@@ -6356,6 +6361,8 @@ def op_move_file(
     update_wikilinks: bool = True,
     allow_curated: bool = False,
     promotion_reason: str | None = None,
+    validate_only: bool = False,
+    preview_digest: str | None = None,
 ) -> dict:
     """Tier 2: relocate a file, optionally rewriting inbound wikilinks.
 
@@ -6372,7 +6379,14 @@ def op_move_file(
     new location. Preserves full-form vs stripped-form per link. It also
     renames the exact old vault path where a page body cites it in prose,
     and leaves a Source or Evidence page that cites it as captured (a
-    warning counts those).
+    warning counts those). A link in a Source or Evidence page is repointed
+    through the governed pointer write when the moved page has an
+    `exomem_id`. A link that the move cannot rewrite still resolves through
+    the moved page's lineage.
+
+    `validate_only=true` previews the move: one outcome per referrer you may
+    see and a `preview_digest`. A move that repoints a Source or Evidence page
+    commits only with that digest.
 
     Args:
         old_path: Vault-relative source.
@@ -6382,12 +6396,17 @@ def op_move_file(
         promotion_reason: Required only for a Sources/ -> Evidence/ promotion;
             recorded in the activity log as the audit trail for the
             reclassification.
+        validate_only: Preview the move without writing.
+        preview_digest: The preview's digest, which approves its repoints.
 
     Returns: {old_path, new_path, wikilinks_updated, path_mentions_updated,
-    files_touched, warnings}.
+    files_touched, warnings[, pointer_writes]}; a preview adds referrers and
+    preview_digest, and store_rows, the one outcome of the rows the collection
+    store keeps without a page, when the vault keeps collections in the store.
     Errors: INVALID_PATH; NOT_FOUND; DEST_EXISTS; APPEND_ONLY;
-            CURATED_PROTECTED; PROMOTION_REASON_REQUIRED; COLLECTION_VIEW_PATH
-            (either end is a store collection's view path).
+            POINTER_PREVIEW_REQUIRED; CURATED_PROTECTED;
+            PROMOTION_REASON_REQUIRED; COLLECTION_VIEW_PATH (either end is a
+            store collection's view path).
     """
     old_path = _resolve_memory_identifier(vault_root, old_path)
     try:
@@ -6398,6 +6417,8 @@ def op_move_file(
             update_wikilinks=update_wikilinks,
             allow_curated=allow_curated,
             promotion_reason=promotion_reason,
+            preview=validate_only,
+            preview_digest=preview_digest,
         )
     except move_file_module.MoveFileError as e:
         raise ValueError(f"{e.code}: {e.reason}") from e
@@ -8092,6 +8113,8 @@ def _op_activate_context_body(
                     known_generation=(held_map or {}).get("map_generation"),
                     native_skills=native_skills, known_skills=(held_map or {}).get("skills_generation"),
                     known_stance=(held_map or {}).get("stance_generation"),
+                    known_profiles=(held_map or {}).get("profile_generations"),
+                    turn=turn, snapshot=snapshot,
                     task_context=task_context,
                     packet_limit=working_set_module.clamp_budget(max_chars),
                     spent_after=reserved_chars,
@@ -8128,6 +8151,9 @@ def _op_activate_context_body(
                 refs=(), roles=(), map_generation=map_generation,
                 skills_generation=working_set_runtime_module.held_session_generation(packet.get("skills")),
                 stance_generation=working_set_runtime_module.held_session_generation(packet.get("stance")),
+                profile_generations=working_set_runtime_module.held_profile_generations(
+                    packet.get("domain_profiles"), (held_map or {}).get("profile_generations"),
+                ),
             )
             packet["task_context"] = context_task.pin(
                 vault_root, context_views_module.CallerView.current(vault_root, purpose=purpose),
@@ -10331,6 +10357,8 @@ def _media_remediation(code: str) -> str:
         return "Wait for the current processing run to end, then ask again."
     if code == "MEDIA_RUNTIME_UNAVAILABLE":
         return "Restore the media runtime, then ask again."
+    if code == "MEDIA_ORIGINAL_UNVERIFIED":
+        return "Restore the original from a verified copy, as an original fixity pass does, then retry processing."
     return "Inspect the media artifact and retry processing."
 
 
@@ -11513,6 +11541,17 @@ def _validate_vocabulary_binding(
         )
 
 
+def _with_ownership_question(vault_root: Path, previewed: dict[str, Any]) -> dict[str, Any]:
+    """A curation preview beside the one ownership question of its placing steps.
+
+    Added to the reply only: the sealed plan and its fingerprint stay as they were.
+    """
+    from . import ownership_review
+
+    asked = ownership_review.preview_question(vault_root, previewed["actions"])
+    return {**previewed, "ownership_question": asked} if asked else previewed
+
+
 def _bind_connect_arguments(vault_root: Path, **arguments: Any) -> dict[str, Any]:
     """Bind accept-by-id before admission, including the source page's exact version."""
     item_id = arguments.get("item_id")
@@ -12218,6 +12257,7 @@ def op_maintain_memory(
         "fix",
         "reconcile",
         "backfill-ids",
+        "convert-originals",
         "structured-files",
         "curation",
         "tag-variants",
@@ -12270,8 +12310,8 @@ def op_maintain_memory(
 ) -> dict:
     """Maintain vault health; several modes write.
 
-    Audit is read-only; fix/backfill-ids default dry-run; reconcile writes.
-    A remote fix, backfill-ids or reconcile runs as a maintenance job and returns a run_id.
+    Audit is read-only; fix/backfill-ids/convert-originals default dry-run; reconcile writes.
+    A remote fix, backfill-ids, convert-originals or reconcile runs as a maintenance job and returns a run_id.
     The owner's preview (dry_run=true) is a job: its receipt holds the plan_id. Then repeat
     with dry_run=false, that plan_id and a why to write.
     maintenance-job reads one job's state and receipt (run_id) or lists them; the receipt's
@@ -12283,6 +12323,7 @@ def op_maintain_memory(
     the owner applies its plan_id with `exomem collections cutover` on the host.
     held-resolve settles one held item that mode held of review_memory lists: path, choice keep-mine or
     keep-store, that item's item_version and why.
+    convert-originals moves an existing archive's ordinary originals into shared original storage; owner only.
 
     Curation cannot target raw Sources/Evidence, Planning, Records or schema/admin state.
     Mode manuals are in references/vault-care.md.
@@ -12290,7 +12331,7 @@ def op_maintain_memory(
     Args:
         mode: Maintenance mode.
         categories: Audit category filter.
-        dry_run: Report without writing. Default true for fix/backfill-ids,
+        dry_run: Report without writing. Default true for fix/backfill-ids/convert-originals,
             false for reconcile.
         rebuild_embeddings: fix only.
         rebuild_graph: reconcile only; quarantine unavailable derived graph lineage and
@@ -12307,7 +12348,7 @@ def op_maintain_memory(
         plan: Closed agent-authored plan for curation propose.
         refs: Memory refs for curation work-item.
         paths: Vault paths for curation work-item.
-        review_ref: Recurring-identity review ref for a work-item.
+        review_ref: Review ref for a work-item: a recurring-identity candidate, or an item on one page.
         hydration_recheck: Continuation ordinal 1-8; the eighth is closure-only.
         expected_plan_fingerprint: Reviewed plan fingerprint for approval.
         vocabulary_ref: Vocabulary decision for curation apply or resume.
@@ -12425,7 +12466,8 @@ def op_maintain_memory(
                 return curation_module.propose(vault_root, plan)
             if curation_action == "preview":
                 assert run_id is not None
-                return curation_module.preview(vault_root, run_id=run_id)
+                previewed = curation_module.preview(vault_root, run_id=run_id)
+                return _with_ownership_question(vault_root, previewed)
             if curation_action == "status":
                 assert run_id is not None
                 return curation_module.status(vault_root, run_id=run_id)
@@ -12701,9 +12743,14 @@ def op_maintain_memory(
                 raise
             _apply_batch_deltas(vault_root, list(report.get("updated") or []))
         return _carrying_batch_advisories(vault_root, report)
+    if mode == "convert-originals":
+        from . import original_conversion
+
+        _require_job_plan_arguments(mode, dry_run, plan_id, why)
+        return original_conversion.convert(vault_root, dry_run=True if dry_run is None else dry_run, plan_id=plan_id)
     raise ValueError(
         "INVALID_MODE: maintain_memory mode must be audit, fix, reconcile, "
-        "backfill-ids, structured-files, curation, tag-variants, maintenance-job, "
+        "backfill-ids, convert-originals, structured-files, curation, tag-variants, maintenance-job, "
         "maintenance-job-cancel, collections-store, collections-store-adopt-local, "
         "collections-store-export, collections-cutover, or held-resolve"
     )
@@ -14047,6 +14094,7 @@ def op_reclassify_source(
     domain: str | None = None,
     artifact_path: str | None = None,
     reason: str | None = None,
+    preview_digest: str | None = None,
 ) -> dict:
     """Correct a captured source's classification and relocate it to match.
 
@@ -14072,6 +14120,9 @@ def op_reclassify_source(
     file moved. It names an existing file under Sources/ or Evidence/ that fits the
     size and SHA-256 the source records. Alone it leaves the source where it is; revert
     restores the earlier pointer.
+
+    A relocation that repoints links in other Source or Evidence pages needs the
+    `preview_digest` of the propose-reclassification preview.
     """
     from . import reclassify_source as reclassify_module
 
@@ -14083,6 +14134,7 @@ def op_reclassify_source(
             domain=domain,
             artifact_path=artifact_path,
             reason=reason,
+            preview_digest=preview_digest,
         )
     except reclassify_module.ReclassifyError as error:
         raise ValueError(f"{error.code}: {error.reason}") from error
@@ -14179,14 +14231,15 @@ def op_manage_memory_file(
     relation_review_hash: str | None = None,
     relation_review_reason: str | None = None,
     promotion_reason: str | None = None,
+    preview_digest: str | None = None,
 ) -> dict:
     """Manage files when typed tools do not fit.
 
     Destructive operations need explicit flags.
 
     Args:
-        operation: list, trash-list and propose-reclassification read; create and append
-            read with validate_only; the others write.
+        operation: list, trash-list and propose-reclassification read; create, append
+            and move read with validate_only; the others write.
         path: Target for list/create/append/delete; default trash path for recover.
         allow_curated: Permit operations in curated trees where canonical leaves allow it.
         kind: file or dir, for create.
@@ -14196,7 +14249,8 @@ def op_manage_memory_file(
         reason: Required for reclassify and revert-reclassification.
         confirm: Required for delete.
         expected_dead_inbound: Links expected to die in the same workflow.
-        validate_only: Validate a Markdown create or append without writing.
+        validate_only: Validate a Markdown create or append, or preview a move, without
+            writing.
         draft_token: The overwrite preview's `draft_token`, replayed unchanged on
             commit.
         semantic_transition_token: The append transition token from validate_only.
@@ -14204,6 +14258,8 @@ def op_manage_memory_file(
         relation_review_hash: Draft or transition hash the review covers.
         relation_review_reason: Audit reason for reviewed-none.
         promotion_reason: Required for a move promoting Sources/ to Evidence/.
+        preview_digest: A move or reclassify that repoints Source or Evidence pages passes
+            its preview's `preview_digest`.
     """
     creation_review_requested = any(
         value is not None
@@ -14214,7 +14270,7 @@ def op_manage_memory_file(
         )
     )
     append_review_requested = semantic_transition_token is not None
-    shared_review_requested = validate_only or any(
+    shared_review_requested = (validate_only and operation != "move") or any(
         value is not None
         for value in (
             relation_disposition,
@@ -14281,6 +14337,8 @@ def op_manage_memory_file(
             update_wikilinks=update_wikilinks,
             allow_curated=allow_curated,
             promotion_reason=promotion_reason,
+            validate_only=validate_only,
+            preview_digest=preview_digest,
         )
     if operation == "delete":
         return op_delete(
@@ -14310,6 +14368,7 @@ def op_manage_memory_file(
             domain=domain,
             artifact_path=artifact_path,
             reason=reason,
+            preview_digest=preview_digest,
         )
     if operation == "trash-list":
         return op_list_trash(vault_root, date=date)
@@ -14533,6 +14592,19 @@ def op_inspect_capture_erasure_policy(
     from .source_erasure import inspect_policy
 
     return inspect_policy(vault_root, system=system)
+
+
+def op_erase_captured_source(
+    vault_root: Path,
+    operation_id: Annotated[str, Field(min_length=1, max_length=128)],
+    source_identity: source_capture.SourceIdentity,
+    expected_source_ref: str,
+    expected_source_hash: str,
+) -> dict:
+    """Advance retirement of one captured Source incarnation and report each component's progress."""
+    from .source_eraser import erase
+
+    return erase(vault_root, operation_id, source_identity, expected_source_ref, expected_source_hash)
 
 
 def op_coordination_status(vault_root: Path) -> dict:
@@ -15139,6 +15211,12 @@ _PRODUCT_SPEC: tuple[tuple, ...] = (
         _MCRC, (),
         {"public_title": "Inspect Source erasure policy", "surface": "service", "actions": (), "first_run_safe": True,
          "mcp_meta": {capabilities_module.SERVICE_CAPABILITIES_META_KEY: ("captured_source_erasure_policy",)}},
+    ),
+    (
+        "erase_captured_source", op_erase_captured_source, 1, True, False, None,
+        _MCRC, (),
+        {"public_title": "Erase a captured Source", "surface": "service", "actions": ("update",), "first_run_safe": False,
+         "mcp_meta": {capabilities_module.SERVICE_CAPABILITIES_META_KEY: ("captured_source_erasure",)}},
     ),
     (
         "coordination_status",

@@ -22,6 +22,7 @@ from ...utils.github_host import (
 )
 from ...utils.path_security import (
     PathTraversalError,
+    decode_url_path_segments,
     parse_url_path_segments,
     validate_path_segments,
 )
@@ -50,6 +51,7 @@ from .identity import (
     case_insensitive_identity_prefix_segments,
     is_case_insensitive_package_identity,
     normalize_package_repo_url,
+    normalize_policy_host,
 )
 from .materialization import build_materialization_path
 from .object_fields import (
@@ -64,6 +66,7 @@ from .types import VirtualPackageType
 
 if TYPE_CHECKING:
     from .replacement import ReplacementBinding
+    from .subsets import EdgeSelection
 
 _REF_VERSION_SUFFIX_RE = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][A-Za-z0-9][A-Za-z0-9._-]*)?$")
 
@@ -136,6 +139,11 @@ class DependencyReference(ProviderCoordinateMixin):
     marketplace_version_spec: str | None = None
     marketplace_manifest: dict[str, object] | None = None
     replacement: "ReplacementBinding | None" = field(default=None, repr=False, compare=False)
+    # Every edge that declared this node, set by the resolver's selection merge
+    # (#3735). Diagnostics only: never part of identity and never persisted.
+    selection_contributors: "tuple[EdgeSelection, ...]" = field(
+        default=(), repr=False, compare=False
+    )
 
     @property
     def source_reference(self) -> "DependencyReference":
@@ -181,6 +189,17 @@ class DependencyReference(ProviderCoordinateMixin):
             is_local=self.is_local,
             is_marketplace=self.is_marketplace,
         )
+
+    @property
+    def policy_host(self) -> str | None:
+        """Return the effective host compared by host-qualified policy patterns.
+
+        A reference without an explicit host resolves to the configured default
+        host (``GITHUB_HOST`` or ``github.com``). Local paths have no host.
+        """
+        if self.is_local:
+            return None
+        return normalize_policy_host(self.host or default_host())
 
     @property
     def ref_kind(self) -> str | None:
@@ -1511,7 +1530,7 @@ class DependencyReference(ProviderCoordinateMixin):
         allowed_pattern = _path_segment_pattern(is_ado_host)
         validate_path_segments("/".join(uparts), context="repository path")
         for part in uparts:
-            if not re.match(allowed_pattern, part.rstrip(".git")):
+            if not re.match(allowed_pattern, part.removesuffix(".git")):
                 raise ValueError(f"Invalid repository path component: {part}")
 
         quoted_repo = "/".join(urllib.parse.quote(p, safe="") for p in uparts)
@@ -1729,6 +1748,16 @@ class DependencyReference(ProviderCoordinateMixin):
 
         return host, port, repo_url, reference, alias, effective_is_virtual, effective_virtual_path
 
+    @staticmethod
+    def _reject_git_suffixed_repo_name(name: str) -> None:
+        # Parsing removes exactly one ".git" transport suffix, so a name that
+        # still ends in ".git" would be written to apm.yml as a different repo.
+        if name.endswith(".git"):
+            raise ValueError(
+                f"Invalid repository path component: {name}. A repository name "
+                "cannot end in '.git' once its '.git' suffix is removed"
+            )
+
     @classmethod
     def _validate_final_repo_fields(cls, host, repo_url, *, allow_percent_encoded: bool = False):
         """Validate a repository path and return its ADO coordinates when applicable."""
@@ -1739,7 +1768,10 @@ class DependencyReference(ProviderCoordinateMixin):
                     f"Invalid Azure DevOps repository format: {repo_url}. Expected 'org/project/repo'"
                 )
             ado_parts = repo_url.split("/")
-            validate_path_segments(repo_url, context="Azure DevOps repository path")
+            validate_path_segments(
+                repo_url, context="Azure DevOps repository path", reject_all_dots=True
+            )
+            cls._reject_git_suffixed_repo_name(ado_parts[2])
             return ado_parts[0], ado_parts[1], ado_parts[2]
 
         segments = repo_url.split("/")
@@ -1752,7 +1784,10 @@ class DependencyReference(ProviderCoordinateMixin):
         )
         if not all(re.match(allowed_pattern, s) for s in segments):
             raise ValueError(f"Invalid repository format: {repo_url}. Contains invalid characters")
-        validate_path_segments(repo_url, context="repository path")
+        validate_path_segments(repo_url, context="repository path", reject_all_dots=True)
+        cls._reject_git_suffixed_repo_name(
+            decode_url_path_segments(segments[-1], context="repository path")[0]
+        )
         for seg in segments:
             if any(seg.endswith(ext) for ext in cls.VIRTUAL_FILE_EXTENSIONS):
                 raise ValueError(

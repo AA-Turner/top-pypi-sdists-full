@@ -25,7 +25,7 @@ github_org = "ansible-collections"
 github_repo = "community.general"
 github_release_title = "{version}"
 github_release_body = "See {repository_url}/blob/{branch}/CHANGELOG.md for all changes."
-git_release_branch = "stable-13"
+git_release_branch = "stable-14"
 git_tag_format = "{version}"
 git_sign_commits = true
 git_sign_tags = true
@@ -33,8 +33,8 @@ git_release_commit_message = "Release {version}."
 git_release_tag_message = "{version}"
 git_prepare_commit_message = "Prepare {version}."
 git_sign_other_commits = false
-git_post_release_bump = "next-bugfix"
-git_post_release_commit_message = "The next release will be {new-version}."
+git_post_release_bump = "next-minor"
+git_post_release_commit_message = "The next expected release will be {new-version}."
 
 [sessions]
 
@@ -125,14 +125,6 @@ exclusions = [
 doc_fragment = "community.general._consul.actiongroup_consul"
 
 [[sessions.extra_checks.action_groups_config]]
-name = "keycloak"
-pattern = "^keycloak_.*$"
-exclusions = [
-    "keycloak_realm_info",
-]
-doc_fragment = "community.general._keycloak.actiongroup_keycloak"
-
-[[sessions.extra_checks.action_groups_config]]
 name = "scaleway"
 pattern = "^scaleway_.*$"
 doc_fragment = "community.general._scaleway.actiongroup_scaleway"
@@ -150,7 +142,6 @@ include_devel = true
 split_by_python_version = true
 
 [sessions.ansible_test_units.core_python_versions]
-"2.18" = ["3.8", "3.11", "3.13"]
 "2.19" = ["3.8", "3.11", "3.13"]
 "2.20" = ["3.9", "3.12", "3.14"]
 "2.21" = ["3.9", "3.12", "3.14"]
@@ -177,31 +168,6 @@ retry_on_error = "in-ci"
 "quay.io/ansible-community/test-image:opensuse-tumbleweed" = "OpenSuSE Tumbleweed"
 
 ##################################################################################################
-
-# Ansible-core 2.18:
-
-[[sessions.ansible_test_integration.groups]]
-session_name = "ansible-test-integration-2.18"
-description = "Meta session for running all ansible-test-integration-2.18-* sessions."
-
-[[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "2.18"
-target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
-docker = [ "fedora40", "ubuntu2404", "alpine320" ]
-
-[[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "2.18"
-target = [ "azp/generic/1/" ]
-python_version = [ "3.8", "3.13" ]
-docker = "default"
-
-[[sessions.ansible_test_integration.groups.sessions]]
-ansible_core = "2.18"
-target = [ "azp/posix/1/", "azp/posix/2/", "azp/posix/3/" ]
-remote = [
-    # "macos/14.3",
-    # "freebsd/14.1"
-]
 
 # Ansible-core 2.19:
 

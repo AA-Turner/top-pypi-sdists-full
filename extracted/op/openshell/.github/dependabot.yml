@@ -11,6 +11,13 @@ updates:
     groups:
       python-minor-and-patch:
         update-types: ["minor", "patch"]
+    ignore:
+      # grpcio-tools stamps its own grpcio/protobuf versions into the committed
+      # stubs in src/openshell/_proto, which tightens the runtime requirements.
+      # Allow patch updates only until the floors are raised deliberately in
+      # 0.2.0. See https://github.com/ai-openshell/sdk-python/issues/24
+      - dependency-name: "grpcio-tools"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -18,3 +25,7 @@ updates:
       interval: "daily"
     cooldown:
       default-days: 7
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action*"

@@ -76,7 +76,7 @@ jobs:
           persist-credentials: false
 
       # No tool cache: what gets published is built from fresh downloads.
-      - uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
+      - uses: jdx/mise-action@b44d12e7d0d8ee7461bb893e1b1993500433185b # v5.2.7
         with:
           cache: false
 
@@ -90,7 +90,7 @@ jobs:
       - name: Write checksums
         run: (cd dist && sha256sum -- *) >openshell-checksums-sha256.txt
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release
           path: |

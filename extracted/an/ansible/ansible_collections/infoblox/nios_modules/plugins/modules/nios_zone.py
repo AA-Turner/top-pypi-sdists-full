@@ -84,6 +84,11 @@ options:
       - Allows for the configuration of Extensible Attributes on the
         instance of the object.  This argument accepts a set of key / value
         pairs for configuration.
+      - A value may also be supplied as a dictionary to control inheritance of
+        an inheritable Extensible Attribute. Such a dictionary accepts a
+        C(value) key together with an C(inheritance_operation) key set to
+        C(INHERIT) to revert the object to its inherited value, or C(OVERRIDE)
+        to explicitly override an inherited value.
     type: dict
   comment:
     description:

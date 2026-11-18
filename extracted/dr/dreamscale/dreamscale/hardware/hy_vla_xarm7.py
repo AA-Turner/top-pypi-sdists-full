@@ -1,6 +1,6 @@
 """Hy-VLA pose chunks on the two xArm 7s: FK for the state, blend + seeded IK for execution.
 
-A Hy-VLA deployment (``dreamscale_transport.hy_vla_deploy``) never sees joints. Each request
+A Hy-VLA deployment (``dreamscale_core.hy_vla_deploy``) never sees joints. Each request
 carries a 20-value pose state (per arm, model order fore then aft: TCP xyz, rotation-matrix
 rows 0-1, gripper 0-1) and each chunk row is 40 values: both arms' poses relative to that
 request's state (0-19), then absolute in each arm's base frame (20-39). This adapter, in the
@@ -411,7 +411,7 @@ class _HyVlaJointPolicy:
         if callable(arm_for):
             arm = arm_for(instruction)
         else:
-            from dreamscale_transport.hy_vla_deploy import clean_instruction
+            from dreamscale_core.hy_vla_deploy import clean_instruction
 
             arm = self.deployment_labels.get(clean_instruction(instruction))
         if arm not in MODEL_ARMS:

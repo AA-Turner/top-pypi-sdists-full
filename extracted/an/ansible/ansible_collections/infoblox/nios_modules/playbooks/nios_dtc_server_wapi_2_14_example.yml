@@ -1,0 +1,71 @@
+---
+# Example: DTC Server Management with WAPI 2.14+
+#
+# This playbook demonstrates DTC server creation, update, and deletion.
+# On WAPI 2.14+, the API returns {_ref, uuid} dict on create/update,
+# which the module now correctly normalizes for post-fetch retrieval.
+#
+# Requirements:
+#   - Infoblox WAPI 2.14+ (NIOS 9.1.0 or later)
+#   - infoblox-client == 0.6.2
+#   - ansible-core >= 2.16
+#
+# Usage:
+#   ansible-playbook nios_dtc_server_wapi_2_14_example.yml -e nios_host=<grid-ip> -e nios_username=admin -e nios_password=<password>
+
+- name: DTC Server Management Example
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+  vars:
+    # Provide credentials via -e option or set them here
+    nios_provider:
+      host: "{{ nios_host | default('192.168.1.10') }}"
+      username: "{{ nios_username | default('admin') }}"
+      password: "{{ nios_password | default('infoblox') }}"
+      wapi_version: "2.14"
+      ssl_verify: false
+
+  tasks:
+    - name: Create DTC Server
+      infoblox.nios_modules.nios_dtc_server:
+        name: "web-server-01.example.com"
+        host: "10.0.0.100"
+        comment: "Web server for DTC load balancing"
+        state: present
+        provider: "{{ nios_provider }}"
+      register: dtc_server_create
+
+    - name: Display created server
+      ansible.builtin.debug:
+        msg:
+          - "Server Reference: {{ dtc_server_create.object._ref }}"
+          - "Server Name: {{ dtc_server_create.object.name }}"
+          - "Server Host: {{ dtc_server_create.object.host }}"
+
+    - name: Update DTC Server
+      infoblox.nios_modules.nios_dtc_server:
+        name: "web-server-01.example.com"
+        host: "10.0.0.100"
+        comment: "Updated: Web server for DTC load balancing (v2)"
+        state: present
+        provider: "{{ nios_provider }}"
+      register: dtc_server_update
+
+    - name: Display updated server
+      ansible.builtin.debug:
+        msg: "Updated Comment: {{ dtc_server_update.object.comment }}"
+
+    - name: Delete DTC Server
+      infoblox.nios_modules.nios_dtc_server:
+        name: "web-server-01.example.com"
+        host: "10.0.0.100"
+        state: absent
+        provider: "{{ nios_provider }}"
+      register: dtc_server_delete
+
+    - name: Verify deletion
+      ansible.builtin.debug:
+        msg: "DTC server deleted successfully"
+      when: dtc_server_delete.changed

@@ -68,9 +68,14 @@ from .literals import (
     EmailHeaderTypeType,
     EndpointTypeType,
     EntityTypeType,
+    EvaluationEnablementStatusType,
+    EvaluationFormAiMetricsFieldType,
     EvaluationFormAIVersionStatusType,
+    EvaluationFormContactFieldType,
     EvaluationFormItemEnablementActionType,
     EvaluationFormItemEnablementOperatorType,
+    EvaluationFormItemEnablementSourceTypeType,
+    EvaluationFormItemEnablementSourceValueTypeType,
     EvaluationFormItemSourceValuesComparatorType,
     EvaluationFormLanguageCodeType,
     EvaluationFormMultiSelectQuestionDisplayModeType,
@@ -82,6 +87,7 @@ from .literals import (
     EvaluationFormValidationFindingSeverityType,
     EvaluationFormValidationStatusType,
     EvaluationFormVersionStatusType,
+    EvaluationItemResolutionStatusType,
     EvaluationQuestionAnswerAnalysisTypeType,
     EvaluationStatusType,
     EvaluationSuggestedAnswerStatusType,
@@ -706,7 +712,9 @@ __all__ = (
     "EvaluationFormItemEnablementExpressionTypeDef",
     "EvaluationFormItemEnablementExpressionUnionTypeDef",
     "EvaluationFormItemEnablementSourceTypeDef",
+    "EvaluationFormItemEnablementSourceValueOutputTypeDef",
     "EvaluationFormItemEnablementSourceValueTypeDef",
+    "EvaluationFormItemEnablementSourceValueUnionTypeDef",
     "EvaluationFormItemOutputTypeDef",
     "EvaluationFormItemTypeDef",
     "EvaluationFormItemUnionTypeDef",
@@ -747,7 +755,9 @@ __all__ = (
     "EvaluationFormSectionOutputTypeDef",
     "EvaluationFormSectionTypeDef",
     "EvaluationFormSectionUnionTypeDef",
+    "EvaluationFormSingleSelectQuestionAutomationOptionOutputTypeDef",
     "EvaluationFormSingleSelectQuestionAutomationOptionTypeDef",
+    "EvaluationFormSingleSelectQuestionAutomationOptionUnionTypeDef",
     "EvaluationFormSingleSelectQuestionAutomationOutputTypeDef",
     "EvaluationFormSingleSelectQuestionAutomationTypeDef",
     "EvaluationFormSingleSelectQuestionAutomationUnionTypeDef",
@@ -768,6 +778,7 @@ __all__ = (
     "EvaluationNoteTypeDef",
     "EvaluationQuestionAnswerAnalysisDetailsTypeDef",
     "EvaluationQuestionInputDetailsTypeDef",
+    "EvaluationResolvedSourceTypeDef",
     "EvaluationReviewConfigurationOutputTypeDef",
     "EvaluationReviewConfigurationTypeDef",
     "EvaluationReviewConfigurationUnionTypeDef",
@@ -1454,6 +1465,9 @@ __all__ = (
     "SignInConfigTypeDef",
     "SignInConfigUnionTypeDef",
     "SignInDistributionTypeDef",
+    "SingleSelectQuestionAutomationRuleOutputTypeDef",
+    "SingleSelectQuestionAutomationRuleTypeDef",
+    "SingleSelectQuestionAutomationRuleUnionTypeDef",
     "SingleSelectQuestionRuleCategoryAutomationTypeDef",
     "SortTypeDef",
     "SourceCampaignTypeDef",
@@ -3291,15 +3305,24 @@ class EvaluationFormAIVersionLifecycleTypeDef(TypedDict):
 EvaluationFormItemEnablementSourceTypeDef = TypedDict(
     "EvaluationFormItemEnablementSourceTypeDef",
     {
-        "Type": Literal["QUESTION_REF_ID"],
+        "Type": EvaluationFormItemEnablementSourceTypeType,
         "RefId": NotRequired[str],
+        "ContactField": NotRequired[EvaluationFormContactFieldType],
+        "ContactAttributeKey": NotRequired[str],
+        "SegmentAttributeKey": NotRequired[str],
+        "EvaluationMetadataField": NotRequired[Literal["EVALUATION_TYPE"]],
+        "AiMetricsField": NotRequired[EvaluationFormAiMetricsFieldType],
     },
 )
-EvaluationFormItemEnablementSourceValueTypeDef = TypedDict(
-    "EvaluationFormItemEnablementSourceValueTypeDef",
+EvaluationFormItemEnablementSourceValueOutputTypeDef = TypedDict(
+    "EvaluationFormItemEnablementSourceValueOutputTypeDef",
     {
-        "Type": Literal["OPTION_REF_ID"],
+        "Type": EvaluationFormItemEnablementSourceValueTypeType,
         "RefId": NotRequired[str],
+        "StringValue": NotRequired[str],
+        "NumericValue": NotRequired[float],
+        "BooleanValue": NotRequired[bool],
+        "DateTimeValue": NotRequired[datetime],
     },
 )
 
@@ -6310,6 +6333,17 @@ class DataTableValueTypeDef(TypedDict):
     LastModifiedTime: NotRequired[TimestampTypeDef]
     LastModifiedRegion: NotRequired[str]
 
+EvaluationFormItemEnablementSourceValueTypeDef = TypedDict(
+    "EvaluationFormItemEnablementSourceValueTypeDef",
+    {
+        "Type": EvaluationFormItemEnablementSourceValueTypeType,
+        "RefId": NotRequired[str],
+        "StringValue": NotRequired[str],
+        "NumericValue": NotRequired[float],
+        "BooleanValue": NotRequired[bool],
+        "DateTimeValue": NotRequired[TimestampTypeDef],
+    },
+)
 SearchContactsTimeRangeTypeDef = TypedDict(
     "SearchContactsTimeRangeTypeDef",
     {
@@ -6583,13 +6617,13 @@ class EvaluationFormAIVersionSummaryTypeDef(TypedDict):
 
 class EvaluationFormItemEnablementExpressionOutputTypeDef(TypedDict):
     Source: EvaluationFormItemEnablementSourceTypeDef
-    Values: list[EvaluationFormItemEnablementSourceValueTypeDef]
+    Values: list[EvaluationFormItemEnablementSourceValueOutputTypeDef]
     Comparator: EvaluationFormItemSourceValuesComparatorType
 
-class EvaluationFormItemEnablementExpressionTypeDef(TypedDict):
+class EvaluationResolvedSourceTypeDef(TypedDict):
     Source: EvaluationFormItemEnablementSourceTypeDef
-    Values: Sequence[EvaluationFormItemEnablementSourceValueTypeDef]
-    Comparator: EvaluationFormItemSourceValuesComparatorType
+    Status: EvaluationItemResolutionStatusType
+    Values: NotRequired[list[EvaluationFormItemEnablementSourceValueOutputTypeDef]]
 
 class EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef(TypedDict):
     RuleCategory: NotRequired[MultiSelectQuestionRuleCategoryAutomationOutputTypeDef]
@@ -6643,24 +6677,6 @@ class EvaluationFormScoringStrategyTypeDef(TypedDict):
     Status: EvaluationFormScoringStatusType
     ScoreThresholds: NotRequired[Sequence[EvaluationFormScoreThresholdTypeDef]]
 
-class EvaluationFormSectionOutputTypeDef(TypedDict):
-    Title: str
-    RefId: str
-    Items: list[dict[str, Any]]
-    Instructions: NotRequired[str]
-    Weight: NotRequired[float]
-    IsExcludedFromScoring: NotRequired[bool]
-    ScoreThresholds: NotRequired[list[EvaluationFormScoreThresholdTypeDef]]
-
-class EvaluationFormSectionTypeDef(TypedDict):
-    Title: str
-    RefId: str
-    Items: Sequence[Mapping[str, Any]]
-    Instructions: NotRequired[str]
-    Weight: NotRequired[float]
-    IsExcludedFromScoring: NotRequired[bool]
-    ScoreThresholds: NotRequired[Sequence[EvaluationFormScoreThresholdTypeDef]]
-
 class EvaluationFormQuestionScoringConfigurationOutputTypeDef(TypedDict):
     PointsConfiguration: NotRequired[QuestionPointsConfigurationTypeDef]
     IsExcludedFromScoring: NotRequired[bool]
@@ -6676,9 +6692,6 @@ class SearchEvaluationFormsResponseTypeDef(TypedDict):
     ApproximateTotalCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
-
-class EvaluationFormSingleSelectQuestionAutomationOptionTypeDef(TypedDict):
-    RuleCategory: NotRequired[SingleSelectQuestionRuleCategoryAutomationTypeDef]
 
 class ListEvaluationFormsResponseTypeDef(TypedDict):
     EvaluationFormSummaryList: list[EvaluationFormSummaryTypeDef]
@@ -8101,6 +8114,11 @@ class BatchUpdateDataTableValueRequestTypeDef(TypedDict):
     DataTableId: str
     Values: Sequence[DataTableValueTypeDef]
 
+EvaluationFormItemEnablementSourceValueUnionTypeDef = Union[
+    EvaluationFormItemEnablementSourceValueTypeDef,
+    EvaluationFormItemEnablementSourceValueOutputTypeDef,
+]
+
 class SearchContactsAdditionalTimeRangeCriteriaTypeDef(TypedDict):
     TimeRange: NotRequired[SearchContactsTimeRangeTypeDef]
     TimestampCondition: NotRequired[SearchContactsTimestampConditionTypeDef]
@@ -8168,11 +8186,6 @@ class EvaluationFormItemEnablementConditionOperandOutputTypeDef(TypedDict):
     Expression: NotRequired[EvaluationFormItemEnablementExpressionOutputTypeDef]
     Condition: NotRequired[dict[str, Any]]
 
-EvaluationFormItemEnablementExpressionUnionTypeDef = Union[
-    EvaluationFormItemEnablementExpressionTypeDef,
-    EvaluationFormItemEnablementExpressionOutputTypeDef,
-]
-
 class EvaluationFormMultiSelectQuestionAutomationOutputTypeDef(TypedDict):
     Options: NotRequired[list[EvaluationFormMultiSelectQuestionAutomationOptionOutputTypeDef]]
     DefaultOptionRefIds: NotRequired[list[str]]
@@ -8196,23 +8209,10 @@ class EvaluationFormNumericQuestionPropertiesTypeDef(TypedDict):
 EvaluationFormScoringStrategyUnionTypeDef = Union[
     EvaluationFormScoringStrategyTypeDef, EvaluationFormScoringStrategyOutputTypeDef
 ]
-EvaluationFormSectionUnionTypeDef = Union[
-    EvaluationFormSectionTypeDef, EvaluationFormSectionOutputTypeDef
-]
 EvaluationFormQuestionScoringConfigurationUnionTypeDef = Union[
     EvaluationFormQuestionScoringConfigurationTypeDef,
     EvaluationFormQuestionScoringConfigurationOutputTypeDef,
 ]
-
-class EvaluationFormSingleSelectQuestionAutomationOutputTypeDef(TypedDict):
-    Options: NotRequired[list[EvaluationFormSingleSelectQuestionAutomationOptionTypeDef]]
-    DefaultOptionRefId: NotRequired[str]
-    AnswerSource: NotRequired[EvaluationFormQuestionAutomationAnswerSourceTypeDef]
-
-class EvaluationFormSingleSelectQuestionAutomationTypeDef(TypedDict):
-    Options: NotRequired[Sequence[EvaluationFormSingleSelectQuestionAutomationOptionTypeDef]]
-    DefaultOptionRefId: NotRequired[str]
-    AnswerSource: NotRequired[EvaluationFormQuestionAutomationAnswerSourceTypeDef]
 
 class GetEvaluationFormValidationResponseTypeDef(TypedDict):
     Status: EvaluationFormValidationStatusType
@@ -9093,6 +9093,11 @@ class SendOutboundWebNotificationRequestTypeDef(TypedDict):
     Content: WebNotificationContentTypeDef
     ClientToken: NotRequired[str]
 
+class EvaluationFormItemEnablementExpressionTypeDef(TypedDict):
+    Source: EvaluationFormItemEnablementSourceTypeDef
+    Values: Sequence[EvaluationFormItemEnablementSourceValueUnionTypeDef]
+    Comparator: EvaluationFormItemSourceValuesComparatorType
+
 class SearchContactsAdditionalTimeRangeTypeDef(TypedDict):
     Criteria: Sequence[SearchContactsAdditionalTimeRangeCriteriaTypeDef]
     MatchType: SearchContactsMatchTypeType
@@ -9165,10 +9170,6 @@ class EvaluationFormItemEnablementConditionOutputTypeDef(TypedDict):
     Operands: list[EvaluationFormItemEnablementConditionOperandOutputTypeDef]
     Operator: NotRequired[EvaluationFormItemEnablementOperatorType]
 
-class EvaluationFormItemEnablementConditionOperandTypeDef(TypedDict):
-    Expression: NotRequired[EvaluationFormItemEnablementExpressionUnionTypeDef]
-    Condition: NotRequired[Mapping[str, Any]]
-
 class EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef(TypedDict):
     Options: list[EvaluationFormMultiSelectQuestionOptionTypeDef]
     DisplayAs: NotRequired[EvaluationFormMultiSelectQuestionDisplayModeType]
@@ -9177,16 +9178,6 @@ class EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef(TypedDict):
 EvaluationFormNumericQuestionPropertiesUnionTypeDef = Union[
     EvaluationFormNumericQuestionPropertiesTypeDef,
     EvaluationFormNumericQuestionPropertiesOutputTypeDef,
-]
-
-class EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef(TypedDict):
-    Options: list[EvaluationFormSingleSelectQuestionOptionTypeDef]
-    DisplayAs: NotRequired[EvaluationFormSingleSelectQuestionDisplayModeType]
-    Automation: NotRequired[EvaluationFormSingleSelectQuestionAutomationOutputTypeDef]
-
-EvaluationFormSingleSelectQuestionAutomationUnionTypeDef = Union[
-    EvaluationFormSingleSelectQuestionAutomationTypeDef,
-    EvaluationFormSingleSelectQuestionAutomationOutputTypeDef,
 ]
 EvaluationReviewConfigurationUnionTypeDef = Union[
     EvaluationReviewConfigurationTypeDef, EvaluationReviewConfigurationOutputTypeDef
@@ -9647,6 +9638,11 @@ class SearchContactFlowsRequestTypeDef(TypedDict):
     SearchFilter: NotRequired[ContactFlowSearchFilterTypeDef]
     SearchCriteria: NotRequired[ContactFlowSearchCriteriaTypeDef]
 
+EvaluationFormItemEnablementExpressionUnionTypeDef = Union[
+    EvaluationFormItemEnablementExpressionTypeDef,
+    EvaluationFormItemEnablementExpressionOutputTypeDef,
+]
+
 class SearchCriteriaTypeDef(TypedDict):
     Name: NotRequired[NameCriteriaTypeDef]
     AgentIds: NotRequired[Sequence[str]]
@@ -9696,24 +9692,9 @@ class EvaluationFormItemEnablementConfigurationOutputTypeDef(TypedDict):
     Action: EvaluationFormItemEnablementActionType
     DefaultAction: NotRequired[EvaluationFormItemEnablementActionType]
 
-EvaluationFormItemEnablementConditionOperandUnionTypeDef = Union[
-    EvaluationFormItemEnablementConditionOperandTypeDef,
-    EvaluationFormItemEnablementConditionOperandOutputTypeDef,
-]
-EvaluationFormQuestionTypePropertiesOutputTypeDef = TypedDict(
-    "EvaluationFormQuestionTypePropertiesOutputTypeDef",
-    {
-        "Numeric": NotRequired[EvaluationFormNumericQuestionPropertiesOutputTypeDef],
-        "SingleSelect": NotRequired[EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef],
-        "Text": NotRequired[EvaluationFormTextQuestionPropertiesTypeDef],
-        "MultiSelect": NotRequired[EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef],
-    },
-)
-
-class EvaluationFormSingleSelectQuestionPropertiesTypeDef(TypedDict):
-    Options: Sequence[EvaluationFormSingleSelectQuestionOptionTypeDef]
-    DisplayAs: NotRequired[EvaluationFormSingleSelectQuestionDisplayModeType]
-    Automation: NotRequired[EvaluationFormSingleSelectQuestionAutomationUnionTypeDef]
+class SingleSelectQuestionAutomationRuleOutputTypeDef(TypedDict):
+    Condition: EvaluationFormItemEnablementConditionOutputTypeDef
+    OptionRefId: str
 
 class EvaluationQuestionAnswerAnalysisDetailsTypeDef(TypedDict):
     GenAI: NotRequired[EvaluationGenAIAnswerAnalysisDetailsTypeDef]
@@ -9905,6 +9886,10 @@ class SearchContactEvaluationsRequestTypeDef(TypedDict):
     SearchCriteria: NotRequired[EvaluationSearchCriteriaTypeDef]
     SearchFilter: NotRequired[EvaluationSearchFilterTypeDef]
 
+class EvaluationFormItemEnablementConditionOperandTypeDef(TypedDict):
+    Expression: NotRequired[EvaluationFormItemEnablementExpressionUnionTypeDef]
+    Condition: NotRequired[Mapping[str, Any]]
+
 class SearchContactsRequestPaginateTypeDef(TypedDict):
     InstanceId: str
     TimeRange: SearchContactsTimeRangeTypeDef
@@ -9920,26 +9905,19 @@ class SearchContactsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     Sort: NotRequired[SortTypeDef]
 
-class EvaluationFormItemEnablementConditionTypeDef(TypedDict):
-    Operands: Sequence[EvaluationFormItemEnablementConditionOperandUnionTypeDef]
-    Operator: NotRequired[EvaluationFormItemEnablementOperatorType]
-
-class EvaluationFormQuestionOutputTypeDef(TypedDict):
+class EvaluationFormSectionOutputTypeDef(TypedDict):
     Title: str
     RefId: str
-    QuestionType: EvaluationFormQuestionTypeType
+    Items: list[dict[str, Any]]
     Instructions: NotRequired[str]
-    NotApplicableEnabled: NotRequired[bool]
-    QuestionTypeProperties: NotRequired[EvaluationFormQuestionTypePropertiesOutputTypeDef]
-    Enablement: NotRequired[EvaluationFormItemEnablementConfigurationOutputTypeDef]
     Weight: NotRequired[float]
-    ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationOutputTypeDef]
-    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
+    IsExcludedFromScoring: NotRequired[bool]
+    ScoreThresholds: NotRequired[list[EvaluationFormScoreThresholdTypeDef]]
+    Enablement: NotRequired[EvaluationFormItemEnablementConfigurationOutputTypeDef]
 
-EvaluationFormSingleSelectQuestionPropertiesUnionTypeDef = Union[
-    EvaluationFormSingleSelectQuestionPropertiesTypeDef,
-    EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef,
-]
+class EvaluationFormSingleSelectQuestionAutomationOptionOutputTypeDef(TypedDict):
+    RuleCategory: NotRequired[SingleSelectQuestionRuleCategoryAutomationTypeDef]
+    AutomationRule: NotRequired[SingleSelectQuestionAutomationRuleOutputTypeDef]
 
 class EvaluationSuggestedAnswerTypeDef(TypedDict):
     Status: EvaluationSuggestedAnswerStatusType
@@ -10138,13 +10116,15 @@ class ExpressionTypeDef(TypedDict):
     OrExpression: NotRequired[Sequence[Mapping[str, Any]]]
     NotAttributeCondition: NotRequired[AttributeConditionUnionTypeDef]
 
-EvaluationFormItemEnablementConditionUnionTypeDef = Union[
-    EvaluationFormItemEnablementConditionTypeDef, EvaluationFormItemEnablementConditionOutputTypeDef
+EvaluationFormItemEnablementConditionOperandUnionTypeDef = Union[
+    EvaluationFormItemEnablementConditionOperandTypeDef,
+    EvaluationFormItemEnablementConditionOperandOutputTypeDef,
 ]
 
-class EvaluationFormItemOutputTypeDef(TypedDict):
-    Section: NotRequired[EvaluationFormSectionOutputTypeDef]
-    Question: NotRequired[EvaluationFormQuestionOutputTypeDef]
+class EvaluationFormSingleSelectQuestionAutomationOutputTypeDef(TypedDict):
+    Options: NotRequired[list[EvaluationFormSingleSelectQuestionAutomationOptionOutputTypeDef]]
+    DefaultOptionRefId: NotRequired[str]
+    AnswerSource: NotRequired[EvaluationFormQuestionAutomationAnswerSourceTypeDef]
 
 class EvaluationAnswerOutputTypeDef(TypedDict):
     Value: NotRequired[EvaluationAnswerDataOutputTypeDef]
@@ -10200,10 +10180,171 @@ class SearchContactsResponsePaginatorTypeDef(TypedDict):
 
 ExpressionUnionTypeDef = Union[ExpressionTypeDef, ExpressionOutputTypeDef]
 
+class EvaluationFormItemEnablementConditionTypeDef(TypedDict):
+    Operands: Sequence[EvaluationFormItemEnablementConditionOperandUnionTypeDef]
+    Operator: NotRequired[EvaluationFormItemEnablementOperatorType]
+
+class EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef(TypedDict):
+    Options: list[EvaluationFormSingleSelectQuestionOptionTypeDef]
+    DisplayAs: NotRequired[EvaluationFormSingleSelectQuestionDisplayModeType]
+    Automation: NotRequired[EvaluationFormSingleSelectQuestionAutomationOutputTypeDef]
+
+class EvaluationTypeDef(TypedDict):
+    EvaluationId: str
+    EvaluationArn: str
+    Metadata: EvaluationMetadataTypeDef
+    Answers: dict[str, EvaluationAnswerOutputTypeDef]
+    Notes: dict[str, EvaluationNoteTypeDef]
+    Status: EvaluationStatusType
+    CreatedTime: datetime
+    LastModifiedTime: datetime
+    Scores: NotRequired[dict[str, EvaluationScoreTypeDef]]
+    EvaluationType: NotRequired[EvaluationTypeType]
+    Tags: NotRequired[dict[str, str]]
+    ItemEnablementStatus: NotRequired[dict[str, EvaluationEnablementStatusType]]
+    SourceResolutionStatus: NotRequired[EvaluationItemResolutionStatusType]
+    SourceValues: NotRequired[list[EvaluationResolvedSourceTypeDef]]
+
+RuleActionUnionTypeDef = Union[RuleActionTypeDef, RuleActionOutputTypeDef]
+EvaluationFormMultiSelectQuestionPropertiesUnionTypeDef = Union[
+    EvaluationFormMultiSelectQuestionPropertiesTypeDef,
+    EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef,
+]
+OutboundStrategyTypeDef = TypedDict(
+    "OutboundStrategyTypeDef",
+    {
+        "Type": Literal["AGENT_FIRST"],
+        "Config": NotRequired[OutboundStrategyConfigUnionTypeDef],
+    },
+)
+
+class RoutingCriteriaInputStepTypeDef(TypedDict):
+    Expiry: NotRequired[RoutingCriteriaInputStepExpiryTypeDef]
+    Expression: NotRequired[ExpressionUnionTypeDef]
+
+EvaluationFormItemEnablementConditionUnionTypeDef = Union[
+    EvaluationFormItemEnablementConditionTypeDef, EvaluationFormItemEnablementConditionOutputTypeDef
+]
+EvaluationFormQuestionTypePropertiesOutputTypeDef = TypedDict(
+    "EvaluationFormQuestionTypePropertiesOutputTypeDef",
+    {
+        "Numeric": NotRequired[EvaluationFormNumericQuestionPropertiesOutputTypeDef],
+        "SingleSelect": NotRequired[EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef],
+        "Text": NotRequired[EvaluationFormTextQuestionPropertiesTypeDef],
+        "MultiSelect": NotRequired[EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef],
+    },
+)
+
+class CreateRuleRequestTypeDef(TypedDict):
+    InstanceId: str
+    Name: str
+    TriggerEventSource: RuleTriggerEventSourceTypeDef
+    Function: str
+    Actions: Sequence[RuleActionUnionTypeDef]
+    PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
+    ClientToken: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+
+class UpdateRuleRequestTypeDef(TypedDict):
+    RuleId: str
+    InstanceId: str
+    Name: str
+    Function: str
+    Actions: Sequence[RuleActionUnionTypeDef]
+    PublishStatus: RulePublishStatusType
+    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
+
+OutboundStrategyUnionTypeDef = Union[OutboundStrategyTypeDef, OutboundStrategyOutputTypeDef]
+
+class RoutingCriteriaInputTypeDef(TypedDict):
+    Steps: NotRequired[Sequence[RoutingCriteriaInputStepTypeDef]]
+
 class EvaluationFormItemEnablementConfigurationTypeDef(TypedDict):
     Condition: EvaluationFormItemEnablementConditionUnionTypeDef
     Action: EvaluationFormItemEnablementActionType
     DefaultAction: NotRequired[EvaluationFormItemEnablementActionType]
+
+class SingleSelectQuestionAutomationRuleTypeDef(TypedDict):
+    Condition: EvaluationFormItemEnablementConditionUnionTypeDef
+    OptionRefId: str
+
+class EvaluationFormQuestionOutputTypeDef(TypedDict):
+    Title: str
+    RefId: str
+    QuestionType: EvaluationFormQuestionTypeType
+    Instructions: NotRequired[str]
+    NotApplicableEnabled: NotRequired[bool]
+    QuestionTypeProperties: NotRequired[EvaluationFormQuestionTypePropertiesOutputTypeDef]
+    Enablement: NotRequired[EvaluationFormItemEnablementConfigurationOutputTypeDef]
+    Weight: NotRequired[float]
+    ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationOutputTypeDef]
+    MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
+
+class ContactDataRequestTypeDef(TypedDict):
+    SystemEndpoint: NotRequired[EndpointTypeDef]
+    CustomerEndpoint: NotRequired[EndpointTypeDef]
+    RequestIdentifier: NotRequired[str]
+    QueueId: NotRequired[str]
+    Attributes: NotRequired[Mapping[str, str]]
+    Campaign: NotRequired[CampaignTypeDef]
+    OutboundStrategy: NotRequired[OutboundStrategyUnionTypeDef]
+
+class StartOutboundVoiceContactRequestTypeDef(TypedDict):
+    DestinationPhoneNumber: str
+    ContactFlowId: str
+    InstanceId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    References: NotRequired[Mapping[str, ReferenceTypeDef]]
+    RelatedContactId: NotRequired[str]
+    ClientToken: NotRequired[str]
+    SourcePhoneNumber: NotRequired[str]
+    QueueId: NotRequired[str]
+    Attributes: NotRequired[Mapping[str, str]]
+    AnswerMachineDetectionConfig: NotRequired[AnswerMachineDetectionConfigTypeDef]
+    CampaignId: NotRequired[str]
+    TrafficType: NotRequired[TrafficTypeType]
+    OutboundStrategy: NotRequired[OutboundStrategyUnionTypeDef]
+    RingTimeoutInSeconds: NotRequired[int]
+
+class UpdateContactRoutingDataRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    QueueTimeAdjustmentSeconds: NotRequired[int]
+    QueuePriority: NotRequired[int]
+    RoutingCriteria: NotRequired[RoutingCriteriaInputTypeDef]
+
+EvaluationFormItemEnablementConfigurationUnionTypeDef = Union[
+    EvaluationFormItemEnablementConfigurationTypeDef,
+    EvaluationFormItemEnablementConfigurationOutputTypeDef,
+]
+SingleSelectQuestionAutomationRuleUnionTypeDef = Union[
+    SingleSelectQuestionAutomationRuleTypeDef, SingleSelectQuestionAutomationRuleOutputTypeDef
+]
+
+class EvaluationFormItemOutputTypeDef(TypedDict):
+    Section: NotRequired[EvaluationFormSectionOutputTypeDef]
+    Question: NotRequired[EvaluationFormQuestionOutputTypeDef]
+
+class BatchPutContactRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactDataRequestList: Sequence[ContactDataRequestTypeDef]
+    ClientToken: NotRequired[str]
+
+class EvaluationFormSectionTypeDef(TypedDict):
+    Title: str
+    RefId: str
+    Items: Sequence[Mapping[str, Any]]
+    Instructions: NotRequired[str]
+    Weight: NotRequired[float]
+    IsExcludedFromScoring: NotRequired[bool]
+    ScoreThresholds: NotRequired[Sequence[EvaluationFormScoreThresholdTypeDef]]
+    Enablement: NotRequired[EvaluationFormItemEnablementConfigurationUnionTypeDef]
+
+class EvaluationFormSingleSelectQuestionAutomationOptionTypeDef(TypedDict):
+    RuleCategory: NotRequired[SingleSelectQuestionRuleCategoryAutomationTypeDef]
+    AutomationRule: NotRequired[SingleSelectQuestionAutomationRuleUnionTypeDef]
 
 class EvaluationFormContentTypeDef(TypedDict):
     EvaluationFormVersion: int
@@ -10242,70 +10383,42 @@ class EvaluationFormTypeDef(TypedDict):
     LastValidationTime: NotRequired[datetime]
     AIVersion: NotRequired[str]
 
-class EvaluationTypeDef(TypedDict):
-    EvaluationId: str
-    EvaluationArn: str
-    Metadata: EvaluationMetadataTypeDef
-    Answers: dict[str, EvaluationAnswerOutputTypeDef]
-    Notes: dict[str, EvaluationNoteTypeDef]
-    Status: EvaluationStatusType
-    CreatedTime: datetime
-    LastModifiedTime: datetime
-    Scores: NotRequired[dict[str, EvaluationScoreTypeDef]]
-    EvaluationType: NotRequired[EvaluationTypeType]
-    Tags: NotRequired[dict[str, str]]
-
-RuleActionUnionTypeDef = Union[RuleActionTypeDef, RuleActionOutputTypeDef]
-EvaluationFormMultiSelectQuestionPropertiesUnionTypeDef = Union[
-    EvaluationFormMultiSelectQuestionPropertiesTypeDef,
-    EvaluationFormMultiSelectQuestionPropertiesOutputTypeDef,
+EvaluationFormSectionUnionTypeDef = Union[
+    EvaluationFormSectionTypeDef, EvaluationFormSectionOutputTypeDef
 ]
-OutboundStrategyTypeDef = TypedDict(
-    "OutboundStrategyTypeDef",
-    {
-        "Type": Literal["AGENT_FIRST"],
-        "Config": NotRequired[OutboundStrategyConfigUnionTypeDef],
-    },
-)
-
-class RoutingCriteriaInputStepTypeDef(TypedDict):
-    Expiry: NotRequired[RoutingCriteriaInputStepExpiryTypeDef]
-    Expression: NotRequired[ExpressionUnionTypeDef]
-
-EvaluationFormItemEnablementConfigurationUnionTypeDef = Union[
-    EvaluationFormItemEnablementConfigurationTypeDef,
-    EvaluationFormItemEnablementConfigurationOutputTypeDef,
+EvaluationFormSingleSelectQuestionAutomationOptionUnionTypeDef = Union[
+    EvaluationFormSingleSelectQuestionAutomationOptionTypeDef,
+    EvaluationFormSingleSelectQuestionAutomationOptionOutputTypeDef,
 ]
-
-class DescribeEvaluationFormResponseTypeDef(TypedDict):
-    EvaluationForm: EvaluationFormTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeContactEvaluationResponseTypeDef(TypedDict):
     Evaluation: EvaluationTypeDef
     EvaluationForm: EvaluationFormContentTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
-class CreateRuleRequestTypeDef(TypedDict):
-    InstanceId: str
-    Name: str
-    TriggerEventSource: RuleTriggerEventSourceTypeDef
-    Function: str
-    Actions: Sequence[RuleActionUnionTypeDef]
-    PublishStatus: RulePublishStatusType
-    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
-    ClientToken: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
+class DescribeEvaluationFormResponseTypeDef(TypedDict):
+    EvaluationForm: EvaluationFormTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
 
-class UpdateRuleRequestTypeDef(TypedDict):
-    RuleId: str
-    InstanceId: str
-    Name: str
-    Function: str
-    Actions: Sequence[RuleActionUnionTypeDef]
-    PublishStatus: RulePublishStatusType
-    PreEvaluationFilters: NotRequired[PreEvaluationFiltersUnionTypeDef]
+class EvaluationFormSingleSelectQuestionAutomationTypeDef(TypedDict):
+    Options: NotRequired[Sequence[EvaluationFormSingleSelectQuestionAutomationOptionUnionTypeDef]]
+    DefaultOptionRefId: NotRequired[str]
+    AnswerSource: NotRequired[EvaluationFormQuestionAutomationAnswerSourceTypeDef]
 
+EvaluationFormSingleSelectQuestionAutomationUnionTypeDef = Union[
+    EvaluationFormSingleSelectQuestionAutomationTypeDef,
+    EvaluationFormSingleSelectQuestionAutomationOutputTypeDef,
+]
+
+class EvaluationFormSingleSelectQuestionPropertiesTypeDef(TypedDict):
+    Options: Sequence[EvaluationFormSingleSelectQuestionOptionTypeDef]
+    DisplayAs: NotRequired[EvaluationFormSingleSelectQuestionDisplayModeType]
+    Automation: NotRequired[EvaluationFormSingleSelectQuestionAutomationUnionTypeDef]
+
+EvaluationFormSingleSelectQuestionPropertiesUnionTypeDef = Union[
+    EvaluationFormSingleSelectQuestionPropertiesTypeDef,
+    EvaluationFormSingleSelectQuestionPropertiesOutputTypeDef,
+]
 EvaluationFormQuestionTypePropertiesTypeDef = TypedDict(
     "EvaluationFormQuestionTypePropertiesTypeDef",
     {
@@ -10315,48 +10428,9 @@ EvaluationFormQuestionTypePropertiesTypeDef = TypedDict(
         "MultiSelect": NotRequired[EvaluationFormMultiSelectQuestionPropertiesUnionTypeDef],
     },
 )
-OutboundStrategyUnionTypeDef = Union[OutboundStrategyTypeDef, OutboundStrategyOutputTypeDef]
-
-class RoutingCriteriaInputTypeDef(TypedDict):
-    Steps: NotRequired[Sequence[RoutingCriteriaInputStepTypeDef]]
-
 EvaluationFormQuestionTypePropertiesUnionTypeDef = Union[
     EvaluationFormQuestionTypePropertiesTypeDef, EvaluationFormQuestionTypePropertiesOutputTypeDef
 ]
-
-class ContactDataRequestTypeDef(TypedDict):
-    SystemEndpoint: NotRequired[EndpointTypeDef]
-    CustomerEndpoint: NotRequired[EndpointTypeDef]
-    RequestIdentifier: NotRequired[str]
-    QueueId: NotRequired[str]
-    Attributes: NotRequired[Mapping[str, str]]
-    Campaign: NotRequired[CampaignTypeDef]
-    OutboundStrategy: NotRequired[OutboundStrategyUnionTypeDef]
-
-class StartOutboundVoiceContactRequestTypeDef(TypedDict):
-    DestinationPhoneNumber: str
-    ContactFlowId: str
-    InstanceId: str
-    Name: NotRequired[str]
-    Description: NotRequired[str]
-    References: NotRequired[Mapping[str, ReferenceTypeDef]]
-    RelatedContactId: NotRequired[str]
-    ClientToken: NotRequired[str]
-    SourcePhoneNumber: NotRequired[str]
-    QueueId: NotRequired[str]
-    Attributes: NotRequired[Mapping[str, str]]
-    AnswerMachineDetectionConfig: NotRequired[AnswerMachineDetectionConfigTypeDef]
-    CampaignId: NotRequired[str]
-    TrafficType: NotRequired[TrafficTypeType]
-    OutboundStrategy: NotRequired[OutboundStrategyUnionTypeDef]
-    RingTimeoutInSeconds: NotRequired[int]
-
-class UpdateContactRoutingDataRequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactId: str
-    QueueTimeAdjustmentSeconds: NotRequired[int]
-    QueuePriority: NotRequired[int]
-    RoutingCriteria: NotRequired[RoutingCriteriaInputTypeDef]
 
 class EvaluationFormQuestionTypeDef(TypedDict):
     Title: str
@@ -10369,11 +10443,6 @@ class EvaluationFormQuestionTypeDef(TypedDict):
     Weight: NotRequired[float]
     ScoringConfiguration: NotRequired[EvaluationFormQuestionScoringConfigurationUnionTypeDef]
     MetricConfiguration: NotRequired[EvaluationFormMetricConfigurationTypeDef]
-
-class BatchPutContactRequestTypeDef(TypedDict):
-    InstanceId: str
-    ContactDataRequestList: Sequence[ContactDataRequestTypeDef]
-    ClientToken: NotRequired[str]
 
 EvaluationFormQuestionUnionTypeDef = Union[
     EvaluationFormQuestionTypeDef, EvaluationFormQuestionOutputTypeDef

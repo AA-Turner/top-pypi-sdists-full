@@ -13,6 +13,7 @@ from ...models.error import Error
 from ...models.forge import Forge
 from ...types import UNSET, Unset
 from typing import cast
+import datetime
 
 
 
@@ -21,6 +22,8 @@ def _get_kwargs(
     forge: Forge,
     full_name: str,
     job_id: int,
+    finished_at: datetime.datetime | Unset = UNSET,
+    attempt: int | Unset = UNSET,
     excerpt: bool | Unset = False,
 
 ) -> dict[str, Any]:
@@ -36,6 +39,13 @@ def _get_kwargs(
     params["fullName"] = full_name
 
     params["jobId"] = job_id
+
+    json_finished_at: str | Unset = UNSET
+    if not isinstance(finished_at, Unset):
+        json_finished_at = finished_at.isoformat()
+    params["finishedAt"] = json_finished_at
+
+    params["attempt"] = attempt
 
     params["excerpt"] = excerpt
 
@@ -132,6 +142,8 @@ def sync_detailed(
     forge: Forge,
     full_name: str,
     job_id: int,
+    finished_at: datetime.datetime | Unset = UNSET,
+    attempt: int | Unset = UNSET,
     excerpt: bool | Unset = False,
 
 ) -> Response[CheckLog | Error]:
@@ -145,8 +157,10 @@ def sync_detailed(
     Only for a repository the dashboard tracks for you; any other answers 404
     without asking the forge.
 
-    Fetched live on every call and never as part of a snapshot, since a log
-    can be large and most are never opened. GitHub reads the job's log
+    Never as part of a snapshot, since a log
+    can be large and most are never opened. A finished job's output is kept
+    in memory (see `finishedAt`) and served again without asking the forge.
+    GitHub reads the job's log
     through its REST API (one request, then a short-lived download). Forgejo
     reads it through the job logs endpoint of its Actions API.
 
@@ -170,6 +184,8 @@ def sync_detailed(
         forge (Forge):
         full_name (str):
         job_id (int):
+        finished_at (datetime.datetime | Unset):
+        attempt (int | Unset):
         excerpt (bool | Unset):  Default: False.
 
     Raises:
@@ -185,6 +201,8 @@ def sync_detailed(
         forge=forge,
 full_name=full_name,
 job_id=job_id,
+finished_at=finished_at,
+attempt=attempt,
 excerpt=excerpt,
 
     )
@@ -201,6 +219,8 @@ def sync(
     forge: Forge,
     full_name: str,
     job_id: int,
+    finished_at: datetime.datetime | Unset = UNSET,
+    attempt: int | Unset = UNSET,
     excerpt: bool | Unset = False,
 
 ) -> CheckLog | Error | None:
@@ -214,8 +234,10 @@ def sync(
     Only for a repository the dashboard tracks for you; any other answers 404
     without asking the forge.
 
-    Fetched live on every call and never as part of a snapshot, since a log
-    can be large and most are never opened. GitHub reads the job's log
+    Never as part of a snapshot, since a log
+    can be large and most are never opened. A finished job's output is kept
+    in memory (see `finishedAt`) and served again without asking the forge.
+    GitHub reads the job's log
     through its REST API (one request, then a short-lived download). Forgejo
     reads it through the job logs endpoint of its Actions API.
 
@@ -239,6 +261,8 @@ def sync(
         forge (Forge):
         full_name (str):
         job_id (int):
+        finished_at (datetime.datetime | Unset):
+        attempt (int | Unset):
         excerpt (bool | Unset):  Default: False.
 
     Raises:
@@ -255,6 +279,8 @@ def sync(
 forge=forge,
 full_name=full_name,
 job_id=job_id,
+finished_at=finished_at,
+attempt=attempt,
 excerpt=excerpt,
 
     ).parsed
@@ -265,6 +291,8 @@ async def asyncio_detailed(
     forge: Forge,
     full_name: str,
     job_id: int,
+    finished_at: datetime.datetime | Unset = UNSET,
+    attempt: int | Unset = UNSET,
     excerpt: bool | Unset = False,
 
 ) -> Response[CheckLog | Error]:
@@ -278,8 +306,10 @@ async def asyncio_detailed(
     Only for a repository the dashboard tracks for you; any other answers 404
     without asking the forge.
 
-    Fetched live on every call and never as part of a snapshot, since a log
-    can be large and most are never opened. GitHub reads the job's log
+    Never as part of a snapshot, since a log
+    can be large and most are never opened. A finished job's output is kept
+    in memory (see `finishedAt`) and served again without asking the forge.
+    GitHub reads the job's log
     through its REST API (one request, then a short-lived download). Forgejo
     reads it through the job logs endpoint of its Actions API.
 
@@ -303,6 +333,8 @@ async def asyncio_detailed(
         forge (Forge):
         full_name (str):
         job_id (int):
+        finished_at (datetime.datetime | Unset):
+        attempt (int | Unset):
         excerpt (bool | Unset):  Default: False.
 
     Raises:
@@ -318,6 +350,8 @@ async def asyncio_detailed(
         forge=forge,
 full_name=full_name,
 job_id=job_id,
+finished_at=finished_at,
+attempt=attempt,
 excerpt=excerpt,
 
     )
@@ -334,6 +368,8 @@ async def asyncio(
     forge: Forge,
     full_name: str,
     job_id: int,
+    finished_at: datetime.datetime | Unset = UNSET,
+    attempt: int | Unset = UNSET,
     excerpt: bool | Unset = False,
 
 ) -> CheckLog | Error | None:
@@ -347,8 +383,10 @@ async def asyncio(
     Only for a repository the dashboard tracks for you; any other answers 404
     without asking the forge.
 
-    Fetched live on every call and never as part of a snapshot, since a log
-    can be large and most are never opened. GitHub reads the job's log
+    Never as part of a snapshot, since a log
+    can be large and most are never opened. A finished job's output is kept
+    in memory (see `finishedAt`) and served again without asking the forge.
+    GitHub reads the job's log
     through its REST API (one request, then a short-lived download). Forgejo
     reads it through the job logs endpoint of its Actions API.
 
@@ -372,6 +410,8 @@ async def asyncio(
         forge (Forge):
         full_name (str):
         job_id (int):
+        finished_at (datetime.datetime | Unset):
+        attempt (int | Unset):
         excerpt (bool | Unset):  Default: False.
 
     Raises:
@@ -388,6 +428,8 @@ async def asyncio(
 forge=forge,
 full_name=full_name,
 job_id=job_id,
+finished_at=finished_at,
+attempt=attempt,
 excerpt=excerpt,
 
     )).parsed

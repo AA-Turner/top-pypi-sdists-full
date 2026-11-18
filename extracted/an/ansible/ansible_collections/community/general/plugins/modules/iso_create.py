@@ -222,13 +222,8 @@ boot_options:
 """
 
 import os
+import re
 import traceback
-
-PLATFORM_ID_MAP = {
-    "x86": b"\x00",
-    "efi": b"\xef",
-    "mac": b"\x02",
-}
 
 PYCDLIB_IMP_ERR = None
 try:
@@ -241,6 +236,29 @@ except ImportError:
 
 from ansible.module_utils.basic import AnsibleModule, missing_required_lib
 
+PLATFORM_ID_MAP = {
+    "x86": b"\x00",
+    "efi": b"\xef",
+    "mac": b"\x02",
+}
+
+_ISO9660_INVALID = re.compile(r"[^A-Z0-9_]")
+
+
+def _sanitize_iso_path(path, is_file=False):
+    parts = path.split("/")
+    result = []
+    for i, part in enumerate(parts):
+        if not part:
+            result.append(part)
+            continue
+        if is_file and i == len(parts) - 1 and "." in part:
+            name, ext = part.upper().rsplit(".", 1)
+            result.append(_ISO9660_INVALID.sub("_", name) + "." + _ISO9660_INVALID.sub("_", ext))
+        else:
+            result.append(_ISO9660_INVALID.sub("_", part.upper()))
+    return "/".join(result)
+
 
 def add_file(module, iso_file=None, src_file=None, file_path=None, rock_ridge=None, use_joliet=None, use_udf=None):
     rr_name = None
@@ -249,10 +267,11 @@ def add_file(module, iso_file=None, src_file=None, file_path=None, rock_ridge=No
     # In standard ISO interchange level 1, file names have a maximum of 8 characters, followed by a required dot,
     # followed by a maximum 3 character extension, followed by a semicolon and a version
     file_name = os.path.basename(file_path)
+    sanitized_path = _sanitize_iso_path(file_path, is_file=True)
     if "." not in file_name:
-        file_in_iso_path = f"{file_path.upper()}.;1"
+        file_in_iso_path = f"{sanitized_path}.;1"
     else:
-        file_in_iso_path = f"{file_path.upper()};1"
+        file_in_iso_path = f"{sanitized_path};1"
     if rock_ridge:
         rr_name = file_name
     if use_joliet:
@@ -271,7 +290,7 @@ def add_directory(module, iso_file=None, dir_path=None, rock_ridge=None, use_jol
     rr_name = None
     joliet_path = None
     udf_path = None
-    iso_dir_path = dir_path.upper()
+    iso_dir_path = _sanitize_iso_path(dir_path)
     if rock_ridge:
         rr_name = os.path.basename(dir_path)
     if use_joliet:
@@ -311,20 +330,20 @@ def main():
     if not HAS_PYCDLIB:
         module.fail_json(missing_required_lib("pycdlib"), exception=PYCDLIB_IMP_ERR)
 
-    src_file_list = module.params.get("src_files")
+    src_file_list = module.params["src_files"]
     if src_file_list and len(src_file_list) == 0:
         module.fail_json(msg="Please specify source file and/or directory list using src_files parameter.")
     for src_file in src_file_list:
         if not os.path.exists(src_file):
             module.fail_json(msg=f"Specified source file/directory path does not exist on local machine, {src_file}")
 
-    boot_options = module.params.get("boot_options")
+    boot_options = module.params["boot_options"]
     if boot_options:
         boot_file = boot_options["boot_file"]
         if not os.path.exists(boot_file):
             module.fail_json(msg=f"Specified boot file path does not exist on local machine, {boot_file}")
 
-    dest_iso = module.params.get("dest_iso")
+    dest_iso = module.params["dest_iso"]
     if dest_iso and len(dest_iso) == 0:
         module.fail_json(msg="Please specify the absolute path of the new created ISO file using dest_iso parameter.")
 
@@ -336,12 +355,12 @@ def main():
         except OSError as err:
             module.fail_json(msg=f"Exception caught when creating folder {dest_iso_dir}, with error {err}")
 
-    volume_id = module.params.get("vol_ident")
+    volume_id = module.params["vol_ident"]
     if volume_id is None:
         volume_id = ""
-    inter_level = module.params.get("interchange_level")
-    rock_ridge = module.params.get("rock_ridge")
-    use_joliet = module.params.get("joliet")
+    inter_level = module.params["interchange_level"]
+    rock_ridge = module.params["rock_ridge"]
+    use_joliet = module.params["joliet"]
     use_udf = None
     if module.params["udf"]:
         use_udf = "2.60"
@@ -419,10 +438,11 @@ def main():
         if boot_options:
             boot_file = boot_options["boot_file"]
             boot_file_basename = os.path.basename(boot_file)
+            sanitized_boot_path = _sanitize_iso_path(f"/{boot_file_basename}", is_file=True)
             if "." not in boot_file_basename:
-                boot_iso_path = f"/{boot_file_basename.upper()}.;1"
+                boot_iso_path = f"{sanitized_boot_path}.;1"
             else:
-                boot_iso_path = f"/{boot_file_basename.upper()};1"
+                boot_iso_path = f"{sanitized_boot_path};1"
             add_file(
                 module,
                 iso_file=iso_file,

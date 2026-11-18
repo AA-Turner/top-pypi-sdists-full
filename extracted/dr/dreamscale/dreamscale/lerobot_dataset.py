@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from dreamscale_transport.training_data import (
+from dreamscale_core.training_data import (
     CheckReport,
     DatasetError,
     DatasetSummary,
@@ -28,6 +28,7 @@ from dreamscale_transport.training_data import (
     summarize_folders,
     valid_upload_path,
 )
+from dreamscale_core.training_families import widest_envelope
 
 from dreamscale import errors
 
@@ -110,8 +111,6 @@ def open_dataset(root: str | Path, mapping: dict | None = None) -> LocalDataset:
         for f in infos
     }
     # Before a base is chosen: what some family trains (the server reads the run's family's).
-    from dreamscale_transport.training_families import widest_envelope
-
     try:
         summary = summarize_folders(infos, mapping, str(root), files_of,
                                     envelope=widest_envelope())

@@ -1,17 +1,17 @@
 import hashlib
+import os
 import posixpath
 import secrets
-import tempfile
 import warnings
 from concurrent import futures
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime
+from importlib.metadata import entry_points
 from pathlib import Path
 from types import SimpleNamespace
 
 import fsspec
 import pytest
-from asyncssh.sftp import SFTPAttrs, SFTPFailure
-from importlib_metadata import entry_points
+from asyncssh.sftp import SFTPAttrs, SFTPClient, SFTPFailure, SFTPOpUnsupported
 
 from sshfs import SSHFileSystem
 from sshfs.file import SSHFile
@@ -35,17 +35,22 @@ def ssh_server():
         yield server
 
 
-@pytest.fixture(scope="session")
-def base_remote_dir():
-    with tempfile.TemporaryDirectory() as path:
-        yield path
-
-
 @pytest.fixture
-def remote_dir(fs, base_remote_dir, request):
-    directory = posixpath.join(base_remote_dir, request.node.name).rstrip("/")
-    fs.mkdir(directory)
-    yield directory
+def plain_remote_dir(tmp_path):
+    directory = tmp_path / "remote"
+    directory.mkdir()
+    return str(directory)
+
+
+@pytest.fixture(params=["plain", "ssh", "sftp"])
+def remote_dir(plain_remote_dir, ssh_server, request):
+    if request.param == "plain":
+        return plain_remote_dir
+
+    return (
+        f"{request.param}://user@"
+        f"{ssh_server.host}:{ssh_server.port}{plain_remote_dir}"
+    )
 
 
 @pytest.fixture
@@ -88,9 +93,9 @@ def test_fsspec_registration(ssh_server):
         assert isinstance(fs, SSHFileSystem)
 
 
-def test_fsspec_url_parsing(ssh_server, remote_dir, user="user"):
+def test_fsspec_url_parsing(ssh_server, plain_remote_dir, user="user"):
     for ep in list(entry_points(group="fsspec.specs")):
-        url = f"{ep.name}://{user}@{ssh_server.host}:{ssh_server.port}/{remote_dir}/file"
+        url = f"{ep.name}://{user}@{ssh_server.host}:{ssh_server.port}/{plain_remote_dir}/file"
         with fsspec.open(url, "w", client_keys=[USERS[user]]) as file:
             # Check the underlying file system.
             file_fs = file.buffer.fs
@@ -103,7 +108,20 @@ def test_fsspec_url_parsing(ssh_server, remote_dir, user="user"):
             }
 
 
-def test_sftp_client_kwargs(ssh_server, base_remote_dir, user="user"):
+@pytest.mark.parametrize("protocol", ["ssh", "sftp"])
+def test_url_host_is_ignored(fs, plain_remote_dir, protocol):
+    path = plain_remote_dir + "/a.txt"
+    with fs.open(path, "wb") as stream:
+        stream.write(b"data")
+
+    url = f"{protocol}://other-host:12345{path}"
+    assert fs.cat_file(url) == b"data"
+
+    fs.rm(url)
+    assert not fs.exists(path)
+
+
+def test_sftp_client_kwargs(ssh_server, tmp_path, user="user"):
     fs = SSHFileSystem(
         host=ssh_server.host,
         port=ssh_server.port,
@@ -113,14 +131,12 @@ def test_sftp_client_kwargs(ssh_server, base_remote_dir, user="user"):
     )
     assert fs._pool.sftp_client_kwargs == {"sftp_version": 3}
 
-    file = posixpath.join(base_remote_dir, "sftp_client_kwargs_probe")
+    file = posixpath.join(tmp_path, "sftp_client_kwargs_probe")
     fs.touch(file)
     assert fs.exists(file)
 
 
-def test_sftp_client_kwargs_path_encoding(
-    ssh_server, base_remote_dir, user="user"
-):
+def test_sftp_client_kwargs_path_encoding(ssh_server, tmp_path, user="user"):
     # path_encoding=None makes asyncssh deliver remote paths as raw
     # bytes instead of str, for servers with non-UTF-8 file names (#39).
     fs = SSHFileSystem(
@@ -131,7 +147,7 @@ def test_sftp_client_kwargs_path_encoding(
         sftp_client_kwargs={"path_encoding": None},
     )
 
-    directory = Path(base_remote_dir) / "path_encoding_probe"
+    directory = tmp_path / "path_encoding_probe"
     directory.mkdir()
     (directory / "data.txt").write_bytes(b"data")
 
@@ -140,27 +156,27 @@ def test_sftp_client_kwargs_path_encoding(
     assert fs.cat_file(encoded + b"/data.txt") == b"data"
 
 
-def test_info(fs, remote_dir):
+def test_info(fs, remote_dir, plain_remote_dir):
     fs.touch(remote_dir + "/a.txt")
     details = fs.info(remote_dir + "/a.txt")
     assert details["type"] == "file"
-    assert details["name"] == remote_dir + "/a.txt"
+    assert details["name"] == plain_remote_dir + "/a.txt"
     assert details["size"] == 0
 
     fs.mkdir(remote_dir + "/dir")
     details = fs.info(remote_dir + "/dir")
     assert details["type"] == "directory"
-    assert details["name"] == remote_dir + "/dir/"
+    assert details["name"] == plain_remote_dir + "/dir/"
 
     details = fs.info(remote_dir + "/dir/")
-    assert details["name"] == remote_dir + "/dir/"
+    assert details["name"] == plain_remote_dir + "/dir/"
 
 
 def test_info_timestamps_are_tz_aware_utc(fs, remote_dir):
     fs.touch(remote_dir + "/a.txt")
     details = fs.info(remote_dir + "/a.txt")
     for key in ["time", "mtime"]:
-        assert details[key].tzinfo == timezone.utc
+        assert details[key].tzinfo == UTC
 
 
 def test_decode_attributes_missing_timestamps(fs):
@@ -172,30 +188,57 @@ def test_decode_attributes_missing_timestamps(fs):
     assert details["mtime"] is None
 
 
-def test_move(fs, remote_dir):
+@pytest.fixture
+def no_posix_rename(monkeypatch):
+    # Force the copy + delete fallback in SSHFileSystem._mv.
+    async def posix_rename(*args, **kwargs):
+        raise SFTPOpUnsupported("posix_rename is unsupported")
+
+    monkeypatch.setattr(SFTPClient, "posix_rename", posix_rename)
+
+
+def test_move_posix_rename(fs, remote_dir, monkeypatch):
+    # The mock server doesn't advertise posix-rename, so without this
+    # patch mv would always take the copy fallback.
+    async def posix_rename(self, oldpath, newpath):
+        await self.rename(oldpath, newpath)
+
+    async def cp_file(*args, **kwargs):
+        pytest.fail("mv must not fall back to copying")
+
+    monkeypatch.setattr(SFTPClient, "posix_rename", posix_rename)
+    monkeypatch.setattr(fs, "_cp_file", cp_file)
+
     fs.touch(remote_dir + "/a.txt")
     initial_info = fs.info(remote_dir + "/a.txt")
 
-    fs.move(remote_dir + "/a.txt", remote_dir + "/b.txt")
-    secondary_info = fs.info(remote_dir + "/b.txt")
+    fs.mv(remote_dir + "/a.txt", remote_dir + "/b.txt")
 
     assert not fs.exists(remote_dir + "/a.txt")
-    assert fs.exists(remote_dir + "/b.txt")
-
+    secondary_info = fs.info(remote_dir + "/b.txt")
     initial_info.pop("name")
     secondary_info.pop("name")
-
-    initial_mtime = initial_info.pop("mtime")
-    initial_atime = initial_info.pop("time")
-    secondary_mtime = secondary_info.pop("mtime")
-    secondary_atime = secondary_info.pop("time")
-    assert abs(secondary_mtime - initial_mtime) <= timedelta(
-        seconds=1
-    ), "mtime differs more than expected"
-    assert abs(secondary_atime - initial_atime) <= timedelta(
-        seconds=1
-    ), "atime differs more than expected"
     assert initial_info == secondary_info
+
+
+def test_move_copy_fallback(fs, remote_dir, no_posix_rename):
+    fs.pipe_file(remote_dir + "/a.txt", b"data")
+
+    fs.mv(remote_dir + "/a.txt", remote_dir + "/b.txt")
+
+    assert not fs.exists(remote_dir + "/a.txt")
+    assert fs.cat_file(remote_dir + "/b.txt") == b"data"
+
+
+def test_move_copy_fallback_failure_keeps_source(
+    fs, remote_dir, no_posix_rename
+):
+    fs.pipe_file(remote_dir + "/a.txt", b"data")
+
+    with pytest.raises(FileNotFoundError):
+        fs.mv(remote_dir + "/a.txt", remote_dir + "/missing/b.txt")
+
+    assert fs.cat_file(remote_dir + "/a.txt") == b"data"
 
 
 def test_copy(fs, remote_dir):
@@ -239,15 +282,18 @@ def test_checksum(fs, remote_dir):
     assert fs.checksum(remote_dir + "/a.txt") == checksum
 
 
-def test_ls(fs, remote_dir):
+def test_ls(fs, remote_dir, plain_remote_dir):
     fs.mkdir(remote_dir + "dir/")
     files = set()
+    plain_files = set()
     for no in range(8):
         file = remote_dir + f"dir/test_{no}"
+        plain_file = plain_remote_dir + f"dir/test_{no}"
         fs.touch(file)
         files.add(file)
+        plain_files.add(plain_file)
 
-    assert set(fs.ls(remote_dir + "dir/", detail=False)) == files
+    assert set(fs.ls(remote_dir + "dir/", detail=False)) == plain_files
 
     dirs = fs.ls(remote_dir + "dir/")
     expected = [fs.info(file) for file in files]
@@ -259,7 +305,7 @@ def test_ls(fs, remote_dir):
     assert dirs == expected
 
 
-def test_walk(fs, remote_dir):
+def test_walk(fs, remote_dir, plain_remote_dir):
     fs.mkdir(remote_dir + "/a")
     fs.mkdir(remote_dir + "/a/b")
     fs.touch(remote_dir + "/a/f1")
@@ -270,8 +316,8 @@ def test_walk(fs, remote_dir):
         for root, dirs, files in fs.walk(remote_dir + "/a")
     }
     assert result == {
-        remote_dir + "/a": (["b"], ["f1"]),
-        remote_dir + "/a/b": ([], ["f2"]),
+        plain_remote_dir + "/a": (["b"], ["f1"]),
+        plain_remote_dir + "/a/b": ([], ["f2"]),
     }
 
 
@@ -288,6 +334,7 @@ def test_strip_protocol():
     # An explicit absolute root is preserved so walk("/") lists from the root.
     assert strip("/") == "/"
     assert strip("ssh://host/") == "/"
+    assert strip("sftp://host/") == "/"
     # Empty and relative paths still resolve against the home directory
     # instead of being redirected to the root.
     assert strip("") == ""
@@ -296,6 +343,30 @@ def test_strip_protocol():
     # Regular absolute paths are unaffected.
     assert strip("/foo/bar") == "/foo/bar"
     assert strip("ssh://host/foo/bar") == "/foo/bar"
+    assert strip("sftp://user:secret@host:2222/foo/bar") == "/foo/bar"
+    assert strip(b"/foo/\xff") == b"/foo/\xff"
+
+    # pathlib.Path
+    assert strip(Path("/foo/bar")) == "/foo/bar"
+
+    class PathLike(os.PathLike):
+        def __init__(self, path):
+            self.path = path
+
+        def __fspath__(self):
+            return self.path
+
+    assert strip(PathLike("/foo/bar")) == "/foo/bar"
+    assert strip(PathLike("ssh://host/foo/bar")) == "/foo/bar"
+    assert (
+        strip(PathLike("sftp://user:secret@host:2222/foo/bar")) == "/foo/bar"
+    )
+
+    # Path-like objects returning bytes must preserve non-UTF-8 paths.
+    assert strip(PathLike(b"/foo/\xff")) == b"/foo/\xff"
+
+    # list
+    assert strip(["foo/bar/1", "foo/bar/2"]) == ["foo/bar/1", "foo/bar/2"]
 
 
 def test_mkdir(fs, remote_dir):
@@ -462,14 +533,26 @@ def test_concurrent_operations(fs, remote_dir):
 
 
 @pytest.mark.parametrize("file_path", ["a.txt", "dir/a.txt"])
-def test_put_file(fs, remote_dir, file_path):
-    with tempfile.NamedTemporaryFile() as file:
-        file.file.write(b"data")
-        file.file.flush()
-        fs.put_file(file.name, remote_dir + f"/{file_path}")
+def test_put_file(fs, remote_dir, file_path, tmp_path):
+    local_file = tmp_path / "upload.txt"
+    local_file.write_bytes(b"data")
+    fs.put_file(str(local_file), remote_dir + f"/{file_path}")
 
     with fs.open(remote_dir + f"/{file_path}") as stream:
         assert stream.read() == b"data"
+
+
+@pytest.mark.parametrize("file_path", ["a.txt", "dir/a.txt"])
+def test_get_file(fs, remote_dir, file_path, tmp_path):
+    remote_file = remote_dir + f"/{file_path}"
+    fs.makedirs(posixpath.dirname(remote_file), exist_ok=True)
+
+    with fs.open(remote_file, "wb") as stream:
+        stream.write(b"data")
+
+    local_file = tmp_path / "downloaded.txt"
+    fs.get_file(remote_file, str(local_file))
+    assert local_file.read_bytes() == b"data"
 
 
 def test_concurrency_for_raw_commands(fs, remote_dir):
@@ -494,13 +577,14 @@ def test_modified(fs, remote_dir):
     assert isinstance(modified, datetime)
 
 
-def test_cat_file_sync(fs, remote_dir):
+def test_cat_file_sync(fs, remote_dir, plain_remote_dir):
     # Define the content to write to the test file
     test_content = b"Test content for cat_file"
     test_file_path = remote_dir + "/test_file.txt"
+    test_plain_file_path = plain_remote_dir + "/test_file.txt"
 
     # Write content to the file synchronously
-    with open(test_file_path, "wb") as f:
+    with open(test_plain_file_path, "wb") as f:
         f.write(test_content)
 
     # Use the cat_file method to read the content back synchronously

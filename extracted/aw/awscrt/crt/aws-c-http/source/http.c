@@ -160,6 +160,12 @@ static struct aws_error_info s_errors[] = {
     AWS_DEFINE_ERROR_INFO_HTTP(
         AWS_ERROR_HTTP_STREAM_CANCELLED,
         "In-flight HTTP-stream has been cancelled by user."),
+    AWS_DEFINE_ERROR_INFO_HTTP(
+        AWS_ERROR_HTTP_STREAM_MANAGER_MAX_PENDING_ACQUISITIONS_EXCEEDED,
+        "Stream Manager max pending stream acquisitions reached"),
+    AWS_DEFINE_ERROR_INFO_HTTP(
+        AWS_ERROR_HTTP_STREAM_MANAGER_ACQUISITION_TIMEOUT,
+        "Stream Manager failed to acquire a stream within the defined timeout."),
 };
 /* clang-format on */
 

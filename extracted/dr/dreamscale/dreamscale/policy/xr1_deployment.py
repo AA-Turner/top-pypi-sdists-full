@@ -1,4 +1,4 @@
-"""A Xiaomi-Robotics-1 deployment's server-described contract (dreamscale_transport.xr1_deploy).
+"""A Xiaomi-Robotics-1 deployment's server-described contract (dreamscale_core.xr1_deploy).
 
 A deployment runs the bimanual YAM preset or a custom robot (1-2 arms, 1-3 cameras by view, an
 optional waist and mobile base, a declared end-effector frame and units), so its widths are its
@@ -51,7 +51,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
-from dreamscale_transport import xr1_deploy as C
+from dreamscale_core import xr1_deploy as C
 
 LABEL = C.XR1_PUBLIC_NAME
 # What the block carries of the robot and its contract (``public_embodiment``), required ...

@@ -7195,7 +7195,8 @@ def test_cfn_ecr_repository_takes_images_and_deletes_like_the_api(
         stack = _wait_stack(cfn, stack_name)
         if empty_on_delete is None:
             assert stack["StackStatus"] == "DELETE_FAILED"
-            assert f"The repository with name '{name}' is not empty" in \
+            assert (f"The repository with name '{name}' in registry with id '000000000000' "
+                    "cannot be deleted because it still contains images") in \
                 _stack_event_reasons(cfn, stack_name)
             assert len(ecr.describe_images(repositoryName=name)["imageDetails"]) == 1
             ecr.delete_repository(repositoryName=name, force=True)
@@ -7285,6 +7286,77 @@ def test_cfn_ecr_repository_encryption_change_under_custom_name_is_refused(cfn, 
         assert repo["encryptionConfiguration"]["encryptionType"] == "AES256"
     finally:
         _delete_cfn_test_stack(cfn, name)
+
+
+def _cfn_ptc_template(prefix, upstream_prefix=None):
+    props = {"EcrRepositoryPrefix": prefix, "UpstreamRegistryUrl": "public.ecr.aws", "UpstreamRegistry": "ecr-public"}
+    if upstream_prefix:
+        props["UpstreamRepositoryPrefix"] = upstream_prefix
+    return json.dumps({"Resources": {"Rule": {"Type": "AWS::ECR::PullThroughCacheRule", "Properties": props}},
+                       "Outputs": {"Rule": {"Value": {"Ref": "Rule"}}}})
+
+
+def test_cfn_ecr_pull_through_cache_rule_lifecycle(cfn, ecr):
+    prefix = f"cfnptc{_uuid_mod.uuid4().hex[:8]}"
+    stack_name = f"cfn-ptc-{prefix}"
+    cfn.create_stack(StackName=stack_name, TemplateBody=_cfn_ptc_template(prefix))
+    try:
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        assert _output(stack, "Rule") == prefix
+        rule = ecr.describe_pull_through_cache_rules(ecrRepositoryPrefixes=[prefix])["pullThroughCacheRules"][0]
+        assert rule["upstreamRegistryUrl"] == "public.ecr.aws"
+
+        cfn.update_stack(StackName=stack_name, TemplateBody=_cfn_ptc_template(prefix, "docker"))
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "UPDATE_ROLLBACK_COMPLETE"
+        assert "custom-named resource requires replacing" in _stack_event_reasons(cfn, stack_name)
+    finally:
+        _delete_cfn_test_stack(cfn, stack_name)
+    with pytest.raises(ClientError) as exc:
+        ecr.describe_pull_through_cache_rules(ecrRepositoryPrefixes=[prefix])
+    assert exc.value.response["Error"]["Code"] == "PullThroughCacheRuleNotFoundException"
+
+
+def test_cfn_ecr_pull_through_cache_rule_refused_input_fails_the_create(cfn):
+    stack_name = f"cfn-ptc-bad-{_uuid_mod.uuid4().hex[:8]}"
+    cfn.create_stack(StackName=stack_name, TemplateBody=_cfn_ptc_template("Bad_Prefix"))
+    try:
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] in ("ROLLBACK_COMPLETE", "CREATE_FAILED")
+        assert "ecrRepositoryPrefix" in _stack_event_reasons(cfn, stack_name)
+    finally:
+        _delete_cfn_test_stack(cfn, stack_name)
+
+
+@pytest.mark.serial
+def test_cfn_ecr_registry_policy_lifecycle(cfn, ecr, sts):
+    account = sts.get_caller_identity()["Account"]
+
+    def template(action):
+        return json.dumps({"Resources": {"Policy": {"Type": "AWS::ECR::RegistryPolicy", "Properties": {
+            "PolicyText": {"Version": "2012-10-17", "Statement": [{
+                "Sid": "Cross", "Effect": "Allow", "Principal": {"AWS": "arn:aws:iam::210987654321:root"},
+                "Action": [action], "Resource": f"arn:aws:ecr:us-east-1:{account}:repository/*"}]}}}},
+            "Outputs": {"Id": {"Value": {"Fn::GetAtt": ["Policy", "RegistryId"]}}}})
+
+    stack_name = f"cfn-ecr-regpol-{_uuid_mod.uuid4().hex[:8]}"
+    cfn.create_stack(StackName=stack_name, TemplateBody=template("ecr:CreateRepository"))
+    try:
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        assert _output(stack, "Id") == account
+        assert "ecr:CreateRepository" in ecr.get_registry_policy()["policyText"]
+
+        cfn.update_stack(StackName=stack_name, TemplateBody=template("ecr:ReplicateImage"))
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "UPDATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        assert "ecr:ReplicateImage" in ecr.get_registry_policy()["policyText"]
+    finally:
+        _delete_cfn_test_stack(cfn, stack_name)
+    with pytest.raises(ClientError) as exc:
+        ecr.get_registry_policy()
+    assert exc.value.response["Error"]["Code"] == "RegistryPolicyNotFoundException"
 
 
 def test_cfn_ec2_launch_template(cfn, ec2):
@@ -11907,6 +11979,86 @@ def test_cfn_stack_tags_reach_the_resources(cfn, sqs, ssm):
         _delete_cfn_test_stack(cfn, name)
 
 
+def test_cfn_bucket_tags_reach_get_bucket_tagging(cfn, s3):
+    """An AWS::S3::Bucket's Tags, the stack tags and the three
+    aws:cloudformation tags are the bucket's tag set; an update that drops a
+    template tag removes it from the bucket."""
+    name = f"cfn-bucket-tags-{_uuid_mod.uuid4().hex[:8]}"
+
+    def template(tags):
+        return json.dumps({
+            "Resources": {"B": {"Type": "AWS::S3::Bucket", "Properties": {"Tags": tags}}},
+            "Outputs": {"Name": {"Value": {"Ref": "B"}}},
+        })
+
+    def bucket_tags(bucket):
+        return {t["Key"]: t["Value"] for t in s3.get_bucket_tagging(Bucket=bucket)["TagSet"]}
+
+    cfn.create_stack(
+        StackName=name,
+        TemplateBody=template([{"Key": "aws-cdk:auto-delete-objects", "Value": "true"},
+                               {"Key": "env", "Value": "dev"}]),
+        Tags=[{"Key": "owner", "Value": "team-a"}],
+    )
+    try:
+        stack = _wait_stack(cfn, name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", stack.get("StackStatusReason")
+        bucket = _output(stack, "Name")
+        assert bucket_tags(bucket) == {
+            "aws-cdk:auto-delete-objects": "true",
+            "env": "dev",
+            "owner": "team-a",
+            **_system_tags(stack, "B"),
+        }
+        cfn.update_stack(
+            StackName=name,
+            TemplateBody=template([{"Key": "aws-cdk:auto-delete-objects", "Value": "true"}]),
+            Tags=[{"Key": "owner", "Value": "team-a"}],
+        )
+        stack = _wait_stack(cfn, name)
+        assert stack["StackStatus"] == "UPDATE_COMPLETE", stack.get("StackStatusReason")
+        assert bucket_tags(bucket) == {
+            "aws-cdk:auto-delete-objects": "true",
+            "owner": "team-a",
+            **_system_tags(stack, "B"),
+        }
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
+def test_cfn_table_stream_label_and_event_resource_properties(cfn, ddb):
+    """A stack's DynamoDB stream label has no trailing Z and ends its
+    LatestStreamArn; each event of the resource carries its properties with
+    every primitive a string, and the stack's own events carry none."""
+    name = f"cfn-event-props-{_uuid_mod.uuid4().hex[:8]}"
+    table = f"{name}-t"
+    props = {
+        "TableName": table,
+        "BillingMode": "PAY_PER_REQUEST",
+        "AttributeDefinitions": [{"AttributeName": "PK", "AttributeType": "S"}],
+        "KeySchema": [{"AttributeName": "PK", "KeyType": "HASH"}],
+        "DeletionProtectionEnabled": False,
+        "StreamSpecification": {"StreamViewType": "NEW_IMAGE"},
+    }
+    cfn.create_stack(StackName=name, TemplateBody=json.dumps(
+        {"Resources": {"T": {"Type": "AWS::DynamoDB::Table", "Properties": props}}}))
+    try:
+        stack = _wait_stack(cfn, name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", stack.get("StackStatusReason")
+        desc = ddb.describe_table(TableName=table)["Table"]
+        label = desc["LatestStreamLabel"]
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{3}", label), label
+        assert desc["LatestStreamArn"].endswith(f"/stream/{label}")
+        events = cfn.describe_stack_events(StackName=name)["StackEvents"]
+        table_events = [e for e in events if e["LogicalResourceId"] == "T"]
+        assert {e["ResourceStatus"] for e in table_events} == {"CREATE_IN_PROGRESS", "CREATE_COMPLETE"}
+        for e in table_events:
+            assert json.loads(e["ResourceProperties"]) == {**props, "DeletionProtectionEnabled": "false"}
+        assert all("ResourceProperties" not in e for e in events if e["LogicalResourceId"] == name)
+    finally:
+        _delete_cfn_test_stack(cfn, name)
+
+
 def test_cfn_stack_tags_reach_a_nested_stack(cfn, s3, sqs):
     """The parent's stack tags reach the resources of a nested stack; the
     aws:cloudformation tags carry the nested stack's own name and id."""
@@ -14358,8 +14510,8 @@ def test_cfn_cloudfront_keyvaluestore_create_update_delete(cfn, cloudfront):
 
     # Outputs carry the ARN + Id from the provisioner.
     outputs = {o["OutputKey"]: o["OutputValue"] for o in stack["Outputs"]}
-    assert outputs["KvsArn"].endswith(f":key-value-store/{kvs_name}")
     assert outputs["KvsId"]
+    assert outputs["KvsArn"].endswith(f":key-value-store/{outputs['KvsId']}")
 
     # Native describe sees the create-time Comment.
     desc = cloudfront.describe_key_value_store(Name=kvs_name)
@@ -19985,8 +20137,12 @@ def test_cfn_opensearch_invalid_create_redacts_secret_and_rolls_back(cfn, opense
     stack = _wait_stack(cfn, stack_name)
     assert stack["StackStatus"] == "ROLLBACK_COMPLETE"
     events = cfn.describe_stack_events(StackName=stack_name)["StackEvents"]
-    assert sentinel not in json.dumps(events, default=str)
+    # AWS shows a password written in the template in ResourceProperties, never in a reason (capture 2026-11-18).
+    assert all(sentinel not in e.get("ResourceStatusReason", "") for e in events)
     assert sentinel not in json.dumps(stack, default=str)
+    domain_events = [e for e in events if e["LogicalResourceId"] != stack_name]
+    assert {e["ResourceStatus"] for e in domain_events} >= {"CREATE_IN_PROGRESS", "CREATE_FAILED"}
+    assert all(sentinel in e["ResourceProperties"] for e in domain_events)
     with pytest.raises(ClientError) as exc:
         opensearch.describe_domain(DomainName=invalid_name)
     assert exc.value.response["Error"]["Code"] == "ResourceNotFoundException"
@@ -39694,3 +39850,61 @@ def test_cfn_ecs_task_definition_reaches_the_ecs_api_shape(cfn):
         assert td["ephemeralStorage"] == {"sizeInGiB": 30}
     finally:
         _delete_cfn_test_stack(cfn, stack)
+
+
+def test_cfn_ecr_repository_creation_template_lifecycle(cfn, ecr):
+    prefix = f"cfnrct{_uuid_mod.uuid4().hex[:8]}"
+
+    def template(mutability):
+        return json.dumps({"Resources": {"Tpl": {"Type": "AWS::ECR::RepositoryCreationTemplate", "Properties": {
+            "Prefix": prefix, "AppliedFor": ["PULL_THROUGH_CACHE"], "ImageTagMutability": mutability,
+            "EncryptionConfiguration": {"EncryptionType": "AES256"},
+            "ResourceTags": [{"Key": "team", "Value": "a"}]}}},
+            "Outputs": {"Ref": {"Value": {"Ref": "Tpl"}}, "Created": {"Value": {"Fn::GetAtt": ["Tpl", "CreatedAt"]}}}})
+
+    stack_name = f"cfn-rct-{prefix}"
+    cfn.create_stack(StackName=stack_name, TemplateBody=template("IMMUTABLE"))
+    try:
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "CREATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        assert _output(stack, "Ref") == prefix
+        assert re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.000Z", _output(stack, "Created"))
+        tpl = ecr.describe_repository_creation_templates(prefixes=[prefix])["repositoryCreationTemplates"][0]
+        assert (tpl["imageTagMutability"], tpl["resourceTags"]) == ("IMMUTABLE", [{"Key": "team", "Value": "a"}])
+
+        cfn.update_stack(StackName=stack_name, TemplateBody=template("MUTABLE"))
+        stack = _wait_stack(cfn, stack_name)
+        assert stack["StackStatus"] == "UPDATE_COMPLETE", _stack_event_reasons(cfn, stack_name)
+        tpl = ecr.describe_repository_creation_templates(prefixes=[prefix])["repositoryCreationTemplates"][0]
+        assert tpl["imageTagMutability"] == "MUTABLE"
+    finally:
+        _delete_cfn_test_stack(cfn, stack_name)
+    assert ecr.describe_repository_creation_templates(prefixes=[prefix])["repositoryCreationTemplates"] == []
+
+
+def test_cfn_event_properties_mask_a_no_echo_parameter_and_rollback_deletes_carry_them(cfn):
+    """A NoEcho parameter's value is **** in ResourceProperties, and the rollback deletes of a failed create
+    carry the properties too (AWS capture 2026-11-18)."""
+    suffix = _uuid_mod.uuid4().hex[:8]
+    name, secret = f"cfn-noecho-{suffix}", f"Secret-{suffix}"
+    template = {
+        "Parameters": {"Pw": {"Type": "String", "NoEcho": True}},
+        "Resources": {
+            "Q": {"Type": "AWS::SQS::Queue", "Properties": {"Tags": [{"Key": "pw", "Value": {"Ref": "Pw"}}]}},
+            "Bad": {"Type": "AWS::OpenSearchService::Domain", "DependsOn": "Q",
+                    "Properties": {"DomainName": f"INVALID-{suffix}"}},
+        },
+    }
+    cfn.create_stack(StackName=name, TemplateBody=json.dumps(template),
+                     Parameters=[{"ParameterKey": "Pw", "ParameterValue": secret}])
+    try:
+        stack = _wait_stack(cfn, name)
+        assert stack["StackStatus"] == "ROLLBACK_COMPLETE", stack.get("StackStatusReason")
+        events = cfn.describe_stack_events(StackName=name)["StackEvents"]
+        assert secret not in json.dumps(events, default=str)
+        q = {e["ResourceStatus"]: e for e in events if e["LogicalResourceId"] == "Q"}
+        assert {"CREATE_IN_PROGRESS", "CREATE_COMPLETE", "DELETE_IN_PROGRESS", "DELETE_COMPLETE"} <= set(q)
+        for e in q.values():
+            assert json.loads(e["ResourceProperties"]) == {"Tags": [{"Key": "pw", "Value": "****"}]}
+    finally:
+        _delete_cfn_test_stack(cfn, name)

@@ -13,7 +13,8 @@ from .signals import post_schema_sync, schema_needs_to_be_sync
 from .utils import get_creation_fakes_migrations, get_tenant_base_schema, has_multi_type_tenants
 from .utils import get_reject_existing_schema, get_reserved_schema_names
 from .utils import schema_exists, get_tenant_domain_model, get_public_schema_name, get_tenant_database_alias
-from .utils import quote_schema_name
+from .utils import quote_schema_name, _previous_tenants, _restore_previous_tenant
+from .utils import check_tenant_data_change_allowed
 
 
 class TenantMixin(models.Model):
@@ -53,8 +54,6 @@ class TenantMixin(models.Model):
     Leave this as None. Stores the subfolder in subfolder routing was used
     """
 
-    _previous_tenant = []
-
     class Meta:
         abstract = True
 
@@ -71,15 +70,18 @@ class TenantMixin(models.Model):
             # run some code in previous tenant (public probably)
         """
         connection = connections[get_tenant_database_alias()]
-        self._previous_tenant.append(connection.tenant)
+        previous_tenant = connection.tenant
         self.activate()
+        # Kept on the connection, which is per thread, so concurrent requests
+        # and different tenant instances never share it.
+        _previous_tenants(connection).append(previous_tenant)
 
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         connection = connections[get_tenant_database_alias()]
 
-        connection.set_tenant(self._previous_tenant.pop())
+        _restore_previous_tenant(connection)
 
     def activate(self):
         """
@@ -378,6 +380,15 @@ class DomainMixin(models.Model):
 
     @transaction.atomic
     def save(self, *args, **kwargs):
+        # From a tenant's schema, only that tenant's domains can be added or
+        # changed, and a domain can't be moved from another tenant.
+        if self.tenant_id is not None:
+            check_tenant_data_change_allowed(self.tenant.schema_name, 'add or change a domain of')
+        if self.pk is not None:
+            original = self.__class__._base_manager.filter(pk=self.pk).values_list(
+                'tenant__schema_name', flat=True).first()
+            if original is not None:
+                check_tenant_data_change_allowed(original, 'move a domain away from')
         # Get all other primary domains with the same tenant
         domain_list = self.__class__.objects.filter(tenant=self.tenant, is_primary=True).exclude(pk=self.pk)
         # If we have no primary domain yet, set as primary domain by default

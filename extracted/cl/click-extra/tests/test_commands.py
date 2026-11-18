@@ -248,6 +248,7 @@ def test_no_heavy_dependency_ballast_on_startup():
         "subprocess",
         "sysconfig",
         "tabulate",
+        "tempfile",
         "termios",
         "tomllib",
         "tty",
@@ -417,6 +418,7 @@ def test_lazy_converter_exports():
 
 
 LAZY_REGISTRIES = (
+    "_LAZY_BUG_REPORT",
     "_LAZY_CAPTURES",
     "_LAZY_CONVERTERS",
     "_LAZY_DISPLAYS",

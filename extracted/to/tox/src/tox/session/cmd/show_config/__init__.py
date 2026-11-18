@@ -1,9 +1,13 @@
-"""Show materialized configuration of tox environments."""
+"""The ``config`` command that prints the materialized configuration."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, get_args
+from typing import (
+    TYPE_CHECKING,
+    Literal,
+    get_args,
+)
 
 from tox.plugin import impl
 from tox.session.cmd.run.common import env_run_create_flags
@@ -14,10 +18,16 @@ if TYPE_CHECKING:
     from tox.session.state import State
 
 ConfigFormat = Literal["ini", "json", "toml"]
+"""The formats the configuration can be shown in."""
 
 
 @impl
 def tox_add_option(parser: ToxParser) -> None:
+    """Add the ``config`` sub-command to the command line parser.
+
+    :param parser: the parser to add the sub-command to
+
+    """
     our = parser.add_command("config", ["c"], "show tox configuration", show_config)
     our.add_argument(
         "-k",
@@ -53,9 +63,16 @@ def tox_add_option(parser: ToxParser) -> None:
 
 
 def show_config(state: State) -> int:
-    from .ini import show_config_ini  # ruff:ignore[import-outside-top-level]
-    from .json_format import show_config_json  # ruff:ignore[import-outside-top-level]
-    from .toml_format import show_config_toml  # ruff:ignore[import-outside-top-level]
+    """Show the configuration in the format selected on the command line.
+
+    :param state: the state of the run
+
+    :returns: the exit code
+
+    """  # simplint: ignore[function-docstring] existing command docs
+    from .ini import show_config_ini  # ruff:ignore[import-outside-top-level]  # avoids an import cycle
+    from .json_format import show_config_json  # ruff:ignore[import-outside-top-level]  # avoids an import cycle
+    from .toml_format import show_config_toml  # ruff:ignore[import-outside-top-level]  # avoids an import cycle
 
     fmt: ConfigFormat = state.conf.options.config_format
     if fmt == "json":
@@ -63,3 +80,8 @@ def show_config(state: State) -> int:
     if fmt == "toml":
         return show_config_toml(state)
     return show_config_ini(state)
+
+
+__all__ = [
+    "tox_add_option",
+]

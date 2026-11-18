@@ -59,6 +59,8 @@ __all__ = (
     "EffectiveDurabilityType",
     "ElastiCacheServiceName",
     "InputAuthenticationTypeType",
+    "IntegrationStatusType",
+    "IntegrationTypeType",
     "IpDiscoveryType",
     "LogDeliveryConfigurationStatusType",
     "LogFormatType",
@@ -125,6 +127,8 @@ DestinationTypeType = Literal["cloudwatch-logs", "kinesis-firehose"]
 DurabilityType = Literal["async", "default", "disabled", "sync"]
 EffectiveDurabilityType = Literal["async", "disabled", "sync"]
 InputAuthenticationTypeType = Literal["iam", "no-password-required", "password"]
+IntegrationStatusType = Literal["disabled", "disabling", "enabled", "enabling", "failed"]
+IntegrationTypeType = Literal["dynamodb"]
 IpDiscoveryType = Literal["ipv4", "ipv6"]
 LogDeliveryConfigurationStatusType = Literal[
     "active", "disabling", "enabling", "error", "modifying"
@@ -280,6 +284,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -464,6 +469,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -531,6 +537,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

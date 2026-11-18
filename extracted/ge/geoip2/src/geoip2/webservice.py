@@ -277,14 +277,14 @@ class AsyncClient(BaseClient):
       60.
     :param proxy: The URL of an HTTP proxy to use. It may optionally include
       a basic auth username and password, e.g.,
-      ``http://username:password@host:port``.
+      ``http://<username>:<password>@<host>:<port>``.
 
     """
 
     _existing_session: aiohttp.ClientSession
     _proxy: str | None
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         account_id: int,
         license_key: str,
@@ -452,7 +452,7 @@ class Client(BaseClient):
       60.
     :param proxy: The URL of an HTTP proxy to use. It may optionally include
       a basic auth username and password, e.g.,
-      ``http://username:password@host:port``.
+      ``http://<username>:<password>@<host>:<port>``.
 
 
     """
@@ -460,7 +460,7 @@ class Client(BaseClient):
     _session: requests.Session
     _proxies: dict[str, str] | None
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         account_id: int,
         license_key: str,

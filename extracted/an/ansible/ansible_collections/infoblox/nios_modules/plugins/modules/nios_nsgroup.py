@@ -49,7 +49,7 @@ options:
         type: bool
       grid_replicate:
         description:
-          - Use DNS zone transfers if set to C(True) or ID Grid Replication if set to C(False).
+          - Use DNS zone transfers if set to C(true) or ID Grid Replication if set to C(false).
         type: bool
         default: false
       lead:
@@ -86,7 +86,7 @@ options:
           tsig_key_name:
             description:
               - Sets a label for the I(tsig_key) value
-            required: true
+            required: false
             type: str
           tsig_key_alg:
             description:
@@ -117,7 +117,7 @@ options:
         type: bool
       grid_replicate:
         description:
-          - Use DNS zone transfers if set to C(True) or ID Grid Replication if set to C(False)
+          - Use DNS zone transfers if set to C(true) or ID Grid Replication if set to C(false)
         type: bool
         default: false
       lead:
@@ -154,7 +154,7 @@ options:
           tsig_key_name:
             description:
               - Sets a label for the I(tsig_key) value
-            required: true
+            required: false
             type: str
           tsig_key_alg:
             description:
@@ -168,7 +168,7 @@ options:
             type: str
   is_grid_default:
     description:
-      - If set to C(True) this nsgroup will become the default nameserver group for new zones.
+      - If set to C(true) this nsgroup will become the default nameserver group for new zones.
     type: bool
     default: false
   use_external_primary:
@@ -202,7 +202,7 @@ options:
       tsig_key_name:
         description:
           - Sets a label for the I(tsig_key) value
-        required: true
+        required: false
         type: str
       tsig_key_alg:
         description:
@@ -238,7 +238,7 @@ options:
       tsig_key_name:
         description:
           - Sets a label for the I(tsig_key) value
-        required: true
+        required: false
         type: str
       tsig_key_alg:
         description:
@@ -255,7 +255,7 @@ options:
       - Allows for the configuration of Extensible Attributes on the
         instance of the object.  This argument accepts a set of key / value
         pairs for configuration.
-    type: str
+    type: dict
   comment:
     description:
       - Configures a text string comment to be associated with the instance
@@ -382,11 +382,15 @@ def main():
         return module.params['external_secondaries']
 
     def grid_primary_preferred_transform(module):
+        if not module.params['grid_primary']:
+            return module.params['grid_primary']
         for member in module.params['grid_primary']:
             clean_grid_member(member)
         return module.params['grid_primary']
 
     def grid_secondaries_preferred_primaries_transform(module):
+        if not module.params['grid_secondaries']:
+            return module.params['grid_secondaries']
         for member in module.params['grid_secondaries']:
             clean_grid_member(member)
         return module.params['grid_secondaries']
@@ -397,7 +401,7 @@ def main():
         stealth=dict(type='bool', default=False),
         tsig_key=dict(no_log=True),
         tsig_key_alg=dict(choices=['HMAC-MD5', 'HMAC-SHA256'], default='HMAC-MD5'),
-        tsig_key_name=dict(required=True)
+        tsig_key_name=dict(required=False)
     )
 
     memberserver_spec = dict(
@@ -420,7 +424,7 @@ def main():
                                   transform=ext_secondaries_transform),
         is_grid_default=dict(type='bool', default=False),
         use_external_primary=dict(type='bool', default=False),
-        extattrs=dict(),
+        extattrs=dict(type='dict'),
         comment=dict(),
     )
 

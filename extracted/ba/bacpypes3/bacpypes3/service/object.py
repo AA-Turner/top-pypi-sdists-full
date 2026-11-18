@@ -4,11 +4,14 @@ Application Module
 
 from __future__ import annotations
 
+import asyncio
 import inspect
 from typing import Any as _Any
 from typing import Callable, Optional, Tuple, Union
 
 from ..apdu import (
+    AbortPDU,
+    AbortReason,
     ErrorRejectAbortNack,
     ReadPropertyACK,
     ReadPropertyMultipleACK,
@@ -173,6 +176,106 @@ class ReadWritePropertyServices:
             )
 
         return property_value
+
+    async def read_object_list(
+        self,
+        address: Union[Address, str],
+        device_identifier: Union[ObjectIdentifier, str],
+        *,
+        concurrency: int = 4,
+    ) -> list[ObjectIdentifier]:
+        """
+        Read the object-list of a device and return it as a list of object
+        identifiers.
+
+        The whole array is read first.  If that is aborted because the
+        response is too big and cannot be segmented (buffer-overflow or
+        segmentation-not-supported) the length is read from element zero
+        and then each element is read individually, at most `concurrency`
+        requests at a time, and returned in order.  Any other error,
+        reject, or abort is raised.
+        """
+        if _debug:
+            ReadWritePropertyServices._debug(
+                "read_object_list %r %r %r", address, device_identifier, concurrency
+            )
+        if concurrency < 1:
+            raise ValueError("concurrency")
+
+        # parse the address if needed
+        if isinstance(address, str):
+            address = Address(address)
+        elif not isinstance(address, Address):
+            raise TypeError("address")
+
+        # parse the device identifier if needed
+        if isinstance(device_identifier, str):
+            vendor_info = await self.get_vendor_info(device_address=address)
+            device_identifier = await self.parse_object_identifier(
+                device_identifier, vendor_info=vendor_info
+            )
+        elif not isinstance(device_identifier, ObjectIdentifier):
+            raise TypeError("device_identifier")
+
+        object_list_property = PropertyIdentifier("object-list")
+
+        async def read_element(array_index: Optional[int] = None) -> _Any:
+            # read_property raises or returns an error/reject/abort, so
+            # make it always raise
+            value = await self.read_property(
+                address,
+                device_identifier,
+                object_list_property,
+                array_index=array_index,
+            )
+            if isinstance(value, ErrorRejectAbortNack):
+                raise value
+            return value
+
+        # try reading the whole thing at once
+        try:
+            object_list = await read_element()
+            if not isinstance(object_list, list):
+                raise TypeError(f"unexpected object-list value: {object_list!r}")
+            return list(object_list)
+        except AbortPDU as err:
+            if err.apduAbortRejectReason not in (
+                AbortReason.bufferOverflow,
+                AbortReason.segmentationNotSupported,
+            ):
+                raise
+            if _debug:
+                ReadWritePropertyServices._debug("    - fall back: %r", err)
+
+        # read the length
+        object_list_length = int(await read_element(0))
+        if _debug:
+            ReadWritePropertyServices._debug(
+                "    - object_list_length: %r", object_list_length
+            )
+
+        # a small pool of workers reads the elements, filling in the results
+        # by position so the order is preserved
+        results: list[_Any] = [None] * object_list_length
+        indexes = iter(range(object_list_length))
+
+        async def worker() -> None:
+            for i in indexes:
+                results[i] = await read_element(i + 1)
+
+        tasks = [
+            asyncio.ensure_future(worker())
+            for _ in range(min(concurrency, object_list_length))
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+        return results
 
     async def write_property(
         self,
@@ -530,12 +633,33 @@ class ReadWritePropertyMultipleServices:
                     "    - vendor_info: %r", vendor_info
                 )
 
+        # make a copy so any iterable (including a generator) can be indexed
+        parameter_list = list(parameter_list)
+
         list_of_read_access_specs = []
         while parameter_list:
             read_access_spec = ReadAccessSpecification()
             list_of_read_access_specs.append(read_access_spec)
 
-            object_identifier, property_reference_list, *parameter_list = parameter_list
+            # accept both the (object identifier, property reference list)
+            # pairs from the type annotation and the flat, alternating
+            # [objid, [prop, ...], objid, [prop, ...], ...] form
+            if isinstance(parameter_list[0], (tuple, list)) and not isinstance(
+                parameter_list[0], ObjectIdentifier
+            ):
+                (
+                    (
+                        object_identifier,
+                        property_reference_list,
+                    ),
+                    *parameter_list,
+                ) = parameter_list
+            else:
+                (
+                    object_identifier,
+                    property_reference_list,
+                    *parameter_list,
+                ) = parameter_list
 
             # parse the object identifier if needed
             if isinstance(object_identifier, str):
@@ -582,7 +706,7 @@ class ReadWritePropertyMultipleServices:
             raise TypeError("read access specification expected")
 
         read_property_multiple_request = ReadPropertyMultipleRequest(
-            listOfReadAccessSpecs=SequenceOf(ReadAccessSpecification)(
+            listOfReadAccessSpecifications=SequenceOf(ReadAccessSpecification)(
                 list_of_read_access_specs
             ),
             destination=address,
@@ -707,7 +831,7 @@ class ReadWritePropertyMultipleServices:
 
         # first pass - make sure all of the objects exist
         object_reference_exists = False
-        for read_access_spec in apdu.listOfReadAccessSpecs:
+        for read_access_spec in apdu.listOfReadAccessSpecifications:
             # get the object identifier
             object_identifier = read_access_spec.objectIdentifier
             if _debug:
@@ -743,7 +867,7 @@ class ReadWritePropertyMultipleServices:
         read_access_result_list = []
 
         # loop through the request
-        for read_access_spec in apdu.listOfReadAccessSpecs:
+        for read_access_spec in apdu.listOfReadAccessSpecifications:
             # get the object identifier
             object_identifier = read_access_spec.objectIdentifier
             if _debug:
@@ -901,7 +1025,7 @@ class ReadWritePropertyMultipleServices:
 
         # make sure at least one object reference exists
         object_reference_exists = False
-        for write_access_spec in apdu.listOfWriteAccessSpecs:
+        for write_access_spec in apdu.listOfWriteAccessSpecifications:
             object_identifier = write_access_spec.objectIdentifier
 
             # wildcard device identifier resolves to the application device object
@@ -917,7 +1041,7 @@ class ReadWritePropertyMultipleServices:
             raise ObjectError("unknown-object")
 
         # process each write access specification in order
-        for write_access_spec in apdu.listOfWriteAccessSpecs:
+        for write_access_spec in apdu.listOfWriteAccessSpecifications:
             object_identifier = write_access_spec.objectIdentifier
 
             if (
@@ -966,7 +1090,7 @@ class ReadWritePropertyMultipleServices:
                         property_type = property_type._subtype
 
                 try:
-                    value = prop_value.value.cast_out(
+                    value = prop_value.propertyValue.cast_out(
                         property_type, null=(priority is not None)
                     )
                     await obj.write_property(

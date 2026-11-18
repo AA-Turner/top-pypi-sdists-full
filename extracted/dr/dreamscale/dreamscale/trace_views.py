@@ -4,7 +4,7 @@
 def blueprint(contract=None):
     import rerun as rr
     import rerun.blueprint as bp
-    from dreamscale_transport import catalog
+    from dreamscale_transport import _catalog_client as catalog
 
     from dreamscale.policy.runtime.contract import runtime_contract_for_model
 

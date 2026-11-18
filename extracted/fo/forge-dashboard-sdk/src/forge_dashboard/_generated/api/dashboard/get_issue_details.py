@@ -149,6 +149,10 @@ def sync_detailed(
     the same codes. An issue that doesn't exist is a 404, and a forge that
     can't be read is an error, never an empty thread.
 
+    The number may also be a pull request, which GitHub and Forgejo both
+    answer here with `kind: pullRequest`. A number that is neither is a 404
+    in plain words, never the forge's raw error text.
+
     Args:
         forge (Forge):
         full_name (str):
@@ -210,6 +214,10 @@ def sync(
     the same codes. An issue that doesn't exist is a 404, and a forge that
     can't be read is an error, never an empty thread.
 
+    The number may also be a pull request, which GitHub and Forgejo both
+    answer here with `kind: pullRequest`. A number that is neither is a 404
+    in plain words, never the forge's raw error text.
+
     Args:
         forge (Forge):
         full_name (str):
@@ -265,6 +273,10 @@ async def asyncio_detailed(
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that
     can't be read is an error, never an empty thread.
+
+    The number may also be a pull request, which GitHub and Forgejo both
+    answer here with `kind: pullRequest`. A number that is neither is a 404
+    in plain words, never the forge's raw error text.
 
     Args:
         forge (Forge):
@@ -326,6 +338,10 @@ async def asyncio(
     The error answers are those of GET /api/v1/pull-requests/details, with
     the same codes. An issue that doesn't exist is a 404, and a forge that
     can't be read is an error, never an empty thread.
+
+    The number may also be a pull request, which GitHub and Forgejo both
+    answer here with `kind: pullRequest`. A number that is neither is a 404
+    in plain words, never the forge's raw error text.
 
     Args:
         forge (Forge):

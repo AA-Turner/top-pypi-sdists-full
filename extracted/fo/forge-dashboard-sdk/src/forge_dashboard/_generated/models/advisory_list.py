@@ -8,10 +8,12 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.advisory_list_refresh_failed import AdvisoryListRefreshFailed
 from ..models.advisory_reason import AdvisoryReason
 from ..models.advisory_state import AdvisoryState
 from ..types import UNSET, Unset
 from typing import cast
+import datetime
 
 if TYPE_CHECKING:
   from ..models.advisory_item import AdvisoryItem
@@ -49,6 +51,13 @@ class AdvisoryList:
                 because they may be private. Absent otherwise.
             url (str | Unset): The repository's advisories page on the forge. Absent when none are open or the state is
                 unknown, and for Forgejo, which has no page for a whole repository.
+            read_at (datetime.datetime | Unset): When the forge was read for this list. The same value on every answer
+                served from the dashboard's own copy, so a client can tell a changed list from a repeated one.
+            refresh_failed (AdvisoryListRefreshFailed | Unset): Set when the read failed or was rate limited (a refresh, or
+                an
+                open after the kept list had aged out) and `advisories` is the last good list instead, never
+                an empty one. `readAt` then says how old that list is. Absent when
+                the read succeeded.
      """
 
     state: AdvisoryState
@@ -56,6 +65,8 @@ class AdvisoryList:
     reason: AdvisoryReason | Unset = UNSET
     partial: bool | Unset = UNSET
     url: str | Unset = UNSET
+    read_at: datetime.datetime | Unset = UNSET
+    refresh_failed: AdvisoryListRefreshFailed | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -82,6 +93,15 @@ class AdvisoryList:
 
         url = self.url
 
+        read_at: str | Unset = UNSET
+        if not isinstance(self.read_at, Unset):
+            read_at = self.read_at.isoformat()
+
+        refresh_failed: str | Unset = UNSET
+        if not isinstance(self.refresh_failed, Unset):
+            refresh_failed = self.refresh_failed.value
+
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -95,6 +115,10 @@ class AdvisoryList:
             field_dict["partial"] = partial
         if url is not UNSET:
             field_dict["url"] = url
+        if read_at is not UNSET:
+            field_dict["readAt"] = read_at
+        if refresh_failed is not UNSET:
+            field_dict["refreshFailed"] = refresh_failed
 
         return field_dict
 
@@ -133,12 +157,34 @@ class AdvisoryList:
 
         url = d.pop("url", UNSET)
 
+        _read_at = d.pop("readAt", UNSET)
+        read_at: datetime.datetime | Unset
+        if isinstance(_read_at,  Unset):
+            read_at = UNSET
+        else:
+            read_at = datetime.datetime.fromisoformat(_read_at)
+
+
+
+
+        _refresh_failed = d.pop("refreshFailed", UNSET)
+        refresh_failed: AdvisoryListRefreshFailed | Unset
+        if isinstance(_refresh_failed,  Unset):
+            refresh_failed = UNSET
+        else:
+            refresh_failed = AdvisoryListRefreshFailed(_refresh_failed)
+
+
+
+
         advisory_list = cls(
             state=state,
             advisories=advisories,
             reason=reason,
             partial=partial,
             url=url,
+            read_at=read_at,
+            refresh_failed=refresh_failed,
         )
 
 

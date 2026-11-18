@@ -13,11 +13,15 @@ Usage::
         AgreementServiceClient,
         Client,
         GetAgreementEntitlementsPaginator,
+        GetAgreementRequestApprovalPlansPaginator,
+        GetAgreementRequestTermsPaginator,
         GetAgreementTermsPaginator,
+        ListAgreementApprovalsPaginator,
         ListAgreementCancellationRequestsPaginator,
         ListAgreementChargesPaginator,
         ListAgreementInvoiceLineItemsPaginator,
         ListAgreementPaymentRequestsPaginator,
+        ListAgreementRequestsPaginator,
         ListBillingAdjustmentRequestsPaginator,
         SearchAgreementsPaginator,
     )
@@ -26,11 +30,15 @@ Usage::
     client: AgreementServiceClient = session.client("marketplace-agreement")
 
     get_agreement_entitlements_paginator: GetAgreementEntitlementsPaginator = client.get_paginator("get_agreement_entitlements")
+    get_agreement_request_approval_plans_paginator: GetAgreementRequestApprovalPlansPaginator = client.get_paginator("get_agreement_request_approval_plans")
+    get_agreement_request_terms_paginator: GetAgreementRequestTermsPaginator = client.get_paginator("get_agreement_request_terms")
     get_agreement_terms_paginator: GetAgreementTermsPaginator = client.get_paginator("get_agreement_terms")
+    list_agreement_approvals_paginator: ListAgreementApprovalsPaginator = client.get_paginator("list_agreement_approvals")
     list_agreement_cancellation_requests_paginator: ListAgreementCancellationRequestsPaginator = client.get_paginator("list_agreement_cancellation_requests")
     list_agreement_charges_paginator: ListAgreementChargesPaginator = client.get_paginator("list_agreement_charges")
     list_agreement_invoice_line_items_paginator: ListAgreementInvoiceLineItemsPaginator = client.get_paginator("list_agreement_invoice_line_items")
     list_agreement_payment_requests_paginator: ListAgreementPaymentRequestsPaginator = client.get_paginator("list_agreement_payment_requests")
+    list_agreement_requests_paginator: ListAgreementRequestsPaginator = client.get_paginator("list_agreement_requests")
     list_billing_adjustment_requests_paginator: ListBillingAdjustmentRequestsPaginator = client.get_paginator("list_billing_adjustment_requests")
     search_agreements_paginator: SearchAgreementsPaginator = client.get_paginator("search_agreements")
     ```
@@ -39,11 +47,15 @@ Usage::
 from .client import AgreementServiceClient
 from .paginator import (
     GetAgreementEntitlementsPaginator,
+    GetAgreementRequestApprovalPlansPaginator,
+    GetAgreementRequestTermsPaginator,
     GetAgreementTermsPaginator,
+    ListAgreementApprovalsPaginator,
     ListAgreementCancellationRequestsPaginator,
     ListAgreementChargesPaginator,
     ListAgreementInvoiceLineItemsPaginator,
     ListAgreementPaymentRequestsPaginator,
+    ListAgreementRequestsPaginator,
     ListBillingAdjustmentRequestsPaginator,
     SearchAgreementsPaginator,
 )
@@ -55,11 +67,15 @@ __all__ = (
     "AgreementServiceClient",
     "Client",
     "GetAgreementEntitlementsPaginator",
+    "GetAgreementRequestApprovalPlansPaginator",
+    "GetAgreementRequestTermsPaginator",
     "GetAgreementTermsPaginator",
+    "ListAgreementApprovalsPaginator",
     "ListAgreementCancellationRequestsPaginator",
     "ListAgreementChargesPaginator",
     "ListAgreementInvoiceLineItemsPaginator",
     "ListAgreementPaymentRequestsPaginator",
+    "ListAgreementRequestsPaginator",
     "ListBillingAdjustmentRequestsPaginator",
     "SearchAgreementsPaginator",
 )

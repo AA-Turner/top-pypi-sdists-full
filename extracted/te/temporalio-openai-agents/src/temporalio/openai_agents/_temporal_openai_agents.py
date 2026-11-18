@@ -1,25 +1,30 @@
 """Initialize Temporal OpenAI Agents overrides."""
 
+import asyncio
+import copy
 import dataclasses
+import importlib.metadata
 import json
 import threading
+import types
 import typing
 import warnings
 from collections.abc import (
-    AsyncIterator,
+    AsyncGenerator,
+    Awaitable,
     Callable,
     Collection,
-    Iterator,
+    Generator,
+    Iterable,
     Mapping,
     Sequence,
 )
 from contextlib import asynccontextmanager, contextmanager
-from contextvars import Token
 from datetime import timedelta
-from weakref import WeakKeyDictionary
 
 import pydantic
-from agents import ModelProvider, Trace, set_trace_provider
+import pydantic_core
+from agents import ModelProvider, set_trace_provider
 from agents.mcp import MCPServer
 from agents.run import get_default_agent_runner, set_default_agent_runner
 from agents.tracing import get_trace_provider
@@ -59,88 +64,66 @@ from temporalio.openai_agents._temporal_worker_env_ref import (
 from temporalio.openai_agents._trace_interceptor import (
     OpenAIAgentsContextPropagationInterceptor,
 )
+from temporalio.openai_agents.sandbox._on_host_sandbox_client_provider import (
+    OnHostSandboxClientProvider,
+)
 from temporalio.plugin import SimplePlugin
-from temporalio.worker import WorkflowRunner
+from temporalio.worker import Worker, WorkflowRunner
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
 
 if typing.TYPE_CHECKING:
-    from openinference.instrumentation.openai_agents._processor import (
-        OpenInferenceTracingProcessor,
-    )
-
     from temporalio.openai_agents import (
         SandboxClientProvider,
         StatefulMCPServerProvider,
         StatelessMCPServerProvider,
     )
+    from temporalio.openai_agents._otel_trace_processor import (
+        OTelTracingProcessorAdapter,
+    )
 
 
 _otel_trace_start_patch_lock = threading.RLock()
 _otel_trace_start_patch_ref_count = 0
-_otel_trace_start_original: Callable[..., typing.Any] | None = None
-_otel_trace_end_original: (
-    Callable[["OpenInferenceTracingProcessor", Trace], None] | None
-) = None
 _otel_trace_start_instrumentor: typing.Any | None = None
+_otel_trace_processor_adapter: "OTelTracingProcessorAdapter | None" = None
 
 
 def _install_otel_instrumentation(tracer_provider: typing.Any) -> None:
     """Configure OpenInference while at least one tracing context is active."""
     global _otel_trace_start_instrumentor
-    global _otel_trace_start_original
-    global _otel_trace_end_original
+    global _otel_trace_processor_adapter
     global _otel_trace_start_patch_ref_count
 
     from openinference.instrumentation.openai_agents import OpenAIAgentsInstrumentor
     from openinference.instrumentation.openai_agents._processor import (
         OpenInferenceTracingProcessor,
     )
-    from opentelemetry.context import Context, attach, detach
-    from opentelemetry.trace import set_span_in_context
+
+    from ._otel_trace_processor import OTelTracingProcessorAdapter
 
     with _otel_trace_start_patch_lock:
         if _otel_trace_start_patch_ref_count == 0:
-            original_on_trace_start = OpenInferenceTracingProcessor.on_trace_start
-            original_on_trace_end = OpenInferenceTracingProcessor.on_trace_end
-            _otel_trace_start_original = original_on_trace_start
-            _otel_trace_end_original = original_on_trace_end
-            trace_tokens: WeakKeyDictionary[Trace, Token[Context]] = WeakKeyDictionary()
-
-            def on_trace_start(
-                self: OpenInferenceTracingProcessor, trace: Trace
-            ) -> None:
-                original_on_trace_start(self=self, trace=trace)
-                trace_tokens[trace] = attach(
-                    set_span_in_context(self._root_spans[trace.trace_id])
-                )
-
-            def on_trace_end(self: OpenInferenceTracingProcessor, trace: Trace) -> None:
-                try:
-                    original_on_trace_end(self=self, trace=trace)
-                finally:
-                    if token := trace_tokens.pop(trace, None):
-                        detach(token)
-
-            setattr(OpenInferenceTracingProcessor, "on_trace_start", on_trace_start)
-            setattr(OpenInferenceTracingProcessor, "on_trace_end", on_trace_end)
+            _otel_trace_start_instrumentor = OpenAIAgentsInstrumentor()
             try:
-                _otel_trace_start_instrumentor = OpenAIAgentsInstrumentor()
                 _otel_trace_start_instrumentor.instrument(
                     tracer_provider=tracer_provider
                 )
+                provider = typing.cast(DefaultTraceProvider, get_trace_provider())
+                processors = [
+                    processor
+                    for processor in provider._multi_processor._processors
+                    if isinstance(processor, OpenInferenceTracingProcessor)
+                ]
+                processor = next(
+                    processor
+                    for processor in processors
+                    if not getattr(processor, "draining", False)
+                )
+                _otel_trace_processor_adapter = OTelTracingProcessorAdapter.install(
+                    processor, [other for other in processors if other is not processor]
+                )
             except BaseException:
-                setattr(
-                    OpenInferenceTracingProcessor,
-                    "on_trace_start",
-                    _otel_trace_start_original,
-                )
-                setattr(
-                    OpenInferenceTracingProcessor,
-                    "on_trace_end",
-                    _otel_trace_end_original,
-                )
-                _otel_trace_start_original = None
-                _otel_trace_end_original = None
+                _otel_trace_start_instrumentor.uninstrument()
                 _otel_trace_start_instrumentor = None
                 raise
         _otel_trace_start_patch_ref_count += 1
@@ -149,13 +132,8 @@ def _install_otel_instrumentation(tracer_provider: typing.Any) -> None:
 def _uninstall_otel_instrumentation() -> None:
     """Tear down OpenInference after the final tracing context exits."""
     global _otel_trace_start_instrumentor
-    global _otel_trace_start_original
-    global _otel_trace_end_original
+    global _otel_trace_processor_adapter
     global _otel_trace_start_patch_ref_count
-
-    from openinference.instrumentation.openai_agents._processor import (
-        OpenInferenceTracingProcessor,
-    )
 
     with _otel_trace_start_patch_lock:
         if _otel_trace_start_patch_ref_count == 0:
@@ -163,23 +141,12 @@ def _uninstall_otel_instrumentation() -> None:
         _otel_trace_start_patch_ref_count -= 1
         if _otel_trace_start_patch_ref_count == 0:
             try:
+                if _otel_trace_processor_adapter is not None:
+                    _otel_trace_processor_adapter.deactivate()
                 if _otel_trace_start_instrumentor is not None:
                     _otel_trace_start_instrumentor.uninstrument()
             finally:
-                if _otel_trace_start_original is not None:
-                    setattr(
-                        OpenInferenceTracingProcessor,
-                        "on_trace_start",
-                        _otel_trace_start_original,
-                    )
-                if _otel_trace_end_original is not None:
-                    setattr(
-                        OpenInferenceTracingProcessor,
-                        "on_trace_end",
-                        _otel_trace_end_original,
-                    )
-                _otel_trace_start_original = None
-                _otel_trace_end_original = None
+                _otel_trace_processor_adapter = None
                 _otel_trace_start_instrumentor = None
 
 
@@ -239,7 +206,102 @@ def _lenient_construct(type_: typing.Any, value: typing.Any) -> typing.Any:
                 if field.name in value
             }
         )
+    if _holds_caller_class(type_):
+        # construct_type returns these as decoded JSON.
+        return _validated(type_, value)
     return construct_type(type_=type_, value=value)
+
+
+def _is_union(type_: typing.Any) -> bool:
+    origin = typing.get_origin(type_)
+    return origin is typing.Union or origin is types.UnionType  # pyright: ignore[reportDeprecated]
+
+
+def _is_openai_type(type_: typing.Any) -> bool:
+    """Whether ``construct_type`` builds ``type_``: an openai class, or a union of them."""
+    if typing.get_origin(type_) is typing.Annotated:
+        return _is_openai_type(typing.get_args(type_)[0])
+    if _is_union(type_):
+        args = [arg for arg in typing.get_args(type_) if arg is not type(None)]
+        return bool(args) and all(_is_openai_type(arg) for arg in args)
+    return isinstance(type_, type) and type_.__module__.split(".")[0] == "openai"
+
+
+def _holds_caller_class(type_: typing.Any) -> bool:
+    """Whether ``type_`` is or holds a Pydantic model or dataclass that isn't openai's.
+
+    Reads the schema Pydantic builds, so aliases, forward references and deferred
+    models count.
+    """
+
+    def visit(node: typing.Any) -> bool:
+        if isinstance(node, list):
+            return any(visit(item) for item in node)
+        if not isinstance(node, Mapping):
+            return False
+        if node.get("type") in ("model", "dataclass") and not _is_openai_type(
+            node.get("cls")
+        ):
+            return True
+        return any(visit(item) for item in node.values())
+
+    return not _is_openai_type(type_) and visit(pydantic.TypeAdapter(type_).core_schema)
+
+
+# The converter's encoder, as PydanticJSONPlainPayloadConverter builds it.
+_ENCODER = pydantic_core.SchemaSerializer(
+    pydantic_core.core_schema.any_schema(), config={"ser_json_inf_nan": "constants"}
+)
+
+
+def _validated(type_: typing.Any, raw: typing.Any) -> typing.Any:
+    """Validate ``raw`` as ``type_``; the result must encode back to ``raw``."""
+    # Validators can change their input in place.
+    expected = copy.deepcopy(raw)
+    result = pydantic.TypeAdapter(type_).validate_python(raw)
+    encoded = _ENCODER.to_json(result, by_alias=True, exclude_unset=True)
+    if json.loads(encoded) != expected:
+        raise ValueError("the decoded value does not encode back to the payload")
+    return result
+
+
+# The iterator type pydantic decodes ``Iterable`` fields to. It cannot be
+# copied, and pydantic_core does not export it.
+_DecodedIterator: type[Iterable[typing.Any]] = type(
+    pydantic.TypeAdapter(Iterable[typing.Any]).validate_python(())
+)
+
+
+_UNSET = object()
+
+
+def _list_decoded_iterators(value: typing.Any) -> typing.Any:
+    """Replace decoded iterators in ``value`` with lists, in place, and return it."""
+    if isinstance(value, _DecodedIterator):
+        return [_list_decoded_iterators(item) for item in value]
+    if isinstance(value, dict):
+        for key, item in value.items():
+            value[key] = _list_decoded_iterators(item)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            value[index] = _list_decoded_iterators(item)
+    elif isinstance(value, pydantic.BaseModel):
+        for name in type(value).model_fields:
+            # Skip validate_assignment, which would decode the list again.
+            object.__setattr__(
+                value, name, _list_decoded_iterators(getattr(value, name))
+            )
+        if value.__pydantic_extra__:
+            _list_decoded_iterators(value.__pydantic_extra__)
+    elif dataclasses.is_dataclass(value) and not isinstance(value, type):
+        for field in dataclasses.fields(value):
+            # Pydantic leaves an init=False field unset.
+            item = getattr(value, field.name, _UNSET)
+            if item is _UNSET:
+                continue
+            # Also works for frozen dataclasses.
+            object.__setattr__(value, field.name, _list_decoded_iterators(item))
+    return value
 
 
 class _OpenAIJSONPlainPayloadConverter(PydanticJSONPlainPayloadConverter):
@@ -249,6 +311,13 @@ class _OpenAIJSONPlainPayloadConverter(PydanticJSONPlainPayloadConverter):
     deprecated-but-required field the API has stopped sending). The SDK tolerates
     this when parsing responses, but strict ``validate_json`` on the workflow
     side does not, so fall back to lenient construction when validation fails.
+
+    Pydantic decodes ``Iterable`` fields, such as an assistant message's
+    ``content``, as one-shot iterators. The Agents SDK deep-copies run input
+    and cannot copy them, and reading one empties it, so they are decoded as
+    lists instead. ``_openai_types`` changes the openai item types so that
+    pydantic builds lists itself; this walk covers the types it does not
+    reach, such as classes built before the plugin was imported.
     """
 
     def from_payload(
@@ -258,11 +327,40 @@ class _OpenAIJSONPlainPayloadConverter(PydanticJSONPlainPayloadConverter):
     ) -> typing.Any:
         """See base class."""
         try:
-            return super().from_payload(payload, type_hint)
-        except pydantic.ValidationError:
+            value = super().from_payload(payload, type_hint)
+            try:
+                return _list_decoded_iterators(value)
+            except pydantic.ValidationError:
+                # In JSON mode, pydantic decodes a string for
+                # ``Union[str, Iterable[...]]``, such as a custom tool's output,
+                # as an iterator over its characters. Python mode keeps the string.
+                # JSON mode accepted everything else, so don't apply strict mode,
+                # which rejects JSON strings for types such as datetime.
+                value = self._adapter(type_hint).validate_python(
+                    json.loads(payload.data), strict=False
+                )
+                return _list_decoded_iterators(value)
+        except pydantic.ValidationError as e:
             if type_hint is None:
                 raise
-            return _lenient_construct(type_hint, json.loads(payload.data))
+            try:
+                value = _lenient_construct(type_hint, json.loads(payload.data))
+            except (ValueError, TypeError):
+                # A value this fallback can't build fails with the strict error.
+                raise e from None
+            return _list_decoded_iterators(value)
+
+    def _adapter(self, type_hint: typing.Any) -> pydantic.TypeAdapter[typing.Any]:
+        """Return the cached type adapter, as the base class does."""
+        try:
+            return self._type_adapter(type_hint)
+        except TypeError:
+            # An unhashable hint bypasses the cache; any other TypeError is real.
+            try:
+                hash(type_hint)
+            except TypeError:
+                return pydantic.TypeAdapter(type_hint)
+            raise
 
 
 class OpenAIPayloadConverter(CompositePayloadConverter):
@@ -290,7 +388,7 @@ def _data_converter(converter: DataConverter | None) -> DataConverter:
         return dataclasses.replace(
             converter, payload_converter_class=OpenAIPayloadConverter
         )
-    elif not isinstance(converter.payload_converter, OpenAIPayloadConverter):
+    elif not issubclass(converter.payload_converter_class, OpenAIPayloadConverter):
         raise ValueError(
             "The payload converter must be of type OpenAIPayloadConverter."
         )
@@ -310,7 +408,9 @@ class OpenAIAgentsPlugin(SimplePlugin):
     2. Sets up tracing interceptors for OpenAI agent interactions
     3. Registers model execution activities
     4. Automatically registers MCP server activities and manages their lifecycles
-    5. Manages the OpenAI agent runtime overrides during worker execution
+    5. Registers sandbox activities, and runs a Worker for each
+       ``OnHostSandboxClientProvider``
+    6. Manages the OpenAI agent runtime overrides during worker execution
 
     Example:
         >>> from temporalio.client import Client
@@ -351,7 +451,9 @@ class OpenAIAgentsPlugin(SimplePlugin):
         mcp_server_providers: Sequence[
             "StatelessMCPServerProvider | StatefulMCPServerProvider"
         ] = (),
-        sandbox_clients: Sequence["SandboxClientProvider"] = (),
+        sandbox_clients: Sequence[
+            "SandboxClientProvider | OnHostSandboxClientProvider"
+        ] = (),
         register_activities: bool = True,
         add_temporal_spans: bool = True,
         use_otel_instrumentation: bool = False,
@@ -369,23 +471,36 @@ class OpenAIAgentsPlugin(SimplePlugin):
                 Useful for testing or custom model integrations.
             mcp_server_providers: Legacy MCP server providers to register with the
                 worker. Deprecated; use ``mcp_servers`` for new MCP v2
-                integrations.
+                integrations. A provider's server with a callable
+                ``tool_filter``, a ``require_approval`` policy that can ask for
+                approval, a ``tool_meta_resolver``, or a tool guardrail is
+                rejected in every MCP operation; a static filter is applied.
             mcp_servers: Named OpenAI MCP server factories to register on the worker.
                 Each factory may declare at most one positional parameter, which
                 receives the workflow's ``factory_argument`` (``None`` when the
                 workflow supplied none); a factory declaring more raises here. A
                 parameterless factory's modern connection is cached between
                 Activities. A factory called with a workflow ``factory_argument``
-                always creates a fresh server for that Activity.
+                always creates a fresh server for that Activity. A factory's server
+                with a callable ``tool_filter``, a ``require_approval`` policy
+                that can ask for approval, a ``tool_meta_resolver``, or a tool
+                guardrail is rejected; pass those to
+                ``workflow.temporal_mcp_server()``.
             mcp_connection_idle_timeout: How long an idle modern MCP connection
                 remains cached. Defaults to five minutes. None disables idle
                 eviction, and zero disables reuse.
             sandbox_clients: Sequence of named sandbox client providers to register
                 on the worker.  Each provider pairs a unique name with a real
-                ``BaseSandboxClient`` (e.g. ``DaytonaSandboxClient``,
-                ``UnixLocalSandboxClient``).  On the workflow side, use
+                ``BaseSandboxClient`` (e.g. ``DaytonaSandboxClient`` in a
+                ``SandboxClientProvider``, ``DockerSandboxClient`` in an
+                ``OnHostSandboxClientProvider``).  On the workflow side, use
                 ``temporal_sandbox_client``
-                with the matching name to target the correct backend.
+                with the matching name to target the correct backend. For each
+                ``OnHostSandboxClientProvider``, the worker also runs an extra
+                Worker on ``<Task Queue>/<name>@<worker_name>``, unless
+                ``register_activities`` is false. It copies the worker's data
+                converter, interceptors, Activity concurrency, Activity rate
+                limits and graceful shutdown timeout, and runs no plugins.
                 Warning: sandbox_clients is experimental and behavior may change in future versions.
                 Use with caution in production environments.
             register_activities: Whether to register activities during the worker execution.
@@ -453,6 +568,12 @@ class OpenAIAgentsPlugin(SimplePlugin):
             )
 
         resolvable_env_vars = _snapshot_resolvable_env_vars(resolvable_worker_env_vars)
+        self._resolvable_env_vars = resolvable_env_vars
+        self._on_host_providers: list[OnHostSandboxClientProvider] = (
+            [p for p in sandbox_clients if isinstance(p, OnHostSandboxClientProvider)]
+            if register_activities
+            else []
+        )
 
         # Delay activity construction until they are actually needed
         def add_activities(
@@ -529,7 +650,7 @@ class OpenAIAgentsPlugin(SimplePlugin):
             )
 
         @asynccontextmanager
-        async def run_context() -> AsyncIterator[None]:
+        async def run_context() -> AsyncGenerator[None, None]:
             if mcp_activities:
                 async with mcp_activities.run_context():
                     with self.tracing_context():
@@ -556,8 +677,109 @@ class OpenAIAgentsPlugin(SimplePlugin):
             run_context=lambda: run_context(),
         )
 
+    async def run_worker(
+        self, worker: Worker, next: Callable[[Worker], Awaitable[None]]
+    ) -> None:
+        """Run the worker, and with it a Worker for each ``OnHostSandboxClientProvider``.
+
+        When one of them stops, the others are shut down.
+        """
+        if not self._on_host_providers:
+            return await super().run_worker(worker, next)
+        await super().run_worker(
+            worker, lambda main: self._run_with_on_host_workers(main, next)
+        )
+
+    async def _run_with_on_host_workers(
+        self, worker: Worker, next: Callable[[Worker], Awaitable[None]]
+    ) -> None:
+        from temporalio.client import Client
+
+        # The main Worker's client without its plugins, so this plugin doesn't
+        # configure or run the on-host Workers as main Workers.
+        client_config = worker.client.config(active_config=True)
+        client_config["plugins"] = []
+        client = Client(**client_config)
+        # Their sandbox operations ran on the main Worker before, so they keep its
+        # Activity setup.
+        config = worker.config(active_config=True)
+        on_host: list[Worker] = []
+        try:
+            for provider in self._on_host_providers:
+                task_queue = provider._task_queue_for(worker.task_queue)
+                try:
+                    on_host.append(
+                        Worker(
+                            client,
+                            task_queue=task_queue,
+                            activities=provider._get_activities(
+                                self._resolvable_env_vars
+                            ),
+                            interceptors=config.get("interceptors", []),
+                            max_concurrent_activities=config.get(
+                                "max_concurrent_activities"
+                            ),
+                            tuner=config.get("tuner"),
+                            max_activities_per_second=config.get(
+                                "max_activities_per_second"
+                            ),
+                            max_task_queue_activities_per_second=config.get(
+                                "max_task_queue_activities_per_second"
+                            ),
+                            graceful_shutdown_timeout=config.get(
+                                "graceful_shutdown_timeout", timedelta()
+                            ),
+                        )
+                    )
+                except Exception as err:
+                    # Core refuses a second Worker on the queue, such as when
+                    # another plugin on this Worker has an on-host provider with
+                    # the same name and Worker name, or another Worker in this
+                    # process polls the same main Task Queue.
+                    raise RuntimeError(
+                        "Cannot start the Worker of OnHostSandboxClientProvider "
+                        f"{provider.name!r} on Task Queue {task_queue!r}: {err}"
+                    ) from err
+        except Exception:
+            await asyncio.gather(
+                _discard_unstarted(worker, next),
+                *(_discard_unstarted(w, Worker.run) for w in on_host),
+            )
+            raise
+
+        workers = [worker, *on_host]
+        runs = [
+            asyncio.ensure_future(next(worker)),
+            *(asyncio.ensure_future(w.run()) for w in on_host),
+        ]
+        try:
+            await asyncio.wait(runs, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            stops = [
+                asyncio.create_task(w.shutdown())
+                for w, run in zip(workers, runs)
+                if not run.done()
+            ]
+            try:
+                results = await asyncio.gather(*runs, return_exceptions=True)
+            finally:
+                # A run that failed before its Worker started never completes a
+                # shutdown.
+                for stop in stops:
+                    stop.cancel()
+        for result in results:
+            if isinstance(result, BaseException):
+                raise result
+
+    def version(self) -> str:
+        """Return this package's version, which worker heartbeats report."""
+        try:
+            return importlib.metadata.version("temporalio-openai-agents")
+        except importlib.metadata.PackageNotFoundError:
+            return ""
+
     @contextmanager
-    def tracing_context(self) -> Iterator[None]:
+    def tracing_context(self) -> Generator[None, None, None]:
         """Context manager for setting up OpenAI Agents tracing instrumentation.
 
         This should be called if AgentsSDK traces and/or spans are started outside of the context of a worker.
@@ -588,3 +810,16 @@ class OpenAIAgentsPlugin(SimplePlugin):
             # Clean up OTEL instrumentation
             if otel_instrumentation_installed:
                 _uninstall_otel_instrumentation()
+
+
+async def _discard_unstarted(
+    worker: Worker, run: Callable[[Worker], Awaitable[None]]
+) -> None:
+    """Run a Worker that was never started to a shutdown, so it releases its Task Queue."""
+    stop = asyncio.create_task(worker.shutdown())
+    try:
+        await run(worker)
+    except Exception:
+        pass
+    finally:
+        stop.cancel()

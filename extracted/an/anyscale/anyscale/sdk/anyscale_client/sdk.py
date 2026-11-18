@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional, Union
 from anyscale.api import configure_tcp_keepalive
 from anyscale.sdk.anyscale_client.models.production_job import ProductionJob
 from anyscale.sdk.anyscale_client.models.ha_job_states import HaJobStates
+from anyscale.utils.extra_headers_util import apply_extra_headers, get_extra_headers
 from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 from anyscale.utils.runtime_env import upload_and_rewrite_working_dir
@@ -145,6 +146,7 @@ class AnyscaleSDK(DefaultApi):  # type: ignore
         configure_tcp_keepalive(api_client)
         api_client.set_default_header(RequestHeaders.CLIENT, "SDK")
         api_client.set_default_header(RequestHeaders.CLIENT_VERSION, version)
+        apply_extra_headers(api_client, get_extra_headers())
 
         self.log: BlockLogger = BlockLogger()
         self._auth_token = auth_token

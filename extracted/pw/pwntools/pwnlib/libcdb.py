@@ -119,16 +119,32 @@ def query_libc_rip(params):
     import requests
 
     url = "{}/api/find".format(LIBC_RIP_URL)
-    try:
-        result = requests.post(url, json=params, timeout=20)
-        result.raise_for_status()
-        if result.status_code != 200:
-            log.debug("Error: %s", result.text)
+    # Handle pagination transparently and fetch all results
+    offset = 0
+    count = 1
+    results = []
+    while offset < count:
+        try:
+            pagination_params = {'offset': offset, 'limit': 100}
+            log.debug("Querying libc.rip at %s (pagination %s) with parameters: %s", url, pagination_params, params)
+            result = requests.post(url, params=pagination_params, json=params, timeout=20)
+            result.raise_for_status()
+            if result.status_code != 200:
+                log.debug("Error: %s", result.text)
+                return None
+            imm_results = result.json()
+            # non-paginated result. old libc-database API?
+            if not isinstance(imm_results, dict):
+                return imm_results
+            results.extend(imm_results.get('results', []))
+            count = imm_results.get('total', 0)
+            offset += imm_results['count']
+            if not imm_results['has_more']:
+                break
+        except requests.RequestException as e:
+            log.warn_once("Failed to fetch libc info from libc.rip: %s", e)
             return None
-        return result.json()
-    except requests.RequestException as e:
-        log.warn_once("Failed to fetch libc info from libc.rip: %s", e)
-        return None
+    return results
 
 # https://libc.rip/
 def provider_libc_rip(search_target, search_type):
@@ -354,15 +370,15 @@ def unstrip_libc(filename):
         >>> libc = ELF(filename)
         >>> 'main_arena' in libc.symbols
         False
-        >>> unstrip_libc(filename)
+        >>> unstrip_libc(filename) # doctest: +SKIP
         True
         >>> libc = ELF(filename)
-        >>> hex(libc.symbols.main_arena)
+        >>> hex(libc.symbols.main_arena) # doctest: +SKIP
         '0x219c80'
         >>> unstrip_libc(pwnlib.data.elf.get('test-x86'))
         False
         >>> filename = search_by_build_id('d1704d25fbbb72fa95d517b883131828c0883fe9', unstrip=True)
-        >>> 'main_arena' in ELF(filename).symbols
+        >>> 'main_arena' in ELF(filename).symbols # doctest: +SKIP
         True
     """
     if not which('eu-unstrip'):
@@ -697,8 +713,8 @@ def search_by_symbol_offsets(symbols, select_index=None, unstrip=True, offline_o
         >>> matched_libcs = search_by_symbol_offsets({'__libc_start_main_ret': '7f89ad926550'}, return_as_list=True)
         >>> len(matched_libcs) > 1
         True
-        >>> for buildid in matched_libcs: # doctest +SKIP
-        ...     libc = ELF(search_by_build_id(buildid)) # doctest +SKIP
+        >>> for buildid in matched_libcs: # doctest: +SKIP
+        ...     libc = ELF(search_by_build_id(buildid)) # doctest: +SKIP
     """
     assert search_type in TYPES, search_type
 

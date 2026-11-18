@@ -628,3 +628,58 @@ class TestLifecycle:
             pass
         assert not external.is_closed
         external.close()
+
+
+def _reset(request: httpx.Request) -> httpx.Response:
+    raise httpx.ReadError("Connection reset by peer", request=request)
+
+
+@pytest.fixture
+def no_retry_delay(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("nonecap._client._POLL_RETRY_DELAY", 0.0, raising=False)
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_solve_repolls_after_a_lost_long_poll() -> None:
+    script = Script(
+        (202, solve_payload(status="pending")),
+        _reset,
+        (200, solve_payload(status="solved", token="TOK")),
+    )
+    nc = client_for(script)
+    solve = nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com")
+    assert solve.token == "TOK"
+    assert [r.method for r in script.requests] == ["POST", "GET", "GET"]
+    assert script.requests[2].url.path == "/v1/solves/solve_1"
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_solve_repolls_after_a_5xx_on_the_long_poll() -> None:
+    script = Script(
+        (202, solve_payload(status="pending")),
+        (502, {"error": {"code": "bad_gateway", "message": "upstream", "param": None}}),
+        (200, solve_payload(status="solved", token="TOK")),
+    )
+    nc = client_for(script)
+    assert nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com").token == "TOK"
+    assert len(script.requests) == 3
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_long_poll_4xx_is_not_retried() -> None:
+    script = Script((202, solve_payload(status="pending")), (404, error_payload("not_found")))
+    nc = client_for(script)
+    with pytest.raises(NotFoundError):
+        nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com")
+    assert len(script.requests) == 2
+
+
+@pytest.mark.usefixtures("no_retry_delay")
+def test_lost_long_polls_end_in_solve_timeout_with_the_id() -> None:
+    script = Script((202, solve_payload(status="pending")), _reset)
+    nc = client_for(script)
+    with pytest.raises(SolveTimeoutError) as exc_info:
+        nc.solve(type="hcaptcha", sitekey="sk", url="https://e.com", timeout=0.05)
+    assert exc_info.value.solve_id == "solve_1"
+    assert script.requests[0].method == "POST"
+    assert all(r.method == "GET" for r in script.requests[1:])

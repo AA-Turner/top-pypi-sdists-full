@@ -8,10 +8,6 @@ shows workload IDs, not cluster IDs, so the SDK looks the cluster up from the ot
 Output is the model as the API returned it, in every format. Text is the model as YAML
 (the same convention as `anyscale job status`), table is one row per GPU with a column
 per field, json and yaml are the model. Field names and values are not rewritten.
-
-The group is `hidden=True` for now: it runs when typed, but is left out of `anyscale
---help`, the committed doc spec and the reference docs. Removing the flag (and the
-matching one on the GPUs module in `_private/docgen/__main__.py`) publishes it.
 """
 
 from dataclasses import fields
@@ -47,7 +43,7 @@ _PLACEMENT_ONLY_COLUMNS: List[str] = [
 GPU_DETAIL_COLUMNS: List[str] = ["gpu_uuid", "time", *_PLACEMENT_ONLY_COLUMNS, *GPU_COLUMNS]
 
 
-@click.group("gpu", help="Inspect a GPU of a cluster.", hidden=True)
+@click.group("gpu", help="Inspect a GPU of a cluster.")
 def gpu_cli() -> None:
     pass
 

@@ -5,7 +5,9 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -21,6 +23,81 @@ class NativeMcpConnectionState(Enum):
     MATCHING_FOREIGN = "matching-foreign"
     UPDATE_MANAGED = "update-managed"
     CONFLICT = "conflict"
+
+
+# ``(server, runtime)`` pairs a ``--frozen`` install replays without writing:
+# the lockfile records the server but no ownership for that runtime, and the
+# runtime's native config has no entry for it (for example a transport the
+# harness refuses). Scoped like the frozen lockfile-write suppression.
+_frozen_unrecorded_pairs: ContextVar[frozenset[tuple[str, str]]] = ContextVar(
+    "apm_frozen_unrecorded_mcp_pairs", default=frozenset()
+)
+
+
+@contextmanager
+def frozen_unrecorded_mcp_pairs(pairs: frozenset[tuple[str, str]]) -> Iterator[None]:
+    """Make *pairs* skip-only for the MCP stage of one ``--frozen`` install."""
+    token = _frozen_unrecorded_pairs.set(frozenset(pairs))
+    try:
+        yield
+    finally:
+        _frozen_unrecorded_pairs.reset(token)
+
+
+def current_frozen_unrecorded_mcp_pairs() -> frozenset[tuple[str, str]]:
+    """The pairs the current ``--frozen`` install deferred (empty otherwise)."""
+    return _frozen_unrecorded_pairs.get()
+
+
+def is_frozen_unrecorded_mcp_pair(name: str, runtime: str) -> bool:
+    """Whether the current ``--frozen`` install must not configure *name* for *runtime*."""
+    return (name, runtime) in _frozen_unrecorded_pairs.get()
+
+
+def native_mcp_entry_present(
+    runtime: str,
+    name: str,
+    *,
+    stored_config: dict | None,
+    project_root: Any,
+    user_scope: bool,
+) -> bool:
+    """Whether *runtime*'s native config already holds an entry for *name*."""
+    from apm_cli.core.conflict_detector import MCPConflictDetector
+    from apm_cli.factory import ClientFactory
+
+    try:
+        client = ClientFactory.create_client(
+            runtime, project_root=project_root, user_scope=user_scope
+        )
+        existing = MCPConflictDetector(client).get_existing_server_configs()
+    except Exception:
+        logger.debug("Could not read %s MCP config", runtime, exc_info=True)
+        return True  # unreadable: never treat as safely absent
+    return _native_config_key(client, name, stored_config=stored_config) in existing
+
+
+def native_comparison_clients(
+    target_runtimes: list[str], *, project_root: Any, user_scope: bool
+) -> dict[str, Any]:
+    """Return the adapters whose existing native entries are compared by content.
+
+    Single owner of which runtimes preserve and report a differing same-name
+    connection (#3239) rather than treating a name match as configured (#3681).
+    """
+    from apm_cli.factory import ClientFactory
+
+    clients = {}
+    for runtime in target_runtimes:
+        try:
+            client = ClientFactory.create_client(
+                runtime, project_root=project_root, user_scope=user_scope
+            )
+        except ValueError:
+            continue  # unsupported runtimes are reported by the install itself
+        if client.compares_native_connections:
+            clients[runtime] = client
+    return clients
 
 
 def mcp_native_hash(native: dict) -> str:
@@ -40,7 +117,59 @@ def _native_config_key(
     info = requested_info
     if info is None and isinstance(stored_config, dict) and stored_config.get("registry") is False:
         info = {"name": name, "is_self_defined": True}
-    return client._determine_config_key(name, None, info)
+    return client.determine_config_key(name, None, info)
+
+
+def written_native_hash(
+    client: Any,
+    name: str,
+    *,
+    requested_info: dict | None,
+    existing_configs: Mapping[str, Any] | None = None,
+) -> str | None:
+    """Fingerprint the entry *client* just wrote for *name*, read back from its config.
+
+    Adapters that fingerprint their own render (Claude, Codex) record it in
+    ``written_mcp_hashes``; every other adapter is fingerprinted from the same
+    native view :func:`compare_native_mcp_connection` reads later. Both hash
+    ``client.managed_server_config(native)``, so an adapter overriding it keeps
+    fingerprint and comparison consistent.
+    """
+    from apm_cli.core.conflict_detector import MCPConflictDetector
+
+    if name in client.written_mcp_hashes:
+        return client.written_mcp_hashes[name]
+    existing = (
+        MCPConflictDetector(client).get_existing_server_configs()
+        if existing_configs is None
+        else existing_configs
+    )
+    native = existing.get(_native_config_key(client, name, requested_info=requested_info))
+    return (
+        mcp_native_hash(client.managed_server_config(native)) if isinstance(native, dict) else None
+    )
+
+
+def retain_native_receipt(
+    native_hashes: dict[str, dict[str, str]] | None,
+    runtime: str,
+    client: Any,
+    name: str,
+    *,
+    requested_info: dict | None,
+    replace: bool = False,
+) -> None:
+    """Keep a fingerprint for a managed entry that already matched, without writing.
+
+    A lock rebuilt without its deployment rows would otherwise lose the receipt
+    of an unchanged managed connection on the next install. *replace* refreshes
+    a receipt :func:`compare_native_mcp_connection` reported as stale.
+    """
+    if native_hashes is None or (not replace and name in native_hashes.get(runtime, {})):
+        return
+    fingerprint = written_native_hash(client, name, requested_info=requested_info)
+    if fingerprint is not None:
+        native_hashes.setdefault(runtime, {})[name] = fingerprint
 
 
 def compare_native_mcp_connection(
@@ -56,8 +185,17 @@ def compare_native_mcp_connection(
     registry_request: bool = False,
     env_overrides: dict | None = None,
     runtime_vars: dict | None = None,
+    declaration_changed: bool = True,
+    stale_receipts: set[str] | None = None,
 ) -> NativeMcpConnectionState:
-    """Compare a connection with its requested and previously recorded native shapes."""
+    """Compare a connection with its requested and previously recorded native shapes.
+
+    An APM-written entry whose declaration did not change is kept as written on
+    adapters that do not refresh environment-derived renders, so a different
+    credential source or resolved value never churns the native file. *name*
+    is added to *stale_receipts* when the recorded fingerprint predates a
+    ``--frozen`` heal, so the caller refreshes the receipt without a write.
+    """
     from apm_cli.core.conflict_detector import MCPConflictDetector
     from apm_cli.integration.mcp_integrator import MCPIntegrator
     from apm_cli.models.dependency.mcp import MCPDependency
@@ -84,41 +222,84 @@ def compare_native_mcp_connection(
         )
     comparison = native
     matches_baseline = False
+    retired_shape = False
     if managed and isinstance(stored_config, dict):
         try:
             dependency = MCPDependency.from_dict(stored_config)
+            legacy_baseline = requested
+            baseline_info = requested_info
+            render_env = (
+                {"env_overrides": env_overrides, "runtime_vars": runtime_vars}
+                if registry_request
+                else {}
+            )
             if dependency.is_self_defined:
-                expected = client.render_server_config(
-                    MCPIntegrator._build_self_defined_info(dependency)
-                )
+                baseline_info = MCPIntegrator._build_self_defined_info(dependency)
+                render_env = {}
+                expected = client.render_server_config(baseline_info)
+                legacy_baseline = expected
                 if requested is not None:
                     comparison = client.project_managed_server_config(
                         native, baseline=expected, requested=requested
                     )
                 matches_baseline = client.matches_managed_server_config(comparison, expected)
-                if not matches_baseline:
-                    recorded_write = (
-                        None
-                        if native_hash is None or not isinstance(native, dict)
-                        else mcp_native_hash(client.managed_server_config(native)) == native_hash
-                    )
-                    matches_baseline = client.matches_legacy_managed_server_config(
-                        native, expected, recorded_write=recorded_write
-                    )
                 if matches_baseline and managed_fields is not None:
                     managed_fields.update(expected)
             elif native_hash is not None and isinstance(native, dict):
                 comparable = client.managed_server_config(native)
                 matches_baseline = mcp_native_hash(comparable) == native_hash
+                if not matches_baseline:
+                    # A --frozen heal rewrote the shape but kept the lock receipt.
+                    matches_baseline = _healed_since_receipt(
+                        client,
+                        native,
+                        baseline_info,
+                        current=legacy_baseline,
+                        native_hash=native_hash,
+                        render_env=render_env,
+                    )
+                    if matches_baseline and stale_receipts is not None:
+                        stale_receipts.add(name)
                 if matches_baseline and managed_fields is not None:
                     managed_fields.update(comparable)
+            # An entry an earlier APM release rendered differently (expanded
+            # references, values later moved to env_vars) is still managed when
+            # the adapter can prove that release wrote it.
+            if not matches_baseline and legacy_baseline is not None:
+                recorded_write = (
+                    None
+                    if native_hash is None or not isinstance(native, dict)
+                    else mcp_native_hash(client.managed_server_config(native)) == native_hash
+                )
+                if client.matches_legacy_managed_server_config(
+                    native, legacy_baseline, recorded_write=recorded_write
+                ):
+                    matches_baseline = True
+                    if managed_fields is not None:
+                        managed_fields.update(client.managed_server_config(native))
+            # An APM-written entry in a remote shape an earlier release used
+            # (retired_shape) is rewritten even when the declaration is unchanged.
+            retired_shape = _in_retired_shape(
+                client,
+                native,
+                baseline_info,
+                current=legacy_baseline,
+                fingerprint=None
+                if native_hash is None or not isinstance(native, dict)
+                else mcp_native_hash(client.managed_server_config(native)) == native_hash,
+                render_env=render_env,
+            )
+            if retired_shape and not matches_baseline:
+                matches_baseline = True
+                if managed_fields is not None:
+                    managed_fields.update(client.managed_server_config(native))
         except (TypeError, ValueError):
             logger.debug("Unusable MCP baseline for %s on %s", name, client.target_name)
     if requested is not None:
         requested_native = comparison if matches_baseline else native
         matches_request = (
             isinstance(requested_native, dict)
-            and client.managed_server_config(requested_native) == requested
+            and client.json_identical(client.managed_server_config(requested_native), requested)
             if registry_request
             else client.matches_managed_server_config(requested_native, requested)
         )
@@ -128,11 +309,141 @@ def compare_native_mcp_connection(
                 if matches_baseline
                 else NativeMcpConnectionState.MATCHING_FOREIGN
             )
-    return (
-        NativeMcpConnectionState.UPDATE_MANAGED
-        if matches_baseline
-        else NativeMcpConnectionState.CONFLICT
+    if not matches_baseline:
+        return NativeMcpConnectionState.CONFLICT
+    if retired_shape:
+        return NativeMcpConnectionState.UPDATE_MANAGED
+    if not declaration_changed and not client.refreshes_environment_renders:
+        return NativeMcpConnectionState.MATCHING_MANAGED
+    return NativeMcpConnectionState.UPDATE_MANAGED
+
+
+def managed_unsupported_connection(
+    client: Any,
+    name: str,
+    *,
+    requested_info: dict | None,
+    stored_config: dict | None,
+    native_hash: str | None,
+) -> str | None:
+    """Return the native key of an APM-written entry for a transport *client* now refuses.
+
+    The entry is APM's when the lockfile fingerprint matches it or it equals an
+    earlier APM render of the same declaration; anything else (including a
+    foreign same-name entry) returns ``None`` and is never removed.
+    """
+    from apm_cli.core.conflict_detector import MCPConflictDetector
+    from apm_cli.integration.mcp_integrator import MCPIntegrator
+    from apm_cli.models.dependency.mcp import MCPDependency
+
+    existing = MCPConflictDetector(client).get_existing_server_configs()
+    key = _native_config_key(
+        client, name, requested_info=requested_info, stored_config=stored_config
     )
+    native = existing.get(key)
+    if not isinstance(native, dict):
+        return None
+    if native_hash is not None:
+        # A recorded fingerprint is the proof: a mismatch means the entry was
+        # edited after APM wrote it, so no earlier render can claim it.
+        matches = mcp_native_hash(client.managed_server_config(native)) == native_hash
+        return key if matches else None
+    info = requested_info
+    try:
+        if isinstance(stored_config, dict):
+            dependency = MCPDependency.from_dict(stored_config)
+            if dependency.is_self_defined:
+                info = MCPIntegrator._build_self_defined_info(dependency)
+        legacy = client.legacy_managed_renders(info) if info is not None else ()
+    except (TypeError, ValueError):
+        return None
+    if any(client.matches_managed_server_config(native, render) for render in legacy):
+        return key
+    return None
+
+
+def _shape_delta(current: dict, legacy: dict) -> set[str]:
+    """Keys whose value differs between the current and a legacy render (the shape change)."""
+    return {key for key in current.keys() | legacy.keys() if current.get(key) != legacy.get(key)}
+
+
+def _in_retired_shape(
+    client: Any,
+    native: object,
+    info: dict | None,
+    *,
+    current: dict | None,
+    fingerprint: bool | None,
+    render_env: dict,
+) -> bool:
+    """Return whether *native* is an APM render in a remote shape since retired.
+
+    *fingerprint* is ``True``/``False`` when the lockfile recorded a fingerprint
+    that does or does not match *native*, ``None`` when none was recorded. With
+    a match, *native* qualifies when it carries a legacy render's remote keys;
+    without a fingerprint, only when it equals a legacy render of the same
+    declaration (``client.legacy_managed_renders``). A mismatching fingerprint
+    means the entry was edited after APM wrote it, so it never qualifies.
+    Other differences (for example an env value) never count, so a fingerprinted
+    entry that differs only through the environment is not churned.
+    """
+    if fingerprint is False:
+        return False
+    if info is None or current is None or not isinstance(native, dict):
+        return False
+    if client.matches_managed_server_config(native, current):
+        return False
+    for legacy in client.legacy_managed_renders(info, **render_env):
+        if fingerprint is None and client.matches_managed_server_config(native, legacy):
+            return True
+        shape_keys = _shape_delta(current, legacy)
+        if fingerprint and all(native.get(key) == legacy.get(key) for key in shape_keys):
+            return True
+    return False
+
+
+def _healed_since_receipt(
+    client: Any,
+    native: dict,
+    info: dict | None,
+    *,
+    current: dict | None,
+    native_hash: str,
+    render_env: dict,
+) -> bool:
+    """Return whether *native* is a recorded APM write that a ``--frozen`` heal reshaped.
+
+    ``--frozen`` rewrites a retired-shape entry but never writes the lockfile,
+    so its fingerprint still describes the retired shape. *native* qualifies
+    only when its remote shape keys equal the current render's and swapping
+    them back to a legacy render's values reproduces the recorded fingerprint
+    exactly; any other edit changes the fingerprint and never qualifies.
+    """
+    if info is None or current is None:
+        return False
+    for legacy in client.legacy_managed_renders(info, **render_env):
+        shape_keys = _shape_delta(current, legacy)
+        if not shape_keys or any(native.get(key) != current.get(key) for key in shape_keys):
+            continue
+        unhealed = {key: value for key, value in native.items() if key not in shape_keys}
+        unhealed.update({key: legacy[key] for key in shape_keys if key in legacy})
+        if mcp_native_hash(client.managed_server_config(unhealed)) == native_hash:
+            return True
+    return False
+
+
+def project_mcp_cleanup_reachable(
+    project_root: Path, opt_in_dir: str, *, runtime_scoped: bool
+) -> bool:
+    """Return whether stale entries may be removed from a project runtime config.
+
+    The runtime's opt-in directory (``.claude/``, ``.opencode/``) gates first
+    writes. Cleanup scoped to one runtime comes from the ownership ledger, so it
+    stays reachable after install or uninstall prunes that directory because it
+    held only APM-deployed files (#3664). Broadcast cleanup (no runtime) still
+    skips a project that never opted in to the runtime.
+    """
+    return runtime_scoped or (project_root / opt_in_dir).is_dir()
 
 
 def require_removable_mcp_connections(

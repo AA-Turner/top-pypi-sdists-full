@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 #
@@ -106,7 +105,8 @@ error_info:
 '''
 
 import json
-from ansible_collections.dellemc.openmanage.plugins.module_utils.dellemc_idrac import iDRACConnection, idrac_auth_params
+from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import warn_if_cert_validation_disabled, check_cert_fingerprint
+from ansible_collections.dellemc.openmanage.plugins.module_utils.dellemc_idrac import idrac_auth_params
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI
 from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import GET_IDRAC_FIRMWARE_DETAILS_URI_10, GET_IDRAC_FIRMWARE_URI_10, remove_key
 from ansible.module_utils.basic import AnsibleModule
@@ -114,12 +114,6 @@ from ansible.module_utils.urls import ConnectionError, SSLValidationError
 from urllib.error import URLError, HTTPError
 
 ERR_STATUS = 404
-
-
-def get_from_wsman(module):
-    with iDRACConnection(module.params) as idrac:
-        firmware_details = idrac.update_mgr.InstalledFirmware
-        return firmware_details
 
 
 def transform_firmware_data(filtered_data):
@@ -169,26 +163,19 @@ def transform_firmware_data(filtered_data):
     return transformed_data
 
 
-def get_idrac_firmware_info(idrac, module):
-    try:
-        response = idrac.invoke_request(method='GET', uri=GET_IDRAC_FIRMWARE_URI_10)
-        if response.status_code == 200:
-            transformed_firmware_data = []
-            tmp = {"Subsystem": [], "System": [], "iDRAC": [], "iDRACString": []}
-            details_response = idrac.invoke_request(method='GET', uri=GET_IDRAC_FIRMWARE_DETAILS_URI_10)
+def get_idrac_firmware_info(idrac, _module):
+    response = idrac.invoke_request(method='GET', uri=GET_IDRAC_FIRMWARE_URI_10)
+    if response.status_code == 200:
+        transformed_firmware_data = []
+        tmp = {"Subsystem": [], "System": [], "iDRAC": [], "iDRACString": []}
+        details_response = idrac.invoke_request(method='GET', uri=GET_IDRAC_FIRMWARE_DETAILS_URI_10)
 
-            if details_response and details_response.status_code == 200 and details_response.json_data["Members"]:
-                filtered_data = remove_key(details_response.json_data.get("Members"))
-                transformed_firmware_data = transform_firmware_data(filtered_data)
-        resp = {"Firmware": transformed_firmware_data}
-        resp.update(tmp)
-        return resp
-
-    except HTTPError as err:
-        if err.status == ERR_STATUS:
-            return get_from_wsman(module)
-
-        raise
+        if details_response and details_response.status_code == 200 and details_response.json_data["Members"]:
+            filtered_data = remove_key(details_response.json_data.get("Members"))
+            transformed_firmware_data = transform_firmware_data(filtered_data)
+    resp = {"Firmware": transformed_firmware_data}
+    resp.update(tmp)
+    return resp
 
 
 def main():
@@ -198,6 +185,8 @@ def main():
         argument_spec=specs,
         supports_check_mode=True
     )
+    warn_if_cert_validation_disabled(module)
+    check_cert_fingerprint(module, module.params.get("idrac_ip", ""), module.params.get("idrac_port", 443))
 
     try:
         with iDRACRedfishAPI(module.params) as idrac:

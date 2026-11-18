@@ -60,11 +60,16 @@ pub fn collapse_of(document: &mut Document<'_>, root: &[String], wanted: &dyn Fn
         // name holding a dot, like `plugins."poetry.application.plugin"`, is not cut in half
         let parent = &sub[..sub.len() - 1];
         if is_array_of_tables(document, &index, &sub) {
+            left_alone.push(sub.clone());
             if wanted(&sub) {
+                let held = document.sections.len();
                 collapse_array_of_tables_under(document, &sub, width);
                 index = Under::new(document, root);
+                // folding the array can write out its parent, a table this fold has not seen yet
+                if document.sections.len() != held {
+                    pending = deepest_first(document, &index, root, &left_alone);
+                }
             }
-            left_alone.push(sub);
             continue;
         }
         // a parent written more than once has no one place to fold into: the keys belong to the
@@ -229,13 +234,11 @@ pub fn expand_where(document: &mut Document<'_>, name: &[String], wanted: &dyn F
     }
     document.sections[parent].entries = kept;
 
-    let mut at = parent + 1;
-    for (_, leaf, entries) in moved {
+    for (index, (_, leaf, entries)) in (parent + 1..).zip(moved) {
         let mut key = document.sections[parent].header.key.clone();
         key.extend_parts(leaf);
         let header = header_for(key, &document.sections[parent]);
-        document.sections.insert(at, Section { header, entries });
-        at += 1;
+        document.sections.insert(index, Section { header, entries });
     }
 }
 

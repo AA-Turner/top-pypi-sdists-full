@@ -24,6 +24,8 @@ else:
 __all__ = (
     "ABTestExecutionStatusType",
     "ABTestStatusType",
+    "AgentInsightArchiveStatusType",
+    "AgentInsightCustomerMetadataStatusType",
     "AutomationStreamStatusType",
     "BatchEvaluationStatusType",
     "BedrockAgentCoreServiceName",
@@ -38,11 +40,14 @@ __all__ = (
     "ContentBlockTypeType",
     "CryptoWalletNetworkType",
     "CurrencyType",
+    "DatasetGenerationStatusType",
     "DescriptorTypeType",
     "EventFilterConditionType",
     "ExtractionJobStatusType",
     "ExtractionModeType",
     "FindingTargetTypeType",
+    "GenerationFilterOperatorType",
+    "GroundTruthFieldType",
     "HarnessBedrockApiFormatType",
     "HarnessConversationRoleType",
     "HarnessHookDecisionType",
@@ -58,7 +63,9 @@ __all__ = (
     "LanguageRuntimeType",
     "ListABTestsPaginatorName",
     "ListActorsPaginatorName",
+    "ListAgentInsightsPaginatorName",
     "ListBatchEvaluationsPaginatorName",
+    "ListDatasetGenerationsPaginatorName",
     "ListEventsPaginatorName",
     "ListMemoryExtractionJobsPaginatorName",
     "ListMemoryRecordsPaginatorName",
@@ -83,12 +90,15 @@ __all__ = (
     "RecommendationStatusType",
     "RecommendationTypeType",
     "RecordExpiryActionType",
+    "RedactionIdentifierType",
     "RegistryRecordStatusType",
     "ResourceContentTypeType",
     "ResourceServiceName",
+    "ResultAggregationType",
     "ResultDestinationType",
     "RetrieveMemoryRecordsPaginatorName",
     "RoleType",
+    "ScenarioTypeType",
     "ScreenshotFormatType",
     "ServiceName",
     "SessionStatusType",
@@ -107,6 +117,10 @@ ABTestStatusType = Literal[
     "FAILED",
     "UPDATE_FAILED",
     "UPDATING",
+]
+AgentInsightArchiveStatusType = Literal["ACTIVE", "ARCHIVED"]
+AgentInsightCustomerMetadataStatusType = Literal[
+    "AVAILABLE", "CUSTOMER_KEY_UNAVAILABLE", "UNAVAILABLE"
 ]
 AutomationStreamStatusType = Literal["DISABLED", "ENABLED"]
 BatchEvaluationStatusType = Literal[
@@ -141,11 +155,25 @@ CommandExecutionStatusType = Literal["COMPLETED", "TIMED_OUT"]
 ContentBlockTypeType = Literal["image", "resource", "resource_link", "text"]
 CryptoWalletNetworkType = Literal["ETHEREUM", "SOLANA"]
 CurrencyType = Literal["USD"]
+DatasetGenerationStatusType = Literal[
+    "COMPLETED", "COMPLETED_WITH_ERRORS", "DELETING", "FAILED", "IN_PROGRESS"
+]
 DescriptorTypeType = Literal["A2A", "AGENT_SKILLS", "CUSTOM", "MCP"]
 EventFilterConditionType = Literal["HAS_EVENTS"]
 ExtractionJobStatusType = Literal["FAILED"]
 ExtractionModeType = Literal["SKIP"]
 FindingTargetTypeType = Literal["SPAN_ID", "SPAN_NAME", "TRACE_ID"]
+GenerationFilterOperatorType = Literal[
+    "Contains",
+    "Equals",
+    "GreaterThan",
+    "GreaterThanOrEqual",
+    "LessThan",
+    "LessThanOrEqual",
+    "NotContains",
+    "NotEquals",
+]
+GroundTruthFieldType = Literal["expected_response", "expected_trajectory"]
 HarnessBedrockApiFormatType = Literal["chat_completions", "converse_stream", "responses"]
 HarnessConversationRoleType = Literal["assistant", "user"]
 HarnessHookDecisionType = Literal["allow", "deny"]
@@ -220,7 +248,9 @@ InstrumentBalanceTokenType = Literal["USDC"]
 LanguageRuntimeType = Literal["deno", "nodejs", "python"]
 ListABTestsPaginatorName = Literal["list_ab_tests"]
 ListActorsPaginatorName = Literal["list_actors"]
+ListAgentInsightsPaginatorName = Literal["list_agent_insights"]
 ListBatchEvaluationsPaginatorName = Literal["list_batch_evaluations"]
+ListDatasetGenerationsPaginatorName = Literal["list_dataset_generations"]
 ListEventsPaginatorName = Literal["list_events"]
 ListMemoryExtractionJobsPaginatorName = Literal["list_memory_extraction_jobs"]
 ListMemoryRecordsPaginatorName = Literal["list_memory_records"]
@@ -255,13 +285,117 @@ ProgrammingLanguageType = Literal["javascript", "python", "typescript"]
 RecommendationStatusType = Literal["COMPLETED", "DELETING", "FAILED", "IN_PROGRESS", "PENDING"]
 RecommendationTypeType = Literal["SYSTEM_PROMPT_RECOMMENDATION", "TOOL_DESCRIPTION_RECOMMENDATION"]
 RecordExpiryActionType = Literal["REMOVE"]
+RedactionIdentifierType = Literal[
+    "ADDRESS",
+    "AWS_SECRET_KEY",
+    "BANK_ACCOUNT_NUMBER_DE",
+    "BANK_ACCOUNT_NUMBER_ES",
+    "BANK_ACCOUNT_NUMBER_FR",
+    "BANK_ACCOUNT_NUMBER_GB",
+    "BANK_ACCOUNT_NUMBER_IT",
+    "BANK_ACCOUNT_NUMBER_US",
+    "CEP_CODE_BR",
+    "CNPJ_BR",
+    "CPF_CODE_BR",
+    "CREDIT_CARD_EXPIRATION",
+    "CREDIT_CARD_MAGNETIC_STRIPE",
+    "CREDIT_CARD_NUMBER",
+    "CREDIT_CARD_SECURITY_CODE",
+    "DATE_OF_BIRTH",
+    "DRIVERS_LICENSE_AT",
+    "DRIVERS_LICENSE_AU",
+    "DRIVERS_LICENSE_BE",
+    "DRIVERS_LICENSE_BG",
+    "DRIVERS_LICENSE_CA",
+    "DRIVERS_LICENSE_CY",
+    "DRIVERS_LICENSE_CZ",
+    "DRIVERS_LICENSE_DE",
+    "DRIVERS_LICENSE_DK",
+    "DRIVERS_LICENSE_EE",
+    "DRIVERS_LICENSE_ES",
+    "DRIVERS_LICENSE_FI",
+    "DRIVERS_LICENSE_FR",
+    "DRIVERS_LICENSE_GB",
+    "DRIVERS_LICENSE_GR",
+    "DRIVERS_LICENSE_HR",
+    "DRIVERS_LICENSE_HU",
+    "DRIVERS_LICENSE_IE",
+    "DRIVERS_LICENSE_IT",
+    "DRIVERS_LICENSE_LT",
+    "DRIVERS_LICENSE_LU",
+    "DRIVERS_LICENSE_LV",
+    "DRIVERS_LICENSE_MT",
+    "DRIVERS_LICENSE_NL",
+    "DRIVERS_LICENSE_PL",
+    "DRIVERS_LICENSE_PT",
+    "DRIVERS_LICENSE_RO",
+    "DRIVERS_LICENSE_SE",
+    "DRIVERS_LICENSE_SI",
+    "DRIVERS_LICENSE_SK",
+    "DRIVERS_LICENSE_US",
+    "DRUG_ENFORCEMENT_AGENCY_NUMBER_US",
+    "ELECTORAL_ROLL_NUMBER_GB",
+    "EMAIL_ADDRESS",
+    "HEALTHCARE_PROCEDURE_CODE_US",
+    "HEALTH_INSURANCE_CARD_NUMBER_EU",
+    "HEALTH_INSURANCE_CLAIM_NUMBER_US",
+    "HEALTH_INSURANCE_NUMBER_FR",
+    "INDIVIDUAL_TAX_IDENTIFICATION_NUMBER_US",
+    "INSEE_CODE_FR",
+    "IP_ADDRESS",
+    "LAT_LONG",
+    "MEDICARE_BENEFICIARY_NUMBER_US",
+    "NAME",
+    "NATIONAL_DRUG_CODE_US",
+    "NATIONAL_IDENTIFICATION_NUMBER_DE",
+    "NATIONAL_IDENTIFICATION_NUMBER_ES",
+    "NATIONAL_IDENTIFICATION_NUMBER_IT",
+    "NATIONAL_INSURANCE_NUMBER_GB",
+    "NATIONAL_PROVIDER_ID_US",
+    "NHS_NUMBER_GB",
+    "NIE_NUMBER_ES",
+    "NIF_NUMBER_ES",
+    "OPEN_SSH_PRIVATE_KEY",
+    "PASSPORT_NUMBER_CA",
+    "PASSPORT_NUMBER_DE",
+    "PASSPORT_NUMBER_ES",
+    "PASSPORT_NUMBER_FR",
+    "PASSPORT_NUMBER_GB",
+    "PASSPORT_NUMBER_IT",
+    "PASSPORT_NUMBER_US",
+    "PERMANENT_RESIDENCE_NUMBER_CA",
+    "PERSONAL_HEALTH_NUMBER_CA",
+    "PGP_PRIVATE_KEY",
+    "PHONE_NUMBER_BR",
+    "PHONE_NUMBER_DE",
+    "PHONE_NUMBER_ES",
+    "PHONE_NUMBER_FR",
+    "PHONE_NUMBER_GB",
+    "PHONE_NUMBER_IT",
+    "PHONE_NUMBER_US",
+    "PKCS_PRIVATE_KEY",
+    "POSTAL_CODE_CA",
+    "PUTTY_PRIVATE_KEY",
+    "RG_NUMBER_BR",
+    "SOCIAL_INSURANCE_NUMBER_CA",
+    "SSN_ES",
+    "SSN_US",
+    "TAX_ID_DE",
+    "TAX_ID_ES",
+    "TAX_ID_FR",
+    "TAX_ID_GB",
+    "VEHICLE_IDENTIFICATION_NUMBER",
+    "ZIP_CODE_US",
+]
 RegistryRecordStatusType = Literal[
     "APPROVED", "DEPRECATED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
 ]
 ResourceContentTypeType = Literal["blob", "text"]
+ResultAggregationType = Literal["AllMatch", "AnyMatch", "Max", "Mean", "Min"]
 ResultDestinationType = Literal["DEDICATED_LOG_GROUP", "SOURCE_LOG_GROUP"]
 RetrieveMemoryRecordsPaginatorName = Literal["retrieve_memory_records"]
 RoleType = Literal["ASSISTANT", "OTHER", "TOOL", "USER"]
+ScenarioTypeType = Literal["DYNAMIC", "FIXED"]
 ScreenshotFormatType = Literal["PNG"]
 SessionStatusType = Literal["FAILED", "IN_PROGRESS"]
 TaskStatusType = Literal["canceled", "completed", "failed", "submitted", "working"]
@@ -393,6 +527,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -577,6 +712,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -644,6 +780,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -727,7 +864,9 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_ab_tests",
     "list_actors",
+    "list_agent_insights",
     "list_batch_evaluations",
+    "list_dataset_generations",
     "list_events",
     "list_memory_extraction_jobs",
     "list_memory_records",

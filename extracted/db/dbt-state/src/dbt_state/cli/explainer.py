@@ -294,6 +294,7 @@ class Explainer:
                 is_dev_clone=bool(log_entry.node_info.dev_clone),
                 decision=explanation.decision,
                 description=explanation.decision_description,
+                is_shadow_override=_has_shadow_override(explanation.explain_lines),
             )
             if stored_failures:
                 description_display = (
@@ -345,6 +346,7 @@ class Explainer:
                 is_dev_clone=bool(log_entry.node_info.dev_clone),
                 decision=explanation.decision,
                 description=explanation.decision_description,
+                is_shadow_override=_has_shadow_override(explanation.explain_lines),
             )
             if stored_failures:
                 description_display = (
@@ -535,9 +537,23 @@ def _display_decision(
     return f"[{color}]{decision_label}[/{color}]"
 
 
+def _has_shadow_override(lines: t.List[ExplainLine]) -> bool:
+    """Whether any explain line (at any depth) marks a shadow mode override."""
+    return any(
+        line.badge == ExplainBadge.SHADOW_OVERRIDE or _has_shadow_override(line.children)
+        for line in lines
+    )
+
+
 def _short_description(
-    node_resource_type: str, is_dev_clone: bool, decision: SubmitSQLResultType, description: str
+    node_resource_type: str,
+    is_dev_clone: bool,
+    decision: SubmitSQLResultType,
+    description: str,
+    is_shadow_override: bool = False,
 ) -> str:
+    if is_shadow_override:
+        return description
     if is_dev_clone:
         if node_resource_type == NodeType.Model.value:
             if decision == SubmitSQLResultType.READY_TO_EXECUTE:

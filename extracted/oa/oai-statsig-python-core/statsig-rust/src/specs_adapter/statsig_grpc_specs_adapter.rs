@@ -1,3 +1,4 @@
+use super::remote_config_value_hydrator::init_failures;
 use super::{SpecsInfo, StatsigHttpSpecsAdapter};
 use crate::networking::{DEFAULT_CDN_SPECS_URL, ResponseData, config_specs_url};
 use crate::observability::ErrorBoundaryEvent;
@@ -66,6 +67,7 @@ impl SpecsAdapter for StatsigGrpcSpecsAdapter {
                 match rx.recv().await {
                     Ok(result) => {
                         return result.map_err(|err| {
+                            init_failures::record_error(&err);
                             StatsigErr::GrpcError(format!(
                                 "Failed to initialize from streaming: {err}"
                             ))

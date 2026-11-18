@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: autoware-carla-scenario
-Version: 27.3.0
+Version: 28.0.4
 Summary: CARLA scenario testing framework for Autoware
 Author: Masaya Kataoka
 Author-email: Masaya Kataoka <ms.kataoka@gmail.com>
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Topic :: Scientific/Engineering
-Requires-Dist: typesafe-carla>=0.8.1,<0.9 ; (platform_machine == 'aarch64' and sys_platform == 'linux') or (platform_machine == 'x86_64' and sys_platform == 'linux')
+Requires-Dist: typesafe-carla>=0.8.1,<0.9 ; (platform_machine == 'aarch64' or platform_machine == 'x86_64') and sys_platform == 'linux'
 Requires-Dist: pyxodr>=0.1.0
 Requires-Dist: opencv-python-headless>=4.8
 Requires-Dist: numpy>=1.21

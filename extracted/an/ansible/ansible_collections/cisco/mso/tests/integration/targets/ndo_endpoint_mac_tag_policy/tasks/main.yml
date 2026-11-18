@@ -30,6 +30,7 @@
   when: version.current.version is version('5.1', '>=')
   block:
     # CLEAN TEST ENVIRONMENT
+    # (ansible_test tenant+site handled by the mso_setup_tenant_site setup target)
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template: &tenant_policy_template_absent
         <<: *mso_info
@@ -47,27 +48,6 @@
         template: ansible_tenant_template
         state: absent
       ignore_errors: true
-
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant: &tenant_absent
-        <<: *mso_info
-        tenant: '{{ ansible_tenant | default("ansible_test") }}'
-        state: absent
-  
-    - name: Ensure ansible_test site exist
-      cisco.mso.mso_site:
-        <<: *mso_info
-        site: '{{ mso_site | default("ansible_test") }}'
-        state: query
-
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *tenant_absent
-        users:
-          - "{{ mso_username }}"
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
 
     # Schema Template Setup VRF and BD
 
@@ -164,7 +144,7 @@
           - cm_create_endpoint_mac_tag_policy.current.bdRef is defined
           - cm_create_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
           - cm_create_endpoint_mac_tag_policy.current.bdSchemaId is defined
-          - cm_create_endpoint_mac_tag_policy.current.bdSchemaName == 'ansible_test'
+          - cm_create_endpoint_mac_tag_policy.current.bdSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - cm_create_endpoint_mac_tag_policy.current.bdTemplateId is defined
           - cm_create_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
           - cm_create_endpoint_mac_tag_policy.current.uuid is not defined
@@ -185,7 +165,7 @@
           - nm_create_endpoint_mac_tag_policy.current.bdRef is defined
           - nm_create_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
           - nm_create_endpoint_mac_tag_policy.current.bdSchemaId is defined
-          - nm_create_endpoint_mac_tag_policy.current.bdSchemaName == 'ansible_test'
+          - nm_create_endpoint_mac_tag_policy.current.bdSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - nm_create_endpoint_mac_tag_policy.current.bdTemplateId is defined
           - nm_create_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
           - nm_create_endpoint_mac_tag_policy.current.vrfRef == ''
@@ -203,7 +183,7 @@
           - nm_create_endpoint_mac_tag_policy_2.current.bdRef is defined
           - nm_create_endpoint_mac_tag_policy_2.current.bdName == 'ansible_bd'
           - nm_create_endpoint_mac_tag_policy_2.current.bdSchemaId is defined
-          - nm_create_endpoint_mac_tag_policy_2.current.bdSchemaName == 'ansible_test'
+          - nm_create_endpoint_mac_tag_policy_2.current.bdSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - nm_create_endpoint_mac_tag_policy_2.current.bdTemplateId is defined
           - nm_create_endpoint_mac_tag_policy_2.current.bdTemplateName == 'ansible_tenant_template'
           - nm_create_endpoint_mac_tag_policy_2.current.vrfRef == ''
@@ -286,7 +266,7 @@
           - cm_update_endpoint_mac_tag_policy.current.bdRef is defined
           - cm_update_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
           - cm_update_endpoint_mac_tag_policy.current.bdSchemaId is defined
-          - cm_update_endpoint_mac_tag_policy.current.bdSchemaName == 'ansible_test'
+          - cm_update_endpoint_mac_tag_policy.current.bdSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - cm_update_endpoint_mac_tag_policy.current.bdTemplateId is defined
           - cm_update_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
           - cm_update_endpoint_mac_tag_policy.current.uuid is defined
@@ -309,7 +289,7 @@
           - nm_update_endpoint_mac_tag_policy.current.bdRef is defined
           - nm_update_endpoint_mac_tag_policy.current.bdName == 'ansible_bd'
           - nm_update_endpoint_mac_tag_policy.current.bdSchemaId is defined
-          - nm_update_endpoint_mac_tag_policy.current.bdSchemaName == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy.current.bdSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - nm_update_endpoint_mac_tag_policy.current.bdTemplateId is defined
           - nm_update_endpoint_mac_tag_policy.current.bdTemplateName == 'ansible_tenant_template'
           - nm_update_endpoint_mac_tag_policy.current.vrfRef == ''
@@ -334,7 +314,7 @@
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfRef is defined
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfName == 'ansible_vrf'
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfSchemaId is defined
-          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfSchemaName == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfTemplateId is defined
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.vrfTemplateName == 'ansible_tenant_template'
           - nm_update_endpoint_mac_tag_policy_mac_vrf.current.uuid is defined
@@ -351,7 +331,7 @@
           - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfRef is defined
           - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfName == 'ansible_vrf'
           - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfSchemaId is defined
-          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfSchemaName == 'ansible_test'
+          - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfSchemaName == '{{ ansible_schema | default("ansible_test") }}'
           - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfTemplateId is defined
           - nm_update_endpoint_mac_tag_policy_empty_list.current.vrfTemplateName == 'ansible_tenant_template'
           - nm_update_endpoint_mac_tag_policy_empty_list.current.uuid is defined
@@ -509,8 +489,8 @@
           - nm_delete_endpoint_mac_tag_policy_again is not changed
           - nm_delete_endpoint_mac_tag_policy_again.previous == nm_delete_endpoint_mac_tag_policy_again.current == nm_delete_endpoint_mac_tag_policy.current
 
+  always:
     # CLEAN TEST ENVIRONMENT
-
     - name: Ensure Tenant Policy template does not exist
       cisco.mso.ndo_template:
         <<: *tenant_policy_template_absent
@@ -518,7 +498,3 @@
     - name: Esnure schema template does not exist
       cisco.mso.mso_schema_template:
         <<: *schema_template_absent
-    
-    - name: Ensure Tenant does not exist
-      cisco.mso.mso_tenant:
-        <<: *tenant_absent

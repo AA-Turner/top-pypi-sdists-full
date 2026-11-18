@@ -292,7 +292,7 @@ class SimilarwebNamespace:
         rate, pages per visit, visit duration, traffic sources including AI
         chatbots, top countries, and top search keywords - as normalized JSON.
 
-        Price: $0.00002 per request plus $0.00165 per result (maximum $0.00167).
+        Price: $0 per request plus $0.00082 per result (maximum $0.00082).
 
         Example:
             res = client.similarweb.overview(domain="stripe.com")
@@ -315,7 +315,7 @@ class SimilarwebNamespace:
         similarity score, category, top-country rank, estimated monthly visits, and
         description - as normalized JSON.
 
-        Price: $0.00002 per request plus $0.00165 per result (maximum $0.00167).
+        Price: $0 per request plus $0.00083 per result (maximum $0.00083).
 
         Example:
             res = client.similarweb.similar_sites(domain="stripe.com")
@@ -345,7 +345,7 @@ class AsyncSimilarwebNamespace:
         rate, pages per visit, visit duration, traffic sources including AI
         chatbots, top countries, and top search keywords - as normalized JSON.
 
-        Price: $0.00002 per request plus $0.00165 per result (maximum $0.00167).
+        Price: $0 per request plus $0.00082 per result (maximum $0.00082).
 
         Example:
             res = client.similarweb.overview(domain="stripe.com")
@@ -368,7 +368,7 @@ class AsyncSimilarwebNamespace:
         similarity score, category, top-country rank, estimated monthly visits, and
         description - as normalized JSON.
 
-        Price: $0.00002 per request plus $0.00165 per result (maximum $0.00167).
+        Price: $0 per request plus $0.00083 per result (maximum $0.00083).
 
         Example:
             res = client.similarweb.similar_sites(domain="stripe.com")

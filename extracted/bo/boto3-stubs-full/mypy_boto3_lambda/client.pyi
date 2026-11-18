@@ -66,6 +66,8 @@ from .type_defs import (
     DeleteCapacityProviderRequestTypeDef,
     DeleteCapacityProviderResponseTypeDef,
     DeleteCodeSigningConfigRequestTypeDef,
+    DeleteDurableExecutionRequestTypeDef,
+    DeleteDurableExecutionResponseTypeDef,
     DeleteEventSourceMappingRequestTypeDef,
     DeleteFunctionCodeSigningConfigRequestTypeDef,
     DeleteFunctionConcurrencyRequestTypeDef,
@@ -156,6 +158,7 @@ from .type_defs import (
     ListTagsResponseTypeDef,
     ListVersionsByFunctionRequestTypeDef,
     ListVersionsByFunctionResponseTypeDef,
+    PauseDurableExecutionRequestTypeDef,
     PublishLayerVersionRequestTypeDef,
     PublishLayerVersionResponseTypeDef,
     PublishVersionRequestTypeDef,
@@ -175,6 +178,7 @@ from .type_defs import (
     PutRuntimeManagementConfigResponseTypeDef,
     RemoveLayerVersionPermissionRequestTypeDef,
     RemovePermissionRequestTypeDef,
+    ResumeDurableExecutionRequestTypeDef,
     SendDurableExecutionCallbackFailureRequestTypeDef,
     SendDurableExecutionCallbackHeartbeatRequestTypeDef,
     SendDurableExecutionCallbackSuccessRequestTypeDef,
@@ -434,6 +438,18 @@ class LambdaClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_code_signing_config.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#delete_code_signing_config)
+        """
+
+    def delete_durable_execution(
+        self, **kwargs: Unpack[DeleteDurableExecutionRequestTypeDef]
+    ) -> DeleteDurableExecutionResponseTypeDef:
+        """
+        Deletes a completed Lambda <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a> and its data.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/delete_durable_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#delete_durable_execution)
         """
 
     def delete_event_source_mapping(
@@ -979,6 +995,18 @@ class LambdaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#list_versions_by_function)
         """
 
+    def pause_durable_execution(
+        self, **kwargs: Unpack[PauseDurableExecutionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Pauses a running <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/pause_durable_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#pause_durable_execution)
+        """
+
     def publish_layer_version(
         self, **kwargs: Unpack[PublishLayerVersionRequestTypeDef]
     ) -> PublishLayerVersionResponseTypeDef:
@@ -1113,6 +1141,18 @@ class LambdaClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#remove_permission)
         """
 
+    def resume_durable_execution(
+        self, **kwargs: Unpack[ResumeDurableExecutionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Resumes a paused <a
+        href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
+        execution</a>.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/resume_durable_execution.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_lambda/client/#resume_durable_execution)
+        """
+
     def send_durable_execution_callback_failure(
         self, **kwargs: Unpack[SendDurableExecutionCallbackFailureRequestTypeDef]
     ) -> dict[str, Any]:
@@ -1149,7 +1189,7 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[StopDurableExecutionRequestTypeDef]
     ) -> StopDurableExecutionResponseTypeDef:
         """
-        Stops a running <a
+        Stops a running or paused <a
         href="https://docs.aws.amazon.com/lambda/latest/dg/durable-functions.html">durable
         execution</a>.
 

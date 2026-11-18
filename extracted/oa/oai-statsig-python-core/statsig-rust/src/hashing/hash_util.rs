@@ -1,4 +1,7 @@
+use base64::Engine;
+use base64::prelude::BASE64_STANDARD;
 use serde::{Deserialize, Deserializer, de::Error};
+use sha2::{Digest, Sha256};
 
 use super::{djb2::djb2, memo_sha_256::MemoSha256};
 use std::fmt::Display;
@@ -77,14 +80,14 @@ impl HashUtil {
 
     pub fn hash(&self, input: &str, hash_algorithm: &HashAlgorithm) -> String {
         match hash_algorithm {
-            HashAlgorithm::Sha256 => self.sha_hasher.hash_string(input),
+            HashAlgorithm::Sha256 => self.sha256(input),
             HashAlgorithm::Djb2 => djb2(input),
             HashAlgorithm::None => input.to_string(),
         }
     }
 
     pub fn sha256(&self, input: &str) -> String {
-        self.sha_hasher.hash_string(input)
+        BASE64_STANDARD.encode(Sha256::digest(input.as_bytes()))
     }
 
     /// Derive the lookup key for the list's fingerprint width.
@@ -99,7 +102,7 @@ impl HashUtil {
     }
 
     pub fn sha256_to_u64(&self, input: &str) -> u64 {
-        let hash = self.sha_hasher.hash_string(input);
+        let hash = self.sha256(input);
 
         let mut hasher_bytes = [0u8; 8];
         hasher_bytes.copy_from_slice(&hash.as_bytes()[0..8]);

@@ -23,6 +23,7 @@ else:
 
 __all__ = (
     "AuditEventTypeType",
+    "AutoIncludeFieldsType",
     "CommentBodyTextTypeType",
     "ConnectCasesServiceName",
     "DomainStatusType",
@@ -55,6 +56,7 @@ AuditEventTypeType = Literal[
     "RelatedItem.Deleted",
     "RelatedItem.Updated",
 ]
+AutoIncludeFieldsType = Literal["All", "Custom", "System"]
 CommentBodyTextTypeType = Literal["Text/Plain"]
 DomainStatusType = Literal["Active", "CreationFailed", "CreationInProgress"]
 FieldNamespaceType = Literal["Custom", "System"]
@@ -182,6 +184,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -366,6 +369,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -433,6 +437,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

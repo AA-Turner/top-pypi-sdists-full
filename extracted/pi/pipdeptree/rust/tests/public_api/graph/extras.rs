@@ -75,6 +75,26 @@ fn activates_extras_without_provides_extra() {
 }
 
 #[test]
+fn ignores_invalid_extra_marker_names() {
+    let site = PackageSite::new();
+    site.write(
+        "root-1.dist-info",
+        "Name: root\nVersion: 1\nRequires-Dist: child; extra == 'not valid'\n",
+    );
+    site.write("child-1.dist-info", "Name: child\nVersion: 1\n");
+
+    let output = execute_in(
+        &site,
+        &["--packages", "root", "--extras", "active", "--json"],
+    );
+
+    assert_eq!(
+        (output.code, visible_names(&output), output.stderr.as_str()),
+        (0, vec!["root".to_string()], "")
+    );
+}
+
+#[test]
 fn rejects_unbalanced_package_extras() {
     let site = PackageSite::new();
     site.write("demo-1.dist-info", "Name: demo\nVersion: 1\n");
@@ -252,6 +272,67 @@ fn judges_each_active_extra_sharing_a_requirement() {
     assert_eq!(
         (output.code, extras, output.stderr.as_str()),
         (0, vec!["one"], "")
+    );
+}
+
+#[rstest]
+#[case::satisfied(
+    ">=0.5",
+    "root==1\n└── bar [required: >=0.5, installed: 1, extra: dev]"
+)]
+#[case::unsatisfied(">=99", "root==1")]
+fn activates_extras_only_when_installed_versions_match(
+    #[case] specifier: &str,
+    #[case] expected: &str,
+) {
+    let site = PackageSite::new();
+    site.write(
+        "root-1.dist-info",
+        &format!("Name: root\nVersion: 1\nRequires-Dist: bar{specifier}; extra == 'dev'\n"),
+    );
+    site.write("bar-1.dist-info", "Name: bar\nVersion: 1\n");
+
+    let output = execute(&[
+        "--path",
+        site.path().to_str().unwrap(),
+        "--warn",
+        "fail",
+        "--packages",
+        "root",
+        "--extras",
+        "active",
+    ]);
+
+    assert_eq!(
+        (
+            output.code,
+            stdout(&output).trim_end(),
+            output.stderr.as_str()
+        ),
+        (0, expected, "")
+    );
+}
+
+#[test]
+fn rejects_shared_extra_when_multiple_dependencies_are_missing() {
+    let site = PackageSite::new();
+    site.write(
+        "root-1.dist-info",
+        concat!(
+            "Name: root\nVersion: 1\n",
+            "Requires-Dist: first; extra == 'feature'\n",
+            "Requires-Dist: second; extra == 'feature'\n",
+        ),
+    );
+
+    let output = execute_in(
+        &site,
+        &["--packages", "root", "--extras", "active", "--json"],
+    );
+
+    assert_eq!(
+        (output.code, visible_names(&output), output.stderr.as_str()),
+        (0, vec!["root".to_string()], "")
     );
 }
 

@@ -11,6 +11,16 @@ name comes in (``connect``, ``--model``, control-plane responses) and ``public_m
 where one goes out to a person (printed output, errors).
 """
 
+from dreamscale_core.model_refs import (
+    CATALOG as CATALOG,
+)
+from dreamscale_core.model_refs import (
+    catalog_name as catalog_name,
+)
+from dreamscale_core.model_refs import (
+    is_account_ref as is_account_ref,
+)
+
 # Latest means the latest qualified model in this SDK release. Persist and send
 # the concrete provider ID so an existing session never changes models.
 _LATEST = {
@@ -54,7 +64,8 @@ def _public_names() -> dict[str, str]:
     """Internal id -> public name: each deployment base's and catalog model's that differs
     (dreamscale_transport.families and .catalog; CI checks them against
     model_variants.public_id)."""
-    from dreamscale_transport import catalog, families
+    from dreamscale_transport import _catalog_client as catalog
+    from dreamscale_transport import families
 
     return {
         **{family.deploy.base: family.deploy.public_id for family in families.FAMILIES
@@ -67,23 +78,10 @@ PUBLIC_NAMES: dict[str, str] = _public_names()
 _INTERNAL_NAMES = {public: internal for internal, public in PUBLIC_NAMES.items()}
 
 
-# One name for what people run, <account>/<model>: ``dreamscale/<model>`` is the system
-# catalog (dreamscale/pi0.5-bimanualyam), ``<account>/<slug>`` an organization's deployment
-# (northstar-robotics/pi0.5-towel-fold). A bare name is a catalog model, or your own
-# deployment of that slug.
-CATALOG = "dreamscale"
-
-
-def is_account_ref(name: str | None) -> bool:
-    """``<account>/<slug>`` with an account other than the catalog: a deployment."""
-    account, slash, rest = (name or "").partition("/")
-    return bool(slash and account and rest) and account != CATALOG
-
-
 def internal_model(name: str) -> str:
     """The internal id a model name refers to, by either name, with or without the catalog's
     account (an internal id passes through)."""
-    name = name.removeprefix(CATALOG + "/")
+    name = catalog_name(name)
     if name in _INTERNAL_NAMES:
         return _INTERNAL_NAMES[name]
     return next((internal for internal, listed in _LISTED_NAMES.items() if listed == name), name)
@@ -101,7 +99,8 @@ _LISTED_NAMES: dict[str, str] = {}
 
 
 def _shipped_ids() -> frozenset[str]:
-    from dreamscale_transport import catalog, families
+    from dreamscale_transport import _catalog_client as catalog
+    from dreamscale_transport import families
 
     return frozenset({entry.id for entry in catalog.CATALOG} | {
         family.deploy.base for family in families.FAMILIES if family.deploy is not None})
@@ -134,7 +133,7 @@ async def aresolve_model(name: str, *, api_key: str | None = None, list_models=N
 
 
 def _unshipped(name: str, internal: str) -> bool:
-    return not (internal != name.removeprefix(CATALOG + "/") or is_account_ref(name)
+    return not (internal != catalog_name(name) or is_account_ref(name)
                 or internal in _shipped_ids())
 
 

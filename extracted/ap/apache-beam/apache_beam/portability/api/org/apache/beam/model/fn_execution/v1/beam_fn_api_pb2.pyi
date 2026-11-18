@@ -1787,8 +1787,30 @@ class StateResponse(google.protobuf.message.Message):
 
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
+    class _ErrorReason:
+        ValueType = typing.NewType("ValueType", builtins.int)
+        V: typing_extensions.TypeAlias = ValueType
+
+    class _ErrorReasonEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[StateResponse._ErrorReason.ValueType], builtins.type):
+        DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+        ERROR_REASON_UNSPECIFIED: StateResponse._ErrorReason.ValueType  # 0
+        CANCELLED: StateResponse._ErrorReason.ValueType  # 1
+        """Indicates that the state request failed because the runner cancelled or
+        invalidated the work item (e.g., due to autoscaling, rebalancing, or
+        hedging). SDKs may choose to reduce logging severity for this error.
+        """
+
+    class ErrorReason(_ErrorReason, metaclass=_ErrorReasonEnumTypeWrapper): ...
+    ERROR_REASON_UNSPECIFIED: StateResponse.ErrorReason.ValueType  # 0
+    CANCELLED: StateResponse.ErrorReason.ValueType  # 1
+    """Indicates that the state request failed because the runner cancelled or
+    invalidated the work item (e.g., due to autoscaling, rebalancing, or
+    hedging). SDKs may choose to reduce logging severity for this error.
+    """
+
     ID_FIELD_NUMBER: builtins.int
     ERROR_FIELD_NUMBER: builtins.int
+    ERROR_REASON_FIELD_NUMBER: builtins.int
     GET_FIELD_NUMBER: builtins.int
     APPEND_FIELD_NUMBER: builtins.int
     CLEAR_FIELD_NUMBER: builtins.int
@@ -1801,6 +1823,10 @@ class StateResponse(google.protobuf.message.Message):
     """(Optional) If this is specified, then the state request has failed.
     A human readable string representing the reason as to why the request
     failed.
+    """
+    error_reason: global___StateResponse.ErrorReason.ValueType
+    """(Optional) If error is specified, provides a structured reason for why the
+    request failed.
     """
     @property
     def get(self) -> global___StateGetResponse:
@@ -1816,12 +1842,13 @@ class StateResponse(google.protobuf.message.Message):
         *,
         id: builtins.str | None = ...,
         error: builtins.str | None = ...,
+        error_reason: global___StateResponse.ErrorReason.ValueType | None = ...,
         get: global___StateGetResponse | None = ...,
         append: global___StateAppendResponse | None = ...,
         clear: global___StateClearResponse | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["append", b"append", "clear", b"clear", "get", b"get", "response", b"response"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["append", b"append", "clear", b"clear", "error", b"error", "get", b"get", "id", b"id", "response", b"response"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["append", b"append", "clear", b"clear", "error", b"error", "error_reason", b"error_reason", "get", b"get", "id", b"id", "response", b"response"]) -> None: ...
     def WhichOneof(self, oneof_group: typing_extensions.Literal["response", b"response"]) -> typing_extensions.Literal["get", "append", "clear"] | None: ...
 
 global___StateResponse = StateResponse

@@ -79,7 +79,7 @@ class TestSssdInfo(unittest.TestCase):
         # Mock AnsibleModule
         with patch.object(sssd_info, "AnsibleModule") as mock_module_class:
             mock_module = Mock()
-            mock_module.params = {"action": "domain_list"}
+            mock_module.params = {"action": "domain_list", "domain": None, "server_type": None}
             mock_module.fail_json = Mock(side_effect=Exception("fail_json called"))
             mock_module.exit_json = Mock()
             mock_module_class.return_value = mock_module
@@ -109,7 +109,7 @@ class TestSssdInfo(unittest.TestCase):
         # Mock AnsibleModule
         with patch.object(sssd_info, "AnsibleModule") as mock_module_class:
             mock_module = Mock()
-            mock_module.params = {"action": "domain_status", "domain": "example.com"}
+            mock_module.params = {"action": "domain_status", "domain": "example.com", "server_type": None}
             mock_module.fail_json = Mock(side_effect=Exception("fail_json called"))
             mock_module.exit_json = Mock()
             mock_module_class.return_value = mock_module
@@ -139,7 +139,7 @@ class TestSssdInfo(unittest.TestCase):
         # Mock AnsibleModule
         with patch.object(sssd_info, "AnsibleModule") as mock_module_class:
             mock_module = Mock()
-            mock_module.params = {"action": "domain_status", "domain": "example.com"}
+            mock_module.params = {"action": "domain_status", "domain": "example.com", "server_type": None}
             mock_module.fail_json = Mock(side_effect=Exception("fail_json called"))
             mock_module.exit_json = Mock()
             mock_module_class.return_value = mock_module
@@ -164,7 +164,7 @@ class TestSssdInfo(unittest.TestCase):
         # Mock AnsibleModule
         with patch.object(sssd_info, "AnsibleModule") as mock_module_class:
             mock_module = Mock()
-            mock_module.params = {"action": "domain_status", "domain": "nonexistent.com"}
+            mock_module.params = {"action": "domain_status", "domain": "nonexistent.com", "server_type": None}
             mock_module.fail_json = Mock()
             mock_module.exit_json = Mock()
             mock_module_class.return_value = mock_module

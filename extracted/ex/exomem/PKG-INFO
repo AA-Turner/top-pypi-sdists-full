@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: exomem
-Version: 0.186.0
+Version: 0.188.0
 Summary: Local knowledge substrate for owned markdown/Obsidian vaults, exposed through MCP, REST, and CLI with multimodal OCR/ASR/CLIP search
 Project-URL: Homepage, https://substratesystems.io/exomem
 Project-URL: Documentation, https://github.com/Artexis10/exomem/blob/main/QUICKSTART.md
@@ -41,6 +41,7 @@ Requires-Dist: python-slugify>=8.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: rank-bm25>=0.2.2
 Requires-Dist: referencing<0.38,>=0.37
+Requires-Dist: rpds-py<0.31,>=0.30
 Requires-Dist: snowballstemmer>=2.2
 Requires-Dist: sqlalchemy<3,>=2.1.4
 Requires-Dist: tzdata>=2026.2

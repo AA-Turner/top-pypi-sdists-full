@@ -334,6 +334,9 @@ class Key(AccessOp):
     mode: .() keeps them as Keys, @() promotes them to Attrs via
     as_attrs_opgroup.
     """
+    def translated(self, translation, *args):
+        return translation.key(self, *args)
+
     @classmethod
     def concrete(cls, val):
         """
@@ -472,12 +475,20 @@ class Key(AccessOp):
         return results
 
     def update(self, node, key, val):
+        """
+        node with key set to val: in place, or for an immutable mapping a
+        new one of its type. A node that is no mapping and can't take the
+        key raises, as a node that is no container does.
+        """
         val = self.default() if val is base.ANY else val
         try:
             node[key] = val
             return node
         except TypeError:
             pass
+        if not hasattr(node, 'keys'):
+            raise TypeError(
+                f"Cannot update {type(node).__name__} by key {key!r} - use a dict or other mapping")
         iterable = ((k, node[k]) for k in node if k != key)
         iterable = itertools.chain(iterable, ((key, val),))
         return type(node)(iterable)
@@ -486,6 +497,9 @@ class Key(AccessOp):
             return self.update(node, self.op.value, val)
 
         keys = tuple(self.keys(node))
+        if not keys:
+            # nothing matched: nothing to write, whatever the node
+            return node
         iterable = ((k, node[k]) for k in node if k not in keys)
         items = itertools.chain(iterable, ((k, val) for k in keys))
         try:
@@ -513,6 +527,9 @@ class Key(AccessOp):
 
 
 class Attr(Key):
+    def translated(self, translation, *args):
+        return translation.attr(self, *args)
+
     @classmethod
     @functools.lru_cache()
     def concrete(cls, val):
@@ -673,6 +690,9 @@ class Attr(Key):
 
 
 class Slot(Key):
+    def translated(self, translation, *args):
+        return translation.slot(self, *args)
+
     @classmethod
     def concrete(cls, val):
         """
@@ -748,7 +768,9 @@ class Slot(Key):
         try:
             for k in update_keys:
                 node[k] = val
-            node += type(node)(val for _ in append_keys)
+            # an item of the node's own kind: a str appends the str
+            for _ in append_keys:
+                node += itemof(node, val)
             return node
         except TypeError:
             pass
@@ -820,6 +842,9 @@ class Slot(Key):
 
 
 class SlotSpecial(Slot):
+    def translated(self, translation, *args):
+        return translation.slot_special(self, *args)
+
     @classmethod
     @functools.lru_cache()
     def concrete(cls, val):
@@ -879,6 +904,9 @@ class SlotSpecial(Slot):
 
 
 class SliceFilter(BaseOp):
+    def translated(self, translation, *args):
+        return translation.slice_filter(self, *args)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.filters = self.args
@@ -995,6 +1023,9 @@ class SliceFilter(BaseOp):
 
 
 class Slice(SimpleOp):
+    def translated(self, translation, *args):
+        return translation.slice(self, *args)
+
     @classmethod
     def concrete(cls, val):
         o = cls()

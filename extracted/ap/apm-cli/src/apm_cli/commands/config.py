@@ -28,6 +28,7 @@ _CONFIG_KEY_DISPLAY_NAMES = {
     "copilot_cowork_skills_dir": "copilot-cowork-skills-dir",
     "allow_protocol_fallback": "allow-protocol-fallback",
     "prefer_ssh": "prefer-ssh",
+    "github_auth_first": "github-auth-first",
 }
 
 
@@ -50,51 +51,76 @@ def _parse_bool_value(value: str) -> bool:
 
 def _get_config_setters():
     """Return config setters keyed by CLI option name."""
-    from ..config import set_allow_protocol_fallback, set_auto_integrate, set_prefer_ssh
+    from ..config import (
+        set_allow_protocol_fallback,
+        set_auto_integrate,
+        set_github_auth_first,
+        set_prefer_ssh,
+    )
 
     return {
         "auto-integrate": (set_auto_integrate, "Auto-integration"),
         "allow-protocol-fallback": (set_allow_protocol_fallback, "Protocol fallback"),
         "prefer-ssh": (set_prefer_ssh, "SSH transport preference"),
+        "github-auth-first": (set_github_auth_first, "GitHub auth-first"),
     }
 
 
 def _get_config_getters():
     """Return config getters keyed by CLI option name."""
-    from ..config import get_allow_protocol_fallback, get_auto_integrate, get_prefer_ssh
+    from ..config import (
+        get_allow_protocol_fallback,
+        get_auto_integrate,
+        get_github_auth_first,
+        get_prefer_ssh,
+    )
 
     return {
         "auto-integrate": get_auto_integrate,
         "allow-protocol-fallback": get_allow_protocol_fallback,
         "prefer-ssh": get_prefer_ssh,
+        "github-auth-first": get_github_auth_first,
     }
 
 
-def _valid_config_keys() -> str:
-    """Return valid config keys for messages."""
+# Single registry of user-facing config keys: (name, experimental flag, unsettable).
+# Messages derive the valid-key list from it; tests pin it to the dispatch below.
+_CONFIG_KEYS: tuple[tuple[str, str | None, bool], ...] = (
+    ("auto-integrate", None, False),
+    ("target", None, True),
+    ("self-update.channel", None, True),
+    ("self-update.install-dir", None, True),
+    ("mcp-registry-url", None, True),
+    ("temp-dir", None, True),
+    ("allow-protocol-fallback", None, True),
+    ("prefer-ssh", None, True),
+    ("github-auth-first", None, True),
+    ("audit-on-install", "external_scanners", True),
+    ("external.<name>.llm", "external_scanners", True),
+    ("external.<name>.args", "external_scanners", True),
+    ("copilot-cowork-skills-dir", "copilot_cowork", True),
+    ("registry.<name>.url", "registries", True),
+    ("registry.<name>.token", "registries", True),
+    ("registry.<name>.default", "registries", True),
+)
+
+
+def _valid_config_keys(*, unset: bool = False) -> str:
+    """Return the keys the current flags expose, for messages."""
     from ..core.experimental import is_enabled
 
-    keys = [
-        "auto-integrate",
-        "target",
-        "self-update.channel",
-        "self-update.install-dir",
-        "mcp-registry-url",
-        "temp-dir",
-        "allow-protocol-fallback",
-        "prefer-ssh",
-    ]
-    if is_enabled("external_scanners"):
-        keys.append("audit-on-install")
-        keys.append("external.<name>.llm")
-        keys.append("external.<name>.args")
-    if is_enabled("copilot_cowork"):
-        keys.append("copilot-cowork-skills-dir")
-    if is_enabled("registries"):
-        keys.append("registry.<name>.url")
-        keys.append("registry.<name>.token")
-        keys.append("registry.<name>.default")
-    return ", ".join(keys)
+    return ", ".join(
+        name
+        for name, flag, unsettable in _CONFIG_KEYS
+        if (flag is None or is_enabled(flag)) and (unsettable or not unset)
+    )
+
+
+def _reject_unknown_key(logger: CommandLogger, key: str, *, unset: bool = False) -> None:
+    """Report an unknown key with the valid-key list and exit 1."""
+    logger.error(f"Unknown configuration key: '{key}'")
+    logger.progress(f"Valid keys: {_valid_config_keys(unset=unset)}")
+    sys.exit(1)
 
 
 def _show_all_user_config(logger: CommandLogger) -> None:
@@ -102,6 +128,7 @@ def _show_all_user_config(logger: CommandLogger) -> None:
     from ..config import (
         get_allow_protocol_fallback,
         get_auto_integrate,
+        get_github_auth_first,
         get_install_target,
         get_mcp_registry_url,
         get_prefer_ssh,
@@ -130,6 +157,8 @@ def _show_all_user_config(logger: CommandLogger) -> None:
         click.echo("  allow-protocol-fallback: true")
     if get_prefer_ssh():
         click.echo("  prefer-ssh: true")
+    if get_github_auth_first():
+        click.echo("  github-auth-first: true")
 
     from ..core.experimental import is_enabled
 
@@ -249,6 +278,7 @@ def config(ctx):
             config_table.add_row("Global", "APM CLI Version", get_version())
 
             from ..config import get_allow_protocol_fallback as _get_apf
+            from ..config import get_github_auth_first as _get_gaf
             from ..config import get_prefer_ssh as _get_prefer_ssh_cfg
             from ..config import get_self_update_channel as _get_self_update_channel_cfg
             from ..config import get_self_update_install_dir as _get_self_update_install_dir_cfg
@@ -272,10 +302,13 @@ def config(ctx):
             # false-default rows add noise for users who never configured them.
             _apf = _get_apf()
             _prefer_ssh = _get_prefer_ssh_cfg()
+            _gaf = _get_gaf()
             if _apf:
                 config_table.add_row("", "Allow Protocol Fallback", "true")
             if _prefer_ssh:
                 config_table.add_row("", "Prefer SSH Transport", "true")
+            if _gaf:
+                config_table.add_row("", "GitHub Auth-first", "true")
 
             from ..core.experimental import is_enabled as _is_enabled
 
@@ -311,6 +344,7 @@ def config(ctx):
             click.echo(f"  APM CLI Version: {get_version()}")
 
             from ..config import get_allow_protocol_fallback as _get_apf_fb
+            from ..config import get_github_auth_first as _get_gaf_fb
             from ..config import get_prefer_ssh as _get_prefer_ssh_fb
             from ..config import get_self_update_channel as _get_self_update_channel_fb
             from ..config import get_self_update_install_dir as _get_self_update_install_dir_fb
@@ -328,6 +362,7 @@ def config(ctx):
 
             click.echo(f"  allow-protocol-fallback: {str(_get_apf_fb()).lower()}")
             click.echo(f"  prefer-ssh: {str(_get_prefer_ssh_fb()).lower()}")
+            click.echo(f"  github-auth-first: {str(_get_gaf_fb()).lower()}")
 
             from ..core.experimental import is_enabled as _is_enabled_fb
 
@@ -534,12 +569,7 @@ def set(key, value):  # noqa: F811
     setters = _get_config_setters()
     config_entry = setters.get(key)
     if config_entry is None:
-        logger.error(f"Unknown configuration key: '{key}'")
-        logger.progress(f"Valid keys: {_valid_config_keys()}")
-        logger.progress(
-            "This error may indicate a bug in command routing. Please report this issue."
-        )
-        sys.exit(1)
+        _reject_unknown_key(logger, key)
 
     try:
         enabled = _parse_bool_value(value)
@@ -557,8 +587,10 @@ def set(key, value):  # noqa: F811
     import os as _os
 
     if key == "allow-protocol-fallback" and enabled and _os.environ.get("CI"):
+        from .. import config as config_module
+
         logger.warning(
-            "allow-protocol-fallback is now persisted to ~/.apm/config.json. "
+            f"allow-protocol-fallback is now persisted to {config_module.CONFIG_FILE}. "
             "In CI environments with a shared $HOME this will affect all subsequent "
             "apm install runs on this host. "
             "Prefer APM_ALLOW_PROTOCOL_FALLBACK=1 as an invocation-scoped alternative."
@@ -691,12 +723,7 @@ def get(key):
 
         getter = getters.get(key)
         if getter is None:
-            logger.error(f"Unknown configuration key: '{key}'")
-            logger.progress(f"Valid keys: {_valid_config_keys()}")
-            logger.progress(
-                "This error may indicate a bug in command routing. Please report this issue."
-            )
-            sys.exit(1)
+            _reject_unknown_key(logger, key)
         value = getter()
         # Render booleans as lowercase true/false (npm convention).
         if isinstance(value, bool):
@@ -831,6 +858,13 @@ def unset(key):
         logger.success("SSH transport preference removed (will use env var or default)")
         return
 
+    if key == "github-auth-first":
+        from ..config import unset_github_auth_first
+
+        unset_github_auth_first()
+        logger.success("GitHub auth-first preference removed (will use env var or default)")
+        return
+
     if key == "copilot-cowork-skills-dir":
         from ..config import unset_copilot_cowork_skills_dir
 
@@ -838,6 +872,4 @@ def unset(key):
         logger.success("Cowork skills directory configuration removed")
         return
 
-    logger.error(f"Unknown configuration key: '{key}'")
-    logger.progress(f"Valid keys: {_valid_config_keys()}")
-    sys.exit(1)
+    _reject_unknown_key(logger, key, unset=True)

@@ -14,6 +14,7 @@ import unittest
 
 import agilicus_api
 from agilicus_api.model.invalid_policy_template import InvalidPolicyTemplate
+from agilicus_api.model.label_group import LabelGroup
 from agilicus_api.model.label_name import LabelName
 from agilicus_api.model.mfa_policy_template import MFAPolicyTemplate
 from agilicus_api.model.rule_action import RuleAction
@@ -25,6 +26,7 @@ from agilicus_api.model.time_of_day_condition import TimeOfDayCondition
 from agilicus_api.model.timeframe_policy_template import TimeframePolicyTemplate
 from agilicus_api.model.timeperiod_policy_template import TimeperiodPolicyTemplate
 globals()['InvalidPolicyTemplate'] = InvalidPolicyTemplate
+globals()['LabelGroup'] = LabelGroup
 globals()['LabelName'] = LabelName
 globals()['MFAPolicyTemplate'] = MFAPolicyTemplate
 globals()['RuleAction'] = RuleAction

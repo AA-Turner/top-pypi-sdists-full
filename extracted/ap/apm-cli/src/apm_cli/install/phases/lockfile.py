@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from apm_cli.core.scope import is_user_scope
-from apm_cli.install.package_resolution import effective_deploy_skill_subset
+from apm_cli.install.package_resolution import effective_dependency_selection
 from apm_cli.utils.content_hash import compute_file_hash
 
 if TYPE_CHECKING:
@@ -148,6 +148,8 @@ class LockfileBuilder:
             self._attach_content_hashes(lockfile)
             # Attach declared-license provenance captured at acquire time (U6)
             self._attach_declared_licenses(lockfile)
+            # Attach verbatim licence copies carried at materialization (#3556)
+            self._attach_carried_licenses(lockfile)
             # Attach marketplace provenance if available
             self._attach_marketplace_provenance(lockfile)
             # Selectively merge entries from the existing lockfile:
@@ -396,11 +398,8 @@ class LockfileBuilder:
             return  # bare install or --skill '*'; manifest value already flows through
         for dep_key, locked_dep in lockfile.dependencies.items():  # noqa: B007
             if locked_dep.package_type == "skill_bundle":
-                merged = effective_deploy_skill_subset(
-                    skill_subset_from_cli=self.ctx.skill_subset_from_cli,
-                    cli_subset=self.ctx.skill_subset,
-                    persisted_subset=locked_dep.skill_subset,
-                )
+                # Record what was deployed: the same owner the deploy used (#3760).
+                merged = effective_dependency_selection(locked_dep, self.ctx).skill_subset
                 # merged is never None here: the guard above returns for
                 # --skill '*' (empty ctx.skill_subset), so a real named
                 # subset always survives the union.
@@ -422,6 +421,12 @@ class LockfileBuilder:
         for dep_key, declared in self.ctx.package_declared_licenses.items():
             if dep_key in lockfile.dependencies and declared:
                 lockfile.dependencies[dep_key].declared_license = declared
+
+    def _attach_carried_licenses(self, lockfile: LockFile) -> None:
+        """Attach the licence copies carried into each materialized package (#3556)."""
+        for dep_key, carried in self.ctx.package_carried_licenses.items():
+            if dep_key in lockfile.dependencies:
+                lockfile.dependencies[dep_key].carried_licenses = tuple(carried)
 
     def _attach_marketplace_provenance(self, lockfile: LockFile) -> None:
         # Canonical manifest entries do not rediscover their marketplace on
@@ -508,16 +513,26 @@ class LockfileBuilder:
                         # OR package still in manifest but failed to download.
                         lockfile.dependencies[dep_key] = dep
                     elif retained := retained_orphans.get(dep_key):
-                        self._keep_retained_orphan(lockfile, dep_key, dep, retained)
+                        self._keep_retained_orphan(
+                            lockfile, dep_key, dep, retained, self.ctx.existing_lockfile
+                        )
                     # else: orphan -- package was in lockfile but is no longer in
                     # the manifest (full install only). Don't preserve so the
                     # lockfile stays in sync with what apm.yml declares.
 
     @staticmethod
     def _keep_retained_orphan(
-        lockfile: LockFile, dep_key: str, dep: object, retained: dict[str, str | None]
+        lockfile: LockFile,
+        dep_key: str,
+        dep: object,
+        retained: dict[str, str | None],
+        source: LockFile | None = None,
     ) -> None:
-        """Keep an orphan's undeleted files owned so the next install can retry."""
+        """Keep an orphan's undeleted files owned so the next install can retry.
+
+        *source* is the lockfile the orphan came from when *lockfile* is a fresh
+        build; its rows keep the orphan's concrete target attribution.
+        """
         retained_files = [path for path in dep.deployed_files if path in retained]
         retained_hashes = {
             path: dep.deployed_file_hashes[path]
@@ -532,6 +547,7 @@ class LockfileBuilder:
             dep_key,
             retained_files,
             retained_hashes,
+            provenance=DeploymentLedgerCodec.from_lockfile(source) if source else None,
         )
 
     def _reconcile_partial_subtree(self, existing: LockFile) -> None:
@@ -663,6 +679,7 @@ class LockfileBuilder:
                 provenance=DeploymentLedgerCodec.from_lockfile(self.ctx.existing_lockfile),
                 current_targets=self.ctx.targets or (),
             )
+            lockfile.local_staged_files = list(self.ctx.existing_lockfile.local_staged_files)
             if "." in self.ctx.existing_lockfile.dependencies:
                 lockfile.dependencies["."] = copy.deepcopy(
                     self.ctx.existing_lockfile.dependencies["."]
@@ -700,8 +717,8 @@ class LockfileBuilder:
             if self.ctx.logger:
                 self.ctx.logger.verbose_detail("apm.lock.yaml unchanged -- skipping write")
         else:
-            lockfile.save(lockfile_path, existing_lockfile=existing_lockfile)
-            if self.ctx.logger:
+            persisted = lockfile.save(lockfile_path, existing_lockfile=existing_lockfile)
+            if persisted and self.ctx.logger:
                 self.ctx.logger.record_lockfile_write()
                 self.ctx.logger.verbose_detail(
                     f"Generated apm.lock.yaml with {len(lockfile.dependencies)} dependencies"

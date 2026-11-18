@@ -13,6 +13,7 @@ from lemonaid.config import Config, PlaceRoot, PlacesConfig
 from lemonaid.inbox import db
 from lemonaid.messages import autoresume_tmux, recipient, recreate, resume_cli
 from lemonaid.places import audit
+from lemonaid.restore import auto, plan
 
 _CHANNEL = "claude:tossed"
 
@@ -21,6 +22,7 @@ _CHANNEL = "claude:tossed"
 def _caller(monkeypatch):
     monkeypatch.setenv("LEMONAID_CHANNEL", "claude:caller")
     monkeypatch.setattr(recipient, "_tty_commands", lambda tty: ["-fish"])  # nothing runs there
+    monkeypatch.setattr(plan, "transcript_missing", lambda row: False)
 
 
 @pytest.fixture
@@ -124,6 +126,21 @@ def test_recreate_revives_the_brief_onto_its_session_and_the_tmux_session(
     assert "recreated tmux session feat-x" in out
 
 
+def test_a_lemon_lost_with_its_terminal_is_left_to_a_running_restore(capsys, started, root, tmux):
+    _lemon(root.path)
+    with db.connect() as conn:
+        db.mark_lost(conn, _CHANNEL, "test", "")
+
+    with auto.lock():
+        assert _resume(_CHANNEL, "--recreate") == 1
+    assert started == []
+    assert tmux == []
+    assert "the restore running now will bring it back" in capsys.readouterr().err
+
+    assert _resume(_CHANNEL, "--recreate") == 0
+    assert started == [_CHANNEL]
+
+
 def test_a_live_tmux_session_is_left_alone(started, root, monkeypatch):
     calls: list[str] = []
     monkeypatch.setattr(
@@ -200,3 +217,32 @@ def test_a_session_now_holding_another_brief_keeps_it(capsys, started, root, tmu
         assert attached.by_channel(conn, [_CHANNEL]) == {_CHANNEL: newer.resolve()}
         assert archive.is_archived(lemon.brief_of(conn, lemon_id))
     assert "has another brief attached now (newer.md)" in capsys.readouterr().err
+
+
+def test_a_lost_transcript_is_refused_before_the_brief_leaves_the_attic(
+    capsys, started, root, tmux, monkeypatch
+):
+    monkeypatch.setattr(plan, "transcript_missing", lambda row: True)
+    path, lemon_id = _lemon(root.path)
+    _toss(path)
+
+    assert _resume(lemon_id, "--recreate") == 1
+
+    assert started == []
+    assert tmux == []
+    with db.connect() as conn:
+        assert archive.is_archived(lemon.brief_of(conn, lemon_id))
+    assert "transcript is gone" in capsys.readouterr().err
+
+
+def test_an_unknown_place_is_refused_with_what_to_do_instead(capsys, started, root, tmux):
+    path, lemon_id = _lemon(root.path / "feat-x")
+    _toss(path)
+
+    assert _resume(lemon_id, "--recreate") == 1
+
+    with db.connect() as conn:
+        assert archive.is_archived(lemon.brief_of(conn, lemon_id))
+    err = capsys.readouterr().err
+    assert "can't tell which place it was" in err
+    assert "If its work merged and you only have a question, read its brief" in err

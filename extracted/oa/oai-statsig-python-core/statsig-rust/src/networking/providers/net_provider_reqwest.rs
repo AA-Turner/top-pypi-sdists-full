@@ -108,31 +108,29 @@ impl std::fmt::Display for ResponseDataReadError {
     }
 }
 
+// If a server gzips a range despite Accept-Encoding: identity, let the reader decode it.
+// tower-http would stop at the first gzip member (tower-rs/tower-http#737).
+fn auto_decode_gzip(args: &RequestArgs) -> bool {
+    !args.headers.as_ref().is_some_and(|headers| {
+        headers
+            .keys()
+            .any(|name| name.eq_ignore_ascii_case("range"))
+            && headers.iter().any(|(name, value)| {
+                name.eq_ignore_ascii_case("accept-encoding")
+                    && value.trim().eq_ignore_ascii_case("identity")
+            })
+    })
+}
+
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct ResponseLimitClientKey {
+    auto_decode_gzip: bool,
     runtime: Option<tokio::runtime::Id>,
-    identity_encoding: bool,
     proxy_host: Option<String>,
     proxy_port: Option<u16>,
     proxy_auth: Option<String>,
     proxy_protocol: Option<String>,
     ca_cert_pem: Option<Vec<u8>>,
-}
-
-fn requests_snapshot(args: &RequestArgs) -> bool {
-    args.headers
-        .as_ref()
-        .and_then(|h| h.get("Accept"))
-        .is_some_and(|v| crate::id_lists_adapter::snapshot_http::accepts_snapshot(v))
-}
-
-fn client_builder(args: &RequestArgs) -> reqwest::ClientBuilder {
-    let builder = reqwest::Client::builder();
-    if requests_snapshot(args) {
-        builder.no_gzip().no_brotli().no_zstd().no_deflate()
-    } else {
-        builder
-    }
 }
 
 impl ResponseLimitClientKey {
@@ -154,7 +152,7 @@ impl ResponseLimitClientKey {
 
         Self {
             runtime: None,
-            identity_encoding: requests_snapshot(request_args),
+            auto_decode_gzip: auto_decode_gzip(request_args),
             proxy_host,
             proxy_port,
             proxy_auth,
@@ -178,6 +176,7 @@ impl ResponseLimitClientKey {
 #[derive(Clone, Eq, Hash, PartialEq)]
 struct EventUploadClientKey {
     runtime: tokio::runtime::Id,
+    auto_decode_gzip: bool,
     proxy_url: Option<[u8; 32]>,
     proxy_auth: Option<[u8; 32]>,
     ca_cert_pem: Option<[u8; 32]>,
@@ -197,6 +196,7 @@ impl EventUploadClientKey {
         }
         Some(Self {
             runtime: tokio::runtime::Handle::try_current().ok()?.id(),
+            auto_decode_gzip: auto_decode_gzip(args),
             proxy_url: proxy_url.as_deref().map(|url| fingerprint(url.as_bytes())),
             proxy_auth: args
                 .proxy_config
@@ -286,7 +286,9 @@ impl NetworkProviderReqwest {
     pub fn new() -> Self {
         Self {
             transport: ReqwestTransport::new(OnceLock::from(tempfile::tempfile().is_ok())),
-            shared_client: reqwest::Client::new(),
+            shared_client: crate::networking::new_reqwest_client_builder()
+                .build()
+                .expect("default HTTP client must initialize"),
         }
     }
 }
@@ -356,7 +358,7 @@ impl Default for NetworkProviderReqwest {
 
 #[async_trait]
 impl NetworkProvider for NetworkProviderReqwest {
-    fn supports_wire_responses_without_redirects(&self) -> bool {
+    fn supports_response_headers_without_redirects(&self) -> bool {
         true
     }
 
@@ -411,7 +413,10 @@ impl NetworkProvider for NetworkProviderReqwest {
 
 impl NetworkProviderReqwest {
     fn should_use_shared_client(&self, request_args: &RequestArgs) -> bool {
-        if request_args.proxy_config.is_some() || request_args.ca_cert_pem.is_some() {
+        if request_args.proxy_config.is_some()
+            || request_args.ca_cert_pem.is_some()
+            || !auto_decode_gzip(request_args)
+        {
             return false;
         }
 
@@ -539,7 +544,7 @@ impl ReqwestTransport {
             self.send_http2_with_redirects(request.args, builder, request.disable_redirects)
                 .await
         } else {
-            builder.send().await
+            builder.send().await.map_err(get_error_message)
         };
         // Preserve the status if a total HTTP/2 attempt deadline expires while reading the body.
         *received_status = response.as_ref().ok().map(|value| value.status().as_u16());
@@ -615,13 +620,13 @@ impl ReqwestTransport {
         args: &RequestArgs,
         builder: reqwest::RequestBuilder,
         disable_redirects: bool,
-    ) -> Result<reqwest::Response, reqwest::Error> {
+    ) -> Result<reqwest::Response, String> {
         let (client, request) = builder.build_split();
-        let request = request?;
+        let request = request.map_err(get_error_message)?;
         let Some(mut redirected) = request.try_clone() else {
-            return client.execute(request).await;
+            return client.execute(request).await.map_err(get_error_message);
         };
-        let response = client.execute(request).await?;
+        let response = client.execute(request).await.map_err(get_error_message)?;
         if disable_redirects || !matches!(response.status().as_u16(), 301 | 302 | 303 | 307 | 308) {
             return Ok(response);
         }
@@ -676,20 +681,21 @@ impl ReqwestTransport {
         drop(response);
         // One redirect has already been followed. Plaintext targets may use H1;
         // HTTPS targets negotiate normally. No application request is replayed.
-        let mut builder = reqwest::Client::builder().redirect(Policy::limited(9));
-        if let Some(pem) = &args.ca_cert_pem {
-            for cert in reqwest::Certificate::from_pem_bundle(pem)? {
-                builder = builder.add_root_certificate(cert);
-            }
-        }
-        let client = builder.build()?;
-        client.execute(redirected).await
+        let client = crate::networking::configured_reqwest_client_builder(
+            args.ca_cert_pem.as_deref(),
+            false,
+        )?
+        .gzip(auto_decode_gzip(args))
+        .redirect(Policy::limited(9))
+        .build()
+        .map_err(get_error_message)?;
+        client.execute(redirected).await.map_err(get_error_message)
     }
 
     async fn read_unlimited_response(
         &self,
         args: &RequestArgs,
-        result: Result<reqwest::Response, reqwest::Error>,
+        result: Result<reqwest::Response, String>,
     ) -> Response {
         let mut error = None;
         let mut status_code = None;
@@ -713,8 +719,7 @@ impl ReqwestTransport {
                 }
             }
             Err(e) => {
-                let error_message = get_error_message(e);
-                error = Some(error_message);
+                error = Some(e);
             }
         }
 
@@ -727,7 +732,7 @@ impl ReqwestTransport {
     async fn read_limited_response(
         &self,
         args: &RequestArgs,
-        result: Result<reqwest::Response, reqwest::Error>,
+        result: Result<reqwest::Response, String>,
         max_response_bytes: u64,
     ) -> ResponseLimitOutcome {
         let mut error = None;
@@ -755,8 +760,7 @@ impl ReqwestTransport {
                 }
             }
             Err(e) => {
-                let error_message = get_error_message(e);
-                error = Some(error_message);
+                error = Some(e);
             }
         }
 
@@ -847,21 +851,14 @@ impl ReqwestTransport {
         }
 
         // The HTTP/2 send path handles redirects explicitly so it can preserve method and header rules.
-        let mut builder = client_builder(args)
-            .http2_prior_knowledge()
-            .redirect(Policy::none());
+        let mut builder = crate::networking::configured_reqwest_client_builder(
+            args.ca_cert_pem.as_deref(),
+            true,
+        )?
+        .gzip(auto_decode_gzip(args))
+        .redirect(Policy::none());
         if let Some(proxy) = &args.proxy_config {
             builder = Self::configure_proxy(builder, proxy).0;
-        }
-        if let Some(pem) = &args.ca_cert_pem {
-            let certs = reqwest::Certificate::from_pem_bundle(pem)
-                .map_err(|error| format!("Failed to parse HTTP/2 CA certificate: {error}"))?;
-            if certs.is_empty() {
-                return Err("HTTP/2 CA configuration contains no certificates".to_string());
-            }
-            for cert in certs {
-                builder = builder.add_root_certificate(cert);
-            }
         }
         let client = builder
             .build()
@@ -879,7 +876,24 @@ impl ReqwestTransport {
         request_args: &RequestArgs,
         disable_redirects: bool,
     ) -> (reqwest::Client, bool) {
-        let mut client_builder = client_builder(request_args);
+        let auto_decode_gzip = auto_decode_gzip(request_args);
+        let mut client_builder = match crate::networking::configured_reqwest_client_builder(
+            request_args.ca_cert_pem.as_deref(),
+            false,
+        ) {
+            Ok(builder) => builder.gzip(auto_decode_gzip),
+            Err(error) => {
+                log_e!(
+                    TAG,
+                    "Failed to configure network CA: {}. Falling back to default client.",
+                    error
+                );
+                return (
+                    Self::build_default_client(disable_redirects, auto_decode_gzip),
+                    false,
+                );
+            }
+        };
         let mut cacheable = true;
         if disable_redirects {
             client_builder = client_builder.redirect(Policy::none());
@@ -892,18 +906,6 @@ impl ReqwestTransport {
             cacheable = proxy_valid && !configured_ca_missing(request_args, proxy_config);
         }
 
-        if let Some(ca_cert_pem) = &request_args.ca_cert_pem {
-            match reqwest::Certificate::from_pem(ca_cert_pem) {
-                Ok(cert) => {
-                    client_builder = client_builder.add_root_certificate(cert);
-                }
-                Err(e) => {
-                    log_e!(TAG, "Failed to parse network CA cert PEM: {}", e);
-                    cacheable = false;
-                }
-            }
-        }
-
         match client_builder.build() {
             Ok(client) => (client, cacheable),
             Err(e) => {
@@ -913,22 +915,21 @@ impl ReqwestTransport {
                     e
                 );
                 (
-                    Self::build_default_client(request_args, disable_redirects),
+                    Self::build_default_client(disable_redirects, auto_decode_gzip),
                     false,
                 )
             }
         }
     }
 
-    fn build_default_client(args: &RequestArgs, disable_redirects: bool) -> reqwest::Client {
+    fn build_default_client(disable_redirects: bool, auto_decode_gzip: bool) -> reqwest::Client {
+        let mut builder = crate::networking::new_reqwest_client_builder().gzip(auto_decode_gzip);
         if disable_redirects {
-            return client_builder(args)
-                .redirect(Policy::none())
-                .build()
-                .expect("default reqwest client with redirects disabled should build");
+            builder = builder.redirect(Policy::none());
         }
-
-        reqwest::Client::new()
+        builder
+            .build()
+            .expect("default HTTP client must initialize")
     }
 
     fn configure_proxy(
@@ -1372,3 +1373,7 @@ mod tests {
         assert!(!provider.should_use_shared_client(&request_args));
     }
 }
+
+#[cfg(test)]
+#[path = "../__tests__/reqwest_ca_fallback_tests.rs"]
+mod ca_fallback_tests;

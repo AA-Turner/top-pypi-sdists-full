@@ -27,43 +27,43 @@ class AssociateEipAddressRequest(DaraModel):
         self.allocation_id = allocation_id
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can use the client to generate the value, but you must make sure that the value is unique among different requests. The client token can contain only ASCII characters.
+        # You can use the client to generate the value, but you must make sure that it is unique among different requests. The client token can contain only ASCII characters.
         # 
         # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
-        # The ID of the instance with which you want to associate the EIP.
+        # The ID of the instance to which you want to attach the EIP.
         # 
-        # You can enter the ID of a NAT gateway, a Classic Load Balancer (CLB) instance, an ECS instance (cloud server), a secondary elastic network interface controller (NIC), a high-availability virtual IP address, or an IP address.
+        # You can enter the instance ID of a NAT gateway, a Classic Load Balancing (CLB) instance, an ECS server instance, a secondary elastic network interface controller (NIC), a high-availability (active) virtual IP address, or an IP address.
         # 
         # This parameter is required.
         self.instance_id = instance_id
-        # The region ID of the instance with which you want to associate the EIP.
+        # The region ID of the instance to which you want to attach the EIP.
         # 
-        # > This parameter is required only after the EIP is added to a Global Accelerator (GA) instance that uses shared bandwidth.
+        # > This parameter is required only when the EIP is added to an Alibaba Cloud Global Accelerator (GA) instance with shared bandwidth.
         self.instance_region_id = instance_region_id
-        # The type of the instance with which you want to associate the EIP. Valid values:
+        # The type of the instance to which you want to attach the EIP. Valid values:
         # 
         # - **Nat**: NAT gateway.
         # 
-        # - **SlbInstance**: Classic Load Balancer (CLB).
+        # - **SlbInstance**: Classic Load Balancing (CLB).
         # 
-        # - **EcsInstance** (default): ECS instance (cloud server).
+        # - **EcsInstance** (default): Elastic Compute Service server.
         # 
         # - **NetworkInterface**: secondary elastic network interface controller (NIC).
         # 
-        # - **HaVip**: high-availability virtual IP address. 
+        # - **HaVip**: high-availability (active) virtual IP address. 
         # 
         # - **IpAddress**: IP address.
         # 
-        # > By default, the instance type is **EcsInstance**. If the instance type with which you want to associate the EIP is not **EcsInstance**, this parameter is required.
+        # > By default, the instance type is **EcsInstance**. If you want to attach the EIP to an instance of a different type, this parameter is required.
         self.instance_type = instance_type
         # The association mode. Valid values:
         # 
         # - **NAT** (default): NAT mode.
         # 
-        # - **MULTI_BINDED**: multi-EIP to ENI mode.
+        # - **MULTI_BINDED**: multi-EIP passthrough mode.
         # 
-        # - **BINDED**: EIP to ENI mode.
+        # - **BINDED**: EIP passthrough mode.
         # 
         # 
         # > This parameter is required only when **InstanceType** is set to **NetworkInterface**.
@@ -72,8 +72,8 @@ class AssociateEipAddressRequest(DaraModel):
         self.owner_id = owner_id
         # An IP address within the vSwitch CIDR block.
         # 
-        # If you do not specify this parameter, the system automatically allocates a private IP based on the VPC ID and vSwitch ID.
-        # > This parameter is required when **InstanceType** is set to **NetworkInterface**. You must enter the private IP that you want to associate.
+        # If you do not specify this parameter, the system automatically allocates a private IP address based on the VPC ID and vSwitch ID.
+        # > This parameter is required when **InstanceType** is set to **NetworkInterface**. You must specify the private IP address to be attached.
         self.private_ip_address = private_ip_address
         # The region ID of the EIP that you want to associate with the cloud service instance.
         # 
@@ -83,9 +83,9 @@ class AssociateEipAddressRequest(DaraModel):
         self.resource_owner_id = resource_owner_id
         # The ID of the VPC that has the IPv4 gateway feature enabled and is in the same region as the EIP.
         # 
-        # When you associate the EIP with an IP address, the system can enable Internet access for the associated IP address based on the routing configurations of the VPC.
+        # When you attach the EIP to an IP address, the system can enable public network access for the attached IP address based on the routing configurations of the VPC.
         # 
-        # > This parameter is required when **InstanceType** is set to **IpAddress**, which means the instance type with which you want to associate the EIP is an IP address.
+        # > This parameter is required when **InstanceType** is set to **IpAddress**, which means you want to attach the EIP to an IP address.
         self.vpc_id = vpc_id
 
     def validate(self):

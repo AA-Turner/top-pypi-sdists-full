@@ -9,7 +9,7 @@
 #       - All functions are prefixed with f_ so it's obvious where they come
 #         from when in use throughout the script
 
-DOWNSTREAM_VERSION="5.0.0"
+DOWNSTREAM_VERSION="6.0.0"
 KEEP_DOWNSTREAM_TMPDIR="${KEEP_DOWNSTREAM_TMPDIR:-''}"
 INSTALL_DOWNSTREAM_COLLECTION_PATH="${INSTALL_DOWNSTREAM_COLLECTION_PATH:-}"
 _build_dir=""
@@ -41,7 +41,7 @@ f_text_sub()
     sed -i.bak "s/Ansible Galaxy/Automation Hub/" "${_build_dir}/README.md"
     sed -i.bak "s/community-okd/redhat-openshift/" "${_build_dir}/Makefile"
     sed -i.bak "s/community\/okd/redhat\/openshift/" "${_build_dir}/Makefile"
-    sed -i.bak "s/^VERSION\:/VERSION: ${DOWNSTREAM_VERSION}/" "${_build_dir}/Makefile"
+    sed -i.bak "s/^VERSION = .*$/VERSION = ${DOWNSTREAM_VERSION}/" "${_build_dir}/Makefile"
     sed -i.bak "s/name\:.*$/name: openshift/" "${_build_dir}/galaxy.yml"
     sed -i.bak "s/namespace\:.*$/namespace: redhat/" "${_build_dir}/galaxy.yml"
     sed -i.bak "s/Kubernetes/OpenShift/g" "${_build_dir}/galaxy.yml"
@@ -64,6 +64,7 @@ f_prep()
     # Files to copy downstream (relative repo root dir path)
     _file_manifest=(
         .gitignore
+        .ansible-lint
         CHANGELOG.rst
         galaxy.yml
         LICENSE
@@ -77,7 +78,6 @@ f_prep()
 
     # Directories to recursively copy downstream (relative repo root dir path)
     _dir_manifest=(
-        .config
         changelogs
         ci
         meta

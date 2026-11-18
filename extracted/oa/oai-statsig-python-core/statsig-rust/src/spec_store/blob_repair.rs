@@ -1,7 +1,8 @@
-//! A verified full response can repair individual slots. A validated warm delta
-//! instead keeps the complete old entity and repairs against the advancing producer cursor.
 use super::*;
 use crate::evaluation::evaluation_data::{InternedStrRef, SpecView};
+use crate::specs_adapter::remote_config_value_hydrator::{
+    VerifiedRemoteValues, limit_pending_proofs,
+};
 use crate::specs_response::spec_types::Condition;
 
 /// Only the retained config's own rules may resolve these removed condition IDs.
@@ -53,6 +54,16 @@ impl BlobRepair {
         }
     }
 
+    pub(super) fn retained_conditions(&self) -> Option<&RetainedConditions> {
+        match self {
+            Self::Full(repair) => repair
+                .overlay
+                .as_ref()
+                .map(|s| &s.serving.retained_conditions),
+            Self::Delta(repair) => Some(&repair.overlay.serving.retained_conditions),
+        }
+    }
+
     pub(super) fn log_new_failures(
         &self,
         hydrator: &RemoteConfigValueHydrator,
@@ -73,17 +84,27 @@ pub(super) struct PartialBlobSnapshot {
 #[derive(Default)]
 struct ProducerOverlay {
     producer_configs: HashMap<InternedString, SpecPointer>,
+    // Newly added configs can serve healthy slots on a later full refresh.
+    withheld_existing: HashSet<InternedString>,
+    serving: ServingOverlay,
+}
+
+#[derive(Default)]
+struct ServingOverlay {
     unavailable: UnavailableValues,
     retained_conditions: RetainedConditions,
+}
+
+#[derive(Default)]
+pub(crate) struct FullBlobOverlay {
+    serving: ServingOverlay,
+    // Verified incoming blobs are reusable while readers still see the old entity.
+    pub(super) pending_proofs: VerifiedRemoteConfigValues,
 }
 
 impl PartialBlobSnapshot {
     pub(super) fn producer_configs(&self) -> &HashMap<InternedString, SpecPointer> {
         &self.overlay.producer_configs
-    }
-
-    pub(super) fn retained_conditions(&self) -> &RetainedConditions {
-        &self.overlay.retained_conditions
     }
 }
 
@@ -102,15 +123,34 @@ impl SpecStoreData {
         }
     }
 
+    pub(super) fn had_complete_config(&self, name: &InternedString) -> bool {
+        match self
+            .unavailable_values()
+            .and_then(|missing| missing.get(name))
+        {
+            None => self.snapshot.dynamic_configs.get(name).is_some(),
+            Some(slots) => {
+                slots.is_empty()
+                    && self
+                        .partial_blobs()
+                        .is_none_or(|delta| delta.overlay.withheld_existing.contains(name))
+            }
+        }
+    }
+
     pub(crate) fn retained_conditions(&self) -> Option<&RetainedConditions> {
-        self.partial_blobs()
-            .map(|repair| repair.retained_conditions())
+        self.blob_repair.as_ref()?.retained_conditions()
     }
 
     pub(crate) fn unavailable_values(&self) -> Option<&UnavailableValues> {
         match self.blob_repair.as_ref()? {
-            BlobRepair::Full(repair) => Some(&repair.unavailable),
-            BlobRepair::Delta(repair) => Some(&repair.overlay.unavailable),
+            BlobRepair::Full(repair) => Some(
+                repair
+                    .overlay
+                    .as_ref()
+                    .map_or(&repair.unavailable, |s| &s.serving.unavailable),
+            ),
+            BlobRepair::Delta(repair) => Some(&repair.overlay.serving.unavailable),
         }
     }
 }
@@ -141,7 +181,7 @@ fn conflicts_with_pending_mapping(
             // An already withheld root can stay withheld while its destinations stay private.
             return !installed
                 .partial_blobs()
-                .is_some_and(|p| p.overlay.unavailable.contains_key(name))
+                .is_some_and(|p| p.overlay.serving.unavailable.contains_key(name))
                 || prev
                     .iter()
                     .map(|m| &m.new_config_name)
@@ -246,7 +286,98 @@ pub(super) fn restore_pending_configs(
             "Incomplete delta would change routing for a mapped config".into(),
         ));
     }
-    let mut layer_delegates = HashSet::new();
+    let mut overlay = ProducerOverlay::default();
+    restore_complete_entities(
+        installed,
+        candidate,
+        proofs,
+        incomplete.pending.keys(),
+        &mut overlay.serving,
+        HashSet::new(),
+        |name, pending, _| {
+            overlay.producer_configs.insert(name.clone(), pending);
+        },
+    )?;
+    overlay.withheld_existing = overlay
+        .serving
+        .unavailable
+        .keys()
+        .filter(|name| installed.had_complete_config(name))
+        .cloned()
+        .collect();
+    Ok(PartialBlobSnapshot {
+        incomplete,
+        overlay: Arc::new(overlay),
+    })
+}
+
+pub(super) fn restore_full_configs(
+    installed: &SpecStoreData,
+    candidate: &mut SpecsResponseFull,
+    proofs: &mut VerifiedRemoteConfigValues,
+    hydration: &mut PartialHydration,
+) -> Result<(), StatsigErr> {
+    let mut names = hydration
+        .unavailable
+        .keys()
+        .filter(|name| installed.had_complete_config(name))
+        .peekable();
+    if names.peek().is_none() {
+        return Ok(());
+    }
+    let mut mapped = HashSet::new();
+    for overrides in installed
+        .snapshot
+        .overrides
+        .iter()
+        .chain(&candidate.overrides)
+    {
+        for entry in overrides.values().flatten() {
+            if hydration.unavailable.contains_key(&entry.new_config_name) {
+                mapped.insert(entry.new_config_name.clone());
+            }
+        }
+    }
+    let mut verified_bytes = 0;
+    let mut overlay = FullBlobOverlay::default();
+    let restored_names = restore_complete_entities(
+        installed,
+        candidate,
+        proofs,
+        names,
+        &mut overlay.serving,
+        mapped,
+        |name, _, values| {
+            if let Some(mut values) = values {
+                limit_pending_proofs(Arc::make_mut(&mut values), &mut verified_bytes);
+                if !values.is_empty() {
+                    overlay.pending_proofs.insert(name.clone(), values);
+                }
+            }
+        },
+    )?;
+    for (name, slots) in &hydration.unavailable {
+        if !restored_names.contains(name.as_str()) {
+            overlay
+                .serving
+                .unavailable
+                .insert(name.clone(), slots.clone());
+        }
+    }
+    hydration.overlay = Some(Box::new(overlay));
+    Ok(())
+}
+
+fn restore_complete_entities<'a>(
+    installed: &SpecStoreData,
+    candidate: &mut SpecsResponseFull,
+    proofs: &mut VerifiedRemoteConfigValues,
+    names: impl Iterator<Item = &'a InternedString> + Clone,
+    overlay: &mut ServingOverlay,
+    mut indirect: HashSet<InternedString>,
+    mut save_pending: impl FnMut(&InternedString, SpecPointer, Option<Arc<VerifiedRemoteValues>>),
+) -> Result<HashSet<&'a str>, StatsigErr> {
+    let pending_names: HashSet<_> = names.clone().map(|n| n.as_str()).collect();
     for (_, layer) in installed
         .snapshot
         .layer_configs
@@ -258,33 +389,35 @@ pub(super) fn restore_pending_configs(
             if let Some(delegate) = layer
                 .rule(index)
                 .config_delegate()
-                .filter(|delegate| delegate.get_from(&incomplete.pending).is_some())
+                .filter(|delegate| pending_names.contains(delegate.as_str()))
             {
-                layer_delegates.insert(delegate.to_interned());
+                indirect.insert(delegate.to_interned());
             }
         }
     }
     let target_apps = |spec: SpecView<'_>| spec.target_app_ids().map(HashSet::<_>::from_iter);
-    let mut overlay = ProducerOverlay::default();
-    let same_app_routing = installed.snapshot.app_id == candidate.app_id
+    let same_app_routing = installed.snapshot.company_id == candidate.company_id
+        && installed.snapshot.default_environment == candidate.default_environment
+        && installed.snapshot.app_id == candidate.app_id
         && installed.snapshot.sdk_keys_to_app_ids == candidate.sdk_keys_to_app_ids
         && installed.snapshot.hashed_sdk_keys_to_app_ids == candidate.hashed_sdk_keys_to_app_ids;
-    for name in incomplete.pending.keys() {
+    for name in names {
         let pending = candidate.dynamic_configs.remove(name).ok_or_else(|| {
-            StatsigErr::InvalidOperation("Pending blob config missing from parsed delta".into())
+            StatsigErr::InvalidOperation("Pending blob config missing from parsed update".into())
         })?;
-        proofs.remove(name);
         let old = installed.snapshot.dynamic_configs.get(name).filter(|old| {
             same_app_routing
-                && !layer_delegates.contains(name)
+                && !indirect.contains(name)
                 && old.view().entity().as_str() == pending.view().entity().as_str()
                 && target_apps(old.view()) == target_apps(pending.view())
-                && !candidate
+                && !installed
+                    .snapshot
                     .overrides
-                    .as_ref()
-                    .is_some_and(|m| m.contains_key(name.as_str()))
+                    .iter()
+                    .chain(&candidate.overrides)
+                    .any(|m| m.contains_key(name.as_str()))
         });
-        overlay.producer_configs.insert(name.clone(), pending);
+        save_pending(name, pending, proofs.remove(name));
         let retained = old.and_then(|old| {
             retain_rule_conditions(old.view(), installed, name, candidate)
                 .map(|conditions| (old, conditions))
@@ -301,10 +434,7 @@ pub(super) fn restore_pending_configs(
             overlay.unavailable.insert(name.clone(), HashSet::new());
         }
     }
-    Ok(PartialBlobSnapshot {
-        incomplete,
-        overlay: Arc::new(overlay),
-    })
+    Ok(pending_names)
 }
 
 impl SpecStore {

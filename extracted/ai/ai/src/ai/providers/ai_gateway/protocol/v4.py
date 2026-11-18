@@ -528,29 +528,45 @@ async def stream(
 
 
 # ---------------------------------------------------------------------------
-# Evaluation
+# Decisions
 # ---------------------------------------------------------------------------
 
 
-async def evaluate(
+async def decide(
     gateway: gateway_client.GatewayClient,
     model: models.Model,
-    state: ops.experimental.EvaluationInput,
+    state: ops.experimental.DecisionInput,
     questions: Mapping[
         str,
         ops.experimental.ChoiceQuestion
         | ops.experimental.ScoreQuestion
-        | ops.experimental.NoulQuestion,
+        | ops.experimental.PredicateQuestion,
     ],
     *,
-    params: ops.experimental.EvaluationParams,
+    params: ops.experimental.DecideParams,
 ) -> ops.items.Item[dict[str, Any]]:
-    """Hit ``/evaluation-model`` and return raw evaluation answers."""
+    """Hit ``/evaluation-model`` and return raw decision answers."""
+
+    # The v4 spec does not define files in decision requests yet.
+    def has_file(value: Any) -> bool:
+        if isinstance(value, types.messages.FilePart):
+            return True
+        if isinstance(value, dict):
+            return any(has_file(item) for item in value.values())
+        if isinstance(value, list):
+            return any(has_file(item) for item in value)
+        return False
+
+    if has_file(state) or any(
+        has_file(dict(question)) for question in questions.values()
+    ):
+        raise ValueError("AI Gateway decisions do not support files")
+
     wire_questions: dict[str, dict[str, Any]] = {}
     for question_id, question in questions.items():
         wire_question = question.model_dump(mode="json", by_alias=True)
-        if isinstance(question, ops.experimental.NoulQuestion):
-            # AI Gateway v4 calls the Noul primitive "Boolean".
+        if isinstance(question, ops.experimental.PredicateQuestion):
+            # AI Gateway v4 calls the predicate primitive "Boolean".
             wire_question["type"] = "boolean"
             if question.criteria is None:
                 wire_question.pop("criteria")
@@ -587,9 +603,7 @@ async def evaluate(
         if not isinstance(answer, dict):
             continue
         if answer.get("type") == "boolean":
-            answer["type"] = "noul"
-            if "probability" in answer:
-                answer["noul"] = answer.pop("probability")
+            answer["type"] = "predicate"
         if (
             answer.get("type") in ("choice", "score")
             and question_id in confidence
@@ -807,23 +821,23 @@ class GatewayV4Protocol(base.ProviderProtocol[gateway_client.GatewayClient]):
             params=params,
         )
 
-    async def evaluate(
+    async def decide(
         self,
         client: gateway_client.GatewayClient,
         model: models.Model,
-        state: ops.experimental.EvaluationInput,
+        state: ops.experimental.DecisionInput,
         questions: Mapping[
             str,
             ops.experimental.ChoiceQuestion
             | ops.experimental.ScoreQuestion
-            | ops.experimental.NoulQuestion,
+            | ops.experimental.PredicateQuestion,
         ],
         *,
-        params: ops.experimental.EvaluationParams,
+        params: ops.experimental.DecideParams,
         provider: str,
     ) -> ops.items.Item[dict[str, Any]]:
         _ = provider
-        return await evaluate(
+        return await decide(
             client,
             model,
             state,

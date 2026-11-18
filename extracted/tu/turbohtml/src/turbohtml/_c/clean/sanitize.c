@@ -544,27 +544,43 @@ static int refresh_url(const Py_UCS4 *value, Py_ssize_t len, Py_ssize_t *start, 
     return *start < *end;
 }
 
-static int is_refresh_meta(sanitizer *s, th_node *element) {
+static int attribute_name_kept(sanitizer *s, PyObject *tag, const th_node_attr *attr, const char *name,
+                               Py_ssize_t name_len, int custom);
+
+/* Whether the element is a refresh meta: its first http-equiv that the name rules keep is the one the reparse reads, so
+   a case variant they drop does not decide. Returns 1, 0, or -1 on error. */
+static int is_refresh_meta(sanitizer *s, th_node *element, PyObject *tag, int custom) {
     if (reparsed_atom(element) != TH_TAG_META) {
         return 0;
     }
-    Py_ssize_t index = find_attr(s, element, "http-equiv");
-    if (index < 0) {
-        return 0;
-    }
-    /* refresh in either the HTML or the XML form of the value (has_xml_invalid) */
-    const th_node_attr *equiv = &element->attrs[index];
-    Py_ssize_t matched = 0;
-    for (Py_ssize_t pos = 0; pos < equiv->value_len; pos++) {
-        if (xml_char_invalid(equiv->value[pos])) {
+    for (Py_ssize_t index = 0; index < element->attr_count; index++) {
+        const th_node_attr *equiv = &element->attrs[index];
+        Py_ssize_t name_len = 0;
+        const char *name = th_attr_name(s->tree, equiv->name_atom, &name_len);
+        if (!attr_name_is(name, name_len, "http-equiv")) {
             continue;
         }
-        if (matched == 7 || lower_ascii(equiv->value[pos]) != (Py_UCS4) "refresh"[matched]) {
-            return 0;
+        int kept = attribute_name_kept(s, tag, equiv, name, name_len, custom);
+        if (kept < 0) {
+            return -1;
         }
-        matched++;
+        if (!kept) {
+            continue;
+        }
+        /* refresh in either the HTML or the XML form of the value (has_xml_invalid) */
+        Py_ssize_t matched = 0;
+        for (Py_ssize_t pos = 0; pos < equiv->value_len; pos++) {
+            if (xml_char_invalid(equiv->value[pos])) {
+                continue;
+            }
+            if (matched == 7 || lower_ascii(equiv->value[pos]) != (Py_UCS4) "refresh"[matched]) {
+                return 0;
+            }
+            matched++;
+        }
+        return matched == 7;
     }
-    return matched == 7;
+    return 0;
 }
 
 static int attribute_prefix_matches(PyObject *prefix, const char *name, Py_ssize_t len) {
@@ -626,9 +642,9 @@ static int attr_allowed(sanitizer *s, PyObject *tag, uint32_t atom, const char *
         }
     }
     /* Non-ASCII names still need UTF-8 validation even without an exact-name rule. */
-    PyObject *attr = PyUnicode_FromStringAndSize(name, len);
-    if (attr == NULL) {
-        return -1;
+    PyObject *attr = PyUnicode_DecodeUTF8(name, len, "surrogatepass");
+    if (attr == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+        return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
     int allowed = 0;
     for (int which = 0; which < 2 && !allowed; which++) {
@@ -655,7 +671,7 @@ static int value_allowed(sanitizer *s, PyObject *tag, const char *name, Py_ssize
         }
         return 1; /* no value allowlist for this tag */
     }
-    PyObject *attr = PyUnicode_FromStringAndSize(name, name_len);
+    PyObject *attr = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
     if (attr == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         return -1;      /* GCOVR_EXCL_LINE: allocation-failure path */
     }
@@ -807,7 +823,7 @@ static char *html_name_lower(const char *name, Py_ssize_t len) {
    value, 0 when it left no late-written value, or -1 on error. */
 static int run_attribute_filter(sanitizer *s, th_node *element, PyObject *tag, const char *name, Py_ssize_t name_len,
                                 const Py_UCS4 *value, Py_ssize_t value_len) {
-    PyObject *attr = PyUnicode_FromStringAndSize(name, name_len);
+    PyObject *attr = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
     PyObject *text = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, value, value_len);
     if (attr == NULL || text == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         Py_XDECREF(attr);               /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1741,9 +1757,10 @@ static int scrub_stylesheet(sanitizer *s, const Py_UCS4 *value, Py_ssize_t len, 
         }
     }
     if (brace_depth > 0) { /* an unclosed block: flush its trailing declaration and balance the missing braces */
-        /* a token left open at the end would swallow the `;` and `}` appended after it, so dropping that declaration
-           keeps the output a fixpoint */
-        int flushed = flags ? 0 : css_emit_block_declaration(s, value, seg_start, len, colon, out, &out_len);
+        /* a token or parenthesis left open at the end would swallow the `;` and `}` appended after it, so dropping
+           that declaration keeps the output a fixpoint */
+        int flushed =
+            flags || depth > 0 ? 0 : css_emit_block_declaration(s, value, seg_start, len, colon, out, &out_len);
         if (flushed < 0) { /* GCOVR_EXCL_BR_LINE: css_emit_block_declaration only fails on allocation failure */
             return -1;     /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -2143,10 +2160,13 @@ static int is_event_attribute(const char *name, Py_ssize_t name_len) {
 }
 
 /* Whether the value of attribute `name` is a URL or holds them: an href-like attribute, a srcset, or the content of a
-   refresh meta. */
-static int url_bearing(sanitizer *s, th_node *element, const char *name, Py_ssize_t name_len) {
-    return is_url_attr(name, name_len) || is_srcset_attr(name, name_len) ||
-           (attr_name_is(name, name_len, "content") && is_refresh_meta(s, element));
+   refresh meta. Returns 1, 0, or -1 on error. */
+static int url_bearing(sanitizer *s, th_node *element, PyObject *tag, int custom, const char *name,
+                       Py_ssize_t name_len) {
+    if (is_url_attr(name, name_len) || is_srcset_attr(name, name_len)) {
+        return 1;
+    }
+    return attr_name_is(name, name_len, "content") ? is_refresh_meta(s, element, tag, custom) : 0;
 }
 
 /* The URL checks of one form of a URL-bearing value: an href-like attribute's scheme, through bleach's check when
@@ -2199,7 +2219,7 @@ enum attribute_safety_result {
 
 /* Apply the safety rules that no policy callback can bypass. `isolate` is false before attribute_filter, which must see
    the original id/name, and true after a late write. */
-static enum attribute_safety_result apply_attribute_safety_at(sanitizer *s, th_node *element, PyObject *tag,
+static enum attribute_safety_result apply_attribute_safety_at(sanitizer *s, th_node *element, PyObject *tag, int custom,
                                                               Py_ssize_t index, int isolate) {
     th_node_attr *attr = &element->attrs[index];
     Py_ssize_t name_len = 0;
@@ -2217,7 +2237,11 @@ static enum attribute_safety_result apply_attribute_safety_at(sanitizer *s, th_n
         drop = !keep;
     }
     int url_disallowed = 0;
-    if (!drop && url_bearing(s, element, name, name_len)) {
+    int bearing = drop ? 0 : url_bearing(s, element, tag, custom, name, name_len);
+    if (bearing < 0) {
+        return ATTRIBUTE_SAFETY_ERROR;
+    }
+    if (bearing) {
         int bleach = s->bleach_url_policy && !isolate; /* GCOVR_EXCL_BR_LINE: migration does not rewrite attributes */
         int keep = url_value_allowed(s, element, attr, name, name_len, bleach);
         if (keep < 0) {                    /* GCOVR_EXCL_BR_LINE: url_value_allowed only fails on allocation failure */
@@ -2257,10 +2281,10 @@ static enum attribute_safety_result apply_attribute_safety_at(sanitizer *s, th_n
 }
 
 /* Re-check the values that will reach the serializer after callbacks and forced attributes have written them. */
-static int apply_late_attribute_safety(sanitizer *s, th_node *element, PyObject *tag) {
+static int apply_late_attribute_safety(sanitizer *s, th_node *element, PyObject *tag, int custom) {
     Py_ssize_t index = 0;
     while (index < element->attr_count) {
-        enum attribute_safety_result result = apply_attribute_safety_at(s, element, tag, index, 1);
+        enum attribute_safety_result result = apply_attribute_safety_at(s, element, tag, custom, index, 1);
         if (result == ATTRIBUTE_SAFETY_ERROR) { /* GCOVR_EXCL_BR_LINE: only allocation failures reach this path */
             return -1;                          /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -2284,7 +2308,7 @@ static TH_WALK_INLINE int attribute_name_kept(sanitizer *s, PyObject *tag, const
     }
     int keep = attr_allowed(s, tag, attr->name_atom, name, name_len);
     if (keep == 0 && custom && s->custom_attribute_check != Py_None) {
-        PyObject *attribute = PyUnicode_FromStringAndSize(name, name_len);
+        PyObject *attribute = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
         if (attribute == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
             return -1;           /* GCOVR_EXCL_LINE: allocation-failure path */
         }
@@ -2387,12 +2411,16 @@ static TH_WALK_INLINE int vet_attributes(sanitizer *s, th_node *element, PyObjec
                     return -1;                                    /* GCOVR_EXCL_LINE: allocation-failure path */
                 }
                 th_node_attr_del(s->tree, element, name, name_len);
+                late_written |= reparsed_atom(element) == TH_TAG_META;
                 continue; /* the next attribute shifted into this slot */
             }
         }
-        enum attribute_safety_result safety = apply_attribute_safety_at(s, element, tag, index, 0);
+        enum attribute_safety_result safety = apply_attribute_safety_at(s, element, tag, custom, index, 0);
         if (safety == ATTRIBUTE_SAFETY_ERROR) { /* GCOVR_EXCL_BR_LINE: only allocation failures reach this path */
             return -1;                          /* GCOVR_EXCL_LINE: allocation-failure path */
+        }
+        if (safety != ATTRIBUTE_SAFETY_KEPT) {
+            late_written |= reparsed_atom(element) == TH_TAG_META;
         }
         if (safety == ATTRIBUTE_SAFETY_RESCAN) {
             index = 0;
@@ -2411,6 +2439,7 @@ static TH_WALK_INLINE int vet_attributes(sanitizer *s, th_node *element, PyObjec
             }
             late_written |= filtered;
             if (element->attr_count < before) {
+                late_written |= reparsed_atom(element) == TH_TAG_META;
                 continue; /* the filter deleted it */
             }
         }
@@ -2448,7 +2477,7 @@ static TH_WALK_INLINE int vet_attributes(sanitizer *s, th_node *element, PyObjec
     if (!late_written) {
         return 0;
     }
-    return apply_late_attribute_safety(s, element, tag);
+    return apply_late_attribute_safety(s, element, tag, custom);
 }
 
 static TH_WALK_OUTLINE int sanitize_large_attributes(sanitizer *s, th_node *element, PyObject *tag, int custom) {
@@ -2876,7 +2905,7 @@ static int apply_attribute_predicate(sanitizer *s, th_node *element, PyObject *t
         th_node_attr *attr = &element->attrs[index];
         Py_ssize_t name_len;
         const char *name = th_attr_name(s->tree, attr->name_atom, &name_len);
-        PyObject *key = PyUnicode_FromStringAndSize(name, name_len);
+        PyObject *key = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
         PyObject *value = s->bleach_raw_values && key != NULL /* GCOVR_EXCL_BR_LINE: allocation failure */
                               ? bleach_raw_value(s, element, attr, PyUnicode_GET_LENGTH(key))
                               : PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, attr->value, attr->value_len);
@@ -2937,10 +2966,10 @@ static PyObject *open_tag(sanitizer *s, th_node *element) {
         th_node_attr *attr = &element->attrs[index];
         Py_ssize_t name_len = 0;
         const char *name = th_attr_name(s->tree, attr->name_atom, &name_len);
-        PyObject *name_str = PyUnicode_FromStringAndSize(name, name_len);
-        if (name_str == NULL) {
-            Py_DECREF(pieces);
-            return NULL;
+        PyObject *name_str = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
+        if (name_str == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
+            Py_DECREF(pieces);  /* GCOVR_EXCL_LINE: allocation-failure path */
+            return NULL;        /* GCOVR_EXCL_LINE: allocation-failure path */
         }
         PyObject *piece;
         if (attr->value == NULL) {
@@ -3115,7 +3144,18 @@ static inline int namespace_reachable_under(sanitizer *s, const th_node *element
     uint8_t parent_ns = parent->ns;
     uint8_t ns = element->ns;
     if (ns == parent_ns) {
-        return 1; /* within one namespace every element stays reachable (HTML<-HTML, SVG<-SVG, MathML<-MathML) */
+        if (parent_ns == TH_NS_HTML || s->xml) {
+            return 1; /* within one namespace every element stays reachable (HTML<-HTML, SVG<-SVG, MathML<-MathML) */
+        }
+        if (parent_ns == TH_NS_SVG) { /* below foreignObject, desc or title only an <svg> stays foreign */
+            return !cached_integration_point(s, parent) || element->atom == TH_TAG_SVG;
+        }
+        if (is_mathml_text_point(parent)) {
+            return element->atom == TH_TAG_MATH || element->atom == TH_TAG_MGLYPH || element->atom == TH_TAG_MALIGNMARK;
+        }
+        /* below an annotation-xml integration point the parser keeps only <math> foreign, so a MathML child there is
+           a mutation; elsewhere under MathML every element stays reachable */
+        return !cached_integration_point(s, parent) || element->atom == TH_TAG_MATH;
     }
     if (ns == TH_NS_SVG) {
         /* from HTML only <svg> enters SVG; from MathML only an <svg> under annotation-xml or a text point */

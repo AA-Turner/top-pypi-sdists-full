@@ -44,6 +44,17 @@ class Task:
             loop_over="items",
             loop_var="item"
         )
+
+    Grouped settings (each replaces several flat parameters, which keep working):
+        output=TaskOutputConfig(file=, json_model=, pydantic_model=, variable=)
+        execution=TaskExecutionConfig(async_exec=, quality_check=, rerun=, max_retries=, on_error=)
+        routing=TaskRoutingConfig(next_steps=, branches=)
+        context=TaskContextConfig(from_steps=, retain_full=)
+    (from ``praisonaiagents.workflows.workflow_configs``).
+
+    Runtime state: ``status``, ``result``, ``id``, ``retry_count`` and
+    ``loop_state`` are set by the framework while the task runs. They are
+    accepted for backward compatibility; leave them at their defaults.
     """
     def __init__(
         self,
@@ -164,6 +175,13 @@ class Task:
         self.expected_output = expected_output if expected_output is not None else "Complete the task successfully"
         self.agent = agent
         self.tools = tools if tools else []
+        # A TaskContextConfig (markdown workflows build one) carries settings, not
+        # tasks: unpack it so the engine sees context_from / retain_full_context
+        # and .context stays a list of tasks (F-20).
+        if hasattr(context, "from_steps") and hasattr(context, "retain_full"):
+            self.context_from = list(context.from_steps) if context.from_steps else None
+            retain_full_context = bool(context.retain_full)
+            context = None
         # Handle depends_on as alias for context (depends_on takes precedence)
         if depends_on is not None:
             self.context = depends_on

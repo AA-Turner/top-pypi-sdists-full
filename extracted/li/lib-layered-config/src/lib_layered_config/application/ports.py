@@ -1,30 +1,26 @@
-"""Runtime-checkable protocols defining adapter contracts.
+"""Runtime-checkable protocols stating the adapter contracts.
 
-Ensure the composition root depends on abstractions instead of concrete
-implementations, mirroring the Clean Architecture layering in the system design.
+Each protocol states what one kind of adapter provides. The read and deploy functions build the
+concrete adapters directly (``DefaultPathResolver``, ``DefaultDotEnvLoader``, ``DefaultEnvLoader``
+and the TOML, JSON and YAML file loaders) and are typed with them, not with these protocols; the
+contract tests (``tests/adapters/test_port_contracts.py``) check with ``isinstance`` that each
+adapter satisfies its protocol.
 
 Contents:
     - ``OutputFormat``: enum for CLI/adapter output format selection.
-    - ``SourceInfoPayload``: type alias for domain ``SourceInfo`` TypedDict.
+    - ``SourceInfoPayload``: another name for domain ``SourceInfo``, kept for importers.
     - Type aliases (``ConfigData``, ``ProvenanceData``) for consistent signatures.
     - Protocols for each adapter type (path resolver, file loader, dotenv loader,
-      environment loader) plus the merge interface consumed by tests and tooling.
-
-System Role:
-    Adapters must implement these protocols; tests (`tests/adapters/test_port_contracts.py`)
-    use ``isinstance`` checks to enforce compliance at runtime.
+      environment loader), each checked by the contract tests.
 """
 
 from __future__ import annotations
 
 from collections.abc import Iterable, Mapping
 from enum import Enum
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from typing import Protocol, runtime_checkable
 
 from ..domain.config import SourceInfo
-
-if TYPE_CHECKING:
-    from .merge import LayerSnapshot, MergeResult
 
 
 class OutputFormat(str, Enum):
@@ -38,19 +34,17 @@ class OutputFormat(str, Enum):
     JSON = "json"
 
 
-# Re-export domain SourceInfo as SourceInfoPayload for adapter contracts
 SourceInfoPayload = SourceInfo
-"""Alias for :class:`~lib_layered_config.domain.config.SourceInfo`.
+"""Another name for :class:`~lib_layered_config.domain.config.SourceInfo`, kept for code that imports it.
 
-Provides a stable name for the provenance payload used across adapter and
-application boundaries without duplicating the TypedDict definition.
+The library itself names ``SourceInfo``; this alias is removed in 9.0.0.
 """
 
 # Type aliases for clarity in function signatures
 ConfigData = Mapping[str, object]
 """Type alias for merged configuration data."""
 
-ProvenanceData = Mapping[str, SourceInfoPayload]
+ProvenanceData = Mapping[str, SourceInfo]
 """Type alias for provenance metadata keyed by dotted path."""
 
 
@@ -111,21 +105,11 @@ class EnvLoader(Protocol):
         ...  # pragma: no cover - protocol
 
 
-@runtime_checkable
-class Merger(Protocol):
-    """Combine ordered layers into merged data and provenance structures."""
-
-    def merge(self, layers: Iterable[LayerSnapshot]) -> MergeResult:
-        """Merge *layers*, lowest precedence first, into unified configuration data with provenance."""
-        ...  # pragma: no cover - protocol
-
-
 __all__ = [
     "ConfigData",
     "DotEnvLoader",
     "EnvLoader",
     "FileLoader",
-    "Merger",
     "OutputFormat",
     "PathResolver",
     "ProvenanceData",

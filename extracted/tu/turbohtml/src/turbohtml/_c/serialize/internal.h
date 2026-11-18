@@ -490,6 +490,50 @@ static inline void sbuf_put_ucs4_tail(sbuf *out, const Py_UCS4 *text, Py_ssize_t
     sbuf_put_ucs4(out, start == 0 ? text : text + start, len - start);
 }
 
+/* Whether a run of code points holds a CR. The OR of the comparisons has no branch in it, so the compiler vectorizes
+ * it. */
+static inline int sbuf_run_has_cr(const Py_UCS4 *text, Py_ssize_t len) {
+    Py_UCS4 hit = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        hit |= text[index] == '\r';
+    }
+    return hit != 0;
+}
+
+/* Raw-text content with each CR or CRLF written as LF: a raw-text element has no character reference for a CR, and a
+   parse folds a raw CR to LF, so the LF is what a reparse reads back. */
+static inline void sbuf_put_rawtext(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
+    if (!sbuf_run_has_cr(text, len)) {
+        sbuf_put_ucs4_tail(out, text, 0, len);
+        return;
+    }
+    Py_ssize_t start = 0;
+    for (Py_ssize_t index = 0; index < len; index++) {
+        if (text[index] != '\r') {
+            continue;
+        }
+        sbuf_put_ucs4(out, text + start, index - start);
+        sbuf_putc(out, '\n');
+        if (index + 1 < len && text[index + 1] == '\n') {
+            index++;
+        }
+        start = index + 1;
+    }
+    sbuf_put_ucs4_tail(out, text, start, len);
+}
+
+/* A raw-text child's text. A parsed text node is a span of the normalized input (the HTML tree builder and the XML
+   parser both fold CR before a span is taken), so it holds no CR and only owned text is scanned. */
+static inline void sbuf_put_rawtext_node(sbuf *out, th_tree *tree, th_node *node) {
+    int parsed = text_is_span(node);
+    Py_UCS4 *text = need_text(tree, node);
+    if (parsed) {
+        sbuf_put_ucs4(out, text, node->text_len);
+    } else {
+        sbuf_put_rawtext(out, text, node->text_len);
+    }
+}
+
 /* The HTML tokenizer also ends a comment at `-->` or `--!>`; parsed data does not hold these, DOM-built data can. */
 static inline void sbuf_put_comment(sbuf *out, const Py_UCS4 *text, Py_ssize_t len) {
     sbuf_put_comment_start(out, text, len);
@@ -718,6 +762,9 @@ static inline void ser_put_label(sbuf *out, const th_serialize_opts *opts) {
     if (opts->charset_missing != NULL) {
         *opts->charset_missing = 1;
         return;
+    }
+    if (opts->charset_written != NULL) {
+        *opts->charset_written = 1;
     }
     sbuf_put_utf8(out, opts->charset, opts->charset_len);
 }
@@ -1593,18 +1640,77 @@ static inline Py_ssize_t ser_clone_start(const sbuf *out, const th_node *node) {
     return node->tag_flags & TH_ELEM_IMPLIED ? out->len : -1;
 }
 
-/* Whether the clone whose attributes began at start fits one more of cost characters: the allowance and the output
-   fund it, less the clone attributes already written, which count once as output and once as spent. A clone stops at
-   the first attribute that does not fit, so no later one lands next to an attribute it was written after. */
-static inline int ser_clone_attr_fits(const sbuf *out, Py_ssize_t start, Py_ssize_t cost) {
+static inline int ser_clone_first(sbuf *out, const th_node *node) {
+    int added = th_clone_seen_add(&out->clone_seen, th_node_values_seq(node));
+    out->failed |= added < 0;
+    return added;
+}
+
+static inline int ser_clone_fits(const sbuf *out, Py_ssize_t start, Py_ssize_t cost) {
     return cost <= TH_CLONE_ALLOWANCE + out->clone_credit + out->len - 2 * (out->len - start);
 }
 
-/* Charge the attributes the clone wrote since start; a no-op for an element the source wrote. */
+static inline int ser_clone_admit(sbuf *out, Py_ssize_t start, const th_node *node, Py_ssize_t cost) {
+    int added = ser_clone_first(out, node);
+    if (added != 0) {
+        return added > 0;
+    }
+    return ser_clone_fits(out, start, cost);
+}
+
+/* Charge the attributes the clone wrote since start, free or not, so each one is spent once as output and once as the
+   allowance; a no-op for an element the source wrote. */
 static inline void ser_clone_settle(sbuf *out, Py_ssize_t start) {
     if (start >= 0) {
         out->clone_credit -= 2 * (out->len - start);
     }
+}
+
+/* The characters the attributes of a clone's start tag cost, the total ser_clone_admit weighs as a whole. */
+static inline Py_ssize_t ser_clone_attrs_cost(th_tree *tree, const th_node *node) {
+    Py_ssize_t cost = 0;
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        Py_ssize_t name_len;
+        th_attr_name(tree, node->attrs[index].name_atom, &name_len);
+        cost += name_len + node->attrs[index].value_len;
+    }
+    return cost;
+}
+
+/* Whether a start tag leaves the attribute named name out: under XML a name XML cannot hold or a namespace binding that
+   would not reparse, and under Markdown a name CommonMark does not read. */
+static inline int ser_open_attr_left_out(const char *name, Py_ssize_t name_len, const th_node_attr *attr,
+                                         const th_serialize_opts *opts, xml_ns_emitted emitted) {
+    return (opts->xml && (!xml_attr_name_writable(name, name_len, emitted) ||
+                          (ser_xml_ns_name(name, name_len) &&
+                           !ser_xml_ns_binding_valid(name, name_len, attr->value, attr->value_len)))) ||
+           (opts->markdown && !commonmark_attr_name_valid(name, name_len));
+}
+
+/* The characters the attributes a clone's start tag writes cost, which ser_clone_admit weighs as a whole. */
+static inline Py_ssize_t ser_open_attrs_cost(th_tree *tree, const th_node *node, const th_serialize_opts *opts,
+                                             xml_ns_emitted emitted) {
+    Py_ssize_t cost = 0;
+    for (Py_ssize_t index = 0; index < node->attr_count; index++) {
+        const th_node_attr *attr = &node->attrs[index];
+        Py_ssize_t name_len;
+        const char *name = th_attr_name(tree, attr->name_atom, &name_len);
+        if (!ser_open_attr_left_out(name, name_len, attr, opts, emitted)) {
+            cost += name_len + attr->value_len;
+        }
+    }
+    return cost;
+}
+
+/* Whether a clone's start tag is left without its attributes: a first copy of a value set keeps them, and a repeat
+   keeps them only when the allowance covers them. Out of line, so ordinary elements never reach it. */
+static TH_NOINLINE int ser_open_clone_refused(sbuf *out, Py_ssize_t start, th_tree *tree, const th_node *node,
+                                              const th_serialize_opts *opts, xml_ns_emitted emitted) {
+    int added = ser_clone_first(out, node);
+    if (added != 0) {
+        return added < 0;
+    }
+    return !ser_clone_fits(out, start, ser_open_attrs_cost(tree, node, opts, emitted));
 }
 
 /* Write an element's start tag up to but not including its closing delimiter,
@@ -1625,14 +1731,15 @@ static inline void ser_open_tag(sbuf *out, th_tree *tree, th_node *node, const t
     int charset_kind = opts->inject_meta && !opts->xml ? ser_meta_charset_kind(tree, node) : 0;
     /* Markdown's raw HTML spends the budget its prose funds instead */
     Py_ssize_t clone_start = opts->clone_budget == NULL ? ser_clone_start(out, node) : -1;
-    for (Py_ssize_t position = 0; position < node->attr_count; position++) {
+    Py_ssize_t attr_count = node->attr_count;
+    if (clone_start >= 0 && ser_open_clone_refused(out, clone_start, tree, node, opts, emitted)) {
+        attr_count = 0;
+    }
+    for (Py_ssize_t position = 0; position < attr_count; position++) {
         th_node_attr *attr = &node->attrs[order != NULL ? order[position] : position];
         Py_ssize_t name_len;
         const char *name = th_attr_name(tree, attr->name_atom, &name_len);
-        if ((opts->xml && (!xml_attr_name_writable(name, name_len, emitted) ||
-                           (ser_xml_ns_name(name, name_len) &&
-                            !ser_xml_ns_binding_valid(name, name_len, attr->value, attr->value_len)))) ||
-            (opts->markdown && !commonmark_attr_name_valid(name, name_len))) {
+        if (ser_open_attr_left_out(name, name_len, attr, opts, emitted)) {
             continue;
         }
         if (opts->clone_budget != NULL) {
@@ -1647,8 +1754,6 @@ static inline void ser_open_tag(sbuf *out, th_tree *tree, th_node *node, const t
             } else {
                 *opts->clone_budget -= cost;
             }
-        } else if (clone_start >= 0 && !ser_clone_attr_fits(out, clone_start, name_len + attr->value_len)) {
-            break;
         }
         TH_WORK_STEPS_ADD(name_len + attr->value_len);
         sbuf_putc(out, ' ');
@@ -1687,6 +1792,8 @@ static inline void ser_close_tag(sbuf *out, th_node *node) {
 /* Hand a filled sbuf back to the caller, normalizing an empty result to a real
    zero-length allocation so NULL unambiguously means failure. */
 static inline Py_UCS4 *sbuf_finish(sbuf *out, Py_ssize_t *out_len) {
+    th_clone_seen_free(out->clone_seen);
+    out->clone_seen = NULL;
     if (out->failed) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         PyMem_Free(out->data); /* GCOVR_EXCL_LINE: allocation-failure path */
         return NULL;           /* GCOVR_EXCL_LINE: allocation-failure path */

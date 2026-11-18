@@ -27,26 +27,26 @@ use futures_util::stream::{FuturesUnordered, TryStreamExt};
 
 pub(crate) use endpoint::streaming_writer;
 pub use endpoint::{upload_checkpoint, Endpoint, Hardware, Payload, Resolved, Stream, UploadControl, Uploaded};
-pub use net::{http, pem_roots, Client, STALL};
+pub use net::{http, pem_roots, shown, Client, STALL};
 pub(crate) use net::GetError;
 pub use origin::{Boxed, Location, Origin};
-pub use policy::{is_loopback_origin, SourcePolicy};
+pub use policy::{declare_local, is_local, local_origins, SourcePolicy};
 pub use token::{bearer, HeaderMap, Request, SigV4, TokenProvider};
 pub use volume::VolumeOrigin;
 
 use crate::err::{refuse, Code, Refusal, Result};
 use crate::format::{self, Header, ObjectRef, Tree};
 pub use ask::{Backoff, ATTEMPTS};
-pub use download::{Fetching, Phase};
+pub use download::{install_received, installing, Fetching, Installing, Phase, BACKGROUND, EMERGENCY, SOFTWARE};
 use download::{Shared, Task};
 
-/// GET `url` from byte `from` into `sink`, for bytes the caller holds to a digest: any public host,
-/// redirects followed. A weather answer or a transport failure is asked again from the byte reached,
+/// GET `url` from byte `from` into `sink`, for bytes the caller holds to a digest: any public host
+/// (or a declared local origin), redirects followed and each hop checked again. A weather answer or a transport failure is asked again from the byte reached,
 /// until the retry rule ends it `HUB_UNREACHABLE` ([`ask::get`]). `sink` takes each
 /// body frame with the byte it starts at (0 again when a server restarts the body). A `from` at or past
 /// the end (416) has nothing left to get: the caller's digest judges what it holds.
 pub async fn get_pinned(url: &str, from: u64, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
-    let policy = SourcePolicy { any_host: true, allow_local: policy::is_loopback_origin(url), max_redirects: 5, ..Default::default() };
+    let policy = SourcePolicy { any_host: true, max_redirects: 5, ..Default::default() };
     get_body(policy, url, &[], from, sink).await
 }
 
@@ -55,7 +55,7 @@ pub async fn get_pinned(url: &str, from: u64, sink: &mut (dyn FnMut(u64, &[u8]) 
 /// PEM roots beyond the public ones.
 pub async fn length_pinned(url: &str, roots: Option<&[u8]>) -> Result<u64> {
     let display_url = net::shown(url);
-    let policy = SourcePolicy { any_host: true, allow_local: policy::is_loopback_origin(url), max_redirects: 5, ..Default::default() };
+    let policy = SourcePolicy { any_host: true, max_redirects: 5, ..Default::default() };
     let client = match roots {
         Some(pem) => Client::with_roots(policy, pem)?,
         None => Client::new(policy),
@@ -94,7 +94,7 @@ pub async fn get_pinned_into(url: &str, part: &Path, moved: &mut (dyn FnMut(u64)
     let failed = |e: std::io::Error| format!("{}: {e}", part.display());
     let mut file = OpenOptions::new().create(true).truncate(false).read(true).write(true).open(part).map_err(failed)?;
     if !platform::lock::try_claim(&file).map_err(|e| e.to_string())? {
-        return Err(format!("another cozy command is fetching {url} now; run this again once it has"));
+        return Err(format!("another cozy command is fetching {} now; run this again once it has", net::shown(url)));
     }
     let (from, mut at) = (file.metadata().map_err(failed)?.len(), 0);
     moved(from);
@@ -120,20 +120,34 @@ pub async fn get_pinned_into(url: &str, part: &Path, moved: &mut (dyn FnMut(u64)
 }
 
 /// GET a link a person wrote into `sink`, for a caller that judges what it gets itself: http or https, a public
-/// address at every hop, 5 redirects at most, asked as [`get_pinned`] asks. Nothing makes it local.
+/// address (or a declared local origin) at every hop, 5 redirects at most, asked as [`get_pinned`] asks.
 pub async fn get_link(url: &str, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
     let policy = SourcePolicy { any_host: true, plaintext: true, max_redirects: 5, ..Default::default() };
     get_body(policy, url, &[], 0, sink).await
 }
 
+/// [`get_pinned`] from byte 0, also trusting the CA certificates in `roots` (PEM): a Hub's own files under its private CA.
+pub async fn get_pinned_trusting(url: &str, roots: Option<&[u8]>, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
+    let policy = SourcePolicy { any_host: true, max_redirects: 5, ..Default::default() };
+    let client = match roots {
+        Some(pem) => Client::with_roots(policy, pem)?,
+        None => Client::new(policy),
+    };
+    get_with(&client, url, &[], 0, sink).await
+}
+
 async fn get_body(policy: SourcePolicy, url: &str, headers: &[(String, String)], from: u64, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
+    get_with(&Client::new(policy), url, headers, from, sink).await
+}
+
+async fn get_with(client: &Client, url: &str, headers: &[(String, String)], from: u64, sink: &mut (dyn FnMut(u64, &[u8]) -> Result<()> + Send + '_)) -> Result<()> {
     let range = (from > 0).then_some((from, None));
-    let got = ask::get(&Client::new(policy), url, headers, None, range, sink).await;
+    let got = ask::get(client, url, headers, None, range, sink).await;
     match got.map_err(GetError::refusal)? {
         Ok(_) => Ok(()),
         Err(416) if from > 0 => Ok(()),
-        Err(status @ (404 | 410)) => refuse(Code::REF_NOT_FOUND, format!("{url}: HTTP {status}")),
-        Err(status) => refuse(Code::ORIGIN_REFUSED, format!("{url}: HTTP {status}")),
+        Err(status @ (404 | 410)) => refuse(Code::REF_NOT_FOUND, format!("{}: HTTP {status}", net::shown(url))),
+        Err(status) => refuse(Code::ORIGIN_REFUSED, format!("{}: HTTP {status}", net::shown(url))),
     }
 }
 
@@ -237,7 +251,8 @@ pub struct Stats {
     pub requests: u64,
     pub retries: u64,
     pub steals: u64,
-    /// Bytes received from the origin, over the time any of them was arriving.
+    /// Bytes received from the origin, over the time any of them was arriving, the weights unpaced (cl-1007): what the
+    /// link moves.
     pub received: u64,
     pub receiving: std::time::Duration,
     /// Answers that were not 2xx, by status.
@@ -267,6 +282,7 @@ impl Fetcher {
         config: Config,
     ) -> Fetcher {
         let shared = Arc::new(Shared::new(store, client, volume, config.requests));
+        shared.join_link();
         tokio::spawn(Arc::clone(&shared).dispatch());
         tokio::spawn(Arc::clone(&shared).pace());
         Fetcher { shared }
@@ -282,7 +298,7 @@ impl Fetcher {
             requests: counters.requests.load(Ordering::Relaxed),
             retries: counters.retries.load(Ordering::Relaxed),
             steals: counters.steals.load(Ordering::Relaxed),
-            received: counters.received.load(Ordering::Relaxed),
+            received: counters.unpaced.load(Ordering::Relaxed),
             receiving: std::time::Duration::from_millis(counters.receiving_ms.load(Ordering::Relaxed)),
             statuses: counters.statuses.lock().unwrap_or_else(std::sync::PoisonError::into_inner).clone(),
             volume_written: counters.volume_written.load(Ordering::Relaxed),

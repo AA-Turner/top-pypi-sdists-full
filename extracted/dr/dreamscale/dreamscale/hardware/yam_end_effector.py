@@ -16,8 +16,8 @@ from typing import Protocol
 from xml.etree import ElementTree
 
 import numpy as np
+from dreamscale_core.rho import RHO_YAM_BOX_MODEL_ID
 from dreamscale_transport import BimanualEndEffectorState
-from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
 
 from dreamscale.policy.cartesian import CartesianConversion, PoseApproximation, PoseConversion
 from dreamscale.policy.run_loop import run_policy_loop

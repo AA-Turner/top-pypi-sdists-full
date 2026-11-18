@@ -24,7 +24,15 @@ from open_data_contract_standard.model import (
 from sqlglot import Dialect, exp
 
 from datacontract.config.variables import VariableError, contains_variables, resolve_variables
-from datacontract.engines.checks.check_spec import METADATA_METRICS, CheckSpec, MetricType, Op, Threshold
+from datacontract.engines.checks.check_spec import (
+    METADATA_METRICS,
+    CheckSpec,
+    Hop,
+    MetricType,
+    Op,
+    Threshold,
+    path_text,
+)
 from datacontract.engines.checks.custom_quality_check import (
     COLUMN_PLACEHOLDERS,
     ENGINE,
@@ -109,32 +117,36 @@ def _implied_type(prop: SchemaProperty) -> str | None:
 
 def _iter_property_paths(
     properties: list[SchemaProperty] | None,
-    prefix: str | None = None,
+    steps: tuple[str | Hop, ...] = (),
 ):
-    """Yield ``(path, property, nested)`` for every property, descending into objects, array items and maps."""
+    """Yield ``(field, path, property, nested)`` for every property, descending into objects, array items and maps.
+
+    ``field`` is the property's name as text, ``path`` the steps it is made of.
+    """
     for prop in properties or []:
-        field = prop.physicalName or prop.name
-        field_path = f"{prefix}.{field}" if prefix else field
-        yield field_path, prop, prefix is not None
-        yield from _iter_nested_paths(prop, field_path)
+        path = (*steps, prop.physicalName or prop.name)
+        yield path_text(path), path, prop, bool(steps)
+        yield from _iter_nested_paths(prop, path)
 
 
-def _iter_nested_paths(prop: SchemaProperty, field_path: str):
+def _iter_nested_paths(prop: SchemaProperty, path: tuple[str | Hop, ...]):
     prop_type = _property_type(prop)
     if prop_type == "array" and prop.items is not None:
-        # `[]` marks the array hop; the executor turns it into a predicate
-        # over the elements instead of a column lookup.
+        # The executor turns the array hop into a predicate over the elements
+        # instead of a column lookup.
         items = prop.items
+        items_path = (*path, Hop.ITEMS)
         if items.logicalType or items.physicalType or items.properties or _constrains_values(items):
-            yield f"{field_path}[]", items, True
-        yield from _iter_nested_paths(items, f"{field_path}[]")
+            yield path_text(items_path), items_path, items, True
+        yield from _iter_nested_paths(items, items_path)
     elif prop_type == "map":
-        for side, definition in (("key", get_map_key(prop)), ("value", get_map_value(prop))):
+        for hop, definition in ((Hop.KEY, get_map_key(prop)), (Hop.VALUE, get_map_value(prop))):
             if definition is not None:
-                yield f"{field_path}[{side}]", definition, True
-                yield from _iter_nested_paths(definition, f"{field_path}[{side}]")
+                hop_path = (*path, hop)
+                yield path_text(hop_path), hop_path, definition, True
+                yield from _iter_nested_paths(definition, hop_path)
     elif prop.properties and prop_type in ("object", None):
-        yield from _iter_property_paths(prop.properties, field_path)
+        yield from _iter_property_paths(prop.properties, path)
 
 
 def _constrains_values(prop: SchemaProperty) -> bool:
@@ -187,16 +199,17 @@ def to_threshold(quality: DataQuality) -> Optional[Threshold]:
 def prepare_query(
     query: Optional[str],
     model_name: str,
-    field_name: Optional[str],
+    field_path: tuple[str | Hop, ...],
     server: Optional[Server],
     instance: Optional[Instance] = None,
 ) -> Optional[str]:
     """Substitute placeholders in a user SQL query.
 
-    Each dot-separated part of a name is quoted only where the server's dialect
-    cannot read it bare, so a plain name keeps the backend's case-insensitive
-    resolution. Quotes the author wrote around a placeholder are dropped, except
-    that backticks force the name to be quoted (e.g. a reserved word on Spark).
+    Each dot-separated part of a model name, and each step of a nested property's
+    path, is quoted only where the server's dialect cannot read it bare, so a plain
+    name keeps the backend's case-insensitive resolution.
+    Quotes the author wrote around a placeholder are dropped, except that backticks
+    force the name to be quoted (e.g. a reserved word on Spark).
     For a custom quality check ``instance``, its arguments are substituted too.
     """
     if not query:
@@ -211,15 +224,17 @@ def prepare_query(
     names["schema"] = server.schema_ if server and server.schema_ else model_name
     for placeholder in ("dataset", "project", "catalog", "database"):
         names[placeholder] = (getattr(server, placeholder, None) if server else None) or model_name
-    if field_name is not None:
-        names |= dict.fromkeys(COLUMN_PLACEHOLDERS, field_name)
+    if field_path:
+        names |= dict.fromkeys(COLUMN_PLACEHOLDERS, field_path)
 
-    def identifier(name: str, forced: bool) -> str:
+    def identifier(name: str | tuple[str | Hop, ...], forced: bool) -> str:
+        steps = name if isinstance(name, tuple) else name.split(".")
         parts = [
             exp.to_identifier(part, quoted=forced or not bare.fullmatch(part)).sql(dialect=dialect)
-            for part in name.split(".")
+            for part in steps
+            if isinstance(part, str)  # a map's key or value is no part of a name
         ]
-        if dialect == "snowflake" and name == field_name:
+        if dialect == "snowflake" and isinstance(name, tuple):
             # Snowflake reaches into a column's value with `:`; a dot would name a table's column
             return parts[0] + "".join(f":{part}" for part in parts[1:])
         return ".".join(parts)
@@ -249,7 +264,7 @@ def create_checks(
     for schema_obj in data_contract.schema_:
         if schema_name != "all" and schema_obj.name != schema_name:
             continue
-        if _is_azure_blob_schema(schema_obj, server):
+        if server is not None and server.type == "azure" and server.format == "metadata":
             # File-metadata checks are emitted by check_azure_blob_file
             continue
         checks.extend(_to_schema_checks(schema_obj, server, variables, custom_quality_checks))
@@ -262,10 +277,6 @@ def create_checks(
         if check.dimension is None:
             check.dimension = default_dimension(check.type)
     return checks
-
-
-def _is_azure_blob_schema(schema_object: SchemaObject, server: Optional[Server]) -> bool:
-    return server is not None and server.type == "azure" and (schema_object.logicalType or "").lower() == "blob"
 
 
 def _to_schema_checks(
@@ -315,12 +326,12 @@ def _to_schema_checks(
             )
         )
 
-    for field, prop, nested in _iter_property_paths(properties):
+    for field, path, prop, nested in _iter_property_paths(properties):
         first_check = len(checks)
         # ODCS physicalName is the real column; mirror to_schema_name at field level.
 
         # An array's or map's own presence covers that of its items, key and value
-        if not field.endswith("]") and (not documents or (prop.required and not nested)):
+        if not isinstance(path[-1], Hop) and (not documents or (prop.required and not nested)):
             checks.append(
                 CheckSpec(
                     key=f"{model}__{field}__field_is_present",
@@ -401,7 +412,7 @@ def _to_schema_checks(
             )
 
         # A map key is never null, so a required key holds by definition
-        if prop.required and not field.endswith("[key]"):
+        if prop.required and path[-1] is not Hop.KEY:
             checks.append(
                 _missing_count_check(
                     model,
@@ -601,10 +612,11 @@ def _to_schema_checks(
             )
 
         if prop.quality:
-            checks.extend(_quality_checks(model, field, prop.quality, server, variables, custom_quality_checks))
+            checks.extend(_quality_checks(model, field, prop.quality, server, variables, custom_quality_checks, path))
 
         # A check the server cannot run is reported, not dropped.
         for check in checks[first_check:]:
+            check.path = path
             check.value_type = prop_type
             if check.preset_result == "warning":
                 # An unrunnable rule keeps its own, more specific reason.
@@ -615,9 +627,9 @@ def _to_schema_checks(
                     continue
                 # The file is cast into the contract's types, so a type check would compare the contract with itself.
                 reason = f"Checking types in {server.format} files is not supported yet."
-            elif "[key]" in field or "[value]" in field:
+            elif Hop.KEY in path or Hop.VALUE in path:
                 reason = "Checks on the key or value of a map are not supported yet."
-            elif "[][]" in field:
+            elif any(a is b is Hop.ITEMS for a, b in zip(path, path[1:])):
                 reason = "Checks on the items of an array's items are not supported yet."
             elif nested and server_type not in _NESTED_CHECK_SERVER_TYPES:
                 reason = nested_not_run_reason(server_type)
@@ -858,10 +870,11 @@ def _quality_checks(
     server: Optional[Server],
     variables: Optional[Mapping[str, str]] = None,
     custom_quality_checks: Optional[CustomQualityChecks] = None,
+    path: tuple[str | Hop, ...] = (),
 ) -> List[CheckSpec]:
     checks: List[CheckSpec] = []
     for count, quality in enumerate(quality_list):
-        rule_checks = _quality_rule_checks(model, field, quality, count, server, variables, custom_quality_checks)
+        rule_checks = _quality_rule_checks(model, field, quality, count, server, variables, custom_quality_checks, path)
         # Every check keeps a link back to the rule that declared it, so that
         # `test --quality-id` / `test --tag` can select it.
         for check in rule_checks:
@@ -944,10 +957,11 @@ def _unexecuted_check(
     ]
 
 
-def _array_item_reason(field: str) -> str:
+def _array_item_reason(path: tuple[str | Hop, ...]) -> str:
+    array = path_text(path[: path.index(Hop.ITEMS)])
     return (
-        f"'{field}' is an array item, not a column, so it cannot be substituted into a query. "
-        f"Declare the rule on '{field.split('[]')[0]}' instead and match the elements with array "
+        f"'{path_text(path)}' is an array item, not a column, so it cannot be substituted into a query. "
+        f"Declare the rule on '{array}' instead and match the elements with array "
         f"functions, for example size(filter(...)) > 0."
     )
 
@@ -960,6 +974,7 @@ def _quality_rule_checks(
     server: Optional[Server],
     variables: Optional[Mapping[str, str]] = None,
     custom_quality_checks: Optional[CustomQualityChecks] = None,
+    path: tuple[str | Hop, ...] = (),
 ) -> List[CheckSpec]:
     """The checks of a single ODCS quality rule (``count`` is its index in the list)."""
     if quality.type == "custom" and quality.engine == "soda" and quality.implementation:
@@ -987,12 +1002,12 @@ def _quality_rule_checks(
         else:
             check_key = f"{model}__{field}__quality_custom_check_{count}"
             check_type = "field_quality_custom"
-        if field is not None and "[]" in field:
-            return _unexecuted_check(check_key, check_type, model, field, quality, _array_item_reason(field), "error")
+        if Hop.ITEMS in path:
+            return _unexecuted_check(check_key, check_type, model, field, quality, _array_item_reason(path), "error")
         dialect = dialect_for_server_type(get_server_type(server))
         try:
             instance = instantiate(quality, model, field, dialect, custom_quality_checks)
-            query = prepare_query(instance.query, model, field, server, instance)
+            query = prepare_query(instance.query, model, path, server, instance)
         except CustomQualityCheckUnusable as e:
             return _unexecuted_check(
                 check_key, check_type, model, field, quality, e.reason, "error", e.name, e.dimension, e.warnings
@@ -1037,7 +1052,7 @@ def _quality_rule_checks(
         else:
             check_key = f"{model}__{field}__quality_sql_{count}"
             check_type = "field_quality_sql"
-        if field is not None and "[]" in field:
+        if Hop.ITEMS in path:
             return [
                 CheckSpec(
                     key=check_key,
@@ -1050,11 +1065,11 @@ def _quality_rule_checks(
                     dimension=quality.dimension,
                     severity=quality.severity,
                     preset_result="warning",
-                    preset_reason=_array_item_reason(field),
+                    preset_reason=_array_item_reason(path),
                 )
             ]
         threshold = to_threshold(quality)
-        query = prepare_query(quality.query, model, field, server)
+        query = prepare_query(quality.query, model, path, server)
         if query is None:
             return _unexecuted_check(check_key, check_type, model, field, quality, "The rule has no query.")
         if threshold is None:
@@ -1213,42 +1228,64 @@ def _to_servicelevel_checks(data_contract: OpenDataContractStandard, server: Opt
     checks: List[CheckSpec] = []
     if data_contract.slaProperties is None:
         return checks
+    server_type = get_server_type(server) if server is not None else None
     for sla in data_contract.slaProperties:
         if sla.property == "freshness":
             check = _freshness_check(data_contract, sla, server)
-            if check is not None:
-                checks.append(check)
         elif sla.property == "retention":
             check = _retention_check(data_contract, sla, server)
-            if check is not None:
-                checks.append(check)
+        else:
+            continue
+        if check is None:
+            continue
+        # A struct field the server cannot read is reported, not dropped; an unreadable value keeps its failure.
+        if len(check.path) > 1 and server_type not in _NESTED_CHECK_SERVER_TYPES and check.preset_result is None:
+            check.metric = MetricType.UNSUPPORTED
+            check.preset_result = "warning"
+            check.preset_reason = nested_not_run_reason(server_type)
+        checks.append(check)
     return checks
 
 
-def _split_element(element: Optional[str]) -> Optional[tuple[str, str]]:
-    if element is None or "." not in element or element.count(".") > 1:
+def sla_element_path(
+    data_contract: OpenDataContractStandard, element: Optional[str]
+) -> Optional[tuple[SchemaObject, tuple[str, ...], Optional[SchemaProperty]]]:
+    """The schema object an sla element names, the physical steps to its property, and that property.
+
+    The element is the ODCS shorthand ``object.property``, and ``object.struct.property`` for a field in a struct.
+    """
+    # Commas separate several elements, which no single check can read
+    if element is None or "," in element:
         return None
-    model, field = element.split(".")
-    return model, field
+    model, _, rest = element.partition(".")
+    schema_object = _get_schema_by_name(data_contract, model)
+    names = rest.split(".")
+    if schema_object is None or "" in names:
+        return None
+    steps, properties, prop = [], schema_object.properties, None
+    while names:
+        # A property's name may hold a dot itself, so the longest name declared at this level is one step
+        for length in range(len(names), 0, -1):
+            prop = next((p for p in properties or [] if p.name == ".".join(names[:length])), None)
+            if prop is not None:
+                break
+        steps.append((prop.physicalName or prop.name) if prop is not None else names[0])
+        properties = prop.properties if prop is not None else None
+        names = names[length:]
+    return schema_object, tuple(steps), prop
 
 
 def _resolve_sla_element(
     data_contract: OpenDataContractStandard, element: Optional[str], server: Optional[Server]
-) -> Optional[tuple[str, str]]:
-    """The (model, field) a contract-language sla element points at, in warehouse terms."""
-    parts = _split_element(element)
-    if parts is None:
-        logger.info(f"sla element {element!r} is not a single model.field, skipping")
+) -> Optional[tuple[str, tuple[str, ...]]]:
+    """The model and path a contract-language sla element points at, in warehouse terms."""
+    resolved = sla_element_path(data_contract, element)
+    if resolved is None:
+        logger.info(f"sla element {element!r} names no single property of the contract, skipping")
         return None
-    model, field = parts
-    schema_object = _get_schema_by_name(data_contract, model)
-    if schema_object is None:
-        return None
+    schema_object, path, _ = resolved
     server_type = server.type if server and server.type else None
-    prop = next((p for p in schema_object.properties or [] if p.name == field), None)
-    if prop is not None and prop.physicalName:
-        field = prop.physicalName
-    return to_schema_name(schema_object, server_type), field
+    return to_schema_name(schema_object, server_type), path
 
 
 def _freshness_check(
@@ -1259,7 +1296,8 @@ def _freshness_check(
     resolved = _resolve_sla_element(data_contract, sla.element, server)
     if resolved is None:
         return None
-    model, field = resolved
+    model, path = resolved
+    field = path_text(path)
 
     unit = (sla.unit or "d").lower() or "d"
     seconds = freshness_value_to_seconds(sla.value, unit)
@@ -1293,6 +1331,7 @@ def _freshness_check(
         name=f"Freshness of {model}.{field} < {threshold}",
         model=model,
         field=field,
+        path=path,
         metric=MetricType.FRESHNESS,
         quality_id=sla.id,
         seconds=seconds,
@@ -1337,7 +1376,8 @@ def _retention_check(
     resolved = _resolve_sla_element(data_contract, sla.element, server)
     if resolved is None:
         return None
-    model, field = resolved
+    model, path = resolved
+    field = path_text(path)
     seconds = _retention_value_to_seconds(sla.value, sla.unit)
     if seconds is None:
         return None
@@ -1348,6 +1388,7 @@ def _retention_check(
         name=f"Retention of {model}.{field} < {seconds}s",
         model=model,
         field=field,
+        path=path,
         metric=MetricType.RETENTION,
         quality_id=sla.id,
         seconds=seconds,

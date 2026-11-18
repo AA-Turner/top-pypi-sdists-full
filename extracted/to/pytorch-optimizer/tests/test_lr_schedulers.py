@@ -1,3 +1,5 @@
+from itertools import pairwise
+
 import numpy as np
 import pytest
 
@@ -12,7 +14,7 @@ from pytorch_optimizer.lr_scheduler.experimental.deberta_v3_lr_scheduler import 
 from pytorch_optimizer.lr_scheduler.linear_warmup import CosineScheduler, LinearScheduler, PolyScheduler
 from pytorch_optimizer.lr_scheduler.proportion import ProportionScheduler
 from pytorch_optimizer.lr_scheduler.rex import REXScheduler
-from pytorch_optimizer.lr_scheduler.wsd import get_wsd_schedule
+from pytorch_optimizer.lr_scheduler.wsd import get_wsd_schedule, get_wsd_scheduler_lambda
 from tests.fixtures import TrainingModel, make_parameter
 from tests.utils import assert_lr_sequence, build_optimizer
 
@@ -64,6 +66,37 @@ def test_cosine_annealing_warmup_restarts(cycle_mult, gamma, expected_lrs, sched
 
         assert lr_scheduler.get_last_lr() == pytest.approx(incremental.get_last_lr())
         assert round(lr_scheduler.get_lr()[0], 6) == pytest.approx(expected_lr, abs=1e-7)
+
+
+@pytest.mark.parametrize(
+    ('cycle_mult', 'warmup_steps', 'last_epoch'),
+    [(1.0, 2, 0), (1.0, 2, 3), (1.0, 2, 9), (1.0, 2, 29), (2.0, 2, 29), (0.5, 2, 29), (2.0, 0, 29)],
+)
+def test_cosine_annealing_warmup_restarts_resume(cycle_mult, warmup_steps, last_epoch, scheduler_optimizer):
+    options = {
+        'first_cycle_steps': 10,
+        'cycle_mult': cycle_mult,
+        'max_lr': 0.1,
+        'min_lr': 0.001,
+        'warmup_steps': warmup_steps,
+        'gamma': 0.5,
+    }
+    uninterrupted = CosineAnnealingWarmupRestarts(scheduler_optimizer, **options)
+    for _ in range(last_epoch + 1):
+        scheduler_optimizer.step()
+        uninterrupted.step()
+
+    optimizer = build_optimizer('adamw', [make_parameter(grad=None)])
+    optimizer.load_state_dict(scheduler_optimizer.state_dict())
+    resumed = CosineAnnealingWarmupRestarts(optimizer, last_epoch=last_epoch, **options)
+
+    for _ in range(4):
+        assert resumed.get_last_lr() == pytest.approx(uninterrupted.get_last_lr())
+        assert [group['lr'] for group in optimizer.param_groups] == pytest.approx(uninterrupted.get_last_lr())
+        scheduler_optimizer.step()
+        uninterrupted.step()
+        optimizer.step()
+        resumed.step()
 
 
 def test_get_chebyshev_scheduler():
@@ -195,9 +228,9 @@ def test_rex_lr_scheduler(scheduler_optimizer):
     'recipe',
     [
         ('cosine', [0.0005, 0.001, 0.001, 0.001, 0.000775, 0.000325, 0.0001, 0.0001, 0.0001]),
-        ('1-sqrt', [0.0005, 0.001, 0.001, 0.001, 0.0004226, 0.0001835, 0.0001, 0.0001, 0.0001]),
-        ('1-square', [0.0005, 0.001, 0.001, 0.001, 0.0008888, 0.0005555, 0.0001, 0.0001, 0.0001]),
-        ('linear', [0.0005, 0.001, 0.001, 0.001, 0.0006666, 0.0003333, 0.0001, 0.0001, 0.0001]),
+        ('1-sqrt', [0.0005, 0.001, 0.001, 0.001, 0.0004803, 0.0002652, 0.0001, 0.0001, 0.0001]),
+        ('1-square', [0.0005, 0.001, 0.001, 0.001, 0.0009, 0.0006, 0.0001, 0.0001, 0.0001]),
+        ('linear', [0.0005, 0.001, 0.001, 0.001, 0.0007, 0.0004, 0.0001, 0.0001, 0.0001]),
     ],
 )
 def test_wsd_lr_scheduler(recipe, scheduler_optimizer):
@@ -215,6 +248,25 @@ def test_wsd_lr_scheduler(recipe, scheduler_optimizer):
     )
 
     assert_lr_sequence(lr_scheduler, expected_lrs, decimals=7)
+
+
+@pytest.mark.parametrize('cooldown_type', ['cosine', '1-sqrt', '1-square', 'linear'])
+def test_wsd_lr_scheduler_decays_to_min_lr_ratio(cooldown_type):
+    ratios = [
+        get_wsd_scheduler_lambda(
+            step,
+            num_warmup_steps=10,
+            num_stable_steps=10,
+            num_decay_steps=100,
+            min_lr_ratio=0.1,
+            num_cycles=0.5,
+            cooldown_type=cooldown_type,
+        )
+        for step in range(10, 130)
+    ]
+
+    assert all(later <= earlier for earlier, later in pairwise(ratios))
+    assert min(ratios) == pytest.approx(0.1)
 
 
 def test_deberta_v3_large_lr_scheduler():

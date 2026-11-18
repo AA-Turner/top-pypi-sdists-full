@@ -56,6 +56,7 @@ from .literals import (
     CodeScanStatusType,
     CodeSnippetErrorCodeType,
     ConfigurationLevelType,
+    ConnectorCloudProviderType,
     ConnectorHealthStatusType,
     ConnectorTypeType,
     ContainerImagePullDateRescanDurationType,
@@ -345,6 +346,12 @@ __all__ = (
     "FreeTrialAccountInfoTypeDef",
     "FreeTrialInfoErrorTypeDef",
     "FreeTrialInfoTypeDef",
+    "GcpCapabilityScopeInputTypeDef",
+    "GcpCapabilityScopeTypeDef",
+    "GcpProviderDetailCreateTypeDef",
+    "GcpProviderDetailUpdateTypeDef",
+    "GcpScopeConfigurationInputTypeDef",
+    "GcpScopeConfigurationTypeDef",
     "GetCisScanReportRequestTypeDef",
     "GetCisScanReportResponseTypeDef",
     "GetCisScanResultDetailsRequestPaginateTypeDef",
@@ -962,7 +969,7 @@ class ConnectorTypeFilterTypeDef(TypedDict):
 
 class ProviderFilterTypeDef(TypedDict):
     comparison: Literal["EQUALS"]
-    value: Literal["AZURE"]
+    value: ConnectorCloudProviderType
 
 
 class ConnectorHealthTypeDef(TypedDict):
@@ -1208,6 +1215,18 @@ FreeTrialInfoTypeDef = TypedDict(
         "cloudProvider": NotRequired[CloudProviderType],
     },
 )
+
+
+class GcpCapabilityScopeInputTypeDef(TypedDict):
+    scopeType: ScopeTypeType
+    scopeValues: NotRequired[Sequence[str]]
+
+
+class GcpCapabilityScopeTypeDef(TypedDict):
+    scopeType: ScopeTypeType
+    scopeValues: NotRequired[list[str]]
+    state: NotRequired[ScopeStateType]
+    stateReason: NotRequired[str]
 
 
 class GetCisScanReportRequestTypeDef(TypedDict):
@@ -2483,6 +2502,18 @@ class FreeTrialAccountInfoTypeDef(TypedDict):
     freeTrialInfo: list[FreeTrialInfoTypeDef]
 
 
+class GcpScopeConfigurationInputTypeDef(TypedDict):
+    vmScanning: NotRequired[GcpCapabilityScopeInputTypeDef]
+    containerImageScanning: NotRequired[GcpCapabilityScopeInputTypeDef]
+    serverlessScanning: NotRequired[GcpCapabilityScopeInputTypeDef]
+
+
+class GcpScopeConfigurationTypeDef(TypedDict):
+    vmScanning: NotRequired[GcpCapabilityScopeTypeDef]
+    containerImageScanning: NotRequired[GcpCapabilityScopeTypeDef]
+    serverlessScanning: NotRequired[GcpCapabilityScopeTypeDef]
+
+
 GetClustersForImageRequestPaginateTypeDef = TypedDict(
     "GetClustersForImageRequestPaginateTypeDef",
     {
@@ -2830,23 +2861,6 @@ class AzureProviderDetailCreateTypeDef(TypedDict):
 class AzureProviderDetailUpdateTypeDef(TypedDict):
     azureRegions: NotRequired[Sequence[str]]
     scopeConfiguration: NotRequired[AzureScopeConfigurationInputTypeDef]
-    autoInstallVMScanner: NotRequired[bool]
-
-
-class ConnectorTypeDef(TypedDict):
-    connectorArn: str
-    provider: Literal["AZURE"]
-    createdAt: datetime
-    updatedAt: datetime
-    name: NotRequired[str]
-    description: NotRequired[str]
-    enablementStatus: NotRequired[EnablementStatusType]
-    enablementStatusReason: NotRequired[str]
-    health: NotRequired[ConnectorHealthTypeDef]
-    azureRegions: NotRequired[list[str]]
-    awsConfigConnectorArn: NotRequired[str]
-    scopeConfiguration: NotRequired[AzureScopeConfigurationTypeDef]
-    tags: NotRequired[dict[str, str]]
     autoInstallVMScanner: NotRequired[bool]
 
 
@@ -3199,6 +3213,38 @@ class BatchGetFreeTrialInfoResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GcpProviderDetailCreateTypeDef(TypedDict):
+    awsConfigConnectorArn: str
+    scopeConfiguration: GcpScopeConfigurationInputTypeDef
+    gcpRegions: Sequence[str]
+    autoInstallVMScanner: NotRequired[bool]
+
+
+class GcpProviderDetailUpdateTypeDef(TypedDict):
+    gcpRegions: NotRequired[Sequence[str]]
+    scopeConfiguration: NotRequired[GcpScopeConfigurationInputTypeDef]
+    autoInstallVMScanner: NotRequired[bool]
+
+
+class ConnectorTypeDef(TypedDict):
+    connectorArn: str
+    provider: ConnectorCloudProviderType
+    createdAt: datetime
+    updatedAt: datetime
+    name: NotRequired[str]
+    description: NotRequired[str]
+    enablementStatus: NotRequired[EnablementStatusType]
+    enablementStatusReason: NotRequired[str]
+    health: NotRequired[ConnectorHealthTypeDef]
+    azureRegions: NotRequired[list[str]]
+    awsConfigConnectorArn: NotRequired[str]
+    scopeConfiguration: NotRequired[AzureScopeConfigurationTypeDef]
+    tags: NotRequired[dict[str, str]]
+    autoInstallVMScanner: NotRequired[bool]
+    gcpRegions: NotRequired[list[str]]
+    gcpScopeConfiguration: NotRequired[GcpScopeConfigurationTypeDef]
+
+
 class NetworkReachabilityDetailsTypeDef(TypedDict):
     openPortRange: PortRangeTypeDef
     protocol: NetworkProtocolType
@@ -3322,20 +3368,6 @@ ResourceTypeDef = TypedDict(
 )
 
 
-class ProviderDetailCreateTypeDef(TypedDict):
-    azure: NotRequired[AzureProviderDetailCreateTypeDef]
-
-
-class ProviderDetailUpdateTypeDef(TypedDict):
-    azure: NotRequired[AzureProviderDetailUpdateTypeDef]
-
-
-class ListConnectorsResponseTypeDef(TypedDict):
-    items: list[ConnectorTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-
 class ListCisScansRequestPaginateTypeDef(TypedDict):
     filterCriteria: NotRequired[ListCisScansFilterCriteriaTypeDef]
     detailLevel: NotRequired[ListCisScansDetailLevelType]
@@ -3429,6 +3461,22 @@ class CisScanConfigurationTypeDef(TypedDict):
 ScheduleUnionTypeDef = Union[ScheduleTypeDef, ScheduleOutputTypeDef]
 
 
+class ProviderDetailCreateTypeDef(TypedDict):
+    azure: NotRequired[AzureProviderDetailCreateTypeDef]
+    gcp: NotRequired[GcpProviderDetailCreateTypeDef]
+
+
+class ProviderDetailUpdateTypeDef(TypedDict):
+    azure: NotRequired[AzureProviderDetailUpdateTypeDef]
+    gcp: NotRequired[GcpProviderDetailUpdateTypeDef]
+
+
+class ListConnectorsResponseTypeDef(TypedDict):
+    items: list[ConnectorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class ResourceScanMetadataTypeDef(TypedDict):
     ecrRepository: NotRequired[EcrRepositoryMetadataTypeDef]
     ecrImage: NotRequired[EcrContainerImageMetadataTypeDef]
@@ -3494,21 +3542,6 @@ FindingTypeDef = TypedDict(
         "epss": NotRequired[EpssDetailsTypeDef],
     },
 )
-
-
-class CreateConnectorRequestTypeDef(TypedDict):
-    name: str
-    provider: Literal["AZURE"]
-    providerDetail: ProviderDetailCreateTypeDef
-    clientToken: NotRequired[str]
-    description: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-
-
-class UpdateConnectorRequestTypeDef(TypedDict):
-    connectorArn: str
-    description: NotRequired[str]
-    providerDetail: NotRequired[ProviderDetailUpdateTypeDef]
 
 
 class AggregationRequestTypeDef(TypedDict):
@@ -3586,6 +3619,21 @@ class UpdateCisScanConfigurationRequestTypeDef(TypedDict):
     securityLevel: NotRequired[CisSecurityLevelType]
     schedule: NotRequired[ScheduleUnionTypeDef]
     targets: NotRequired[UpdateCisTargetsTypeDef]
+
+
+class CreateConnectorRequestTypeDef(TypedDict):
+    name: str
+    provider: ConnectorCloudProviderType
+    providerDetail: ProviderDetailCreateTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+
+class UpdateConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
+    description: NotRequired[str]
+    providerDetail: NotRequired[ProviderDetailUpdateTypeDef]
 
 
 class CoveredResourceTypeDef(TypedDict):

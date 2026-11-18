@@ -1,5 +1,6 @@
 # Test code for the MSO modules
 # Copyright: (c) 2020, Anvitha Jain (@anvitha-jain) <anvjain@cisco.com>
+# Copyright: (c) 2026, Samita Bhattacharjee (@samiib) <samitab@cisco.com>
 #
 
 # GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
@@ -34,13 +35,13 @@
     schema: '{{ item }}'
     state: absent
   loop:
-  - '{{ mso_schema | default("ansible_test") }}_2'
-  - '{{ mso_schema | default("ansible_test") }}'
+  - '{{ mso_test.schema_2 }}'
+  - '{{ mso_test.schema }}'
 
-- name: Remove tenant ansible_test
+- name: Remove tenant ansible_test_rest
   cisco.mso.mso_tenant:
     <<: *mso_info
-    tenant: ansible_test
+    tenant: '{{ mso_test.tenant_rest }}'
     state: absent
 
 # QUERY SCHEMAS
@@ -78,8 +79,8 @@
     path: /mso/api/v1/tenants
     method: post
     content:
-      displayName: ansible_test
-      name: ansible_test
+      displayName: '{{ mso_test.tenant_rest }}'
+      name: '{{ mso_test.tenant_rest }}'
       description: MSO tenant
       siteAssociations: []
       userAssociations:
@@ -91,7 +92,7 @@
   ansible.builtin.assert:
     that:
     - add_tenant is changed
-    - add_tenant.jsondata.displayName == 'ansible_test'
+    - add_tenant.jsondata.displayName == mso_test.tenant_rest
 
 # ADD schema
 - name: Add schema
@@ -100,11 +101,11 @@
     path: /mso/api/v1/schemas
     method: post
     content:
-      displayName: '{{ mso_schema | default("ansible_test") }}'
+      displayName: '{{ mso_test.schema }}'
       templates:
-        - name: Template_1
+        - name: '{{ mso_test.template }}'
           tenantId: '{{ add_tenant.jsondata.id }}'
-          displayName: Template_1
+          displayName: '{{ mso_test.template }}'
           templateSubType: []
           templateType: stretched-template
           anps: []
@@ -123,7 +124,7 @@
   ansible.builtin.assert:
     that:
     - add_schema is changed
-    - add_schema.jsondata.displayName == 'ansible_test'
+    - add_schema.jsondata.displayName == mso_test.schema
 
 # PUT schema
 - name: Put schema
@@ -132,11 +133,11 @@
     path: "/mso/api/v1/schemas/{{ add_schema.jsondata.id }}"
     method: put
     content:
-      displayName: ansible_test_2
+      displayName: '{{ mso_test.schema_2 }}'
       templates:
-      - name: Template_1
+      - name: '{{ mso_test.template }}'
         tenantId: '{{ add_tenant.jsondata.id }}'
-        displayName: Template_1
+        displayName: '{{ mso_test.template }}'
         templateSubType: []
         templateType: stretched-template
         anps: []
@@ -155,7 +156,7 @@
   ansible.builtin.assert:
     that:
     - put_schema is changed
-    - put_schema.jsondata.displayName == 'ansible_test_2'
+    - put_schema.jsondata.displayName == mso_test.schema_2
 
 # PATCH schema
 - name: Patch schema
@@ -165,10 +166,10 @@
     method: patch
     content:
       - op: add
-        path: /templates/Template_1/anps/-
+        path: /templates/{{ mso_test.template }}/anps/-
         value:
-          name: AP2
-          displayName: AP2
+          name: '{{ mso_test.anp }}'
+          displayName: '{{ mso_test.anp }}'
           epgs: []
         _updateVersion: 0
   register: patch_schema
@@ -181,7 +182,7 @@
 - name: Verify patch_schema in yaml_inline
   ansible.builtin.assert:
     that:
-    - patch_schema.jsondata.templates[0].anps[0].displayName == 'AP2'
+    - patch_schema.jsondata.templates[0].anps[0].displayName == mso_test.anp
   # MSO 3.3 PATCH does not return anything anymore.
   when: version.current.version is version('3.3', '<')
 

@@ -29,6 +29,8 @@ django_std_args = dict(
     pythonpath=dict(type="path"),
     traceback=dict(type="bool"),
     verbosity=dict(type="int", choices=[0, 1, 2, 3]),
+)
+_skip_checks = dict(
     skip_checks=dict(type="bool"),
 )
 _database_dash = dict(
@@ -53,6 +55,7 @@ _django_std_arg_fmts: dict[str, ArgFormatter] = dict(
     database_stacked_dash=cmd_runner_fmt.stack(cmd_runner_fmt.as_opt_val)("--database"),
     deploy=cmd_runner_fmt.as_bool("--deploy"),
     dry_run=cmd_runner_fmt.as_bool("--dry-run"),
+    empty=cmd_runner_fmt.as_bool("--empty"),
     excludes=cmd_runner_fmt.stack(cmd_runner_fmt.as_opt_val)("--exclude"),
     fail_level=cmd_runner_fmt.as_opt_val("--fail-level"),
     fixture=cmd_runner_fmt.as_opt_val("--output"),
@@ -60,16 +63,20 @@ _django_std_arg_fmts: dict[str, ArgFormatter] = dict(
     format=cmd_runner_fmt.as_opt_val("--format"),
     ignore_non_existent=cmd_runner_fmt.as_bool("--ignorenonexistent"),
     indent=cmd_runner_fmt.as_opt_val("--indent"),
+    name=cmd_runner_fmt.as_opt_val("--name"),
     natural_foreign=cmd_runner_fmt.as_bool("--natural-foreign"),
     natural_primary=cmd_runner_fmt.as_bool("--natural-primary"),
     no_color=cmd_runner_fmt.as_fixed("--no-color"),
+    no_header=cmd_runner_fmt.as_bool("--no-header"),
     noinput=cmd_runner_fmt.as_fixed("--noinput"),
     primary_keys=lambda v: ["--pks", ",".join(v)],
     pythonpath=cmd_runner_fmt.as_opt_eq_val("--pythonpath"),
+    scriptable=cmd_runner_fmt.as_fixed("--scriptable"),
     settings=cmd_runner_fmt.as_opt_eq_val("--settings"),
     skip_checks=cmd_runner_fmt.as_bool("--skip-checks"),
     tags=cmd_runner_fmt.stack(cmd_runner_fmt.as_opt_val)("--tag"),
     traceback=cmd_runner_fmt.as_bool("--traceback"),
+    update=cmd_runner_fmt.as_bool("--update"),
     verbosity=cmd_runner_fmt.as_opt_val("--verbosity"),
     version=cmd_runner_fmt.as_fixed("--version"),
 )
@@ -77,6 +84,7 @@ _django_std_arg_fmts: dict[str, ArgFormatter] = dict(
 # keys can be used in _django_args
 _args_menu = dict(
     std=(django_std_args, _django_std_arg_fmts),
+    skip_checks=(_skip_checks, {}),
     database_dash=(_database_dash, {}),
     data=(_data, {}),
 )
@@ -97,7 +105,6 @@ class _DjangoRunner(PythonRunner):
             "pythonpath",
             "traceback",
             "verbosity",
-            "skip_checks",
         ) + self._prepare_args_order(self.default_args_order)
         return super().__call__(
             args_order, output_process, check_mode_skip=check_mode_skip, check_mode_return=check_mode_return, **kwargs
@@ -114,6 +121,7 @@ class DjangoModuleHelper(ModuleHelper):
     django_admin_arg_order: tuple[str, ...] | str = ()
     _django_args: list[str] = []
     _check_mode_arg: str = ""
+    _check_mode_skip: bool = False
 
     def __init__(self) -> None:
         self.module["argument_spec"], self.arg_formats = self._build_args(
@@ -152,7 +160,7 @@ class DjangoModuleHelper(ModuleHelper):
         rc, out, err = runner.bare_context("version").run()
         self.vars.version = out.strip()
 
-        with runner() as ctx:
+        with runner(check_mode_skip=self._check_mode_skip) as ctx:
             results = ctx.run(**run_params)
             self.vars.stdout = ctx.results_out
             self.vars.stderr = ctx.results_err

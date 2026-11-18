@@ -1,13 +1,8 @@
 use super::*;
 use crate::id_lists_adapter::IdListIds;
-use crate::id_lists_adapter::shared_id_list_format::{IdListImage, digest, hex};
+use crate::id_lists_adapter::shared_id_list_format::{IdListImage, digest, hex, invalid};
 use crate::portable_id_list_ef::{MAX_IMAGE_BYTES, MEDIA_TYPE, RECORD_BYTES};
 use std::io::{self, Read};
-
-#[cfg(not(feature = "custom_network_provider"))]
-pub(crate) fn accepts_snapshot(value: &str) -> bool {
-    value.split(',').any(|entry| entry.trim() == MEDIA_TYPE)
-}
 
 pub(super) fn supports_snapshots(endpoint: &url::Url) -> bool {
     matches!(endpoint.scheme(), "http" | "https")
@@ -42,21 +37,42 @@ fn media_type_without_parameters(value: &str) -> &str {
 }
 
 fn read_verified_snapshot(body: &mut ResponseData, expected_digest: &str) -> io::Result<Vec<u8>> {
+    let encoding = {
+        let mut values = body.header_values("content-encoding");
+        let first = values.next().unwrap_or("identity").trim();
+        if values.next().is_some() {
+            return Err(invalid("multiple snapshot content encodings"));
+        }
+        first
+    };
+
+    // Reqwest strips Content-Encoding if it already decoded the body.
+    let reader: &mut dyn Read = match encoding {
+        s if s.eq_ignore_ascii_case("identity") => body.get_stream_mut(),
+        s if s.eq_ignore_ascii_case("gzip") => {
+            &mut flate2::read::MultiGzDecoder::new(body.get_stream_mut())
+        }
+        s if s.eq_ignore_ascii_case("zstd") => {
+            &mut zstd::stream::read::Decoder::new(body.get_stream_mut())?
+        }
+        s if s.eq_ignore_ascii_case("br") => {
+            &mut brotli::Decompressor::new(body.get_stream_mut(), 32 * 1024)
+        }
+        s if s.eq_ignore_ascii_case("deflate") => {
+            &mut flate2::read::ZlibDecoder::new(body.get_stream_mut())
+        }
+        _ => return Err(invalid("unsupported snapshot content encoding")),
+    };
+
     let mut bytes = Vec::new();
-    body.get_stream_mut()
+    reader
         .take(MAX_IMAGE_BYTES as u64 + 1)
         .read_to_end(&mut bytes)?;
     if bytes.len() > MAX_IMAGE_BYTES {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "snapshot exceeds maximum image size",
-        ));
+        return Err(invalid("snapshot exceeds maximum image size"));
     }
     if hex(&digest(&bytes)) != expected_digest {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidData,
-            "snapshot digest mismatch",
-        ));
+        return Err(invalid("snapshot digest mismatch"));
     }
     Ok(bytes)
 }
@@ -90,9 +106,6 @@ impl StatsigHttpIdListsAdapter {
         if response.status_code != Some(200)
             || header("content-type") != Some(MEDIA_TYPE)
             || body.get_header_ignore_ascii_case("content-range").is_some()
-            || body
-                .get_header_ignore_ascii_case("content-encoding")
-                .is_some()
             || Some(file_id) != job.metadata.file_id.as_deref()
         {
             return Err(invalid());
@@ -115,15 +128,20 @@ impl StatsigHttpIdListsAdapter {
             None => None,
         };
         let stopped = Arc::clone(self.network.shutdown_flag());
-        let image = tokio::task::spawn_blocking(move || {
-            let _permits = (download_permit, build_permit);
-            if stopped.load(Ordering::SeqCst) {
-                return Err(StatsigHttpIdListsAdapter::publication_stopped());
-            }
-            let image = read_verified_snapshot(&mut body, &expected)
-                .and_then(|bytes| IdListImage::from_ef_v1_snapshot(bytes, end));
-            Ok(image)
-        })
+        let image = tokio::task::spawn_blocking(id_list_load_timing::with_current_timings(
+            Phase::BuildWorkerWait,
+            move || {
+                let _permits = (download_permit, build_permit);
+                if stopped.load(Ordering::SeqCst) {
+                    return Err(StatsigHttpIdListsAdapter::publication_stopped());
+                }
+                let image = id_list_load_timing::measure(Phase::Decode, || {
+                    read_verified_snapshot(&mut body, &expected)
+                        .and_then(|bytes| IdListImage::from_ef_v1_snapshot(bytes, end))
+                });
+                Ok(image)
+            },
+        ))
         .await
         .map_err(|e| StatsigErr::ThreadFailure(e.to_string()))??
         .map_err(|error| invalid_response(error.to_string()))?;

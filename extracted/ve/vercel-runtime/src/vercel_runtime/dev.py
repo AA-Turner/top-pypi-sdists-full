@@ -480,6 +480,25 @@ def _start_wsgi(host: str, port: int) -> None:
 
 
 def _start_asgi(host: str, port: int) -> None:
+    has_watchfiles = bool(importlib.util.find_spec("watchfiles"))
+
+    # If watchfiles isn't installed, turn up the reload_delay so we don't
+    # hammer the CPU.
+    reload_delay = 0.25 if has_watchfiles else 2.0
+
+    if os.environ.get("__VC_ASYNC_LIBRARY") == "trio":
+        vendored_uvicorn.run(
+            "vercel_runtime.dev:create_trio_asgi_app",
+            factory=True,
+            host=host,
+            port=port,
+            use_colors=not _NO_COLOR,
+            reload=True,
+            reload_delay=reload_delay,
+            log_config=_build_uvicorn_log_config(),
+        )
+        return
+
     # Prefer user-installed fastapi-cli for web services;
     # cron/worker go straight to uvicorn.
     if not is_cron_service() and not is_worker_service():
@@ -499,12 +518,6 @@ def _start_asgi(host: str, port: int) -> None:
         except (ImportError, AttributeError):
             pass
 
-    has_watchfiles = bool(importlib.util.find_spec("watchfiles"))
-
-    # If watchfiles isn't installed, turn up the reload_delay so we don't
-    # hammer the CPU.
-    reload_delay = 0.25 if has_watchfiles else 2.0
-
     vendored_uvicorn.run(
         "vercel_runtime.dev:asgi_app",
         host=host,
@@ -514,6 +527,13 @@ def _start_asgi(host: str, port: int) -> None:
         reload_delay=reload_delay,
         log_config=_build_uvicorn_log_config(),
     )
+
+
+def create_trio_asgi_app() -> ASGI:
+    # Imported here because trio comes from the application's dependencies.
+    from vercel_runtime import trio_guest  # noqa: PLC0415
+
+    return trio_guest.TrioGuestASGI(asgi_app)
 
 
 def _setup_apps() -> None:

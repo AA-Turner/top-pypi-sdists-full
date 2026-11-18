@@ -55,6 +55,7 @@ fwd_viewer/org_id:
     - r:workspace_case/org_id,ws_id
     - r:workspace_case_template/org_id,ws_id
     - r:audit_logs/org_id
+    - r:user_groups/org_id
 # Fleet staff roles: platform-wide, granted by login, incident.io shifts or reviewed files.
 # Each nests an _org/org_id sub-role that carries its grants, so they survive scoping a token to an org.
 staff_member:

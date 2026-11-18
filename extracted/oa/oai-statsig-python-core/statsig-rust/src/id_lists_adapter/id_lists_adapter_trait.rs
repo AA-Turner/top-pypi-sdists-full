@@ -94,6 +94,17 @@ pub trait IdListsUpdateListener: Send + Sync {
         self.did_receive_id_list_updates_with_propagation(updates, propagation);
     }
 
+    /// Fallible lazy publication. A skipped/failed store write must reach the
+    /// shared load result; external listeners retain their callback contract.
+    fn try_receive_partial_id_list_updates_with_propagation(
+        &self,
+        updates: HashMap<String, IdListUpdate>,
+        propagation: HashMap<String, super::IdListPropagationUpdate>,
+    ) -> Result<(), StatsigErr> {
+        self.did_receive_partial_id_list_updates_with_propagation(updates, propagation);
+        Ok(())
+    }
+
     /// Fallible publication hook used by adapters that persist a committed snapshot.
     /// Existing listeners retain their current callback behavior by default.
     fn try_receive_id_list_updates_with_propagation(

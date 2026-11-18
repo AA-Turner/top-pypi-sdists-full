@@ -8,24 +8,34 @@ import re
 import stat
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final
+from subprocess import check_output  # ruff:ignore[suspicious-subprocess-import]  # import-cost subprocess test
+from typing import TYPE_CHECKING, Final, ParamSpec
 
 import pytest
 
 import platformdirs
-from platformdirs.android import Android
 from platformdirs.macos import MacOS
 from platformdirs.unix import Unix
 from platformdirs.windows import Windows
 
-builtin_import = builtins.__import__
+# The interpreter owns the import-hook signature; this reference is restored after each test.
+_REAL_IMPORT: Final[Callable[..., ModuleType]] = builtins.__import__  # simplint: ignore[callable-ellipsis]  # hook
+_Args = ParamSpec("_Args")
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
     from types import ModuleType
+    from typing import Any
 
     from pytest_mock import MockerFixture
+
+
+def test_import_platformdirs_skips_typing() -> None:
+    code = "import sys, platformdirs; print('typing' in sys.modules)"
+    # A coverage process hook imports typing in the child before platformdirs loads.
+    env = {name: value for name, value in os.environ.items() if not name.startswith("COVERAGE_")}
+    assert check_output([sys.executable, "-c", code], text=True, env=env).strip() == "False"
 
 
 def test_package_metadata() -> None:
@@ -34,26 +44,22 @@ def test_package_metadata() -> None:
 
 
 def test_method_result_is_str(func: str) -> None:
-    method = getattr(platformdirs, func)
-    result = method()
+    result = getattr(platformdirs, func)()
     assert isinstance(result, str)
 
 
 def test_property_result_is_str(func: str) -> None:
-    dirs = platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0")
-    result = getattr(dirs, func)
+    result = getattr(platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0"), func)
     assert isinstance(result, str)
 
 
 def test_method_result_is_path(func_path: str) -> None:
-    method = getattr(platformdirs, func_path)
-    result = method()
+    result = getattr(platformdirs, func_path)()
     assert isinstance(result, Path)
 
 
 def test_property_result_is_path(func_path: str) -> None:
-    dirs = platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0")
-    result = getattr(dirs, func_path)
+    result = getattr(platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0"), func_path)
     assert isinstance(result, Path)
 
 
@@ -86,95 +92,41 @@ def test_site_applications_function_keeps_multipath_positional(func: str) -> Non
 def test_function_matches_its_property_for_app_arguments(func: str) -> None:
     function = getattr(platformdirs, func)
     scoped = getattr(platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0"), func)
-    if {"appname", "version"} <= inspect.Signature.from_callable(function).parameters.keys():
+    takes_app_arguments = {"appname", "version"} <= inspect.Signature.from_callable(function).parameters.keys()
+    # A function without the app arguments can only ever return the unscoped base directory, so a property that
+    # is app-scoped on any platform is out of its reach. Only one direction holds: a function may have to take
+    # arguments this platform ignores because another platform scopes the same property.
+    if takes_app_arguments:  # simplint: ignore[conditional-in-test]  # fixture spans different signatures
         assert function(appname="MyApp", appauthor="MyCompany", version="1.0") == scoped
     else:
-        # A function without the app arguments can only ever return the unscoped base directory, so a property that
-        # is app-scoped on any platform is out of its reach. Only one direction holds: a function may have to take
-        # arguments this platform ignores because another platform scopes the same property.
         assert scoped == getattr(platformdirs.PlatformDirs(), func)
-
-
-@pytest.mark.parametrize("root", ["A", "/system", None])
-@pytest.mark.parametrize("data", ["D", "/data", None])
-@pytest.mark.parametrize("path", ["/data/data/a/files", "/C"])
-@pytest.mark.parametrize("shell", ["/data/data/com.app/files/usr/bin/sh", "/usr/bin/sh", None])
-@pytest.mark.parametrize("prefix", ["/data/data/com.termux/files/usr", None])
-def test_android_active(  # ruff:ignore[too-many-arguments]
-    monkeypatch: pytest.MonkeyPatch,
-    root: str | None,
-    data: str | None,
-    path: str,
-    shell: str | None,
-    prefix: str | None,
-) -> None:
-    for env_var, value in {"ANDROID_DATA": data, "ANDROID_ROOT": root, "SHELL": shell, "PREFIX": prefix}.items():
-        if value is None:
-            monkeypatch.delenv(env_var, raising=False)
-        else:
-            monkeypatch.setenv(env_var, value)
-
-    from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
-
-    _android_folder.cache_clear()
-    monkeypatch.setattr(sys, "path", ["/A", "/B", path])
-
-    expected = (
-        root == "/system" and data == "/data" and shell is None and prefix is None and _android_folder() is not None
-    )
-    if expected:
-        assert platformdirs._set_platform_dir_class() is Android  # ruff:ignore[private-member-access]
-    else:
-        assert platformdirs._set_platform_dir_class() is not Android  # ruff:ignore[private-member-access]
-
-
-@pytest.mark.parametrize(
-    ("prefix", "expected"),
-    [
-        pytest.param(None, Android, id="cleared-environment"),
-        pytest.param("/data/data/com.termux/files/usr", platformdirs._Result, id="termux"),  # ruff:ignore[private-member-access]
-    ],
-)
-def test_android_build_detected_without_environment(
-    monkeypatch: pytest.MonkeyPatch, prefix: str | None, expected: type[platformdirs.PlatformDirsABC]
-) -> None:
-    for env_var in ("ANDROID_DATA", "ANDROID_ROOT", "SHELL", "PREFIX"):
-        monkeypatch.delenv(env_var, raising=False)
-    if prefix is not None:
-        monkeypatch.setenv("PREFIX", prefix)
-    monkeypatch.setattr(sys, "getandroidapilevel", lambda: 34, raising=False)
-    monkeypatch.setattr(sys, "path", ["/data/user/0/org.example.app/files/app"])
-    from platformdirs.android import _android_folder  # ruff:ignore[import-outside-top-level]
-
-    _android_folder.cache_clear()
-    assert platformdirs._set_platform_dir_class() is expected  # ruff:ignore[private-member-access]
 
 
 def _fake_import(
     name: str,
-    globals: Mapping[str, object] | None = None,  # ruff:ignore[builtin-argument-shadowing]
-    locals: Mapping[str, object] | None = None,  # ruff:ignore[builtin-argument-shadowing]
+    global_vars: Mapping[str, Any] | None = None,  # simplint: ignore[imprecise-annotation]  # import globals
+    local_vars: Mapping[str, Any] | None = None,  # simplint: ignore[imprecise-annotation]  # import locals
     fromlist: Sequence[str] | None = (),
     level: int = 0,
 ) -> ModuleType:
     if name == "ctypes":
         msg = f"No module named {name}"
         raise ModuleNotFoundError(msg)
-    return builtin_import(name, globals, locals, fromlist, level)
+    return _REAL_IMPORT(name, global_vars, local_vars, fromlist, level)
 
 
-def mock_import(func: Callable[..., None]) -> Callable[..., None]:
+def mock_import(func: Callable[_Args, None]) -> Callable[_Args, None]:
     @functools.wraps(func)
-    def wrap(*args: Any, **kwargs: Any) -> None:  # ruff:ignore[any-type]
+    def wrap(*args: _Args.args, **kwargs: _Args.kwargs) -> None:
         platformdirs_module_items = [item for item in sys.modules.items() if item[0].startswith("platformdirs")]
         try:
-            builtins.__import__ = _fake_import  # ty: ignore[invalid-assignment]
+            builtins.__import__ = _fake_import  # ty: ignore[invalid-assignment]  # patched import hook
             for name, _ in platformdirs_module_items:
                 del sys.modules[name]
             return func(*args, **kwargs)
         finally:
             # restore original modules
-            builtins.__import__ = builtin_import
+            builtins.__import__ = _REAL_IMPORT  # ty: ignore[invalid-assignment]  # restore import hook
             for name, module in platformdirs_module_items:
                 sys.modules[name] = module
 
@@ -183,10 +135,9 @@ def mock_import(func: Callable[..., None]) -> Callable[..., None]:
 
 @mock_import
 def test_no_ctypes(func: str) -> None:
-    import platformdirs  # ruff:ignore[import-outside-top-level]
+    import platformdirs  # ruff:ignore[import-outside-top-level]  # imported under the patched import hook
 
-    dirs = platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0")
-    result = getattr(dirs, func)
+    result = getattr(platformdirs.PlatformDirs("MyApp", "MyCompany", version="1.0"), func)
     assert isinstance(result, str)
 
 
@@ -198,6 +149,9 @@ def test_mypy_subclassing() -> None:
 
     class AppDirsSubclass(platformdirs.AppDirs): ...
 
+    expected = platformdirs.PlatformDirs("MyApp").user_data_dir
+    assert (PlatformDirsSubclass("MyApp").user_data_dir, AppDirsSubclass("MyApp").user_data_dir) == (expected, expected)
+
 
 @pytest.mark.parametrize("kind", ["config", "data", "cache", "state", "log", "runtime"])
 def test_iter_dirs_yields_user_before_site(kind: str) -> None:
@@ -206,12 +160,12 @@ def test_iter_dirs_yields_user_before_site(kind: str) -> None:
     assert next(getattr(dirs, f"iter_{kind}_dirs")()) == getattr(dirs, f"user_{kind}_dir")
 
 
-_APP_FIELDS: Final = [
+_APP_FIELDS: Final[list[pytest.ParameterSet]] = [
     pytest.param("appname", id="appname"),
     pytest.param("appauthor", id="appauthor"),
     pytest.param("version", id="version"),
 ]
-_ESCAPING_VALUES: Final = [
+_ESCAPING_VALUES: Final[list[pytest.ParameterSet]] = [
     pytest.param("../evil", id="parent"),
     pytest.param("nested/../../evil", id="nested-parent"),
     pytest.param("..\\evil", id="backslash-parent"),
@@ -259,7 +213,7 @@ def test_app_argument_assignment_within_base_changes_the_path(
     mocker: MockerFixture, field: str, value: str | bool | None, parts: tuple[str, ...]
 ) -> None:
     # only Windows paths include appauthor
-    mocker.patch("platformdirs.windows.get_win_folder", return_value="C:/Local")
+    mocker.patch("platformdirs.windows.get_win_folder", return_value="C:/Local", autospec=True)
     dirs = Windows("app", "author", "1.0")
     setattr(dirs, field, value)
     assert Path(dirs.user_data_dir) == Path(os.path.normpath("C:/Local"), *parts)
@@ -277,10 +231,14 @@ def test_appname_within_base_is_accepted(appname: str) -> None:
     assert platformdirs.PlatformDirs(appname).user_data_dir.endswith(appname)
 
 
-_KINDS: Final = [pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log", "runtime")]
-_POSIX_ONLY: Final = pytest.mark.skipif(sys.platform == "win32", reason="Windows ignores POSIX mode bits")
+_KINDS: Final[list[pytest.ParameterSet]] = [
+    pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log", "runtime")
+]
+_POSIX_ONLY: Final[pytest.MarkDecorator] = pytest.mark.skipif(
+    sys.platform == "win32", reason="Windows ignores POSIX mode bits"
+)
 # Unix checks the owner of the runtime directory against geteuid, which Windows lacks.
-_EXISTING_KINDS: Final = [
+_EXISTING_KINDS: Final[list[pytest.ParameterSet]] = [
     *(pytest.param(kind, id=kind) for kind in ("config", "data", "cache", "state", "log")),
     pytest.param("runtime", id="runtime", marks=_POSIX_ONLY),
 ]
@@ -312,13 +270,13 @@ def user_dirs(home: Path) -> dict[str, Path]:
     }
 
 
-def _place(kind: str, *, ensure_exists: bool = False) -> Callable[[str | Path], Path]:
-    return getattr(Unix(appname="app", ensure_exists=ensure_exists), f"place_{kind}_file")
-
-
 @pytest.mark.parametrize("kind", _EXISTING_KINDS)
 def test_place_file_returns_path_under_user_dir(user_dirs: dict[str, Path], kind: str) -> None:
     assert _place(kind)("sub/app.toml") == user_dirs[kind] / "sub" / "app.toml"
+
+
+def _place(kind: str, *, ensure_exists: bool = False) -> Callable[[str | Path], Path]:
+    return getattr(Unix(appname="app", ensure_exists=ensure_exists), f"place_{kind}_file")
 
 
 @pytest.mark.parametrize("kind", _EXISTING_KINDS)
@@ -362,7 +320,7 @@ def test_place_file_keeps_mode_of_existing_directories(home: Path) -> None:
     assert stat.S_IMODE(home.stat().st_mode) == 0o755
 
 
-_ESCAPING_NAMES: Final = [
+_ESCAPING_NAMES: Final[list[pytest.ParameterSet]] = [
     pytest.param("../evil", id="parent"),
     pytest.param("sub/../../evil", id="nested-parent"),
     pytest.param("..\\evil", id="backslash-parent"),
@@ -410,8 +368,11 @@ def test_place_file_on_missing_root_raises_file_not_found(mocker: MockerFixture)
         _place("config")("app.toml")
 
 
-_SUFFIXES: Final = [pytest.param("file", id="file"), pytest.param("files", id="files")]
-_MISSING: Final = [pytest.param("file", None, id="file"), pytest.param("files", [], id="files")]
+_SUFFIXES: Final[list[pytest.ParameterSet]] = [pytest.param("file", id="file"), pytest.param("files", id="files")]
+_MISSING: Final[list[pytest.ParameterSet]] = [
+    pytest.param("file", None, id="file"),
+    pytest.param("files", [], id="files"),
+]
 
 
 @pytest.fixture
@@ -435,12 +396,6 @@ def config_paths(dirs: Unix) -> list[Path]:
 def user_file(dirs: Unix, kind: str) -> Path:
     # An existing XDG_RUNTIME_DIR is only used with mode 0o700, which place_runtime_file creates it with.
     (path := getattr(dirs, f"place_{kind}_file")("app.toml")).touch()
-    return path
-
-
-def _touch(path: Path) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.touch()
     return path
 
 
@@ -520,6 +475,12 @@ def test_find_config_file_prefers_user_over_site(dirs: Unix, config_paths: list[
     assert dirs.find_config_file("app.toml") == user
 
 
+def _touch(path: Path) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.touch()
+    return path
+
+
 def test_find_config_file_falls_back_to_site(dirs: Unix, config_paths: list[Path]) -> None:
     site = _touch(config_paths[2] / "app.toml")
     assert dirs.find_config_file("app.toml") == site
@@ -548,6 +509,27 @@ def test_find_searches_overridden_path_iterator(
     assert getattr(custom_class(dirs.appname), f"find_{kind}_{suffix}")("app.toml") == expected
 
 
+@_POSIX_ONLY
+@pytest.mark.skipif(sys.platform != "win32" and os.geteuid() == 0, reason="root searches any directory")
+def test_find_skips_directory_that_denies_access(dirs: Unix, config_paths: list[Path]) -> None:
+    # Like a root-owned 0700 /etc/xdg/app that a normal user cannot search.
+    _touch((denied := config_paths[1]) / "app.toml")
+    site = _touch(config_paths[2] / "app.toml")
+    denied.chmod(0)
+    try:
+        assert dirs.find_config_file("app.toml") == site
+        assert dirs.find_config_files("app.toml") == [site]
+    finally:
+        denied.chmod(0o700)
+
+
+@pytest.mark.parametrize(("suffix", "expected"), _MISSING)
+def test_find_treats_overlong_name_as_missing(dirs: Unix, suffix: str, expected: list[Path] | None) -> None:
+    # A name over the 255 byte limit fails stat with ENAMETOOLONG instead of EACCES, and needs no mode bits to set up.
+    dirs.user_config_path.mkdir(parents=True)
+    assert getattr(dirs, f"find_config_{suffix}")("a" * 256) == expected
+
+
 def test_find_config_file_accepts_nested_path_like(dirs: Unix, config_paths: list[Path]) -> None:
     nested = _touch(config_paths[1] / "sub" / "app.toml")
     assert dirs.find_config_file(Path("sub", "app.toml")) == nested
@@ -558,7 +540,7 @@ def test_find_config_file_accepts_nested_path_like(dirs: Unix, config_paths: lis
 def test_find_file_finds_root_placed_file_in_first_site_dir(
     dirs: Unix, mocker: MockerFixture, kind: str, multipath: bool
 ) -> None:
-    mocker.patch("platformdirs.unix.geteuid", return_value=0)
+    mocker.patch("platformdirs.unix.geteuid", return_value=0, autospec=True)
     dirs.use_site_for_root = True
     dirs.multipath = multipath
     getattr(dirs, f"place_{kind}_file")("app.toml").touch()

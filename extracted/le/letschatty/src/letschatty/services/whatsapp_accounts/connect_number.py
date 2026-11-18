@@ -271,14 +271,19 @@ class AccountAdministration:
         return account.model_copy(update={"is_default": True})
 
     async def disconnect(self, company_id: StrObjectId, account_id: StrObjectId) -> WhatsAppAccount:
-        """The account stops sending; its chats stay readable and its numbers keep routing. The
-        default one only when it is the company's only account (decision 13-oct): with others,
-        another one becomes the default first."""
+        """The account stops sending AND lets go of its numbers in Chatty, without touching Meta: any
+        company may connect them now, and until someone does their webhooks route nowhere. Its chats
+        and history stay; reconnecting claims a number again. The default one only when it is the
+        company's only account (decision 13-oct): with others, another one becomes the default first."""
         account = await self._own(company_id, account_id)
         if account.is_default and len(await self.accounts.list_by_company(company_id)) > 1:
             raise CannotDisconnectDefaultAccount(company_id=str(company_id))
         now = utc_now()
         await self.accounts.update_fields(account.id, {"status": WhatsAppAccountStatus.DISCONNECTED.value, "disconnected_at": now})
+        for number in await self.directory.numbers.list_by_account(account.id):
+            if number.is_live:
+                await self.directory.numbers.release(number.phone_number_id, account.id, "disconnected")
+                await self.directory.invalidate_number(number.phone_number_id)
         return account.model_copy(update={"status": WhatsAppAccountStatus.DISCONNECTED, "disconnected_at": now})
 
     async def follow_waba_migration(self, account_id: StrObjectId, waba_id: str) -> Optional[WhatsAppAccount]:

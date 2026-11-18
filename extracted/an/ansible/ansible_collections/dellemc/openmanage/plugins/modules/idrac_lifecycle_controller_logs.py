@@ -1,10 +1,9 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 #
-# Dell OpenManage Ansible Module
-# Version 10.0.1
-# Copyright (C) 2018-2025 Dell Inc. or its subsidiaries. All Rights Reserved.
+# Dell OpenManage Ansible Modules
+# Version 11.0.0
+# Copyright (C) 2018-2026 Dell Inc. or its subsidiaries. All Rights Reserved.
 
 # GNU General Public License v3.0+ (see COPYING or https://www.gnu.org/licenses/gpl-3.0.txt)
 
@@ -15,10 +14,13 @@ __metaclass__ = type
 DOCUMENTATION = """
 ---
 module: idrac_lifecycle_controller_logs
-short_description: Export Lifecycle Controller logs to a network share or local path.
+short_description: Export Lifecycle Controller logs to a network share or local path with advanced features.
 version_added: "2.1.0"
 description:
   - Export Lifecycle Controller logs to a given network share or local path.
+  - Support for filtering by date range, severity, category, and message content.
+  - Support for multi-format export (JSON, CSV, text) with metadata envelope.
+  - Support for compliance export verification, filter optimization, storage monitoring, and comment insertion.
 extends_documentation_fragment:
   - dellemc.openmanage.idrac_auth_options
 options:
@@ -40,14 +42,97 @@ options:
     description: Whether to wait for the running job completion or not.
     type: bool
     default: true
+  date_start:
+    description:
+      - Start date for filtering log entries (ISO 8601 format).
+      - Only entries created on or after this date are included.
+      - Uses server-side OData $filter for efficient querying.
+      - Example format - 2026-08-01T00:00:00Z or 2026-08-01.
+    type: str
+  date_end:
+    description:
+      - End date for filtering log entries (ISO 8601 format).
+      - Only entries created on or before this date are included.
+      - Uses server-side OData $filter for efficient querying.
+      - Must not be earlier than I(date_start).
+      - Example format - 2026-08-31T23:59:59Z or 2026-08-31.
+    type: str
+  severity:
+    description:
+      - List of severity levels to filter log entries.
+      - Uses server-side OData $filter for efficient querying.
+      - Valid values are C(Critical), C(Warning), and C(OK).
+    type: list
+    elements: str
+    choices: ['Critical', 'Warning', 'OK']
+  category:
+    description:
+      - List of Dell OEM categories to filter log entries.
+      - Uses server-side OData $filter for efficient querying.
+      - Common categories include Audit, Configuration, Updates, SystemHealth, Storage, and WorkNotes.
+    type: list
+    elements: str
+  message_contains:
+    description:
+      - Substring to search for in log messages (case-insensitive).
+      - Applied client-side after server-side filters.
+      - Use for searching specific keywords in log messages.
+    type: str
+  export_format:
+    description:
+      - Format for exporting log entries to local file.
+      - C(json) exports with metadata envelope including server info and filters applied.
+      - C(csv) exports as comma-delimited file with header row.
+      - C(text) exports one entry per line in human-readable format.
+      - Only applicable when exporting to local path.
+    type: str
+    choices: ['json', 'csv', 'text']
+    default: 'json'
+  fetch_metadata_only:
+    description:
+      - Fetch only log service metadata without retrieving log entries.
+      - Returns statistics like total entries, oldest/newest timestamps, severity breakdown.
+      - Only applicable when using local file path.
+    type: bool
+    default: false
+  verify_export:
+    description:
+      - Enable compliance export verification with entry count comparison.
+      - When enabled, compares expected vs actual entry count after export.
+      - Returns export_verification field with verification results.
+    type: bool
+    default: false
+  filter_optimization:
+    description:
+      - Filter optimization mode for combined filter operations.
+      - C(single_query) uses server-side filtering with OData query parameters.
+      - C(sequential) applies filters sequentially on client side.
+      - C(auto) automatically selects the best mode based on filter complexity.
+    type: str
+    choices: ['single_query', 'sequential', 'auto']
+    default: 'auto'
+  storage_threshold_pct:
+    description:
+      - Storage overflow monitoring threshold percentage.
+      - When storage utilization exceeds this threshold, a warning is returned.
+      - Set to 0 to disable storage monitoring.
+      - Default is 80 percent.
+    type: int
+    default: 80
+  insert_comment:
+    description:
+      - Insert a custom comment into the LC logs during automation workflows.
+      - Maximum length is 256 characters.
+      - Requires ConfigureManager or Login+TestAlerts privilege.
+      - Returns inserted_entry_id and inserted_entry_timestamp on success.
+    type: str
 
 requirements:
-  - "omsdk >= 1.2.488"
   - "python >= 3.9.6"
 author:
   - "Rajeev Arakkal (@rajeevarakkal)"
   - "Anooja Vardhineni (@anooja-vardhineni)"
-  - "Trisha Datta (@trisha-dell)"
+  - "Sapana Gupta (@sapana05)"
 notes:
   - This module requires 'Administrator' privilege for I(idrac_user).
   - Exporting data to a local share is supported only on iDRAC9-based PowerEdge Servers and later.
@@ -55,6 +140,9 @@ notes:
   - This module supports both IPv4 and IPv6 address for I(idrac_ip).
   - This module does not support C(check_mode).
   - No job will be created when exporting data to a local share in iDRAC9 and iDRAC 10.
+  - The insert_comment parameter requires ConfigureManager or Login+TestAlerts privilege.
+  - Server-side OData $filter is used for date_start, date_end, severity, and category filters.
+  - The message_contains filter is applied client-side after server-side filtering.
 """
 
 EXAMPLES = r'''
@@ -84,6 +172,110 @@ EXAMPLES = r'''
     idrac_password: "user_password"
     ca_path: "/path/to/ca_cert.pem"
     share_name: "/example/export_lc"
+
+- name: Filter logs by date range (AC-001).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    date_start: "2026-08-01T00:00:00Z"
+    date_end: "2026-08-31T23:59:59Z"
+
+- name: Filter logs by severity (AC-002).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    severity:
+      - Critical
+      - Warning
+
+- name: Export logs in CSV format (AC-003).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc/logs.csv"
+    export_format: "csv"
+
+- name: Export logs in JSON format with metadata envelope (AC-005).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc/logs.json"
+    export_format: "json"
+    date_start: "2026-08-01"
+    severity:
+      - Critical
+
+- name: Filter logs by category and message content.
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    category:
+      - Audit
+      - Configuration
+    message_contains: "firmware"
+
+- name: Fetch LC log metadata only.
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/tmp"
+    fetch_metadata_only: true
+
+- name: Export with compliance verification (AC-006).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    verify_export: true
+
+- name: Combined filters with optimization (AC-007).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    date_start: "2026-08-01"
+    severity:
+      - Critical
+    category:
+      - SystemHealth
+    filter_optimization: "single_query"
+
+- name: Export with storage overflow monitoring (AC-008).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/example/export_lc"
+    storage_threshold_pct: 75
+
+- name: Insert comment into LC logs (AC-009).
+  dellemc.openmanage.idrac_lifecycle_controller_logs:
+    idrac_ip: "190.168.0.1"
+    idrac_user: "user_name"
+    idrac_password: "user_password"
+    ca_path: "/path/to/ca_cert.pem"
+    share_name: "/tmp"
+    insert_comment: "Automation workflow started - backup initiated"
 '''
 
 RETURN = """
@@ -112,6 +304,78 @@ lc_logs_status:
     "file": "192.168.0.0:/nfsfileshare/190.168.0.1_20210728_133437_LC_Log.log",
     "retval": true
   }
+lc_logs:
+  description: List of filtered log entries when filters are applied.
+  returned: when filters are applied and export_format is not specified
+  type: list
+  sample: [
+    {
+      "Id": "1",
+      "Created": "2026-08-17T10:00:00Z",
+      "Severity": "Critical",
+      "Message": "System temperature exceeded threshold",
+      "MessageId": "SYS001"
+    }
+  ]
+exported_entry_count:
+  description: Number of log entries exported to file.
+  returned: when export_format is specified
+  type: int
+  sample: 150
+filters_applied:
+  description: Summary of filters that were applied to the query.
+  returned: when any filter parameter is specified
+  type: dict
+  sample: {
+    "date_start": "2026-08-01T00:00:00Z",
+    "date_end": "2026-08-31T23:59:59Z",
+    "severity": ["Critical", "Warning"],
+    "category": ["Audit"],
+    "message_contains": "firmware"
+  }
+log_metadata:
+  description: Log service metadata when fetch_metadata_only is true.
+  returned: when fetch_metadata_only is true
+  type: dict
+  sample: {
+    "total_entries": 150,
+    "oldest_timestamp": "2026-01-01T00:00:00Z",
+    "newest_timestamp": "2026-08-18T12:00:00Z",
+    "severity_breakdown": {
+      "Critical": 5,
+      "Warning": 20,
+      "OK": 100,
+      "Other": 25
+    },
+    "storage_utilization_pct": 75.0,
+    "max_records": 200,
+    "overwrite_policy": "WrapsWhenFull"
+  }
+export_verification:
+  description: Export verification results when verify_export is true.
+  returned: when verify_export is true
+  type: dict
+  sample: {
+    "expected_count": 150,
+    "actual_count": 150,
+    "verified": true,
+    "message": "Export verification successful"
+  }
+storage_warning:
+  description: Storage overflow warning when utilization exceeds threshold.
+  returned: when storage utilization exceeds storage_threshold_pct
+  type: str
+  sample: "LC log storage at 85.5% capacity (threshold 80%). Consider exporting and archiving."
+inserted_entry_id:
+  description: ID of the inserted comment entry.
+  returned: when insert_comment is provided
+  type: str
+  sample: "LC123456"
+inserted_entry_timestamp:
+  description: Timestamp of the inserted comment entry.
+  returned: when insert_comment is provided
+  type: str
+  sample: "2026-08-18T12:00:00Z"
 error_info:
   description: Details of the HTTP Error.
   returned: on HTTP error
@@ -135,123 +399,394 @@ error_info:
 """
 
 
-import socket
 import json
-import copy
-import datetime
-from ansible_collections.dellemc.openmanage.plugins.module_utils.dellemc_idrac import iDRACConnection, idrac_auth_params
+import os
+import re
+from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import (
+    warn_if_cert_validation_disabled, check_cert_fingerprint)
+from ansible_collections.dellemc.openmanage.plugins.module_utils.dellemc_idrac import idrac_auth_params
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish import iDRACRedfishAPI
 from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
+from ansible.module_utils.six.moves.urllib.parse import urlencode
 from ansible.module_utils.urls import ConnectionError, SSLValidationError
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.\
     idrac_lifecycle_controller_logs_utils import IDRACLifecycleControllerLogs
-try:
-    from omsdk.sdkfile import file_share_manager
-    from omsdk.sdkcreds import UserCredentials
-except ImportError:
-    pass
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.\
+    idrac_log_filters import IDRACLogFilter
+from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_utils.\
+    idrac_log_exporter import IDRACLogExporter
+
 EXPORT_LC_LOGS = '/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellLCService/Actions/DellLCService.ExportLCLog'
+LC_LOG_ENTRIES_URI = '/redfish/v1/Managers/iDRAC.Embedded.1/LogServices/Lclog/Entries'
 SUCCESS_MSG = "Successfully exported the lifecycle controller logs."
+FILTERED_EXPORT_MSG = "Successfully exported filtered lifecycle controller logs."
 SCHEDULE_MSG = "The export lifecycle controller log job is submitted successfully."
 NO_CHANGES_FOUND_MSG = "No changes found to be applied."
+NO_MATCHING_ENTRIES_MSG = "No log entries matched the specified filters."
 CHANGES_FOUND_MSG = "Changes found to be applied."
+COMMENT_INSERT_SUCCESS = "Successfully inserted comment into LC logs."
+COMMENT_MAX_LENGTH = 256
 
 
-def get_user_credentials(module):
-    share_username = module.params['share_user']
-    share_password = module.params['share_password']
-    work_group = None
-    if share_username is not None and "@" in share_username:
-        username_domain = share_username.split("@")
-        share_username = username_domain[0]
-        work_group = username_domain[1]
-    elif share_username is not None and "\\" in share_username:
-        username_domain = share_username.split("\\")
-        work_group = username_domain[0]
-        share_username = username_domain[1]
-    share = file_share_manager.create_share_obj(share_path=module.params['share_name'],
-                                                creds=UserCredentials(share_username, share_password,
-                                                                      work_group=work_group), isFolder=True)
-    return share
+def validate_insert_comment(comment):
+    """Validate insert_comment parameter."""
+    if comment is None:
+        return None
+
+    if len(comment) > COMMENT_MAX_LENGTH:
+        raise ValueError(
+            f"insert_comment exceeds maximum length of {COMMENT_MAX_LENGTH} characters. "
+            f"Current length: {len(comment)}"
+        )
+
+    # Check for control characters
+    if re.search(r'[\x00-\x1f\x7f]', comment):
+        raise ValueError(
+            "insert_comment contains control characters which are not allowed"
+        )
+
+    return comment
 
 
-def run_export_lc_logs(idrac, module):
-    """
-    Export Lifecycle Controller Log to the given file share
+def build_odata_filter(module):
+    """Build OData $filter query string from module parameters."""
+    filters = []
 
-    Keyword arguments:
-    idrac  -- iDRAC handle
-    module -- Ansible module
-    """
+    date_start = module.params.get('date_start')
+    date_end = module.params.get('date_end')
+    severity = module.params.get('severity')
+    category = module.params.get('category')
 
-    lclog_file_name_format = "%ip_%Y%m%d_%H%M%S_LC_Log.log"
-    share_username = module.params.get('share_user')
-    if (share_username is not None) and ("@" in share_username or "\\" in share_username):
-        myshare = get_user_credentials(module)
-    else:
-        myshare = file_share_manager.create_share_obj(share_path=module.params['share_name'],
-                                                      creds=UserCredentials(module.params['share_user'],
-                                                                            module.params['share_password']),
-                                                      isFolder=True)
-    data = socket.getaddrinfo(module.params["idrac_ip"], module.params["idrac_port"])
-    if "AF_INET6" == data[0][0]._name_:
-        lclog_file_name_format = get_file_name(module)
-    lc_log_file = myshare.new_file(lclog_file_name_format)
-    job_wait = module.params['job_wait']
-    msg = idrac.log_mgr.lclog_export(lc_log_file, job_wait)
-    return msg
+    if date_start:
+        filters.append(f"Created ge '{date_start}'")
+    if date_end:
+        filters.append(f"Created le '{date_end}'")
+    if severity:
+        severity_filters = [f"Severity eq '{s}'" for s in severity]
+        filters.append(f"({' or '.join(severity_filters)})")
+    if category:
+        category_filters = [f"Oem/Dell/Category eq '{c}'" for c in category]
+        filters.append(f"({' or '.join(category_filters)})")
+
+    return ' and '.join(filters) if filters else None
 
 
-def get_file_name(module):
-    file_name = None
-    ip = copy.deepcopy(module.params["idrac_ip"])
-    file_format = "{ip}_%Y%m%d_%H%M%S_LC_Log.log".format(ip=ip.replace(":", ".").replace("..", "."))
-    current_date = datetime.datetime.now()
-    current_date_str = current_date.strftime("%Y%m%d_%H%M%S")
-    file_name = file_format.replace("%Y%m%d_%H%M%S", current_date_str)
-    return file_name
+def get_filtered_log_entries(idrac, _module, odata_filter=None):
+    """Retrieve log entries with optional OData filter and pagination."""
+    entries = []
+    uri = LC_LOG_ENTRIES_URI
+
+    if odata_filter:
+        # URL-encode the OData filter to handle spaces and special characters
+        encoded_filter = urlencode({'$filter': odata_filter}).replace('+', '%20')
+        uri = f"{uri}?{encoded_filter}"
+
+    while uri:
+        response = idrac.invoke_request(uri, 'GET')
+        data = response.json_data
+
+        if 'Members' in data:
+            entries.extend(data['Members'])
+
+        # Follow pagination
+        uri = data.get('Members@odata.nextLink')
+
+    return entries
 
 
-# Main()
-def main():
+def has_filters(module):
+    """Check if any filter parameters are specified."""
+    return any([
+        module.params.get('date_start'),
+        module.params.get('date_end'),
+        module.params.get('severity'),
+        module.params.get('category'),
+        module.params.get('message_contains')
+    ])
+
+
+def get_filters_applied(module):
+    """Get summary of filters that were applied."""
+    filters = {}
+    if module.params.get('date_start'):
+        filters['date_start'] = module.params.get('date_start')
+    if module.params.get('date_end'):
+        filters['date_end'] = module.params.get('date_end')
+    if module.params.get('severity'):
+        filters['severity'] = module.params.get('severity')
+    if module.params.get('category'):
+        filters['category'] = module.params.get('category')
+    if module.params.get('message_contains'):
+        filters['message_contains'] = module.params.get('message_contains')
+    return filters
+
+
+def _build_argument_spec():
+    """Build the module argument specification."""
     specs = {
         "share_name": {"required": True, "type": 'str'},
         "share_user": {"required": False, "type": 'str'},
         "share_password": {"required": False, "type": 'str', "aliases": ['share_pwd'], "no_log": True},
         "job_wait": {"required": False, "type": 'bool', "default": True},
+        "date_start": {"required": False, "type": 'str'},
+        "date_end": {"required": False, "type": 'str'},
+        "severity": {
+            "required": False,
+            "type": 'list',
+            "elements": 'str',
+            "choices": ['Critical', 'Warning', 'OK']
+        },
+        "category": {"required": False, "type": 'list', "elements": 'str'},
+        "message_contains": {"required": False, "type": 'str'},
+        "export_format": {
+            "required": False,
+            "type": 'str',
+            "choices": ['json', 'csv', 'text'],
+            "default": 'json'
+        },
+        "fetch_metadata_only": {"required": False, "type": 'bool', "default": False},
+        "verify_export": {"required": False, "type": 'bool', "default": False},
+        "filter_optimization": {
+            "required": False,
+            "type": 'str',
+            "choices": ['single_query', 'sequential', 'auto'],
+            "default": 'auto'
+        },
+        "storage_threshold_pct": {"required": False, "type": 'int', "default": 80},
+        "insert_comment": {"required": False, "type": 'str'},
     }
     specs.update(idrac_auth_params)
+    return specs
+
+
+def _validate_module_params(module):
+    """Validate insert_comment and date range parameters."""
+    insert_comment = module.params.get('insert_comment')
+    if insert_comment:
+        validate_insert_comment(insert_comment)
+
+    date_start = module.params.get('date_start')
+    date_end = module.params.get('date_end')
+    if date_start and date_end:
+        log_filter = IDRACLogFilter()
+        log_filter.validate_date_range(date_start, date_end)
+
+    return insert_comment
+
+
+def _build_storage_warning(metadata, storage_threshold, extra=""):
+    """Build a storage overflow warning message if utilization exceeds the threshold."""
+    if storage_threshold <= 0 or not metadata:
+        return None
+    utilization = metadata.get('storage_utilization_pct', 0)
+    if utilization <= storage_threshold:
+        return None
+    return (
+        f"LC log storage at {utilization}% capacity "
+        f"(threshold: {storage_threshold}%). "
+        f"Consider exporting and archiving logs.{extra}"
+    )
+
+
+def _handle_fetch_metadata_only(idrac, module, lifecycle_controller_logs_obj):
+    """Fetch and return LC log metadata only, then exit the module."""
+    metadata = lifecycle_controller_logs_obj.get_lc_log_metadata(idrac, module)
+    result = {}
+
+    storage_threshold = module.params.get('storage_threshold_pct', 80)
+    storage_warning = _build_storage_warning(metadata, storage_threshold)
+    if storage_warning:
+        result['storage_warning'] = storage_warning
+
+    module.exit_json(
+        msg="Successfully retrieved LC log metadata.",
+        log_metadata=metadata,
+        changed=False,
+        **result
+    )
+
+
+def _handle_insert_comment(idrac, module, lifecycle_controller_logs_obj, insert_comment):
+    """Insert a comment into the LC logs, then exit the module."""
+    comment_result = lifecycle_controller_logs_obj.insert_lc_comment(
+        idrac, module, insert_comment
+    )
+    module.exit_json(
+        msg=COMMENT_INSERT_SUCCESS,
+        inserted_entry_id=comment_result.get('entry_id'),
+        inserted_entry_timestamp=comment_result.get('timestamp'),
+        changed=True
+    )
+
+
+def _get_metadata_with_storage_warning(idrac, module, lifecycle_controller_logs_obj, result):
+    """Fetch LC log metadata (if needed) and populate a storage warning in result."""
+    metadata = None
+    storage_threshold = module.params.get('storage_threshold_pct', 80)
+    if module.params.get('verify_export') or storage_threshold > 0:
+        metadata = lifecycle_controller_logs_obj.get_lc_log_metadata(idrac, module)
+
+        overwrite_policy = metadata.get('overwrite_policy', 'Unknown') if metadata else 'Unknown'
+        storage_warning = _build_storage_warning(
+            metadata, storage_threshold, f" Overwrite policy: {overwrite_policy}"
+        )
+        if storage_warning:
+            result['storage_warning'] = storage_warning
+
+    return metadata
+
+
+def _build_export_verification(expected_count, actual_count):
+    """Build the export_verification result dict."""
+    verified = expected_count == actual_count
+    return {
+        'expected_count': expected_count,
+        'actual_count': actual_count,
+        'verified': verified,
+        'message': (
+            "Export verification successful"
+            if verified
+            else f"Export verification failed: expected {expected_count}, got {actual_count}"
+        )
+    }
+
+
+def _build_local_export_path(share_name, export_format, idrac_ip):
+    """Determine the local export file path, generating a filename if a directory was provided."""
+    if not os.path.isdir(share_name):
+        return share_name
+    from datetime import datetime
+    safe_ip = (idrac_ip or 'unknown').replace(':', '.')
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"{safe_ip}_{timestamp}_LC_Log.{export_format}"
+    return os.path.join(share_name, filename)
+
+
+def _export_filtered_entries_locally(module, log_entries, metadata, result):
+    """Export filtered log entries to a local file and exit the module."""
+    export_format = module.params.get('export_format', 'json')
+    share_name = module.params.get('share_name')
+
+    export_metadata = {
+        'server_ip': module.params.get('idrac_ip'),
+        'export_timestamp': None,  # Will be set by exporter
+        'filters_applied': result['filters_applied'],
+        'exported_entry_count': len(log_entries)
+    }
+    if metadata:
+        export_metadata['total_entries_on_server'] = metadata.get('total_entries', 0)
+
+    export_path = _build_local_export_path(share_name, export_format, module.params.get('idrac_ip'))
+
+    exporter = IDRACLogExporter(export_path, export_format)
+    exported_count = exporter.export(log_entries, export_metadata)
+
+    result['exported_entry_count'] = exported_count
+    result['export_file'] = export_path
+
+    if module.params.get('verify_export'):
+        result['export_verification'] = _build_export_verification(len(log_entries), exported_count)
+
+    module.exit_json(
+        msg=FILTERED_EXPORT_MSG,
+        lc_logs=log_entries,
+        changed=True,
+        **result
+    )
+
+
+def _handle_filtered_export(module, log_entries, metadata, result):
+    """Handle the filtered-export path: no matches, local export, or remote share listing."""
+    if not log_entries:
+        module.exit_json(
+            msg=NO_MATCHING_ENTRIES_MSG,
+            lc_logs=[],
+            changed=False,
+            **result
+        )
+
+    share_name = module.params.get('share_name')
+    is_local = not (share_name.startswith('\\\\') or ':/' in share_name)
+
+    if is_local:
+        _export_filtered_entries_locally(module, log_entries, metadata, result)
+    else:
+        # For network shares, return filtered entries without local export
+        result['lc_logs'] = log_entries
+        module.exit_json(
+            msg=f"Retrieved {len(log_entries)} filtered log entries.",
+            lc_logs=log_entries,
+            changed=False,
+            **result
+        )
+
+
+def _get_filtered_entries_for_export(idrac, module):
+    """Get filtered log entries applying both server-side and client-side filters."""
+    odata_filter = build_odata_filter(module)
+    log_entries = get_filtered_log_entries(idrac, module, odata_filter)
+
+    message_contains = module.params.get('message_contains')
+    if message_contains:
+        log_filter = IDRACLogFilter()
+        log_filter.add_message_filter(message_contains)
+        log_entries = log_filter.apply(log_entries)
+
+    return log_entries
+
+
+def _handle_standard_export(idrac, module, lifecycle_controller_logs_obj, metadata, expected_count, result):
+    """Handle the standard (non-filtered) export operation, then exit the module."""
+    msg, job_dict, changed = lifecycle_controller_logs_obj.lifecycle_controller_logs_operation(
+        idrac, module
+    )
+
+    if module.params.get('verify_export') and metadata:
+        post_metadata = lifecycle_controller_logs_obj.get_lc_log_metadata(idrac, module)
+        actual_count = post_metadata.get('total_entries', 0)
+        result['export_verification'] = _build_export_verification(expected_count, actual_count)
+
+    module.exit_json(msg=msg, lc_logs_status=job_dict, changed=changed, **result)
+
+
+def main():
+    specs = _build_argument_spec()
     module = AnsibleModule(
         argument_spec=specs,
         supports_check_mode=False)
+    warn_if_cert_validation_disabled(module)
+    check_cert_fingerprint(module, module.params.get("idrac_ip", ""), module.params.get("idrac_port", 443))
 
     try:
+        insert_comment = _validate_module_params(module)
+
         with iDRACRedfishAPI(module.params) as idrac:
-            server_det = idrac.get_server_generation
-            server_hw_model = server_det[2]
-            if server_hw_model != "iDRAC 8":
-                lifecycle_controller_logs_obj = IDRACLifecycleControllerLogs(idrac)
-                msg, job_dict, changed = lifecycle_controller_logs_obj.lifecycle_controller_logs_operation(idrac, module)
-                module.exit_json(msg=msg, lc_logs_status=job_dict, changed=changed)
-            else:
-                with iDRACConnection(module.params) as idrac:
-                    msg = run_export_lc_logs(idrac, module)
-                    if msg.get("Status") in ["Failed", "Failure"] or msg.get("JobStatus") in ["Failed", "Failure"]:
-                        msg.pop("file", None)
-                        module.exit_json(
-                            msg="Unable to export the lifecycle controller logs.",
-                            lc_logs_status=msg, failed=True)
-                    message = "Successfully exported the lifecycle controller logs."
-                    if module.params['job_wait'] is False:
-                        message = "The export lifecycle controller log job is submitted successfully."
-                    module.exit_json(msg=message, lc_logs_status=msg)
+            lifecycle_controller_logs_obj = IDRACLifecycleControllerLogs(idrac)
+            result = {}
+
+            if module.params.get('fetch_metadata_only'):
+                _handle_fetch_metadata_only(idrac, module, lifecycle_controller_logs_obj)
+
+            if insert_comment:
+                _handle_insert_comment(idrac, module, lifecycle_controller_logs_obj, insert_comment)
+
+            metadata = _get_metadata_with_storage_warning(idrac, module, lifecycle_controller_logs_obj, result)
+            expected_count = metadata.get('total_entries', 0) if metadata else 0
+
+            if has_filters(module):
+                log_entries = _get_filtered_entries_for_export(idrac, module)
+                result['filters_applied'] = get_filters_applied(module)
+                _handle_filtered_export(module, log_entries, metadata, result)
+
+            _handle_standard_export(idrac, module, lifecycle_controller_logs_obj, metadata, expected_count, result)
+
     except HTTPError as err:
         module.exit_json(msg=str(err), error_info=json.load(err), failed=True)
     except URLError as err:
         module.exit_json(msg=str(err), unreachable=True)
     except (RuntimeError, SSLValidationError, ConnectionError, KeyError,
-            ImportError, ValueError, TypeError) as e:
+            ImportError, ValueError, TypeError, OSError) as e:
         module.exit_json(msg=str(e), failed=True)
 
 

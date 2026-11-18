@@ -1534,6 +1534,7 @@ class PutBucketAbacRequestTypeDef(TypedDict):
 
 class AbortMultipartUploadOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CompleteMultipartUploadOutputTypeDef(TypedDict):
@@ -1580,6 +1581,7 @@ class CreateMultipartUploadOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     ChecksumAlgorithm: ChecksumAlgorithmType
     ChecksumType: ChecksumTypeType
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DeleteObjectAnnotationOutputTypeDef(TypedDict):
@@ -1855,6 +1857,7 @@ class UploadPartOutputTypeDef(TypedDict):
     SSEKMSKeyId: str
     BucketKeyEnabled: bool
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class AbortMultipartUploadRequestMultipartUploadAbortTypeDef(TypedDict):
@@ -2708,6 +2711,7 @@ class UploadPartCopyOutputTypeDef(TypedDict):
     SSEKMSKeyId: str
     BucketKeyEnabled: bool
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateBucketConfigurationTypeDef(TypedDict):
@@ -2864,6 +2868,7 @@ class MultipartUploadTypeDef(TypedDict):
     Initiator: NotRequired[InitiatorTypeDef]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ChecksumType: NotRequired[ChecksumTypeType]
+    VersionId: NotRequired[str]
 
 class InputSerializationTypeDef(TypedDict):
     CSV: NotRequired[CSVInputTypeDef]
@@ -2992,6 +2997,7 @@ class ListPartsOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     ChecksumAlgorithm: ChecksumAlgorithmType
     ChecksumType: ChecksumTypeType
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class MetadataTableConfigurationResultTypeDef(TypedDict):

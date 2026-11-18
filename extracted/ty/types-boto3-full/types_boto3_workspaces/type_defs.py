@@ -867,6 +867,8 @@ class SelfservicePermissionsTypeDef(TypedDict):
     ChangeComputeType: NotRequired[ReconnectEnumType]
     SwitchRunningMode: NotRequired[ReconnectEnumType]
     RebuildWorkspace: NotRequired[ReconnectEnumType]
+    NestedVirtualization: NotRequired[ReconnectEnumType]
+    EnableEndUserAdvisor: NotRequired[ReconnectEnumType]
 
 
 class WorkspaceCreationPropertiesTypeDef(TypedDict):

@@ -122,6 +122,16 @@ pub(crate) fn compose(base: &Header, supplies: &[Supply<'_>], mut metadata: Meta
     Header::new(chunks, base.pipeline().cloned(), components, metadata)
 }
 
+/// The chunks and components of `header` keeping only `kept`, each `(name, its component)`: the chunks their tensors touch, re-indexed.
+pub(crate) fn cut(header: &Header, kept: &[(String, &str)]) -> Result<(Vec<ObjectRef>, Vec<Component>)> {
+    let mut taken = Vec::new();
+    for (name, from) in kept {
+        let Some(component) = header.component(from) else { return invalid(format!("the header has no component {from:?}")) };
+        taken.push(Taken { declared: Component { name: name.clone(), ..component.clone() }, source: 0, from: component });
+    }
+    Ok(assemble(&[header], taken))
+}
+
 /// Header metadata: what a checkpoint took from its base when it was made complete ([`inherit`]):
 /// `{checkpoint: {sha256, length}, from: [{base: {model, release, lane, header}, components, files}]}`.
 pub const INHERITED: &str = "inherited";
@@ -145,9 +155,9 @@ fn same_class(a: &Component, b: &Component) -> bool {
     (&a.class.library, &a.class.name) == (&b.class.library, &b.class.name)
 }
 
-/// Whether a component is a LoRA's: every tensor a factor, an alpha or one it keeps.
+/// Whether a component is a LoRA's: every tensor a factor, an alpha or one it keeps or carries.
 fn adapter(component: &Component) -> bool {
-    !component.tensors.is_empty() && component.tensors.iter().all(|t| family::lora_key(&t.key))
+    !component.tensors.is_empty() && family::is_lora(component)
 }
 
 /// `child` (whose own header is `checkpoint`) with what it lacks of `base`, recorded as `from`

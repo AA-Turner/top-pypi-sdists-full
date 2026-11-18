@@ -24,6 +24,8 @@ options:
   param:
     description:
     - Name of PostgreSQL server parameter.
+    - Accepts a logical name such as C(online_analyze.verbose), optionally enclosed in SQL double quotes.
+    - Dotted names are treated as one configuration parameter name.
     type: str
     required: true
 
@@ -65,6 +67,13 @@ notes:
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: partial
+    details:
+      - The module is not idempotent when O(value=_RESET) — it always runs C(ALTER SYSTEM RESET)
+        and reports changed=true.
+      - For all other values, the module compares the desired value against the current
+        setting in C(pg_catalog.pg_settings) and reports changed=false when they match.
 
 seealso:
 - module: community.postgresql.postgresql_info
@@ -144,7 +153,7 @@ executed_queries:
   returned: success
   type: list
   elements: str
-  sample: ["ALTER SYSTEM SET shared_preload_libraries = ''"]
+  sample: ["ALTER SYSTEM SET \"shared_preload_libraries\" = ''"]
 
 restart_required:
   description:
@@ -159,7 +168,7 @@ restart_required:
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.common.text.converters import to_native
 from ansible_collections.community.postgresql.plugins.module_utils.database import \
-    check_input
+    check_input, pg_quote_name, pg_unquote_name
 from ansible_collections.community.postgresql.plugins.module_utils.postgres import (
     connect_to_db,
     ensure_required_libs,
@@ -173,7 +182,6 @@ executed_queries = []
 
 PG_SUPPORTED_VER = 140000
 
-# It was copied here from postgresql_set.
 # GUC_LIST_QUOTE parameters list for each version where they changed (from PG_REQ_VER).
 # It is a tuple of tuples as we need to iterate it in order.
 PARAMETERS_GUC_LIST_QUOTE = (
@@ -195,7 +203,6 @@ PARAMETERS_GUC_LIST_QUOTE = (
 )
 
 
-# It was copied here from postgresql_set.
 def param_is_guc_list_quote(server_version, name):
     for guc_list_quote_ver, guc_list_quote_params in PARAMETERS_GUC_LIST_QUOTE:
         if server_version >= guc_list_quote_ver:
@@ -203,7 +210,6 @@ def param_is_guc_list_quote(server_version, name):
     return False
 
 
-# It was copied here from postgresql_set.
 def param_guc_list_unquote(value):
     # Unquote GUC_LIST_QUOTE parameter (each element can be quoted or not)
     # Assume the parameter is GUC_LIST_QUOTE (check in param_is_guc_list_quote function)
@@ -294,7 +300,6 @@ class ValueString():
 
     def __normalize(self, pg_ver, param_name, value):
         # Check parameter is GUC_LIST_QUOTE (done once as depend only on server version).
-        # These functions were copied here from the postgresql_set module
         is_guc_list_quote = param_is_guc_list_quote(pg_ver, param_name)
         if is_guc_list_quote:
             return param_guc_list_unquote(value)
@@ -613,6 +618,7 @@ class PgParam():
         self.module = module
         self.cursor = cursor
         self.name = name
+        self.sql_name = '.'.join(pg_quote_name(part) for part in name.split('.'))
         self.pg_ver = pg_ver
 
         self.attrs = self.get_attrs()
@@ -660,7 +666,7 @@ class PgParam():
         # is always a removal of the line from postgresql.auto.conf
         # this will always run the command to ensure the removal
         # and report changed=true
-        query = "ALTER SYSTEM RESET %s" % self.name
+        query = "ALTER SYSTEM RESET %s" % self.sql_name
         self.__exec_set_sql(query)
         return True
 
@@ -698,13 +704,13 @@ class PgParam():
                 else:
                     tmp.append("'" + elem.strip() + "'")
 
-            query = "ALTER SYSTEM SET %s = %s" % (self.name, ','.join(tmp))
+            query = "ALTER SYSTEM SET %s = %s" % (self.sql_name, ','.join(tmp))
 
         elif self.pg_ver >= 140000:
-            query = "ALTER SYSTEM SET %s = '%s'" % (self.name, value)
+            query = "ALTER SYSTEM SET %s = '%s'" % (self.sql_name, value)
 
         else:
-            query = "ALTER SYSTEM SET %s = %s" % (self.name, value)
+            query = "ALTER SYSTEM SET %s = %s" % (self.sql_name, value)
 
         return query
 
@@ -795,7 +801,8 @@ def main():
         supports_check_mode=True,
     )
 
-    param = module.params['param']
+    # Normalize once, before parameter-specific checks and metadata lookups.
+    param = pg_unquote_name(module.params['param'])
     value = module.params['value']
     session_role = module.params['session_role']
     trust_input = module.params['trust_input']
@@ -807,7 +814,7 @@ def main():
 
     if not trust_input:
         # Check input for potentially dangerous elements
-        check_input(module, param, value, session_role)
+        check_input(module, module.params['param'], value, session_role)
 
     # Ensure psycopg libraries are available before connecting to DB
     ensure_required_libs(module)

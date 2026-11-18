@@ -1,0 +1,237 @@
+from __future__ import annotations
+
+import asyncio
+import logging
+from typing import TYPE_CHECKING
+
+from tinker._exceptions import APIStatusError, TinkerError
+from tinker.lib.client_connection_pool_type import ClientConnectionPoolType
+from tinker.lib.sdk_method import context_without_sdk_method
+from tinker.types.future_completion import FutureCompletion
+from tinker.types.futures_retrieve_request import (
+    FuturesRetrieveRequest,
+    SamplingSessionFuturesTarget,
+)
+
+if TYPE_CHECKING:
+    from tinker.lib.internal_client_holder import InternalClientHolder
+
+logger = logging.getLogger(__name__)
+
+# Client-side HTTP timeout for ack-only polls (timeout=0: the server returns
+# after one read).
+_ACK_POLL_HTTP_TIMEOUT_SEC = 5.0
+# Client-side timeout for one retrieve_futures poll. The server long-polls up to
+# ~30s, so this must comfortably exceed that.
+_POLL_HTTP_TIMEOUT_SEC = 45.0
+
+# A bare HTTP 400 can be injected spuriously by an upstream proxy; retry a
+# bounded number of times before treating it as terminal.
+_MAX_BAD_REQUEST_RETRIES = 3
+
+
+class SessionFuturesPoller:
+    """One background poller per (sampling session, cloned-sampler) pair.
+
+    Long-polls ``/api/v1/retrieve_futures`` in a loop, recording each completed
+    request id (with its metadata) and waking any waiter registered for it. A
+    sample's result future calls :meth:`wait_for` to block until its request
+    completes instead of polling ``retrieve_future`` itself.
+
+    Lives entirely on the holder's event loop; it must be constructed there and
+    every method must be awaited from that loop. The poll task starts at
+    construction and idles until the first waiter registers.
+    """
+
+    def __init__(
+        self,
+        holder: InternalClientHolder,
+        *,
+        sampling_session_id: str,
+        cloned_sampler_id: int,
+    ) -> None:
+        self._holder = holder
+        self._sampling_session_id = sampling_session_id
+        self._cloned_sampler_id = cloned_sampler_id
+        self._target = SamplingSessionFuturesTarget(
+            sampling_session_id=sampling_session_id,
+            cloned_sampler_id=cloned_sampler_id,
+        )
+        self._cursor = 0
+        # Highest cursor a completed request has reported; ack_flush covers
+        # anything newer.
+        self._acked_cursor = 0
+        # request_id -> event fired once the request is known complete.
+        self._events: dict[str, asyncio.Event] = {}
+        # request_id -> its completion metadata, kept until a waiter consumes it.
+        self._completions: dict[str, FutureCompletion] = {}
+        # Ids whose results were retrieved, reported on the next poll and kept
+        # until a poll carrying them succeeds.
+        self._retrieved: set[str] = set()
+        # Set once the poll loop hits a non-retryable error. Terminal: every
+        # current and future waiter fails with this message.
+        self._failure: str | None = None
+        # Signals the poll loop that there is at least one waiter to poll for,
+        # so it can idle instead of long-polling while no requests are active.
+        self._has_work: asyncio.Event = asyncio.Event()
+        self._task: asyncio.Task[None] = asyncio.create_task(
+            self._poll_loop(),
+            name="tinker_session_futures_poller",
+            context=context_without_sdk_method(),
+        )
+        holder.track_futures_poller_task(self._task)
+
+    async def wait_for(self, request_id: str) -> FutureCompletion:
+        """Block until ``request_id`` completes, returning its metadata.
+
+        Consumes the completion (and any registered event) so the poller's maps
+        don't grow without bound over a long-lived session.
+
+        Raises :class:`TinkerError` if the poll loop has failed (or fails while
+        waiting) with a non-retryable error, unless this request's completion was
+        already recorded, in which case it is returned regardless.
+        """
+        # An already-recorded completion always wins over a terminal failure: a
+        # request known complete should proceed to its result fetch.
+        completion = self._completions.pop(request_id, None)
+        if completion is not None:
+            self._events.pop(request_id, None)
+            return completion
+        if self._failure is not None:
+            raise TinkerError(self._failure)
+
+        # Each request has exactly one waiter, and its id is unique, so there is
+        # never a pre-existing registration to reuse.
+        assert request_id not in self._events, f"duplicate waiter for {request_id}"
+        event = asyncio.Event()
+        self._events[request_id] = event
+        self._has_work.set()
+        try:
+            await event.wait()
+        finally:
+            # The poll loop removes the entry before notifying on completion;
+            # this drops it on the cancellation and failure paths instead.
+            self._events.pop(request_id, None)
+        completion = self._completions.pop(request_id, None)
+        if completion is not None:
+            return completion
+        # Woken by a terminal failure with no completion recorded for us.
+        assert self._failure is not None
+        raise TinkerError(self._failure)
+
+    def mark_retrieved(self, request_id: str) -> None:
+        """Report ``request_id``'s result as fully retrieved on the next poll."""
+        self._retrieved.add(request_id)
+        self._has_work.set()
+
+    def _fail(self, message: str) -> None:
+        """Record a terminal failure and wake every registered waiter.
+
+        Waiters re-check ``self._failure`` after waking and raise. New waiters
+        raise on entry, so the failure fans out to all of them.
+        """
+        self._failure = message
+        for event in self._events.values():
+            event.set()
+
+    async def _poll_loop(self) -> None:
+        target = self._target
+        bad_request_retries = 0
+        # Set once the task is cancelled: the loop runs one last ack-only
+        # poll for anything not yet reported, then re-raises it.
+        cancelled: asyncio.CancelledError | None = None
+        while True:
+            try:
+                # Idle while no request is waiting and nothing is left to
+                # report, rather than long-polling for completions that cannot
+                # arrive; wait_for and mark_retrieved wake us, and the cursor
+                # and acks only move inside this loop, so no wake-up is lost.
+                if (
+                    not cancelled
+                    and not self._events
+                    and not self._retrieved
+                    and self._cursor <= self._acked_cursor
+                ):
+                    self._has_work.clear()
+                    await self._has_work.wait()
+                retrieved = set(self._retrieved)
+                # With no waiter this poll only reports acks: ask for an
+                # immediate return instead of holding the long poll.
+                ack_only = cancelled or not self._events
+                request = FuturesRetrieveRequest(
+                    target=target,
+                    prev_cursor=self._cursor,
+                    timeout=0 if ack_only else None,
+                    retrieved_request_ids=sorted(retrieved),
+                )
+                with self._holder.aclient(ClientConnectionPoolType.RETRIEVE_FUTURES) as client:
+                    response = await client.futures.retrieve_multi(
+                        request=request,
+                        timeout=_ACK_POLL_HTTP_TIMEOUT_SEC if ack_only else _POLL_HTTP_TIMEOUT_SEC,
+                        max_retries=0,
+                    )
+            except asyncio.CancelledError as e:
+                if cancelled or (self._cursor <= self._acked_cursor and not self._retrieved):
+                    raise
+                cancelled = e
+                continue
+            except Exception as e:
+                if cancelled:
+                    # The final ack is one best-effort shot.
+                    raise cancelled from None
+                # While billing is paused, retry silently until the holder's
+                # max-pause window is exceeded, at which point
+                # _should_pause_on_billing returns False and we fall through.
+                if (
+                    isinstance(e, APIStatusError)
+                    and e.status_code == 402
+                    and self._holder._should_pause_on_billing(e.status_code, e.message)
+                ):
+                    await asyncio.sleep(5)
+                    continue
+
+                if self._holder._is_retryable_exception(e):
+                    await asyncio.sleep(1)
+                    continue
+
+                if (
+                    isinstance(e, APIStatusError)
+                    and e.status_code == 400
+                    and bad_request_retries < _MAX_BAD_REQUEST_RETRIES
+                ):
+                    bad_request_retries += 1
+                    await asyncio.sleep(1)
+                    continue
+
+                message = (
+                    f"retrieve_futures polling failed for sampling session "
+                    f"{self._sampling_session_id} (clone {self._cloned_sampler_id}): "
+                    f"{type(e).__name__}: {e}"
+                )
+                logger.error(message)
+                self._fail(message)
+                return
+
+            if cancelled:
+                # The final ack went out; finish dying.
+                raise cancelled
+
+            # A completed round-trip clears the transient-400 budget.
+            bad_request_retries = 0
+            self._retrieved -= retrieved
+            # Only a completed send counts as reported; the loop (or the
+            # cancellation ack) retries anything less.
+            self._acked_cursor = max(self._acked_cursor, request.prev_cursor)
+            self._cursor = response.cursor
+            for completion in response.completions:
+                self._completions[completion.request_id] = completion
+                # Remove the registration before notifying so the top-of-loop
+                # idle check sees an empty map once the last waiter is served,
+                # rather than issuing another long poll for nothing.
+                event = self._events.pop(completion.request_id, None)
+                if event is not None:
+                    event.set()
+
+    def close(self) -> None:
+        """Cancel the poll task; its cancellation handler sends the final ack."""
+        self._task.cancel()

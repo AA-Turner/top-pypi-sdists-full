@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-from mcstatus import BedrockServer, JavaServer, LegacyServer
+from mcstatus import BedrockServer, BedrockTransport, JavaServer, LegacyServer
 from mcstatus.__main__ import PING_PACKET_FAIL_WARNING, QUERY_FAIL_WARNING, main as main_under_test
 from mcstatus.responses import BedrockStatusResponse, JavaStatusResponse, LegacyStatusResponse, QueryResponse
 from mcstatus.responses._raw import RawJavaResponse
@@ -64,9 +64,9 @@ BEDROCK_RAW_RESPONSE = [
 ]
 
 # NOTE: if updating this, be sure to change other occurrences of this help text!
-# to update, use: `COLUMNS=100000 poetry run mcstatus --help`
+# to update, use: `COLUMNS=100000 uv run mcstatus --help`
 EXPECTED_HELP_OUTPUT = """
-usage: mcstatus [-h] [--bedrock | --legacy] address {ping,status,query,json} ...
+usage: mcstatus [-h] [--bedrock | --legacy] [--bedrock-transport {auto,raknet,nethernet}] address {ping,status,query,json} ...
 
 mcstatus provides an easy way to query Minecraft servers for any information they can expose. It provides three modes of access: query, status, ping and json.
 
@@ -77,6 +77,8 @@ options:
   -h, --help            show this help message and exit
   --bedrock             Specifies that 'address' is a Bedrock server (default: Java).
   --legacy              Specifies that 'address' is a pre-1.7 Java server (default: 1.7+).
+  --bedrock-transport {auto,raknet,nethernet}
+                        Specifies transport protocol for Bedrock servers (default: auto).
 
 commands:
   Command to run, defaults to 'status'.
@@ -86,7 +88,7 @@ commands:
     status              Prints server status.
     query               Prints detailed server information. Must be enabled in servers' server.properties file.
     json                Prints server status and query in json.
-"""  # ruff: ignore[line-too-long]
+""".strip()  # ruff: ignore[line-too-long]
 
 
 @contextlib.contextmanager
@@ -117,21 +119,6 @@ def mock_network_requests() -> Generator[None]:
         yield
 
 
-def normalise_help_output(s: str) -> str:
-    """Normalises the output of `mcstatus --help`.
-
-    A work around some discrepancies between Python versions while still
-    retaining meaningful information for comparison.
-    """
-    elided = "[...]:"
-
-    s = s.strip()
-
-    # drop lines which end in ":". these argparse section headings vary between python versions.
-    # it is just a small style change, so it doesn't matter so much to do `sys.version_info` check
-    return "\n".join(ln if not ln.endswith(":") else elided for ln in s.splitlines())
-
-
 # NOTE: for premature exits in argparse, we must catch SystemExit.
 # for ordinary exits in the CLI code, we can simply inspect the return value.
 
@@ -159,7 +146,7 @@ def test_help_matches_recorded_output():
     with patch_stdout_stderr() as (out, err), pytest.raises(SystemExit, match=r"^0$"):
         _ = main_under_test(["--help"])
 
-    assert normalise_help_output(out.getvalue()) == normalise_help_output(EXPECTED_HELP_OUTPUT)
+    assert out.getvalue().strip() == EXPECTED_HELP_OUTPUT
     assert err.getvalue() == ""
 
 
@@ -261,6 +248,33 @@ def test_status_legacy(mock_network_requests: None):
     assert err.getvalue() == ""
 
 
+def test_status_bedrock_transport_implied():
+    with (
+        patch("mcstatus.server.BedrockServer.lookup") as mock_lookup,
+        patch_stdout_stderr() as (_out, err),
+    ):
+        mock_lookup.return_value = BedrockServer("example.com", port=19132, transport=BedrockTransport.NETHERNET)
+        with patch(
+            "mcstatus.server.BedrockServer.status",
+            return_value=BedrockStatusResponse.build(BEDROCK_RAW_RESPONSE, latency=123),
+        ):
+            assert main_under_test(["example.com", "--bedrock-transport", "nethernet", "status"]) == 0
+        mock_lookup.assert_called_once_with("example.com", transport=BedrockTransport.NETHERNET)
+    assert err.getvalue() == ""
+
+
+def test_bedrock_transport_legacy_conflict_with_nethernet():
+    with pytest.raises(SystemExit), patch_stdout_stderr() as (_out, err):
+        _ = main_under_test(["example.com", "--legacy", "--bedrock-transport", "nethernet", "status"])
+    assert "--bedrock-transport cannot be used with --legacy" in err.getvalue()
+
+
+def test_bedrock_transport_legacy_conflict_with_auto():
+    with pytest.raises(SystemExit), patch_stdout_stderr() as (_out, err2):
+        _ = main_under_test(["example.com", "--legacy", "--bedrock-transport", "auto", "status"])
+    assert "--bedrock-transport cannot be used with --legacy" in err2.getvalue()
+
+
 def test_status_offline(mock_network_requests: None):
     with patch_stdout_stderr() as (out, err), patch("mcstatus.server.JavaServer.status", side_effect=TimeoutError):
         assert main_under_test(["example.com", "status"]) == 1
@@ -358,6 +372,43 @@ def test_json(mock_network_requests: None):
                 "hostip": "192.168.56.1",
             },
         },
+    }
+    assert err.getvalue() == ""
+
+
+def test_json_offline(mock_network_requests: None):
+    with (
+        patch_stdout_stderr() as (out, err),
+        patch("mcstatus.server.JavaServer.status", side_effect=TimeoutError("timed out")),
+        patch("mcstatus.server.JavaServer.query", side_effect=TimeoutError("timed out")),
+    ):
+        assert main_under_test(["example.com", "json"]) == 0
+
+    data = json.loads(out.getvalue())
+    assert data == {
+        "online": False,
+        "kind": "Java",
+        "error": "TimeoutError('timed out')",
+    }
+    assert err.getvalue() == ""
+
+
+def test_json_offline_bedrock_exception_group(mock_network_requests: None):
+    eg = ExceptionGroup(
+        "All concurrent operations failed",
+        [TimeoutError("raknet timed out"), ConnectionRefusedError(111, "nethernet connection refused")],
+    )
+    with (
+        patch_stdout_stderr() as (out, err),
+        patch("mcstatus.server.BedrockServer.status", side_effect=eg),
+    ):
+        assert main_under_test(["example.com", "--bedrock", "json"]) == 0
+
+    data = json.loads(out.getvalue())
+    assert data == {
+        "online": False,
+        "kind": "Bedrock",
+        "error": repr(eg),
     }
     assert err.getvalue() == ""
 

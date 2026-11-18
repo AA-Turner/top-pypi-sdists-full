@@ -350,6 +350,53 @@ class NoConvergence(Exception):
         self.slow_conv = slow_conv
 
 
+def _scale_pixel_axis(wcsprm, index, factor):
+    """
+    Change the linear transformation of ``wcsprm`` in-place so that one unit
+    along pixel axis ``index`` corresponds to ``factor`` of the original units.
+
+    A pixel axis corresponds to a column of the linear transformation matrix,
+    whereas CDELTi scales a row (a world axis), so CDELTi can only be used if
+    PCi_j has no off-diagonal terms in that row and column. With the CROTAi
+    convention, CDELTj multiplies column j so can always be used. As in WCSLIB,
+    PCi_j takes precedence over CDi_j, which takes precedence over CROTAi.
+    """
+    if wcsprm.has_pc():
+        pc = wcsprm.pc.copy()
+        off_diagonal = np.delete(pc[index], index), np.delete(pc[:, index], index)
+        if np.any(off_diagonal[0]) or np.any(off_diagonal[1]):
+            pc[:, index] *= factor
+            wcsprm.pc = pc
+            return
+    elif wcsprm.has_cd():
+        cd = wcsprm.cd.copy()
+        cd[:, index] *= factor
+        wcsprm.cd = cd
+        return
+    # We set the whole array rather than a single element, since the array
+    # returned by wcs.cdelt is read-only if the original units are being
+    # preserved.
+    cdelt = wcsprm.cdelt.copy()
+    cdelt[index] *= factor
+    wcsprm.cdelt = cdelt
+
+
+def _scale_sip_coefficients(coeffs, factors, axis):
+    """
+    Return SIP polynomial coefficients for the distortion along ``axis`` after
+    scaling the two pixel axes by ``factors``, so that one new pixel along
+    axis i corresponds to ``factors[i]`` original pixels.
+
+    If a polynomial gives the distortion f(u, v) in original pixels, the
+    distortion in new pixels is f(su * u, sv * v) / s_axis, so the coefficient
+    of u**p v**q is multiplied by su**p * sv**q / s_axis.
+    """
+    if coeffs is None:
+        return None
+    p, q = np.indices(coeffs.shape)
+    return coeffs * factors[0] ** p * factors[1] ** q / factors[axis]
+
+
 class FITSFixedWarning(AstropyWarning):
     """
     The warning raised when the contents of the FITS header have been
@@ -3499,11 +3546,17 @@ reduce these to 2 dimensions using the naxis kwarg.
         wcs_new = self.deepcopy()
         if wcs_new.sip is not None:
             sip_crpix = wcs_new.sip.crpix.tolist()
+        sip_steps = [1, 1]
 
         # Group the distortion tables by which axis (x or y) they correspond to
         x_tables = [t for t in (wcs_new.cpdis1, wcs_new.det2im1) if t is not None]
         y_tables = [t for t in (wcs_new.cpdis2, wcs_new.det2im2) if t is not None]
         distortion_tables = [*x_tables, *y_tables]
+
+        if self.pixel_bounds is None:
+            pixel_bounds = None
+        else:
+            pixel_bounds = list(self.pixel_bounds)
 
         for i, iview in enumerate(view):
             if iview.step is not None and iview.step < 0:
@@ -3524,8 +3577,7 @@ reduce these to 2 dimensions using the naxis kwarg.
 
             if iview.start is not None:
                 if iview.step not in (None, 1):
-                    crpix = self.wcs.crpix[wcs_index]
-                    cdelt = self.wcs.cdelt[wcs_index]
+                    crpix = wcs_new.wcs.crpix[wcs_index]
                     # equivalently (keep this comment so you can compare eqns):
                     # wcs_new.wcs.crpix[wcs_index] =
                     # (crpix - iview.start)*iview.step + 0.5 - iview.step/2.
@@ -3550,13 +3602,29 @@ reduce these to 2 dimensions using the naxis kwarg.
                         # If we stride an x axis, for example, x distortions
                         # should be adjusted in magnitude
                         table.data /= iview.step
-                    wcs_new.wcs.cdelt[wcs_index] = cdelt * iview.step
+                    _scale_pixel_axis(wcs_new.wcs, wcs_index, iview.step)
+                    if wcs_index < 2:
+                        sip_steps[wcs_index] = iview.step
                 else:
                     wcs_new.wcs.crpix[wcs_index] -= iview.start
                     if wcs_new.sip is not None:
                         sip_crpix[wcs_index] -= iview.start
                     for table in distortion_tables:
                         table.crval[wcs_index] -= iview.start
+
+            if (
+                pixel_bounds is not None
+                and pixel_bounds[wcs_index] is not None
+                and iview.start is not None
+            ):
+                # The bounds are in pixel coordinates so these need to be
+                # converted to the pixel coordinates of the sliced WCS, taking
+                # into account that pixel centers are at integer values.
+                step = iview.step or 1
+                pixel_bounds[wcs_index] = tuple(
+                    (bound - iview.start + 0.5) / step - 0.5
+                    for bound in pixel_bounds[wcs_index]
+                )
 
             try:
                 # range requires integers but the other attributes can also
@@ -3575,8 +3643,19 @@ reduce these to 2 dimensions using the naxis kwarg.
 
         if wcs_new.sip is not None:
             wcs_new.sip = Sip(
-                self.sip.a, self.sip.b, self.sip.ap, self.sip.bp, sip_crpix
+                *(
+                    _scale_sip_coefficients(coeffs, sip_steps, axis)
+                    for coeffs, axis in (
+                        (self.sip.a, 0),
+                        (self.sip.b, 1),
+                        (self.sip.ap, 0),
+                        (self.sip.bp, 1),
+                    )
+                ),
+                sip_crpix,
             )
+
+        wcs_new.pixel_bounds = pixel_bounds
 
         return wcs_new
 

@@ -1,4 +1,4 @@
-"""A Verne V0.5 deployment's server-described contract (dreamscale_transport.verne_v05_deploy).
+"""A Verne V0.5 deployment's server-described contract (dreamscale_core.verne_v05_deploy).
 
 Verne V0.5 reads and predicts end-effector poses, both arms in one robot frame: each request
 carries the pose state (per arm: xyz in metres, rotation-matrix rows 0 and 1, the jaw opening
@@ -13,8 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport.images import STRETCH_256_OPENCV
-from dreamscale_transport.verne_v05_deploy import (
+from dreamscale_core.verne_v05_deploy import (
     ACTION_HORIZON,
     ACTION_HZ,
     ARM_ORDER,
@@ -36,6 +35,7 @@ from dreamscale_transport.verne_v05_deploy import (
     jaw,
     raw_gripper,
 )
+from dreamscale_transport.images import STRETCH_256_OPENCV
 
 
 @dataclass(frozen=True)

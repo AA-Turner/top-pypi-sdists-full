@@ -100,7 +100,8 @@ def downloaded_base(repo: str, path: str | None = None) -> str | None:
         return None
     if name in _BASE_NAMES:
         return _BASE_NAMES[name]
-    from dreamscale_transport import families, training_families
+    from dreamscale_core import training_families
+    from dreamscale_transport import families
 
     if training_families.is_base(name):
         deploy = families.family(training_families.family_of(name).id).deploy

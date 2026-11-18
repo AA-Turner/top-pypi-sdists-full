@@ -85,6 +85,12 @@ pub struct ReadmeDoctests;
 #[doc = include_str!("../docs/guide.md")]
 pub struct GuideDoctests;
 
+// `docs/migration.md` shows the code before and after each breaking change.
+// Its examples use only the default `std` surface.
+#[cfg(all(doctest, feature = "std"))]
+#[doc = include_str!("../docs/migration.md")]
+pub struct MigrationDoctests;
+
 // ---- Phase-1 modules -------------------------------------------------------
 //
 // Clean-room implementations written from the DjVu spec.
@@ -454,10 +460,6 @@ pub mod ocr_tesseract;
 /// Experimental ONNX OCR helper via tract (requires `ocr-onnx` feature).
 #[cfg(feature = "ocr-onnx")]
 pub mod ocr_onnx;
-
-/// Experimental neural OCR placeholder (requires `ocr-neural` feature).
-#[cfg(feature = "ocr-neural")]
-pub mod ocr_neural;
 
 /// TXTa/TXTz text layer encoder — writes [`text::TextLayer`] back to DjVu binary format.
 #[cfg(feature = "std")]

@@ -1,6 +1,6 @@
 name: build
-# The PR check (tracker/design/ci-v2.md §1): errors-only lint, every source compiles, the package imports on CPU, the
-# attention table's check, and the type check (scripts/typecheck.sh: mypy --strict).
+# The PR check (tracker/design/ci-v2.md §1): errors-only lint, every source compiles, the package imports on CPU, no unknown
+# advisory in uv.lock (scripts/audit.sh), the attention table's check, and the type check (scripts/typecheck.sh: mypy --strict).
 # Required for merges into master and rc/*: it runs on the merge queue's group (merge_group), on the final
 # PR + branch state; on a pull request it is skipped, which lets the PR be queued. A docs-only group passes
 # without building.
@@ -15,6 +15,7 @@ concurrency:
 
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   build:
@@ -38,12 +39,34 @@ jobs:
           fi
       - if: steps.scope.outputs.run == 'true'
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      # A queue entry that deletes what a tracker issue or changelog.d entry added names it under `## Removed` (xs-199).
+      - if: steps.scope.outputs.run == 'true' && github.event_name == 'merge_group'
+        name: The PR names the requested features it removes
+        # Report-only until 0.26.0 is promoted (release lead, 11-15); then blocking (tracker xs-199).
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ github.event.merge_group.base_sha }}
+          HEAD_REF: ${{ github.event.merge_group.head_ref }}
+        run: |
+          gh pr view "$(sed -nE 's|.*/pr-([0-9]+)-[0-9a-f]+$|\1|p' <<< "$HEAD_REF")" -R "$GITHUB_REPOSITORY" --json title,headRefName,body > "$RUNNER_TEMP/pr.json"
+          python3 scripts/removed-features.py "$BASE" "$GITHUB_SHA" --pr "$RUNNER_TEMP/pr.json"
       - if: steps.scope.outputs.run == 'true'
         uses: astral-sh/setup-uv@v7
         with:
           enable-cache: true
       - if: steps.scope.outputs.run == 'true'
         run: uv sync --locked
+      # Advisories in the locked dependencies (xs-196): one not in pip-audit-known.txt fails.
+      - if: steps.scope.outputs.run == 'true'
+        run: scripts/audit.sh
+      # The release workflows run each action by its commit, never a tag that can move (xs-196).
+      - if: steps.scope.outputs.run == 'true'
+        run: |
+          cd .github/workflows
+          ! grep -nE '^\s*(- )?uses: *[^. ]' runtime-publish.yaml kernels.yaml rc-dev.yaml dev-build.yaml | grep -vE '@[0-9a-f]{40} # '
       - if: steps.scope.outputs.run == 'true'
         run: uv run --locked ruff check --select E9,F63,F7,F82 --output-format github .
       - if: steps.scope.outputs.run == 'true'

@@ -42,6 +42,7 @@ from .literals import (
     ControlFindingGeneratorType,
     ControlStatusType,
     CriticalitySourceTypeType,
+    CspmConnectorProviderNameType,
     CspmConnectorStatusType,
     CspmEnablementStatusType,
     DateRangeComparisonType,
@@ -58,6 +59,7 @@ from .literals import (
     FindingsTrendsStringFieldType,
     FreeTrialStatusValueType,
     FreeTrialTypeType,
+    GcpScopeTypeType,
     GranularityFieldType,
     GroupByFieldType,
     GuidanceFormatType,
@@ -1207,6 +1209,12 @@ __all__ = (
     "FirewallPolicyStatelessCustomActionsDetailsUnionTypeDef",
     "FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef",
     "FreeTrialStatusTypeDef",
+    "GcpDetailTypeDef",
+    "GcpProviderConfigurationTypeDef",
+    "GcpScopeConfigurationOutputTypeDef",
+    "GcpScopeConfigurationTypeDef",
+    "GcpScopeConfigurationUnionTypeDef",
+    "GcpUpdateConfigurationTypeDef",
     "GenerateRecommendedPolicyV2RequestTypeDef",
     "GeneratorDetailsOutputTypeDef",
     "GeneratorDetailsTypeDef",
@@ -4645,6 +4653,16 @@ class FirewallPolicyStatelessRuleGroupReferencesDetailsTypeDef(TypedDict):
     ResourceArn: NotRequired[str]
 
 
+class GcpScopeConfigurationOutputTypeDef(TypedDict):
+    ScopeType: GcpScopeTypeType
+    ScopeValues: NotRequired[list[str]]
+
+
+class GcpScopeConfigurationTypeDef(TypedDict):
+    ScopeType: GcpScopeTypeType
+    ScopeValues: NotRequired[Sequence[str]]
+
+
 class GenerateRecommendedPolicyV2RequestTypeDef(TypedDict):
     MetadataUid: str
 
@@ -4841,7 +4859,7 @@ class ListConfigurationPoliciesRequestTypeDef(TypedDict):
 class ListConnectorsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
-    ProviderName: NotRequired[Literal["AZURE"]]
+    ProviderName: NotRequired[CspmConnectorProviderNameType]
     ConnectorStatus: NotRequired[CspmConnectorStatusType]
     EnablementStatus: NotRequired[CspmEnablementStatusType]
 
@@ -8053,6 +8071,15 @@ class FindingProviderFieldsTypeDef(TypedDict):
     Types: NotRequired[Sequence[str]]
 
 
+class GcpDetailTypeDef(TypedDict):
+    AWSConfigConnectorArn: str
+    ScopeConfiguration: GcpScopeConfigurationOutputTypeDef
+    GCPRegions: list[str]
+
+
+GcpScopeConfigurationUnionTypeDef = Union[
+    GcpScopeConfigurationTypeDef, GcpScopeConfigurationOutputTypeDef
+]
 GeneratorDetailsUnionTypeDef = Union[GeneratorDetailsTypeDef, GeneratorDetailsOutputTypeDef]
 
 
@@ -9827,16 +9854,6 @@ AwsWafv2CustomResponseDetailsUnionTypeDef = Union[
 ]
 
 
-class CspmProviderDetailTypeDef(TypedDict):
-    Azure: NotRequired[AzureDetailTypeDef]
-
-
-class ProviderDetailTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudDetailTypeDef]
-    ServiceNow: NotRequired[ServiceNowDetailTypeDef]
-    Azure: NotRequired[AzureDetailTypeDef]
-
-
 class AzureProviderConfigurationTypeDef(TypedDict):
     AWSConfigConnectorArn: str
     ScopeConfiguration: AzureScopeConfigurationUnionTypeDef
@@ -10256,6 +10273,29 @@ class GetFindingHistoryResponseTypeDef(TypedDict):
 FindingProviderFieldsUnionTypeDef = Union[
     FindingProviderFieldsTypeDef, FindingProviderFieldsOutputTypeDef
 ]
+
+
+class CspmProviderDetailTypeDef(TypedDict):
+    Azure: NotRequired[AzureDetailTypeDef]
+    GCP: NotRequired[GcpDetailTypeDef]
+
+
+class ProviderDetailTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudDetailTypeDef]
+    ServiceNow: NotRequired[ServiceNowDetailTypeDef]
+    Azure: NotRequired[AzureDetailTypeDef]
+    GCP: NotRequired[GcpDetailTypeDef]
+
+
+class GcpProviderConfigurationTypeDef(TypedDict):
+    AWSConfigConnectorArn: str
+    ScopeConfiguration: GcpScopeConfigurationUnionTypeDef
+    GCPRegions: Sequence[str]
+
+
+class GcpUpdateConfigurationTypeDef(TypedDict):
+    ScopeConfiguration: GcpScopeConfigurationUnionTypeDef
+    GCPRegions: Sequence[str]
 
 
 class GetFindingStatisticsV2ResponseTypeDef(TypedDict):
@@ -11213,67 +11253,6 @@ class AwsWafv2ActionBlockDetailsTypeDef(TypedDict):
     CustomResponse: NotRequired[AwsWafv2CustomResponseDetailsUnionTypeDef]
 
 
-class CspmProviderSummaryTypeDef(TypedDict):
-    ProviderName: NotRequired[Literal["AZURE"]]
-    ConnectorStatus: NotRequired[CspmConnectorStatusType]
-    ProviderConfiguration: NotRequired[CspmProviderDetailTypeDef]
-
-
-class GetConnectorResponseTypeDef(TypedDict):
-    ConnectorArn: str
-    ConnectorId: str
-    Name: str
-    Description: str
-    CreatedAt: datetime
-    LastUpdatedAt: datetime
-    Health: CspmHealthCheckTypeDef
-    ProviderDetail: CspmProviderDetailTypeDef
-    CreatedBy: str
-    EnablementStatus: CspmEnablementStatusType
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class GetConnectorV2ResponseTypeDef(TypedDict):
-    ConnectorArn: str
-    ConnectorId: str
-    Name: str
-    Description: str
-    KmsKeyArn: str
-    CreatedAt: datetime
-    LastUpdatedAt: datetime
-    Health: HealthCheckTypeDef
-    ProviderDetail: ProviderDetailTypeDef
-    EnablementStatus: EnablementStatusType
-    EnablementStatusReason: str
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class ProviderSummaryTypeDef(TypedDict):
-    ProviderName: NotRequired[ConnectorProviderNameType]
-    ConnectorStatus: NotRequired[ConnectorStatusType]
-    ProviderConfiguration: NotRequired[ProviderDetailTypeDef]
-
-
-class CspmProviderConfigurationTypeDef(TypedDict):
-    Azure: NotRequired[AzureProviderConfigurationTypeDef]
-
-
-class ProviderConfigurationTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudProviderConfigurationTypeDef]
-    ServiceNow: NotRequired[ServiceNowProviderConfigurationTypeDef]
-    Azure: NotRequired[AzureProviderConfigurationTypeDef]
-
-
-class CspmProviderUpdateConfigurationTypeDef(TypedDict):
-    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
-
-
-class ProviderUpdateConfigurationTypeDef(TypedDict):
-    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
-    ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
-    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
-
-
 class VulnerabilityTypeDef(TypedDict):
     Id: str
     VulnerablePackages: NotRequired[Sequence[SoftwarePackageTypeDef]]
@@ -11403,6 +11382,71 @@ class ListExportJobsV2ResponseTypeDef(TypedDict):
     Items: list[ExportSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
+
+
+class CspmProviderSummaryTypeDef(TypedDict):
+    ProviderName: NotRequired[CspmConnectorProviderNameType]
+    ConnectorStatus: NotRequired[CspmConnectorStatusType]
+    ProviderConfiguration: NotRequired[CspmProviderDetailTypeDef]
+
+
+class GetConnectorResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
+    Name: str
+    Description: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Health: CspmHealthCheckTypeDef
+    ProviderDetail: CspmProviderDetailTypeDef
+    CreatedBy: str
+    EnablementStatus: CspmEnablementStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetConnectorV2ResponseTypeDef(TypedDict):
+    ConnectorArn: str
+    ConnectorId: str
+    Name: str
+    Description: str
+    KmsKeyArn: str
+    CreatedAt: datetime
+    LastUpdatedAt: datetime
+    Health: HealthCheckTypeDef
+    ProviderDetail: ProviderDetailTypeDef
+    EnablementStatus: EnablementStatusType
+    EnablementStatusReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class ProviderSummaryTypeDef(TypedDict):
+    ProviderName: NotRequired[ConnectorProviderNameType]
+    ConnectorStatus: NotRequired[ConnectorStatusType]
+    ProviderConfiguration: NotRequired[ProviderDetailTypeDef]
+
+
+class CspmProviderConfigurationTypeDef(TypedDict):
+    Azure: NotRequired[AzureProviderConfigurationTypeDef]
+    GCP: NotRequired[GcpProviderConfigurationTypeDef]
+
+
+class ProviderConfigurationTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudProviderConfigurationTypeDef]
+    ServiceNow: NotRequired[ServiceNowProviderConfigurationTypeDef]
+    Azure: NotRequired[AzureProviderConfigurationTypeDef]
+    GCP: NotRequired[GcpProviderConfigurationTypeDef]
+
+
+class CspmProviderUpdateConfigurationTypeDef(TypedDict):
+    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
+    GCP: NotRequired[GcpUpdateConfigurationTypeDef]
+
+
+class ProviderUpdateConfigurationTypeDef(TypedDict):
+    JiraCloud: NotRequired[JiraCloudUpdateConfigurationTypeDef]
+    ServiceNow: NotRequired[ServiceNowUpdateConfigurationTypeDef]
+    Azure: NotRequired[AzureUpdateConfigurationTypeDef]
+    GCP: NotRequired[GcpUpdateConfigurationTypeDef]
 
 
 class SequenceTypeDef(TypedDict):
@@ -12069,59 +12113,6 @@ class AwsWafv2RulesDetailsOutputTypeDef(TypedDict):
 AwsWafv2ActionBlockDetailsUnionTypeDef = Union[
     AwsWafv2ActionBlockDetailsTypeDef, AwsWafv2ActionBlockDetailsOutputTypeDef
 ]
-
-
-class CspmConnectorSummaryTypeDef(TypedDict):
-    ConnectorArn: NotRequired[str]
-    ConnectorId: NotRequired[str]
-    Name: NotRequired[str]
-    Description: NotRequired[str]
-    ProviderSummary: NotRequired[CspmProviderSummaryTypeDef]
-    CreatedAt: NotRequired[datetime]
-    CreatedBy: NotRequired[str]
-    EnablementStatus: NotRequired[CspmEnablementStatusType]
-
-
-class ConnectorSummaryTypeDef(TypedDict):
-    ConnectorId: str
-    Name: str
-    ProviderSummary: ProviderSummaryTypeDef
-    CreatedAt: datetime
-    ConnectorArn: NotRequired[str]
-    Description: NotRequired[str]
-    EnablementStatus: NotRequired[EnablementStatusType]
-    EnablementStatusReason: NotRequired[str]
-
-
-class CreateConnectorRequestTypeDef(TypedDict):
-    Name: str
-    Provider: CspmProviderConfigurationTypeDef
-    Description: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
-
-
-class CreateConnectorV2RequestTypeDef(TypedDict):
-    Name: str
-    Provider: ProviderConfigurationTypeDef
-    Description: NotRequired[str]
-    KmsKeyArn: NotRequired[str]
-    Tags: NotRequired[Mapping[str, str]]
-    ClientToken: NotRequired[str]
-
-
-class UpdateConnectorRequestTypeDef(TypedDict):
-    ConnectorId: str
-    Description: NotRequired[str]
-    Provider: NotRequired[CspmProviderUpdateConfigurationTypeDef]
-
-
-class UpdateConnectorV2RequestTypeDef(TypedDict):
-    ConnectorId: str
-    Description: NotRequired[str]
-    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
-
-
 VulnerabilityUnionTypeDef = Union[VulnerabilityTypeDef, VulnerabilityOutputTypeDef]
 
 
@@ -12206,6 +12197,59 @@ class ResourcesFiltersPaginatorTypeDef(TypedDict):
 ResourcesCompositeFilterUnionTypeDef = Union[
     ResourcesCompositeFilterTypeDef, ResourcesCompositeFilterOutputTypeDef
 ]
+
+
+class CspmConnectorSummaryTypeDef(TypedDict):
+    ConnectorArn: NotRequired[str]
+    ConnectorId: NotRequired[str]
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    ProviderSummary: NotRequired[CspmProviderSummaryTypeDef]
+    CreatedAt: NotRequired[datetime]
+    CreatedBy: NotRequired[str]
+    EnablementStatus: NotRequired[CspmEnablementStatusType]
+
+
+class ConnectorSummaryTypeDef(TypedDict):
+    ConnectorId: str
+    Name: str
+    ProviderSummary: ProviderSummaryTypeDef
+    CreatedAt: datetime
+    ConnectorArn: NotRequired[str]
+    Description: NotRequired[str]
+    EnablementStatus: NotRequired[EnablementStatusType]
+    EnablementStatusReason: NotRequired[str]
+
+
+class CreateConnectorRequestTypeDef(TypedDict):
+    Name: str
+    Provider: CspmProviderConfigurationTypeDef
+    Description: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+
+class CreateConnectorV2RequestTypeDef(TypedDict):
+    Name: str
+    Provider: ProviderConfigurationTypeDef
+    Description: NotRequired[str]
+    KmsKeyArn: NotRequired[str]
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+
+class UpdateConnectorRequestTypeDef(TypedDict):
+    ConnectorId: str
+    Description: NotRequired[str]
+    Provider: NotRequired[CspmProviderUpdateConfigurationTypeDef]
+
+
+class UpdateConnectorV2RequestTypeDef(TypedDict):
+    ConnectorId: str
+    Description: NotRequired[str]
+    Provider: NotRequired[ProviderUpdateConfigurationTypeDef]
+
+
 SequenceUnionTypeDef = Union[SequenceTypeDef, SequenceOutputTypeDef]
 NetworkHeaderUnionTypeDef = Union[NetworkHeaderTypeDef, NetworkHeaderOutputTypeDef]
 
@@ -12473,18 +12517,6 @@ class AwsWafv2WebAclActionDetailsTypeDef(TypedDict):
     Block: NotRequired[AwsWafv2ActionBlockDetailsUnionTypeDef]
 
 
-class ListConnectorsResponseTypeDef(TypedDict):
-    Connectors: list[CspmConnectorSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
-class ListConnectorsV2ResponseTypeDef(TypedDict):
-    Connectors: list[ConnectorSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    NextToken: NotRequired[str]
-
-
 class FindingsExtraTypeDef(TypedDict):
     Format: FindingsExportFormatType
     Filters: NotRequired[OcsfFindingFiltersOutputTypeDef]
@@ -12518,6 +12550,18 @@ class GetResourcesV2RequestPaginateTypeDef(TypedDict):
 class ResourcesFiltersTypeDef(TypedDict):
     CompositeFilters: NotRequired[Sequence[ResourcesCompositeFilterUnionTypeDef]]
     CompositeOperator: NotRequired[AllowedOperatorsType]
+
+
+class ListConnectorsResponseTypeDef(TypedDict):
+    Connectors: list[CspmConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
+class ListConnectorsV2ResponseTypeDef(TypedDict):
+    Connectors: list[ConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 
 DetectionTypeDef = TypedDict(
@@ -13161,6 +13205,7 @@ ResourceDetailsOutputTypeDef = TypedDict(
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsOutputTypeDef],
         "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
         "AzureResource": NotRequired[dict[str, Any]],
+        "GcpResource": NotRequired[dict[str, Any]],
     },
 )
 FirewallPolicyDetailsUnionTypeDef = Union[
@@ -13475,6 +13520,7 @@ ResourceDetailsTypeDef = TypedDict(
         "AwsEc2ClientVpnEndpoint": NotRequired[AwsEc2ClientVpnEndpointDetailsUnionTypeDef],
         "CodeRepository": NotRequired[CodeRepositoryDetailsTypeDef],
         "AzureResource": NotRequired[Mapping[str, Any]],
+        "GcpResource": NotRequired[Mapping[str, Any]],
     },
 )
 ResourceDetailsUnionTypeDef = Union[ResourceDetailsTypeDef, ResourceDetailsOutputTypeDef]

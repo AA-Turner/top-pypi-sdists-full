@@ -337,7 +337,7 @@ if sys.version_info < (3, 10):
                 comment=st.text() | st.none(),
                 compression=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
                 encoding=st.text() | st.none(),
-                mimeType=st.text() | st.none(),
+                mimeType=st.text(),
                 size=st.integers(),
                 text=st.text() | st.none(),
             ),
@@ -373,16 +373,18 @@ if sys.version_info < (3, 10):
         harfile.Timings,
         st.builds(
             harfile.Timings,
-            blocked=st.floats() | st.integers(),
+            blocked=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
             comment=st.text() | st.none(),
-            connect=st.floats() | st.integers(),
-            dns=st.floats() | st.integers(),
-            receive=st.floats() | st.integers(),
-            send=st.floats() | st.integers(),
-            ssl=st.floats() | st.integers(),
-            wait=st.floats() | st.integers(),
+            connect=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
+            dns=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
+            receive=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
+            send=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
+            ssl=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
+            wait=st.floats(allow_nan=False, allow_infinity=False) | st.integers(),
         ),
     )
+
+st.register_type_strategy(float, st.floats(allow_nan=False, allow_infinity=False))
 
 
 ENTRY_STRATEGY = st.fixed_dictionaries(
@@ -435,6 +437,28 @@ def test_close():
     assert har.closed
 
 
+@pytest.mark.parametrize("explicit_close", [True, False], ids=["close", "with-block"])
+def test_add_entry_after_close(explicit_close):
+    buffer = io.StringIO()
+    if explicit_close:
+        har = harfile.open(buffer)
+        har.close()
+    else:
+        with harfile.open(buffer) as har:
+            pass
+    expected = buffer.getvalue()
+    with pytest.raises(ValueError, match="closed file"):
+        har.add_entry(
+            startedDateTime="2024-01-01T00:00:00+00:00",
+            time=1,
+            request=harfile.Request(method="GET", url="http://127.0.0.1/", httpVersion="HTTP/1.1"),
+            response=harfile.Response(status=200, statusText="OK", httpVersion="HTTP/1.1"),
+            timings=harfile.Timings(send=0, wait=0, receive=0),
+        )
+    assert buffer.getvalue() == expected
+    HAR_VALIDATOR.validate(json.loads(expected))
+
+
 def test_exception():
     buffer = io.StringIO()
     with pytest.raises(ZeroDivisionError):
@@ -442,6 +466,27 @@ def test_exception():
             raise ZeroDivisionError
     assert har.closed
     assert buffer.getvalue() == ""
+
+
+@pytest.mark.parametrize("managed", [False, True])
+def test_exception_after_entry(managed, tmp_path):
+    path = tmp_path / "test.har"
+    target = path if managed else io.StringIO()
+    with pytest.raises(ZeroDivisionError):
+        with harfile.open(target) as har:
+            har.add_entry(
+                startedDateTime="2026-01-01T00:00:00+00:00",
+                time=1,
+                request=harfile.Request(method="GET", url="http://127.0.0.1/", httpVersion="HTTP/1.1"),
+                response=harfile.Response(status=200, statusText="OK", httpVersion="HTTP/1.1"),
+                timings=harfile.Timings(send=0, wait=0, receive=0),
+            )
+            raise ZeroDivisionError
+    assert har.closed
+    output = path.read_text() if managed else target.getvalue()
+    data = json.loads(output)
+    HAR_VALIDATOR.validate(data)
+    assert len(data["log"]["entries"]) == 1
 
 
 def test_with_comments():
@@ -527,3 +572,49 @@ def test_started_date_time_string_is_escaped():
             timings=harfile.Timings(send=0, wait=0, receive=0),
         )
     assert json.loads(buffer.getvalue())["log"]["entries"][0]["startedDateTime"] == VALUE_NEEDING_ESCAPING
+
+
+def test_naive_started_date_time_gets_utc_offset():
+    naive = datetime.datetime(2026, 11, 16, 16, 28, 51, 75318)
+    buffer = io.StringIO()
+    with harfile.open(buffer) as har:
+        har.add_entry(
+            startedDateTime=naive,
+            time=1,
+            request=harfile.Request(method="GET", url="http://127.0.0.1/", httpVersion="HTTP/1.1"),
+            response=harfile.Response(status=200, statusText="OK", httpVersion="HTTP/1.1"),
+            timings=harfile.Timings(send=0, wait=0, receive=0),
+        )
+    parsed = datetime.datetime.fromisoformat(json.loads(buffer.getvalue())["log"]["entries"][0]["startedDateTime"])
+    assert parsed == naive.astimezone()
+
+
+def test_encode_matches_json_dumps():
+    sample = {
+        "text": VALUE_NEEDING_ESCAPING,
+        "unicode": "café 日本語 \U0001f600  ",
+        "control": '\x00\x1f\t\r\n\\ "/',
+        "nested": [{"a": [1, 2.5, -1e100, True, False, None], "b": {}}, [], ""],
+    }
+    assert harfile._encode(sample) == json.dumps(sample)
+
+
+def _add_entry(har, *, time=1, send=0):
+    har.add_entry(
+        startedDateTime="2024-01-01T00:00:00+00:00",
+        time=time,
+        request=harfile.Request(method="GET", url="http://127.0.0.1/", httpVersion="HTTP/1.1"),
+        response=harfile.Response(status=200, statusText="OK", httpVersion="HTTP/1.1"),
+        timings=harfile.Timings(send=send, wait=0, receive=0),
+    )
+
+
+@pytest.mark.parametrize("field", ["time", "send"])
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")], ids=["nan", "inf", "-inf"])
+def test_non_finite_floats_are_rejected(field, value):
+    buffer = io.StringIO()
+    with harfile.open(buffer) as har:
+        with pytest.raises(ValueError, match="not JSON compliant"):
+            _add_entry(har, **{field: value})
+        _add_entry(har)
+    assert len(json.loads(buffer.getvalue())["log"]["entries"]) == 1

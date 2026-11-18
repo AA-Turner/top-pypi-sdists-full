@@ -1,0 +1,76 @@
+// This file is part of OpenCV project.
+// It is subject to the license terms in the LICENSE file found in the top-level directory
+// of this distribution and at http://opencv.org/license.html.
+
+// Copyright (C) 2020, Intel Corporation, all rights reserved.
+// Third party copyrights are property of their respective owners.
+
+#ifndef __OPENCV_DNN_ONNX_SIMPLIFIER_HPP__
+#define __OPENCV_DNN_ONNX_SIMPLIFIER_HPP__
+#ifdef HAVE_PROTOBUF
+
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wsuggest-override"
+#endif
+#include "opencv-onnx.pb.h"
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+
+#include "../mapped_file.hpp"
+
+#include <map>
+
+namespace cv { namespace dnn {
+CV__DNN_INLINE_NS_BEGIN
+
+void simplifySubgraphs(opencv_onnx::GraphProto& net, const std::string& basePath = "");
+
+template<typename T1, typename T2>
+void convertInt64ToInt32(const T1& src, T2& dst, int size)
+{
+    for (int i = 0; i < size; i++)
+    {
+        dst[i] = saturate_cast<int32_t>(src[i]);
+    }
+}
+
+// Per-model state for mapping external initializers.
+struct ExternalDataCache
+{
+    Ptr<MappedSource> open(const std::string& path);
+
+    // What readNetFromONNX()'s mapExternalData asked for, after the environment override.
+    bool mappingEnabled = true;
+
+    std::map<std::string, Ptr<MappedSource> > files;
+};
+
+/** @brief converts tensor to Mat, preserving the tensor data type
+ *  @param uint8ToInt8 if true, handles uint8 tensor as quantized weight. So output Mat = int8(int32(uint8_tensor) - 128)).
+ *  if false, just returns uint8 Mat.
+ *  @param cache when given, an external tensor whose payload needs no reordering is returned as a
+ *  Mat over the mapped file instead of a copy; the mapping must outlive every Mat built from it.
+*/
+Mat getMatFromTensor(const opencv_onnx::TensorProto& tensor_proto, bool uint8ToInt8=true,
+                     const std::string base_path = "", ExternalDataCache* cache = nullptr);
+
+// Maps an ONNX declared data_type to its OpenCV type (e.g. FLOAT16 becomes CV_16F),
+// or returns -1 when the data_type has no OpenCV equivalent.
+int dataType2cv(int dt);
+
+/** @brief frees a tensor's raw payload once it has been copied into a Mat.
+ *  clear_raw_data() only empties the string and keeps its capacity, so it must be released.
+ */
+inline void releaseONNXTensor(opencv_onnx::TensorProto& tensor_proto)
+{
+    if (!tensor_proto.raw_data().empty())
+        delete tensor_proto.release_raw_data();
+}
+
+CV__DNN_INLINE_NS_END
+}}  // namespace dnn, namespace cv
+
+#endif  // HAVE_PROTOBUF
+#endif  // __OPENCV_DNN_ONNX_SIMPLIFIER_HPP__

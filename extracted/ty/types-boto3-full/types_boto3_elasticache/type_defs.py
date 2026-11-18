@@ -35,6 +35,7 @@ from .literals import (
     DurabilityType,
     EffectiveDurabilityType,
     InputAuthenticationTypeType,
+    IntegrationStatusType,
     IpDiscoveryType,
     LogDeliveryConfigurationStatusType,
     LogFormatType,
@@ -213,6 +214,8 @@ __all__ = (
     "IncreaseNodeGroupsInGlobalReplicationGroupResultTypeDef",
     "IncreaseReplicaCountMessageTypeDef",
     "IncreaseReplicaCountResultTypeDef",
+    "IntegrationRequestTypeDef",
+    "IntegrationTypeDef",
     "KinesisFirehoseDestinationDetailsTypeDef",
     "ListAllowedNodeTypeModificationsMessageTypeDef",
     "ListTagsForResourceMessageTypeDef",
@@ -468,6 +471,10 @@ class ConfigureShardTypeDef(TypedDict):
     PreferredOutpostArns: NotRequired[Sequence[str]]
 
 
+class IntegrationRequestTypeDef(TypedDict):
+    IntegrationType: NotRequired[Literal["dynamodb"]]
+
+
 class CustomerNodeEndpointTypeDef(TypedDict):
     Address: NotRequired[str]
     Port: NotRequired[int]
@@ -712,6 +719,11 @@ class GlobalReplicationGroupMemberTypeDef(TypedDict):
     Role: NotRequired[str]
     AutomaticFailover: NotRequired[AutomaticFailoverStatusType]
     Status: NotRequired[str]
+
+
+class IntegrationTypeDef(TypedDict):
+    IntegrationType: NotRequired[Literal["dynamodb"]]
+    Status: NotRequired[IntegrationStatusType]
 
 
 class ListAllowedNodeTypeModificationsMessageTypeDef(TypedDict):
@@ -1534,6 +1546,7 @@ class CreateServerlessCacheRequestTypeDef(TypedDict):
     DailySnapshotTime: NotRequired[str]
     NetworkType: NotRequired[NetworkTypeType]
     ConnectionType: NotRequired[ConnectionTypeType]
+    Integrations: NotRequired[Sequence[IntegrationRequestTypeDef]]
 
 
 class ModifyServerlessCacheRequestTypeDef(TypedDict):
@@ -1571,6 +1584,7 @@ class ServerlessCacheTypeDef(TypedDict):
     NetworkType: NotRequired[NetworkTypeType]
     ConnectionType: NotRequired[ConnectionTypeType]
     Migration: NotRequired[MigrationSummaryTypeDef]
+    Integrations: NotRequired[list[IntegrationTypeDef]]
 
 
 class DescribeUpdateActionsMessagePaginateTypeDef(TypedDict):

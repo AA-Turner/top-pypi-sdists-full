@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Dict
 
+from alibabacloud_gateway_pop.client import Client as GatewayClientClient
 from alibabacloud_tea_openapi import utils_models as open_api_util_models
 from alibabacloud_tea_openapi.client import Client as OpenApiClient
 from alibabacloud_tea_openapi.utils import Utils
@@ -21,13 +22,15 @@ class Client(OpenApiClient):
         config: open_api_util_models.Config,
     ):
         super().__init__(config)
+        self._product_id = 'Vpc'
+        gateway_client = GatewayClientClient()
+        self._spi = gateway_client
         self._endpoint_rule = 'regional'
         self._endpoint_map = {
             'cn-hangzhou': 'vpc.aliyuncs.com',
-            'cn-shanghai-finance-1': 'vpc.aliyuncs.com',
-            'cn-shenzhen-finance-1': 'vpc.aliyuncs.com',
-            'cn-north-2-gov-1': 'vpc.aliyuncs.com',
             'ap-northeast-2-pop': 'vpc.aliyuncs.com',
+            'ap-south-1': 'vpc.aliyuncs.com',
+            'ap-southeast-2': 'vpc.aliyuncs.com',
             'cn-beijing-finance-pop': 'vpc.aliyuncs.com',
             'cn-beijing-gov-1': 'vpc.aliyuncs.com',
             'cn-beijing-nu16-b01': 'vpc.aliyuncs.com',
@@ -58,7 +61,8 @@ class Client(OpenApiClient):
             'cn-zhangjiakou-na62-a01': 'vpc.cn-zhangjiakou.aliyuncs.com',
             'cn-zhengzhou-nebula-1': 'vpc-nebula.cn-qingdao-nebula.aliyuncs.com',
             'eu-west-1-oxs': 'vpc-nebula.cn-shenzhen-cloudstone.aliyuncs.com',
-            'rus-west-1-pop': 'vpc.aliyuncs.com'
+            'rus-west-1-pop': 'vpc.aliyuncs.com',
+            'cn-nanjing': 'vpc-smarthosting.cn-hangzhou-cloudstone.aliyuncs.com'
         }
         self.check_config(config)
         self._endpoint = self.get_endpoint('vpc', self._region_id, self._endpoint_rule, self._network, self._suffix, self._endpoint_map, self._endpoint)
@@ -3322,6 +3326,10 @@ class Client(OpenApiClient):
             query['BandwidthPackageId'] = request.bandwidth_package_id
         if not DaraCore.is_null(request.eip_id):
             query['EipId'] = request.eip_id
+        if not DaraCore.is_null(request.ip_instance_id):
+            query['IpInstanceId'] = request.ip_instance_id
+        if not DaraCore.is_null(request.ip_type):
+            query['IpType'] = request.ip_type
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):
@@ -3362,6 +3370,10 @@ class Client(OpenApiClient):
             query['BandwidthPackageId'] = request.bandwidth_package_id
         if not DaraCore.is_null(request.eip_id):
             query['EipId'] = request.eip_id
+        if not DaraCore.is_null(request.ip_instance_id):
+            query['IpInstanceId'] = request.ip_instance_id
+        if not DaraCore.is_null(request.ip_type):
+            query['IpType'] = request.ip_type
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):
@@ -9682,6 +9694,8 @@ class Client(OpenApiClient):
             query['Ipv6CidrBlock'] = request.ipv_6cidr_block
         if not DaraCore.is_null(request.ipv_6cidr_mask):
             query['Ipv6CidrMask'] = request.ipv_6cidr_mask
+        if not DaraCore.is_null(request.ipv_6only):
+            query['Ipv6Only'] = request.ipv_6only
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):
@@ -9740,6 +9754,8 @@ class Client(OpenApiClient):
             query['Ipv6CidrBlock'] = request.ipv_6cidr_block
         if not DaraCore.is_null(request.ipv_6cidr_mask):
             query['Ipv6CidrMask'] = request.ipv_6cidr_mask
+        if not DaraCore.is_null(request.ipv_6only):
+            query['Ipv6Only'] = request.ipv_6only
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):
@@ -23792,6 +23808,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.enable_ipv_6):
             query['EnableIpv6'] = request.enable_ipv_6
+        if not DaraCore.is_null(request.ipv_6only):
+            query['Ipv6Only'] = request.ipv_6only
         if not DaraCore.is_null(request.is_default):
             query['IsDefault'] = request.is_default
         if not DaraCore.is_null(request.owner_account):
@@ -23854,6 +23872,8 @@ class Client(OpenApiClient):
             query['DryRun'] = request.dry_run
         if not DaraCore.is_null(request.enable_ipv_6):
             query['EnableIpv6'] = request.enable_ipv_6
+        if not DaraCore.is_null(request.ipv_6only):
+            query['Ipv6Only'] = request.ipv_6only
         if not DaraCore.is_null(request.is_default):
             query['IsDefault'] = request.is_default
         if not DaraCore.is_null(request.owner_account):
@@ -31726,6 +31746,10 @@ class Client(OpenApiClient):
             query['BandwidthPackageId'] = request.bandwidth_package_id
         if not DaraCore.is_null(request.eip_id):
             query['EipId'] = request.eip_id
+        if not DaraCore.is_null(request.ip_instance_id):
+            query['IpInstanceId'] = request.ip_instance_id
+        if not DaraCore.is_null(request.ip_type):
+            query['IpType'] = request.ip_type
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):
@@ -31768,6 +31792,10 @@ class Client(OpenApiClient):
             query['BandwidthPackageId'] = request.bandwidth_package_id
         if not DaraCore.is_null(request.eip_id):
             query['EipId'] = request.eip_id
+        if not DaraCore.is_null(request.ip_instance_id):
+            query['IpInstanceId'] = request.ip_instance_id
+        if not DaraCore.is_null(request.ip_type):
+            query['IpType'] = request.ip_type
         if not DaraCore.is_null(request.owner_account):
             query['OwnerAccount'] = request.owner_account
         if not DaraCore.is_null(request.owner_id):

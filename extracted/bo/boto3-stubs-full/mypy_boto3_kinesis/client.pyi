@@ -29,17 +29,25 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     DescribeStreamPaginator,
     ListChannelsPaginator,
+    ListQueuesPaginator,
     ListShardsPaginator,
     ListStreamConsumersPaginator,
     ListStreamsPaginator,
 )
 from .type_defs import (
+    AcknowledgeDeadLetterQueueRecordsInputTypeDef,
+    AcknowledgeDeadLetterQueueRecordsOutputTypeDef,
+    AcknowledgeQueueRecordsInputTypeDef,
+    AcknowledgeQueueRecordsOutputTypeDef,
     AddTagsToStreamInputTypeDef,
     CreateChannelInputTypeDef,
     CreateChannelOutputTypeDef,
+    CreateQueueInputTypeDef,
+    CreateQueueOutputTypeDef,
     CreateStreamInputTypeDef,
     DecreaseStreamRetentionPeriodInputTypeDef,
     DeleteChannelInputTypeDef,
+    DeleteQueueInputTypeDef,
     DeleteResourcePolicyInputTypeDef,
     DeleteStreamInputTypeDef,
     DeregisterStreamConsumerInputTypeDef,
@@ -47,6 +55,8 @@ from .type_defs import (
     DescribeChannelInputTypeDef,
     DescribeChannelOutputTypeDef,
     DescribeLimitsOutputTypeDef,
+    DescribeQueueInputTypeDef,
+    DescribeQueueOutputTypeDef,
     DescribeStreamConsumerInputTypeDef,
     DescribeStreamConsumerOutputTypeDef,
     DescribeStreamInputTypeDef,
@@ -66,6 +76,8 @@ from .type_defs import (
     IncreaseStreamRetentionPeriodInputTypeDef,
     ListChannelsInputTypeDef,
     ListChannelsOutputTypeDef,
+    ListQueuesInputTypeDef,
+    ListQueuesOutputTypeDef,
     ListShardsInputTypeDef,
     ListShardsOutputTypeDef,
     ListStreamConsumersInputTypeDef,
@@ -82,9 +94,15 @@ from .type_defs import (
     PutRecordsInputTypeDef,
     PutRecordsOutputTypeDef,
     PutResourcePolicyInputTypeDef,
+    ReceiveDeadLetterQueueRecordsInputTypeDef,
+    ReceiveDeadLetterQueueRecordsOutputTypeDef,
+    ReceiveQueueRecordsInputTypeDef,
+    ReceiveQueueRecordsOutputTypeDef,
     RegisterStreamConsumerInputTypeDef,
     RegisterStreamConsumerOutputTypeDef,
     RemoveTagsFromStreamInputTypeDef,
+    RestoreDeadLetterQueueRecordsInputTypeDef,
+    RestoreDeadLetterQueueRecordsOutputTypeDef,
     SplitShardInputTypeDef,
     StartStreamEncryptionInputTypeDef,
     StopStreamEncryptionInputTypeDef,
@@ -96,7 +114,13 @@ from .type_defs import (
     UpdateAccountSettingsOutputTypeDef,
     UpdateChannelInputTypeDef,
     UpdateChannelOutputTypeDef,
+    UpdateDeadLetterQueueRecordsVisibilityInputTypeDef,
+    UpdateDeadLetterQueueRecordsVisibilityOutputTypeDef,
     UpdateMaxRecordSizeInputTypeDef,
+    UpdateQueueInputTypeDef,
+    UpdateQueueOutputTypeDef,
+    UpdateQueueRecordsVisibilityInputTypeDef,
+    UpdateQueueRecordsVisibilityOutputTypeDef,
     UpdateShardCountInputTypeDef,
     UpdateShardCountOutputTypeDef,
     UpdateStreamModeInputTypeDef,
@@ -131,6 +155,7 @@ class Exceptions(BaseClientExceptions):
     ProvisionedThroughputExceededException: type[BotocoreClientError]
     ResourceInUseException: type[BotocoreClientError]
     ResourceNotFoundException: type[BotocoreClientError]
+    ThrottlingException: type[BotocoreClientError]
     ValidationException: type[BotocoreClientError]
 
 class KinesisClient(BaseClient):
@@ -168,6 +193,27 @@ class KinesisClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#generate_presigned_url)
         """
 
+    def acknowledge_dead_letter_queue_records(
+        self, **kwargs: Unpack[AcknowledgeDeadLetterQueueRecordsInputTypeDef]
+    ) -> AcknowledgeDeadLetterQueueRecordsOutputTypeDef:
+        """
+        Acknowledges up to 10 dead-letter records in the specified queue, so the queue
+        doesn't return them again.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/acknowledge_dead_letter_queue_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#acknowledge_dead_letter_queue_records)
+        """
+
+    def acknowledge_queue_records(
+        self, **kwargs: Unpack[AcknowledgeQueueRecordsInputTypeDef]
+    ) -> AcknowledgeQueueRecordsOutputTypeDef:
+        """
+        Acknowledges up to 10 records from the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/acknowledge_queue_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#acknowledge_queue_records)
+        """
+
     def add_tags_to_stream(
         self, **kwargs: Unpack[AddTagsToStreamInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -187,6 +233,14 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/create_channel.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#create_channel)
+        """
+
+    def create_queue(self, **kwargs: Unpack[CreateQueueInputTypeDef]) -> CreateQueueOutputTypeDef:
+        """
+        Creates a queue on the specified data stream.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/create_queue.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#create_queue)
         """
 
     def create_stream(
@@ -220,11 +274,21 @@ class KinesisClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#delete_channel)
         """
 
+    def delete_queue(
+        self, **kwargs: Unpack[DeleteQueueInputTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/delete_queue.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#delete_queue)
+        """
+
     def delete_resource_policy(
         self, **kwargs: Unpack[DeleteResourcePolicyInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Delete a policy for the specified data stream or consumer.
+        Delete a policy for the specified data stream, consumer, or queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/delete_resource_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#delete_resource_policy)
@@ -274,6 +338,17 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_limits.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#describe_limits)
+        """
+
+    def describe_queue(
+        self, **kwargs: Unpack[DescribeQueueInputTypeDef]
+    ) -> DescribeQueueOutputTypeDef:
+        """
+        Returns a description of the specified queue, including its status, the data
+        stream it delivers records from, and its configuration attributes.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/describe_queue.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#describe_queue)
         """
 
     def describe_stream(
@@ -340,7 +415,7 @@ class KinesisClient(BaseClient):
         self, **kwargs: Unpack[GetResourcePolicyInputTypeDef]
     ) -> GetResourcePolicyOutputTypeDef:
         """
-        Returns a policy attached to the specified data stream or consumer.
+        Returns a policy attached to the specified data stream, consumer, or queue.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_resource_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#get_resource_policy)
@@ -375,6 +450,15 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/list_channels.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#list_channels)
+        """
+
+    def list_queues(self, **kwargs: Unpack[ListQueuesInputTypeDef]) -> ListQueuesOutputTypeDef:
+        """
+        Returns a summary of each queue in the Amazon Web Services account and Region
+        used by the request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/list_queues.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#list_queues)
         """
 
     def list_shards(self, **kwargs: Unpack[ListShardsInputTypeDef]) -> ListShardsOutputTypeDef:
@@ -456,10 +540,31 @@ class KinesisClient(BaseClient):
         self, **kwargs: Unpack[PutResourcePolicyInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Attaches a resource-based policy to a data stream or registered consumer.
+        Attaches a resource-based policy to a data stream, a queue, or an enhanced
+        fan-out consumer.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/put_resource_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#put_resource_policy)
+        """
+
+    def receive_dead_letter_queue_records(
+        self, **kwargs: Unpack[ReceiveDeadLetterQueueRecordsInputTypeDef]
+    ) -> ReceiveDeadLetterQueueRecordsOutputTypeDef:
+        """
+        Receives up to 10 dead-letter records from the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/receive_dead_letter_queue_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#receive_dead_letter_queue_records)
+        """
+
+    def receive_queue_records(
+        self, **kwargs: Unpack[ReceiveQueueRecordsInputTypeDef]
+    ) -> ReceiveQueueRecordsOutputTypeDef:
+        """
+        Receives up to 10 records from the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/receive_queue_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#receive_queue_records)
         """
 
     def register_stream_consumer(
@@ -480,6 +585,16 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/remove_tags_from_stream.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#remove_tags_from_stream)
+        """
+
+    def restore_dead_letter_queue_records(
+        self, **kwargs: Unpack[RestoreDeadLetterQueueRecordsInputTypeDef]
+    ) -> RestoreDeadLetterQueueRecordsOutputTypeDef:
+        """
+        Restores up to 10 dead-letter records in the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/restore_dead_letter_queue_records.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#restore_dead_letter_queue_records)
         """
 
     def split_shard(self, **kwargs: Unpack[SplitShardInputTypeDef]) -> EmptyResponseMetadataTypeDef:
@@ -565,6 +680,17 @@ class KinesisClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#update_channel)
         """
 
+    def update_dead_letter_queue_records_visibility(
+        self, **kwargs: Unpack[UpdateDeadLetterQueueRecordsVisibilityInputTypeDef]
+    ) -> UpdateDeadLetterQueueRecordsVisibilityOutputTypeDef:
+        """
+        Changes the visibility timeout of up to 10 dead-letter records that you have
+        received from the specified queue but not yet acknowledged.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_dead_letter_queue_records_visibility.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#update_dead_letter_queue_records_visibility)
+        """
+
     def update_max_record_size(
         self, **kwargs: Unpack[UpdateMaxRecordSizeInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -574,6 +700,25 @@ class KinesisClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_max_record_size.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#update_max_record_size)
+        """
+
+    def update_queue(self, **kwargs: Unpack[UpdateQueueInputTypeDef]) -> UpdateQueueOutputTypeDef:
+        """
+        Updates the configuration attributes of the specified queue.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_queue.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#update_queue)
+        """
+
+    def update_queue_records_visibility(
+        self, **kwargs: Unpack[UpdateQueueRecordsVisibilityInputTypeDef]
+    ) -> UpdateQueueRecordsVisibilityOutputTypeDef:
+        """
+        Changes the visibility timeout of up to 10 records that you have received from
+        the specified queue but not yet acknowledged.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/update_queue_records_visibility.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#update_queue_records_visibility)
         """
 
     def update_shard_count(
@@ -634,6 +779,17 @@ class KinesisClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_channels"]
     ) -> ListChannelsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kinesis/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kinesis/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_queues"]
+    ) -> ListQueuesPaginator:
         """
         Create a paginator for an operation.
 

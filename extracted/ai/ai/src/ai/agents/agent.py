@@ -473,6 +473,10 @@ def _aggregate_from_return_type(fn: Callable[..., Any]) -> Aggregate | None:
 Tool = types.tools.Tool
 
 
+class _ToolArgs(pydantic.BaseModel):
+    """Base of the argument validators ``tool()`` generates."""
+
+
 @dataclasses.dataclass(frozen=True)
 class AgentTool:
     """Agent-owned executable tool paired with its model-facing declaration."""
@@ -497,6 +501,31 @@ class AgentTool:
         self,
     ) -> Callable[[], events_.Aggregator[Any, Any, Any]] | None:
         return self.aggregator
+
+    # A validator ``tool()`` generates isn't importable; pickle what's
+    # needed to generate it again.  Others pickle as themselves, so
+    # their config and validators survive.
+    def __getstate__(self) -> dict[str, Any]:
+        state = dict(self.__dict__)
+        v = self.validator
+        if v is not None and issubclass(v, _ToolArgs):
+            state["validator"] = (v.__name__, dict(v.model_fields))
+        return state
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        if isinstance(v := state.get("validator"), tuple):
+            name, field_infos = v
+            fields: dict[str, Any] = {
+                k: (f.annotation, f) for k, f in field_infos.items()
+            }
+            state = {
+                **state,
+                "validator": pydantic.create_model(
+                    name, __base__=_ToolArgs, **fields
+                ),
+            }
+        # A frozen dataclass's fields are plain ``__dict__`` entries.
+        self.__dict__.update(state)
 
 
 class ToolResolver:
@@ -646,7 +675,9 @@ def tool[**P, T, R](
             else:
                 fields[param_name] = (param_type, param.default)
 
-        validator = pydantic.create_model(f"{fn.__name__}_Args", **fields)
+        validator = pydantic.create_model(
+            f"{fn.__name__}_Args", __base__=_ToolArgs, **fields
+        )
 
         annotated_return_type = _return_type_from_callable(fn)
         annotated_aggregate = _aggregate_from_return_type(fn)
@@ -673,6 +704,19 @@ def tool[**P, T, R](
             ),
             require_approval=require_approval,
         )
+
+        # ``@ai.tool`` rebinds the function's name to the tool, so point
+        # the function's qualname through the tool, letting pickle find
+        # it.  ``fn.fn`` keeps that name working when the tool is bound
+        # to some other name and the function keeps its own.  A callable
+        # that already has an ``fn`` (say, a wrapper's target) is left
+        # alone.
+        if not hasattr(fn, "fn"):
+            try:
+                fn.__qualname__ = f"{fn.__qualname__}.fn"
+                fn.fn = fn
+            except (AttributeError, TypeError):
+                pass
 
         return AgentTool(
             tool=tool_decl,
@@ -1042,7 +1086,7 @@ class ToolRunner:
 class Context(pydantic.BaseModel):
     """Everything that goes into the LLM."""
 
-    model: models.Model
+    model: pydantic.SerializeAsAny[models.Model | models.ModelLike]
     messages: list[types.messages.Message]
     tools: list[Tool]
     output_type: type[pydantic.BaseModel] | None = pydantic.Field(
@@ -1493,7 +1537,7 @@ class Agent:
     @overload
     def run(
         self,
-        model: models.Model,
+        model: models.ModelLike,
         messages: list[types.messages.Message],
         *,
         params: models.InferenceRequestParams | None = None,
@@ -1502,7 +1546,7 @@ class Agent:
     @overload
     def run[T: pydantic.BaseModel](
         self,
-        model: models.Model,
+        model: models.ModelLike,
         messages: list[types.messages.Message],
         *,
         output_type: type[T],
@@ -1511,7 +1555,7 @@ class Agent:
     ) -> AbstractAsyncContextManager[AgentStream[T]]: ...
     def run(
         self,
-        model: models.Model,
+        model: models.ModelLike,
         messages: list[types.messages.Message],
         *,
         output_type: type[pydantic.BaseModel] | None = None,
@@ -1556,7 +1600,7 @@ class Agent:
     @contextlib.asynccontextmanager
     async def _run(
         self,
-        model: models.Model,
+        model: models.ModelLike,
         messages: list[types.messages.Message],
         *,
         output_type: type[pydantic.BaseModel] | None,

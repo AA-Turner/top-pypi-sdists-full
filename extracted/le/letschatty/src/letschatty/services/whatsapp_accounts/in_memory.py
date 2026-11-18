@@ -75,7 +75,7 @@ class InMemoryWhatsAppNumberRepository:
         holder = self.by_id.get(number.phone_number_id)
         if holder is not None and holder.company_id != number.company_id and holder.is_live:
             raise NumberAlreadyClaimed("taken")
-        self.by_id[number.phone_number_id] = number.model_copy(update={"active": True, "until": None, "taken_down_at": None})
+        self.by_id[number.phone_number_id] = number.model_copy(update={"active": True, "until": None, "taken_down_at": None, "released_in_chatty": None})
         return self.by_id[number.phone_number_id]
 
     async def live_by_digits(self, digits: str) -> List[WhatsAppNumber]:
@@ -83,6 +83,14 @@ class InMemoryWhatsAppNumberRepository:
 
     async def take_down(self, phone_number_id: str) -> None:
         self.by_id[phone_number_id] = self.by_id[phone_number_id].model_copy(update={"taken_down_at": utc_now(), "active": False})
+
+    async def release(self, phone_number_id: str, account_id: str, reason: str) -> None:
+        number = self.by_id[phone_number_id]
+        if number.taken_down_at is None and number.account_id == account_id:
+            now = utc_now()
+            self.by_id[phone_number_id] = number.model_copy(update={
+                "taken_down_at": now, "active": False, "until": now, "released_in_chatty": {"at": now, "reason": reason},
+            })
 
     async def deactivate(self, phone_number_id: str) -> None:
         self.by_id[phone_number_id] = self.by_id[phone_number_id].model_copy(update={"active": False})

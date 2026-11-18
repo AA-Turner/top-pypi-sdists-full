@@ -1,0 +1,57 @@
+Metadata-Version: 2.4
+Name: tinker
+Version: 0.39.1
+Classifier: Typing :: Typed
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: License :: OSI Approved :: Apache Software License
+Requires-Dist: httpx[http2]>=0.23.0,<1
+Requires-Dist: pyqwest>=0.4.1
+Requires-Dist: pydantic>=1.9.0,<3
+Requires-Dist: typing-extensions>=4.10,<5
+Requires-Dist: anyio>=3.5.0,<5
+Requires-Dist: distro>=1.7.0,<2
+Requires-Dist: sniffio
+Requires-Dist: numpy
+Requires-Dist: protobuf>=4.21
+Requires-Dist: transformers
+Requires-Dist: tiktoken
+Requires-Dist: rich>=13.0.0
+Requires-Dist: click>=8.0.0
+Requires-Dist: orjson>=3.10.0
+Requires-Dist: zstandard>=0.24.0
+Requires-Dist: aiohttp ; extra == 'aiohttp'
+Requires-Dist: httpx-aiohttp>=0.1.8 ; extra == 'aiohttp'
+Requires-Dist: torch ; extra == 'torch'
+Provides-Extra: aiohttp
+Provides-Extra: torch
+License-File: LICENSE
+Summary: The official Python SDK for the tinker API
+Keywords: tinker,machine learning
+Author-email: Tinker authors <tinker@thinkingmachines.ai>
+License-Expression: Apache-2.0
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
+Project-URL: Changelog, https://tinker-docs.thinkingmachines.ai/changelog/sdk/
+Project-URL: Documentation, https://tinker-docs.thinkingmachines.ai/
+Project-URL: Homepage, https://thinkingmachines.ai/tinker
+Project-URL: Repository, https://github.com/thinking-machines-lab/tinker
+
+<h1 align="center">Tinker Python SDK</h1>
+<div align="center">
+  <img src="https://github.com/thinking-machines-lab/tinker/blob/829c151ba7c6740a84db02e41f03825084c37fed/docs/images/logo.png" width="60%" />
+
+  Documentation:
+  <a href="http://tinker-docs.thinkingmachines.ai/">tinker-docs.thinkingmachines.ai</a>
+</div>
+

@@ -44,7 +44,7 @@ from ..constants import FIXED_DELTA_SECONDS
 from ..perception_fault import PerceivedCategory, PerceptionFault, t4_label
 from ..rerun import TRAJECTORY_SUFFIX
 from ..run_outputs import T4SCENE_MAP_SUFFIX, T4SCENE_SUFFIX
-from ..utils.clearance import _HIDDEN_BELOW_M
+from ..utils.clearance import HIDDEN_BELOW_M
 from ..utils.light_lanes import LightLanes, elements_ahead, light_lanes
 from ._proto import t4_scene_pb2 as pb
 from .frames import FLIP_Y as _FLIP_Y
@@ -269,7 +269,7 @@ class _Log:
             [
                 int(state[0]) in self.actors
                 and self.on_scene(int(state[0]), frame)
-                and state[3] >= _HIDDEN_BELOW_M
+                and state[3] >= HIDDEN_BELOW_M
                 for state in states
             ],
             dtype=bool,
@@ -950,8 +950,14 @@ def _fill_route(scene: pb.T4Scene, lanelet_ids: Sequence[int]) -> None:
     if not lanelet_ids:
         return
     rows = int(scene.timestamps_ns.shape[0])
-    route = _route_data(lanelet_ids)
-    scene.routes.rows.extend(pb.RouteRow(value=route) for _ in range(rows))
+    _route_on_every_row(scene, _route_data(lanelet_ids), rows)
+
+
+def _route_on_every_row(scene: pb.T4Scene, route: pb.RouteData, rows: int) -> None:
+    """*route* as the route of each of *rows* rows: one shared observation that
+    every row indexes (``RouteSequence``, tier4/e2e-devkit#171)."""
+    scene.routes.rows.append(route)
+    scene.routes.indices.CopyFrom(_array(np.zeros(rows, dtype=np.int64), "i8"))
 
 
 def ego_of(log: _Log, source: str = "the log") -> int:

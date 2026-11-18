@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-agentplatform
-Version: 2.9.0
+Version: 2.10.0
 Summary: Google Cloud Agent Platform Client Library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache-2.0

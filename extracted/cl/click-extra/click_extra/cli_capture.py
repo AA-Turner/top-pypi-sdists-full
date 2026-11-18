@@ -48,6 +48,8 @@ from .capture.presets import (
     Chrome,
     Cursor,
     CursorShape,
+    parse_font_stack,
+    read_palette,
 )
 from .capture.recording import (
     DEFAULT_RECORDING_BLANK,
@@ -81,7 +83,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
     from typing import Any, TypeVar, Unpack
 
-    from .capture.presets import ChromeArguments, TerminalPreset
+    from .capture.presets import ChromeArguments, TerminalPalette, TerminalPreset
     from .capture.screenshot import TColumns
     from .capture.svg import THold
 
@@ -284,6 +286,16 @@ def capture_options(
             "window.",
         ),
         option(
+            "--font",
+            metavar="FAMILIES",
+            default=None,
+            callback=_option_callback(parse_font_stack),
+            help="Fonts the text is set in, best first and comma-separated, like "
+            "'JetBrains Mono, Menlo'. The list closes on monospace unless it "
+            "names a generic family. Defaults to the fonts of --preset, or to "
+            "the renderer's own.",
+        ),
+        option(
             "--border",
             metavar="COLOR",
             default=None,
@@ -468,6 +480,16 @@ Examples:
     "printed, so nothing folds inside the picture.",
 )
 @option(
+    "--palette",
+    type=file_path(exists=True, readable=True, resolve_path=True),
+    default=None,
+    callback=_option_callback(lambda scheme: read_palette(Path(scheme))),
+    help="Color scheme the captured colors resolve against, read from a Windows "
+    "Terminal scheme (.json) or an iTerm2 one (.itermcolors). Replaces the "
+    "palette of --preset and --background, and leaves the window they draw as "
+    "it is. An HTML capture takes its background and foreground alone.",
+)
+@option(
     "--prompt",
     default=None,
     help="Command line to display above the output, when it differs from the "
@@ -493,8 +515,9 @@ Examples:
     type=FloatRange(min=0, min_open=True),
     metavar="SECONDS",
     default=None,
-    help="Seconds before the command is killed. Waits forever by default. "
-    "With --record, this is also where the recording stops.",
+    help="Seconds before the command is killed, counted from its launch. Waits "
+    "forever by default. With --record, this also ends the recording, which "
+    "--end does on the clock of --start instead.",
 )
 @option(
     "--record",
@@ -509,6 +532,24 @@ Examples:
     default=None,
     help=f"With --record, the height of the terminal the command runs in, in "
     f"characters. Defaults to {DEFAULT_ROWS}.",
+)
+@option(
+    "--start",
+    type=FloatRange(min=0),
+    metavar="SECONDS",
+    default=None,
+    help="With --record, seconds of the recording to drop, counted from the "
+    "first screen the command draws: the animation opens on the screen it "
+    "showed then, like a player told where to start. Defaults to 0.",
+)
+@option(
+    "--end",
+    type=FloatRange(min=0, min_open=True),
+    metavar="SECONDS",
+    default=None,
+    help="With --record, where the recording stops, in seconds after the first "
+    "screen the command draws, as --start counts them. The command is stopped "
+    "there too.",
 )
 @option(
     "--hold",
@@ -588,6 +629,8 @@ def screenshot_cmd(
     columns: TColumns,
     background: TerminalBackground,
     preset: str | None,
+    font: str | None,
+    palette: TerminalPalette | None,
     prompt: str | None,
     head: int | None,
     tail: int | None,
@@ -602,6 +645,8 @@ def screenshot_cmd(
     timeout: float | None,
     record: bool,
     rows: int | None,
+    start: float | None,
+    end: float | None,
     hold: THold | None,
     blank: float | None,
     cursor: str | None,
@@ -639,10 +684,11 @@ def screenshot_cmd(
     Neither format needs an optional dependency.
 
     --record runs the command under a pseudo-terminal instead, and writes an
-    animated SVG of every screen it drew: the frames a spinner or a progress
-    bar asks a terminal for, which a plain capture never sees. The invocation
-    is drawn above every frame, and the loop pauses on the final screen for as
-    long as its line count asks, see --hold.
+    animated SVG of every screen it drew: the frames a spinner, a progress bar
+    or a full-screen program asks a terminal for, which a plain capture never
+    sees. The invocation stands above the output as a shell prompt, and the
+    loop pauses on the final screen for as long as its line count asks, see
+    --hold.
     """
     capture_format = resolve_capture_format(output, fragment)
     chrome = Chrome(**chrome_fields)
@@ -673,6 +719,8 @@ def screenshot_cmd(
     else:
         for name, given in (
             ("--rows", rows is not None),
+            ("--start", start is not None),
+            ("--end", end is not None),
             ("--hold", hold is not None),
             ("--blank", blank is not None),
             ("--speed", speed is not None),
@@ -685,6 +733,8 @@ def screenshot_cmd(
         raise click.UsageError("--blink requires --cursor.")
     if submit is not None and typing is None:
         raise click.UsageError("--submit requires --typing.")
+    if start is not None and end is not None and end <= start:
+        raise click.UsageError("--end must be later than --start.")
 
     drawn_cursor = None
     if cursor is not None:
@@ -728,6 +778,8 @@ def screenshot_cmd(
                 background=background,
                 prompt=prompt,
                 duration=timeout,
+                start=0.0 if start is None else start,
+                end=end,
                 hold=DEFAULT_RECORDING_HOLD if hold is None else hold,
                 blank=DEFAULT_RECORDING_BLANK if blank is None else blank,
                 speed=1.0 if speed is None else speed,
@@ -740,6 +792,8 @@ def screenshot_cmd(
                 title=title,
                 unique_id=output.stem,
                 preset=terminal,
+                palette=palette,
+                font_stack=font,
                 chrome=chrome,
             )
         except (NotImplementedError, ValueError) as error:
@@ -768,6 +822,8 @@ def screenshot_cmd(
                 full=not fragment,
                 background=background,
                 preset=terminal,
+                palette=palette,
+                font_stack=font,
                 chrome=chrome,
             )
         except ValueError as error:
@@ -847,6 +903,7 @@ def snippet_cmd(
     columns: TColumns,
     background: TerminalBackground,
     preset: str | None,
+    font: str | None,
     head: int | None,
     tail: int | None,
     truncation: str,
@@ -929,6 +986,7 @@ def snippet_cmd(
             full=not fragment,
             background=background,
             preset=_resolve_preset(preset),
+            font_stack=font,
             chrome=Chrome(**chrome_fields),
         )
     except ValueError as error:

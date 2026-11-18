@@ -68,7 +68,12 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
                             {
                                 "authentication": {"key_chain": "KEYCHAIN1"},
                                 "group_no": 10,
-                                "timer": {"hello_interval": 200, "hold_time": 700, "msec": True},
+                                "timer": {
+                                    "hello_interval": 200,
+                                    "hold_time": 700,
+                                    "msec": True,
+                                    "hold_msec": True,
+                                },
                             },
                         ],
                     },
@@ -100,7 +105,12 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
                                 "mac_address": "00BB.14CC.15DD",
                                 "preempt": {"minimum": 10, "reload": 100, "sync": 5},
                                 "priority": {"level": 110, "lower": 90, "upper": 130},
-                                "timer": {"hello_interval": 300, "hold_time": 900, "msec": True},
+                                "timer": {
+                                    "hello_interval": 300,
+                                    "hold_time": 900,
+                                    "hello_msec": True,
+                                    "hold_msec": True,
+                                },
                             },
                         ],
                     },
@@ -122,7 +132,11 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
                                 "mac_address": "00CC.10DD.10EE",
                                 "preempt": {"minimum": 15, "reload": 120, "sync": 10},
                                 "priority": {"level": 100, "lower": 80, "upper": 120},
-                                "timer": {"hello_interval": 250, "hold_time": 750, "msec": True},
+                                "timer": {
+                                    "hello_interval": 250,
+                                    "hold_time": 750,
+                                    "hello_msec": True,
+                                },
                                 "track": [
                                     {"decrement": 25, "object_no": 201},
                                     {"decrement": 35, "object_no": 202},
@@ -139,7 +153,7 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
             "interface Vlan1",
             "hsrp version 2",
             "hsrp 10",
-            "timers msec 200 700",
+            "timers msec 200 msec 700",
             "authentication md5 key-chain KEYCHAIN1",
             "interface Vlan14",
             "hsrp version 2",
@@ -157,7 +171,7 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
             "mac-address 00BB.14CC.15DD",
             "preempt delay minimum 10 reload 100 sync 5",
             "priority 110 forwarding-threshold lower 90 upper 130",
-            "timers msec 300 900",
+            "timers msec 300 msec 900",
             "authentication md5 key-string SECUREKEY14",
             "interface Vlan10",
             "hsrp version 2",
@@ -557,6 +571,199 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
         result = self.execute_module(changed=True)
         self.assertEqual(set(result["commands"]), set(commands))
 
+    def test_nxos_hsrp_interfaces_replaced_remove_preempt(self):
+        # Replaced: want omits preempt entirely; all preempt sub-keys on device
+        # must be negated individually.
+        self.get_config.return_value = dedent(
+            """\
+            interface Vlan10
+              hsrp version 2
+              hsrp 10
+                preempt delay minimum 10 reload 50 sync 5
+                priority 120
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan10",
+                        "standby": {"version": 2},
+                        "standby_options": [
+                            {
+                                "group_no": 10,
+                                "priority": {"level": 15},
+                            },
+                        ],
+                    },
+                ],
+                state="replaced",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "interface Vlan10",
+            "hsrp 10",
+            "no preempt delay minimum 10 reload 50 sync 5",
+            "priority 15",
+        ]
+        self.assertEqual(set(result["commands"]), set(commands))
+        preempt_set_cmds = [c for c in result["commands"] if c.startswith("preempt ")]
+        self.assertEqual(preempt_set_cmds, [])
+
+    def test_nxos_hsrp_interfaces_replaced_partial_preempt(self):
+        self.get_config.return_value = dedent(
+            """\
+            interface Vlan218
+              hsrp 218
+                preempt delay minimum 10 reload 50 sync 22
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan218",
+                        "standby": {"version": 1},
+                        "standby_options": [
+                            {
+                                "group_no": 218,
+                                "preempt": {"sync": 22},
+                            },
+                        ],
+                    },
+                ],
+                state="replaced",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "interface Vlan218",
+            "hsrp 218",
+            "no preempt delay minimum 10",
+            "no preempt delay reload 50",
+        ]
+        self.assertEqual(set(result["commands"]), set(commands))
+        self.assertNotIn("preempt delay sync 22", result["commands"])
+
+    def test_nxos_hsrp_interfaces_replaced_partial_preempt_sync_changed(self):
+        self.get_config.return_value = dedent(
+            """\
+            interface Vlan218
+              hsrp 218
+                preempt delay minimum 10 reload 50 sync 22
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan218",
+                        "standby": {"version": 1},
+                        "standby_options": [
+                            {
+                                "group_no": 218,
+                                "preempt": {"sync": 30},
+                            },
+                        ],
+                    },
+                ],
+                state="replaced",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "interface Vlan218",
+            "hsrp 218",
+            "no preempt delay minimum 10",
+            "no preempt delay reload 50",
+            "preempt delay sync 30",
+        ]
+        self.assertEqual(set(result["commands"]), set(commands))
+
+    def test_nxos_hsrp_interfaces_merged_preempt_reload_only(self):
+        # Original bug: device has preempt delay minimum 10 reload 50,
+        # playbook changes only reload. Module must detect and apply the diff.
+        self.get_config.return_value = dedent(
+            """\
+            interface Vlan10
+              hsrp 10
+                preempt delay minimum 10 reload 50
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan10",
+                        "standby": {"version": 1},
+                        "standby_options": [
+                            {
+                                "group_no": 10,
+                                "preempt": {"minimum": 10, "reload": 200},
+                            },
+                        ],
+                    },
+                ],
+                state="merged",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "interface Vlan10",
+            "hsrp 10",
+            "preempt delay minimum 10 reload 200",
+        ]
+        self.assertEqual(set(result["commands"]), set(commands))
+
+    def test_nxos_hsrp_interfaces_overridden_partial_preempt(self):
+        # Overridden: remove minimum/reload from Vlan10 group preempt; fully
+        # remove Vlan20 (not in want).
+        self.get_config.return_value = dedent(
+            """\
+            interface Vlan10
+              hsrp 10
+                preempt delay minimum 10 reload 50 sync 5
+            interface Vlan20
+              hsrp 20
+                preempt delay minimum 5 reload 30
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan10",
+                        "standby": {"version": 1},
+                        "standby_options": [
+                            {
+                                "group_no": 10,
+                                "preempt": {"sync": 5},
+                            },
+                        ],
+                    },
+                ],
+                state="overridden",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        commands = [
+            "interface Vlan10",
+            "hsrp 10",
+            "no preempt delay minimum 10",
+            "no preempt delay reload 50",
+            "interface Vlan20",
+            "no hsrp version 1",
+            "no hsrp 20",
+        ]
+        self.assertEqual(set(result["commands"]), set(commands))
+        self.assertNotIn("no preempt delay sync 5", result["commands"])
+
     def test_nxos_hsrp_interfaces_deprecated_bfd(self):
         self.get_config.return_value = dedent(
             """\
@@ -603,6 +810,56 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
         ]
         self.assertEqual(set(result["commands"]), set(commands))
 
+    def test_nxos_hsrp_interfaces_merged_hello_msec_alias(self):
+        self.get_config.return_value = dedent(
+            """\
+            """,
+        )
+        set_module_args(
+            dict(
+                config=[
+                    {
+                        "name": "Vlan5",
+                        "standby": {"version": 2},
+                        "standby_options": [
+                            {
+                                "group_no": 5,
+                                "timer": {
+                                    "hello_interval": 400,
+                                    "hold_time": 1200,
+                                    "hello_msec": True,
+                                    "hold_msec": True,
+                                },
+                            },
+                            {
+                                "group_no": 6,
+                                "timer": {
+                                    "hello_interval": 300,
+                                    "hold_time": 900,
+                                    "hold_msec": True,
+                                },
+                            },
+                            {
+                                "group_no": 7,
+                                "timer": {
+                                    "hello_interval": 500,
+                                    "hold_time": 1500,
+                                    "msec": True,
+                                    "hold_msec": True,
+                                },
+                            },
+                        ],
+                    },
+                ],
+                state="merged",
+            ),
+            ignore_provider_arg,
+        )
+        result = self.execute_module(changed=True)
+        self.assertIn("timers msec 400 msec 1200", result["commands"])
+        self.assertIn("timers 300 msec 900", result["commands"])
+        self.assertIn("timers msec 500 msec 1500", result["commands"])
+
     def test_nxos_hsrp_interfaces_gathered(self):
         self.get_config.return_value = dedent(
             """\
@@ -610,7 +867,7 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
               hsrp 10
                 preempt delay minimum 10 reload 100 sync 5
                 priority 100 forwarding-threshold lower 12 upper 22
-                timers msec 456  33
+                timers msec 456 msec 33
             interface Vlan2
               hsrp 11
                 preempt delay minimum 10 sync 5
@@ -633,7 +890,12 @@ class TestNxosHsrpInterfacesModule(TestNxosModule):
                         "group_no": 10,
                         "preempt": {"minimum": 10, "reload": 100, "sync": 5},
                         "priority": {"level": 100, "upper": 22, "lower": 12},
-                        "timer": {"msec": True, "hello_interval": 456, "hold_time": 33},
+                        "timer": {
+                            "msec": True,
+                            "hold_msec": True,
+                            "hello_interval": 456,
+                            "hold_time": 33,
+                        },
                     },
                 ],
             },

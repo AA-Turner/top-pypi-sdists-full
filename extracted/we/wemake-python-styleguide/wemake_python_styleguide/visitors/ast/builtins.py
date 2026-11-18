@@ -33,11 +33,11 @@ from wemake_python_styleguide.violations import (
 )
 from wemake_python_styleguide.visitors import base, decorators
 
-#: Items that can be inside a hash.
 _HashItems: TypeAlias = Sequence[ast.AST | None]
+"""Items that can be inside a hash."""
 
-#: Any formatted string node (f-string or t-string).
 _AnyFormattedString: TypeAlias = ast.JoinedStr | nodes.TemplateStr
+"""Any formatted string node (f-string or t-string)."""
 
 
 @final
@@ -97,6 +97,9 @@ class WrongStringVisitor(base.BaseNodeVisitor):
 class WrongFormatStringVisitor(base.BaseNodeVisitor):
     """Restricts usage of ``f`` and ``t`` strings."""
 
+    _valid_format_spec: ClassVar[re.Pattern[str]] = re.compile(
+        r'^(\.\d+[eEfFgGn%]|[<^>]\d+|#[boxX]|[bcdeEfFgGnosxX%,])$',
+    )
     _valid_format_index: ClassVar[AnyNodes] = (
         ast.Constant,
         ast.Name,
@@ -128,22 +131,30 @@ class WrongFormatStringVisitor(base.BaseNodeVisitor):
         )
         for string_component in node.values:
             # check component complexity
-            is_component_complex = False
             if isinstance(
                 string_component,
                 ast.FormattedValue | nodes.Interpolation,
-            ):
-                is_component_complex = not self._is_valid_formatted_value(
-                    string_component.value,
+            ) and not self._is_valid_formatted_value(string_component.value):
+                self.add_violation(
+                    complexity.TooComplexFormattedStringViolation(
+                        string_component.value,
+                    ),
                 )
+                return
             # check format complexity for nested JoinedStr
             is_format_complex = parent and (
-                strings.has_format_string_conversion(string_component)
+                (
+                    strings.is_format_spec(node)
+                    and isinstance(
+                        string_component,
+                        ast.FormattedValue | nodes.Interpolation,
+                    )
+                )
+                or strings.has_format_string_conversion(string_component)
                 or len(node.values) > 1
                 or not self._is_const_format_valid(string_component, parent)
             )
-
-            if is_component_complex or is_format_complex:
+            if is_format_complex:
                 self.add_violation(
                     complexity.TooComplexFormattedStringViolation(
                         parent or node,
@@ -162,10 +173,7 @@ class WrongFormatStringVisitor(base.BaseNodeVisitor):
             and isinstance(string_component.value, str)
         ):
             # check if a string component contains a valid format pattern
-            matched = re.match(
-                r'^(\.\d+(?:f|e)|[<^>]\d+|#?[x|X]|[c,])$',
-                string_component.value,
-            )
+            matched = self._valid_format_spec.match(string_component.value)
             return bool(matched)
         return True
 

@@ -3,10 +3,6 @@
 The actor twin of `anyscale task aggregate`: the same source (the observability API on the
 cloud's system cluster), the same flags and the same rendering; see `task_commands`. The
 API returns every actor group at once, so --max-items cuts the list on the client.
-
-The group is `hidden=True` for now: it runs when typed, but is left out of `anyscale
---help`, the committed doc spec and the reference docs. Removing the flag (and the
-matching one on the Actors module in `_private/docgen/__main__.py`) publishes it.
 """
 
 from typing import List, Optional, Tuple
@@ -39,7 +35,7 @@ from anyscale.commands.task_commands import (
 from anyscale.commands.util import AnyscaleCommand
 
 
-@click.group("actor", help="Inspect the Ray actors of a cluster.", hidden=True)
+@click.group("actor", help="Inspect the Ray actors of a cluster.")
 def actor_cli() -> None:
     pass
 

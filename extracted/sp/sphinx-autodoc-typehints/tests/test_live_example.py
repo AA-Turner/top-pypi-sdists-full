@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import re
 from collections import Counter
 from json import loads
 from pathlib import Path
-from re import findall, search, sub
+from re import VERBOSE
 from textwrap import dedent, indent
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final, TypedDict
 from zlib import compress
 
 from pytest import MonkeyPatch, fixture, mark, param
@@ -13,6 +14,7 @@ from pytest import MonkeyPatch, fixture, mark, param
 if TYPE_CHECKING:
     from collections.abc import Callable
 
+    from conftest import MakeApp
     from sphinx.testing.util import SphinxTestApp
 
 _EXTENSION_DIR: Final[Path] = Path(__file__).parents[1] / "docs" / "_ext"
@@ -72,7 +74,7 @@ def project_fixture(tmp_path: Path, monkeypatch: MonkeyPatch) -> Path:
 
 
 @fixture(name="build")
-def build_fixture(project: Path, make_app: Callable[..., SphinxTestApp]) -> Build:
+def build_fixture(project: Path, make_app: MakeApp) -> Build:
     def build(index: str) -> SphinxTestApp:
         (project / "index.rst").write_text(f"Example\n=======\n\n{index}")
         app = make_app("html", srcdir=project, freshenv=True)
@@ -94,9 +96,14 @@ def build_linked_fixture(project: Path, build: Build) -> Build:
     return build
 
 
-def _tab(app: SphinxTestApp, label: str) -> str:
-    page = (Path(app.outdir) / "index.html").read_text()
-    return page.split(f"\n{label}</label>", 1)[1].split('<label class="sd-tab-label"', 1)[0]
+_TABS_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r"""
+            <label\b[^>]*                    # attributes can precede the class
+            \bclass="sd-tab-label"[^>]*>      # tab label with any later attributes
+            \s*([^<]+?)\s*</label>            # displayed tab name
+            """,
+    VERBOSE,
+)
 
 
 @mark.parametrize(
@@ -117,20 +124,30 @@ def test_live_example_shows(fragment: str, build: Build) -> None:
 def test_live_example_tab_order(build: Build) -> None:
     app = build(_EXAMPLE)
 
-    labels = findall(
-        r'<label class="sd-tab-label"[^>]*>\s*([^<]+?)\s*</label>', (Path(app.outdir) / "index.html").read_text()
-    )
+    labels = [name for name, _ in _tabs(app)]
 
     assert labels == ["conf.py", "demo.py", "sphinx-autodoc-typehints", "Sphinx built-in"]
 
 
-def test_live_example_builtin_tab_renders_without_the_extension(build: Build) -> None:
-    app = build(_EXAMPLE)
+def _tabs(app: SphinxTestApp) -> list[tuple[str, str]]:
+    page = (Path(app.outdir) / "index.html").read_text()
+    labels = list(_TABS_PATTERN.finditer(page))
+    return [
+        (match.group(1), page[match.end() : labels[index + 1].start() if index + 1 < len(labels) else len(page)])
+        for index, match in enumerate(labels)
+    ]
 
-    builtin = _tab(app, "Sphinx built-in")
+
+def test_live_example_builtin_tab_renders_without_the_extension(build: Build) -> None:
+
+    builtin = _tab(build(_EXAMPLE), "Sphinx built-in")
 
     assert "scale" in builtin
     assert "sphinx_autodoc_typehints-type" not in builtin
+
+
+def _tab(app: SphinxTestApp, label: str) -> str:
+    return next(content for name, content in _tabs(app) if name == label)
 
 
 def test_live_example_links_through_the_parent_inventory(build_linked: Build) -> None:
@@ -148,10 +165,15 @@ def test_live_example_shows_why_the_builtin_build_fails(build_linked: Build) -> 
     assert "ERROR" not in app.warning.getvalue()
 
 
+_TEST_LIVE_EXAMPLE_KEEPS_ANCHORS_UNIQUE_PATTERN: Final[re.Pattern[str]] = re.compile(r'\bid="([^"]+)"')
+
+
 def test_live_example_keeps_anchors_unique(build: Build) -> None:
     app = build(f"{_EXAMPLE}\n{_EXAMPLE.replace('comma', 'braces')}")
 
-    ids = Counter(findall(r'\bid="([^"]+)"', (Path(app.outdir) / "index.html").read_text()))
+    ids = Counter(
+        _TEST_LIVE_EXAMPLE_KEEPS_ANCHORS_UNIQUE_PATTERN.findall((Path(app.outdir) / "index.html").read_text())
+    )
 
     assert [anchor for anchor, count in ids.items() if count > 1] == []
 
@@ -233,30 +255,36 @@ _REFERENCE: Final[str] = dedent("""\
 _SHARED_CONF: Final[str] = "# shared by every example"
 
 
-def _picked(source: str = _PICKED_SOURCE, conf: str = _SHARED_CONF) -> str:
-    return f".. live-example::\n\n{indent(f'{conf}\n---\n{source}', '    ')}\n"
+class _Option(TypedDict):
+    name: str
+    values: list[str | bool]
+    dependsOn: str | None
+    lines: list[str]
 
 
-def _about(app: SphinxTestApp) -> dict[str, Any]:
-    page = (Path(app.outdir) / "index.html").read_text()
-    found = search(r'<script type="application/json" id="live-example-picker">(.*?)</script>', page)
-    assert found is not None
-    return loads(found[1])
+class _About(TypedDict):
+    options: list[_Option]
+    conf: str
+    data: str
 
 
-def _variants(app: SphinxTestApp) -> dict[str, Any]:
-    script = (Path(app.outdir) / _about(app)["data"]).read_text()
-    return loads(script[script.index("(") + 1 : script.rindex(")")])
+class _Variants(TypedDict):
+    bodies: list[str]
+    relevant: list[list[int]]
+    examples: list[dict[str, int]]
 
 
-def _without_prefixes(html: str) -> str:
-    return sub(r'(id="|href="#)[0-9a-f]{12}-', r"\1", html)
+_FOUND_PATTERN: Final[re.Pattern[str]] = re.compile(
+    r'<script type="application/json" id="live-example-picker">(?P<config>.*?)</script>'
+)
+
+
+_WITHOUT_PREFIXES_PATTERN: Final[re.Pattern[str]] = re.compile(r'(id="|href="#)[0-9a-f]{12}-')
 
 
 def test_live_example_picker_puts_its_controls_above_the_rendered_page(build: Build) -> None:
-    app = build(f"{_PICKER}{_picked()}")
 
-    conf = _tab(app, "sphinx-autodoc-typehints")
+    conf = _tab(build(f"{_PICKER}{_picked()}"), "sphinx-autodoc-typehints")
 
     assert (
         'role="switch" class="lep-switch" id="lep-0-typehints_fully_qualified" name="typehints_fully_qualified">'
@@ -264,6 +292,10 @@ def test_live_example_picker_puts_its_controls_above_the_rendered_page(build: Bu
     )
     assert 'id="lep-0-typehints_document_rtype" name="typehints_document_rtype" checked>' in conf
     assert '<input type="radio" name="typehints_defaults" value="1"><span>comma</span>' in conf
+
+
+def _picked(source: str = _PICKED_SOURCE, conf: str = _SHARED_CONF) -> str:
+    return f".. live-example::\n\n{indent(f'{conf}\n---\n{source}', '    ')}\n"
 
 
 @mark.parametrize(
@@ -296,9 +328,7 @@ def test_live_example_picker_warns_of_an_option_the_reference_leaves_out(build: 
 def test_live_example_picker_drops_the_conf_tab(build: Build) -> None:
     app = build(f"{_PICKER}{_picked()}")
 
-    labels = findall(
-        r'<label class="sd-tab-label"[^>]*>\s*([^<]+?)\s*</label>', (Path(app.outdir) / "index.html").read_text()
-    )
+    labels = [name for name, _ in _tabs(app)]
 
     assert labels == ["demo.py", "sphinx-autodoc-typehints", "Sphinx built-in"]
 
@@ -316,10 +346,20 @@ def test_live_example_picker_publishes_the_variants(build: Build) -> None:
     assert len(_variants(app)["examples"]) == 2
 
 
-def test_live_example_picker_lists_the_options_with_their_conf_lines(build: Build) -> None:
-    app = build(f"{_PICKER}{_picked()}")
+def _variants(app: SphinxTestApp) -> _Variants:
+    script = (Path(app.outdir) / _about(app)["data"]).read_text()
+    return loads(script[script.index("(") + 1 : script.rindex(")")])
 
-    options = _about(app)["options"]
+
+def _about(app: SphinxTestApp) -> _About:
+    found = _FOUND_PATTERN.search((Path(app.outdir) / "index.html").read_text())
+    assert found is not None
+    return loads(found["config"])
+
+
+def test_live_example_picker_lists_the_options_with_their_conf_lines(build: Build) -> None:
+
+    options = _about(build(f"{_PICKER}{_picked()}"))["options"]
 
     assert [option["name"] for option in options] == [
         "typehints_fully_qualified",
@@ -344,17 +384,24 @@ def test_live_example_picker_lists_the_options_with_their_conf_lines(build: Buil
         ),
     ],
 )
-def test_live_example_picker_variant_matches_a_build_with_that_conf(picked: dict[str, object], build: Build) -> None:
+def test_live_example_picker_variant_matches_a_build_with_that_conf(
+    picked: dict[str, str | bool], build: Build
+) -> None:
     about, variants = _about(app := build(f"{_PICKER}{_picked()}")), _variants(app)
     combination = [
         option["values"].index(picked.get(option["name"], option["values"][0])) for option in about["options"]
     ]
-    key = "".join(str(at if index in variants["relevant"][0] else 0) for index, at in enumerate(combination))
+    chosen = {index: at for index, at in enumerate(combination) if index in variants["relevant"][0]}
+    key = "".join(str(chosen.get(index, 0)) for index in range(len(combination)))
     variant = variants["bodies"][variants["examples"][0][key]]
 
     alone = build(_picked(conf="\n".join([_SHARED_CONF, *(f"{name} = {value!r}" for name, value in picked.items())])))
 
     assert _without_prefixes(variant) in _without_prefixes(_tab(alone, "sphinx-autodoc-typehints"))
+
+
+def _without_prefixes(html: str) -> str:
+    return _WITHOUT_PREFIXES_PATTERN.sub(r"\1", html)
 
 
 def test_live_example_picker_skips_options_that_change_nothing(build: Build) -> None:

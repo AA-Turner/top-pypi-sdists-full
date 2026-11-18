@@ -18,7 +18,7 @@ uv = "0.10.12"
 
 [env]
 # The single core pin: a release tag. scripts/core-sync/ requires a tag.
-OPENSHELL_CORE_REF = "v0.1.8"
+OPENSHELL_CORE_REF = "v0.1.9"
 # The package version for builds. CI and local builds use 0.0.0; the release
 # workflow sets OPENSHELL_SDK_VERSION to the release's version.
 SETUPTOOLS_SCM_PRETEND_VERSION_FOR_OPENSHELL = "{{ get_env(name='OPENSHELL_SDK_VERSION', default='0.0.0') }}"

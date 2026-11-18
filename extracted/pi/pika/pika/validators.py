@@ -1,43 +1,43 @@
-"""
-Common validation functions
-"""
-from typing import Any, Callable, Optional
+"""Common validation functions."""
+
+from __future__ import annotations
+
+from typing import Any, Callable
 
 
 def require_string(value: Any, value_name: str) -> None:
-    """Require that value is a string
+    """
+    Require that value is a string.
 
+    :param value: The value to validate
+    :param value_name: Human-readable name of the value, used in error messages
     :raises: TypeError
-
     """
     if not isinstance(value, str):
-        raise TypeError('{} must be a str or unicode str, but got {!r}'.format(
-            value_name,
-            value,
-        ))
+        raise TypeError(f'{value_name} must be a str, but got {value!r}')
 
 
 def require_callback(callback: Callable[..., Any],
                      callback_name: str = 'callback') -> None:
-    """Require that callback is callable and is not None
+    """
+    Require that callback is callable and is not None.
 
+    :param callback: The callback to validate
+    :param callback_name: Human-readable name of the callback, used in error messages
     :raises: TypeError
-
     """
     if not callable(callback):
-        raise TypeError('callback {} must be callable, but got {!r}'.format(
-            callback_name,
-            callback,
-        ))
+        raise TypeError(
+            f'callback {callback_name} must be callable, but got {callback!r}')
 
 
-def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
-    """Verify callback is callable if not None
+def rpc_completion_callback(callback: Callable[..., Any] | None) -> bool:
+    """
+    Verify callback is callable if not None.
 
+    :param callback: RPC completion callback, or None if no callback is expected (i.e. nowait=True)
     :returns: boolean indicating nowait
-    :rtype: bool
     :raises: TypeError
-
     """
     if callback is None:
         # No callback means we will not expect a response
@@ -47,16 +47,18 @@ def rpc_completion_callback(callback: Optional[Callable[..., Any]]) -> bool:
     if callable(callback):
         # nowait=False
         return False
-    else:
-        raise TypeError('completion callback must be callable if not None')
+    raise TypeError('completion callback must be callable if not None')
 
 
 def zero_or_greater(name: str, value: int) -> None:
-    """Verify that value is zero or greater. If not, 'name'
-    will be used in error message
+    """
+    Verify that value is zero or greater.
 
+    If not, 'name' will be used in error message
+
+    :param name: value name to use in error message
+    :param value: value to check
     :raises: ValueError
-
     """
     if int(value) < 0:
         errmsg = f'{name} must be >= 0, but got {value}'

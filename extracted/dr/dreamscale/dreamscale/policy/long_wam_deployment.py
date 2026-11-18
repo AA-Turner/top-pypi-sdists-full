@@ -1,5 +1,5 @@
 """Server-described Long-WAM deployment wire: its robot (the Bimanual YAM preset, checked
-against dreamscale_transport.long_wam_deploy by the shared preset session; or a custom robot a
+against dreamscale_core.long_wam_deploy by the shared preset session; or a custom robot a
 managed run trained, its cameras, widths, units and rate the block's own within the family's
 bounds: docs/plans/2026-11-14-long-wam-any-robot.md), its actions (joint targets held between
 chunks, other targets waited for; RTC off), and what it adds to them: each request carries per
@@ -15,9 +15,9 @@ import dataclasses
 import math
 from typing import Any
 
-from dreamscale_transport import long_wam_deploy as C
+from dreamscale_core import long_wam_deploy as C
+from dreamscale_core.long_wam_deploy import HISTORY_OFFSETS, IMAGE_SIZE
 from dreamscale_transport.images import WireImage
-from dreamscale_transport.long_wam_deploy import HISTORY_OFFSETS, IMAGE_SIZE
 
 from dreamscale.deploy_bases.long_wam import UNITS
 from dreamscale.policy.preset_deployment import (

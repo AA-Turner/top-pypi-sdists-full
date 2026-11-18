@@ -63,9 +63,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         cache_size: Option<usize>,
         minify_css: bool,
         remove_inlined_selectors: bool,
+        remove_unused_at_rules: bool,
         apply_width_attributes: bool,
         apply_height_attributes: bool,
         resolve_css_variables: bool,
+        media_type: Option<String>,
+        keep_classes: bool,
     }
 
     impl Default for ParsedArgs {
@@ -87,9 +90,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 cache_size: None,
                 minify_css: false,
                 remove_inlined_selectors: false,
+                remove_unused_at_rules: false,
                 apply_width_attributes: false,
                 apply_height_attributes: false,
                 resolve_css_variables: false,
+                media_type: None,
+                keep_classes: true,
             }
         }
     }
@@ -127,9 +133,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 Long("keep-at-rules") => parsed.keep_at_rules = true,
                 Long("minify-css") => parsed.minify_css = true,
                 Long("remove-inlined-selectors") => parsed.remove_inlined_selectors = true,
+                Long("remove-unused-at-rules") => parsed.remove_unused_at_rules = true,
                 Long("apply-width-attributes") => parsed.apply_width_attributes = true,
                 Long("apply-height-attributes") => parsed.apply_height_attributes = true,
                 Long("resolve-css-variables") => parsed.resolve_css_variables = true,
+                Long("keep-classes") => {
+                    parsed.keep_classes = parse_value(parser.value()?, "keep-classes")?;
+                }
                 Long("inline-style-tags") => {
                     parsed.inline_style_tags = parse_value(parser.value()?, "inline-style-tags")?;
                 }
@@ -141,6 +151,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
                 Long("base-url") => parsed.base_url = Some(parser.value()?.string()?),
                 Long("extra-css") => parsed.extra_css = Some(parser.value()?.string()?),
+                Long("media-type") => parsed.media_type = Some(parser.value()?.string()?),
                 Long("extra-css-file") => parsed.extra_css_files.push(parser.value()?.into()),
                 Long("output-filename-prefix") => {
                     parsed.output_filename_prefix = Some(parser.value()?);
@@ -236,6 +247,10 @@ OPTIONS:
     --remove-inlined-selectors
         Remove selectors that were successfully inlined from inline <style> blocks.
 
+    --remove-unused-at-rules
+        Remove rules that match no element from the conditional at-rules (@media,
+        @supports, ...) kept in the output.
+
     --apply-width-attributes
         Apply width HTML attributes from CSS width properties on supported elements
         (table, td, th, img). Useful for email compatibility with clients like Outlook.
@@ -247,6 +262,10 @@ OPTIONS:
     --resolve-css-variables
         Substitute var() references with the values of the custom properties they refer to
         and drop the --* declarations from the inlined styles.
+
+    --keep-classes
+        Whether to keep "class" attributes in the output. The default value is `true`. To remove
+        them use `--keep-classes=false`.
 
     --base-url
         Used for loading external stylesheets via relative URLs.
@@ -263,6 +282,10 @@ OPTIONS:
     --extra-css-file <PATH>
         Load additional CSS from a file to inline. Can be used multiple times to load
         from several files. The CSS will be processed alongside any existing styles.
+
+    --media-type
+        Inline rules from "@media" blocks that apply to the given media type, e.g. `print`.
+        Queries with media features, such as `(min-width: 600px)`, never apply.
 
     --output-filename-prefix
         Custom prefix for output files. Defaults to `inlined.`.
@@ -321,9 +344,12 @@ OPTIONS:
             preallocate_node_capacity: 32,
             resolver: Arc::new(DefaultStylesheetResolver),
             remove_inlined_selectors: args.remove_inlined_selectors,
+            remove_unused_at_rules: args.remove_unused_at_rules,
             apply_width_attributes: args.apply_width_attributes,
             apply_height_attributes: args.apply_height_attributes,
             resolve_css_variables: args.resolve_css_variables,
+            media_type: args.media_type,
+            keep_classes: args.keep_classes,
         };
         let inliner = CSSInliner::new(options);
         if args.files.is_empty() {

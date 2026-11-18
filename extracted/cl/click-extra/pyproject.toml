@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "10.2.0"
+version = "10.3.0"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -69,7 +69,7 @@ classifiers = [
     "Typing :: Typed",
 ]
 dependencies = [
-    "click>=8.5",
+    "click>=8.5.1",
     "cloup>=4",
     "extra-platforms>=14",
     "tabulate[widechars]>=0.10",
@@ -95,7 +95,7 @@ pygments = ["pygments>=2.14"]
 pytest = ["pytest>=9"]
 sphinx = [
     "docutils>=0.20",
-    "myst-parser>=5.1",
+    "myst-parser>=5.2",
     "packaging>=23",
     "pygments>=2.18",
     "sphinx>=8",
@@ -106,7 +106,7 @@ yaml = ["pyyaml>=6.0.3"]
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
 Documentation = "https://kdeldycke.github.io/click-extra/"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v10.2.0"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v10.3.0"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -151,18 +151,21 @@ click-extra = "click_extra.pytest"
 test = [
     "coverage>=7.13",
     "extra-platforms[pytest]>=14",
+    "hjson>=3.1",
     "jsonschema>=4.18",
     "mkdocs>=1.4",
     "mkdocs-click>=0.8.1",
-    "myst-parser>=5.1",
+    "myst-parser>=5.2",
     "packaging>=23",
     "pymdown-extensions>=10",
     "pytest>=9",
     "pytest-github-actions-annotate-failures>=0.2",
     "pytest-httpserver>=1.1",
     "pytest-randomly>=3",
+    "pyyaml>=6.0.3",
     "requests>=2.34",
     "sphinx>=8",
+    "tomlrt>=2.2.10",
 ]
 docs = [
     "flask>=3",
@@ -172,7 +175,7 @@ docs = [
     "jsonschema>=4.18",
     "mkdocs>=1.4",
     "mkdocs-click>=0.8.1",
-    "myst-parser>=5.1",
+    "myst-parser>=5.2",
     "platformdirs>=4",
     "pygments>=2.14",
     "pymdown-extensions>=10",
@@ -182,7 +185,7 @@ docs = [
     "sphinx-autodoc-typehints>=3.4",
     "sphinx-copybutton>=0.5.2",
     "sphinx-datatables>=1",
-    "sphinx-design>=0.6",
+    "sphinx-design>=0.8",
     "sphinx-sitemap>=2.6",
     "sphinxcontrib-jquery>=4",
     "sphinxcontrib-mermaid>=1.2.3",
@@ -206,9 +209,6 @@ exclude-newer = "1 week"
 
 [tool.uv.dependency-groups.docs]
 requires-python = ">= 3.14"
-
-[tool.uv.exclude-newer-package]
-extra-platforms = "2026-11-02T00:00:00Z"
 
 [tool.uv.build-backend]
 module-root = ""
@@ -306,6 +306,10 @@ extend-exclude = [
 [tool.typos.type.svg]
 check-file = false
 
+[tool.typos.type.asciicast]
+extend-glob = ["*.cast"]
+check-file = false
+
 [tool.mypy]
 check_untyped_defs = true
 warn_redundant_casts = true
@@ -322,6 +326,10 @@ module = [
     "pymdownx.*",
     "sphinxcontrib.mermaid",
 ]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["profiling.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
@@ -355,7 +363,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "10.2.0"
+current_version = "10.3.0"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -548,7 +556,7 @@ source = "sdist"
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.11"
-click-version = "8.5.0"
+click-version = "8.5.1"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"

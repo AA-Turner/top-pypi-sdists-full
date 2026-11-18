@@ -523,6 +523,18 @@ class GatewayFailure(ContractModel):
             whose advertised window is larger (``native_context_window``).
         context_window_limit_tokens: The window the rejecting provider's
             sentence states, when it names one.
+        provider_content_filter: A ``REFUSAL`` the provider's own content
+            filter raised (Azure's content management system), not the model
+            declining in its own words and never the gateway's guardrail
+            class. The data plane makes it failover-eligible once per request,
+            and only an untried rung of another provider may take it
+            (``native_content_filter``).
+        malformed_tool_call: A ``MALFORMED_RESPONSE`` for a streamed client
+            tool call whose arguments never became one valid JSON object. The
+            data plane reports it only while nothing reached the caller and
+            makes the first one per request both failover-eligible and
+            redialable; like ``TRANSPORT``, an untried sibling is preferred
+            over the redial (``native_execution.next_route_candidate``).
     """
 
     failure_class: GatewayFailureClass
@@ -558,6 +570,8 @@ class GatewayFailure(ContractModel):
     tenant_origin: bool = False
     context_window_rejected: bool = False
     context_window_limit_tokens: int | None = Field(default=None, ge=1)
+    provider_content_filter: bool = False
+    malformed_tool_call: bool = False
 
 
 def _validate_responses_probability_records(

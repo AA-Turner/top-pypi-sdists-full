@@ -31,6 +31,7 @@ from anyscale.cloud.models import (
     Cloud,
     CloudInfo,
     CloudProvider,
+    CloudResource,
     ComputeStack as CloudModelComputeStack,
     CreateCloudCollaborator,
     CreateCloudCollaborators,
@@ -924,6 +925,7 @@ def cloud_config_group() -> None:
             output_raw=command_examples.CLOUD_RESOURCE_CREATE_EXAMPLE,
         ),
     ],
+    option_docs={"--file": {"schema": CloudResource}},
 )
 @cloud_resource_group.command(
     name="create",
@@ -947,7 +949,7 @@ def cloud_config_group() -> None:
 @click.option(
     "--file",
     "-f",
-    help="Path to a YAML file defining the cloud resource. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
+    help="Path to a YAML file defining the cloud resource.",
     required=True,
 )
 @click.option(
@@ -1219,6 +1221,7 @@ def cloud_resource_delete(
             command="anyscale cloud update -n my-cloud",
         ),
     ],
+    option_docs={"--resources-file": {"schema": CloudResource}},
 )
 @cloud_cli.command(
     name="update",
@@ -1256,7 +1259,7 @@ def cloud_resource_delete(
 @click.option(
     "--resources-file",
     "-f",
-    help="Path to a YAML file defining a single cloud resource or a list of cloud resources. Only applicable for customer-managed resources. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
+    help="Path to a YAML file defining a single cloud resource or a list of cloud resources. Only applicable for customer-managed resources.",
     required=False,
 )
 @click.option(
@@ -1706,6 +1709,7 @@ def cloud_config_update(  # noqa: PLR0913
             command="anyscale cloud register --name my-cloud --resource-file cloud.yaml",
         ),
     ],
+    option_docs={"--resource-file": {"schema": CloudResource}},
 )
 @cloud_cli.command(
     name="register",
@@ -1885,7 +1889,7 @@ def cloud_config_update(  # noqa: PLR0913
 )
 @click.option(
     "--cloud-storage-bucket-name",
-    help="A fully qualified storage bucket name for cloud storage, e.g. s3://bucket-name, gs://bucket-name, or abfss://bucket-name@account.dfs.core.windows.net.",
+    help="A fully qualified storage bucket name for cloud storage, e.g. `s3://bucket-name`, `gs://bucket-name`, or `abfss://bucket-name@account.dfs.core.windows.net`.",
     required=False,
     type=str,
 )
@@ -1992,7 +1996,7 @@ def cloud_config_update(  # noqa: PLR0913
 @click.option(
     "--resource-file",
     "-f",
-    help="Path to a YAML file defining a cloud resource. Schema: https://docs.anyscale.com/reference/cloud#cloudresource.",
+    help="Path to a YAML file defining a cloud resource.",
     required=False,
 )
 @click.option(

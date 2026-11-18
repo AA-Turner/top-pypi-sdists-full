@@ -181,6 +181,7 @@ impl Normalizer {
                     }
                     Some("refusal") => {
                         self.refusal_seen = true;
+                        self.model_refusal_seen = true;
                         events.push(Event::RefusalDelta(optional_text(
                             block,
                             "refusal",
@@ -219,7 +220,8 @@ impl Normalizer {
                     }
                     Some("input_json_delta") => {
                         let fragment =
-                            optional_text(delta, "partial_json", "Anthropic argument delta")?;
+                            optional_text(delta, "partial_json", "Anthropic argument delta")
+                                .map_err(|failure| failure.with_malformed_tool_call(true))?;
                         self.reserve_tool_bytes(fragment.len())?;
                         let tool = self.tools.get_mut(&index).ok_or_else(|| {
                             malformed("provider emitted arguments before a tool start")
@@ -256,6 +258,7 @@ impl Normalizer {
                     }
                     Some("refusal_delta") => {
                         self.refusal_seen = true;
+                        self.model_refusal_seen = true;
                         events.push(Event::RefusalDelta(optional_text(
                             delta,
                             "refusal",

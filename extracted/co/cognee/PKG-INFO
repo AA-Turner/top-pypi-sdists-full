@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: cognee
-Version: 1.6.8
+Version: 1.6.9
 Summary: Cognee - is a library for enriching LLM context with a semantic layer for better understanding and reasoning.
 Project-URL: Homepage, https://www.cognee.ai
 Project-URL: Repository, https://github.com/topoteretes/cognee
@@ -118,6 +118,9 @@ Requires-Dist: matplotlib<4,>=3.8.3; extra == 'evals'
 Requires-Dist: pandas<3.0.0,>=2.2.2; extra == 'evals'
 Requires-Dist: plotly<7,>=6.0.0; extra == 'evals'
 Requires-Dist: scikit-learn<2,>=1.6.1; extra == 'evals'
+Provides-Extra: evernote
+Requires-Dist: evernote-plus==1.28.1.dev2; extra == 'evernote'
+Requires-Dist: thrift<1,>=0.21; extra == 'evernote'
 Provides-Extra: fastembed
 Provides-Extra: gliner
 Requires-Dist: gliner2[local]<3,>=2.0.0; extra == 'gliner'

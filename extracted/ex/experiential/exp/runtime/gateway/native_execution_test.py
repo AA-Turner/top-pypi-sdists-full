@@ -1321,6 +1321,71 @@ def test_a_transport_failure_with_no_sibling_redials_the_warm_rung() -> None:
     )
 
 
+def _malformed_tool_call() -> GatewayFailure:
+    """Build the first malformed streamed tool call of a request, as the data plane files it."""
+    return GatewayFailure(
+        failure_class=GatewayFailureClass.MALFORMED_RESPONSE,
+        safe_message="provider returned a malformed response; retry the request",
+        retryable_same_deployment=True,
+        failover_eligible=True,
+        malformed_tool_call=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "mode", ("maximize_availability", "maximize_cache", "maximize_cache_affinity")
+)
+def test_a_malformed_tool_call_takes_the_sibling_before_redialing_its_rung(
+    mode: FailoverMode,
+) -> None:
+    """The rung that sampled an unparsable call is the fallback, not the lead, in every mode."""
+    candidate = next_route_candidate(
+        health=DeploymentHealthRegistry(),
+        keys=_KEYS,
+        failure=_malformed_tool_call(),
+        current_depth=0,
+        attempt_counts=[1, 0],
+        total_attempts=1,
+        refusal_failover=False,
+        failover_mode=mode,
+    )
+    assert candidate == 1
+
+
+def test_a_malformed_tool_call_with_no_sibling_redials_its_rung_once() -> None:
+    """With nothing else to take it, the one retry resamples the same rung."""
+    health = DeploymentHealthRegistry()
+    assert (
+        next_route_candidate(
+            health=health,
+            keys=_KEYS,
+            failure=_malformed_tool_call(),
+            current_depth=1,
+            attempt_counts=[1, 1],
+            total_attempts=2,
+            refusal_failover=False,
+        )
+        == 1
+    )
+    # A malformed response the data plane did not mark keeps its old rule:
+    # never a redial of the same rung.
+    plain = _malformed_tool_call().model_copy(
+        update={"malformed_tool_call": False, "retryable_same_deployment": False}
+    )
+    assert (
+        next_route_candidate(
+            health=health,
+            keys=_KEYS,
+            failure=plain,
+            current_depth=1,
+            attempt_counts=[1, 1],
+            total_attempts=2,
+            refusal_failover=False,
+        )
+        is None
+    )
+
+
 @pytest.mark.parametrize("failure", (_transport(), _retryable()))
 def test_an_open_circuit_never_ends_a_request_whose_only_rung_it_is(
     failure: GatewayFailure,
@@ -1432,6 +1497,95 @@ def test_a_context_window_rejection_never_redials_the_refusing_rung() -> None:
         total_attempts=1,
         refusal_failover=False,
         context_windows=(262_144,),
+    )
+    assert candidate is None
+
+
+def _content_filter() -> GatewayFailure:
+    """Build one Azure content-filter refusal as the data plane promotes it."""
+    return GatewayFailure(
+        failure_class=GatewayFailureClass.REFUSAL,
+        safe_message="provider refused the request: content policy",
+        failover_eligible=True,
+        provider_content_filter=True,
+    )
+
+
+_THREE_KEYS: tuple[DeploymentHealthKey, ...] = (
+    *_KEYS,
+    ("catalog" + "0" * 57, "deployment-c", "connection-c"),
+)
+
+
+@pytest.mark.parametrize(
+    ("providers", "expected"),
+    [
+        # The unfiltered sibling of another provider takes it, in route order.
+        (("azure_openai", "openai", "huawei"), 1),
+        # A second Azure deployment would apply the same filter: skipped.
+        (("azure_openai", "azure_openai", "openai"), 2),
+        # Every other rung is the same provider: the refusal is the answer.
+        (("azure_openai", "azure_openai", "azure_openai"), None),
+        # No provider facts for the route: any untried rung.
+        ((), 1),
+    ],
+)
+def test_a_content_filter_refusal_advances_only_to_another_provider(
+    providers: tuple[str, ...], expected: int | None
+) -> None:
+    """A provider's filter refusal never lands on a rung of the same provider."""
+    for mode in ("maximize_availability", "maximize_cache", "maximize_cache_affinity"):
+        candidate = next_route_candidate(
+            health=DeploymentHealthRegistry(),
+            keys=_THREE_KEYS,
+            failure=_content_filter(),
+            current_depth=0,
+            attempt_counts=[1, 0, 0],
+            total_attempts=1,
+            refusal_failover=False,
+            failover_mode=mode,
+            providers=providers,
+        )
+        assert candidate == expected, mode
+
+
+def test_an_unpromoted_refusal_never_advances() -> None:
+    """A refusal the data plane did not promote (the model's own, or a spent
+    failover) keeps the historical answer, whatever the providers."""
+    for flagged in (False, True):
+        failure = GatewayFailure(
+            failure_class=GatewayFailureClass.REFUSAL,
+            safe_message="provider refused the request",
+            provider_content_filter=flagged,
+        )
+        candidate = next_route_candidate(
+            health=DeploymentHealthRegistry(),
+            keys=_KEYS,
+            failure=failure,
+            current_depth=0,
+            attempt_counts=[1, 0],
+            total_attempts=1,
+            refusal_failover=False,
+            providers=("azure_openai", "openai"),
+        )
+        assert candidate is None
+
+
+def test_a_gateway_guardrail_refusal_never_advances() -> None:
+    """The caller's own guardrail verdict is never a provider content filter."""
+    candidate = next_route_candidate(
+        health=DeploymentHealthRegistry(),
+        keys=_KEYS,
+        failure=GatewayFailure(
+            failure_class=GatewayFailureClass.GUARDRAIL,
+            safe_message="blocked by the organization's guardrail",
+            provider_content_filter=True,
+        ),
+        current_depth=0,
+        attempt_counts=[1, 0],
+        total_attempts=1,
+        refusal_failover=False,
+        providers=("azure_openai", "openai"),
     )
     assert candidate is None
 

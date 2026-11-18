@@ -4,8 +4,9 @@ import contextlib
 import os
 from collections.abc import Iterable, Iterator, Mapping
 from contextvars import ContextVar
-from importlib import import_module
 from typing import Protocol, cast
+
+from vercel_runtime import _sdk
 
 OIDC_HEADER_NAME = "x-vercel-oidc-token"
 INTERNAL_OIDC_HEADER_NAME = "x-vercel-internal-oidc-token"
@@ -145,9 +146,8 @@ def append_oidc_header_if_missing(
 
 def set_headers(headers: Mapping[str, str] | None) -> None:
     with contextlib.suppress(Exception):
-        try:
-            vercel_headers = import_module("vercel.headers")
-        except Exception:
+        vercel_headers = _sdk.import_cached_module("vercel.headers")
+        if vercel_headers is None:
             return
 
         sdk_set_headers = getattr(vercel_headers, "set_headers", None)

@@ -158,6 +158,9 @@ pub(crate) struct Table {
     pub companions: Vec<Companions>,
     /// ComfyUI marker keys that change how a module runs, never its values.
     pub marker_execution: Vec<String>,
+    /// Tensors that only state how a module runs (ComfyUI's per-block attention kernel): read,
+    /// checked and dropped, as the package declares that (`Serving.attention_bits`).
+    pub execution_tensors: Vec<ExecutionTensor>,
     pub carriers: Vec<Carrier>,
 }
 
@@ -177,6 +180,15 @@ pub(crate) struct Declaration {
     #[serde(default)]
     pub format: Option<String>,
     pub producer: Producer,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExecutionTensor {
+    pub producer: String,
+    pub suffix: String,
+    /// The JSON object's keys, each a name; any other key is refused.
+    pub keys: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -292,17 +304,22 @@ impl Declared {
         slot.get_or_insert_with(|| Declared::new(Producer::Comfy, found))
     }
 
+    /// Two declarations of a module (a `_quantization_metadata` layer and its `.comfy_quant` marker) agree when they differ
+    /// only in keys that change how it runs, never its values (`full_precision_matrix_mult`); it keeps both's.
     fn module(&mut self, module: &str, conf: Conf, what: &str) -> Result<()> {
-        match self.modules.get(module) {
-            Some(other) if *other != conf => refuse(
-                Code::AMBIGUOUS_CLASSIFICATION,
-                format!("{module}: {what} declares {conf:?}, another declaration {other:?}"),
-            ),
-            _ => {
-                self.modules.insert(module.to_owned(), conf);
-                Ok(())
+        let values = |c: &Conf| -> Conf {
+            c.iter().filter(|(k, _)| !table().marker_execution.contains(*k)).map(|(k, v)| (k.clone(), v.clone())).collect()
+        };
+        if let Some(other) = self.modules.get(module) {
+            if values(other) != values(&conf) {
+                return refuse(
+                    Code::AMBIGUOUS_CLASSIFICATION,
+                    format!("{module}: {what} declares {conf:?}, another declaration {other:?}"),
+                );
             }
         }
+        self.modules.entry(module.to_owned()).or_default().extend(conf);
+        Ok(())
     }
 }
 
@@ -1240,6 +1257,10 @@ fn joiner(c: &Carrier) -> char {
 /// for `bare` rows, the module's own name).
 pub(crate) fn fold(set: &mut SourceSet) -> Result<()> {
     for g in 0..set.groups.len() {
+        let dropped = execution(set, &set.groups[g])?;
+        for key in dropped {
+            set.groups[g].tensors.remove(&key);
+        }
         let group = &set.groups[g];
         let Some(d) = declared(set, group)? else {
             undeclared(group)?;
@@ -1267,6 +1288,28 @@ pub(crate) fn fold(set: &mut SourceSet) -> Result<()> {
         companions(group)?;
     }
     Ok(())
+}
+
+/// `group`'s execution tensors, each a JSON object of the table's keys with a name for each.
+fn execution(set: &SourceSet, group: &Group) -> Result<Vec<String>> {
+    let mut found = Vec::new();
+    for (key, t) in &group.tensors {
+        let Some(e) = table().execution_tensors.iter().find(|e| key.ends_with(e.suffix.as_str())) else {
+            continue;
+        };
+        let doc: Json = serde_json::from_slice(&bytes(set, key, t)?).map_err(|e| malformed(key, e))?;
+        let fits = doc.as_object().is_some_and(|o| {
+            o.iter().all(|(k, v)| e.keys.contains(k) && v.is_string())
+        });
+        if !fits {
+            return refuse(
+                Code::UNREGISTERED_ENCODING,
+                format!("{key}: {doc}, where a {} {} reads only {:?}, each a name", e.producer, e.suffix, e.keys),
+            );
+        }
+        found.push(key.clone());
+    }
+    Ok(found)
 }
 
 /// Refuses carrier parts no declaration explains: a suffix of the table beside its row's data

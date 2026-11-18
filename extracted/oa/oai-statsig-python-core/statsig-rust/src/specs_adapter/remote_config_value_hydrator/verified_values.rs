@@ -129,6 +129,10 @@ impl VerifiedRemoteValue {
         self.json_sidecar_reuse_safe
     }
 
+    pub(super) fn metadata(&self) -> &RemoteConfigValueMetadata {
+        &self.metadata
+    }
+
     pub(super) fn matches_metadata(&self, metadata: &RemoteConfigValueMetadata) -> bool {
         self.metadata == *metadata
     }

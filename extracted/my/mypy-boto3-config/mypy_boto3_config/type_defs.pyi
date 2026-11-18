@@ -32,6 +32,7 @@ from .literals import (
     ConfigurationItemStatusType,
     ConformancePackComplianceTypeType,
     ConformancePackStateType,
+    ConformancePackTypeType,
     DeliveryStatusType,
     EvaluationModeType,
     MaximumExecutionFrequencyType,
@@ -125,6 +126,8 @@ __all__ = (
     "ConformancePackEvaluationResultTypeDef",
     "ConformancePackInputParameterTypeDef",
     "ConformancePackRuleComplianceTypeDef",
+    "ConformancePackScopeTypeDef",
+    "ConformancePackSourceTypeDef",
     "ConformancePackStatusDetailTypeDef",
     "ConnectorConfigurationTypeDef",
     "ConnectorFilterTypeDef",
@@ -192,6 +195,7 @@ __all__ = (
     "DescribeConformancePackStatusRequestPaginateTypeDef",
     "DescribeConformancePackStatusRequestTypeDef",
     "DescribeConformancePackStatusResponseTypeDef",
+    "DescribeConformancePacksFiltersTypeDef",
     "DescribeConformancePacksRequestPaginateTypeDef",
     "DescribeConformancePacksRequestTypeDef",
     "DescribeConformancePacksResponseTypeDef",
@@ -680,6 +684,13 @@ class ConformancePackInputParameterTypeDef(TypedDict):
     ParameterName: str
     ParameterValue: str
 
+class ConformancePackScopeTypeDef(TypedDict):
+    TagKey: str
+    TagValue: NotRequired[str]
+
+class ConformancePackSourceTypeDef(TypedDict):
+    SourceIdentifier: str
+
 class TemplateSSMDocumentDetailsTypeDef(TypedDict):
     DocumentName: str
     DocumentVersion: NotRequired[str]
@@ -695,15 +706,20 @@ class ConformancePackRuleComplianceTypeDef(TypedDict):
     ComplianceType: NotRequired[ConformancePackComplianceTypeType]
     Controls: NotRequired[list[str]]
 
-class ConformancePackStatusDetailTypeDef(TypedDict):
-    ConformancePackName: str
-    ConformancePackId: str
-    ConformancePackArn: str
-    ConformancePackState: ConformancePackStateType
-    StackArn: str
-    LastUpdateRequestedTime: datetime
-    ConformancePackStatusReason: NotRequired[str]
-    LastUpdateCompletedTime: NotRequired[datetime]
+ConformancePackStatusDetailTypeDef = TypedDict(
+    "ConformancePackStatusDetailTypeDef",
+    {
+        "ConformancePackName": str,
+        "ConformancePackId": str,
+        "ConformancePackArn": str,
+        "ConformancePackState": ConformancePackStateType,
+        "LastUpdateRequestedTime": datetime,
+        "StackArn": NotRequired[str],
+        "ConformancePackStatusReason": NotRequired[str],
+        "LastUpdateCompletedTime": NotRequired[datetime],
+        "Type": NotRequired[ConformancePackTypeType],
+    },
+)
 
 class GcpConnectorConfigurationTypeDef(TypedDict):
     serviceAccountEmail: str
@@ -839,15 +855,8 @@ class DescribeConfigurationRecordersRequestTypeDef(TypedDict):
     ServicePrincipal: NotRequired[str]
     Arn: NotRequired[str]
 
-class DescribeConformancePackStatusRequestTypeDef(TypedDict):
-    ConformancePackNames: NotRequired[Sequence[str]]
-    Limit: NotRequired[int]
-    NextToken: NotRequired[str]
-
-class DescribeConformancePacksRequestTypeDef(TypedDict):
-    ConformancePackNames: NotRequired[Sequence[str]]
-    Limit: NotRequired[int]
-    NextToken: NotRequired[str]
+class DescribeConformancePacksFiltersTypeDef(TypedDict):
+    Types: NotRequired[Sequence[ConformancePackTypeType]]
 
 class DescribeDeliveryChannelStatusRequestTypeDef(TypedDict):
     DeliveryChannelNames: NotRequired[Sequence[str]]
@@ -1497,16 +1506,23 @@ class OrganizationConformancePackTypeDef(TypedDict):
     ConformancePackInputParameters: NotRequired[list[ConformancePackInputParameterTypeDef]]
     ExcludedAccounts: NotRequired[list[str]]
 
-class ConformancePackDetailTypeDef(TypedDict):
-    ConformancePackName: str
-    ConformancePackArn: str
-    ConformancePackId: str
-    DeliveryS3Bucket: NotRequired[str]
-    DeliveryS3KeyPrefix: NotRequired[str]
-    ConformancePackInputParameters: NotRequired[list[ConformancePackInputParameterTypeDef]]
-    LastUpdateRequestedTime: NotRequired[datetime]
-    CreatedBy: NotRequired[str]
-    TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
+ConformancePackDetailTypeDef = TypedDict(
+    "ConformancePackDetailTypeDef",
+    {
+        "ConformancePackName": str,
+        "ConformancePackArn": str,
+        "ConformancePackId": str,
+        "DeliveryS3Bucket": NotRequired[str],
+        "DeliveryS3KeyPrefix": NotRequired[str],
+        "ConformancePackInputParameters": NotRequired[list[ConformancePackInputParameterTypeDef]],
+        "LastUpdateRequestedTime": NotRequired[datetime],
+        "CreatedBy": NotRequired[str],
+        "TemplateSSMDocumentDetails": NotRequired[TemplateSSMDocumentDetailsTypeDef],
+        "Type": NotRequired[ConformancePackTypeType],
+        "Source": NotRequired[ConformancePackSourceTypeDef],
+        "Scope": NotRequired[ConformancePackScopeTypeDef],
+    },
+)
 
 class GetConformancePackComplianceDetailsRequestTypeDef(TypedDict):
     ConformancePackName: str
@@ -1593,14 +1609,6 @@ class DescribeConfigurationAggregatorsRequestPaginateTypeDef(TypedDict):
 class DescribeConformancePackComplianceRequestPaginateTypeDef(TypedDict):
     ConformancePackName: str
     Filters: NotRequired[ConformancePackComplianceFiltersTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class DescribeConformancePackStatusRequestPaginateTypeDef(TypedDict):
-    ConformancePackNames: NotRequired[Sequence[str]]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class DescribeConformancePacksRequestPaginateTypeDef(TypedDict):
-    ConformancePackNames: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribeOrganizationConfigRuleStatusesRequestPaginateTypeDef(TypedDict):
@@ -1692,6 +1700,28 @@ class DescribeConfigRulesRequestPaginateTypeDef(TypedDict):
 class DescribeConfigRulesRequestTypeDef(TypedDict):
     ConfigRuleNames: NotRequired[Sequence[str]]
     Filters: NotRequired[DescribeConfigRulesFiltersTypeDef]
+    NextToken: NotRequired[str]
+
+class DescribeConformancePackStatusRequestPaginateTypeDef(TypedDict):
+    ConformancePackNames: NotRequired[Sequence[str]]
+    Filters: NotRequired[DescribeConformancePacksFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeConformancePackStatusRequestTypeDef(TypedDict):
+    ConformancePackNames: NotRequired[Sequence[str]]
+    Filters: NotRequired[DescribeConformancePacksFiltersTypeDef]
+    Limit: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class DescribeConformancePacksRequestPaginateTypeDef(TypedDict):
+    ConformancePackNames: NotRequired[Sequence[str]]
+    Filters: NotRequired[DescribeConformancePacksFiltersTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeConformancePacksRequestTypeDef(TypedDict):
+    ConformancePackNames: NotRequired[Sequence[str]]
+    Filters: NotRequired[DescribeConformancePacksFiltersTypeDef]
+    Limit: NotRequired[int]
     NextToken: NotRequired[str]
 
 class DescribeOrganizationConfigRuleStatusesResponseTypeDef(TypedDict):
@@ -1905,6 +1935,8 @@ class PutConformancePackRequestTypeDef(TypedDict):
     ConformancePackInputParameters: NotRequired[Sequence[ConformancePackInputParameterTypeDef]]
     TemplateSSMDocumentDetails: NotRequired[TemplateSSMDocumentDetailsTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
+    Source: NotRequired[ConformancePackSourceTypeDef]
+    Scope: NotRequired[ConformancePackScopeTypeDef]
 
 class PutOrganizationConformancePackRequestTypeDef(TypedDict):
     OrganizationConformancePackName: str

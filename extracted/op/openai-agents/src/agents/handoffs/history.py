@@ -482,6 +482,17 @@ def _extract_nested_history_transcript(
     if item.get("role") != "assistant":
         return None
     content = item.get("content")
+    if isinstance(content, list) and len(content) == 1:
+        part = content[0]
+        # RunState wraps summary text in a bare output_text part and adds completed status.
+        if (
+            item.get("status") == "completed"
+            and item.keys() == {"role", "status", "content"}
+            and isinstance(part, dict)
+            and part.keys() == {"type", "text"}
+            and part["type"] == "output_text"
+        ):
+            content = part["text"]
     if not isinstance(content, str):
         return None
     start_marker, end_marker = get_conversation_history_wrappers()
@@ -506,7 +517,8 @@ def _split_summary_records(body: str) -> list[str]:
     current: list[str] = []
     current_is_numbered = False
 
-    for raw_line in body.splitlines():
+    # The writer separates records with LF. Other line separators can be message content.
+    for raw_line in body.split("\n"):
         if not raw_line.strip():
             continue
 

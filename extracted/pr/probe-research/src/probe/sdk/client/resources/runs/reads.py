@@ -256,6 +256,34 @@ class RunReadsMixin:
     def run_lineage(self, run_id: str) -> dict:
         return self.transport.get(f"/v1/runs/{run_id}/lineage")
 
+    def get_run_data(self, run_id: str) -> dict:
+        """``GET /v1/runs/{id}/data``: the datasets and checkpoints a run used and made (Uses / Used by)."""
+        return self.transport.get(f"/v1/runs/{run_id}/data")
+
+    def get_run_readme(self, run_id: str) -> dict:
+        """``GET /v1/runs/{id}/readme``: the README of the repo a run points at (`markdown` + source)."""
+        return self.transport.get(f"/v1/runs/{run_id}/readme")
+
+    def get_sandbox_diff(
+        self, run_id: str, trial: str, *, should_include_unchanged: bool | None = None, path_prefix: str | None = None,
+        cursor: str | None = None, limit: int | None = None,
+    ) -> dict:
+        """``GET /v1/runs/{id}/sandbox-state/diff``: one page of a trial's begin/end filesystem diff, plus counts."""
+        filters = {
+            key: value
+            for key, value in {
+                "trial": trial, "include_unchanged": should_include_unchanged, "path_prefix": path_prefix,
+                "cursor": cursor, "limit": limit,
+            }.items()
+            if value is not None
+        }
+        return self.transport.get(f"/v1/runs/{run_id}/sandbox-state/diff", params=filters)
+
+    def get_sandbox_file(self, run_id: str, trial: str, path: str, *, phase: str | None = None) -> dict:
+        """``GET /v1/runs/{id}/sandbox-state/file``: one file of a trial's sandbox, at its begin or end ``phase``."""
+        filters = {"trial": trial, "path": path, **({"phase": phase} if phase is not None else {})}
+        return self.transport.get(f"/v1/runs/{run_id}/sandbox-state/file", params=filters)
+
     # -- lifecycle (delete = move to the trash) -----------------------------
     def delete_run(self, run_id: str, *, dry_run: bool = False) -> dict | None:
         """Move a run, with its telemetry, to the server's TRASH. Frees its

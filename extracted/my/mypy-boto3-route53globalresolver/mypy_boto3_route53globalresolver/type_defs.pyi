@@ -35,7 +35,10 @@ from .literals import (
     HostedZoneAssociationStatusType,
     IpAddressTypeType,
     ProfileResourceStatusType,
+    PublicIpStatusType,
+    RegionScopeTypeType,
     TokenStatusType,
+    UpdateIpAddressOperationType,
 )
 
 if sys.version_info >= (3, 12):
@@ -63,10 +66,15 @@ __all__ = (
     "BatchUpdateFirewallRuleOutputItemTypeDef",
     "BatchUpdateFirewallRuleOutputTypeDef",
     "BatchUpdateFirewallRuleResultTypeDef",
+    "CoreNetworkEndpointDnsIpInputItemTypeDef",
+    "CoreNetworkEndpointDnsIpItemTypeDef",
+    "CoreNetworkEndpointsItemTypeDef",
     "CreateAccessSourceInputTypeDef",
     "CreateAccessSourceOutputTypeDef",
     "CreateAccessTokenInputTypeDef",
     "CreateAccessTokenOutputTypeDef",
+    "CreateCoreNetworkEndpointInputTypeDef",
+    "CreateCoreNetworkEndpointOutputTypeDef",
     "CreateDNSViewInputTypeDef",
     "CreateDNSViewOutputTypeDef",
     "CreateFirewallDomainListInputTypeDef",
@@ -80,6 +88,8 @@ __all__ = (
     "DeleteAccessSourceOutputTypeDef",
     "DeleteAccessTokenInputTypeDef",
     "DeleteAccessTokenOutputTypeDef",
+    "DeleteCoreNetworkEndpointInputTypeDef",
+    "DeleteCoreNetworkEndpointOutputTypeDef",
     "DeleteDNSViewInputTypeDef",
     "DeleteDNSViewOutputTypeDef",
     "DeleteFirewallDomainListInputTypeDef",
@@ -100,6 +110,8 @@ __all__ = (
     "GetAccessSourceOutputTypeDef",
     "GetAccessTokenInputTypeDef",
     "GetAccessTokenOutputTypeDef",
+    "GetCoreNetworkEndpointInputTypeDef",
+    "GetCoreNetworkEndpointOutputTypeDef",
     "GetDNSViewInputTypeDef",
     "GetDNSViewOutputTypeDef",
     "GetFirewallDomainListInputTypeDef",
@@ -122,6 +134,9 @@ __all__ = (
     "ListAccessTokensInputPaginateTypeDef",
     "ListAccessTokensInputTypeDef",
     "ListAccessTokensOutputTypeDef",
+    "ListCoreNetworkEndpointsInputPaginateTypeDef",
+    "ListCoreNetworkEndpointsInputTypeDef",
+    "ListCoreNetworkEndpointsOutputTypeDef",
     "ListDNSViewsInputPaginateTypeDef",
     "ListDNSViewsInputTypeDef",
     "ListDNSViewsOutputTypeDef",
@@ -159,6 +174,8 @@ __all__ = (
     "UpdateAccessSourceOutputTypeDef",
     "UpdateAccessTokenInputTypeDef",
     "UpdateAccessTokenOutputTypeDef",
+    "UpdateCoreNetworkEndpointInputTypeDef",
+    "UpdateCoreNetworkEndpointOutputTypeDef",
     "UpdateDNSViewInputTypeDef",
     "UpdateDNSViewOutputTypeDef",
     "UpdateFirewallDomainsInputTypeDef",
@@ -169,21 +186,24 @@ __all__ = (
     "UpdateGlobalResolverOutputTypeDef",
     "UpdateHostedZoneAssociationInputTypeDef",
     "UpdateHostedZoneAssociationOutputTypeDef",
+    "UpdateIpAddressEntryTypeDef",
 )
 
 AccessSourcesItemTypeDef = TypedDict(
     "AccessSourcesItemTypeDef",
     {
         "arn": str,
-        "cidr": str,
         "createdAt": datetime,
         "id": str,
-        "ipAddressType": IpAddressTypeType,
         "dnsViewId": str,
         "protocol": DnsProtocolType,
         "status": CRResourceStatusType,
         "updatedAt": datetime,
+        "cidr": NotRequired[str],
+        "coreNetworkEndpointId": NotRequired[str],
+        "ipAddressType": NotRequired[IpAddressTypeType],
         "name": NotRequired[str],
+        "segment": NotRequired[str],
     },
 )
 AccessTokenItemTypeDef = TypedDict(
@@ -304,13 +324,30 @@ BatchUpdateFirewallRuleResultTypeDef = TypedDict(
     },
 )
 
+class CoreNetworkEndpointDnsIpInputItemTypeDef(TypedDict):
+    dnsLabel: str
+    regionScope: RegionScopeTypeType
+    ipv4Address: NotRequired[str]
+    ipv6Address: NotRequired[str]
+    regions: NotRequired[Sequence[str]]
+
+class CoreNetworkEndpointDnsIpItemTypeDef(TypedDict):
+    dnsLabel: str
+    regionScope: RegionScopeTypeType
+    ipv4Address: NotRequired[str]
+    ipv6Address: NotRequired[str]
+    dnsName: NotRequired[str]
+    regions: NotRequired[list[str]]
+
 class CreateAccessSourceInputTypeDef(TypedDict):
-    cidr: str
     dnsViewId: str
     protocol: DnsProtocolType
+    cidr: NotRequired[str]
     clientToken: NotRequired[str]
     ipAddressType: NotRequired[IpAddressTypeType]
     name: NotRequired[str]
+    coreNetworkEndpointId: NotRequired[str]
+    segment: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
 TimestampTypeDef = Union[datetime, str]
@@ -354,6 +391,7 @@ class CreateGlobalResolverInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
     description: NotRequired[str]
     ipAddressType: NotRequired[GlobalResolverIpAddressTypeType]
+    publicIpStatus: NotRequired[PublicIpStatusType]
     observabilityRegion: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
 
@@ -380,6 +418,9 @@ class DeleteAccessSourceInputTypeDef(TypedDict):
 
 class DeleteAccessTokenInputTypeDef(TypedDict):
     accessTokenId: str
+
+class DeleteCoreNetworkEndpointInputTypeDef(TypedDict):
+    coreNetworkEndpointId: str
 
 class DeleteDNSViewInputTypeDef(TypedDict):
     dnsViewId: str
@@ -445,6 +486,9 @@ class GetAccessSourceInputTypeDef(TypedDict):
 class GetAccessTokenInputTypeDef(TypedDict):
     accessTokenId: str
 
+class GetCoreNetworkEndpointInputTypeDef(TypedDict):
+    coreNetworkEndpointId: str
+
 class GetDNSViewInputTypeDef(TypedDict):
     dnsViewId: str
 
@@ -480,6 +524,7 @@ GlobalResolversItemTypeDef = TypedDict(
         "description": NotRequired[str],
         "ipv6Addresses": NotRequired[list[str]],
         "ipAddressType": NotRequired[GlobalResolverIpAddressTypeType],
+        "publicIpStatus": NotRequired[PublicIpStatusType],
     },
 )
 HostedZoneAssociationSummaryTypeDef = TypedDict(
@@ -513,6 +558,11 @@ class ListAccessSourcesInputTypeDef(TypedDict):
 
 class ListAccessTokensInputTypeDef(TypedDict):
     dnsViewId: str
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filters: NotRequired[Mapping[str, Sequence[str]]]
+
+class ListCoreNetworkEndpointsInputTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
     filters: NotRequired[Mapping[str, Sequence[str]]]
@@ -599,6 +649,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 class UpdateAccessSourceInputTypeDef(TypedDict):
     accessSourceId: str
     cidr: NotRequired[str]
+    dnsViewId: NotRequired[str]
     ipAddressType: NotRequired[IpAddressTypeType]
     name: NotRequired[str]
     protocol: NotRequired[DnsProtocolType]
@@ -606,6 +657,14 @@ class UpdateAccessSourceInputTypeDef(TypedDict):
 class UpdateAccessTokenInputTypeDef(TypedDict):
     accessTokenId: str
     name: str
+
+class UpdateIpAddressEntryTypeDef(TypedDict):
+    operation: UpdateIpAddressOperationType
+    ipv4Address: NotRequired[str]
+    ipv6Address: NotRequired[str]
+    dnsLabel: NotRequired[str]
+    regionScope: NotRequired[RegionScopeTypeType]
+    regions: NotRequired[Sequence[str]]
 
 class UpdateDNSViewInputTypeDef(TypedDict):
     dnsViewId: str
@@ -640,6 +699,7 @@ class UpdateGlobalResolverInputTypeDef(TypedDict):
     observabilityRegion: NotRequired[str]
     description: NotRequired[str]
     ipAddressType: NotRequired[GlobalResolverIpAddressTypeType]
+    publicIpStatus: NotRequired[PublicIpStatusType]
     regions: NotRequired[Sequence[str]]
 
 class UpdateHostedZoneAssociationInputTypeDef(TypedDict):
@@ -668,6 +728,8 @@ CreateAccessSourceOutputTypeDef = TypedDict(
         "createdAt": datetime,
         "id": str,
         "ipAddressType": IpAddressTypeType,
+        "coreNetworkEndpointId": str,
+        "segment": str,
         "name": str,
         "dnsViewId": str,
         "protocol": DnsProtocolType,
@@ -757,6 +819,7 @@ CreateGlobalResolverOutputTypeDef = TypedDict(
         "description": str,
         "dnsName": str,
         "ipAddressType": GlobalResolverIpAddressTypeType,
+        "publicIpStatus": PublicIpStatusType,
         "ipv4Addresses": list[str],
         "ipv6Addresses": list[str],
         "name": str,
@@ -772,12 +835,14 @@ DeleteAccessSourceOutputTypeDef = TypedDict(
     {
         "arn": str,
         "cidr": str,
+        "coreNetworkEndpointId": str,
         "createdAt": datetime,
         "id": str,
         "ipAddressType": IpAddressTypeType,
         "name": str,
         "dnsViewId": str,
         "protocol": DnsProtocolType,
+        "segment": str,
         "status": CRResourceStatusType,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -918,12 +983,14 @@ GetAccessSourceOutputTypeDef = TypedDict(
     {
         "arn": str,
         "cidr": str,
+        "coreNetworkEndpointId": str,
         "createdAt": datetime,
         "id": str,
         "ipAddressType": IpAddressTypeType,
         "name": str,
         "dnsViewId": str,
         "protocol": DnsProtocolType,
+        "segment": str,
         "status": CRResourceStatusType,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1021,6 +1088,7 @@ GetGlobalResolverOutputTypeDef = TypedDict(
         "ipv4Addresses": list[str],
         "ipv6Addresses": list[str],
         "ipAddressType": GlobalResolverIpAddressTypeType,
+        "publicIpStatus": PublicIpStatusType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1082,12 +1150,14 @@ UpdateAccessSourceOutputTypeDef = TypedDict(
     {
         "arn": str,
         "cidr": str,
+        "coreNetworkEndpointId": str,
         "createdAt": datetime,
         "id": str,
         "ipAddressType": IpAddressTypeType,
         "name": str,
         "dnsViewId": str,
         "protocol": DnsProtocolType,
+        "segment": str,
         "status": CRResourceStatusType,
         "updatedAt": datetime,
         "ResponseMetadata": ResponseMetadataTypeDef,
@@ -1168,6 +1238,7 @@ UpdateGlobalResolverOutputTypeDef = TypedDict(
         "ipv4Addresses": list[str],
         "ipv6Addresses": list[str],
         "ipAddressType": GlobalResolverIpAddressTypeType,
+        "publicIpStatus": PublicIpStatusType,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
@@ -1210,6 +1281,94 @@ class BatchUpdateFirewallRuleOutputItemTypeDef(TypedDict):
     code: int
     message: NotRequired[str]
 
+class CreateCoreNetworkEndpointInputTypeDef(TypedDict):
+    coreNetworkArn: str
+    globalResolverId: str
+    ipAddresses: Sequence[CoreNetworkEndpointDnsIpInputItemTypeDef]
+    clientToken: NotRequired[str]
+    name: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+CoreNetworkEndpointsItemTypeDef = TypedDict(
+    "CoreNetworkEndpointsItemTypeDef",
+    {
+        "arn": str,
+        "availableRegions": list[str],
+        "coreNetworkArn": str,
+        "createdAt": datetime,
+        "globalResolverId": str,
+        "id": str,
+        "ipAddresses": list[CoreNetworkEndpointDnsIpItemTypeDef],
+        "status": CRResourceStatusType,
+        "updatedAt": datetime,
+        "name": NotRequired[str],
+    },
+)
+CreateCoreNetworkEndpointOutputTypeDef = TypedDict(
+    "CreateCoreNetworkEndpointOutputTypeDef",
+    {
+        "arn": str,
+        "availableRegions": list[str],
+        "coreNetworkArn": str,
+        "createdAt": datetime,
+        "globalResolverId": str,
+        "id": str,
+        "ipAddresses": list[CoreNetworkEndpointDnsIpItemTypeDef],
+        "name": str,
+        "status": CRResourceStatusType,
+        "updatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+DeleteCoreNetworkEndpointOutputTypeDef = TypedDict(
+    "DeleteCoreNetworkEndpointOutputTypeDef",
+    {
+        "arn": str,
+        "availableRegions": list[str],
+        "coreNetworkArn": str,
+        "createdAt": datetime,
+        "globalResolverId": str,
+        "id": str,
+        "ipAddresses": list[CoreNetworkEndpointDnsIpItemTypeDef],
+        "name": str,
+        "status": CRResourceStatusType,
+        "updatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetCoreNetworkEndpointOutputTypeDef = TypedDict(
+    "GetCoreNetworkEndpointOutputTypeDef",
+    {
+        "arn": str,
+        "availableRegions": list[str],
+        "coreNetworkArn": str,
+        "createdAt": datetime,
+        "globalResolverId": str,
+        "id": str,
+        "ipAddresses": list[CoreNetworkEndpointDnsIpItemTypeDef],
+        "name": str,
+        "status": CRResourceStatusType,
+        "updatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+UpdateCoreNetworkEndpointOutputTypeDef = TypedDict(
+    "UpdateCoreNetworkEndpointOutputTypeDef",
+    {
+        "arn": str,
+        "availableRegions": list[str],
+        "coreNetworkArn": str,
+        "createdAt": datetime,
+        "globalResolverId": str,
+        "id": str,
+        "ipAddresses": list[CoreNetworkEndpointDnsIpItemTypeDef],
+        "name": str,
+        "status": CRResourceStatusType,
+        "updatedAt": datetime,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
 class CreateAccessTokenInputTypeDef(TypedDict):
     dnsViewId: str
     clientToken: NotRequired[str]
@@ -1248,6 +1407,10 @@ class ListAccessSourcesInputPaginateTypeDef(TypedDict):
 
 class ListAccessTokensInputPaginateTypeDef(TypedDict):
     dnsViewId: str
+    filters: NotRequired[Mapping[str, Sequence[str]]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCoreNetworkEndpointsInputPaginateTypeDef(TypedDict):
     filters: NotRequired[Mapping[str, Sequence[str]]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -1292,6 +1455,11 @@ class ListSharedDNSViewsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class UpdateCoreNetworkEndpointInputTypeDef(TypedDict):
+    coreNetworkEndpointId: str
+    name: NotRequired[str]
+    updateIpAddresses: NotRequired[Sequence[UpdateIpAddressEntryTypeDef]]
+
 class BatchCreateFirewallRuleOutputTypeDef(TypedDict):
     failures: list[BatchCreateFirewallRuleOutputItemTypeDef]
     successes: list[BatchCreateFirewallRuleOutputItemTypeDef]
@@ -1306,3 +1474,8 @@ class BatchUpdateFirewallRuleOutputTypeDef(TypedDict):
     failures: list[BatchUpdateFirewallRuleOutputItemTypeDef]
     successes: list[BatchUpdateFirewallRuleOutputItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ListCoreNetworkEndpointsOutputTypeDef(TypedDict):
+    coreNetworkEndpoints: list[CoreNetworkEndpointsItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]

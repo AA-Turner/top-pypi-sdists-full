@@ -32,10 +32,13 @@ from __future__ import annotations
 
 import importlib.metadata
 import inspect
+import json
 import os
+import plistlib
 import re
 import shutil
 import sys
+import time
 import unicodedata
 import warnings
 from dataclasses import fields, replace
@@ -43,6 +46,7 @@ from html import escape, unescape
 from itertools import combinations, pairwise
 from pathlib import Path
 from typing import NamedTuple
+from xml.etree import ElementTree
 
 import pytest
 from extra_platforms.pytest import skip_windows
@@ -66,11 +70,14 @@ from click_extra.capture.presets import (
     OPAQUE,
     PRESETS,
     WATERMARK_INK,
+    WINDOWS_TERMINAL_SLOTS,
     Chrome,
     Cursor,
     CursorShape,
+    parse_font_stack,
+    read_palette,
 )
-from click_extra.capture.recording import TerminalScreen, record_and_render
+from click_extra.capture.recording import record_and_render
 from click_extra.capture.screenshot import (
     AUTO_COLUMNS,
     AUTO_TRUNCATION,
@@ -135,6 +142,7 @@ from click_extra.capture.svg import (
     style_rules,
     window_buttons,
 )
+from click_extra.capture.terminal import TerminalScreen
 from click_extra.cli_capture import deliver_capture, screenshot_cmd
 from click_extra.color import TerminalBackground
 from click_extra.execution import PROMPT
@@ -246,12 +254,13 @@ def svg_to_lines(svg: str) -> list[str]:
     Groups the `<text>` runs into lines by their shared `y` baseline, then lays
     each one back on its column: the capture is monospaced, so dividing a run's
     `x` offset by {data}`~click_extra.capture.svg.CELL_WIDTH` gives the character
-    column it starts at.
+    column it starts at. Runs are placed by their coordinates, not by their order
+    in the source, which an animation sharing pieces between frames does not keep.
 
     :param svg: source of a rendered capture.
     :return: the captured lines, top to bottom, with trailing whitespace removed.
     """
-    lines: dict[float, str] = {}
+    runs: list[tuple[float, int, str]] = []
     for element in _TEXT_ELEMENT_RE.finditer(svg):
         # The credit line is the one run no terminal printed, and the one that
         # moves on its own: it names the release that drew the image.
@@ -262,10 +271,89 @@ def svg_to_lines(svg: str) -> list[str]:
         baseline = re.search(r'\by="(?P<value>-?[\d.]+)"', element["attrs"])
         if not content or not offset or not baseline:
             continue
-        y = float(baseline["value"])
         column = round(float(offset["value"]) / CELL_WIDTH)
+        runs.append((float(baseline["value"]), column, content))
+    lines: dict[float, str] = {}
+    for y, column, content in sorted(runs):
         lines[y] = lines.get(y, "").ljust(column) + content
     return [line.rstrip() for line in lines.values()]
+
+
+KEYFRAMES_RE = re.compile(r"@keyframes (?P<name>[\w-]+) \{ (?P<steps>.*?) \}\n")
+"""One keyframe rule of an animated capture's stylesheet."""
+
+VISIBILITY_STEP_RE = re.compile(r"(?P<at>[\d.]+)% \{ visibility: (?P<state>\w+);")
+"""One step of a frame's or a shared group's keyframes."""
+
+SVG_NAMESPACE = "http://www.w3.org/2000/svg"
+
+
+def played_frames(svg: str, unique_id: str) -> list[str]:
+    """Each frame of an animated capture, as the still a viewer sees during it.
+
+    Plays the stylesheet the way a browser does: in the middle of each frame's
+    slice of the cycle, every group whose keyframes show it stays and loses its
+    hiding attributes, and every other group is removed. What is left is the
+    picture a reader sees at that moment.
+
+    :param svg: source of an animated capture.
+    :param unique_id: the prefix namespacing its classes.
+    :return: one SVG source per frame, in order.
+    """
+    timings = {
+        match["name"]: [
+            (float(at), state)
+            for at, state in VISIBILITY_STEP_RE.findall(match["steps"])
+        ]
+        for match in KEYFRAMES_RE.finditer(svg)
+        if re.fullmatch(rf"{unique_id}-[fs]\d+", match["name"])
+    }
+
+    def shown(name: str, moment: float) -> bool:
+        state = "hidden"
+        for at, step in timings[name]:
+            if at <= moment:
+                state = step
+        return state == "visible"
+
+    middles = []
+    for index in range(len([name for name in timings if "-f" in name])):
+        steps = timings[f"{unique_id}-f{index}"]
+        opens = next(at for at, state in steps if state == "visible")
+        closes = next(at for at, state in steps if state == "hidden" and at > opens)
+        middles.append((opens + closes) / 2)
+
+    ElementTree.register_namespace("", SVG_NAMESPACE)
+    stills = []
+    for moment in middles:
+        root = ElementTree.fromstring(svg.split("?>", 1)[1])
+        for parent in list(root.iter()):
+            for child in list(parent):
+                name = child.get("class", "")
+                if name not in timings:
+                    continue
+                if shown(name, moment):
+                    child.attrib.pop("visibility", None)
+                    child.attrib.pop("opacity", None)
+                else:
+                    parent.remove(child)
+        stills.append(ElementTree.tostring(root, encoding="unicode"))
+    return stills
+
+
+def poster_frame(svg: str) -> str:
+    """The still a viewer reading no stylesheet shows of an animated capture.
+
+    Every group an attribute hides is removed, which is all such a viewer
+    honors.
+    """
+    ElementTree.register_namespace("", SVG_NAMESPACE)
+    root = ElementTree.fromstring(svg.split("?>", 1)[1])
+    for parent in list(root.iter()):
+        for child in list(parent):
+            if child.get("visibility") == "hidden":
+                parent.remove(child)
+    return ElementTree.tostring(root, encoding="unicode")
 
 
 def svg_box(svg: str) -> tuple[float, float]:
@@ -1168,8 +1256,10 @@ def test_animation_windows_tile_the_cycle(name):
     frames on top of each other.
     """
     windows = []
+    # A shared group shows over several frames, so only each frame's own timing
+    # tiles the cycle.
     for keyframes in re.findall(
-        r"@keyframes [\w-]+ \{ (.*?) \}\n", animated_capture(name)
+        r"@keyframes [\w-]+-f\d+ \{ (.*?) \}\n", animated_capture(name)
     ):
         steps = [
             (float(at), state)
@@ -1213,6 +1303,84 @@ def test_animated_capture_keeps_a_row_that_moves_in_every_frame():
     head = svg[: svg.index('<g class="one-f0"')]
     assert "pear" not in head, "a moving row was drawn outside the frames"
     assert svg.count("pear") == 4
+
+
+TRAIL_FRAMES = [
+    "\n".join([f"picked basket {done}" for done in range(step)] + [f"{glyph} picking"])
+    for step, glyph in enumerate("⠋⠙⠹⠸⠼⠴")
+]
+"""A trail filling up under a spinner: pieces each frame keeps, adds and moves."""
+
+
+@pytest.mark.parametrize(
+    ("frames", "blank"),
+    (
+        pytest.param(TRAIL_FRAMES, 0.0, id="trail"),
+        pytest.param(TRAIL_FRAMES, 0.5, id="trail-then-blank"),
+        pytest.param([f"{glyph} steeping" for glyph in "⠋⠙⠹⠸"] * 2, 0.0, id="loop"),
+        pytest.param(
+            [style(" pear ", bg=bg) + " ripe" for bg in ("blue", "green", "blue")],
+            0.0,
+            id="backgrounds",
+        ),
+        pytest.param(["┌──┐\n│ab│\n└──┘", "┌──┐\n│cd│\n└──┘"], 0.0, id="box-drawing"),
+    ),
+)
+def test_animated_capture_shows_each_frame_what_it_drew(frames, blank):
+    """At any moment, an animation shows exactly the frame that is due.
+
+    Pieces several frames draw are drawn once and timed over all of them, so
+    no frame's picture exists as such in the source: this plays the stylesheet
+    and compares each moment with the still of the same frame.
+    """
+    svg = render_svg(
+        columns=30, unique_id="orchard", frames=frames, interval=0.1, blank=blank
+    )
+    expected = [svg_to_lines(render_svg(frame, columns=30)) for frame in frames]
+    if blank:
+        expected.append([])
+    assert [svg_to_lines(still) for still in played_frames(svg, "orchard")] == expected
+
+
+def test_animated_capture_paints_every_background_before_any_glyph():
+    """A background one frame paints never covers a glyph the frames share.
+
+    The text stays put while the paint behind it changes, so the glyphs are
+    drawn once for every frame and each background once per frame. Drawn in
+    the order the groups come in, a frame's background would land on top.
+    """
+    frames = [style("pear", bg="blue"), style("pear", bg="green")]
+    svg = render_svg(columns=10, unique_id="ripe", frames=frames, interval=0.1)
+    for still in played_frames(svg, "ripe"):
+        layer = still[still.index('clip-path="url(#ripe-clip)"') :]
+        assert layer.index("<rect") < layer.index(">pear</text>")
+    # The glyph is drawn once, for both frames.
+    assert svg.count(">pear</text>") == 1
+
+
+def test_animated_capture_draws_a_piece_its_frames_share_once():
+    """A piece several frames draw is drawn once, in a group timed over them.
+
+    A line arriving midway through a recording stays until its end: one copy
+    shown from its first frame on, rather than one copy per frame.
+    """
+    market = "\nbasket full of ripe pears and apples, ready for market"
+    frames = [f"tick {index}" + (market if index >= 2 else "") for index in range(10)]
+    svg = render_svg(columns=60, unique_id="stall", frames=frames, interval=0.1)
+    assert re.search(r'<g class="stall-s\d+"', svg), "no group is shared"
+    assert svg.count("basket") == 1
+
+
+def test_animated_capture_copies_a_piece_too_small_to_time():
+    """A piece costing less than a timing rule is copied into its frames instead.
+
+    Each glyph of a spinner looping twice shows in two frames far apart. Timing
+    it as a group of its own would take more than drawing it twice.
+    """
+    frames = [f"{glyph} steeping" for glyph in "|/-\\"] * 2
+    svg = render_svg(columns=20, unique_id="tea", frames=frames, interval=0.1)
+    assert not re.search(r'<g class="tea-s\d+"', svg)
+    assert svg.count(">|&#160;steeping</text>") == 2
 
 
 BAND_GROUP_RE = re.compile(r'<g clip-path="url\(#[\w-]+-window\)">(.*?)</g>')
@@ -1476,7 +1644,7 @@ def test_cursor_cell_matches_the_screen_that_wrote_it():
         screen.feed(written)
         standing = cursor_cell(screen.display, DEFAULT_COLUMNS)
         column = 0 if standing is None else standing[1]
-        assert column == screen._column, f"after {written!r}"
+        assert column == screen.cursor[1], f"after {written!r}"
 
 
 def cursor_rect(svg: str) -> tuple[float, float, float, float]:
@@ -1658,6 +1826,195 @@ def test_screenshot_cursor_options_need_their_partner(
     assert message in result.output
 
 
+ORCHARD_SCHEME = {
+    "name": "Orchard Night",
+    "background": "#1E1E2E",
+    "foreground": "#CDD6F4",
+    "black": "#45475A",
+    "red": "#F38BA8",
+    "green": "#A6E3A1",
+    "yellow": "#F9E2AF",
+    "blue": "#89B4FA",
+    "purple": "#F5C2E7",
+    "cyan": "#94E2D5",
+    "white": "#BAC2DE",
+    "brightBlack": "#585B70",
+    "brightRed": "#F37799",
+    "brightGreen": "#89D88B",
+    "brightYellow": "#EBD391",
+    "brightBlue": "#74A8FC",
+    "brightPurple": "#F2AEDE",
+    "brightCyan": "#6BD7CA",
+    "brightWhite": "#A6ADC8",
+}
+"""A Windows Terminal color scheme, shaped like the ones iTerm2-Color-Schemes
+publishes."""
+
+
+def iterm_scheme(scheme: dict[str, str]) -> dict[str, dict[str, float]]:
+    """The same scheme as iTerm2 writes it: each color as three fractions."""
+
+    def components(color: str) -> dict[str, float]:
+        return {
+            f"{name} Component": int(color[start : start + 2], 16) / 255
+            for name, start in (("Red", 1), ("Green", 3), ("Blue", 5))
+        }
+
+    converted = {
+        "Background Color": components(scheme["background"]),
+        "Foreground Color": components(scheme["foreground"]),
+    }
+    for slot, key in enumerate(WINDOWS_TERMINAL_SLOTS):
+        converted[f"Ansi {slot} Color"] = components(scheme[key])
+    return converted
+
+
+def test_read_palette_reads_a_windows_terminal_scheme(tmp_path):
+    """Each color lands in its slot, magenta read under Windows Terminal's name."""
+    path = tmp_path / "orchard.json"
+    path.write_text(json.dumps(ORCHARD_SCHEME), encoding="UTF-8")
+    palette = read_palette(path)
+    assert palette.background == palette.titlebar == "#1e1e2e"
+    assert palette.foreground == "#cdd6f4"
+    assert palette.ansi == tuple(
+        ORCHARD_SCHEME[key].lower() for key in WINDOWS_TERMINAL_SLOTS
+    )
+
+
+def test_read_palette_reads_an_iterm_scheme_as_its_twin(tmp_path):
+    """The same scheme reads the same, whichever terminal it was written for."""
+    iterm = tmp_path / "orchard.itermcolors"
+    iterm.write_bytes(plistlib.dumps(iterm_scheme(ORCHARD_SCHEME)))
+    windows = tmp_path / "orchard.json"
+    windows.write_text(json.dumps(ORCHARD_SCHEME), encoding="UTF-8")
+    assert read_palette(iterm) == read_palette(windows)
+
+
+@pytest.mark.parametrize(
+    ("name", "content", "message"),
+    (
+        pytest.param("orchard.txt", "", "Cannot tell the scheme format", id="suffix"),
+        pytest.param("orchard.json", "{", "is not JSON", id="not-json"),
+        pytest.param("orchard.json", "[]", "holds no Windows Terminal", id="list"),
+        # Changed through dict() rather than a `{**...}` display: Sphinx's
+        # source parser fails on a dict unpacking another in a decorator, and
+        # drops every constant of this module from its API page. See
+        # https://github.com/sphinx-doc/sphinx/issues/14860.
+        pytest.param(
+            "orchard.json",
+            json.dumps(dict(ORCHARD_SCHEME, red="crimson")),
+            "states no #rrggbb color for 'red'",
+            id="named-color",
+        ),
+        pytest.param(
+            "orchard.json",
+            json.dumps(dict(ORCHARD_SCHEME, brightWhite=None)),
+            "states no #rrggbb color for 'brightWhite'",
+            id="missing-color",
+        ),
+        pytest.param(
+            "orchard.itermcolors", "pears", "is not a property list", id="not-plist"
+        ),
+    ),
+)
+def test_read_palette_refuses_what_is_no_scheme(tmp_path, name, content, message):
+    """A file read as a scheme says what it lacks, rather than drawing black."""
+    path = tmp_path / name
+    path.write_text(content, encoding="UTF-8")
+    with pytest.raises(ValueError, match=re.escape(message)):
+        read_palette(path)
+
+
+@pytest.mark.parametrize(
+    "component", (2.0, float("inf"), float("nan")), ids=("over-one", "inf", "nan")
+)
+def test_read_palette_refuses_an_iterm_component_out_of_range(tmp_path, component):
+    """A color fraction past `1`, or that is no number, names the color it spoils."""
+    scheme = iterm_scheme(ORCHARD_SCHEME)
+    scheme["Ansi 1 Color"]["Red Component"] = component
+    path = tmp_path / "orchard.itermcolors"
+    path.write_bytes(plistlib.dumps(scheme))
+    with pytest.raises(ValueError, match=re.escape("'Ansi 1 Color'")):
+        read_palette(path)
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        pytest.param("Menlo", "Menlo, monospace", id="one-family"),
+        pytest.param(
+            "JetBrains Mono, Menlo",
+            "'JetBrains Mono', Menlo, monospace",
+            id="spaced-family",
+        ),
+        pytest.param(
+            "'Fira Code', \"Cascadia Code\"",
+            "'Fira Code', 'Cascadia Code', monospace",
+            id="quoted-families",
+        ),
+        pytest.param("Iosevka, Monospace", "Iosevka, monospace", id="generic-closes"),
+        pytest.param("SF Mono, ui-monospace", "'SF Mono', ui-monospace", id="ui"),
+    ),
+)
+def test_parse_font_stack(value, expected):
+    """Families come back single-quoted where spaced, closed on a generic one."""
+    assert parse_font_stack(value) == expected
+
+
+@pytest.mark.parametrize("value", ("", " , ", "Menlo; fill: red", "Menlo}", "</style>"))
+def test_parse_font_stack_refuses_what_would_break_the_stylesheet(value):
+    """No family, or a character that would end the stylesheet, is refused."""
+    with pytest.raises(ValueError):
+        parse_font_stack(value)
+
+
+def test_render_font_stack_wins_over_the_preset():
+    """A stated font stack replaces the preset's, which keeps the rest."""
+    svg = render("pears", preset=PRESETS["macos"], font_stack="Iosevka, monospace")
+    assert "font-family: Iosevka, monospace;" in svg
+    assert PRESETS["macos"].font_stack not in svg
+
+
+def test_screenshot_draws_with_a_scheme_and_fonts_of_its_own(invoke, tmp_path):
+    """`--palette` and `--font` reach the picture, colors and text alike."""
+    scheme = tmp_path / "orchard.json"
+    scheme.write_text(json.dumps(ORCHARD_SCHEME), encoding="UTF-8")
+    target = tmp_path / "orchard.svg"
+    result = invoke(
+        screenshot_cmd,
+        [
+            "--palette",
+            str(scheme),
+            "--font",
+            "JetBrains Mono",
+            "--output",
+            str(target),
+            "--",
+            sys.executable,
+            "-c",
+            "print('\\x1b[31mapples\\x1b[0m')",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    svg = target.read_text(encoding="UTF-8")
+    assert "fill: #f38ba8" in svg
+    assert 'fill="#1e1e2e"' in svg
+    assert "font-family: 'JetBrains Mono', monospace;" in svg
+
+
+def test_screenshot_reports_a_file_that_is_no_scheme(invoke, tmp_path):
+    """A scheme that cannot be read stops the capture before it runs anything."""
+    scheme = tmp_path / "orchard.txt"
+    scheme.write_text("", encoding="UTF-8")
+    result = invoke(
+        screenshot_cmd,
+        ["--palette", str(scheme), "--output", str(tmp_path / "orchard.svg")]
+        + ["--", sys.executable, "-c", "pass"],
+    )
+    assert result.exit_code == 2
+    assert "Cannot tell the scheme format" in result.stderr
+
+
 def test_screenshot_draws_a_cursor_when_asked(invoke, tmp_path):
     """`--cursor` puts one on a still capture, blinking on one clock."""
     target = tmp_path / "shelf.svg"
@@ -1747,6 +2104,99 @@ def test_screenshot_bare_cursor_takes_the_preset_shape(invoke, tmp_path):
     assert cursor_rect(target.read_text(encoding="UTF-8"))[2] == pytest.approx(
         CURSOR_THICKNESS, abs=0.05
     )
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_screenshot_record_starts_where_asked(invoke, tmp_path):
+    """`--start` drops the screens a recording opened on.
+
+    Each screen lasts a second, so the cut half a second into the second one
+    holds however late the first is drawn: it counts from that first screen.
+    """
+    target = tmp_path / "quince.svg"
+    program = (
+        "import time; print('apricot', end='', flush=True); time.sleep(1); "
+        "print('\\rquince ', end='', flush=True); time.sleep(1)"
+    )
+    result = invoke(
+        screenshot_cmd,
+        [
+            "--record",
+            "--columns",
+            "40",
+            "--start",
+            "1.5",
+            "--prompt",
+            "",
+            "--output",
+            str(target),
+            "--",
+            sys.executable,
+            "-c",
+            program,
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    svg = target.read_text(encoding="UTF-8")
+    assert "apricot" not in svg
+    assert "quince" in svg
+
+
+def test_screenshot_record_refuses_an_end_before_the_start(invoke, tmp_path):
+    """A slice that holds nothing is a usage error, before anything runs."""
+    result = invoke(
+        screenshot_cmd,
+        [
+            "--record",
+            "--start",
+            "3",
+            "--end",
+            "2",
+            "--output",
+            str(tmp_path / "shot.svg"),
+            "--",
+            "echo",
+        ],
+    )
+    assert result.exit_code == 2
+    assert "--end must be later than --start." in result.stderr
+
+
+@skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
+def test_screenshot_record_ends_a_command_that_waits(invoke, tmp_path):
+    """`--end` stops a command that draws one screen, then waits for a key.
+
+    The command would sleep for a minute. Its one screen arrives in a single
+    redraw with nothing after it, so only a recorder noting that screen while
+    the stream is quiet knows when the end comes.
+    """
+    target = tmp_path / "waiting.svg"
+    started = time.monotonic()
+    result = invoke(
+        screenshot_cmd,
+        [
+            "--record",
+            "--columns",
+            "40",
+            "--end",
+            "1",
+            "--prompt",
+            "",
+            "--output",
+            str(target),
+            "--",
+            sys.executable,
+            "-c",
+            "import time; print('apricot', flush=True); time.sleep(60)",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert time.monotonic() - started < 30
+    svg = target.read_text(encoding="UTF-8")
+    assert "apricot" in svg
+    # The one screen for exactly a second, then the two second hold and the
+    # closing blank beat.
+    assert "period=3.6s" in svg
 
 
 @skip_windows(reason="A pseudo-terminal needs termios, which Windows lacks")
@@ -2266,11 +2716,11 @@ def test_capture_output_keeps_stderr_out_unless_asked():
 CAPTURE_CLICK_VERSION = (8, 5)
 """Click release whose help layout the committed captures picture.
 
-Click ``8.5.0`` gave positional arguments a section of their own, reshaping
-every help screen it renders. A capture is a picture of one Click's output, so
-the matrix cells pinning an older Click inside the supported range compare it
-against a screen that never carried that section. The `Click released` cells
-still check every committed capture, which is where the check belongs.
+A capture is a picture of one Click's output, so a matrix cell running another
+Click compares it against a screen laid out differently: Click ``8.5.0`` gave
+positional arguments a section of their own, and Click ``8.6.0`` no longer breaks
+a line after a hyphen. The `Click released` cells still check every committed
+capture, which is where the check belongs.
 """
 
 
@@ -2281,7 +2731,7 @@ still check every committed capture, which is where the check belongs.
 )
 @pytest.mark.skipif(
     tuple(int(p) for p in importlib.metadata.version("click").split(".")[:2])
-    < CAPTURE_CLICK_VERSION,
+    != CAPTURE_CLICK_VERSION,
     reason="Committed captures picture the Click 8.5 help layout.",
 )
 def test_committed_capture_matches_cli(committed):
@@ -3184,6 +3634,10 @@ def test_capture_environment(columns, pinned):
         pytest.param(
             ["--speed", "2"], "--speed requires --record", id="speed-needs-record"
         ),
+        pytest.param(
+            ["--start", "2"], "--start requires --record", id="start-needs-record"
+        ),
+        pytest.param(["--end", "2"], "--end requires --record", id="end-needs-record"),
     ),
 )
 def test_screenshot_pacing_needs_record(invoke, tmp_path, arguments, message):

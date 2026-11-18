@@ -5,6 +5,7 @@ requires = [
   "hatch-fancy-pypi-readme>=25.1",
   "hatch-vcs>=0.5",
   "hatchling>=1.29",
+  "python-sbom[hatch]>=0.1.2",
 ]
 
 [project]
@@ -103,6 +104,7 @@ test = [
   "pytest-mock>=3.15.1",
   "pytest-timeout>=2.4",
   "pytest-xdist>=3.8",
+  "python-sbom[hatch]>=0.1.2",
   "re-assert>=1.1",
   "setuptools<82,>=81",
   "time-machine>=3.2; implementation_name!='pypy'",
@@ -112,7 +114,7 @@ test = [
 type = [
   "mypy>=2.3",
   "pyrefly>=1.2",
-  "ty>=0.0.19",
+  "ty>=0.0.100",
   "types-colorama>=0.4.15",
   "types-docutils>=0.21",
   { include-group = "docs" },
@@ -138,6 +140,7 @@ build = [
   "hatch-fancy-pypi-readme>=25.1",
   "hatch-vcs>=0.5",
   "hatchling>=1.29",
+  "python-sbom[hatch]>=0.1.2",
   "setuptools>=80",
 ]
 fix = [
@@ -166,7 +169,7 @@ release-prepare = [
   "towncrier>=25.8",
 ]
 type-min = [
-  "ty>=0.0.19",
+  "ty>=0.0.100",
   "types-colorama>=0.4.15",
   { include-group = "test" },
 ]
@@ -180,6 +183,7 @@ build.dev-mode-dirs = [
 ]
 build.hooks.custom = {}
 build.hooks.vcs.version-file = "src/tox/version.py"
+build.hooks.python-sbom = {}
 build.targets.wheel.shared-data = { "build/man" = "share/man/man1" }
 build.targets.sdist.include = [
   "/docs/man",
@@ -213,8 +217,6 @@ lint.ignore = [
   "docstring-missing-exception",               # broken with sphinx docs
   "docstring-missing-returns",                 # no restructuredtext support yet
   "docstring-missing-yields",                  # no restructuredtext support yet
-  "hardcoded-bind-all-interfaces",             # Possible binding to all interfaces
-  "implicit-namespace-package",                # no implicit namespaces here
   "incorrect-blank-line-before-class",         # conflicts with no-blank-line-before-class
   "missing-trailing-comma",                    # conflicts with formatter
   "multi-line-summary-first-line",             # conflicts with multi-line-summary-second-line
@@ -223,21 +225,18 @@ lint.ignore = [
   "single-line-implicit-string-concatenation", # conflicts with formatter
   "subprocess-without-shell-equals-true",      # Using subprocess is alright.
   "suspicious-subprocess-import",              # Using subprocess is alright.
-  "too-many-locals",                           ## Too many local variables
   "too-many-positional-arguments",             ## Too many positional arguments
 ]
 lint.per-file-ignores."src/tox/pytest.py" = [
   "pytest-fixture-autouse", # the plugin's shared setup fixtures are meant to apply to every test
 ]
 lint.per-file-ignores."tests/**/*.py" = [
-  "assert",                               # asserts allowed in tests
-  "D",                                    # don't care about documentation in tests
-  "FBT",                                  # don't care about booleans as positional arguments in tests
-  "implicit-namespace-package",           # no implicit namespace
-  "magic-value-comparison",               # Magic value used in comparison, consider replacing with a constant variable
-  "pytest-fixture-autouse",               # shared setup fixtures are meant to apply to every test
-  "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
-  "too-many-arguments",                   # too many arguments to function definition
+  "assert",                     # asserts allowed in tests
+  "FBT",                        # don't care about booleans as positional arguments in tests
+  "implicit-namespace-package", # no implicit namespace
+  "magic-value-comparison",     # Magic value used in comparison, consider replacing with a constant variable
+  "pytest-fixture-autouse",     # shared setup fixtures are meant to apply to every test
+  "too-many-arguments",         # too many arguments to function definition
 ]
 lint.typing-modules = [ "tox.util.typing_compat" ]
 lint.isort = { known-first-party = [
@@ -305,6 +304,7 @@ ini_options.tmp_path_retention_policy = "failed"
 ini_options.timeout = 30
 
 [tool.coverage]
+run.source = [ "tox" ]
 run.parallel = true
 run.plugins = [
   "covdefaults",
@@ -348,6 +348,9 @@ type = [
   { directory = "packaging", name = "Packaging", showcontent = true },
 ]
 
+[tool.python-sbom]
+supplier = { name = "tox-dev", url = [ "https://github.com/tox-dev" ] }
+
 [tool.nab]
 mode = "universal"
 base-group = "project-runtime"
@@ -355,7 +358,6 @@ uploaded-prior-to = "P7D"
 decision-order = "stable"
 matrix.python = ">=3.15,<3.16"
 matrix.platforms = [ "linux_x86_64" ]
-# temporary, delete after 2026-11-09
-packages.release-creator.uploaded-prior-to = 2026-11-02T21:45:00Z
-# python-discovery 1.9.0 is newer than the seven-day default cutoff.
-packages.python-discovery.uploaded-prior-to = 2026-10-30T23:24:25Z
+
+[tool.simplint]
+docstring-style = "rst"

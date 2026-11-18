@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.7.0.20
+Version: 1.8.0
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -333,6 +333,8 @@ Provides-Extra: dynamodb
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "dynamodb"
 Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "dynamodb"
 Provides-Extra: elasticsearch
+Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "elasticsearch"
+Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "elasticsearch"
 Requires-Dist: cachetools<6.0.0; extra == "elasticsearch"
 Requires-Dist: opensearch-py<4.0.0,>=3.0.0; extra == "elasticsearch"
 Provides-Extra: excel
@@ -688,8 +690,10 @@ Requires-Dist: thrift-sasl<1.0.0,>=0.4.3; extra == "presto-on-hive"
 Provides-Extra: pulsar
 Requires-Dist: requests<3.0.0; extra == "pulsar"
 Provides-Extra: qlik-sense
+Requires-Dist: parse<2.0.0,>=1.19.0; extra == "qlik-sense"
 Requires-Dist: requests<3.0.0; extra == "qlik-sense"
 Requires-Dist: sqlglot[c]==30.22.0; extra == "qlik-sense"
+Requires-Dist: wcmatch<11.0.0,>=10.1; extra == "qlik-sense"
 Requires-Dist: websocket-client<2.0.0; extra == "qlik-sense"
 Provides-Extra: quicksight
 Requires-Dist: boto3<2.0.0,>=1.35.0; extra == "quicksight"

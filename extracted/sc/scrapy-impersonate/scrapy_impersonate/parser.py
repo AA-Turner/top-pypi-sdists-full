@@ -24,15 +24,21 @@ class CurlOptionsParser:
             return
 
         proxy = self.request.meta.get("proxy", "")
-        if proxy.startswith(("http://", "https://")):
-            proxy_auth_header = [b"Proxy-Authorization: " + proxy_auth[0]]
-            self.curl_options[CurlOpt.PROXYHEADER] = proxy_auth_header
-
-        elif proxy.startswith(("socks5h://", "socks5://", "socks4://")):
-            # For SOCKS5 proxy authentication, we need to extract the username and password
-            username, password = base64.b64decode(proxy_auth[0].split(b" ")[1]).split(b":")
+        is_basic = proxy_auth[0].lower().startswith(b"basic ")
+        if proxy.startswith(("socks5h://", "socks5://", "socks4://")) or (
+            is_basic and proxy.startswith(("http://", "https://"))
+        ):
+            # Passed as username/password rather than a raw header so libcurl won't
+            # reuse a pooled proxy connection that was opened with other credentials.
+            # the password may contain ":", the username can't (RFC 7617)
+            credentials = base64.b64decode(proxy_auth[0].split(b" ")[1])
+            username, password = credentials.split(b":", 1)
             self.curl_options[CurlOpt.PROXYUSERNAME] = username
             self.curl_options[CurlOpt.PROXYPASSWORD] = password
+
+        elif proxy.startswith(("http://", "https://")):
+            proxy_auth_header = [b"Proxy-Authorization: " + proxy_auth[0]]
+            self.curl_options[CurlOpt.PROXYHEADER] = proxy_auth_header
 
     def _set_custom_options(self):
         """Add support for raw libcurl options set through request.meta"""
@@ -84,20 +90,15 @@ class RequestParser:
 
     @property
     def headers(self) -> dict:
-        headers = self._request.headers.to_unicode_dict()
-        return dict(headers)
-
-    @property
-    def cookies(self) -> dict:
-        cookies = self._request.cookies
-        if isinstance(cookies, list):
-            return {k: v for cookie in cookies for k, v in cookie.items()}
-
-        elif isinstance(cookies, dict):
-            return {k: v for k, v in cookies.items()}
-
-        else:
-            return {}
+        # Same as Headers.to_unicode_dict(), deprecated in Scrapy 2.20; to_tuple_list()
+        # isn't available on the minimum supported Scrapy.
+        headers = self._request.headers
+        return {
+            key.decode(headers.encoding, errors="replace"): b",".join(values).decode(
+                headers.encoding, errors="replace"
+            )
+            for key, values in headers.items()
+        }
 
     @property
     def allow_redirects(self) -> bool:
@@ -118,6 +119,10 @@ class RequestParser:
             for property_name, method in self.__class__.__dict__.items()
             if isinstance(method, property)
         }
+
+        # Not a property: curl_cffi treats timeout=None as "no timeout", not as its default
+        if "download_timeout" in self._request.meta:
+            request_args["timeout"] = self._request.meta["download_timeout"]
 
         request_args.update(self._impersonate_args)
         return request_args

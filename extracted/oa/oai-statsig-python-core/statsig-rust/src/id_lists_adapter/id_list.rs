@@ -37,6 +37,24 @@ impl IdListMetadata {
 }
 
 impl IdListFileVersion<'_> {
+    /// Compute the v1 membership revision for this prefix of an ID-list file.
+    /// The SDK uses the advertised size, and the proxy uses the size it indexed.
+    /// SHA-256 covers `statsig-id-list-v1`, the big-endian u64 creation time and size,
+    /// and the UTF-8 file ID, in that order. An unidentified file has no revision.
+    pub fn membership_revision(self) -> Option<[u8; 32]> {
+        use sha2::{Digest, Sha256};
+
+        let file_id = self.file_id.filter(|id| !id.is_empty())?;
+        let created = u64::try_from(self.creation_time).ok()?;
+        let digest = Sha256::new()
+            .chain_update(b"statsig-id-list-v1")
+            .chain_update(created.to_be_bytes())
+            .chain_update(self.size.to_be_bytes())
+            .chain_update(file_id.as_bytes())
+            .finalize();
+        Some(digest.into())
+    }
+
     fn is_older_than(&self, previous: IdListFileVersion<'_>) -> bool {
         self.creation_time < previous.creation_time
     }

@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: kfp-pipeline-spec
-Version: 2.18.0
+Version: 2.18.1
 Summary: Kubeflow Pipelines pipeline spec
 Home-page: https://github.com/kubeflow/pipelines
 Author: google
 Author-email: kubeflow-pipelines@google.com
 License: Apache 2.0
 Requires-Python: >=3.9.0
-Requires-Dist: protobuf<7.0,>=6.31.1
+Requires-Dist: protobuf<7.0,>=6.33.6
 Dynamic: author
 Dynamic: author-email
 Dynamic: home-page

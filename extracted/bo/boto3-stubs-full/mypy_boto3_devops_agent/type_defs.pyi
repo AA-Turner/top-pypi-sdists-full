@@ -29,6 +29,7 @@ from .literals import (
     ApprovalStatusType,
     AuthFlowType,
     CapabilityTypeType,
+    ChatArchiveStatusType,
     DayOfWeekType,
     ExecutionStatusType,
     GithubRepoOwnerTypeType,
@@ -150,6 +151,8 @@ __all__ = (
     "GetAssociationOutputTypeDef",
     "GetBacklogTaskRequestTypeDef",
     "GetBacklogTaskResponseTypeDef",
+    "GetChatRequestTypeDef",
+    "GetChatResponseTypeDef",
     "GetOperatorAppInputTypeDef",
     "GetOperatorAppOutputTypeDef",
     "GetRecommendationRequestTypeDef",
@@ -356,6 +359,8 @@ __all__ = (
     "UpdateAssociationOutputTypeDef",
     "UpdateBacklogTaskRequestTypeDef",
     "UpdateBacklogTaskResponseTypeDef",
+    "UpdateChatRequestTypeDef",
+    "UpdateChatResponseTypeDef",
     "UpdateGoalRequestTypeDef",
     "UpdateGoalResponseTypeDef",
     "UpdateOperatorAppIdpConfigInputTypeDef",
@@ -546,6 +551,7 @@ class ChatExecutionTypeDef(TypedDict):
     createdAt: datetime
     updatedAt: NotRequired[datetime]
     summary: NotRequired[str]
+    archiveStatus: NotRequired[ChatArchiveStatusType]
 
 class CreateAgentSpaceInputTypeDef(TypedDict):
     name: str
@@ -701,6 +707,10 @@ class GetBacklogTaskRequestTypeDef(TypedDict):
     agentSpaceId: str
     taskId: str
 
+class GetChatRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    executionId: str
+
 class GetOperatorAppInputTypeDef(TypedDict):
     agentSpaceId: str
 
@@ -793,6 +803,7 @@ class ListChatsRequestTypeDef(TypedDict):
     userId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    archiveStatus: NotRequired[ChatArchiveStatusType]
 
 class ListExecutionsRequestTypeDef(TypedDict):
     agentSpaceId: str
@@ -1120,6 +1131,13 @@ class UpdateBacklogTaskRequestTypeDef(TypedDict):
     taskStatus: NotRequired[TaskStatusType]
     clientToken: NotRequired[str]
 
+class UpdateChatRequestTypeDef(TypedDict):
+    agentSpaceId: str
+    executionId: str
+    summary: NotRequired[str]
+    archiveStatus: NotRequired[ChatArchiveStatusType]
+    clientToken: NotRequired[str]
+
 class UpdateOperatorAppIdpConfigInputTypeDef(TypedDict):
     agentSpaceId: str
     idpClientSecret: NotRequired[str]
@@ -1270,6 +1288,14 @@ class GetAssetResponseTypeDef(TypedDict):
     asset: AssetTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
+class GetChatResponseTypeDef(TypedDict):
+    executionId: str
+    summary: str
+    createdAt: datetime
+    updatedAt: datetime
+    archiveStatus: ChatArchiveStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class ListAgentSpacesOutputTypeDef(TypedDict):
     agentSpaces: list[AgentSpaceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -1311,6 +1337,13 @@ class UpdateApprovalActionResponseTypeDef(TypedDict):
 
 class UpdateAssetResponseTypeDef(TypedDict):
     asset: AssetTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdateChatResponseTypeDef(TypedDict):
+    executionId: str
+    summary: str
+    updatedAt: datetime
+    archiveStatus: ChatArchiveStatusType
     ResponseMetadata: ResponseMetadataTypeDef
 
 UpdatePrivateConnectionCertificateOutputTypeDef = TypedDict(

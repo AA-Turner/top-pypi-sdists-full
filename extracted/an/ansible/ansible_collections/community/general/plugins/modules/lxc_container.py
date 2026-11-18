@@ -170,7 +170,6 @@ options:
     elements: str
 requirements:
   - 'lxc >= 2.0 # OS package'
-  - 'python3 >= 3.5 # OS Package'
   - 'python3-lxc # OS Package'
 notes:
   - Containers must have a unique name. If you attempt to create a container with a name that already exists in the users
@@ -745,7 +744,7 @@ class LxcContainerManagement:
                     "--logfile",
                     os.path.join(log_path, f"lxc-{self.container_name}.log"),
                     "--logpriority",
-                    self.module.params.get("container_log_level").upper(),
+                    self.module.params["container_log_level"].upper(),
                 ]
             )
 

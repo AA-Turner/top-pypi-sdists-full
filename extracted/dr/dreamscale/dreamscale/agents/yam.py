@@ -9,7 +9,7 @@ import time
 from uuid import uuid4
 
 import numpy as np
-from dreamscale_transport.llm import Observation, RobotProfile, ToolReceipt
+from dreamscale_core.llm import Observation, RobotProfile, ToolReceipt
 from PIL import Image
 
 from dreamscale.hardware.yam_end_effector import YamEndEffectorAdapter, pose_from_6d, pose_to_6d

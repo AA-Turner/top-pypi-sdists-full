@@ -125,6 +125,7 @@ ScanStatusType = Literal[
     "FAILED",
     "FINDINGS_UNAVAILABLE",
     "IMAGE_ARCHIVED",
+    "IMAGE_SIZE_EXCEEDED",
     "IN_PROGRESS",
     "LIMIT_EXCEEDED",
     "PENDING",

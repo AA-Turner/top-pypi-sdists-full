@@ -155,7 +155,7 @@ class ACMServiceManager:
         )
 
         def _filter_certificate(cert):
-            if domain_name and cert.get("DomainName") != domain_name:
+            if domain_name and cert["DomainName"] != domain_name:
                 return False
             if arn and cert["CertificateArn"] != arn:
                 return False
@@ -165,12 +165,10 @@ class ACMServiceManager:
 
         results = []
         for certificate in certificates:
-            # Certificates imported without a valid domain name have no DomainName key
-            cert_name = certificate.get("DomainName", certificate["CertificateArn"])
             cert_data = self.describe_certificate_with_backoff(
                 certificate["CertificateArn"],
                 module=self.module,
-                error=f"Couldn't obtain certificate metadata for domain {cert_name}",
+                error=f"Couldn't obtain certificate metadata for domain {certificate['DomainName']}",
                 ignore_error_codes=["ResourceNotFoundException"],
             )
             if cert_data is None:
@@ -181,7 +179,7 @@ class ACMServiceManager:
                 cert_info = self.get_certificate_with_backoff(
                     certificate["CertificateArn"],
                     module=self.module,
-                    error=f"Couldn't obtain certificate data for domain {cert_name}",
+                    error=f"Couldn't obtain certificate data for domain {certificate['DomainName']}",
                     ignore_error_codes=["ResourceNotFoundException"],
                 )
                 if cert_info is None:
@@ -192,7 +190,7 @@ class ACMServiceManager:
             tags = self.list_certificate_tags_with_backoff(
                 certificate["CertificateArn"],
                 module=self.module,
-                error=f"Couldn't obtain tags for domain {cert_name}",
+                error=f"Couldn't obtain tags for domain {certificate['DomainName']}",
                 ignore_error_codes=["ResourceNotFoundException"],
             )
             if tags is None:

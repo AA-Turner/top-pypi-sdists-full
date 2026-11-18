@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import time
 
-from dreamscale_transport.praxis1_deploy import RTC_TOKEN_ROWS
+from dreamscale_core.praxis1_deploy import RTC_TOKEN_ROWS
 
 from dreamscale.control import ControlPlaneClient
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd

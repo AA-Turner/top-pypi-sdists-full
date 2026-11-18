@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
-from .expression import evaluate_annotation, resolve_string_annotations, unevaluated_annotations
-from .type_hints import type_hints
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Annotation as Annotation
+    from .. import Documented as Documented
+    from .. import Hint as Hint
+
+from .expression import resolve_string_annotations
 
 __all__ = [
-    "evaluate_annotation",
     "resolve_string_annotations",
-    "type_hints",
-    "unevaluated_annotations",
 ]

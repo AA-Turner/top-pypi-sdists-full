@@ -5,9 +5,9 @@ from abc import abstractmethod
 from argparse import ArgumentTypeError
 from collections.abc import Iterable, Mapping
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any, TypeVar, cast
+from functools import reduce
+from typing import TYPE_CHECKING, Any, Generic, TypeVar, cast
 
-from tox.config.loader.replacer import MatchError
 from tox.plugin import impl
 from tox.report import HandledError
 from tox.tox_env.errors import Skip
@@ -16,6 +16,7 @@ from tox.util.redact import redact_argv
 from tox.util.typing_compat import override
 
 from .convert import Convert, Factory
+from .replacer import MatchError
 from .str_convert import StrConvert
 
 if TYPE_CHECKING:
@@ -30,8 +31,16 @@ if TYPE_CHECKING:
     from .section import Section
 
 
-class Override:  # ruff:ignore[eq-without-hash]
-    """An override for config definitions."""
+class Override:  # ruff:ignore[eq-without-hash]  # mutable value type
+    """An override for config definitions.
+
+    :param value: the ``[namespace.]key[+]=value`` text of the override
+
+    :var append: whether the value is appended to a list instead of replacing it
+    :var namespace: the dotted section path the key belongs to
+    :var key: the name of the configuration key the override applies to
+
+    """
 
     def __init__(self, value: str) -> None:
         key, equal, self.value = value.partition("=")
@@ -48,30 +57,6 @@ class Override:  # ruff:ignore[eq-without-hash]
         self._namespace_parts = parts[:-1]
         self.namespace = ".".join(self._namespace_parts)
         self.key = parts[-1]
-
-    @override
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}('{self}')"
-
-    @override
-    def __str__(self) -> str:
-        escaped_ns = ".".join(part.replace(".", "\\.") for part in self._namespace_parts)
-        raw: Final[str] = f"{escaped_ns}{'.' if escaped_ns else ''}{self.key}{'+' if self.append else ''}={self.value}"
-        return redact_argv([raw])[0]
-
-    @override
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Override):
-            return False
-        return (self.namespace, self.key, self.value) == (
-            other.namespace,
-            other.key,
-            other.value,
-        )
-
-    @override
-    def __ne__(self, other: object) -> bool:
-        return not (self == other)
 
     @staticmethod
     def _split_on_unescaped_dot(value: str) -> list[str]:
@@ -91,6 +76,30 @@ class Override:  # ruff:ignore[eq-without-hash]
                 pos += 1
         parts.append("".join(current))
         return parts
+
+    @override
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}('{self}')"
+
+    @override
+    def __str__(self) -> str:
+        escaped_ns = ".".join(part.replace(".", "\\.") for part in self._namespace_parts)
+        raw: Final[str] = f"{escaped_ns}{'.' if escaped_ns else ''}{self.key}{'+' if self.append else ''}={self.value}"
+        return redact_argv([raw])[0]
+
+    @override
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Override):
+            return NotImplemented
+        return (self.namespace, self.key, self.value) == (
+            other.namespace,
+            other.key,
+            other.value,
+        )
+
+    @override
+    def __ne__(self, other: object) -> bool:
+        return not (self == other)
 
 
 class ConfigLoadArgs:
@@ -112,6 +121,7 @@ class ConfigLoadArgs:
 
 
 OverrideMap = Mapping[str, list[Override]]
+"""Overrides grouped by the name of the configuration key they apply to."""
 
 T = TypeVar("T")
 V = TypeVar("V")
@@ -120,7 +130,10 @@ V = TypeVar("V")
 class Loader(Convert[T]):
     """Loader loads configuration values and converts it.
 
+    :param section: the section the values are read from
     :param overrides: A list of overrides to be applied.
+
+    :var parent: the loader this one was derived from, if any
 
     """
 
@@ -129,28 +142,7 @@ class Loader(Convert[T]):
         self.overrides: dict[str, list[Override]] = {}
         for entry in overrides:
             self.overrides.setdefault(entry.key, []).append(entry)
-        self.parent: Loader[Any] | None = None
-
-    @property
-    def section(self) -> Section:
-        """Return the section of the configuration from where the values are extracted."""
-        return self._section
-
-    @abstractmethod
-    def load_raw(self, key: str, conf: Config | None, env_name: str | None) -> T:
-        """Load the raw object from the config store.
-
-        :param key: the key under what we want the configuration
-        :param env_name: load for env name
-        :param conf: the global config object
-
-        """
-        raise NotImplementedError
-
-    @abstractmethod
-    def found_keys(self) -> set[str]:
-        """A list of configuration keys found within the configuration."""
-        raise NotImplementedError
+        self.parent: Loader[Any] | None = None  # simplint: ignore[imprecise-annotation]  # mixed loaders
 
     @override
     def __repr__(self) -> str:
@@ -159,7 +151,21 @@ class Loader(Convert[T]):
     def __contains__(self, item: str) -> bool:
         return item in self.found_keys()
 
-    def load(  # ruff:ignore[too-many-arguments]
+    @abstractmethod
+    def found_keys(self) -> set[str]:
+        """A list of configuration keys found within the configuration.
+
+        :returns: the keys found within the configuration
+
+        """
+        raise NotImplementedError
+
+    @property
+    def section(self) -> Section:
+        """Return the section of the configuration from where the values are extracted."""
+        return self._section
+
+    def load(  # ruff:ignore[too-many-arguments]  # public signature
         self,
         key: str,
         of_type: type[V] | UnionType,
@@ -179,11 +185,13 @@ class Loader(Convert[T]):
 
         :returns: the converted type
 
-        """
-        from tox.config.set_env import SetEnv  # ruff:ignore[import-outside-top-level]
+        :raises KeyError: when the key is not present in any source, or, as ``AppendOverridesError``, when the source
+            does not set the key but has only ``key+=value`` overrides for it
+        :raises ValueError: when the value cannot be converted to the requested type
 
+        """
         overrides = [o for alias in (key, *all_keys) for o in self.overrides.get(alias, [])]
-        converted: Any = None  # merged across loader/overrides, only the final cast can name the type
+        converted: V | None = None  # merged across loader/overrides, only the final cast can name the type
         for alias in (key, *all_keys):
             try:
                 raw = self.load_raw(alias, conf, args.env_name)
@@ -195,26 +203,57 @@ class Loader(Convert[T]):
         else:
             if not overrides:
                 raise KeyError(key)
+            if all(entry.append for entry in overrides):
+                # the value may be inherited from a later loader (such as a base section), append to that
+                with _handle_bad_value(key, args):
+                    appends = [self._build_override(entry, of_type, factory, conf, args) for entry in overrides]
+                raise AppendOverridesError(key, appends, args)
 
         with _handle_bad_value(key, args):
             for entry in overrides:
                 converted_override = self._build_override(entry, of_type, factory, conf, args)
                 if entry.append and converted is not None:
-                    if isinstance(converted, list) and isinstance(converted_override, list):
-                        converted += converted_override
-                    elif isinstance(converted, dict) and isinstance(converted_override, dict):
-                        converted.update(converted_override)
-                    elif isinstance(converted, SetEnv) and isinstance(converted_override, SetEnv):
-                        converted.extend(converted_override)
-                    elif isinstance(converted, PythonDeps) and isinstance(converted_override, PythonDeps):
-                        converted += converted_override
-                    else:
-                        msg = "Only able to append to lists and dicts"
-                        raise ValueError(msg)
+                    converted = _append_override(converted, converted_override)
                 else:
                     converted = converted_override
 
         return cast("V", converted)  # guaranteed non-None: either build() succeeded or overrides set it
+
+    @abstractmethod
+    def load_raw(self, key: str, conf: Config | None, env_name: str | None) -> T:
+        """Load the raw object from the config store.
+
+        :param key: the key under what we want the configuration
+        :param conf: the global config object
+        :param env_name: load for env name
+
+        :returns: the raw value of the key, before conversion
+
+        """
+        raise NotImplementedError
+
+    def build(  # ruff:ignore[too-many-arguments]  # public signature
+        self,
+        key: str,  # ruff:ignore[unused-method-argument]  # override signature
+        of_type: type[V] | UnionType,
+        factory: Factory[V],
+        conf: Config | None,  # ruff:ignore[unused-method-argument]  # override signature
+        raw: T,
+        args: ConfigLoadArgs,  # ruff:ignore[unused-method-argument]  # override signature
+    ) -> V:
+        """Materialize the raw configuration value from the loader.
+
+        :param key: the config key
+        :param of_type: the config type
+        :param factory: factory method to build the object
+        :param conf: the global config
+        :param raw: the value as read from the store, before conversion to ``of_type``
+        :param args: env args
+
+        :returns: the object built from the raw value
+
+        """
+        return self.to(raw, of_type, factory)
 
     def _build_override(
         self,
@@ -235,50 +274,6 @@ class Loader(Convert[T]):
             entry.value if conf is None else self.substitute(entry.value, conf, args, of_type=of_type), of_type, factory
         )
 
-    def build(  # ruff:ignore[too-many-arguments]
-        self,
-        key: str,  # ruff:ignore[unused-method-argument]
-        of_type: type[V] | UnionType,
-        factory: Factory[V],
-        conf: Config | None,  # ruff:ignore[unused-method-argument]
-        raw: T,
-        args: ConfigLoadArgs,  # ruff:ignore[unused-method-argument]
-    ) -> V:
-        """Materialize the raw configuration value from the loader.
-
-        :param key: the config key
-        :param of_type: the config type
-        :param factory: factory method to build the object
-        :param conf: the global config
-        :param raw: the raw value
-        :param args: env args
-
-        """
-        return self.to(raw, of_type, factory)
-
-    def set_env_reference(
-        self, raw: T, overrides: list[Override], conf: Config, args: ConfigLoadArgs
-    ) -> SetEnvReference:
-        # SetEnv imports this module.
-        from tox.config.set_env import SetEnv, SetEnvReference  # ruff:ignore[import-outside-top-level]
-
-        if args.chain[-1] in args.chain[:-1]:
-            msg = f"circular set_env reference {' -> '.join(args.chain)}"
-            raise ValueError(msg)
-
-        def factory(value: object) -> SetEnv:
-            return SetEnv(cast("SetEnvRaw", value), "set_env", args.env_name, conf.core["tox_root"])
-
-        result = self.build("set_env", SetEnv, factory, conf, raw, args)
-        shape: Final = result.shape
-        for entry in overrides:
-            appended = self._build_override(entry, SetEnv, factory, conf, args)
-            if entry.append:
-                result.extend(appended)
-            else:
-                result = appended
-        return SetEnvReference(result, args, shape)
-
     def substitute(self, value: str, conf: Config, args: ConfigLoadArgs, *, of_type: type[V] | UnionType) -> str:
         """Apply this loader's replacements to a raw string.
 
@@ -292,6 +287,43 @@ class Loader(Convert[T]):
         """
         raise NotImplementedError
 
+    def set_env_reference(
+        self, raw: T, overrides: list[Override], conf: Config, args: ConfigLoadArgs
+    ) -> SetEnvReference:
+        # SetEnv imports this module.
+        """Wrap a raw value in a reference that loads it as a ``set_env`` value.
+
+        :param raw: the value as written in the configuration, ``set_env`` table or string
+        :param overrides: the overrides to apply
+        :param conf: the global config
+        :param args: env args
+
+        :returns: the set env reference
+
+        :raises ValueError: when the reference is circular
+
+        """
+        from tox.config.set_env import SetEnv, SetEnvReference  # ruff:ignore[import-outside-top-level]  # avoids an import cycle
+
+        if args.chain[-1] in args.chain[:-1]:
+            msg = f"circular set_env reference {' -> '.join(args.chain)}"
+            raise ValueError(msg)
+
+        def factory(
+            value: object,  # simplint: ignore[imprecise-annotation]  # loaders convert mixed values
+        ) -> SetEnv:
+            return SetEnv(cast("SetEnvRaw", value), "set_env", args.env_name, conf.core["tox_root"])
+
+        result = self.build("set_env", SetEnv, factory, conf, raw, args)
+        shape: Final = result.shape
+        for entry in overrides:
+            appended = self._build_override(entry, SetEnv, factory, conf, args)
+            if entry.append:
+                result.extend(appended)
+            else:
+                result = appended
+        return SetEnvReference(result, args, shape)
+
 
 @contextmanager
 def _handle_bad_value(key: str, args: ConfigLoadArgs) -> Generator[None]:
@@ -304,12 +336,77 @@ def _handle_bad_value(key: str, args: ConfigLoadArgs) -> Generator[None]:
         raise HandledError(msg) from exception
 
 
+class AppendOverridesError(KeyError, Generic[V]):
+    """Raised by a loader that does not set a key, but has ``key+=value`` overrides for it.
+
+    :param key: the configuration key
+    :param appends: the converted values of the overrides, in order
+    :param load_args: the config load arguments, to report a value that cannot be appended to
+
+    """
+
+    def __init__(self, key: str, appends: list[V], load_args: ConfigLoadArgs) -> None:
+        super().__init__(key, appends, load_args)
+        self.key = key
+        self.appends = appends
+        self._load_args = load_args
+
+    def apply(self, value: V) -> V:
+        """Append the override values to the value another source sets for the key.
+
+        :param value: the value to append to
+
+        :returns: the value with the overrides appended
+
+        :raises HandledError: when the value cannot be appended to
+
+        """
+        with _handle_bad_value(self.key, self._load_args):
+            return reduce(_append_override, self.appends, value)
+
+    def fold(self) -> V:
+        """Combine the override values when no other source sets the key, the first one acts as the value.
+
+        :returns: the first override value with the others appended
+
+        :raises HandledError: when the override values cannot be appended to each other
+
+        """
+        with _handle_bad_value(self.key, self._load_args):
+            return reduce(_append_override, self.appends)
+
+
+def _append_override(converted: V, override: V) -> V:
+    from tox.config.set_env import SetEnv  # ruff:ignore[import-outside-top-level]  # avoids an import cycle
+
+    if isinstance(converted, list) and isinstance(override, list):
+        converted.extend(override)
+    elif (isinstance(converted, dict) and isinstance(override, dict)) or (
+        isinstance(converted, set) and isinstance(override, set)
+    ):
+        converted.update(override)
+    elif isinstance(converted, SetEnv) and isinstance(override, SetEnv):
+        converted.extend(override)
+    elif isinstance(converted, PythonDeps) and isinstance(override, PythonDeps):
+        converted += override
+    else:
+        msg = "Only able to append to lists, sets and dicts"
+        raise TypeError(msg)
+    return converted
+
+
 def apply_overrides_to_raw(overrides: Iterable[Override], key: str, value: T) -> T:
     """Fold the overrides targeting ``key`` onto a raw (pre-conversion) value.
 
     Reference resolution reads values straight from the parsed config, sidestepping :meth:`Loader.load` where overrides
     are normally applied. This re-applies them so that ``TOX_OVERRIDE`` propagates through ``{[section]key}`` (ini) and
     ``{replace = "ref", of = [...]}`` (toml) references.
+
+    :param overrides: the overrides that may target the key
+    :param key: the configuration key whose overrides apply
+    :param value: the raw value the overrides are folded into
+
+    :returns: the raw value with the matching overrides applied
 
     """
     for entry in overrides:
@@ -319,7 +416,7 @@ def apply_overrides_to_raw(overrides: Iterable[Override], key: str, value: T) ->
 
 
 def _apply_override_to_raw(value: T, override: Override) -> T:
-    converted: Any
+    converted: T | list[str] | dict[str, str] | str
     if override.append:
         if isinstance(value, list):
             converted = [*value, *_STR_CONVERT.to_list(override.value, str)]
@@ -341,6 +438,11 @@ def _apply_override_to_raw(value: T, override: Override) -> T:
 
 @impl
 def tox_add_option(parser: ToxParser) -> None:
+    """Add the ``--override`` command line option.
+
+    :param parser: the parser to add the option to
+
+    """
     override_short_option = "-x"
     parser.add_argument(
         override_short_option,
@@ -353,10 +455,11 @@ def tox_add_option(parser: ToxParser) -> None:
     )
 
 
-_STR_CONVERT = StrConvert()
+_STR_CONVERT: Final[StrConvert] = StrConvert()
 
 
 __all__ = [
+    "AppendOverridesError",
     "ConfigLoadArgs",
     "Loader",
     "Override",

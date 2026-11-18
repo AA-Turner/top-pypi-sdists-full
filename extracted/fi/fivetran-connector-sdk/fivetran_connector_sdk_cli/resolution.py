@@ -35,7 +35,7 @@ from fivetran_connector_sdk_cli.connector_helper import (
 from fivetran_connector_sdk_common.helpers import format_naming_for_display, print_library_log
 from fivetran_connector_sdk_common.logger import Logging
 from fivetran_connector_sdk_cli.options_file import (
-    find_options_file, is_toml_file_supported, load_options_file, load_package_default, select_profile)
+    find_options_file, load_options_file, load_package_default, select_profile)
 
 _OPTIONS_FILE_ENV = constants.FIVETRAN_OPTIONS_FILE_ENV
 _SDK_DEFAULT_SOURCE = "SDK built-in default"
@@ -103,8 +103,7 @@ def _select_active_profile(args, deploy_key: str, group_ids: dict,
     profile_name = getattr(args, "profile", None)
     options_path = find_options_file(args)
     if not options_path:
-        if (profile_name and profile_name != constants.DEFAULT_PROFILE_NAME
-                and is_toml_file_supported()):
+        if profile_name and profile_name != constants.DEFAULT_PROFILE_NAME:
             select_profile({}, profile_name)
         return {}, profile_name or constants.DEFAULT_PROFILE_NAME, {}, None
 
@@ -296,15 +295,12 @@ def _report_missing_and_exit(missing: list, profile_label: str, args, options_da
     was explicitly selected, and exits.
     """
     for flag, env in missing:
-        if is_toml_file_supported():
-            head = f"the {flag} flag, the {env} environment variable"
-            options_file = f"the options file (profile [{profile_label}])"
-            if flag == "--python-version":
-                sources = f"{head}, {options_file}, or the [tool.package-metadata] section of {constants.PYPROJECT_TOML}"
-            else:
-                sources = f"{head}, or {options_file}"
+        head = f"the {flag} flag, the {env} environment variable"
+        options_file = f"the options file (profile [{profile_label}])"
+        if flag == "--python-version":
+            sources = f"{head}, {options_file}, or the [tool.package-metadata] section of {constants.PYPROJECT_TOML}"
         else:
-            sources = f"the {flag} flag or the {env} environment variable"
+            sources = f"{head}, or {options_file}"
         reason = " when deploying to an existing connection" if flag == flag_name(constants.FIELD_PYTHON_VERSION) else ""
         print_library_log(f"{flag} is required{reason}; provide it via {sources}", Logging.Level.SEVERE)
     print_library_log(

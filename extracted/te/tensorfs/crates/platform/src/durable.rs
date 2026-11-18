@@ -15,7 +15,7 @@ use std::{
 mod disk;
 mod private;
 mod soon;
-pub use private::create_private_new;
+pub use private::{create_private_new, make_private_dir, open_to_others, shut_to_others};
 pub use disk::{DiskClass, Filesystem, cached, cached_pages, cached_runs, filesystem, open_direct, page_size, renames_after_data, will_need};
 pub use soon::soon;
 
@@ -405,6 +405,28 @@ pub fn set_mode(path: &Path, mode: u32) -> Result<()> {
     #[cfg(windows)]
     let _ = (path, mode);
     Ok(())
+}
+
+/// Where an open file or directory is now, wherever it was moved since it was opened (Linux, macOS): None once it's deleted, or
+/// where that can't be known (Windows).
+pub fn path_now(file: &File) -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::AsRawFd;
+        let path = std::fs::read_link(format!("/proc/self/fd/{}", file.as_raw_fd())).ok()?;
+        (path.is_absolute() && !path.to_string_lossy().ends_with(" (deleted)")).then_some(path)
+    }
+    #[cfg(target_os = "macos")]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        let path = rustix::fs::getpath(file).ok()?;
+        Some(std::path::PathBuf::from(std::ffi::OsString::from_vec(path.into_bytes())))
+    }
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+    {
+        let _ = file;
+        None
+    }
 }
 
 /// Sets an open file's permission bits; a no-op on Windows.

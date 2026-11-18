@@ -793,6 +793,7 @@ class WarehouseSnapshot(NativeRecord):
     existing_columns: dict[str, tuple[ColumnInfo, ...]]
     fingerprints: WarehouseFingerprints
     cursor_snapshots: dict[str, ModelCursorSnapshot]
+    cursor_inputs_at_run: bool
     source_freshness_state_schemas: frozenset[str]
     column_dialect: str | None
     renamed_models: frozenset[str]
@@ -806,6 +807,7 @@ class WarehouseSnapshot(NativeRecord):
         existing_columns: dict[str, tuple[ColumnInfo, ...]] = ...,
         fingerprints: WarehouseFingerprints = ...,
         cursor_snapshots: dict[str, ModelCursorSnapshot] = ...,
+        cursor_inputs_at_run: bool = ...,
         source_freshness_state_schemas: frozenset[str] = ...,
         column_dialect: str | None = ...,
         renamed_models: frozenset[str] = ...,
@@ -1234,26 +1236,49 @@ class PlanProviderUsage(NativeRecord):
     ) -> None: ...
     def __replace__(self, **changes: Any) -> PlanProviderUsage: ...
 
+class Dialect:
+    """How a plan writes SQL: the adapter's syntax, with no way to reach the warehouse.
+
+    Attributes that only write SQL or describe the dialect (`render_*`, `supports_*` and
+    dialect facts) are the adapter's own; anything reaching the warehouse raises `AttributeError`.
+    """
+
+    def __init__(self, adapter: BaseAdapter) -> None: ...
+    def __getattr__(self, name: str) -> Any: ...
+
+class WarehouseReads:
+    """The warehouse reads one plan runs through: live, or a preview's synced state."""
+
+def live_reads(
+    *,
+    adapter: BaseAdapter,
+    connection: Any,
+    connection_config: Any = ...,
+    execute: Callable[..., Any] | None = ...,
+) -> WarehouseReads: ...
+
 class PlannerRuntime:
     """Resolved execution environment shared by planner phases."""
 
     project: CompiledProjectView
-    adapter: BaseAdapter
-    connection: Any
+    dialect: Dialect
+    reads: WarehouseReads
     project_config: ProjectConfig | None
     local_config: LocalConfig | None
     on_progress: Callable[[str], None] | None
     invocation_time: datetime
+    node_results_location: tuple[str | None, str | None] | None
     def __init__(
         self,
         *,
         project: CompiledProjectView,
-        adapter: BaseAdapter,
-        connection: Any,
+        dialect: Dialect,
+        reads: WarehouseReads,
         project_config: ProjectConfig | None = ...,
         local_config: LocalConfig | None = ...,
         on_progress: Callable[[str], None] | None = ...,
         invocation_time: datetime = ...,
+        node_results_location: tuple[str | None, str | None] | None = ...,
     ) -> None: ...
 
 class PlannerScopeResolution:
@@ -1997,7 +2022,7 @@ def normalize_cursor_snapshot_grain(
 ) -> ModelCursorSnapshot: ...
 def resolve_model_sql(
     *,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     model: CompiledModelView,
     snapshot: WarehouseSnapshot,
     context: ModelPlanContext,
@@ -2010,7 +2035,7 @@ def resolve_model_sql(
 ) -> str: ...
 def resolve_function_sql(
     *,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     function: CompiledFunctionView,
     model_locations: dict[str, CompiledRelationLocation],
     seed_locations: dict[str, CompiledRelationLocation],
@@ -2022,7 +2047,7 @@ def resolve_function_sql(
 def resolve_model_hook_entries(
     *,
     model: CompiledModelView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     context: ModelPlanContext,
     external_sql_reference_resolver: ExternalSqlReferenceResolver | None,
 ) -> tuple[object, object]: ...
@@ -3362,25 +3387,6 @@ def format_seed_execution_json(
     *, results: tuple[SeedExecutionResult, ...], plan: PlanOutput
 ) -> str: ...
 def format_load_execution_json(*, results: tuple[LoadExecutionResult, ...]) -> str: ...
-def build_ingestr_command(
-    *,
-    source_entry: SourceEntry,
-    adapter_name: str,
-    connection_config: dict[str, object],
-    destination_name: str,
-    vars: dict[str, object],
-    environment: str | None,
-    run_id: str,
-    is_reload: bool,
-) -> tuple[str, ...]: ...
-def format_ingestr_command(command: Sequence[str], /) -> str: ...
-def dlt_destination_arguments(
-    *,
-    adapter_name: str,
-    connection_config: Mapping[str, object],
-    destination_config: Mapping[str, object] | None,
-    dataset_name: str | None,
-) -> tuple[str, dict[str, Any], dict[str, Any], str | None]: ...
 def format_clone_execution_json(
     *,
     result: CloneExecutionResult,
@@ -3498,7 +3504,7 @@ def build_relation_fixture_context(
 def build_relation_fixture_completion(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     request: tuple[tuple[str, ...], FixtureGroups],
     planning_context: RelationFixturePlanningContext | None = None,
 ) -> RelationFixtureCompletion: ...
@@ -4505,7 +4511,7 @@ def runtime_project_relations(
     *, relations: Mapping[SqlResourceRef, str], dialect: str | None
 ) -> ProjectRelationIndex: ...
 def render_source_relation(*, entry: SourceEntry, adapter: StrictAdapter | None = None) -> str: ...
-def render_source_read_relation(*, adapter: BaseAdapter, source_entry: SourceEntry) -> str: ...
+def render_source_read_relation(*, dialect: Dialect, source_entry: SourceEntry) -> str: ...
 def resolve_ref_references(
     *,
     query_sql: str,
@@ -4513,7 +4519,7 @@ def resolve_ref_references(
     seed_locations: dict[str, CompiledRelationLocation],
     cursor_bounds: CursorBounds | None,
     cursor_filter_inputs: dict[str, str],
-    adapter: BaseAdapter,
+    dialect: Dialect,
     cursor_type: str | None,
     lower_bound_inclusive: bool,
 ) -> str: ...
@@ -4525,7 +4531,7 @@ def resolve_source_references(
     star_exclude_keyword: str,
     cursor_bounds: CursorBounds | None,
     cursor_filter_inputs: dict[str, str],
-    adapter: BaseAdapter,
+    dialect: Dialect,
     cursor_type: str | None,
     lower_bound_inclusive: bool,
 ) -> str: ...
@@ -4538,13 +4544,13 @@ def resolve_udf_references(
     *,
     query_sql: str,
     function_locations: dict[str, CompiledRelationLocation],
-    adapter: BaseAdapter,
+    dialect: Dialect,
 ) -> str: ...
 def resolve_table_function_references(
     *,
     query_sql: str,
     function_locations: dict[str, CompiledRelationLocation],
-    adapter: BaseAdapter,
+    dialect: Dialect,
 ) -> str: ...
 def apply_deferred_locations(
     *,
@@ -4962,7 +4968,7 @@ def build_cli_scenario_plan(
     *,
     scenario: CompiledSqlScenario,
     pipeline_result: CompilePipelineResult,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     project_name: str,
     source_lexical_syntax: SqlLexicalSyntax,
 ) -> ScenarioExecutionPlan: ...
@@ -4998,7 +5004,7 @@ def resolve_scenario_check_sql(
     *,
     sql: str,
     relation_plan: ScenarioRelationPlan,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     source_label: str,
     source_lexical_syntax: SqlLexicalSyntax,
 ) -> str: ...
@@ -5007,7 +5013,7 @@ def build_scenario_fixture_plans(
     scenario: CompiledSqlScenario,
     graph_plan: ScenarioGraphPlan,
     relation_plan: ScenarioRelationPlan,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     source_lexical_syntax: SqlLexicalSyntax,
     fixture_sql_overrides: dict[tuple[CompiledResourceType, str], str] | None = None,
 ) -> tuple[ScenarioFixturePlan, ...]: ...
@@ -5015,7 +5021,7 @@ def build_scenario_execution_plan(
     *,
     scenario: CompiledSqlScenario,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     graph_plan: ScenarioGraphPlan,
     relation_plan: ScenarioRelationPlan,
     source_lexical_syntax: SqlLexicalSyntax,
@@ -5449,8 +5455,7 @@ class MigrationStateInspection:
     def __init__(
         self,
         *,
-        adapter: BaseAdapter,
-        connection: Any,
+        reads: WarehouseReads,
         database: str | None,
         known_fingerprints: WarehouseFingerprints | None = None,
     ) -> None: ...
@@ -5600,19 +5605,19 @@ def append_eligible_direct_source_freshness_records(
     run_id: str,
 ) -> None: ...
 def observe_configured_source_freshness(
-    *, adapter: StrictAdapter, connection: object, source: SourceEntry, observed_at: datetime
+    *, dialect: Dialect, reads: WarehouseReads, source: SourceEntry, observed_at: datetime
 ) -> SourceFreshnessObservation: ...
 def observe_adapter_sources_freshness(
     *,
-    adapter: StrictAdapter,
-    connection: object,
+    dialect: Dialect,
+    reads: WarehouseReads,
     sources: tuple[SourceEntry, ...],
     observed_at: datetime,
 ) -> AdapterSourceFreshnessBatch: ...
 def build_direct_source_freshness_planning_result(
     *,
-    adapter: StrictAdapter,
-    connection: object,
+    dialect: Dialect,
+    reads: WarehouseReads,
     sources: tuple[SourceEntry, ...],
     state_database: str | None,
     state_schemas: tuple[str, ...],
@@ -5683,7 +5688,7 @@ def apply_maximum_start_policy(
 def build_selected_test_entries(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     selected_keys: frozenset[CompiledObjectKey],
     sql_test_selection: SqlTestSelection,
     case_name: str | None = None,
@@ -5694,7 +5699,7 @@ def resolve_static_command_scope(
 def resolve_static_relation_context(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     scope: PlannerScope,
     deferral: DeferralInputs | None = None,
     project_config: ProjectConfig | None = None,
@@ -5704,14 +5709,14 @@ def resolve_static_relation_context(
 def build_audit_command_plan(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     scope: PlannerScope,
     relations: PlannerRelationsContext,
 ) -> PlanOutput: ...
 def build_test_command_plan(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     scope: PlannerScope,
     relations: PlannerRelationsContext,
     case_name: str | None = None,
@@ -5724,7 +5729,7 @@ def build_seed_command_plan(
     fingerprints: dict[str, Fingerprint] | None = None,
 ) -> PlanOutput: ...
 def read_selected_seed_fingerprints(
-    *, adapter: BaseAdapter, connection: Any, seeds: tuple[CompiledSeedView, ...]
+    *, reads: WarehouseReads, seeds: tuple[CompiledSeedView, ...]
 ) -> dict[str, Fingerprint]: ...
 def resolve_clone_boundary[K](
     *,
@@ -5746,8 +5751,8 @@ def sql_test_model_chain_names_by_key(
 def build_execution_plan(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    dialect: Dialect,
+    reads: WarehouseReads,
     selection: PlannerSelection,
     overrides: PlannerOverrides,
     deferral: DeferralInputs,
@@ -5755,6 +5760,7 @@ def build_execution_plan(
     on_progress: Callable[[str], None] | None = None,
     project_config: ProjectConfig | None = None,
     local_config: LocalConfig | None = None,
+    node_results_location: tuple[str | None, str | None] | None = None,
 ) -> PlanOutput: ...
 
 class SqlTestPlanning:
@@ -5765,7 +5771,7 @@ class SqlTestPlanning:
 def start_sql_test_planning(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     selected_keys: frozenset[CompiledObjectKey],
     sql_test_selection: SqlTestSelection,
     enabled: bool,
@@ -5818,8 +5824,8 @@ def resolve_cursor_overrides(
 def build_planner_relations_context(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    dialect: Dialect,
+    reads: WarehouseReads,
     scope: PlannerScope,
     deferral: DeferralInputs | None = None,
     project_config: ProjectConfig | None = None,
@@ -6119,7 +6125,7 @@ def validate_source_cursor_input_columns(
 def build_cursor_input_relations(
     *,
     model: CompiledModelView,
-    adapter: BaseAdapter,
+    dialect: Dialect,
     model_locations: dict[str, CompiledRelationLocation],
     models_by_name: dict[str, CompiledModelView],
     functions_by_name: dict[str, CompiledFunctionView] | None = None,
@@ -6140,7 +6146,7 @@ def plan_audit(
     model_locations: dict[str, CompiledRelationLocation],
     seed_locations: dict[str, CompiledRelationLocation],
     source_map: dict[str, SourceEntry],
-    adapter: BaseAdapter,
+    dialect: Dialect,
     lineage_upstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]],
     lineage_downstream_deps: dict[CompiledObjectKey, tuple[CompiledObjectKey, ...]],
     model_materializations: dict[str, str],
@@ -6327,9 +6333,8 @@ class MigrationFingerprintCache:
 def gather_warehouse_snapshot(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
-    execute: AdapterExecute[Any, Any],
+    dialect: Dialect,
+    reads: WarehouseReads,
     selected_keys: frozenset[CompiledObjectKey] | None = None,
     full_refresh: bool = False,
     full_refresh_model_names: frozenset[str] | None = None,
@@ -6341,15 +6346,13 @@ def watermark_type_is_compatible(*, declared_type: str, cursor_type: str | None)
 def gather_source_columns(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    reads: WarehouseReads,
     source_entries: tuple[SourceEntry, ...] | None = None,
 ) -> dict[str, tuple[ColumnInfo, ...]]: ...
 def get_semantic_source_columns(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    reads: WarehouseReads,
     source_read_map: dict[str, SourceEntry],
     columns: dict[str, tuple[ColumnInfo, ...]],
     selected_keys: frozenset[CompiledObjectKey],
@@ -6357,16 +6360,16 @@ def get_semantic_source_columns(
 def check_selected_source_tables_exist(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    dialect: Dialect,
+    reads: WarehouseReads,
     scope: PlannerScope,
     relations: PlannerRelationsContext,
 ) -> None: ...
 def build_planner_source_freshness_result(
     *,
     project: CompiledProjectView,
-    adapter: BaseAdapter,
-    connection: Any,
+    dialect: Dialect,
+    reads: WarehouseReads,
     scope: PlannerScope,
     relations: PlannerRelationsContext,
     freshness_state_schemas: frozenset[str] | None = None,
@@ -6403,8 +6406,7 @@ def planner_metadata_name_filter(
 ) -> tuple[str, ...] | None: ...
 def list_source_candidates(
     *,
-    adapter: BaseAdapter,
-    connection: Any,
+    reads: WarehouseReads,
     database: str | None,
     entries: tuple[SourceEntry, ...],
 ) -> tuple[RelationInfo, ...]: ...
@@ -6582,6 +6584,7 @@ class BuildCommandRequest(NativeRecord):
     cli_vars: dict[str, object] | None
     run_tests: bool
     run_audits: bool
+    ignore_audit_failures: bool | None
     manifest: bool
     json_output: bool
     json_output_path: Path | None
@@ -6592,6 +6595,7 @@ class BuildCommandRequest(NativeRecord):
     selector_files: tuple[SelectorFileSummary, ...]
     test_timeout: str | None
     discovered_inputs: DiscoveredProjectInputs | None
+    compiled_project: object | None
     def __init__(
         self,
         project_dir: Path | None = None,
@@ -6623,6 +6627,7 @@ class BuildCommandRequest(NativeRecord):
         cli_vars: dict[str, object] | None = None,
         run_tests: bool = True,
         run_audits: bool = True,
+        ignore_audit_failures: bool | None = None,
         manifest: bool = False,
         json_output: bool = False,
         json_output_path: Path | None = None,
@@ -6633,6 +6638,7 @@ class BuildCommandRequest(NativeRecord):
         selector_files: tuple[SelectorFileSummary, ...] = (),
         test_timeout: str | None = None,
         discovered_inputs: DiscoveredProjectInputs | None = None,
+        compiled_project: object | None = None,
     ) -> None: ...
 
 class CloneCommandRequest(NativeRecord):
@@ -6983,6 +6989,8 @@ class PlanCommandRequest(NativeRecord):
     no_cache: bool
     max_microbatches: int | None
     selection_diagnostics: bool
+    timings: bool
+    ignore_audit_failures: bool | None
     def __init__(
         self,
         project_dir: Path | None = None,
@@ -7007,6 +7015,8 @@ class PlanCommandRequest(NativeRecord):
         no_cache: bool = False,
         max_microbatches: int | None = None,
         selection_diagnostics: bool = False,
+        timings: bool = False,
+        ignore_audit_failures: bool | None = None,
     ) -> None: ...
 
 class PlaygroundCommandRequest(NativeRecord):
@@ -10224,6 +10234,7 @@ class CompilePipelineOptions(NativeRecord):
     accepts_unit_test_selectors: bool
     sql_test_selection: SqlTestSelection
     source_lexical_syntax: SqlLexicalSyntax | None
+    ignore_audit_failures: bool
     def __init__(
         self,
         selected_target: str | None = ...,
@@ -10251,6 +10262,7 @@ class CompilePipelineOptions(NativeRecord):
         accepts_unit_test_selectors: bool = ...,
         sql_test_selection: SqlTestSelection = ...,
         source_lexical_syntax: SqlLexicalSyntax | None = ...,
+        ignore_audit_failures: bool = ...,
     ) -> None: ...
 
 class PythonPlanEntry(NativeRecord):
@@ -10506,12 +10518,14 @@ class PlannerPolicies(NativeRecord):
     selection_diagnostics: bool
     plan_sql_tests: bool
     record_migration_fingerprints: bool
+    ignore_audit_failures: bool
     def __init__(
         self,
         auto_load_sources: bool = ...,
         selection_diagnostics: bool = ...,
         plan_sql_tests: bool = ...,
         record_migration_fingerprints: bool = ...,
+        ignore_audit_failures: bool = ...,
     ) -> None: ...
 
 class DiscoveredPythonLoaderMetadata(NativeRecord):
@@ -10523,7 +10537,6 @@ class DiscoveredPythonLoaderMetadata(NativeRecord):
     unique_key: tuple[str, ...]
     columns: tuple[SourceColumnEntry, ...]
     contract: str | None
-    connection_mode: LoaderConnectionMode
     def __init__(
         self,
         destination: str | None = ...,
@@ -10532,7 +10545,6 @@ class DiscoveredPythonLoaderMetadata(NativeRecord):
         unique_key: tuple[str, ...] = ...,
         columns: tuple[SourceColumnEntry, ...] = ...,
         contract: str | None = ...,
-        connection_mode: LoaderConnectionMode = ...,
     ) -> None: ...
 
 class DiscoveredPythonTaskMetadata(NativeRecord):
@@ -11975,6 +11987,7 @@ class TargetConfig(NativeRecord):
     warehouses: TargetWarehousesConfig
     concurrency: int | None
     catalog_connection: str | None
+    ignore_audit_failures: bool | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -11999,6 +12012,7 @@ class TargetConfig(NativeRecord):
         warehouses: TargetWarehousesConfig = ...,
         concurrency: int | None = ...,
         catalog_connection: str | None = ...,
+        ignore_audit_failures: bool | None = ...,
     ) -> None: ...
 
 class LocalTargetConfig(NativeRecord):
@@ -12026,6 +12040,7 @@ class LocalTargetConfig(NativeRecord):
     warehouses: TargetWarehousesConfig
     concurrency: int | None
     catalog_connection: str | None
+    ignore_audit_failures: bool | None
     def __init__(
         self,
         connection: dict[str, object] = ...,
@@ -12051,6 +12066,7 @@ class LocalTargetConfig(NativeRecord):
         warehouses: TargetWarehousesConfig = ...,
         concurrency: int | None = ...,
         catalog_connection: str | None = ...,
+        ignore_audit_failures: bool | None = ...,
     ) -> None: ...
 
 class SettingsConfig(NativeRecord):
@@ -12074,6 +12090,8 @@ class SettingsConfig(NativeRecord):
     scenario_timeout_seconds: int | None
     delta_compile: bool
     allow_missing_secrets: bool
+    allow_warehouse_round_trips: bool
+    ignore_audit_failures: bool
     def __init__(
         self,
         sql_analysis: bool = ...,
@@ -12094,6 +12112,8 @@ class SettingsConfig(NativeRecord):
         scenario_timeout_seconds: int | None = ...,
         delta_compile: bool = ...,
         allow_missing_secrets: bool = ...,
+        allow_warehouse_round_trips: bool = ...,
+        ignore_audit_failures: bool = ...,
     ) -> None: ...
     @property
     def sql_validation(self) -> bool: ...
@@ -12660,17 +12680,6 @@ class SchemaSeedEntry(NativeRecord):
         audits: tuple[SchemaAuditInstance, ...] = ...,
     ) -> None: ...
 
-class IntegrationLoaderConfig(NativeRecord):
-    """Typed configuration for one declarative integration loader."""
-
-    kind: str
-    config: object
-    def __init__(
-        self,
-        kind: str,
-        config: object,
-    ) -> None: ...
-
 class SourceFreshnessAgePolicy(NativeRecord):
     """Age-based source freshness warning/error thresholds."""
 
@@ -12732,7 +12741,6 @@ class SourceEntry(NativeRecord):
     final: bool
     loader: str | None
     managed: bool
-    integration_loader: IntegrationLoaderConfig | None
     freshness: SourceFreshnessConfig | None
     write_strategy: SourceWriteStrategy | None
     load_batch_size: int | None
@@ -12754,7 +12762,6 @@ class SourceEntry(NativeRecord):
         final: bool = ...,
         loader: str | None = ...,
         managed: bool = ...,
-        integration_loader: IntegrationLoaderConfig | None = ...,
         freshness: SourceFreshnessConfig | None = ...,
         write_strategy: SourceWriteStrategy | None = ...,
         load_batch_size: int | None = ...,
@@ -13085,11 +13092,13 @@ class PythonSqlRunLifecyclePlan(NativeRecord):
     ingress_python_node_names: frozenset[str]
     ingress_loader_names: frozenset[str]
     read_side_python_node_names: frozenset[str]
+    round_trip_loader_names: frozenset[str]
     def __init__(
         self,
         ingress_python_node_names: frozenset[str],
         ingress_loader_names: frozenset[str],
         read_side_python_node_names: frozenset[str],
+        round_trip_loader_names: frozenset[str] = ...,
     ) -> None: ...
 
 class PythonIdentityDependency(NativeRecord):
@@ -13565,8 +13574,14 @@ class PlannerInputError(ValueError):
     code: str
     message: str
     help: str | None
+    missing: tuple[str, ...] | None
     def __init__(
-        self, message: str, *, code: str | None = None, help: str | None = None
+        self,
+        message: str,
+        *,
+        code: str | None = None,
+        help: str | None = None,
+        missing: tuple[str, ...] | None = None,
     ) -> None: ...
 
 class FutureCursorSafetyError(PlannerInputError):
@@ -14209,7 +14224,6 @@ class SourceLoadPlanEntry(NativeRecord):
     cursor_column: str | None
     unique_key: tuple[str, ...]
     is_reload: bool
-    integration_kind: str | None
     def __init__(
         self,
         key: CompiledObjectKey,
@@ -14221,7 +14235,6 @@ class SourceLoadPlanEntry(NativeRecord):
         cursor_column: str | None = ...,
         unique_key: tuple[str, ...] = ...,
         is_reload: bool = ...,
-        integration_kind: str | None = ...,
     ) -> None: ...
 
 class FunctionPlanEntry(NativeRecord):
@@ -14294,6 +14307,7 @@ class AuditPlanEntry(NativeRecord):
     description: str | None
     reads_outside_target_lineage: bool
     meta: dict[str, object] | None
+    ignore_failure: bool
     def __init__(
         self,
         key: CompiledObjectKey,
@@ -14322,6 +14336,7 @@ class AuditPlanEntry(NativeRecord):
         description: str | None = ...,
         reads_outside_target_lineage: bool = ...,
         meta: dict[str, object] | None = ...,
+        ignore_failure: bool = ...,
     ) -> None: ...
 
 class ChainStep(NativeRecord):
@@ -14547,6 +14562,7 @@ class PlanOutput(NativeRecord):
     cursor_overrides: CursorOverrides | None
     existing_model_names: frozenset[str]
     end_audit_source_keys: frozenset[CompiledObjectKey]
+    ignore_audit_failures: bool
     def __init__(
         self,
         execution_order: tuple[CompiledObjectKey, ...] = ...,
@@ -14583,6 +14599,7 @@ class PlanOutput(NativeRecord):
         cursor_overrides: CursorOverrides | None = ...,
         existing_model_names: frozenset[str] = ...,
         end_audit_source_keys: frozenset[CompiledObjectKey] = ...,
+        ignore_audit_failures: bool = ...,
     ) -> None: ...
     @property
     def python_source_entries(self) -> dict[str, SourceEntry]: ...
@@ -14648,12 +14665,6 @@ class HardCodedRelationOwnerKind(StrEnum):
     NODE = "node"
     HOOK = "hook"
     LOADER = "loader"
-
-class LoaderConnectionMode(StrEnum):
-    """How a source loader owns the destination warehouse connection."""
-
-    SQLBUILD = "sqlbuild"
-    EXTERNAL = "external"
 
 class SqlHookEntry(NativeRecord):
     """A model lifecycle hook that executes SQL."""
@@ -14859,7 +14870,6 @@ class DiscoveredLoaderFunction(NativeRecord):
     columns: tuple[SourceColumnEntry, ...]
     contract: str | None
     description: str | None
-    connection_mode: LoaderConnectionMode
     provider_usages: tuple[DiscoveredProviderUsage, ...]
     identity: PythonNodeIdentity | None
     def __init__(
@@ -14876,7 +14886,6 @@ class DiscoveredLoaderFunction(NativeRecord):
         columns: tuple[SourceColumnEntry, ...] = ...,
         contract: str | None = ...,
         description: str | None = ...,
-        connection_mode: LoaderConnectionMode = ...,
         provider_usages: tuple[DiscoveredProviderUsage, ...] = ...,
         identity: PythonNodeIdentity | None = ...,
     ) -> None: ...

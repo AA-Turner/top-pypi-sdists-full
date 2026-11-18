@@ -1479,6 +1479,7 @@ class MultipartUpload(ServiceResource):
     initiator: InitiatorTypeDef
     checksum_algorithm: ChecksumAlgorithmType
     checksum_type: ChecksumTypeType
+    version_id: str
     meta: S3ResourceMeta  # type: ignore[override]
 
     def get_available_subresources(self) -> Sequence[str]:

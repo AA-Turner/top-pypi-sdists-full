@@ -23,6 +23,7 @@ from typing import Any, Union
 
 from .literals import (
     AuditEventTypeType,
+    AutoIncludeFieldsType,
     DomainStatusType,
     FieldNamespaceType,
     FieldTypeType,
@@ -784,10 +785,12 @@ class BatchGetFieldRequestTypeDef(TypedDict):
 
 class CaseEventIncludedDataOutputTypeDef(TypedDict):
     fields: list[FieldIdentifierTypeDef]
+    autoIncludeFields: NotRequired[AutoIncludeFieldsType]
 
 
 class CaseEventIncludedDataTypeDef(TypedDict):
     fields: Sequence[FieldIdentifierTypeDef]
+    autoIncludeFields: NotRequired[AutoIncludeFieldsType]
 
 
 class FieldsConfigurationTypeDef(TypedDict):

@@ -147,6 +147,8 @@ __all__ = (
     "DeleteCapacityProviderRequestTypeDef",
     "DeleteCapacityProviderResponseTypeDef",
     "DeleteCodeSigningConfigRequestTypeDef",
+    "DeleteDurableExecutionRequestTypeDef",
+    "DeleteDurableExecutionResponseTypeDef",
     "DeleteEventSourceMappingRequestTypeDef",
     "DeleteFunctionCodeSigningConfigRequestTypeDef",
     "DeleteFunctionConcurrencyRequestTypeDef",
@@ -170,7 +172,9 @@ __all__ = (
     "ErrorObjectUnionTypeDef",
     "EventErrorTypeDef",
     "EventInputTypeDef",
+    "EventPauseReasonTypeDef",
     "EventResultTypeDef",
+    "EventResumeReasonTypeDef",
     "EventSourceMappingConfigurationResponseTypeDef",
     "EventSourceMappingConfigurationTypeDef",
     "EventSourceMappingLoggingConfigTypeDef",
@@ -180,6 +184,8 @@ __all__ = (
     "EventTypeDef",
     "ExecutionDetailsTypeDef",
     "ExecutionFailedDetailsTypeDef",
+    "ExecutionPausedDetailsTypeDef",
+    "ExecutionResumedDetailsTypeDef",
     "ExecutionStartedDetailsTypeDef",
     "ExecutionStoppedDetailsTypeDef",
     "ExecutionSucceededDetailsTypeDef",
@@ -328,6 +334,8 @@ __all__ = (
     "OperationTypeDef",
     "OperationUpdateTypeDef",
     "PaginatorConfigTypeDef",
+    "PauseDetailsTypeDef",
+    "PauseDurableExecutionRequestTypeDef",
     "PropagateTagsOutputTypeDef",
     "PropagateTagsTypeDef",
     "PropagateTagsUnionTypeDef",
@@ -354,6 +362,7 @@ __all__ = (
     "RemovePermissionRequestTypeDef",
     "ResolvedS3ObjectTypeDef",
     "ResponseMetadataTypeDef",
+    "ResumeDurableExecutionRequestTypeDef",
     "RetryDetailsTypeDef",
     "RuntimeVersionConfigTypeDef",
     "RuntimeVersionErrorTypeDef",
@@ -673,6 +682,10 @@ class DeleteCodeSigningConfigRequestTypeDef(TypedDict):
     CodeSigningConfigArn: str
 
 
+class DeleteDurableExecutionRequestTypeDef(TypedDict):
+    DurableExecutionArn: str
+
+
 class DeleteEventSourceMappingRequestTypeDef(TypedDict):
     UUID: str
 
@@ -733,6 +746,16 @@ class ErrorObjectTypeDef(TypedDict):
     ErrorType: NotRequired[str]
     ErrorData: NotRequired[str]
     StackTrace: NotRequired[Sequence[str]]
+
+
+class EventPauseReasonTypeDef(TypedDict):
+    Payload: NotRequired[str]
+    Truncated: NotRequired[bool]
+
+
+class EventResumeReasonTypeDef(TypedDict):
+    Payload: NotRequired[str]
+    Truncated: NotRequired[bool]
 
 
 class EventSourceMappingMetricsConfigOutputTypeDef(TypedDict):
@@ -857,6 +880,12 @@ class GetDurableExecutionHistoryRequestTypeDef(TypedDict):
 class GetDurableExecutionRequestTypeDef(TypedDict):
     DurableExecutionArn: str
     IncludeExecutionData: NotRequired[bool]
+
+
+class PauseDetailsTypeDef(TypedDict):
+    PauseRequestTimestamp: datetime
+    ExecutionTimeoutPaused: bool
+    Reason: NotRequired[str]
 
 
 class TraceHeaderTypeDef(TypedDict):
@@ -1119,6 +1148,13 @@ class WaitOptionsTypeDef(TypedDict):
     WaitSeconds: NotRequired[int]
 
 
+class PauseDurableExecutionRequestTypeDef(TypedDict):
+    DurableExecutionArn: str
+    ClientToken: NotRequired[str]
+    Reason: NotRequired[str]
+    ExecutionTimeoutPaused: NotRequired[bool]
+
+
 class PropagateTagsTypeDef(TypedDict):
     Mode: NotRequired[PropagateTagsModeType]
     ExplicitTags: NotRequired[Mapping[str, str]]
@@ -1180,6 +1216,12 @@ class RemovePermissionRequestTypeDef(TypedDict):
     RevisionId: NotRequired[str]
 
 
+class ResumeDurableExecutionRequestTypeDef(TypedDict):
+    DurableExecutionArn: str
+    ClientToken: NotRequired[str]
+    Reason: NotRequired[str]
+
+
 class RetryDetailsTypeDef(TypedDict):
     CurrentAttempt: NotRequired[int]
     NextAttemptDelaySeconds: NotRequired[int]
@@ -1221,6 +1263,11 @@ class AddPermissionResponseTypeDef(TypedDict):
 
 class ConcurrencyResponseTypeDef(TypedDict):
     ReservedConcurrentExecutions: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DeleteDurableExecutionResponseTypeDef(TypedDict):
+    DeletionRequestTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1612,6 +1659,19 @@ class EnvironmentResponseTypeDef(TypedDict):
 
 
 ErrorObjectUnionTypeDef = Union[ErrorObjectTypeDef, ErrorObjectOutputTypeDef]
+
+
+class ExecutionPausedDetailsTypeDef(TypedDict):
+    PauseRequestTimestamp: datetime
+    ExecutionTimeoutPaused: bool
+    Reason: NotRequired[EventPauseReasonTypeDef]
+
+
+class ExecutionResumedDetailsTypeDef(TypedDict):
+    ResumeRequestTimestamp: datetime
+    Reason: NotRequired[EventResumeReasonTypeDef]
+
+
 EventSourceMappingMetricsConfigUnionTypeDef = Union[
     EventSourceMappingMetricsConfigTypeDef, EventSourceMappingMetricsConfigOutputTypeDef
 ]
@@ -1784,6 +1844,8 @@ class GetDurableExecutionResponseTypeDef(TypedDict):
     TraceHeader: TraceHeaderTypeDef
     ExecutionDataIncluded: bool
     DurableConfig: DurableConfigTypeDef
+    PauseDetails: PauseDetailsTypeDef
+    ExpectedExecutionTimeoutTimestamp: datetime
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2379,6 +2441,8 @@ class EventTypeDef(TypedDict):
     CallbackFailedDetails: NotRequired[CallbackFailedDetailsTypeDef]
     CallbackTimedOutDetails: NotRequired[CallbackTimedOutDetailsTypeDef]
     InvocationCompletedDetails: NotRequired[InvocationCompletedDetailsTypeDef]
+    ExecutionPausedDetails: NotRequired[ExecutionPausedDetailsTypeDef]
+    ExecutionResumedDetails: NotRequired[ExecutionResumedDetailsTypeDef]
 
 
 class CheckpointUpdatedExecutionStateTypeDef(TypedDict):

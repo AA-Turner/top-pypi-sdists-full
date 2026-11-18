@@ -19,13 +19,15 @@ import os
 from typing import TYPE_CHECKING, Final
 
 from ...domain.errors import InvalidFormatError
+from ...domain.identifiers import validate_identifier
+from ...domain.json_codec import escape_lone_surrogates
 from ...domain.redaction import NotSensitiveKeys
 from ...observability import log_debug
-from .._nested_keys import assign_nested
+from .._nested_keys import NestedEntry, build_nested
 from .._value_coercion import coerce_value
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Mapping
 
 
 __all__ = [
@@ -49,10 +51,20 @@ def default_env_prefix(slug: str) -> str:
         Upper-case prefix with dashes converted to underscores, ending with
         triple underscore separator.
 
+    Raises:
+        ValidationError: *slug* fails the check ``read_config``, ``deploy_config`` and
+            ``generate_examples`` apply (empty, a path separator or whitespace, a leading dot, non-ASCII), so
+            no prefix is returned for a slug no read accepts.
+
     Examples:
         >>> default_env_prefix('lib-layered-config')
         'LIB_LAYERED_CONFIG___'
+        >>> default_env_prefix('../x')
+        Traceback (most recent call last):
+            ...
+        lib_layered_config.domain.errors.ValidationError: slug contains invalid characters: ../x
     """
+    validate_identifier(slug, "slug")
     return slug.replace("-", "_").upper() + "___"
 
 
@@ -67,7 +79,7 @@ class DefaultEnvLoader:
     """
 
     def __init__(
-        self, *, environ: dict[str, str] | None = None, not_sensitive: NotSensitiveKeys = NotSensitiveKeys.NONE
+        self, *, environ: Mapping[str, str] | None = None, not_sensitive: NotSensitiveKeys = NotSensitiveKeys.NONE
     ) -> None:
         """Initialise the loader with a specific ``environ`` mapping for testability.
 
@@ -88,7 +100,7 @@ class DefaultEnvLoader:
         same nesting semantics as `.env` files.
 
         Normalises the prefix, filters matching entries, coerces values, nests
-        keys via :func:`assign_nested`, and logs the summarised result.
+        keys via :func:`build_nested` (refusing an empty key segment), and logs the summarised result.
 
         Args:
             prefix: Prefix filter (upper-case). The loader appends ``___`` if missing.
@@ -96,6 +108,10 @@ class DefaultEnvLoader:
         Returns:
             Nested mapping suitable for the merge algorithm. Keys are stored in
             lowercase to align with file-based layers.
+
+        Raises:
+            InvalidFormatError: A variable is not valid UTF-8, or one variable sets a value and
+                another a key below it (``DEMO___DB`` and ``DEMO___DB__PORT``), in either order.
 
         Side Effects:
             Emits ``env_variables_loaded`` debug events with summarised keys.
@@ -113,15 +129,12 @@ class DefaultEnvLoader:
             True
         """
         normalized_prefix = _normalize_prefix(prefix)
-        collected: dict[str, object] = {}
+        entries: list[NestedEntry] = []
         for raw_key, value in _iter_namespace_entries(self._environ.items(), normalized_prefix):
             _refuse_undecodable(normalized_prefix + raw_key, value)
-            assign_nested(
-                collected,
-                raw_key,
-                coerce_value(raw_key, value, not_sensitive=self._not_sensitive),
-                error_cls=ValueError,
-            )
+            coerced = coerce_value(raw_key, value, not_sensitive=self._not_sensitive)
+            entries.append(NestedEntry(raw_key, coerced, normalized_prefix + raw_key))
+        collected = build_nested(entries, error_cls=InvalidFormatError, where="environment: ")
         log_debug("env_variables_loaded", layer="env", path=None, keys=_collect_keys(collected))
         return collected
 
@@ -176,7 +189,9 @@ def _refuse_undecodable(name: str, value: str) -> None:
     """
     name_offset = _first_undecodable_offset(name)
     if name_offset is not None:
-        message = f"environment variable name {_escape_surrogates(name)} is not valid UTF-8 (byte offset {name_offset})"
+        message = (
+            f"environment variable name {escape_lone_surrogates(name)} is not valid UTF-8 (byte offset {name_offset})"
+        )
         raise InvalidFormatError(message)
     value_offset = _first_undecodable_offset(value)
     if value_offset is not None:
@@ -196,32 +211,9 @@ def _first_undecodable_offset(text: str) -> int | None:
     return None
 
 
-def _escape_surrogates(text: str) -> str:
-    r"""Return *text* with each lone surrogate written as an escape: ``\xNN`` for a byte POSIX passed
-    through undecoded, ``\uXXXX`` for any other.
-
-    Examples:
-        >>> print(_escape_surrogates("K\udcffY\ud800"))
-        K\xffY\ud800
-    """
-    return "".join(_escape_one(char) for char in text)
-
-
-def _escape_one(char: str) -> str:
-    code = ord(char)
-    if _ESCAPED_BYTE_FIRST <= code <= _SURROGATE_LAST:
-        return f"\\x{code - _SURROGATE_ESCAPE_BASE:02x}"
-    if _SURROGATE_FIRST <= code <= _SURROGATE_LAST:
-        return f"\\u{code:04x}"
-    return char
-
-
 #: The UTF-16 surrogate range; a lone one has no UTF-8 encoding.
 _SURROGATE_FIRST: Final[int] = 0xD800
 _SURROGATE_LAST: Final[int] = 0xDFFF
-#: Python's ``surrogateescape`` error handler maps an undecodable byte B to ``U+DC00 + B`` (B >= 0x80).
-_SURROGATE_ESCAPE_BASE: Final[int] = 0xDC00
-_ESCAPED_BYTE_FIRST: Final[int] = 0xDC80
 
 
 def _iter_namespace_entries(

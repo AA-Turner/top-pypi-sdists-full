@@ -3,7 +3,7 @@ references, downloads, the Shared folder (twins: app/files/artifacts, app/files/
 
 from __future__ import annotations
 import builtins
-from ....generated.models import ArtifactDetailOut, ArtifactOut, ArtifactTreeLevel
+from ....generated.models import AgentSessionsOut, ArtifactDetailOut, ArtifactOut, ArtifactTreeLevel
 from ..resource import Resource
 import os
 from contextlib import nullcontext
@@ -560,6 +560,27 @@ class ArtifactsResource(Resource):
             ArtifactOut,
             self._client.list_anchored(anchor, anchor_id, project_id=project_id, **params),
         )
+
+    def list_sessions(self, artifact_id: str, *, limit: int | None = None) -> AgentSessionsOut:
+        """`Client.list_artifact_sessions` as an `AgentSessionsOut`."""
+        return self._to_model(AgentSessionsOut, self._client.list_artifact_sessions(artifact_id, limit=limit))
+
+    def get_project_tree(
+        self, project_id: str, *, prefix: str | None = None, limit: int | None = None, offset: int | None = None,
+        query: str | None = None, kind: str | None = None, experiment_id: str | None = None,
+    ) -> ArtifactTreeLevel:
+        """`Client.list_project_artifact_tree` as an `ArtifactTreeLevel`."""
+        return self._to_model(ArtifactTreeLevel, self._client.list_project_artifact_tree(
+            project_id, prefix=prefix, limit=limit, offset=offset, query=query, kind=kind,
+            experiment_id=experiment_id))
+
+    def get_session_tree(
+        self, session_id: str, *, prefix: str | None = None, limit: int | None = None, offset: int | None = None,
+        query: str | None = None, kind: str | None = None,
+    ) -> ArtifactTreeLevel:
+        """`Client.list_session_artifact_tree` as an `ArtifactTreeLevel`."""
+        return self._to_model(ArtifactTreeLevel, self._client.list_session_artifact_tree(
+            session_id, prefix=prefix, limit=limit, offset=offset, query=query, kind=kind))
 
     def get_tree(
         self, run_id: str, *, prefix: str = "", limit: int | None = None,

@@ -80,6 +80,18 @@ def detect_installed_agents() -> dict:
     }
 
 
+def install_agent_plugin(agent_key: str) -> bool:
+    config = AGENT_PLUGINS[agent_key]
+    if "interactive_install_steps" in config:
+        success = _prepare_interactive_plugin_installation(config)
+    else:
+        success = _install_agent_plugin(config)
+
+    if success:
+        _print_plugin_update_guidance(config)
+    return success
+
+
 def _print_plugin_install_guidance():
     print_library_log(
         "To install the plugin later, follow the AI tools guide:",
@@ -88,10 +100,8 @@ def _print_plugin_install_guidance():
     print_library_log(AI_TOOLS_INSTALLATION_DOCS_URL, indent=True)
 
 
-def install_agent_plugin(agent_key: str) -> bool:
-    config = AGENT_PLUGINS[agent_key]
-    print_library_log(f"installing {config['display_name']} plugin", log_icon=Logging.LogIcon.STEP)
-    for cmd in config["install_commands"]:
+def _run_plugin_commands(commands: list[list[str]]) -> bool:
+    for cmd in commands:
         try:
             result = subprocess.run(cmd)
         except OSError as e:
@@ -110,13 +120,53 @@ def install_agent_plugin(agent_key: str) -> bool:
             )
             _print_plugin_install_guidance()
             return False
-    print_library_log(f"{config['display_name']} plugin installed", log_icon=Logging.LogIcon.SUCCESS)
+    return True
+
+
+def _print_plugin_update_guidance(config: dict):
     update_commands = config.get("update_commands", [])
-    for cmd in update_commands:
+    if not update_commands:
+        return
+
+    if len(update_commands) == 1:
         print_library_log(
-            f"to update the {config['display_name']} plugin, run: {' '.join(cmd)}",
+            f"to update the {config['display_name']} plugin, run: {' '.join(update_commands[0])}",
             log_icon=Logging.LogIcon.STEP,
         )
+        return
+
+    print_library_log(
+        f"to update the {config['display_name']} plugin, run:",
+        log_icon=Logging.LogIcon.STEP,
+    )
+    for cmd in update_commands:
+        print_library_log(' '.join(cmd), indent=True)
+
+
+def _install_agent_plugin(config: dict) -> bool:
+    print_library_log(f"installing {config['display_name']} plugin", log_icon=Logging.LogIcon.STEP)
+    if not _run_plugin_commands(config["install_commands"]):
+        return False
+
+    print_library_log(
+        f"{config['display_name']} plugin installed",
+        log_icon=Logging.LogIcon.SUCCESS,
+    )
+    return True
+
+
+def _prepare_interactive_plugin_installation(config: dict) -> bool:
+    print_library_log(f"installing {config['display_name']} plugin", log_icon=Logging.LogIcon.STEP)
+    if not _run_plugin_commands(config["install_commands"]):
+        return False
+
+    for step in config["interactive_install_steps"]:
+        print_library_log(step, indent=True)
+    print_library_log(
+        "To finish installing the plugin, follow the steps above or see the AI tools guide:",
+        log_icon=Logging.LogIcon.STEP,
+    )
+    print_library_log(AI_TOOLS_INSTALLATION_DOCS_URL, indent=True)
     return True
 
 

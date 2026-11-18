@@ -45,6 +45,50 @@ def reinject_apm_source_from_sidecar(hooks: dict, sidecar_data: dict) -> None:
                     del pool[content_key]
 
 
+def read_merged_hook_config(json_path: Path, project_root: Path, *, user_scope: bool) -> dict:
+    """Return the existing merged hook config, or ``{}`` when absent or unreadable.
+
+    A project config whose path runs through a symlink is refused, so hook
+    entries are never merged into (or read from) a file outside the project.
+    """
+    if not user_scope and has_symlink_component(project_root, json_path):
+        raise PathTraversalError(
+            f"Refusing to merge hooks through a symlinked config file: {json_path.name}. "
+            "Replace the symlink with a regular file or remove it, then retry."
+        )
+    if not json_path.exists():
+        return {}
+    try:
+        with open(json_path, encoding="utf-8") as handle:
+            return json.load(handle)
+    except (json.JSONDecodeError, OSError):
+        return {}
+
+
+def drop_source_entries(
+    hooks: dict,
+    markers: frozenset[str] | set[str],
+    keep_events: frozenset[str] | set[str] = frozenset(),
+) -> None:
+    """Remove entries owned by *markers* from every event outside *keep_events*.
+
+    An event this call empties is deleted; user and sibling entries are kept.
+    Merged targets keep the events a source re-declared this run, so a hook
+    file removed from a package cannot leave its event entries behind (#3665).
+    """
+    for event_name in list(hooks):
+        entries = hooks[event_name]
+        if event_name in keep_events or not isinstance(entries, list):
+            continue
+        kept = [e for e in entries if not (isinstance(e, dict) and e.get("_apm_source") in markers)]
+        if len(kept) == len(entries):
+            continue
+        if kept:
+            hooks[event_name] = kept
+        else:
+            del hooks[event_name]
+
+
 def extract_apm_source_sidecar(hooks: dict) -> dict[str, list[dict[str, Any]]]:
     """Extract ownership metadata and leave native hook entries schema-clean."""
     sidecar: dict[str, list[dict[str, Any]]] = {}

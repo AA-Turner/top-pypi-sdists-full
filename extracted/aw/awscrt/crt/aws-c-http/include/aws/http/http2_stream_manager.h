@@ -165,6 +165,55 @@ struct aws_http2_stream_manager_options {
      * existing streams to complete before creating new ones, even if connections have available capacity.
      */
     size_t max_concurrent_streams;
+
+    /**
+     * Optional.
+     * If set to a non-zero value, a connection with no open streams is returned to the underlying connection pool,
+     * and is closed if it stays there longer than this.
+     * See `aws_http_connection_manager_options.max_connection_idle_in_milliseconds`.
+     */
+    uint64_t max_connection_idle_in_milliseconds;
+
+    /**
+     * Optional.
+     * If set to a non-zero value, the stream manager gives up waiting for a new connection from the underlying
+     * connection pool after this long, and fails the stream acquisitions that need that connection with
+     * AWS_ERROR_HTTP_STREAM_MANAGER_CONNECTION_ACQUIRE_FAILURE.
+     * This does not limit the time an acquisition waits for capacity on connections already held, for example when
+     * `max_concurrent_streams` is reached.
+     * See `aws_http_connection_manager_options.connection_acquisition_timeout_ms`.
+     */
+    uint64_t connection_acquisition_timeout_ms;
+
+    /**
+     * Optional (ignored if 0).
+     * After a request is fully sent, if the server does not begin responding within N milliseconds,
+     * then fail with AWS_ERROR_HTTP_RESPONSE_FIRST_BYTE_TIMEOUT.
+     * This can be overridden per-request by aws_http_make_request_options.response_first_byte_timeout_ms.
+     * See `aws_http_connection_manager_options.response_first_byte_timeout_ms`.
+     * TODO: Only supported in HTTP/1.1 now, support it in HTTP/2
+     */
+    uint64_t response_first_byte_timeout_ms;
+
+    /**
+     * Optional. 0 means no limit (default).
+     * The max number of stream acquisitions waiting for capacity once no more connections can be acquired or
+     * `max_concurrent_streams` is reached. Beyond it, aws_http2_stream_manager_acquire_stream() fails right away with
+     * AWS_ERROR_HTTP_STREAM_MANAGER_MAX_PENDING_ACQUISITIONS_EXCEEDED.
+     * Acquisitions expected to fit on connections still being acquired, up to `max_concurrent_streams_per_connection`
+     * each, are not counted as waiting.
+     * The limit is checked only on new acquisitions. If the server allows fewer concurrent streams than expected,
+     * more than this many can end up waiting.
+     */
+    size_t max_pending_stream_acquisitions;
+
+    /**
+     * Optional. 0 means no timeout (default).
+     * If set, a stream acquisition that has waited this long without getting a connection fails with
+     * AWS_ERROR_HTTP_STREAM_MANAGER_ACQUISITION_TIMEOUT. This covers waiting for a new connection and waiting for room
+     * on connections already held, for example when `max_concurrent_streams` is reached.
+     */
+    uint64_t stream_acquisition_timeout_ms;
 };
 
 struct aws_http2_stream_manager_acquire_stream_options {

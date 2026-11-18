@@ -7,8 +7,13 @@ from typing import TYPE_CHECKING
 
 from sphinx.util.inspect import getdoc
 
-from sphinx_autodoc_typehints._documented import OVERLOADED_KINDS, class_doc_choice
-from sphinx_autodoc_typehints._resolve import resolve_overloads
+from ..._documented import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    OVERLOADED_KINDS,
+    class_doc_choice,
+)
+from ..._resolve import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    resolve_overloads,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -16,11 +21,17 @@ if TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import Options
 
-    from sphinx_autodoc_typehints._objects import QualifiedCallable
+    from . import QualifiedCallable
 
 
 def signature_overloads(
-    app: Sphinx, what: str, documented: Callable[..., object], obj: QualifiedCallable, options: Options
+    app: Sphinx,
+    what: str,
+    documented: Callable[  # simplint: ignore[callable-ellipsis]  # any documented callable
+        ..., object
+    ],
+    obj: QualifiedCallable,
+    options: Options,
 ) -> list[Signature]:
     if (
         not app.config.typehints_use_signature

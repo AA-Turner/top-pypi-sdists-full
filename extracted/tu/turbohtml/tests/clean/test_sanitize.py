@@ -732,6 +732,18 @@ def test_remove_with_content_does_not_drop_allowed_tags() -> None:
     assert sanitize("<b>kept</b>", policy) == "<b>kept</b>"
 
 
+@pytest.mark.parametrize("size", [1, 300, 1_000, 3_000])
+@pytest.mark.parametrize("clones", [1, 2, 8, 64])
+def test_sanitize_kept_link_keeps_every_attribute(size: int, clones: int) -> None:
+    # the tree builder reopens the link in every block, and a clone the output cannot fund is left out whole, so an
+    # <a href> that survives keeps the title its source has
+    policy = Policy(tags=frozenset({"a", "p"}), attributes={"*": frozenset({"href", "title"})})
+    links = parse(sanitize(f"<p><a href={'u' * size} title=t>x{'<p>y' * clones}", policy)).select("a")
+    kept = [link for link in links if "href" in link.attrs]
+    assert len(kept) >= 1
+    assert all(set(link.attrs) == {"href", "title"} for link in kept)
+
+
 def test_remove_with_content_leaves_other_disallowed_tags_to_the_mode() -> None:
     # a disallowed tag that is not in the set still follows on_disallowed (escaped here)
     policy = Policy(tags=frozenset({"b"}), remove_with_content=frozenset({"script"}))
@@ -1428,9 +1440,15 @@ def test_style_element_transformed_from_text_keeps_end_tag_inert() -> None:
         pytest.param('a{content:"x;}b{color:red}', "a{}", id="string-swallows-later-rules"),
         pytest.param('a{color:red;content:"x', "a{color:red;}", id="earlier-declaration-kept"),
         pytest.param("a{color:red/* x", "a{}", id="comment"),
+        pytest.param("a{color:red(", "a{}", id="open-paren"),
+        pytest.param("a{color:red;content:x((", "a{color:red;}", id="open-parens-after-declaration"),
+        pytest.param("@media screen{a{color:red(", "@media screen{a{}}", id="open-paren-in-nested-block"),
+        pytest.param("a{color:red(;}b{color:red}", "a{}", id="open-paren-swallows-later-rules"),
+        pytest.param("a{color:red[", "a{color:red[;}", id="open-bracket"),
+        pytest.param("a{color:red{", "a{color:red{}}", id="open-brace"),
     ],
 )
-def test_style_element_unterminated_token_is_a_fixpoint(css: str, expected_body: str) -> None:
+def test_style_element_unterminated_construct_is_a_fixpoint(css: str, expected_body: str) -> None:
     policy = _style_element_policy(css_properties=frozenset({"color", "content"}))
     once = sanitize(f"<style>{css}</style>", policy)
     assert (once, sanitize(once, policy)) == (f"<style>{expected_body}</style>", once)
@@ -1763,6 +1781,112 @@ def test_meta_refresh_keeps_the_url(content: str) -> None:
 )
 def test_meta_content_without_refresh_is_not_scheme_checked(html: str) -> None:
     assert sanitize(html, _allow_all({"meta", "x"}, {"http-equiv", "content", "name"})) == html
+
+
+_REFRESH_URL: Final[str] = "0;url=javascript:void(0)"
+# the case variant, the refresh http-equiv and the content in every order, since the walk meets them one at a time
+_REFRESH_ORDERS: Final[list[pytest.ParameterSet]] = [
+    pytest.param(("variant", "refresh", "content"), id="variant-refresh-content"),
+    pytest.param(("variant", "content", "refresh"), id="variant-content-refresh"),
+    pytest.param(("refresh", "variant", "content"), id="refresh-variant-content"),
+    pytest.param(("refresh", "content", "variant"), id="refresh-content-variant"),
+    pytest.param(("content", "variant", "refresh"), id="content-variant-refresh"),
+    pytest.param(("content", "refresh", "variant"), id="content-refresh-variant"),
+]
+_REFRESH_VARIANTS: Final[list[pytest.ParameterSet]] = [
+    pytest.param("HTTP-EQUIV", id="upper"),
+    pytest.param("Http-Equiv", id="title"),
+]
+# element attribute counts on either side of 32, where start tags used to take different paths
+_REFRESH_SIZES: Final[list[pytest.ParameterSet]] = [
+    pytest.param(31, id="31-attributes"),
+    pytest.param(35, id="35-attributes"),
+]
+_REFRESH_KEPT: Final[str] = '<r><meta http-equiv="refresh"></meta></r>'
+
+
+@pytest.mark.parametrize("total", _REFRESH_SIZES)
+@pytest.mark.parametrize("variant", _REFRESH_VARIANTS)
+@pytest.mark.parametrize("order", _REFRESH_ORDERS)
+def test_refresh_content_is_judged_on_the_attributes_written(order: tuple[str, ...], variant: str, total: int) -> None:
+    html = sanitize_node(_refresh_root(_refresh_xml(variant, order, total)), _refresh_policy()).html
+    assert html == _REFRESH_KEPT
+    refresh = parse(html).meta_refresh()
+    assert refresh is None or not refresh[1].startswith("javascript:")
+
+
+def _refresh_root(xml: str) -> Element:
+    root = parse_xml(xml).root
+    assert root is not None
+    return root
+
+
+def _refresh_xml(variant: str, order: tuple[str, ...], total: int) -> str:
+    fields = {
+        "variant": f'{variant}="x"',
+        "refresh": 'http-equiv="refresh"',
+        "content": f'content="{_REFRESH_URL}"',
+    }
+    padding = [f'pad{index}="v"' for index in range(total - len(order))]
+    return f"<r><meta {' '.join([*(fields[name] for name in order), *padding])}/></r>"
+
+
+def _refresh_policy() -> Policy:
+    return Policy(tags=frozenset({"r", "meta"}), attributes={"meta": frozenset({"http-equiv", "content"})})
+
+
+@pytest.mark.parametrize("total", _REFRESH_SIZES)
+@pytest.mark.parametrize("variant", _REFRESH_VARIANTS)
+@pytest.mark.parametrize("order", _REFRESH_ORDERS)
+def test_refresh_content_removal_is_reported(order: tuple[str, ...], variant: str, total: int) -> None:
+    out, removed = sanitize_report_node(_refresh_root(_refresh_xml(variant, order, total)), _refresh_policy())
+    assert out.html == _REFRESH_KEPT
+    expected = {("meta", name) for name in (variant, "content", *(f"pad{index}" for index in range(total - 3)))}
+    assert {(item.tag, item.attribute) for item in removed} == expected
+    assert len(removed) == len(expected)
+
+
+@pytest.mark.parametrize("total", _REFRESH_SIZES)
+@pytest.mark.parametrize("variant", _REFRESH_VARIANTS)
+def test_refresh_content_is_checked_after_filter_deletes_variant(variant: str, total: int) -> None:
+    policy = replace(_refresh_policy(), attribute_filter=lambda _tag, name, value: None if name == variant else value)
+    html = sanitize_node(_refresh_root(_refresh_xml(variant, ("content", "variant", "refresh"), total)), policy).html
+    assert html == _REFRESH_KEPT
+
+
+@pytest.mark.parametrize("total", _REFRESH_SIZES)
+@pytest.mark.parametrize("variant", _REFRESH_VARIANTS)
+def test_refresh_content_is_checked_after_value_rule_removes_variant(variant: str, total: int) -> None:
+    values = {variant: frozenset({"y"}), "http-equiv": frozenset({"refresh"})}
+    policy = replace(_refresh_policy(), attribute_values={"meta": values})
+    html = sanitize_node(_refresh_root(_refresh_xml(variant, ("content", "variant", "refresh"), total)), policy).html
+    assert html == _REFRESH_KEPT
+
+
+def test_refresh_content_is_checked_after_filter_writes_refresh() -> None:
+    policy = replace(
+        _refresh_policy(),
+        attribute_filter=lambda _tag, name, value: "refresh" if name == "http-equiv" else value,
+    )
+    html = sanitize_node(_refresh_root(f'<r><meta content="{_REFRESH_URL}" http-equiv="x"/></r>'), policy).html
+    assert html == _REFRESH_KEPT
+
+
+def test_refresh_content_is_checked_after_set_attributes_writes_refresh() -> None:
+    policy = replace(_refresh_policy(), set_attributes={"meta": {"http-equiv": "refresh"}})
+    html = sanitize_node(_refresh_root(f'<r><meta content="{_REFRESH_URL}"/></r>'), policy).html
+    assert html == _REFRESH_KEPT
+
+
+def test_refresh_decision_propagates_a_failing_prefix_check() -> None:
+    # the disallowed http-equiv is checked against the prefixes while the content's refresh decision is made
+    policy = replace(
+        _refresh_policy(),
+        attributes={"meta": frozenset({"content"})},
+        attribute_prefixes=frozenset({"\ud800"}),
+    )
+    with pytest.raises(UnicodeEncodeError, match="surrogates not allowed"):
+        sanitize_node(_refresh_root(f'<r><meta content="{_REFRESH_URL}" http-equiv="refresh"/></r>'), policy)
 
 
 def test_eleven_char_non_srcset_attribute_is_not_url_checked() -> None:
@@ -2862,7 +2986,7 @@ def test_attribute_compaction_copies_source(policy: Policy) -> None:
     [
         pytest.param(0, "<p>x</p>", id="rejected"),
         pytest.param(1, f"""<p{"".join(f' data-{index}="x"' for index in range(1_024))}>x</p>""", id="allowed"),
-        pytest.param(2, '<p data-a="x" data-b="x" data-c="x" data-d="x">x</p>', id="tiny"),
+        pytest.param(2, '<p data-a="x" data-b="x" data-c="x" data-d="x">x</p>' * 112, id="112-elements"),
     ],
 )
 def test_sanitize_attribute_benchmark(case: int, expected: str) -> None:
@@ -3360,6 +3484,186 @@ _ANNOTATION_TAGS: Final[frozenset[str]] = frozenset({"math", "annotation-xml", "
 def test_annotation_xml_integration_follows_kept_encoding(html: str, policy: Policy, expected: str) -> None:
     # annotation-xml keeps HTML children only while its serialized encoding makes it an integration point.
     assert sanitize(html, policy) == expected
+
+
+_SPLICE_POLICY: Final[Policy] = Policy(
+    tags=frozenset({"math", "annotation-xml", "textarea", "style"}),
+    attributes={"annotation-xml": frozenset({"encoding"})},
+    strip_comments=False,
+)
+
+
+def test_spliced_integration_point_content_sanitizes_like_the_parsed_string() -> None:
+    # the textarea's content is raw text, so the comment and style below it are escaped; a splice that left the
+    # textarea in MathML would keep both as live nodes
+    host = parse('<math><annotation-xml encoding="text/html"></annotation-xml></math>')
+    point = host.find("annotation-xml")
+    root = host.find("math")
+    assert point is not None
+    assert root is not None
+    inner = "<textarea>a<!--b--><style>p{color:red}</style></textarea>"
+    point.set_inner_html(inner)
+    expected = (
+        '<math><annotation-xml encoding="text/html"><textarea>a&lt;!--b--&gt;&lt;style&gt;p{color:red}&lt;/style&gt;'
+        "</textarea></annotation-xml></math>"
+    )
+    assert sanitize_node(root, _SPLICE_POLICY).html == expected
+    assert (
+        sanitize(f'<math><annotation-xml encoding="text/html">{inner}</annotation-xml></math>', _SPLICE_POLICY)
+        == expected
+    )
+
+
+_MUTATION_POLICY: Final[Policy] = Policy(
+    tags=frozenset({
+        "math",
+        "mi",
+        "mo",
+        "mrow",
+        "mglyph",
+        "malignmark",
+        "annotation-xml",
+        "textarea",
+        "svg",
+        "foreignObject",
+        "g",
+        "circle",
+    }),
+    attributes={"annotation-xml": frozenset({"encoding"})},
+)
+
+
+@pytest.mark.parametrize(
+    ("host", "host_tag", "moved", "moved_tag", "expected"),
+    [
+        pytest.param(
+            '<math><annotation-xml encoding="text/html"></annotation-xml></math>',
+            "annotation-xml",
+            "<math><mrow><textarea>a</textarea></mrow></math>",
+            "textarea",
+            '<math><annotation-xml encoding="text/html">&lt;textarea&gt;a&lt;/textarea&gt;</annotation-xml></math>',
+            id="annotation-xml-mathml-textarea",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="text/html"></annotation-xml></math>',
+            "annotation-xml",
+            "<math><mi>a</mi></math>",
+            "mi",
+            '<math><annotation-xml encoding="text/html">&lt;mi&gt;a&lt;/mi&gt;</annotation-xml></math>',
+            id="annotation-xml-mathml-mi",
+        ),
+        pytest.param(
+            '<math><annotation-xml encoding="text/html"></annotation-xml></math>',
+            "annotation-xml",
+            "<math><mrow><math>a</math></mrow></math>",
+            "math",
+            '<math><annotation-xml encoding="text/html">'
+            "<math><mrow><math>a</math></mrow></math></annotation-xml></math>",
+            id="annotation-xml-mathml-math",
+        ),
+        pytest.param(
+            "<math><mi></mi></math>",
+            "mi",
+            "<math><mrow><mo>a</mo></mrow></math>",
+            "mo",
+            "<math><mi>&lt;mo&gt;a&lt;/mo&gt;</mi></math>",
+            id="text-point-mathml-mo",
+        ),
+        pytest.param(
+            "<math><mi></mi></math>",
+            "mi",
+            "<math><mrow><mi>a</mi></mrow></math>",
+            "mi",
+            "<math><mi>&lt;mi&gt;a&lt;/mi&gt;</mi></math>",
+            id="text-point-mathml-mi",
+        ),
+        pytest.param(
+            "<math><mi></mi></math>",
+            "mi",
+            "<math><mrow><mglyph>a</mglyph></mrow></math>",
+            "mglyph",
+            "<math><mi><mglyph>a</mglyph></mi></math>",
+            id="text-point-mathml-mglyph",
+        ),
+        pytest.param(
+            "<math><mi></mi></math>",
+            "mi",
+            "<math><mrow><malignmark>a</malignmark></mrow></math>",
+            "malignmark",
+            "<math><mi><malignmark>a</malignmark></mi></math>",
+            id="text-point-mathml-malignmark",
+        ),
+        pytest.param(
+            "<math><mi></mi></math>",
+            "mi",
+            "<math><mrow><math>a</math></mrow></math>",
+            "math",
+            "<math><mi><math><mrow><math>a</math></mrow></math></mi></math>",
+            id="text-point-mathml-math",
+        ),
+        pytest.param(
+            "<math><mrow></mrow></math>",
+            "mrow",
+            "<math><mi>a</mi></math>",
+            "mi",
+            "<math><mrow><mi>a</mi></mrow></math>",
+            id="plain-mathml-keeps-mi",
+        ),
+        pytest.param(
+            "<svg><foreignObject></foreignObject></svg>",
+            "foreignobject",
+            "<svg><g>a</g></svg>",
+            "g",
+            "<svg><foreignObject>&lt;g&gt;a&lt;/g&gt;</foreignObject></svg>",
+            id="foreign-object-svg-g",
+        ),
+        pytest.param(
+            "<svg><foreignObject></foreignObject></svg>",
+            "foreignobject",
+            "<svg><svg>a</svg></svg>",
+            "svg",
+            "<svg><foreignObject><svg><svg>a</svg></svg></foreignObject></svg>",
+            id="foreign-object-svg-svg",
+        ),
+        pytest.param(
+            "<svg><g></g></svg>",
+            "g",
+            "<svg><circle></circle></svg>",
+            "circle",
+            "<svg><g><circle></circle></g></svg>",
+            id="plain-svg-keeps-circle",
+        ),
+    ],
+)
+def test_foreign_child_moved_under_a_point_is_a_mutation(
+    host: str, host_tag: str, moved: str, moved_tag: str, expected: str
+) -> None:
+    # the parser never puts these children under the host, so a DOM move is the only way to reach each case
+    target = parse(host).find(host_tag)
+    source = parse(moved).find(moved_tag)
+    assert target is not None
+    assert source is not None
+    target.append(source)
+    root = target.parent
+    assert root is not None
+    assert sanitize_node(root, _MUTATION_POLICY).html == expected
+
+
+def test_xml_tree_keeps_mathml_children_of_an_annotation_xml() -> None:
+    # an XML tree serializes each node in its own namespace, so the HTML integration point rules leave it alone
+    policy = Policy(
+        tags=frozenset({"math", "annotation-xml", "mi"}),
+        attributes={"annotation-xml": frozenset({"encoding"})},
+        xml=True,
+    )
+    tree = parse_xml(
+        '<math xmlns="http://www.w3.org/1998/Math/MathML">'
+        '<annotation-xml encoding="text/html"><mi>x</mi></annotation-xml></math>'
+    )
+    assert (
+        sanitize_node(tree, policy).html
+        == '<math><annotation-xml encoding="text/html"><mi>x</mi></annotation-xml></math>'
+    )
 
 
 @pytest.mark.parametrize(
@@ -5580,8 +5884,7 @@ def test_escaped_opening_raw_attributes(attributes: str, expected: str) -> None:
     "name", [pytest.param("\ud800", id="high-surrogate"), pytest.param("\udfff", id="low-surrogate")]
 )
 def test_escaped_opening_surrogate_attribute_name(name: str) -> None:
-    with pytest.raises(UnicodeDecodeError, match="invalid continuation byte"):
-        sanitize(f'<x valid="v" {name}="v">text</x>')
+    assert sanitize(f'<x valid="v" {name}="v">text</x>') == f'&lt;x valid="v" {name}="v"&gt;text&lt;/x&gt;'
 
 
 @pytest.mark.parametrize(
@@ -5606,13 +5909,41 @@ def test_document_node_return_types(
     )
 
 
-@pytest.mark.parametrize("count", [pytest.param(1, id="single"), pytest.param(32, id="compacted")])
-@pytest.mark.parametrize("prefix", [pytest.param("", id="rejected"), pytest.param("data-", id="allowed-prefix")])
-def test_kept_element_surrogate_attribute_name(count: int, prefix: str) -> None:
-    attributes: Final = " ".join(f'data-{index}="x"' for index in range(count - 1))
+_LEADING_ATTRIBUTES: Final[str] = " ".join(f'data-{index}="x"' for index in range(31))
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        pytest.param('<p \ud800="x">text</p>', "<p>text</p>", id="rejected-single"),
+        pytest.param(
+            f'<p {_LEADING_ATTRIBUTES} \ud800="x">text</p>',
+            f"<p {_LEADING_ATTRIBUTES}>text</p>",
+            id="rejected-compacted",
+        ),
+        pytest.param('<p data-\ud800="x">text</p>', '<p data-\ud800="x">text</p>', id="allowed-single"),
+        pytest.param(
+            f'<p {_LEADING_ATTRIBUTES} data-\ud800="x">text</p>',
+            f'<p {_LEADING_ATTRIBUTES} data-\ud800="x">text</p>',
+            id="allowed-compacted",
+        ),
+    ],
+)
+def test_kept_element_surrogate_attribute_name(html: str, expected: str) -> None:
     policy: Final = Policy(tags=frozenset({"p"}), attributes={}, attribute_prefixes=frozenset({"data-"}))
-    with pytest.raises(UnicodeDecodeError, match="invalid continuation byte"):
-        sanitize(f'<p {attributes} {prefix}\ud800="x">text</p>', policy)
+    assert sanitize(html, policy) == expected
+
+
+@pytest.mark.parametrize(
+    ("html", "expected"),
+    [
+        pytest.param('<p a\ud800b="x" data-0="x">text</p>', '<p data-0="x">text</p>', id="inside-rejected"),
+        pytest.param('<p data-a\ud800b="x">text</p>', '<p data-a\ud800b="x">text</p>', id="inside-prefix-allowed"),
+    ],
+)
+def test_surrogate_attribute_name_policy(html: str, expected: str) -> None:
+    policy: Final = Policy(tags=frozenset({"p"}), attributes={}, attribute_prefixes=frozenset({"data-"}))
+    assert sanitize(html, policy) == expected
 
 
 @pytest.mark.parametrize(

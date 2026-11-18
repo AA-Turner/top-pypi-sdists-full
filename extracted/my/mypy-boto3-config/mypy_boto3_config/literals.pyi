@@ -35,6 +35,7 @@ __all__ = (
     "ConfigurationRecorderFilterNameType",
     "ConformancePackComplianceTypeType",
     "ConformancePackStateType",
+    "ConformancePackTypeType",
     "ConnectorFilterNameType",
     "DeliveryStatusType",
     "DescribeAggregateComplianceByConfigRulesPaginatorName",
@@ -122,8 +123,16 @@ ConfigurationItemStatusType = Literal[
 ConfigurationRecorderFilterNameType = Literal["recordingScope"]
 ConformancePackComplianceTypeType = Literal["COMPLIANT", "INSUFFICIENT_DATA", "NON_COMPLIANT"]
 ConformancePackStateType = Literal[
-    "CREATE_COMPLETE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
+    "CREATE_COMPLETE",
+    "CREATE_FAILED",
+    "CREATE_IN_PROGRESS",
+    "DELETE_FAILED",
+    "DELETE_IN_PROGRESS",
+    "UPDATE_COMPLETE",
+    "UPDATE_FAILED",
+    "UPDATE_IN_PROGRESS",
 ]
+ConformancePackTypeType = Literal["CUSTOM", "MANAGED"]
 ConnectorFilterNameType = Literal["provider"]
 DeliveryStatusType = Literal["Failure", "Not_Applicable", "Success"]
 DescribeAggregateComplianceByConfigRulesPaginatorName = Literal[
@@ -908,6 +917,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -1092,6 +1102,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -1159,6 +1170,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

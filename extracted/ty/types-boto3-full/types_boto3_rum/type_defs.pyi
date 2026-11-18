@@ -435,6 +435,7 @@ class PutRumEventsRequestTypeDef(TypedDict):
     UserDetails: UserDetailsTypeDef
     RumEvents: Sequence[RumEventTypeDef]
     Alias: NotRequired[str]
+    SessionMetadata: NotRequired[str]
 
 class GetAppMonitorResponseTypeDef(TypedDict):
     AppMonitor: AppMonitorTypeDef

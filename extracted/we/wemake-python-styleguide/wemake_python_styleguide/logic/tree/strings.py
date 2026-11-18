@@ -1,5 +1,7 @@
 import ast
 import itertools
+from collections.abc import Iterator
+from typing import Final, TypeAlias, cast
 
 from wemake_python_styleguide.compat import nodes
 from wemake_python_styleguide.compat.aliases import AssignNodes, FunctionNodes
@@ -8,6 +10,12 @@ from wemake_python_styleguide.logic.nodes import get_context, get_parent
 from wemake_python_styleguide.logic.tree.attributes import is_special_attr
 from wemake_python_styleguide.logic.walk import get_closest_parent
 from wemake_python_styleguide.types import ContextNodes
+
+_AnyFormattedString: TypeAlias = ast.JoinedStr | nodes.TemplateStr
+_AnyPlaceholder: TypeAlias = ast.FormattedValue | nodes.Interpolation
+
+_ConstructorMethods: Final = frozenset(('__init__', '__new__'))
+"""Methods that define the instance attributes a docstring can document."""
 
 
 def is_doc_string(node: ast.AST) -> bool:
@@ -66,12 +74,25 @@ def _is_documented(statement: ast.stmt, context: ContextNodes) -> bool:
         return False
     target = targets[0]
     if isinstance(context, FunctionNodes):
-        # Locals are not attributes. Only `self.some = 1` defines one,
-        # while `x.some = 1` documents an attribute of some other object.
-        return isinstance(target, ast.Attribute) and is_special_attr(target)
+        # Only a constructor defines the instance attributes. Locals are
+        # not attributes, and `x.some = 1` belongs to some other object.
+        return (
+            context.name in _ConstructorMethods
+            and isinstance(target, ast.Attribute)
+            and is_special_attr(target)
+        )
     # Modules and classes define their attributes by plain names,
     # `x.some = 1` here belongs to `x`, not to this module or class.
     return isinstance(target, ast.Name)
+
+
+def is_format_spec(node: _AnyFormattedString) -> bool:
+    """Checks whether a formatted string is a format specifier of a value."""
+    placeholder = get_parent(node)
+    return (
+        isinstance(placeholder, ast.FormattedValue | nodes.Interpolation)
+        and placeholder.format_spec is node
+    )
 
 
 def has_format_string_conversion(component: ast.AST) -> bool:
@@ -87,3 +108,18 @@ def has_format_string_conversion(component: ast.AST) -> bool:
         )
         and formatted_component.conversion != -1
     )
+
+
+def formatted_string_parts(
+    node: _AnyFormattedString,
+) -> Iterator[ast.Constant | _AnyPlaceholder]:
+    """Yields literal and formatted parts, including ones in format specs."""
+    for part in node.values:
+        if isinstance(part, ast.Constant):
+            yield part
+        else:
+            # Any other part of a formatted string is a placeholder:
+            placeholder = cast(_AnyPlaceholder, part)
+            yield placeholder
+            if isinstance(placeholder.format_spec, ast.JoinedStr):
+                yield from formatted_string_parts(placeholder.format_spec)

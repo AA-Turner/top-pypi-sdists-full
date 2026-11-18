@@ -1,13 +1,9 @@
-"""
-Diagnostic utilities
-"""
+"""Diagnostic utilities."""
 
 from __future__ import annotations
 
 import functools
-import sys
-import traceback
-from typing import Any, Callable, TypeVar, cast, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
 
 if TYPE_CHECKING:
     import logging  # pragma: no cover
@@ -20,9 +16,8 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
     """Create a decorator that logs and reraises any exceptions that escape
     the decorated function
 
-    :param logging.Logger logger:
+    :param logger:
     :returns: the decorator
-    :rtype: callable
 
     Usage example
 
@@ -39,31 +34,29 @@ def create_log_exception_decorator(logger: logging.Logger) -> Callable[[F], F]:
     """
 
     def log_exception(func: F) -> F:
-        """The decorator returned by the parent function
+        """
+        The decorator returned by the parent function.
 
         :param func: function to be wrapped
         :returns: the function wrapper
-        :rtype: callable
         """
 
         @functools.wraps(func)
         def log_exception_func_wrap(*args: Any, **kwargs: Any) -> Any:
-            """The wrapper function returned by the decorator. Invokes the
-            function with the given args/kwargs and returns the function's
-            return value. If the function exits with an exception, logs the
-            exception traceback and re-raises the
+            """
+            The wrapper function returned by the decorator.
+
+            Invokes the function with the given args/kwargs and returns the function's return value.
+            If the function exits with an exception, logs the exception traceback and re-raises the
 
             :param args: positional args passed to wrapped function
             :param kwargs: keyword args passed to wrapped function
             :returns: whatever the wrapped function returns
-            :rtype: object
             """
             try:
                 return func(*args, **kwargs)
             except Exception:
-                logger.exception(
-                    'Wrapped func exited with exception. Caller\'s stack:\n%s',
-                    ''.join(traceback.format_exception(*sys.exc_info())))
+                logger.exception('Wrapped func exited with exception.')
                 raise
 
         return cast(F, log_exception_func_wrap)

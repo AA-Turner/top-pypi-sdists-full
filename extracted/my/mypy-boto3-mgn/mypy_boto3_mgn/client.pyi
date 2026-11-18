@@ -49,10 +49,15 @@ from .paginator import (
     ListNetworkMigrationDeployedStacksPaginator,
     ListNetworkMigrationDeploymentsPaginator,
     ListNetworkMigrationExecutionsPaginator,
+    ListNetworkMigrationInsightsPaginator,
     ListNetworkMigrationMapperSegmentConstructsPaginator,
     ListNetworkMigrationMapperSegmentsPaginator,
     ListNetworkMigrationMappingsPaginator,
     ListNetworkMigrationMappingUpdatesPaginator,
+    ListRemoteSourceActionInvocationResultsPaginator,
+    ListRemoteSourceActionInvocationsPaginator,
+    ListRemoteSourceActionJobsPaginator,
+    ListRemoteSourceActionsPaginator,
     ListSourceServerActionsPaginator,
     ListTemplateActionsPaginator,
     ListWavesPaginator,
@@ -69,6 +74,8 @@ from .type_defs import (
     CreateConnectorRequestTypeDef,
     CreateLaunchConfigurationTemplateRequestTypeDef,
     CreateNetworkMigrationDefinitionRequestTypeDef,
+    CreateRemoteSourceActionRequestTypeDef,
+    CreateRemoteSourceActionResponseTypeDef,
     CreateReplicationConfigurationTemplateRequestTypeDef,
     CreateWaveRequestTypeDef,
     DeleteApplicationRequestTypeDef,
@@ -76,6 +83,7 @@ from .type_defs import (
     DeleteJobRequestTypeDef,
     DeleteLaunchConfigurationTemplateRequestTypeDef,
     DeleteNetworkMigrationDefinitionRequestTypeDef,
+    DeleteRemoteSourceActionRequestTypeDef,
     DeleteReplicationConfigurationTemplateRequestTypeDef,
     DeleteSourceServerRequestTypeDef,
     DeleteVcenterClientRequestTypeDef,
@@ -97,6 +105,8 @@ from .type_defs import (
     DisconnectFromServiceRequestTypeDef,
     EmptyResponseMetadataTypeDef,
     FinalizeCutoverRequestTypeDef,
+    GetLaunchConfigurationDefaultsRequestTypeDef,
+    GetLaunchConfigurationDefaultsResponseTypeDef,
     GetLaunchConfigurationRequestTypeDef,
     GetNetworkMigrationDefinitionRequestTypeDef,
     GetNetworkMigrationMapperSegmentConstructRequestTypeDef,
@@ -136,6 +146,8 @@ from .type_defs import (
     ListNetworkMigrationDeploymentsRequestTypeDef,
     ListNetworkMigrationExecutionsRequestTypeDef,
     ListNetworkMigrationExecutionsResponseTypeDef,
+    ListNetworkMigrationInsightsRequestTypeDef,
+    ListNetworkMigrationInsightsResponseTypeDef,
     ListNetworkMigrationMapperSegmentConstructsRequestTypeDef,
     ListNetworkMigrationMapperSegmentConstructsResponseTypeDef,
     ListNetworkMigrationMapperSegmentsRequestTypeDef,
@@ -144,6 +156,14 @@ from .type_defs import (
     ListNetworkMigrationMappingsResponseTypeDef,
     ListNetworkMigrationMappingUpdatesRequestTypeDef,
     ListNetworkMigrationMappingUpdatesResponseTypeDef,
+    ListRemoteSourceActionInvocationResultsRequestTypeDef,
+    ListRemoteSourceActionInvocationResultsResponseTypeDef,
+    ListRemoteSourceActionInvocationsRequestTypeDef,
+    ListRemoteSourceActionInvocationsResponseTypeDef,
+    ListRemoteSourceActionJobsRequestTypeDef,
+    ListRemoteSourceActionJobsResponseTypeDef,
+    ListRemoteSourceActionsRequestTypeDef,
+    ListRemoteSourceActionsResponseTypeDef,
     ListSourceServerActionsRequestTypeDef,
     ListSourceServerActionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -184,6 +204,8 @@ from .type_defs import (
     StartNetworkMigrationMappingResponseTypeDef,
     StartNetworkMigrationMappingUpdateRequestTypeDef,
     StartNetworkMigrationMappingUpdateResponseTypeDef,
+    StartRemoteSourceActionJobRequestTypeDef,
+    StartRemoteSourceActionJobResponseTypeDef,
     StartReplicationRequestTypeDef,
     StartTestRequestTypeDef,
     StartTestResponseTypeDef,
@@ -197,10 +219,14 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateConnectorRequestTypeDef,
+    UpdateLaunchConfigurationDefaultsRequestTypeDef,
+    UpdateLaunchConfigurationDefaultsResponseTypeDef,
     UpdateLaunchConfigurationRequestTypeDef,
     UpdateLaunchConfigurationTemplateRequestTypeDef,
     UpdateNetworkMigrationDefinitionRequestTypeDef,
     UpdateNetworkMigrationMapperSegmentRequestTypeDef,
+    UpdateRemoteSourceActionRequestTypeDef,
+    UpdateRemoteSourceActionResponseTypeDef,
     UpdateReplicationConfigurationRequestTypeDef,
     UpdateReplicationConfigurationTemplateRequestTypeDef,
     UpdateSourceServerReplicationTypeRequestTypeDef,
@@ -352,6 +378,17 @@ class MgnClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#create_network_migration_definition)
         """
 
+    def create_remote_source_action(
+        self, **kwargs: Unpack[CreateRemoteSourceActionRequestTypeDef]
+    ) -> CreateRemoteSourceActionResponseTypeDef:
+        """
+        Creates a source action, which references a script in AWS Systems Manager
+        Parameter Store that Application Migration Service runs on source environment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/create_remote_source_action.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#create_remote_source_action)
+        """
+
     def create_replication_configuration_template(
         self, **kwargs: Unpack[CreateReplicationConfigurationTemplateRequestTypeDef]
     ) -> ReplicationConfigurationTemplateResponseTypeDef:
@@ -416,6 +453,16 @@ class MgnClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/delete_network_migration_definition.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#delete_network_migration_definition)
+        """
+
+    def delete_remote_source_action(
+        self, **kwargs: Unpack[DeleteRemoteSourceActionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a source action.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/delete_remote_source_action.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#delete_remote_source_action)
         """
 
     def delete_replication_configuration_template(
@@ -566,6 +613,19 @@ class MgnClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_launch_configuration.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_launch_configuration)
+        """
+
+    def get_launch_configuration_defaults(
+        self, **kwargs: Unpack[GetLaunchConfigurationDefaultsRequestTypeDef]
+    ) -> GetLaunchConfigurationDefaultsResponseTypeDef:
+        """
+        Gets the launch configuration defaults of a source server: the Amazon Elastic
+        Block Store (Amazon EBS) volume configuration used for the disk mappings
+        created later in the source server's Amazon Elastic Compute Cloud (Amazon EC2)
+        launch template.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_launch_configuration_defaults.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_launch_configuration_defaults)
         """
 
     def get_network_migration_definition(
@@ -773,6 +833,16 @@ class MgnClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_network_migration_executions)
         """
 
+    def list_network_migration_insights(
+        self, **kwargs: Unpack[ListNetworkMigrationInsightsRequestTypeDef]
+    ) -> ListNetworkMigrationInsightsResponseTypeDef:
+        """
+        Lists network migration insights for a network migration definition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_insights.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_network_migration_insights)
+        """
+
     def list_network_migration_mapper_segment_constructs(
         self, **kwargs: Unpack[ListNetworkMigrationMapperSegmentConstructsRequestTypeDef]
     ) -> ListNetworkMigrationMapperSegmentConstructsResponseTypeDef:
@@ -815,6 +885,48 @@ class MgnClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_network_migration_mappings.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_network_migration_mappings)
+        """
+
+    def list_remote_source_action_invocation_results(
+        self, **kwargs: Unpack[ListRemoteSourceActionInvocationResultsRequestTypeDef]
+    ) -> ListRemoteSourceActionInvocationResultsResponseTypeDef:
+        """
+        Lists the latest invocation result of each source action that ran on a source
+        server.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_remote_source_action_invocation_results.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_remote_source_action_invocation_results)
+        """
+
+    def list_remote_source_action_invocations(
+        self, **kwargs: Unpack[ListRemoteSourceActionInvocationsRequestTypeDef]
+    ) -> ListRemoteSourceActionInvocationsResponseTypeDef:
+        """
+        Lists the invocations of a source action job, one for each source server and
+        source action, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_remote_source_action_invocations.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_remote_source_action_invocations)
+        """
+
+    def list_remote_source_action_jobs(
+        self, **kwargs: Unpack[ListRemoteSourceActionJobsRequestTypeDef]
+    ) -> ListRemoteSourceActionJobsResponseTypeDef:
+        """
+        Lists the source action jobs in the account, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_remote_source_action_jobs.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_remote_source_action_jobs)
+        """
+
+    def list_remote_source_actions(
+        self, **kwargs: Unpack[ListRemoteSourceActionsRequestTypeDef]
+    ) -> ListRemoteSourceActionsResponseTypeDef:
+        """
+        Lists the source actions in the account, with optional filtering.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/list_remote_source_actions.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#list_remote_source_actions)
         """
 
     def list_source_server_actions(
@@ -1034,6 +1146,16 @@ class MgnClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#start_network_migration_mapping_update)
         """
 
+    def start_remote_source_action_job(
+        self, **kwargs: Unpack[StartRemoteSourceActionJobRequestTypeDef]
+    ) -> StartRemoteSourceActionJobResponseTypeDef:
+        """
+        Starts a job that runs a source action on source servers through a connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/start_remote_source_action_job.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#start_remote_source_action_job)
+        """
+
     def start_replication(
         self, **kwargs: Unpack[StartReplicationRequestTypeDef]
     ) -> SourceServerResponseTypeDef:
@@ -1142,6 +1264,16 @@ class MgnClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#update_launch_configuration)
         """
 
+    def update_launch_configuration_defaults(
+        self, **kwargs: Unpack[UpdateLaunchConfigurationDefaultsRequestTypeDef]
+    ) -> UpdateLaunchConfigurationDefaultsResponseTypeDef:
+        """
+        Updates the launch configuration defaults of a source server.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_launch_configuration_defaults.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#update_launch_configuration_defaults)
+        """
+
     def update_launch_configuration_template(
         self, **kwargs: Unpack[UpdateLaunchConfigurationTemplateRequestTypeDef]
     ) -> LaunchConfigurationTemplateResponseTypeDef:
@@ -1171,6 +1303,16 @@ class MgnClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_network_migration_mapper_segment.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#update_network_migration_mapper_segment)
+        """
+
+    def update_remote_source_action(
+        self, **kwargs: Unpack[UpdateRemoteSourceActionRequestTypeDef]
+    ) -> UpdateRemoteSourceActionResponseTypeDef:
+        """
+        Updates a source action.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/update_remote_source_action.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#update_remote_source_action)
         """
 
     def update_replication_configuration(
@@ -1466,6 +1608,17 @@ class MgnClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_network_migration_insights"]
+    ) -> ListNetworkMigrationInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_network_migration_mapper_segment_constructs"]
     ) -> ListNetworkMigrationMapperSegmentConstructsPaginator:
         """
@@ -1501,6 +1654,50 @@ class MgnClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_network_migration_mappings"]
     ) -> ListNetworkMigrationMappingsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_remote_source_action_invocation_results"]
+    ) -> ListRemoteSourceActionInvocationResultsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_remote_source_action_invocations"]
+    ) -> ListRemoteSourceActionInvocationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_remote_source_action_jobs"]
+    ) -> ListRemoteSourceActionJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_remote_source_actions"]
+    ) -> ListRemoteSourceActionsPaginator:
         """
         Create a paginator for an operation.
 

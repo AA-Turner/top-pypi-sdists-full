@@ -144,6 +144,7 @@ typedef struct {
     int list_depth;
     int indent_levels; /* list and quote nesting that indents the prefix, capped by TH_MAX_INDENT_LEVELS */
     Py_ssize_t padding_left;
+    struct th_clone_seen *clone_seen; /* the value sets a clone's href was written for */
     int failed;
 } text_ctx;
 
@@ -250,10 +251,12 @@ static Py_ssize_t text_add_reference(text_ctx *ctx, const Py_UCS4 *url, Py_ssize
     return ++ctx->ref_count;
 }
 
-/* Emit a run of ASCII characters (a bracket, a footnote number's punctuation). */
-static void text_emit_ascii(text_ctx *ctx, const char *ascii) {
-    for (const char *cursor = ascii; *cursor != '\0'; cursor++) {
-        sbuf_putc(&ctx->out, (Py_UCS4)(unsigned char)*cursor);
+/* Emit a run of characters (a bracket, a footnote's punctuation, a configured cell separator), decoding
+   its UTF-8 to code points so a non-ASCII separator reads back as written. */
+static void text_emit_utf8(text_ctx *ctx, const char *text) {
+    Py_ssize_t len = (Py_ssize_t)strlen(text);
+    for (Py_ssize_t index = 0; index < len;) {
+        sbuf_putc(&ctx->out, utf8_next(text, len, &index));
         ctx->column++;
     }
     ctx->line_has_content = 1;
@@ -405,11 +408,12 @@ static void text_close_annotations(text_ctx *ctx, Py_ssize_t opened) {
     }
 }
 
-/* Emit an ASCII option string (a default image alt) through the word machinery
-   so it collapses and wraps like any other text. */
-static void text_emit_text2(text_ctx *ctx, const char *ascii) {
-    for (const char *cursor = ascii; *cursor != '\0'; cursor++) {
-        Py_UCS4 ch = (Py_UCS4)(unsigned char)*cursor;
+/* Emit an option string (a default image alt) through the word machinery so it collapses and wraps like
+   any other text, one code point at a time. */
+static void text_emit_text2(text_ctx *ctx, const char *text) {
+    Py_ssize_t len = (Py_ssize_t)strlen(text);
+    for (Py_ssize_t index = 0; index < len;) {
+        Py_UCS4 ch = utf8_next(text, len, &index);
         if (is_space(ch)) {
             ctx->space_pending = 1;
         } else {
@@ -476,20 +480,35 @@ static inline text_frame *text_push(text_ctx *ctx, th_node *node, enum text_walk
 
 static void text_render_block(text_ctx *ctx, th_node *node);
 
+/* Whether a clone writes its href, and what that takes from the padding budget. The first clone an output meets for a
+   value set writes it free, since the tree holds that set once; a later clone takes its length from the padding, or
+   keeps its text alone when the padding does not cover it. */
+static int text_clone_admit(text_ctx *ctx, const th_node *node, Py_ssize_t href_len) {
+    int added = th_clone_seen_add(&ctx->clone_seen, th_node_values_seq(node));
+    ctx->failed |= added < 0;
+    if (added == 0 && href_len > ctx->padding_left) {
+        return 0;
+    }
+    ctx->padding_left -= href_len < ctx->padding_left ? href_len : ctx->padding_left;
+    return added >= 0;
+}
+
 static void text_enter_link(text_ctx *ctx, th_node *node, Py_ssize_t opened) {
     const text_opts *opt = ctx->opt;
     Py_ssize_t href_len;
     const Py_UCS4 *href = text_attr(ctx->tree, node, "href", &href_len);
     /* The tree builder reopens an unclosed <a> in every block that follows it, and each clone carries the href the
-       source spelled once. A clone's href spends the padding budget too, so a long one cannot multiply the output by
-       the block count; a clone the budget no longer covers keeps its text alone. A written start tag funds one repeat
-       of its href, the clone the adoption agency moves its content to. */
+       source spelled once. A clone's repeat spends the padding budget too, so a long one cannot multiply the output by
+       the block count. A written start tag funds one repeat of its href, the clone the adoption agency moves its
+       content to. */
     int clone = (node->tag_flags & TH_ELEM_IMPLIED) != 0;
-    if (href == NULL || opt->links == TH_TEXT_LINKS_NONE || (clone && href_len > ctx->padding_left)) {
+    if (href == NULL || opt->links == TH_TEXT_LINKS_NONE || (clone && !text_clone_admit(ctx, node, href_len))) {
         text_push(ctx, node, TEXT_WALK_INLINE, TEXT_LEAVE_NONE, opened);
         return;
     }
-    ctx->padding_left += clone ? -href_len : href_len;
+    if (!clone) {
+        ctx->padding_left += href_len;
+    }
     text_frame *frame =
         text_push(ctx, node, TEXT_WALK_INLINE,
                   opt->links == TH_TEXT_LINKS_INLINE ? TEXT_LEAVE_LINK_INLINE : TEXT_LEAVE_LINK_FOOTNOTE, opened);
@@ -735,7 +754,7 @@ static void text_list_child(text_ctx *ctx, text_frame *frame, th_node *child) {
         /* WHATWG: <li value> sets this item's ordinal; the rest count up from it */
         text_ordinal_attr(ctx, child, "value", &frame->list.number);
         width = md_put_decimal(&ctx->out, frame->list.number) + 2;
-        text_emit_ascii(ctx, ". ");
+        text_emit_utf8(ctx, ". ");
         frame->list.number++;
     } else {
         Py_ssize_t before = ctx->out.len;
@@ -865,8 +884,8 @@ static int text_enter_cell(text_ctx *ctx, text_table *table) {
     table->saved_column = ctx->column;
     table->saved_space = ctx->space_pending;
     table->saved_started = ctx->started;
-    ctx->out = (sbuf){NULL, 0, 0, 0, 0};
-    ctx->prefix = (sbuf){NULL, 0, 0, 0, 0};
+    ctx->out = (sbuf){NULL, 0, 0, 0, 0, NULL};
+    ctx->prefix = (sbuf){NULL, 0, 0, 0, 0, NULL};
     ctx->line_has_content = 1;
     ctx->column = 0;
     ctx->space_pending = 0;
@@ -912,7 +931,7 @@ static void text_leave_table(text_ctx *ctx, text_table *table) {
         Py_ssize_t row_columns = table->offsets[row_index + 1] - row_start;
         for (Py_ssize_t col_index = 0; col_index < row_columns; col_index++) {
             if (col_index > 0) {
-                text_emit_ascii(ctx, ctx->opt->cell_separator);
+                text_emit_utf8(ctx, ctx->opt->cell_separator);
             }
             sbuf *cell = &table->grid[row_start + col_index];
             th_node *cell_node = table->cells[row_start + col_index];
@@ -964,7 +983,7 @@ static void text_collect_pre(text_ctx *ctx, th_node *root, sbuf *out) {
 }
 
 static void text_render_pre(text_ctx *ctx, th_node *node) {
-    sbuf collected = {NULL, 0, 0, 0, 0};
+    sbuf collected = {NULL, 0, 0, 0, 0, NULL};
     text_collect_pre(ctx, node, &collected);
     if (collected.failed) {         /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         ctx->out.failed = 1;        /* GCOVR_EXCL_LINE: allocation-failure path */
@@ -1039,11 +1058,11 @@ static void text_leave(text_ctx *ctx) {
     }
     switch (frame->leave) {
     case TEXT_LEAVE_LINK_INLINE:
-        text_emit_ascii(ctx, " (");
+        text_emit_utf8(ctx, " (");
         TH_WORK_STEPS_ADD(frame->link.href_len);
         sbuf_put_run(&ctx->out, frame->link.href, frame->link.href_len);
         ctx->column += (int)frame->link.href_len;
-        text_emit_ascii(ctx, ")");
+        text_emit_utf8(ctx, ")");
         break;
     case TEXT_LEAVE_LINK_FOOTNOTE: {
         Py_ssize_t number = text_add_reference(ctx, frame->link.href, frame->link.href_len);
@@ -1179,6 +1198,7 @@ Py_UCS4 *th_node_layout_text(th_tree *tree, th_node *node, const text_opts *opt,
     text_render_root(&ctx, node);
     PyMem_Free(ctx.prefix.data);
     PyMem_Free(ctx.refs);
+    th_clone_seen_free(ctx.clone_seen);
     md_trim(&ctx.out, TH_MD_DOC_STRIP);
     return sbuf_finish(&ctx.out, out_len);
 }
@@ -1219,6 +1239,7 @@ Py_UCS4 *th_node_annotated_text(th_tree *tree, th_node *node, const text_opts *o
     PyMem_Free(ctx.rule_index);
     PyMem_Free(ctx.prefix.data);
     PyMem_Free(ctx.refs);
+    th_clone_seen_free(ctx.clone_seen);
     PyMem_Free(ctx.active);
     /* the doc-strip removes leading blank lines, shifting every offset back by the
        same amount; record_span already trimmed each span to non-blank bounds, so

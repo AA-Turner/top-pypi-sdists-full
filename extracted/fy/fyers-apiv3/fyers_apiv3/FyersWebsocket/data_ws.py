@@ -255,7 +255,7 @@ class FyersDataSocket:
         self.log_path = log_path
         self.lite = litemode
         self.max_retry = reconnect_retry
-        self.source = "PythonSDK-3.2.1"
+        self.source = "PythonSDK-3.3.0"
         self.channel_num = 11
         self.channels = []
         self.running_channels = set()
@@ -328,12 +328,15 @@ class FyersDataSocket:
 
     def access_token_to_hsmtoken(self) -> bool :
         """
-        Decode APIv2 token to extract 'hsm_key' and check for validity.
+        Validate the APIv2 access token and prepare it for socket authentication.
 
-        This function decodes the APIv2 access token and extracts the 'hsm_key' from it.
-        It also verifies if the token is expired by comparing the 'exp' (expiration) claim in the
-        token's payload with the current timestamp. If the token is valid and not expired, it sets
-        the 'hsm_token' attribute and returns True. Otherwise, it raises an error and returns False.
+        This function decodes the JWT part of the access token and checks that the 'hsm_key'
+        claim is present. It also verifies if the token is expired by comparing the 'exp'
+        (expiration) claim in the token's payload with the current timestamp. If the token is
+        valid and not expired, it sets the 'hsm_token' attribute to the full access token
+        (as supplied by the user, e.g. "APPID-100:jwt"), which is what is sent as the
+        session id in the connect message, and returns True. Otherwise, it raises an error
+        and returns False.
 
         Returns:
             bool: True if the token is valid and not expired, False otherwise.
@@ -358,14 +361,15 @@ class FyersDataSocket:
                 return False
             self.__valid_token = True
 
-            self.__hsm_token = decode_token["hsm_key"]
+            decode_token["hsm_key"]  # presence check only; the full access token is sent
+            self.__hsm_token = self.__access_token
             return True
         
         except:
             self.On_error(
                 {   "type": defines.AUTH_TYPE,
                     "code": defines.INVALID_CODE,
-                    "message": defines.INVALID_TOKEN,
+                    "message": "Access token validation failed",
                     "s": defines.ERROR,
                 }
             )

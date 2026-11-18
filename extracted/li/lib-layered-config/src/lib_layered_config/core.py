@@ -23,15 +23,16 @@ System Role:
 
 from __future__ import annotations
 
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ._layers import collect_deploy_layers, collect_layers, merge_or_empty
+from ._layers import collect_deploy_layers, collect_layers, merge_or_empty, parse_with_dot_d
 from .adapters.dotenv.default import DefaultDotEnvLoader
 from .adapters.env.default import DefaultEnvLoader, default_env_prefix
 from .adapters.path_resolvers.default import DefaultPathResolver
 from .domain import json_codec
-from .domain.config import EMPTY_CONFIG, Config
+from .domain.config import EMPTY_CONFIG, Config, adopt_merged
 from .domain.errors import (
     ConfigError,
     InvalidFormatError,
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from .application.merge import MergeResult
-    from .application.ports import SourceInfoPayload
+    from .domain.config import SourceInfo
 
 
 class LayerLoadError(ConfigError):
@@ -63,7 +64,7 @@ def read_config(
     slug: str,
     profile: str | None = None,
     prefer: Sequence[str] | None = None,
-    start_dir: str | None = None,
+    start_dir: str | Path | None = None,
     default_file: str | Path | None = None,
     max_profile_length: int = DEFAULT_MAX_PROFILE_LENGTH,
     dotenv_path: str | Path | None = None,
@@ -80,11 +81,13 @@ def read_config(
         profile: Optional profile name for environment-specific configurations
             (e.g., "test", "production"). When set, paths include a
             ``profile/<name>/`` subdirectory.
-        prefer: Optional sequence of preferred file suffixes (``["toml", "json"]``).
+        prefer: Deprecated, no effect: each layer reads only ``config.toml`` and its ``config.d/``
+            directory, which is where JSON and YAML files go. Passing it emits a
+            ``DeprecationWarning``; it will be removed in a future major release.
         start_dir: Optional directory that seeds `.env` discovery.
         default_file: Optional lowest-precedence file injected before filesystem layers.
         max_profile_length: Maximum allowed profile name length (default: 64).
-            Set to 0 or negative to disable length checking.
+            A value above 255, or 0 or negative, uses the absolute maximum of 255 characters.
         dotenv_path: Optional explicit path to a ``.env`` file.  When set,
             this file is loaded directly instead of searching upward from
             *start_dir*.
@@ -97,8 +100,10 @@ def read_config(
         Immutable configuration with provenance metadata.
 
     Raises:
-        ValueError: When profile name is invalid (too long, path traversal, etc.).
+        LayerLoadError: A layer file, ``.env`` or environment value cannot be decoded or parsed.
+        ValidationError: *vendor*, *app*, *slug* or *profile* is refused (a ``ValueError`` too).
         TypeError: *not_sensitive* is a single str or holds a non-str entry.
+        TypeError: *prefer* is a single str.
         ValueError: A *not_sensitive* entry has an empty segment.
 
     Examples:
@@ -129,13 +134,14 @@ def read_config(
         >>> isinstance(config, Config)
         True
     """
+    # Warned here and not passed on, so the caller gets one warning at its own line.
+    _take_deprecated_prefer(prefer)
     declared = NotSensitiveKeys.of(not_sensitive)
     result = read_config_raw(
         vendor=vendor,
         app=app,
         slug=slug,
         profile=profile,
-        prefer=prefer,
         start_dir=start_dir,
         default_file=_stringify_path(default_file),
         max_profile_length=max_profile_length,
@@ -169,10 +175,12 @@ def read_config_json(
             :func:`read_config`.
         indent: Optional indentation level.  Any non-``None`` value produces
             2-space indented output (always a 2-space indent).
-        redact: When ``True``, sensitive values (passwords, tokens, secrets,
-            API keys) are replaced with ``***REDACTED***`` in the config data.
+        redact: When ``True``, the values of sensitive keys (passwords, tokens, secrets,
+            API keys) and the password of every URL in a string value, under any key
+            (``postgres://alice:***REDACTED***@db/app``), are replaced with
+            ``***REDACTED***`` in the config data.
         max_profile_length: Maximum allowed profile name length (default: 64).
-            Set to 0 or negative to disable length checking.
+            A value above 255, or 0 or negative, uses the absolute maximum of 255 characters.
         not_sensitive: Same meaning as in :func:`read_config`; declared keys stay visible when
             *redact* is set.
 
@@ -180,17 +188,36 @@ def read_config_json(
         JSON document containing ``{"config": ..., "provenance": ...}``.
 
     Raises:
-        ValueError: When profile name is invalid (too long, path traversal, etc.).
+        LayerLoadError: A layer file, ``.env`` or environment value cannot be decoded or parsed.
+        ValidationError: *vendor*, *app*, *slug* or *profile* is refused (a ``ValueError`` too).
         TypeError: *not_sensitive* is a single str or holds a non-str entry.
+        TypeError: *prefer* is a single str.
         ValueError: A *not_sensitive* entry has an empty segment.
+
+    Examples:
+        >>> import json
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as tmp:
+        ...     defaults = Path(tmp) / "defaults.toml"
+        ...     _ = defaults.write_text('[db]\\nport = 5432\\npassword = "hunter2"\\n', encoding="utf-8")
+        ...     text = read_config_json(
+        ...         vendor="Acme",
+        ...         app="Demo",
+        ...         slug="core-doctest-read-config-json",
+        ...         default_file=defaults,
+        ...         dotenv_path=Path(tmp) / "missing.env",
+        ...         redact=True,
+        ...     )
+        >>> json.loads(text)["config"]
+        {'db': {'port': 5432, 'password': '***REDACTED***'}}
     """
+    _take_deprecated_prefer(prefer)
     declared = NotSensitiveKeys.of(not_sensitive)
     result = read_config_raw(
         vendor=vendor,
         app=app,
         slug=slug,
         profile=profile,
-        prefer=prefer,
         start_dir=_stringify_path(start_dir),
         default_file=_stringify_path(default_file),
         max_profile_length=max_profile_length,
@@ -210,7 +237,7 @@ def read_config_raw(
     slug: str,
     profile: str | None = None,
     prefer: Sequence[str] | None = None,
-    start_dir: str | None = None,
+    start_dir: str | Path | None = None,
     default_file: str | Path | None = None,
     max_profile_length: int = DEFAULT_MAX_PROFILE_LENGTH,
     dotenv_path: str | Path | None = None,
@@ -225,23 +252,48 @@ def read_config_raw(
     Args:
         vendor / app / slug / profile / prefer / start_dir / default_file / dotenv_path: Same as :func:`read_config`.
         max_profile_length: Maximum allowed profile name length (default: 64).
-            Set to 0 or negative to disable length checking.
+            A value above 255, or 0 or negative, uses the absolute maximum of 255 characters.
         not_sensitive: Dotted key paths the application declares as not secret although their
             name looks like one (``["performance.max_token_bytes"]``). An unquoted ``null``/``none``
             in the environment or ``.env`` reads as None for them.
 
+    Returns:
+        The merged data and its provenance, both plain mutable dictionaries: ``data`` nested like
+        the configuration, ``provenance`` keyed by dotted path.
+
     Raises:
-        ValueError: When profile name is invalid (too long, path traversal, etc.).
+        LayerLoadError: A layer file, ``.env`` or environment value cannot be decoded or parsed.
+        ValidationError: *vendor*, *app*, *slug* or *profile* is refused (a ``ValueError`` too).
         TypeError: *not_sensitive* is a single str or holds a non-str entry.
+        TypeError: *prefer* is a single str.
         ValueError: A *not_sensitive* entry has an empty segment.
+
+    Examples:
+        >>> from tempfile import TemporaryDirectory
+        >>> with TemporaryDirectory() as tmp:
+        ...     defaults = Path(tmp) / "defaults.toml"
+        ...     _ = defaults.write_text("[db]\\nport = 5432\\n", encoding="utf-8")
+        ...     result = read_config_raw(
+        ...         vendor="Acme",
+        ...         app="Demo",
+        ...         slug="core-doctest-read-config-raw",
+        ...         default_file=defaults,
+        ...         dotenv_path=Path(tmp) / "missing.env",
+        ...     )
+        >>> result.data
+        {'db': {'port': 5432}}
+        >>> result.provenance["db.port"]["layer"]
+        'defaults'
     """
+    _take_deprecated_prefer(prefer)
     declared = NotSensitiveKeys.of(not_sensitive)
+    start_dir_text = _stringify_path(start_dir)
     resolver = _build_resolver(
         vendor=vendor,
         app=app,
         slug=slug,
         profile=profile,
-        start_dir=start_dir,
+        start_dir=start_dir_text,
         max_profile_length=max_profile_length,
     )
 
@@ -251,20 +303,47 @@ def read_config_raw(
         dotenv_loader, env_loader = _build_loaders(
             resolver, not_sensitive=declared, searches_dotenv=dotenv_path is None
         )
-        layers = collect_layers(
-            resolver=resolver,
-            prefer=prefer,
-            default_file=_stringify_path(default_file),
-            dotenv_loader=dotenv_loader,
-            env_loader=env_loader,
-            slug=slug,
-            start_dir=start_dir,
-            dotenv_path=_stringify_path(dotenv_path),
-        )
-    except InvalidFormatError as exc:  # pragma: no cover - adapter tests exercise
+    except InvalidFormatError as exc:
+        raise LayerLoadError(str(exc)) from exc
+    layers = collect_layers(
+        resolver=resolver,
+        default_file=_stringify_path(default_file),
+        dotenv_loader=dotenv_loader,
+        env_loader=env_loader,
+        slug=slug,
+        start_dir=start_dir_text,
+        dotenv_path=_stringify_path(dotenv_path),
+    )
+    # The layers are read lazily inside the merge's loop, so this one wrap covers a file that does
+    # not load and the merge's own refusal (nesting past its depth) alike.
+    try:
+        return merge_or_empty(layers)
+    except InvalidFormatError as exc:
         raise LayerLoadError(str(exc)) from exc
 
-    return merge_or_empty(layers)
+
+#: What a caller passing ``prefer`` is told. A layer has one main file, ``config.toml``, so a suffix
+#: ranking never had a second candidate to choose between.
+_PREFER_DEPRECATION = (
+    "prefer has no effect and will be removed in a future major release: each layer reads only "
+    "config.toml and its config.d/ directory, which is where JSON and YAML files go"
+)
+
+
+def _take_deprecated_prefer(prefer: Sequence[str] | None) -> None:
+    """Refuse *prefer* given as one ``str``, and warn that any other *prefer* has no effect.
+
+    A ``str`` is itself a sequence of strings, so the type checker accepts ``prefer="toml"``; it
+    stays refused so a caller's mistake does not turn silent while the parameter is deprecated.
+
+    Raises:
+        TypeError: *prefer* is a single str.
+    """
+    if isinstance(prefer, str):
+        raise TypeError(f"prefer takes a sequence of suffixes, not a single str: write [{prefer!r}]")
+    if prefer is not None:
+        # stacklevel 3: this helper, the public read function, then the caller's own line.
+        warnings.warn(_PREFER_DEPRECATION, DeprecationWarning, stacklevel=3)
 
 
 def read_config_for_deploy(
@@ -279,8 +358,8 @@ def read_config_for_deploy(
     that platform's paths), never reads ``.env``, and skips the files the deploy writes.
 
     Raises:
-        LayerLoadError: A layer file cannot be decoded or parsed (a content-free message).
-        ValueError: The environment layer sets a key both as a scalar and as a table.
+        LayerLoadError: A layer file cannot be decoded or parsed (a content-free message), or two
+            environment variables set a value and a key below it.
     """
     try:
         layers = collect_deploy_layers(
@@ -292,9 +371,39 @@ def read_config_for_deploy(
     return _compose_config(result.data, result.provenance)
 
 
+def refuse_an_unusable_deploy_source(source: Path) -> None:
+    """Refuse a deploy *source*, or a file in its ``.d`` directory, that cannot be read or loaded.
+
+    It runs before anything is written and before deploy reads its configured modes, which read the
+    source too and would report an unreadable one as unknown modes - a remedy (give both modes)
+    that cannot work, since the copy reads the same file.
+
+    Raises:
+        OSError: A file cannot be read; the read's own error (``PermissionError`` behind a
+            permission wall), as the copy would raise it.
+        LayerLoadError: The source is not a ``.toml`` file, or a file does not parse (the loader's
+            content-free message, naming the file).
+    """
+    if source.suffix.lower() != ".toml":
+        # Every deploy destination is config.toml or <hostname>.toml, read only as TOML: a valid
+        # JSON or YAML source deployed fine and then broke every read. ``.d`` files keep their
+        # own format, since the ``.d`` reader takes TOML, YAML and JSON.
+        raise LayerLoadError(
+            f"{source} is not a .toml file, but deploy writes it as config.toml or <hostname>.toml, "
+            "which are read only as TOML"
+        )
+    try:
+        parse_with_dot_d(source)
+    except InvalidFormatError as exc:
+        unreadable = exc.__cause__
+        if isinstance(unreadable, OSError):
+            raise unreadable from None
+        raise LayerLoadError(str(exc)) from exc
+
+
 def _compose_config(
     data: dict[str, object],
-    raw_meta: dict[str, SourceInfoPayload],
+    raw_meta: dict[str, SourceInfo],
     *,
     not_sensitive: NotSensitiveKeys = NotSensitiveKeys.NONE,
 ) -> Config:
@@ -304,8 +413,10 @@ def _compose_config(
     value object explicit so provenance typing stays consistent.
 
     Args:
-        data: Mutable mapping returned by :func:`merge_layers`.
-        raw_meta: Provenance mapping keyed by dotted path as produced by the merge policy.
+        data: Mutable mapping returned by :func:`merge_layers`; adopted, not copied, so the caller
+            must hold no other reference to it.
+        raw_meta: Provenance mapping keyed by dotted path as produced by the merge policy; adopted the
+            same way.
         not_sensitive: Paths the application declared not sensitive; carried on the result.
 
     Returns:
@@ -313,7 +424,7 @@ def _compose_config(
         empty and nothing was declared, so a later ``with_overrides`` keeps the declaration.
 
     Side Effects:
-        None beyond constructing the dataclass instance.
+        The returned :class:`Config` takes over *data* and *raw_meta*.
 
     Examples:
         >>> cfg = _compose_config({'debug': True}, {'debug': {'layer': 'env', 'path': None, 'key': 'debug'}})
@@ -322,7 +433,7 @@ def _compose_config(
     """
     if not data and not_sensitive == NotSensitiveKeys.NONE:
         return EMPTY_CONFIG
-    return Config(data, raw_meta, not_sensitive)
+    return adopt_merged(data, raw_meta, not_sensitive)
 
 
 def _build_resolver(
@@ -345,7 +456,7 @@ def _build_resolver(
         start_dir: Optional directory that seeds project-relative resolution (used for
             `.env` discovery); ``None`` preserves resolver defaults.
         max_profile_length: Maximum allowed profile name length (default: 64).
-            Set to 0 or negative to disable length checking.
+            A value above 255, or 0 or negative, uses the absolute maximum of 255 characters.
 
     Returns:
         Resolver instance ready for layer discovery.
@@ -445,4 +556,5 @@ __all__ = [
     "read_config_for_deploy",
     "read_config_json",
     "read_config_raw",
+    "refuse_an_unusable_deploy_source",
 ]

@@ -199,6 +199,31 @@ def test_attrs_supports_mapping_protocol(find: Callable[[str, str], Element]) ->
 
 
 @pytest.mark.parametrize(
+    "name",
+    [
+        pytest.param("\ud800", id="high-surrogate"),
+        pytest.param("\udfff", id="low-surrogate"),
+        pytest.param("a\ud800b", id="surrogate-inside"),
+        pytest.param("é\udc80", id="after-non-ascii"),
+    ],
+)
+def test_attrs_keys_and_items_read_back_a_lone_surrogate_name(name: str) -> None:
+    paragraph = parse(f"<p {name}='1' href='/x'>x</p>").find("p")
+    assert paragraph is not None
+    assert list(paragraph.attrs.keys()) == [name, "href"]
+    assert list(paragraph.attrs.items()) == [(name, "1"), ("href", "/x")]
+
+
+def test_xml_fragment_context_resolves_a_prefix_declared_above() -> None:
+    root = parse_xml('<r xmlns:p="urn:p"><c/></r>').root
+    assert root is not None
+    context = root.find("c")
+    assert context is not None
+    context.set_inner_html("<p:d/>")
+    assert context.serialize() == "<c><p:d></p:d></c>"
+
+
+@pytest.mark.parametrize(
     ("html", "tag", "attrs", "markup"),
     [
         pytest.param(
@@ -1608,6 +1633,70 @@ def test_set_inner_html_parses_in_a_foreign_context(
     assert found.namespace is namespace
 
 
+@pytest.mark.parametrize(
+    ("attribute", "namespace"),
+    [
+        pytest.param('encoding="text/html"', Namespace.HTML, id="text-html"),
+        pytest.param('encoding="TEXT/HTML"', Namespace.HTML, id="text-html-uppercase"),
+        pytest.param('encoding="Text/Html"', Namespace.HTML, id="text-html-mixed-case"),
+        pytest.param('encoding="application/xhtml+xml"', Namespace.HTML, id="xhtml"),
+        pytest.param('encoding="APPLICATION/XHTML+XML"', Namespace.HTML, id="xhtml-uppercase"),
+        pytest.param('encoding="application/mathml+xml"', Namespace.MATHML, id="other-encoding-stays-mathml"),
+        pytest.param("", Namespace.MATHML, id="no-encoding-stays-mathml"),
+    ],
+)
+@pytest.mark.parametrize(
+    ("selector", "splice"),
+    [
+        pytest.param("annotation-xml", lambda element, html: element.set_inner_html(html), id="set-inner-html"),
+        pytest.param(
+            "annotation-xml", lambda element, html: element.insert_adjacent_html("afterbegin", html), id="afterbegin"
+        ),
+        pytest.param(
+            "annotation-xml", lambda element, html: element.insert_adjacent_html("beforeend", html), id="beforeend"
+        ),
+        pytest.param("mi", lambda element, html: element.insert_adjacent_html("beforebegin", html), id="beforebegin"),
+        pytest.param("mi", lambda element, html: element.insert_adjacent_html("afterend", html), id="afterend"),
+    ],
+)
+def test_fragment_in_annotation_xml_context_follows_the_encoding(
+    attribute: str, namespace: Namespace, selector: str, splice: Callable[[Element, str], None]
+) -> None:
+    # a <b> child would break out of a MathML annotation-xml, so the child is an <mi>, which stays inside it
+    root = parse(f"<math><annotation-xml {attribute}><mi>x</mi></annotation-xml></math>")
+    target = root.find(selector)
+    assert target is not None
+    splice(target, "<textarea>x</textarea>")
+    textarea = root.find("textarea")
+    assert textarea is not None
+    assert textarea.namespace is namespace
+    assert parse(root.serialize()).equals(root)
+
+
+def test_fragment_sees_an_encoding_set_after_parsing() -> None:
+    root = parse("<math><annotation-xml></annotation-xml></math>")
+    annotation = root.find("annotation-xml")
+    assert annotation is not None
+    annotation.attrs["encoding"] = "text/html"
+    annotation.set_inner_html("<textarea>x</textarea>")
+    textarea = root.find("textarea")
+    assert textarea is not None
+    assert textarea.namespace is Namespace.HTML
+    assert parse(root.serialize()).equals(root)
+
+
+def test_fragment_ignores_an_encoding_removed_after_parsing() -> None:
+    root = parse('<math><annotation-xml encoding="text/html"></annotation-xml></math>')
+    annotation = root.find("annotation-xml")
+    assert annotation is not None
+    del annotation.attrs["encoding"]
+    annotation.set_inner_html("<textarea>x</textarea>")
+    textarea = root.find("textarea")
+    assert textarea is not None
+    assert textarea.namespace is Namespace.MATHML
+    assert parse(root.serialize()).equals(root)
+
+
 def test_set_inner_html_on_a_constructed_element() -> None:
     element = Element("section")
     element.set_inner_html("<h1>Title</h1>")
@@ -2581,8 +2670,8 @@ def test_empty_tail_benchmark_preserves_first_node() -> None:
     operation.run(root)
     assert (tuple(root), tuple(node.text for node in before), [node.parent for node in before[1:]]) == (
         (before[0],),
-        ("word", *("",) * 1000),
-        [None] * 1000,
+        ("word", *("",) * 50_000),
+        [None] * 50_000,
     )
 
 
@@ -2916,9 +3005,9 @@ def test_radio_group_index_preserves_attribute_observer_order() -> None:
     ("case", "selected"),
     [
         pytest.param(0, 15, id="document-radios"),
-        pytest.param(1, 0, id="unindexed-change"),
+        pytest.param(1, 9, id="unindexed-change"),
         pytest.param(2, 15, id="many-forms"),
-        pytest.param(3, 7, id="invalidation"),
+        pytest.param(3, 1, id="invalidation"),
     ],
 )
 def test_radio_group_benchmark_output(case: int, selected: int) -> None:

@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import inspect
 import re
-from typing import TYPE_CHECKING, Final, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    TypeVar,
+    cast,
+)
 
 from tox.config.loader.api import ConfigLoadArgs, Loader, Override
-from tox.config.loader.ini.factor import filter_for_env
-from tox.config.loader.ini.replace import ReplaceReferenceIni
 from tox.config.loader.replacer import (
     MatchExpression,
     RequirementLineCallbacks,
@@ -21,8 +24,14 @@ from tox.config.types import Command
 from tox.report import HandledError
 from tox.tox_env.errors import Skip
 from tox.tox_env.python.pip.req.file import protect_env_variables
-from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
+from tox.tox_env.python.pip.req_file import (
+    PythonConstraints,
+    PythonDeps,
+)
 from tox.util.typing_compat import override
+
+from .factor import filter_for_env
+from .replace import ReplaceReferenceIni
 
 if TYPE_CHECKING:
     from configparser import ConfigParser, SectionProxy
@@ -33,7 +42,8 @@ if TYPE_CHECKING:
     from tox.config.main import Config
 
 V = TypeVar("V")
-_COMMENTS = re.compile(
+"""Type of values the INI loader converts."""
+_COMMENTS: Final[re.Pattern[str]] = re.compile(
     r"""
     ( \s )*     # optional leading whitespace
     (?<! \\ )   # not preceded by backslash
@@ -44,7 +54,15 @@ _COMMENTS = re.compile(
 
 
 class IniLoader(StrConvert, Loader[str]):
-    """Load configuration from an ini section (ini file is a string to string dictionary)."""
+    """Load configuration from an ini section (ini file is a string to string dictionary).
+
+    :param section: the section the values are read from
+    :param parser: the parser that reads the ini file
+    :param overrides: the overrides to apply to the values
+    :param core_section: the core section of the configuration
+    :param section_key: the key of the section in the ini file, if it is not the section name
+
+    """
 
     def __init__(
         self,
@@ -62,17 +80,30 @@ class IniLoader(StrConvert, Loader[str]):
         super().__init__(section, overrides)
 
     @override
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}(section={self._section.key}, overrides={self.overrides!r})"
+
+    @override
     def load_raw(self, key: str, conf: Config | None, env_name: str | None) -> str:
         return self.process_raw(conf, env_name, self._section_proxy[key])
 
     @staticmethod
     def process_raw(conf: Config | None, env_name: str | None, value: str) -> str:
         # strip comments
-        elements: list[str] = []
-        for line in value.split("\n"):
-            if not line.startswith("#"):
-                part = _COMMENTS.sub("", line)
-                elements.append(part.replace("\\#", "#"))
+        """Strip the comments and the lines of other factors from a raw value.
+
+        :param conf: the global config, ``None`` when loading the global tox config file
+        :param env_name: the environment name, ``None`` when unknown
+        :param value: the raw value
+
+        :returns: the value without comments and without the lines of other factors
+
+        :raises KeyError: when the value has content, but no line applies to the environment
+
+        """
+        elements: list[str] = [
+            _COMMENTS.sub("", line).replace("\\#", "#") for line in value.split("\n") if not line.startswith("#")
+        ]
         strip_comments = "\n".join(elements).replace("\r", "")
         if conf is None:  # conf is None when we're loading the global tox configuration file for the CLI
             factor_filtered = strip_comments  # we don't support factor and replace functionality there
@@ -151,10 +182,18 @@ class IniLoader(StrConvert, Loader[str]):
 
     def get_section(self, name: str) -> SectionProxy | None:
         # needed for non tox environment replacements
+        """Get a section of the ini file.
+
+        :param name: the name of the section
+
+        :returns: the section, or ``None`` when the file has no such section
+
+        """
         if self._parser.has_section(name):
             return self._parser[name]
         return None
 
-    @override
-    def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(section={self._section.key}, overrides={self.overrides!r})"
+
+__all__ = [
+    "IniLoader",
+]

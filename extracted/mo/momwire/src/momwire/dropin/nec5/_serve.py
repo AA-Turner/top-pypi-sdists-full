@@ -486,7 +486,8 @@ import numpy as np
 
 from ...bspline import BSplineSolver
 from ...deck._cards import tokenize
-from ... import _ground_spec, _medium_spec
+from ... import _below_interface, _ground_spec, _medium_spec
+from ..._surface_height import StandOffFloorError
 from ... import _cmul, _lapack, _times
 from ...deck._nec5 import (
     Nec5Conductivity,
@@ -4422,8 +4423,22 @@ def _pattern(
     ground_z: float = 0.0,
     cliff=None,
     p_radiated: float | None = None,
+    nec4_average: bool = False,
 ) -> PatternBlock:
     """One ``RP 0`` card's answer.
+
+    A card with one theta or one phi (``NTH = 1`` or ``NPH = 1``) does not
+    read XNDA's A digit (momwire#1962: no average-gain trailer at A = 1 or 3,
+    and A = 2 prints its rows, exactly as at A = 0, whatever the step on
+    either axis). Measured black-box on x13, and on licensed NEC-4.2 too
+    (``tests/fixtures/nec42_rp_normalized_gain/``' cut and phicut decks, at
+    N = 0 and N = 5), so it holds on both slots.
+
+    ``nec4_average``: whether the average itself keeps what the NEC-4.2 slot
+    has always printed, which no NEC-4.2 capture yet measures. The NEC-5
+    engine's average (False) is the trapezoid rule in phi
+    (:func:`~momwire._far_readout.average_gain`'s ``trapezoid_phi``,
+    ``tests/fixtures/rp_average_quadrature/``), NaN over a zero step.
 
     ``ground_z`` and ``cliff`` are the NEC-4.2 slot's (momwire#1295), which
     shares this row builder: its decks may put the interface anywhere, and a
@@ -4533,6 +4548,11 @@ def _pattern(
     ranged = {"range_m": range_m, "range_phase_deg": range_phase_deg} if range_m else {}
     if directive:
         ranged["directive"] = True
+    kind = request.xnda // 100 % 10
+    if kind:
+        ranged.update(
+            _normalized_gains(kind, rows, g_v_rows + g_h_rows, request.gnor_db)
+        )
     if range_m and lower_k is not None:
         # Over a finite ground the range form adds the LOWER medium's
         # exp(-j k_m R)/R (momwire#1237, captured over GN 0, GN 2 and GD; a
@@ -4542,16 +4562,27 @@ def _pattern(
         ranged["lower_range_phase_deg"] = math.degrees(
             math.atan2(-math.sin(kr), math.cos(kr))
         )
-    if request.xnda % 10 == 0:
+    average_digit = request.xnda % 10
+    if request.n_theta == 1 or request.n_phi == 1:
+        # A single cut on either axis averages nothing, on the NEC-5 engine
+        # and on NEC-4.2 alike: the card prints as at A = 0 (momwire#1962,
+        # the docstring above).
+        average_digit = 0
+    if average_digit == 0:
         # XNDA's A digit asks for the average gain; 1000 (0010, 0044) does
         # not and 1001 (0013, 0035) does.  So do 1003 (4nec2's default, the
         # same printout as 1001) and 1002, which prints the trailer with no
         # rows (momwire#1503, measured black-box on the NEC-5 engine).
         return PatternBlock(rows=rows, **ranged)
-    if request.xnda % 10 == 2:
+    if average_digit == 2:
         rows = ()
     average, solid = average_gain(
-        g_v + g_h, thetas, request.d_theta_deg, request.d_phi_deg, request.n_phi
+        g_v + g_h,
+        thetas,
+        request.d_theta_deg,
+        request.d_phi_deg,
+        request.n_phi,
+        trapezoid_phi=not nec4_average,
     )
     return PatternBlock(
         rows=rows,
@@ -4560,6 +4591,55 @@ def _pattern(
         solid_angle_pi=abs(solid) / math.pi,
         power_radiated_4pi=average * p_in,
     )
+
+
+def _normalized_gains(
+    kind: int, rows: tuple[PatternRow, ...], total: np.ndarray, gnor_db: float
+) -> dict:
+    """XNDA's N digit: the NORMALIZED GAIN table's cells, for
+    :class:`PatternBlock`.
+
+    Read off licensed x13 printouts of synthetic decks
+    (``tests/fixtures/rp_normalized_gain/``; the five N are the public NEC-2
+    user's manual's): each cell is the row's gain in dB, at the rows' own
+    ``-999.99`` floor, less the NORMALIZATION FACTOR, which is the RP card's
+    GNOR in dB when it is nonzero and otherwise the table's largest gain, so
+    the peak cell prints ``0.00`` and a cell a hair under it ``-0.00``. The
+    gains are the rows' (directive under D = 1, the factor then directive
+    too; zero below the horizon over ground), computed BEFORE A = 2 drops
+    the rows, which still prints the table.
+
+      1  major axis gain   the total over 1 + AR², AR the row's axial ratio
+      2  minor axis gain   the total times AR² over 1 + AR²
+      3  vertical gain     the VERT. column
+      4  horizontal gain   the HOR. column
+      5  total gain        the TOTAL column
+
+    The polarisation ellipse splits the total power gain between its axes
+    as AR² : 1. A LINEAR row (axial ratio printed 0) has no minor axis here,
+    so its minor-axis gain is the floor; x13 prints its own round-off there
+    instead (-164.43 dB on a tilted dipole), which no other solver's dust
+    reproduces, and on a linear antenna the whole N = 2 table is that dust.
+    """
+    if kind in (1, 2):
+        ar = np.array([row.axial_ratio for row in rows])
+        ar2 = ar * ar
+        share = 1.0 + ar2
+        gains = total.T.ravel()
+        gains = gains / share if kind == 1 else (gains * ar2) / share
+        db = _gain_db_grid(gains).tolist()
+    else:
+        field = {3: "vert_db", 4: "hor_db", 5: "total_db"}[kind]
+        db = [getattr(row, field) for row in rows]
+    factor = gnor_db if gnor_db != 0.0 else max(db)
+    return {
+        "normalized_kind": kind,
+        "normalization_db": factor,
+        "normalized": tuple(
+            (row.theta_deg, row.phi_deg, gain - factor)
+            for row, gain in zip(rows, db, strict=True)
+        ),
+    }
 
 
 def _near_field(
@@ -5063,16 +5143,34 @@ def _prepare(
         # NotImplementedError; on this seam that is a refusal by name, not
         # an INTERNAL ERROR frame (momwire#667).
         raise ServeRefusal(str(exc)) from None
+    except ValueError as exc:
+        _refuse_if_grazing(exc)
+        raise
     times = _times.current()
     fill_seconds = factor_seconds = 0.0
-    if times is None:
-        solution = _port_solution(solver, shared)
-    else:
-        fill0, factor0 = times.elapsed_ms("fill"), times.elapsed_ms("factor")
-        with _times.stage("fill"):
+    try:
+        if times is None:
             solution = _port_solution(solver, shared)
-        fill_seconds = (times.elapsed_ms("fill") - fill0) / 1e3
-        factor_seconds = (times.elapsed_ms("factor") - factor0) / 1e3
+        else:
+            fill0, factor0 = times.elapsed_ms("fill"), times.elapsed_ms("factor")
+            with _times.stage("fill"):
+                solution = _port_solution(solver, shared)
+            fill_seconds = (times.elapsed_ms("fill") - fill0) / 1e3
+            factor_seconds = (times.elapsed_ms("factor") - factor0) / 1e3
+    except StandOffFloorError as exc:
+        # The basis is built in the solve, so the stand-off floor (momwire#865)
+        # is met here: a statement about the deck's geometry, refused by name
+        # as the NEC-4.2 slot refuses it, not an INTERNAL ERROR frame.
+        raise ServeRefusal(str(exc)) from None
+    except NotImplementedError as exc:
+        # The same crossing-serve scope as the constructor's, met where a
+        # basis builds its junctions in the solve (bs2: a spread of radii
+        # within the below wires, census 11-17), refused by name in the same
+        # sentence the executables print, not an INTERNAL ERROR frame.
+        raise ServeRefusal(str(exc)) from None
+    except ValueError as exc:
+        _refuse_if_grazing(exc)
+        raise
     return _Prepared(
         structure=structure,
         mesh=mesh,
@@ -5088,6 +5186,21 @@ def _prepare(
         fill_seconds=fill_seconds,
         factor_seconds=factor_seconds,
     )
+
+
+def _refuse_if_grazing(exc: ValueError) -> None:
+    """:class:`ServeRefusal` for a buried plan's grazing-floor refusal.
+
+    The below/below plan (and the cross block's) refuses a deck whose pairs
+    graze the interface below the grid's floor, in a sentence about the
+    deck's geometry (``_below_interface.BURIED_GRAZING_REFUSAL``). It is
+    raised as ValueError inside the fill, which this seam printed as an
+    INTERNAL ERROR frame until the 11-17 census (bs2, a deck whose grazing
+    pairs lie inside the Sommerfeld range cap); the NEC-4.2 slot and the
+    executables print it as the refusal it is. Any other ValueError passes.
+    """
+    if _below_interface._is_grazing_refusal(exc):
+        raise ServeRefusal(str(exc)) from None
 
 
 def _port_solution(solver, shared: dict | None):

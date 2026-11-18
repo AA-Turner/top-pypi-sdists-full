@@ -44,6 +44,7 @@ from .literals import (
     GlobalNetworkStateType,
     LinkAssociationStateType,
     LinkStateType,
+    MultipathResilienceModeType,
     NatGatewaySupportStateType,
     NatGatewaySupportValueType,
     NatRuleStateType,
@@ -317,6 +318,7 @@ __all__ = (
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "LocationTypeDef",
+    "MultipathResilienceChangeValuesTypeDef",
     "NatRuleRequestTypeDef",
     "NatRuleTypeDef",
     "NetworkFunctionGroupTypeDef",
@@ -549,6 +551,10 @@ class ContextEntryTypeDef(TypedDict):
 class RoutingPolicyAssociationDetailTypeDef(TypedDict):
     RoutingPolicyNames: NotRequired[list[str]]
     SharedSegments: NotRequired[list[str]]
+
+class MultipathResilienceChangeValuesTypeDef(TypedDict):
+    Mode: NotRequired[MultipathResilienceModeType]
+    EdgeSets: NotRequired[list[list[str]]]
 
 class CoreNetworkEdgeTypeDef(TypedDict):
     EdgeLocation: NotRequired[str]
@@ -2212,6 +2218,7 @@ class CoreNetworkChangeValuesTypeDef(TypedDict):
     PeerEdgeLocations: NotRequired[list[str]]
     AttachmentId: NotRequired[str]
     RoutingPolicyAssociationDetails: NotRequired[list[RoutingPolicyAssociationDetailTypeDef]]
+    MultipathResilience: NotRequired[MultipathResilienceChangeValuesTypeDef]
 
 class RouteAnalysisTypeDef(TypedDict):
     GlobalNetworkId: NotRequired[str]

@@ -28,7 +28,11 @@ SCHEMA_QUALIFIED = False
 
 UPLOAD_FILENAME = "code.zip"
 CONFIGURATION_FORM_FILENAME = "configuration_form.pb"
-LAST_VERSION_CHECK_FILE = "_last_version_check"
+LAST_VERSION_CHECK_FIELD = "lastVersionCheck"
+LAST_FEATURE_TIPS_FIELD = "lastFeatureTipsShown"
+FIVETRAN_DISABLE_FEATURE_TIPS_ENV = "FIVETRAN_DISABLE_FEATURE_TIPS"  # "1" or "true" turns the "Did you know?" list off
+FEATURE_TIPS_FRESH_DAYS = 30
+FEATURE_TIPS_OLD_INTERVAL_IN_SEC = 7 * 24 * 60 * 60
 ROOT_LOCATION = os.path.join(".fivetran", "connector_sdk")
 CONFIG_FILE = "_config.json"
 CONFIG_ENCRYPTION_KEY_FILE = "config_encryption_key"
@@ -94,7 +98,7 @@ ALWAYS_INCLUDED_FILES = [GITIGNORE_FILENAME]
 EXCLUDED_DIRS = ["__pycache__", "lib", "include", OUTPUT_FILES_DIR, CRASH_REPORTS_DIR, FIXTURES_DIR]
 EXCLUDED_PIPREQS_DIRS = ["bin", "etc", "include", "lib", "Lib", "lib64", "Scripts", "share"]
 VALID_COMMANDS = ["version", "init", "debug", "run", "deploy", "reset", "package", "configuration", "help"]
-PACKAGE_SUBCOMMANDS = ["create", "update", "list"]
+PACKAGE_SUBCOMMANDS = ["create", "update", "list", "delete"]
 PACKAGE_LIST_MAX_PAGE_SIZE = 1000
 PACKAGE_LIST_PAGE_PROGRESS_WIDTH = 40
 INVALID_API_KEY_MESSAGE = "ensure you're using a valid base64-encoded API key"
@@ -119,7 +123,7 @@ JAVA_LONG_MIN_VALUE = -9223372036854775808
 JAVA_INT_MAX_VALUE = 2147483647
 JAVA_INT_MIN_VALUE = -2147483648
 MAX_CONFIG_FIELDS = 100
-SUPPORTED_PYTHON_VERSIONS = ["3.14", "3.13", "3.12", "3.11", "3.10"]
+SUPPORTED_PYTHON_VERSIONS = ["3.15", "3.14", "3.13", "3.12", "3.11", "3.10"]
 DEFAULT_PYTHON_VERSION = "3.14"
 FIVETRAN_HD_AGENT_ID = "FIVETRAN_HD_AGENT_ID"
 FIVETRAN_PYTHON_VERSION_ENV = "FIVETRAN_PYTHON_VERSION"
@@ -134,7 +138,6 @@ OPTIONS_FILE_MIGRATION_DOCS_URL = (
     "https://fivetran.com/docs/connector-sdk/technical-reference/options-file#automaticmigration")
 FIELD_RESOLUTION_ORDER_DOCS_URL = (
     "https://fivetran.com/docs/connector-sdk/getting-started/connector-sdk-commands#fieldresolutionorder")
-OPTIONS_FILE_SKIP_MIN_PYTHON_MESSAGE = "local options file requires Python 3.11 or later; skipping"
 OPTIONS_FILE_HEADER_COMMENT = (
     "# This file is managed by you. The Fivetran Connector SDK CLI only adds or updates the profile of the connection being deployed.\n"
     "# It stores `fivetran deploy` fields grouped into profiles. Edit, move, or delete it freely.\n"
@@ -193,6 +196,22 @@ AGENT_PLUGINS = {
         ],
         "update_commands": [
             ["copilot", "plugin", "update", TOOLS_PLUGIN_NAME],
+        ],
+    },
+    "cursor": {
+        "display_name": "Cursor CLI",
+        "cli_command": "agent",
+        "install_commands": [
+            ["agent", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO_URL],
+        ],
+        "update_commands": [
+            ["agent", "plugin", "marketplace", "remove", TOOLS_PLUGIN_ID],
+            ["agent", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO_URL],
+        ],
+        "interactive_install_steps": [
+            "Run the `agent` command to start Cursor CLI",
+            "Enter `/plugin` and open the Marketplace section",
+            "Select fivetran-connector-sdk and choose user or project scope for installation",
         ],
     },
 }

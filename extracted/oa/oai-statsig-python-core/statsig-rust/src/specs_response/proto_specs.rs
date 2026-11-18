@@ -463,6 +463,7 @@ pub(crate) async fn prepare_protobuf_store_update(
 ) -> Result<HydratedProtobufStoreUpdate, StatsigErr> {
     let mut hydration =
         hydrator.begin_protobuf_hydration_with_trigger(options.source_url, options.sync_trigger);
+    hydration.pending_proofs = options.pending_proofs;
     let started_at = Instant::now();
     let partial = base.partial_delta;
     let result = async {

@@ -1,5 +1,5 @@
 """TrackingMarker: settle a coding-agent session's tracking on its first research write; a run create
-turns an off or read auto chat on (probe auto mode)."""
+from an off or read auto chat says once that it is logged, and the switch stays (probe auto mode)."""
 
 from __future__ import annotations
 
@@ -87,31 +87,18 @@ class TrackingMarkerMixin:
             self._tracking_marked.clear()
         self._tracking_marked.add(session_id)
 
-    def _set_auto_chat_on(self, method: str, path: str, session_id: str | None, response) -> None:
+    def _send_run_note(self, method: str, path: str, session_id: str | None, response) -> None:
         """A successful run create (its answer carries the run id) from an auto chat that is off or read:
-        turn it on, stored by who records, so the run is recorded (`session_marker.set_auto_chat_on`).
-        Fail-soft: never breaks the create it rides on."""
+        say once that the run is logged and the chat stays as it is (`session_marker.claim_run_note`). Never
+        moves the switch. Fail-soft: never breaks the create it rides on."""
         if not session_id or method.upper() != "POST" or not _RUN_CREATE_PATH.match(path):
             return
         try:
             body = response.json()
             if not isinstance(body, dict) or not body.get("id"):
                 return
-            from probe.sdk import agent_session
-
-            found = agent_session.session_agent_from_env()
-            if session_marker.set_auto_chat_on(session_id, found[0] if found else None) is None:
-                return
-            print(session_marker.RUN_LAUNCH_ON, file=sys.stderr, flush=True)
-            _send_run_launch(found[0] if found else None)
+            state = session_marker.claim_run_note(session_id)
+            if state is not None:
+                print(session_marker.RUN_LAUNCH_NOTE.format(state=state), file=sys.stderr, flush=True)
         except Exception:  # noqa: BLE001 - by the fail-soft contract above
             return
-
-
-def _send_run_launch(chat_agent: str | None) -> None:
-    """`session.switched` for a run create that turned an auto chat on (trigger `run_launch`)."""
-    from probe import analytics
-
-    analytics.emit_session_switched(scope="chat", state="on", chat_agent=chat_agent,
-                                    control=session_marker.CONTROL_AUTO,
-                                    trigger=str(analytics.SwitchTrigger.RUN_LAUNCH))

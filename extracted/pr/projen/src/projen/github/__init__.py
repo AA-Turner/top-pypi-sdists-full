@@ -216,7 +216,7 @@ class ActionRefs(metaclass=jsii.JSIIMeta, jsii_type="projen.github.ActionRefs"):
     @jsii.member(jsii_name="PETER_EVANS_CREATE_PULL_REQUEST")
     @builtins.classmethod
     def PETER_EVANS_CREATE_PULL_REQUEST(cls) -> builtins.str:
-        '''(experimental) peter-evans/create-pull-request at v8.1.2 (immutable).
+        '''(experimental) peter-evans/create-pull-request at v8.1.3 (immutable).
 
         :stability: experimental
         '''

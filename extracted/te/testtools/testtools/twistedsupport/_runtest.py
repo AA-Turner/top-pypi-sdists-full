@@ -455,7 +455,10 @@ class AsynchronousDeferredRunTest(_DeferredRunTest):
             successful = False
             self._log_user_exception(UncleanReactorError(junk))
 
-        if successful:
+        if getattr(self.case, "_subtest_failed", False):
+            successful = False
+
+        if successful and not getattr(self.case, "_subtest_reported", False):
             self.result.addSuccess(self.case, details=self.case.getDetails())
 
     def _run_user(self, function, *args):

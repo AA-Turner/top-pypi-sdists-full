@@ -5,6 +5,9 @@ from markupsafe import Markup
 from strictdoc.backend.markdown.markdown_to_html_fragment_writer import (
     MarkdownToHtmlFragmentWriter,
 )
+from strictdoc.backend.rst.rst_inline_link_placeholders import (
+    RstInlineLinkPlaceholders,
+)
 from strictdoc.backend.rst.rst_to_html_fragment_writer import (
     RstToHtmlFragmentWriter,
 )
@@ -23,7 +26,6 @@ from strictdoc.export.html.renderers.html_fragment_writer import (
 )
 from strictdoc.export.html.renderers.link_renderer import LinkRenderer
 from strictdoc.export.html.renderers.text_to_html_writer import TextToHtmlWriter
-from strictdoc.helpers.rst import escape_str_after_inline_markup
 
 FragmentWriterType = Union[
     RstToHtmlFragmentWriter,
@@ -31,6 +33,30 @@ FragmentWriterType = Union[
     HTMLFragmentWriter,
     TextToHtmlWriter,
 ]
+
+
+def flatten_html_block_for_markdown(html: str) -> str:
+    """
+    Prepares the HTML of an anchor for a Markdown field.
+
+    The anchor HTML goes into the Markdown text of the field before
+    markdown-it parses that text. markdown-it reads the anchor HTML as a raw
+    HTML block, and a raw HTML block ends at the first blank line. The anchor
+    template (markup/anchor.jinja) has indented lines, and the Jinja tags
+    that render the incoming links of the anchor leave blank lines. After
+    such a blank line, markdown-it reads every line indented by four or more
+    spaces as a code block. As a result, the rest of the anchor HTML, for
+    example the list of incoming links, was shown as escaped HTML code
+    instead of being rendered.
+
+    This function removes the indentation and the blank lines, so the whole
+    anchor HTML stays one raw HTML block. The function keeps one blank line
+    at the end, because this blank line closes the HTML block: without it,
+    the text after the anchor would become part of the HTML block and would
+    not be rendered as a paragraph.
+    """
+    lines = [line.strip() for line in html.splitlines()]
+    return "\n".join(line for line in lines if line) + "\n\n"
 
 
 class MarkupRenderer:
@@ -188,16 +214,19 @@ class MarkupRenderer:
 
         fragment_writer = self._get_writer_for_node_field(node_field)
 
-        prev_part = None
+        # RST fields get the inline links as placeholders, and the link HTML
+        # replaces them after docutils has rendered the field. See
+        # RstInlineLinkPlaceholders for why.
+        link_placeholders: Optional[RstInlineLinkPlaceholders] = None
+        if isinstance(fragment_writer, RstToHtmlFragmentWriter):
+            link_placeholders = RstInlineLinkPlaceholders(
+                [part_ for part_ in node_field.parts if isinstance(part_, str)]
+            )
+
         parts_output = ""
-        for part in node_field.parts:
+        for part_index, part in enumerate(node_field.parts):
             if isinstance(part, str):
-                if isinstance(prev_part, InlineLink) and isinstance(
-                    fragment_writer, RstToHtmlFragmentWriter
-                ):
-                    parts_output += escape_str_after_inline_markup(part)
-                else:
-                    parts_output += part
+                parts_output += part
             elif isinstance(part, InlineLink):
                 linkable_node = (
                     self.traceability_index.get_linkable_node_by_uid(part.link)
@@ -205,26 +234,49 @@ class MarkupRenderer:
                 href = self.link_renderer.render_node_link(
                     linkable_node, self.context_document, document_type
                 )
-                if part.title is not None:
-                    parts_output += fragment_writer.write_anchor_link(
-                        part.title, href, with_icon=False
+                link_title = (
+                    part.title
+                    if part.title is not None
+                    else linkable_node.get_display_title()
+                )
+                with_icon = part.title is None
+                if link_placeholders is not None:
+                    next_part = (
+                        node_field.parts[part_index + 1]
+                        if part_index + 1 < len(node_field.parts)
+                        else None
+                    )
+                    parts_output += link_placeholders.create_placeholder(
+                        source_length=len(part.get_source_value()),
+                        link_html=HTMLFragmentWriter.write_anchor_link(
+                            link_title, href, with_icon=with_icon
+                        ),
+                        text_after=(
+                            next_part if isinstance(next_part, str) else ""
+                        ),
                     )
                 else:
                     parts_output += fragment_writer.write_anchor_link(
-                        linkable_node.get_display_title(), href
+                        link_title, href, with_icon=with_icon
                     )
             elif isinstance(part, Anchor):
-                parts_output += self.template_anchor.render(
+                anchor_html = self.template_anchor.render(
                     anchor=part,
                     traceability_index=self.traceability_index,
                     link_renderer=self.link_renderer,
                     document_type=DocumentType.DOCUMENT,
                 )
+                if isinstance(fragment_writer, MarkdownToHtmlFragmentWriter):
+                    anchor_html = flatten_html_block_for_markdown(anchor_html)
+                parts_output += anchor_html
             else:
                 raise NotImplementedError
-            prev_part = part
 
         output = fragment_writer.write(parts_output)
+        if link_placeholders is not None:
+            # Markup.replace() would escape the link HTML, so the
+            # placeholders are replaced in a plain string.
+            output = Markup(link_placeholders.replace_placeholders(str(output)))
         self.cache[(document_type, node_field)] = output
 
         return output

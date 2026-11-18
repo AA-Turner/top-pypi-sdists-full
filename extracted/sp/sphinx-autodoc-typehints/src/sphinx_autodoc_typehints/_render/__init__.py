@@ -7,8 +7,18 @@ the guard binder.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._refs import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+        WrittenTypeAlias as WrittenTypeAlias,
+    )
+    from .._types import Annotation as Annotation  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import Hint as Hint  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import RenderNode as RenderNode  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import TypeParam as TypeParam  # simplint: ignore[private-import-path]  # root API stays unchanged
+
 from .annotation import (
-    add_type_css_class,
     as_field_type,
     as_header_type,
     as_signature_type,
@@ -17,19 +27,12 @@ from .annotation import (
     type_param_fields,
     unstar,
 )
-from .context import ScopeExtras, TypeParamScope, annotation_state, render_context
+from .context import AnnotationKind, ScopeExtras, TypeParamScope, annotation_state, render_context
 from .deferred import ALIAS_CHOICE_ROLE, AliasChoiceCollector, DeferAliasChoice, alias_choice_role, note_builder
 from .enum_member import ENUM_MEMBER_ROLE, enum_member_role, link_enum_member_owner
-from .intersphinx import keep_type_mapping
-from .rst import parse, unescape
-from .value import (
-    CONSTANT_ROLE,
-    VALUE_ROLE,
-    VALUE_STYLESHEET,
-    constant_role,
-    value_markup,
-    value_role,
-)
+from .intersphinx import inventory, keep_type_mapping
+from .rst import unescape
+from .value import CONSTANT_ROLE, VALUE_ROLE, VALUE_STYLESHEET, constant_role, value_markup, value_role
 
 __all__ = [
     "ALIAS_CHOICE_ROLE",
@@ -38,10 +41,10 @@ __all__ = [
     "VALUE_ROLE",
     "VALUE_STYLESHEET",
     "AliasChoiceCollector",
+    "AnnotationKind",
     "DeferAliasChoice",
     "ScopeExtras",
     "TypeParamScope",
-    "add_type_css_class",
     "alias_choice_role",
     "annotation_state",
     "as_field_type",
@@ -51,10 +54,10 @@ __all__ = [
     "enum_member_role",
     "fixup_module_name",
     "format_annotation",
+    "inventory",
     "keep_type_mapping",
     "link_enum_member_owner",
     "note_builder",
-    "parse",
     "render_context",
     "type_param_fields",
     "unescape",

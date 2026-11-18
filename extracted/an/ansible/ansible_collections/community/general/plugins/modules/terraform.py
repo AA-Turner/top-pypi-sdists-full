@@ -32,6 +32,9 @@ options:
   project_path:
     description:
       - The path to the root of the Terraform directory with the C(vars.tf)/C(main.tf)/etc to use.
+      - Since community.general 14.0.0, relative paths without a C(/), such as V(myproject), are accepted.
+      - A relative path is resolved against the current working directory of the module on the target host, which might not
+        be the directory you expect. Use an absolute path when in doubt.
     type: path
     required: true
   plugin_paths:
@@ -286,17 +289,15 @@ from ansible.module_utils.basic import AnsibleModule
 
 from ansible_collections.community.general.plugins.module_utils._version import LooseVersion
 
-module = None
 
-
-def get_version(bin_path):
+def get_version(module, bin_path):
     extract_version = module.run_command([bin_path, "version", "-json"])
     terraform_version = (json.loads(extract_version[1]))["terraform_version"]
     return terraform_version
 
 
-def preflight_validation(bin_path, project_path, version, variables_args=None, plan_file=None, no_color=True):
-    if project_path is None or "/" not in project_path:
+def preflight_validation(module, bin_path, project_path, version, variables_args=None, plan_file=None, no_color=True):
+    if not project_path:
         module.fail_json(msg="Path for Terraform project can not be None or ''.")
     if not os.path.exists(bin_path):
         module.fail_json(
@@ -315,7 +316,7 @@ def preflight_validation(bin_path, project_path, version, variables_args=None, p
         module.run_command(cmd, check_rc=True, cwd=project_path)
 
 
-def _state_args(state_file):
+def _state_args(module, state_file):
     if not state_file:
         return []
     if not os.path.exists(state_file):
@@ -326,6 +327,7 @@ def _state_args(state_file):
 
 
 def init_plugins(
+    module,
     bin_path,
     project_path,
     backend_config,
@@ -357,7 +359,7 @@ def init_plugins(
     )
 
 
-def get_workspace_context(bin_path, project_path, no_color=True):
+def get_workspace_context(module, bin_path, project_path, no_color=True):
     workspace_ctx = {"current": "default", "all": []}
     command = [bin_path, "workspace", "list"]
     if no_color:
@@ -378,7 +380,7 @@ def get_workspace_context(bin_path, project_path, no_color=True):
     return workspace_ctx
 
 
-def _workspace_cmd(bin_path, project_path, action, workspace, no_color=True):
+def _workspace_cmd(module, bin_path, project_path, action, workspace, no_color=True):
     command = [bin_path, "workspace", action, workspace]
     if no_color:
         command.append("-no-color")
@@ -386,19 +388,21 @@ def _workspace_cmd(bin_path, project_path, action, workspace, no_color=True):
     return rc, out, err
 
 
-def create_workspace(bin_path, project_path, workspace, no_color=True):
-    _workspace_cmd(bin_path, project_path, "new", workspace, no_color)
+def create_workspace(module, bin_path, project_path, workspace, no_color=True):
+    _workspace_cmd(module, bin_path, project_path, "new", workspace, no_color)
 
 
-def select_workspace(bin_path, project_path, workspace, no_color=True):
-    _workspace_cmd(bin_path, project_path, "select", workspace, no_color)
+def select_workspace(module, bin_path, project_path, workspace, no_color=True):
+    _workspace_cmd(module, bin_path, project_path, "select", workspace, no_color)
 
 
-def remove_workspace(bin_path, project_path, workspace, no_color=True):
-    _workspace_cmd(bin_path, project_path, "delete", workspace, no_color)
+def remove_workspace(module, bin_path, project_path, workspace, no_color=True):
+    _workspace_cmd(module, bin_path, project_path, "delete", workspace, no_color)
 
 
-def build_plan(command, project_path, variables_args, state_file, targets, state, args, plan_path=None, no_color=True):
+def build_plan(
+    module, command, project_path, variables_args, state_file, targets, state, args, plan_path=None, no_color=True
+):
     if plan_path is None:
         f, plan_path = tempfile.mkstemp(suffix=".tfplan")
 
@@ -428,7 +432,7 @@ def build_plan(command, project_path, variables_args, state_file, targets, state
     for t in targets:
         plan_command.extend(["-target", t])
 
-    plan_command.extend(_state_args(state_file))
+    plan_command.extend(_state_args(module, state_file))
 
     rc, out, err = module.run_command(plan_command + variables_args, cwd=project_path)
 
@@ -453,7 +457,7 @@ def build_plan(command, project_path, variables_args, state_file, targets, state
     )
 
 
-def get_diff(diff_output):
+def get_diff(module, diff_output):
     def get_tf_resource_address(e):
         return e["resource"]
 
@@ -497,7 +501,6 @@ def get_diff(diff_output):
 
 
 def main():
-    global module
     module = AnsibleModule(
         argument_spec=dict(
             project_path=dict(required=True, type="path"),
@@ -530,32 +533,35 @@ def main():
 
     module.run_command_environ_update = {"LANGUAGE": "C", "LC_ALL": "C"}
 
-    project_path = module.params.get("project_path")
-    bin_path = module.params.get("binary_path")
-    plugin_paths = module.params.get("plugin_paths")
-    workspace = module.params.get("workspace")
-    purge_workspace = module.params.get("purge_workspace")
-    state = module.params.get("state")
-    variables = module.params.get("variables") or {}
-    complex_vars = module.params.get("complex_vars")
-    variables_files = module.params.get("variables_files")
-    plan_file = module.params.get("plan_file")
-    state_file = module.params.get("state_file")
-    force_init = module.params.get("force_init")
-    backend_config = module.params.get("backend_config")
-    backend_config_files = module.params.get("backend_config_files")
-    init_reconfigure = module.params.get("init_reconfigure")
-    overwrite_init = module.params.get("overwrite_init")
-    check_destroy = module.params.get("check_destroy")
-    provider_upgrade = module.params.get("provider_upgrade")
-    no_color = module.params.get("no_color")
+    project_path = module.params["project_path"]
+    if project_path:
+        # Resolve relative paths so error messages and the cwd of every terraform call point at the same location.
+        project_path = os.path.abspath(project_path)
+    bin_path = module.params["binary_path"]
+    plugin_paths = module.params["plugin_paths"]
+    workspace = module.params["workspace"]
+    purge_workspace = module.params["purge_workspace"]
+    state = module.params["state"]
+    variables = module.params["variables"] or {}
+    complex_vars = module.params["complex_vars"]
+    variables_files = module.params["variables_files"]
+    plan_file = module.params["plan_file"]
+    state_file = module.params["state_file"]
+    force_init = module.params["force_init"]
+    backend_config = module.params["backend_config"]
+    backend_config_files = module.params["backend_config_files"]
+    init_reconfigure = module.params["init_reconfigure"]
+    overwrite_init = module.params["overwrite_init"]
+    check_destroy = module.params["check_destroy"]
+    provider_upgrade = module.params["provider_upgrade"]
+    no_color = module.params["no_color"]
 
     if bin_path is not None:
         command = [bin_path]
     else:
         command = [module.get_bin_path("terraform", required=True)]
 
-    checked_version = get_version(command[0])
+    checked_version = get_version(module, command[0])
 
     if LooseVersion(checked_version) < LooseVersion("0.15.0"):
         if no_color:
@@ -575,6 +581,7 @@ def main():
     if force_init:
         if overwrite_init or not os.path.isfile(os.path.join(project_path, ".terraform", "terraform.tfstate")):
             init_plugins(
+                module,
                 command[0],
                 project_path,
                 backend_config,
@@ -586,20 +593,20 @@ def main():
                 no_color,
             )
 
-    workspace_ctx = get_workspace_context(command[0], project_path, no_color)
+    workspace_ctx = get_workspace_context(module, command[0], project_path, no_color)
     if workspace_ctx["current"] != workspace:
         if workspace not in workspace_ctx["all"]:
-            create_workspace(command[0], project_path, workspace, no_color)
+            create_workspace(module, command[0], project_path, workspace, no_color)
         else:
-            select_workspace(command[0], project_path, workspace, no_color)
+            select_workspace(module, command[0], project_path, workspace, no_color)
 
     if state == "present":
         command.extend(APPLY_ARGS)
     elif state == "absent":
         command.extend(DESTROY_ARGS)
 
-    if state == "present" and module.params.get("parallelism") is not None:
-        command.append(f"-parallelism={module.params.get('parallelism')}")
+    if state == "present" and module.params["parallelism"] is not None:
+        command.append(f"-parallelism={module.params['parallelism']}")
 
     def format_args(vars):
         if vars is None:
@@ -668,17 +675,17 @@ def main():
         for f in variables_files:
             variables_args.extend(["-var-file", f])
 
-    preflight_validation(command[0], project_path, checked_version, variables_args, plan_file, no_color)
+    preflight_validation(module, command[0], project_path, checked_version, variables_args, plan_file, no_color)
 
-    if module.params.get("lock") is not None:
-        if module.params.get("lock"):
+    if module.params["lock"] is not None:
+        if module.params["lock"]:
             command.append("-lock=true")
         else:
             command.append("-lock=false")
-    if module.params.get("lock_timeout") is not None:
-        command.append(f"-lock-timeout={module.params.get('lock_timeout')}s")
+    if module.params["lock_timeout"] is not None:
+        command.append(f"-lock-timeout={module.params['lock_timeout']}s")
 
-    for t in module.params.get("targets") or []:
+    for t in module.params["targets"] or []:
         command.extend(["-target", t])
 
     # we aren't sure if this plan will result in changes, so assume yes
@@ -688,7 +695,7 @@ def main():
 
     if state == "absent":
         command.extend(variables_args)
-        command.extend(_state_args(state_file))
+        command.extend(_state_args(module, state_file))
     elif state == "present" and plan_file:
         if any([os.path.isfile(f"{project_path}/{plan_file}"), os.path.isfile(plan_file)]):
             command.append(plan_file)
@@ -696,11 +703,12 @@ def main():
             module.fail_json(msg=f'Could not find plan_file "{plan_file}", check the path and try again.')
     else:
         plan_file, needs_application, out, err, command = build_plan(
+            module,
             command,
             project_path,
             variables_args,
             state_file,
-            module.params.get("targets"),
+            module.params["targets"],
             state,
             APPLY_ARGS,
             plan_file,
@@ -713,7 +721,7 @@ def main():
             )
         if state != "planned":
             # The plan was built from state_file, so the apply must use the same state.
-            command.extend(_state_args(state_file))
+            command.extend(_state_args(module, state_file))
             command.append(plan_file)
 
     result_diff = dict()
@@ -721,11 +729,12 @@ def main():
         if state == "absent":
             plan_absent_args = ["-destroy"]
             plan_file, needs_application, out, err, command = build_plan(
+                module,
                 command,
                 project_path,
                 variables_args,
                 state_file,
-                module.params.get("targets"),
+                module.params["targets"],
                 state,
                 plan_absent_args,
                 plan_file,
@@ -733,10 +742,10 @@ def main():
             )
         diff_command = [command[0], "show", "-json", plan_file]
         rc, diff_output, err = module.run_command(diff_command, check_rc=False, cwd=project_path)
-        changed, result_diff = get_diff(diff_output)
+        changed, result_diff = get_diff(module, diff_output)
         if rc != 0:
             if workspace_ctx["current"] != workspace:
-                select_workspace(command[0], project_path, workspace_ctx["current"], no_color)
+                select_workspace(module, command[0], project_path, workspace_ctx["current"], no_color)
             module.fail_json(
                 msg=err.rstrip(),
                 rc=rc,
@@ -751,7 +760,7 @@ def main():
         rc, out, err = module.run_command(command, check_rc=False, cwd=project_path)
         if rc != 0:
             if workspace_ctx["current"] != workspace:
-                select_workspace(command[0], project_path, workspace_ctx["current"], no_color)
+                select_workspace(module, command[0], project_path, workspace_ctx["current"], no_color)
             module.fail_json(
                 msg=err.rstrip(),
                 rc=rc,
@@ -766,9 +775,9 @@ def main():
             changed = True
 
     if no_color:
-        outputs_command = [command[0], "output", "-no-color", "-json"] + _state_args(state_file)
+        outputs_command = [command[0], "output", "-no-color", "-json"] + _state_args(module, state_file)
     else:
-        outputs_command = [command[0], "output", "-json"] + _state_args(state_file)
+        outputs_command = [command[0], "output", "-json"] + _state_args(module, state_file)
 
     rc, outputs_text, outputs_err = module.run_command(outputs_command, cwd=project_path)
     outputs = {}
@@ -786,9 +795,9 @@ def main():
 
     # Restore the Terraform workspace found when running the module
     if workspace_ctx["current"] != workspace:
-        select_workspace(command[0], project_path, workspace_ctx["current"], no_color)
+        select_workspace(module, command[0], project_path, workspace_ctx["current"], no_color)
     if state == "absent" and workspace != "default" and purge_workspace is True:
-        remove_workspace(command[0], project_path, workspace, no_color)
+        remove_workspace(module, command[0], project_path, workspace, no_color)
 
     result = {
         "state": state,

@@ -58,6 +58,8 @@ __all__ = (
     "GetVpcLinksPaginatorName",
     "IntegrationTypeType",
     "IpAddressTypeType",
+    "JwtClaimFormatType",
+    "JwtSigningAlgorithmType",
     "LocationStatusTypeType",
     "OpType",
     "PaginatorName",
@@ -79,7 +81,7 @@ AccessAssociationSourceTypeType = Literal["VPCE"]
 ApiKeySourceTypeType = Literal["AUTHORIZER", "HEADER"]
 ApiKeysFormatType = Literal["csv"]
 ApiStatusType = Literal["AVAILABLE", "FAILED", "PENDING", "UPDATING"]
-AuthorizerTypeType = Literal["COGNITO_USER_POOLS", "REQUEST", "TOKEN"]
+AuthorizerTypeType = Literal["COGNITO_USER_POOLS", "JWT", "REQUEST", "TOKEN"]
 CacheClusterSizeType = Literal["0.5", "1.6", "118", "13.5", "237", "28.4", "58.2", "6.1"]
 CacheClusterStatusType = Literal[
     "AVAILABLE", "CREATE_IN_PROGRESS", "DELETE_IN_PROGRESS", "FLUSH_IN_PROGRESS", "NOT_AVAILABLE"
@@ -153,6 +155,8 @@ GetUsagePlansPaginatorName = Literal["get_usage_plans"]
 GetVpcLinksPaginatorName = Literal["get_vpc_links"]
 IntegrationTypeType = Literal["AWS", "AWS_PROXY", "HTTP", "HTTP_PROXY", "MOCK"]
 IpAddressTypeType = Literal["dualstack", "ipv4"]
+JwtClaimFormatType = Literal["SINGLE_STRING"]
+JwtSigningAlgorithmType = Literal["ES256", "ES384", "ES512", "RS256", "RS384", "RS512"]
 LocationStatusTypeType = Literal["DOCUMENTED", "UNDOCUMENTED"]
 OpType = Literal["add", "copy", "move", "remove", "replace", "test"]
 PutModeType = Literal["merge", "overwrite"]
@@ -292,6 +296,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -476,6 +481,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -543,6 +549,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

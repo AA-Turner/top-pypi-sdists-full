@@ -64,6 +64,7 @@ AssociationStatusType = Literal["ASSOCIATED", "NOT_ASSOCIATED"]
 BillingDomainType = Literal["BILLABLE", "PRO_FORMA"]
 BillingFeatureFilterNameType = Literal["PREFERENCE_KEY"]
 BillingFeatureType = Literal[
+    "BENEFIT_LEVEL_SHARING",
     "BILLING_ALERTS",
     "CREDIT_LEVEL_SHARING",
     "CREDIT_PREFERENCE_OPTIONS",
@@ -230,6 +231,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -414,6 +416,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -481,6 +484,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

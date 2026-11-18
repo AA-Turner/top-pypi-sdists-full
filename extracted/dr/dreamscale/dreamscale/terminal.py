@@ -85,7 +85,7 @@ class ProgressPrinter:
                 # read as the whole wait. The ready line reports the duration instead.
                 return f"{match['label'].rstrip('…')}…{match['suffix']}"
             return line
-        if line == "✓ Compute ready" and self._wait_started_at is not None:
+        if line in _READY_LINES and self._wait_started_at is not None:
             waited = int(max(0.0, self._clock() - self._wait_started_at))
             self._wait_started_at = None
             return f"{line} after {waited}s" if waited else line
@@ -405,8 +405,12 @@ def _transport_label(
     return None
 
 
+_READY_LINES = frozenset({"✓ Compute ready", "✓ Simulator ready"})
+
 _WAIT_LABELS = frozenset({
     "Starting compute", "Waiting for compute", "Restoring model storage",
+    "Getting a simulator", "Waiting for L4 capacity", "Starting Isaac Sim",
+    "Preparing scene",
 })
 
 # The suffix may follow a space or a comma (the queue line: "…: 0s elapsed, position 1 in
@@ -483,6 +487,8 @@ class _LiveStatusLine:
 
 
 def _is_live_status_line(line: str) -> bool:
+    if (match := _ELAPSED_LINE_RE.fullmatch(line)) and match["label"] in _WAIT_LABELS:
+        return True
     normalized = line.lower()
     return normalized.startswith((
         "homing…", "connecting robot…", "starting compute", "restoring model storage",

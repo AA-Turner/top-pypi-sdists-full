@@ -1,10 +1,13 @@
-"""Hugging Face: one read token per user, kept by Dreamscale, for private repos.
+"""Hugging Face: one read connection per user, kept by Dreamscale, for private repos.
 
-`dreamscale integrations hugging-face setup` asks for a read token (or takes --token) and
-sends it to the control plane, which checks it with Hugging Face, refuses one that can write
-and keeps it (encrypted) for your account: the dashboard's Integrations page shows and
-changes the same connection. Deployments (inspect, create) and training then read your
-private repos with it. `status` shows the connection; `remove` deletes the token.
+`dreamscale integrations hugging-face setup` opens the dashboard to sign in with Hugging Face
+(its OAuth consent screen, read-only; DSL-445) and waits until the connection shows up, where
+the control plane has an OAuth app and the CLI knows its dashboard. Otherwise, or with
+--token / --paste, it takes a read token and sends it to the control plane, which checks it
+with Hugging Face, refuses one that can write and keeps it (encrypted) for your account. The
+dashboard's Integrations page shows and changes the same connection. Deployments (inspect,
+create) and training then read your private repos with it. `status` shows the connection;
+`remove` deletes it.
 
 A request's own token wins: --hf-token, then HF_TOKEN. Without either the SDK sends none and
 the control plane uses the connected one.
@@ -16,17 +19,25 @@ import asyncio
 import getpass
 import os
 import sys
+import time
+import webbrowser
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
 from dreamscale import errors
-from dreamscale.config import load_config, save_config
+from dreamscale.config import dashboard_url, load_config, save_config
 from dreamscale.control import ControlPlaneClient
 
 NAME = "hugging-face"
 NEW_TOKEN_URL = "https://huggingface.co/settings/tokens/new?tokenType=read"
 SETUP_COMMAND = "dreamscale integrations hugging-face setup"
+# The dashboard route that starts Hugging Face's consent flow, and where it comes back to.
+CONNECT_PATH = (
+    "/api/integrations/hugging-face/connect?return=/dashboard/settings/integrations"
+)
+WAIT_S = 300.0
+POLL_S = 2.0
 _MAKE_ONE = f"create a token with the Read role at {NEW_TOKEN_URL} and rerun `{SETUP_COMMAND}`"
 # The control plane's refusals of a token, with the CLI's own next step.
 _TOKEN_REFUSALS = {
@@ -126,34 +137,61 @@ def status_lines(status: dict[str, Any], *, now: datetime | None = None) -> list
             f"Connect it for your private repos: {SETUP_COMMAND}",
         ]
     user = status.get("username") or "your account"
+    oauth = status.get("kind") == "oauth"
     if status.get("failed_at"):
         return errors.ErrorInfo(
             "hf_token_failed",
+            f"Hugging Face refused the access connected for {user} (signed in with Hugging "
+            "Face)" if oauth else
             f"Hugging Face refused the token connected for {user} ({hint(status)})",
             f"it was revoked or expired {_ago(status['failed_at'], now) or ''}".rstrip(),
-            _MAKE_ONE,
+            f"rerun `{SETUP_COMMAND}`" if oauth else _MAKE_ONE,
         ).render().splitlines()
     used = _ago(status.get("last_used_at"), now)
     lines = [f"✓ Hugging Face: connected as {user}"]
     if status.get("orgs"):
         lines.append(f"  orgs:  {', '.join(map(str, status['orgs']))}")
     lines.append(
-        f"  token: {hint(status)} · {_role(status)} · "
+        ("  access: signed in with Hugging Face · read-only · " if oauth else
+         f"  token: {hint(status)} · {_role(status)} · ")
         + (f"last used {used}" if used else "not used yet")
     )
     return lines
 
 
+def _fingerprint(status: dict[str, Any]) -> tuple:
+    """What changes when a connection is made or replaced."""
+    return tuple(status.get(key) for key in (
+        "connected", "kind", "username", "token_hint", "created_at", "failed_at",
+    ))
+
+
 def run_setup(
     *,
     token: str | None = None,
+    paste: bool = False,
     client_factory: Callable[..., Any] | None = None,
     print_fn: Callable[[str], None] = print,
     prompt: Callable[[str], str] = getpass.getpass,
+    open_browser: Callable[[str], bool] = webbrowser.open,
+    sleep: Callable[[float], None] = time.sleep,
+    clock: Callable[[], float] = time.monotonic,
+    wait_s: float = WAIT_S,
 ) -> dict[str, Any]:
-    """Ask for a read token and connect it to your Dreamscale account. Returns the status."""
-    if not load_config().api_key:
+    """Connect Hugging Face to your Dreamscale account: sign in with Hugging Face in the
+    dashboard where that is offered, else (or with --token / --paste) a read token. Returns
+    the status."""
+    config = load_config()
+    if not config.api_key:
         raise errors.catalog("not_configured")
+    if token is None and not paste:
+        before = _call(client_factory, "hugging_face_status")
+        link = dashboard_url(CONNECT_PATH, config.control_plane_url)
+        if before.get("oauth") and link:
+            return _sign_in(
+                before, link, client_factory=client_factory, print_fn=print_fn,
+                open_browser=open_browser, sleep=sleep, clock=clock, wait_s=wait_s,
+            )
     if token is None:
         print_fn(f"Create a token with the Read role at {NEW_TOKEN_URL}")
         token = prompt("Hugging Face read token: ")
@@ -175,6 +213,51 @@ def run_setup(
         "Deployments and training read your private repos with it."
     )
     return status
+
+
+def _sign_in(
+    before: dict[str, Any],
+    link: str,
+    *,
+    client_factory: Callable[..., Any] | None,
+    print_fn: Callable[[str], None],
+    open_browser: Callable[[str], bool],
+    sleep: Callable[[float], None],
+    clock: Callable[[], float],
+    wait_s: float,
+) -> dict[str, Any]:
+    """Open the dashboard's Connect Hugging Face (Hugging Face's consent screen) and wait for
+    the connection to appear or change."""
+    print_fn("Sign in with Hugging Face to connect it (read-only):")
+    print_fn(f"  {link}")
+    try:
+        opened = open_browser(link)
+    except Exception:  # noqa: BLE001 - no browser here (SSH, a container): the link is printed
+        opened = False
+    if not opened:
+        print_fn("Open the link in a browser signed in to Dreamscale.")
+    print_fn(f"Waiting for the connection… (Ctrl-C to stop; or `{SETUP_COMMAND} --paste`)")
+    seen = _fingerprint(before)
+    deadline = clock() + wait_s
+    while clock() < deadline:
+        sleep(POLL_S)
+        status = _call(client_factory, "hugging_face_status")
+        if status.get("connected") and not status.get("failed_at") and (
+            _fingerprint(status) != seen
+        ):
+            _forget_local_token()
+            print_fn(
+                f"✓ Connected Hugging Face as {status.get('username') or 'your account'}. "
+                "Deployments and training read your private repos with it."
+            )
+            return status
+    raise _error(
+        "hugging_face_not_connected",
+        "Hugging Face wasn't connected",
+        f"no sign-in finished within {int(wait_s // 60)} minutes",
+        f"open {link} and rerun `{SETUP_COMMAND}`, or connect a read token with "
+        f"`{SETUP_COMMAND} --paste`",
+    )
 
 
 def run_status(

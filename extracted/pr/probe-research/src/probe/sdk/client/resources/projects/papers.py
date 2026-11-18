@@ -3,7 +3,7 @@ references, papers and the citation graph (twin: app/knowledge/papers)."""
 
 from __future__ import annotations
 import builtins
-from .....generated.models import CitationGraphOut, PaperCitationsOut, PaperListOut, PaperOut
+from .....generated.models import ArtifactOut, CitationGraphOut, PaperCitationsOut, PaperListOut, PaperOut
 from ....delivery.transport.transport import Page
 from ...resource import Resource
 from collections.abc import Iterable
@@ -376,6 +376,15 @@ class PapersMixin:
         """
         return self.transport.post(f"/v1/papers/{paper_id}/citations/refresh")
 
+    def get_paper_content(self, paper_id: str, *, should_refresh: bool | None = None) -> dict:
+        """``GET /v1/papers/{id}/content``: a paper's parsed text (cached a day; ``should_refresh`` reads it again)."""
+        filters = {"refresh": should_refresh} if should_refresh is not None else None
+        return self.transport.get(f"/v1/papers/{paper_id}/content", params=filters)
+
+    def get_paper_digest(self, paper_id: str) -> dict:
+        """``GET /v1/papers/{id}/digest``: the generated digest of a paper."""
+        return self.transport.get(f"/v1/papers/{paper_id}/digest")
+
 
 class PapersResource(Resource):
     """`client.papers`: typed paper reads. `Page.items` are `PaperListOut`; one paper is
@@ -386,6 +395,12 @@ class PapersResource(Resource):
     def get(self, paper_id: str) -> PaperOut:
         """`Client.get_paper` as a `PaperOut`."""
         return self._to_model(PaperOut, self._client.get_paper(paper_id))
+
+    def list_artifacts(
+        self, paper_id: str, *, prefix: str | None = None, limit: int | None = None
+    ) -> builtins.list[ArtifactOut]:
+        """`Client.list_paper_artifacts` as `ArtifactOut`s."""
+        return self._to_models(ArtifactOut, self._client.list_paper_artifacts(paper_id, prefix=prefix, limit=limit))
 
     def list(
         self, project_id: str, *, cursor: str | None = None, limit: int | None = None,

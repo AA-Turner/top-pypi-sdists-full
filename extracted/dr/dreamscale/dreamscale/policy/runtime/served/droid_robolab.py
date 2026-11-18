@@ -3,7 +3,7 @@ placement rule of its own (``client.placement_name``) runs on AWS or Modal, from
 
 from __future__ import annotations
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.policy.runtime.contract import catalog_check
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify
-Version: 4.2.1
+Version: 4.3.0
 Summary: Apify SDK for Python
 Keywords: apify,sdk,automation,chrome,crawlee,crawler,headless,scraper,scraping
 Author: Apify Technologies s.r.o.
@@ -18,7 +18,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Typing :: Typed
-Requires-Dist: apify-client[brotli]>=3.3.0,<4.0.0
+Requires-Dist: apify-client[brotli]>=3.5.0,<4.0.0
 Requires-Dist: crawlee>=1.9.1,!=1.10.1,<2.0.0
 Requires-Dist: cachetools>=5.5.0
 Requires-Dist: cryptography>=42.0.0

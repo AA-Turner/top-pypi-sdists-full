@@ -30,7 +30,7 @@ import pkgutil
 from functools import cache
 from types import ModuleType
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 
 @cache

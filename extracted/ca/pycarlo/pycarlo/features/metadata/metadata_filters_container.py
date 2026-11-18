@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, FrozenSet, Optional
 
 from dataclasses_json import DataClassJsonMixin, dataclass_json
 
@@ -9,6 +9,7 @@ from pycarlo.features.metadata import (
     MetadataAllowBlockList,
     MetadataFilter,
 )
+from pycarlo.features.metadata.metadata_allow_block_list import unevaluable_attributes
 
 
 @dataclass_json
@@ -104,8 +105,10 @@ class MetadataFiltersContainer(DataClassJsonMixin):
     def is_project_with_datasets_filtered(self, project: str) -> bool:
         """
         Returns True if there's at least one filter configured for the specified project filtering
-        on datasets, this can be used to check if get_sql_conditions for the project is going to
-        return an empty query or not.
+        on datasets. Callers check this before calling get_sql_conditions(project=...), which
+        returns None when it's False. When it's True, get_sql_conditions returns a condition; that
+        can be a no-op "(1=1)" if the only dataset filters are BLOCK filters the caller's column
+        mapping can't express (e.g. table_name rules on a mapping without a table column).
         """
         return self.is_metadata_filtered and any(
             f.matches(project=project) and f.dataset is not None
@@ -142,7 +145,7 @@ class MetadataFiltersContainer(DataClassJsonMixin):
         Result for this method is True only if the result effect is ALLOW.
 
         Data is matched using properties specified in kwargs, the following keys are supported
-        in kwargs: 'project', 'dataset', 'table', 'table_type'.
+        in kwargs: 'project', 'dataset', 'table_name', 'table_type'.
         """
         effect = self._get_effect(
             metadata_filters=self.metadata_filters, force_regexp=False, **kwargs
@@ -158,7 +161,7 @@ class MetadataFiltersContainer(DataClassJsonMixin):
         instead of metadata_filters. Returns True when no expensive_collection_filters
         are configured, preserving today's behavior for jobs that do not opt in.
 
-        Supported kwargs: 'project', 'dataset', 'table', 'table_type'.
+        Supported kwargs: 'project', 'dataset', 'table_name', 'table_type'.
         """
         if not self.expensive_collection_filters.filters:
             return True
@@ -170,6 +173,16 @@ class MetadataFiltersContainer(DataClassJsonMixin):
         return effect == FilterEffectType.ALLOW
 
     @staticmethod
+    def _is_evaluable(f: MetadataFilter, unevaluable: FrozenSet[str]) -> bool:
+        """
+        False for a BLOCK filter with a condition on an attribute in unevaluable (see
+        unevaluable_attributes). ALLOW filters are always evaluable.
+        """
+        return f.effect != FilterEffectType.BLOCK or f.condition_attribute_names.isdisjoint(
+            unevaluable
+        )
+
+    @staticmethod
     def _get_effect(
         metadata_filters: MetadataAllowBlockList,
         force_regexp: bool,
@@ -178,22 +191,37 @@ class MetadataFiltersContainer(DataClassJsonMixin):
     ) -> FilterEffectType:
         """
         Returns the effect for a metadata element with the properties specified by kwargs
-        (project, dataset, table, table_type).
+        (project, dataset, table_name, table_type).
         If there's an explicit filter matching (a filter is explicit if the effect is the default
         one) then default effect is returned.
         If there's a match in the "other effect" list then the "other effect" is returned, we're
         calling "other effect" to the effect that is not the default one.
         If no matching filter, the default effect is returned.
+
+        BLOCK filters with a condition on an attribute that isn't in kwargs, at or below the
+        finest attribute that is, are ignored. A filter only matches on the attributes the caller
+        supplies, so a BLOCK filter for (db, schema, table_name=t) would otherwise match a
+        (db, schema) lookup and block the whole schema, and a table_type filter would block every
+        table for a lookup without table_type. ALLOW filters are kept: a table-scoped ALLOW filter
+        must still let its schema through so its tables can be evaluated. Missing coarser
+        attributes (e.g. a dataset-only lookup without project) keep matching permissively.
         """
+        unevaluable = unevaluable_attributes(kwargs)
+
+        def is_applicable(f: MetadataFilter) -> bool:
+            if condition is not None and not condition(f):
+                return False
+            return MetadataFiltersContainer._is_evaluable(f, unevaluable)
+
         if not metadata_filters.filters or any(
             f.matches(force_regexp, **kwargs)
-            for f in metadata_filters.get_default_effect_rules(condition=condition)
+            for f in metadata_filters.get_default_effect_rules(condition=is_applicable)
         ):
             return metadata_filters.default_effect
 
         if any(
             f.matches(force_regexp, **kwargs)
-            for f in metadata_filters.get_other_effect_rules(condition=condition)
+            for f in metadata_filters.get_other_effect_rules(condition=is_applicable)
         ):
             return metadata_filters.other_effect
 
@@ -230,22 +258,40 @@ class MetadataFiltersContainer(DataClassJsonMixin):
                 SQL: project='x_1' OR (NOT(project REGEXP 'x_*') AND NOT(project='z'))
         Basically we first put all filters matching the default condition joined by
         AND/OR (block/allow), and then all filters with the other effect joined by OR/AND.
+
+        BLOCK filters with a condition the mapping can't express (an unmapped attribute at or
+        below the finest mapped level, e.g. table_name when only project/dataset are mapped) are
+        left out: dropping just that condition would turn a table-scoped block into a
+        whole-schema exclusion. Missing coarser columns keep their current behaviour. If that
+        leaves no condition at all, an always-true (default ALLOW) or always-false (default
+        BLOCK) condition is returned, so callers concatenating the result get valid SQL.
         """
         if not self.metadata_filters.filters:
             return None
         if project and not self.is_project_with_datasets_filtered(project):
             return None
 
-        def project_condition(f: MetadataFilter):
-            return not project or f.matches(project=project)
+        unevaluable = unevaluable_attributes(column_mapping)
+
+        # Decide once per filter: project matching can involve regexps and runs for every rule.
+        applicable_ids = set()
+        has_inexpressible_rules = False
+        for f in self.metadata_filters.filters:
+            if project and not f.matches(project=project):
+                continue
+            if self._is_evaluable(f, unevaluable):
+                applicable_ids.add(id(f))
+            else:
+                has_inexpressible_rules = True
+
+        def is_applicable(f: MetadataFilter) -> bool:
+            return id(f) in applicable_ids
 
         default_effect = self.metadata_filters.default_effect
         default_effect_filters = self.metadata_filters.get_default_effect_rules(
-            condition=project_condition
+            condition=is_applicable
         )
-        other_effect_filters = self.metadata_filters.get_other_effect_rules(
-            condition=project_condition
-        )
+        other_effect_filters = self.metadata_filters.get_other_effect_rules(condition=is_applicable)
         default_effect_op = " OR " if default_effect == FilterEffectType.ALLOW else " AND "
         other_effect_op = " AND " if default_effect == FilterEffectType.ALLOW else " OR "
 
@@ -268,6 +314,8 @@ class MetadataFiltersContainer(DataClassJsonMixin):
             return f"({default_effect_conditions})"
         elif other_effect_conditions:
             return f"({other_effect_conditions})"
+        elif has_inexpressible_rules:
+            return "(1=1)" if default_effect == FilterEffectType.ALLOW else "(1=0)"
         else:
             return None
 

@@ -3,9 +3,19 @@ from __future__ import annotations
 import inspect
 import logging
 from types import GenericAlias
-from typing import TYPE_CHECKING, Any, Final, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Final,
+    TypeVar,
+    cast,
+)
 
-from tox.config.loader.api import ConfigLoadArgs, Loader, Override
+from tox.config.loader.api import (
+    ConfigLoadArgs,
+    Loader,
+    Override,
+)
 from tox.config.loader.replacer import (
     MatchExpression,
     MatchRecursionError,
@@ -18,13 +28,26 @@ from tox.config.loader.replacer import (
 )
 from tox.config.loader.str_convert import StrConvert
 from tox.config.set_env import SetEnv
-from tox.config.types import CircularChainError, Command, EnvList
+from tox.config.types import (
+    CircularChainError,
+    Command,
+    EnvList,
+)
 from tox.report import HandledError
 from tox.tox_env.python.pip.req.file import protect_env_variables
-from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
+from tox.tox_env.python.pip.req_file import (
+    PythonConstraints,
+    PythonDeps,
+)
 from tox.util.typing_compat import override
 
 from ._api import TomlTypes
+from ._product import (
+    expand_factor_group,
+    expand_product,
+    extract_default,
+    extract_label,
+)
 from ._replace import TomlReplaceLoader, Unroll
 from ._validate import validate
 
@@ -42,7 +65,15 @@ _V = TypeVar("_V")
 
 
 class TomlLoader(Loader[TomlTypes]):
-    """Load configuration from a pyproject.toml file."""
+    """Load configuration from a pyproject.toml file.
+
+    :param section: the section the values are read from
+    :param overrides: the overrides to apply to the values
+    :param content: the parsed content of the ``tox.toml`` or ``pyproject.toml`` file
+    :param root_content: the parsed content of the root of the file, used by references
+    :param unused_exclude: the keys that are not reported as unused
+
+    """
 
     def __init__(
         self,
@@ -66,6 +97,15 @@ class TomlLoader(Loader[TomlTypes]):
         return self.content[key]
 
     def load_raw_from_root(self, path: str) -> TomlTypes:
+        """Get a raw value from the root of the TOML content, by its dotted path.
+
+        :param path: the dotted path of the value
+
+        :returns: the raw value found at that path
+
+        :raises KeyError: when a part of the path is missing or is not a table
+
+        """
         current = cast("TomlTypes", self._root_content)
         for key in path.split(self.section.SEP):
             if isinstance(current, dict):
@@ -94,8 +134,7 @@ class TomlLoader(Loader[TomlTypes]):
             program_depth=2 if of_type == list[Command] else 1 if of_type == Command else None,
             requirement_entries=of_type in {PythonDeps, PythonConstraints},
         )
-        exploded = unroll(raw, skip_str=True) if delay_replace else unroll(raw)
-        result = self.to(exploded, of_type, factory)
+        result = self.to(unroll(raw, skip_str=True) if delay_replace else unroll(raw), of_type, factory)
         if delay_replace and conf is not None:  # the core section supports no replacement
             loader = self
 
@@ -144,13 +183,13 @@ class TomlLoader(Loader[TomlTypes]):
 
     @staticmethod
     @override
-    def to_str(value: TomlTypes) -> str:
-        return validate(value, str)
+    def to_bool(value: TomlTypes) -> bool:
+        return validate(value, bool)
 
     @staticmethod
     @override
-    def to_bool(value: TomlTypes) -> bool:
-        return validate(value, bool)
+    def to_set(value: TomlTypes, of_type: type[_T]) -> Iterator[_T]:
+        return TomlLoader.to_list(value, of_type)
 
     @staticmethod
     @override
@@ -160,11 +199,6 @@ class TomlLoader(Loader[TomlTypes]):
             # a generated command list leaves gaps rather than compacting itself, so drop them here (see #3388)
             return iter([i for i in result if i])
         return iter(result)
-
-    @staticmethod
-    @override
-    def to_set(value: TomlTypes, of_type: type[_T]) -> Iterator[_T]:
-        return TomlLoader.to_list(value, of_type)
 
     @staticmethod
     @override
@@ -179,6 +213,11 @@ class TomlLoader(Loader[TomlTypes]):
 
     @staticmethod
     @override
+    def to_str(value: TomlTypes) -> str:
+        return validate(value, str)
+
+    @staticmethod
+    @override
     def to_command(value: TomlTypes) -> Command:
         if not value:
             msg = f"attempting to parse {value!r} into a command failed"
@@ -188,8 +227,6 @@ class TomlLoader(Loader[TomlTypes]):
     @staticmethod
     @override
     def to_env_list(value: TomlTypes) -> EnvList:
-        from ._product import expand_factor_group, expand_product  # ruff:ignore[import-outside-top-level]
-
         if not isinstance(value, list):
             msg = f"env_list must be a list, got {type(value).__name__}"
             raise TypeError(msg)
@@ -217,4 +254,8 @@ class TomlLoader(Loader[TomlTypes]):
 __all__ = [
     "HandledError",
     "TomlLoader",
+    "TomlTypes",
+    "expand_factor_group",
+    "extract_default",
+    "extract_label",
 ]

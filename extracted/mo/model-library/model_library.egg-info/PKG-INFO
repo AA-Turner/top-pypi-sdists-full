@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model-library
-Version: 0.1.40
+Version: 0.1.41
 Summary: Model Library for vals.ai 
 Author-email: "Vals AI, Inc." <contact@vals.ai>
 License: MIT
@@ -15,7 +15,7 @@ Requires-Dist: httpx[http2]<1.0,>=0.28.0
 Requires-Dist: backoff<3.0,>=2.2.1
 Requires-Dist: redis<7.0,>=6.4.0
 Requires-Dist: tiktoken<1.0,>=0.12.0
-Requires-Dist: pillow<13.0,>=12.1.1
+Requires-Dist: pillow<14.0,>=13.0.0
 Requires-Dist: python-dotenv<2.0,>=1.0.0
 Requires-Dist: aiohttp<4.0,>=3.13.5
 Requires-Dist: httpx2<3.0,>=2.13.0

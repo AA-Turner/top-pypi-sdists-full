@@ -56,6 +56,7 @@ class DecoratedProductionJob(object):
         'archived_at': 'datetime',
         'cloud_id': 'str',
         'is_imported': 'bool',
+        'has_verified_submitter': 'bool',
         'source_job_id': 'str',
         'source_workspace_id': 'str',
         'project': 'MiniProject',
@@ -96,6 +97,7 @@ class DecoratedProductionJob(object):
         'archived_at': 'archived_at',
         'cloud_id': 'cloud_id',
         'is_imported': 'is_imported',
+        'has_verified_submitter': 'has_verified_submitter',
         'source_job_id': 'source_job_id',
         'source_workspace_id': 'source_workspace_id',
         'project': 'project',
@@ -112,7 +114,7 @@ class DecoratedProductionJob(object):
         'secrets_masked': 'secrets_masked'
     }
 
-    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, source_job_id=None, source_workspace_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, is_admission_queued=None, admission_queue_name=None, admission_workloads_ahead=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, id=None, name=None, description=None, created_at=None, updated_at=None, status_updated_at=None, creator_id=None, config=None, job_queue_config=None, state=None, project_id=None, last_job_run_id=None, schedule_id=None, job_queue_id=None, overview_url=None, is_service=None, url=None, token=None, access=None, healthcheck_url=None, archived_at=None, cloud_id=None, is_imported=False, has_verified_submitter=False, source_job_id=None, source_workspace_id=None, project=None, creator=None, last_job_run=None, schedule=None, job_queue=None, integration_details=None, connections=None, position_in_job_queue=None, is_admission_queued=None, admission_queue_name=None, admission_workloads_ahead=None, secrets_masked=False, local_vars_configuration=None):  # noqa: E501
         """DecoratedProductionJob - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -141,6 +143,7 @@ class DecoratedProductionJob(object):
         self._archived_at = None
         self._cloud_id = None
         self._is_imported = None
+        self._has_verified_submitter = None
         self._source_job_id = None
         self._source_workspace_id = None
         self._project = None
@@ -193,6 +196,8 @@ class DecoratedProductionJob(object):
         self.cloud_id = cloud_id
         if is_imported is not None:
             self.is_imported = is_imported
+        if has_verified_submitter is not None:
+            self.has_verified_submitter = has_verified_submitter
         if source_job_id is not None:
             self.source_job_id = source_job_id
         if source_workspace_id is not None:
@@ -750,7 +755,7 @@ class DecoratedProductionJob(object):
     def is_imported(self):
         """Gets the is_imported of this DecoratedProductionJob.  # noqa: E501
 
-        Whether this workload was imported from a customer cluster rather than submitted through Anyscale. Imported workloads have no submitting user (creator_id falls back to the cloud creator), so the UI labels them 'Imported' instead of showing that misleading creator. Computed server-side; not client-settable.  # noqa: E501
+        Whether this job was imported from a KubeRay CR applied directly to a connected Kubernetes cluster, rather than submitted through Anyscale.  # noqa: E501
 
         :return: The is_imported of this DecoratedProductionJob.  # noqa: E501
         :rtype: bool
@@ -761,13 +766,36 @@ class DecoratedProductionJob(object):
     def is_imported(self, is_imported):
         """Sets the is_imported of this DecoratedProductionJob.
 
-        Whether this workload was imported from a customer cluster rather than submitted through Anyscale. Imported workloads have no submitting user (creator_id falls back to the cloud creator), so the UI labels them 'Imported' instead of showing that misleading creator. Computed server-side; not client-settable.  # noqa: E501
+        Whether this job was imported from a KubeRay CR applied directly to a connected Kubernetes cluster, rather than submitted through Anyscale.  # noqa: E501
 
         :param is_imported: The is_imported of this DecoratedProductionJob.  # noqa: E501
         :type: bool
         """
 
         self._is_imported = is_imported
+
+    @property
+    def has_verified_submitter(self):
+        """Gets the has_verified_submitter of this DecoratedProductionJob.  # noqa: E501
+
+        Whether this imported job's creator is the Anyscale user its CR named as the submitter. Always false for a job submitted through Anyscale.  # noqa: E501
+
+        :return: The has_verified_submitter of this DecoratedProductionJob.  # noqa: E501
+        :rtype: bool
+        """
+        return self._has_verified_submitter
+
+    @has_verified_submitter.setter
+    def has_verified_submitter(self, has_verified_submitter):
+        """Sets the has_verified_submitter of this DecoratedProductionJob.
+
+        Whether this imported job's creator is the Anyscale user its CR named as the submitter. Always false for a job submitted through Anyscale.  # noqa: E501
+
+        :param has_verified_submitter: The has_verified_submitter of this DecoratedProductionJob.  # noqa: E501
+        :type: bool
+        """
+
+        self._has_verified_submitter = has_verified_submitter
 
     @property
     def source_job_id(self):

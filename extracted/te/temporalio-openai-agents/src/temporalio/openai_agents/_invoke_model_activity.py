@@ -3,9 +3,12 @@
 Implements mapping of OpenAI datastructures to Pydantic friendly types.
 """
 
+import asyncio
+import email.utils
 import enum
+import time
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from typing import Any, NoReturn
 
@@ -17,6 +20,7 @@ from agents import (
     Handoff,
     HostedMCPTool,
     ImageGenerationTool,
+    Model,
     ModelProvider,
     ModelResponse,
     ModelSettings,
@@ -24,15 +28,17 @@ from agents import (
     OpenAIProvider,
     RunContextWrapper,
     Tool,
+    ToolCaller,
     TResponseInputItem,
     UserError,
     WebSearchTool,
+    tool_namespace,
 )
 from agents.items import TResponseStreamEvent
+from agents.models import _openai_shared, get_default_model_settings
 from agents.tool import (
     ApplyPatchTool,
     CustomTool,
-    LocalShellTool,
     ShellTool,
     ShellToolEnvironment,
     ToolSearchTool,
@@ -41,14 +47,21 @@ from openai import (
     APIStatusError,
     AsyncOpenAI,
 )
-from openai.types.responses import CustomToolParam
+from openai.types.responses import (
+    CustomToolParam,
+    ResponseCreatedEvent,
+    ResponseErrorEvent,
+)
 from openai.types.responses.tool_param import Mcp
 from typing_extensions import Required, TypedDict
 
 from temporalio import activity
 from temporalio.contrib.workflow_streams import WorkflowStreamClient
 from temporalio.exceptions import ApplicationError
-from temporalio.openai_agents._heartbeat_decorator import auto_heartbeater
+from temporalio.openai_agents._heartbeat_decorator import (
+    auto_heartbeater,
+    heartbeating,
+)
 from temporalio.openai_agents._temporal_worker_env_ref import (
     AllowAllWorkerEnvVars,
     _WorkerEnvRefResolver,
@@ -78,6 +91,13 @@ class FunctionToolInput:
     description: str
     params_json_schema: dict[str, Any]
     strict_json_schema: bool = True
+    # The fields below were added after the first release. They are optional so that
+    # activity inputs recorded in older workflow histories still decode.
+    defer_loading: bool = False
+    namespace: str | None = None
+    namespace_description: str | None = None
+    allowed_callers: list[ToolCaller] | None = None
+    output_json_schema: dict[str, Any] | None = None
 
 
 @dataclass
@@ -136,7 +156,6 @@ ToolInput = (
     | CodeInterpreterTool
     | HostedMCPToolInput
     | ShellToolInput
-    | LocalShellTool
     | ApplyPatchToolInput
     | CustomToolInput
     | ToolSearchTool
@@ -204,6 +223,10 @@ class ActivityModelInput(TypedDict, total=False):
     previous_response_id: str | None
     conversation_id: str | None
     prompt: Any | None
+    # Set by the workflow when neither the agent nor the run named a model: whether
+    # the agent's settings are the SDK's implicit defaults, and the run-level overrides.
+    implicit_model_settings: bool
+    run_model_settings: ModelSettings | None
 
 
 class StreamingActivityModelInput(ActivityModelInput, total=False):
@@ -245,7 +268,6 @@ def _build_tool(tool: ToolInput, env_refs: _WorkerEnvRefResolver) -> Tool:
             FileSearchTool,
             WebSearchTool,
             ImageGenerationTool,
-            LocalShellTool,
             ToolSearchTool,
         ),
     ):
@@ -277,13 +299,26 @@ def _build_tool(tool: ToolInput, env_refs: _WorkerEnvRefResolver) -> Tool:
             defer_loading=tool.tool_config.get("defer_loading", False),
         )
     elif isinstance(tool, FunctionToolInput):
-        return FunctionTool(
+        function_tool = FunctionTool(
             name=tool.name,
             description=tool.description,
             params_json_schema=tool.params_json_schema,
             on_invoke_tool=_empty_on_invoke_tool,
             strict_json_schema=tool.strict_json_schema,
+            defer_loading=tool.defer_loading,
+            allowed_callers=tool.allowed_callers,
+            output_json_schema=tool.output_json_schema,
         )
+        if tool.namespace:
+            # tool_namespace() is the only public way to attach namespace metadata.
+            # The tool was already validated in the workflow, so the fallback
+            # description only covers inputs built by hand without one.
+            function_tool = tool_namespace(
+                name=tool.namespace,
+                description=tool.namespace_description or tool.namespace,
+                tools=[function_tool],
+            )[0]
+        return function_tool
     else:
         _raise_unknown_tool(tool)  # type:ignore[reportUnreachable]
 
@@ -307,17 +342,68 @@ def _build_tools_and_handoffs(
     return tools, handoffs
 
 
-def _raise_for_openai_status(e: APIStatusError) -> NoReturn:
-    """Translate an OpenAI APIStatusError into the right retry posture."""
-    retry_after: timedelta | None = None
+def _align_implicit_model_settings(
+    input: ActivityModelInput, model: Model
+) -> ModelSettings:
+    """Align implicit default model settings with the model the provider resolved.
+
+    An agent that names no model carries the Agents SDK's default settings for the SDK's
+    own default model, such as a gpt-5 reasoning effort and ``verbosity``. The SDK swaps
+    them for the settings that fit the model name actually used once that name is known.
+    Inside a workflow the name is only known here, after this activity's provider resolves
+    the model, so the same swap happens here. The workflow records whether the agent's
+    settings were those implicit defaults, judged in its own environment, and the
+    run-level overrides, which are re-applied after the swap. Explicit agent settings,
+    inputs from older workflow workers, and models that do not expose a ``model`` name
+    pass through unchanged.
+    """
+    model_settings = input["model_settings"]
+    if input.get("model_name") is not None or not input.get("implicit_model_settings"):
+        return model_settings
+    resolved_name = getattr(model, "model", None)
+    if not isinstance(resolved_name, str):
+        return model_settings
+    aligned = get_default_model_settings(resolved_name).resolve(
+        input.get("run_model_settings")
+    )
+    # Keep the extra arguments a SandboxAgent's capabilities add in the Workflow, such as
+    # the compaction threshold.
+    return replace(aligned, extra_args=model_settings.extra_args)
+
+
+def _retry_after(e: APIStatusError) -> timedelta | None:
+    """Read the delay the provider asks for, as the OpenAI client does.
+
+    ``retry-after-ms`` wins over ``retry-after``, which is a number of seconds or an HTTP date.
+    Values that cannot be parsed, or that do not fit in a ``timedelta``, are ignored.
+    """
     retry_after_ms_header = e.response.headers.get("retry-after-ms")
     if retry_after_ms_header is not None:
-        retry_after = timedelta(milliseconds=float(retry_after_ms_header))
+        try:
+            return timedelta(milliseconds=float(retry_after_ms_header))
+        except (OverflowError, ValueError):
+            pass
 
-    if retry_after is None:
-        retry_after_header = e.response.headers.get("retry-after")
-        if retry_after_header is not None:
-            retry_after = timedelta(seconds=float(retry_after_header))
+    retry_after_header = e.response.headers.get("retry-after")
+    if retry_after_header is None:
+        return None
+    try:
+        return timedelta(seconds=float(retry_after_header))
+    except (OverflowError, ValueError):
+        pass
+    retry_date = email.utils.parsedate_tz(retry_after_header)
+    if retry_date is None:
+        return None
+    try:
+        delay = timedelta(seconds=email.utils.mktime_tz(retry_date) - time.time())
+    except (OverflowError, ValueError):  # a date outside the supported range
+        return None
+    return delay if delay > timedelta(0) else None
+
+
+def _raise_for_openai_status(e: APIStatusError) -> NoReturn:
+    """Translate an OpenAI APIStatusError into the right retry posture."""
+    retry_after = _retry_after(e)
 
     should_retry_header = e.response.headers.get("x-should-retry")
     if should_retry_header == "false":
@@ -349,6 +435,24 @@ def _raise_for_openai_status(e: APIStatusError) -> NoReturn:
     ) from e
 
 
+def _cancel_requested() -> bool:
+    """Whether the workflow asked to cancel the running activity."""
+    details = activity.cancellation_details()
+    return details is not None and details.cancel_requested
+
+
+def _default_openai_client() -> AsyncOpenAI:
+    """Return the framework's default client as it is, or a client on its default key.
+
+    A client the application set keeps its own settings, retries included, as in native
+    runs. Otherwise the client has retries off, so that Temporal retries model calls.
+    """
+    client = _openai_shared.get_default_openai_client()
+    if client is not None:
+        return client
+    return AsyncOpenAI(api_key=_openai_shared.get_default_openai_key(), max_retries=0)
+
+
 class ModelActivity:
     """Class wrapper for model invocation activities to allow model customization. By default, we use an OpenAIProvider with retries disabled.
     Disabling retries in your model of choice is recommended to allow activity retries to define the retry model.
@@ -361,7 +465,7 @@ class ModelActivity:
     ):
         """Initialize the activity with a model provider."""
         self._model_provider = model_provider or OpenAIProvider(
-            openai_client=AsyncOpenAI(max_retries=0)
+            openai_client=_default_openai_client()
         )
         self._env_refs = _WorkerEnvRefResolver(resolvable_worker_env_vars)
 
@@ -370,13 +474,14 @@ class ModelActivity:
     async def invoke_model_activity(self, input: ActivityModelInput) -> ModelResponse:
         """Activity that invokes a model with the given input."""
         model = self._model_provider.get_model(input.get("model_name"))
+        model_settings = _align_implicit_model_settings(input, model)
         tools, handoffs = _build_tools_and_handoffs(input, self._env_refs)
 
         try:
             return await model.get_response(
                 system_instructions=input.get("system_instructions"),
                 input=input["input"],
-                model_settings=input["model_settings"],
+                model_settings=model_settings,
                 tools=tools,
                 output_schema=input.get("output_schema"),
                 handoffs=handoffs,
@@ -389,7 +494,6 @@ class ModelActivity:
             _raise_for_openai_status(e)
 
     @activity.defn
-    @auto_heartbeater
     async def invoke_model_activity_streaming(
         self, input: StreamingActivityModelInput
     ) -> list[TResponseStreamEvent]:
@@ -409,11 +513,20 @@ class ModelActivity:
         ``streaming_topic`` so external consumers (UIs, tracing,
         etc.) can observe events as they arrive.
 
-        Heartbeats run on a background task via ``auto_heartbeater`` so
+        When the workflow cancels it, for example for a tripped input
+        guardrail, ``RunResultStreaming.cancel()`` or a
+        ``ModelSettings.timeout``, it publishes a ``ResponseErrorEvent``
+        with the code ``cancelled`` after its events and stops. Its
+        ``param`` is the ID from the call's ``response.created`` event, if
+        the model sent one. That event ends this model call, not the run: a
+        ``ModelSettings.retry`` or the next model call can publish after it.
+
+        Heartbeats run on a background task via ``heartbeating`` so
         long initial-token latency or long pauses between chunks do not
         trip ``heartbeat_timeout``.
         """
         model = self._model_provider.get_model(input.get("model_name"))
+        model_settings = _align_implicit_model_settings(input, model)
         tools, handoffs = _build_tools_and_handoffs(input, self._env_refs)
 
         topic = input["streaming_topic"]
@@ -421,6 +534,8 @@ class ModelActivity:
             "streaming_batch_interval", timedelta(milliseconds=100)
         )
         events: list[TResponseStreamEvent] = []
+        # From the call's response.created event, to name the response a cancel ends.
+        response_id: str | None = None
 
         stream = WorkflowStreamClient.from_within_activity(
             batch_interval=batch_interval
@@ -431,26 +546,61 @@ class ModelActivity:
         # typed decode can pass result_type=TResponseStreamEvent on
         # their own subscribe call.
         events_topic = stream.topic(topic)
-        async with stream:
-            try:
-                async for event in model.stream_response(
-                    system_instructions=input.get("system_instructions"),
-                    input=input["input"],
-                    model_settings=input["model_settings"],
-                    tools=tools,
-                    output_schema=input.get("output_schema"),
-                    handoffs=handoffs,
-                    tracing=ModelTracing(input["tracing"]),
-                    previous_response_id=input.get("previous_response_id"),
-                    conversation_id=input.get("conversation_id"),
-                    prompt=input.get("prompt"),
-                ):
-                    # OpenAI models set defer_build=True, so an event's pydantic
-                    # schema may still be an unbuilt placeholder.
-                    type(event).model_rebuild()
-                    events.append(event)
-                    events_topic.publish(event)
-            except APIStatusError as e:
-                _raise_for_openai_status(e)
+        try:
+            async with heartbeating():
+                async with stream:
+                    try:
+                        async for event in model.stream_response(
+                            system_instructions=input.get("system_instructions"),
+                            input=input["input"],
+                            model_settings=model_settings,
+                            tools=tools,
+                            output_schema=input.get("output_schema"),
+                            handoffs=handoffs,
+                            tracing=ModelTracing(input["tracing"]),
+                            previous_response_id=input.get("previous_response_id"),
+                            conversation_id=input.get("conversation_id"),
+                            prompt=input.get("prompt"),
+                        ):
+                            # OpenAI models set defer_build=True, so an event's pydantic
+                            # schema may still be an unbuilt placeholder.
+                            type(event).model_rebuild()
+                            if isinstance(event, ResponseCreatedEvent):
+                                response_id = event.response.id
+                            events.append(event)
+                            events_topic.publish(event)
+                    except APIStatusError as e:
+                        _raise_for_openai_status(e)
+            # Leaving the context managers swallows a cancel that arrives while they
+            # stop the stream's background flusher or the heartbeats, so raise that
+            # cancel here.
+            if _cancel_requested():
+                raise asyncio.CancelledError()
+        except asyncio.CancelledError:
+            # When the workflow cancelled the call, for example because a parallel
+            # input guardrail tripped, tell subscribers the response ends here. The
+            # cancel can arrive while the model streams or while leaving the context
+            # managers flushes the events, so publish after both, behind the events
+            # still buffered. Other cancels, such as a Worker shutdown or a heartbeat
+            # timeout, can be retried, so publish nothing and let the retry answer.
+            if _cancel_requested():
+                # Best effort: if the publish fails, still report the cancel.
+                try:
+                    async with heartbeating():
+                        events_topic.publish(
+                            ResponseErrorEvent(
+                                type="error",
+                                code="cancelled",
+                                message="The model call was cancelled.",
+                                param=response_id,
+                                sequence_number=len(events),
+                            )
+                        )
+                        await stream.flush()
+                except Exception:
+                    activity.logger.debug(
+                        "Could not publish the cancelled event", exc_info=True
+                    )
+            raise
 
         return events

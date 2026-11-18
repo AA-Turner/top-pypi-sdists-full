@@ -35,6 +35,8 @@ __all__ = (
     "DataReplicationInitiationStepNameType",
     "DataReplicationInitiationStepStatusType",
     "DataReplicationStateType",
+    "DefinitionTypeType",
+    "DeleteOnTerminationType",
     "DescribeJobLogItemsPaginatorName",
     "DescribeJobsPaginatorName",
     "DescribeLaunchConfigurationTemplatesPaginatorName",
@@ -51,6 +53,10 @@ __all__ = (
     "ImportFileEnrichmentStatusType",
     "ImportStatusType",
     "InitiatedByType",
+    "InsightLevelType",
+    "InsightProducerNameType",
+    "InsightProducerTypeType",
+    "InsightTypeType",
     "InternetProtocolType",
     "IpAssignmentStrategyType",
     "JobLogEventType",
@@ -77,10 +83,15 @@ __all__ = (
     "ListNetworkMigrationDeployedStacksPaginatorName",
     "ListNetworkMigrationDeploymentsPaginatorName",
     "ListNetworkMigrationExecutionsPaginatorName",
+    "ListNetworkMigrationInsightsPaginatorName",
     "ListNetworkMigrationMapperSegmentConstructsPaginatorName",
     "ListNetworkMigrationMapperSegmentsPaginatorName",
     "ListNetworkMigrationMappingUpdatesPaginatorName",
     "ListNetworkMigrationMappingsPaginatorName",
+    "ListRemoteSourceActionInvocationResultsPaginatorName",
+    "ListRemoteSourceActionInvocationsPaginatorName",
+    "ListRemoteSourceActionJobsPaginatorName",
+    "ListRemoteSourceActionsPaginatorName",
     "ListSourceServerActionsPaginatorName",
     "ListTemplateActionsPaginatorName",
     "ListWavesPaginatorName",
@@ -93,10 +104,13 @@ __all__ = (
     "NetworkMigrationFailedResourceStatusType",
     "NetworkMigrationJobStatusType",
     "NetworkMigrationMapperSegmentTypeType",
+    "OutpostSnapshotLocationType",
     "PaginatorName",
     "PostLaunchActionExecutionStatusType",
     "PostLaunchActionsDeploymentTypeType",
     "RegionName",
+    "RemoteSourceActionInvocationStatusType",
+    "RemoteSourceActionJobStatusType",
     "ReplicationConfigurationDataPlaneRoutingType",
     "ReplicationConfigurationDefaultLargeStagingDiskTypeType",
     "ReplicationConfigurationEbsEncryptionType",
@@ -192,6 +206,8 @@ DataReplicationStateType = Literal[
     "STALLED",
     "STOPPED",
 ]
+DefinitionTypeType = Literal["MIGRATION", "NEW_NETWORK"]
+DeleteOnTerminationType = Literal["DISABLED", "ENABLED"]
 DescribeJobLogItemsPaginatorName = Literal["describe_job_log_items"]
 DescribeJobsPaginatorName = Literal["describe_jobs"]
 DescribeLaunchConfigurationTemplatesPaginatorName = Literal[
@@ -218,6 +234,14 @@ ImportFileEnrichmentStatusType = Literal[
 ]
 ImportStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 InitiatedByType = Literal["DIAGNOSTIC", "START_CUTOVER", "START_TEST", "TERMINATE"]
+InsightLevelType = Literal["CONSTRUCT", "RUN", "SEGMENT"]
+InsightProducerNameType = Literal[
+    "ANALYZE", "CODE_GENERATION", "DEPLOY", "DEPLOYED_STACKS_DELETION", "MAPPING", "MAPPING_UPDATE"
+]
+InsightProducerTypeType = Literal["API", "JOB"]
+InsightTypeType = Literal[
+    "BEHAVIOR_CHANGE", "CONTEXT", "ERROR", "EXCLUDED", "INFO", "INTENT_GAP", "QUESTION", "WARNING"
+]
 InternetProtocolType = Literal["IPV4", "IPV6"]
 IpAssignmentStrategyType = Literal["DYNAMIC", "STATIC"]
 JobLogEventType = Literal[
@@ -278,12 +302,19 @@ ListNetworkMigrationDefinitionsPaginatorName = Literal["list_network_migration_d
 ListNetworkMigrationDeployedStacksPaginatorName = Literal["list_network_migration_deployed_stacks"]
 ListNetworkMigrationDeploymentsPaginatorName = Literal["list_network_migration_deployments"]
 ListNetworkMigrationExecutionsPaginatorName = Literal["list_network_migration_executions"]
+ListNetworkMigrationInsightsPaginatorName = Literal["list_network_migration_insights"]
 ListNetworkMigrationMapperSegmentConstructsPaginatorName = Literal[
     "list_network_migration_mapper_segment_constructs"
 ]
 ListNetworkMigrationMapperSegmentsPaginatorName = Literal["list_network_migration_mapper_segments"]
 ListNetworkMigrationMappingUpdatesPaginatorName = Literal["list_network_migration_mapping_updates"]
 ListNetworkMigrationMappingsPaginatorName = Literal["list_network_migration_mappings"]
+ListRemoteSourceActionInvocationResultsPaginatorName = Literal[
+    "list_remote_source_action_invocation_results"
+]
+ListRemoteSourceActionInvocationsPaginatorName = Literal["list_remote_source_action_invocations"]
+ListRemoteSourceActionJobsPaginatorName = Literal["list_remote_source_action_jobs"]
+ListRemoteSourceActionsPaginatorName = Literal["list_remote_source_actions"]
 ListSourceServerActionsPaginatorName = Literal["list_source_server_actions"]
 ListTemplateActionsPaginatorName = Literal["list_template_actions"]
 ListWavesPaginatorName = Literal["list_waves"]
@@ -308,8 +339,21 @@ NetworkMigrationDeployedStackStatusType = Literal[
 NetworkMigrationFailedResourceStatusType = Literal["CREATE_FAILED", "DELETE_FAILED"]
 NetworkMigrationJobStatusType = Literal["FAILED", "PENDING", "STARTED", "SUCCEEDED"]
 NetworkMigrationMapperSegmentTypeType = Literal["APPLIANCE", "WORKLOAD"]
+OutpostSnapshotLocationType = Literal["OUTPOST", "REGION"]
 PostLaunchActionExecutionStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCESS"]
 PostLaunchActionsDeploymentTypeType = Literal["CUTOVER_ONLY", "TEST_AND_CUTOVER", "TEST_ONLY"]
+RemoteSourceActionInvocationStatusType = Literal[
+    "CANCELLED",
+    "CANCELLING",
+    "DELAYED",
+    "FAILED",
+    "IN_PROGRESS",
+    "PENDING",
+    "STALLED",
+    "SUCCESS",
+    "TIMED_OUT",
+]
+RemoteSourceActionJobStatusType = Literal["COMPLETED", "FAILED", "PENDING", "RUNNING", "STALLED"]
 ReplicationConfigurationDataPlaneRoutingType = Literal["PRIVATE_IP", "PUBLIC_IP"]
 ReplicationConfigurationDefaultLargeStagingDiskTypeType = Literal["GP2", "GP3", "ST1"]
 ReplicationConfigurationEbsEncryptionType = Literal["CUSTOM", "DEFAULT"]
@@ -321,6 +365,7 @@ SecurityGroupMappingStrategyType = Literal["MAP", "MAP_DHCP", "SKIP"]
 SourceEnvironmentType = Literal[
     "AWS_DISCOVERY_COLLECTOR",
     "CISCO_ACI",
+    "F5_BIGIP",
     "FORTIGATE_FIREWALL",
     "LOGICAL_MODEL",
     "MIGRATION_PLANNING_ARTIFACTS",
@@ -449,6 +494,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -633,6 +679,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -700,6 +747,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -803,10 +851,15 @@ PaginatorName = Literal[
     "list_network_migration_deployed_stacks",
     "list_network_migration_deployments",
     "list_network_migration_executions",
+    "list_network_migration_insights",
     "list_network_migration_mapper_segment_constructs",
     "list_network_migration_mapper_segments",
     "list_network_migration_mapping_updates",
     "list_network_migration_mappings",
+    "list_remote_source_action_invocation_results",
+    "list_remote_source_action_invocations",
+    "list_remote_source_action_jobs",
+    "list_remote_source_actions",
     "list_source_server_actions",
     "list_template_actions",
     "list_waves",

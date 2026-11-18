@@ -7,7 +7,9 @@ from dataclasses import dataclass, replace
 from textwrap import dedent
 from typing import TYPE_CHECKING, Final
 
-from sphinx_autodoc_typehints._types import frozendict
+from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # init cycle
+    frozendict,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -120,7 +122,7 @@ def _parse_numpydoc_entries(lines: list[str], start: int) -> list[_NumpydocEntry
     return entries
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class _NumpydocEntry:
     name: str
     type: str

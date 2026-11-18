@@ -85,7 +85,9 @@ class FinishReason(StrEnum):
 
 
 class BundleRef(BaseModel):
-    """One sample's gzip member inside a per-(step, producer) bundle in R2: a read fetches one byte range."""
+    """One sample's gzip member inside a per-(step, producer) bundle file: a read fetches one byte range."""
+
+    # The bundle lives in R2.
 
     #: The bundle file's digest; the server finds its artifact by it.
     sha256: Sha256

@@ -102,6 +102,7 @@ from ._retry_runtime import (
     should_disable_provider_managed_retries,
     should_disable_websocket_pre_event_retries,
 )
+from .default_models import _omit_model_defaults
 from .fake_id import FAKE_RESPONSES_ID
 from .interface import Model, ModelTracing
 from .openai_client_utils import is_official_openai_base_url, is_official_openai_client
@@ -535,6 +536,26 @@ class OpenAIResponsesModel(Model):
     def _supports_default_prompt_cache_key(self) -> bool:
         return is_official_openai_client(self._get_client())
 
+    def _prompt_owns_model(self, prompt: ResponsePromptParam | None) -> bool:
+        return prompt is not None and not self._model_is_explicit
+
+    def _get_request_settings(
+        self,
+        settings: ModelSettings,
+        *,
+        prompt: ResponsePromptParam | None,
+        has_tools: bool,
+        implicit_fields: set[str],
+    ) -> ModelSettings:
+        extra_args = settings.extra_args or {}
+        prompt_owns_model = self._prompt_owns_model(prompt)
+        return _omit_model_defaults(
+            settings,
+            implicit_fields,
+            reasoning=prompt_owns_model or "reasoning" in extra_args,
+            verbosity=prompt_owns_model or "text" in extra_args,
+        )
+
     def get_retry_advice(self, request: ModelRetryAdviceRequest) -> ModelRetryAdvice | None:
         return get_openai_retry_advice(request)
 
@@ -652,6 +673,8 @@ class OpenAIResponsesModel(Model):
                 )
                 raise
             except Exception as e:
+                if isinstance(e, ModelBehaviorError) and e._terminal_usage is not None:
+                    span_response.span_data.usage = model_usage_to_span_usage(e._terminal_usage)
                 span_response.set_error(
                     SpanError(
                         message="Error getting response",
@@ -754,6 +777,10 @@ class OpenAIResponsesModel(Model):
                                 if isinstance(terminal_response, Response)
                                 else None,
                             )
+                            if terminal_failure_error._terminal_usage is not None:
+                                span_response.span_data.usage = model_usage_to_span_usage(
+                                    terminal_failure_error._terminal_usage
+                                )
                         elif chunk_type in {"error", "response.error"}:
                             terminal_failure_error = response_error_event_failure_error(
                                 cast(str, chunk_type),
@@ -937,17 +964,11 @@ class OpenAIResponsesModel(Model):
         list_input = _to_dump_compatible(list_input)
         list_input = self._remove_openai_responses_api_incompatible_fields(list_input)
 
-        should_omit_model = prompt is not None and not self._model_is_explicit
+        should_omit_model = self._prompt_owns_model(prompt)
         effective_request_model: str | ChatModel | None = None if should_omit_model else self.model
         effective_computer_tool_model = Converter.resolve_computer_tool_model(
             request_model=effective_request_model,
             tools=tools,
-        )
-        tool_choice = Converter.convert_tool_choice(
-            model_settings.tool_choice,
-            tools=tools,
-            handoffs=handoffs,
-            model=effective_computer_tool_model,
         )
         if prompt is None:
             converted_tools = Converter.convert_tools(
@@ -964,6 +985,7 @@ class OpenAIResponsesModel(Model):
                 model=effective_computer_tool_model,
                 tool_choice=model_settings.tool_choice,
             )
+        tool_choice = converted_tools.tool_choice
         converted_tools_payload = _materialize_responses_tool_params(converted_tools.tools)
         parallel_tool_calls: bool | Omit = (
             self._non_null_or_omit(model_settings.parallel_tool_calls)
@@ -1813,6 +1835,7 @@ class OpenAIResponsesWSModel(OpenAIResponsesModel):
 class ConvertedTools:
     tools: list[ResponsesToolParam]
     includes: list[ResponseIncludable]
+    tool_choice: response_create_params.ToolChoice | Omit = omit
 
 
 class Converter:
@@ -1836,6 +1859,7 @@ class Converter:
         *,
         tools: Sequence[Tool] | None = None,
         handoffs: Sequence[Handoff[Any, Any]] | None = None,
+        tool_params: Sequence[ResponsesToolParam] = (),
         model: str | ChatModel | None = None,
     ) -> response_create_params.ToolChoice | Omit:
         if tool_choice is None:
@@ -1853,24 +1877,6 @@ class Converter:
             return "auto"
         elif tool_choice == "none":
             return "none"
-        elif tool_choice == "programmatic_tool_calling":
-            return cast(
-                response_create_params.ToolChoice,
-                {"type": "programmatic_tool_calling"},
-            )
-        elif tool_choice == "file_search":
-            return {
-                "type": "file_search",
-            }
-        elif tool_choice == "web_search":
-            return {
-                # TODO: revisit the type: ignore comment when ToolChoice is updated in the future
-                "type": "web_search",  # type: ignore[misc, return-value]
-            }
-        elif tool_choice == "web_search_preview":
-            return {
-                "type": "web_search_preview",
-            }
         elif tool_choice in {
             "computer",
             "computer_use",
@@ -1880,18 +1886,6 @@ class Converter:
                 tool_choice=tool_choice,
                 model=model,
             )
-        elif tool_choice == "computer_use_preview":
-            return {
-                "type": "computer_use_preview",
-            }
-        elif tool_choice == "image_generation":
-            return {
-                "type": "image_generation",
-            }
-        elif tool_choice == "code_interpreter":
-            return {
-                "type": "code_interpreter",
-            }
         elif tool_choice == "shell" and cls._has_shell_tool(tools):
             return {
                 "type": "shell",
@@ -1900,10 +1894,27 @@ class Converter:
             return {
                 "type": "apply_patch",
             }
-        elif tool_choice == "mcp":
-            # Note that this is still here for backwards compatibility,
-            # but migrating to MCPToolChoice is recommended.
-            return {"type": "mcp"}  # type: ignore[misc, return-value]
+        elif tool_choice in {
+            "code_interpreter",
+            "computer_use_preview",
+            "file_search",
+            "image_generation",
+            "mcp",
+            "programmatic_tool_calling",
+            "web_search",
+            "web_search_preview",
+        }:
+            # WebSearchTool advertises web_search for both search selectors.
+            hosted_type = "web_search" if tool_choice == "web_search_preview" else tool_choice
+            if not any(tool["type"] == hosted_type for tool in tool_params) and any(
+                tool["type"] == "function"
+                and tool["name"] == tool_choice
+                and not tool.get("defer_loading")
+                and "direct" in (tool.get("allowed_callers") or ["direct"])
+                for tool in tool_params
+            ):
+                return {"type": "function", "name": tool_choice}
+            return cast(response_create_params.ToolChoice, {"type": tool_choice})
         else:
             cls._validate_named_function_tool_choice(
                 tool_choice,
@@ -2134,11 +2145,6 @@ class Converter:
             tools,
             allow_opaque_search_surface=allow_opaque_tool_search_surface,
         )
-        validate_responses_programmatic_tool_calling_configuration(
-            tools,
-            tool_choice=tool_choice,
-            allow_opaque_tool_search_surface=allow_opaque_tool_search_surface,
-        )
 
         computer_tools = [tool for tool in tools if isinstance(tool, ComputerTool)]
         if len(computer_tools) > 1:
@@ -2196,10 +2202,16 @@ class Converter:
         for handoff in handoffs:
             converted_tools.append(cls._convert_handoff_tool(handoff))
 
-        return ConvertedTools(
-            tools=[tool for tool in converted_tools if tool is not None],
-            includes=includes,
+        tool_params = [tool for tool in converted_tools if tool is not None]
+        resolved_choice = cls.convert_tool_choice(
+            tool_choice, tools=tools, handoffs=handoffs, model=model, tool_params=tool_params
         )
+        validate_responses_programmatic_tool_calling_configuration(
+            tools,
+            tool_choice=resolved_choice["type"] if isinstance(resolved_choice, dict) else None,
+            allow_opaque_tool_search_surface=allow_opaque_tool_search_surface,
+        )
+        return ConvertedTools(tools=tool_params, includes=includes, tool_choice=resolved_choice)
 
     @classmethod
     def _convert_function_tool(

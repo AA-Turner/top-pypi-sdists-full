@@ -112,7 +112,7 @@ class RunTest:
         """
         return self._run_prepared_result(ExtendedToOriginalDecorator(result))  # type: ignore[arg-type]
 
-    def _run_prepared_result(self, result: "TestResult") -> "TestResult":
+    def _run_prepared_result(self, result: TestResult) -> TestResult:
         """Run one test reporting to result.
 
         :param result: A testtools.TestResult to report activity to.
@@ -125,6 +125,8 @@ class RunTest:
             self.case.__testtools_tb_locals__ = getattr(  # type: ignore[attr-defined]
                 result, "tb_locals", False
             )
+            # Let subTest report each subtest against this result as it runs.
+            self.case._subtest_result = result
             self._run_core()
             if self._exceptions:
                 # One or more caught exceptions, now trigger the test's
@@ -138,6 +140,7 @@ class RunTest:
                     self.last_resort(self.case, self.result, e)
                     raise e
         finally:
+            self.case._subtest_result = None
             result.stopTest(self.case)
         return result
 
@@ -184,12 +187,16 @@ class RunTest:
                     if getattr(self.case, "force_failure", None):
                         self._run_user(_raise_force_fail_error)
                         failed = True
-                    if not failed:
+                    if getattr(self.case, "_subtest_failed", False):
+                        failed = True
+                    if not failed and not getattr(
+                        self.case, "_subtest_reported", False
+                    ):
                         self.result.addSuccess(
                             self.case, details=self.case.getDetails()
                         )
 
-    def _run_cleanups(self, result: "TestResult") -> object | None:
+    def _run_cleanups(self, result: TestResult) -> object | None:
         """Run the cleanups that have been added with addCleanup.
 
         See the docstring for addCleanup for more information.

@@ -170,6 +170,7 @@ ACCOUNTING_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🧾",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -384,6 +385,7 @@ AWS_STEWARD_AGENT_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "☁️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -579,6 +581,7 @@ BOOKKEEPING_DESK_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🗂️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -745,6 +748,7 @@ CHANGE_DETECTION_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🔍",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-change-detection:0.0.1' is not enabled."],
     }
 )
@@ -883,6 +887,7 @@ CODE_EXPLAINER_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "🔦",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'example-harness-opencode:0.0.1' is not enabled."],
     }
 )
@@ -1053,6 +1058,7 @@ CROP_MONITORING_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🌾",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-crop-monitoring:0.0.1' is not enabled."],
     }
 )
@@ -1272,6 +1278,7 @@ CUSTOMER_INTERVIEW_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🎙️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -1460,6 +1467,7 @@ DATA_QUALITY_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🧹",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -1590,6 +1598,7 @@ DECIDE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "⚖️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -1694,15 +1703,16 @@ DECK_MAKER_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "🎞️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'example-decks:0.0.1' is not enabled."],
     }
 )
 
-DEMO_ACCOUNTANT_APP_0_0_3 = AppSpec.model_validate(
+DEMO_ACCOUNTANT_APP_0_0_4 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
         "id": "demo-accountant",
-        "version": "0.0.3",
+        "version": "0.0.4",
         "name": "Accountant",
         "kind": "chat",
         "description": "Answers questions on a set of books, such as open invoices, aged receivables, payments to match or a trial balance: a demo on an example company's books that changes nothing.",
@@ -1822,15 +1832,16 @@ DEMO_ACCOUNTANT_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🧮",
         "avatar": "",
         "banner": "",
+        "presentation": "Work with Odoo accounting data to reconcile invoices and payments, analyze\njournal balances, and prepare close-ready summaries.\n\n- Reads your Odoo books: invoices, payments, journals and ledgers\n- Lists unpaid invoices and the customers behind them\n- Matches payments against open invoices and flags what does not reconcile\n- Prepares a close summary with the balances that moved\n- Changes nothing in the books without a person\n\n*Try it here: it answers from the books of an example roaster and changes\nnothing.*\n\n**[Start building](/signin)**\n[Watch it in the Sales and Accounting Stage](/stages?stage=sales-and-accounting)",
         "setup": [],
     }
 )
 
-DEMO_AWS_STEWARD_APP_0_0_4 = AppSpec.model_validate(
+DEMO_AWS_STEWARD_APP_0_0_5 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
         "id": "demo-aws-steward",
-        "version": "0.0.4",
+        "version": "0.0.5",
         "name": "Steward for AWS",
         "kind": "chat",
         "description": "Recommends savings on an AWS account, each with the evidence it read, the estimated monthly saving and the fix to review: a demo over findings recorded from an example account, reading no AWS.",
@@ -1950,15 +1961,149 @@ DEMO_AWS_STEWARD_APP_0_0_4 = AppSpec.model_validate(
         "emoji": "☁️",
         "avatar": "",
         "banner": "",
+        "presentation": "Reads your AWS account's cost recommendations, right-sizing findings and spend\nwith a read-only role, and recommends savings, each with the evidence it read,\nthe estimated monthly saving and the fix to review.\n\n- Runs in your own Amazon Bedrock AgentCore, launched from Datalayer\n- Reads Cost Optimization Hub, Compute Optimizer and Cost Explorer with a read-only role\n- Recommends each saving with the evidence it read\n- Estimates the monthly saving and says how\n- Hands you the fix to review: it changes nothing in the account\n\n*Try it here: it reads no AWS account, only findings recorded from an example\naccount.*\n\n**[Start building](/signin)**\n[How the Steward works](/docs/integration-aws-agentcore)",
         "setup": [],
     }
 )
 
-DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
+DEMO_JUPYTER_DATA_ANALYST_APP_0_0_1 = AppSpec.model_validate(
+    {
+        "schema": "loop.app/v1",
+        "id": "demo-jupyter-data-analyst",
+        "version": "0.0.1",
+        "name": "Jupyter Data Analyst",
+        "kind": "chat",
+        "description": "Explains a dataset, plans its analysis and reads its results, with the cell it would write for each: a demo on an example file of orders with results computed beforehand, which runs no code and opens no notebook.",
+        "owner": "Datalayer <info@datalayer.io>",
+        "agent": "jupyter-data-analyst:0.0.1",
+        "team": "",
+        "instructions": "This is Datalayer's public demo of the Jupyter Data Analyst. There is no notebook, no kernel and no runtime of the visitor's here, you have no memory and you use no tool: do not call readAllCells, insertCell, runCell, executeCodeInNotebook or any other tool, and never say that you ran, are running or will run anything here. Answer only from the example dataset below and its results, which were computed beforehand, and say once that it is an example and that nothing ran here. The dataset: orders.csv, the online orders of the fictional Harbor & Pine Roasters (Lisbon), 1 January to 30 June 2026, amounts in EUR. As loaded: 2,493 rows, 8 columns. order_id, text, such as HP-2026-01873, 2,481 distinct; order_date, datetime in UTC, from 2026-01-01 to 2026-06-30, none missing; region, text, North, South, East or West, 37 missing; channel, text, web or wholesale, none missing; product, text, Espresso Blend, Single Origin, Decaf or Gear, none missing; quantity, integer, from 1 to 4,000, median 3; unit_price, decimal, from 6.50 to 189.00; revenue, decimal, quantity times unit_price. What is wrong with it, three things. One: 12 rows are exact duplicates of another row (the same order_id and the same values), 1,460.00 in all; dropping them leaves 2,481 rows. Two: one outlier, the order HP-2026-01873 of 17 April, 4,000 units of Decaf at 9.50, revenue 38,000.00, while no other order is above 40 units: most likely 40 typed as 4,000 (380.00); with it the total is 287,000.00 and the mean order 115.68, without it 2,480 rows, 249,000.00 and a mean of 100.40; the median order is 64.00 either way. Three: 37 rows have no region, all between 3 January and 14 March, 3,100.00 in all; a group by region drops them silently unless they are kept as a group of their own. The results below are on the 2,480 rows left without the duplicates and the outlier. Revenue by region: North 84,200.00; South 61,500.00; West 52,300.00; East 47,900.00; no region 3,100.00; total 249,000.00. Revenue by month: January 38,400.00; February 36,900.00; March 41,800.00; April 43,600.00; May 46,200.00; June 42,100.00. May by region: North 15,600.00; South 11,400.00; West 10,300.00; East 8,900.00. June by region: North 15,900.00; South 11,300.00; West 6,100.00; East 8,800.00. So June fell 4,100.00 from May, 8.9%, and one region moved: West, down 4,200.00, while the three others moved by 300.00 or less. Revenue by product: Espresso Blend 96,400.00; Single Origin 78,300.00; Gear 42,600.00; Decaf 31,700.00. Answer as the analyst would: lead with the finding in a sentence, then the figures in a Markdown table, then the cell the real agent would add to the notebook for it, as a short Python block with pandas (and matplotlib for a chart), introduced as the cell it would write, never as a cell that ran. When asked for a chart, give the table the chart would draw and the cell that draws it, and say that the chart itself appears in the notebook, on a runtime, not in this demo. Compute shares, differences and rankings from these figures and show how. Flag the three problems when they bear on the answer, even when nobody asked. Say what the figures cannot tell: why West fell, anything by customer, anything outside January to June 2026. Never invent a row, a column, a figure or a trend that the example does not hold. When asked to load another file, to run a cell or to open the notebook, say that the real Jupyter Data Analyst does that in a notebook on the person's own runtime, once signed in, and that this demo runs nothing.",
+        "model": "",
+        "skills": [],
+        "backend_tools": [],
+        "tools": [],
+        "context": [],
+        "contents": [],
+        "connections": [],
+        "protocols": [],
+        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "pair": None,
+        "rules": [],
+        "permissions": {
+            "spaces": [],
+            "computer": {
+                "browse": False,
+                "files": False,
+                "shell": False,
+                "repository": None,
+            },
+        },
+        "interface": {
+            "layout": "chat",
+            "accent": "violet",
+            "theme": None,
+            "welcome": "I'm the Jupyter Data Analyst, in a demo on an example file of orders from Harbor & Pine Roasters: ask me what is in it, what is wrong with it, or where the revenue moved. I answer from results computed beforehand and show the cell I would write. Nothing runs here.",
+            "starters": [
+                {
+                    "label": "Summarize the dataset",
+                    "message": "Analyze this dataset and summarize the main findings.",
+                },
+                {
+                    "label": "Revenue by region",
+                    "message": "Show revenue by region, and the cell that would chart it.",
+                },
+                {
+                    "label": "Find anomalies",
+                    "message": "What is wrong with this data, and what would it do to the totals?",
+                },
+            ],
+            "commands": [],
+            "modes": [],
+            "actions": [],
+            "profiles": [],
+            "settings": None,
+            "settings_ui": None,
+            "language": "en",
+            "translations": {},
+            "uploads": None,
+            "components": [],
+            "surface": None,
+            "page": None,
+            "avatar": None,
+            "balloon": None,
+            "voice": {
+                "enabled": False,
+                "input": "push_to_talk",
+                "output": "on_request",
+                "voice": "",
+                "language": "",
+                "where": "auto",
+            },
+            "outputs": [],
+        },
+        "tests": {
+            "ready_at": 0.8,
+            "evalset": "",
+            "cases": [
+                {
+                    "ask": "Analyze this dataset and summarize the main findings.",
+                    "expect": "It describes the example orders (8 columns, 1 January to 30 June 2026), gives a total of 249,000.00 EUR on the cleaned rows, names the duplicates, the outlier and the missing regions, and says the dataset is an example and that nothing ran.",
+                },
+                {
+                    "ask": "Why did revenue fall in June?",
+                    "expect": "It says June fell 4,100.00 from May (8.9%) and that West alone moved, down 4,200.00, and does not claim a cause.",
+                },
+                {
+                    "ask": "Run the cell and show me the chart.",
+                    "expect": "It runs nothing and draws no chart, shows the table and the cell it would write, and says the real agent runs it in a notebook on a runtime.",
+                },
+                {
+                    "ask": "What is the revenue by customer?",
+                    "expect": "It says the example holds no customer column, and invents nothing.",
+                },
+            ],
+            "verified": {
+                "live": [],
+                "recorded": [],
+                "unverified": [
+                    "Its tests have not been run as a set: no validation run is attached to it."
+                ],
+            },
+        },
+        "record": {
+            "keep_for": "30_days",
+            "include": ["conversations"],
+            "suggest_tests": False,
+            "retention_days": 30,
+        },
+        "checks": {"guards": [], "gates": [], "track": "", "code": []},
+        "deployment": {
+            "hosted": {"visibility": "public", "slug": ""},
+            "embedded": None,
+        },
+        "goal": "Show a visitor how the Jupyter Data Analyst looks at a dataset, checks it, and says what it found, without running any code or opening any notebook.",
+        "triggers": [],
+        "memory": "",
+        "notifications": [],
+        "decision": None,
+        "samples": {"documents": [], "alternatives": []},
+        "enabled": True,
+        "unavailable_because": "",
+        "tags": ["demo", "data", "notebook"],
+        "icon": "graph",
+        "emoji": "📊",
+        "avatar": "",
+        "banner": "",
+        "presentation": "Explores the data in the notebook you have open — adds the cells and runs\nthem, profiles and charts the data, checks it for the things that quietly\nruin an analysis, and says plainly what it found, where everyone can see it.\n\n- Reads the notebook first and builds on the cells already there\n- Writes the cells and runs them, one idea per cell\n- Profiles every column: types, missing values and ranges that look wrong\n- Draws the chart when a chart is the clearest answer\n- Flags what would ruin the conclusion: repeated rows, outliers, dropped rows\n\n*Try it here: it answers from an example file of orders, with results\ncomputed beforehand and the cell it would write. No code runs here.*\n\n**[Start building](/signin)**\n[The seed agents, in slides](/visitors/decks/agents/seed-agents)",
+        "setup": [],
+    }
+)
+
+DEMO_MARKETER_APP_0_0_3 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
         "id": "demo-marketer",
-        "version": "0.0.2",
+        "version": "0.0.3",
         "name": "Marketer",
         "kind": "chat",
         "description": "Plans a campaign and drafts the posts for X, Bluesky, LinkedIn and Discord in a brand's voice, and reads what came back: a demo on an example brand that posts nothing.",
@@ -2078,6 +2223,7 @@ DEMO_MARKETER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "📣",
         "avatar": "",
         "banner": "",
+        "presentation": "Plans and drafts social posts for X, Bluesky, LinkedIn and Discord in the\nbrand's voice, reads what comes back (on LinkedIn once signed in there from\nthe chat), remembers what worked, and publishes only with approval.\n\n- Plans a campaign around the goal you give it\n- Drafts each post for its network, in your brand’s voice\n- Reads what the audience says back\n- Remembers the voice, what was posted and what worked\n- Publishes nothing until you approve the exact text\n\n*Try it here: it plans and drafts for an example coffee roaster, or for your\nbrand, and posts nothing.*\n\n**[Start building](/signin)**\n[The seed agents, in slides](/visitors/decks/agents/seed-agents)",
         "setup": [],
     }
 )
@@ -2556,38 +2702,83 @@ DEMO_SHOP_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "🛍️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
 
-DEMO_SHOPPER_APP_0_0_4 = AppSpec.model_validate(
+DEMO_SHOPPER_APP_0_0_7 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
         "id": "demo-shopper",
-        "version": "0.0.4",
+        "version": "0.0.7",
         "name": "Shopper",
         "kind": "chat",
         "description": "Finds products with their photos, compares them, builds a basket with its total and places a test order at Datalayer's Demo Shop: nothing is charged and nothing ships.",
         "owner": "Datalayer <info@datalayer.io>",
         "agent": "worker-shopper:0.0.1",
         "team": "",
-        "instructions": "This is Datalayer's public demo of the Shopper. You are connected to no store and no payment, and you have no memory here. You shop at one store, the Demo Shop, Datalayer's demo shop, with its own tools: find_products (words, a category — groceries, kitchen, home, sports, sunglasses — and a price range), get_product, quote_basket and place_test_order. Never use the Shopify catalogue tools here, and never invent a product, a price, a rating, a stock level or a photo the shop's tools did not return. Prices are in USD. Ask for the budget and what matters most when the visitor has not said. Find with find_products — the products are shown with their photos — and compare a short list with show_comparison, each product with its price, rating, stock as availability, the Demo Shop as seller and its image, saying which you would pick and why. Price a basket with quote_basket, then show it with show_basket (each item with its image, currency USD, no shipping): the totals are the tools', never yours. When asked to buy, show the exact basket and total and ask the visitor to confirm; once they do, place it with place_test_order and say that it is a test order — nothing is charged, nothing ships and nothing is kept — and that the real Shopper would buy through their own Personal Agent Protocol connection, only once they approved that exact purchase. A product out of stock cannot be bought: say so and offer another.",
+        "instructions": "This is Datalayer's public demo of the Shopper. You have no payment and no memory here. You shop at one store, the Demo Shop (demo-shop.agent.datalayer.ai), Datalayer's demo shop, over the Personal Agent Protocol, already signed in: never sign in, sign out or disconnect. You reach its API with three tools, whose names end in pap_read, pap_propose and pap_confirm, and with no other: it has no other tool for you, so never look for or call the shop's own MCP tools. pap_read reads a path: /products?category=sunglasses (groceries, kitchen, home, sports or sunglasses; no category for everything) and /products/<id> for one product. pap_propose posts a body to a path: /products/find with {query, category, min_price, max_price} to find products by words, category and price range; /quote with {items: [{product_id, quantity}]} to price a basket; /orders with the same items to place a test order, which comes back as an operation, not done, with its operation_ref and revision. pap_confirm, given exactly that operation_ref and revision, confirms it: the order is placed then, once. Never use the Shopify catalogue tools here, and never invent a product, a price, a rating, a stock level or a photo the shop did not return. Prices are in USD. Ask for the budget and what matters most when the visitor has not said. Find with /products/find and compare a short list with show_comparison, each product with its price, rating, stock as availability, the Demo Shop as seller and its image, saying which you would pick and why. Price a basket with the shop's quote, then show it with show_basket (each item with its image, currency USD, no shipping): the totals are the shop's, never yours. When asked to buy, show the exact basket and total and ask the visitor to confirm; once they do, propose it at /orders and confirm the operation it returns with pap_confirm, then give the order's number (TEST-…) and say that it is a test order — nothing is charged, nothing ships and nothing is kept — and that the real Shopper would buy through the person's own Personal Agent Protocol connection, only once they approved that exact purchase. A product out of stock cannot be bought: say so and offer another.",
         "model": "",
         "skills": [],
-        "backend_tools": [
-            "demo-shop-find-products:0.0.1",
-            "demo-shop-get-product:0.0.1",
-            "demo-shop-quote-basket:0.0.1",
-            "demo-shop-place-test-order:0.0.1",
-        ],
+        "backend_tools": [],
         "tools": [],
         "context": [],
         "contents": [],
         "connections": [],
-        "protocols": [],
-        "ui": [{"plugin": "chat", "renderer": None, "placement": None}],
+        "protocols": ["pap"],
+        "ui": [
+            {"plugin": "chat", "renderer": None, "placement": None},
+            {"plugin": "pap-sign-in", "renderer": None, "placement": None},
+        ],
+        "pap": {
+            "profile": "draft-01",
+            "connections": [
+                {
+                    "id": "demo-shop",
+                    "company": "demo-shop.agent.datalayer.ai",
+                    "access": "write",
+                    "as": "owner",
+                    "scopes": ["catalog:read", "orders:write"],
+                    "interfaces": ["openapi"],
+                    "sign_in": ["device"],
+                    "extensions": ["operations"],
+                }
+            ],
+            "company": {
+                "enabled": False,
+                "signed_out": True,
+                "sign_in_disabled": False,
+                "web_unscoped": False,
+                "web_disabled": False,
+                "publish_skills": False,
+                "interfaces": ["agent"],
+                "scopes": [],
+                "excluded_tasks": [],
+                "extensions": [],
+                "personal_agents": "any",
+                "registered_agents": [],
+                "operations": [],
+            },
+        },
         "pair": None,
-        "rules": [],
+        "rules": [
+            {
+                "action": "Read the Demo Shop's catalogue",
+                "applies_to": ["read"],
+                "behaviour": "do_it",
+            },
+            {
+                "action": "Quote a basket and place a test order at the Demo Shop",
+                "applies_to": ["write"],
+                "behaviour": "do_it",
+            },
+            {
+                "action": "Confirm a test order at the Demo Shop",
+                "applies_to": ["buy"],
+                "behaviour": "do_it",
+            },
+        ],
         "permissions": {
             "spaces": [],
             "computer": {
@@ -2689,15 +2880,16 @@ DEMO_SHOPPER_APP_0_0_4 = AppSpec.model_validate(
         "emoji": "🛍️",
         "avatar": "",
         "banner": "",
+        "presentation": "Finds products on Shopify stores, compares prices, variants and sellers,\nbuilds the basket, and buys for you through the Personal Agent Protocol only\nonce you approve the exact purchase.\n\n- Searches products across Shopify stores\n- Compares price, shipping, rating and seller, and says which it would pick\n- Builds the basket and shows its total\n- Remembers your sizes, budgets and the stores you like\n- Buys through the Personal Agent Protocol only once you approve the exact purchase\n\n*Try it here: it shops at the Demo Shop, an example shop of real products with\ntheir photos, quotes the basket and places a test order: nothing is charged\nand nothing ships.*\n\n**[Start building](/signin)**\n[How a personal agent acts for you](/docs/applications/personal-agent-protocol)",
         "setup": [],
     }
 )
 
-DEMO_TERRA_APP_0_0_3 = AppSpec.model_validate(
+DEMO_TERRA_APP_0_0_4 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
         "id": "demo-terra",
-        "version": "0.0.3",
+        "version": "0.0.4",
         "name": "Terra",
         "kind": "chat",
         "description": "Picks satellite scenes, compares them and explains what their figures show: a demo on an example scene catalogue that reads no live imagery.",
@@ -2817,22 +3009,23 @@ DEMO_TERRA_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🌏",
         "avatar": "",
         "banner": "",
+        "presentation": "Analyses satellite images and Earth observation data: finds the scenes in NASA\nEarthdata, computes indices such as NDVI and change between dates in a\nnotebook, and reports what the pixels show with their dates and cloud cover.\n\n- Finds satellite scenes in NASA Earthdata by place, date and cloud cover\n- Downloads the images and analyses them in a notebook\n- Computes indices such as NDVI and the change between two dates\n- Names each scene by its sensor, date and cloud cover\n- Says what the images cannot tell\n\n*Try it here: it reasons over an example catalogue of scenes near Lleida and\nreads no live imagery.*\n\n**[Start building](/signin)**\n[The Earthdata connection it uses](/docs/mcp/toolsets)",
         "setup": [],
     }
 )
 
-DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
+DEMO_TRAVELLER_APP_0_0_3 = AppSpec.model_validate(
     {
         "schema": "loop.app/v1",
-        "id": "demo-voyager",
-        "version": "0.0.2",
-        "name": "Voyager",
+        "id": "demo-traveller",
+        "version": "0.0.3",
+        "name": "Traveller",
         "kind": "chat",
         "description": "Plans a trip in three options with flights, a stay, a day-by-day plan and the budget: a demo on example flights, stays and restaurants that books nothing and contacts no real service.",
         "owner": "Datalayer <info@datalayer.io>",
-        "agent": "worker-voyager:0.0.1",
+        "agent": "worker-traveller:0.0.1",
         "team": "",
-        "instructions": "This is Datalayer's public demo of the Voyager. You are connected to no airline, hotel, map or booking service, you have no memory here, and you use no tool: you plan only from the example below, a long weekend in Lisbon from Brussels for two adults, Friday 12 to Monday 15 March, and say once that it is an example. Prices are in EUR for two people unless said per night. Example flights, return, from Brussels: F1 Ryanair from Charleroi (CRL), out 06:30 arrives 08:35, back Monday 20:10 arrives 00:05, direct, personal item only, 168.00 for two, checked bag 45.00 each way per bag; F2 Brussels Airlines from Brussels (BRU), out 09:40 arrives 11:45, back Monday 17:25 arrives 21:20, direct, one checked bag each, 412.00 for two; F3 TAP from BRU, out 12:05 arrives 14:10, back Monday 14:50 arrives 18:45, direct, cabin bag each, 296.00 for two. The shuttle from Brussels to Charleroi is 34.00 return for two, about 1 h each way. Example stays, three nights: S1 Casa do Largo, guesthouse in Alfama, 92.00 a night, rated 8.6 from 410 reviews, breakfast included, free cancellation until 5 March; S2 Hotel Rio Baixa, in Baixa, 138.00 a night, rated 8.9 from 1,250 reviews, lift, air conditioning, free cancellation until 10 March; S3 Miradouro Suites, in Príncipe Real, 215.00 a night, rated 9.3 from 380 reviews, terrace, breakfast included, non-refundable. Example restaurants and sights: Taberna da Rua, Alfama, petiscos, about 25.00 a person, closed Mondays; Mercado da Ribeira, Cais do Sodré, food hall, about 18.00 a person; Ponto Verde, Baixa, vegetarian, about 22.00 a person; O Farol, Belém, grilled fish, about 35.00 a person; the Tower of Belém, 8.00 a person; the Jerónimos Monastery, 12.00 a person; tram 28, 3.10 a ride a person; a 24-hour transport pass, 6.80 a person. Example travel times: the airport to Baixa, 25 min by metro (1.85 a person); Baixa to Belém, 25 min by tram 15; Baixa to Alfama, 15 min on foot. Ask for the budget and what matters most when the visitor has not said. Deliver three options (for instance the cheapest, the best balance, the most comfortable), each with its flights, its stay, a day-by-day plan with travel times, a Google Maps link built from the places' names (https://www.google.com/maps/dir/?api=1&origin=…&destination=…&waypoints=…), and a budget table line by line with its total and per person, computing every total from these figures and showing how; meals and tickets are estimates and say so. Compare the three and say which you would pick and why. Never invent a flight, a price, a stay, a restaurant or an opening hour that the example does not hold. When asked to book, say that the real Voyager books nothing either: it gives each provider's booking link and the person books and pays there; prices are quotes that can change before booking; and here nothing is booked and no real service is contacted.",
+        "instructions": "This is Datalayer's public demo of the Traveller. You are connected to no airline, hotel, map or booking service, you have no memory here, and you use no tool: you plan only from the example below, a long weekend in Lisbon from Brussels for two adults, Friday 12 to Monday 15 March, and say once that it is an example. Prices are in EUR for two people unless said per night. Example flights, return, from Brussels: F1 Ryanair from Charleroi (CRL), out 06:30 arrives 08:35, back Monday 20:10 arrives 00:05, direct, personal item only, 168.00 for two, checked bag 45.00 each way per bag; F2 Brussels Airlines from Brussels (BRU), out 09:40 arrives 11:45, back Monday 17:25 arrives 21:20, direct, one checked bag each, 412.00 for two; F3 TAP from BRU, out 12:05 arrives 14:10, back Monday 14:50 arrives 18:45, direct, cabin bag each, 296.00 for two. The shuttle from Brussels to Charleroi is 34.00 return for two, about 1 h each way. Example stays, three nights: S1 Casa do Largo, guesthouse in Alfama, 92.00 a night, rated 8.6 from 410 reviews, breakfast included, free cancellation until 5 March; S2 Hotel Rio Baixa, in Baixa, 138.00 a night, rated 8.9 from 1,250 reviews, lift, air conditioning, free cancellation until 10 March; S3 Miradouro Suites, in Príncipe Real, 215.00 a night, rated 9.3 from 380 reviews, terrace, breakfast included, non-refundable. Example restaurants and sights: Taberna da Rua, Alfama, petiscos, about 25.00 a person, closed Mondays; Mercado da Ribeira, Cais do Sodré, food hall, about 18.00 a person; Ponto Verde, Baixa, vegetarian, about 22.00 a person; O Farol, Belém, grilled fish, about 35.00 a person; the Tower of Belém, 8.00 a person; the Jerónimos Monastery, 12.00 a person; tram 28, 3.10 a ride a person; a 24-hour transport pass, 6.80 a person. Example travel times: the airport to Baixa, 25 min by metro (1.85 a person); Baixa to Belém, 25 min by tram 15; Baixa to Alfama, 15 min on foot. Ask for the budget and what matters most when the visitor has not said. Deliver three options (for instance the cheapest, the best balance, the most comfortable), each with its flights, its stay, a day-by-day plan with travel times, a Google Maps link built from the places' names (https://www.google.com/maps/dir/?api=1&origin=…&destination=…&waypoints=…), and a budget table line by line with its total and per person, computing every total from these figures and showing how; meals and tickets are estimates and say so. Compare the three and say which you would pick and why. Never invent a flight, a price, a stay, a restaurant or an opening hour that the example does not hold. When asked to book, say that the real Traveller books nothing either: it gives each provider's booking link and the person books and pays there; prices are quotes that can change before booking; and here nothing is booked and no real service is contacted.",
         "model": "",
         "skills": [],
         "backend_tools": [],
@@ -2857,7 +3050,7 @@ DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
             "layout": "chat",
             "accent": "sky",
             "theme": None,
-            "welcome": "I'm the Voyager, in a demo on an example long weekend in Lisbon from Brussels: tell me your budget and what matters, and I plan three options with flights, a stay, the days and the total. I book nothing here and contact no real service.",
+            "welcome": "I'm the Traveller, in a demo on an example long weekend in Lisbon from Brussels: tell me your budget and what matters, and I plan three options with flights, a stay, the days and the total. I book nothing here and contact no real service.",
             "starters": [
                 {
                     "label": "Three options",
@@ -2903,7 +3096,7 @@ DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
                 },
                 {
                     "ask": "Book the best balance option for us.",
-                    "expect": "It books nothing, says the real Voyager gives the booking links and the person books, that prices can change, and that here no real service is contacted.",
+                    "expect": "It books nothing, says the real Traveller gives the booking links and the person books, that prices can change, and that here no real service is contacted.",
                 },
                 {
                     "ask": "Find us a flight to Rome.",
@@ -2929,7 +3122,7 @@ DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
             "hosted": {"visibility": "public", "slug": ""},
             "embedded": None,
         },
-        "goal": "Show a visitor how the Voyager turns a trip into three options with a budget and booking links, without booking anything or contacting any real service.",
+        "goal": "Show a visitor how the Traveller turns a trip into three options with a budget and booking links, without booking anything or contacting any real service.",
         "triggers": [],
         "memory": "",
         "notifications": [],
@@ -2942,6 +3135,7 @@ DEMO_VOYAGER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🧭",
         "avatar": "",
         "banner": "",
+        "presentation": "A travel companion: finds flights, stays, restaurants and things to do, and\nputs them together into three practical trip options, each with a map, a daily\nschedule, a budget with its total and the booking links. It books nothing: you\nbook on the provider's site.\n\n- Asks your dates, places, travellers, preferences and budget\n- Compares flights on Kiwi.com by fare, baggage, connections and travel time\n- Finds stays, restaurants and sights with Google Maps, and Booking.com with your partner access\n- Plans three options, each with a map, a daily schedule and a budget with its total\n- Hands you the booking links: it books and pays nothing\n\n*Try it here: it plans an example weekend in Lisbon from example flights,\nstays and restaurants, books nothing and contacts no real service.*\n\n**[Start building](/signin)**\n[The seed agents, in slides](/visitors/decks/agents/seed-agents)",
         "setup": [],
     }
 )
@@ -3108,6 +3302,7 @@ DISASTER_ASSESSMENT_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🌊",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-disaster-assessment:0.0.1' is not enabled."],
     }
 )
@@ -3242,6 +3437,7 @@ ERRAND_RUNNER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🏃",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -3386,6 +3582,7 @@ EVENT_RESPONSE_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🛡️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-event-response:0.0.1' is not enabled."],
     }
 )
@@ -3617,6 +3814,7 @@ EXCHANGE_DESK_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🏪",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -3755,6 +3953,7 @@ GUEST_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🏨",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -3961,6 +4160,7 @@ INBOX_TRIAGE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "📬",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-mail-triage:0.0.1' is not enabled."],
     }
 )
@@ -4135,6 +4335,7 @@ LIVE_SHOP_CHAT_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "💬",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -4322,6 +4523,7 @@ MARKETER_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "📣",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -4576,6 +4778,7 @@ MODEL_CHOICE_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🧠",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -4739,6 +4942,7 @@ MONTH_END_CLOSE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🗓️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-month-end-close:0.0.1' is not enabled."],
     }
 )
@@ -4918,6 +5122,7 @@ ORDER_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "📦",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -5088,6 +5293,7 @@ ORDER_TRACKER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🔖",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -5360,6 +5566,7 @@ PIPELINE_REPORT_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "📈",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'cog-sales-pipeline-board-report:0.0.1' is not enabled."],
     }
 )
@@ -5464,6 +5671,7 @@ PLAYER_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "🏓",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'example-player:0.0.1' is not enabled."],
     }
 )
@@ -5702,6 +5910,7 @@ QUOTE_CALCULATOR_APP_0_0_6 = AppSpec.model_validate(
         "emoji": "🧮",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -5945,6 +6154,7 @@ REPORT_FROM_A_FILE_APP_0_0_5 = AppSpec.model_validate(
         "emoji": "📑",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -6124,6 +6334,7 @@ RETURNS_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "↩️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -6261,6 +6472,7 @@ SALES_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "💼",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [
             "The agent 'worker-sales-pipeline-board-report:0.0.1' is not enabled."
         ],
@@ -6367,6 +6579,7 @@ SHEET_MAKER_APP_0_0_1 = AppSpec.model_validate(
         "emoji": "📊",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [
             "The agent 'example-analyze-excel-spreadsheet:0.0.1' is not enabled."
         ],
@@ -6593,6 +6806,7 @@ SHIP_OR_FIX_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🚢",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -6766,6 +6980,7 @@ SHOP_CONCIERGE_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🛎️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -6891,6 +7106,7 @@ SHOPPER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🧺",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -7052,6 +7268,7 @@ SHOPPING_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🛍️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -7222,6 +7439,7 @@ SIGN_IN_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🔐",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -7361,6 +7579,7 @@ SIGNED_READER_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🔏",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -7572,6 +7791,7 @@ SUPPLIER_COMPARISON_APP_0_0_3 = AppSpec.model_validate(
         "emoji": "🚚",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -7857,6 +8077,7 @@ SUPPORT_DESK_APP_0_0_5 = AppSpec.model_validate(
         "emoji": "🛟",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": ["The agent 'worker-document-qa:0.0.1' is not enabled."],
     }
 )
@@ -8011,6 +8232,7 @@ TRAVEL_DESK_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "✈️",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -8160,6 +8382,7 @@ WEB_RESEARCH_APP_0_0_2 = AppSpec.model_validate(
         "emoji": "🔎",
         "avatar": "",
         "banner": "",
+        "presentation": "",
         "setup": [],
     }
 )
@@ -8180,13 +8403,14 @@ APP_CATALOGUE: Dict[str, AppSpec] = {
     "data-quality": DATA_QUALITY_APP_0_0_3,
     "decide": DECIDE_APP_0_0_2,
     "deck-maker": DECK_MAKER_APP_0_0_1,
-    "demo-accountant": DEMO_ACCOUNTANT_APP_0_0_3,
-    "demo-aws-steward": DEMO_AWS_STEWARD_APP_0_0_4,
-    "demo-marketer": DEMO_MARKETER_APP_0_0_2,
+    "demo-accountant": DEMO_ACCOUNTANT_APP_0_0_4,
+    "demo-aws-steward": DEMO_AWS_STEWARD_APP_0_0_5,
+    "demo-jupyter-data-analyst": DEMO_JUPYTER_DATA_ANALYST_APP_0_0_1,
+    "demo-marketer": DEMO_MARKETER_APP_0_0_3,
     "demo-shop": DEMO_SHOP_APP_0_0_1,
-    "demo-shopper": DEMO_SHOPPER_APP_0_0_4,
-    "demo-terra": DEMO_TERRA_APP_0_0_3,
-    "demo-voyager": DEMO_VOYAGER_APP_0_0_2,
+    "demo-shopper": DEMO_SHOPPER_APP_0_0_7,
+    "demo-terra": DEMO_TERRA_APP_0_0_4,
+    "demo-traveller": DEMO_TRAVELLER_APP_0_0_3,
     "disaster-assessment": DISASTER_ASSESSMENT_APP_0_0_2,
     "errand-runner": ERRAND_RUNNER_APP_0_0_2,
     "event-response": EVENT_RESPONSE_APP_0_0_3,
@@ -8233,11 +8457,12 @@ APP_BUILT: Dict[str, Literal["python", "canvas", "written"]] = {
     "deck-maker": "written",
     "demo-accountant": "written",
     "demo-aws-steward": "written",
+    "demo-jupyter-data-analyst": "written",
     "demo-marketer": "written",
     "demo-shop": "written",
     "demo-shopper": "written",
     "demo-terra": "written",
-    "demo-voyager": "written",
+    "demo-traveller": "written",
     "disaster-assessment": "written",
     "errand-runner": "written",
     "event-response": "written",

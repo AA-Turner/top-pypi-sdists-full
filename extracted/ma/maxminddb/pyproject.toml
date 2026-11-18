@@ -1,6 +1,6 @@
 [project]
 name = "maxminddb"
-version = "3.2.0"
+version = "3.3.0"
 description = "Reader for the MaxMind DB format"
 authors = [
     {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
@@ -33,7 +33,7 @@ Documentation = "https://maxminddb.readthedocs.io/en/latest/"
 [dependency-groups]
 dev = [
     "pytest>=8.3.5",
-    "tox-uv>=1.29.0",
+    "tox-uv-bare>=1.32.0",
 ]
 lint = [
     "mypy>=1.15.0",
@@ -94,6 +94,11 @@ ignore = [
 "setup.py" = ["ALL"]
 "tests/*" = ["ANN201", "D"]
 
+[tool.mypy]
+# mypy 2 enables this by default. Without it, mypy 1 accepts bytearray as
+# bytes, and the bytearray check in tests/typing_test.py cannot fail.
+strict_bytes = true
+
 [tool.pytest.ini_options]
 # Use importlib mode to prevent pytest from adding the project root to sys.path.
 # This ensures tests import from the tox virtualenv's installed package (which includes
@@ -108,6 +113,8 @@ env_list = [
     "3.12",
     "3.13",
     "3.14",
+    "3.13t",
+    "3.14t",
     "lint",
 ]
 skip_missing_interpreters = false
@@ -143,6 +150,8 @@ commands = [
 ]
 
 [tool.tox.gh.python]
+"3.14t" = ["3.14t"]
+"3.13t" = ["3.13t"]
 "3.14" = ["3.14", "lint"]
 "3.13" = ["3.13"]
 "3.12" = ["3.12"]

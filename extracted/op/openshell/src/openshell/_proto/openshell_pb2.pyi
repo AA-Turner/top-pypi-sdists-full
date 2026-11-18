@@ -3442,3 +3442,63 @@ class SupervisorServiceAdvertisement(_message.Message):
     routes: _containers.RepeatedCompositeFieldContainer[_sandbox_pb2.SandboxServiceRoute]
     service_domain: str
     def __init__(self, lease_sequence: _Optional[int] = ..., configuration_instance_id: _Optional[str] = ..., config_revision: _Optional[int] = ..., routes: _Optional[_Iterable[_Union[_sandbox_pb2.SandboxServiceRoute, _Mapping]]] = ..., service_domain: _Optional[str] = ...) -> None: ...
+
+class GetServiceRouteSnapshotRequest(_message.Message):
+    __slots__ = ("workspace_scope",)
+    WORKSPACE_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    workspace_scope: _datamodel_pb2.WorkspaceSelector
+    def __init__(self, workspace_scope: _Optional[_Union[_datamodel_pb2.WorkspaceSelector, _Mapping]] = ...) -> None: ...
+
+class GetServiceRouteSnapshotResponse(_message.Message):
+    __slots__ = ("snapshot",)
+    SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    snapshot: ServiceRouteSnapshot
+    def __init__(self, snapshot: _Optional[_Union[ServiceRouteSnapshot, _Mapping]] = ...) -> None: ...
+
+class WatchServiceRoutesRequest(_message.Message):
+    __slots__ = ("workspace_scope",)
+    WORKSPACE_SCOPE_FIELD_NUMBER: _ClassVar[int]
+    workspace_scope: _datamodel_pb2.WorkspaceSelector
+    def __init__(self, workspace_scope: _Optional[_Union[_datamodel_pb2.WorkspaceSelector, _Mapping]] = ...) -> None: ...
+
+class WatchServiceRoutesResponse(_message.Message):
+    __slots__ = ("snapshot",)
+    SNAPSHOT_FIELD_NUMBER: _ClassVar[int]
+    snapshot: ServiceRouteSnapshot
+    def __init__(self, snapshot: _Optional[_Union[ServiceRouteSnapshot, _Mapping]] = ...) -> None: ...
+
+class ServiceRouteSnapshot(_message.Message):
+    __slots__ = ("routes", "revision")
+    ROUTES_FIELD_NUMBER: _ClassVar[int]
+    REVISION_FIELD_NUMBER: _ClassVar[int]
+    routes: _containers.RepeatedCompositeFieldContainer[DiscoveredServiceRoute]
+    revision: str
+    def __init__(self, routes: _Optional[_Iterable[_Union[DiscoveredServiceRoute, _Mapping]]] = ..., revision: _Optional[str] = ...) -> None: ...
+
+class ServiceRouteEndpoint(_message.Message):
+    __slots__ = ("host", "port")
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    host: str
+    port: int
+    def __init__(self, host: _Optional[str] = ..., port: _Optional[int] = ...) -> None: ...
+
+class DiscoveredServiceRoute(_message.Message):
+    __slots__ = ("workspace", "sandbox", "name", "hostname", "endpoint", "installation_version", "declaration_revision", "expires_at")
+    WORKSPACE_FIELD_NUMBER: _ClassVar[int]
+    SANDBOX_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    ENDPOINT_FIELD_NUMBER: _ClassVar[int]
+    INSTALLATION_VERSION_FIELD_NUMBER: _ClassVar[int]
+    DECLARATION_REVISION_FIELD_NUMBER: _ClassVar[int]
+    EXPIRES_AT_FIELD_NUMBER: _ClassVar[int]
+    workspace: str
+    sandbox: str
+    name: str
+    hostname: str
+    endpoint: ServiceRouteEndpoint
+    installation_version: str
+    declaration_revision: int
+    expires_at: _timestamp_pb2.Timestamp
+    def __init__(self, workspace: _Optional[str] = ..., sandbox: _Optional[str] = ..., name: _Optional[str] = ..., hostname: _Optional[str] = ..., endpoint: _Optional[_Union[ServiceRouteEndpoint, _Mapping]] = ..., installation_version: _Optional[str] = ..., declaration_revision: _Optional[int] = ..., expires_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...

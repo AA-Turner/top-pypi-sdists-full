@@ -22,6 +22,7 @@ commands, defined once in Rust and read here as `tensorfs.executor`'s classes:
     cancel    discard a queued preparation, or mark a running call cancelled
     invoke    run ONE PREPARED attempt through the author invocation kernel and report its facts
     map       warm a loaded construction's models, on the GPU or in RAM
+    release   drop loaded constructions no call uses (out of band, like cancel; tfs-303)
 
 A group's other GPUs answer GPU 0's own commands as well (`parallel.commands`).
 
@@ -95,13 +96,34 @@ from tensorfs.executor import (
 )
 from tensorfs.varena import _runtime as varena
 
+
+class _ModelNeed(Protocol):
+    """TensorFS's request for a model read now (cl-966)."""
+
+    def __call__(self, *, manifest: str, components: list[str]) -> Request: ...
+
+
+#: None in a TensorFS before it.
+_MODEL_NEED: _ModelNeed | None = getattr(tensorfs.executor, "ModelNeed", None)
+
+
+class _Vigil(Protocol):
+    """TensorFS's native vigil (cl-977): a thread outside the GIL that answers TensorD's hang
+    watch on `fd` with this process's own threads, which TensorD may not be allowed to read."""
+
+    def __call__(self, fd: int) -> None: ...
+
+
+#: None in a TensorFS before it.
+_VIGIL: _Vigil | None = getattr(tensorfs.executor, "vigil", None)
+
 from cozy_runtime import __version__ as RUNTIME_VERSION
 from cozy_runtime import graphs, weights_store
 from cozy_runtime.accel import stepcache
 from cozy_runtime.accel.attention import _close as close_producer_states
 from cozy_runtime.accel.kernels import _SETS as KERNEL_SETS
 from cozy_runtime.accel.kernels import Launch, Plan, TritonKernels
-from cozy_runtime.author import _activity, _phases, _split
+from cozy_runtime.author import _activity, _phases, _split, _watchers
 from cozy_runtime.author import _request_path as request_path
 from cozy_runtime.author._activity import ThreadPoolExecutor
 from cozy_runtime.author._artifacts import ModelChoice
@@ -161,6 +183,7 @@ from cozy_runtime.internal import (
     attention_sol,
     attention_ulysses,
     builtin_operations,
+    call_scope,
     canonical,
     child_env,
     contract,
@@ -323,8 +346,8 @@ _OPEN_MAX = 10240
 
 
 class CallBindings(Mapping[tuple[str, str], _CallType]):
-    """Each callable an attempt may call, by (module, export). Another package's function is bound
-    from its own code at its first call, so a dependency nothing calls is never imported."""
+    """Admitted identities, with function bindings only for this package and Runtime builtins.
+    Foreign calls supply generated declarations and never import their implementation."""
 
     def __init__(
         self, bound: dict[tuple[str, str], _CallType], installed: Collection[tuple[str, str]]
@@ -336,19 +359,11 @@ class CallBindings(Mapping[tuple[str, str], _CallType]):
         if binding is None:
             if key not in self._installed:
                 raise KeyError(key)
-            module, export = key
-            try:
-                function = getattr(importlib.import_module(module), export, None)
-            except ImportError as exc:
-                raise CapabilityError(
-                    f"{module}:{export} can't be imported here: {exc}", code="child_interface"
-                ) from exc
-            if not callable(function):
-                raise CapabilityError(
-                    f"{module}:{export} is not installed in this environment",
-                    code="child_interface",
-                )
-            binding = self._bound[key] = _serving(module, export, analyze(function, name=export))
+            raise CapabilityError(
+                f"{key[0]}:{key[1]} is another package's function: call its generated reference "
+                "(`cozy-runtime calls <distribution> <file.py>`)",
+                code="child_reference_required",
+            )
         return binding
 
     def __iter__(self) -> Iterator[tuple[str, str]]:
@@ -367,17 +382,23 @@ def _capture_seal() -> None:
     _SEALED.update(seal_snapshot())
 
 
+def _seal() -> dict[str, str]:
+    """The seal as it holds now: a placed call's TMPDIR stands for the executor's (`call_scope`)."""
+    own = call_scope.names()
+    return {**_SEALED, **{name: own[name] for name in own.keys() & child_env.ALLOWLIST.keys()}}
+
+
 def _env_changes() -> tuple[str, ...]:
     """Names whose current values differ from the pre-Torch executor seal.
 
     Values never cross the seam. The names are enough to diagnose which reviewed
     imposition moved without leaking paths or future secret-bearing values into a terminal.
     """
-    current = seal_snapshot()
+    current, sealed = seal_snapshot(), _seal()
     return tuple(
         name
-        for name in sorted(_SEALED.keys() | current.keys())
-        if current.get(name) != _SEALED.get(name)
+        for name in sorted(sealed.keys() | current.keys())
+        if current.get(name) != sealed.get(name)
     )
 
 
@@ -417,7 +438,7 @@ def _restore_seal() -> tuple[str, ...]:
     configuration it runs. A package's change is a no-op either way: warn, never refuse.
     """
     changed = _env_changes()
-    restore_seal(_SEALED, changed)
+    restore_seal(_seal(), changed)
     if changed:
         print(
             f"[executor] restored sealed environment names changed by package code: "
@@ -440,6 +461,21 @@ _CALL: contextvars.ContextVar[str] = contextvars.ContextVar("cozy_call", default
 #: This thread serves a command the machine is shown the phases of (`_phases`): GPU 0's, past
 #: an import-only start (a process that may still fork starts no thread).
 _TELLS: contextvars.ContextVar[bool] = contextvars.ContextVar("cozy_tells", default=False)
+
+#: Calls whose process-ending fault is told in their own log (`Executor._call`).
+_TOLD: set[str] = set()
+
+
+def _scratch(command: Invoke) -> Path | None:
+    """The call's own folder in its project (`call_scope`); none: the executor's."""
+    value = getattr(command, "scratch", None)  # a TensorFS before cl-984 has none
+    return Path(value) if value else None
+
+
+def _call_store(command: Invoke) -> Path | None:
+    """The TensorFS store this call writes its weights outputs into; none: the executor's."""
+    value = getattr(command, "store", None)
+    return Path(value) if value else None
 
 
 class _CommandTeller:
@@ -743,8 +779,7 @@ def _granted(input_id: str, file: InputFile) -> GrantedInput:
 
 
 def _serving(module: str, export: str, surface: Surface) -> _CallType:
-    """A callable bound from its own code, called as every function is: `{payload, models}`.
-    Its direct caller passes the model slots beside the request fields (`_CallType.models`)."""
+    """A local/builtin handler's canonical wire envelope and separately declared input planes."""
     slots = frozenset(binding.param for binding in surface.model_bindings)
     payload, answer = surface.payload_type, surface.result_type
     if not all(isinstance(t, type) and issubclass(t, msgspec.Struct) for t in (payload, answer)):
@@ -752,11 +787,13 @@ def _serving(module: str, export: str, surface: Surface) -> _CallType:
     # Both are Struct classes: checked just above.
     request, result = cast("type[msgspec.Struct]", payload), cast("type[msgspec.Struct]", answer)
     fields = msgspec.structs.fields(request)
-    if any(field.name in slots for field in fields):
+    # Model choices and a `Files` input travel beside the request (TensorD puts files back).
+    beside = slots | ({surface.assets.parameter} if surface.assets is not None else set())
+    if any(field.name in beside for field in fields):
         request = msgspec.defstruct(
             request.__name__,
             # Request parameters' defaults are immutable scalars (`_wire_default`), never factories.
-            [(f.name, f.type, f.default) for f in fields if f.name not in slots],
+            [(f.name, f.type, f.default) for f in fields if f.name not in beside],
             module=module,
             kw_only=True,
             frozen=True,
@@ -773,8 +810,7 @@ def _serving(module: str, export: str, surface: Surface) -> _CallType:
     call = msgspec.defstruct(
         f"{export}Call", [("payload", request), ("models", models)], module=module, frozen=True
     )
-    struct = next((p.name for p in surface.params if p.role == "payload"), "")
-    return _CallType("", module, export, call, result, models=slots, request_parameter=struct)
+    return _CallType(module, export, call, result, models=slots)
 
 
 # --------------------------------------------------------------------------- state
@@ -976,15 +1012,33 @@ def _construction_record(prepare: Mapping[str, object]) -> Reply:
     }
 
 
+def _unbound(command: Invoke) -> dict[str, tuple[str, str]]:
+    """The on-demand slots TensorD bound no checkpoint, each with why (xs-186). A TensorFS
+    before it sends none."""
+    return dict(getattr(command, "unbound", None) or {})
+
+
 class _OnDemand:
     """An `on_demand=` model argument: built, and its weights fetched, when the function first
     reads it. Until then the runtime's probes see no model, and a request that never reads it
     builds and fetches nothing of it."""
 
-    def __init__(self, build: Callable[[], Model[object] | _OnDemand]) -> None:
+    def __init__(
+        self,
+        build: Callable[[], Model[object] | _OnDemand],
+        need: Callable[[str], None] | None = None,
+    ) -> None:
         self._build = build
+        self._need = need
         self._model: Model[object] | _OnDemand | None = None
         self._lock = threading.Lock()
+
+    def _cozy_need(self, request_id: str) -> None:
+        """`ctx.need`: its weights asked of the machine now, for call `request_id`; its first
+        read still builds it. Nothing once it is built."""
+        if self._model is None and self._need is not None:
+            with contextlib.suppress(SeamError):
+                self._need(request_id)
 
     @property
     def _cozy_residency(self) -> Residency | None:
@@ -1089,9 +1143,23 @@ class Executor:
         self.mux: Mux = (
             host.mux
             if host is not None
-            else Mux(channel, functools.partial(_supplied, self.bearers), self._discard)
+            else Mux(
+                channel,
+                functools.partial(_supplied, self.bearers),
+                self._discard,
+                self.release_constructions,
+            )
         )
         self.in_flight: _InFlight = host.in_flight if host is not None else _InFlight()
+        #: HOST ONLY: a call's lookup of its construction, a load's registration and a release's
+        #: removal, each against the others (`_using`, `release_constructions`)
+        self._lookup: threading.Lock = host._lookup if host is not None else threading.Lock()
+        #: HOST ONLY: the construction keys a load is building or binding now (`_loads`)
+        self.loading: set[str] = set()
+        #: calls on this construction now, from their lookup to their end (`_using`)
+        self.calls = 0
+        #: the TensorFS checkpoints this generation opened, closed when it is released
+        self.opened: list[Checkpoint] = []
         #: the construction key this generation was loaded under; "" on the host
         self.construction = construction
         #: HOST ONLY: every loaded construction and the active one. One memory decides where
@@ -1121,6 +1189,8 @@ class Executor:
         self.imported = False
         #: children forked from this import-only process and not reaped yet (`fork/1`)
         self.forked: set[int] = set()
+        #: the vigil's line for TensorD, until it follows the device Start's reply (cl-977)
+        self.vigil_line: socket.socket | None = None
         self.package_warmed = False
         #: rank 0 only: each follower's own start ledger, in rank order
         self.follower_stages: list[list[object]] = []
@@ -1248,20 +1318,36 @@ class Executor:
             case Start():
                 return self.start(command)
             case Load():
-                return self.load(command, forwarded)
+                with self._loads(command.construction):
+                    return self.load(command, forwarded)
             case PrepareRequest():
-                return self.serve_request(command)
+                with call_scope.preparing(command.request_id):
+                    return self.serve_request(command)
             case Invoke():
-                try:
-                    return self._settled(self.serve_invoke(command))
-                except Exception as exc:
-                    target = self.constructions.get(command.construction, self)
-                    return self.unsettled(target, exc, command.request_id)
+                with self._call(command):
+                    try:
+                        return self._settled(self.serve_invoke(command))
+                    except Exception as exc:
+                        target = self.constructions.get(command.construction, self)
+                        return self.unsettled(target, exc, command.request_id)
             case Map():
                 return self.map(command)
             case _:
                 # `cancel` is the seam's (`Mux`), and `shutdown` ends the loop.
                 raise AssertionError(f"{type(command).__name__} is not answered here")
+
+    @contextlib.contextmanager
+    def _call(self, command: Invoke) -> Iterator[None]:
+        """An Invoke in its own place (`call_scope`); a fault that ends this process with it is
+        told in its own log."""
+        with call_scope.entered(_scratch(command), command.request_id) as placed:
+            try:
+                yield
+            except BaseException as exc:
+                if placed and not isinstance(exc, Exception):
+                    traceback.print_exc()
+                    _TOLD.add(command.request_id)
+                raise
 
     def hello(self) -> Reply:
         """What TensorD (`Hello`) and rank 0 (`group._Hello`) read: who this process is, its
@@ -1278,6 +1364,10 @@ class Executor:
             "world": self.world,
             # TensorD may send `preview` (a client watches a call's previews): `author.preview`.
             "previews": 1,
+            # TensorD may send `release` (idle constructions go): `release_constructions`.
+            "releases": 1,
+            # A device Start that asks for it hands TensorD its vigil's line (cl-977).
+            "vigil": int(_VIGIL is not None),
         }
 
     # ------------------------------------------------------------- the group (cr-068)
@@ -1498,7 +1588,7 @@ class Executor:
         return device
 
     def join(self, command: Join) -> Reply:
-        """A FOLLOWER's first half of the group: rank 0's store reached and its device current.
+        """A FOLLOWER's first half of the group: rank 0's store opened and its device current.
         Its answer is the readiness every GPU gives before any enters group init (`form`)."""
         if self.rank == 0:
             return {"ok": False, "code": "not_a_follower", "detail": f"{_gpu(0)} forms the group"}
@@ -1524,7 +1614,7 @@ class Executor:
         spec = RankSpec(
             rank=self.rank,
             world=self.world,
-            port=command.port,
+            store=command.store,
             backend=command.backend or "nccl",
             nccl=dict(command.nccl),
         )
@@ -1677,7 +1767,8 @@ class Executor:
         target = self._target(command, attempt=False)  # GPU 0 activated it
         if isinstance(target, dict):
             return target
-        return target._rank_attempt(asked, command, entropy, tag)
+        with call_scope.entered(_scratch(command), command.request_id):
+            return target._rank_attempt(asked, command, entropy, tag)
 
     def _rank_attempt(
         self, asked: PrepareRequest, command: Invoke, entropy: int, tag: str
@@ -1741,6 +1832,7 @@ class Executor:
                             cancel=self.host._interrupted.is_set,
                             # An on-demand proxy stands for its model (`_OnDemand.__getattr__`).
                             models=cast("Mapping[str, Model[object]]", self.models),
+                            unbound=_unbound(command),
                             recipes=self.discovered.recipes,
                             trees=command.trees,
                             assets=_granted_inputs(command),
@@ -1985,7 +2077,15 @@ class Executor:
 
     def start(self, command: Start) -> Reply:
         with self._device_work():
-            return self._start(command)
+            reply = self._start(command)
+        # The vigil starts with the device (an import-only parent stays single-threaded to fork),
+        # its line following this reply (`_answer`).
+        vigil = _VIGIL if getattr(command, "vigil", False) and self.rank == 0 else None
+        if vigil is not None and reply.get("ok") and self.started and self.vigil_line is None:
+            ours, self.vigil_line = socket.socketpair()
+            vigil(ours.detach())
+            reply["descriptor"] = True
+        return reply
 
     def _start(self, command: Start) -> Reply:
         """Bring EVERY rank up before any construction: seal, group, torch, package, warmup.
@@ -2549,7 +2649,8 @@ class Executor:
 
     def _register(self, key: str, child: Executor, reply: Reply) -> None:
         child.load_reply = reply
-        self.constructions[key] = child
+        with self._lookup:
+            self.constructions[key] = child
         self.discovered = child.discovered
         self.surface_names = dict(child.surface_names)
         self.torch = child.torch or self.torch
@@ -2843,6 +2944,7 @@ class Executor:
             opened[manifest] = host._checkpoint(
                 manifest, _connection(command.tensorfs, command.actor, host.bearers), binding.view
             )
+        self.opened = list(opened.values())
         checkpoints = {name: opened[vmap.get(name, reference.snapshot)] for name in names}
         # `names` is what the DERIVE constructed (model-code-fit D9), not what the header
         # carries: a constructed component the checkpoint lacks is the fit's own
@@ -2884,8 +2986,10 @@ class Executor:
             _connection(command.tensorfs, command.actor, host.bearers),
             binding.view,
         )
+        if config_checkpoint not in self.opened:
+            self.opened.append(config_checkpoint)
         config_bytes = model_config.construction_config(config_checkpoint.configs())
-        config_document = canonical.parse_canonical(config_bytes)
+        config_document = {} if config_bytes is None else canonical.parse_canonical(config_bytes)
         if not isinstance(config_document, dict):
             raise RuntimeError("the CozyTensors construction config is not an object")
         stage("construction_config")
@@ -2962,7 +3066,7 @@ class Executor:
         artifact = Artifact(
             reference.snapshot,
             tensor_schema_of(rows),
-            Config(config_document, "model.config"),
+            Config(config_document, "model.config", absent=config_bytes is None),
             assets=config_checkpoint.assets(),
             # CUSTODY is a BINDING fact: canonical refuses a serve-time extra key, local
             # tiers it (§1.1).
@@ -3273,7 +3377,9 @@ class Executor:
             if self._deferred(binding):
                 # Built inside the attempt that reads it.
                 build = functools.partial(self._build_on_demand, child, load)
-                child.models = {parameter: _OnDemand(build)}
+                child.models = {
+                    parameter: _OnDemand(build, functools.partial(self._needing, load))
+                }
                 children.append((parameter, child, {}))
                 continue
             # A group's followers are told which model of the set this is.
@@ -3433,6 +3539,7 @@ class Executor:
         """An on-demand model's first read: the load its construction deferred, run in the
         attempt that reads it; a pass that never uses it builds none of it."""
         parameter = load.models[0].model_parameter_name
+        self._needing(load)
         try:
             reply = member._prepare_first(load, Forwarded())
         except Exception:
@@ -3449,6 +3556,26 @@ class Executor:
             # An on-demand member's parent serves the many-model composite (`_load_group`).
             cast("_CompositeResidency", self.residency).rows[parameter] = member.residency
         return member.models[parameter]
+
+    def _needing(self, load: Load, request_id: str | None = None) -> None:
+        """`load`'s models from TensorD, which fetches what of them isn't on disk before every other download and answers once
+        it has (cl-966): the build then reads them from disk. A machine before it answers unavailable, and the build fetches
+        them itself as before. For call `request_id`, else the one running here."""
+        context = CURRENT.get()
+        request_id = request_id or (context.request_id if context is not None else None)
+        if request_id is None or _MODEL_NEED is None:
+            return
+        for binding in load.models:
+            self._ask(_MODEL_NEED(manifest=binding.snapshot, components=list(binding.components)), request_id)
+
+    def _need_now(self, request_id: str, parameter: str) -> None:
+        """`ctx.need`: a model this call builds at its first read, asked of TensorD now on a thread of its own, so what of
+        it isn't on disk comes first in every download while the call goes on (cl-1103)."""
+        model = self.models.get(parameter)
+        if isinstance(model, _OnDemand):
+            threading.Thread(
+                target=model._cozy_need, args=(request_id,), name="model-need", daemon=True
+            ).start()
 
     def _discover_provisioned(self, application: str, path: str) -> None:
         """Import the installed release and bind its PackageInterface (at `path`). No elapsed-time
@@ -3565,19 +3692,148 @@ class Executor:
                     return True
         return False
 
+    def release_constructions(self, keys: list[str]) -> None:
+        """TensorD's `release`, on the seam's reading thread: each named construction no call
+        uses (one prepared on it, or running from its lookup on: `_using`) and no load is building
+        (`_loads`) leaves `constructions` now, before any later frame is queued, so a `load` of it
+        after builds it anew. What they hold goes on a thread of their own (`_unload`), ordered as
+        a call is (`_Order`): beside the calls running, before any later load or map (which never
+        meets the one torn down), with idle work waiting for it. A call reads only its own
+        construction's models (`Backend._owner` refuses another's), so a release takes nothing a
+        loaded construction reads."""
+        if self.world > 1:
+            print(
+                f"[executor] release of {', '.join(keys)} ignored: a GPU group keeps its "
+                "constructions",
+                file=sys.stderr,
+                flush=True,
+            )
+            return
+        with self._lookup:
+            loaded = self.constructions
+            free: dict[str, Executor] = {}
+            for key in dict.fromkeys(keys):
+                child = loaded.get(key)
+                why = (
+                    "a load of it is running"
+                    if key in self.loading
+                    else "not loaded"
+                    if child is None
+                    else child._in_use()
+                )
+                if why or child is None:
+                    print(f"[executor] construction {key} kept: {why}", file=sys.stderr, flush=True)
+                    continue
+                free[key] = child
+            if not free:
+                return
+            # A new map: calls iterating the old one beside this are undisturbed.
+            self.constructions = {k: c for k, c in loaded.items() if k not in free}
+        gone = list(free.values())
+        order = self.order
+        turn: contextlib.AbstractContextManager[None] = (
+            order.turn(order.ticket(False, "release"))
+            if order is not None
+            else contextlib.nullcontext()
+        )
+        threading.Thread(
+            target=contextvars.Context().run,
+            args=(self._unloading, gone, turn),
+            name="release",
+            daemon=True,
+        ).start()
+
+    def _in_use(self) -> str:
+        """Why a release keeps this construction: calls on it, running or prepared."""
+        with self._prepared_lock:
+            prepared = len(self.awaiting)
+        if self.calls or prepared:
+            return f"{self.calls} call(s) running on it, {prepared} prepared"
+        return ""
+
+    def _unloading(
+        self, gone: list[Executor], turn: contextlib.AbstractContextManager[None]
+    ) -> None:
+        """The released constructions' teardown, in its turn. On a GPU its stream drains first,
+        as a map to RAM does."""
+        with turn, self._execution_context():
+            if self.torch is not None:
+                accel.drain(self.torch, self.device_kind)
+            while gone:
+                gone.pop(0)._unload()
+            gc.collect()  # what package code kept of them, in cycles
+
+    def _unload(self) -> None:
+        """This released construction's models leave the memory (their regions, host pages and
+        graphs) and the checkpoints it opened close: nothing of it holds a model in the store or
+        a chunk file open any more."""
+        members = self.model_executors or [self]
+        held = sum(sum(m.backend.sizes().values()) for m in members if m.backend is not None)
+        closed, failed = 0, False
+        for member in members:
+            try:
+                if member.residency is not None:
+                    member.residency.release()
+                if member.backend is not None:
+                    member.backend.close()
+            except Exception:
+                traceback.print_exc()
+                failed = True  # a model still in use: its checkpoints stay open
+            else:
+                for checkpoint in member.opened:
+                    checkpoint.ck.close()
+                closed += len(member.opened)
+        print(
+            f"[executor] released construction {self.construction}: {held / 2**30:.2f} GiB of "
+            f"weights, {closed} checkpoint(s) closed"
+            + (" (its teardown failed, above)" if failed else ""),
+            file=sys.stderr,
+            flush=True,
+        )
+
+    @contextlib.contextmanager
+    def _loads(self, key: str) -> Iterator[None]:
+        """A load of `key` runs: a release keeps it (`release_constructions`)."""
+        with self._lookup:
+            self.loading.add(key)
+        try:
+            yield
+        finally:
+            with self._lookup:
+                self.loading.discard(key)
+
+    @contextlib.contextmanager
+    def _using(
+        self, command: PrepareRequest | Invoke, *, attempt: bool
+    ) -> Iterator[Executor | Reply]:
+        """`_target`, which no release takes while this request or attempt runs on it."""
+        with self._lookup:
+            target = self._target(command, attempt=attempt)
+            if not isinstance(target, dict):
+                target.calls += 1
+        try:
+            yield target
+        finally:
+            if not isinstance(target, dict):
+                with self._lookup:
+                    target.calls -= 1
+
     def serve_request(self, command: PrepareRequest) -> Reply:
-        target = self._target(command, attempt=False)
-        if isinstance(target, dict):
-            return target
-        return target.prepare_request(command)
+        with self._using(command, attempt=False) as target:
+            if isinstance(target, dict):
+                return target
+            return target.prepare_request(command)
 
     def serve_invoke(self, command: Invoke) -> Reply:
-        for construction in (self, *self.constructions.values()):  # its invoke came
-            with construction._prepared_lock:
-                construction.awaiting.discard(command.request_id)
-        target = self._target(command, attempt=True)
-        if isinstance(target, dict):
-            return target
+        with self._using(command, attempt=True) as target:
+            for construction in (self, *self.constructions.values()):  # its invoke came
+                with construction._prepared_lock:
+                    construction.awaiting.discard(command.request_id)
+            if isinstance(target, dict):
+                return target
+            return self._attempt(target, command)
+
+    def _attempt(self, target: Executor, command: Invoke) -> Reply:
         requested = _attention_pin(command.attention_kernel, command.bits)
         alone = self.world > 1 or bool(requested and target._attention_reaches(requested))
         with self.in_flight.attempt(alone, command.request_id) as slot, request_path.serving():
@@ -3875,9 +4131,10 @@ class Executor:
         }
         exchange = self._exchange(command.request_id)
         connection = _connection(command.tensorfs, command.actor, self.bearers)
+        output_store = _call_store(command) or self._store()
         weight_outputs = (
             weights_store.Outputs(
-                self._store(),
+                output_store,
                 request_id=command.request_id,
                 actor=command.actor,
                 code=_replay_code(command, prepared.overlay.digest),
@@ -3925,6 +4182,8 @@ class Executor:
                         ),
                         # An on-demand proxy stands for its model (`_OnDemand.__getattr__`).
                         models=cast("Mapping[str, Model[object]]", self.models),
+                        unbound=_unbound(command),
+                        need=functools.partial(self._need_now, command.request_id),
                         recipes=cast("Discovered", self.discovered).recipes,  # started
                         progress=boundary,
                         # cr-012: the inputs the WORKER already fetched, verified and spooled.
@@ -3939,6 +4198,8 @@ class Executor:
                         sources=sources,
                         weights_bytes=weights_store.read_into,
                         weights_values=functools.partial(read_values_into, self.torch),
+                        # TensorD admits these source refs in the sealed model store.
+                        # The call's store override owns its outputs.
                         tensorfs_source=(
                             functools.partial(
                                 weights_store.open_checkpoint,
@@ -4741,7 +5002,7 @@ class Executor:
                     )
                 bindings[(module, export)] = _serving(module, export, own_surface)
             else:
-                # Another package's function, installed beside this one: bound at its first call.
+                # Another package is admitted by identity; callers use generated references.
                 installed.add((module, export))
         for export in own:
             key = (effect_interfaces.MODULE, export)
@@ -5172,6 +5433,11 @@ def answer(executor: Executor, frame: Frame) -> Frame | None:
         return {**reply, "kernels": kernel_ready.pending(), "began": began}
     if name not in commands.NAMES:
         return {"ok": False, "code": "unknown_command", "detail": name}
+    if name == "hello" and "transport_challenge" in frame:
+        challenge = frame["transport_challenge"]
+        if not isinstance(challenge, str) or len(challenge) != 64 or any(c not in "0123456789abcdef" for c in challenge):
+            raise SeamError("seam_descriptor", "invalid inherited transport challenge")
+        return {**executor.hello(), "transport_challenge": challenge}
     command, forwarded = commands.decode(frame)
     if isinstance(command, Shutdown):
         return None
@@ -5205,8 +5471,11 @@ def main(argv: list[str] | None = None) -> int:
     if hasattr(signal, "SIGUSR1"):  # every thread's Python stack to stderr, the process lives on
         faulthandler.register(signal.SIGUSR1, all_threads=True, chain=False)
     parser = argparse.ArgumentParser(description="cozy-runtime device executor")
-    parser.add_argument("--socket", default="")
-    parser.add_argument("--root", required=True)
+    transport = parser.add_mutually_exclusive_group()
+    transport.add_argument("--socket", default="")
+    transport.add_argument("--socket-fd", type=int, default=-1)
+    parser.add_argument("--transport-capabilities", action="store_true")
+    parser.add_argument("--root", default="")
     # A FOLLOWER RANK (cr-068): the same program, told its rank, its world, the inherited
     # seam fd to rank 0 and rank 0's pid. It never has a worker socket of its own.
     parser.add_argument("--rank", type=int, default=0)
@@ -5214,6 +5483,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--rank-fd", type=int, default=-1)
     parser.add_argument("--leader", type=int, default=0)
     args = parser.parse_args(argv)
+    if args.transport_capabilities:
+        # Semantic feature probe, carrying no model, project or authored invocation bytes.
+        print(json.dumps({"inherited_local_stream": sys.platform == "linux", "transport_challenge": True}))
+        return 0
+    if not args.root:
+        parser.error("--root is required")
     if args.rank > 0:
         if args.rank_fd < 0 or args.world <= args.rank or not args.leader:
             parser.error("a follower rank needs --rank-fd, --world > rank and --leader")
@@ -5221,8 +5496,8 @@ def main(argv: list[str] | None = None) -> int:
             # pdeathsig was armed before exec and covers FUTURE deaths only; an already
             # orphaned follower never becomes a rank.
             return int(Exit.structural)
-    elif not args.socket:
-        parser.error("--socket is required for rank 0")
+    elif not args.socket and args.socket_fd < 3:
+        parser.error("rank 0 requires --socket or an inherited --socket-fd >= 3")
     if not proctree.PARENT_DEATH_SURVIVES_EXEC:
         # The trampoline's exec ended its guard (darwin): this process watches its parent.
         expected = os.getppid()
@@ -5230,6 +5505,8 @@ def main(argv: list[str] | None = None) -> int:
         if os.getppid() != expected:
             return int(Exit.structural)
 
+    # Before any package is imported: whatever keeps `sys.stdout` or `sys.stderr` keeps the router.
+    call_scope.install()
     _capture_seal()
     _remember_distributions()
     declared_recipes.install(run_recipe)
@@ -5244,11 +5521,22 @@ def main(argv: list[str] | None = None) -> int:
         also=contract.AUDITED,
         judge=contract.audit,
     )
-    channel = (
-        connect(args.socket)
-        if args.rank == 0
-        else Channel(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=args.rank_fd))
-    )
+    if args.rank == 0 and args.socket_fd >= 3:
+        # The native worker pins this reviewed descriptor across exec. Pair credentials name
+        # its creating parent, not the child: validate that creator and let the worker prove
+        # the exact spawned Birth through Hello on the unforgeable inherited endpoint.
+        inherited = socket.socket(fileno=args.socket_fd)
+        if inherited.family != socket.AF_UNIX or inherited.type != socket.SOCK_STREAM:
+            raise SeamError("seam_descriptor", "the inherited worker channel is not a local stream")
+        if sys.platform != "linux" or not hasattr(socket, "SO_PEERCRED"):
+            raise SeamError("seam_transport_unsupported", "inherited project transport requires Linux")
+        import struct
+        peer, uid, _ = struct.unpack("3i", inherited.getsockopt(socket.SOL_SOCKET, socket.SO_PEERCRED, struct.calcsize("3i")))
+        if peer != os.getppid() or uid != os.geteuid():
+            raise SeamError("seam_descriptor", "the inherited worker channel has another creator")
+        channel = Channel(inherited)
+    else:
+        channel = connect(args.socket) if args.rank == 0 else Channel(socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, fileno=args.rank_fd))
     executor = Executor(
         channel,
         Path(args.root),
@@ -5469,7 +5757,7 @@ def serve(executor: Executor, channel: Channel) -> int:
     request_path.told = functools.partial(_waiting, channel)
     _phases.command = functools.partial(_command_teller, channel)
     # Runtime-owned workers, none before the first is needed.
-    pool = ThreadPoolExecutor(CALLS_IN_FLIGHT, "call", initializer=crash.arm)
+    pool = ThreadPoolExecutor(CALLS_IN_FLIGHT, "call", initializer=_call_thread)
     order = executor.order = _Order()
     idle = False
     while True:
@@ -5502,7 +5790,24 @@ def serve(executor: Executor, channel: Channel) -> int:
             reply = _reply(executor, frame)
         if reply is None:
             return _shut(executor, channel)
+        _answer(executor, channel, reply)
+
+
+def _call_thread() -> None:
+    """A call pool thread, named `call_<n>` in the kernel too: TensorD's hang watch tells the call's
+    own threads from the rest by it (cl-977)."""
+    _watchers.native_name(threading.current_thread().name)
+    crash.arm()
+
+
+def _answer(executor: Executor, channel: Channel, reply: Reply) -> None:
+    """A reply, and the vigil's line after the device Start's that says it follows (cl-977)."""
+    with channel.sending:
         _send_reply(channel, reply)
+        if reply.get("descriptor") is True and (line := executor.vigil_line) is not None:
+            executor.vigil_line = None
+            channel.send_descriptor(line)
+            line.close()
 
 
 def _shut(executor: Executor, channel: Channel) -> int:
@@ -5519,10 +5824,8 @@ def _serve(executor: Executor, frame: Frame, turn: contextlib.AbstractContextMan
     """One command on a pool worker, in its turn. A BaseException, or a reply the seam would
     not take, ends the process, as either did when commands ran on the main thread; so does a
     `shutdown` that waited here for the calls before it, once answered."""
+    call = str(frame.get("request_id", "")) if frame.get("cmd") in _CALL_COMMANDS | {"map"} else ""
     try:
-        call = (
-            str(frame.get("request_id", "")) if frame.get("cmd") in _CALL_COMMANDS | {"map"} else ""
-        )
         _CALL.set(call)  # its wait for its turn is told as its own
         with turn:
             reply = _reply(executor, frame)
@@ -5533,9 +5836,12 @@ def _serve(executor: Executor, frame: Frame, turn: contextlib.AbstractContextMan
                 os._exit(code)
             if frame.get("cmd") in {"invoke", "map"} and call:
                 executor.mux.forget(call)
-            _send_reply(executor.channel, {**reply, "request_id": call} if call else reply)
+            _answer(executor, executor.channel, {**reply, "request_id": call} if call else reply)
     except BaseException as exc:
-        traceback.print_exc()
+        if call in _TOLD:  # its traceback is in its own log (`Executor._call`)
+            print(f"call {call} ended this executor: {type(exc).__name__}", file=sys.stderr)
+        else:
+            traceback.print_exc()
         sys.stderr.flush()
         os._exit(exc.code if isinstance(exc, SystemExit) and isinstance(exc.code, int) else 1)
 

@@ -121,7 +121,7 @@ def _crashed_by_the_system(client: "Client", run_id: str) -> bool:
     One read, and only when a beat lands on a crashed row (the loop then
     leaves that row alone until it changes). Raises on a failed read, which
     the caller classifies like any other recovery failure."""
-    events = client.events.for_run(run_id)
+    events = client.events.list_for_run(run_id)
     for event in events if isinstance(events, list) else []:
         if not isinstance(event, dict) or event.get("event_type") != "run.status_changed":
             continue

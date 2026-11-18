@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: mcstatus
-Version: 14.2.0
+Version: 15.0.0
 Summary: A library to query Minecraft Servers for their status and capabilities.
 Project-URL: Documentation, https://mcstatus.readthedocs.io
 Project-URL: Source code, https://github.com/py-mine/mcstatus
@@ -16,16 +16,16 @@ Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Games/Entertainment
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Monitoring
 Classifier: Typing :: Typed
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Requires-Dist: asyncio-dgram>=2.1.2
 Requires-Dist: dnspython>=2.4.2
 Description-Content-Type: text/markdown
@@ -102,6 +102,8 @@ from mcstatus import BedrockServer
 # If you know the host and port, you may skip this and use BedrockServer("example.org", 19132)
 server = BedrockServer.lookup("example.org:19132")
 
+# Bedrock servers speak RakNet (UDP) or NetherNet (TCP, default since 26.50). Both are tried by default;
+# pin one with BedrockServer.lookup("example.org:19132", transport="nethernet") to send a single probe.
 # 'status' is the only feature that is supported by Bedrock at this time.
 # In this case status includes players.online, latency, motd, map, gamemode, and players.max. (ex: status.gamemode)
 status = server.status()

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from .attributes import WRITTEN_BEFORE_NAPOLEON, note_attributes_before_napoleon
-from .combined import add_combined_field_entry, type_combined_field_entry
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Documented as Documented
+    from .. import Hint as Hint
+    from .. import WrittenTypeAlias as WrittenTypeAlias
+
+from .attributes import note_attributes_before_napoleon
 from .returns import mark_numpy_returns
-from .typed import reads_as_type
 
 __all__ = [
-    "WRITTEN_BEFORE_NAPOLEON",
-    "add_combined_field_entry",
     "mark_numpy_returns",
     "note_attributes_before_napoleon",
-    "reads_as_type",
-    "type_combined_field_entry",
 ]

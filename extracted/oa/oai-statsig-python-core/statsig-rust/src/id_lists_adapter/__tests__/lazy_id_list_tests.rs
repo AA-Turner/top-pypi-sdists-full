@@ -494,8 +494,16 @@ rusty_fork_test! {
 
 #[tokio::test]
 async fn cancelling_the_only_caller_before_build_releases_its_download() {
-    let (provider, adapter, store) = setup_parallel(false);
+    let observer = crate::__tests__::mock_observability_client::observer();
+    let (provider, mut adapter, store) = setup_with_options(StatsigOptions {
+        lazy_load_id_lists: Some(true),
+        experimental_flags: Some(["parallel_lazy_id_list_builds".into()].into()),
+        observability_client: Some(Arc::downgrade(&observer)),
+        ..Default::default()
+    });
+    Arc::get_mut(&mut adapter).unwrap().ops_stats = Arc::new(OpsStatsForInstance::new());
     adapter.sync_id_lists().await.unwrap();
+    let mut events = adapter.ops_stats.subscribe_for_test();
     let gate = Arc::new(Semaphore::new(0));
     *provider.file_gate.lock() = Some(gate.clone());
 
@@ -503,6 +511,10 @@ async fn cancelling_the_only_caller_before_build_releases_its_download() {
     assert!(futures::poll!(&mut first).is_pending());
     assert_eq!(provider.file_attempts("lazy"), 1);
     drop(first);
+    assert!(
+        events.try_recv().is_err(),
+        "cancelled owner must not emit a completed sample"
+    );
 
     let mut retry = Box::pin(adapter.process_id_list("lazy"));
     assert!(futures::poll!(&mut retry).is_pending());
@@ -513,10 +525,23 @@ async fn cancelling_the_only_caller_before_build_releases_its_download() {
         .unwrap()
         .unwrap();
     assert!(store.load_data().id_lists["lazy"].ids.contains("a"));
+    let mut summaries = 0;
+    while let Ok(event) = events.try_recv() {
+        if matches!(
+            event,
+            crate::observability::ops_stats::OpsStatsEvent::IdListLoad(_)
+        ) {
+            summaries += 1;
+        }
+    }
+    assert_eq!(
+        summaries, 1,
+        "one compact summary for the replacement owner"
+    );
 }
 
 #[test]
-fn hash_publication_timeout_is_reported_only_on_the_opted_in_path_and_retry_installs() {
+fn hash_lazy_publication_timeout_is_reported_and_retry_installs() {
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -540,11 +565,9 @@ fn hash_publication_timeout_is_reported_only_on_the_opted_in_path_and_retry_inst
         let result = store.with_id_list_mutation_locked_for_test(|| {
             runtime.block_on(adapter.process_id_list("lazy"))
         });
-        if parallel {
-            assert!(matches!(result, Err(StatsigErr::LockFailure(_))));
-        } else {
-            result.expect("legacy hash publication treats lock timeout as a skipped update");
-        }
+        // Polling keeps the legacy skipped-update contract, but a lazy load
+        // must not claim success while its requested list remains absent.
+        assert!(matches!(result, Err(StatsigErr::LockFailure(_))));
         assert!(store.load_data().id_lists.is_empty());
         runtime.block_on(adapter.process_id_list("lazy")).unwrap();
         assert_eq!(provider.file_attempts("lazy"), 2);
@@ -873,4 +896,217 @@ fn shutdown_drains_an_active_build_and_skips_the_next_queued_build() {
         assert!(started.try_recv().is_err());
         assert!(store.load_data().id_lists.is_empty());
     });
+}
+
+#[tokio::test]
+async fn lazy_load_timings_separate_body_wait_from_publication() {
+    struct DelayedListener(Arc<SpecStore>);
+    impl IdListsUpdateListener for DelayedListener {
+        fn get_current_id_list_metadata(&self) -> HashMap<String, IdListMetadata> {
+            self.0.get_current_id_list_metadata()
+        }
+        fn did_receive_id_list_updates(&self, updates: HashMap<String, IdListUpdate>) {
+            std::thread::sleep(Duration::from_millis(20));
+            self.0.did_receive_id_list_updates(updates);
+        }
+        fn requires_blocking_id_list_publication(&self) -> bool {
+            self.0.requires_blocking_id_list_publication()
+        }
+    }
+
+    for (enabled, compact) in [(false, false), (true, false), (false, true), (true, true)] {
+        let (provider, mut adapter, _) = setup(Some(true), compact);
+        let store = Arc::new(SpecStore::new(
+            "secret-timing-store-test",
+            "timing-store-test".into(),
+            StatsigRuntime::get_runtime(),
+            Arc::new(SdkEventEmitter::default()),
+            Some(&StatsigOptions {
+                enable_id_list_elias_fano: Some(compact),
+                ..StatsigOptions::default()
+            }),
+        ));
+        let observer = crate::__tests__::mock_observability_client::observer();
+        let adapter_mut = Arc::get_mut(&mut adapter).unwrap();
+        adapter_mut.load_timings_enabled =
+            id_list_load_timing::collection_enabled(Some(&StatsigOptions {
+                observability_client: enabled.then(|| Arc::downgrade(&observer)),
+                ..Default::default()
+            }));
+        adapter_mut.ops_stats = Arc::new(OpsStatsForInstance::new());
+        adapter_mut.set_listener(Arc::new(DelayedListener(store.clone())));
+        adapter.sync_id_lists().await.unwrap();
+        let mut events = adapter.ops_stats.subscribe_for_test();
+        let gate = Arc::new(Semaphore::new(0));
+        *provider.file_gate.lock() = Some(gate.clone());
+        let publication = adapter.lazy_id_lists.as_ref().unwrap().manifest.clone();
+        tokio::spawn(async move {
+            // Acquire after HTTP starts, so this delays publication rather than
+            // the initial manifest read. The body can finish under the guard.
+            while provider.file_attempts("lazy") == 0 {
+                tokio::task::yield_now().await;
+            }
+            let guard = publication.write_owned().await;
+            tokio::time::sleep(Duration::from_millis(20)).await;
+            gate.add_permits(1);
+            tokio::time::sleep(Duration::from_millis(40)).await;
+            drop(guard);
+        });
+        tokio::time::timeout(Duration::from_secs(3), adapter.process_id_list("lazy"))
+            .await
+            .expect("a blocked publication must not prevent the body from downloading")
+            .unwrap();
+        assert!(store.load_data().id_lists["lazy"].ids.contains("a"));
+        let mut phases = HashMap::new();
+        let mut store_phases = HashMap::new();
+        while let Ok(event) = events.try_recv() {
+            for event in crate::id_lists_adapter::id_list_load_timing::metrics_for_test(event) {
+                let target = match event.metric_name.as_str() {
+                    "lazy_id_list_load.list_phase_ms" => &mut phases,
+                    "lazy_id_list_load.store_phase_ms" => &mut store_phases,
+                    _ => continue,
+                };
+                let tags = event.tags.unwrap();
+                assert_eq!(tags["list_name"], "lazy");
+                assert_eq!(tags["outcome"], "success");
+                assert!(!tags.contains_key("storage_format"));
+                assert!(target.insert(tags["phase"].clone(), event.value).is_none());
+            }
+        }
+        if enabled {
+            assert_eq!(phases.len(), if compact { 8 } else { 7 });
+            assert!(phases["adapter_lock_wait"] >= 20.0);
+            assert!(phases["http_body"] >= 20.0);
+            assert!(phases["parse_publish"] >= 20.0);
+            assert_eq!(store_phases.len(), 3);
+            assert!(store_phases["store_lock_wait"] > 0.0);
+            assert!(store_phases["processing"] > 0.0);
+            assert!(store_phases["publication"] > 0.0);
+            assert!(store_phases.values().sum::<f64>() <= phases["parse_publish"]);
+            let sum: f64 = phases
+                .iter()
+                .filter(|(phase, _)| phase.as_str() != "total")
+                .map(|(_, ms)| ms)
+                .sum();
+            assert!((sum - phases["total"]).abs() < 0.001);
+        } else {
+            assert!(phases.is_empty());
+            assert!(store_phases.is_empty());
+        }
+    }
+}
+
+#[tokio::test]
+async fn lazy_load_timings_follow_parallel_workers_without_duplicate_singleflight_samples() {
+    for compact in [false, true] {
+        let (provider, mut adapter, store) = setup_parallel(compact);
+        let observer = crate::__tests__::mock_observability_client::observer();
+        let adapter_mut = Arc::get_mut(&mut adapter).unwrap();
+        adapter_mut.load_timings_enabled =
+            id_list_load_timing::collection_enabled(Some(&StatsigOptions {
+                lazy_load_id_lists: Some(true),
+                observability_client: Some(Arc::downgrade(&observer)),
+                ..Default::default()
+            }));
+        adapter_mut.ops_stats = Arc::new(OpsStatsForInstance::new());
+        adapter.sync_id_lists().await.unwrap();
+        let mut events = adapter.ops_stats.subscribe_for_test();
+        // Both callers join the same blocked download before it is released.
+        let gate = Arc::new(Semaphore::new(0));
+        *provider.file_gate.lock() = Some(gate.clone());
+        let mut first = adapter.process_id_list("lazy").boxed();
+        let mut second = adapter.process_id_list("lazy").boxed();
+        assert!(futures::poll!(&mut first).is_pending());
+        assert!(futures::poll!(&mut second).is_pending());
+        gate.add_permits(1);
+        let (first, second) = tokio::join!(first, second);
+        first.unwrap();
+        second.unwrap();
+        assert_eq!(provider.file_attempts("lazy"), 1);
+        assert!(store.load_data().id_lists["lazy"].ids.contains("a"));
+        let mut phases = HashMap::new();
+        let mut store_phases = HashMap::new();
+        while let Ok(event) = events.try_recv() {
+            for event in crate::id_lists_adapter::id_list_load_timing::metrics_for_test(event) {
+                let target = match event.metric_name.as_str() {
+                    "lazy_id_list_load.list_phase_ms" => &mut phases,
+                    "lazy_id_list_load.store_phase_ms" => &mut store_phases,
+                    _ => continue,
+                };
+                let tags = event.tags.unwrap();
+                assert_eq!(tags["mode"], "lazy");
+                assert_eq!(tags["list_name"], "lazy");
+                assert_eq!(tags["outcome"], "success");
+                assert!(target.insert(tags["phase"].clone(), event.value).is_none());
+            }
+        }
+        for phase in [
+            "build_permit_wait",
+            "build_worker_wait",
+            "publication_worker_wait",
+        ] {
+            assert!(phases.contains_key(phase), "missing {phase}");
+        }
+        assert_eq!(store_phases.len(), 3);
+        assert!(store_phases.values().sum::<f64>() <= phases["parse_publish"]);
+        let sum: f64 = phases
+            .iter()
+            .filter(|(p, _)| p.as_str() != "total")
+            .map(|(_, ms)| ms)
+            .sum();
+        assert!((sum - phases["total"]).abs() < 0.001);
+    }
+}
+
+#[tokio::test]
+async fn lazy_load_timings_skip_an_already_published_list() {
+    let observer = crate::__tests__::mock_observability_client::observer();
+    let (provider, mut adapter, _) = setup_with_options(StatsigOptions {
+        lazy_load_id_lists: Some(true),
+        observability_client: Some(Arc::downgrade(&observer)),
+        ..Default::default()
+    });
+    Arc::get_mut(&mut adapter).unwrap().ops_stats = Arc::new(OpsStatsForInstance::new());
+    adapter.sync_id_lists().await.unwrap();
+    let mut events = adapter.ops_stats.subscribe_for_test();
+    adapter.process_id_list("lazy").await.unwrap();
+    while events.try_recv().is_ok() {}
+    adapter.process_id_list("lazy").await.unwrap();
+    assert_eq!(provider.file_attempts("lazy"), 1);
+    assert!(
+        events.try_recv().is_err(),
+        "ready lists must not emit cold-load samples"
+    );
+}
+
+#[tokio::test]
+async fn lazy_load_timings_report_unpublished_hash_list_as_error() {
+    let observer = crate::__tests__::mock_observability_client::observer();
+    let (_provider, mut adapter, store) = setup_with_options(StatsigOptions {
+        lazy_load_id_lists: Some(true),
+        observability_client: Some(Arc::downgrade(&observer)),
+        ..Default::default()
+    });
+    Arc::get_mut(&mut adapter).unwrap().ops_stats = Arc::new(OpsStatsForInstance::new());
+    adapter.sync_id_lists().await.unwrap();
+    let mut events = adapter.ops_stats.subscribe_for_test();
+    let result = store.with_id_list_mutation_locked_for_test(|| {
+        futures::executor::block_on(adapter.process_id_list("lazy"))
+    });
+    assert!(!store.load_data().id_lists.contains_key("lazy"));
+    assert!(
+        result.is_err(),
+        "publication timeout must not be a successful load"
+    );
+    let mut totals = 0;
+    while let Ok(event) = events.try_recv() {
+        for event in crate::id_lists_adapter::id_list_load_timing::metrics_for_test(event) {
+            let tags = event.tags.unwrap();
+            if event.metric_name == "lazy_id_list_load.list_phase_ms" && tags["phase"] == "total" {
+                assert_eq!(tags["outcome"], "error");
+                totals += 1;
+            }
+        }
+    }
+    assert_eq!(totals, 1);
 }

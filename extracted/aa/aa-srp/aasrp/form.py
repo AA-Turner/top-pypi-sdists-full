@@ -11,6 +11,7 @@ from django import forms
 from django.forms import ModelForm
 from django.utils.functional import Promise
 from django.utils.safestring import mark_safe
+from django.utils.text import format_lazy
 from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
@@ -130,7 +131,13 @@ class SrpLinkForm(ModelForm):
                 attrs={"autocomplete": "off", "placeholder": _("Fleet time")}
             ),
             "fleet_type": forms.Select(attrs={"placeholder": _("Fleet type")}),
-            "fleet_doctrine": forms.TextInput(attrs={"placeholder": _("Doctrine")}),
+            "fleet_doctrine": forms.TextInput(
+                attrs={
+                    "placeholder": _("Doctrine"),
+                    "data-datalist": "aasrp-doctrine-list",
+                    "data-full-width": "true",
+                }
+            ),
             "aar_link": forms.URLInput(
                 attrs={"placeholder": _("After action report link")}
             ),
@@ -194,13 +201,13 @@ class SrpRequestForm(ModelForm):
         model = SrpRequest
         fields = ["killboard_link", "additional_info"]
         help_texts = {
-            "killboard_link": _(
-                "Find your kill mail on {zkillboard_base_url}, {evetools_base_url} or "
-                "{eve_kill_base_url} and paste the link here, or paste the external "
-                "link from your in-game kill report."
-            ).format(
+            "killboard_link": format_lazy(
+                _(
+                    "Find your killmail on {zkillboard_base_url}, {evetools_base_url} or "
+                    "{eve_kill_base_url} and paste the link here, or paste the external "
+                    "link from your in-game kill report."
+                ),
                 zkillboard_base_url=zkillboard["base_url"],
-                zkillboard_post_esi_base_url=zkillboard_post_esi["base_url"],
                 evetools_base_url=evetools["base_url"],
                 eve_kill_base_url=eve_kill["base_url"],
             ),
@@ -305,10 +312,10 @@ class SrpRequestForm(ModelForm):
             )
 
             raise forms.ValidationError(
-                message=_("Invalid link. Please post a link to a kill mail.")
+                message=_("Invalid link. Please post a link to a killmail.")
             )
 
-        # Check if there is already an SRP request for this kill mail
+        # Check if there is already an SRP request for this killmail
         try:
             killmail_id = SrpRequest.objects.get_killmail_id(
                 killmail_link=killboard_link
@@ -325,7 +332,7 @@ class SrpRequestForm(ModelForm):
 
             raise forms.ValidationError(
                 message=_(
-                    "There is already an SRP request for this kill mail. "
+                    "There is already an SRP request for this killmail. "
                     "Please check if you got the right one."
                 )
             )

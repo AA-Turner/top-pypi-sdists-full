@@ -1,7 +1,7 @@
 use crate::graph::main::parse_selector::parse_selector;
 use crate::graph::tests::helpers::{
-    DIAMOND_PROJECT, FOLDER_PROJECT, TABLE_FUNCTION_PROJECT, failure, kind, names, path,
-    resolved_names,
+    DIAMOND_PROJECT, FOLDER_PROJECT, FUNCTIONS_PROJECT, TABLE_FUNCTION_PROJECT, failure, kind,
+    names, path, resolved_names,
 };
 use crate::graph::tests::test_types::{
     ParseSelectorErrorTestCase, ParseSelectorTestCase, ProjectSelectorErrorTestCase,
@@ -205,6 +205,34 @@ fn given_selectors_when_resolving_then_selects_expected_names() {
                 "raw_customers",
                 "raw_orders",
             ],
+        },
+        SelectedNamesTestCase {
+            description: "kind selects every resource of one kind",
+            project: DIAMOND_PROJECT,
+            select: &["kind:source"],
+            exclude: &[],
+            expected_names: &["raw_customers", "raw_orders"],
+        },
+        SelectedNamesTestCase {
+            description: "kind:function selects scalar and table functions alike",
+            project: FUNCTIONS_PROJECT,
+            select: &["kind:function"],
+            exclude: &[],
+            expected_names: &["customer_orders", "tax"],
+        },
+        SelectedNamesTestCase {
+            description: "the precise function kinds still select one kind each",
+            project: FUNCTIONS_PROJECT,
+            select: &["kind:udf"],
+            exclude: &[],
+            expected_names: &["tax"],
+        },
+        SelectedNamesTestCase {
+            description: "+ expands its own comma part before the kind narrows it",
+            project: DIAMOND_PROJECT,
+            select: &["+joined,kind:source"],
+            exclude: &[],
+            expected_names: &["raw_customers", "raw_orders"],
         },
         SelectedNamesTestCase {
             description: "downstream expansion",
@@ -511,6 +539,26 @@ fn given_unresolvable_selectors_when_resolving_then_fails_with_message() {
             project: DIAMOND_PROJECT,
             select: &["nonexistent_model"],
             expected_error: ("S007", "unknown selector name 'nonexistent_model'", None),
+        },
+        ProjectSelectorErrorTestCase {
+            description: "unknown node kind suggests the closest",
+            project: DIAMOND_PROJECT,
+            select: &["kind:modle"],
+            expected_error: (
+                "S007",
+                "unknown node kind 'modle'",
+                Some("did you mean 'model'?"),
+            ),
+        },
+        ProjectSelectorErrorTestCase {
+            description: "a Python node kind needs the Python node graph",
+            project: DIAMOND_PROJECT,
+            select: &["kind:task"],
+            expected_error: (
+                "S010",
+                "selector 'kind:task' selects Python nodes; they cannot be selected here",
+                None,
+            ),
         },
         ProjectSelectorErrorTestCase {
             description: "name glob matching nothing",

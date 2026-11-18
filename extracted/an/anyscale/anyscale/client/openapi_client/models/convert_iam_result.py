@@ -85,7 +85,7 @@ class ConvertIamResult(object):
     def all_users_group_id(self):
         """Gets the all_users_group_id of this ConvertIamResult.  # noqa: E501
 
-        The All users group conversion created. Empty for a draft without one.  # noqa: E501
+        The All users group conversion created. Empty until the conversion has created it, which happens after converting returns; read it from the status.  # noqa: E501
 
         :return: The all_users_group_id of this ConvertIamResult.  # noqa: E501
         :rtype: str
@@ -96,7 +96,7 @@ class ConvertIamResult(object):
     def all_users_group_id(self, all_users_group_id):
         """Sets the all_users_group_id of this ConvertIamResult.
 
-        The All users group conversion created. Empty for a draft without one.  # noqa: E501
+        The All users group conversion created. Empty until the conversion has created it, which happens after converting returns; read it from the status.  # noqa: E501
 
         :param all_users_group_id: The all_users_group_id of this ConvertIamResult.  # noqa: E501
         :type: str

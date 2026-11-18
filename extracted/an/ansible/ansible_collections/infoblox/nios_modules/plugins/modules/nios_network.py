@@ -53,7 +53,7 @@ options:
       name:
         description:
           - The name of the DHCP option to configure. The standard options are
-            C(router), C(router-templates), C(domain-name-servers), C(domain-name),
+            C(routers), C(router-templates), C(domain-name-servers), C(domain-name),
             C(broadcast-address), C(broadcast-address-offset), C(dhcp-lease-time),
             and C(dhcp6.name-servers).
         type: str
@@ -109,6 +109,11 @@ options:
       - Allows for the configuration of Extensible Attributes on the
         instance of the object.  This argument accepts a set of key / value
         pairs for configuration.
+      - A value may also be supplied as a dictionary to control inheritance of
+        an inheritable Extensible Attribute. Such a dictionary accepts a
+        C(value) key together with an C(inheritance_operation) key set to
+        C(INHERIT) to revert the object to its inherited value, or C(OVERRIDE)
+        to explicitly override an inherited value.
     type: dict
   comment:
     description:
@@ -232,6 +237,32 @@ EXAMPLES = '''
       password: admin
   connection: local
 
+- name: Set gateway (routers) option by name for a network ipv4
+  infoblox.nios_modules.nios_network:
+    network: 192.168.10.0/24
+    options:
+      - name: routers
+        value: 192.168.10.1
+    state: present
+    provider:
+      host: "{{ inventory_hostname_short }}"
+      username: admin
+      password: admin
+  connection: local
+
+- name: Set gateway option by num for a network ipv4
+  infoblox.nios_modules.nios_network:
+    network: 192.168.10.0/24
+    options:
+      - num: 3
+        value: 192.168.10.1
+    state: present
+    provider:
+      host: "{{ inventory_hostname_short }}"
+      username: admin
+      password: admin
+  connection: local
+
 - name: Set filters for a network ipv4
   infoblox.nios_modules.nios_network:
     network: 192.168.10.0/24
@@ -334,12 +365,35 @@ def options(module):
     that condition.  It will also verify that either `name` or `num` is
     set in the structure but does not validate the values are equal.
     The remainder of the value validation is performed by WAPI
+
+    For structural DHCP options (routers/3, ntp-servers/42, subnet-mask/1):
+    - use_option is stripped (WAPI rejects it for these options)
+    - vendor_class is stripped when specified by name so WAPI resolves the
+      option in the global DHCP space instead of "DHCP.<name>"
     '''
+    # Structural DHCP options that must not carry use_option or vendor_class
+    NO_USE_OPTION_NUMS = frozenset({1, 3, 42, 43, 60, 67, 124, 125})
+    NO_USE_OPTION_NAMES = frozenset({'subnet-mask', 'routers', 'ntp-servers'})
+
     options = list()
     for item in module.params['options']:
         opt = dict([(k, v) for k, v in item.items() if v is not None])
         if 'name' not in opt and 'num' not in opt:
             module.fail_json(msg='one of `name` or `num` is required for option value')
+
+        by_num = opt.get('num') in NO_USE_OPTION_NUMS
+        by_name = opt.get('name') in NO_USE_OPTION_NAMES
+
+        if by_num or by_name:
+            opt.pop('use_option', None)
+            opt.pop('vendor_class', None)
+            # When both num and name are provided for a structural option, WAPI
+            # cross-validates them in the vendor space and fails even if they
+            # represent the same option (e.g. num=3 + name=routers). Prefer num
+            # as unambiguous and drop name to avoid the cross-validation error.
+            if by_num and 'name' in opt:
+                opt.pop('name')
+
         options.append(opt)
     return options
 
@@ -369,13 +423,30 @@ def check_ip_addr_type(obj_filter, ib_spec):
 def check_vendor_specific_dhcp_option(module, ib_spec):
     '''This function will check if the argument dhcp option belongs to vendor-specific and if yes then will remove
      use_options flag which is not supported with vendor-specific dhcp options.
+
+    Additionally strips vendor_class for standard DHCP options supplied by name
+    (e.g. name: routers). The module arg spec defaults vendor_class to "DHCP", which
+    causes WAPI to resolve the option as "DHCP.<name>" — a vendor-space lookup that
+    fails for options not registered in that space (e.g. routers, ntp-servers,
+    subnet-mask). Standard options need no vendor_class at all.
     '''
+    # Options that WAPI rejects when use_option is present.
+    NO_USE_OPTION_NUMS = frozenset({1, 3, 42, 43, 60, 67, 124, 125})
+    NO_USE_OPTION_NAMES = frozenset({'subnet-mask', 'routers', 'ntp-servers'})
+
     for key, value in ib_spec.items():
         if isinstance(module.params[key], list):
             for temp_dict in module.params[key]:
-                if 'num' in temp_dict:
-                    if temp_dict['num'] in (43, 124, 125, 67, 60):
-                        del temp_dict['use_option']
+                by_num = 'num' in temp_dict and temp_dict['num'] in NO_USE_OPTION_NUMS
+                by_name = 'name' in temp_dict and temp_dict['name'] in NO_USE_OPTION_NAMES
+
+                if by_num or by_name:
+                    temp_dict.pop('use_option', None)
+
+                # Strip vendor_class for name-based standard options so WAPI
+                # resolves the option in the global DHCP space, not "DHCP.<name>".
+                if by_name:
+                    temp_dict.pop('vendor_class', None)
     return ib_spec
 
 

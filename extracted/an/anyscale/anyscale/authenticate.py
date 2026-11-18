@@ -23,6 +23,7 @@ import anyscale.conf
 from anyscale.sdk import anyscale_client
 from anyscale.sdk.anyscale_client.api.default_api import DefaultApi as AnyscaleApi
 import anyscale.shared_anyscale_utils.conf as shared_anyscale_conf
+from anyscale.utils.extra_headers_util import apply_extra_headers, get_extra_headers
 from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 from anyscale.utils.ssl_ca_cert_util import get_ssl_ca_cert_from_env
@@ -50,6 +51,7 @@ class AuthenticationBlock:
         validate_credentials: bool = True,
         log_output: bool = True,
         raise_structured_exception: bool = False,
+        headers: Optional[Dict[str, str]] = None,
     ):
         """Create an AuthenticationBlock object with the following properties that are useful
         externally: host, credentials, api_client, anyscale_api_client.
@@ -70,9 +72,15 @@ class AuthenticationBlock:
             raise_structured_exception (bool): Whether to raise a structured
                 exception (python class with fields), or a click exception with a human
                 readable string.
+            headers (Optional[Dict[str, str]]): HTTP headers to send on every request.
+                They take precedence over `--header` and ANYSCALE_EXTRA_HEADERS.
         """
         self.log = BlockLogger(log_output=log_output)
         self.host = host or shared_anyscale_conf.ANYSCALE_HOST
+        # Read before any request, so that a bad header fails before the first one.
+        self._extra_headers = get_extra_headers(headers)
+        if self._extra_headers:
+            self.log.debug(f"Sending custom headers: {', '.join(sorted(self._extra_headers))}.")
         if cli_token is not None:
             self.credentials = cli_token
             cli_token_location = "variable"
@@ -130,6 +138,7 @@ class AuthenticationBlock:
         )
 
         configure_open_api_client_headers(api_client, "CLI")
+        apply_extra_headers(api_client, self._extra_headers)
         configure_tcp_keepalive(api_client)
         api_instance = openapi_client.DefaultApi(api_client)
         return api_instance
@@ -170,6 +179,7 @@ class AuthenticationBlock:
         )
 
         configure_open_api_client_headers(api_client, "CLI")
+        apply_extra_headers(api_client, self._extra_headers)
         configure_tcp_keepalive(api_client)
         api_instance = anyscale_client.DefaultApi(api_client)
         return api_instance

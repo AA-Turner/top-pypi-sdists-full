@@ -18,10 +18,13 @@ use crate::specs_response::spec_types::UnavailableValues;
 
 mod download;
 mod errors;
+pub(crate) mod init_failures;
 mod json;
 mod metadata;
 mod partial;
-pub(crate) use partial::{IncompleteBlobConfigs, PartialBlobRefresh};
+pub(crate) use partial::{
+    IncompleteBlobConfigs, PartialBlobRefresh, PendingBlobProofs, limit_pending_proofs,
+};
 mod protobuf;
 mod telemetry;
 mod verified_values;
@@ -66,6 +69,7 @@ pub(crate) fn cold_start_hydration_deadline(started_at: Instant) -> tokio::time:
 pub(crate) struct PartialHydration {
     pub(crate) unavailable: UnavailableValues,
     pub(crate) failed_blobs: HashMap<String, HydrationFailureReason>,
+    pub(crate) overlay: Option<Box<crate::spec_store::FullBlobOverlay>>,
 }
 
 impl PartialHydration {
@@ -77,6 +81,7 @@ impl PartialHydration {
         (needs_sidecar_retry || !failed_blobs.is_empty()).then_some(Self {
             unavailable,
             failed_blobs,
+            overlay: None,
         })
     }
 }
@@ -86,6 +91,7 @@ impl PartialHydration {
 #[derive(Clone, Copy)]
 pub(crate) struct StoreHydrationOptions<'a> {
     pub(crate) source_url: &'a str,
+    pub(crate) pending_proofs: PendingBlobProofs<'a>,
     pub(crate) mmap_project_id: MmapProjectId,
     pub(crate) sync_trigger: Option<SpecsSyncTrigger>,
     pub(crate) preserve_session_update_mode: bool,
@@ -97,6 +103,7 @@ impl<'a> StoreHydrationOptions<'a> {
     pub(crate) fn new(source_url: &'a str, mmap_project_id: MmapProjectId) -> Self {
         Self {
             source_url,
+            pending_proofs: PendingBlobProofs::default(),
             mmap_project_id,
             sync_trigger: None,
             preserve_session_update_mode: false,

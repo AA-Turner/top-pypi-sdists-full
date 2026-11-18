@@ -10,7 +10,7 @@ import time
 from uuid import uuid4
 
 import numpy as np
-from dreamscale_transport.llm import Observation, RobotProfile, ToolReceipt
+from dreamscale_core.llm import Observation, RobotProfile, ToolReceipt
 from PIL import Image
 
 from dreamscale.so101_kinematics import ARM_JOINTS, IKFailure, solve, tool_state

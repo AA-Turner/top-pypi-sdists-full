@@ -12,7 +12,7 @@ class CalculateNatGatewayCapacityUnitsResponseBody(DaraModel):
         nat_gateway_performance_values: main_models.CalculateNatGatewayCapacityUnitsResponseBodyNatGatewayPerformanceValues = None,
         request_id: str = None,
     ):
-        # The details of the calculated equivalent resource reservation CUs.
+        # The details of the calculated equivalent reserved CUs.
         self.nat_gateway_capacity = nat_gateway_capacity
         # The details of the calculated equivalent resource reservation metrics.
         self.nat_gateway_performance_values = nat_gateway_performance_values
@@ -68,7 +68,7 @@ class CalculateNatGatewayCapacityUnitsResponseBodyNatGatewayPerformanceValues(Da
         self.bandwidth = bandwidth
         # The maximum number of new connections per second.
         self.cps = cps
-        # The number of packets. Unit: pps.
+        # The number of packets per second. Unit: pps.
         self.pps = pps
         # The number of sessions.
         self.session_count = session_count

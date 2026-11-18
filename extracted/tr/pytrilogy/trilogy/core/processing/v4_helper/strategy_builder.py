@@ -130,6 +130,7 @@ from .constants import (
     AGGREGATING_DERIVATIONS,
     FINAL_NODE_ID,
     GROUPING_DERIVATIONS,
+    NESTED_DEPTHS,
     ROW_PRESERVING_AGGREGATE_INPUT_DERIVATIONS,
     ROW_SHAPE_BARRIER_DERIVATIONS,
     DepthLabel,
@@ -2923,12 +2924,15 @@ def _project_planned_keys(
     plan: JoinPlan,
     environment: BuildEnvironment,
     producers: Sequence[StrategyNode] = (),
+    source: Callable[[list[BuildConcept]], StrategyNode | None] | None = None,
 ) -> list[StrategyNode]:
     """Hand each parent the planned keys widening in place could not. One its
     outputs render is projected over it: the plan pairs `min(x) by row_key`
     with an aggregate by `tree_id` on `row_key`. One they determine but do
     not render (`cluster_id`, computed off other aggregates) is looked up from
-    a built producer keyed within the parent's outputs."""
+    a built producer keyed within the parent's outputs; with none, from a
+    scan `source` plans of the key beside its own keys the parent holds
+    (`tree_form` by `species` beside a summary's rows by `species`)."""
     out: list[StrategyNode] = []
     authored = environment.all_scoped_join_group_members()
     for parent in parents:
@@ -2965,7 +2969,17 @@ def _project_planned_keys(
             and c.address in determined
             and c.address not in authored
             and c.derivation != Derivation.ROWSET
-            and (lookup := _key_lookup(c, parent, determined, producers, environment))
+            and (
+                lookup := _key_lookup(c, parent, determined, producers, environment)
+                or _sourced_lookup(
+                    c,
+                    parent,
+                    determined,
+                    outputs,
+                    source if not _held_beside_keys(c, parent, parents) else None,
+                    environment,
+                )
+            )
             is not None
         ]
         if not rendered and not lookups:
@@ -2996,6 +3010,64 @@ def _project_planned_keys(
             origin[id(node)] = gid
         out.append(node)
     return out
+
+
+def _rows_once(
+    node: StrategyNode,
+    plan: JoinPlan,
+    origin: dict[int, str],
+    environment: BuildEnvironment,
+) -> StrategyNode:
+    """A value over groups alone (`JoinPlan.over_groups`) is one row per tuple
+    of what it outputs. Built over a bridge finer than its grain (a value at
+    `city, tree_form` bridged by the rows by `city, species`) its rows repeat,
+    and FINAL would pair each repeat: it is deduped to its outputs."""
+    gid = _origin_group(node, origin)
+    if gid is None or gid not in plan.over_groups:
+        return node
+    outputs = {o.address for o in node.output_concepts}
+    if set(node.resolve().grain.components) <= outputs:
+        return node
+    node.unhide_output_concepts(list(node.output_concepts))
+    deduped = _forced_dedup(node, list(node.output_concepts), environment)
+    origin[id(deduped)] = gid
+    return deduped
+
+
+def _held_beside_keys(
+    key: BuildConcept, parent: StrategyNode, parents: list[StrategyNode]
+) -> bool:
+    """Another side holds `key` beside its own keys: the merge pairs through
+    it, and a scan of the key would be a second copy of that side."""
+    wanted = {key.address, *(key.keys or ())}
+    return any(
+        wanted <= {o.address for o in other.output_concepts}
+        for other in parents
+        if other is not parent
+    )
+
+
+def _sourced_lookup(
+    key: BuildConcept,
+    parent: StrategyNode,
+    determined: frozenset[str],
+    outputs: set[str],
+    source: Callable[[list[BuildConcept]], StrategyNode | None] | None,
+    environment: BuildEnvironment,
+) -> tuple[StrategyNode, frozenset[str]] | None:
+    """A lookup of `key` off a fresh scan of it beside its own keys, when the
+    parent holds all of them: each parent row looks one value up."""
+    keys: set[str] = set(key.keys or ())
+    if (
+        source is None
+        or key.derivation != Derivation.ROOT
+        or not keys
+        or not keys <= outputs
+    ):
+        return None
+    producer = source([environment.concepts[k] for k in sorted(keys)] + [key])
+    producers = [producer] if producer is not None else []
+    return _key_lookup(key, parent, determined, producers, environment)
 
 
 def _key_lookup(
@@ -3678,6 +3750,7 @@ def _pre_merge_parents(
     origin: dict[int, str] | None = None,
     candidates: Sequence[str] = (),
     bridges: Sequence[str] = (),
+    joined: Sequence[str] = (),
     keying: frozenset[str] = frozenset(),
 ) -> list[StrategyNode]:
     """Collapse a multi-parent set into a single MergeNode that auto-joins
@@ -3741,12 +3814,15 @@ def _pre_merge_parents(
     if plan is not None and built is not None:
         parents = _join_elected_bridges(
             parents,
-            [(_planned_side(built, gid), plan.keys_for(gid)) for gid in plan.extras],
+            [
+                (_planned_side(built, gid), plan.keys_for(gid))
+                for gid in plan.extras
+                if gid in joined
+            ],
             environment,
             frozenset(
                 id(_planned_side(built, gid)) for gid in plan.extras if gid in keying
             ),
-            _planned_side_keys(parents, origin, plan) if origin else (),
         )
     all_outputs = readable_outputs(parents)
     merged = MergeNode(
@@ -3928,7 +4004,7 @@ def _plan_group_bridges(
             group_graph,
             attrs,
             cover,
-            _bridge_candidates(group_graph, planned, gid),
+            _bridge_candidates(group_graph, attrs, planned, gid),
             [c for concepts in cover.values() for c in concepts],
             environment,
             authored,
@@ -3936,10 +4012,15 @@ def _plan_group_bridges(
             reader_grain=pairing_keys(attrs[gid].grain_components),
         )
         attrs[gid].bridges = tuple(bridged.extras)
-        # joined whatever the islands, a bridge repeats a row its keys do not
-        # identify: a BASIC's repeats dedup away, an aggregate would count them
-        if attrs[gid].derivation == Derivation.BASIC:
+        # a bridge elected to key a pairing joins no islands and repeats a row
+        # its keys do not identify: a BASIC's repeats dedup away, an
+        # aggregate would count them, so its merge never joins one
+        basic = attrs[gid].derivation == Derivation.BASIC
+        if basic:
             attrs[gid].keying_bridges = bridged.keying
+        attrs[gid].joined_bridges = tuple(
+            b for b in bridged.extras if basic or b not in bridged.keying
+        )
     shape_through_bridges(group_graph, group_edges, attrs, planned)
 
 
@@ -5178,45 +5259,11 @@ def _wrap_for_grain(
     return wraps
 
 
-def _pairing_addresses(node: StrategyNode, environment: BuildEnvironment) -> set[str]:
-    """Addresses a merge can pair this parent on, as join resolution sees them:
-    its outputs plus every alias of the same axis. Two sides of an authored
-    relation (`subset join kb = ka`) name one axis under two addresses, so a raw
-    address comparison reads them as sharing nothing."""
-    addresses: set[str] = set()
-    for concept in node.output_concepts:
-        addresses.add(concept.address)
-        for pseudonym in concept.pseudonyms:
-            addresses.add(pseudonym)
-            origin = environment.alias_origin_lookup.get(pseudonym)
-            if origin is not None:
-                addresses.add(origin.address)
-    for relation in environment.scoped_join_relations():
-        if addresses & relation:
-            addresses |= relation
-    return addresses
-
-
-def _pairing_islands(outputs: list[set[str]]) -> list[set[int]]:
-    """Parent indices grouped by what pairs them: two parents sharing a
-    pairing column, directly or through a third, are one island."""
-    islands: list[tuple[set[int], set[str]]] = []
-    for index, own in enumerate(outputs):
-        members, columns = {index}, set(own)
-        for island in [i for i in islands if i[1] & own]:
-            islands.remove(island)
-            members |= island[0]
-            columns |= island[1]
-        islands.append((members, columns))
-    return [members for members, _ in islands]
-
-
 def _join_elected_bridges(
     parents: list[StrategyNode],
     bridges: Sequence[tuple[StrategyNode, frozenset[str]]],
     environment: BuildEnvironment,
     keying: frozenset[int] = frozenset(),
-    planned: Sequence[frozenset[str] | None] = (),
 ) -> list[StrategyNode]:
     """Join the bridges the join plan elected (`join_plan.elect_bridges`),
     each with the keys the plan pairs it on, so the merge below joins on an
@@ -5225,76 +5272,28 @@ def _join_elected_bridges(
     `select id, min(x) by id, min(y) by cell` leaves two aggregates, one keyed
     on `id` and one on `cell`: the row stream holding both keys bridges them.
 
-    The plan elects only bridges whose every pairing is keyed. A bridge that
-    no longer joins two islands as built (a member widened to its key pairs
-    directly) is not joined. A keying bridge (`JoinPlan.keying`) joins
-    whatever the islands: it holds the key one side's grain determines and
-    the other side's is grouped by.
-
-    `planned` is, per parent, the keys the plan pairs its side on (None for
-    rows no planned group holds): the merge pairs on nothing else, so a
-    column a side merely exposes (`tree_form` a peel carries for the WHERE)
-    connects no island."""
+    Each bridge joins two of the plan's islands, or keys a pairing
+    (`JoinPlan.keying`): the plan states which, so no built side is read. A
+    keying bridge also reaches below for a key it holds, which is what it
+    exists to hold; an island bridge, for one it does not."""
     if len(parents) < 2:
         return parents
     parents = list(parents)
-    outputs = [_pairing_addresses(parent, environment) for parent in parents]
-    for index, keys in enumerate(planned):
-        if keys is not None:
-            outputs[index] &= keys
     for bridge, keys in bridges:
-        islands = _pairing_islands(outputs)
         if any(bridge is parent for parent in parents):
             continue
-        if id(bridge) in keying:
-            if keys:
-                concepts = _join_key_concepts([bridge], environment, set(keys))
-                _carry_join_keys([bridge], concepts, environment)
-                # a keying bridge exists to hold the key: reach for it below
-                for concept in concepts:
-                    if concept.derivation == Derivation.ROOT:
-                        _widen_scan_chain(bridge, concept, environment=environment)
-            parents.append(bridge)
-            outputs.append(_pairing_addresses(bridge, environment))
-            continue
-        if len(islands) < 2:
-            continue
         if keys:
-            _carry_join_keys(
-                [bridge],
-                _join_key_concepts([bridge], environment, set(keys)),
-                environment,
-            )
-        exposed = _pairing_addresses(bridge, environment)
-        # the merge pairs a bridge only on its planned keys: a column it
-        # merely exposes beside them connects no island
-        if keys:
-            exposed &= keys
-        touched = [
-            island
-            for island in islands
-            if exposed & set().union(*(outputs[i] for i in island))
-        ]
-        if len(touched) < 2:
-            continue
+            concepts = _join_key_concepts([bridge], environment, set(keys))
+            _carry_join_keys([bridge], concepts, environment)
+            held = {o.address for o in bridge.output_concepts}
+            for concept in concepts:
+                # an island bridge joins on nothing without its keys
+                if concept.derivation == Derivation.ROOT and (
+                    id(bridge) in keying or concept.address not in held
+                ):
+                    _widen_scan_chain(bridge, concept, environment=environment)
         parents.append(bridge)
-        outputs.append(exposed)
     return parents
-
-
-def _planned_side_keys(
-    parents: list[StrategyNode], origin: dict[int, str], plan: JoinPlan
-) -> list[frozenset[str] | None]:
-    """Per parent, the keys `plan` pairs the groups it holds on."""
-    out: list[frozenset[str] | None] = []
-    for parent in parents:
-        side = side_members(parent, origin)
-        out.append(
-            None
-            if side is None
-            else frozenset().union(*(plan.keys_for(gid) for gid in side))
-        )
-    return out
 
 
 def _sole_partners(plan: JoinPlan, contributors: Sequence[str]) -> frozenset[str]:
@@ -5318,20 +5317,24 @@ def _sole_partners(plan: JoinPlan, contributors: Sequence[str]) -> frozenset[str
 
 def _bridge_candidates(
     group_graph: nx.DiGraph,
+    attrs: dict[str, GroupAttrs],
     planned: Sequence[str],
     consumer: str = FINAL_NODE_ID,
 ) -> list[str]:
     """The `planned` groups, in build order, decided before `consumer` (every
     group, for the FINAL: one feeding no output may sort after it) that are
     still in the plan, most derived first. A group folded into its readers left
-    the plan at its turn."""
+    the plan at its turn. A condition-phase group's rows never passed the
+    WHERE, so it bridges an outer consumer only when nothing else does."""
     decided = (
         planned if consumer == FINAL_NODE_ID else planned[: planned.index(consumer)]
     )
     groups = {gid for gid in decided if gid in group_graph and gid != FINAL_NODE_ID}
+    outer = attrs[consumer].depth_label not in NESTED_DEPTHS
     return sorted(
         groups,
         key=lambda gid: (
+            not (outer and attrs[gid].depth_label in NESTED_DEPTHS),
             sum(1 for a in nx.ancestors(group_graph, gid) if a in groups),
             gid,
         ),
@@ -5349,6 +5352,16 @@ def _final_gate_keys(
         _concepts_at(
             environment, _row_argument_addresses(attrs[FINAL_NODE_ID].condition_atoms)
         )
+    )
+
+
+def _widen_to_gate_keys(
+    node: StrategyNode, keys: frozenset[str], environment: BuildEnvironment
+) -> frozenset[str]:
+    return frozenset(
+        concept.address
+        for concept in _concepts_at(environment, keys)
+        if _widen_scan_chain(node, concept, environment=environment)
     )
 
 
@@ -5811,8 +5824,15 @@ def _stored_partials(
     grain finer than their own. One at its own grain is final, a value of its
     keys, which a coarser dedup groups by and never re-sums
     (`SelectGrain.by_keys_split_tuple`)."""
-    rollable = [o for o in targets if o.is_aggregate and _is_rollable_aggregate(o)]
-    return pending_rollups(rollable, node.resolve().grain) if rollable else []
+    resolved = node.resolve()
+    # a finished aggregate joined beside finer rows is no partial of them
+    held = {c.address for c in resolved.rollup_concepts}
+    rollable = [
+        o
+        for o in targets
+        if o.address in held and o.is_aggregate and _is_rollable_aggregate(o)
+    ]
+    return pending_rollups(rollable, resolved.grain) if rollable else []
 
 
 def _holds_summary_rows(node: StrategyNode, outputs: list[BuildConcept]) -> bool:
@@ -6223,9 +6243,15 @@ def _assemble_sole_contributor(
         sole_avail = cover.holds(gid)
         # a gate's producer pairs on its grain, which the dedup would strip
         missing = _concepts_at(environment, filter_only_addrs - sole_avail)
-        gate_paired_feeders = bool(
-            _gate_grain_keys(missing) & {o.address for o in sole_node.output_concepts}
+        gate_keys = _gate_grain_keys(missing)
+        held = {o.address for o in sole_node.output_concepts}
+        # a gate pairs on its whole grain: one key short, it keeps the rows
+        # it rejected on another (`SelectGrain.gate_paired_short_of_its_grain`)
+        # the all-rows marker of a `by *` gate is no key to carry
+        widened = _widen_to_gate_keys(
+            sole_node, pairing_keys(gate_keys - held), environment
         )
+        gate_paired_feeders = bool(gate_keys & (held | widened))
         feeder_outs = [
             carries(attrs[feeder], frozenset(), frozenset(), environment)
             for feeder in _filter_arg_producers(
@@ -6361,7 +6387,15 @@ def _apply_final_conditions(
             attrs, producers, arg_concepts, avail, spans, environment
         )
         plan = _condition_join_plan(
-            {gid: keep}, feeders, asks, keep, group_graph, attrs, environment
+            {gid: keep},
+            feeders,
+            asks,
+            keep,
+            group_graph,
+            attrs,
+            environment,
+            # the contributor as built: widened to a gate key its rows hold
+            {gid: asks & {o.address for o in node.output_concepts}},
         )
         if asks:
             _carry_asked_keys([node, *arg_nodes], origin, plan, environment)
@@ -6423,9 +6457,11 @@ def _condition_join_plan(
     group_graph: nx.DiGraph,
     attrs: dict[str, GroupAttrs],
     environment: BuildEnvironment,
+    built_holds: dict[str, frozenset[str]] | None = None,
 ) -> JoinPlan:
     """The join plan of a merge hosting a FINAL condition: `cover` beside the
-    `extras` joined to filter it, each side contracted to the `asks`."""
+    `extras` joined to filter it, each side contracted to the `asks`, or to
+    the asks `built_holds` says its built node already carries."""
     return plan_final_join(
         group_graph,
         attrs,
@@ -6435,6 +6471,7 @@ def _condition_join_plan(
         _required_final_contract(attrs).authored_axes,
         contracted={
             side: carryable(group_graph, attrs, side, asks, environment)
+            | (built_holds or {}).get(side, frozenset())
             for side in (*cover, *extras)
         },
         extras=extras,
@@ -6663,7 +6700,7 @@ def _assemble_final_node(
         group_graph,
         attrs,
         per_group,
-        _bridge_candidates(group_graph, cover.groups),
+        _bridge_candidates(group_graph, attrs, cover.groups),
         mandatory_list,
         environment,
         final_contract.authored_axes,
@@ -6707,7 +6744,12 @@ def _assemble_final_node(
         # row-level source-table grain (often much wider than the merge wants),
         # and a SELECT DISTINCT-style projection is always safe. Wrapping an
         # intermediate aggregate is not: it would re-aggregate partial sums.
-        carry = plan.carry_demands[gid]
+        # a carried key, and the keys it pairs on, must survive the wrap:
+        # grouping to a grain without one dedups it straight back out. An
+        # authored relation's member pairs as authored, never as a column.
+        carry = plan.carry_demands[gid] | (
+            plan.keys_for(gid) - environment.all_scoped_join_group_members()
+        )
         group_concepts = list(per_group[gid])
         seen_group_concepts = {concept.address for concept in group_concepts}
         group_concepts.extend(
@@ -6716,8 +6758,6 @@ def _assemble_final_node(
             if (c := _concept_at(environment, address)) is not None
             and address not in seen_group_concepts
         )
-        # A carried key must survive the wrap: grouping to a grain without the
-        # key it was re-sourced to carry dedups it straight back out.
         source, wraps = _resourced_root_contributor(
             gid,
             node,
@@ -6739,7 +6779,11 @@ def _assemble_final_node(
     parents = [
         (
             _at_declared_identity(
-                parent, parents, attrs[side], plan.identity[side], environment
+                parent,
+                parents,
+                attrs[side],
+                plan.identity[side] | plan.keys_for(side),
+                environment,
             )
             if (side := origin.get(id(parent))) is not None
             else parent
@@ -6787,8 +6831,18 @@ def _assemble_final_node(
     # rows determine) is looked up from the step computing it: left unheld,
     # the sides pair on whatever else they share (#977)
     parents = _project_planned_keys(
-        parents, origin, plan, environment, list(built.values())
+        parents,
+        origin,
+        plan,
+        environment,
+        list(built.values()),
+        lambda outputs: plan_source(
+            SourceRequest(
+                outputs=outputs, environment=environment, graph=graph, history=history
+            )
+        ),
     )
+    parents = [_rows_once(p, plan, origin, environment) for p in parents]
     parents = _fold_covered_contributors(
         parents,
         environment,
@@ -6804,7 +6858,6 @@ def _assemble_final_node(
             id(_planned_side(built, gid))
             for gid in bridged.keying | _sole_partners(plan, contributing)
         ),
-        _planned_side_keys(parents, origin, plan),
     )
     parents = _pair_inside_padding_streams(parents, environment, origin, plan)
     _raise_if_rowset_islanded(parents, mandatory_list, environment, graph)
@@ -7047,7 +7100,8 @@ def _at_declared_identity(
     (a filter of an item attribute sourced off the sale lines), deduplicated
     to that identity when an independent sibling exposes the finer row key
     too: the two would pair on the stream's row key, which no plan states. Its
-    outputs are functions of the identity, so nothing is lost."""
+    outputs are functions of the identity, so nothing is lost. `identity`
+    holds the keys the plan pairs the stream on: they are no unstated key."""
     if (
         group.derivation in GROUPING_DERIVATIONS
         or group.derivation == Derivation.ROWSET
@@ -7346,7 +7400,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
     )
     parent_group_ids = {parent.group_id for parent in parent_builds}
     carry_demands = _input_contract_carry_demands(a)
-    candidates = _bridge_candidates(group_graph, ctx.planned, gid)
+    candidates = _bridge_candidates(group_graph, attrs, ctx.planned, gid)
     element_filters: list[StrategyNode] = []
     if derivation == Derivation.UNION:
         parents = _union_arm_parents(
@@ -7432,6 +7486,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
                     origin=origin,
                     candidates=candidates,
                     bridges=a.bridges,
+                    joined=a.joined_bridges,
                     keying=a.keying_bridges,
                 )
             outputs, named_arguments = _name_inline_arguments(
@@ -7475,6 +7530,7 @@ def _build_group(gid: str, ctx: _GroupBuild) -> StrategyNode | None:
             origin=origin,
             candidates=candidates,
             bridges=a.bridges,
+            joined=a.joined_bridges,
             keying=a.keying_bridges,
         )
     # ROOT scans source columns from datasources directly, not from their

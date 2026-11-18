@@ -1,23 +1,13 @@
+from collections.abc import Callable, Collection, Iterable
 from itertools import count, filterfalse, tee
 from queue import Empty, Queue
 from time import monotonic
-from typing import (
-    Any,
-    Callable,
-    Collection,
-    Dict,
-    Iterable,
-    NoReturn,
-    Optional,
-    Set,
-    Tuple,
-    TypeVar,
-)
+from typing import Any, NoReturn, TypeVar
 
 from celery_batches.trace import apply_batches_task
 
 from celery import VERSION as CELERY_VERSION
-from celery import signals
+from celery import signals, states
 from celery.app import Celery
 from celery.app.task import Task
 from celery.concurrency.base import BasePool
@@ -67,7 +57,7 @@ def consume_queue(queue: "Queue[T]") -> Iterable[T]:
 
 def partition(
     predicate: Callable[[T], bool], iterable: Iterable[T]
-) -> Tuple[Iterable[T], Iterable[T]]:
+) -> tuple[Iterable[T], Iterable[T]]:
     "Use a predicate to partition entries into false entries and true entries"
     t1, t2 = tee(iterable)
     return filterfalse(predicate, t1), filter(predicate, t2)
@@ -91,10 +81,10 @@ class SimpleRequest:
     name = None
 
     #: positional arguments
-    args: Tuple[Any, ...] = ()
+    args: tuple[Any, ...] = ()
 
     #: keyword arguments
-    kwargs: Dict[Any, Any] = {}
+    kwargs: dict[Any, Any] = {}
 
     #: message delivery information.
     delivery_info = None
@@ -112,7 +102,7 @@ class SimpleRequest:
     correlation_id = None
 
     #: includes all of the original request headers
-    request_dict: Optional[Dict[str, Any]] = {}
+    request_dict: dict[str, Any] | None = {}
 
     #: TODO
     chord = None
@@ -121,14 +111,14 @@ class SimpleRequest:
         self,
         id: str,
         name: str,
-        args: Tuple[Any, ...],
-        kwargs: Dict[Any, Any],
+        args: tuple[Any, ...],
+        kwargs: dict[Any, Any],
         delivery_info: dict,
         hostname: str,
         ignore_result: bool,
-        reply_to: Optional[str],
-        correlation_id: Optional[str],
-        request_dict: Optional[Dict[str, Any]],
+        reply_to: str | None,
+        correlation_id: str | None,
+        request_dict: dict[str, Any] | None,
     ):
         self.id = id
         self.name = name
@@ -162,8 +152,6 @@ class SimpleRequest:
 
 
 class Batches(Task):
-    abstract = True
-
     # Disable typing since the signature of batch tasks take only a single item
     # (the list of SimpleRequest objects), but when calling it it should be
     # possible to provide more arguments.
@@ -182,7 +170,7 @@ class Batches(Task):
         self._buffer: Queue[Request] = Queue()
         self._pending: Queue[Request] = Queue()
         self._count = count(1)
-        self._tref: Optional[Timer] = None
+        self._tref: Timer | None = None
         self._pool: BasePool = None
 
     def run(self, *args: Any, **kwargs: Any) -> NoReturn:
@@ -195,12 +183,28 @@ class Batches(Task):
         # the default strategy does.
         #
         # See Batches._do_flush for ETA handling.
+
+        # Strategy() runs every time the consumer (re)starts, including after a
+        # lost broker connection is re-established. Reset the per-consumer state
+        # so that the next message properly re-arms the flush timer.
+        if self._tref is not None:
+            self._tref.cancel()
+        self._tref = None
+        self._buffer = Queue()
+        self._pending = Queue()
+        self._count = count(1)
+
         self._pool = consumer.pool
 
         hostname = consumer.hostname
         connection_errors = consumer.connection_errors
 
         eventer = consumer.event_dispatcher
+        events = eventer and eventer.enabled
+        print(eventer)
+        print(eventer.send)
+        send_event = eventer and eventer.send
+        task_sends_events = events and task.send_events
 
         Request = symbol_by_name(task.Request)
         # Celery 5.1 added the app argument to create_request_cls.
@@ -217,10 +221,10 @@ class Batches(Task):
 
         def task_message_handler(
             message: Message,
-            body: Optional[Dict[str, Any]],
+            body: dict[str, Any] | None,
             ack: promise,
             reject: promise,
-            callbacks: Set,
+            callbacks: set,
             **kw: Any,
         ) -> None:
             if body is None and "args" not in message.payload:
@@ -255,6 +259,19 @@ class Batches(Task):
             put_buffer(req)
 
             signals.task_received.send(sender=consumer, request=req)
+            if task_sends_events:
+                send_event(
+                    "task-received",
+                    uuid=req.id,
+                    name=req.name,
+                    args=req.argsrepr,
+                    kwargs=req.kwargsrepr,
+                    root_id=req.root_id,
+                    parent_id=req.parent_id,
+                    retries=req.request_dict.get("retries", 0),
+                    eta=req.eta and req.eta.isoformat(),
+                    expires=req.expires and req.expires.isoformat(),
+                )
 
             if self._tref is None:  # first request starts flush timer.
                 self._tref = timer.call_repeatedly(self.flush_interval, flush_buffer)
@@ -266,8 +283,8 @@ class Batches(Task):
 
     def apply(
         self,
-        args: Optional[Tuple[Any, ...]] = None,
-        kwargs: Optional[dict] = None,
+        args: tuple[Any, ...] | None = None,
+        kwargs: dict | None = None,
         *_args: Any,
         **options: Any,
     ) -> Any:
@@ -360,7 +377,22 @@ class Batches(Task):
             for req in acks_early:
                 req.acknowledge()
 
-        def on_return(result: Optional[Any]) -> None:
+            for request in requests:
+                request.send_event("task-started")
+
+        def on_return(result: Any | None) -> None:
+            if result is not None:
+                retval, state, runtime = result
+
+                for request in requests:
+                    if state == states.SUCCESS:
+                        request.send_event(
+                            "task-succeeded",
+                            runtime=runtime,
+                            result=repr(retval),
+                        )
+                    elif state == states.FAILURE:
+                        request.send_event("task-failed")
             for req in acks_late:
                 req.acknowledge()
 

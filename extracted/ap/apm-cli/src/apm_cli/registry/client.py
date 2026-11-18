@@ -11,6 +11,8 @@ from urllib.parse import quote, urlparse, urlunparse
 
 import requests
 
+from ..mcp_transport import canonical_remote_transport
+
 _log = logging.getLogger(__name__)
 
 # Hard byte ceiling for an MCP registry HTTP body. The registry URL can come
@@ -98,6 +100,7 @@ REGISTRY_SOURCE_LABELS = {
 # the layer that supplied it. Naming the wrong knob is worse than naming none.
 _REGISTRY_URL_HINTS = {
     "explicit": "Check the --registry value or the dependency's registry: URL.",
+    "flag": "Check the --registry value.",
     "env": "Check MCP_REGISTRY_URL if set.",
     "config": "Check 'apm config get mcp-registry-url'.",
     "default": "",
@@ -217,6 +220,11 @@ _V0_1_PREFIX = "/v0.1"
 # explicit at the call site so a future caller cannot bypass search
 # and feed attacker-controlled strings into the path.
 _SERVER_NAME_RE = re.compile(r"^[A-Za-z0-9._~-]+(/[A-Za-z0-9._~-]+)?$")
+
+
+def is_valid_mcp_server_name(server_name: object) -> bool:
+    """Return whether ``server_name`` has the MCP Registry spec-safe shape."""
+    return isinstance(server_name, str) and _SERVER_NAME_RE.fullmatch(server_name) is not None
 
 
 class ServerNotFoundError(ValueError):
@@ -586,10 +594,11 @@ class SimpleRegistryClient:
 
     @classmethod
     def _normalize_v0_1_server(cls, server: dict[str, Any]) -> dict[str, Any]:
-        """Apply package-shape normalization to a server detail dict.
+        """Apply package- and remote-shape normalization to a server detail dict.
 
         Returns a shallow copy with each entry of ``packages`` normalized
-        via :meth:`_normalize_v0_1_package`. The input dict is not mutated,
+        via :meth:`_normalize_v0_1_package` and each entry of ``remotes``
+        via :meth:`_normalize_v0_1_remote`. The input dict is not mutated,
         matching the copy semantics of the sibling normalizer.
         """
         if not isinstance(server, dict):
@@ -598,6 +607,23 @@ class SimpleRegistryClient:
         packages = normalized.get("packages")
         if isinstance(packages, list) and packages:
             normalized["packages"] = [cls._normalize_v0_1_package(p) for p in packages]
+        remotes = normalized.get("remotes")
+        if isinstance(remotes, list) and remotes:
+            normalized["remotes"] = [cls._normalize_v0_1_remote(r) for r in remotes]
+        return normalized
+
+    @staticmethod
+    def _normalize_v0_1_remote(remote: dict[str, Any]) -> dict[str, Any]:
+        """Record the canonical transport of one remote under ``transport``.
+
+        An unknown transport is left as published so the adapter that renders
+        it reports the error with its own runtime label.
+        """
+        if not isinstance(remote, dict):
+            return remote
+        normalized = dict(remote)
+        with contextlib.suppress(ValueError):
+            normalized["transport"] = canonical_remote_transport(remote)
         return normalized
 
     def get_server(self, server_name: str, version: str = "latest") -> dict[str, Any]:
@@ -623,7 +649,7 @@ class SimpleRegistryClient:
             ServerNotFoundError: If the registry returns 404.
             requests.RequestException: If the request fails for other reasons.
         """
-        if not _SERVER_NAME_RE.match(server_name or ""):
+        if not is_valid_mcp_server_name(server_name):
             raise ValueError(
                 f"Invalid server name {server_name!r}: expected MCP spec shape "
                 f"(reverse-DNS identifier, optionally with a single '/<repo>' suffix)."

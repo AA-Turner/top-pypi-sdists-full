@@ -18,6 +18,14 @@
       use_ssl: "{{ mso_use_ssl | default(true) }}"
       use_proxy: "{{ mso_use_proxy | default(true) }}"
       output_level: '{{ mso_output_level | default("debug") }}'
+    mso_test:
+      schema: '{{ mso_schema_l3out_svi_interface | default(mso_schema | default("ansible_test")) }}'
+      tenant: '{{ mso_tenant_l3out_svi_interface | default(mso_tenant | default("ansible_test")) }}'
+      site: '{{ mso_site_l3out_svi_interface | default(mso_site | default("ansible_test")) }}'
+      schema_template: template_1
+      l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+      fabric_resource_template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+      fabric_policy_template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
 
 # QUERY VERSION
 - name: Query MSO version
@@ -26,59 +34,57 @@
     state: query
   register: version
 
-- name: Execute tasks only for NDO version >= 4.4
+- name: Exercise ndo_l3out_svi_interface
   when: version.current.version is version('4.4', '>=')
   block:
     
     # CLEAN ENVIRONMENT - ENSURE CLEAN ENVIRONMENT FOR TESTS
 
-    - name: Ensure ansible_test tenant exist
-      cisco.mso.mso_tenant:
-        <<: *mso_info
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        users:
-          - '{{ mso_username }}'
-        sites:
-          - '{{ mso_site | default("ansible_test") }}'
-        state: present
-
     - name: Ensure L3out template does not exist
       cisco.mso.ndo_template: &ndo_l3out_template_absent
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         template_type: l3out
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
+        tenant: '{{ mso_test.tenant }}'
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
-        state: absent
-
-    - name: Ensure ansible_test schema does not exist
-      cisco.mso.mso_schema_template: &mso_schema_template_absent
-        <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        tenant: '{{ mso_tenant | default("ansible_test") }}'
-        template: template_1
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_resource_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_resource_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_resource_template }}'
         template_type: fabric_resource
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     - name: Ensure ansible_fabric_policy_template does not exist
       cisco.mso.ndo_template: &ndo_fabric_policy_template_absent
         <<: *mso_info
-        name: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        name: '{{ mso_test.fabric_policy_template }}'
         template_type: fabric_policy
         sites:
-          - name: '{{ mso_site | default("ansible_test") }}'
+          - name: '{{ mso_test.site }}'
         state: absent
 
     # CLEAN ENVIRONMENT - REQUIRED FOR TESTS
+
+    - name: Ensure ansible_test schema does not exist
+      cisco.mso.mso_schema_template: &mso_schema_template_absent
+        <<: *mso_info
+        schema: '{{ mso_test.schema }}'
+        tenant: '{{ mso_test.tenant }}'
+        template: "{{ mso_test.schema_template }}"
+        state: absent
+
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true
 
     - name: Create a fabric_policy template
       cisco.mso.ndo_template:
@@ -88,7 +94,7 @@
     - name: Create a VLAN pool in the fabric_policy template
       cisco.mso.ndo_vlan_pool:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         vlan_pool: ansible_test_vlan_pool_1
         vlan_ranges:
           - from_vlan: 100
@@ -98,7 +104,7 @@
     - name: Create a L3 domain in the fabric_policy template
       cisco.mso.ndo_l3_domain:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         l3_domain: ansible_test_l3_domain
         pool: ansible_test_vlan_pool_1
         state: present
@@ -106,7 +112,7 @@
     - name: Create a interface policy group of type port channel
       cisco.mso.ndo_interface_setting:
         <<: *mso_info
-        template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_policy_template }}'
         name: ansible_test_interface_policy_group_port_channel
         interface_type: port_channel
         state: present
@@ -119,12 +125,12 @@
     - name: Create port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_1
         node: 101
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_1
@@ -132,12 +138,12 @@
     - name: Create port_channel_interface_2 in the fabric_resource template
       cisco.mso.ndo_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         port_channel_interface: ansible_port_channel_interface_2
         node: 102
         interfaces: 1/20
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: port_channel_interface_2
@@ -145,7 +151,7 @@
     - name: Create ansible_virtual_port_channel_interface_1 in the fabric_resource template
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         name: ansible_virtual_port_channel_interface_1
         node_1: 101
         node_2: 102
@@ -154,7 +160,7 @@
         interfaces_node_2:
           - 1/21
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: virtual_port_channel_interface_1
@@ -162,7 +168,7 @@
     - name: Create ansible_virtual_port_channel_interface_2 in the fabric_resource template
       cisco.mso.ndo_virtual_port_channel_interface:
         <<: *mso_info
-        template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+        template: '{{ mso_test.fabric_resource_template }}'
         name: ansible_virtual_port_channel_interface_2
         node_1: 101
         node_2: 102
@@ -171,7 +177,7 @@
         interfaces_node_2:
           - 1/22
         interface_policy_group:
-          template: '{{ mso_fabric_policy_template | default("ansible_test") }}'
+          template: '{{ mso_test.fabric_policy_template }}'
           name: ansible_test_interface_policy_group_port_channel
         state: present
       register: virtual_port_channel_interface_2
@@ -184,8 +190,8 @@
     - name: Create a VRF in the schema template
       cisco.mso.mso_schema_template_vrf:
         <<: *mso_info
-        schema: '{{ mso_schema | default("ansible_test") }}'
-        template: template_1
+        schema: '{{ mso_test.schema }}'
+        template: "{{ mso_test.schema_template }}"
         vrf: vrf_1
         state: present
 
@@ -198,12 +204,12 @@
     - name: Create L3Out object in the L3Out template
       cisco.mso.ndo_l3out_template:
         <<: *mso_info
-        l3out_template: '{{ mso_l3out_template | default("ansible_test") }}'
+        l3out_template: '{{ mso_test.l3out_template }}'
         name: l3out_1
         vrf:
           name: vrf_1
-          schema: '{{ mso_schema | default("ansible_test") }}'
-          template: template_1
+          schema: '{{ mso_test.schema }}'
+          template: "{{ mso_test.schema_template }}"
         l3_domain: ansible_test_l3_domain
         ospf:
           state: enabled
@@ -214,18 +220,21 @@
         state: present
       register: mso_l3out
 
-    - name: Create L3Out node group policy
+    - name: Create L3Out node group policies
       cisco.mso.ndo_l3out_node_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
-        name: node_group_policy_1
+        name: '{{ item }}'
         state: present
+      loop:
+        - node_group_policy_1
+        - node_group_policy_2
 
     - name: Create L3Out interface group policy
       cisco.mso.ndo_l3out_interface_group_policy:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         name: interface_group_policy_1
         state: present
@@ -235,7 +244,7 @@
     - name: Create a L3out svi interface of type port (check mode)
       cisco.mso.ndo_l3out_svi_interface: &create_svi_interface_type_port
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -325,7 +334,7 @@
     - name: Create a L3out svi interface of type port channel with uuid (check mode)
       cisco.mso.ndo_l3out_svi_interface: &create_svi_interface_type_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -419,7 +428,7 @@
     - name: Create a L3out svi interface of type virtual port channel with reference (check mode)
       cisco.mso.ndo_l3out_svi_interface: &create_svi_interface_type_virtual_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         encapsulation_type: vlan
         encapsulation_value: 1000
@@ -430,7 +439,7 @@
         virtual_port_channel: 
           reference:
             name: ansible_virtual_port_channel_interface_1
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
           side_b_ipv4_address: 10.0.2.2/24
           side_b_node_router_id: 2.2.2.2
         state: present
@@ -709,7 +718,7 @@
     - name: Update a L3out svi interface of type virtual port channel with uuid (check mode)
       cisco.mso.ndo_l3out_svi_interface: &update_svi_interface_type_virtual_port_channel
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         encapsulation_type: vlan
         encapsulation_value: 1000
@@ -797,7 +806,10 @@
           - nm_update_svi_interface_type_virtual_port_channel is changed
           - nm_update_svi_interface_type_virtual_port_channel.previous == nm_create_svi_interface_type_virtual_port_channel_again.current
           - nm_update_svi_interface_type_virtual_port_channel.previous != nm_update_svi_interface_type_virtual_port_channel.current
-          - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
+          # The proposed/current comparison is version specific: from ND 4.2 onwards a single node_group_policy
+          # is returned under "nodeGroups" while "group" is cleared, so proposed (which sets "group") no longer
+          # matches current. It is therefore only asserted in the "< 5.2" block below where "group" is still used.
+          # - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.primaryV4 == "10.0.2.4/24"
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.primaryV6 == "10::105/16"
           - nm_update_svi_interface_type_virtual_port_channel.current.addresses.linkLocalV6 == "FE80::14"
@@ -816,13 +828,11 @@
           - nm_update_svi_interface_type_virtual_port_channel.current.node.routerID == "1.1.1.1"
           - nm_update_svi_interface_type_virtual_port_channel.current.node.useRouteIDAsLoopback == false
           - nm_update_svi_interface_type_virtual_port_channel.current.node.loopbackIPs is not defined
-          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == "node_group_policy_1"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeID == "102"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.podID == "1"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.routerID == "2.2.2.2"
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.useRouteIDAsLoopback == false
           - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.loopbackIPs is not defined
-          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == "node_group_policy_1"
           - nm_update_svi_interface_type_virtual_port_channel.current.nodeID is not defined
           - nm_update_svi_interface_type_virtual_port_channel.current.path is not defined
           - nm_update_svi_interface_type_virtual_port_channel.current.pathRef is defined
@@ -840,6 +850,86 @@
           - nm_update_svi_interface_type_virtual_port_channel_again is not changed
           - nm_update_svi_interface_type_virtual_port_channel_again.previous == nm_update_svi_interface_type_virtual_port_channel_again.current == nm_update_svi_interface_type_virtual_port_channel.current
 
+    - name: Assert that the L3out svi interface of type virtual port channel with uuid was updated (>= 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.nodeGroups == ["node_group_policy_1"]
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.nodeGroups == ["node_group_policy_1"]
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out svi interface of type virtual port channel with uuid was updated (< 5.2)
+      ansible.builtin.assert:
+        that:
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel.current.node.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel.current.sideBNode.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel.proposed == nm_update_svi_interface_type_virtual_port_channel.current
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.node.nodeGroups is not defined
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.group == "node_group_policy_1"
+          - nm_update_svi_interface_type_virtual_port_channel_again.current.sideBNode.nodeGroups is not defined
+      when: version.current.version is version('5.2', '<')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides (check mode)
+      cisco.mso.ndo_l3out_svi_interface: &update_svi_interface_type_virtual_port_channel_multi
+        <<: *update_svi_interface_type_virtual_port_channel
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.5/24
+          side_b_ipv6_address: 10::106/16
+          side_b_ipv6_link_local_address: FE80::15
+          side_b_ipv6_dad: disabled
+          side_b_node_router_id: 2.2.2.2
+          side_b_node_group_policy: "{{ omit }}"
+          side_b_node_group_policies:
+            - node_group_policy_1
+            - node_group_policy_2
+        node_group_policy: "{{ omit }}"
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      check_mode: true
+      register: cm_update_svi_interface_type_virtual_port_channel_multi
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *update_svi_interface_type_virtual_port_channel_multi
+      register: nm_update_svi_interface_type_virtual_port_channel_multi
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Update a L3out svi interface of type virtual port channel with multiple node group policies on both sides again
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *update_svi_interface_type_virtual_port_channel_multi
+      register: nm_update_svi_interface_type_virtual_port_channel_multi_again
+      when: version.current.version is version('5.2', '>=')
+
+    - name: Assert that the L3out svi interface of type virtual port channel was updated with multiple node group policies
+      ansible.builtin.assert:
+        that:
+          - cm_update_svi_interface_type_virtual_port_channel_multi is changed
+          - cm_update_svi_interface_type_virtual_port_channel_multi.proposed == cm_update_svi_interface_type_virtual_port_channel_multi.current
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.node.group == ""
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.group == ""
+          - cm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi is changed
+          - nm_update_svi_interface_type_virtual_port_channel_multi.proposed == nm_update_svi_interface_type_virtual_port_channel_multi.current
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.node.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.node.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.group == ""
+          - nm_update_svi_interface_type_virtual_port_channel_multi.current.sideBNode.nodeGroups == ["node_group_policy_1", "node_group_policy_2"]
+          - nm_update_svi_interface_type_virtual_port_channel_multi_again is not changed
+          - nm_update_svi_interface_type_virtual_port_channel_multi_again.previous == nm_update_svi_interface_type_virtual_port_channel_multi_again.current == nm_update_svi_interface_type_virtual_port_channel_multi.current
+      when: version.current.version is version('5.2', '>=')
+
     - name: Remove the ipv4_address from a L3out svi interface of type port channel
       cisco.mso.ndo_l3out_svi_interface: &removed_ipv4_address
         <<: *update_svi_interface_type_port_channel
@@ -850,9 +940,10 @@
       cisco.mso.ndo_l3out_svi_interface:
         <<: *update_svi_interface_type_virtual_port_channel
         ipv6_address: ''
-        virtual_port_channel: 
+        virtual_port_channel:
           uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
           side_b_ipv6_address: ''
+          side_b_node_group_policy: node_group_policy_1
       register: nm_update_svi_interface_type_virtual_port_channel_ipv6_removed
 
     - name: Remove the ipv6_link_local_address from a L3out svi interface of type port channel
@@ -931,7 +1022,7 @@
     - name: Create L3out svi interface without l3out or l3out_uuid
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         state: present
       register: error_svi_interface_without_l3out_or_l3out_uuid
       ignore_errors: true
@@ -939,7 +1030,7 @@
     - name: Create L3out svi interface without path, port_channel, or virtual_port_channel
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         state: present
       register: error_create_svi_interface_without_path_or_port_channel_or_virtual_port_channel
@@ -948,7 +1039,7 @@
     - name: Delete L3out svi interface without path, port_channel, or virtual_port_channel
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         state: absent
       register: error_delete_svi_interface_without_path_or_port_channel_or_virtual_port_channel
@@ -1079,7 +1170,7 @@
     - name: Create a L3out svi interface of type port without node_id
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         path: eth1/1
         encapsulation_type: vlan
@@ -1091,7 +1182,7 @@
     - name: Create a L3out svi interface of type port without encapsulation_type
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -1103,7 +1194,7 @@
     - name: Create a L3out svi interface of type port without encapsulation_value
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         node_id: 101
         path: eth1/1
@@ -1115,7 +1206,7 @@
     - name: Create a L3out svi interface of type port channel without encapsulation_type
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1127,7 +1218,7 @@
     - name: Create a L3out svi interface of type port channel without encapsulation_value
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1139,7 +1230,7 @@
     - name: Create a L3out svi interface of type virtual port channel without encapsulation_type
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         virtual_port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1151,7 +1242,7 @@
     - name: Create a L3out svi interface of type virtual port channel without encapsulation_value
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         virtual_port_channel:
           uuid: '{{ port_channel_interface_1.current.uuid }}'
@@ -1228,6 +1319,38 @@
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_value is failed
           - error_svi_interface_type_virtual_port_channel_without_encapsulation_value.msg == error_message_svi_interface_type_virtual_port_channel_without_encapsulation_value
 
+    - name: Create L3out svi interface with node_group_policy and node_group_policies
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_port
+        node_group_policy: node_group_policy_1
+        node_group_policies:
+          - node_group_policy_1
+          - node_group_policy_2
+      register: error_svi_interface_node_group_policy_and_node_group_policies
+      ignore_errors: true
+
+    - name: Create L3out svi interface with side_b_node_group_policy and side_b_node_group_policies
+      cisco.mso.ndo_l3out_svi_interface:
+        <<: *create_svi_interface_type_virtual_port_channel
+        virtual_port_channel:
+          uuid: '{{ virtual_port_channel_interface_1.current.uuid }}'
+          side_b_ipv4_address: 10.0.2.5/24
+          side_b_node_router_id: 2.2.2.2
+          side_b_node_group_policy: node_group_policy_1
+          side_b_node_group_policies:
+            - node_group_policy_1
+            - node_group_policy_2
+      register: error_svi_interface_side_b_node_group_policy_and_node_group_policies
+      ignore_errors: true
+
+    - name: Assert that the mutually exclusive node group policy errors are returned
+      ansible.builtin.assert:
+        that:
+          - error_svi_interface_node_group_policy_and_node_group_policies is failed
+          - 'error_svi_interface_node_group_policy_and_node_group_policies.msg == "parameters are mutually exclusive: node_group_policy|node_group_policies"'
+          - error_svi_interface_side_b_node_group_policy_and_node_group_policies is failed
+          - 'error_svi_interface_side_b_node_group_policy_and_node_group_policies.msg == "parameters are mutually exclusive: side_b_node_group_policy|side_b_node_group_policies found in virtual_port_channel"'
+
     # QUERY
 
     - name: Create another L3out svi interface of type port
@@ -1254,7 +1377,7 @@
         virtual_port_channel: 
           reference:
             name: ansible_virtual_port_channel_interface_1
-            template: '{{ mso_fabric_resource_template | default("ansible_test") }}'
+            template: '{{ mso_test.fabric_resource_template }}'
           side_b_ipv4_address: 10.80.0.2/24
 
     - name: Get a L3out svi interface of type port
@@ -1278,7 +1401,7 @@
     - name: Query all L3out svi interfaces
       cisco.mso.ndo_l3out_svi_interface:
         <<: *mso_info
-        template: '{{ mso_l3out_template | default("ansible_test") }}'
+        template: '{{ mso_test.l3out_template }}'
         l3out: l3out_1
         state: query
       register: query_all_svi_interfaces
@@ -1402,20 +1525,30 @@
           - nm_delete_svi_interface_type_virtual_port_channel_again is not changed
           - nm_delete_svi_interface_type_virtual_port_channel_again.previous == nm_delete_svi_interface_type_virtual_port_channel_again.proposed == nm_delete_svi_interface_type_virtual_port_channel_again.current == {}
 
-    # CLEANUP TEMPLATE
-
+  always:
     - name: Remove l3out template
       cisco.mso.ndo_template:
         <<: *ndo_l3out_template_absent
-
-    - name: Remove ansible_test schema template
-      cisco.mso.mso_schema_template:
-        <<: *mso_schema_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_resource_template fabric_resource template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_resource_template_absent
+      ignore_errors: true
 
     - name: Remove ansible_fabric_policy_template fabric_policy template
       cisco.mso.ndo_template:
         <<: *ndo_fabric_policy_template_absent
+      ignore_errors: true
+
+    - name: Remove ansible_test schema template
+      cisco.mso.mso_schema_template:
+        <<: *mso_schema_template_absent
+      ignore_errors: true
+
+    - name: Ensure Schema does not exist
+      cisco.mso.mso_schema:
+        <<: *mso_info
+        schema: "{{ mso_test.schema }}"
+        state: absent
+      ignore_errors: true

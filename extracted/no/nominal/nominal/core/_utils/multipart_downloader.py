@@ -16,6 +16,7 @@ import requests
 
 from nominal.core._utils.multipart import DEFAULT_CHUNK_SIZE
 from nominal.core._utils.networking import HeaderProvider, create_multipart_request_session
+from nominal.exceptions import NominalDownloadRangeError
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +100,9 @@ class MultipartFileDownloader:
     """High-performance downloader for presigned S3 URLs using parallel ranged GETs.
     - Re-signs on demand when the URL expires.
     - Reuses a single HTTP session & thread pool.
+
+    Downloads preserve stored bytes without decoding Content-Encoding, because range offsets
+    and lengths refer to the encoded representation.
     """
 
     max_workers: int
@@ -332,7 +336,21 @@ class MultipartFileDownloader:
             f.truncate(total_size_bytes)
 
     @staticmethod
-    def _write_part(path: pathlib.Path, start: int, data: bytes) -> None:
+    def _write_part(path: pathlib.Path, start: int, end: int, chunks: Iterable[bytes]) -> None:
+        """Read exactly one part, stopping oversized streams before writing to the destination."""
+        expected = end - start + 1
+        data = bytearray()
+        for chunk in chunks:
+            data += chunk
+            if len(data) > expected:
+                # A server that ignores Range answers with the whole object. Writing that at
+                # `start` would corrupt the file, so stop reading rather than buffer it all.
+                raise NominalDownloadRangeError(
+                    f"Expected {expected} bytes for range {start}-{end}, got more; "
+                    "the server may not support ranged downloads"
+                )
+        if len(data) != expected:
+            raise RuntimeError(f"Expected {expected} bytes for range {start}-{end}, got {len(data)}")
         # Open existing file in read + write binary mode
         # Not creating the file with `wb` as it is already pre-allocated before downloads begin
         with path.open("r+b") as f:
@@ -365,22 +383,21 @@ class MultipartFileDownloader:
         for _ in range(self.max_part_retries):
             url = provider.get_url()
             try:
-                r = self._session.get(url, headers=headers, stream=True, timeout=self.timeout)
-                if self._is_expired_status(r):
-                    provider.invalidate()
-                    continue  # refresh & retry
-                r.raise_for_status()
+                with self._session.get(url, headers=headers, stream=True, timeout=self.timeout) as r:
+                    if self._is_expired_status(r):
+                        provider.invalidate()
+                        continue  # refresh & retry
+                    r.raise_for_status()
 
-                if expected_etag and r.headers.get("ETag") and r.headers["ETag"] != expected_etag:
-                    raise RuntimeError("ETag mismatch across parts (object changed during download)")
+                    if expected_etag and r.headers.get("ETag") and r.headers["ETag"] != expected_etag:
+                        raise RuntimeError("ETag mismatch across parts (object changed during download)")
 
-                self._write_part(
-                    destination,
-                    start,
-                    b"".join(chunk for chunk in r.iter_content(1024 * 1024) if chunk),
-                )
-                return
+                    # Ranges address encoded bytes; iter_content would decompress them.
+                    self._write_part(destination, start, end, r.raw.stream(1024 * 1024, decode_content=False))
+                    return
 
+            except NominalDownloadRangeError:
+                raise  # the server will answer the same way every time
             except Exception as ex:
                 last_ex = ex
                 if (

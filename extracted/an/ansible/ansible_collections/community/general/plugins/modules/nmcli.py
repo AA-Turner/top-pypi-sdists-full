@@ -209,7 +209,7 @@ options:
       table:
         description:
           - The table to add this route to.
-          - The default depends on C(ipv4.route-table).
+          - If not set, the route goes to the table set with O(route_table4), or to the C(main) table when that is not set either.
         type: int
       cwnd:
         description:
@@ -232,6 +232,13 @@ options:
       - Set metric level of ipv4 routes configured on interface.
     type: int
     version_added: 2.0.0
+  route_table4:
+    description:
+      - Set the routing table used for IPv4 routes of this connection, including device routes, DHCP and default routes.
+      - This enables policy routing for IPv4. Static routes in O(routes4_extended) can still set their own table with O(routes4_extended[].table).
+      - V(0) leaves the routing table unset. NetworkManager then uses the global default, which usually means the C(main) table.
+    type: int
+    version_added: 14.0.0
   routing_rules4:
     description:
       - Is the same as in an C(ip rule add) command, except always requires specifying a priority.
@@ -339,7 +346,7 @@ options:
       table:
         description:
           - The table to add this route to.
-          - The default depends on C(ipv6.route-table).
+          - If not set, the route goes to the table set with O(route_table6), or to the C(main) table when that is not set either.
         type: int
       cwnd:
         description:
@@ -358,6 +365,13 @@ options:
       - Set metric level of IPv6 routes configured on interface.
     type: int
     version_added: 4.4.0
+  route_table6:
+    description:
+      - Set the routing table used for IPv6 routes of this connection, including device routes, SLAAC, DHCPv6 and default routes.
+      - This enables policy routing for IPv6. Static routes in O(routes6_extended) can still set their own table with O(routes6_extended[].table).
+      - V(0) leaves the routing table unset. NetworkManager then uses the global default, which usually means the C(main) table.
+    type: int
+    version_added: 14.0.0
   dns6:
     description:
       - A list of up to 3 DNS servers.
@@ -1696,6 +1710,19 @@ EXAMPLES = r"""
     routing_rules4:
       - "priority 0 from 192.168.1.50 table 200"
 
+## Putting all routes of a second interface, including its default route, into table 100
+- name: Use routing table 100 for eth1
+  community.general.nmcli:
+    type: ethernet
+    conn_name: eth1
+    ifname: eth1
+    ip4: 192.168.2.10/24
+    gw4: 192.168.2.1
+    route_table4: 100
+    routing_rules4:
+      - "priority 100 from 192.168.2.10 table 100"
+    state: present
+
 ## Creating an OVS bridge and attaching a port
 - name: Create OVS Bridge
   community.general.nmcli:
@@ -1789,6 +1816,7 @@ class Nmcli:
         self.routes4 = module.params["routes4"]
         self.routes4_extended = module.params["routes4_extended"]
         self.route_metric4 = module.params["route_metric4"]
+        self.route_table4 = module.params["route_table4"]
         self.routing_rules4 = module.params["routing_rules4"]
         self.never_default4 = module.params["never_default4"]
         self.dns4 = module.params["dns4"]
@@ -1803,6 +1831,7 @@ class Nmcli:
         self.routes6 = module.params["routes6"]
         self.routes6_extended = module.params["routes6_extended"]
         self.route_metric6 = module.params["route_metric6"]
+        self.route_table6 = module.params["route_table6"]
         self.routing_rules6 = module.params["routing_rules6"]
         self.dns6 = module.params["dns6"]
         self.dns6_search = module.params["dns6_search"]
@@ -1929,6 +1958,7 @@ class Nmcli:
                     "ipv4.ignore-auto-routes": self.gw4_ignore_auto,
                     "ipv4.routes": self.enforce_routes_format(self.routes4, self.routes4_extended),
                     "ipv4.route-metric": self.route_metric4,
+                    "ipv4.route-table": self.route_table4,
                     "ipv4.routing-rules": self.routing_rules4,
                     "ipv4.never-default": self.never_default4,
                     "ipv4.method": self.ipv4_method,
@@ -1942,6 +1972,7 @@ class Nmcli:
                     "ipv6.ignore-auto-routes": self.gw6_ignore_auto,
                     "ipv6.routes": self.enforce_routes_format(self.routes6, self.routes6_extended),
                     "ipv6.route-metric": self.route_metric6,
+                    "ipv6.route-table": self.route_table6,
                     "ipv6.routing-rules": self.routing_rules6,
                     "ipv6.method": self.ipv6_method,
                     "ipv6.ip6-privacy": self.ip_privacy6,
@@ -2443,9 +2474,10 @@ class Nmcli:
 
     def get_route_params(self, raw_values):
         routes_params = []
+        route_param_re = re.compile(r"([\w-]*)\s?=\s?([^\s,}]*)")
         for raw_value in raw_values:
             route_params = {}
-            for parameter, value in re.findall(r"([\w-]*)\s?=\s?([^\s,}]*)", raw_value):
+            for parameter, value in route_param_re.findall(raw_value):
                 if parameter == "nh":
                     route_params["next_hop"] = value
                 elif parameter == "mt":
@@ -2681,6 +2713,8 @@ class Nmcli:
         diff_before = dict()
         diff_after = dict()
 
+        wake_on_wlan_re = re.compile("0x([0-9A-Fa-f]+)")
+        vpn_data_sep_re = re.compile(r"\s*=\s*")
         for key, value in options.items():
             # We can't just do `if not value` because then if there's a value
             # of 0 specified as an integer it'll be interpreted as empty when
@@ -2691,7 +2725,7 @@ class Nmcli:
             if key in conn_info:
                 current_value = conn_info[key]
                 if key == "802-11-wireless.wake-on-wlan" and current_value is not None:
-                    match = re.match("0x([0-9A-Fa-f]+)", current_value)
+                    match = wake_on_wlan_re.match(current_value)
                     if match:
                         current_value = str(int(match.group(1), 16))
                 if key in ("ipv4.routes", "ipv6.routes") and current_value is not None:
@@ -2712,7 +2746,7 @@ class Nmcli:
                 if key == "vpn.data":
                     if current_value:
                         current_value = sorted(
-                            re.sub(r"\s*=\s*", "=", part.strip(), count=1) for part in current_value.split(",")
+                            vpn_data_sep_re.sub("=", part.strip(), count=1) for part in current_value.split(",")
                         )
                     value = sorted(part.strip() for part in value.split(","))
             else:
@@ -2842,6 +2876,7 @@ def create_module() -> AnsibleModule:
                 ),
             ),
             route_metric4=dict(type="int"),
+            route_table4=dict(type="int"),
             routing_rules4=dict(type="list", elements="str"),
             never_default4=dict(type="bool", default=False),
             dns4=dict(type="list", elements="str"),
@@ -2873,6 +2908,7 @@ def create_module() -> AnsibleModule:
                 ),
             ),
             route_metric6=dict(type="int"),
+            route_table6=dict(type="int"),
             routing_rules6=dict(type="list", elements="str"),
             method6=dict(type="str", choices=["ignore", "auto", "dhcp", "link-local", "manual", "shared", "disabled"]),
             ip_privacy6=dict(type="str", choices=["disabled", "prefer-public-addr", "prefer-temp-addr", "unknown"]),

@@ -441,7 +441,8 @@ core.custom_typechecks[custom_jvp_call_p] = _custom_jvp_call_typecheck
 def _custom_jvp_vjp_call_lowering(ctx: mlir.LoweringRuleContext, *args,
                                   call_jaxpr: core.Jaxpr, **_):
   consts = mlir.ir_consts(
-      call_jaxpr.consts, [v.aval for v in call_jaxpr.constvars])
+      call_jaxpr.consts, [v.aval for v in call_jaxpr.constvars],
+      const_lowering=ctx.const_lowering)
   out, tokens = mlir.jaxpr_subcomp(ctx.module_context, call_jaxpr,
                                    ctx.name_stack, ctx.tokens_in, consts,
                                    *args, dim_var_values=ctx.dim_var_values,
@@ -449,7 +450,9 @@ def _custom_jvp_vjp_call_lowering(ctx: mlir.LoweringRuleContext, *args,
                                    outer_traceback=ctx.traceback)
   ctx.set_tokens_out(tokens)
   return out
-mlir.register_lowering(custom_jvp_call_p, _custom_jvp_vjp_call_lowering)
+mlir.register_lowering(
+    custom_jvp_call_p, _custom_jvp_vjp_call_lowering,
+    shard_map_collective_rule=lambda *_, **__: None)
 
 def _custom_jvp_call_transpose_fancy(cts, *args, call_jaxpr, **_):
   return ad.backward_pass3(call_jaxpr, False, call_jaxpr.consts, args, cts)
@@ -710,12 +713,14 @@ class custom_vjp[ReturnValue]:
     it must return a pair ``(in_cts, logs)``, where ``in_cts`` is the usual
     tuple of cotangents (one entry per primal argument), and ``logs`` is a
     dict of named pytrees to log out of the backward pass, or ``None`` to log
-    nothing. To receive the logs, apply the VJP function via its
-    ``with_logs`` method: ``f_vjp.with_logs(out_ct)`` returns a pair
-    ``(arg_cts, logs)``. Logging is drop-by-default: a plain ``f_vjp(out_ct)``
-    call ignores the logs, and under ``jit`` the logging computation is
-    dead-code-eliminated. Log keys must be unique within a backward pass;
-    repeated keys raise a ``ValueError``, even when the logs are ignored.
+    nothing. To receive the logs, pass ``with_logs=True`` to
+    :py:func:`jax.grad` or :py:func:`jax.value_and_grad`, or apply the VJP
+    function via its ``with_logs`` method (``f_vjp.with_logs(out_ct)`` returns a
+    pair ``(arg_cts, logs)``). Logging is drop-by-default: a plain
+    ``jax.grad`` or ``f_vjp(out_ct)`` call ignores the logs, and under ``jit``
+    the logging computation is dead-code-eliminated. Log keys must be unique
+    within a backward pass; repeated keys raise a ``ValueError``, even when the
+    logs are ignored.
     """
     self.defvjp(fwd, bwd, symbolic_zeros=symbolic_zeros,
                 optimize_remat=optimize_remat, generic_batching=generic_batching)
@@ -739,9 +744,9 @@ class custom_vjp[ReturnValue]:
     :py:func:`~jax.custom_vjp.defvjp_with_logs`. The accumulators are the
     ``ValAccum``, ``RefAccum`` and ``NullAccum`` objects that the ``vjp_bwd``
     method of a hijax primitive receives (see :ref:`jax-301-vjp-bwd-accums`).
-    Under transformations that wrap the backward rule, such as :func:`jax.vmap`
-    applied before differentiation, ``bwd`` receives a ``ValAccum`` in place of
-    a ``RefAccum``, and the result is added to the ``Ref`` afterward.
+    Under :func:`jax.vmap` applied before differentiation, ``bwd`` receives a
+    ``ValAccum``, and passing a ``Ref`` to ``with_refs`` raises a
+    ``ValueError`` (see :ref:`jax-301-vmap-ref-accums`).
     """
     self.defvjp(fwd, bwd, symbolic_zeros=symbolic_zeros,
                 optimize_remat=optimize_remat, generic_batching=generic_batching)
@@ -1210,15 +1215,37 @@ def lift_fwd(num_consts: int, fwd_jaxpr_thunk: lu.WrappedFun) -> lu.WrappedFun:
     return core.eval_jaxpr(fwd_jaxpr, fwd_consts, *primals)
   return lu.wrap_init(fwd, debug_info=fwd_jaxpr_thunk.debug_info)
 
+def _handle_consts_in_bwd(bwd: lu.WrappedFun, const_avals) -> lu.WrappedFun:
+  return prepend_input_cts(bwd, tuple(Zero(a) for a in const_avals))
+
+def prepend_input_cts(bwd: lu.WrappedFun, cts: tuple) -> lu.WrappedFun:
+  if not bwd.transforms and isinstance(bwd.f, ad.CustomBwdWithAccums):
+    return lu.wrap_init(_PrependCtsBwdWithAccums(bwd.f, cts),
+                        debug_info=bwd.debug_info)
+  return _prepend_input_cts(bwd, cts)
+
 @lu.transformation2
-def _handle_consts_in_bwd(f, const_avals, *args):
-  cts, logs = f(*args)
-  return [Zero(a) for a in const_avals] + list(cts), logs
+def _prepend_input_cts(f, cts, *args):
+  cts_in, logs = f(*args)
+  return [*cts, *cts_in], logs
+
+class _PrependCtsBwdWithAccums(ad.CustomBwdWithAccums):
+  def __init__(self, bwd, cts):
+    self.bwd, self.cts = bwd, cts
+
+  def call_with_accums(self, res, cts_out, accums):
+    _, accums = split_list(accums, [len(self.cts)])
+    return self.bwd.call_with_accums(res, cts_out, accums)
+
+  def __call__(self, *args):
+    cts_in, logs = self.bwd(*args)
+    return [*self.cts, *cts_in], logs
 
 custom_vjp_call_p = CustomVJPCallPrimitive('custom_vjp_call')
 # TODO(phawkins,mattjj): make this primitive cacheable.
-mlir.register_lowering(custom_vjp_call_p, _custom_jvp_vjp_call_lowering,
-                       cacheable=False)
+mlir.register_lowering(
+    custom_vjp_call_p, _custom_jvp_vjp_call_lowering, cacheable=False,
+    shard_map_collective_rule=lambda *_, **__: None)
 
 def _custom_vjp_call_typecheck(_, *in_avals, call_jaxpr, **kwargs):
   core.check_distinct_refs(custom_vjp_call_p, in_avals)
@@ -1377,8 +1404,11 @@ def custom_gradient(fun=None, *, with_logs: bool = False, remat: bool = False,
       ``NullAccum`` whatever is declared. On the backward pass, the caller of
       autodiff must supply the declared kinds, except that it can discard the
       cotangent of an argument declared as a ``ValAccum`` (with
-      ``jax.ad.DontWant()``); any other kind is an error. Can't yet be
-      combined with ``remat``, or with the ``jax_custom_vjp3`` implementation.
+      ``jax.ad.DontWant()``); any other kind is an error. Under
+      :func:`jax.vmap` applied before differentiation, the VJP function can't
+      be handed a ``Ref``, so an argument declared as a ``RefAccum`` can't be
+      differentiated there (see :ref:`jax-301-vmap-ref-accums`). Can't yet be
+      combined with ``remat``.
 
   Returns:
     A Python callable that accepts the same arguments as ``fun`` and returns the
@@ -1408,19 +1438,17 @@ def custom_gradient(fun=None, *, with_logs: bool = False, remat: bool = False,
   (Array(4., dtype=float32, weak_type=True), Array(3., dtype=float32, weak_type=True))
 
   With ``with_logs=True``, the VJP function returns a pair of the cotangents
-  and a dict of backward-pass logs, received via the ``with_logs`` method of
-  the VJP function that :py:func:`jax.vjp` returns:
+  and a dict of backward-pass logs, received via ``jax.grad(..., with_logs=True)``
+  (or ``jax.value_and_grad(..., with_logs=True)``) or the ``with_logs`` method
+  of the VJP function that :py:func:`jax.vjp` returns:
 
   >>> @jax.custom_gradient(with_logs=True)
   ... def f(x):
   ...   return x ** 2, lambda g: ((g * 2 * x,), {'ct_out': g})
   ...
-  >>> print(jax.grad(f)(3.))
-  6.0
-  >>> _, f_vjp = jax.vjp(f, 3.)
-  >>> (x_ct,), logs = f_vjp.with_logs(1.)
-  >>> print(logs['ct_out'])
-  1.0
+  >>> g, logs = jax.grad(f, with_logs=True)(3.)
+  >>> print(g, logs['ct_out'])
+  6.0 1.0
 
   With ``remat=True``, ``fun`` returns a rematerialization function in place of
   the VJP function. Here, under :func:`jax.remat`, the cosine is saved rather
@@ -1566,11 +1594,12 @@ def _apply_accums_closure_residuals(name, res, cts, *accums):
       raise TypeError(
           f"custom_gradient function {name} declared a {k.__name__} for its "
           f"argument{keystr(path)} with with_accums, but its backward pass got "
-          f"a {type(acc).__name__}. (A ValAccum comes from jax.grad, a VJP "
-          "applied without with_refs, or transformations applied before "
-          "differentiation, like vmap. A RefAccum comes from passing a Ref to "
-          "a VJP's with_refs method, and a NullAccum from passing "
-          "jax.ad.DontWant() to it.)")
+          f"a {type(acc).__name__}. (A ValAccum comes from jax.grad, or from a "
+          "VJP applied without with_refs or with jax.ad.GradValue() for this "
+          "argument. An argument computed from the differentiated function's "
+          "inputs, rather than one of them, gets a ValAccum too. A RefAccum "
+          "comes from passing a Ref to a VJP's with_refs method, and a "
+          "NullAccum from passing jax.ad.DontWant() to it.)")
   outs = core.eval_jaxpr(jaxpr, consts, *tree_leaves((cts, refs)))
   logs, vals = tree_unflatten(out_tree, outs)
   for acc, v in zip(val_accums, vals):
@@ -1919,8 +1948,9 @@ linear_call_p.def_impl(_linear_call_impl)
 linear_call_p.def_abstract_eval(_linear_call_abstract_eval)
 ad.primitive_jvps[linear_call_p] = _linear_call_jvp_rule
 ad.primitive_transposes[linear_call_p] = _linear_call_transpose_rule
-mlir.register_lowering(linear_call_p, mlir.lower_fun(
-    _linear_call_impl, multiple_results=True))
+mlir.register_lowering(
+    linear_call_p, mlir.lower_fun(_linear_call_impl, multiple_results=True),
+    shard_map_collective_rule=lambda *_, **__: None)
 
 
 # A stageable primitive that fails when evaluated
@@ -2044,9 +2074,12 @@ def optimize_remat_of_custom_vjp_fwd[ReturnValue](
           "remat optimization for custom_vjp does not support forward "
           f"functions with these side effects: {disallowed_effects}")
 
+    eqn_ctx = core.current_jaxpr_eqn_context()
+
     @pe._memoize
     def fun_jaxpr_thunk():
-      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, in_avals)
+      with eqn_ctx.manager:
+        jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, in_avals)
       return jaxpr, consts
 
     out_flat = remat_opt_p.bind(*consts, *args_flat, num_consts=len(consts),
@@ -2099,13 +2132,15 @@ def _remat_opt_vmap(
   out_dims = [0 if b else None for b in out_batched]
 
   _, prim_batched = split_list(in_batched, [num_consts])
+  vmap_eqn_ctx = core.current_jaxpr_eqn_context()
 
   @pe._memoize
   def batched_fun_jaxpr_thunk():
     fun_jaxpr_, fun_consts_ = fun_jaxpr_thunk()
     fun_jaxpr = fun_jaxpr_.with_consts(fun_consts_)
-    batched_fun_jaxpr, out_batched = batching.batch_jaxpr(
-        fun_jaxpr, axis_data, prim_batched, False)
+    with vmap_eqn_ctx.manager:
+      batched_fun_jaxpr, out_batched = batching.batch_jaxpr(
+          fun_jaxpr, axis_data, prim_batched, False)
     return batched_fun_jaxpr, batched_fun_jaxpr.consts
 
   batched_outs = remat_opt_p.bind(*extra_consts, *args,
@@ -2138,13 +2173,15 @@ def _remat_opt_jvp(
       fwd_jaxpr_jvp_, [num_consts, len(primals)],
       [len(consts_dot), len(tangents)], [num_res, num_out], [num_res, num_out])
   fwd_jaxpr_jvp = pe.convert_constvars_jaxpr(fwd_jaxpr_jvp_)
+  jvp_eqn_ctx = core.current_jaxpr_eqn_context()
 
   # @pe._memoize
   def fun_jvp_jaxpr_thunk():
     fun_jaxpr_, fun_consts_ = fun_jaxpr_thunk()
     fun_jaxpr = fun_jaxpr_.with_consts(fun_consts_)
     in_nz = [True] * len(primals)
-    fun_jvp_jaxpr, _ = ad.jvp_jaxpr(fun_jaxpr, in_nz, True)
+    with jvp_eqn_ctx.manager:
+      fun_jvp_jaxpr, _ = ad.jvp_jaxpr(fun_jaxpr, in_nz, True)
     return fun_jvp_jaxpr, fun_jvp_jaxpr.consts
 
   new_num_consts = len(fwd_jaxpr_jvp_.consts) + num_consts + len(consts_dot)
@@ -2182,6 +2219,9 @@ def _remat_opt_dce(used_outs: list[bool], live_ins: list[bool],
     new_jaxpr, used_ins = pe.dce_jaxpr(eqn.params["fwd_jaxpr"], used_outs,
                                        instantiate=instantiate)
     assert not new_jaxpr.constvars
+    if (new_jaxpr is eqn.params["fwd_jaxpr"] and
+        all(used_ins) and all(used_outs)):
+      return used_ins, eqn
     closed_jaxpr = new_jaxpr
     invars = [v for used, v in zip(used_ins, eqn.invars) if used]
     new_params = dict(eqn.params)
@@ -2219,8 +2259,9 @@ remat_opt_p.is_high = lambda *_, fwd_jaxpr, **__: fwd_jaxpr.is_high
 remat_opt_p.to_lojax = _remat_opt_to_lojax
 remat_opt_p.def_impl(_remat_opt_impl)
 remat_opt_p.def_effectful_abstract_eval(_remat_opt_abstract_eval)
-mlir.register_lowering(remat_opt_p, mlir.lower_fun(
-    _remat_opt_impl, multiple_results=True))
+mlir.register_lowering(
+    remat_opt_p, mlir.lower_fun(_remat_opt_impl, multiple_results=True),
+    shard_map_collective_rule=lambda *_, **__: None)
 
 
 batching.fancy_primitive_batchers[remat_opt_p] = _remat_opt_vmap

@@ -1,6 +1,7 @@
 from __future__ import annotations # Allow self-referencing 
 import datetime
 import json
+import importlib.metadata
 import logging
 import os
 
@@ -145,6 +146,11 @@ class ThetaClient:
                 raise AuthenticationError("No valid authentication credentials could be found.")
 
             auth_request['authEnv'] = {'envType': self.mdds_type}
+            auth_request['clientName'] = 'python'
+            try:
+                auth_request['clientVersion'] = f"thetadata-python/{importlib.metadata.version('thetadata')}"
+            except Exception:
+                logger.debug("Could not read client metadata", exc_info=True)
 
             resolved_auth_url = auth_url or os.getenv("THETADATA_AUTH_URL", "https://nexus-api.thetadata.us/identity/terminal/auth_user")
             res = httpx.post(resolved_auth_url, json=auth_request, headers={'TD-TERMINAL-KEY': 'cf58ada4-4175-11f0-860f-1e2e95c79e64'})
@@ -643,7 +649,7 @@ Since [the equity SIPs](/Articles/Data-And-Requests/The-SIPs.html) only generate
 - To match trades with quotes timestamps that are ``<`` the trade timestamp, specify the ``exclusive``parameter to ``true``. After thorough testing, we have determined that using ``exclusive=true`` might yield better results for various applications.
 
     """
-    def stock_history_trade_quote(self, symbol:str, date:Optional[datetime.date]=None, start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, venue:Optional[str]='nqb', start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=True):
+    def stock_history_trade_quote(self, symbol:str, date:Optional[datetime.date]=None, start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, venue:Optional[str]='nqb', start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1959,10 +1965,10 @@ of the option respectively. The underlying price represents whatever the last un
 
     """- Aggregated OHLC bars that use [SIP rules](/Articles/Data-And-Requests/OHLC-EOD.html) for each bar. 
 - Time timestamp of the bar represents the opening time of the bar. For a trade to be part of the bar:  ``bar timestamp`` <= ``trade time`` < ``bar timestamp + interval``.
-- Multi-day requests are limited to 1 month of data.
+- Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_ohlc(self, symbol:str, expiration:datetime.date, interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
+    def option_history_ohlc(self, symbol:str, expiration:Union[datetime.date, str], interval:str='1s', date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -1989,7 +1995,7 @@ of the option respectively. The underlying price represents whatever the last un
             logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
             query_parameters = {"client": "python"}
         query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
-        contract_spec = ContractSpec(symbol=symbol, expiration=expiration.strftime('%Y-%m-%d'), strike=strike, right=right)
+        contract_spec = ContractSpec(symbol=symbol, expiration=_fmt_if_date(expiration), strike=strike, right=right)
         query = endpoints_pb2.OptionHistoryOhlcRequestQuery(contract_spec=contract_spec)
         query.interval = interval
         if date:
@@ -2143,9 +2149,10 @@ of the option respectively. The underlying price represents whatever the last un
 - For deeper historical data, trades are matched with quotes based on millisecond timestamps. A quote is matched with a trade if its timestamp ``<=`` the trade timestamp. 
 - To match trades with quotes timestamps that are ``<`` the trade timestamp, specify the ``exclusive``parameter to ``true``. After thorough testing, we have determined that using ``exclusive=true`` might yield better results for various applications.
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
+- Current-day requests with ``expiration=*`` only return trades matched with the last quote reported before the trade. They require ``use_time_based_trade_quote=false``, ignore ``exclusive``, and return a 400 error otherwise.
 
     """
-    def option_history_trade_quote(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=True):
+    def option_history_trade_quote(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), exclusive:Optional[bool]=True, max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, use_time_based_trade_quote:Optional[bool]=False):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2594,7 +2601,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2680,7 +2687,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
+    def option_history_binomial_trade_greeks_all(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -2944,7 +2951,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3030,7 +3037,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
+    def option_history_binomial_trade_greeks_first_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3294,7 +3301,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3380,7 +3387,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
+    def option_history_binomial_trade_greeks_second_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3644,7 +3651,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3730,7 +3737,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
+    def option_history_binomial_trade_greeks_third_order(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, binomial_steps:Optional[int]=101, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None, exercise_style:Optional[str]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -3900,7 +3907,7 @@ of the option respectively. The underlying price represents whatever the last un
 - Multi-day requests are limited to 1 month of data, and must specify an expiration.
 
     """
-    def option_history_trade_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=False, annual_dividend_amount:Optional[float]=None):
+    def option_history_trade_greeks_implied_volatility(self, symbol:str, expiration:Union[datetime.date, str], date:Optional[datetime.date]=None, strike:Optional[str]='*', right:Optional[str]='both', start_time:Optional[Union[datetime.time, str]]=_fmt_time('09:30:00'), end_time:Optional[Union[datetime.time, str]]=_fmt_time('16:00:00'), annual_dividend:Optional[float]=None, rate_type:Optional[str]='sofr', rate_value:Optional[float]=None, version:Optional[str]='latest', max_dte:Optional[int]=None, strike_range:Optional[int]=None, start_date:Optional[datetime.date]=None, end_date:Optional[datetime.date]=None, perf_boost_intraday:Optional[bool]=True, annual_dividend_amount:Optional[float]=None):
         try:
             query_parameters = {"client": "python"}
             query_parameters["symbol"] = str(symbol)
@@ -4484,6 +4491,66 @@ of the option respectively. The underlying price represents whatever the last un
         except grpc.RpcError as e:
             if e.code() == grpc.StatusCode.NOT_FOUND:
                 raise NoDataFoundError(f"No data found for: interest_rate_history_eod({ symbol },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the dividend events for a symbol with an ex-date between the specified dates (inclusive).
+- One row per payment, not per tax-character component, so summing `amount` over a period gives that period's total. Where the source published a payment only as its parts, those parts are returned instead and flagged with `is_component`; a payment is never returned both ways.
+
+    """
+    def corporate_action_dividend(self, symbol:str, start_date:datetime.date, end_date:datetime.date):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["start_date"] = str(start_date)
+            query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        query = endpoints_pb2.CorporateActionDividendRequestQuery()
+        query.symbol = symbol
+        query.start_date = start_date.strftime('%Y-%m-%d')
+        query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.CorporateActionDividendRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetCorporateActionDividend(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: corporate_action_dividend({ symbol },{ start_date },{ end_date })")
+            else:
+                raise e
+
+    """- Returns the split events for a symbol with an effective date between the specified dates (inclusive). One row per split event.
+- A 4-for-1 forward split reports `before_shares` 1, `after_shares` 4, `split_ratio` 0.25 and `event_code` SD. A 1-for-10 reverse split reports `before_shares` 10, `after_shares` 1, `split_ratio` 10 and `event_code` CONSD.
+
+    """
+    def corporate_action_split(self, symbol:str, start_date:datetime.date, end_date:datetime.date):
+        try:
+            query_parameters = {"client": "python"}
+            query_parameters["symbol"] = str(symbol)
+            query_parameters["start_date"] = str(start_date)
+            query_parameters["end_date"] = str(end_date)
+            
+        except Exception as query_parameters_error:
+            logger.warning("Failed to build query_parameters for logging: %s", query_parameters_error)
+            query_parameters = {"client": "python"}
+        query_info = endpoints_pb2.QueryInfo(auth_token=self.auth_token, email_hint=self.email, query_parameters=query_parameters)
+        query = endpoints_pb2.CorporateActionSplitRequestQuery()
+        query.symbol = symbol
+        query.start_date = start_date.strftime('%Y-%m-%d')
+        query.end_date = end_date.strftime('%Y-%m-%d')
+        request = endpoints_pb2.CorporateActionSplitRequest(query_info=query_info, params=query)
+
+        try:
+            response_stream = self.stub.GetCorporateActionSplit(request)
+            return self._convert_response_stream(response_stream)
+        except grpc.RpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                raise NoDataFoundError(f"No data found for: corporate_action_split({ symbol },{ start_date },{ end_date })")
             else:
                 raise e
 

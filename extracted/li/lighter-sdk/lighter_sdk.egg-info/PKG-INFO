@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lighter-sdk
-Version: 1.1.8
+Version: 1.1.9
 Summary: Python SDK for lighter.xyz
 Home-page: 
 Author: OpenAPI Generator community
@@ -8,7 +8,7 @@ Author-email: team@openapitools.org
 Keywords: OpenAPI,OpenAPI-Generator,
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: urllib3<2.1.0,>=1.25.3
+Requires-Dist: urllib3>=1.25.3
 Requires-Dist: python-dateutil
 Requires-Dist: aiohttp>=3.0.0
 Requires-Dist: aiohttp-retry>=2.8.3

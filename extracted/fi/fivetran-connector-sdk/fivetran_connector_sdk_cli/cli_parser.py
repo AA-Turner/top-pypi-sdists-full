@@ -139,7 +139,7 @@ def _add_proxy_host_config_key(subparser, hidden=False):
 
 
 def _add_template(subparser):
-    subparser.add_argument("--template", type=str, action=_NonEmptyAction, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>",
+    subparser.add_argument("-t", "--template", type=str, action=_NonEmptyAction, default=TEMPLATE_CONNECTOR_PATH, metavar="<template>",
                            help="Initialize a connector project from a template. Defaults to a path in fivetran/community_connectors. Use the examples/ prefix to reference a template from fivetran/connector_sdk")
 
 def _add_project_path(subparser):
@@ -356,6 +356,15 @@ def _add_package_subparsers(package_subparser):
     )
     _add_api_key(pkg_list)
     _add_package_list_limit(pkg_list)
+
+    pkg_delete = subparsers.add_parser(
+        "delete",
+        help="Delete a package",
+        description="Delete a package",
+        usage="fivetran package delete <package_id> [options]",
+    )
+    _add_package_id(pkg_delete)
+    _add_api_key(pkg_delete)
 
 def _create_package_parser():
     parser = _create_base_parser()

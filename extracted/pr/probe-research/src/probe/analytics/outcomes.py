@@ -209,7 +209,8 @@ class SwitchTrigger(StrEnum):
     AGENT = "agent"
     #: The agent moved an auto chat's switch on its own, by the work (`probe session state` in auto mode).
     AUTO = "auto"
-    #: A run launched through Probe turned an auto chat on (`probe exec`, `run start`, the SDK).
+    #: A run launched through Probe turned an auto chat on: sent only by CLIs before 2026-11-17, when a launch
+    #: stopped moving the switch (a platform test logs runs and stays off).
     RUN_LAUNCH = "run_launch"
 
 

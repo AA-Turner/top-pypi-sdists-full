@@ -11,6 +11,8 @@ Contents:
       the ``ValueError`` a NUL byte or an unencodable name raises).
     - ``probe_path``: never raises; a search uses it and skips what it cannot check.
     - ``checked_kind``: refuses a path it cannot check; a layer location or a named file uses it.
+    - ``is_symlink_or_raise`` / ``lexists_or_raise``: what is at a path ITSELF, a link not followed;
+      a deploy destination and its free sidecar name use them.
     - ``config_path_unreadable``: the refusal, shared with the file readers.
     - ``current_directory``: the working directory, or ``None`` when the OS cannot name it.
 """
@@ -33,8 +35,11 @@ __all__ = [
     "checked_kind",
     "config_path_unreadable",
     "current_directory",
+    "is_symlink_or_raise",
     "kind_or_raise",
+    "lexists_or_raise",
     "probe_path",
+    "uncreatable_reason",
 ]
 
 # What pathlib before 3.14 already read as "not there": a missing entry, a file where a directory
@@ -42,6 +47,10 @@ __all__ = [
 # unresolvable-name codes. Keeping exactly that set leaves those answers unchanged on every version.
 _ABSENT_ERRNOS: Final = frozenset({errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP})
 _ABSENT_WINERRORS: Final = frozenset({21, 123, 1921})
+#: Why a path below a file, FIFO or dangling link cannot be created: its directory cannot be made.
+_BLOCKED_DIRECTORY_REFUSAL: Final = "cannot be created: {ancestor} is not a directory"
+#: Why a path with nothing above it cannot be created: a Windows root on a drive or share that is not there.
+_NO_ANCESTOR_REFUSAL: Final = "cannot be created: no directory above it exists"
 
 
 class PathKind(Enum):
@@ -154,6 +163,98 @@ def kind_or_raise(path: Path) -> PathKind:
     if probe.error is not None:
         raise probe.error
     return probe.kind
+
+
+def is_symlink_or_raise(path: Path) -> bool:
+    """Return whether *path* itself is a symbolic link, dangling or not, raising what stopped the check.
+
+    Args:
+        path: The path to look at; a link there is not followed.
+
+    Returns:
+        ``True`` for a link; ``False`` for anything else, nothing included.
+
+    Raises:
+        OSError: The ``lstat`` error, when it does not mean "absent" (a permission wall).
+        ValueError: *path* holds a NUL byte or a name the OS cannot take.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> is_symlink_or_raise(Path("/nonexistent-lib-layered-config-probe/config.toml"))
+        False
+    """
+    mode = _lstat_mode(path)
+    return mode is not None and stat.S_ISLNK(mode)
+
+
+def lexists_or_raise(path: Path) -> bool:
+    """Return whether anything sits at *path*, a dangling link included, raising what stopped the check.
+
+    ``kind_or_raise`` follows a link, so it reads a dangling one as missing; a name chosen by it
+    would be written through the link. This looks at the name itself.
+
+    Args:
+        path: The path to look at; a link there is not followed.
+
+    Returns:
+        ``True`` when a file, directory, link or anything else is there.
+
+    Raises:
+        OSError: The ``lstat`` error, when it does not mean "absent" (a permission wall).
+        ValueError: *path* holds a NUL byte or a name the OS cannot take.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> lexists_or_raise(Path("/nonexistent-lib-layered-config-probe/config.toml"))
+        False
+    """
+    return _lstat_mode(path) is not None
+
+
+def uncreatable_reason(path: Path) -> str | None:
+    """Why the missing *path* could never be created, or ``None`` when its nearest existing ancestor is a directory.
+
+    A path below a regular file stats as missing (ENOTDIR reads as absent, as pathlib reads it), so a
+    writer that checks only the path itself would write what it reaches first and then fail at the
+    ``mkdir`` for this one. Deploy and generate refuse such a path before writing anything, with this
+    reason. The first ancestor that exists decides: a directory (a link to one included) can take the
+    missing levels; anything else there - a file, a FIFO, a dangling or looping link - cannot, since
+    ``mkdir`` would raise ``FileExistsError``. When no ancestor exists, not even the root, ``mkdir``
+    would raise ``FileNotFoundError``: on POSIX ``/`` always exists, on Windows a drive or share that
+    is not there leaves nothing to create the path in.
+
+    Args:
+        path: A path that does not exist yet.
+
+    Returns:
+        ``"<path> cannot be created: <ancestor> is not a directory"``, ``"<path> cannot be created: no
+        directory above it exists"``, or ``None`` when the path can be created.
+
+    Raises:
+        OSError: An ancestor's check failed for a reason other than "absent" (a permission wall).
+        ValueError: *path* holds a NUL byte or a name the OS cannot take.
+
+    Examples:
+        >>> from pathlib import Path
+        >>> uncreatable_reason(Path("/nonexistent-lib-layered-config-probe/config.toml")) is None
+        True
+    """
+    for ancestor in path.parents:
+        if kind_or_raise(ancestor) is PathKind.DIRECTORY:
+            return None
+        if lexists_or_raise(ancestor):
+            return f"{path} {_BLOCKED_DIRECTORY_REFUSAL.format(ancestor=ancestor)}"
+    return f"{path} {_NO_ANCESTOR_REFUSAL}"
+
+
+def _lstat_mode(path: Path) -> int | None:
+    """Return the mode of *path* itself, or ``None`` when nothing is there."""
+    try:
+        return path.lstat().st_mode
+    except OSError as error:
+        if _means_absent(error):
+            return None
+        raise
 
 
 def config_path_unreadable(path: Path, error: OSError | ValueError) -> InvalidFormatError:

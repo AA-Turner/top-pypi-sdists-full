@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: tox-gh
-Version: 1.9.3
+Version: 1.9.4
 Import-Name: tox_gh
 Summary: Seamless integration of tox into GitHub Actions.
 Project-URL: Changelog, https://github.com/tox-dev/tox-gh/blob/main/CHANGELOG.md

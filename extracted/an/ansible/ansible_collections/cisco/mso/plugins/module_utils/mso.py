@@ -14,6 +14,7 @@ import ast
 import datetime
 import shutil
 import tempfile
+import time
 from ansible.module_utils.basic import json
 from ansible.module_utils.basic import env_fallback
 from ansible.module_utils.six import PY3
@@ -43,6 +44,28 @@ if PY3:
 
     def cmp(a, b):
         return (a > b) - (a < b)
+
+
+def is_platform_version_at_least(version, min_version):
+    """Compare a 'major.minor' platform version string (e.g. NDO's 'platform/version' response)
+    against a 'major.minor' minimum version string. Returns True if version >= min_version.
+    Each of the first two dot-separated parts is parsed as its leading run of digits, so
+    version strings with non-numeric suffixes (e.g. '5.2(1)', '5.2a') are still parsed
+    correctly. Non-numeric/missing versions are treated as not meeting the minimum (returns
+    False)."""
+
+    def leading_int(part):
+        match = re.match(r"\d+", part)
+        if not match:
+            raise ValueError("No leading digits in version part: {0}".format(part))
+        return int(match.group())
+
+    try:
+        version_parts = tuple(leading_int(part) for part in str(version).split(".")[:2])
+        min_version_parts = tuple(leading_int(part) for part in str(min_version).split(".")[:2])
+    except (TypeError, ValueError):
+        return False
+    return version_parts >= min_version_parts
 
 
 def issubset(subset, superset):
@@ -135,9 +158,9 @@ def mso_l3out_reference_spec():
     )
 
 
-def mso_epg_subnet_spec():
+def mso_epg_subnet_spec(subnet_required=True):
     return dict(
-        subnet=dict(type="str", required=True, aliases=["ip"]),
+        subnet=dict(type="str", required=subnet_required, aliases=["ip"]),
         description=dict(type="str"),
         scope=dict(type="str", default="private", choices=["private", "public"]),
         shared=dict(type="bool", default=False),
@@ -371,9 +394,11 @@ def ndo_l3out_virtual_port_channel_spec(side_b=True, secondary_address=False):
         virtual_port_channel_spec["options"]["side_b_ipv6_link_local_address"] = dict(type="str")
         virtual_port_channel_spec["options"]["side_b_ipv6_dad"] = dict(type="str", choices=["enabled", "disabled"])
         virtual_port_channel_spec["options"]["side_b_node_group_policy"] = dict(type="str")
+        virtual_port_channel_spec["options"]["side_b_node_group_policies"] = dict(type="list", elements="str")
         virtual_port_channel_spec["options"]["side_b_node_router_id"] = dict(type="str", aliases=["router_id"])
         virtual_port_channel_spec["options"]["side_b_use_router_id_as_loopback"] = dict(type="bool")
         virtual_port_channel_spec["options"]["side_b_node_loopback_ip"] = dict(type="str", aliases=["loopback_ip"])
+        virtual_port_channel_spec["mutually_exclusive"].append(("side_b_node_group_policy", "side_b_node_group_policies"))
     if secondary_address:
         # enforcing default for clarity of module behaviour, this value is not send to API but is just for calculation of VPC path
         virtual_port_channel_spec["options"]["side_b"] = dict(type="bool", default=False)
@@ -856,7 +881,41 @@ class MSOModule(object):
             self.fail_json(msg="Backup file upload failed due to: {0}".format(info))
         return {}
 
-    def request(self, path, method=None, data=None, qs=None, api_version="v1", ignore_errors=None):
+    def _retry_request(self, info, retry_count, request_callback):
+        """Work around the transient NDO post-processing response.
+
+        This helper keeps the workaround separate from the existing request and
+        error-handling flow, allowing the request to be retried without
+        rewriting the transport implementations or response processing.
+
+        The callback is supplied by the caller so this retry policy can also be
+        reused by nd_request() in the future without coupling the helper to
+        request().
+
+        For now, this helper is wired only into request(). nd_request() is
+        currently used only for the NDO local/remote-user APIs, primarily with
+        GET requests, and there is no known occurrence of this transient save
+        error there.
+        """
+        # Keep these local for now; expose them as user options later if tuning is needed.
+        max_retries = 2  # Two additional attempts (three total); a bounded workaround default.
+        retry_delay = 5  # Gives NDO time to finish post-processing before the next attempt.
+
+        body = info.get("body", {})
+        body_text = json.dumps(body) if isinstance(body, dict) else to_text(body or "")
+
+        # Extend this mapping with additional status-specific retry conditions as needed.
+        retry_conditions = {
+            400: "save post processing in progress, please retry" in body_text,
+        }
+
+        if retry_count >= max_retries or not retry_conditions.get(info.get("status"), False):
+            return False, None
+
+        time.sleep(retry_delay)
+        return True, request_callback()
+
+    def request(self, path, method=None, data=None, qs=None, api_version="v1", ignore_errors=None, _retry_count=0):
         """Generic HTTP method for MSO requests."""
         self.path = path
 
@@ -931,6 +990,22 @@ class MSOModule(object):
 
         self.response = info.get("msg")
         self.status = info.get("status", -1)
+
+        retried, result = self._retry_request(
+            info,
+            _retry_count,
+            lambda: self.request(
+                self.path,
+                method=self.method,
+                data=data,
+                qs=qs,
+                api_version=api_version,
+                ignore_errors=ignore_errors,
+                _retry_count=_retry_count + 1,
+            ),
+        )
+        if retried:
+            return result
 
         # Get change status from HTTP headers
         if "modified" in info:
@@ -1124,6 +1199,17 @@ class MSOModule(object):
             self.fail_json(msg="More than one object matches unique filter: {0}".format(kwargs))
         return objs[0]
 
+    def get_platform_version(self):
+        """Fetch and cache the platform version info from the 'platform/version' endpoint.
+        Returns a dict as returned by the API (typically includes a 'version' key), or {} on
+        failure. Cached per module run to avoid repeated API calls."""
+        if not hasattr(self, "_platform_version"):
+            try:
+                self._platform_version = self.query_obj("platform/version")
+            except Exception:
+                self._platform_version = {}
+        return self._platform_version
+
     def lookup_schema(self, schema, ignore_not_found_error=False):
         """Look up schema and return its id"""
         if schema is None:
@@ -1256,14 +1342,26 @@ class MSOModule(object):
 
     def lookup_users(self, users, ignore_not_found_error=False):
         """Look up users and return their ids"""
-        # Ensure tenant has at least admin user
-        if users is None:
-            users = ["admin"]
-        elif "admin" not in users:
-            users.append("admin")
+        # On ND 4.2+ / NDO 5.2+, userAssociations are derived from tenant-domain membership and
+        # the platform automatically (and immutably) associates certain users (e.g. all
+        # superusers via the built-in "all-tenants-domain") with every tenant. Forcing "admin"
+        # into the payload is no longer needed there and can conflict with that platform-managed
+        # behavior, so it is only done on older versions where userAssociations is a plain,
+        # fully user-managed list.
+        if not is_platform_version_at_least(self.get_platform_version().get("version"), "5.2"):
+            # Ensure tenant has at least admin user
+            if users is None:
+                users = ["admin"]
+            elif "admin" not in users:
+                users.append("admin")
+        elif users is None:
+            users = []
 
         ids = []
-        if self.platform == "nd":
+        # Only fetch the (potentially large) local/remote user lists when there is actually
+        # something to look up. On ND 4.2+ / NDO 5.2+, users may be an empty list (no forced
+        # "admin" and no users param given), so skip the lookup entirely in that case.
+        if self.platform == "nd" and users:
             remote_users = self.nd_request("/nexus/infra/api/aaa/v4/remoteusers", method="GET", ignore_not_found_error=True)
             local_users = self.nd_request("/nexus/infra/api/aaa/v4/localusers", method="GET", ignore_not_found_error=True)
 
@@ -1466,8 +1564,10 @@ class MSOModule(object):
             result[category] = data
 
     def recursive_dict_from_ref(self, data):
+        if not isinstance(data, dict):
+            return data
         for key in data:
-            if key.endswith("Ref"):
+            if key.endswith("Ref") and isinstance(data[key], str):
                 data[key] = self.dict_from_ref(data.get(key))
             if isinstance(data[key], list):
                 for item in data[key]:
@@ -1690,8 +1790,19 @@ class MSOModule(object):
         self.result.update(**kwargs)
         self.module.fail_json(msg=msg, **self.result)
 
-    def check_changed(self):
-        """Check if changed by comparing new values from existing"""
+    def check_changed(self, ignore_keys=None):
+        """Check if changed by comparing new values from existing
+
+        ignore_keys: optional iterable of keys to exclude from the comparison, for fields that
+        are still sent to the API but whose true state may be adjusted/derived by the platform
+        itself (e.g. userAssociations on ND 4.2+ / NDO 5.2+), so comparing them would otherwise
+        cause perpetual false-positive "changed" results. A plain key (e.g. "userAssociations")
+        excludes that whole top-level field. A dotted path (e.g. "siteAssociations.awsAccount")
+        excludes only the given nested key wherever it occurs under that field -- including
+        within every entry of a list, such as each item of the siteAssociations list -- while
+        the rest of the field is still compared. Neither self.existing nor self.sent is
+        mutated; the comparison operates on copies only.
+        """
         existing = self.existing
         if "password" in existing:
             existing["password"] = self.sent.get("password")
@@ -1699,7 +1810,42 @@ class MSOModule(object):
         existing = self.remove_keys_from_dict_when_value_empty(existing)
         self.stdout = json.dumps(existing)
 
-        return not issubset(self.sent, existing)
+        sent = deepcopy(self.sent)
+        existing = deepcopy(existing)
+
+        if ignore_keys:
+            for ignore_key in ignore_keys:
+                path = ignore_key.split(".")
+                self.remove_key_path(sent, path)
+                self.remove_key_path(existing, path)
+
+        return not issubset(sent, existing)
+
+    def remove_key_path(self, obj, path):
+        """Remove the nested key described by path (a list of key segments, e.g.
+        ["siteAssociations", "awsAccount"]) from obj in place. When a segment resolves to a
+        list (e.g. a list-of-dicts field like siteAssociations), the remaining path is applied
+        to every item of that list. Returns obj for convenience."""
+        if not path or obj is None:
+            return obj
+
+        key, rest = path[0], path[1:]
+
+        if isinstance(obj, list):
+            for item in obj:
+                self.remove_key_path(item, path)
+            return obj
+
+        if not isinstance(obj, dict):
+            return obj
+
+        if not rest:
+            obj.pop(key, None)
+            return obj
+
+        if key in obj:
+            self.remove_key_path(obj[key], rest)
+        return obj
 
     def update_service_graph_obj(self, service_graph_obj):
         """update filter with more information"""
@@ -2118,3 +2264,40 @@ def epg_object_reference_spec(aliases=None):
     if aliases:
         epg_reference_spec["aliases"] = aliases
     return epg_reference_spec
+
+
+def ndo_template_object_spec_with_uuid(aliases=None, required_uuid_or_reference=True):
+    ndo_template_object_spec_with_uuid = dict(
+        options=dict(
+            uuid=dict(type="str"),
+            reference=dict(
+                type="dict",
+                aliases=["ref"],
+                options=dict(
+                    name=dict(type="str", required=True),
+                    template=dict(type="str"),
+                    template_id=dict(type="str"),
+                ),
+                required_one_of=[
+                    ["template", "template_id"],
+                ],
+                mutually_exclusive=[
+                    ("template", "template_id"),
+                ],
+            ),
+        ),
+        required_one_of=[
+            ["reference", "uuid"],
+        ],
+        mutually_exclusive=[
+            ("reference", "uuid"),
+        ],
+    )
+
+    if not required_uuid_or_reference:
+        ndo_template_object_spec_with_uuid.pop("required_one_of")
+
+    if aliases:
+        ndo_template_object_spec_with_uuid["aliases"] = aliases
+
+    return ndo_template_object_spec_with_uuid

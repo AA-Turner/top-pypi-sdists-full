@@ -302,7 +302,7 @@ _POLICY_OPTIONS = (
 
 
 def _is_llm(model: str) -> bool:
-    from dreamscale_transport.llm import MODELS
+    from dreamscale_core.llm import MODELS
 
     return model in MODELS
 
@@ -633,6 +633,57 @@ def _sim_list(benchmark: str | None, task_suite: str | None, *, json_output: boo
         raise typer.BadParameter(str(exc), param_hint="--task-suite") from exc
 
 
+def _sim_hosted(benchmark: str, *, model: str | None, task_id: str | None,
+                task_suite: str | None, episodes: int | None, max_units: int | None,
+                json_output: bool, artifacts: Path | None, local_only: list[str],
+                no_view: bool) -> None:
+    """`dreamscale sim robolab`: a run on Dreamscale's simulators, nothing installed here."""
+    import importlib.util
+
+    from dreamscale import errors
+    from dreamscale.sim import hosted
+    from dreamscale.terminal import ProgressPrinter
+
+    if local_only:
+        raise typer.BadParameter(f"{', '.join(local_only)} only applies to a simulator run on "
+                                 "this computer")
+    if task_id is not None and task_suite is not None:
+        raise typer.BadParameter("choose one: --task-id <task> or --task-suite <suite>")
+    if model is None:
+        raise click.MissingParameter(
+            f"Choose what {hosted.HOSTED_BENCHMARKS[benchmark]} runs. {errors.SEE_MODELS}",
+            param_hint="'--model'",
+            param_type="option",
+        )
+    interactive = sys.stdout.isatty() and not json_output
+    progress = ProgressPrinter(show_header=False) if interactive else None
+    view = interactive and not no_view and (max_units or 1) == 1 and _sim_view(False)
+    if view and importlib.util.find_spec("cv2") is None:
+        typer.echo("Install dreamscale[cameras] for the live window.", err=True)
+        view = False
+    try:
+        code = hosted.run_hosted(
+            benchmark=benchmark, model=model, task_id=task_id, task_suite=task_suite,
+            episodes=episodes or hosted.DEFAULT_EPISODES,
+            max_units=max_units or hosted.DEFAULT_MAX_UNITS,
+            json_output=json_output, artifacts=artifacts,
+            print_fn=progress or typer.echo, err_fn=lambda line: typer.echo(line, err=True),
+            live_wait=progress is not None, view=view,
+        )
+    except errors.DreamscaleError as error:
+        if progress is not None:
+            progress.close()
+        typer.echo(error.render(), err=json_output)
+        raise typer.Exit(code=1) from error
+    except KeyboardInterrupt as exc:  # before the run was created: nothing to cancel
+        typer.echo("Canceled.", err=json_output)
+        raise typer.Exit(code=hosted.CANCELED_EXIT) from exc
+    finally:
+        if progress is not None:
+            progress.close()
+    raise typer.Exit(code=code)
+
+
 @app.command(cls=SteadySendCommand)
 def sim(
     ctx: typer.Context,
@@ -713,8 +764,16 @@ def sim(
         help="List the benchmarks, a benchmark's suites, or with --task-suite its tasks, "
         "instead of running one.",
     ),
+    # Hosted benchmarks' options, hidden until they launch (dreamscale.sim.hosted).
+    episodes: int | None = typer.Option(None, "--episodes", min=1, max=50, hidden=True),
+    no_view: bool = typer.Option(False, "--no-view", hidden=True),
+    max_units: int | None = typer.Option(None, "--max-units", min=1, max=4, hidden=True),
+    json_flag: bool = typer.Option(False, "--json", hidden=True),
+    artifacts: Annotated[Path | None, typer.Option("--artifacts", hidden=True)] = None,
 ) -> None:
     """Run a task on a simulated benchmark."""
+    non_interactive = non_interactive or json_flag
+    output_root = output_root or artifacts
     if list_tasks:
         _sim_list(benchmark, task_suite, json_output=non_interactive)
         return
@@ -734,9 +793,31 @@ def sim(
         and model is None
         and not steady_send
         and steady_send_ms is None
+        and episodes is None
+        and max_units is None
     ):
         typer.echo(ctx.get_help())
         raise typer.Exit()
+    from dreamscale.sim.hosted import HOSTED_BENCHMARKS
+
+    if benchmark in HOSTED_BENCHMARKS:
+        local_only = [
+            flag for flag, given in (
+                ("--task-seed", task_seed != 0), ("--keep-warm", keep_warm is not None),
+                ("--max-steps", max_steps is not None),
+                ("--max-duration", max_duration is not None),
+                ("--transport", transport != SimTransport.auto), ("--region", region is not None),
+                ("--steady-send", steady_send or steady_send_ms is not None),
+            ) if given
+        ]
+        _sim_hosted(
+            benchmark, model=model, task_id=task_id, task_suite=task_suite, episodes=episodes,
+            max_units=max_units, json_output=non_interactive, artifacts=output_root,
+            local_only=local_only, no_view=no_view,
+        )
+        return
+    if episodes is not None or max_units is not None:
+        raise typer.BadParameter(f"--episodes and --max-units don't apply to {benchmark}")
     from dreamscale.sim.benchmarks import (
         BENCHMARK_LABELS,
         BENCHMARK_MODELS,
@@ -1488,7 +1569,7 @@ def _run_train(fn, **kwargs) -> dict:
 def _check_base(value: str | None) -> str | None:
     import re
 
-    from dreamscale_transport import training_families
+    from dreamscale_core import training_families
 
     if value in (None, "auto"):
         return None
@@ -2246,13 +2327,17 @@ def integrations_hud_setup(
 @hugging_face_app.command("setup")
 def integrations_hugging_face_setup(
     token: str | None = typer.Option(
-        None, "--token", help="Connect this read token instead of prompting.", hide_input=True,
+        None, "--token", help="Connect this read token instead of signing in.", hide_input=True,
+    ),
+    paste: bool = typer.Option(
+        False, "--paste", help="Paste a read token instead of signing in with Hugging Face.",
     ),
 ) -> None:
-    """Connect a read-only Hugging Face token to your Dreamscale account."""
+    """Connect Hugging Face (read-only) to your Dreamscale account: sign in with Hugging Face,
+    or a read token."""
     from dreamscale.integrations import hugging_face as integration
 
-    _run(integration.run_setup, token=token)
+    _run(integration.run_setup, token=token, paste=paste)
 
 
 @hugging_face_app.command("status")

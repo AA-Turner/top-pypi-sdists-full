@@ -3362,6 +3362,15 @@ providers: list[Provider] = [
                 prices=ModelPrice(),
             ),
             ModelInfo(
+                id='microsoft-decision-1',
+                match=ClauseEquals(equals='microsoft-decision-1'),
+                name='Microsoft Decision 1',
+                description='Microsoft-Decision-1 is a post-trained Qwen3.5-9B model for fast, low-cost decision tasks, sold on Microsoft Foundry.',
+                context_window=32768,
+                price_comments='https://azure.microsoft.com/en-us/pricing/details/ai-foundry-models/microsoft/',
+                prices=ModelPrice(input_mtok=Decimal('0.042')),
+            ),
+            ModelInfo(
                 id='o1',
                 match=ClauseOr(or_=[ClauseEquals(equals='o1'), ClauseEquals(equals='o1-2024-12-17')]),
                 context_window=200000,
@@ -6029,6 +6038,18 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='claude-fable-5.2',
+                match=ClauseEquals(equals='claude-fable-5.2'),
+                name='Claude Fable 5.2',
+                price_comments="Rates from https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing. The page doesn't list a context window for this model.",
+                prices=ModelPrice(
+                    input_mtok=Decimal('8'),
+                    cache_write_mtok=Decimal('10'),
+                    cache_read_mtok=Decimal('0.2'),
+                    output_mtok=Decimal('40'),
+                ),
+            ),
+            ModelInfo(
                 id='claude-haiku-4.5',
                 match=ClauseEquals(equals='claude-haiku-4.5'),
                 name='Claude Haiku 4.5',
@@ -6205,6 +6226,22 @@ providers: list[Provider] = [
                 name='Gemini 4 Argon',
                 price_comments='Promotional rates published at https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing, stated to run until December 1, 2026; the page does not publish the post-promotion Copilot rates, so none are scheduled here. Copilot does not charge for cache writes on the Gemini models.',
                 prices=ModelPrice(input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('10')),
+            ),
+            ModelInfo(
+                id='gemini-4-carbon',
+                match=ClauseEquals(equals='gemini-4-carbon'),
+                name='Gemini 4 Carbon',
+                price_comments="Promotional rates published at https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing, stated to run until December 1, 2026. From December 1, 2026 the page lists $4.00 input, $0.20 cached input and $20.00 output per 1M tokens. That rate isn't scheduled here because the importer compares the page with the last price entry, so a future-dated entry would be overridden; the importer will date it when the page changes. Copilot does not charge for cache writes on the Gemini models.",
+                prices=ModelPrice(input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('10')),
+            ),
+            ModelInfo(
+                id='gemini-4-hydrogen',
+                match=ClauseEquals(equals='gemini-4-hydrogen'),
+                name='Gemini 4 Hydrogen',
+                price_comments='Rates published at https://docs.github.com/en/copilot/reference/copilot-billing/models-and-pricing. The page lists no promotional end date and no cache-write column. Copilot does not charge for cache writes on the Gemini models.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.5'), cache_read_mtok=Decimal('0.075'), output_mtok=Decimal('7.5')
+                ),
             ),
             ModelInfo(
                 id='gpt-3.5-turbo',
@@ -8041,7 +8078,7 @@ providers: list[Provider] = [
                 name='Gemini 4 Argon',
                 description="Google's frontier model for complex, long-horizon workflows across real-world software engineering, enterprise knowledge work like legal and finance, and cybersecurity defense, with output of up to 1M tokens.",
                 context_window=1048576,
-                price_comments='See https://ai.google.dev/gemini-api/docs/pricing. Standard tier pricing shown; Batch and Flex tiers offer 50% discount, Priority tier is 1.8x. Introductory rates apply through 2026-11-30. No prompt-size tiers or separate audio input rate are documented. Implicit caching only. Batch rates verified on 2026-10-14 at https://ai.google.dev/gemini-api/docs/pricing (Batch tab); batch history before then is not modelled. Batch halves input, output and context caching, at both the introductory and the 2026-12-01 rates.',
+                price_comments='See https://aistudio.google.com/docs/pricing#gemini-4-argon. Standard tier pricing shown. Introductory rates apply through 2026-11-30. Batch and Flex are half of standard; Priority is 1.8x, at both the introductory and the 2026-12-01 rates. No prompt-size tiers or separate audio input rate are documented. Implicit caching only. Batch rates verified on 2026-10-14; Flex and Priority verified on 2026-11-16. Tier history before 2026-10-14 is not modelled.',
                 prices=[
                     ConditionalPrice(
                         prices=ModelPrice(
@@ -8075,6 +8112,154 @@ providers: list[Provider] = [
                             input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('5')
                         ),
                         constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 14)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('10')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 14)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('7.2'), cache_read_mtok=Decimal('0.36'), output_mtok=Decimal('36')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.6'), cache_read_mtok=Decimal('0.18'), output_mtok=Decimal('18')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 10, 14)),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='gemini-4-carbon',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gemini-4-carbon'),
+                        ClauseStartsWith(starts_with='gemini-4-carbon-preview'),
+                        ClauseRegex(regex='^gemini-4-carbon-\\d'),
+                    ]
+                ),
+                name='Gemini 4 Carbon',
+                description="Google's most capable reasoning model, for complex software engineering, mathematical and scientific problem solving, high factual accuracy, and autonomous multi-step agents, with output of up to 1M tokens.",
+                context_window=1048576,
+                price_comments='See https://aistudio.google.com/docs/pricing#gemini-4-carbon. Standard tier shown. Introductory rates apply through 2026-11-30. Batch and Flex are half of standard; Priority is 1.8x, at both the introductory and the 2026-12-01 rates. No prompt-size tiers or separate audio input rate are documented. Implicit caching only; explicit caching is not supported, and Vertex lists no cache-write rate. Vertex global rates match these figures; multi-region endpoints add a 10% premium and are not encoded. Grounding is $14 per 1,000 search queries. Batch, Flex and Priority history before 2026-11-16 is not modelled. The invite-only Contributor tier is not modelled. Vertex ref: https://cloud.google.com/model-garden/pricing',
+                prices=[
+                    ConditionalPrice(
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'),
+                            cache_read_mtok=Decimal('0.1'),
+                            output_mtok=Decimal('10'),
+                            web_searches_kcount=Decimal('14'),
+                        )
+                    ),
+                    ConditionalPrice(
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                        prices=ModelPrice(
+                            input_mtok=Decimal('4'),
+                            cache_read_mtok=Decimal('0.2'),
+                            output_mtok=Decimal('20'),
+                            web_searches_kcount=Decimal('14'),
+                        ),
+                    ),
+                ],
+                price_variants=[
+                    PriceVariant(
+                        when={'processing': 'batch'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('10')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                    ),
+                    PriceVariant(
+                        when={'processing': 'batch'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2'), cache_read_mtok=Decimal('0.1'), output_mtok=Decimal('10')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('1'), cache_read_mtok=Decimal('0.05'), output_mtok=Decimal('5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('7.2'), cache_read_mtok=Decimal('0.36'), output_mtok=Decimal('36')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 12, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('3.6'), cache_read_mtok=Decimal('0.18'), output_mtok=Decimal('18')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='gemini-4-hydrogen',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gemini-4-hydrogen'),
+                        ClauseStartsWith(starts_with='gemini-4-hydrogen-preview'),
+                        ClauseRegex(regex='^gemini-4-hydrogen-\\d'),
+                    ]
+                ),
+                name='Gemini 4 Hydrogen',
+                description="Google's Gemini 4 model for everyday coding and agentic workflows, with a 1M-token context window and output of up to 1M tokens.",
+                context_window=1048576,
+                price_comments='See https://aistudio.google.com/docs/pricing#gemini-4-hydrogen. Standard tier shown. No promotional end date is published. Batch and Flex are half of standard; Priority is 1.8x. Batch, Flex and Priority history before 2026-11-16 is not modelled. No prompt-size tiers or separate audio input rate are documented. Implicit caching only; explicit caching is not supported. Vertex lists a global cache-write rate of $1.875 per 1M tokens effective 2027-01-12 (https://cloud.google.com/model-garden/pricing); it is not scheduled here, because this card is shared with the Gemini API, which publishes no cache-write price. Vertex global rates match these figures; multi-region endpoints add a 10% premium and are not encoded. Grounding is $14 per 1,000 search queries. The invite-only Contributor tier is not modelled.',
+                prices=ModelPrice(
+                    input_mtok=Decimal('1.5'),
+                    cache_read_mtok=Decimal('0.075'),
+                    output_mtok=Decimal('7.5'),
+                    web_searches_kcount=Decimal('14'),
+                ),
+                price_variants=[
+                    PriceVariant(
+                        when={'processing': 'batch'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.0375'), output_mtok=Decimal('3.75')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'flex'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('0.75'), cache_read_mtok=Decimal('0.0375'), output_mtok=Decimal('3.75')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=Decimal('2.7'), cache_read_mtok=Decimal('0.135'), output_mtok=Decimal('13.5')
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2026, 11, 16)),
                     ),
                 ],
             ),
@@ -16542,6 +16727,213 @@ providers: list[Provider] = [
                 ],
             ),
             ModelInfo(
+                id='gpt-6.2-astra',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='gpt-6.2-astra'),
+                        ClauseRegex(regex='^gpt-6\\.2-astra-\\d{4}-\\d{2}-\\d{2}$'),
+                    ]
+                ),
+                name='GPT-6.2 Astra',
+                description='A frontier reasoning model for coding and professional work.',
+                context_window=1050000,
+                price_comments='Released 2026-11-17. Announced: 20% off GPT-6 Astra input and output ($8/$40) and 60% off cached input ($0.40). Official rates match. Cache writes are the 30-minute rate (1.25x input); the 12-hour rate (2x input) is not modeled. Above 272K input tokens, input and cache cost 2x and output 1.5x; tier starts use 272000 because the engines select a tier when token count exceeds start. Batch is 0.5x; fast (formerly priority) is 2x; ultrafast is 3x through 2027-02-28 and 6x from 2027-03-01 Pacific time (applied by UTC date). No Flex rate is published, so flex is not modeled; background completion-window discounts are not modeled. Refs: https://developers.openai.com/api/docs/models/gpt-6.2-astra, https://developers.openai.com/api/docs/pricing, https://developers.openai.com/api/docs/changelog',
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('8'), tiers=[Tier(start=272000, price=Decimal('16'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('20'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.4'), tiers=[Tier(start=272000, price=Decimal('0.8'))]),
+                    output_mtok=TieredPrices(base=Decimal('40'), tiers=[Tier(start=272000, price=Decimal('60'))]),
+                    web_searches_kcount=Decimal('10'),
+                    storage_searches_kcount=Decimal('2.5'),
+                ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('16'), tiers=[Tier(start=272000, price=Decimal('32'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('40'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.8'), tiers=[Tier(start=272000, price=Decimal('1.6'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('80'), tiers=[Tier(start=272000, price=Decimal('120'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('16'), tiers=[Tier(start=272000, price=Decimal('32'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('40'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.8'), tiers=[Tier(start=272000, price=Decimal('1.6'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('80'), tiers=[Tier(start=272000, price=Decimal('120'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'ultrafast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('48'), tiers=[Tier(start=272000, price=Decimal('96'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('60'), tiers=[Tier(start=272000, price=Decimal('120'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('2.4'), tiers=[Tier(start=272000, price=Decimal('4.8'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('240'), tiers=[Tier(start=272000, price=Decimal('360'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2027, 3, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'ultrafast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('24'), tiers=[Tier(start=272000, price=Decimal('48'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('60'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('1.2'), tiers=[Tier(start=272000, price=Decimal('2.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('120'), tiers=[Tier(start=272000, price=Decimal('180'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'processing': 'batch'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
+                id='gpt-6.2-sol',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='gpt-6.2-sol'), ClauseRegex(regex='^gpt-6\\.2-sol-\\d{4}-\\d{2}-\\d{2}$')]
+                ),
+                name='GPT-6.2 Sol',
+                description='A reasoning model for text, images, and tool use.',
+                context_window=1050000,
+                price_comments="Released 2026-11-17. Announced: carries forward GPT-6.1 Sol's rates ($2 input, $0.10 cached input, $10 output). Official rates match. Cache writes are the 30-minute rate (1.25x input); the 12-hour rate (2x input) is not modeled. Above 272K input tokens, input and cache cost 2x and output 1.5x; tier starts use 272000 because the engines select a tier when token count exceeds start. Batch is 0.5x; fast (formerly priority) is 2x; ultrafast is 3x through 2027-02-28 and 6x from 2027-03-01 Pacific time (applied by UTC date). No Flex rate is published, so flex is not modeled; background completion-window discounts are not modeled. Refs: https://developers.openai.com/api/docs/models/gpt-6.2-sol, https://developers.openai.com/api/docs/pricing, https://developers.openai.com/api/docs/changelog",
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('2'), tiers=[Tier(start=272000, price=Decimal('4'))]),
+                    cache_write_mtok=TieredPrices(base=Decimal('2.5'), tiers=[Tier(start=272000, price=Decimal('5'))]),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.1'), tiers=[Tier(start=272000, price=Decimal('0.2'))]),
+                    output_mtok=TieredPrices(base=Decimal('10'), tiers=[Tier(start=272000, price=Decimal('15'))]),
+                    web_searches_kcount=Decimal('10'),
+                    storage_searches_kcount=Decimal('2.5'),
+                ),
+                price_variants=[
+                    PriceVariant(when={'service_tier': 'default'}, prices=ModelPrice(), constraint=None),
+                    PriceVariant(
+                        when={'service_tier': 'priority'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'fast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('4'), tiers=[Tier(start=272000, price=Decimal('8'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('10'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.2'), tiers=[Tier(start=272000, price=Decimal('0.4'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('20'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'ultrafast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(
+                                base=Decimal('12'), tiers=[Tier(start=272000, price=Decimal('24'))]
+                            ),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('15'), tiers=[Tier(start=272000, price=Decimal('30'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.6'), tiers=[Tier(start=272000, price=Decimal('1.2'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('60'), tiers=[Tier(start=272000, price=Decimal('90'))]
+                            ),
+                        ),
+                        constraint=StartDateConstraint(start_date=datetime.date(2027, 3, 1)),
+                    ),
+                    PriceVariant(
+                        when={'service_tier': 'ultrafast'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('6'), tiers=[Tier(start=272000, price=Decimal('12'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('7.5'), tiers=[Tier(start=272000, price=Decimal('15'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.3'), tiers=[Tier(start=272000, price=Decimal('0.6'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('30'), tiers=[Tier(start=272000, price=Decimal('45'))]
+                            ),
+                        ),
+                    ),
+                    PriceVariant(
+                        when={'processing': 'batch'},
+                        prices=ModelPrice(
+                            input_mtok=TieredPrices(base=Decimal('1'), tiers=[Tier(start=272000, price=Decimal('2'))]),
+                            cache_write_mtok=TieredPrices(
+                                base=Decimal('1.25'), tiers=[Tier(start=272000, price=Decimal('2.5'))]
+                            ),
+                            cache_read_mtok=TieredPrices(
+                                base=Decimal('0.05'), tiers=[Tier(start=272000, price=Decimal('0.1'))]
+                            ),
+                            output_mtok=TieredPrices(
+                                base=Decimal('5'), tiers=[Tier(start=272000, price=Decimal('7.5'))]
+                            ),
+                        ),
+                    ),
+                ],
+            ),
+            ModelInfo(
                 id='gpt-audio',
                 match=ClauseOr(
                     or_=[
@@ -21416,6 +21808,14 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
+                id='microsoft/microsoft-decision-1',
+                match=ClauseEquals(equals='microsoft/microsoft-decision-1'),
+                name='Microsoft Decision 1',
+                context_window=32768,
+                price_comments='https://openrouter.ai/api/v1/models/microsoft/microsoft-decision-1/endpoints - output tokens are free.',
+                prices=ModelPrice(input_mtok=Decimal('0.042')),
+            ),
+            ModelInfo(
                 id='microsoft/phi-3-medium-128k-instruct',
                 match=ClauseEquals(equals='microsoft/phi-3-medium-128k-instruct'),
                 prices=ModelPrice(input_mtok=Decimal('1'), output_mtok=Decimal('1')),
@@ -26210,11 +26610,13 @@ providers: list[Provider] = [
                         ClauseEquals(equals='typesafe/jev-1.14'),
                         ClauseEquals(equals='~typesafe/jev-latest'),
                         ClauseRegex(regex='^typesafe/jev-1\\.14-\\d{8}$'),
+                        ClauseEquals(equals='jev-1.14'),
+                        ClauseEquals(equals='jev-latest'),
                     ]
                 ),
                 name='Jev 1.14',
                 context_window=32000,
-                price_comments='Same $0.042 per million input tokens as TypeSafe. Output is free. System One responses name a dated id such as typesafe/jev-1.14-20261014. ~typesafe/jev-latest redirects to the latest Jev release, Jev 1.14 since October 14, 2026, at the same rate as Jev 1.13. https://openrouter.ai/api/v1/models/typesafe/jev-1.14/endpoints',
+                price_comments="Same $0.042 per million input tokens as TypeSafe. Output is free. System One responses name a dated id such as typesafe/jev-1.14-20261014. ~typesafe/jev-latest redirects to the latest Jev release, Jev 1.14 since October 14, 2026, at the same rate as Jev 1.13. OpenRouter also accepts TypeSafe's bare jev-1.14 and jev-latest, but rejects typesafe/jev-latest. https://openrouter.ai/api/v1/models/typesafe/jev-1.14/endpoints",
                 prices=ModelPrice(input_mtok=Decimal('0.042')),
             ),
             ModelInfo(

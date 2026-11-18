@@ -4,11 +4,6 @@ Searches one resource's logs with a LogQL query over the backend's `/logs/query`
 The command takes exactly one resource id (cluster, workspace, job or service); the
 backend resolves it, checks read permission, and pins the query's stream selector to
 that resource, so nothing here filters client-side.
-
-The command is `hidden=True` for now: it runs when typed, but is left out of
-`anyscale logs --help`, the committed doc spec and the reference docs. Removing the flag
-(and the matching one on the Log Queries module in `_private/docgen/__main__.py`)
-publishes it.
 """
 
 from datetime import datetime, timezone
@@ -187,7 +182,6 @@ def _format_timestamp(value: datetime) -> str:
     name="query",
     cls=AnyscaleCommand,
     short_help="Search the logs of a resource with LogQL.",
-    hidden=True,
 )
 @click.argument("query")
 @option_cluster_id

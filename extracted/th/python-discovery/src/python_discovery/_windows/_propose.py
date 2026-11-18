@@ -2,24 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from python_discovery._py_info import PythonInfo
-from python_discovery._py_spec import PythonSpec
+from python_discovery import PythonInfo, PythonSpec
 
 from ._pep514 import discover_pythons
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping
 
-    from python_discovery._cache import PyInfoCache
-
-_IMPLEMENTATION_BY_ORG: dict[str, str] = {
-    "ContinuumAnalytics": "CPython",
-    "PythonCore": "CPython",
-}
-
-
-class Pep514PythonInfo(PythonInfo):
-    """A Python information acquired from PEP-514."""
+    from python_discovery import PyInfoCache
 
 
 def propose_interpreters(
@@ -29,20 +19,24 @@ def propose_interpreters(
 ) -> Generator[PythonInfo, None, None]:
     existing = list(discover_pythons())
     existing.sort(
-        key=lambda i: (
-            *tuple(-1 if j is None else j for j in i[1:4]),
-            1 if i[0] == "PythonCore" else 0,
+        key=lambda item: (
+            *tuple(-1 if j is None else j for j in item[1:4]),
+            1 if item[0] == "PythonCore" else 0,
         ),
         reverse=True,
     )
 
+    implementation_by_org: dict[str, str] = {
+        "ContinuumAnalytics": "CPython",
+        "PythonCore": "CPython",
+    }
     for name, major, minor, arch, threaded, exe, executable_args in existing:
-        implementation = _IMPLEMENTATION_BY_ORG.get(name, name)
+        implementation = implementation_by_org.get(name, name)
 
         skip_pre_filter = implementation.lower() != "cpython"
         registry_spec = PythonSpec("", implementation, major, minor, None, arch, exe, free_threaded=threaded)
         if skip_pre_filter or registry_spec.satisfies(spec):
-            interpreter = Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access]
+            interpreter = _Pep514PythonInfo._from_exe_with_args(  # ruff:ignore[private-member-access] PEP 514 arguments
                 exe,
                 cache,
                 env=env,
@@ -53,7 +47,9 @@ def propose_interpreters(
                 yield interpreter
 
 
+class _Pep514PythonInfo(PythonInfo): ...
+
+
 __all__ = [
-    "Pep514PythonInfo",
     "propose_interpreters",
 ]

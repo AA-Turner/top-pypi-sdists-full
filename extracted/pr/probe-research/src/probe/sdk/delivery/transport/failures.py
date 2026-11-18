@@ -10,6 +10,7 @@ from probe.foundation.server_messages import parse_server_message
 from probe.sdk.settings import workspace_limit as _workspace_limit
 
 from ... import errors
+from .team_key import explain_key_refusal
 
 
 #: Answers a gateway gives IN PLACE of the app's: the request may have been
@@ -112,6 +113,8 @@ class ErrorMappingMixin:
                 error,
                 _workspace_limit.hidden_hint(applied, getattr(self.settings, "workspace_limit", None)),
             )
+        if resp.status_code == 403:  # only a refusal names its route; a bare test Response has no request
+            error = explain_key_refusal(error, resp.request.method, resp.request.url.path)
         return _with_retry_after(error, resp)
 
 from probe.sdk.delivery.transport.blobs import _blob_label  # noqa: E402 -- pieces need each other; the front door loads this one first

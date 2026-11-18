@@ -29,7 +29,8 @@ def enum_member_role(
     text: str,
     lineno: int,
     inliner: states.Inliner,
-    options: dict[str, object] | None = None,
+    options: dict[str, object]  # simplint: ignore[imprecise-annotation]  # docutils passes options of any value
+    | None = None,
     content: list[str] | None = None,
 ) -> tuple[list[Node], list[system_message]]:
     refs, messages = _ATTR_ROLE("py:attr", rawtext, text, lineno, inliner, options or {}, content or [])

@@ -53,6 +53,13 @@ class NominalChecklistNotPublishedError(NominalError, ValueError):
     """
 
 
+class NominalDownloadRangeError(NominalError):
+    """A download response exceeded the requested byte range.
+
+    The oversized part is not written or retried; the server may not support ranged downloads.
+    """
+
+
 class NominalMultipartUploadError(NominalError):
     """A single failed multipart upload attempt."""
 
@@ -95,6 +102,10 @@ class NominalDataScopeNotFoundError(NominalNotFoundError, ValueError):
 
 class NominalAlreadyExistsError(NominalError):
     """The resource being created already exists (e.g. a container image tag already registered)."""
+
+
+class NominalConflictError(NominalError):
+    """The resource changed after it was read, so the change was not saved. Refresh it and try again."""
 
 
 class NominalInvalidArgumentError(NominalError):

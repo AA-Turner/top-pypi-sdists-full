@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import platform
 import sys
 import tempfile
@@ -18,13 +19,35 @@ except ImportError:
     cythonize = None
 
 
+# Opt-in build against the Python 3.14 stable ABI. The normal build remains per-version. Invoke
+# explicitly, e.g. CIBW_BUILD="cp314-*" INDEXED_BZIP2_ABI3=enable python -m cibuildwheel python/indexed_bzip2
+withAbi3 = os.environ.get('INDEXED_BZIP2_ABI3', 'disable').lower() not in ('', '0', 'disable', 'off', 'false')
+abi3Version = '0x030E0000'
+abi3WheelTag = 'cp314'
+
+bzip2_sources = [
+    'src/external/bzip2/blocksort.c',
+    'src/external/bzip2/huffman.c',
+    'src/external/bzip2/crctable.c',
+    'src/external/bzip2/randtable.c',
+    'src/external/bzip2/compress.c',
+    'src/external/bzip2/bzlib.c',
+]
+
+define_macros = [('LIBRAPIDARCHIVE_WITH_BZIP2_COMPRESSION', None)]
+if withAbi3:
+    define_macros.append(('Py_LIMITED_API', abi3Version))
+
 extensions = [
     Extension(
         # fmt: off
         name         = 'indexed_bzip2',
-        sources      = ['indexed_bzip2.pyx'],
-        include_dirs = ['.', 'core', 'huffman', 'indexed_bzip2', 'external/cxxopts/include'],
+        sources      = ['indexed_bzip2.pyx', 'src/external/libsais/src/libsais.c'] + bzip2_sources,
+        include_dirs = ['src', 'src/external/cxxopts/include', 'src/external/libsais/include',
+                        'src/external/bzip2', 'src/external/bzip2_version'],
         language     = 'c++',
+        define_macros = define_macros,
+        py_limited_api = withAbi3,
         # fmt: on
     ),
 ]
@@ -44,9 +67,44 @@ def supportsFlag(compiler, flag):
     return True
 
 
+def isExternalSource(source):
+    return '/external/' in source.replace('\\', '/')
+
+
 # https://github.com/cython/cython/blob/master/docs/src/tutorial/appendix.rst#python-38
 class Build(build_ext):
     def build_extensions(self):
+        oldCompile = self.compiler.compile
+
+        def newCompile(sources, *args, **kwargs):
+            cSources = [source for source in sources if source.endswith('.c')]
+            cppSources = [source for source in sources if not source.endswith('.c')]
+            if not cSources:
+                return oldCompile(sources, *args, **kwargs)
+
+            cppCompileArgs = [
+                '-fconstexpr-ops-limit=99000100',
+                '-fconstexpr-steps=99000100',
+                '-std=c++17',
+                '/std:c++17',
+            ]
+            cppPostArgs = kwargs.get('extra_postargs', [])
+            cPostArgs = [argument for argument in cppPostArgs if argument not in cppCompileArgs]
+            externalWarningFlag = ['/w'] if self.compiler.compiler_type == 'msvc' else ['-w']
+
+            objects = oldCompile(cppSources, *args, **kwargs) if cppSources else []
+            for cSource in cSources:
+                if 'extra_postargs' in kwargs:
+                    kwargs['extra_postargs'] = cPostArgs + (
+                        externalWarningFlag if isExternalSource(cSource) else []
+                    )
+                objects.extend(oldCompile([cSource], *args, **kwargs))
+            if 'extra_postargs' in kwargs:
+                kwargs['extra_postargs'] = cppPostArgs
+            return objects
+
+        self.compiler.compile = newCompile
+
         for ext in self.extensions:
             ext.extra_compile_args = [
                 '-std=c++17',
@@ -62,7 +120,7 @@ class Build(build_ext):
                 ext.extra_compile_args += ['-flto']
 
             if supportsFlag(self.compiler, '-D_FORTIFY_SOURCE=2'):
-                ext.extra_compile_args += ['-D_FORTIFY_SOURCE=2']
+                ext.extra_compile_args += ['-D_FORTIFY_SOURCE=2', '-D_FILE_OFFSET_BITS=64']
 
             # https://github.com/cython/cython/issues/2670#issuecomment-432212671
             # https://github.com/cython/cython/issues/3405#issuecomment-596975159
@@ -72,6 +130,11 @@ class Build(build_ext):
                 ext.extra_compile_args += ['-DMS_WIN64']
 
             if self.compiler.compiler_type == 'mingw32':
+                # GCC can spill AVX registers to stack slots it assumes are 32/64-byte aligned, but the
+                # Win64 ABI only guarantees 16 bytes. See the top-level CMakeLists.txt for the bug
+                # references and why the assembler rewrite is the safe fix.
+                if supportsFlag(self.compiler, '-Wa,-muse-unaligned-vector-move'):
+                    ext.extra_compile_args += ['-Wa,-muse-unaligned-vector-move']
                 ext.extra_link_args = [
                     '-static-libgcc',
                     '-static-libstdc++',
@@ -83,6 +146,7 @@ class Build(build_ext):
             elif self.compiler.compiler_type == 'msvc':
                 ext.extra_compile_args = [
                     '/std:c++17',
+                    '/experimental:c11atomics',
                     '/O2',
                     '/DNDEBUG',
                     '/DWITH_PYTHON_SUPPORT',
@@ -105,9 +169,9 @@ class Build(build_ext):
                 if supportsFlag(self.compiler, '-fcf-protection=full'):
                     ext.extra_compile_args += ['-fcf-protection=full']
 
-                if sys.platform.startswith('darwin') and supportsFlag(self.compiler, '-mmacosx-version-min=10.15'):
-                    ext.extra_compile_args += ['-mmacosx-version-min=10.15']
-                    ext.extra_link_args += ['-mmacosx-version-min=10.15']
+                if sys.platform.startswith('darwin') and supportsFlag(self.compiler, '-mmacosx-version-min=13.0'):
+                    ext.extra_compile_args += ['-mmacosx-version-min=13.0']
+                    ext.extra_link_args += ['-mmacosx-version-min=13.0']
 
         super().build_extensions()
 
@@ -117,5 +181,6 @@ setup(
     py_modules  = ['indexed_bzip2'],
     ext_modules = extensions,
     cmdclass    = {'build_ext': Build},
+    options     = {'bdist_wheel': {'py_limited_api': abi3WheelTag}} if withAbi3 else {},
     # fmt: on
 )

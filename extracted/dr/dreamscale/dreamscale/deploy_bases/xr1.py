@@ -1,6 +1,6 @@
 """Xiaomi-Robotics-1 deployments in the SDK: a run folder upstream's ``xr1/`` trainer wrote (or a
 Dreamscale training export), on the bimanual YAM preset or a custom robot, absolute end-effector
-rows, RTC off or trained (dreamscale_transport.xr1_deploy is the contract).
+rows, RTC off or trained (dreamscale_core.xr1_deploy is the contract).
 
 Listed since GA (0138). Its checkpoints don't record their robot, so a create
 declares it: ``--preset bimanual_yam`` (the default), or a custom robot's arms, cameras (by view,
@@ -23,7 +23,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from dreamscale_transport import xr1_deploy as C
+from dreamscale_core import xr1_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 

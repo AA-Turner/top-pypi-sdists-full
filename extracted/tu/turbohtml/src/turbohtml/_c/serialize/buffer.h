@@ -12,7 +12,14 @@
 
 #include "core/vec.h" /* th_grow_cap overflow-safe buffer growth */
 
+#include <stdint.h>
 #include <string.h>
+
+struct th_clone_seen {
+    uint64_t *slots;
+    Py_ssize_t cap;
+    Py_ssize_t len;
+};
 
 typedef struct {
     Py_UCS4 *data;
@@ -20,8 +27,10 @@ typedef struct {
     Py_ssize_t cap;
     int failed;
     /* added to len for the attribute characters parser clones may still write: each clone attribute takes back twice
-       what it wrote, once as the output it is and once as the allowance it spent (see ser_clone_attr_fits) */
+       what it wrote, once as the output it is and once as the allowance it spent (see ser_clone_admit) */
     Py_ssize_t clone_credit;
+    /* the value sets this output has already written a clone of, allocated by the first clone that needs one */
+    struct th_clone_seen *clone_seen;
 } sbuf;
 
 /* Grow the buffer so at least extra more code points fit, doubling so a run of
@@ -87,6 +96,36 @@ static inline void sbuf_put_ucs4(sbuf *out, const Py_UCS4 *text, Py_ssize_t len)
     sbuf_put_run(out, text, len);
 }
 
+/* Decode the code point whose UTF-8 sequence starts at bytes[*index] and move *index past it. A truncated
+   tail, which the UTF-8 encoder never writes, reads as U+FFFD and ends the run. */
+static inline Py_UCS4 utf8_next(const char *bytes, Py_ssize_t len, Py_ssize_t *index) {
+    unsigned char lead = (unsigned char)bytes[*index];
+    if (lead < 0x80) {
+        *index += 1;
+        return lead;
+    }
+    if (lead < 0xE0 && *index + 1 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
+        Py_UCS4 character = (Py_UCS4)(lead & 0x1F) << 6 | ((unsigned char)bytes[*index + 1] & 0x3F);
+        *index += 2;
+        return character;
+    }
+    if (lead < 0xF0 && *index + 2 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
+        Py_UCS4 character = (Py_UCS4)(lead & 0x0F) << 12 | ((unsigned char)(bytes[*index + 1] & 0x3F)) << 6 |
+                            ((unsigned char)bytes[*index + 2] & 0x3F);
+        *index += 3;
+        return character;
+    }
+    if (*index + 3 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
+        Py_UCS4 character = (Py_UCS4)(lead & 0x07) << 18 | ((unsigned char)(bytes[*index + 1] & 0x3F)) << 12 |
+                            ((unsigned char)(bytes[*index + 2] & 0x3F)) << 6 |
+                            ((unsigned char)bytes[*index + 3] & 0x3F);
+        *index += 4;
+        return character;
+    }
+    *index = len;  /* GCOVR_EXCL_LINE: a truncated tail, which the UTF-8 encoder never writes */
+    return 0xFFFD; /* GCOVR_EXCL_LINE: unreachable from a test */
+}
+
 /* Write well-formed UTF-8 bytes (an interned attribute name) as code points. The
    common all-ASCII name is copied in bulk; only a name with a byte >= 0x80
    (a foreign mixed-case attribute) takes the per-code-point decoder. */
@@ -106,27 +145,7 @@ static inline void sbuf_put_utf8(sbuf *out, const char *bytes, Py_ssize_t len) {
         out->len += index;
     }
     while (index < len) {
-        unsigned char lead = (unsigned char)bytes[index];
-        Py_UCS4 character;
-        if (lead < 0x80) {
-            character = lead;
-            index += 1;
-        } else if (lead < 0xE0 && index + 1 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
-            character = (Py_UCS4)(lead & 0x1F) << 6 | ((unsigned char)bytes[index + 1] & 0x3F);
-            index += 2;
-        } else if (lead < 0xF0 && index + 2 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
-            character = (Py_UCS4)(lead & 0x0F) << 12 | ((unsigned char)(bytes[index + 1] & 0x3F)) << 6 |
-                        ((unsigned char)bytes[index + 2] & 0x3F);
-            index += 3;
-        } else if (index + 3 < len) { /* GCOVR_EXCL_BR_LINE: callers pass whole sequences */
-            character = (Py_UCS4)(lead & 0x07) << 18 | ((unsigned char)(bytes[index + 1] & 0x3F)) << 12 |
-                        ((unsigned char)(bytes[index + 2] & 0x3F)) << 6 | ((unsigned char)bytes[index + 3] & 0x3F);
-            index += 4;
-        } else {                    /* GCOVR_EXCL_BR_LINE: a truncated tail, which the UTF-8 encoder never writes */
-            sbuf_putc(out, 0xFFFD); /* GCOVR_EXCL_LINE: unreachable from a test */
-            break;                  /* GCOVR_EXCL_LINE */
-        }
-        sbuf_putc(out, character);
+        sbuf_putc(out, utf8_next(bytes, len, &index));
     }
 }
 

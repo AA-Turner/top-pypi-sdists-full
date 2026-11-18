@@ -9,9 +9,9 @@ from anyscale.shared_anyscale_utils.util import execution_log_name
 from anyscale.shared_anyscale_utils.utils.id_gen import generate_id, IDTypes
 
 
-# *_DELIMITER are used within preexec / precmd zsh hooks to so that
-# we can parse out command information for logging commands, their outputs
-# and their statuses.
+# *_DELIMITER are used within the preexec / precmd bash hooks so that we can
+# track each command's output and exit status. The hooks never print the
+# command text itself.
 START_COMMAND_DELIMITER = "71DbDeuXGpbEn8KO93V4kH56xr992Zu3RoUAW0lWesqPWCFff9PVr1RE"
 START_OUTPUT_DELIMITER = "YJipyPN4Quh41VbKKHoYqS6bUzw8d0soTo8W61jeBTQUm9F4IRZvQoqg"
 END_OUTPUT_DELIMITER = "jjVvK9ydZGXScXs5G89zgqVtwCSYMGdmV2Za9VaTVV3jraSP6hCB5F"
@@ -29,8 +29,7 @@ bashrc_preexec_content = """
 source {BASH_PREEXEC}
 print_start_output_delimiter() {{
   echo "{START_COMMAND_DELIMITER}"
-  # the command
-  echo {CMD_MATCH_TEXT}$1
+  echo {CMD_MATCH_TEXT}
   echo "{START_OUTPUT_DELIMITER}"
 }}
 
@@ -57,7 +56,7 @@ precmd_functions=(print_end_output_delimiter)
 
 def configure_bash_preexec():
     """
-    Stores the bash-preexec support which will allow us to parse commands and submit them to anyscale backend.
+    Stores the bash-preexec support which lets us track commands and report them to the anyscale backend.
     """
     dir = pathlib.Path(__file__).parent.resolve()  # noqa: A001
     _replace_file(BASH_PREEXEC, (dir / "bash-preexec.sh").read_text())
@@ -91,14 +90,12 @@ class Command:
         scid: str = "",
         finished: bool = False,
         output: str = "",
-        command: str = "",
         status_code: Optional[int] = None,
         exec_command: bool = False,
     ):
         self.scid = scid
         self.finished = finished
         self.output = output
-        self.command = command
         self.status_code = status_code
         self.created_at = datetime.now(timezone.utc)
         self.finished_at = datetime.now(timezone.utc) if finished else None
@@ -110,7 +107,6 @@ class Command:
             return bool(
                 self.finished == other.finished
                 and self.output == other.output
-                and self.command == other.command
                 and self.status_code == other.status_code
             )
         return False
@@ -133,17 +129,17 @@ def extract_commands(
     -- split out all delimiters. All anyscale values are wrapped
     by delimiters so they will be a separate value in the resulting array
     for example:
-        "DELIM CMD DELIM STDOUT STDOUT DELIM RET_VAL DELIM" =>
-        ["CMD", "STDOUT STDOUT", "RET_VAL"]
+        "DELIM CMD_MARKER DELIM STDOUT STDOUT DELIM RET_VAL DELIM" =>
+        ["CMD_MARKER", "STDOUT STDOUT", "RET_VAL"]
     -- for each value
-    -- If its a command: Create a new CMD
+    -- If its the command marker: Create a new CMD
     -- If its a return status: Mark the last CMD as finished if its not
     -- If its output: Associate with any running commands
 
     Assumption:
     -- Both DELIMITERS wrapping an emitted value will always be present.
-    e.g. "START_CMD cmd START_OUTPUT" will be emitted togeter. This is empirically
-    how zsh emits the precmd / preexec function fortunately.
+    e.g. "START_CMD CMD_MARKER START_OUTPUT" will be emitted together. This is
+    empirically how bash emits the precmd / preexec function fortunately.
     """
     values = re.split(
         f"{START_COMMAND_DELIMITER}\r?\n?|{START_OUTPUT_DELIMITER}\r?\n?|{END_COMMAND_DELIMITER}\r?\n?|{END_OUTPUT_DELIMITER}\r?\n?",
@@ -153,11 +149,8 @@ def extract_commands(
     commands = [last_command] if last_command is not None else []
     for val in values:
         if CMD_MATCH_TEXT in val:
-            # remove white space from end of command. Then remove the cmd_match_text prefix.
-            cmd_text = val.rstrip().split(CMD_MATCH_TEXT)[-1]
             command = Command(
                 term_name=term_name,
-                command=cmd_text,
                 scid=generate_id(IDTypes.session_commands),
             )
             commands.append(command)

@@ -12,7 +12,12 @@ from anyscale._private.models import ModelBase, ModelEnum
 
 
 class NodeStatus(ModelEnum):
-    """The lifecycle state of a node, as Ray last reported it."""
+    """The lifecycle state of a node.
+
+    This is the state Ray last reported, except that a node Ray never reported dead is
+    DEAD once it can no longer be running: its cluster is stopped or terminated, a newer
+    Ray session started, or, for a head node, a newer head node replaced it.
+    """
 
     ALIVE = "ALIVE"
     DEAD = "DEAD"
@@ -62,7 +67,9 @@ print(node.status, node.node_ip, node.instance_type, node.resources)
         default=None,
         metadata={
             "docstring": "When the node died, as a timezone-aware UTC datetime; None while "
-            "it is alive. The API sends this as epoch milliseconds (end_time_ms)."
+            "it is alive or when its death was not captured. For a head node a newer head "
+            "node replaced, this is an estimate: when the replacement started. The API "
+            "sends this as epoch milliseconds (end_time_ms)."
         },
     )
     ray_session_name: Optional[str] = field(

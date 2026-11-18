@@ -17,7 +17,7 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from dreamscale_transport import gr00t_n17_deploy as C
+from dreamscale_core import gr00t_n17_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 

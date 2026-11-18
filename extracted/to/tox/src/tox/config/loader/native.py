@@ -12,7 +12,14 @@ if TYPE_CHECKING:
     from tox.util.json_types import JsonValue
 
 
-def to_native(value: object) -> JsonValue:
+def to_native(value: object) -> JsonValue:  # simplint: ignore[imprecise-annotation]  # any config value
+    """Convert a value to a type that can be serialized to JSON.
+
+    :param value: the value to convert
+
+    :returns: the value as a JSON compatible type
+
+    """
     if isinstance(value, bool):
         return value
     if isinstance(value, (int, float, str)):
@@ -22,7 +29,9 @@ def to_native(value: object) -> JsonValue:
     return _to_native_complex(value)
 
 
-def _to_native_complex(value: object) -> JsonValue:
+def _to_native_complex(
+    value: object,  # simplint: ignore[imprecise-annotation]  # converts any configuration value to JSON
+) -> JsonValue:
     if isinstance(value, SetEnv):
         return {k: to_native(value.load(k)) for k in sorted(value)}
     if isinstance(value, (PythonDeps, PythonConstraints)):
@@ -30,11 +39,13 @@ def _to_native_complex(value: object) -> JsonValue:
     if isinstance(value, EnvList):
         return value.envs
     if isinstance(value, Command):
-        return value.shell
+        return " ".join([*value.raw_args[: len(value.raw_args) - len(value.args)], value.shell])
     return _to_native_collection(value)
 
 
-def _to_native_collection(value: object) -> JsonValue:
+def _to_native_collection(
+    value: object,  # simplint: ignore[imprecise-annotation]  # converts any configuration value to JSON
+) -> JsonValue:
     if isinstance(value, Mapping):
         return {str(k): to_native(v) for k, v in value.items()}
     if isinstance(value, set):
@@ -44,4 +55,6 @@ def _to_native_collection(value: object) -> JsonValue:
     return str(value)
 
 
-__all__ = ("to_native",)
+__all__ = [
+    "to_native",
+]

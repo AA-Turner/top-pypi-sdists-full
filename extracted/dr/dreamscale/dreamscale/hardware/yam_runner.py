@@ -12,7 +12,7 @@ import importlib
 from functools import partial
 from pathlib import Path
 
-from dreamscale_transport.rho_checkpoints import RHO_YAM_BOX_MODEL_ID
+from dreamscale_core.rho import RHO_YAM_BOX_MODEL_ID
 
 from dreamscale import deploy_bases, errors
 from dreamscale.attended.lifecycle import safe_printer

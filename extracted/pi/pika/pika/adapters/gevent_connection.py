@@ -1,21 +1,22 @@
 """Use pika with the Gevent IOLoop."""
+
 from __future__ import annotations
 
 import functools
 import logging
 import os
-import threading
-from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union, TYPE_CHECKING
-
-import gevent._interfaces  # type: ignore[import-untyped]
-
 import queue
+import threading
+import warnings
+from typing import TYPE_CHECKING, Any, Callable, Sequence
 
-import gevent
+import gevent  # type: ignore[import-untyped]
+import gevent._interfaces  # type: ignore[import-untyped]
 import gevent.hub  # type: ignore[import-untyped]
 import gevent.socket  # type: ignore[import-untyped]
 
-import pika.compat
+import pika._utils
+from pika._utils import override
 from pika.adapters.base_connection import BaseConnection
 from pika.adapters.utils.io_services_utils import check_callback_arg
 from pika.adapters.utils.nbio_interface import (
@@ -35,46 +36,55 @@ LOGGER = logging.getLogger(__name__)
 
 
 class GeventConnection(BaseConnection):
-    """Implementation of pika's ``BaseConnection``.
+    """
+    Implementation of pika's ``BaseConnection``.
 
     An async selector-based connection which integrates with Gevent.
     """
 
-    def __init__(self,
-                 parameters: Optional[connection.Parameters] = None,
-                 on_open_callback: Optional[Callable[[connection.Connection],
-                                                     None]] = None,
-                 on_open_error_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 on_close_callback: Optional[Callable[
-                     [connection.Connection, BaseException], None]] = None,
-                 custom_ioloop: Optional[Union[gevent._interfaces.ILoop,
-                                               AbstractIOServices]] = None,
-                 internal_connection_workflow: bool = True) -> None:
-        """Create a new GeventConnection instance and connect to RabbitMQ on
-        Gevent's event-loop.
+    def __init__(
+            self,
+            parameters: connection.Parameters | None = None,
+            on_open_callback: Callable[[connection.Connection], None] |
+        None = None,
+            on_open_error_callback: Callable[
+                [connection.Connection, BaseException], None] | None = None,
+            on_close_callback: Callable[[connection.Connection, BaseException],
+                                        None] | None = None,
+            custom_ioloop: gevent._interfaces.ILoop | AbstractIOServices |
+        None = None,
+            internal_connection_workflow: bool = True) -> None:
+        """
+        Create a new GeventConnection instance and connect to RabbitMQ on Gevent's event-loop.
 
-        :param pika.connection.Parameters|None parameters: The connection
+        :param parameters: The connection
             parameters
-        :param callable|None on_open_callback: The method to call when the
+        :param on_open_callback: The method to call when the
             connection is open
-        :param callable|None on_open_error_callback: Called if the connection
+        :param on_open_error_callback: Called if the connection
             can't be established or connection establishment is interrupted by
             `Connection.close()`:
             on_open_error_callback(Connection, exception)
-        :param callable|None on_close_callback: Called when a previously fully
+        :param on_close_callback: Called when a previously fully
             open connection is closed:
             `on_close_callback(Connection, exception)`, where `exception` is
             either an instance of `exceptions.ConnectionClosed` if closed by
             user or broker or exception of another type that describes the
             cause of connection failure
-        :param gevent._interfaces.ILoop|nbio_interface.AbstractIOServices|None
-            custom_ioloop: Use a custom Gevent ILoop.
-        :param bool internal_connection_workflow: True for autonomous connection
+        :param custom_ioloop: Use a custom Gevent ILoop
+        :param internal_connection_workflow: True for autonomous connection
             establishment which is default; False for externally-managed
             connection workflow via the `create_connection()` factory
         """
-        if pika.compat.ON_WINDOWS:
+        warnings.warn(
+            'GeventConnection is deprecated and will be removed in Pika 2.0. '
+            'Use Connection instead, which works with any framework '
+            'including Gevent. See '
+            'https://pika.github.io/pika/latest/modules/adapters/thread_safe/',
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if pika._utils.ON_WINDOWS:
             raise RuntimeError('GeventConnection is not supported on Windows.')
 
         custom_ioloop = (custom_ioloop or
@@ -94,27 +104,35 @@ class GeventConnection(BaseConnection):
             internal_connection_workflow=internal_connection_workflow)
 
     @classmethod
+    @override
     def create_connection(
         cls,
         connection_configs: Sequence[connection.Parameters],
-        on_done: Callable[[
-            Union[connection.Connection,
-                  connection_workflow.AMQPConnectorException]
-        ], None],
-        custom_ioloop: Optional[gevent._interfaces.ILoop] = None,
-        workflow: Optional[
-            connection_workflow.AbstractAMQPConnectionWorkflow] = None
+        on_done: Callable[[(connection.Connection |
+                            connection_workflow.AMQPConnectorException)], None],
+        custom_ioloop: gevent._interfaces.ILoop | None = None,
+        workflow: connection_workflow.AbstractAMQPConnectionWorkflow |
+        None = None
     ) -> connection_workflow.AbstractAMQPConnectionWorkflow:
-        """Implement
-        :py:classmethod::`pika.adapters.BaseConnection.create_connection()`.
+        """
+        :param connection_configs: One or more connection parameter objects
+        :param on_done: Callback to report when connection workflow is done
+        :param custom_ioloop: Optional custom Gevent ILoop to use for the
+            connection workflow; if None, a new _GeventSelectorIOLoop will be
+            created
+        :param workflow: Optional connection workflow instance to use
         """
         custom_ioloop = (custom_ioloop or
                          _GeventSelectorIOLoop(gevent.get_hub()))
 
         nbio = _GeventSelectorIOServicesAdapter(custom_ioloop)
 
-        def connection_factory(params):
-            """Connection factory."""
+        def connection_factory(params) -> GeventConnection:
+            """
+            Connection factory.
+
+            :param params: Connection parameters
+            """
             if params is None:
                 raise ValueError('Expected pika.connection.Parameters '
                                  'instance, but got None in params arg.')
@@ -131,14 +149,12 @@ class GeventConnection(BaseConnection):
 
 
 class _TSafeCallbackQueue:
-    """Dispatch callbacks from any thread to be executed in the main thread
-    efficiently with IO events.
+    """Dispatch callbacks from any thread to be executed in the main thread efficiently with IO
+    events.
     """
 
     def __init__(self) -> None:
-        """
-        :param _GeventSelectorIOLoop loop: IO loop to add callbacks to.
-        """
+        """Initialize the callback queue."""
         # Thread-safe, blocking queue.
         self._queue: queue.Queue[Callable[[], None]] = queue.Queue()
         # PIPE to trigger an event when the queue is ready.
@@ -153,10 +169,12 @@ class _TSafeCallbackQueue:
         return self._read_fd
 
     def add_callback_threadsafe(self, callback: Callable[[], None]) -> None:
-        """Add an item to the queue from any thread. The configured handler
-        will be invoked with the item in the main thread.
+        """
+        Add a callback to the queue from any thread.
 
-        :param item: Object to add to the queue.
+        The configured handler will be invoked with the callback in the main thread.
+
+        :param callback: Callback to add to the queue.
         """
         self._queue.put(callback)
         with self._write_lock:
@@ -164,19 +182,20 @@ class _TSafeCallbackQueue:
             os.write(self._write_fd, b'\xFF')
 
     def run_next_callback(self) -> None:
-        """Invoke the next callback from the queue.
+        """
+        Invoke the next callback from the queue.
 
-        MUST run in the main thread. If no callback was added to the queue,
-        this will block the IO loop.
+        MUST run in the main thread. If no callback was added to the queue, this will block the IO
+        loop.
 
-        Performs a blocking READ on the pipe so must only be called when the
-        pipe is ready for reading.
+        Performs a blocking READ on the pipe so must only be called when the pipe is ready for
+        reading.
         """
         try:
             callback = self._queue.get_nowait()
         except queue.Empty:
             # Should never happen.
-            LOGGER.warning("Callback queue was empty.")
+            LOGGER.warning('Callback queue was empty.')
         else:
             # Read the byte from the pipe so the event doesn't re-fire.
             os.read(self._read_fd, 1)
@@ -184,30 +203,32 @@ class _TSafeCallbackQueue:
 
 
 class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
-    """Implementation of `AbstractSelectorIOLoop` using the Gevent event loop.
+    """
+    Implementation of `AbstractSelectorIOLoop` using the Gevent event loop.
 
     Required by implementations of `SelectorIOServicesAdapter`.
     """
+
     # Gevent's READ and WRITE masks are defined as 1 and 2 respectively. No
     # ERROR mask is defined.
     # See https://www.gevent.org/api/gevent.hub.html#gevent._interfaces.ILoop.io
-    READ = 1  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
-    WRITE = 2  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
-    ERROR = 0  # pyright: ignore[reportAssignmentType, reportIncompatibleMethodOverride]
+    READ = 1
+    WRITE = 2
+    ERROR = 0
 
-    def __init__(self, gevent_hub: Optional[gevent.hub.Hub] = None) -> None:
+    def __init__(self, gevent_hub: gevent.hub.Hub | None = None) -> None:
         """
-        :param gevent._interfaces.ILoop gevent_loop:
+        :param gevent_hub: Gevent hub to use.
         """
         self._hub = gevent_hub or gevent.get_hub()
-        self._io_watchers_by_fd: Dict[int, Any] = {}
+        self._io_watchers_by_fd: dict[int, Any] = {}
         # Used to start/stop the loop.
         self._waiter = gevent.hub.Waiter()
 
         # For adding callbacks from other threads. See `add_callback(..)`.
         self._callback_queue = _TSafeCallbackQueue()
 
-        def run_callback_in_main_thread(fd, events):
+        def run_callback_in_main_thread(fd, events) -> None:
             """Swallow the fd and events arguments."""
             del fd
             del events
@@ -216,13 +237,18 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         self.add_handler(self._callback_queue.fd, run_callback_in_main_thread,
                          self.READ)
 
+    @override
     def close(self) -> None:
         """Release the loop's resources."""
         self._hub.loop.destroy()  # pyright: ignore[reportOptionalMemberAccess]
         self._hub = None
 
+    @override
     def start(self) -> None:
-        """Run the I/O loop. It will loop until requested to exit. See `stop()`.
+        """
+        Run the I/O loop.
+
+        It will loop until requested to exit. See `stop()`.
         """
         LOGGER.debug("Passing control to Gevent's IOLoop")
         self._waiter.get()  # Block until 'stop()' is called.
@@ -230,20 +256,25 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         LOGGER.debug("Control was passed back from Gevent's IOLoop")
         self._waiter.clear()
 
+    @override
     def stop(self) -> None:
-        """Request exit from the ioloop. The loop is NOT guaranteed to
-        stop before this method returns.
+        """
+        Request exit from the ioloop.
 
-        To invoke `stop()` safely from a thread other than this IOLoop's thread,
-        call it via `add_callback_threadsafe`; e.g.,
+        The loop is NOT guaranteed to stop before this method returns.
 
-            `ioloop.add_callback(ioloop.stop)`
+        To invoke `stop()` safely from a thread other than this IOLoop's thread, call it via
+        `add_callback_threadsafe`; e.g.,
+
+        `ioloop.add_callback(ioloop.stop)`
         """
         self._waiter.switch(None)
 
+    @override
     def add_callback(self, callback: Callable[[], None]) -> None:
-        """Requests a call to the given function as soon as possible in the
-        context of this IOLoop's thread.
+        """
+        Requests a call to the given function as soon as possible in the context of this IOLoop's
+        thread.
 
         NOTE: This is the only thread-safe method in IOLoop. All other
         manipulations of IOLoop must be performed from the IOLoop's thread.
@@ -252,65 +283,69 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         ioloop that is running in a different thread via
         `ioloop.add_callback_threadsafe(ioloop.stop)`
 
-        :param callable callback: The callback method
+        :param callback: The callback method
         """
         if gevent.get_hub() == self._hub:
             # We're in the main thread; just add the callback.
-            LOGGER.debug("Adding callback from main thread")
+            LOGGER.debug('Adding callback from main thread')
             self._hub.loop.run_callback(
                 callback)  # pyright: ignore[reportOptionalMemberAccess]
         else:
             # This isn't the main thread and Gevent's hub/loop don't provide
             # any thread-safety so enqueue the callback for it to be registered
             # in the main thread.
-            LOGGER.debug("Adding callback from another thread")
+            LOGGER.debug('Adding callback from another thread')
             callback = functools.partial(
                 self._hub.loop.run_callback, callback
             )  # pyright: ignore[reportAssignmentType, reportOptionalMemberAccess]
             self._callback_queue.add_callback_threadsafe(callback)
 
+    @override
     def call_later(self, delay: float, callback: Callable[[], None]) -> Any:
-        """Add the callback to the IOLoop timer to be called after delay seconds
-        from the time of call on best-effort basis. Returns a handle to the
-        timeout.
+        """
+        Add the callback to the IOLoop timer to be called after delay seconds from the time of call
+        on best-effort basis. Returns a handle to the timeout.
 
-        :param float delay: The number of seconds to wait to call callback
-        :param callable callback: The callback method
-        :returns: handle to the created timeout that may be passed to
-            `remove_timeout()`
-        :rtype: object
+        :param delay: The number of seconds to wait to call callback
+        :param callback: The callback method
+        :returns: handle to the created timeout that may be passed to `remove_timeout()`
         """
         timer = self._hub.loop.timer(
             delay)  # pyright: ignore[reportOptionalMemberAccess]
         timer.start(callback)
         return timer
 
+    @override
     def remove_timeout(self, timeout_handle: Any) -> None:
-        """Remove a timeout
+        """
+        Remove a timeout.
 
         :param timeout_handle: Handle of timeout to remove
         """
         timeout_handle.close()
 
+    @override
     def add_handler(self, fd: int, handler: Callable[[int, int], None],
                     events: int) -> None:
-        """Start watching the given file descriptor for events
+        """
+        Start watching the given file descriptor for events.
 
-        :param int fd: The file descriptor
-        :param callable handler: When requested event(s) occur,
-            `handler(fd, events)` will be called.
-        :param int events: The event mask (READ|WRITE)
+        :param fd: The file descriptor
+        :param handler: When requested event(s) occur, `handler(fd, events)` will be called.
+        :param events: The event mask (READ|WRITE)
         """
         io_watcher = self._hub.loop.io(
             fd, events)  # pyright: ignore[reportOptionalMemberAccess]
         self._io_watchers_by_fd[fd] = io_watcher
         io_watcher.start(handler, fd, events)
 
+    @override
     def update_handler(self, fd: int, events: int) -> None:
-        """Change the events being watched for.
+        """
+        Change the events being watched for.
 
-        :param int fd: The file descriptor
-        :param int events: The new event mask (READ|WRITE)
+        :param fd: The file descriptor
+        :param events: The new event mask (READ|WRITE)
         """
         io_watcher = self._io_watchers_by_fd[fd]
         # Save callback from the original watcher. The close the old watcher
@@ -320,10 +355,12 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
         del self._io_watchers_by_fd[fd]
         self.add_handler(fd, callback, events)
 
+    @override
     def remove_handler(self, fd: int) -> None:
-        """Stop watching the given file descriptor for events
+        """
+        Stop watching the given file descriptor for events.
 
-        :param int fd: The file descriptor
+        :param fd: The file descriptor
         """
         io_watcher = self._io_watchers_by_fd[fd]
         io_watcher.close()
@@ -333,6 +370,7 @@ class _GeventSelectorIOLoop(AbstractSelectorIOLoop):
 class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
     """SelectorIOServicesAdapter implementation using Gevent's DNS resolver."""
 
+    @override
     def getaddrinfo(self,
                     host: str,
                     port: int,
@@ -341,7 +379,14 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
                     socktype: int = 0,
                     proto: int = 0,
                     flags: int = 0) -> nbio_interface.AbstractIOReference:
-        """Implement :py:meth:`.nbio_interface.AbstractIOServices.getaddrinfo()`.
+        """
+        :param host: Hostname or IP address
+        :param port: TCP port number
+        :param on_done: The callback to call with the result of getaddrinfo
+        :param family: Socket address family (e.g. ``socket.AF_INET``)
+        :param socktype: Socket type (e.g. ``socket.SOCK_STREAM``)
+        :param proto: Protocol number (0 for default)
+        :param flags: `socket.getaddrinfo` flags
         """
         resolver = _GeventAddressResolver(native_loop=self._loop,
                                           host=host,
@@ -357,65 +402,70 @@ class _GeventSelectorIOServicesAdapter(SelectorIOServicesAdapter):
 
 
 class _GeventIOLoopIOHandle(AbstractIOReference):
-    """Implement `AbstractIOReference`.
+    """
+    Implement `AbstractIOReference`.
 
     Only used to wrap the _GeventAddressResolver.
     """
 
-    def __init__(self, subject: Any) -> None:
+    def __init__(self, subject: _GeventAddressResolver) -> None:
         """
         :param subject: subject of the reference containing a `cancel()` method
         """
         self._cancel = subject.cancel
 
+    @override
     def cancel(self) -> bool:
-        """Cancel pending operation
+        """
+        Cancel pending operation.
 
         :returns: False if was already done or cancelled; True otherwise
-        :rtype: bool
         """
         return self._cancel()
 
 
 class _GeventAddressResolver:
-    """Performs getaddrinfo asynchronously Gevent's configured resolver in a
-    separate greenlet and invoking the provided callback with the result.
+    """
+    Performs getaddrinfo asynchronously Gevent's configured resolver in a separate greenlet and
+    invoking the provided callback with the result.
 
     See: https://www.gevent.org/dns.html
     """
+
     __slots__ = (
-        '_loop',
-        '_on_done',
-        '_greenlet',
+        '_ga_family',
+        '_ga_flags',
         # getaddrinfo(..) args:
         '_ga_host',
         '_ga_port',
-        '_ga_family',
-        '_ga_socktype',
         '_ga_proto',
-        '_ga_flags')
+        '_ga_socktype',
+        '_greenlet',
+        '_loop',
+        '_on_done',
+    )
 
     def __init__(self, native_loop: AbstractSelectorIOLoop, host: str,
                  port: int, family: int, socktype: int, proto: int, flags: int,
                  on_done: Callable[..., None]) -> None:
-        """Initialize the `_GeventAddressResolver`.
+        """
+        Initialize the `_GeventAddressResolver`.
 
-        :param AbstractSelectorIOLoop native_loop:
-        :param host: `see socket.getaddrinfo()`
-        :param port: `see socket.getaddrinfo()`
-        :param family: `see socket.getaddrinfo()`
-        :param socktype: `see socket.getaddrinfo()`
-        :param proto: `see socket.getaddrinfo()`
-        :param flags: `see socket.getaddrinfo()`
-        :param on_done: on_done(records|BaseException) callback for reporting
-            result from the given I/O loop. The single arg will be either an
-            exception object (check for `BaseException`) in case of failure or
-            the result returned by `socket.getaddrinfo()`.
+        :param native_loop:
+        :param host:`see socket.getaddrinfo()`
+        :param port:`see socket.getaddrinfo()`
+        :param family:`see socket.getaddrinfo()`
+        :param socktype:`see socket.getaddrinfo()`
+        :param proto:`see socket.getaddrinfo()`
+        :param flags:`see socket.getaddrinfo()`
+        :param on_done: on_done(records|BaseException) callback for reporting result from the given
+            I/O loop. The single arg will be either an exception object (check for `BaseException`)
+            in case of failure or the result returned by `socket.getaddrinfo()`.
         """
         check_callback_arg(on_done, 'on_done')
 
-        self._loop: Optional[AbstractSelectorIOLoop] = native_loop
-        self._on_done: Optional[Callable[..., None]] = on_done
+        self._loop: AbstractSelectorIOLoop | None = native_loop
+        self._on_done: Callable[..., None] | None = on_done
         # Reference to the greenlet performing `getaddrinfo`.
         self._greenlet = None
         # getaddrinfo(..) args.
@@ -431,7 +481,7 @@ class _GeventAddressResolver:
         if self._greenlet is None:
             self._greenlet = gevent.spawn_raw(self._resolve)
         else:
-            LOGGER.warning("_GeventAddressResolver already started")
+            LOGGER.warning('_GeventAddressResolver already started')
 
     def cancel(self) -> bool:
         """Cancel the pending resolver."""
@@ -451,7 +501,8 @@ class _GeventAddressResolver:
         self._on_done = None
 
     def _stop_greenlet(self) -> None:
-        """Stop the greenlet performing getaddrinfo if running.
+        """
+        Stop the greenlet performing getaddrinfo if running.
 
         Otherwise, this is a no-op.
         """
@@ -460,28 +511,29 @@ class _GeventAddressResolver:
             self._greenlet = None
 
     def _resolve(self) -> None:
-        """Call `getaddrinfo()` and return result via user's callback
-        function on the configured IO loop.
+        """Call `getaddrinfo()` and return result via user's callback function on the configured IO
+        loop.
         """
         try:
             result = gevent.socket.getaddrinfo(self._ga_host, self._ga_port,
                                                self._ga_family,
                                                self._ga_socktype,
                                                self._ga_proto, self._ga_flags)
-        except Exception as exc:  # pylint: disable=broad-except
+        except Exception as exc:
             LOGGER.error('Address resolution failed: %r', exc)
             result = exc
 
         callback = functools.partial(self._dispatch_callback, result)
-        self._loop.add_callback(callback)  # type: ignore
+        assert self._loop is not None
+        self._loop.add_callback(callback)
 
     def _dispatch_callback(
-        self, result: Union[List[Tuple[Any, Any, int, str,
-                                       Union[Tuple[str, int], Tuple[str, int,
-                                                                    int, int],
-                                             Tuple[int, bytes]]]], Exception]
+        self, result: (list[tuple[Any, Any, int, str,
+                                  (tuple[str, int] | tuple[str, int, int, int] |
+                                   tuple[int, bytes])]] | Exception)
     ) -> None:
-        """Invoke the configured completion callback and any subsequent cleanup.
+        """
+        Invoke the configured completion callback and any subsequent cleanup.
 
         :param result: result from getaddrinfo, or the exception if raised.
         """
@@ -489,6 +541,7 @@ class _GeventAddressResolver:
             LOGGER.debug(
                 'Invoking async getaddrinfo() completion callback; host=%r',
                 self._ga_host)
-            self._on_done(result)  # type: ignore
+            assert self._on_done is not None
+            self._on_done(result)
         finally:
             self._cleanup()

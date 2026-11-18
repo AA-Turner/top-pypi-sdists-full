@@ -37,6 +37,10 @@ constexpr double SHEET_DEAD = 18.0;
 constexpr double SHEET_ROW_WORTH = 1.0 / 40.0;
 constexpr double SHEET_BUILD_WEIGHT = 0.15;
 constexpr double SHEET_HEIGHT_WEIGHT = 0.15;
+// momwire#1956 (`crossing_sheet_retune`, opt-in): `_SHEET_RETUNE_BUILD_WEIGHT`,
+// `_SHEET_RETUNE_HEIGHT_WEIGHT`
+constexpr double SHEET_RETUNE_BUILD_WEIGHT = 0.01;
+constexpr double SHEET_RETUNE_HEIGHT_WEIGHT = 0.01;
 constexpr double SHEET_MIN_ROWS = 512;
 constexpr double SHEET_MIN_DEPTH = 1e-3;
 constexpr int64_t CENSUS_CHUNK = 1 << 18;
@@ -48,6 +52,16 @@ constexpr int64_t KEY_RPOW[N_KEYS] = {1, 1, 1, 2, 2, 2};
 // `_SHEET_HEIGHT_SNAP_ULPS`
 constexpr double SHEET_HEIGHT_LONE_WORTH = 1.0 / 10.0;
 constexpr int SHEET_HEIGHT_SNAP_ULPS = 4;
+
+// `_sheet_weights()`: the plane and height build weights the census reads,
+// the retuned pair inside a fill that asked for momwire#1956's
+// `crossing_sheet_retune`. A constant either way, never the cache's state.
+double sheet_build_weight() {
+    return active_features().crossing_sheet_retune ? SHEET_RETUNE_BUILD_WEIGHT : SHEET_BUILD_WEIGHT;
+}
+double sheet_height_weight() {
+    return active_features().crossing_sheet_retune ? SHEET_RETUNE_HEIGHT_WEIGHT : SHEET_HEIGHT_WEIGHT;
+}
 
 uint64_t bits(double x) {
     uint64_t u;
@@ -1001,34 +1015,59 @@ std::string py_repr(double x) {
 }
 
 namespace {
-Features g_requested, g_active;
+// The default-on features (`Feature.default` in `momwire._features`):
+// requested from the start, as Python's solvers have them on unless told
+// otherwise, so every C++ route (an executable, a test's Python-free
+// driver, an in-process seam) fills as Python does by default. An
+// executable withdraws one its environment turns off (`withdraw_feature`).
+Features default_requested() {
+    Features f;
+    f.factored_columns = true;
+    f.height_sheet_recal = true;
+    return f;
+}
+
+Features g_requested = default_requested(), g_active, g_stamped;
+
+bool *feature_slot(Features &f, const std::string &name) {
+    if (name == "factored_columns") return &f.factored_columns;
+    if (name == "height_sheet_recal") return &f.height_sheet_recal;
+    if (name == "crossing_table") return &f.crossing_table;
+    if (name == "crossing_above_rule") return &f.crossing_above_rule;
+    if (name == "crossing_sheet_retune") return &f.crossing_sheet_retune;
+    if (name == "razor_pair_reuse") return &f.razor_pair_reuse;
+    return nullptr;
+}
 }  // namespace
 
 Features &requested_features() { return g_requested; }
 const Features &active_features() { return g_active; }
 
-bool request_feature(const std::string &name) {
-    Features &f = g_requested;
-    if (name == "factored_columns")
-        f.factored_columns = true;
-    else if (name == "height_sheet_recal")
-        f.height_sheet_recal = true;
-    else if (name == "crossing_table")
-        f.crossing_table = true;
-    else if (name == "crossing_above_rule")
-        f.crossing_above_rule = true;
-    else
-        return false;
+bool request_feature(const std::string &name, bool stamped) {
+    bool *slot = feature_slot(g_requested, name);
+    if (slot == nullptr) return false;
+    *slot = true;
+    if (stamped) *feature_slot(g_stamped, name) = true;
+    return true;
+}
+
+bool withdraw_feature(const std::string &name) {
+    bool *slot = feature_slot(g_requested, name);
+    if (slot == nullptr) return false;
+    *slot = false;
+    *feature_slot(g_stamped, name) = false;
     return true;
 }
 
 std::string requested_stamp() {
-    const Features &f = g_requested;
+    const Features &f = g_stamped;
     std::string s;
     if (f.factored_columns) s += "+factored_columns";
     if (f.height_sheet_recal) s += "+height_sheet_recal";
     if (f.crossing_table) s += "+crossing_table";
     if (f.crossing_above_rule) s += "+crossing_above_rule";
+    if (f.crossing_sheet_retune) s += "+crossing_sheet_retune";
+    if (f.razor_pair_reuse) s += "+razor_pair_reuse";
     return s;
 }
 
@@ -1661,7 +1700,7 @@ bool plane_pays(double k_p, cd k_m, double d, const std::vector<Part> &parts, do
         for (double v : p.sep) s_max = std::max(s_max, v);
     }
     const double nodes = sheet_nodes_to(k_p, k_m, d, rho_max, s_max, depth);
-    const double need = nodes * (depth < 0 ? SHEET_BUILD_WEIGHT : SHEET_HEIGHT_WEIGHT);
+    const double need = nodes * (depth < 0 ? sheet_build_weight() : sheet_height_weight());
     const double w = SHEET_ROW_WORTH;
     if (lone_worth >= 0.0) {
         // momwire#1860 L2: the upper bound first (every row distinct)
@@ -1746,7 +1785,7 @@ struct Fixed {
 bool prefix_pays(double k_p, cd k_m, double d, const std::vector<Fixed> &fixed, double rho_far,
                  double s_max, double a) {
     const double nodes = sheet_nodes_to(k_p, k_m, d, std::hypot(rho_far, a), s_max, -1);
-    const double need = nodes * SHEET_BUILD_WEIGHT;
+    const double need = nodes * sheet_build_weight();
     const size_t cap = static_cast<size_t>(std::max(4096.0, 4 * need));
     std::vector<double> pre;
     size_t got = 0;
@@ -1920,7 +1959,7 @@ void census(const std::vector<Side> &sides, bool height, double k_p, cd k_m, dou
         per.push_back(std::move(P));
     }
     const double w = SHEET_ROW_WORTH;
-    const double weight = height ? SHEET_HEIGHT_WEIGHT : SHEET_BUILD_WEIGHT;
+    const double weight = height ? sheet_height_weight() : sheet_build_weight();
     const double per_cell = SHEET_P * SHEET_P;
     for (const auto &kv : cand) {
         const double v = kv.first;

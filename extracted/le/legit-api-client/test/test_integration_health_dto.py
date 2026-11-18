@@ -63,6 +63,7 @@ class TestIntegrationHealthDto(unittest.TestCase):
                     paused = True, 
                     paused_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                     paused_due_to_scan_configuration = True, 
+                    paused_due_to_long_disconnect = True, 
                     deletion_in_progress = True, 
                     workspace_change_pending = True, 
                     pending_workspace_id = '', ),

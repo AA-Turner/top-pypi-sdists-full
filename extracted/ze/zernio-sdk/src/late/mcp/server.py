@@ -39,21 +39,28 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 from fastmcp import FastMCP
+from fastmcp.exceptions import McpError
 from fastmcp.server.dependencies import get_access_token, get_http_request
 from fastmcp.server.transforms.search import BM25SearchTransform
 from fastmcp.server.transforms.search.base import serialize_tools_for_output_markdown
-from mcp.shared.exceptions import McpError
-from mcp.types import INVALID_PARAMS, ErrorData, ToolAnnotations
+from mcp.types import INVALID_PARAMS, ToolAnnotations
 
 from late import Late, MediaType, PostStatus
 from late.client.exceptions import LateAPIError, LateError, LateRateLimitError
 
 from .auth import build_auth_provider, forget_rejected_token
-from .feedback_source import FEEDBACK_TOOL, FeedbackSourceMiddleware
 from .idempotency import same_arguments_key
+from .middleware import (
+    FEEDBACK_TOOL,
+    FeedbackSourceMiddleware,
+    RateLimitGuidanceMiddleware,
+    ToolGuidanceMiddleware,
+    WellFormedOutputMiddleware,
+    WellFormedOutputTransform,
+)
 from .resources import register_resources
 from .tool_definitions import TOOL_DEFINITIONS
-from .tool_guidance import ToolGuidanceMiddleware
+from .user_agent import mcp_user_agent
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -172,7 +179,7 @@ class _AnnotatedBM25SearchTransform(BM25SearchTransform):
     """BM25SearchTransform whose synthetic tools carry ToolAnnotations.
 
     fastmcp builds search_tools/call_tool without annotations (still true in
-    4.0.0b1). Clients that gate approval on hints treat an unannotated tool as
+    4.2.1). Clients that gate approval on hints treat an unannotated tool as
     needing confirmation, so codex-cli auto-denies both in non-interactive
     `codex exec` runs and reports "user cancelled MCP tool call".
 
@@ -250,13 +257,20 @@ class _AnnotatedBM25SearchTransform(BM25SearchTransform):
         unknown = [name for name in requested if name not in by_name]
         if unknown:
             message = _unknown_tools_message(unknown, list(by_name))
-            raise McpError(ErrorData(code=INVALID_PARAMS, message=message))
+            raise McpError(code=INVALID_PARAMS, message=message)
         return [by_name[name] for name in requested]
+
+    # The catalog last passed to FastMCP's _search, whose index is still current.
+    _indexed_tools: Sequence[Tool] = ()
 
     async def _search(self, tools: Sequence[Tool], query: str) -> Sequence[Tool]:
         if tools is not self._indexed_tools:
-            return await super()._search(tools, query)
-        return [tools[i] for i in self._index.query(query, self._max_results)]
+            results = await super()._search(tools, query)
+            self._indexed_tools = tools
+            self._indexed_by_name = {t.name: t for t in tools}
+            return results
+        indices = self._index.query(query, self._max_results)
+        return [self._indexed_by_name[self._indexed_names[i]] for i in indices]
 
     async def closest_tools(self, name: str, ctx: Context | None) -> list[str]:
         """Real tool names nearest a mistyped or guessed one, pinned tools included."""
@@ -306,12 +320,32 @@ def _unknown_tools_message(unknown: Sequence[str], names: Sequence[str]) -> str:
     )
 
 
+_DESCRIPTION_HEADING = re.compile(r"^[ \t]*#{1,6}[ \t]+(.+?)[ \t#]*$", re.MULTILINE)
+
+
+def _serialize_search_results(tools: Sequence[Tool]) -> str:
+    """Markdown search results where `### <name>` only ever starts a tool.
+
+    Descriptions carry their own headings ("### Platform support", "### Email threads"); in the flat result
+    text a client splitting on headings read those as tools and pinned the next tool's parameters on the wrong
+    name (a Grok client saw messages_create_inbox_conversation's participant_id under
+    messages_send_inbox_message, 2026-11-17). Demoting them to bold keeps the text and removes the ambiguity.
+    """
+    demoted = [
+        tool.model_copy(update={"description": _DESCRIPTION_HEADING.sub(r"**\1**", tool.description)})
+        if tool.description
+        else tool
+        for tool in tools
+    ]
+    return serialize_tools_for_output_markdown(demoted)
+
+
 _search_transform = _AnnotatedBM25SearchTransform(
     always_visible=_PINNED_TOOLS,
     max_results=8,
     search_tool_name=_SEARCH_TOOL,
     call_tool_name=_CALL_TOOL,
-    search_result_serializer=serialize_tools_for_output_markdown,
+    search_result_serializer=_serialize_search_results,
 )
 
 
@@ -367,10 +401,12 @@ details.
     auth=build_auth_provider(),
     # Collapse the ~383 generated tools behind search_tools/call_tool; the
     # pinned ergonomic tools remain always-visible.
-    transforms=[_search_transform],
+    transforms=[_search_transform, WellFormedOutputTransform()],
     list_page_size=_TOOLS_PAGE_SIZE,
 )
 
+mcp.add_middleware(WellFormedOutputMiddleware())
+mcp.add_middleware(RateLimitGuidanceMiddleware())
 mcp.add_middleware(
     ToolGuidanceMiddleware(
         search_tool=_SEARCH_TOOL,
@@ -489,6 +525,7 @@ def _get_client() -> Late:
         base_url=base_url,
         max_retries=_UPSTREAM_MAX_ATTEMPTS,
         transport=_api_transport(),
+        user_agent=mcp_user_agent(),
     )
 
 
@@ -1263,7 +1300,9 @@ def _get_docs_content() -> str:
 
     # Fetch fresh content
     try:
-        response = httpx.get(_DOCS_URL, timeout=30.0)
+        response = httpx.get(
+            _DOCS_URL, headers={"User-Agent": mcp_user_agent()}, timeout=30.0
+        )
         response.raise_for_status()
         content = response.text
         _docs_cache[cache_key] = (content, datetime.now())

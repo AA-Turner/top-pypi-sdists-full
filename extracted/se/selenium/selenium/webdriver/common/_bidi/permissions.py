@@ -32,6 +32,11 @@ from selenium.webdriver.common._bidi.serialization import UNSET, Record, UnsetTy
 
 @register("permissions.PermissionState")
 class PermissionState(str, Enum):
+    """permissions.PermissionState.
+
+    See https://w3c.github.io/permissions/#cddl-type-permissions-permissionstate
+    """
+
     GRANTED = "granted"
     DENIED = "denied"
     PROMPT = "prompt"
@@ -40,12 +45,22 @@ class PermissionState(str, Enum):
 @register("permissions.PermissionDescriptor")
 @dataclass(frozen=True)
 class PermissionDescriptor(Record):
+    """permissions.PermissionDescriptor.
+
+    See https://w3c.github.io/permissions/#cddl-type-permissions-permissiondescriptor
+    """
+
     name: str = field(metadata=meta("name", required=True, primitive="str"))
 
 
 @register("permissions.SetPermissionParameters")
 @dataclass(frozen=True)
 class SetPermissionParameters(Record):
+    """permissions.SetPermissionParameters.
+
+    See https://w3c.github.io/permissions/#cddl-type-permissions-setpermissionparameters
+    """
+
     descriptor: PermissionDescriptor = field(
         metadata=meta("descriptor", required=True, ref="permissions.PermissionDescriptor"),
     )

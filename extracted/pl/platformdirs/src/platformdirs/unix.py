@@ -7,32 +7,27 @@ import posixpath
 import re
 import stat
 import sys
-import warnings
 from contextlib import suppress
 from pathlib import Path
 from tempfile import gettempdir
-from typing import TYPE_CHECKING, Final, NoReturn
 
-from ._xdg import XDGMixin, _expand_user, _xdg_dir
-from .api import PlatformDirsABC, RuntimeDirWarning
+from ._runtime import RUNTIME_DIR_MODE as _RUNTIME_DIR_MODE
+from ._runtime import geteuid
+from ._runtime import runtime_dir_problem as _runtime_dir_problem
+from ._runtime import warn_once as _warn_once
+from ._xdg import XDGMixin, expand_user, xdg_dir
+from .api import (
+    PlatformDirsABC,
+    RuntimeDirWarning,  # ruff:ignore[unused-import]  # retain module attribute
+)
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Iterator
-
-if sys.platform == "win32":
-
-    def geteuid() -> NoReturn:
-        msg = "should only be used on Unix"
-        raise RuntimeError(msg)
-
-else:
-    try:
-        from os import geteuid
-    except ImportError:
-        from os import getuid as geteuid
+    from typing import Final
 
 
-class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
+class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]  # full directory API
     """Default directories for Unix/Linux without XDG environment variable overrides.
 
     The XDG env var handling is in :class:`~platformdirs._xdg.XDGMixin`.
@@ -45,17 +40,16 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
 
     @property
     def user_data_dir(self) -> str:
-        """Data directory tied to the user, e.g. ``~/.local/share/$appname/$version`` or ``$XDG_DATA_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(_expand_user("~/.local/share"), private=True)
+        """Data directory tied to the user.
+
+        E.g. ``~/.local/share/$appname/$version`` or ``$XDG_DATA_HOME/$appname/$version``.
+
+        """
+        return self._append_app_name_and_version(expand_user("~/.local/share"), private=True)
 
     @property
     def _site_data_dirs(self) -> list[str]:
         return [self._join_app_name_and_version("/usr/local/share"), self._join_app_name_and_version("/usr/share")]
-
-    @property
-    def user_config_dir(self) -> str:
-        """Config directory tied to the user, e.g. ``~/.config/$appname/$version`` or ``$XDG_CONFIG_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(_expand_user("~/.config"), private=True)
 
     @property
     def _site_config_dirs(self) -> list[str]:
@@ -63,18 +57,17 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
 
     @property
     def user_cache_dir(self) -> str:
-        """Cache directory tied to the user, e.g. ``~/.cache/$appname/$version`` or ``$XDG_CACHE_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(_expand_user("~/.cache"), private=True)
+        """Cache directory tied to the user.
+
+        E.g. ``~/.cache/$appname/$version`` or ``$XDG_CACHE_HOME/$appname/$version``.
+
+        """
+        return self._append_app_name_and_version(expand_user("~/.cache"), private=True)
 
     @property
     def site_cache_dir(self) -> str:
         """Cache directory shared by users, e.g. ``/var/cache/$appname/$version``."""
         return self._append_app_name_and_version("/var/cache", private=False)
-
-    @property
-    def user_state_dir(self) -> str:
-        """State directory tied to the user, e.g. ``~/.local/state/$appname/$version`` or ``$XDG_STATE_HOME/$appname/$version``."""
-        return self._append_app_name_and_version(_expand_user("~/.local/state"), private=True)
 
     @property
     def site_state_dir(self) -> str:
@@ -86,9 +79,18 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         """Log directory tied to the user, same as `user_state_dir` if not opinionated else ``log`` in it."""
         path = self.user_state_dir
         if self.opinion:
-            path = os.path.join(path, "log")  # ruff:ignore[os-path-join]
+            path = os.path.join(path, "log")  # ruff:ignore[os-path-join]  # preserve path separators
             self._optionally_create_directory(path, private=True)
         return path
+
+    @property
+    def user_state_dir(self) -> str:
+        """State directory tied to the user.
+
+        E.g. ``~/.local/state/$appname/$version`` or ``$XDG_STATE_HOME/$appname/$version``.
+
+        """
+        return self._append_app_name_and_version(expand_user("~/.local/state"), private=True)
 
     @property
     def site_log_dir(self) -> str:
@@ -103,6 +105,12 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     def user_documents_dir(self) -> str:
         """Documents directory tied to the user, e.g. ``~/Documents``."""
         return self._user_media_dir("XDG_DOCUMENTS_DIR", "~/Documents")
+
+    def _user_media_dir(self, key: str, default: str) -> str:
+        if path := _get_user_dirs_folder(key):
+            self._optionally_create_media_directory(path)
+            return path
+        return expand_user(default)
 
     @property
     def user_downloads_dir(self) -> str:
@@ -144,16 +152,10 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         """Templates directory tied to the user, e.g. ``~/Templates``."""
         return self._user_media_dir("XDG_TEMPLATES_DIR", "~/Templates")
 
-    def _user_media_dir(self, key: str, default: str) -> str:
-        if path := _get_user_dirs_folder(key):
-            self._optionally_create_media_directory(path)
-            return path
-        return _expand_user(default)
-
     @property
     def user_fonts_dir(self) -> str:
         """Fonts directory tied to the user, e.g. ``~/.local/share/fonts``."""
-        return f"{_expand_user('~/.local/share')}/fonts"
+        return f"{expand_user('~/.local/share')}/fonts"
 
     @property
     def user_preference_dir(self) -> str:
@@ -161,9 +163,18 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         return self.user_config_dir
 
     @property
+    def user_config_dir(self) -> str:
+        """Config directory tied to the user.
+
+        E.g. ``~/.config/$appname/$version`` or ``$XDG_CONFIG_HOME/$appname/$version``.
+
+        """
+        return self._append_app_name_and_version(expand_user("~/.config"), private=True)
+
+    @property
     def user_bin_dir(self) -> str:
         """Bin directory tied to the user, e.g. ``~/.local/bin``."""
-        return _expand_user("~/.local/bin")
+        return expand_user("~/.local/bin")
 
     @property
     def site_bin_dir(self) -> str:
@@ -173,33 +184,12 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
     @property
     def user_applications_dir(self) -> str:
         """Applications directory tied to the user, e.g. ``~/.local/share/applications``."""
-        return f"{_expand_user('~/.local/share')}{os.sep}applications"
+        return f"{expand_user('~/.local/share')}{os.sep}applications"
 
     @property
     def _site_applications_dirs(self) -> list[str]:
+        # preserve path separators
         return [os.path.join(p, "applications") for p in ["/usr/local/share", "/usr/share"]]  # ruff:ignore[os-path-join]
-
-    def _default_runtime_dir(self) -> str:
-        if sys.platform.startswith("openbsd"):
-            path = f"/tmp/run/user/{geteuid()}"  # ruff:ignore[hardcoded-temp-file]
-        elif sys.platform.startswith(("freebsd", "netbsd")):
-            path = f"/var/run/user/{geteuid()}"
-        else:
-            path = f"/run/user/{geteuid()}"
-        return self._temp_runtime_dir() if _runtime_dir_problem(path, missing_ok=False) else path
-
-    def _temp_runtime_dir(self) -> str:
-        # Another user can pre-create this predictable name, and XDG requires an owned runtime dir with mode 0700.
-        path = _temp_runtime_fallback()
-        with suppress(FileExistsError):
-            self._optionally_create_directory(path, private=True)
-        if problem := _runtime_dir_problem(path, missing_ok=not self.ensure_exists, check_mode=False):
-            msg = f"runtime directory {problem}; set XDG_RUNTIME_DIR instead"
-            raise PermissionError(msg)
-        # Earlier releases created this directory with the default 0755.
-        if self.ensure_exists:
-            Path(path).chmod(_RUNTIME_DIR_MODE)
-        return path
 
     @property
     def site_runtime_dir(self) -> str:
@@ -219,6 +209,72 @@ class _UnixDefaults(PlatformDirsABC):  # ruff:ignore[too-many-public-methods]
         else:
             path = "/run"
         return self._append_app_name_and_version(path, private=False)
+
+    def _default_runtime_dir(self) -> str:
+        if sys.platform.startswith("openbsd"):
+            path = f"/tmp/run/user/{geteuid()}"  # ruff:ignore[hardcoded-temp-file]  # fixed OpenBSD runtime directory
+        elif sys.platform.startswith(("freebsd", "netbsd")):
+            path = f"/var/run/user/{geteuid()}"
+        else:
+            path = f"/run/user/{geteuid()}"
+        return self._temp_runtime_dir() if _runtime_dir_problem(path, missing_ok=False) else path
+
+    def _temp_runtime_dir(self) -> str:
+        # Another user can pre-create this predictable name, and XDG requires an owned runtime dir with mode 0700.
+        path = _temp_runtime_fallback()
+        with suppress(FileExistsError):
+            self._optionally_create_directory(path, private=True)
+        if problem := _runtime_dir_problem(path, missing_ok=not self.ensure_exists, check_mode=False):
+            msg = f"runtime directory {problem}; set XDG_RUNTIME_DIR instead"
+            raise PermissionError(msg)
+        # Earlier releases created this directory with the default 0755.
+        if self.ensure_exists:
+            Path(path).chmod(_RUNTIME_DIR_MODE)
+        return path
+
+
+def _get_user_dirs_folder(key: str) -> str | None:
+    # Return directory from user-dirs.dirs config file.
+    #
+    # ``xdg-user-dirs-update`` writes shell assignments, so match each line like ``xdg-user-dir`` does and keep the last
+    # valid assignment to ``key``.
+    #
+    # See https://freedesktop.org/wiki/Software/xdg-user-dirs/.
+    user_dirs_config_path = Path(xdg_dir("XDG_CONFIG_HOME") or expand_user("~/.config")) / "user-dirs.dirs"
+    folder = None
+    try:
+        # the file holds raw path bytes, and surrogateescape round-trips undecodable ones like os.fsdecode
+        # Split only at LF: a CR inside a quoted Unix path is a literal filename byte, not a line ending.
+        with user_dirs_config_path.open(
+            encoding=sys.getfilesystemencoding(), errors="surrogateescape", newline="\n"
+        ) as stream:
+            for line in stream:
+                # Drop a CR that ends the line but keep the LF, so a backslash before it is not taken as ending the file.
+                if (entry := _USER_DIRS_LINE.match(_LINE_END_CR.sub("", line))) and entry["key"] == key:
+                    folder = _resolve_user_dirs_value(entry) or folder
+    except OSError:  # a missing or unreadable file leaves the defaults in place
+        return None
+    return folder
+
+
+def _resolve_user_dirs_value(entry: re.Match[str]) -> str | None:
+    value = entry["bare"] if entry["quoted"] is None else entry["quoted"]
+    if value == "$HOME" or value.startswith("$HOME/"):
+        # A home of / would give "//Desktop", which pathlib keeps as a distinct root.
+        prefix, value = expand_user("~").rstrip("/"), value.removeprefix("$HOME")
+    elif value.startswith("/"):
+        prefix = ""
+    else:
+        return None
+    # xdg-user-dirs-update backslash-escapes $, `, " and \ inside the quotes, and outside them the shell drops the
+    # backslash before any character.
+    value = (_VALUE_PATTERN if entry["quoted"] is not None else _BARE_VALUE_PATTERN).sub(r"\1", value)
+    return f"{prefix}{value}" or "/"
+
+
+def _temp_runtime_fallback() -> str:
+    # A temporary directory of / would give "//runtime-<uid>", which pathlib keeps as a distinct root.
+    return posixpath.join(gettempdir(), f"runtime-{geteuid()}")
 
 
 class Unix(XDGMixin, _UnixDefaults):
@@ -281,7 +337,7 @@ class Unix(XDGMixin, _UnixDefaults):
         if self._use_site:
             # XDGMixin.site_runtime_dir reads $XDG_RUNTIME_DIR, which belongs to the user who started the root process.
             return super(XDGMixin, self).site_runtime_dir
-        if not (path := _xdg_dir("XDG_RUNTIME_DIR")):
+        if not (path := xdg_dir("XDG_RUNTIME_DIR")):
             reason = "XDG_RUNTIME_DIR is not set"
         else:
             # Creating the missing levels follows whatever symlink sits at a parent, so check the parents first.
@@ -298,25 +354,6 @@ class Unix(XDGMixin, _UnixDefaults):
         _warn_once(f"{reason}, falling back to {(fallback := self._default_runtime_dir())}")
         return self._append_app_name_and_version(fallback, private=True)
 
-    def place_runtime_file(self, name: str | os.PathLike[str]) -> Path:
-        """Like :meth:`~platformdirs.api.PlatformDirsABC.place_runtime_file`.
-
-        Creates the runtime directory before checking it, so another user cannot create it in between.
-
-        :raises PermissionError: if the temporary fallback is a symlink, not a directory, owned by another user, or
-            missing right after its creation.
-
-        """
-
-        def created(lookup: PlatformDirsABC) -> Path:
-            lookup.ensure_exists = True
-            return lookup.user_runtime_path
-
-        return self._place_file(created, name)
-
-    def _find_runtime_files(self, name: str | os.PathLike[str]) -> Iterator[Path]:
-        return filter(_in_own_runtime_dir, super()._find_runtime_files(name))
-
     @property
     def user_bin_dir(self) -> str:
         """Bin directory tied to the user, or site equivalent when root with ``use_site_for_root``."""
@@ -326,13 +363,6 @@ class Unix(XDGMixin, _UnixDefaults):
     def user_fonts_dir(self) -> str:
         """Fonts directory tied to the user, ignoring ``$XDG_DATA_HOME`` when root with ``use_site_for_root``."""
         return super(XDGMixin, self).user_fonts_dir if self._use_site else super().user_fonts_dir
-
-    def _xdg_media_dir(self, env_var: str) -> str | None:
-        # The XDG_*_DIR variables and user-dirs.dirs belong to the user who started the root process.
-        return None if self._use_site else super()._xdg_media_dir(env_var)
-
-    def _user_media_dir(self, key: str, default: str) -> str:
-        return _expand_user(default) if self._use_site else super()._user_media_dir(key, default)
 
     @property
     def user_data_path(self) -> Path:
@@ -354,95 +384,35 @@ class Unix(XDGMixin, _UnixDefaults):
         """Applications path tied to the user, or the first site entry when root with ``use_site_for_root``."""
         return self.site_applications_path if self._use_site else super().user_applications_path
 
+    def place_runtime_file(self, name: str | os.PathLike[str]) -> Path:
+        """Like :meth:`~platformdirs.api.PlatformDirsABC.place_runtime_file`.
 
-_USER_DIRS_LINE: Final = re.compile(
-    r"""
-    [ \t]*(?P<key>\w+)[ \t]*=[ \t]*  # KEY=, blanks allowed around the key and after the =
-    (?:
-        "(?P<quoted>(?:[^"\\]|\\.)*)"  # a double-quoted value with backslash escapes, text after it ignored
-        |(?P<bare>[^"\s](?:[^ \t\n]|[ \t]+[^ \t\n\#])*)  # or an unquoted value; blanks join it only before a word
-                                                         # that starts no comment, and each run is matched once so
-                                                         # long runs stay linear
-    )
-    """,
-    re.VERBOSE,
-)
+        Creates the runtime directory before checking it, so another user cannot create it in between.
 
+        :param name: see :meth:`~platformdirs.api.PlatformDirsABC.place_runtime_file`.
 
-def _get_user_dirs_folder(key: str) -> str | None:
-    """Return directory from user-dirs.dirs config file.
+        :returns: the path of ``name`` under the user runtime directory.
 
-    ``xdg-user-dirs-update`` writes shell assignments, so match each line like ``xdg-user-dir`` does and keep the last
-    valid assignment to ``key``.
+        :raises PermissionError: if the temporary fallback is a symlink, not a directory, owned by another user, or
+            missing right after its creation.
 
-    See https://freedesktop.org/wiki/Software/xdg-user-dirs/.
+        """
 
-    """
-    config_home = _xdg_dir("XDG_CONFIG_HOME") or _expand_user("~/.config")
-    user_dirs_config_path = Path(config_home) / "user-dirs.dirs"
-    folder = None
-    try:
-        # the file holds raw path bytes, and surrogateescape round-trips undecodable ones like os.fsdecode
-        with user_dirs_config_path.open(encoding=sys.getfilesystemencoding(), errors="surrogateescape") as stream:
-            for line in stream:
-                if (entry := _USER_DIRS_LINE.match(line)) and entry["key"] == key:
-                    folder = _resolve_user_dirs_value(entry) or folder
-    except OSError:  # a missing or unreadable file leaves the defaults in place
-        return None
-    return folder
+        def created(lookup: PlatformDirsABC) -> Path:
+            lookup.ensure_exists = True
+            return lookup.user_runtime_path
 
+        return self._place_file(created, name)
 
-def _resolve_user_dirs_value(entry: re.Match[str]) -> str | None:
-    value = entry["bare"] if entry["quoted"] is None else entry["quoted"]
-    if value == "$HOME" or value.startswith("$HOME/"):
-        # A home of / would give "//Desktop", which pathlib keeps as a distinct root.
-        prefix, value = _expand_user("~").rstrip("/"), value.removeprefix("$HOME")
-    elif value.startswith("/"):
-        prefix = ""
-    else:
-        return None
-    if entry["quoted"] is not None:
-        # xdg-user-dirs-update backslash-escapes $, `, " and \ inside the quotes.
-        value = re.sub(r'\\([$`"\\])', r"\1", value)
-    return f"{prefix}{value}" or "/"
+    def _find_runtime_files(self, name: str | os.PathLike[str]) -> Iterator[Path]:
+        return filter(_in_own_runtime_dir, super()._find_runtime_files(name))
 
+    def _xdg_media_dir(self, env_var: str) -> str | None:
+        # The XDG_*_DIR variables and user-dirs.dirs belong to the user who started the root process.
+        return None if self._use_site else super()._xdg_media_dir(env_var)
 
-def _temp_runtime_fallback() -> str:
-    # A temporary directory of / would give "//runtime-<uid>", which pathlib keeps as a distinct root.
-    return posixpath.join(gettempdir(), f"runtime-{geteuid()}")
-
-
-def _in_own_runtime_dir(path: Path) -> bool:
-    # The lookup let a missing runtime directory pass, so another user may have created it since. The fallback goes
-    # first because a rejected XDG_RUNTIME_DIR, such as /tmp, contains it.
-    for base in (_temp_runtime_fallback(), _xdg_dir("XDG_RUNTIME_DIR")):
-        if base and path.is_relative_to(base):
-            return not _runtime_dir_problem(base, missing_ok=False, check_mode=False)
-    return True
-
-
-def _runtime_dir_problem(path: str, *, missing_ok: bool, check_mode: bool = True) -> str | None:
-    """Return why ``path`` fails the checks of Qt's ``checkXdgRuntimeDir``, or ``None`` if it passes.
-
-    A missing ``path`` passes under ``missing_ok``. A caller that then creates it or reads below it has to check again,
-    since another user can create it in between.
-
-    """
-    try:
-        # A trailing / or /. makes lstat follow a final symlink, while Path, which creates the directory, drops it.
-        info = os.lstat(str(Path(path)))
-    except FileNotFoundError:
-        return None if missing_ok else f"{path} is missing"
-    except OSError as error:
-        return f"{path} cannot be checked: {error.strerror}"
-    mode = info.st_mode & 0o777
-    checks = (
-        (stat.S_ISLNK(info.st_mode), "is a symlink"),
-        (not stat.S_ISDIR(info.st_mode), "is not a directory"),
-        (info.st_uid != (uid := geteuid()), f"is owned by uid {info.st_uid}, not {uid}"),
-        (check_mode and mode != _RUNTIME_DIR_MODE, f"has mode {mode:04o}, not {_RUNTIME_DIR_MODE:04o}"),
-    )
-    return next((f"{path} {problem}" for failed, problem in checks if failed), None)
+    def _user_media_dir(self, key: str, default: str) -> str:
+        return expand_user(default) if self._use_site else super()._user_media_dir(key, default)
 
 
 def _runtime_dir_parent_problem(path: str) -> str | None:
@@ -461,15 +431,34 @@ def _runtime_dir_parent_problem(path: str) -> str | None:
     return None
 
 
-def _warn_once(message: str) -> None:
-    # Each read of user_runtime_dir repeats the check, so a warning per read would flood long-running programs.
-    if message not in _WARNED:
-        _WARNED.add(message)
-        warnings.warn(message, RuntimeDirWarning, stacklevel=3)
+def _in_own_runtime_dir(path: Path) -> bool:
+    # The lookup let a missing runtime directory pass, so another user may have created it since. The fallback goes
+    # first because a rejected XDG_RUNTIME_DIR, such as /tmp, contains it.
+    for base in (_temp_runtime_fallback(), xdg_dir("XDG_RUNTIME_DIR")):
+        if base and path.is_relative_to(base):
+            return not _runtime_dir_problem(base, missing_ok=False, check_mode=False)
+    return True
 
 
-_WARNED: Final[set[str]] = set()
-_RUNTIME_DIR_MODE: Final = 0o700
+_USER_DIRS_LINE: Final[re.Pattern[str]] = re.compile(
+    r"""
+    [ \t]*(?P<key>\w+)[ \t]*=[ \t]*  # KEY=, blanks allowed around the key and after the =
+    (?:
+        "(?P<quoted>(?:[^"\\]|\\.)*)"  # a double-quoted value with backslash escapes, text after it ignored
+        |(?P<bare>(?:[^"\s\\]|\\.)(?:[^ \t\n\\]|\\.|\\\Z|[ \t]+(?:[^ \t\n\#\\]|\\.))*)  # or an unquoted value;
+                                                         # a backslash keeps the next character in the word, one that
+                                                         # ends the file stays as the shell keeps it, blanks join it
+                                                         # only before a word that starts no comment, and each run is
+                                                         # matched once so long runs stay linear
+    )
+    """,
+    re.VERBOSE,
+)
+
+
+_LINE_END_CR: Final[re.Pattern[str]] = re.compile(r"\r(?=\n?\Z)")
+_VALUE_PATTERN: Final[re.Pattern[str]] = re.compile(r'\\([$`"\\])')
+_BARE_VALUE_PATTERN: Final[re.Pattern[str]] = re.compile(r"\\(.)")
 
 
 __all__ = [

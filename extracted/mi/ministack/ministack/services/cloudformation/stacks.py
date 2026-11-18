@@ -7,12 +7,14 @@ CloudFormation stacks — async stack lifecycle (deploy, delete, update, diff).
 import asyncio
 import contextvars
 import copy
+import json
 import logging
 from contextlib import contextmanager
 
 from ministack.core.concurrency import run_reentrant
 from ministack.core.responses import get_region, new_uuid, now_iso, set_request_region
 
+from .custom_resource import _normalise_resource_properties
 from .engine import (
     _NO_VALUE,
     _evaluate_conditions,
@@ -161,8 +163,10 @@ CLIENT_REQUEST_TOKEN = contextvars.ContextVar("cfn_client_request_token", defaul
 
 
 def _add_event(stack_id, stack_name, logical_id, resource_type, status,
-               reason="", physical_id="", detailed_status=""):
-    """Record a stack event."""
+               reason="", physical_id="", detailed_status="", properties=None):
+    """Record a stack event; ``properties`` are the resolved template properties
+    the operation uses for the resource, reported as the event's ResourceProperties
+    in CloudFormation's wire form (every primitive a string)."""
     from ministack.services.cloudformation import _stack_events
     event = {
         "StackId": stack_id,
@@ -180,9 +184,38 @@ def _add_event(stack_id, stack_name, logical_id, resource_type, status,
         event["ClientRequestToken"] = token
     if detailed_status:
         event["DetailedStatus"] = detailed_status
+    if properties is not None:
+        event["ResourceProperties"] = json.dumps(
+            _mask_no_echo(_normalise_resource_properties(properties), _no_echo_values(stack_name, stack_id)),
+            separators=(",", ":"), default=str)
     if stack_id not in _stack_events:
         _stack_events[stack_id] = []
     _stack_events[stack_id].append(event)
+
+
+def _no_echo_values(stack_name, stack_id) -> list:
+    """The values of the stack's NoEcho parameters."""
+    from ministack.services.cloudformation import _stacks
+    stack = _stacks.get(stack_name)
+    if not stack or stack.get("StackId") != stack_id:
+        return []
+    return [str(p["ParameterValue"]) for p in stack.get("Parameters", [])
+            if p.get("NoEcho") and p.get("ParameterValue")]
+
+
+def _mask_no_echo(node, secrets):
+    """AWS shows a NoEcho parameter's value as **** in an event's ResourceProperties (capture 2026-11-18);
+    a value written in the template is shown as is."""
+    if not secrets:
+        return node
+    if isinstance(node, dict):
+        return {k: _mask_no_echo(v, secrets) for k, v in node.items()}
+    if isinstance(node, list):
+        return [_mask_no_echo(v, secrets) for v in node]
+    if isinstance(node, str):
+        for secret in secrets:
+            node = node.replace(secret, "****")
+    return node
 
 
 # The reasons AWS gives the events of an imported resource.
@@ -288,7 +321,7 @@ async def _revert_update(stack_id, stack_name, logical_id, rtype, physical_id,
     """Send an in-place update back to the previous properties through the
     type's update handler; ``record`` takes the attributes it answers."""
     _add_event(stack_id, stack_name, logical_id, rtype, "UPDATE_IN_PROGRESS",
-               physical_id=physical_id)
+               physical_id=physical_id, properties=previous_props)
     seed_token = _NAME_SEED.set((record or {}).get("_name_seed", ""))
     try:
         if _runs_on_worker_thread(rtype):
@@ -302,7 +335,7 @@ async def _revert_update(stack_id, stack_name, logical_id, rtype, physical_id,
     except Exception as exc:
         logger.error("Rollback update of %s failed: %s", logical_id, exc)
         _add_event(stack_id, stack_name, logical_id, rtype, "UPDATE_FAILED",
-                   str(exc), physical_id)
+                   str(exc), physical_id, properties=previous_props)
         raise
     finally:
         _NAME_SEED.reset(seed_token)
@@ -315,7 +348,7 @@ async def _revert_update(stack_id, stack_name, logical_id, rtype, physical_id,
             record["Attributes"] = {**record.get("Attributes", {}), **new_attrs}
     _mark_rolled_back(record)
     _add_event(stack_id, stack_name, logical_id, rtype, "UPDATE_COMPLETE",
-               physical_id=new_pid)
+               physical_id=new_pid, properties=previous_props)
 
 
 async def _continue_update_rollback_async(stack_name: str, stack_id: str,
@@ -536,7 +569,7 @@ async def _roll_back_operation(stack_name: str, stack_id: str, stack: dict,
             provisioned_resources.pop(logical_id, None)
             continue
         _add_event(stack_id, stack_name, logical_id, rtype,
-                   "DELETE_IN_PROGRESS", physical_id=pid)
+                   "DELETE_IN_PROGRESS", physical_id=pid, properties=res_props)
         try:
             if _runs_on_worker_thread(rtype):
                 await run_reentrant(
@@ -546,12 +579,12 @@ async def _roll_back_operation(stack_name: str, stack_id: str, stack: dict,
             else:
                 _delete_resource(rtype, pid, res_props, stack_name, logical_id)
             _add_event(stack_id, stack_name, logical_id, rtype,
-                       "DELETE_COMPLETE", physical_id=pid)
+                       "DELETE_COMPLETE", physical_id=pid, properties=res_props)
         except Exception as del_exc:
             logger.error("Rollback delete of %s failed: %s",
                          logical_id, del_exc)
             _add_event(stack_id, stack_name, logical_id, rtype,
-                       "DELETE_FAILED", str(del_exc), pid)
+                       "DELETE_FAILED", str(del_exc), pid, properties=res_props)
             if cleanup_phase:
                 provisioned_resources.pop(logical_id, None)
                 continue
@@ -863,6 +896,7 @@ async def _deploy_stack_async(stack_name: str, stack_id: str, template: dict,
         raw_props = res_def.get("Properties", {})
         update_attempt = None
         name_seed = ""
+        resolved_props = None
 
         try:
             # Resolve properties
@@ -902,7 +936,7 @@ async def _deploy_stack_async(stack_name: str, stack_id: str, template: dict,
 
             if logical_id not in imports:
                 _add_event(stack_id, stack_name, logical_id, resource_type,
-                           f"{status_prefix}_IN_PROGRESS")
+                           f"{status_prefix}_IN_PROGRESS", properties=resolved_props)
 
             # On stack update, route previously-provisioned resources through
             # the type's update handler when one exists; otherwise fall back
@@ -938,7 +972,8 @@ async def _deploy_stack_async(stack_name: str, stack_id: str, template: dict,
                     _add_event(stack_id, stack_name, logical_id, resource_type,
                                "UPDATE_IN_PROGRESS",
                                "Requested update requires the creation of a new "
-                               "physical resource; hence creating one.", old_pid)
+                               "physical resource; hence creating one.", old_pid,
+                               properties=resolved_props)
                 elif not refused:
                     update_attempt = (old_pid, new_tagged, old_tagged, old_attrs)
                 try:
@@ -984,7 +1019,7 @@ async def _deploy_stack_async(stack_name: str, stack_id: str, template: dict,
                          logical_id, resource_type, exc)
             _add_event(stack_id, stack_name, logical_id, resource_type,
                        "IMPORT_FAILED" if logical_id in imports else f"{status_prefix}_FAILED",
-                       str(exc))
+                       str(exc), properties=resolved_props)
             failed = True
             fail_reason = f"Resource {logical_id} failed: {exc}"
             failed_logical_id = logical_id
@@ -1017,7 +1052,8 @@ async def _deploy_stack_async(stack_name: str, stack_id: str, template: dict,
 
         if logical_id not in imports:
             _add_event(stack_id, stack_name, logical_id, resource_type,
-                       f"{status_prefix}_COMPLETE", physical_id=physical_id)
+                       f"{status_prefix}_COMPLETE", physical_id=physical_id,
+                       properties=resolved_props)
 
     resolved_outputs: list = []
     new_exports: dict = {}

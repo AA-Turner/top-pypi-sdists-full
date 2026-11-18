@@ -123,6 +123,7 @@ test_cases:
     output:
       changed: true
       rc: 0
+      reboot_required: false
       name: [nmap]
       state: present
     mocks:
@@ -285,6 +286,47 @@ test_cases:
           out: *xml_install_nmap
           err: ''
 
+  - id: install_allow_vendor_change
+    input:
+      name: nmap
+      state: present
+      allow_vendor_change: true
+    output:
+      changed: true
+      rc: 0
+    mocks:
+      run_command:
+        - command: *search_nmap
+          environ: *env
+          rc: 104
+          out: *xml_search_not_installed
+          err: ''
+        - command:
+            [/testbin/zypper, --non-interactive, --xmlout, --quiet, install, --type, package,
+             --auto-agree-with-licenses, --no-recommends, --allow-vendor-change, '--', +nmap]
+          environ: *env
+          rc: 0
+          out: *xml_install_nmap
+          err: ''
+
+  - id: update_all_allow_vendor_change
+    input:
+      name: '*'
+      state: latest
+      allow_vendor_change: true
+    output:
+      changed: true
+      rc: 0
+    mocks:
+      run_command:
+        - command:
+            [/testbin/zypper, --non-interactive, --xmlout, --quiet, update, --type, package,
+             --auto-agree-with-licenses, --no-recommends, --allow-vendor-change]
+          environ: *env
+          rc: 0
+          out: *xml_upgrade_vim
+          err: ''
+
   - id: install_recommends_true
     input:
       name: nmap
@@ -384,6 +426,71 @@ test_cases:
           environ: *env
           rc: 104
           out: *xml_search_not_installed
+          err: ''
+
+  # https://github.com/ansible-collections/community.general/issues/3138
+  - id: remove_wildcard_present
+    input:
+      name: nmap*
+      state: absent
+    output:
+      changed: true
+      rc: 0
+    mocks:
+      run_command:
+        - command: &search_nmap_glob
+            [/testbin/zypper, --non-interactive, --xmlout, --quiet, --disable-repositories, search,
+             --type, package, --details, --installed-only, nmap*]
+          environ: *env
+          rc: 0
+          out: *xml_search_nmap_installed
+          err: ''
+        - command: [/testbin/zypper, --non-interactive, --xmlout, --quiet, remove, --type, package, nmap*]
+          environ: *env
+          rc: 0
+          out: *xml_remove_nmap
+          err: ''
+
+  - id: remove_wildcard_already_absent
+    input:
+      name: nmap*
+      state: absent
+    output:
+      changed: false
+      rc: 0
+    mocks:
+      run_command:
+        - command: *search_nmap_glob
+          environ: *env
+          rc: 104
+          out: *xml_search_not_installed
+          err: ''
+
+  - id: remove_wildcard_and_exact_name
+    input:
+      name: [vim, nmap*]
+      state: absent
+    output:
+      changed: true
+      rc: 0
+    mocks:
+      run_command:
+        - command:
+            [/testbin/zypper, --non-interactive, --xmlout, --quiet, --disable-repositories, search,
+             --type, package, --match-exact, --details, --installed-only, vim]
+          environ: *env
+          rc: 104
+          out: *xml_search_not_installed
+          err: ''
+        - command: *search_nmap_glob
+          environ: *env
+          rc: 0
+          out: *xml_search_nmap_installed
+          err: ''
+        - command: [/testbin/zypper, --non-interactive, --xmlout, --quiet, remove, --type, package, nmap*]
+          environ: *env
+          rc: 0
+          out: *xml_remove_nmap
           err: ''
 
   # ---------------------------------------------------------------- extra_args
@@ -507,6 +614,7 @@ test_cases:
       changed: true
       failed: false
       rc: 102
+      reboot_required: true
     mocks:
       run_command:
         - command: *update_all
@@ -525,6 +633,7 @@ test_cases:
       changed: true
       failed: false
       rc: 102
+      reboot_required: true
     mocks:
       run_command:
         - command:
@@ -669,6 +778,7 @@ test_cases:
     output:
       changed: true
       rc: 0
+      reboot_required: true
     mocks:
       run_command:
         # transactional-update before 5.5.0 returns 0 although the search found nothing (zypper rc 104)
@@ -681,6 +791,29 @@ test_cases:
           environ: *env
           rc: 0
           out: *xml_install_wget
+          err: ''
+
+  - id: transactional_package_already_installed
+    input:
+      name: wget
+      state: present
+    output:
+      changed: false
+      reboot_required: false
+    mocks:
+      run_command:
+        - command: *tu_search_wget
+          environ: *env
+          rc: 0
+          out: |
+            <?xml version='1.0'?>
+            <stream>
+            <search-result version="0.0">
+            <solvable-list>
+            <solvable status="installed" name="wget" kind="package" edition="1.21.4-1.1" arch="x86_64" repository="(System Packages)"/>
+            </solvable-list>
+            </search-result>
+            </stream>
           err: ''
 
   # https://github.com/ansible-collections/community.general/issues/9011

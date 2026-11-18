@@ -6,7 +6,11 @@ from typing import TYPE_CHECKING, Final, TypeVar
 from zipfile import ZipFile
 
 import pytest
+from packaging.requirements import Requirement
 from tox.config.sets import CoreConfigSet
+from tox.tox_env.errors import Recreate
+from tox.tox_env.package import Package
+from tox.tox_env.python.virtual_env.package.cmd_builder import VenvCmdBuilder
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -22,6 +26,37 @@ _BROKEN_VENV_BIN: Final[str] = "bin" if sys.platform != "win32" else "Scripts"
 _BROKEN_VENV_EXECUTABLES: Final[tuple[str, ...]] = (
     ("python", "python3") if sys.platform != "win32" else ("python.exe", "pythonw.exe")
 )
+
+
+@pytest.mark.parametrize("package", [pytest.param("wheel", id="wheel"), pytest.param("sdist", id="sdist")])
+def test_uv_install_built_package_in_path_with_hash(
+    tox_project: ToxProjectCreator, demo_pkg_setuptools: Path, tmp_path: Path, package: str
+) -> None:
+    project = tox_project(
+        {"tox.ini": f'[testenv]\npackage = {package}\ncommands = python -c "import demo_pkg_setuptools"'},
+        base=demo_pkg_setuptools,
+        prj_path=tmp_path / "project#test",
+    )
+
+    project.run().assert_success()
+
+
+def test_uv_install_external_package_from_relative_glob(
+    tox_project: ToxProjectCreator, demo_pkg_setuptools: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # tox before 4.67.13 hands the package_glob match over unresolved, relative to the working directory
+    monkeypatch.setattr(VenvCmdBuilder, "_package_glob_relative_to_tox_root", lambda _, value: value)
+    ini = """
+    [testenv]
+    package = external
+    commands = python -c "import demo_pkg_setuptools"
+    [testenv:.pkg_external]
+    deps = build
+    commands = python -m build --wheel --outdir dist .
+    package_glob = dist/*.whl
+    """
+
+    tox_project({"tox.ini": dedent(ini)}, base=demo_pkg_setuptools).run().assert_success()
 
 
 def test_uv_install_in_ci_list(tox_project: ToxProjectCreator, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -418,6 +453,49 @@ version = "0.1.0"
     assert "uv cannot install" in result.out
 
 
+def test_uv_install_requirement_argument(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage=skip"})
+    execute_calls = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    result = project.run("-vv")
+    result.assert_success()
+
+    result.state.envs["py"].installer.install([Requirement("packaging>=20")], "test", "deps")
+    assert any("packaging>=20" in call.args[3].cmd for call in execute_calls.call_args_list)
+
+
+def test_uv_install_unknown_package(tox_project: ToxProjectCreator, capfd: pytest.CaptureFixture[str]) -> None:
+    result = tox_project({"tox.ini": "[testenv]\npackage=skip"}).run("-vv")
+    result.assert_success()
+
+    with pytest.raises(SystemExit, match="1"):
+        result.state.envs["py"].installer.install([Package()], "test", "pkg")
+    assert "uv install <tox.tox_env.package.Package object" in capfd.readouterr().out
+
+
+def test_uv_install_removed_requirement_recreates(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ndeps=packaging>=20"})
+    project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    result = project.run("-vv")
+    result.assert_success()
+    installer = result.state.envs["py"].installer
+    installer.install([Requirement("packaging>=20")], "test", "deps")
+    with pytest.raises(Recreate, match="dependencies removed: packaging>=20"):
+        installer.install([], "test", "deps")
+
+
+def test_uv_install_removed_requirement_clears_environment(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage=skip\ndeps=packaging>=20"})
+    project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+    project.run("-vv").assert_success()
+    obsolete_package = project.path / ".tox" / "py" / "obsolete-package"
+    obsolete_package.write_text("installed with the removed requirement")
+
+    result = project.run("-vv", "-x", "testenv.deps=")
+    result.assert_success()
+    assert "requirements removed: packaging>=20" in result.out
+    assert not obsolete_package.exists()
+
+
 @pytest.mark.parametrize(
     ("initial_setenv", "changed_setenv", "expected_installs"),
     [
@@ -560,3 +638,20 @@ def test_uv_install_workspace_source_any_spelling(
     install_calls = [call[0][3].cmd[2:] for call in execute_calls.call_args_list if "install" in call[0][3].run_id]
     assert install_calls[0] == ["install", "--reinstall", "-e", "."]
     assert not any(dependency in cmd for cmd in install_calls)
+
+
+def test_uv_install_wheel_without_pyproject(tox_project: ToxProjectCreator, tmp_path: Path) -> None:
+    wheel = tmp_path / "demo_root-0.1.0-py3-none-any.whl"
+    with ZipFile(wheel, "w") as zip_file:
+        zip_file.writestr(
+            "demo_root-0.1.0.dist-info/METADATA",
+            "Metadata-Version: 2.1\nName: demo-root\nVersion: 0.1.0\nRequires-Dist: packaging>=20\n",
+        )
+    project = tox_project({"tox.ini": "[testenv]\n"})
+    execute_calls = project.patch_execute(lambda request: 0 if "install" in request.run_id else None)
+
+    project.run("r", "--installpkg", str(wheel)).assert_success()
+
+    install_calls = [call.args[3].cmd[2:] for call in execute_calls.call_args_list if "install" in call.args[3].run_id]
+    assert ["install", "packaging>=20"] in install_calls
+    assert ["install", "--reinstall", "--no-deps", f"demo-root@{wheel.as_uri()}"] in install_calls

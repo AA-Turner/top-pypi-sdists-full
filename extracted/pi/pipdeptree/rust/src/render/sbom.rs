@@ -29,7 +29,7 @@ pub(super) fn render(graph: &Graph, options: &Options) -> Result<Vec<u8>, Error>
         let package = &graph.nodes[index].package;
         let mut component = package_component(package)?;
         let reference = component.bom_ref.clone().expect("package has a reference");
-        let mut properties = component.properties.take().map_or_else(Vec::new, |p| p.0);
+        let mut properties = component.properties.take().map_or_default(|props| props.0);
         let mut children = BTreeSet::new();
         for dependency in graph.expanded_children(index) {
             let child = if let Some(target) = dependency.target {
@@ -76,6 +76,7 @@ pub(super) fn render(graph: &Graph, options: &Options) -> Result<Vec<u8>, Error>
         dependencies.push(BomDependency {
             dependency_ref: reference,
             dependencies: children.into_iter().collect(),
+            provides: Vec::new(),
         });
     }
     let bom = Bom {
@@ -96,7 +97,7 @@ pub(super) fn render(graph: &Graph, options: &Options) -> Result<Vec<u8>, Error>
         ..Bom::default()
     };
     let mut output = Vec::new();
-    bom.output_as_json_v1_5(&mut output)
+    bom.output_as_json(&mut output, SpecVersion::V1_5)
         .expect("CycloneDX 1.5 model can be serialized to memory");
     // The library omits empty dependsOn arrays. An explicit empty array distinguishes known
     // leaves from missing distributions, whose dependency graph is unknown and has no entry.
@@ -202,10 +203,7 @@ fn licenses(package: &Package) -> Option<Licenses> {
         let license = package.license();
         if license != "(N/A)" {
             licenses.push(LicenseChoice::license(
-                license
-                    .strip_prefix('(')
-                    .and_then(|value| value.strip_suffix(')'))
-                    .unwrap_or(&license),
+                license.strip_circumfix('(', ')').unwrap_or(&license),
             ));
         }
     }

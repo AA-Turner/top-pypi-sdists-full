@@ -74,6 +74,7 @@ dependencies = [
 
     # Tree Sitter is used for language/AST-aware parsing of Python, C and other files.
     "tree-sitter == 0.25.2",
+    "tree-sitter-ada == 0.9.1",
     "tree-sitter-c",
     "tree_sitter_cpp",
     "tree-sitter-python",
@@ -97,7 +98,7 @@ dependencies = [
 
     # ReqIF
     # @relation(SDOC-SRS-73, scope=line)
-    "reqif >= 0.1.0, == 0.1.*",
+    "reqif >= 0.1.1, == 0.1.*",
 
     # SPDX
     "spdx-tools >= 0.8.5",
@@ -167,6 +168,7 @@ check = [
 
     # Unit tests
     "pytest>=6.2.2",
+    "pytest-rerunfailures",
     # Pytest fixture that provides fake file system for testing code that
     # accesses file systems.
     "pyfakefs>=4.5.5",
@@ -189,7 +191,7 @@ check = [
     # Pinned exactly (narrower than the project's own ">=6.5.0, ==6.*") to
     # keep the HTML2PDF integration tests validated against a known-good
     # pypdf release; text-extraction behavior has changed across 6.x.
-    "pypdf==6.16.1",
+    "pypdf==6.21.4",
 
     # End2end tests.
     # A bare "seleniumbase" leads uv's resolver into an ancient 1.x branch

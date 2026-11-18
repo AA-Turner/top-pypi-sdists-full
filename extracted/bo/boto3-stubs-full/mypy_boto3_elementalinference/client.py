@@ -29,6 +29,9 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListDictionariesPaginator,
     ListFeedsPaginator,
+    ListFunctionsPaginator,
+    ListQuestionSetsPaginator,
+    ListQuestionSetVersionsPaginator,
     ListScheduleActionsPaginator,
     SearchFixturesPaginator,
 )
@@ -39,6 +42,12 @@ from .type_defs import (
     CreateDictionaryResponseTypeDef,
     CreateFeedRequestTypeDef,
     CreateFeedResponseTypeDef,
+    CreateFunctionRequestTypeDef,
+    CreateFunctionResponseTypeDef,
+    CreateQuestionSetRequestTypeDef,
+    CreateQuestionSetResponseTypeDef,
+    CreateQuestionSetVersionRequestTypeDef,
+    CreateQuestionSetVersionResponseTypeDef,
     CreateScheduleActionRequestTypeDef,
     CreateScheduleActionResponseTypeDef,
     DeleteDictionaryRequestTypeDef,
@@ -46,6 +55,11 @@ from .type_defs import (
     DeleteFeedPolicyRequestTypeDef,
     DeleteFeedRequestTypeDef,
     DeleteFeedResponseTypeDef,
+    DeleteFunctionRequestTypeDef,
+    DeleteFunctionResponseTypeDef,
+    DeleteQuestionSetRequestTypeDef,
+    DeleteQuestionSetResponseTypeDef,
+    DeleteQuestionSetVersionRequestTypeDef,
     DeleteScheduleActionRequestTypeDef,
     DeleteScheduleActionResponseTypeDef,
     DisassociateFeedRequestTypeDef,
@@ -61,10 +75,20 @@ from .type_defs import (
     GetFeedResponseTypeDef,
     GetFixtureRequestTypeDef,
     GetFixtureResponseTypeDef,
+    GetFunctionRequestTypeDef,
+    GetFunctionResponseTypeDef,
+    GetQuestionSetRequestTypeDef,
+    GetQuestionSetResponseTypeDef,
     ListDictionariesRequestTypeDef,
     ListDictionariesResponseTypeDef,
     ListFeedsRequestTypeDef,
     ListFeedsResponseTypeDef,
+    ListFunctionsRequestTypeDef,
+    ListFunctionsResponseTypeDef,
+    ListQuestionSetsRequestTypeDef,
+    ListQuestionSetsResponseTypeDef,
+    ListQuestionSetVersionsRequestTypeDef,
+    ListQuestionSetVersionsResponseTypeDef,
     ListScheduleActionsRequestTypeDef,
     ListScheduleActionsResponseTypeDef,
     ListTagsForResourceRequestTypeDef,
@@ -78,6 +102,10 @@ from .type_defs import (
     UpdateDictionaryResponseTypeDef,
     UpdateFeedRequestTypeDef,
     UpdateFeedResponseTypeDef,
+    UpdateFunctionRequestTypeDef,
+    UpdateFunctionResponseTypeDef,
+    UpdateQuestionSetRequestTypeDef,
+    UpdateQuestionSetResponseTypeDef,
 )
 from .waiter import FeedDeletedWaiter
 
@@ -166,6 +194,36 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_feed)
         """
 
+    def create_function(
+        self, **kwargs: Unpack[CreateFunctionRequestTypeDef]
+    ) -> CreateFunctionResponseTypeDef:
+        """
+        Creates a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_function.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_function)
+        """
+
+    def create_question_set(
+        self, **kwargs: Unpack[CreateQuestionSetRequestTypeDef]
+    ) -> CreateQuestionSetResponseTypeDef:
+        """
+        Creates a question set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_question_set.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_question_set)
+        """
+
+    def create_question_set_version(
+        self, **kwargs: Unpack[CreateQuestionSetVersionRequestTypeDef]
+    ) -> CreateQuestionSetVersionResponseTypeDef:
+        """
+        Publishes the DRAFT version of the specified question set as a new version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/create_question_set_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#create_question_set_version)
+        """
+
     def create_schedule_action(
         self, **kwargs: Unpack[CreateScheduleActionRequestTypeDef]
     ) -> CreateScheduleActionResponseTypeDef:
@@ -202,6 +260,37 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_feed_policy.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_feed_policy)
+        """
+
+    def delete_function(
+        self, **kwargs: Unpack[DeleteFunctionRequestTypeDef]
+    ) -> DeleteFunctionResponseTypeDef:
+        """
+        Deletes a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_function.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_function)
+        """
+
+    def delete_question_set(
+        self, **kwargs: Unpack[DeleteQuestionSetRequestTypeDef]
+    ) -> DeleteQuestionSetResponseTypeDef:
+        """
+        Deletes the specified question set, including its DRAFT version and all its
+        published versions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_question_set.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_question_set)
+        """
+
+    def delete_question_set_version(
+        self, **kwargs: Unpack[DeleteQuestionSetVersionRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes a published version of the specified question set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/delete_question_set_version.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#delete_question_set_version)
         """
 
     def delete_schedule_action(
@@ -271,6 +360,28 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_fixture)
         """
 
+    def get_function(
+        self, **kwargs: Unpack[GetFunctionRequestTypeDef]
+    ) -> GetFunctionResponseTypeDef:
+        """
+        Retrieves the details of a function, including its expressions, the media
+        context that Elemental Inference derived from the request expression, and the
+        feeds that currently reference it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_function.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_function)
+        """
+
+    def get_question_set(
+        self, **kwargs: Unpack[GetQuestionSetRequestTypeDef]
+    ) -> GetQuestionSetResponseTypeDef:
+        """
+        Retrieves information about the specified question set at one version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_question_set.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_question_set)
+        """
+
     def list_dictionaries(
         self, **kwargs: Unpack[ListDictionariesRequestTypeDef]
     ) -> ListDictionariesResponseTypeDef:
@@ -287,6 +398,36 @@ class ElementalInferenceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_feeds.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_feeds)
+        """
+
+    def list_functions(
+        self, **kwargs: Unpack[ListFunctionsRequestTypeDef]
+    ) -> ListFunctionsResponseTypeDef:
+        """
+        Lists the functions in this account, in this Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_functions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_functions)
+        """
+
+    def list_question_set_versions(
+        self, **kwargs: Unpack[ListQuestionSetVersionsRequestTypeDef]
+    ) -> ListQuestionSetVersionsResponseTypeDef:
+        """
+        Lists the versions of the specified question set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_question_set_versions.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_question_set_versions)
+        """
+
+    def list_question_sets(
+        self, **kwargs: Unpack[ListQuestionSetsRequestTypeDef]
+    ) -> ListQuestionSetsResponseTypeDef:
+        """
+        Lists the question sets in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/list_question_sets.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#list_question_sets)
         """
 
     def list_schedule_actions(
@@ -368,6 +509,26 @@ class ElementalInferenceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#update_feed)
         """
 
+    def update_function(
+        self, **kwargs: Unpack[UpdateFunctionRequestTypeDef]
+    ) -> UpdateFunctionResponseTypeDef:
+        """
+        Updates a function.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/update_function.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#update_function)
+        """
+
+    def update_question_set(
+        self, **kwargs: Unpack[UpdateQuestionSetRequestTypeDef]
+    ) -> UpdateQuestionSetResponseTypeDef:
+        """
+        Updates the DRAFT version of the specified question set.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/update_question_set.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#update_question_set)
+        """
+
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_dictionaries"]
@@ -383,6 +544,39 @@ class ElementalInferenceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_feeds"]
     ) -> ListFeedsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_functions"]
+    ) -> ListFunctionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_question_set_versions"]
+    ) -> ListQuestionSetVersionsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/elementalinference/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_elementalinference/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_question_sets"]
+    ) -> ListQuestionSetsPaginator:
         """
         Create a paginator for an operation.
 

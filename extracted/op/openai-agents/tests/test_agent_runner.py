@@ -6,6 +6,7 @@ import logging
 import tempfile
 import warnings
 from collections.abc import Callable
+from contextlib import closing
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import patch
@@ -103,7 +104,7 @@ from agents.run_internal.session_persistence import (
 from agents.run_internal.tool_execution import execute_approved_tools
 from agents.run_internal.tool_use_tracker import AgentToolUseTracker
 from agents.run_state import RunState
-from agents.testing import ModelStep, ScriptedModel
+from agents.testing import ModelStep, ScriptedModel, assistant_message
 from agents.tool import ComputerTool, FunctionToolResult, HostedMCPTool, ShellTool, function_tool
 from agents.tool_context import ToolContext
 from agents.usage import Usage
@@ -2030,7 +2031,7 @@ async def test_parallel_tool_call_with_cancelled_sibling_reaches_final_output() 
         {"call_id": "call_ok", "output": "ok", "type": "function_call_output"},
         {
             "call_id": "call_cancel",
-            "output": ("An error occurred while running the tool. Please try again."),
+            "output": ("An error occurred while running the tool."),
             "type": "function_call_output",
         },
     ]
@@ -2067,7 +2068,7 @@ async def test_single_tool_call_with_cancelled_tool_reaches_final_output() -> No
     assert tool_outputs == [
         {
             "call_id": "call_cancel",
-            "output": ("An error occurred while running the tool. Please try again."),
+            "output": ("An error occurred while running the tool."),
             "type": "function_call_output",
         },
     ]
@@ -2372,8 +2373,12 @@ async def test_pre_approval_tool_input_guardrails_can_reject_before_pending_appr
     )
 
 
+@pytest.mark.parametrize("streamed", [False, True])
+@pytest.mark.parametrize("pre_approval", [False, True])
 @pytest.mark.asyncio
-async def test_pre_approval_tool_input_guardrails_rerun_after_resume() -> None:
+async def test_approved_tool_guardrail_results_survive_next_turn(
+    streamed: bool, pre_approval: bool
+) -> None:
     model = ScriptedModel()
     guardrail_runs = 0
     executed = 0
@@ -2382,12 +2387,17 @@ async def test_pre_approval_tool_input_guardrails_rerun_after_resume() -> None:
     def count_guardrail(_data: ToolInputGuardrailData) -> ToolGuardrailFunctionOutput:
         nonlocal guardrail_runs
         guardrail_runs += 1
-        return ToolGuardrailFunctionOutput.allow()
+        return ToolGuardrailFunctionOutput.allow(output_info=guardrail_runs)
+
+    @tool_output_guardrail
+    def record_output(data: ToolOutputGuardrailData) -> ToolGuardrailFunctionOutput:
+        return ToolGuardrailFunctionOutput.allow(output_info=data.context.tool_call_id)
 
     @function_tool(
         name_override="approval_tool",
         needs_approval=True,
         tool_input_guardrails=[count_guardrail],
+        tool_output_guardrails=[record_output],
     )
     def approval_tool() -> str:
         nonlocal executed
@@ -2402,25 +2412,39 @@ async def test_pre_approval_tool_input_guardrails_rerun_after_resume() -> None:
         ]
     )
     run_config = RunConfig(
-        tool_execution=ToolExecutionConfig(pre_approval_tool_input_guardrails=True)
+        tool_execution=ToolExecutionConfig(pre_approval_tool_input_guardrails=pre_approval)
     )
 
-    first = await Runner.run(agent, "hello", run_config=run_config)
+    first = await _run_agent_with_optional_streaming(
+        agent, input="hello", streamed=streamed, run_config=run_config
+    )
     assert len(first.interruptions) == 1
-    assert guardrail_runs == 1
+    assert guardrail_runs == int(pre_approval)
     assert executed == 0
-    assert len(first.tool_input_guardrail_results) == 1
+    assert len(first.tool_input_guardrail_results) == int(pre_approval)
 
     state = first.to_state()
     state.approve(first.interruptions[0])
     restored_state = await RunState.from_string(agent, state.to_string())
 
-    resumed = await Runner.run(agent, restored_state, run_config=run_config)
+    resumed = await _run_agent_with_optional_streaming(
+        agent, input=restored_state, streamed=streamed, run_config=run_config
+    )
 
     assert resumed.final_output == "done"
-    assert guardrail_runs == 2
+    expected_inputs = [1, 2] if pre_approval else [1]
+    assert guardrail_runs == len(expected_inputs)
     assert executed == 1
-    assert len(resumed.tool_input_guardrail_results) == 1
+    assert [r.output.output_info for r in resumed.tool_input_guardrail_results] == expected_inputs
+    assert [r.output.output_info for r in resumed.tool_output_guardrail_results] == ["call_resume"]
+
+    checkpoint = resumed.to_state().to_json()
+    assert [
+        r["output"]["outputInfo"] for r in checkpoint["tool_input_guardrail_results"]
+    ] == expected_inputs
+    assert [r["output"]["outputInfo"] for r in checkpoint["tool_output_guardrail_results"]] == [
+        "call_resume"
+    ]
 
 
 @pytest.mark.asyncio
@@ -3419,6 +3443,63 @@ async def test_prepare_input_with_session_keeps_orphan_output_without_limit():
 
     assert prepared_input == [history_item, {"role": "user", "content": "hello"}]
     assert session_items == [{"role": "user", "content": "hello"}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("streamed", [False, True])
+async def test_limited_session_replays_boundary_answer_by_value(streamed: bool) -> None:
+    model = ScriptedModel()
+    agent = Agent(name="test", model=model)
+    with closing(SQLiteSession("reasoning-window")) as session:
+        for turn in (1, 2):
+            model.enqueue(
+                [
+                    ResponseReasoningItem(id=f"rs_{turn}", type="reasoning", summary=[]),
+                    assistant_message(f"answer {turn}", item_id=f"msg_{turn}"),
+                ]
+            )
+            await Runner.run(agent, f"question {turn}", session=session)
+
+        stored = await session.get_items()
+        model.enqueue([assistant_message("done")])
+        config = RunConfig(session_settings=SessionSettings(limit=4))
+        if streamed:
+            result = Runner.run_streamed(agent, "continue", session=session, run_config=config)
+            async for _ in result.stream_events():
+                pass
+        else:
+            await Runner.run(agent, "continue", session=session, run_config=config)
+
+        boundary = dict(stored[-4])
+        assert boundary.pop("id") == "msg_1"
+        assert model.calls[-1].input == [
+            boundary,
+            *stored[-3:],
+            {"role": "user", "content": "continue"},
+        ]
+        assert (await session.get_items())[: len(stored)] == stored
+
+
+@pytest.mark.asyncio
+async def test_limited_session_custom_callback_owns_boundary_message_ids() -> None:
+    model = ScriptedModel()
+    agent = Agent(name="test", model=model)
+    with closing(SQLiteSession("callback-window")) as session:
+        model.enqueue([assistant_message("answer", item_id="msg_original")])
+        await Runner.run(agent, "question", session=session)
+        stored_answer = (await session.get_items())[-1]
+
+        model.enqueue([assistant_message("done")])
+        await Runner.run(
+            agent,
+            "continue",
+            session=session,
+            run_config=RunConfig(
+                session_settings=SessionSettings(limit=1),
+                session_input_callback=lambda history, new: history + new,
+            ),
+        )
+        assert model.calls[-1].input == [stored_answer, {"role": "user", "content": "continue"}]
 
 
 @pytest.mark.asyncio

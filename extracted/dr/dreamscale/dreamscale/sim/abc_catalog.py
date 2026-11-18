@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 REPOSITORY = "amazon-far/abc"
 # The commit the ABC-VLA family pins (abc-vla-yam's upstream_revision).

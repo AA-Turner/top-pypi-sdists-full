@@ -138,41 +138,48 @@ def _normalize_bare_skill_slug(slug: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _collect_apm_components(apm_dir: Path) -> list[tuple[Path, str]]:
+def _collect_apm_components(
+    apm_dir: Path, *, skipped_links: list[Path] | None = None
+) -> list[tuple[Path, str]]:
     """Collect all components from a package's ``.apm/`` directory.
 
     Returns a list of ``(source_abs, output_rel_posix)`` tuples using the
-    APM → plugin mapping table.
+    APM → plugin mapping table. Symlinked source files are never packed;
+    pass *skipped_links* to receive them for a visible warning.
     """
     components: list[tuple[Path, str]] = []
     if not apm_dir.is_dir():
         return components
 
     # agents/ -> agents/
-    _collect_flat(apm_dir / "agents", "agents", components)
+    _collect_flat(apm_dir / "agents", "agents", components, skipped=skipped_links)
 
     # skills/ -> skills/ (preserve sub-directory structure)
-    _collect_recursive(apm_dir / "skills", "skills", components)
+    _collect_recursive(apm_dir / "skills", "skills", components, skipped=skipped_links)
 
     # prompts/ -> commands/ (rename .prompt.md -> .md)
-    _collect_recursive(apm_dir / "prompts", "commands", components, rename=_rename_prompt)
+    _collect_recursive(
+        apm_dir / "prompts", "commands", components, rename=_rename_prompt, skipped=skipped_links
+    )
 
     # instructions/ -> instructions/
-    _collect_recursive(apm_dir / "instructions", "instructions", components)
+    _collect_recursive(apm_dir / "instructions", "instructions", components, skipped=skipped_links)
 
     # commands/ -> commands/
-    _collect_recursive(apm_dir / "commands", "commands", components)
+    _collect_recursive(apm_dir / "commands", "commands", components, skipped=skipped_links)
 
     # extensions/ -> extensions/ (canvas extensions, experimental Copilot-only).
     # Preserved verbatim so an offline bundle can carry a canvas; the files are
     # inert until the consumer enables the ``canvas`` experimental flag AND
     # approves the package via allowExecutables / ``apm approve`` at install time.
-    _collect_recursive(apm_dir / "extensions", "extensions", components)
+    _collect_recursive(apm_dir / "extensions", "extensions", components, skipped=skipped_links)
 
     return components
 
 
-def _collect_root_plugin_components(project_root: Path) -> list[tuple[Path, str]]:
+def _collect_root_plugin_components(
+    project_root: Path, *, skipped_links: list[Path] | None = None
+) -> list[tuple[Path, str]]:
     """Collect plugin-native components authored at root level.
 
     Packages that already follow the plugin directory convention (``agents/``,
@@ -182,7 +189,7 @@ def _collect_root_plugin_components(project_root: Path) -> list[tuple[Path, str]
     for dir_name in PLUGIN_ROOT_DIRS:
         if dir_name == "hooks":
             continue
-        _collect_recursive(project_root / dir_name, dir_name, components)
+        _collect_recursive(project_root / dir_name, dir_name, components, skipped=skipped_links)
     return components
 
 
@@ -192,6 +199,23 @@ def _emit_pack_warning(message: str, logger=None) -> None:
         logger.warning(message)
     else:
         _rich_warning(message, symbol="warning")
+
+
+def _warn_skipped_source_links(project_root: Path, links: list[Path], logger=None) -> None:
+    """Name each symlinked source file pack dropped, matching own-project install.
+
+    Package sources are not followed through symlinks (own-source link
+    expansion was declined); the warning keeps the drop visible.
+    """
+    for link in links:
+        # Resolve only the parent: the link itself must be named, not its target.
+        relative = f"{portable_relpath(link.parent, project_root)}/{link.name}"
+        _emit_pack_warning(
+            f"Skipped symlinked source file {relative}: "
+            "apm pack does not follow symlinks in package sources. Replace it with "
+            "a regular file to ship it.",
+            logger,
+        )
 
 
 def _warn_skipped_root_components(project_root: Path, logger=None) -> None:
@@ -262,17 +286,25 @@ def _collect_bare_skill(
 # -- low-level walkers -------------------------------------------------------
 
 
+def _record_skipped_link(path: Path, skipped: list[Path] | None) -> None:
+    """Record a symlinked source file the walkers will not pack."""
+    if skipped is not None and path.is_symlink() and not path.is_dir():
+        skipped.append(path)
+
+
 def _collect_flat(
     src_dir: Path,
     output_prefix: str,
     out: list[tuple[Path, str]],
     *,
     rename=None,
+    skipped: list[Path] | None = None,
 ) -> None:
     """Add every regular non-symlink file directly inside *src_dir*."""
     if src_dir.is_symlink() or not src_dir.is_dir():
         return
     for f in sorted(src_dir.iterdir()):
+        _record_skipped_link(f, skipped)
         if f.is_file() and not f.is_symlink():
             name = rename(f.name) if rename else f.name
             out.append((f, f"{output_prefix}/{name}"))
@@ -284,11 +316,13 @@ def _collect_recursive(
     out: list[tuple[Path, str]],
     *,
     rename=None,
+    skipped: list[Path] | None = None,
 ) -> None:
     """Add every regular non-symlink file under *src_dir*, preserving hierarchy."""
     if src_dir.is_symlink() or not src_dir.is_dir():
         return
     for f in sorted(src_dir.rglob("*")):
+        _record_skipped_link(f, skipped)
         if not f.is_file() or f.is_symlink():
             continue
         rel = f.relative_to(src_dir)
@@ -480,6 +514,44 @@ def _has_marketplace_block(apm_yml_path: Path) -> bool:
     except (OSError, yaml.YAMLError):
         return False
     return bool(data.get("marketplace"))
+
+
+def _reconcile_plugin_json_version(
+    plugin_json: dict,
+    pkg_version: str,
+    *,
+    source_label: str = "plugin.json",
+    logger=None,
+) -> dict:
+    """Force the bundled ``plugin_json["version"]`` to the ``apm.yml`` version.
+
+    The bundle directory is named ``<name>-<version>`` from ``apm.yml``, so a
+    disk-first ``plugin.json`` that still carries an older release's version
+    would ship a self-contradicting bundle: ``build/pkg-1.0.3/plugin.json``
+    declaring ``1.0.2`` (#3351). Only the bundle copy changes; the authored
+    source file is never rewritten. A conflicting authored version warns
+    (naming ``source_label``) so the author can fix it; an absent one is
+    filled silently because nothing contradicts ``apm.yml``.
+
+    Returns a new dict; the input is not mutated.
+    """
+    result = dict(plugin_json)
+    authored_version = result.get("version")
+    if authored_version == pkg_version:
+        return result
+    result["version"] = pkg_version
+    if authored_version is None:
+        return result
+    msg = (
+        f"{source_label} declares version {authored_version} but apm.yml declares "
+        f"{pkg_version}; the bundled plugin.json uses {pkg_version}. "
+        f"Update the version in {source_label} to match apm.yml."
+    )
+    if logger:
+        logger.warning(msg)
+    else:
+        _rich_warning(msg)
+    return result
 
 
 def _update_plugin_json_paths(plugin_json: dict, output_files: list[str], logger=None) -> dict:
@@ -876,6 +948,19 @@ def export_plugin_bundle(
         suppress_missing_warning=_has_marketplace_block(apm_yml_path),
         logger=logger,
     )
+    from ..utils.helpers import find_plugin_json
+
+    authored_manifest = find_plugin_json(project_root)
+    plugin_json = _reconcile_plugin_json_version(
+        plugin_json,
+        pkg_version,
+        source_label=(
+            portable_relpath(authored_manifest, project_root)
+            if authored_manifest is not None
+            else "plugin.json"
+        ),
+        logger=logger,
+    )
 
     # 4. devDependencies filtering
     dev_dep_urls = _get_dev_dependency_urls(apm_yml_path)
@@ -965,14 +1050,18 @@ def export_plugin_bundle(
             documents=hook_documents,
         )
     else:
-        own_components = _collect_apm_components(own_apm_dir)
+        skipped_links: list[Path] = []
+        own_components = _collect_apm_components(own_apm_dir, skipped_links=skipped_links)
         root_hooks = _collect_hooks_from_apm(own_apm_dir, documents=hook_documents)
         if own_apm_dir.is_dir():
             _warn_skipped_root_components(project_root, logger)
         else:
-            own_components.extend(_collect_root_plugin_components(project_root))
+            own_components.extend(
+                _collect_root_plugin_components(project_root, skipped_links=skipped_links)
+            )
             root_hooks_top = _collect_hooks_from_root(project_root, documents=hook_documents)
             _deep_merge(root_hooks, root_hooks_top, overwrite=False)
+        _warn_skipped_source_links(project_root, skipped_links, logger)
 
     hook_resources = PluginHookResources(
         project_root,

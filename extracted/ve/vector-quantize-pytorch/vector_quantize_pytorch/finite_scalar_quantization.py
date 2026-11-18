@@ -11,12 +11,13 @@ from typing import List, Tuple
 import torch
 import torch.nn as nn
 from torch.nn import Module
-from torch import tensor, Tensor, int32, tanh, atanh, clamp
+from torch import tensor, Tensor, int32, int64, tanh, atanh, clamp
 from torch.amp import autocast
 
 import einx
 from einops import rearrange, pack, unpack
 
+import math
 import random
 
 # helper functions
@@ -77,7 +78,8 @@ class FSQ(Module):
         preserve_symmetry = False,
         noise_dropout = 0.,
         bound_hard_clamp = False,                   # for residual fsq, if input is pre-softclamped to the right range
-        orthogonal_rotation = False                 # increase codebook utilization. ensure levels are symmetric! https://arxiv.org/abs/2307.13304v2
+        orthogonal_rotation = False,                # increase codebook utilization. ensure levels are symmetric! https://arxiv.org/abs/2307.13304v2
+        materialize_codebook = True
     ):
         super().__init__()
 
@@ -89,7 +91,12 @@ class FSQ(Module):
         _levels = tensor(levels, dtype = int32)
         self.register_buffer('_levels', _levels, persistent = False)
 
-        _basis = torch.cumprod(tensor([1] + levels[:-1]), dim = 0, dtype = int32)
+        codebook_size = math.prod(levels)
+
+        assert codebook_size <= 2 ** 63, 'codebook indices do not fit in int64'
+
+        index_dtype = int64 if codebook_size > 2 ** 31 else int32
+        _basis = torch.cumprod(tensor([1] + levels[:-1]), dim = 0, dtype = index_dtype)
         self.register_buffer('_basis', _basis, persistent = False)
 
         self.scale = scale
@@ -120,10 +127,10 @@ class FSQ(Module):
         self.has_projections = has_projections
 
         self.return_indices = return_indices
+        self.codebook_size = codebook_size
 
         if return_indices:
-            self.codebook_size = self._levels.prod().item()
-            implicit_codebook = self._indices_to_codes(torch.arange(self.codebook_size))
+            implicit_codebook = self._indices_to_codes(torch.arange(codebook_size)) if materialize_codebook else None
             self.register_buffer('implicit_codebook', implicit_codebook, persistent = False)
 
         self.allowed_dtypes = allowed_dtypes
@@ -221,7 +228,8 @@ class FSQ(Module):
         """ Converts a `code` to an index in the codebook. """
         assert zhat.shape[-1] == self.codebook_dim
         zhat = self._scale_and_shift(zhat)
-        return (zhat * self._basis).sum(dim = -1).round().to(int32)
+        digits = zhat.round().to(self._basis.dtype)
+        return (digits * self._basis).sum(dim = -1, dtype = self._basis.dtype)
 
     def indices_to_codes(self, indices):
         """ Inverse of `codes_to_indices`. """

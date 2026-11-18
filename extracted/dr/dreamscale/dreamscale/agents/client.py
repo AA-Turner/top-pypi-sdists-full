@@ -3,7 +3,7 @@
 import asyncio
 
 import httpx
-from dreamscale_transport.llm import TurnResult
+from dreamscale_core.llm import TurnResult
 
 
 class Gateway:

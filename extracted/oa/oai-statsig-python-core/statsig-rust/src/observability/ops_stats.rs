@@ -242,6 +242,8 @@ impl OpsStats {
 
 #[derive(Clone)]
 pub enum OpsStatsEvent {
+    #[doc(hidden)]
+    IdListLoad(Arc<crate::id_lists_adapter::id_list_load_timing::IdListLoadSummary>),
     Observability(ObservabilityEvent),
     SDKError(ErrorBoundaryEvent),
     Diagnostics(DiagnosticsEvent),
@@ -447,12 +449,29 @@ impl OpsStatsForInstance {
         runtime: Arc<StatsigRuntime>,
         observer: Weak<dyn OpsStatsEventObserver>,
     ) {
+        self.subscribe_impl(runtime, observer, false);
+    }
+
+    pub(crate) fn subscribe_observability(
+        &self,
+        runtime: Arc<StatsigRuntime>,
+        observer: Weak<dyn OpsStatsEventObserver>,
+    ) {
+        self.subscribe_impl(runtime, observer, true);
+    }
+
+    fn subscribe_impl(
+        &self,
+        runtime: Arc<StatsigRuntime>,
+        observer: Weak<dyn OpsStatsEventObserver>,
+        offload_load_callbacks: bool,
+    ) {
         let Some(sender) = self.sender.as_ref() else {
             return;
         };
         let mut rx = sender.subscribe();
         let shutdown_notify = self.shutdown_notify.clone();
-        let _ = runtime.spawn("opts_stats_listen_for", |rt_shutdown_notify| async move {
+        let _ = runtime.spawn("opts_stats_listen_for", move |rt_shutdown_notify| async move {
             loop {
                 tokio::select! {
                     event = rx.recv() => {
@@ -462,7 +481,22 @@ impl OpsStatsForInstance {
                         };
 
                         if let Ok(event) = event {
-                            observer.handle_event(event).await;
+                            let offload = offload_load_callbacks && (
+                                matches!(&event, OpsStatsEvent::IdListLoad(_))
+                                || matches!(&event, OpsStatsEvent::Observability(data)
+                                    if data.metric_name.starts_with("lazy_id_list_load.")));
+                            if offload {
+                                // User callbacks may block. Yield the SDK worker so another
+                                // cold load can progress even with one runtime worker.
+                                // Await one export at a time: the existing bounded receiver
+                                // remains the queue, rather than creating unbounded jobs.
+                                let policy = crate::output_policy::OutputPolicy::current();
+                                let _ = tokio::task::spawn_blocking(move || {
+                                    policy.run(|| futures::executor::block_on(observer.handle_event(event)))
+                                }).await;
+                            } else {
+                                observer.handle_event(event).await;
+                            }
                         }
                     }
                     () = rt_shutdown_notify.notified() => {

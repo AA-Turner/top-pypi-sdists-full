@@ -9,8 +9,8 @@ import urllib.request
 from pathlib import Path
 
 import numpy as np
+from dreamscale_core.rho import RHO_MODELS, RHO_ROBOEVAL_MODEL_ID
 from dreamscale_transport.messages import BimanualEndEffectorState
-from dreamscale_transport.rho_checkpoints import RHO_CHECKPOINTS, RHO_ROBOEVAL_MODEL_ID
 
 from dreamscale.config import dreamscale_home
 from dreamscale.sim.native_runtime import NativeSimProcess, write_native_video
@@ -28,7 +28,7 @@ ROBOEVAL_WHEEL_SHA256 = "e74d77aa673e02808e66b8f07995359be4b418d83d0e2c2adfb25a1
 RUNTIME_ROOT = dreamscale_home() / "sim" / "roboeval" / ROBOEVAL_VERSION
 # Viewer window and --output-root video; the wheel pins the simulator stack itself.
 RUNTIME_REQUIREMENTS = ("opencv-python==4.11.0.86", "av>=15,<19")
-CHECKPOINT = RHO_CHECKPOINTS[RHO_ROBOEVAL_MODEL_ID]
+CHECKPOINT = RHO_MODELS[RHO_ROBOEVAL_MODEL_ID]
 
 
 def ensure_roboeval_runtime(*, root: Path = RUNTIME_ROOT, on_line=print) -> Path:

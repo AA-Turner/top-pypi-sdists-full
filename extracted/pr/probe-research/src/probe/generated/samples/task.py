@@ -135,7 +135,9 @@ class DatasetRow(BaseModel):
 
 
 class BlobRef(BaseModel):
-    """Text over 64 KiB, stored whole in R2: the row keeps the pointer and the sha256."""
+    """Text over 64 KiB, stored whole in file storage: the row keeps the pointer and the sha256."""
+
+    # File storage is R2.
 
     sha256: Sha256
     size_bytes: int = Field(ge=0)

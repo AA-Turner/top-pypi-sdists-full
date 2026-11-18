@@ -17,10 +17,12 @@
 from __future__ import annotations
 
 import ast
+import copy
 import importlib.util
 import json
 import logging
 import os
+import pickle
 import plistlib
 import re
 import subprocess
@@ -1154,6 +1156,26 @@ def test_export_config_includes_unset_params(invoke):
     assert "<key>tag</key>" in result.stdout
     # plist has no null type: the unset parameter is dropped from the export.
     assert "regexp" not in result.stdout
+
+
+def test_export_config_includes_unset_params_of_a_plain_click_command(invoke):
+    """A plain Click command exports a parameter without a default as null too.
+
+    Such a command does not capture its raw arguments, so the export reads each
+    parameter's default instead, which Click leaves as its `UNSET` sentinel.
+    """
+
+    @click.command
+    @click.option("--regexp")
+    @config_option
+    @export_config_option
+    def plain_cli(regexp):
+        echo("run")
+
+    result = invoke(plain_cli, "--export-config", "json", color=False)
+    assert result.exit_code == 0
+    assert "does not inherit from Command; dumping defaults." in result.stderr
+    assert '"regexp": null' in result.stdout
 
 
 @pytest.mark.parametrize(
@@ -3669,6 +3691,21 @@ def test_read_and_parse_conf_returns_first(tmp_path):
     assert conf == {"test-cli": {"k": 2}}
 
 
+@pytest.mark.parametrize("sentinel", tuple(type(NO_CONFIG)))
+@pytest.mark.parametrize(
+    "duplicate",
+    (copy.copy, copy.deepcopy, lambda value: pickle.loads(pickle.dumps(value))),
+    ids=("copy", "deepcopy", "pickle"),
+)
+def test_sentinel_duplication_preserves_identity(sentinel, duplicate):
+    """Copying or pickling a sentinel hands back the member itself.
+
+    A bare `object()` value cannot survive pickling by value: it unpickles as a new
+    object, which matches no member.
+    """
+    assert duplicate(sentinel) is sentinel
+
+
 def test_config_option_default_no_config(invoke, create_config):
     """ConfigOption with default=NO_CONFIG disables autodiscovery."""
 
@@ -5990,6 +6027,41 @@ def test_parse_xml_conventions():
             "#text": "a < b",
         }
     }
+
+
+@pytest.mark.parametrize(
+    ("elements", "my_list"),
+    (
+        pytest.param("<my_list>pip</my_list>", ("pip",), id="single"),
+        pytest.param("<my-list>pip</my-list>", ("pip",), id="single-kebab-case"),
+        pytest.param(
+            "<my_list>pip</my_list><my_list>npm</my_list>",
+            ("pip", "npm"),
+            id="repeated",
+        ),
+        pytest.param("<my_list/>", (), id="empty"),
+    ),
+)
+def test_xml_single_element_reads_as_one_item_list(
+    invoke, simple_config_cli, create_config, elements, my_list
+):
+    """A lone element naming a multi-value option reads as a one-item list.
+
+    XML has no other way to spell a list of one. An element naming a single-value
+    parameter keeps its text.
+    """
+    conf_path = create_config(
+        "configuration.xml",
+        f"<config-cli1>{elements}"
+        "<default><int_param>3</int_param></default></config-cli1>",
+    )
+
+    result = invoke(simple_config_cli, "--config", str(conf_path), "default")
+
+    assert result.exit_code == 0
+    assert result.stdout == (
+        f"dummy_flag = False\nmy_list = {my_list!r}\nint_parameter = 3\n"
+    )
 
 
 def test_parse_xml_rejects_a_malformed_document():

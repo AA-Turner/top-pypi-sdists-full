@@ -1973,7 +1973,9 @@ def test_workflow_read_stream_timeout_is_checkpointed(dbos: DBOS) -> None:
         handle.get_result()
 
 
-def test_read_stream_offset(dbos: DBOS, client: DBOSClient) -> None:
+def test_read_stream_offset(
+    dbos: DBOS, client: DBOSClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """read_stream_offset returns the one value at an offset, waiting for it and raising if it
     never arrives -- because the timeout passed or because the stream ended short of it. From a
     workflow it is one checkpointed step, so a replay returns the recorded value or re-raises.
@@ -2017,7 +2019,7 @@ def test_read_stream_offset(dbos: DBOS, client: DBOSClient) -> None:
             DBOS.read_stream_offset(wfid, stream_key, 0, timeout_seconds=-1)
 
         # One step per read, the timed-out one recorded as an error, and a replay repeats both
-        # without waiting out the timeout again.
+        # from history without reading the stream, so without waiting out the timeout again.
         reader_id = str(uuid.uuid4())
         with SetWorkflowID(reader_id):
             assert reader_workflow(wfid) == ["v1", "timed out"]
@@ -2026,13 +2028,22 @@ def test_read_stream_offset(dbos: DBOS, client: DBOSClient) -> None:
         assert steps[0]["output"] == "v1" and steps[1]["output"] is None
         assert isinstance(steps[1]["error"], DBOSStreamTimeoutError)
 
-        start = time.time()
+        stream_reads = 0
+        real_read = dbos._sys_db.read_stream_values
+
+        def counting_read(*args: Any, **kwargs: Any) -> Any:
+            nonlocal stream_reads
+            stream_reads += 1
+            return real_read(*args, **kwargs)
+
+        monkeypatch.setattr(dbos._sys_db, "read_stream_values", counting_read)
         assert reexecute_workflow_by_id(dbos, reader_id).get_result() == [
             "v1",
             "timed out",
         ]
         assert reader_calls == 2
-        assert time.time() - start < 0.3
+        assert stream_reads == 0
+        monkeypatch.undo()
     finally:
         release.set()
         handle.get_result()
@@ -2192,11 +2203,11 @@ def test_read_stream_notices_cancellation(dbos: DBOS) -> None:
         writer_handle.get_result()
 
 
-def test_client_read_stream_from_workflow_is_not_checkpointed(
+def test_client_read_stream_from_workflow_is_checkpointed(
     dbos: DBOS, client: DBOSClient
 ) -> None:
-    """A client reads through its own system database, which knows nothing of the workflow that
-    happens to be calling, so a client read from inside a workflow records no steps."""
+    """A client reads through its own system database, but a read from inside a workflow is
+    recorded as that workflow's steps, like any other read from a workflow."""
     stream_key = "client_in_workflow_stream"
 
     @DBOS.workflow()
@@ -2215,7 +2226,9 @@ def test_client_read_stream_from_workflow_is_not_checkpointed(
     reader_id = str(uuid.uuid4())
     with SetWorkflowID(reader_id):
         assert reader_workflow(wfid) == ["v0"]
-    assert DBOS.list_workflow_steps(reader_id) == []
+    # One step for the value and one for the end of the stream.
+    steps = DBOS.list_workflow_steps(reader_id)
+    assert [s["function_name"] for s in steps] == ["DBOSClient.readStream"] * 2
 
 
 def test_stream_write_to_deleted_workflow_raises(dbos: DBOS) -> None:

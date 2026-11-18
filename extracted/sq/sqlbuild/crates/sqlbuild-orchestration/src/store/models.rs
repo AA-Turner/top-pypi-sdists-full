@@ -70,6 +70,8 @@ pub(crate) enum TargetRow {
 pub(crate) enum TransactionMode {
     Read,
     Write,
+    /// A write with SQLite foreign keys off, so a migration can rebuild a referenced table; it checks them before commit.
+    Migrate,
 }
 
 /// An owned transaction; abandoning it rolls back, including when an async task is cancelled.
@@ -79,6 +81,8 @@ pub(crate) struct ControlTransaction {
     pub(crate) now: DateTime<Utc>,
     pub(crate) changes: BTreeSet<Change>,
     pub(crate) notifications: Option<broadcast::Sender<ChangeMessage>>,
+    /// This process's turn to write a SQLite store, held until the transaction ends.
+    pub(crate) _writer: Option<tokio::sync::OwnedMutexGuard<()>>,
 }
 
 #[derive(Debug)]

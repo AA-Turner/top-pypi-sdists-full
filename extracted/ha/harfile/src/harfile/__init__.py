@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import builtins
-import json
+import json.encoder
 from datetime import datetime
 from os import PathLike
 from types import TracebackType
-from typing import IO
+from typing import IO, Any, Callable
 
 from ._models import (
     Browser,
@@ -45,9 +45,20 @@ __all__ = [
 
 HAR_VERSION = "1.2"
 
-# A single reusable encoder avoids the per-call argument handling in ``json.dumps``.
-# With default options this produces output identical to ``json.dumps(obj)``.
-_encode = json.JSONEncoder().encode
+
+def _make_encode() -> Callable[[Any], str]:
+    encoder = json.JSONEncoder(allow_nan=False)
+    try:
+        # Built once; `JSONEncoder.encode` rebuilds it on every call. PyPy has none.
+        c_encode = json.encoder.c_make_encoder(  # type: ignore[attr-defined]
+            None, encoder.default, json.encoder.encode_basestring_ascii, None, ": ", ", ", False, False, False
+        )
+    except (AttributeError, TypeError):
+        return encoder.encode
+    return lambda o: "".join(c_encode(o, 0))
+
+
+_encode = _make_encode()
 
 
 class HarFile:
@@ -56,7 +67,7 @@ class HarFile:
     _browser: Browser
     _comment: str | None
     _is_first_entry: bool = True
-    _has_preable: bool = False
+    _has_preamble: bool = False
     _is_managed_fd: bool = False
     closed: bool = False
 
@@ -99,9 +110,9 @@ class HarFile:
         if self.closed:
             return None
         self.closed = True
-        if not self._has_preable:
+        if not self._has_preamble:
             self._write_preamble()
-            self._has_preable = True
+            self._has_preamble = True
         self._write_postscript()
         if self._is_managed_fd:
             self._fd.close()
@@ -118,7 +129,7 @@ class HarFile:
         value: BaseException | None,
         traceback: TracebackType | None,
     ) -> None:
-        if type is None:
+        if type is None or self._has_preamble:
             self.close()
         elif self._is_managed_fd:
             self._fd.close()
@@ -139,14 +150,17 @@ class HarFile:
         comment: str | None = None,
     ) -> None:
         """Add an HTTP request to the HAR file."""
-        if not self._has_preable:
+        if self.closed:
+            raise ValueError("I/O operation on closed file.")
+        if not self._has_preamble:
             self._write_preamble()
-            self._has_preable = True
+            self._has_preamble = True
         separator = "\n" if self._is_first_entry else ",\n"
-        self._is_first_entry = False
         dumps = _encode
         # ISO 8601 output never needs escaping, so only user-supplied strings go through the encoder.
         if isinstance(startedDateTime, datetime):
+            if startedDateTime.tzinfo is None:
+                startedDateTime = startedDateTime.astimezone()
             started_date_time = f'"{startedDateTime.isoformat()}"'
         else:
             started_date_time = dumps(startedDateTime)
@@ -156,7 +170,7 @@ class HarFile:
         chunk = (
             f"{separator}            {{"
             f'\n                "startedDateTime": {started_date_time},'
-            f'\n                "time": {time},'
+            f'\n                "time": {dumps(time)},'
             f'\n                "request": {dumps(request.asdict())},'
             f'\n                "response": {dumps(response.asdict())},'
             f'\n                "timings": {dumps(timings.asdict())},'
@@ -170,6 +184,7 @@ class HarFile:
             chunk += f',\n                "comment": {dumps(comment)}'
         chunk += "\n            }"
         self._fd.write(chunk)
+        self._is_first_entry = False
 
     def _write_preamble(self) -> None:
         creator = f"""{{

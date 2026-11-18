@@ -12,7 +12,7 @@ import json
 from collections.abc import Callable
 from typing import Any
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from rich.text import Text
 
 from dreamscale import errors, tables

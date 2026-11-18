@@ -8,11 +8,6 @@ The group files (job_commands.py, service_commands.py, workspace_commands_v2.py,
 cluster_commands.py) import this module and `add_command` the command that belongs to
 them. Nothing here imports a group file, which keeps the import graph acyclic.
 
-All four are `hidden=True` for now: they run when typed, but are left out of the group
-`--help` listings, the committed doc spec and the reference docs. Removing the flag
-(and the matching one on the Events module in `_private/docgen/__main__.py`) publishes
-them.
-
 Each run prints one page of at most 1000 events. When more exist, it ends with a
 `--page-token` line on stderr, so stdout stays one valid JSON or YAML document.
 """
@@ -185,7 +180,7 @@ _GROUP_NAMES = {
 
 
 @_metadata("job")
-@click.command(name="events", cls=AnyscaleCommand, short_help="List events of a job.", hidden=True)
+@click.command(name="events", cls=AnyscaleCommand, short_help="List events of a job.")
 @click.option("--job-id", "--id", "id", required=True, help="ID of the job.")
 @option_source("job")
 @option_level
@@ -203,9 +198,7 @@ def job_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("service")
-@click.command(
-    name="events", cls=AnyscaleCommand, short_help="List events of a service.", hidden=True
-)
+@click.command(name="events", cls=AnyscaleCommand, short_help="List events of a service.")
 @click.option("--service-id", "--id", "id", required=True, help="ID of the service.")
 @option_source("service")
 @option_level
@@ -224,9 +217,7 @@ def service_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("workspace")
-@click.command(
-    name="events", cls=AnyscaleCommand, short_help="List events of a workspace.", hidden=True
-)
+@click.command(name="events", cls=AnyscaleCommand, short_help="List events of a workspace.")
 @click.option("--workspace-id", "--id", "id", required=True, help="ID of the workspace.")
 @option_source("workspace")
 @option_level
@@ -244,9 +235,7 @@ def workspace_events(id: str, **kwargs: Any) -> None:  # noqa: A002
 
 
 @_metadata("cluster")
-@click.command(
-    name="events", cls=AnyscaleCommand, short_help="List events of a cluster.", hidden=True
-)
+@click.command(name="events", cls=AnyscaleCommand, short_help="List events of a cluster.")
 @click.option("--cluster-id", "--id", "id", required=True, help="ID of the cluster.")
 @option_source("cluster")
 @option_level

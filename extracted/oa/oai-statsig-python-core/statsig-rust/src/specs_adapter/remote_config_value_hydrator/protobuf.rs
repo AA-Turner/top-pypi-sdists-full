@@ -97,6 +97,8 @@ pub(crate) struct ProtobufHydrationSession<'a> {
     // Previous snapshots share parsed values; their original bodies are not
     // retained. Registration validates each incoming reference before reuse.
     previous_values: VerifiedRemoteValues,
+    pub(crate) pending_proofs: super::PendingBlobProofs<'a>,
+    pending_by_metadata: HashMap<&'a RemoteConfigValueMetadata, &'a Arc<VerifiedRemoteValue>>,
     // The immutable project-wide mmap table can be much larger than a sparse
     // update. Borrow it and retain only SHAs registered by this response.
     previous_mmap_values: Option<&'static VerifiedRemoteValues>,
@@ -191,6 +193,8 @@ pub(super) fn begin_session<'a>(
         references: HashMap::new(),
         verified_bodies: HashMap::new(),
         previous_values: HashMap::new(),
+        pending_proofs: super::PendingBlobProofs::default(),
+        pending_by_metadata: HashMap::new(),
         previous_mmap_values: None,
         parsed_values: HashMap::new(),
         failed_values: HashMap::new(),
@@ -556,6 +560,7 @@ impl<'a> ProtobufHydrationSession<'a> {
                         .get(&sha256)
                         .filter(|value| value.matches_metadata(&reference.metadata))
                 })
+                .or_else(|| self.pending_by_metadata.get(&reference.metadata).copied())
                 .map(Arc::clone);
             match self.references.entry(sha256.clone()) {
                 Entry::Occupied(mut entry) => {
@@ -612,6 +617,13 @@ impl<'a> ProtobufHydrationSession<'a> {
     /// previous snapshot for every dynamic config.
     pub(crate) fn set_previous_values(&mut self, values: VerifiedRemoteValues) {
         self.previous_values = values;
+        // A full refresh may reuse a pending blob under a different config name.
+        self.pending_by_metadata = self
+            .pending_proofs
+            .values()
+            .flat_map(|proofs| proofs.values())
+            .map(|proof| (proof.metadata(), proof))
+            .collect();
     }
 
     /// Consult this project's immutable mmap table only for incoming SHAs.

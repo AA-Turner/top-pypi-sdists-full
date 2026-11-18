@@ -11,7 +11,7 @@ from math import degrees
 from pathlib import Path
 
 import numpy as np
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.policy.runtime.contract import runtime_contract_for_model
 from dreamscale.policy.types import RunHooks

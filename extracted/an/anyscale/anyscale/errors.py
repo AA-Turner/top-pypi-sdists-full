@@ -266,6 +266,29 @@ def from_http_status(status: Optional[int], message: str) -> AnyscaleError:
     return error_class_for_http_status(status)(message)
 
 
+class ApiResponseError(ValueError):
+    """An API error response whose body carried readable server text.
+
+    It is a ValueError, so code that catches ValueError is unaffected. ``status`` is the
+    HTTP status, so a command can still give the exit code for that status.
+    """
+
+    # The default keeps the exception picklable: unpickling calls cls(*args).
+    def __init__(self, message: str, status: Optional[int] = None) -> None:
+        super().__init__(message)
+        self.status = status
+
+
+def from_api_response_error(exc: ApiResponseError) -> AnyscaleError:
+    """Return the typed error for an API error with server text, chosen by its HTTP status.
+
+    ``ANYSCALE_DEBUG=1`` re-raises instead, so a developer keeps the traceback.
+    """
+    if debug_enabled():
+        raise exc
+    return from_http_status(exc.status, str(exc))
+
+
 def _api_exception_message(exc: Any) -> str:
     """Return the server's error text, or the status and reason when the body has none."""
     message = server_error_text(exc.body) or f"API Exception ({exc.status})\nReason: {exc.reason}"

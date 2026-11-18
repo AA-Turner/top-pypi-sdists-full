@@ -30,6 +30,7 @@ from jax._src.tree_util import (
 from jax._src import mesh as mesh_lib
 from jax._src import core
 from jax._src import source_info_util
+from jax._src.named_sharding import NamedSharding
 from jax._src.ad_util import (
     add_jaxvals, replace_internal_symbolic_zeros,
     replace_rule_output_symbolic_zeros, Zero, zeros_like_aval, SymbolicZero,
@@ -1040,6 +1041,8 @@ def defjvp_zero(primitive):
 
 def zero_jvp(primitive, primals, tangents, **params):
   r = primitive.bind(*primals, **params)
+  if primitive.multiple_results:
+    return r, map(p2tz, r)
   return r, p2tz(r)
 
 deflinear2(add_jaxvals_p, lambda t, *args: (t, t))
@@ -1050,7 +1053,10 @@ def instantiate_zeros(tangent):
     if hasattr(tangent.aval, 'sharding'):
       # TODO(dougalm, yashkatariya): Delete this context manager once we figure
       # out how to ensure jaxpr arguments always have the context mesh.
-      with mesh_lib.use_abstract_mesh(tangent.aval.sharding.mesh):
+      ctx = (mesh_lib.use_abstract_mesh(tangent.aval.sharding.mesh)  # type: ignore
+             if isinstance(tangent.aval.sharding, NamedSharding)
+             else contextlib.nullcontext())
+      with ctx:
         return zeros_like_aval(tangent.aval)
     return zeros_like_aval(tangent.aval)
   return tangent
@@ -1175,6 +1181,22 @@ class CustomBwdWithAccums:
     """Takes one accumulator per primal input (None for zero tangents), and
     returns backward-pass logs (or None)."""
     raise NotImplementedError
+
+class CustomBwdWithValAccums(CustomBwdWithAccums):
+  def __init__(self, bwd: Callable, ref_error: Callable[[], Exception]):
+    self.bwd, self.ref_error = bwd, ref_error
+
+  def __call__(self, *res_and_cts_out):
+    return self.bwd(*res_and_cts_out)
+
+  def call_with_accums(self, res, cts_out, accums):
+    if any(isinstance(acc, RefAccum) for acc in accums):
+      raise self.ref_error()
+    cts_in, logs = self.bwd(*res, *cts_out)
+    for acc, ct in zip(accums, cts_in):
+      if acc is not None:
+        acc.accum(replace_rule_output_symbolic_zeros(ct))
+    return logs
 
 def _custom_lin_transpose_fancy(cts_out, *invals, num_res,
                                 bwd: lu.WrappedFun, out_avals,

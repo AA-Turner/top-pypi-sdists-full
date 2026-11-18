@@ -33,48 +33,20 @@ jobs:
           - os: windows-11-arm
             arch: ARM64
             lock_platform: windows_arm64
+        # PyPy ships no Windows arm64 interpreter, and cibuildwheel stops a job whose selector matches nothing.
         exclude:
-          # PyPy ships no Windows arm64 interpreter, and cibuildwheel stops a job whose selector matches nothing.
           - build: pp311
             platform:
               os: windows-11-arm
               arch: ARM64
-        include:
-          - build: cp315
-            targets: "3.15.0:cpython"
-          - build: cp314t
-            targets: "3.14.0:cpython"
-          - build: cp315t
-            targets: "3.15.0:cpython"
-          - build: pp311
-            targets: "3.11.0:pypy"
-          # The Intel runner takes about twice as long as the arm one for the same work, so it splits its four
-          # builds over two jobs; three macOS jobs stay well inside the cap that made a job per interpreter queue.
-          - build: gil
-            identifiers: cp315-* pp311-*
-            targets: "3.15.0:cpython 3.11.0:pypy"
-            platform:
-              os: macos-26-intel
-              arch: x86_64
-              lock_platform: macos_x86_64
-          - build: free-threaded
-            identifiers: cp314t-* cp315t-*
-            targets: "3.14.0:cpython 3.15.0:cpython"
-            platform:
-              os: macos-26-intel
-              arch: x86_64
-              lock_platform: macos_x86_64
-          - build: every
-            identifiers: cp315-* cp314t-* cp315t-* pp311-*
-            targets: "3.15.0:cpython 3.14.0:cpython 3.11.0:pypy"
-            platform:
-              os: macos-26
-              arch: arm64
-              lock_platform: macos_arm64
+        # Intel macOS wheels build only on tag pushes, where they gate the release. PR and push runs keep the arm64
+        # build for packaging (#829 was an arm64 issue). The include list is conditional because an include entry
+        # that matches no base combination is added as a job, which exclude cannot remove.
+        include: ${{ fromJSON(startsWith(github.ref, 'refs/tags/') && '[{"build":"cp315","targets":"3.15.0:cpython"},{"build":"cp314t","targets":"3.14.0:cpython"},{"build":"cp315t","targets":"3.15.0:cpython"},{"build":"pp311","targets":"3.11.0:pypy"},{"build":"gil","identifiers":"cp315-* pp311-*","targets":"3.15.0:cpython 3.11.0:pypy","platform":{"os":"macos-26-intel","arch":"x86_64","lock_platform":"macos_x86_64"}},{"build":"free-threaded","identifiers":"cp314t-* cp315t-*","targets":"3.14.0:cpython 3.15.0:cpython","platform":{"os":"macos-26-intel","arch":"x86_64","lock_platform":"macos_x86_64"}},{"build":"every","identifiers":"cp315-* cp314t-* cp315t-* pp311-*","targets":"3.15.0:cpython 3.14.0:cpython 3.11.0:pypy","platform":{"os":"macos-26","arch":"arm64","lock_platform":"macos_arm64"}}]' || '[{"build":"cp315","targets":"3.15.0:cpython"},{"build":"cp314t","targets":"3.14.0:cpython"},{"build":"cp315t","targets":"3.15.0:cpython"},{"build":"pp311","targets":"3.11.0:pypy"},{"build":"every","identifiers":"cp315-* cp314t-* cp315t-* pp311-*","targets":"3.15.0:cpython 3.14.0:cpython 3.11.0:pypy","platform":{"os":"macos-26","arch":"arm64","lock_platform":"macos_arm64"}}]') }}
     runs-on: ${{ matrix.platform.os }}
     steps:
       - name: 📥 Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # The build reads the version off the tags.
           persist-credentials: false
@@ -83,11 +55,11 @@ jobs:
         run: git log -1 --format='SOURCE_DATE_EPOCH=%ct' "$GITHUB_SHA^{commit}" >> "$GITHUB_ENV"
       - name: 🦀 Install Rust toolchain
         if: runner.os != 'Linux'
-        uses: actions-rust-lang/setup-rust-toolchain@ecabd13d1c56bd1345c230e542e9144811ad706f # v2.0.0
+        uses: actions-rust-lang/setup-rust-toolchain@v2.0.1
         with:
           cache: false
       - name: 🐍 Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           version: latest-known
           python-version: "3.15"
@@ -177,13 +149,13 @@ jobs:
           print("flags=" + " ".join(flags))
           EOF
       - name: 📦 Install locked release tools
-        uses: tox-dev/github-workflows/install-locked-tools@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+        uses: tox-dev/github-workflows/install-locked-tools@6.8.4
         with:
           groups: release-wheel
           venv: ${{ runner.temp }}/release-tools
       - name: 📦 Export hashed build constraints
         id: constraints
-        uses: tox-dev/github-workflows/export-build-constraints@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+        uses: tox-dev/github-workflows/export-build-constraints@6.8.4
         with:
           lock: pylock.build.toml
           target-platform: ${{ matrix.platform.lock_platform }}
@@ -194,7 +166,7 @@ jobs:
           CONSTRAINTS_PATH: ${{ steps.constraints.outputs.path }}
         run: cp "$CONSTRAINTS_PATH" .release-build-constraints.txt
       - name: 🏗️ Build wheels
-        uses: pypa/cibuildwheel@f9b966cfadf4109556cadc5bb39ddb72d0ce664e # v4.3.5
+        uses: pypa/cibuildwheel@v4.3.5
         env:
           CIBW_ARCHS: ${{ matrix.platform.arch }}
           CIBW_BUILD_FRONTEND: "uv; args: --build-constraint .release-build-constraints.txt --require-hashes"
@@ -242,8 +214,24 @@ jobs:
             fi
             "$wheel" tags --python-tag cp311 --remove "${wheels[@]}"
           fi
+      # python_sbom.backend wrote an SBOM during the build, but repair and the retag above rename the wheel and may
+      # bundle libraries, so describe the wheels again as they will be published. embed lists the packages of the
+      # environment it runs in, so it runs from one installed from the same hashed build constraints the build used.
+      - name: 📝 Write the SBOM into the finished wheels
+        shell: bash
+        env:
+          CONSTRAINTS_PATH: ${{ steps.constraints.outputs.path }}
+        run: |
+          uv venv --python 3.15 "$RUNNER_TEMP/build-env"
+          uv pip install --python "$RUNNER_TEMP/build-env" --require-hashes -r "$CONSTRAINTS_PATH"
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            embed="$RUNNER_TEMP/build-env/Scripts/python-sbom.exe"
+          else
+            embed="$RUNNER_TEMP/build-env/bin/python-sbom"
+          fi
+          "$embed" embed dist/*.whl
       - name: 📤 Store wheels
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: dists-${{ matrix.platform.os }}-${{ matrix.build }}
           path: dist/*
@@ -254,26 +242,26 @@ jobs:
       UV_EXCLUDE_NEWER: "1 week"
     steps:
       - name: 📥 Check out code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        uses: actions/checkout@v7.0.1
         with:
           fetch-depth: 0 # The build reads the version off the tags.
           persist-credentials: false
       - name: ⚙️ Set stable build timestamp
         run: git log -1 --format='SOURCE_DATE_EPOCH=%ct' "$GITHUB_SHA^{commit}" >> "$GITHUB_ENV"
       - name: 🐍 Install uv
-        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        uses: astral-sh/setup-uv@v10.3.3
         with:
           version: latest-known
           python-version: "3.15"
           enable-cache: false
       - name: 📦 Install locked release tools
-        uses: tox-dev/github-workflows/install-locked-tools@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+        uses: tox-dev/github-workflows/install-locked-tools@6.8.4
         with:
           groups: release-notes
           venv: ${{ runner.temp }}/release-tools
       - name: 📦 Export hashed build constraints
         id: constraints
-        uses: tox-dev/github-workflows/export-build-constraints@bceb5c005e19823dc8835f536f53f172ae223927 # 6.5.0
+        uses: tox-dev/github-workflows/export-build-constraints@6.8.4
         with:
           lock: pylock.build.toml
           target-platform: linux_x86_64
@@ -285,7 +273,7 @@ jobs:
           uv build --sdist --python 3.15 --out-dir dist \
             --build-constraints "$CONSTRAINTS_PATH" --require-build-hashes
       - name: 📤 Store source distribution
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: dists-sdist
           path: dist/*

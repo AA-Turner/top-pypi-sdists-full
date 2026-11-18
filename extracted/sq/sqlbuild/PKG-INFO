@@ -1,22 +1,19 @@
 Metadata-Version: 2.4
 Name: sqlbuild
-Version: 0.238.1
+Version: 0.246.0
 Requires-Dist: duckdb>=2.0.0
 Requires-Dist: filelock>=3.20.3
 Requires-Dist: orjson>=3.11.7
 Requires-Dist: polyglot-sql-chio==0.13.10
 Requires-Dist: pydantic-settings>=2,<3
 Requires-Dist: pyyaml>=6.0.2
-Requires-Dist: sqlbuild-cli==0.238.1
+Requires-Dist: sqlbuild-cli==0.246.0
 Requires-Dist: google-cloud-bigquery>=3.37.0 ; extra == 'bigquery'
 Requires-Dist: clickhouse-connect>=0.15 ; extra == 'clickhouse'
 Requires-Dist: dagster>=1.13.0 ; extra == 'dagster'
 Requires-Dist: dagster-webserver>=1.13.0 ; extra == 'dagster'
 Requires-Dist: databricks-sql-connector[pyarrow]>=4.1.2 ; extra == 'databricks'
 Requires-Dist: jinja2>=3.1 ; extra == 'dbt'
-Requires-Dist: dlt[duckdb,filesystem,sql-database]>=1.28.0,<2 ; extra == 'dlt'
-Requires-Dist: dbc>=0.3.1 ; extra == 'ingestr'
-Requires-Dist: ingestr>=1.1.73 ; extra == 'ingestr'
 Requires-Dist: psycopg[binary]>=3.2.0 ; extra == 'postgres'
 Requires-Dist: rivers>=0.1.4 ; extra == 'rivers'
 Requires-Dist: snowflake-connector-python>=4.7.1,<5 ; extra == 'snowflake'
@@ -26,8 +23,6 @@ Provides-Extra: clickhouse
 Provides-Extra: dagster
 Provides-Extra: databricks
 Provides-Extra: dbt
-Provides-Extra: dlt
-Provides-Extra: ingestr
 Provides-Extra: postgres
 Provides-Extra: rivers
 Provides-Extra: snowflake

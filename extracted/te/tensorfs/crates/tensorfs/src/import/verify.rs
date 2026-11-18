@@ -10,7 +10,7 @@ use std::collections::BTreeMap;
 
 use crate::err::{refuse, Code, Result};
 use crate::family::{self, probe, Adapter, Family, Record, Stored, TrainedOnRecord};
-use crate::format::{decode, Dtype, PartBytes};
+use crate::format::{decode, Config, Dtype, PartBytes};
 
 use super::engine::{Planned, Reading, Recognized, Table};
 use super::source::{Group, SourceSet};
@@ -25,8 +25,11 @@ pub(crate) struct Checked {
     pub notes: Vec<String>,
 }
 
-fn is_lora(tensors: &[&Planned]) -> bool {
-    !tensors.is_empty() && tensors.iter().all(|p| family::lora_key(&p.key))
+/// Whether a component is a LoRA's: every tensor a factor, an alpha or one it keeps, or in a whole module its adapter
+/// config carries.
+fn is_lora(tensors: &[&Planned], config: Option<&Config>) -> bool {
+    let carried = |key: &str| config.is_some_and(|config| super::lora::saved(key, config));
+    !tensors.is_empty() && tensors.iter().all(|p| family::lora_key(&p.key) || carried(&p.key))
 }
 
 pub(crate) struct Input<'a> {
@@ -50,7 +53,8 @@ pub(crate) fn check(input: &Input) -> Result<Checked> {
     for p in input.planned {
         by.entry(p.component.as_str()).or_default().push(p);
     }
-    let (loras, bases): (Vec<_>, Vec<_>) = by.iter().partition(|(_, t)| is_lora(t));
+    let config = |c: &str| input.layout.components.iter().find(|f| f.name == c).map(|f| &f.config);
+    let (loras, bases): (Vec<_>, Vec<_>) = by.iter().partition(|(c, t)| is_lora(t, config(c)));
     let mut out = Checked::default();
     if !input.gguf && !bases.is_empty() {
         base(input, &bases.iter().map(|(c, t)| (**c, t.as_slice())).collect::<Vec<_>>(), &mut out)?;
@@ -82,16 +86,27 @@ fn base(input: &Input, bases: &[(&str, &[&Planned])], out: &mut Checked) -> Resu
     let by_table = tables.iter().find_map(|t| family::of_table(t));
     let classes = (input.layout.pipeline.iter().map(|p| p.class.name.as_str()))
         .chain(input.layout.components.iter().map(|c| c.class.name.as_str()));
-    // A class several families share (Qwen3-VL's) is the first's whose form its components are.
-    let named = match by_table {
-        Some(fam) => vec![fam],
-        None => family::of_classes(classes),
-    };
     let form = |fam: &Family| {
         let stored: Vec<Stored> = (bases.iter().filter(|(c, _)| fam.def(c).is_some()))
             .map(|(c, t)| Stored { name: c, keys: t.iter().map(|p| (p.key.as_str(), p.shape.as_slice())).collect() })
             .collect();
         !stored.is_empty() && fam.form_of(&stored).is_ok()
+    };
+    // A class several families share (Qwen3-VL's) is the first's whose form its components are. A part alone (a VAE) is the one
+    // family's whose component it is a form of; a part several share is none of theirs alone.
+    let named = match by_table {
+        Some(fam) => vec![fam],
+        None => match family::of_classes(classes) {
+            named if !named.is_empty() => named,
+            _ => {
+                let parts = input.layout.components.iter().map(|c| (c.name.as_str(), c.class.name.as_str()));
+                let fits: Vec<&Family> = family::of_parts(parts).into_iter().filter(|fam| form(fam)).collect();
+                if fits.len() != 1 {
+                    return Ok(());
+                }
+                fits
+            }
+        },
     };
     let Some(fam) = named.iter().copied().find(|fam| form(*fam)).or(named.first().copied()) else {
         return Ok(());

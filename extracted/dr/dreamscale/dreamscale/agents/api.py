@@ -7,7 +7,7 @@ from collections.abc import Callable
 from decimal import Decimal
 from pathlib import Path
 
-from dreamscale_transport.llm import Effort, SessionRequest, Speed, ToolReceipt, TurnResult
+from dreamscale_core.llm import Effort, SessionRequest, Speed, ToolReceipt, TurnResult
 
 from dreamscale.config import (
     API_KEY_ENV,

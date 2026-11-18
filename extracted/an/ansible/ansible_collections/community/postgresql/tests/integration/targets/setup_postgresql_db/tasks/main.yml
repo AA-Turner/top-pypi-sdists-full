@@ -24,15 +24,22 @@
       paths:
       - '{{ role_path }}/vars'
 
+- name: Install dbus-broker (Fedora)
+  package:
+    name: dbus-broker
+    state: present
+  when:
+    - ansible_service_mgr == 'systemd'
+    - ansible_distribution == 'Fedora'
+    - ansible_distribution_major_version is version('44', '>=')
+
 - name: Make sure the dbus service is enabled under systemd
   shell: systemctl enable dbus || systemctl enable dbus-broker
   ignore_errors: true
   when: ansible_service_mgr == 'systemd' and ansible_distribution == 'Fedora'
 
 - name: Make sure the dbus service is started under systemd
-  systemd:
-    name: dbus
-    state: started
+  shell: systemctl start dbus || systemctl start dbus-broker
   when: ansible_service_mgr == 'systemd' and ansible_distribution == 'Fedora'
 
 - name: stop postgresql service
@@ -76,9 +83,10 @@
       state: 'present'
 
   - name: Import the repository signing key
-    ansible.builtin.apt_key:
-      state: present
+    ansible.builtin.get_url:
       url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+      dest: /etc/apt/trusted.gpg.d/postgresql.asc
+      mode: '0644'
 
   - name: Update the package lists
     apt:
@@ -142,13 +150,26 @@
   when: ansible_os_family == 'Debian'
 
 - block:
-  - name: Install langpacks (RHEL8)
-    yum:
-      name:
-      - glibc-langpack-es
-      - glibc-langpack-pt
-      - glibc-all-langpacks
-      state: present
+  - block:
+    - name: Install langpacks (RHEL >= 8)
+      yum:
+        name:
+        - glibc-langpack-es
+        - glibc-langpack-pt
+        - glibc-all-langpacks
+        state: present
+
+    rescue:
+    - name: Clean DNF cache after langpack install failure
+      command: dnf clean all
+
+    - name: Retry langpack install after cleaning cache
+      yum:
+        name:
+        - glibc-langpack-es
+        - glibc-langpack-pt
+        - glibc-all-langpacks
+        state: present
     when: ansible_distribution_major_version is version('8', '>=')
 
   - name: Check if locales need to be generated (RedHat)

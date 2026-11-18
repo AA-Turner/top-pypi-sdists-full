@@ -15,7 +15,9 @@ class TestExpensiveCollectionFilters(TestCase):
         container = MetadataFiltersContainer()
         self.assertFalse(container.is_expensive_collection_filtered)
         self.assertTrue(
-            container.is_expensive_collection_allowed(project="prj_1", dataset="ds_1", table="t_1")
+            container.is_expensive_collection_allowed(
+                project="prj_1", dataset="ds_1", table_name="t_1"
+            )
         )
 
     def test_block_specific_table(self):

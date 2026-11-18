@@ -2225,6 +2225,48 @@ class StandardCoders(google.protobuf.message.Message):
             encoded with it's corresponding coder.
         Components: single coder for the value
         """
+        WINDOWED_VALUE_V2: StandardCoders._Enum.ValueType  # 19
+        """Encodes an element, the windows it is in, the timestamp of the element,
+        the pane of the element, and optionally element metadata.
+        The encoding is represented as:
+        timestamp windows pane [metadata_length metadata] element
+
+          timestamp - Same as beam:coder:windowed_value:v1.
+          windows - Same as beam:coder:windowed_value:v1.
+          pane - Similar to beam:coder:windowed_value:v1, but the first byte
+            has the high bit 0x80 set if element metadata
+            is present.
+          metadata_length - A VarInt64 representing the length of the metadata
+            payload. Only present if the 0x80 bit is set on the first byte of
+            pane.
+          metadata - Serialized ElementMetadata proto bytes. Only present if the
+            0x80 bit is set on the first byte of pane.
+          element - Same as beam:coder:windowed_value:v1.
+
+        Components: The element coder and the window coder, in that order.
+        """
+        TIMER_V2: StandardCoders._Enum.ValueType  # 20
+        """Encodes a timer containing a user key, a dynamic timer tag, a clear bit,
+        a fire timestamp, a hold timestamp, the windows, the paneinfo, and
+        optionally element metadata.
+        The encoding is represented as:
+          user key - Same as beam:coder:timer:v1.
+          dynamic timer tag - Same as beam:coder:timer:v1.
+          windows - Same as beam:coder:timer:v1.
+          clear bit - Same as beam:coder:timer:v1.
+          If clear bit is false, it is followed by:
+            fire timestamp - Same as beam:coder:timer:v1.
+            hold timestamp - Same as beam:coder:timer:v1.
+            paneinfo - Similar to beam:coder:timer:v1, but the first byte has
+              the high bit 0x80 set if element metadata
+              is present.
+            metadata_length - A VarInt64 representing the length of the metadata
+              payload. Only present if the 0x80 bit is set on the first byte of
+              paneinfo.
+            metadata - Serialized ElementMetadata proto bytes. Only present if the
+              0x80 bit is set on the first byte of paneinfo.
+        Components: Coder for the key and windows.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     BYTES: StandardCoders.Enum.ValueType  # 0
@@ -2492,6 +2534,48 @@ class StandardCoders(google.protobuf.message.Message):
       - For present values the null indicator is followed by the value
         encoded with it's corresponding coder.
     Components: single coder for the value
+    """
+    WINDOWED_VALUE_V2: StandardCoders.Enum.ValueType  # 19
+    """Encodes an element, the windows it is in, the timestamp of the element,
+    the pane of the element, and optionally element metadata.
+    The encoding is represented as:
+    timestamp windows pane [metadata_length metadata] element
+
+      timestamp - Same as beam:coder:windowed_value:v1.
+      windows - Same as beam:coder:windowed_value:v1.
+      pane - Similar to beam:coder:windowed_value:v1, but the first byte
+        has the high bit 0x80 set if element metadata
+        is present.
+      metadata_length - A VarInt64 representing the length of the metadata
+        payload. Only present if the 0x80 bit is set on the first byte of
+        pane.
+      metadata - Serialized ElementMetadata proto bytes. Only present if the
+        0x80 bit is set on the first byte of pane.
+      element - Same as beam:coder:windowed_value:v1.
+
+    Components: The element coder and the window coder, in that order.
+    """
+    TIMER_V2: StandardCoders.Enum.ValueType  # 20
+    """Encodes a timer containing a user key, a dynamic timer tag, a clear bit,
+    a fire timestamp, a hold timestamp, the windows, the paneinfo, and
+    optionally element metadata.
+    The encoding is represented as:
+      user key - Same as beam:coder:timer:v1.
+      dynamic timer tag - Same as beam:coder:timer:v1.
+      windows - Same as beam:coder:timer:v1.
+      clear bit - Same as beam:coder:timer:v1.
+      If clear bit is false, it is followed by:
+        fire timestamp - Same as beam:coder:timer:v1.
+        hold timestamp - Same as beam:coder:timer:v1.
+        paneinfo - Similar to beam:coder:timer:v1, but the first byte has
+          the high bit 0x80 set if element metadata
+          is present.
+        metadata_length - A VarInt64 representing the length of the metadata
+          payload. Only present if the 0x80 bit is set on the first byte of
+          paneinfo.
+        metadata - Serialized ElementMetadata proto bytes. Only present if the
+          0x80 bit is set on the first byte of paneinfo.
+    Components: Coder for the key and windows.
     """
 
     def __init__(

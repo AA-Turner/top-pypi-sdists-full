@@ -8,10 +8,6 @@ read permission on the cluster. The cluster is named by exactly one of --cluster
 Output is the model as the API returned it, in every format: text is the model as YAML
 (like `anyscale job status`), table is one row per GPU with a column per field, json and
 yaml are the model. Field names and values are not rewritten.
-
-The group is `hidden=True` for now: it runs when typed, but is left out of `anyscale
---help`, the committed doc spec and the reference docs. Removing the flag (and the
-matching one on the GPUs module in `_private/docgen/__main__.py`) publishes it.
 """
 
 from dataclasses import fields
@@ -43,7 +39,7 @@ from anyscale.node.models import Node, NodeList, NodeStatus
 NODE_COLUMNS: List[str] = [field.name for field in fields(Node)]
 
 
-@click.group("node", help="Inspect the nodes of a cluster.", hidden=True)
+@click.group("node", help="Inspect the nodes of a cluster.")
 def node_cli() -> None:
     pass
 

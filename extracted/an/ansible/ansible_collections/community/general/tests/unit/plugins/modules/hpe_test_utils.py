@@ -158,6 +158,7 @@ class FactsParamsTestCase(OneViewBaseTestCase):
         params_get_all_with_filters = dict(
             config="config.json",
             name=None,
+            provider_display_name=None,
             params={
                 "start": 1,
                 "count": 3,
@@ -178,7 +179,7 @@ class FactsParamsTestCase(OneViewBaseTestCase):
         self.__validations()
         self.resource_client.get_all.return_value = []
 
-        params_get_all_with_filters = dict(config="config.json", name=None)
+        params_get_all_with_filters = dict(config="config.json", name=None, provider_display_name=None)
         self.mock_ansible_module.params = params_get_all_with_filters
 
         self.testing_class().run()

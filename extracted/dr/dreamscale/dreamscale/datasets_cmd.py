@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dreamscale_transport.training_data import CHECK_SCOPE, detect_preset
+from dreamscale_core.training_data import CHECK_SCOPE, detect_preset
 
 from dreamscale import errors, tables
 from dreamscale.control import ControlPlaneClient

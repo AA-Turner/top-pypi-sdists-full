@@ -68,10 +68,6 @@ ActionSmoothingMode = TypeAliasType(
     ],
 )
 RunMode = TypeAliasType("RunMode", Literal["async", "sync"])
-SamplingMode = TypeAliasType(
-    "SamplingMode",
-    Literal["upstream_eval", "async_8", "async_latest"],
-)
 
 SUPPORTED_REGIONS: tuple[SupportedRegion, ...] = (
     "ap-southeast-2",
@@ -176,8 +172,6 @@ class RunStrategy:
     # Experimental "crossfade" only: the sigmoid's time scale in action steps (its window is
     # smoothing_correction_steps). None: an eighth of the window.
     smoothing_time_scale: float | None = None
-    dreamzero_sampling: SamplingMode | None = None
-    dreamzero_commit_prefix_steps: Literal[1, 2] = 2
     # "async" asks for the next chunk while rows remain and joins it to the plan; "sync" runs
     # each chunk to its end, holding while the next is inferred, and plays its rows as they are
     # (the chunked schedule of upstream's reference, Praxis-1's default).
@@ -186,14 +180,6 @@ class RunStrategy:
     def __post_init__(self) -> None:
         if self.mode not in ("async", "sync"):
             raise ValueError(f"unknown run mode: {self.mode!r}")
-        if self.dreamzero_sampling is not None and (
-            not isinstance(self.dreamzero_sampling, str)
-            or self.dreamzero_sampling
-            not in ("upstream_eval", "async_8", "async_latest")
-        ):
-            raise ValueError(
-                f"unknown DreamZero sampling mode: {self.dreamzero_sampling!r}"
-            )
         if not isinstance(self.action_smoothing, str) or self.action_smoothing not in {
             "auto",
             "output",

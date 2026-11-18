@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: aws_lambda_powertools
-Version: 3.40.0
+Version: 3.41.0
 Summary: Powertools for AWS Lambda (Python) is a developer toolkit to implement Serverless best practices and increase developer velocity.
 Project-URL: Repository, https://github.com/aws-powertools/powertools-lambda-python
 Project-URL: Documentation, https://docs.powertools.aws.dev/lambda/python/
@@ -34,6 +34,8 @@ Requires-Dist: pydantic-settings<3.0.0,>=2.6.1; extra == 'all'
 Requires-Dist: pydantic<3.0.0,>=2.4.0; extra == 'all'
 Requires-Dist: pyjwt<3.0.0,>=2.14.0; extra == 'all'
 Requires-Dist: urllib3<3.0.0,>=2.7.0; extra == 'all'
+Provides-Extra: auth-sigv4a
+Requires-Dist: awscrt<1.0.0,>=0.23.0; extra == 'auth-sigv4a'
 Provides-Extra: aws-sdk
 Requires-Dist: boto3<2.0.0,>=1.34.32; extra == 'aws-sdk'
 Provides-Extra: datadog

@@ -160,7 +160,7 @@ class NotificationManager(System.Object):
         Send an SMS to the phone number specified
         
         :param phone_number: Phone number to send to
-        :param message: Message to send
+        :param message: Message to send, up to 1600 characters
         """
         ...
 

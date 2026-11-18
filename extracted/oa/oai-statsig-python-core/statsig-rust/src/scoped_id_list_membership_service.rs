@@ -256,7 +256,7 @@ impl ScopedIdListMembershipService {
         require_membership_http_support()?;
 
         #[cfg(feature = "reqwest")]
-        let http_client = reqwest::Client::builder()
+        let http_client = crate::networking::new_reqwest_client_builder()
             .timeout(REQUEST_TIMEOUT)
             .connect_timeout(REQUEST_TIMEOUT)
             .build()

@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses as _dc
-from collections.abc import Awaitable, Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import aclosing
 from functools import partial
 from typing import Any, TypeVar, cast
@@ -56,6 +56,7 @@ from ..items import (
     RunItem,
     ToolApprovalItem,
     TResponseInputItem,
+    TResponseStreamEvent,
 )
 from ..lifecycle import RunHooks
 from ..logger import (
@@ -153,8 +154,10 @@ from .items import (
     run_items_to_input_items,
 )
 from .model_retry import (
+    _StreamAttemptSkipped,
     apply_retry_attempt_usage,
     get_response_with_retry,
+    record_failed_attempt_usage_on_error,
     stream_response_with_retry,
 )
 from .oai_conversation import OpenAIServerConversationTracker
@@ -403,7 +406,7 @@ def _publish_resumed_stream_turn(
     streamed_result.input = turn_result.original_input
     streamed_result._original_input = copy_input_items(turn_result.original_input)
     streamed_result.new_items = session_items
-    streamed_result._model_input_items = generated_items
+    streamed_result._model_input_items = list(generated_items)
     if turn_result.nested_history_owned_items is not None:
         owned_refs = reconcile_nested_history_owned_session_item_refs(
             streamed_result.new_items,
@@ -1578,19 +1581,15 @@ async def start_streaming(
                         current_agent.model_settings.resolve(run_config.model_settings).store,
                     )
 
-                    if (
-                        not isinstance(turn_result.next_step, NextStepRunAgain)
-                        or turn_result.has_recovered_tool_outputs
-                    ):
-                        _accumulate_tool_guardrail_results(
-                            streamed_result,
-                            turn_result,
-                            accepted_input_results=accepted_tool_input_guardrail_results,
-                            accepted_output_results=accepted_tool_output_guardrail_results,
-                            publish_output_results=not isinstance(
-                                turn_result.next_step, NextStepFinalOutput
-                            ),
-                        )
+                    _accumulate_tool_guardrail_results(
+                        streamed_result,
+                        turn_result,
+                        accepted_input_results=accepted_tool_input_guardrail_results,
+                        accepted_output_results=accepted_tool_output_guardrail_results,
+                        publish_output_results=not isinstance(
+                            turn_result.next_step, NextStepFinalOutput
+                        ),
+                    )
 
                     if isinstance(turn_result.next_step, NextStepInterruption):
                         if run_state is not None:
@@ -2473,6 +2472,7 @@ async def run_single_turn_streamed(
                 context=context_wrapper.context,
                 usage=context_wrapper.usage,
                 turn_input=turn_input,
+                tool_input=context_wrapper.tool_input,
             )
             context_wrapper._share_tool_state_with(agent_hook_context)
             await gather_with_cancel(
@@ -2513,7 +2513,14 @@ async def run_single_turn_streamed(
 
     model = get_model(execution_agent, run_config)
     tool_use_tracker.record_model(model)
-    model_settings = get_model_settings(execution_agent, run_config)
+    model_settings = get_model_settings(
+        public_agent,
+        run_config,
+        model,
+        prepared_overrides=bindings.model_settings_overrides,
+        prompt=prompt_config,
+        has_tools=bool(all_tools or handoffs),
+    )
     model_settings = maybe_reset_tool_choice(public_agent, tool_use_tracker, model_settings)
 
     final_response: ModelResponse | None = None
@@ -2618,8 +2625,12 @@ async def run_single_turn_streamed(
     compaction_input_digests = prepare_compaction_model_input(
         session, context_wrapper, filtered.input
     )
-    retry_stream = stream_response_with_retry(
-        get_stream=lambda: model.stream_response(
+
+    def get_model_stream() -> AsyncIterator[TResponseStreamEvent]:
+        tripwire = streamed_result._triggered_input_guardrail_result
+        if tripwire is not None:
+            raise _StreamAttemptSkipped(InputGuardrailTripwireTriggered(tripwire))
+        return model.stream_response(
             filtered.instructions,
             filtered.input,
             model_settings,
@@ -2632,7 +2643,10 @@ async def run_single_turn_streamed(
             previous_response_id=previous_response_id,
             conversation_id=conversation_id,
             prompt=prompt_config,
-        ),
+        )
+
+    retry_stream = stream_response_with_retry(
+        get_stream=get_model_stream,
         rewind=rewind_model_request,
         retry_settings=model_settings.retry,
         get_retry_advice=model.get_retry_advice,
@@ -2645,10 +2659,21 @@ async def run_single_turn_streamed(
         ),
     )
 
+    stream_event_count = 0
+    last_stream_event_type: str | None = None
+    stream_response_id: str | None = None
+    stream_request_id: str | None = None
+
     # Raising out of this loop leaves the model stream suspended at its yield, so close it
     # explicitly instead of waiting for garbage collection to finalize the generator chain.
     async with aclosing(model_run_context_stream(retry_stream, tool_use_tracker)) as model_events:
         async for event in model_events:
+            stream_event_count += 1
+            last_stream_event_type = getattr(event, "type", None)
+            event_response = getattr(event, "response", None)
+            if isinstance(event_response, Response):
+                stream_response_id = event_response.id
+                stream_request_id = getattr(event_response, "_request_id", None)
             streamed_result._event_queue.put_nowait(RawResponsesStreamEvent(data=event))
 
             terminal_response: Response | None = None
@@ -2659,10 +2684,13 @@ async def run_single_turn_streamed(
             elif getattr(event, "type", None) in {"response.incomplete", "response.failed"}:
                 event_type = cast(str, event.type)
                 maybe_response = getattr(event, "response", None)
-                raise response_terminal_failure_error(
+                terminal_error = response_terminal_failure_error(
                     event_type,
                     maybe_response if isinstance(maybe_response, Response) else None,
                 )
+                if terminal_error._terminal_usage is not None:
+                    context_wrapper.usage.add(terminal_error._terminal_usage)
+                raise terminal_error
             elif getattr(event, "type", None) in {"error", "response.error"}:
                 raise response_error_event_failure_error(cast(str, event.type), event)
 
@@ -2702,7 +2730,13 @@ async def run_single_turn_streamed(
                 streamed_response_output.append(event.item)
 
     if final_response is None:
-        raise ModelBehaviorError("Model did not produce a final response!")
+        raise ModelBehaviorError(
+            "Model did not produce a final response! The stream ended before a "
+            "response.completed event was received. "
+            f"event_count={stream_event_count}, last_event_type={last_stream_event_type!r}, "
+            f"response_id={stream_response_id!r}, request_id={stream_request_id!r}. "
+            "Share these IDs when reporting this issue; None means no value was observed."
+        )
 
     record_compaction_model_response(
         session, context_wrapper, compaction_input_digests, final_response, reasoning_item_id_policy
@@ -2822,6 +2856,7 @@ async def run_single_turn(
                 context=context_wrapper.context,
                 usage=context_wrapper.usage,
                 turn_input=turn_input,
+                tool_input=context_wrapper.tool_input,
             )
             context_wrapper._share_tool_state_with(agent_hook_context)
             await gather_with_cancel(
@@ -2957,7 +2992,14 @@ async def get_new_response(
 
     model = get_model(execution_agent, run_config)
     tool_use_tracker.record_model(model)
-    model_settings = get_model_settings(execution_agent, run_config)
+    model_settings = get_model_settings(
+        public_agent,
+        run_config,
+        model,
+        prepared_overrides=bindings.model_settings_overrides,
+        prompt=prompt_config,
+        has_tools=bool(all_tools or handoffs),
+    )
     model_settings = maybe_reset_tool_choice(public_agent, tool_use_tracker, model_settings)
 
     if server_conversation_tracker is not None:
@@ -3021,7 +3063,10 @@ async def get_new_response(
     compaction_input_digests = prepare_compaction_model_input(
         session, context_wrapper, filtered.input
     )
-    with model_run_context(tool_use_tracker):
+    with (
+        model_run_context(tool_use_tracker),
+        record_failed_attempt_usage_on_error(context_wrapper.usage) as reported_usage,
+    ):
         new_response = await get_response_with_retry(
             get_response=lambda: model.get_response(
                 system_instructions=filtered.instructions,
@@ -3039,6 +3084,7 @@ async def get_new_response(
             ),
             rewind=rewind_model_request,
             retry_settings=model_settings.retry,
+            reported_usage=reported_usage,
             get_retry_advice=model.get_retry_advice,
             previous_response_id=previous_response_id,
             conversation_id=conversation_id,

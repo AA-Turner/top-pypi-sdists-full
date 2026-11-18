@@ -63,7 +63,7 @@ def test_unified_watch_arms_alias_inbox_and_delivers_to_real_thread(alias, monke
         foreground=False,
     )
     # None is the bare --codex-thread form and reads CODEX_THREAD_ID.
-    monkeypatch.setattr(delivery, "codex_setup_problem", lambda: "")
+    monkeypatch.setattr(delivery, "codex_setup_problem", lambda *_: "")
     queued = []
     monkeypatch.setattr(
         delivery, "queue_text", lambda thread, *args: lambda text: queued.append((thread, text))
@@ -176,7 +176,15 @@ def test_explicit_raw_channel_names_alias_for_brief_tell_and_doctor(alias, monke
         recipient, "probe", lambda *args: recipient.State(recipient.LISTENING, "armed")
     )
     messages_cli.cmd_tell(
-        argparse.Namespace(parent=False, child="", target=raw, message="alias target", channel="")
+        argparse.Namespace(
+            parent=False,
+            child="",
+            target=raw,
+            message="alias target",
+            channel="",
+            wake=False,
+            wake_parent=False,
+        )
     )
     assert "alias target" in messages.peek_next(messages.mailbox_for_id(lemon_id))[1]
 

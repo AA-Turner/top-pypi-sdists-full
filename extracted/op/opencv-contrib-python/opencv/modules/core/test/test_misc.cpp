@@ -1,0 +1,1198 @@
+// This file is part of OpenCV project.
+// It is subject to the license terms in the LICENSE file found in the top-level directory
+// of this distribution and at http://opencv.org/license.html.
+#include "test_precomp.hpp"
+#include <cmath>
+#include <climits>
+#include <limits>
+
+#include "opencv2/core/utils/logger.hpp"
+
+#include <opencv2/core/utils/fp_control_utils.hpp>
+
+#include <chrono>
+#include <thread>
+
+namespace opencv_test { namespace {
+
+TEST(Core_OutputArrayCreate, _1997)
+{
+    struct local {
+        static void create(OutputArray arr, Size submatSize, int type)
+        {
+            int sizes[] = {submatSize.width, submatSize.height};
+            arr.create(sizeof(sizes)/sizeof(sizes[0]), sizes, type);
+        }
+    };
+
+    Mat mat(Size(512, 512), CV_8U);
+    Size submatSize = Size(256, 256);
+
+    ASSERT_NO_THROW(local::create( mat(Rect(Point(), submatSize)), submatSize, mat.type() ));
+}
+
+TEST(Core_SaturateCast, NegativesAreClipped)
+{
+    double d = -1.0;
+    unsigned int val = cv::saturate_cast<unsigned int>(d);
+
+    ASSERT_EQ(0u, val);
+}
+
+TEST(Core_SaturateCast, FloatToIntSaturation)
+{
+    const double inf = std::numeric_limits<double>::infinity();
+    const float inff = std::numeric_limits<float>::infinity();
+
+    EXPECT_EQ(255, saturate_cast<uchar>(1e10f)); EXPECT_EQ(0, saturate_cast<uchar>(-1e10f));
+    EXPECT_EQ(255, saturate_cast<uchar>(1e10));  EXPECT_EQ(0, saturate_cast<uchar>(-1e10));
+    EXPECT_EQ(255, saturate_cast<uchar>(inff));  EXPECT_EQ(0, saturate_cast<uchar>(-inf));
+    EXPECT_EQ(127, saturate_cast<schar>(1e10f)); EXPECT_EQ(-128, saturate_cast<schar>(-1e10f));
+    EXPECT_EQ(127, saturate_cast<schar>(1e10));  EXPECT_EQ(-128, saturate_cast<schar>(-1e10));
+    EXPECT_EQ(127, saturate_cast<schar>(inf));   EXPECT_EQ(-128, saturate_cast<schar>(-inff));
+    EXPECT_EQ(65535, saturate_cast<ushort>(3.6e9f)); EXPECT_EQ(0, saturate_cast<ushort>(-3.6e9f));
+    EXPECT_EQ(65535, saturate_cast<ushort>(3.6e9));  EXPECT_EQ(0, saturate_cast<ushort>(-3.6e9));
+    EXPECT_EQ(65535, saturate_cast<ushort>(60000.f*60000.f));    // #28557
+    EXPECT_EQ(32767, saturate_cast<short>(3.6e9f));  EXPECT_EQ(-32768, saturate_cast<short>(-3.6e9f));
+    EXPECT_EQ(32767, saturate_cast<short>(3.6e9));   EXPECT_EQ(-32768, saturate_cast<short>(-3.6e9));
+    EXPECT_EQ(32767, saturate_cast<short>(inff));    EXPECT_EQ(-32768, saturate_cast<short>(-inf));
+
+    // int: INT_MAX is not representable as float, so for float inputs >= 2^31 the result is
+    // 2147483520 (the largest float below 2^31) or INT_MAX depending on the platform
+    EXPECT_EQ(INT_MAX, saturate_cast<int>(1e10)); EXPECT_EQ(INT_MIN, saturate_cast<int>(-1e10));
+    EXPECT_EQ(INT_MAX, saturate_cast<int>(inf));  EXPECT_EQ(INT_MIN, saturate_cast<int>(-inf));
+    EXPECT_GE(saturate_cast<int>(1e10f), 2147483520); EXPECT_EQ(INT_MIN, saturate_cast<int>(-1e10f));
+    EXPECT_GE(saturate_cast<int>(inff), 2147483520);  EXPECT_EQ(INT_MIN, saturate_cast<int>(-inff));
+    EXPECT_EQ(2147483520, saturate_cast<int>(2147483520.f));
+    EXPECT_EQ(INT_MIN, saturate_cast<int>(-2147483648.f));
+
+    EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(1e10)); EXPECT_EQ(0u, saturate_cast<unsigned>(-1e10));
+    EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(1e10f)); EXPECT_EQ(0u, saturate_cast<unsigned>(-1e10f));
+    EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(inf)); EXPECT_EQ(0u, saturate_cast<unsigned>(-inff));
+    EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(4294967295.)); EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(4294967295.5));
+    EXPECT_EQ(4294967294u, saturate_cast<unsigned>(4294967294.5)); EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(4294967294.6));
+    EXPECT_EQ(3000000000u, saturate_cast<unsigned>(3e9)); EXPECT_EQ(3000000000u, saturate_cast<unsigned>(3e9f));
+    EXPECT_EQ(0u, saturate_cast<unsigned>(-0.4)); EXPECT_EQ(0u, saturate_cast<unsigned>(-0.6f));
+
+    EXPECT_EQ(INT64_MAX, saturate_cast<int64>(1e30)); EXPECT_EQ(INT64_MIN, saturate_cast<int64>(-1e30));
+    EXPECT_EQ(INT64_MAX, saturate_cast<int64>(1e30f)); EXPECT_EQ(INT64_MIN, saturate_cast<int64>(-1e30f));
+    EXPECT_EQ(INT64_MAX, saturate_cast<int64>(inf)); EXPECT_EQ(INT64_MIN, saturate_cast<int64>(-inff));
+    EXPECT_EQ(9223372036854774784LL, saturate_cast<int64>(9223372036854774784.0));  // the largest double below 2^63
+    EXPECT_EQ(INT64_MAX, saturate_cast<int64>(9223372036854775808.0));
+    EXPECT_EQ(3000000000LL, saturate_cast<int64>(3e9f)); EXPECT_EQ(-3000000000LL, saturate_cast<int64>(-3e9));
+
+    EXPECT_EQ(UINT64_MAX, saturate_cast<uint64>(1e30)); EXPECT_EQ(0u, saturate_cast<uint64>(-1e30));
+    EXPECT_EQ(UINT64_MAX, saturate_cast<uint64>(1e30f)); EXPECT_EQ(0u, saturate_cast<uint64>(-1e30f));
+    EXPECT_EQ(UINT64_MAX, saturate_cast<uint64>(inff)); EXPECT_EQ(0u, saturate_cast<uint64>(-inf));
+    EXPECT_EQ(0u, saturate_cast<uint64>(-0.4)); EXPECT_EQ(0u, saturate_cast<uint64>(-1.f));
+    EXPECT_EQ(10000000000000000000ULL, saturate_cast<uint64>(1e19));
+    EXPECT_EQ((uint64)1e19f, saturate_cast<uint64>(1e19f));
+    EXPECT_EQ(9223372036854775808ULL, saturate_cast<uint64>(9223372036854775808.0));
+    EXPECT_EQ(18446744073709549568ULL, saturate_cast<uint64>(18446744073709549568.0));  // the largest double below 2^64
+    EXPECT_EQ(UINT64_MAX, saturate_cast<uint64>(18446744073709551616.0));
+    EXPECT_EQ(3000000000ULL, saturate_cast<uint64>(3e9f));
+
+    // 16-bit floats go through float
+    EXPECT_EQ(255, saturate_cast<uchar>(hfloat(65504.f))); EXPECT_EQ(-128, saturate_cast<schar>(hfloat(-65504.f)));
+    EXPECT_EQ(32767, saturate_cast<short>(hfloat(65504.f))); EXPECT_EQ(65504, saturate_cast<int>(hfloat(65504.f)));
+    EXPECT_EQ(255, saturate_cast<uchar>(bfloat(1e30f))); EXPECT_EQ(-32768, saturate_cast<short>(bfloat(-1e30f)));
+    EXPECT_GE(saturate_cast<int>(bfloat(1e30f)), 2147483520); EXPECT_EQ(INT_MIN, saturate_cast<int>(bfloat(-1e30f)));
+    EXPECT_EQ(UINT_MAX, saturate_cast<unsigned>(bfloat(1e30f))); EXPECT_EQ(INT64_MAX, saturate_cast<int64>(bfloat(1e30f)));
+    EXPECT_EQ(UINT64_MAX, saturate_cast<uint64>(bfloat(1e30f))); EXPECT_EQ(0u, saturate_cast<uint64>(bfloat(-1e30f)));
+}
+
+TEST(Core_SaturateCast, RoundHalfToEven)
+{
+    // all the integer targets use the same round-half-to-even rule (cvRound/cvRound64)
+    EXPECT_EQ(2, saturate_cast<uchar>(2.5f)); EXPECT_EQ(4, saturate_cast<uchar>(3.5)); EXPECT_EQ(0, saturate_cast<uchar>(0.5));
+    EXPECT_EQ(-2, saturate_cast<schar>(-2.5f)); EXPECT_EQ(-4, saturate_cast<schar>(-3.5)); EXPECT_EQ(0, saturate_cast<schar>(-0.5f));
+    EXPECT_EQ(2, saturate_cast<ushort>(2.5)); EXPECT_EQ(4, saturate_cast<ushort>(3.5f));
+    EXPECT_EQ(-4, saturate_cast<short>(-3.5)); EXPECT_EQ(-2, saturate_cast<short>(-2.5f));
+    EXPECT_EQ(2, saturate_cast<int>(2.5)); EXPECT_EQ(4, saturate_cast<int>(3.5f)); EXPECT_EQ(-2, saturate_cast<int>(-2.5));
+    EXPECT_EQ(2u, saturate_cast<unsigned>(2.5)); EXPECT_EQ(4u, saturate_cast<unsigned>(3.5f)); EXPECT_EQ(0u, saturate_cast<unsigned>(0.5)); EXPECT_EQ(2u, saturate_cast<unsigned>(1.5f));
+    EXPECT_EQ(2, saturate_cast<int64>(2.5)); EXPECT_EQ(-4, saturate_cast<int64>(-3.5f)); EXPECT_EQ(0, saturate_cast<int64>(-0.5));
+    EXPECT_EQ(2u, saturate_cast<uint64>(2.5)); EXPECT_EQ(4u, saturate_cast<uint64>(3.5f)); EXPECT_EQ(0u, saturate_cast<uint64>(0.5f)); EXPECT_EQ(2u, saturate_cast<uint64>(1.5));
+}
+
+TEST(Core_SaturateCast, IntToNarrowerIntBoundaries)
+{
+    // the range checks must not overflow (UB) for inputs near the source type limits
+    EXPECT_EQ(127, saturate_cast<schar>(INT_MAX)); EXPECT_EQ(-128, saturate_cast<schar>(INT_MIN));
+    EXPECT_EQ(127, saturate_cast<schar>(128)); EXPECT_EQ(127, saturate_cast<schar>(127)); EXPECT_EQ(-128, saturate_cast<schar>(-128)); EXPECT_EQ(-128, saturate_cast<schar>(-129));
+    EXPECT_EQ(32767, saturate_cast<short>(INT_MAX)); EXPECT_EQ(-32768, saturate_cast<short>(INT_MIN));
+    EXPECT_EQ(32767, saturate_cast<short>(32768)); EXPECT_EQ(32767, saturate_cast<short>(32767)); EXPECT_EQ(-32768, saturate_cast<short>(-32768)); EXPECT_EQ(-32768, saturate_cast<short>(-32769));
+    EXPECT_EQ(127, saturate_cast<schar>(INT64_MAX)); EXPECT_EQ(-128, saturate_cast<schar>(INT64_MIN));
+    EXPECT_EQ(127, saturate_cast<schar>((int64)128)); EXPECT_EQ(-128, saturate_cast<schar>((int64)-129)); EXPECT_EQ(-128, saturate_cast<schar>((int64)-128));
+    EXPECT_EQ(32767, saturate_cast<short>(INT64_MAX)); EXPECT_EQ(-32768, saturate_cast<short>(INT64_MIN));
+    EXPECT_EQ(32767, saturate_cast<short>((int64)32768)); EXPECT_EQ(-32768, saturate_cast<short>((int64)-32769)); EXPECT_EQ(32767, saturate_cast<short>((int64)32767));
+    EXPECT_EQ(INT_MAX, saturate_cast<int>(INT64_MAX)); EXPECT_EQ(INT_MIN, saturate_cast<int>(INT64_MIN));
+    EXPECT_EQ(INT_MAX, saturate_cast<int>((int64)INT_MAX + 1)); EXPECT_EQ(INT_MAX, saturate_cast<int>((int64)INT_MAX));
+    EXPECT_EQ(INT_MIN, saturate_cast<int>((int64)INT_MIN - 1)); EXPECT_EQ(INT_MIN, saturate_cast<int>((int64)INT_MIN));
+    EXPECT_EQ(-1, saturate_cast<int>((int64)-1)); EXPECT_EQ(-1, saturate_cast<short>((int64)-1)); EXPECT_EQ(-1, saturate_cast<schar>(-1));
+}
+
+template<typename T, typename U>
+static double maxAbsDiff(const T &t, const U &u)
+{
+  Mat_<double> d;
+  absdiff(t, u, d);
+  double ret;
+  minMaxLoc(d, NULL, &ret);
+  return ret;
+}
+
+TEST(Core_OutputArrayAssign, _Matxd_Matd)
+{
+    Mat expected = Mat_<double>({2, 3}, {1, 2, 3, .1, .2, .3});
+    Matx23d actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(expected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), 0.0);
+}
+
+TEST(Core_OutputArrayAssign, _Matxd_Matf)
+{
+    Mat expected = Mat_<float>({2, 3}, {1.f, 2.f, 3.f, .1f, .2f, .3f});
+    Matx23d actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(expected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), FLT_EPSILON);
+}
+
+TEST(Core_OutputArrayAssign, _Matxf_Matd)
+{
+    Mat expected = Mat_<double>({2, 3}, {1, 2, 3, .1, .2, .3});
+    Matx23f actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(expected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), FLT_EPSILON);
+}
+
+TEST(Core_OutputArrayAssign, _Matxd_UMatd)
+{
+    Mat expected = Mat_<double>({2, 3}, {1, 2, 3, .1, .2, .3});
+    UMat uexpected = expected.getUMat(ACCESS_READ);
+    Matx23d actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(uexpected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), 0.0);
+}
+
+TEST(Core_OutputArrayAssign, _Matxd_UMatf)
+{
+    Mat expected = Mat_<float>({2, 3}, {1.f, 2.f, 3.f, .1f, .2f, .3f});
+    UMat uexpected = expected.getUMat(ACCESS_READ);
+    Matx23d actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(uexpected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), FLT_EPSILON);
+}
+
+TEST(Core_OutputArrayAssign, _Matxf_UMatd)
+{
+    Mat expected = Mat_<double>({2, 3}, {1, 2, 3, .1, .2, .3});
+    UMat uexpected = expected.getUMat(ACCESS_READ);
+    Matx23f actualx;
+
+    {
+        OutputArray oa(actualx);
+        oa.assign(uexpected);
+    }
+
+    Mat actual = (Mat) actualx;
+
+    EXPECT_LE(maxAbsDiff(expected, actual), FLT_EPSILON);
+}
+
+
+
+int fixedType_handler(OutputArray dst)
+{
+    int type = CV_32FC2; // return points only {x, y}
+    if (dst.fixedType())
+    {
+        type = dst.type();
+        CV_Assert(type == CV_32FC2 || type == CV_32FC3); // allow points + confidence level: {x, y, confidence}
+    }
+    const int N = 100;
+    dst.create(Size(1, N), type);
+    Mat m = dst.getMat();
+    if (m.type() == CV_32FC2)
+    {
+        for (int i = 0; i < N; i++)
+            m.at<Vec2f>(i) = Vec2f((float)i, (float)(i*2));
+    }
+    else if (m.type() == CV_32FC3)
+    {
+        for (int i = 0; i < N; i++)
+            m.at<Vec3f>(i) = Vec3f((float)i, (float)(i*2), 1.0f / (i + 1));
+    }
+    else
+    {
+        CV_Assert(0 && "Internal error");
+    }
+    return CV_MAT_CN(type);
+}
+
+TEST(Core_OutputArray, FixedType)
+{
+    Mat_<Vec2f> pointsOnly;
+    int num_pointsOnly = fixedType_handler(pointsOnly);
+    EXPECT_EQ(2, num_pointsOnly);
+
+    Mat_<Vec3f> pointsWithConfidence;
+    int num_pointsWithConfidence = fixedType_handler(pointsWithConfidence);
+    EXPECT_EQ(3, num_pointsWithConfidence);
+
+    Mat defaultResult;
+    int num_defaultResult = fixedType_handler(defaultResult);
+    EXPECT_EQ(2, num_defaultResult);
+}
+
+TEST(Core_OutputArrayCreate, _13772)
+{
+    cv::Mat1d mat;
+    cv::OutputArray o(mat);
+    ASSERT_NO_THROW(o.create(3, 5, CV_64F, -1, true));
+}
+
+
+
+TEST(Core_String, find_last_of__with__empty_string)
+{
+    cv::String s;
+    size_t p = s.find_last_of('q', 0);
+    // npos is not exported: EXPECT_EQ(cv::String::npos, p);
+    EXPECT_EQ(std::string::npos, p);
+}
+
+TEST(Core_String, end_method_regression)
+{
+    cv::String old_string = "012345";
+    cv::String new_string(old_string.begin(), old_string.end());
+    EXPECT_EQ(6u, new_string.size());
+}
+
+TEST(Core_Copy, repeat_regression_8972)
+{
+    Mat src = Mat_<int>({1, 4}, {1, 2, 3, 4});
+
+    ASSERT_ANY_THROW({
+                         repeat(src, 5, 1, src);
+                     });
+}
+
+TEST(Core_BorderInterpolate, wrap_no_overflow_29232)
+{
+    EXPECT_EQ(cv::borderInterpolate(INT_MIN, 5, cv::BORDER_WRAP), 2);
+    EXPECT_EQ(cv::borderInterpolate(INT_MAX, 5, cv::BORDER_WRAP), 2);
+    int r = cv::borderInterpolate(INT_MIN, 5, cv::BORDER_WRAP);
+    EXPECT_GE(r, 0);
+    EXPECT_LT(r, 5);
+}
+
+TEST(Core_CopyMakeBorder, empty_src_and_overflow)
+{
+    Mat emptySrc, dst;
+    EXPECT_THROW(cv::copyMakeBorder(emptySrc, dst, 1, 1, 1, 1, cv::BORDER_CONSTANT, cv::Scalar(0)), cv::Exception);
+
+    Mat src(5, 5, CV_8UC1, Scalar(1));
+    EXPECT_THROW(cv::copyMakeBorder(src, dst, INT_MAX, 1, 0, 0, cv::BORDER_CONSTANT, cv::Scalar(0)), cv::Exception);
+    EXPECT_THROW(cv::copyMakeBorder(src, dst, 0, 0, INT_MAX, 1, cv::BORDER_CONSTANT, cv::Scalar(0)), cv::Exception);
+}
+
+TEST(Core_MixChannels, empty_and_mismatched_inputs)
+{
+    Mat emptySrc, emptyDst;
+    std::vector<int> fromTo = {0, 0};
+    EXPECT_THROW(cv::mixChannels(&emptySrc, 1, &emptyDst, 1, fromTo.data(), 1), cv::Exception);
+
+    Mat src(5, 5, CV_8UC1, Scalar(1));
+    EXPECT_THROW(cv::mixChannels(&src, 1, &emptyDst, 1, fromTo.data(), 1), cv::Exception);
+    EXPECT_THROW(cv::mixChannels(&emptySrc, 1, &src, 1, fromTo.data(), 1), cv::Exception);
+
+    Mat dstMismatched(6, 6, CV_8UC1);
+    EXPECT_THROW(cv::mixChannels(&src, 1, &dstMismatched, 1, fromTo.data(), 1), cv::Exception);
+}
+
+TEST(Core_Repeat, empty_and_overflow)
+{
+    Mat emptySrc, dst;
+    cv::repeat(emptySrc, 5, 5, dst);
+    EXPECT_TRUE(dst.empty());
+
+    Mat src(2, 2, CV_8U, Scalar(1));
+    EXPECT_THROW(cv::repeat(src, INT_MAX, 1, dst), cv::Exception);
+    EXPECT_THROW(cv::repeat(src, 1, INT_MAX, dst), cv::Exception);
+}
+
+class ThrowErrorParallelLoopBody : public cv::ParallelLoopBody
+{
+public:
+    ThrowErrorParallelLoopBody(cv::Mat& dst, int i) : dst_(dst), i_(i) {}
+    ~ThrowErrorParallelLoopBody() {}
+    void operator()(const cv::Range& r) const
+    {
+        for (int i = r.start; i < r.end; i++)
+        {
+            CV_Assert(i != i_);
+            dst_.row(i).setTo(1);
+        }
+    }
+protected:
+    Mat dst_;
+    int i_;
+};
+
+TEST(Core_Parallel, propagate_exceptions)
+{
+    Mat dst1(1000, 100, CV_8SC1, Scalar::all(0));
+    ASSERT_NO_THROW({
+        parallel_for_(cv::Range(0, dst1.rows), ThrowErrorParallelLoopBody(dst1, -1));
+    });
+
+    Mat dst2(1000, 100, CV_8SC1, Scalar::all(0));
+    ASSERT_THROW({
+        parallel_for_(cv::Range(0, dst2.rows), ThrowErrorParallelLoopBody(dst2, dst2.rows / 2));
+    }, cv::Exception);
+}
+
+class FPDenormalsHintCheckerParallelLoopBody : public cv::ParallelLoopBody
+{
+public:
+    FPDenormalsHintCheckerParallelLoopBody()
+        : isOK(true)
+    {
+        state_values_to_check = cv::details::saveFPDenormalsState(base_state);
+    }
+    ~FPDenormalsHintCheckerParallelLoopBody() {}
+    void operator()(const cv::Range& r) const
+    {
+        CV_UNUSED(r);
+        cv::details::FPDenormalsModeState state;
+        if (cv::details::saveFPDenormalsState(state))
+        {
+            for (int i = 0; i < state_values_to_check; ++i)
+            {
+                if (base_state.reserved[i] != state.reserved[i])
+                {
+                    CV_LOG_ERROR(NULL, cv::format("FP state[%d] mismatch: base=0x%08x thread=0x%08x", i, base_state.reserved[i], state.reserved[i]));
+                    isOK = false;
+                    cv::details::restoreFPDenormalsState(base_state);
+                }
+            }
+        }
+        else
+        {
+            // FP state is not supported
+            // no checks
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    cv::details::FPDenormalsModeState base_state;
+    int state_values_to_check;
+
+    mutable bool isOK;
+};
+
+TEST(Core_Parallel, propagate_fp_denormals_ignore_hint)
+{
+    int nThreads = std::max(1, cv::getNumThreads()) * 3;
+    for (int i = 0; i < 4; ++i)
+    {
+        SCOPED_TRACE(cv::format("Case=%d: FP denormals ignore hint: %s\n", i, ((i & 1) != 0) ? "enable" : "disable"));
+        FPDenormalsIgnoreHintScope fp_denormals_scope((i & 1) != 0);
+        FPDenormalsHintCheckerParallelLoopBody job;
+        ASSERT_NO_THROW({
+            parallel_for_(cv::Range(0, nThreads), job);
+        });
+        EXPECT_TRUE(job.isOK);
+    }
+}
+
+TEST(Core_Version, consistency)
+{
+    // this test verifies that OpenCV version loaded in runtime
+    //   is the same this test has been built with
+    EXPECT_EQ(CV_VERSION_MAJOR, cv::getVersionMajor());
+    EXPECT_EQ(CV_VERSION_MINOR, cv::getVersionMinor());
+    EXPECT_EQ(CV_VERSION_REVISION, cv::getVersionRevision());
+    EXPECT_EQ(String(CV_VERSION), cv::getVersionString());
+}
+
+
+
+//
+// Test core/check.hpp macros
+//
+
+void test_check_eq_1(int value_1, int value_2)
+{
+    CV_CheckEQ(value_1, value_2, "Validation check failed");
+}
+TEST(Core_Check, testEQ_int_fail)
+{
+    try
+    {
+        test_check_eq_1(123, 5678);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation check failed (expected: 'value_1 == value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be equal to\n"
+">     'value_2' is 5678\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testEQ_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_eq_1(1234, 1234);
+    });
+}
+
+
+void test_check_eq_2(float value_1, float value_2)
+{
+    CV_CheckEQ(value_1, value_2, "Validation check failed (float)");
+}
+TEST(Core_Check, testEQ_float_fail)
+{
+    try
+    {
+        test_check_eq_2(1234.5f, 1234.55f);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation check failed (float) (expected: 'value_1 == value_2'), where\n"
+">     'value_1' is 1234.5\n"  // TODO Locale handling (use LC_ALL=C on Linux)
+"> must be equal to\n"
+">     'value_2' is 1234.55\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testEQ_float_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_eq_2(1234.6f, 1234.6f);
+    });
+}
+
+
+void test_check_eq_3(double value_1, double value_2)
+{
+    CV_CheckEQ(value_1, value_2, "Validation check failed (double)");
+}
+TEST(Core_Check, testEQ_double_fail)
+{
+    try
+    {
+        test_check_eq_3(1234.5, 1234.56);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation check failed (double) (expected: 'value_1 == value_2'), where\n"
+">     'value_1' is 1234.5\n"  // TODO Locale handling (use LC_ALL=C on Linux)
+"> must be equal to\n"
+">     'value_2' is 1234.56\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testEQ_double_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_eq_3(1234.0f, 1234.0f);
+    });
+}
+
+
+void test_check_ne_1(int value_1, int value_2)
+{
+    CV_CheckNE(value_1, value_2, "Validation NE check failed");
+}
+TEST(Core_Check, testNE_int_fail)
+{
+    try
+    {
+        test_check_ne_1(123, 123);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation NE check failed (expected: 'value_1 != value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be not equal to\n"
+">     'value_2' is 123\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testNE_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_ne_1(123, 1234);
+    });
+}
+
+
+void test_check_le_1(int value_1, int value_2)
+{
+    CV_CheckLE(value_1, value_2, "Validation LE check failed");
+}
+TEST(Core_Check, testLE_int_fail)
+{
+    try
+    {
+        test_check_le_1(1234, 123);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation LE check failed (expected: 'value_1 <= value_2'), where\n"
+">     'value_1' is 1234\n"
+"> must be less than or equal to\n"
+">     'value_2' is 123\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testLE_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_le_1(1234, 1234);
+    });
+    EXPECT_NO_THROW(
+    {
+        test_check_le_1(123, 1234);
+    });
+}
+
+void test_check_lt_1(int value_1, int value_2)
+{
+    CV_CheckLT(value_1, value_2, "Validation LT check failed");
+}
+TEST(Core_Check, testLT_int_fail)
+{
+    try
+    {
+        test_check_lt_1(1234, 123);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation LT check failed (expected: 'value_1 < value_2'), where\n"
+">     'value_1' is 1234\n"
+"> must be less than\n"
+">     'value_2' is 123\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testLT_int_fail_eq)
+{
+    try
+    {
+        test_check_lt_1(123, 123);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation LT check failed (expected: 'value_1 < value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be less than\n"
+">     'value_2' is 123\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testLT_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_lt_1(123, 1234);
+    });
+}
+
+
+void test_check_ge_1(int value_1, int value_2)
+{
+    CV_CheckGE(value_1, value_2, "Validation GE check failed");
+}
+TEST(Core_Check, testGE_int_fail)
+{
+    try
+    {
+        test_check_ge_1(123, 1234);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation GE check failed (expected: 'value_1 >= value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be greater than or equal to\n"
+">     'value_2' is 1234\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testGE_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_ge_1(1234, 1234);
+    });
+    EXPECT_NO_THROW(
+    {
+        test_check_ge_1(1234, 123);
+    });
+}
+
+void test_check_gt_1(int value_1, int value_2)
+{
+    CV_CheckGT(value_1, value_2, "Validation GT check failed");
+}
+TEST(Core_Check, testGT_int_fail)
+{
+    try
+    {
+        test_check_gt_1(123, 1234);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation GT check failed (expected: 'value_1 > value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be greater than\n"
+">     'value_2' is 1234\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testGT_int_fail_eq)
+{
+    try
+    {
+        test_check_gt_1(123, 123);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Validation GT check failed (expected: 'value_1 > value_2'), where\n"
+">     'value_1' is 123\n"
+"> must be greater than\n"
+">     'value_2' is 123\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+TEST(Core_Check, testGT_int_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_gt_1(1234, 123);
+    });
+}
+
+
+void test_check_MatType_1(int src_type)
+{
+    CV_CheckTypeEQ(src_type, CV_32FC1, "Unsupported source type");
+}
+TEST(Core_Check, testMatType_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_MatType_1(CV_MAKE_TYPE(CV_32F, 1));
+    });
+}
+TEST(Core_Check, testMatType_fail_1)
+{
+    try
+    {
+        test_check_MatType_1(CV_8UC1);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Unsupported source type (expected: 'src_type == CV_32FC1'), where\n"
+">     'src_type' is 0 (CV_8UC1)\n"
+"> must be equal to\n"
+">     'CV_32FC1' is 5 (CV_32FC1)\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+
+void test_check_MatType_2(int src_type)
+{
+    CV_CheckType(src_type, src_type == CV_32FC1 || src_type == CV_32FC3, "Unsupported src");
+}
+TEST(Core_Check, testMatType_fail_2)
+{
+    try
+    {
+        test_check_MatType_2(CV_8UC1);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Unsupported src:\n"
+">     'src_type == CV_32FC1 || src_type == CV_32FC3'\n"
+"> where\n"
+">     'src_type' is 0 (CV_8UC1)\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+
+void test_check_MatDepth_1(int src_depth)
+{
+    CV_CheckDepthEQ(src_depth, CV_32F, "Unsupported source depth");
+}
+TEST(Core_Check, testMatDepth_pass)
+{
+    EXPECT_NO_THROW(
+    {
+        test_check_MatDepth_1(CV_MAKE_TYPE(CV_32F, 1));
+    });
+}
+TEST(Core_Check, testMatDepth_fail_1)
+{
+    try
+    {
+        test_check_MatDepth_1(CV_8U);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Unsupported source depth (expected: 'src_depth == CV_32F'), where\n"
+">     'src_depth' is 0 (CV_8U)\n"
+"> must be equal to\n"
+">     'CV_32F' is 5 (CV_32F)\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+
+void test_check_MatDepth_2(int src_depth)
+{
+    CV_CheckDepth(src_depth, src_depth == CV_32F || src_depth == CV_64F, "Unsupported src");
+}
+TEST(Core_Check, testMatDepth_fail_2)
+{
+    try
+    {
+        test_check_MatDepth_2(CV_8U);
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Unsupported src:\n"
+">     'src_depth == CV_32F || src_depth == CV_64F'\n"
+"> where\n"
+">     'src_depth' is 0 (CV_8U)\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+
+
+void test_check_Size_1(const Size& srcSz)
+{
+    CV_Check(srcSz, srcSz == Size(4, 3), "Unsupported src size");
+}
+TEST(Core_Check, testSize_1)
+{
+    try
+    {
+        test_check_Size_1(Size(2, 1));
+        FAIL() << "Unreachable code called";
+    }
+    catch (const cv::Exception& e)
+    {
+        EXPECT_STREQ(e.err.c_str(),
+"> Unsupported src size:\n"
+">     'srcSz == Size(4, 3)'\n"
+"> where\n"
+">     'srcSz' is [2 x 1]\n"
+);
+    }
+    catch (const std::exception& e)
+    {
+        FAIL() << "Unexpected C++ exception: " << e.what();
+    }
+    catch (...)
+    {
+        FAIL() << "Unexpected unknown exception";
+    }
+}
+
+TEST(Core_Allocation, alignedAllocation)
+{
+    // iterate from size=1 to approximate byte size of 8K 32bpp image buffer
+    for (int i = 0; i < 200; i++) {
+        const size_t size = static_cast<size_t>(std::pow(1.091, (double)i));
+        void * const buf = cv::fastMalloc(size);
+        ASSERT_NE((uintptr_t)0, (uintptr_t)buf)
+            << "failed to allocate memory";
+        ASSERT_EQ((uintptr_t)0, (uintptr_t)buf % CV_MALLOC_ALIGN)
+            << "memory not aligned to " << CV_MALLOC_ALIGN;
+        cv::fastFree(buf);
+    }
+}
+
+
+TEST(Core_Types, trivially_copyable)
+{
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Complexd>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Point>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Point3f>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Size>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Range>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Rect>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::RotatedRect>::value);
+    //EXPECT_TRUE(std::is_trivially_copyable<cv::Scalar>::value);  // derived from Vec (Matx)
+}
+
+TEST(Core_Types, trivially_copyable_extra)
+{
+    EXPECT_TRUE(std::is_trivially_copyable<cv::KeyPoint>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::DMatch>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::TermCriteria>::value);
+    EXPECT_TRUE(std::is_trivially_copyable<cv::Moments>::value);
+}
+
+template <typename T> class Rect_Test : public testing::Test {};
+
+TYPED_TEST_CASE_P(Rect_Test);
+
+// Reimplement C++11 std::numeric_limits<>::lowest.
+template<typename T> T cv_numeric_limits_lowest();
+template<> int cv_numeric_limits_lowest<int>() { return INT_MIN; }
+template<> float cv_numeric_limits_lowest<float>() { return -FLT_MAX; }
+template<> double cv_numeric_limits_lowest<double>() { return -DBL_MAX; }
+
+TYPED_TEST_P(Rect_Test, Overflows) {
+  typedef Rect_<TypeParam> R;
+  TypeParam num_max = std::numeric_limits<TypeParam>::max();
+  TypeParam num_lowest = cv_numeric_limits_lowest<TypeParam>();
+  EXPECT_EQ(R(0, 0, 10, 10), R(0, 0, 10, 10) & R(0, 0, 10, 10));
+  EXPECT_EQ(R(5, 6, 4, 3), R(0, 0, 10, 10) & R(5, 6, 4, 3));
+  EXPECT_EQ(R(5, 6, 3, 2), R(0, 0, 8, 8) & R(5, 6, 4, 3));
+  // Test with overflowing dimenions.
+  EXPECT_EQ(R(5, 0, 5, 10), R(0, 0, 10, 10) & R(5, 0, num_max, num_max));
+  // Test with overflowing dimensions for floats/doubles.
+  EXPECT_EQ(R(num_max, 0, num_max / 4, 10), R(num_max, 0, num_max / 2, 10) & R(num_max, 0, num_max / 4, 10));
+  // Test with overflowing coordinates.
+  EXPECT_EQ(R(), R(20, 0, 10, 10) & R(num_lowest, 0, 10, 10));
+  EXPECT_EQ(R(), R(20, 0, 10, 10) & R(0, num_lowest, 10, 10));
+  EXPECT_EQ(R(), R(num_lowest, 0, 10, 10) & R(0, num_lowest, 10, 10));
+}
+
+// See https://github.com/opencv/opencv/issues/26016
+// Rect_<int>.contains(Point_<float/double>) needs template specialization.
+// This is test for a point on the edge and its nearest points.
+template<typename T> T cv_nexttoward(T v, T v2);
+template<> int cv_nexttoward<int>(int v, int v2) { CV_UNUSED(v); return v2; }
+template<> float cv_nexttoward<float>(float v, float v2) { return std::nextafter(v,v2); }
+template<> double cv_nexttoward<double>(double v, double v2) { return std::nexttoward(v,v2); }
+TYPED_TEST_P(Rect_Test, OnTheEdge) {
+  Rect_<int> rect(0,0,500,500);
+  TypeParam h = static_cast<TypeParam>(rect.height);
+  ASSERT_TRUE ( rect.contains( Point_<TypeParam>(250, cv_nexttoward(h, h - 1))));
+  ASSERT_FALSE( rect.contains( Point_<TypeParam>(250, cv_nexttoward(h, h    ))));
+  ASSERT_FALSE( rect.contains( Point_<TypeParam>(250, cv_nexttoward(h, h + 1))));
+}
+REGISTER_TYPED_TEST_CASE_P(Rect_Test, Overflows, OnTheEdge);
+
+typedef ::testing::Types<int, float, double> RectTypes;
+INSTANTIATE_TYPED_TEST_CASE_P(Negative_Test, Rect_Test, RectTypes);
+
+// See https://github.com/opencv/opencv/issues/11988
+// Intersecting two disjoint unsigned rectangles must not underflow width/height.
+TEST(Core_Rect, unsigned_intersection_no_underflow)
+{
+    typedef Rect_<unsigned> R;
+    // Disjoint on both axes.
+    EXPECT_EQ(R(), R(0u, 0u, 1u, 1u) & R(2u, 2u, 1u, 1u));
+    // Disjoint on one axis only.
+    EXPECT_EQ(R(), R(0u, 0u, 4u, 4u) & R(5u, 1u, 4u, 4u));
+    EXPECT_EQ(R(), R(0u, 0u, 4u, 4u) & R(1u, 5u, 4u, 4u));
+    // Touching edges are still empty.
+    EXPECT_EQ(R(), R(0u, 0u, 4u, 4u) & R(4u, 4u, 4u, 4u));
+    // Overlapping intersection is unchanged.
+    EXPECT_EQ(R(3u, 2u, 2u, 3u), R(0u, 0u, 5u, 5u) & R(3u, 2u, 4u, 4u));
+
+    const R inter = R(0u, 0u, 1u, 1u) & R(2u, 2u, 1u, 1u);
+    EXPECT_TRUE(inter.empty());
+    EXPECT_EQ(0u, inter.area());
+}
+
+// Expected that SkipTestException thrown in the constructor should skip test but not fail
+struct TestFixtureSkip: public ::testing::Test {
+    TestFixtureSkip(bool throwEx = true) {
+        if (throwEx) {
+            throw SkipTestException("Skip test at constructor");
+        }
+    }
+};
+
+TEST_F(TestFixtureSkip, NoBodyRun) {
+    FAIL() << "Unreachable code called";
+}
+
+// Expected that SkipTestException thrown in SetUp method should skip test but not fail
+struct TestSetUpSkip: public ::testing::Test {
+    virtual void SetUp() CV_OVERRIDE {
+        throw SkipTestException("Skip test at SetUp");
+    }
+};
+
+TEST_F(TestSetUpSkip, NoBodyRun) {
+    FAIL() << "Unreachable code called";
+}
+
+TEST(Core_HardwareSupport, OutOfBounds) {
+    EXPECT_FALSE(cv::checkHardwareSupport(-1));
+    EXPECT_FALSE(cv::checkHardwareSupport(-100));
+    EXPECT_FALSE(cv::checkHardwareSupport(CV_HARDWARE_MAX_FEATURE));
+    EXPECT_FALSE(cv::checkHardwareSupport(652214343));
+
+    EXPECT_TRUE(cv::getHardwareFeatureName(-1).empty());
+    EXPECT_TRUE(cv::getHardwareFeatureName(CV_HARDWARE_MAX_FEATURE).empty());
+    EXPECT_TRUE(cv::getHardwareFeatureName(652214343).empty());
+}
+
+TEST(Core_KeyPoint, ConvertOutOfBounds) {
+    std::vector<cv::KeyPoint> kpts = { cv::KeyPoint(1.0f, 2.0f, 5.0f) };
+    std::vector<cv::Point2f> pts;
+
+    // Negative index throws
+    EXPECT_THROW(cv::KeyPoint::convert(kpts, pts, { -1 }), cv::Exception);
+
+    // Out-of-bounds positive index throws
+    EXPECT_THROW(cv::KeyPoint::convert(kpts, pts, { 1 }), cv::Exception);
+    EXPECT_THROW(cv::KeyPoint::convert(kpts, pts, { 100 }), cv::Exception);
+    EXPECT_THROW(cv::KeyPoint::convert({}, pts, { 0 }), cv::Exception);
+
+    // Valid index works
+    EXPECT_NO_THROW(cv::KeyPoint::convert(kpts, pts, { 0 }));
+    ASSERT_EQ(pts.size(), 1u);
+    EXPECT_EQ(pts[0], cv::Point2f(1.0f, 2.0f));
+}
+
+TEST(Core_EmptyMat, FuzzRegressions) {
+    cv::Mat empty_mat;
+    cv::Mat mask_1x1 = cv::Mat::ones(1, 1, CV_8U);
+
+    // cv::mean
+    EXPECT_NO_THROW({
+        cv::Scalar m = cv::mean(empty_mat);
+        EXPECT_EQ(m, cv::Scalar::all(0.0));
+    });
+    EXPECT_NO_THROW({
+        cv::Scalar m = cv::mean(cv::Mat(0, 4, CV_32F));
+        EXPECT_EQ(m, cv::Scalar::all(0.0));
+    });
+    EXPECT_THROW(cv::mean(empty_mat, mask_1x1), cv::Exception);
+
+    // cv::norm
+    EXPECT_NO_THROW({
+        double n = cv::norm(empty_mat);
+        EXPECT_EQ(n, 0.0);
+    });
+    EXPECT_NO_THROW({
+        double n = cv::norm(cv::Mat(0, 4, CV_32F));
+        EXPECT_EQ(n, 0.0);
+    });
+    EXPECT_THROW(cv::norm(empty_mat, cv::NORM_L2, mask_1x1), cv::Exception);
+    EXPECT_NO_THROW({
+        double n = cv::norm(empty_mat, empty_mat);
+        EXPECT_EQ(n, 0.0);
+    });
+
+    // cv::reduce
+    cv::Mat dst;
+    EXPECT_NO_THROW(cv::reduce(empty_mat, dst, 0, cv::REDUCE_SUM));
+    EXPECT_TRUE(dst.empty());
+    EXPECT_NO_THROW(cv::reduce(cv::Mat(0, 4, CV_32F), dst, 0, cv::REDUCE_SUM));
+
+    // cv::dft, cv::dct
+    EXPECT_NO_THROW(cv::dft(empty_mat, dst));
+    EXPECT_TRUE(dst.empty());
+    EXPECT_NO_THROW(cv::dct(empty_mat, dst));
+    EXPECT_TRUE(dst.empty());
+
+    // cv::mulSpectrums, cv::divSpectrums
+    EXPECT_NO_THROW(cv::mulSpectrums(empty_mat, empty_mat, dst, 0));
+    EXPECT_TRUE(dst.empty());
+    EXPECT_NO_THROW(cv::divSpectrums(empty_mat, empty_mat, dst, 0));
+    EXPECT_TRUE(dst.empty());
+    cv::Mat spec_4x4 = cv::Mat::ones(4, 4, CV_32FC1);
+    EXPECT_THROW(cv::mulSpectrums(empty_mat, spec_4x4, dst, 0), cv::Exception);
+    EXPECT_THROW(cv::mulSpectrums(spec_4x4, empty_mat, dst, 0), cv::Exception);
+    EXPECT_THROW(cv::divSpectrums(empty_mat, spec_4x4, dst, 0), cv::Exception);
+    EXPECT_THROW(cv::divSpectrums(spec_4x4, empty_mat, dst, 0), cv::Exception);
+
+    // cv::transposeND, cv::repeat, cv::slice
+    EXPECT_THROW(cv::transposeND(empty_mat, {}, dst), cv::Exception);
+    EXPECT_THROW(cv::repeat(empty_mat, {}, dst), cv::Exception);
+    EXPECT_THROW(cv::slice(empty_mat, {}, {}, {}, dst), cv::Exception);
+}
+
+}} // namespace

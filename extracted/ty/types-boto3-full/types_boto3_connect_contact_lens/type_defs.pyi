@@ -116,6 +116,7 @@ class TranscriptTypeDef(TypedDict):
     EndOffsetMillis: int
     Sentiment: NotRequired[SentimentValueType]
     IssuesDetected: NotRequired[list[IssueDetectedTypeDef]]
+    LanguageCode: NotRequired[str]
 
 class RealTimeContactAnalysisSegmentsFilterTypeDef(TypedDict):
     CategoriesAttributeFilter: NotRequired[CategoriesAttributeFilterTypeDef]

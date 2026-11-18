@@ -1,7 +1,7 @@
 [tool.black]
 skip-string-normalization = false
 line-length = 120
-target-version = ['py37', 'py38']
+target-version = ['py38', 'py39']
 extend-exclude = '''
 /(
   | plugins/module_utils/_version.py
@@ -65,6 +65,9 @@ exclude = [".tox", "tests/output"]
 # "E402" - import not at top of file - General Ansible style puts the documentation at the top.
 unfixable = ["F401"]
 ignore = ["F401", "E402"]
+
+[tool.pylint.main]
+ignore = [".tox", "tests/output"]
 
 [tool.pytest.ini_options]
 xfail_strict = true

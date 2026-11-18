@@ -349,7 +349,6 @@ pub struct SourceLoadPlanText {
     /// `ExecutionResourceKind` value; only `loader` and `source` loads are listed.
     pub resource_kind: String,
     pub is_reload: bool,
-    pub integration_kind: Option<String>,
     pub write_strategy: Option<String>,
     pub cursor_column: Option<String>,
     pub unique_key: Vec<String>,
@@ -423,6 +422,8 @@ pub struct PlanTextReport {
     pub pruned_models: Vec<String>,
     /// Table type, retention and migration lines the planner renders.
     pub pre_build_lines: Vec<String>,
+    /// Audit failures hold nothing back in the build this plan previews.
+    pub ignore_audit_failures: bool,
 }
 
 /// The structural kind of a rendered plan line.

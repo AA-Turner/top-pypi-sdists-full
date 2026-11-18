@@ -7,9 +7,11 @@ from typing import TYPE_CHECKING, Literal
 
 from sphinx.util.inspect import getdoc
 
-from .._documented import class_doc_choice
-from .._state import class_docstrings
-from .formats import detect_format
+from .._documented import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    class_doc_choice,
+)
+from .._state import class_docstrings  # simplint: ignore[private-import-path]  # init cycle
+from .formats.detect import detect_format
 from .parameters import escape_trailing_underscore
 
 if TYPE_CHECKING:
@@ -17,7 +19,7 @@ if TYPE_CHECKING:
     from sphinx.environment import BuildEnvironment
     from sphinx.ext.autodoc import Options
 
-    from .._types import Documented
+    from . import Documented
 
 
 def docstring_part(

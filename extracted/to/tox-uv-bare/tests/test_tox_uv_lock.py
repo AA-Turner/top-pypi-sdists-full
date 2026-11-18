@@ -286,7 +286,7 @@ def test_uv_lock_with_install_pkg(tox_project: ToxProjectCreator, name: str) -> 
         (
             "py",
             "install_external",
-            [uv, "pip", "install", "--reinstall", "--no-deps", f"tox-uv@{wheel}", "-v"],
+            [uv, "pip", "install", "--reinstall", "--no-deps", f"tox-uv@{wheel.as_uri()}", "-v"],
         ),
     ]
     assert calls == expected
@@ -300,7 +300,7 @@ def test_uv_lock_with_install_pkg(tox_project: ToxProjectCreator, name: str) -> 
         pytest.param(False, [], id="unlocked"),
     ],
 )
-def test_uv_sync_extra_flags(tox_project: ToxProjectCreator, uv_sync_locked: bool, locked_flags: list[str]) -> None:
+def test_uv_sync_extra_flags(tox_project: ToxProjectCreator, *, uv_sync_locked: bool, locked_flags: list[str]) -> None:
     uv_sync_locked_str = str(uv_sync_locked).lower()
     project = tox_project({
         "tox.ini": f"""

@@ -506,9 +506,8 @@ class HomebrewCask:
         )
         if rc == 0:
             if out and isinstance(out, str):
-                already_updated = any(
-                    re.search(r"Already up-to-date.", s.strip(), re.IGNORECASE) for s in out.split("\n") if s
-                )
+                already_updated_re = re.compile(r"Already up-to-date.", re.IGNORECASE)
+                already_updated = any(already_updated_re.search(s.strip()) for s in out.split("\n") if s)
                 if not already_updated:
                     self.changed = True
                     self.message = "Homebrew updated successfully."
@@ -551,7 +550,7 @@ class HomebrewCask:
                 self.message = "Homebrew casks already upgraded."
 
             # handle legacy 'brew cask upgrade'
-            elif re.search(r"==> No Casks to upgrade", out.strip(), re.IGNORECASE):
+            elif "==> no casks to upgrade" in out.lower():
                 self.message = "Homebrew casks already upgraded."
 
             else:
@@ -604,7 +603,7 @@ class HomebrewCask:
             self.changed = True
             self.message = f"Cask installed: {self.current_cask}"
             return True
-        elif self.accept_external_apps and re.search(r"Error: It seems there is already an App at", err):
+        elif self.accept_external_apps and "Error: It seems there is already an App at" in err:
             self.unchanged_count += 1
             self.message = f"Cask already installed: {self.current_cask}"
             return True

@@ -37,4 +37,5 @@ class ManagedTransforms(object):
     SQL_SERVER_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:sql_server_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     DELTA_LAKE_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:delta_lake_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     DELTA_LAKE_CDC_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:delta_lake_cdc_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    ICEBERG_ADD_FILES = PropertiesFromEnumValue('beam:schematransform:iceberg_add_files:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 

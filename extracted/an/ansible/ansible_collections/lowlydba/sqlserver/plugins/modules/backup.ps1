@@ -58,7 +58,7 @@ $copyOnly = $module.Params.copy_only
 $type = $module.Params.type
 $createFolder = $module.Params.create_folder
 $fileCount = $module.Params.file_count
-$compressBackup = $module.Params.compress_backup
+$compressBackup = $module.Params.compress
 $checkSum = $module.Params.checksum
 $verify = $module.Params.verify
 $maxTransferSize = $module.Params.max_transfer_size
@@ -71,9 +71,9 @@ $initialize = $module.Params.initialize
 $timestampFormat = $module.Params.timestamp_format
 $ignoreFileChecks = $module.Params.ignore_file_checks
 $encryptionAlgorithm = $module.Params.encryption_algorithm
-$encryptionCertificate = $modules.Params.encryption_certificate
-$azureBaseUrl = $modules.Params.azure_base_url
-$azureCredential = $modules.Param.azure_credential
+$encryptionCertificate = $module.Params.encryption_certificate
+$azureBaseUrl = $module.Params.azure_base_url
+$azureCredential = $module.Params.azure_credential
 $checkMode = $module.CheckMode
 $module.Result.changed = $false
 $PSDefaultParameterValues = @{ "*:EnableException" = $true; "*:Confirm" = $false; "*:WhatIf" = $checkMode }
@@ -129,6 +129,10 @@ try {
     if ($null -ne $output) {
         $resultData = ConvertTo-SerializableObject -InputObject $output
         $module.Result.data = $resultData
+    }
+    # Backup-DbaDatabase returns nothing under -WhatIf, but a backup is never a no-op, so report
+    # changed based on check_mode too, not just on whether an output object came back.
+    if ($checkMode -or $null -ne $output) {
         $module.Result.changed = $true
     }
     $module.ExitJson()

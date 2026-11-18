@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-unused-fixtures
-Version: 0.3.1
+Version: 0.3.2
 Summary: A pytest plugin to list unused fixtures after a test run.
 License: MIT
 License-File: LICENSE
@@ -20,6 +20,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Testing
 Requires-Dist: pytest (>7.3.2)
 Project-URL: Repository, https://github.com/mikicz/pytest-unused-fixtures
@@ -82,6 +83,7 @@ Sometimes there will be fixture which are unused on purpose, for example when us
 import pytest
 from pytest_unused_fixtures import ignore_unused_fixture
 
+
 @pytest.fixture
 @ignore_unused_fixture
 def ignored_fixture():
@@ -93,6 +95,7 @@ Alternatively, if you prefer module imports:
 ```python
 import pytest
 import pytest_unused_fixtures
+
 
 @pytest.fixture
 @pytest_unused_fixtures.ignore
@@ -119,6 +122,12 @@ Many thanks to
  - [pytest-durations](https://github.com/blake-r/pytest-durations) for inspirations in parts of the implementation
 
 ## Changelog
+
+### 0.3.2 (Nov 18, 2025)
+
+* Support pytest 9.2, which keys its fixture registry by node
+* Support Python 3.15
+* Drop support for Python 3.10
 
 ### 0.3.1 (Dec 23, 2025)
 

@@ -56,11 +56,12 @@ import tokenize
 from collections.abc import Callable
 from typing import ClassVar, TypeAlias, final
 
-#: General type for all possible nodes where error happens.
 ErrorNode: TypeAlias = ast.AST | tokenize.TokenInfo | None
+"""General type for all possible nodes where error happens."""
 
-#: We use this type to define helper classes with callbacks to add violations.
 ErrorCallback: TypeAlias = Callable[['BaseViolation'], None]
+"""We use this type to define helper classes
+ with callbacks to add violations."""
 
 
 @enum.unique
@@ -94,7 +95,7 @@ class BaseViolation(abc.ABC):
         ViolationPostfixes.bigger_than
     )
 
-    def __init_subclass__(cls, **kwargs) -> None:
+    def __init_subclass__(cls, **kwargs: object) -> None:
         """Sets additional values for subclasses."""
         super().__init_subclass__(**kwargs)
         violation_code = getattr(cls, 'code', None)
@@ -231,7 +232,7 @@ class SimpleViolation(BaseViolation):
 
     def __init__(
         self,
-        node=None,
+        node: ErrorNode = None,
         text: str | None = None,
         baseline: int | None = None,
     ) -> None:

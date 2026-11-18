@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pytest-print
-Version: 1.4.2
+Version: 1.4.3
 Import-Name: pytest_print
 Summary: pytest-print adds the printer fixture you can use to print messages to the user (directly to the pytest runner, not stdout)
 Project-URL: Changelog, https://github.com/pytest-dev/pytest-print/blob/main/CHANGELOG.md

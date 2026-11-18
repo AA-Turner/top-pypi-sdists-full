@@ -95,31 +95,6 @@ def _get_stream_emitter():
                 _stream_emitter_class = StreamEventEmitter
     return _stream_emitter_class
 
-# File extensions that indicate a file path (for output parameter detection)
-_FILE_EXTENSIONS = frozenset({'.txt', '.md', '.json', '.yaml', '.yml', '.html', '.csv', '.log', '.xml', '.rst'})
-
-def _is_file_path(value: str) -> bool:
-    """Check if a string looks like a file path (not a preset name).
-    
-    Used to detect when output="path/to/file.txt" should be treated as
-    output_file instead of a preset name.
-    
-    Args:
-        value: String to check
-        
-    Returns:
-        True if the string looks like a file path
-    """
-    # Contains path separator
-    if '/' in value or '\\' in value:
-        return True
-    # Ends with common file extension
-    lower = value.lower()
-    for ext in _FILE_EXTENSIONS:
-        if lower.endswith(ext):
-            return True
-    return False
-
 # ============================================================================
 # Performance: Module-level imports for param resolution (moved from __init__)
 # These imports are lightweight and avoid per-Agent import overhead
@@ -141,6 +116,12 @@ from ..config.feature_configs import (
 # Already loaded by the imports above; hoisted so __init__ does not pay a
 # function-local relative import per construction (#5835).
 from ..config.parse_utils import canonical_preset_key, validate_preset_string
+from ..config.agent_init import (
+    _is_file_path, resolve_agent_caching, resolve_agent_execution, resolve_agent_guardrails,
+    resolve_agent_history, resolve_agent_hooks, resolve_agent_knowledge, resolve_agent_learn,
+    resolve_agent_memory, resolve_agent_output, resolve_agent_planning, resolve_agent_reflection,
+    resolve_agent_templates, resolve_agent_web,
+)
 
 # Default tool output limit (16000 chars ≈ 4000 tokens)
 # Single source of truth defined in config.feature_configs and imported here
@@ -251,6 +232,8 @@ _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED = False
 class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, UnifiedExecutionMixin, ToolExecutionMixin, ChatHandlerMixin, SessionManagerMixin, ChatMixin, ExecutionMixin, MemoryMixin, AsyncMemoryMixin):
     # Class-level counter for generating unique display names for nameless agents
     _agent_counter = 0
+    # Partial result of the last cancelled run_autonomous_async(); None otherwise.
+    _last_autonomy_result = None
     _agent_counter_lock = threading.Lock()
     # Class-level cache for environment variables (avoid repeated os.environ.get)
     # Protected by _env_cache_lock for thread safety
@@ -440,7 +423,13 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         if self._llm_init_params:
             try:
                 from ..llm.llm import LLM
-                self._llm_instance = LLM(**self._llm_init_params)
+                # The manager stays off _llm_init_params: _fallback_llm_for()
+                # reuses them, and a profile's model would override the fallback's.
+                params = dict(self._llm_init_params)
+                failover_manager = getattr(self, "_failover_manager", None)
+                if failover_manager is not None:
+                    params["failover_manager"] = failover_manager
+                self._llm_instance = LLM(**params)
             except ImportError as e:
                 raise ImportError(
                     "LLM features requested but dependencies not installed. "
@@ -448,6 +437,13 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 ) from e
         self._wire_deferred_history_callback()
         return self._llm_instance
+
+    def _credential_failover_active(self) -> bool:
+        """True when credential rotation runs; the built LLM (e.g. after switch_model) is the truth."""
+        llm = getattr(self, "_llm_instance", None)
+        if llm is not None:
+            return getattr(llm, "_failover_manager", None) is not None
+        return getattr(self, "_failover_manager", None) is not None
 
     @property
     def llm_instance(self):
@@ -560,20 +556,20 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         """
         Generate a tool definition from a function name by inspecting the function.
         """
-        logging.debug(f"Attempting to generate tool definition for: {function_name}")
+        logger.debug(f"Attempting to generate tool definition for: {function_name}")
         
         # First try to get the tool definition if it exists
         tool_def_name = f"{function_name}_definition"
         tool_def = globals().get(tool_def_name)
-        logging.debug(f"Looking for {tool_def_name} in globals: {tool_def is not None}")
+        logger.debug(f"Looking for {tool_def_name} in globals: {tool_def is not None}")
         
         if not tool_def:
             import __main__
             tool_def = getattr(__main__, tool_def_name, None)
-            logging.debug(f"Looking for {tool_def_name} in __main__: {tool_def is not None}")
+            logger.debug(f"Looking for {tool_def_name} in __main__: {tool_def is not None}")
         
         if tool_def:
-            logging.debug(f"Found tool definition: {tool_def}")
+            logger.debug(f"Found tool definition: {tool_def}")
             return tool_def
 
         # Try to find the function in the agent's tools list first
@@ -583,20 +579,20 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 func = tool
                 break
         
-        logging.debug(f"Looking for {function_name} in agent tools: {func is not None}")
+        logger.debug(f"Looking for {function_name} in agent tools: {func is not None}")
         
         # If not found in tools, try globals and main
         if not func:
             func = globals().get(function_name)
-            logging.debug(f"Looking for {function_name} in globals: {func is not None}")
+            logger.debug(f"Looking for {function_name} in globals: {func is not None}")
             
             if not func:
                 import __main__
                 func = getattr(__main__, function_name, None)
-                logging.debug(f"Looking for {function_name} in __main__: {func is not None}")
+                logger.debug(f"Looking for {function_name} in __main__: {func is not None}")
 
         if not func or not callable(func):
-            logging.debug(f"Function {function_name} not found or not callable")
+            logger.debug(f"Function {function_name} not found or not callable")
             return None
 
         # Delegate signature introspection + schema generation to the shared
@@ -604,7 +600,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # (including array 'items' normalisation).
         from ..tools.schema import build_tool_definition
         tool_def = build_tool_definition(func, function_name)
-        logging.debug(f"Generated tool definition: {tool_def}")
+        logger.debug(f"Generated tool definition: {tool_def}")
         return tool_def
 
     @staticmethod
@@ -876,6 +872,9 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # LLMConfig(fallback_models=[...])), so accept it here without exposing
         # it in the signature and seed the local below.
         _cloned_fallback_models = legacy_kwargs.pop("fallback_models", None)
+        # Internal like fallback_models: clone_for_channel() forwards the shared
+        # FailoverManager. Not a public Agent(failover_manager=) param.
+        _cloned_failover_manager = legacy_kwargs.pop("failover_manager", None)
         # `thinking_budget` is a backward-compatible alias for `reasoning_effort`
         # (Issue #4452); accept it here (like fallback_models) without exposing
         # it in the signature so the unknown-kwarg guard below does not reject it.
@@ -897,6 +896,22 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     "streaming moved into output=; use "
                     "output=OutputConfig(stream=True)."
                 ),
+                # The other flat kwargs that were grouped into config objects
+                # (D-05): each names where the setting lives now.
+                "markdown": "moved into output=; use output=OutputConfig(markdown=True).",
+                "metrics": "moved into output=; use output=OutputConfig(metrics=True).",
+                "self_reflect": "moved into reflection=; use reflection=True (or reflection=ReflectionConfig(...)).",
+                "max_reflect": "moved into reflection=; use reflection=ReflectionConfig(max_iterations=...).",
+                "min_reflect": "moved into reflection=; use reflection=ReflectionConfig(min_iterations=...).",
+                "system_template": "moved into templates=; use templates=TemplateConfig(system=...).",
+                "cache": "moved into caching=; use caching=True or False (or caching=CachingConfig(enabled=...)).",
+                "web_search": "moved into web=; use web=True (or web=WebConfig(search=True, fetch=False)).",
+                "max_iter": "moved into execution=; use execution=ExecutionConfig(max_iter=...).",
+                "temperature": (
+                    "set it on the model; use model={'model': 'gpt-4o-mini', 'temperature': ...} "
+                    "(or pass temperature= to chat())."
+                ),
+                "max_tokens": "set it on the model; use model={'model': 'gpt-4o-mini', 'max_tokens': ...}.",
                 # Same migration, different container: these two were flat
                 # kwargs before they were grouped into tool_config. Without a
                 # hint the user gets a bare "unexpected keyword argument" and
@@ -1132,40 +1147,10 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # Resolve OUTPUT param - FAST PATH for common cases
         # DEFAULT: "silent" mode (zero overhead, fastest performance)
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None -> silent defaults (use cached env var)
-        if output is None:
-            env_output = Agent._get_env_output_mode()
-            if env_output and env_output in OUTPUT_PRESETS:
-                output = env_output
-            else:
-                output = DEFAULT_OUTPUT_MODE
-            _has_explicit_output = False
-        else:
-            _has_explicit_output = True
-        
-        # Fast path: string preset lookup (most common case)
-        if isinstance(output, str):
-            output_lower = canonical_preset_key(output)
-            preset_value = OUTPUT_PRESETS.get(output_lower)
-            if preset_value is not None:
-                _output_config = OutputConfig(**preset_value) if isinstance(preset_value, dict) else preset_value
-            elif _is_file_path(output):
-                # String looks like a file path - use as output_file
-                _output_config = OutputConfig(output_file=output)
-            else:
-                _output_config = OutputConfig()  # Default silent
-        elif isinstance(output, OutputConfig):
-            _output_config = output
-        else:
-            # Complex case: use full resolver
-            _output_config = resolve(
-                value=output,
-                param_name="output",
-                config_class=OutputConfig,
-                presets=OUTPUT_PRESETS,
-                array_mode=ArrayMode.PRESET_OVERRIDE,
-                default=OutputConfig(),
-            )
+        # None -> PRAISONAI_OUTPUT or silent defaults; str -> preset or file path
+        # (config.agent_init)
+        _output_config, _has_explicit_output = resolve_agent_output(
+            output, Agent._get_env_output_mode() if output is None else None)
         if _output_config:
             verbose = _output_config.verbose
             markdown = _output_config.markdown
@@ -1264,26 +1249,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # ─────────────────────────────────────────────────────────────────────
         # Resolve EXECUTION param - FAST PATH for common cases
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None -> default config (skip resolve() call)
-        if execution is None:
-            _exec_config = ExecutionConfig()
-        elif isinstance(execution, ExecutionConfig):
-            _exec_config = execution
-        elif isinstance(execution, str):
-            preset_value = EXECUTION_PRESETS.get(canonical_preset_key(execution))
-            if preset_value is not None:
-                _exec_config = ExecutionConfig(**preset_value) if isinstance(preset_value, dict) else preset_value
-            else:
-                _exec_config = ExecutionConfig()
-        else:
-            _exec_config = resolve(
-                value=execution,
-                param_name="execution",
-                config_class=ExecutionConfig,
-                presets=EXECUTION_PRESETS,
-                array_mode=ArrayMode.PRESET_OVERRIDE,
-                default=ExecutionConfig(),
-            )
+        # None -> default config; str -> preset (config.agent_init)
+        _exec_config = resolve_agent_execution(execution)
         if _exec_config:
             # Unified step budget: when max_steps is set it governs the LiteLLM
             # loop (LLM.max_iter) too, so both tool-execution loops honour the
@@ -1316,98 +1283,22 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # ─────────────────────────────────────────────────────────────────────
         # Resolve TEMPLATES param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None -> no templates (skip resolve() call)
-        if templates is None:
-            _template_config = None
-        elif isinstance(templates, TemplateConfig):
-            _template_config = templates
-        elif isinstance(templates, dict):
-            _template_config = TemplateConfig(**templates)
-        else:
-            _template_config = resolve(
-                value=templates,
-                param_name="templates",
-                config_class=TemplateConfig,
-                default=None,
-            )
-        if _template_config:
-            system_template = _template_config.system
-            prompt_template = _template_config.prompt
-            response_template = _template_config.response
-            use_system_prompt = _template_config.use_system_prompt
-        else:
-            system_template, prompt_template, response_template, use_system_prompt = None, None, None, True
+        # None -> no templates, default system prompt (config.agent_init)
+        (_template_config, system_template, prompt_template, response_template,
+         use_system_prompt) = resolve_agent_templates(templates)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve CACHING param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None -> default caching, False -> disabled
-        if caching is None:
-            _caching_config = CachingConfig()
-        elif caching is False:
-            _caching_config = None
-        elif caching is True:
-            _caching_config = CachingConfig()
-        elif isinstance(caching, CachingConfig):
-            _caching_config = caching
-        else:
-            _caching_config = resolve(
-                value=caching,
-                param_name="caching",
-                config_class=CachingConfig,
-                presets=CACHING_PRESETS,
-                default=CachingConfig(),
-            )
-        if _caching_config:
-            cache = _caching_config.enabled
-            prompt_caching = _caching_config.prompt_caching
-        elif caching is False:
-            cache, prompt_caching = False, None
-        else:
-            cache, prompt_caching = True, None
+        # None/True -> default caching, False -> disabled (config.agent_init)
+        _caching_config, cache, prompt_caching = resolve_agent_caching(caching)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve HOOKS param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        _hooks_list = []
-        step_callback = None
-        # Fast path: None -> no hooks (skip resolve() call)
-        if hooks is None:
-            _hooks_config = None
-        elif isinstance(hooks, list):
-            _hooks_config = hooks  # Passthrough list directly
-        elif isinstance(hooks, HooksConfig):
-            _hooks_config = hooks
-        else:
-            _hooks_config = resolve(
-                value=hooks,
-                param_name="hooks",
-                config_class=HooksConfig,
-                array_mode=ArrayMode.PASSTHROUGH,
-                default=None,
-            )
-        # Per-agent event-hook registry (isolates BEFORE_TOOL/AFTER_AGENT/...
-        # hooks so they never fire on unrelated agents sharing the default
-        # registry). A bare HookRegistry passed as ``hooks=`` still works too.
-        _hooks_registry = None
-        if _hooks_config is not None:
-            if isinstance(_hooks_config, list):
-                _hooks_list = _hooks_config
-            elif isinstance(_hooks_config, HooksConfig):
-                step_callback = _hooks_config.on_step
-                _hooks_list = list(_hooks_config.middleware or [])
-                _hooks_registry = getattr(_hooks_config, "registry", None)
-                # Route on_step / on_tool_call onto the SAME middleware chain
-                # that already powers ``hooks=[...]`` (MiddlewareManager). Both
-                # keys used to be stored-and-never-called, so the TypeError that
-                # advertises them ("Valid keys: on_step, on_tool_call,
-                # middleware") promised behaviour that did not exist.
-                if _hooks_config.on_step is not None or _hooks_config.on_tool_call is not None:
-                    from ..hooks.middleware import as_step_hook, as_tool_call_hook
-                    if _hooks_config.on_step is not None:
-                        _hooks_list.append(as_step_hook(_hooks_config.on_step))
-                    if _hooks_config.on_tool_call is not None:
-                        _hooks_list.append(as_tool_call_hook(_hooks_config.on_tool_call))
+        # None -> no hooks; list passthrough; HooksConfig on_step/on_tool_call
+        # join the middleware chain (config.agent_init)
+        _hooks_config, _hooks_list, step_callback, _hooks_registry = resolve_agent_hooks(hooks)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve SKILLS param - FAST PATH
@@ -1417,8 +1308,9 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # Fast path: None -> no skills (skip resolve() call)
         if skills is None:
             _skills_config = None
-        elif isinstance(skills, list):
-            _skills_config = SkillsConfig(paths=skills)
+        elif isinstance(skills, (list, str)):
+            # A single string ('./dir', 'name', '@bundle') is a one-item list.
+            _skills_config = SkillsConfig(paths=[skills] if isinstance(skills, str) else skills)
         elif isinstance(skills, SkillsConfig):
             _skills_config = skills
         else:
@@ -1442,28 +1334,9 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # ─────────────────────────────────────────────────────────────────────
         # Resolve MEMORY param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None/False -> no memory (skip resolve() call)
-        if memory is None or memory is False:
-            _memory_config = None
-        elif memory is True:
-            _memory_config = MemoryConfig()
-        elif isinstance(memory, MemoryConfig):
-            _memory_config = memory
-        elif hasattr(memory, 'search') and hasattr(memory, 'add'):
-            _memory_config = memory  # Memory instance passthrough
-        elif hasattr(memory, 'database_url'):
-            _memory_config = memory  # db() instance passthrough
-        else:
-            _memory_config = resolve(
-                value=memory,
-                param_name="memory",
-                config_class=MemoryConfig,
-                presets=MEMORY_PRESETS,
-                url_schemes=MEMORY_URL_SCHEMES,
-                instance_check=lambda v: (hasattr(v, 'search') and hasattr(v, 'add')) or hasattr(v, 'database_url'),
-                array_mode=ArrayMode.SINGLE_OR_LIST,
-                default=None,
-            )
+        # None/False -> no memory; True -> defaults; live backends pass through
+        # (config.agent_init)
+        _memory_config = resolve_agent_memory(memory)
         
         # Persist the resolved memory config so clone_for_channel() can forward
         # (and isolate) it per channel. Without this, clones would receive no
@@ -1532,439 +1405,55 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # Resolve LEARN param - FAST PATH (top-level, peer to memory)
         # learn= is a first-class citizen, independent of memory=
         # ─────────────────────────────────────────────────────────────────────
-        _learn_config = None
-        
-        # Top-level learn= takes precedence over memory.learn
-        if learn is not None:
-            # Explicit top-level learn= param
-            if learn is False:
-                _learn_config = None
-            elif learn is True:
-                # learn=True is a coordinated posture (Issue #4864): enable
-                # AGENTIC extraction AND a conversational-aware nudge cadence in
-                # one switch, so an always-on companion bot actually learns.
-                # nudge_min_tool_iters=0 lets a chat-only turn (no tool calls)
-                # still nudge; auto_memory is turned on below so durable facts
-                # are captured on every turn, not just tool-using ones.
-                from ..memory.learn.protocols import LearnMode
-                _learn_config = LearnConfig(
-                    mode=LearnMode.AGENTIC,
-                    nudge_interval=10,
-                    nudge_min_tool_iters=0,
-                )
-            elif isinstance(learn, LearnConfig):
-                _learn_config = learn
-            elif isinstance(learn, dict):
-                _learn_config = LearnConfig(**learn)
-            elif isinstance(learn, str):
-                # String mode: "disabled", "agentic", "propose".
-                # Normalise case/whitespace so this branch agrees with the
-                # closed-set validation in _validate_preset_params (which
-                # already accepted "AGENTIC"/" agentic "); otherwise a validated
-                # value would fall through to the else and silently disable.
-                from ..memory.learn.protocols import LearnMode
-                _learn_mode = learn.strip().lower()
-                if _learn_mode == "disabled":
-                    _learn_config = None
-                elif _learn_mode == "agentic":
-                    _learn_config = LearnConfig(mode=LearnMode.AGENTIC)
-                elif _learn_mode == "propose":
-                    _learn_config = LearnConfig(mode=LearnMode.PROPOSE)
-                else:
-                    # Unknown string mode, disable learning
-                    _learn_config = None
-            else:
-                logging.warning(
-                    "Unsupported learn= value %r; expected bool, dict, or LearnConfig. "
-                    "Learning disabled.", learn
-                )
-                _learn_config = None
-        elif _memory_config is not None and isinstance(_memory_config, MemoryConfig):
-            # Fallback to memory.learn for backward compatibility
-            if _memory_config.learn:
-                if _memory_config.learn is True:
-                    # learn=True shorthand enables AGENTIC mode
-                    from ..memory.learn.protocols import LearnMode
-                    _learn_config = LearnConfig(mode=LearnMode.AGENTIC)
-                elif isinstance(_memory_config.learn, LearnConfig):
-                    _learn_config = _memory_config.learn
-                elif isinstance(_memory_config.learn, dict):
-                    _learn_config = LearnConfig(**_memory_config.learn)
-        
-        # If learn is enabled but memory is not, we need to enable memory for learn to work
-        if _learn_config is not None and memory is None:
-            # Enable minimal memory for learn to work
-            memory = {"learn": _learn_config.to_dict() if hasattr(_learn_config, 'to_dict') else _learn_config}
-        elif _learn_config is not None and isinstance(memory, dict):
-            # Merge learn config into memory dict
-            memory["learn"] = _learn_config.to_dict() if hasattr(_learn_config, 'to_dict') else _learn_config
-
-        # Coordinated learn posture (Issue #4864): the ``learn=True`` shorthand
-        # turns on conversational fact extraction too, so an always-on companion
-        # accrues durable persona/preferences from plain chat — not just from
-        # tool-using turns. Only defaults it on when the caller did not set
-        # auto_memory explicitly (via MemoryConfig), so an explicit choice wins.
-        if learn is True and auto_memory is None:
-            auto_memory = True
+        # Top-level learn= wins over memory.learn; enables memory if needed
+        # (config.agent_init)
+        _learn_config, memory, auto_memory = resolve_agent_learn(learn, _memory_config, memory, auto_memory)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve HISTORY from MemoryConfig - FAST PATH
         # History is enabled via memory="history" preset or MemoryConfig(history=True)
         # ─────────────────────────────────────────────────────────────────────
-        _history_enabled = False
-        _history_limit = 10
-        _history_session_id = None
-        
-        # Check if memory config has history settings
-        if _memory_config is not None and isinstance(_memory_config, MemoryConfig):
-            if _memory_config.history:
-                _history_enabled = True
-                _history_limit = _memory_config.history_limit
-                # Use explicit session_id from MemoryConfig if provided
-                if _memory_config.session_id:
-                    _history_session_id = _memory_config.session_id
-        
-        # Use auto_save session if no explicit session and history is enabled
-        if _history_enabled and _history_session_id is None and auto_save:
-            _history_session_id = auto_save
-        
-        # Auto-generate session_id when history=True but no session_id set
-        # This ensures _init_session_store() can create the store
-        if _history_enabled and session_id is None and _history_session_id is not None:
-            session_id = _history_session_id
-        elif _history_enabled and session_id is None and _history_session_id is None:
-            import hashlib as _hl
-            import os as _os
-            _name = name or "agent"
-            # Workspace-scoped id so same-named agents in different projects don't
-            # collide (Issue #3154). Opt out with PRAISONAI_GLOBAL_SESSIONS=true for
-            # name-only global continuity.
-            _global_scope = _os.environ.get("PRAISONAI_GLOBAL_SESSIONS", "").lower() in ("1", "true", "yes")
-            if _global_scope:
-                _workspace_id = "global"
-            else:
-                from ..session.workspace import workspace_id as _wid
-                _workspace_id = _wid()
-            _workspace_hash = _hl.sha256(f"{_workspace_id}:{_name}".encode()).hexdigest()[:8]
-            _new_id = f"history_{_workspace_hash}"
-            # Backward-compat ids (resolution order: name-only sha256, then md5)
-            _name_sha_id = f"history_{_hl.sha256(_name.encode()).hexdigest()[:8]}"
-            _name_md5_id = f"history_{_hl.md5(_name.encode()).hexdigest()[:8]}"
-            # Resolve the migration lookup against the SAME directory the session
-            # store uses at runtime, so a custom PRAISONAI_HOME is honoured (the
-            # store reads from get_sessions_dir()). Fall back to the default path
-            # only if that helper is unavailable.
-            try:
-                from ..paths import get_sessions_dir as _get_sessions_dir
-                _session_dir = str(_get_sessions_dir())
-            except Exception:
-                _session_dir = _os.path.join(_os.path.expanduser("~"), ".praisonai", "sessions")
-            # Prefer an existing workspace-scoped session. Legacy (pre-workspace)
-            # name-only files are only adopted in global scope: doing so in a
-            # workspace-scoped run would silently share Project A's history with a
-            # same-named agent in Project B (Issue #3154). Global scope is the
-            # explicit opt-in for that name-only continuity.
-            if _os.path.exists(_os.path.join(_session_dir, f"{_new_id}.json")):
-                session_id = _new_id
-            elif _global_scope and _os.path.exists(_os.path.join(_session_dir, f"{_name_sha_id}.json")):
-                session_id = _name_sha_id  # preserve existing history
-            elif _global_scope and _os.path.exists(_os.path.join(_session_dir, f"{_name_md5_id}.json")):
-                session_id = _name_md5_id  # preserve existing history
-            else:
-                session_id = _new_id
-            _history_session_id = session_id
+        # history=True picks the session id: MemoryConfig.session_id, auto_save,
+        # session_id=, or a workspace-scoped generated id (config.agent_init)
+        _history_enabled, _history_limit, _history_session_id, session_id = resolve_agent_history(
+            _memory_config, session_id, auto_save, name)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve KNOWLEDGE param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        retrieval_config = None
-        embedder_config = None
-        
-        # Fast path: None/False -> no knowledge (skip resolve() call)
-        if knowledge is None or knowledge is False:
-            _knowledge_config = None
-        elif knowledge is True:
-            _knowledge_config = KnowledgeConfig()
-        elif isinstance(knowledge, KnowledgeConfig):
-            _knowledge_config = knowledge
-        elif isinstance(knowledge, list):
-            _knowledge_config = KnowledgeConfig(sources=knowledge)
-        elif hasattr(knowledge, 'search') and hasattr(knowledge, 'add'):
-            _knowledge_config = knowledge  # Knowledge instance passthrough
-        else:
-            _knowledge_config = resolve(
-                value=knowledge,
-                param_name="knowledge",
-                config_class=KnowledgeConfig,
-                instance_check=lambda v: hasattr(v, 'search') and hasattr(v, 'add'),
-                array_mode=ArrayMode.SOURCES_WITH_CONFIG,
-                string_mode="path_as_source",
-                default=None,
-            )
-        
-        if _knowledge_config is not None:
-            if hasattr(_knowledge_config, 'search') and hasattr(_knowledge_config, 'add'):
-                # Knowledge instance - pass through
-                knowledge = _knowledge_config
-            elif isinstance(_knowledge_config, KnowledgeConfig):
-                embedder_config = _knowledge_config.embedder_config
-                # Every declared field is forwarded. Previously only top_k /
-                # rerank survived: 'threshold' was spelled 'min_score' by
-                # RetrievalConfig.from_dict, 'rerank_model' had no field at
-                # all, and chunking + vector_store were never forwarded, so
-                # those settings were silently inert.
-                _chunker = _knowledge_config.chunker or {}
-                _strategy = _knowledge_config.chunking_strategy
-                _strategy = getattr(_strategy, 'value', _strategy)
-                _vector_store = _knowledge_config.vector_store or {}
-                retrieval_config = {
-                    'enabled': _knowledge_config.auto_retrieve,
-                    'top_k': _knowledge_config.retrieval_k,
-                    'min_score': _knowledge_config.retrieval_threshold,
-                    'rerank': _knowledge_config.rerank,
-                    'rerank_model': _knowledge_config.rerank_model,
-                    'chunking_strategy': _chunker.get('type', _strategy),
-                    'chunk_size': _chunker.get('chunk_size', _knowledge_config.chunk_size),
-                    'chunk_overlap': _chunker.get(
-                        'chunk_overlap', _knowledge_config.chunk_overlap),
-                }
-                if _vector_store:
-                    _vs = dict(_vector_store)
-                    _vs_provider = _vs.pop('provider', None)
-                    if _vs_provider:
-                        retrieval_config['vector_store_provider'] = _vs_provider
-                    _vs_inner = _vs.pop('config', None)
-                    if isinstance(_vs_inner, dict):
-                        _vs.update(_vs_inner)
-                    if 'collection_name' in _vs:
-                        retrieval_config['collection_name'] = _vs.pop('collection_name')
-                    if 'path' in _vs:
-                        retrieval_config['persist_path'] = _vs.pop('path')
-                    if _vs:
-                        retrieval_config['vector_store_config'] = _vs
-                # Forward embedder settings so they reach Knowledge (mem0).
-                # embedder is a provider shorthand (e.g. "gemini"); embedder_config
-                # is the full mem0 embedder dict. Only override when explicitly set.
-                if _knowledge_config.embedder and _knowledge_config.embedder != "openai":
-                    retrieval_config.setdefault('embedder_provider', _knowledge_config.embedder)
-                if _knowledge_config.embedder_config:
-                    retrieval_config.setdefault('embedder_config', _knowledge_config.embedder_config)
-                # `config=` is an escape hatch for keys the dataclass does not
-                # model. It now overrides the resolved values instead of
-                # replacing the whole dict, which silently reset retrieval_k.
-                if _knowledge_config.config:
-                    retrieval_config.update(_knowledge_config.config)
-                knowledge = _knowledge_config.sources if _knowledge_config.sources else None
-            elif isinstance(_knowledge_config, list):
-                knowledge = _knowledge_config
-        elif knowledge is False:
-            knowledge = None
-
-        # Explicit retrieval_config= (the RAG tuning surface shown in the docs
-        # and docstring examples) is merged on top of whatever the knowledge=
-        # param derived. A dict overrides the derived keys; a RetrievalConfig
-        # instance (or when no knowledge= was given) replaces it wholesale so
-        # the downstream RetrievalConfig resolver (below) receives it unchanged.
-        if _user_retrieval_config is not None:
-            if isinstance(_user_retrieval_config, dict) and isinstance(retrieval_config, dict):
-                retrieval_config.update(_user_retrieval_config)
-            else:
-                retrieval_config = _user_retrieval_config
+        # None/False -> no knowledge; KnowledgeConfig -> retrieval settings dict,
+        # with retrieval_config= merged on top (config.agent_init)
+        _knowledge_config, knowledge, retrieval_config, embedder_config = resolve_agent_knowledge(
+            knowledge, _user_retrieval_config)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve PLANNING param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None/False -> no planning (skip resolve() call)
-        if planning is None or planning is False:
-            _planning_config = None
-        elif planning is True:
-            _planning_config = PlanningConfig()
-        elif isinstance(planning, PlanningConfig):
-            _planning_config = planning
-        else:
-            _planning_config = resolve(
-                value=planning,
-                param_name="planning",
-                config_class=PlanningConfig,
-                presets=PLANNING_PRESETS,
-                string_mode="llm_model",
-                array_mode=ArrayMode.PRESET_OVERRIDE,
-                default=None,
-            )
-        
-        if _planning_config is not None:
-            if isinstance(_planning_config, PlanningConfig):
-                planning = True
-                planning_tools = _planning_config.tools
-                planning_reasoning = _planning_config.reasoning
-                plan_mode = _planning_config.read_only
-            else:
-                planning = bool(_planning_config)
-        elif planning is True:
-            pass  # Keep as True
-        else:
-            planning = False
+        # None/False -> no planning; only the values it sets change (config.agent_init)
+        _planning_config, _planning_set = resolve_agent_planning(planning)
+        planning = _planning_set.get("planning", planning)
+        planning_tools = _planning_set.get("planning_tools", planning_tools)
+        planning_reasoning = _planning_set.get("planning_reasoning", planning_reasoning)
+        plan_mode = _planning_set.get("plan_mode", plan_mode)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve REFLECTION param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None/False -> no reflection (skip resolve() call)
-        if reflection is None or reflection is False:
-            _reflection_config = None
-        elif reflection is True:
-            _reflection_config = ReflectionConfig()
-        elif isinstance(reflection, ReflectionConfig):
-            _reflection_config = reflection
-        else:
-            _reflection_config = resolve(
-                value=reflection,
-                param_name="reflection",
-                config_class=ReflectionConfig,
-                presets=REFLECTION_PRESETS,
-                array_mode=ArrayMode.PRESET_OVERRIDE,
-                default=None,
-            )
-        
-        if _reflection_config is not None:
-            if isinstance(_reflection_config, ReflectionConfig):
-                self_reflect = True
-                min_reflect = _reflection_config.min_iterations
-                max_reflect = _reflection_config.max_iterations
-                reflect_llm = _reflection_config.llm
-                reflect_prompt = _reflection_config.prompt
-            else:
-                self_reflect = bool(_reflection_config)
-        elif reflection is True:
-            self_reflect = True
-        elif reflection is False:
-            self_reflect = False
+        # None sets nothing; only the values it sets change (config.agent_init)
+        _reflection_config, _reflection_set = resolve_agent_reflection(reflection)
+        self_reflect = _reflection_set.get("self_reflect", self_reflect)
+        min_reflect = _reflection_set.get("min_reflect", min_reflect)
+        max_reflect = _reflection_set.get("max_reflect", max_reflect)
+        reflect_llm = _reflection_set.get("reflect_llm", reflect_llm)
+        reflect_prompt = _reflection_set.get("reflect_prompt", reflect_prompt)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve GUARDRAILS param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fail loud instead of silently ignoring policy-string guardrails. The
-        # documented `guardrails=["policy:strict", ...]` shorthand has no
-        # enforcement path wired up, so accepting it silently would run with zero
-        # enforcement — a "safe by default" violation. Checked before resolution
-        # so the clear message wins over the generic resolver's error. Direct
-        # users to the working `Agent(policy=PolicyEngine(...))` param.
-        if isinstance(guardrails, (list, tuple)):
-            from ..config.parse_utils import is_policy_string
-            _policy_strs = [g for g in guardrails if isinstance(g, str) and is_policy_string(g)]
-            if _policy_strs:
-                raise ValueError(
-                    f"Policy-string guardrails {_policy_strs} are not enforced. "
-                    "Use Agent(policy=PolicyEngine(...)) for tool policy enforcement, "
-                    "or pass a validator via guardrails=... / GuardrailConfig(validator=...)."
-                )
-
-        # Apply [defaults].guardrails from config when not explicitly provided,
-        # mirroring the memory/web/caching/etc. resolution above so a config-wide
-        # guardrail safety net is actually honoured instead of silently ignored.
-        if guardrails is None:
-            guardrails = apply_config_defaults("guardrails", None, GuardrailConfig)
-
-        # Fast path: None/False -> no guardrails (skip resolve() call)
-        if guardrails is None or guardrails is False:
-            _guardrails_config = None
-        elif callable(guardrails) and not isinstance(guardrails, type):
-            _guardrails_config = guardrails  # Callable passthrough
-        elif isinstance(guardrails, GuardrailConfig):
-            _guardrails_config = guardrails
-        elif isinstance(guardrails, str):
-            # String could be LLM prompt - passthrough for later processing
-            _guardrails_config = guardrails
-        else:
-            # A protocol-conforming guardrail *object* (validate_input /
-            # validate_output / validate_tool_call) is not ``callable()``, so it
-            # used to fall straight through to the resolver, which returns None
-            # for an unknown object - the validator was silently discarded and
-            # the agent ran with zero enforcement. Adapt it into a
-            # ``GuardrailChain``, which is callable (so it satisfies the existing
-            # guardrail runner) and forwards every protocol method.
-            from ..guardrails.protocols import is_guardrail_object
-            if is_guardrail_object(guardrails):
-                from ..guardrails import GuardrailChain
-                _guardrails_config = GuardrailChain([guardrails])
-            elif isinstance(guardrails, (list, tuple)) and any(
-                is_guardrail_object(g) for g in guardrails
-            ):
-                _bad = [g for g in guardrails if not is_guardrail_object(g)]
-                if _bad:
-                    raise TypeError(
-                        "guardrails=[...] may not mix guardrail objects with "
-                        f"{[type(g).__name__ for g in _bad]}. Every item must implement "
-                        "validate_input/validate_output/validate_tool_call, or wrap the "
-                        "list yourself with GuardrailChain([...])."
-                    )
-                from ..guardrails import GuardrailChain
-                _guardrails_config = GuardrailChain(list(guardrails))
-            else:
-                from ..config.param_resolver import resolve_guardrails as _resolve_guardrails
-                _guardrails_config = _resolve_guardrails(
-                    value=guardrails,
-                    config_class=GuardrailConfig,
-                )
-        
-        # Same fail-loud guard for GuardrailConfig.policy/.policies passed
-        # directly — those fields are never consumed downstream, so silently
-        # accepting them would also run with zero enforcement.
-        if isinstance(_guardrails_config, GuardrailConfig) and (
-            _guardrails_config.policy is not None or _guardrails_config.policies
-        ):
-            raise ValueError(
-                "GuardrailConfig.policy/.policies are not enforced. "
-                "Use Agent(policy=PolicyEngine(...)) for tool policy enforcement, "
-                "or pass a validator via GuardrailConfig(validator=...)."
-            )
-        # GuardrailConfig.on_fail has a single implemented policy (retry, then
-        # return the blocked message); refuse "skip"/"raise" rather than
-        # silently behaving as "retry".
-        if isinstance(_guardrails_config, GuardrailConfig) and (
-            getattr(_guardrails_config.on_fail, "value", _guardrails_config.on_fail) != "retry"
-        ):
-            raise ValueError(
-                f"GuardrailConfig.on_fail={_guardrails_config.on_fail!r} is not supported; "
-                "only 'retry' is implemented. Remove on_fail, or handle a blocked "
-                "response via Agent.last_guardrail_error."
-            )
-
-        # Fail loud when the value could not be turned into an enforceable
-        # guardrail, instead of storing something that never runs. Silently
-        # dropping a validator the caller explicitly asked for is a "safe by
-        # default" violation, same rationale as the policy-string guard above.
-        # An empty list/tuple resolves to None (no validator was actually
-        # supplied), which the resolver already treated as a no-op on main -
-        # keep that backward-compatible instead of raising on an empty opt-in.
-        _is_empty_guardrails = (
-            isinstance(guardrails, (list, tuple)) and len(guardrails) == 0
-        )
-        if (
-            guardrails is not None
-            and guardrails is not False
-            and not _is_empty_guardrails
-            and not (
-                callable(_guardrails_config)
-                or isinstance(_guardrails_config, (GuardrailConfig, str))
-            )
-        ):
-            raise TypeError(
-                f"guardrails={guardrails!r} (type {type(guardrails).__name__}) is not a "
-                "supported guardrail. Pass a validator callable taking one TaskOutput, an "
-                "object implementing validate_input/validate_output/validate_tool_call, a "
-                "list of such objects, a GuardrailConfig, or a string LLM-validation prompt."
-            )
-
-        if _guardrails_config is not None:
-            if callable(_guardrails_config) and not isinstance(_guardrails_config, type):
-                # Callable validator function
-                guardrail = _guardrails_config
-            elif isinstance(_guardrails_config, GuardrailConfig):
-                guardrail = _guardrails_config.validator or _guardrails_config.llm_validator
-                max_guardrail_retries = _guardrails_config.max_retries
-            elif isinstance(_guardrails_config, str):
-                # LLM validator prompt
-                guardrail = _guardrails_config
+        # Fail-loud checks, config defaults, callables, objects, GuardrailConfig
+        # and LLM prompt strings (config.agent_init)
+        _guardrails_config, guardrail, max_guardrail_retries = resolve_agent_guardrails(
+            guardrails, guardrail, max_guardrail_retries)
 
         # Persist the resolved value so clone_for_channel() can forward it.
         # Without this the attribute never exists, its getattr(..., None) in
@@ -1975,36 +1464,9 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # ─────────────────────────────────────────────────────────────────────
         # Resolve WEB param - FAST PATH
         # ─────────────────────────────────────────────────────────────────────
-        # Fast path: None/False -> no web (skip resolve() call)
-        if web is None or web is False:
-            _web_config = None
-        elif web is True:
-            _web_config = WebConfig()
-        elif isinstance(web, WebConfig):
-            _web_config = web
-        else:
-            _web_config = resolve(
-                value=web,
-                param_name="web",
-                config_class=WebConfig,
-                presets=WEB_PRESETS,
-                array_mode=ArrayMode.PRESET_OVERRIDE,
-                default=None,
-            )
-        
-        if _web_config is not None:
-            if isinstance(_web_config, WebConfig):
-                web_search = _web_config.search
-                web_fetch = _web_config.fetch
-            else:
-                web_search = bool(_web_config)
-                web_fetch = bool(_web_config)
-        elif web is True:
-            web_search = True
-            web_fetch = True
-        elif web is False:
-            web_search = False
-            web_fetch = False
+        # None/False -> no web; True -> defaults (config.agent_init)
+        (_web_config, web_search, web_fetch, _search_provider,
+         _web_fetch_is_default) = resolve_agent_web(web, web_search, web_fetch)
         
         # ─────────────────────────────────────────────────────────────────────
         # Resolve TOOL_SEARCH param
@@ -2149,6 +1611,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         # Seed from clone_for_channel()'s forwarded list (if any); an explicit
         # LLMConfig(fallback_models=[...]) on llm=/model= still takes precedence.
         fallback_models = _cloned_fallback_models  # Initialize for internal use
+        # LLMConfig.auth_profiles wins over a manager forwarded by a clone.
+        _auth_profiles = None
 
         # One rule for the alias pair: passing both is refused, everywhere.
         from ..utils.model_alias import resolve_model_alias
@@ -2166,6 +1630,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 api_key = llm_config_obj.api_key
             if auth is None:
                 auth = llm_config_obj.auth
+            _auth_profiles = llm_config_obj.auth_profiles
         elif llm is not None and model is None:
             warn_deprecated_param(
                 "llm",
@@ -2189,8 +1654,16 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                     api_key = model.api_key
                 if auth is None:
                     auth = model.auth
+                if _auth_profiles is None:
+                    _auth_profiles = model.auth_profiles
             else:
                 llm = model  # model= takes precedence
+
+        if _auth_profiles is not None:
+            from ..llm.failover import manager_from_auth_profiles
+            _cloned_failover_manager = manager_from_auth_profiles(_auth_profiles)
+        if _cloned_failover_manager is not None:
+            self._failover_manager = _cloned_failover_manager
         
         # Resolve the subscription auth provider eagerly. `auth=` is opt-in, so
         # this costs nothing for everyone else, and a user who asked to be
@@ -2331,7 +1804,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                             retrieval_config, 'embedder_config', None) is None:
                         retrieval_config.embedder_config = embedder_config
                 else:
-                    logging.warning(
+                    logger.warning(
                         "llm=%r resolved a local model, but %s serves no embedding "
                         "model, so knowledge/memory would embed against a remote "
                         "provider -- sending your documents off this machine. "
@@ -2463,7 +1936,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             self.llm = llm
             
             if tools:
-                logging.debug(f"Tools passed to Agent with custom LLM: {tools}")
+                logger.debug(f"Tools passed to Agent with custom LLM: {tools}")
                 self.tools = tools
         # Otherwise, fall back to OpenAI environment/name (cached for performance)
         else:
@@ -2478,22 +1951,24 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             # Only fire when the resolved default really is the OpenAI default:
             # a provider credential (e.g. OLLAMA_HOST) resolves an
             # already-correct provider-prefixed model, so there is nothing to
-            # warn about. Read the endpoint in the order the OpenAI client uses
-            # (OPENAI_API_BASE before OPENAI_BASE_URL, see openai_client.py) so
-            # the message names the endpoint the request actually goes to.
+            # warn about. Read the endpoint the way the OpenAI client does
+            # (``_env_base_url``) so the message names where the request goes.
             if (
                 llm is None
                 and model_name == 'gpt-4o-mini'
                 and not os.getenv('OPENAI_MODEL_NAME')
+                # Guard keeps the default Agent() from eagerly importing openai_client.
+                and (os.getenv('OPENAI_BASE_URL') or os.getenv('OPENAI_API_BASE'))
             ):
-                _endpoint = os.getenv('OPENAI_API_BASE') or os.getenv('OPENAI_BASE_URL')
+                from ..llm.openai_client import _env_base_url
+                _endpoint = _env_base_url()
                 if _endpoint and 'api.openai.com' not in _endpoint:
                     global _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED
                     if not _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED:
                         with Agent._env_cache_lock:
                             if not _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED:
                                 _LOCAL_ENDPOINT_DEFAULT_MODEL_WARNED = True
-                                logging.warning(
+                                logger.warning(
                                     "No model specified, so the OpenAI default %r will be sent to %s. "
                                     "That endpoint probably does not serve it. Set OPENAI_MODEL_NAME "
                                     "to a model it does serve (e.g. OPENAI_MODEL_NAME=ollama/llama3.2), "
@@ -2509,7 +1984,8 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
             # client holding a model name OpenAI has never heard of. Re-check
             # the *resolved* name so `llm="ollama/x"` and OLLAMA_HOST agree.
             _has_provider_prefix = isinstance(model_name, str) and "/" in model_name
-            if auth or _has_provider_prefix:
+            # Auth profiles rotate inside LLM, so they force the custom-LLM path.
+            if auth or _has_provider_prefix or getattr(self, "_failover_manager", None) is not None:
                 # A subscription auth provider only takes effect inside LLM
                 # (which injects the resolved OAuth credentials), so a bare
                 # model name plus auth= must still build an LLM instance rather
@@ -2575,7 +2051,7 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
                 unique_tool_names = [name for name in toolset_tool_names if name not in existing_tool_names]
                 toolset_tools = self._resolve_tool_names(unique_tool_names)
                 self.tools.extend(toolset_tools)
-                logging.debug(f"Resolved toolsets {toolsets} to {len(toolset_tools)} tools: {[getattr(t, '__name__', str(t)) for t in toolset_tools]}")
+                logger.debug(f"Resolved toolsets {toolsets} to {len(toolset_tools)} tools: {[getattr(t, '__name__', str(t)) for t in toolset_tools]}")
             except ToolResolutionError:
                 # Preserve the typed error (with .unknown / .suggestions) so
                 # strict-mode callers get the same self-correcting contract as
@@ -2662,6 +2138,19 @@ class Agent(GoalLoopMixin, SteeringMixin, SandboxMixin, SkillReviewMixin, Unifie
         self.code_execution_mode = code_execution_mode
         # Store execution config for guardrail retry backoff
         self._execution_config = _exec_config
+        # Resolved feature configs, read back by clone_for_channel() so every
+        # channel clone keeps them (F-19; guardrails were fixed the same way in
+        # #4284). caching=False resolves to None, so keep the False itself; a
+        # default output mode is not stored, so the clone stays implicit too.
+        self._template_config = _template_config
+        self._caching_config = _caching_config if _caching_config is not None else caching
+        self._hooks_config = _hooks_config
+        self._skills_config = _skills_config
+        self._knowledge_config = _knowledge_config
+        self._planning_config = _planning_config
+        self._reflection_config = _reflection_config
+        self._web_config = _web_config
+        self._output_config = _output_config if _has_explicit_output else None
         self.embedder_config = embedder_config
         self.knowledge = knowledge
         self.use_system_prompt = use_system_prompt
@@ -2746,15 +2235,44 @@ Your Role: {self.role}
         
         # Handle web_search fallback: inject DuckDuckGo tool for unsupported models
         if web_search and not self._model_supports_web_search():
-            from ..tools.duckduckgo_tools import internet_search
-            # Check if internet_search is not already in tools
             tool_names = [getattr(t, '__name__', str(t)) for t in self.tools]
-            if 'internet_search' not in tool_names and 'duckduckgo' not in tool_names:
-                self.tools.append(internet_search)
-                logging.info("Model does not support native web search. Added DuckDuckGo fallback tool.")
+            # The preset's provider picks the tool (X-01). Only Tavily has a
+            # built-in tool besides DuckDuckGo; anything else keeps DuckDuckGo
+            # and says so, so a build that works today still works.
+            if _search_provider == "tavily":
+                from ..tools import tavily_tools
+                _ok, _why = tavily_tools._check_tavily_available()
+                if _ok:
+                    if 'tavily_search' not in tool_names:
+                        self.tools.append(tavily_tools.tavily_search)
+                    _search_provider = None
+                else:
+                    logger.warning(f"Agent {self.name!r}: web search provider 'tavily' is not usable ({_why}); using DuckDuckGo.")
+            elif _search_provider != "duckduckgo":
+                logger.warning(f"Agent {self.name!r}: web search provider {_search_provider!r} has no built-in "
+                                "search tool; using DuckDuckGo. Built-in providers: 'duckduckgo', 'tavily'.")
+            if _search_provider is not None:
+                from ..tools.duckduckgo_tools import internet_search
+                if 'internet_search' not in tool_names and 'duckduckgo' not in tool_names:
+                    self.tools.append(internet_search)
+                    logger.info("Model does not support native web search. Added DuckDuckGo fallback tool.")
         
         # Raise error if web_fetch is explicitly enabled but model doesn't support it
         # Web fetch is only supported by Anthropic/Claude models
+        if web_fetch and not self._model_supports_web_fetch() and _web_fetch_is_default:
+            # Defaults mean "what this model supports": keep search, leave fetch off.
+            web_fetch = self.web_fetch = False
+            # Every kwargs dict an LLM is (re)built from: default-model swap,
+            # fallback models and panels must not turn fetch back on.
+            for _kw in (self._llm_option_kwargs, self._llm_init_params, self._panel_llm_kwargs):
+                if _kw and "web_fetch" in _kw:
+                    _kw["web_fetch"] = False
+            if getattr(self._llm_instance, "web_fetch", None):
+                self._llm_instance.web_fetch = False
+            logger.info(
+                f"Agent {self.name!r}: web fetch is Claude-only, so it is off for model "
+                f"{self.llm!r}; web search stays on."
+            )
         if web_fetch and not self._model_supports_web_fetch():
             raise ValueError(
                 f"web_fetch is only supported on Anthropic/Claude models. "
@@ -2917,6 +2435,21 @@ Your Role: {self.role}
             self._approval_timeout = 0
             self._approval_permissions = None
         
+        # X-13: the caller turned code execution on, but the active tool-safety
+        # policy keeps execute_code from the model. The policy stays; say so once.
+        if allow_code_execution and "execute_code" in self._perm_deny:
+            import warnings
+            _policy = (f"approval={approval!r}" if isinstance(approval, str)
+                       else f"the {os.environ.get('PRAISONAI_TOOL_SAFETY') or 'default'!r} tool-safety preset")
+            warnings.warn(
+                f"Agent {self.name!r}: code execution is on, but {_policy} blocks "
+                "'execute_code', so the model is not offered it. To allow it pass "
+                "approval=True (auto-approve) or approval=\"full\", set "
+                "PRAISONAI_TOOL_SAFETY=off, or run in a terminal to be asked each time.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         # Per-agent autonomy→approval bridge (G-BRIDGE-1 fix)
         # If autonomy level is full_auto and no explicit approval was set,
         # auto-approve all tools for this agent (no global env var).
@@ -3291,8 +2824,14 @@ Your Role: {self.role}
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
+        rebuild_context_manager = False
         for k, v in self.__dict__.items():
-            if k in ("_db_run_context", "_db_session_init_lock"):
+            if k == "_context_manager" and v is not None and v is not self.__dict__.get("_context_param"):
+                # Built lazily from config on first tool call; holds locks. The
+                # clone rebuilds its own (a user-supplied manager is copied as before).
+                object.__setattr__(result, k, None)
+                rebuild_context_manager = True
+            elif k in ("_db_run_context", "_db_session_init_lock"):
                 # A clone starts outside the source agent's active DB turn.
                 continue
             elif k == "_tool_executor":
@@ -3309,6 +2848,8 @@ Your Role: {self.role}
                 object.__setattr__(result, k, asyncio.Lock())
             else:
                 object.__setattr__(result, k, copy.deepcopy(v, memo))
+        if rebuild_context_manager:
+            object.__setattr__(result, "_context_manager_initialized", False)
         return result
 
     def _isolated_memory_for_clone(self):
@@ -3346,7 +2887,7 @@ Your Role: {self.role}
                 return type(mem_inst)(cfg)
         except Exception:
             pass
-        logging.warning(
+        logger.warning(
             "clone_for_channel: could not isolate the live memory backend; clones "
             "will share it. Pass memory via MemoryConfig/db() for per-channel isolation."
         )
@@ -3361,6 +2902,19 @@ Your Role: {self.role}
                 if ref() is self:
                     return original_backstory
         return self.backstory
+
+    def _fork_history(self) -> "Agent":
+        """Shallow copy that shares all config, tools and memory but has its
+        own ``chat_history`` (seeded with the current one).
+
+        Used by concurrent workflow branches so one shared agent does not
+        leak sibling prompts between threads, without the config loss of
+        rebuilding it through the constructor.
+        """
+        import copy
+        fork = copy.copy(self)
+        fork.__chat_history_state = AsyncSafeState(list(self.chat_history))
+        return fork
 
     def clone_for_channel(self) -> "Agent":
         """Return a fully independent copy of this agent for a gateway channel.
@@ -3391,6 +2945,7 @@ Your Role: {self.role}
             # LLM configuration 
             'llm': self.llm,
             'fallback_models': list(self.fallback_models) if hasattr(self, 'fallback_models') and self.fallback_models else None,
+            'failover_manager': getattr(self, '_failover_manager', None),
             'base_url': getattr(self, 'base_url', None),
             'api_key': getattr(self, 'api_key', None),
             'auth': getattr(self, 'auth', None),
@@ -3425,8 +2980,14 @@ Your Role: {self.role}
             'reflection': getattr(self, '_reflection_config', None),
             'guardrails': getattr(self, '_guardrails_config', None),
             'web': getattr(self, '_web_config', None),
-            'context': getattr(self, '_context_config', None),
-            'autonomy': getattr(self, '_autonomy_config', None),
+            # A user-supplied ContextManager holds per-session state (ledger,
+            # history), so a clone gets a fresh one built from its config.
+            'context': (
+                self._context_param.config
+                if hasattr(getattr(self, '_context_param', None), 'process')
+                else getattr(self, '_context_param', None)
+            ),
+            'autonomy': getattr(self, '_autonomy_config_obj', None),
             'output': getattr(self, '_output_config', None),
             'execution': getattr(self, '_execution_config', None),
             'templates': getattr(self, '_template_config', None),
@@ -3844,7 +3405,7 @@ Your Role: {self.role}
                 else:
                     self._context_manager = None
             except Exception as e:
-                logging.debug(f"ContextConfig conversion failed: {e}")
+                logger.debug(f"ContextConfig conversion failed: {e}")
                 self._context_manager = None
         elif hasattr(self._context_param, 'process'):
             # Already a ContextManager instance
@@ -3868,7 +3429,7 @@ Your Role: {self.role}
                         llm_summarize_fn=None,
                     )
                 except Exception as e:
-                    logging.debug(f"Context preset conversion failed: {e}")
+                    logger.debug(f"Context preset conversion failed: {e}")
                     self._context_manager = None
             else:
                 # Unknown string preset, disable
@@ -3888,7 +3449,7 @@ Your Role: {self.role}
                     llm_summarize_fn=self._create_llm_summarize_fn() if llm_summarize_enabled else None,
                 )
             except Exception as e:
-                logging.debug(f"Context dict conversion failed: {e}")
+                logger.debug(f"Context dict conversion failed: {e}")
                 self._context_manager = None
         else:
             # Unknown type, disable
@@ -3901,6 +3462,9 @@ Your Role: {self.role}
     def context_manager(self, value):
         """Set context manager directly."""
         self._context_manager = value
+        # Record it as the user's own manager so ``__deepcopy__`` copies it
+        # rather than treating it as lazily built (and rebuilding).
+        self._context_param = value
         self._context_manager_initialized = True
 
     def _manager_config_from_context_config(self, cc: Any) -> Any:
@@ -3967,7 +3531,7 @@ Summary:"""
                 
                 return response.choices[0].message.content or "[Summary unavailable]"
             except Exception as e:
-                logging.debug(f"LLM summarization failed: {e}")
+                logger.debug(f"LLM summarization failed: {e}")
                 return f"[Previous conversation summary - {len(messages)} messages]"
         
         return llm_summarize
@@ -4005,7 +3569,7 @@ Summary:"""
                     include_defaults=auto_discover or not self._skills_dirs,
                 )
             except Exception as e:  # noqa: BLE001 - bundles are optional
-                logging.debug("Bundle discovery skipped: %s", e)
+                logger.debug("Bundle discovery skipped: %s", e)
 
             # Add explicit skill selectors. '@bundle' entries expand to their
             # member skill names (resolved by name against discovered skills);
@@ -4023,7 +3587,7 @@ Summary:"""
                                 include_defaults=auto_discover,
                             )
                             if loaded is None:
-                                logging.warning(
+                                logger.warning(
                                     "Skill bundle member '%s' (from '%s') not "
                                     "found; skipping.", member, selector,
                                 )
@@ -4060,7 +3624,7 @@ Summary:"""
         """
         import os as _os
         if _os.environ.get("PRAISONAI_DISABLE_SKILL_TOOLS") in ("1", "true", "True"):
-            logging.info("Skill helper tools disabled via PRAISONAI_DISABLE_SKILL_TOOLS")
+            logger.info("Skill helper tools disabled via PRAISONAI_DISABLE_SKILL_TOOLS")
             return
 
         # Check if tools already include required capabilities
@@ -4076,9 +3640,9 @@ Summary:"""
             try:
                 from ..tools import read_file
                 self.tools.append(read_file)
-                logging.debug("Added read_file tool for skill support")
+                logger.debug("Added read_file tool for skill support")
             except ImportError:
-                logging.warning("Could not import read_file tool for skills")
+                logger.warning("Could not import read_file tool for skills")
         
         # G-E fix: run_skill_script safer by default
         # Only add if explicitly enabled OR any skill declares it in allowed-tools
@@ -4087,7 +3651,7 @@ Summary:"""
         # Check explicit environment enable
         if _os.environ.get("PRAISONAI_ENABLE_SKILL_TOOLS") in ("1", "true", "True"):
             should_add_script_tool = True
-            logging.debug("run_skill_script enabled via PRAISONAI_ENABLE_SKILL_TOOLS")
+            logger.debug("run_skill_script enabled via PRAISONAI_ENABLE_SKILL_TOOLS")
         
         # Check if any loaded skill declares it in allowed-tools
         if self._skill_manager and not should_add_script_tool:
@@ -4095,7 +3659,7 @@ Summary:"""
                 allowed_tools = self._skill_manager.get_allowed_tools(skill.properties.name)
                 if "run_skill_script" in allowed_tools:
                     should_add_script_tool = True
-                    logging.debug(f"run_skill_script enabled by skill '{skill.properties.name}' allowed-tools")
+                    logger.debug(f"run_skill_script enabled by skill '{skill.properties.name}' allowed-tools")
                     break
         
         # Add run_skill_script if conditions are met
@@ -4105,9 +3669,9 @@ Summary:"""
                 # Create skill tools with current working directory
                 skill_tools = create_skill_tools()
                 self.tools.append(skill_tools.run_skill_script)
-                logging.debug("Added run_skill_script tool for skill support")
+                logger.debug("Added run_skill_script tool for skill support")
             except ImportError as e:
-                logging.warning(f"Could not import skill_tools: {e}")
+                logger.warning(f"Could not import skill_tools: {e}")
     
     def get_skills_prompt(self) -> str:
         """Get the XML prompt for available skills.
@@ -4767,20 +4331,45 @@ Summary:"""
             if result.success:
                 print(result.output)
         """
-        from .autonomy import AutonomyResult, _timeout_result
-        import time as time_module
-        from datetime import datetime, timezone
-        
+        from ..utils.async_bridge import run_coroutine_on_thread_loop
+        from .autonomy import AutonomyResult
+
+        # One autonomy loop (G-17): the sync entry point runs the async one.
+        # Kept here: the sync error message, and Ctrl-C returning the partial
+        # result worded "Task cancelled by user" instead of raising.
         if not self.autonomy_enabled:
             raise ValueError(
                 "Autonomy must be enabled to use run_autonomous(). "
                 "Create agent with autonomy=True or autonomy={...}"
             )
-        
-        # Take initial snapshot before autonomous execution starts
-        # NOTE: Snapshot tracking is disabled by default for performance (G12 fix)
-        # FileSnapshot.track() walks entire project and is too slow for large codebases
-        # Enable with AutonomyConfig(snapshot=True) / autonomy={"snapshot": True}
+        # Cleared before the loop starts so an early Ctrl-C never returns a
+        # previous run's partial result.
+        self._last_autonomy_result = None
+        try:
+            result = run_coroutine_on_thread_loop(
+                self.run_autonomous_async(
+                    prompt, max_iterations=max_iterations, timeout_seconds=timeout_seconds,
+                    completion_promise=completion_promise, clear_context=clear_context,
+                ),
+                timeout=None,  # the loop enforces timeout_seconds itself
+            )
+        except KeyboardInterrupt:
+            result = getattr(self, "_last_autonomy_result", None)
+            if result is None:
+                raise
+        if isinstance(result, AutonomyResult) and result.completion_reason == "cancelled":
+            result.output = "Task cancelled by user"
+        return result
+    
+    def _take_pre_autonomous_snapshot(self) -> None:
+        """Take the pre-run file snapshot for an autonomous run, if enabled.
+
+        Shared by run_autonomous and run_autonomous_async (the async path runs
+        it in a worker thread: track() walks the project).
+        NOTE: Snapshot tracking is disabled by default for performance (G12 fix)
+        FileSnapshot.track() walks entire project and is too slow for large codebases
+        Enable with AutonomyConfig(snapshot=True) / autonomy={"snapshot": True}
+        """
         if self._file_snapshot is not None and self.autonomy_config.get("snapshot", False):
             try:
                 snap_info = self._file_snapshot.track(message="pre-autonomous")
@@ -4788,451 +4377,8 @@ Summary:"""
                     self._snapshot_stack.append(snap_info.commit_hash)
                     self._redo_stack.clear()
             except Exception as e:
-                logging.debug(f"Pre-autonomous snapshot failed: {e}")
-        
-        start_time = time_module.time()
-        started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-        iterations = 0
-        actions_taken = []
-        # Spend baseline: snapshot lifetime spend so the budget cap measures
-        # only THIS run (reused Agents keep prior chat/run spend in the counters).
-        spend_baseline = self._run_spend()
-        
-        # Get config values
-        config_max_iter = self.autonomy_config.get("max_iterations", 20)
-        effective_max_iter = max_iterations if max_iterations is not None else config_max_iter
-        
-        # Get completion_promise from config if not provided as param
-        effective_promise = completion_promise
-        if effective_promise is None:
-            effective_promise = self.autonomy_config.get("completion_promise")
-        # The promise is the only success signal, so tell the model about it
-        # unless the caller already did (e.g. the `loop` CLI instructions).
-        _promise_tag = f"<promise>{effective_promise}</promise>"
-        if effective_promise and _promise_tag not in prompt and _promise_tag not in (self.instructions or ""):
-            prompt = f"{prompt}\n\nWhen the task is fully complete, include {_promise_tag} in your response."
-        
-        # Get clear_context from config if not explicitly set
-        effective_clear_context = clear_context
-        if not clear_context:
-            effective_clear_context = self.autonomy_config.get("clear_context", False)
-        
-        # Analyze prompt and get recommended stage
-        stage = self.get_recommended_stage(prompt)
-        
-        # Reset doom loop tracker for new task
-        self._reset_doom_loop()
-        # Clear any stale loop-warning latch/nudge from a previous run.
-        self._reset_loop_warnings()
-        
-        # P3/G2: Import callback helper for autonomy events
-        from ..main import execute_sync_callback
-        
-        try:
-            # Execute the autonomous loop
-            while iterations < effective_max_iter:
-                iterations += 1
-                
-                # P3/G2: Emit autonomy_iteration callback for CLI visibility
-                execute_sync_callback('autonomy_iteration',
-                    iteration=iterations,
-                    max_iterations=effective_max_iter,
-                    stage=stage
-                )
-                
-                # Check timeout
-                _timed_out = _timeout_result(
-                    timeout_seconds, iterations, stage, actions_taken, start_time, started_at)
-                if _timed_out is not None:
-                    return _timed_out
-                
-                # G2: Check for interrupt request (cooperative cancellation) - sync version
-                if self.interrupt_controller and self.interrupt_controller.is_set():
-                    reason = self.interrupt_controller.reason or "unknown"
-                    return AutonomyResult(
-                        success=False,
-                        output=f"Task interrupted: {reason}",
-                        completion_reason="interrupted",
-                        iterations=iterations,
-                        stage=stage,
-                        actions=actions_taken,
-                        duration_seconds=time_module.time() - start_time,
-                        started_at=started_at,
-                    )
-                
-                # Execute one turn using the agent's chat method
-                # Always use the original prompt (prompt re-injection)
-                # Reset per-turn tool count for no-tool-call detection
-                self._autonomy_turn_tool_count = 0
-                # Reset the per-turn warning latch and inject any queued nudge.
-                turn_prompt = self._consume_self_correction(prompt)
-                try:
-                    with _deadline_scope(timeout_seconds and timeout_seconds - (time_module.time() - start_time)):
-                        response = self.chat(turn_prompt)
-                except Exception as e:
-                    # The run deadline cancels an overrunning turn; report it as a timeout.
-                    # A budget stop keeps its typed budget_exhausted result when a cap applies.
-                    return _timeout_result(
-                        timeout_seconds, iterations, stage, actions_taken, start_time, started_at
-                    ) or (isinstance(e, BudgetExceededError) and self._autonomy_budget_result(
-                        iterations, stage, actions_taken, start_time, started_at,
-                        "", spend_baseline
-                    )) or AutonomyResult(
-                        success=False,
-                        output=str(e),
-                        completion_reason="error",
-                        iterations=iterations,
-                        stage=stage,
-                        actions=actions_taken,
-                        duration_seconds=time_module.time() - start_time,
-                        error=str(e),
-                        started_at=started_at,
-                    )
-                
-                # A turn that overran the run deadline or max_execution_time
-                # must not count as progress.
-                _timed_out = _timeout_result(
-                    timeout_seconds, iterations, stage, actions_taken, start_time, started_at,
-                    turn_timed_out=getattr(self, "_last_stop_reason", None) == "timeout")
-                if _timed_out is not None:
-                    return _timed_out
-                
-                response_str = str(response)
-                
-                # Spend kill-switch: halt if cumulative cost/tokens exceed cap.
-                # Zero overhead when no cap is set (returns None immediately).
-                _budget_result = self._autonomy_budget_result(
-                    iterations, stage, actions_taken, start_time, started_at,
-                    response_str, spend_baseline
-                )
-                if _budget_result is not None:
-                    execute_sync_callback('autonomy_complete',
-                        completion_reason=_budget_result.completion_reason,
-                        iterations=iterations,
-                        duration_seconds=time_module.time() - start_time
-                    )
-                    return _budget_result
-                
-                # Record response text for content streaming loop detection
-                if self._doom_loop_tracker is not None:
-                    self._doom_loop_tracker.record_response(response_str)
-                
-                # Record the action for doom loop tracking (G1 fix: was missing).
-                # The result-aware tool-loop detector (name+args+result-hash,
-                # ping-pong) now owns per-tool-call loop detection in the
-                # tool-execution path; DoomLoopDetector is kept for the
-                # content-loop/"chanting" and time checks it does uniquely.
-                # Derive a REAL success signal instead of the old hard-coded True
-                # (which made the failure-streak detector impossible to fire).
-                iteration_success = not self._response_indicates_failure(response_str)
-                self._record_action(
-                    "chat",
-                    {"response_hash": hash(response_str[:500])},
-                    response_str[:200],
-                    iteration_success,
-                )
-                
-                # Check doom loop AFTER recording action so detector sees
-                # the current iteration's fingerprint (repositioned from top
-                # of loop for correct detection timing).
-                if self._is_doom_loop():
-                    recovery = self._get_doom_recovery()
-                    
-                    # P3/G2: Emit doom loop callback for CLI visibility
-                    execute_sync_callback('autonomy_doom_loop',
-                        iteration=iterations,
-                        recovery_action=recovery
-                    )
-                    
-                    obs = getattr(self, '_observability_hooks', None)
-                    if obs is not None:
-                        from ..escalation.observability import EventType as _EvtType
-                        obs.emit(_EvtType.STEP_END, {
-                            "doom_loop": True,
-                            "recovery_action": recovery,
-                            "iteration": iterations,
-                        })
-                    if recovery == "retry_different":
-                        prompt = prompt + "\n\n[System: Previous approach repeated. Try a completely different strategy.]"
-                        if self._doom_loop_tracker is not None:
-                            self._doom_loop_tracker.clear_actions()
-                        self._consecutive_no_tool_turns = 0
-                        self._doom_recovery_active = True
-                        continue
-                    elif recovery == "escalate_model":
-                        prompt = prompt + "\n\n[System: You are stuck in a loop. CRITICAL: Check that all tool argument names exactly match the function signature. Do NOT add '=' to argument names. Use only the documented parameter names.]"
-                        if self._doom_loop_tracker is not None:
-                            self._doom_loop_tracker.clear_actions()
-                        self._consecutive_no_tool_turns = 0
-                        self._doom_recovery_active = True
-                        continue
-                    elif recovery == "request_help":
-                        return AutonomyResult(
-                            success=False,
-                            output="Task needs human guidance (doom loop recovery exhausted)",
-                            completion_reason="needs_help",
-                            iterations=iterations,
-                            stage=stage,
-                            actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                    else:
-                        return AutonomyResult(
-                            success=False,
-                            output="Task stopped due to repeated actions (doom loop)",
-                            completion_reason="doom_loop",
-                            iterations=iterations,
-                            stage=stage,
-                            actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                
-                # Record for action history
-                actions_taken.append({
-                    "iteration": iterations,
-                    "response": response_str[:500],
-                })
-                
-                # Observability logging via ObservabilityHooks (G-UNUSED-2 fix)
-                obs = getattr(self, '_observability_hooks', None)
-                if obs is not None:
-                    from ..escalation.observability import EventType as _EvtType
-                    obs.increment_step()
-                    obs.emit(_EvtType.STEP_END, {
-                        "iteration": iterations,
-                        "stage": stage,
-                        "response_len": len(response_str),
-                        "agent_name": getattr(self, 'name', None),
-                    })
-                elif self.autonomy_config.get("observe"):
-                    get_logger(__name__).info(
-                        f"[autonomy] iteration={iterations} stage={stage} "
-                        f"response_len={len(response_str)}"
-                    )
-                
-                # Auto-save session after each iteration (memory integration)
-                self._auto_save_session()
+                logger.debug(f"Pre-autonomous snapshot failed: {e}")
 
-                # ─────────────────────────────────────────────────────────────
-                # GOAL COMPLETION JUDGE (opt-in): when a goal loop is active,
-                # an independent judge gates termination on the goal's
-                # acceptance criteria instead of the keyword/promise heuristics.
-                # When no goal is set, this is a no-op (behaviour unchanged).
-                # ─────────────────────────────────────────────────────────────
-                _goal_gate = self._goal_gate(response_str)
-                if _goal_gate is not None:
-                    _outcome, _reason = _goal_gate
-                    if _outcome == "done":
-                        return AutonomyResult(
-                            success=True, output=response_str,
-                            completion_reason="goal_met", iterations=iterations,
-                            stage=stage, actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                    if _outcome == "budget_paused":
-                        return AutonomyResult(
-                            success=False, output=response_str,
-                            completion_reason="budget_paused",
-                            iterations=iterations, stage=stage,
-                            actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                    prompt = self._goal_continuation_prompt(self._goal_state)
-                    continue
-
-                # ─────────────────────────────────────────────────────────────
-                # VERIFICATION GATE (opt-in): before any success signal below
-                # can finalise the run, all blocking verification hooks must
-                # pass. On failure, feed captured stdout/stderr back and keep
-                # iterating (never-passing checks end at max_iterations).
-                # No-op when no verification hooks are configured.
-                # ─────────────────────────────────────────────────────────────
-                _gate_feedback = self._verification_gate(response_str, iterations)
-                if _gate_feedback is not None:
-                    prompt = _gate_feedback
-                    continue
-
-                # ─────────────────────────────────────────────────────────────
-                # TOOL-CALL COMPLETION: If the model used tools this turn AND
-                # produced a substantive response, the inner loop completed
-                # the task naturally (model stopped calling tools = done).
-                # This is the same signal the CLI/wrapper path trusts.
-                # ─────────────────────────────────────────────────────────────
-                if not effective_promise and self._autonomy_turn_tool_count > 0 and len(response_str) > 100:
-                    # P3/G2: Emit completion callback
-                    execute_sync_callback('autonomy_complete',
-                        completion_reason="tool_completion",
-                        iterations=iterations,
-                        duration_seconds=time_module.time() - start_time
-                    )
-                    return AutonomyResult(
-                        success=True,
-                        output=response_str,
-                        completion_reason="tool_completion",
-                        iterations=iterations,
-                        stage=stage,
-                        actions=actions_taken,
-                        duration_seconds=time_module.time() - start_time,
-                        started_at=started_at,
-                    )
-                
-                # Auto-escalate stage if stuck (G11 fix: wire auto_escalate)
-                if (self.autonomy_config.get("auto_escalate")
-                        and iterations > 1
-                        and stage in ("direct", "heuristic")):
-                    stage_order = ["direct", "heuristic", "planned", "autonomous"]
-                    idx = stage_order.index(stage) if stage in stage_order else 0
-                    if idx < len(stage_order) - 1:
-                        prev_stage = stage
-                        stage = stage_order[idx + 1]
-                        
-                        # P3/G2: Emit stage change callback for CLI visibility
-                        execute_sync_callback('autonomy_stage_change',
-                            from_stage=prev_stage,
-                            to_stage=stage
-                        )
-                        
-                        if obs is not None:
-                            obs.emit(_EvtType.STAGE_ESCALATE, {"from": prev_stage, "to": stage})
-                
-                # Completion promise: when configured, it is the only success signal
-                # (heuristic exits above/below are skipped in promise mode)
-                if effective_promise:
-                    promise_tag = f"<promise>{effective_promise}</promise>"
-                    if promise_tag in response_str:
-                        # P3/G2: Emit completion callback
-                        execute_sync_callback('autonomy_complete',
-                            completion_reason="promise",
-                            iterations=iterations,
-                            duration_seconds=time_module.time() - start_time
-                        )
-                        return AutonomyResult(
-                            success=True,
-                            output=response_str,
-                            completion_reason="promise",
-                            iterations=iterations,
-                            stage=stage,
-                            actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                
-                # Check for keyword-based completion signals (word-boundary, G-COMPLETION-1 fix)
-                if not effective_promise and self._is_completion_signal(response_str):
-                    # P3/G2: Emit completion callback
-                    execute_sync_callback('autonomy_complete',
-                        completion_reason="goal",
-                        iterations=iterations,
-                        duration_seconds=time_module.time() - start_time
-                    )
-                    return AutonomyResult(
-                        success=True,
-                        output=response_str,
-                        completion_reason="goal",
-                        iterations=iterations,
-                        stage=stage,
-                        actions=actions_taken,
-                        duration_seconds=time_module.time() - start_time,
-                        started_at=started_at,
-                    )
-                
-                # For DIRECT stage, complete after first response
-                if not effective_promise and stage == "direct":
-                    # P3/G2: Emit completion callback
-                    execute_sync_callback('autonomy_complete',
-                        completion_reason="goal",
-                        iterations=iterations,
-                        duration_seconds=time_module.time() - start_time
-                    )
-                    return AutonomyResult(
-                        success=True,
-                        output=response_str,
-                        completion_reason="goal",
-                        iterations=iterations,
-                        stage=stage,
-                        actions=actions_taken,
-                        duration_seconds=time_module.time() - start_time,
-                        started_at=started_at,
-                    )
-                
-                # Clear context between iterations if enabled
-                if effective_clear_context:
-                    self.clear_history()
-                
-                # No-tool-call termination: if model makes no tool calls for 2+
-                # consecutive turns, treat as completion signal.
-                # Skip first iteration (model may be planning).
-                # Suppressed when doom recovery is active — once a doom loop
-                # is detected, no_tool_calls (a success exit) should not fire;
-                # the doom loop system manages termination instead.
-                if (not effective_promise and self._autonomy_turn_tool_count == 0 and iterations > 1
-                        and not self._doom_recovery_active):
-                    self._consecutive_no_tool_turns += 1
-                    if self._consecutive_no_tool_turns >= 2:
-                        execute_sync_callback('autonomy_complete',
-                            completion_reason="no_tool_calls",
-                            iterations=iterations,
-                            duration_seconds=time_module.time() - start_time
-                        )
-                        return AutonomyResult(
-                            success=True,
-                            output=response_str,
-                            completion_reason="no_tool_calls",
-                            iterations=iterations,
-                            stage=stage,
-                            actions=actions_taken,
-                            duration_seconds=time_module.time() - start_time,
-                            started_at=started_at,
-                        )
-                else:
-                    self._consecutive_no_tool_turns = 0
-            
-            # Max iterations reached
-            # P3/G2: Emit completion callback for max iterations
-            execute_sync_callback('autonomy_complete',
-                completion_reason="max_iterations",
-                iterations=iterations,
-                duration_seconds=time_module.time() - start_time
-            )
-            return AutonomyResult(
-                success=False,
-                output="Max iterations reached",
-                completion_reason="max_iterations",
-                iterations=iterations,
-                stage=stage,
-                actions=actions_taken,
-                duration_seconds=time_module.time() - start_time,
-                started_at=started_at,
-            )
-        
-        except KeyboardInterrupt:
-            return AutonomyResult(
-                success=False,
-                output="Task cancelled by user",
-                completion_reason="cancelled",
-                iterations=iterations,
-                stage=stage,
-                actions=actions_taken,
-                duration_seconds=time_module.time() - start_time,
-                started_at=started_at,
-            )
-        except Exception as e:
-            return AutonomyResult(
-                success=False,
-                output=str(e),
-                completion_reason="error",
-                iterations=iterations,
-                stage=stage,
-                actions=actions_taken,
-                duration_seconds=time_module.time() - start_time,
-                error=str(e),
-                started_at=started_at,
-            )
-    
     async def run_autonomous_async(
         self,
         prompt: str,
@@ -5265,10 +4411,13 @@ Summary:"""
             
         Raises:
             ValueError: If autonomy is not enabled
-            
+            asyncio.CancelledError: If the task is cancelled (``task.cancel()``,
+                ``asyncio.wait_for`` timeout, TaskGroup). The partial result is
+                kept on ``agent._last_autonomy_result``.
+
         Example:
             import asyncio
-            
+
             async def main():
                 agent = Agent(instructions="...", autonomy=True)
                 result = await agent.run_autonomous_async(
@@ -5291,7 +4440,9 @@ Summary:"""
                 "Autonomy must be enabled to use run_autonomous_async(). "
                 "Create agent with autonomy=True or autonomy={...}"
             )
-        
+
+        # Drop a previous run's cancelled partial result so it can't go stale.
+        self._last_autonomy_result = None
         start_time = time_module.time()
         started_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         iterations = 0
@@ -5327,10 +4478,24 @@ Summary:"""
         # Clear any stale loop-warning latch/nudge from a previous run.
         self._reset_loop_warnings()
         
+        # Autonomy callbacks for CLI/UI visibility, as run_autonomous emits them.
+        from ..main import execute_callback
+
+        async def _emit_complete(reason):
+            await execute_callback('autonomy_complete', completion_reason=reason,
+                                   iterations=iterations, duration_seconds=time_module.time() - start_time)
+
         try:
+            # Inside the try so cancelling during track() is handled like any
+            # other cancellation: the partial result is kept on the agent and
+            # CancelledError propagates.
+            await asyncio.to_thread(self._take_pre_autonomous_snapshot)
+
             # Execute the autonomous loop
             while iterations < effective_max_iter:
                 iterations += 1
+                await execute_callback('autonomy_iteration', iteration=iterations,
+                                       max_iterations=effective_max_iter, stage=stage)
                 
                 # Check timeout
                 _timed_out = _timeout_result(
@@ -5390,6 +4555,25 @@ Summary:"""
                 if _timed_out is not None:
                     return _timed_out
                 
+                if response is None:
+                    # chat()/achat() return None when the model call failed (error on
+                    # _last_error) or a BEFORE_AGENT hook blocked the turn; neither is
+                    # an answer (F-21). A spend cap hit first keeps its budget result.
+                    _err = str(getattr(self, "_last_error", None) or "the turn produced no response")
+                    return self._autonomy_budget_result(
+                        iterations, stage, actions_taken, start_time, started_at,
+                        "", spend_baseline
+                    ) or AutonomyResult(
+                        success=False,
+                        output=_err,
+                        completion_reason="error",
+                        iterations=iterations,
+                        stage=stage,
+                        actions=actions_taken,
+                        duration_seconds=time_module.time() - start_time,
+                        error=_err,
+                        started_at=started_at,
+                    )
                 response_str = str(response)
                 
                 # Spend kill-switch: halt if cumulative cost/tokens exceed cap.
@@ -5399,6 +4583,7 @@ Summary:"""
                     response_str, spend_baseline
                 )
                 if _budget_result is not None:
+                    await _emit_complete(_budget_result.completion_reason)
                     return _budget_result
                 
                 # Record response text for content streaming loop detection
@@ -5425,6 +4610,7 @@ Summary:"""
                 # of loop for correct detection timing).
                 if self._is_doom_loop():
                     recovery = self._get_doom_recovery()
+                    await execute_callback('autonomy_doom_loop', iteration=iterations, recovery_action=recovery)
                     obs = getattr(self, '_observability_hooks', None)
                     if obs is not None:
                         from ..escalation.observability import EventType as _EvtType
@@ -5545,6 +4731,7 @@ Summary:"""
                 # the task naturally (model stopped calling tools = done).
                 # ─────────────────────────────────────────────────────────────
                 if not effective_promise and self._autonomy_turn_tool_count > 0 and len(response_str) > 100:
+                    await _emit_complete("tool_completion")
                     return AutonomyResult(
                         success=True,
                         output=response_str,
@@ -5564,6 +4751,7 @@ Summary:"""
                     idx = stage_order.index(stage) if stage in stage_order else 0
                     if idx < len(stage_order) - 1:
                         stage = stage_order[idx + 1]
+                        await execute_callback('autonomy_stage_change', from_stage=stage_order[idx], to_stage=stage)
                         if obs is not None:
                             obs.emit(_EvtType.STAGE_ESCALATE, {"from": stage_order[idx], "to": stage})
                 
@@ -5572,6 +4760,7 @@ Summary:"""
                 if effective_promise:
                     promise_tag = f"<promise>{effective_promise}</promise>"
                     if promise_tag in response_str:
+                        await _emit_complete("promise")
                         return AutonomyResult(
                             success=True,
                             output=response_str,
@@ -5585,6 +4774,7 @@ Summary:"""
                 
                 # Check for keyword-based completion signals (word-boundary, G-COMPLETION-1 fix)
                 if not effective_promise and self._is_completion_signal(response_str):
+                    await _emit_complete("goal")
                     return AutonomyResult(
                         success=True,
                         output=response_str,
@@ -5598,6 +4788,7 @@ Summary:"""
                 
                 # For DIRECT stage, complete after first response
                 if not effective_promise and stage == "direct":
+                    await _emit_complete("goal")
                     return AutonomyResult(
                         success=True,
                         output=response_str,
@@ -5622,6 +4813,7 @@ Summary:"""
                         and not self._doom_recovery_active):
                     self._consecutive_no_tool_turns += 1
                     if self._consecutive_no_tool_turns >= 2:
+                        await _emit_complete("no_tool_calls")
                         return AutonomyResult(
                             success=True,
                             output=response_str,
@@ -5642,6 +4834,7 @@ Summary:"""
             await asyncio.to_thread(self._auto_save_session)
             
             # Max iterations reached
+            await _emit_complete("max_iterations")
             return AutonomyResult(
                 success=False,
                 output="Max iterations reached",
@@ -5653,8 +4846,8 @@ Summary:"""
                 started_at=started_at,
             )
         
-        except (KeyboardInterrupt, asyncio.CancelledError):
-            return AutonomyResult(
+        except (KeyboardInterrupt, asyncio.CancelledError) as e:
+            result = AutonomyResult(
                 success=False,
                 output="Task cancelled",
                 completion_reason="cancelled",
@@ -5664,6 +4857,12 @@ Summary:"""
                 duration_seconds=time_module.time() - start_time,
                 started_at=started_at,
             )
+            if isinstance(e, asyncio.CancelledError):
+                # Re-raise so wait_for/TaskGroup/task.cancel() see the
+                # cancellation; keep the partial result reachable on the agent.
+                self._last_autonomy_result = result
+                raise
+            return result
         except Exception as e:
             return AutonomyResult(
                 success=False,
@@ -6121,7 +5320,7 @@ Summary:"""
         self._mcp_servers[name] = mcp
         self.tools.append(mcp)
         self.refresh_tools()
-        logging.debug(f"Attached MCP server '{name}' with runtime tools")
+        logger.debug(f"Attached MCP server '{name}' with runtime tools")
         return mcp
 
     def remove_mcp_server(self, name: str) -> bool:
@@ -6152,10 +5351,10 @@ Summary:"""
             if hasattr(mcp, "shutdown"):
                 mcp.shutdown()
         except Exception as e:
-            logging.warning(f"MCP server '{name}' shutdown failed: {e}")
+            logger.warning(f"MCP server '{name}' shutdown failed: {e}")
 
         self.refresh_tools()
-        logging.debug(f"Removed MCP server '{name}'")
+        logger.debug(f"Removed MCP server '{name}'")
         return True
 
     def refresh_tools(self) -> List[Any]:
@@ -6342,14 +5541,14 @@ Summary:"""
                 names = ", ".join(sorted({r.name for r in self._rules_manager.get_active_rules()}))
                 if names and names not in _RULES_NOTICE_SEEN:
                     _RULES_NOTICE_SEEN.add(names)
-                    logging.warning(f"Applied rules: {names} (pass rules=False to turn off)")
+                    logger.warning(f"Applied rules: {names} (pass rules=False to turn off)")
             elif not extra_files:
                 self._rules_manager = None
         except ImportError:
-            logging.debug("RulesManager not available")
+            logger.debug("RulesManager not available")
             self._rules_manager = None
         except Exception as e:
-            logging.debug(f"Could not initialize RulesManager: {e}")
+            logger.debug(f"Could not initialize RulesManager: {e}")
             self._rules_manager = None
     
     def get_rules_context(self, file_path: Optional[str] = None, include_manual: Optional[List[str]] = None) -> str:
@@ -6402,7 +5601,7 @@ Summary:"""
         if not mem_user_id:
             import uuid
             mem_user_id = f"agent-{uuid.uuid4().hex[:12]}"
-            logging.warning(
+            logger.warning(
                 "Agent memory enabled without an explicit user_id; using an "
                 "auto-generated, non-shared id (%s). Pass user_id=... explicitly "
                 "to persist/share memory across runs.", mem_user_id,
@@ -6433,7 +5632,7 @@ Summary:"""
                 config.setdefault("collection_name", f"memory_{mem_user_id}")
                 self._memory_instance = Memory(config)
             except ImportError:
-                logging.warning(f"Memory provider '{memory}' requires additional dependencies. Falling back to FileMemory.")
+                logger.warning(f"Memory provider '{memory}' requires additional dependencies. Falling back to FileMemory.")
                 from ..memory.file_memory import FileMemory
                 self._memory_instance = FileMemory(user_id=mem_user_id)
             except Exception as e:
@@ -6441,7 +5640,7 @@ Summary:"""
                 # (e.g. a SaaS backend like mem0 needs credentials/network).
                 # Honour the same "Falling back to FileMemory" contract used for
                 # missing dependencies so construction never hard-crashes.
-                logging.warning(f"Memory provider '{memory}' could not initialise ({e}). Falling back to FileMemory.")
+                logger.warning(f"Memory provider '{memory}' could not initialise ({e}). Falling back to FileMemory.")
                 from ..memory.file_memory import FileMemory
                 self._memory_instance = FileMemory(user_id=mem_user_id)
         elif isinstance(memory, dict):
@@ -6462,7 +5661,7 @@ Summary:"""
                     from ..memory.memory import Memory
                     self._memory_instance = Memory(scoped_memory)
                 except ImportError:
-                    logging.warning("Memory with learn requires additional dependencies. Falling back to FileMemory (learn disabled).")
+                    logger.warning("Memory with learn requires additional dependencies. Falling back to FileMemory (learn disabled).")
                     from ..memory.file_memory import FileMemory
                     self._memory_instance = FileMemory(user_id=memory.get("user_id", mem_user_id))
             elif provider == "file":
@@ -6476,12 +5675,12 @@ Summary:"""
                     from ..memory.memory import Memory
                     self._memory_instance = Memory(scoped_memory)
                 except ImportError:
-                    logging.warning("Full Memory class requires additional dependencies. Falling back to FileMemory.")
+                    logger.warning("Full Memory class requires additional dependencies. Falling back to FileMemory.")
                     from ..memory.file_memory import FileMemory
                     self._memory_instance = FileMemory(user_id=mem_user_id)
         elif isinstance(memory, str):
             # Unknown string backend - fall back to FileMemory with warning
-            logging.warning(f"Unknown memory backend '{memory}'. Falling back to FileMemory.")
+            logger.warning(f"Unknown memory backend '{memory}'. Falling back to FileMemory.")
             from ..memory.file_memory import FileMemory
             self._memory_instance = FileMemory(user_id=mem_user_id)
         else:
@@ -6590,7 +5789,7 @@ Summary:"""
                 raise ValueError(f"Memory provider does not support {memory_type} storage")
                 
         except Exception as e:
-            logging.warning(f"[{self.name}] Memory storage failed: {e}")
+            logger.warning(f"[{self.name}] Memory storage failed: {e}")
             raise
         
         # Only call on_memory_write hook AFTER successful storage
@@ -6613,7 +5812,7 @@ Summary:"""
                     if hasattr(self._memory_instance, 'on_memory_write'):
                         self._memory_instance.on_memory_write(action, memory_type, content, metadata)
             except Exception as e:
-                logging.warning(f"[{self.name}] Memory on_memory_write hook failed: {e}")
+                logger.warning(f"[{self.name}] Memory on_memory_write hook failed: {e}")
     
     def _display_memory_info(self):
         """Display memory information to user in a friendly format."""
@@ -6752,7 +5951,7 @@ Summary:"""
                         reranker=reranker,
                     )
                 except ImportError:
-                    logging.warning("RAG module not available. Install with: pip install 'praisonaiagents[rag]'")
+                    logger.warning("RAG module not available. Install with: pip install 'praisonaiagents[rag]'")
                     return None
         
         return self._rag_instance
@@ -6783,7 +5982,7 @@ Summary:"""
                 context_pack = self.rag.retrieve(query, user_id=self.user_id, agent_id=self.agent_id)
                 return context_pack.context, context_pack.citations
             except Exception as e:
-                logging.warning(f"RAG retrieve failed, falling back to basic retrieval: {e}")
+                logger.warning(f"RAG retrieve failed, falling back to basic retrieval: {e}")
         
         # Fallback: basic retrieval with token-aware formatting
         try:
@@ -7024,7 +6223,7 @@ Answer:"""
                 from urllib.parse import urlsplit
                 _parts = urlsplit(knowledge_item)
                 _safe_url = f"{_parts.scheme}://{_parts.hostname or ''}"
-                logging.warning(
+                logger.warning(
                     f"Knowledge source '{_safe_url}...' is a URL; URL knowledge "
                     "ingestion is not yet implemented in the core SDK. This source "
                     "will be skipped. Fetch and pass the content as text, or a local "
@@ -7034,7 +6233,7 @@ Answer:"""
                 # It's a string content
                 self.knowledge.store(knowledge_item, user_id=self.user_id, agent_id=self.agent_id)
         except Exception as e:
-            logging.error(f"Error processing knowledge item: {knowledge_item}, error: {e}")
+            logger.error(f"Error processing knowledge item: {knowledge_item}, error: {e}")
 
     @staticmethod
     def _is_interactive_session() -> bool:
@@ -7200,7 +6399,7 @@ Answer:"""
                         tool_func._praison_handoff_source = tool_item
                         self.tools[index] = tool_func
                     except Exception as e:
-                        logging.error(
+                        logger.error(
                             f"Failed to convert as_tool()/handoff {tool_item} "
                             f"passed in tools=: {e}"
                         )
@@ -7225,12 +6424,12 @@ Answer:"""
                     tool_func._praison_handoff_source = handoff_obj
                     self.tools.append(tool_func)
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"Invalid handoff item type: {type(handoff_item)}. "
                         "Expected Agent or Handoff instance."
                     )
             except Exception as e:
-                logging.error(f"Failed to process handoff item {handoff_item}: {e}")
+                logger.error(f"Failed to process handoff item {handoff_item}: {e}")
 
     @property
     def guardrail_retry_count(self) -> int:
@@ -7265,7 +6464,7 @@ Answer:"""
         self._mark_db_run_error()
         reason = str(error) if error else getattr(self, "_last_guardrail_error", None)
         if reason:
-            logging.info(f"Agent {self.name}: guardrail block reason: {reason}")
+            logger.info(f"Agent {self.name}: guardrail block reason: {reason}")
         return "I'm sorry, but I can't share that response because it did not pass the safety guardrail."
 
     def _process_guardrail(self, task_output):
@@ -7302,11 +6501,11 @@ Answer:"""
             # author's wording verbatim - it is fed back into the conversation
             # by _apply_guardrail_with_retry - rather than wrapping it as an
             # internal validation *error*.
-            logging.warning(f"Agent {self.name}: Guardrail asked for a retry: {e.feedback}")
+            logger.warning(f"Agent {self.name}: Guardrail asked for a retry: {e.feedback}")
             return GuardrailResult(success=False, result=None, error=e.feedback)
 
         except Exception as e:
-            logging.error(f"Agent {self.name}: Error in guardrail validation: {e}")
+            logger.error(f"Agent {self.name}: Error in guardrail validation: {e}")
             # On error, return failure
             return GuardrailResult(
                 success=False,
@@ -7338,7 +6537,7 @@ Answer:"""
                 return True, (result if isinstance(result, str) else prompt), None
             return False, None, (result if isinstance(result, str) else "Input blocked by guardrail")
         except Exception as e:
-            logging.error(f"Agent {self.name}: Error in input guardrail validation: {e}")
+            logger.error(f"Agent {self.name}: Error in input guardrail validation: {e}")
             return False, None, f"Input guardrail validation error: {str(e)}"
 
     def _validate_with_guardrail(self, response_text):
@@ -7436,7 +6635,7 @@ Answer:"""
         # Fall back to simple backoff if no execution config
         return 1.0 * (2.0 ** (retry_count - 1))
 
-    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, cancel_token=None, messages=None):
+    def _apply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, cancel_token=None, messages=None, response_format=None):
         """Apply guardrail validation with retry logic (sync version).
 
         Args:
@@ -7450,6 +6649,9 @@ Answer:"""
                 message list the caller does not hold), the retry falls back to
                 re-asking the original prompt with the reason appended.
 
+            response_format: Structured-output contract of the original call,
+                kept on retries so ``output_pydantic``/``output_json`` survive.
+
         Bounded by ``max_guardrail_retries``; a validator that never passes
         raises rather than looping.
         """
@@ -7462,7 +6664,7 @@ Answer:"""
             success, result, error = self._validate_with_guardrail(current_response)
 
             if success:
-                logging.info(f"Agent {self.name}: Guardrail validation passed")
+                logger.info(f"Agent {self.name}: Guardrail validation passed")
                 return result
 
             # Guardrail failed
@@ -7473,13 +6675,13 @@ Answer:"""
                 )
 
             retry_count += 1
-            logging.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
+            logger.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
 
             # Add exponential backoff delay to avoid hammering the LLM
             total_delay = self._guardrail_retry_delay(retry_count)
             self._record_guardrail_retry(attempt=retry_count, error=error, delay=total_delay)
 
-            logging.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
+            logger.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
             time.sleep(total_delay)
 
             # Regenerate response for retry
@@ -7494,19 +6696,19 @@ Answer:"""
                 # stream=False: the retry reads a complete message and nothing
                 # consumes deltas, so streaming here only costs a failed
                 # sync-adapter attempt and an ERROR log before falling back.
-                response = self._chat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id, cancel_token=cancel_token)
+                response = self._chat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id, cancel_token=cancel_token, response_format=response_format)
                 if response and response.choices:
                     content = response.choices[0].message.content
                     current_response = content.strip() if content else ""
                 else:
                     raise Exception("Failed to generate retry response")
             except Exception as e:
-                logging.error(f"Agent {self.name}: Error during guardrail retry: {e}")
+                logger.error(f"Agent {self.name}: Error during guardrail retry: {e}")
                 raise Exception(f"Agent {self.name} guardrail retry failed: {e}")
 
         return current_response
 
-    async def _aapply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, messages=None):
+    async def _aapply_guardrail_with_retry(self, response_text, prompt, temperature=1.0, tools=None, task_name=None, task_description=None, task_id=None, messages=None, response_format=None):
         """Apply guardrail validation with retry logic (async version).
 
         See ``_apply_guardrail_with_retry`` for the ``messages`` contract.
@@ -7536,7 +6738,7 @@ Answer:"""
             )
 
             if success:
-                logging.info(f"Agent {self.name}: Guardrail validation passed")
+                logger.info(f"Agent {self.name}: Guardrail validation passed")
                 return result
 
             # Guardrail failed
@@ -7547,13 +6749,13 @@ Answer:"""
                 )
 
             retry_count += 1
-            logging.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
+            logger.warning(f"Agent {self.name}: Guardrail validation failed (retry {retry_count}/{self.max_guardrail_retries}): {error}")
 
             # Add exponential backoff delay to avoid hammering the LLM
             total_delay = self._guardrail_retry_delay(retry_count)
             self._record_guardrail_retry(attempt=retry_count, error=error, delay=total_delay)
 
-            logging.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
+            logger.info(f"Agent {self.name}: Waiting {total_delay:.2f}s before guardrail retry")
             await asyncio.sleep(total_delay)
 
             # Regenerate response for retry (async version)
@@ -7569,7 +6771,7 @@ Answer:"""
                 # helper's own default is stream=True regardless of the agent's
                 # setting, which would make the retry stream when nothing reads
                 # the deltas.
-                response = await self._execute_unified_achat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id)
+                response = await self._execute_unified_achat_completion(list(retry_messages), temperature, tools, stream=False, task_name=task_name, task_description=task_description, task_id=task_id, response_format=response_format)
                 if response and hasattr(response, 'choices') and response.choices:
                     content = response.choices[0].message.content
                     current_response = content.strip() if content else ""
@@ -7578,42 +6780,15 @@ Answer:"""
                 else:
                     raise Exception("Failed to generate retry response")
             except Exception as e:
-                logging.error(f"Agent {self.name}: Error during guardrail retry: {e}")
+                logger.error(f"Agent {self.name}: Error during guardrail retry: {e}")
                 raise Exception(f"Agent {self.name} guardrail retry failed: {e}")
 
         return current_response
 
     def _get_tools_cache_key(self, tools):
-        """Generate a cache key for tools list."""
-        if tools is None:
-            return "none"
-        if not tools:
-            return "empty"
-        # Create a simple hash based on tool names
-        tool_names = []
-        try:
-            from ..tools.hosted import is_hosted_tool
-        except ImportError:
-            is_hosted_tool = lambda _tool: False
-
-        for tool in tools:
-            if callable(tool) and hasattr(tool, '__name__'):
-                tool_names.append(tool.__name__)
-            elif isinstance(tool, dict) and is_hosted_tool(tool):
-                try:
-                    hosted_key = json.dumps(tool, sort_keys=True)
-                except (TypeError, ValueError):
-                    hosted_key = str(id(tool))
-                tool_names.append(f"hosted:{hosted_key}")
-            elif (
-                isinstance(tool, dict)
-                and isinstance(tool.get('function'), dict)
-                and tool['function'].get('name')
-            ):
-                tool_names.append(tool['function']['name'])
-            elif isinstance(tool, str):
-                tool_names.append(tool)
-        return "|".join(sorted(tool_names))
+        """Generate a content-based cache key for a tools list."""
+        from ..tools.schema import tools_cache_key
+        return tools_cache_key(tools)
     
 
     # -------------------------------------------------------------------------
@@ -8041,7 +7216,7 @@ Answer:"""
                             "content": result.content
                         })
             except Exception as post_exc:
-                logging.warning(
+                logger.warning(
                     f"Post-execution bookkeeping failed after successful CLI "
                     f"backend turn (agent={self.display_name!r}, "
                     f"session_id={session_id!r}): {post_exc}"
@@ -8437,7 +7612,7 @@ Answer:"""
                     except Exception as e:
                         # Log the error for debugging but don't fail cleanup
                         import logging
-                        logging.debug(
+                        logging.getLogger(__name__).debug(
                             f"Failed to cleanup artifacts for agent {self.name}: {e}"
                         )
 

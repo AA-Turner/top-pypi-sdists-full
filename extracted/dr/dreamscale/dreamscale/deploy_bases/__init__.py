@@ -183,9 +183,10 @@ def _load_bases() -> tuple[DeployBase, ...]:
     for family in manifest.FAMILIES:
         if family.deploy is None:
             continue
-        base = importlib.import_module(f"{__name__}.{family.id}").BASE
+        module = getattr(family, "sdk_module", None) or f"{__name__}.{family.id}"
+        base = importlib.import_module(module).BASE
         if not isinstance(base, DeployBase) or base.family != family.id:
-            raise RuntimeError(f"dreamscale.deploy_bases.{family.id}.BASE is not its DeployBase")
+            raise RuntimeError(f"{module}.BASE is not its DeployBase")
         out.append(base)
     aliases = [alias for base in out for alias in (base.name, *base.aliases)]
     if len(set(aliases)) != len(aliases):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.2.1
+Version: 3.3.0
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -774,6 +774,37 @@ print(fyers.get_orders(data))
 
 ## Logout - invalidates the current access token, takes no arguments
 print(fyers.logout())
+
+
+#################################################################################################################
+
+"""
+KILL SWITCH : This includes following APIs (activate_killswitch, get_killswitch_status)
+
+WARNING: Activating the kill switch BLOCKS TRADING on the account. Use with care.
+Both APIs take no arguments.
+"""
+
+## Kill switch status
+status = fyers.get_killswitch_status()
+print(status)
+# Not active:
+# {"s": "ok", "code": 200, "killswitch": False, "openPositions": 0, "pendingOrders": 0, "message": "Kill Switch is not activated."}
+# Active:
+# {"s": "ok", "code": 200, "killswitch": True, "openPositions": 0, "pendingOrders": 0, "message": "Kill Switch is activated."}
+
+## Activate kill switch - blocks trading on the account
+# Like every other API in this SDK, an API error (HTTP 400) is not raised as an exception.
+# The error response body is returned to you unchanged, so check "s" / "code" in the response.
+response = fyers.activate_killswitch()
+if response.get("s") == "ok":
+    print("Kill switch activated:", response["message"])
+else:
+    print("Kill switch activation failed:", response)
+# Success (HTTP 200):
+# {"code": 200, "message": "Client placed on Break. ", "s": "ok"}
+# Error - already active (HTTP 400, returned as-is):
+# {"code": 1500, "message": "Already on break, Please enjoy the break", "s": "error"}
 
 
 #################################################################################################################

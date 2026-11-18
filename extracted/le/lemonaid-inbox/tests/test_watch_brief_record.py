@@ -8,7 +8,16 @@ import pytest
 
 from lemonaid.brief import attached, frontmatter, store, waiters
 from lemonaid.inbox import db
-from lemonaid.watch import brief_record, briefs_cli, delivery, doc_cli, file_cli, pr_cli
+from lemonaid.watch import (
+    brief_record,
+    briefs_cli,
+    cursors,
+    delivery,
+    doc_cli,
+    file_cli,
+    pr_cli,
+    waiter_lock,
+)
 
 
 @pytest.fixture
@@ -142,7 +151,7 @@ def test_cli_registers_before_waiting_and_keeps_entry_after_one_shot(
 
 @pytest.mark.parametrize("codex", [False, True])
 def test_pr_ci_startup_and_rearm_record_the_supplied_flags(brief, tmp_path, monkeypatch, codex):
-    monkeypatch.setattr(delivery, "codex_setup_problem", lambda: "")
+    monkeypatch.setattr(delivery, "codex_setup_problem", lambda *_: "")
     mode = ["--codex-thread", "owner"] if codex else ["--once"]
     for head, ci in [("abcdef0", True), ("1234567", True), ("1234567", False)]:
         a = args("pr", tmp_path, "--head", head, "--comments", *mode, *(["--ci"] if ci else []))
@@ -160,12 +169,12 @@ def test_pr_ci_startup_and_rearm_record_the_supplied_flags(brief, tmp_path, monk
 
 def test_refused_delivery_setup_and_duplicate_do_not_change_brief(brief, tmp_path, monkeypatch):
     a = args("doc", tmp_path, "--codex-thread", "owner")
-    monkeypatch.setattr(delivery, "codex_setup_problem", lambda: "queue unavailable")
+    monkeypatch.setattr(delivery, "codex_setup_problem", lambda *_: "queue unavailable")
     before = brief.read_text()
     assert doc_cli.run(a) == 2
     assert brief.read_text() == before
-    monkeypatch.setattr(delivery, "codex_setup_problem", lambda: "")
-    from lemonaid.watch import doc_events, waiter_lock
+    monkeypatch.setattr(delivery, "codex_setup_problem", lambda *_: "")
+    from lemonaid.watch import doc_events
 
     lock = waiter_lock.acquire(
         doc_events.state_stem(a.state_dir, a.wait, a.me).with_suffix(".lock")
@@ -175,6 +184,37 @@ def test_refused_delivery_setup_and_duplicate_do_not_change_brief(brief, tmp_pat
         assert brief.read_text() == before
     finally:
         lock.close()
+
+
+def test_pr_watch_refused_beside_the_unified_watcher_leaves_the_brief_alone(
+    brief, tmp_path, monkeypatch
+):
+    first = args("pr", tmp_path, "--comments", "--role", "author")
+    assert brief_record.record(first, "pr", repo="o/r") == ""
+    recorded = brief.read_text()
+    assert "--comments --role author" in recorded
+
+    second = args("pr", tmp_path, "--ci", "--role", "author")
+    second.state_dir = None
+    monkeypatch.setattr(cursors, "directory", lambda *_: tmp_path / "owner" / "pr")
+    monkeypatch.setattr(pr_cli.wait_state, "lock_path", lambda owner: tmp_path / "unified.lock")
+    monkeypatch.setattr(waiter_lock, "held", lambda path: path.name == "unified.lock")
+    monkeypatch.setattr(waiter_lock, "lock_holder", lambda path: "pid 1")
+
+    assert pr_cli.run(second, "o/r") == 3
+    assert brief.read_text() == recorded
+
+
+def test_role_author_implies_comments(monkeypatch):
+    monkeypatch.setattr(pr_cli, "_repo_name", lambda repo: "o/r")
+    monkeypatch.setattr(pr_cli, "run", lambda a, repo: 0)
+    parser = argparse.ArgumentParser()
+    pr_cli.add_parser(parser.add_subparsers())
+    a = parser.parse_args(["pr", "--wait", "12", "--me", "X (Author)", "--role", "author"])
+    a.repo = ""
+    with pytest.raises(SystemExit):
+        pr_cli._cmd(a)
+    assert a.comments
 
 
 def test_unwritable_attached_brief_prevents_startup(brief, tmp_path, monkeypatch):
@@ -231,7 +271,7 @@ def test_saved_child_self_command_and_explicit_defaults_are_replaced(brief, tmp_
 
 def test_failed_delivery_keeps_recorded_command_for_rearm(brief, tmp_path, monkeypatch):
     a = args("doc", tmp_path, "--codex-thread", "owner")
-    monkeypatch.setattr(delivery, "codex_setup_problem", lambda: "")
+    monkeypatch.setattr(delivery, "codex_setup_problem", lambda *_: "")
 
     def fail(*args):
         raise delivery.Failed("queue failed")

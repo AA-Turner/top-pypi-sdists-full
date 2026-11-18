@@ -4,7 +4,7 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator
 
-from ..base import Base, round_float
+from ..base import Base, round_float, round_optional_float
 from ..conformers import ConformerClusteringSettings, ConformerGenSettingsUnion, ConformerProperties, ConformerSearchMixin, OpenConfSettings
 from ..method import Method
 from ..settings import Settings
@@ -24,16 +24,22 @@ class SolventDependentConformer(Base):
     Attributes:
         calculation: conformer (as a calculation)
         smiles: SMILES for the conformer
-        free_energy_by_solvent: free energy in every solvent, in Hartree
+        free_energy_by_solvent: singlepoint_energy + rrho_correction + solvation_free_energy_by_solvent, in Hartree
         relative_free_energy_by_solvent: relative free energy vs. lowest-energy conformer in every solvent, in kcal/mol
         population_by_solvent: population in every solvent (number between 0 and 1)
+        singlepoint_energy: gas-phase electronic energy from the final single-point calculation, in Hartree
+        rrho_correction: gas-phase thermal Gibbs free energy correction from the GFN2-xTB Hessian, in Hartree
+        solvation_free_energy_by_solvent: CPCM-X or COSMO-RS solvation free energy in every solvent, in Hartree
     """
 
     calculation: UUID | None = None
     smiles: str | None = None
-    free_energy_by_solvent: dict[Solvent, Annotated[float, AfterValidator(round_float(3))]]
+    free_energy_by_solvent: dict[Solvent, Annotated[float, AfterValidator(round_float(6))]]
     relative_free_energy_by_solvent: dict[Solvent, Annotated[float, AfterValidator(round_float(3))]]
     population_by_solvent: dict[Solvent, Annotated[float, AfterValidator(round_float(3))]]
+    singlepoint_energy: Annotated[float | None, AfterValidator(round_optional_float(6))] = None
+    rrho_correction: Annotated[float | None, AfterValidator(round_optional_float(6))] = None
+    solvation_free_energy_by_solvent: dict[Solvent, Annotated[float, AfterValidator(round_float(6))]] = {}
 
 
 class SolventDependentConformersWorkflow(ConformerSearchMixin, MoleculeWorkflow):

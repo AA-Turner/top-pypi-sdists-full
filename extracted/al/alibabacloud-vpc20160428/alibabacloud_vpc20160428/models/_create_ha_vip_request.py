@@ -25,21 +25,21 @@ class CreateHaVipRequest(DaraModel):
     ):
         # The client token that is used to ensure the idempotence of the request.
         # 
-        # You can generate a parameter value on your client to ensure that the parameter value is unique across different requests. The client token can contain only ASCII characters.
+        # You can generate the parameter value on your client to ensure that it is unique across different requests. The client token supports only ASCII characters.
         # 
-        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is different.
+        # > If you do not specify this parameter, the system automatically uses the **RequestId** of the API request as the **ClientToken**. The **RequestId** of each API request is unique.
         self.client_token = client_token
         # The description of the HAVIP.
         # 
-        # The description must be 1 to 255 characters in length, and cannot start with `http://` or `https://`.
+        # The description must be 1 to 255 characters in length and cannot start with `http://` or `https://`.
         self.description = description
         # The IP address of the HAVIP.
         # 
-        # The specified IP address must be an unoccupied IP address in the vSwitch CIDR block. If you do not specify this parameter, an unoccupied IP address is randomly allocated from the specified vSwitch.
+        # The specified IP address must be an unused IP address in the vSwitch CIDR block. If you do not specify this parameter, the system randomly allocates an unused IP address from the specified vSwitch.
         self.ip_address = ip_address
         # The name of the HAVIP.
         # 
-        # The name must be 1 to 128 characters in length, and cannot start with `http://` or `https://`.
+        # The name must be 1 to 128 characters in length and cannot start with `http://` or `https://`.
         self.name = name
         self.owner_account = owner_account
         self.owner_id = owner_id

@@ -1,12 +1,14 @@
+import enum
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import pytest
 from configdb import connection_factory, connection_kwargs
 
-from MySQLdb.connections import Connection
 from MySQLdb._exceptions import ProgrammingError
-from MySQLdb.constants import CLIENT
+from MySQLdb.connections import Connection
+from MySQLdb.constants import CLIENT, FIELD_TYPE
 
 
 @pytest.fixture
@@ -16,6 +18,69 @@ def conn():
         yield connection
     finally:
         connection.close()
+
+
+@pytest.mark.parametrize("sql_mode", ["", "NO_BACKSLASH_ESCAPES"])
+def test_literal_str_enum(conn, sql_mode):
+    class Foo(str, enum.Enum):
+        BAR = "BAR"
+        BAZ = "BAZ"
+
+    conn.set_sql_mode(sql_mode)
+    assert conn.literal(Foo.BAR) == b"'BAR'"
+    assert conn.literal((Foo.BAR, Foo.BAZ)) == b"('BAR','BAZ')"
+    cursor = conn.cursor()
+    cursor.execute("SELECT %s", (Foo.BAR,))
+    assert cursor.fetchone() == ("BAR",)
+
+
+@pytest.mark.parametrize("value", ["BAR", b"BAR"])
+@pytest.mark.parametrize("binary_prefix", [False, True])
+def test_literal_string_subclass(value, binary_prefix):
+    class Subclass(type(value)):
+        pass
+
+    with connection_factory(binary_prefix=binary_prefix) as conn:
+        assert conn.literal(Subclass(value)) == conn.literal(value)
+
+
+@pytest.mark.parametrize("binary_prefix", [False, True])
+def test_literal_bytearray_subclass(binary_prefix):
+    class Subclass(bytearray):
+        pass
+
+    data = b"A'\x00\\B"
+    value = Subclass(data)
+    with connection_factory(binary_prefix=binary_prefix) as conn:
+        assert conn.literal(value) == conn.literal(data)
+        cursor = conn.cursor()
+        cursor.execute("SELECT %s", (value,))
+        expected = data if binary_prefix else data.decode(conn.encoding)
+        assert cursor.fetchone() == (expected,)
+
+
+@pytest.mark.parametrize("container_type", [tuple, list, set, frozenset])
+def test_literal_container_subclass_converter(conn, container_type):
+    class Subclass(container_type):
+        pass
+
+    conn.encoders[Subclass] = lambda value, mapping: b"'custom'"
+    cursor = conn.cursor()
+    cursor.execute("SELECT %s", (Subclass(["BAR"]),))
+    assert cursor.fetchone() == ("custom",)
+
+
+@pytest.mark.parametrize("set_type", [set, frozenset])
+@pytest.mark.parametrize("sql_mode", ["", "NO_BACKSLASH_ESCAPES"])
+@pytest.mark.parametrize("charset", ["utf8mb4", "latin1"])
+def test_literal_set_escaping(set_type, sql_mode, charset):
+    value = "é' OR 1=1 -- \\"
+    with connection_factory(charset=charset, sql_mode=sql_mode) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT %s", (set_type([value]),))
+        assert cursor.fetchone() == (value,)
+        with pytest.raises(TypeError, match="set elements must be strings"):
+            conn.literal(set_type([1]))
 
 
 def test_multi_statements_default_true(conn):
@@ -63,9 +128,7 @@ def test_executemany_fallback_connection_subclass_default():
     with MultiConnection(**connection_kwargs({})) as conn:
         assert conn.executemany_fallback == "multi"
 
-    with MultiConnection(
-        **connection_kwargs({"executemany_fallback": "loop"})
-    ) as conn:
+    with MultiConnection(**connection_kwargs({"executemany_fallback": "loop"})) as conn:
         assert conn.executemany_fallback == "loop"
 
 
@@ -106,6 +169,41 @@ def test_connection_concurrent_use_raises(conn):
     done.wait()
     thread.join()
     assert thread_error is None
+
+
+@pytest.mark.parametrize("use", [False, True])
+def test_result_rejects_reinitialization(conn, use):
+    conn.query("SELECT 1 UNION ALL SELECT 2 ORDER BY 1")
+    result = conn.use_result() if use else conn.store_result()
+    with pytest.raises(ProgrammingError, match="already initialized"):
+        result.__init__(conn, not use)
+
+    assert result.fetch_row() == ((1,),)
+    del result  # Leave the second row for cleanup.
+    conn.query("SELECT 3")
+    assert conn.store_result().fetch_row() == ((3,),)
+
+
+def test_stored_result_dealloc_while_connection_locked(conn):
+    stored = []
+
+    def store_result():
+        conn.query("SELECT 1")
+        stored.append(conn.store_result())
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        # On free-threaded CPython, drop the last reference on its owning thread.
+        executor.submit(store_result).result()
+
+        def convert(value):
+            # fetch_row holds the connection lock while calling this converter.
+            executor.submit(stored.clear).result(timeout=5)
+            return int(value)
+
+        conn.converter[FIELD_TYPE.NEWDECIMAL] = convert
+        conn.query("SELECT CAST(2 AS DECIMAL(1,0))")
+        assert conn.use_result().fetch_row() == ((2,),)
+        assert not stored
 
 
 def test_result_concurrent_use_raises(conn):

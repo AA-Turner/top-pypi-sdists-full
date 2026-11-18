@@ -23,6 +23,9 @@ else:
 
 __all__ = (
     "ActorTokenContentTypeType",
+    "AgentInsightStoreEnablementStatusType",
+    "AgentInsightStoreEncryptionModeType",
+    "AgentInsightStoreStatusType",
     "AgentManagedRuntimeTypeType",
     "AgentRuntimeEndpointStatusType",
     "AgentRuntimeStatusType",
@@ -60,6 +63,7 @@ __all__ = (
     "EvaluatorLevelType",
     "EvaluatorStatusType",
     "EvaluatorTypeType",
+    "ExampleFieldType",
     "ExceptionLevelType",
     "ExtractionTypeType",
     "FallbackErrorType",
@@ -83,6 +87,7 @@ __all__ = (
     "IncludedDataType",
     "InterceptorPayloadExclusionType",
     "KeyTypeType",
+    "ListAgentInsightStoresPaginatorName",
     "ListAgentRuntimeEndpointsPaginatorName",
     "ListAgentRuntimeVersionsByCapacityProviderPaginatorName",
     "ListAgentRuntimeVersionsPaginatorName",
@@ -186,6 +191,9 @@ __all__ = (
 )
 
 ActorTokenContentTypeType = Literal["AWS_IAM_ID_TOKEN_JWT", "M2M", "NONE"]
+AgentInsightStoreEnablementStatusType = Literal["DISABLED", "ENABLED"]
+AgentInsightStoreEncryptionModeType = Literal["AWS_OWNED_KMS_KEY", "CUSTOMER_MANAGED_KMS"]
+AgentInsightStoreStatusType = Literal["ACTIVE", "ERROR", "INACTIVE", "UPDATING"]
 AgentManagedRuntimeTypeType = Literal[
     "NODE_22", "PYTHON_3_10", "PYTHON_3_11", "PYTHON_3_12", "PYTHON_3_13", "PYTHON_3_14"
 ]
@@ -278,6 +286,7 @@ EvaluatorStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 EvaluatorTypeType = Literal["Builtin", "Custom", "CustomCode", "CustomDerived", "ThirdParty"]
+ExampleFieldType = Literal["ACTOR_PROFILE", "INPUT", "TURNS"]
 ExceptionLevelType = Literal["DEBUG"]
 ExtractionTypeType = Literal["LLM_INFERRED", "STRICTLY_CONSISTENT"]
 FallbackErrorType = Literal["CONNECTION_ERROR", "FIRST_BYTE_TIMEOUT", "UNROUTABLE"]
@@ -326,6 +335,7 @@ InboundTokenClaimValueTypeType = Literal["STRING", "STRING_ARRAY"]
 IncludedDataType = Literal["ALL_DATA", "METADATA_ONLY"]
 InterceptorPayloadExclusionType = Literal["RESPONSE_BODY"]
 KeyTypeType = Literal["CustomerManagedKey", "ServiceManagedKey"]
+ListAgentInsightStoresPaginatorName = Literal["list_agent_insight_stores"]
 ListAgentRuntimeEndpointsPaginatorName = Literal["list_agent_runtime_endpoints"]
 ListAgentRuntimeVersionsByCapacityProviderPaginatorName = Literal[
     "list_agent_runtime_versions_by_capacity_provider"
@@ -600,6 +610,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -784,6 +795,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -851,6 +863,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -932,6 +945,7 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
+    "list_agent_insight_stores",
     "list_agent_runtime_endpoints",
     "list_agent_runtime_versions",
     "list_agent_runtime_versions_by_capacity_provider",

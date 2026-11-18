@@ -190,8 +190,14 @@ static void s_aws_imds_client_destroy(struct aws_imds_client *client) {
     /* Clean up endpoint host if we allocated it */
     aws_string_destroy(client->endpoint_host);
 
-    client->function_table->aws_http_connection_manager_release(client->connection_manager);
-    /* freeing the client takes place in the shutdown callback below */
+    if (client->connection_manager) {
+        /* freeing the client takes place in the shutdown callback above */
+        client->function_table->aws_http_connection_manager_release(client->connection_manager);
+    } else {
+        /* no connection manager so no callback, clean up directly because we don't want to invoke the shutdown callback
+         * either */
+        aws_mem_release(client->allocator, client);
+    }
 }
 
 static void s_on_connection_manager_shutdown(void *user_data) {
@@ -312,6 +318,8 @@ struct aws_imds_client *aws_imds_client_new(
             AWS_LOGF_ERROR(AWS_LS_IMDS_CLIENT, "Failed to set SNI hostname for TLS connection");
             goto on_error;
         }
+
+        manager_options.tls_connection_options = &tls_connection_options;
 #endif /* BYO_CRYPTO */
     }
 

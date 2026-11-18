@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from inspect import iscoroutine
 from types import TracebackType
 from typing import Any, cast
 
@@ -25,6 +26,12 @@ from temporalio.mcp._backend import (
     _NOT_SUPPLIED,
     _FactoryInvoker,
     _MCPBackendFactory,
+)
+from temporalio.openai_agents._mcp_server_checks import (
+    _reject_dynamic_tool_filter,
+    _reject_worker_side_require_approval,
+    _reject_worker_side_tool_guardrails,
+    _reject_worker_side_tool_meta_resolver,
 )
 
 _MCPServerFactory = Callable[[], MCPServer] | Callable[[Any], MCPServer]
@@ -149,32 +156,35 @@ def _raise_repeated_cursor_error(err: UserError) -> None:
         ) from err
 
 
-def _reject_dynamic_tool_filter(name: str, server: MCPServer) -> None:
-    """Fail fast on a worker-side filter that can never be applied.
-
-    A callable ``tool_filter`` needs the run context and agent, which exist only
-    in the workflow, so the Agents SDK rejects one on the worker side and the
-    list-tools Activity would otherwise retry forever. A static filter needs
-    neither and is applied here as usual.
-    """
-    if callable(getattr(server, "tool_filter", None)):
-        raise ApplicationError(
-            f"MCP server {name!r} sets a callable tool_filter on its worker-side "
-            "MCPServer, which cannot be applied there because the run context "
-            "and agent it receives exist only in the workflow; pass the filter "
-            "to temporal_mcp_server() instead",
-            non_retryable=True,
-        )
-
-
 def _mcp_server_backend_factory(
     name: str, factory: _MCPServerFactory
 ) -> _MCPBackendFactory:
+    # Fail when the Worker is built, not in every MCP Activity.
+    if not callable(factory):
+        kind = type(factory)  # type: ignore[reportUnreachable]
+        raise TypeError(
+            f"MCP server factory {name!r} is "
+            f"{kind.__module__}.{kind.__qualname__}, not callable"
+        )
     invoke = _FactoryInvoker(name, factory)
 
     def create(argument: Any = _NOT_SUPPLIED) -> _OpenAIMCPServerBackend:
-        server = cast(MCPServer, invoke(argument))
+        server = invoke(argument)
+        if not isinstance(server, MCPServer):
+            kind = type(server)
+            if iscoroutine(server):
+                # An async factory; close it so Python doesn't warn it was never awaited.
+                server.close()
+            raise ApplicationError(
+                f"MCP server factory {name!r} returned "
+                f"{kind.__module__}.{kind.__qualname__}, not agents.mcp.MCPServer",
+                type="MCPServerFactoryTypeError",
+                non_retryable=True,
+            )
         _reject_dynamic_tool_filter(name, server)
+        _reject_worker_side_require_approval(name, server, "temporal_mcp_server")
+        _reject_worker_side_tool_meta_resolver(name, server)
+        _reject_worker_side_tool_guardrails(name, server)
         return _OpenAIMCPServerBackend(server)
 
     return create

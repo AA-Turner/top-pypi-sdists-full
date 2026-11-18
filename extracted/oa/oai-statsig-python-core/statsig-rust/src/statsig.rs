@@ -35,6 +35,7 @@ use crate::gcir::gcir_formatter::GCIRFormatter;
 use crate::gcir::target_app_id_utils::select_app_id_for_gcir;
 use crate::hashing::HashUtil;
 use crate::id_lists_adapter::StatsigSharedIdListsAdapter;
+use crate::id_lists_adapter::id_list_load_timing;
 use crate::initialize_evaluations_response::InitializeEvaluationsResponse;
 use crate::initialize_response::InitializeResponse;
 use crate::initialize_v2_response::InitializeV2Response;
@@ -52,6 +53,7 @@ use crate::sdk_event_emitter::{SdkEvent, SdkEventEmitter};
 #[cfg(test)]
 use crate::snapshot_evaluation_session::SnapshotEvaluationSession;
 use crate::spec_store::{SpecStore, SpecStoreData};
+use crate::specs_adapter::remote_config_value_hydrator::init_failures;
 use crate::specs_adapter::{StatsigCustomizedSpecsAdapter, StatsigHttpSpecsAdapter};
 use crate::specs_response::{param_store_types::Parameter, spec_types::SpecsResponseFull};
 use crate::statsig_err::StatsigErr;
@@ -193,6 +195,9 @@ fn mark_partial_id_list_evaluation(details: &mut EvaluationDetails, status: Lazy
 lazy_static::lazy_static! {
     static ref SHARED_INSTANCE: Mutex<Option<Arc<Statsig>>> = Mutex::new(None);
 }
+
+#[cfg(test)]
+mod remote_id_list_allowlist;
 
 pub struct Statsig {
     output_policy: crate::output_policy::OutputPolicy,
@@ -429,11 +434,15 @@ impl Statsig {
                     self.specs_adapter.inner.initialize(self.spec_store.clone());
                 }
 
-                let init_details = if let Some(timeout_ms) = self.options.init_timeout_ms {
-                    self.apply_timeout_to_init(timeout_ms).await
-                } else {
-                    self.initialize_impl_with_details().await
-                };
+                let init_details =
+                    init_failures::report_if_unready(&self.spec_store, &self.ops_stats, async {
+                        if let Some(timeout_ms) = self.options.init_timeout_ms {
+                            self.apply_timeout_to_init(timeout_ms).await
+                        } else {
+                            self.initialize_impl_with_details().await
+                        }
+                    })
+                    .await;
                 self.log_init_details(&init_details);
                 if let Ok(details) = &init_details {
                     match self.initialize_details.try_lock_for(Duration::from_secs(5)) {
@@ -1667,6 +1676,29 @@ impl Statsig {
     /// graph available before synchronous evaluation. The returned snapshot is
     /// the exact one that was validated and must also be used for evaluation.
     fn ensure_spec_id_lists(&self, spec_name: &str, spec_type: &SpecType) -> LazyIdListLoadOutcome {
+        let mut waited = None;
+        let result = self.ensure_spec_id_lists_observed(spec_name, spec_type, &mut waited);
+        if let Some(waited) = waited.filter(|d| !d.is_zero()) {
+            id_list_load_timing::record_duration(
+                &self.ops_stats,
+                "lazy_id_list_load.wait_ms",
+                waited,
+                match result.status {
+                    LazyIdListLoadStatus::Ready => "success",
+                    LazyIdListLoadStatus::Timeout => "timeout",
+                    LazyIdListLoadStatus::Failed => "error",
+                },
+            );
+        }
+        result
+    }
+
+    fn ensure_spec_id_lists_observed(
+        &self,
+        spec_name: &str,
+        spec_type: &SpecType,
+        waited: &mut Option<Duration>,
+    ) -> LazyIdListLoadOutcome {
         let mut data = self.spec_store.load_data();
         if self.options.lazy_load_id_lists != Some(true) {
             return LazyIdListLoadOutcome {
@@ -1702,6 +1734,13 @@ impl Statsig {
                 );
             };
             let (sender, receiver) = mpsc::sync_channel(1);
+            // Only actual loads enter timing collection; warm evaluations skip it.
+            if adapter.load_timings_enabled {
+                waited.get_or_insert(Duration::ZERO);
+            }
+            let timing = adapter
+                .load_timings_enabled
+                .then(|| (Instant::now(), Arc::clone(&self.ops_stats)));
             if let Err(error) =
                 self.statsig_runtime
                     .spawn(LAZY_ID_LIST_LOAD_TAG, move |_| async move {
@@ -1726,7 +1765,17 @@ impl Statsig {
                         }
                         // The receiver may be gone after a timeout; completed work
                         // remains published for a later evaluation.
+                        let elapsed = timing.as_ref().map(|(started, _)| started.elapsed());
+                        let succeeded = load_result.is_ok();
                         let _ = sender.send(load_result);
+                        if let Some(((_, ops_stats), elapsed)) = timing.zip(elapsed) {
+                            id_list_load_timing::record_duration(
+                                &ops_stats,
+                                "lazy_id_list_load.batch_ms",
+                                elapsed,
+                                if succeeded { "success" } else { "error" },
+                            );
+                        }
                     })
             {
                 log_error_to_statsig_and_console!(&self.ops_stats, TAG, error);
@@ -1739,7 +1788,11 @@ impl Statsig {
 
             let wait_started = Instant::now();
             let result = receiver.recv_timeout(remaining_wait);
-            remaining_wait = remaining_wait.saturating_sub(wait_started.elapsed());
+            let elapsed = wait_started.elapsed();
+            remaining_wait = remaining_wait.saturating_sub(elapsed);
+            if let Some(waited) = waited {
+                *waited += elapsed;
+            }
             let current = self.spec_store.load_data();
             match result {
                 Ok(Ok(())) => {
@@ -3736,6 +3789,7 @@ impl Statsig {
                 Err(e)
             }
         };
+        init_failures::record_start_result(&init_res);
 
         if let Some(adapter) = &self.id_lists_adapter.inner {
             match adapter
@@ -3766,7 +3820,11 @@ impl Statsig {
             );
         }
 
-        let spec_info = self.spec_store.readiness_specs_info();
+        let spec_info = {
+            let data = self.spec_store.load_data();
+            init_failures::record_readiness(&data);
+            data.readiness_specs_info()
+        };
         let duration = start_time.elapsed().as_millis() as u64;
 
         self.set_default_environment_from_server();
@@ -4534,7 +4592,7 @@ fn setup_ops_stats(
         if let Some(client) = ob_client.upgrade() {
             client.init();
             let as_observer = client.to_ops_stats_event_observer();
-            ops_stat.subscribe(statsig_runtime, Arc::downgrade(&as_observer));
+            ops_stat.subscribe_observability(statsig_runtime, Arc::downgrade(&as_observer));
         }
     }
 
@@ -4551,3 +4609,7 @@ mod typed_config_tests;
 #[cfg(test)]
 #[path = "__tests__/statsig_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "__tests__/lazy_id_list_timing_tests.rs"]
+mod lazy_id_list_timing_tests;

@@ -107,7 +107,7 @@ import re
 from ansible.plugins.inventory import BaseInventoryPlugin, Constructable, Cacheable
 from ansible.errors import AnsibleError
 from ansible.module_utils.parsing.convert_bool import boolean
-from ansible.module_utils._text import to_native, to_text
+from ansible.module_utils.common.text.converters import to_native, to_text
 from ansible_collections.azure.azcollection.plugins.module_utils.azure_rm_common import AzureRMAuth
 from os import environ
 
@@ -248,7 +248,12 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             cert_validation_mode=self.get_option('cert_validation_mode'),
             api_profile=self.get_option('api_profile'),
             track1_cred=True,
-            adfs_authority_url=self.get_option('adfs_authority_url')
+            adfs_authority_url=self.get_option('adfs_authority_url'),
+            x509_certificate_path=self.get_option('x509_certificate_path'),
+            thumbprint=self.get_option('thumbprint'),
+            oidc_token=self.get_option('oidc_token'),
+            oidc_token_file_path=self.get_option('oidc_token_file_path'),
+            disable_instance_discovery=self.get_option('disable_instance_discovery')
         )
 
         if self.templar.is_template(auth_options["tenant"]):

@@ -455,7 +455,9 @@ bool parse_card(const std::string &line, Card &card) {
     card = Card();
     card.mnemonic = mnemonic;
     card.raw = raw;
-    if (mnemonic == "CM" || mnemonic == "CE") return true;
+    // SY (4nec2's symbolic variables): refused by name, so its fields are
+    // never converted (`parse_card`'s SY rule)
+    if (mnemonic == "CM" || mnemonic == "CE" || mnemonic == "SY") return true;
     std::vector<std::string> fields(tokens.begin() + 1, tokens.end());
     double scratch;
     if (mnemonic == "GN" && !fields.empty() && !py_float(replace_char(replace_char(fields.back(), 'D', 'E'), 'd', 'e'), scratch)) {
@@ -471,6 +473,54 @@ bool parse_card(const std::string &line, Card &card) {
         card.values.push_back(v);
     }
     return true;
+}
+
+// `deck._nec5.long_exponent_tokens` / `long_exponent_note` (momwire#1964):
+// the numeric field tokens with an exponent longer than 20 characters, which
+// the licensed NEC-5 engine misreads, and the advisory that names them.
+const std::size_t kLongExponentLimit = 20;
+const std::size_t kLongExponentShown = 3;
+
+std::vector<std::string> long_exponent_tokens(const std::string &text) {
+    std::vector<std::string> found;
+    for (const std::string &line : py_splitlines(text)) {
+        std::vector<std::string> tokens = py_split(replace_char(py_strip(line), ',', ' '));
+        if (tokens.empty()) continue;
+        const std::string h = tokens[0];
+        if (h.size() > 2 && py_isalpha(static_cast<uc>(h[0])) && py_isalpha(static_cast<uc>(h[1])) &&
+            fused_start(h[2])) {
+            tokens[0] = h.substr(0, 2);
+            tokens.insert(tokens.begin() + 1, h.substr(2));
+        }
+        const std::string m = py_upper(tokens[0]);
+        if (m == "CM" || m == "CE" || m == "SY") continue;
+        for (std::size_t k = 1; k < tokens.size(); ++k) {
+            const std::string &t = tokens[k];
+            if (t.size() <= kLongExponentLimit || t.find_first_of("eEdD") == std::string::npos) continue;
+            double v;
+            if (!py_float(replace_char(replace_char(t, 'D', 'E'), 'd', 'e'), v)) continue;
+            found.push_back(t);
+        }
+    }
+    return found;
+}
+
+// UTF-8; empty when there is nothing to say (Python's None)
+std::string long_exponent_note(const std::vector<std::string> &tokens) {
+    if (tokens.empty()) return std::string();
+    std::string shown;
+    for (std::size_t k = 0; k < tokens.size() && k < kLongExponentShown; ++k) {
+        if (k) shown += ", ";
+        shown += utf8(tokens[k]);
+    }
+    if (tokens.size() > kLongExponentShown)
+        shown += " and " + std::to_string(tokens.size() - kLongExponentShown) + " more";
+    const bool one = tokens.size() == 1;
+    return std::string("the deck writes ") + (one ? "a number" : std::to_string(tokens.size()) + " numbers") +
+           " with an exponent in more than " + std::to_string(kLongExponentLimit) + " characters (" + shown +
+           "); momwire reads " + (one ? "it" : "each") +
+           " as written, but the licensed NEC-5 engine misreads such a number, sometimes silently "
+           "(momwire#1964)";
 }
 
 // ============================================================================
@@ -1590,22 +1640,23 @@ struct Parser {
 
     static Int at_least_one(const Int &v) { return v < Int(1) ? Int(1) : v; }
 
-    // `_RP_XNDA` (momwire#1503): X = 1, N = 0, D = 0 or 1, any averaging A.
+    // `_RP_XNDA` (momwire#1503): X = 1, N = 0 to 5 (no table, or a
+    // NORMALIZED GAIN table), D = 0 or 1, averaging A = 0 to 3.
     static bool rp_xnda_served(const Int &xnda) {
         if (!xnda.fits_i64()) return false;
-        switch (xnda.i64()) {
-        case 1000: case 1001: case 1002: case 1003:
-        case 1010: case 1011: case 1012: case 1013: return true;
-        default: return false;
-        }
+        const long long v = xnda.i64();
+        if (v < 1000 || v > 1513) return false;
+        const long long n = v / 100 % 10, d = v / 10 % 10, a = v % 10;
+        return n <= 5 && d <= 1 && a <= 3;
     }
 
     // `_rp_xnda_refusal`: which digit asks for what, and what to set instead.
     static std::string rp_xnda_refusal(const Int &xnda) {
         const std::string served =
-            "this engine prints XNDA 1000 to 1003 and 1010 to 1013: vertical and "
-            "horizontal gains (X = 1), no normalized-gain table (N = 0), power or "
-            "directive gain (D = 0 or 1), with any averaging digit A";
+            "this engine prints XNDA 1NDA: vertical and horizontal gains (X = 1), "
+            "no normalized-gain table or NEC's major axis, minor axis, vertical, "
+            "horizontal or total one (N = 0 to 5), power or directive gain "
+            "(D = 0 or 1), and averaging A = 0 to 3";
         if (xnda < Int(0) || xnda > Int(9999))
             return "RP 0 with XNDA " + S(xnda) + " is not an XNDA this engine reads; " + served;
         const long long v = xnda.i64();
@@ -1615,7 +1666,8 @@ struct Parser {
             asks.push_back("major / minor axis gains (X = 0)");
         else if (x != 1)
             asks.push_back("output format X = " + std::to_string(x));
-        if (n != 0) asks.push_back("a normalized-gain table (N = " + std::to_string(n) + ")");
+        if (n > 5)
+            asks.push_back("normalization N = " + std::to_string(n) + ", which NEC does not define");
         if (d != 0 && d != 1) asks.push_back("gain type D = " + std::to_string(d));
         if (asks.empty()) asks.push_back("averaging A = " + std::to_string(v % 10));
         std::string joined;
@@ -1623,7 +1675,7 @@ struct Parser {
         return "RP 0 with XNDA " + S(xnda) + " asks for " + joined +
                ", which this engine does not print; " + served +
                ".  In 4nec2, set Generate > Far Field's Expert settings to X = 1 "
-               "(vertical / horizontal) and N = 0 (no normalization)";
+               "(vertical / horizontal)";
     }
 
     void rp(const Card &card) {
@@ -1646,6 +1698,7 @@ struct Parser {
         r.d_theta_deg = card.f(6);
         r.d_phi_deg = card.f(7);
         r.range_m = card.f(8);
+        r.gnor_db = card.f(9);
         requests.push_back(r);
     }
 
@@ -2772,6 +2825,7 @@ void dump_deck_into(Out &o, const Deck &d, const std::string &p) {
             o.f(q + ".d_phi_deg", r.d_phi_deg);
             o.f(q + ".range_m", r.range_m);
             o.i(q + ".mode", r.mode);
+            o.f(q + ".gnor_db", r.gnor_db);
         } else if (r.kind == Request::near_field) {
             o.typ(q, "Nec5NearFieldRequest");
             o.i(q + ".coordinates", r.coordinates);
@@ -2893,6 +2947,10 @@ std::string text_probe(const std::string &op, const std::string &arg) {
         } else {
             o.str("probe", py_g(v, op == "+g"));
         }
+    } else if (op == "long_exponent_note") {
+        const std::string note = long_exponent_note(long_exponent_tokens(arg));
+        if (note.empty()) o.none("probe");
+        else o.str("probe", note);
     } else if (op == "card") {
         Card c;
         try {

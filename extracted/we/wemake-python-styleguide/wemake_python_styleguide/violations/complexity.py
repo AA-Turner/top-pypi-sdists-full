@@ -646,9 +646,11 @@ class LineComplexityViolation(ASTViolation):
     1. modules
     2. function and classes, since they are checked differently
     3. type annotations, since they do not increase the complexity
-    4. nodes produced by ``{}`` (but not their contents!) in f-strings
-       as they raise the complexity score disproportionally to the
-       actual complexity raise
+    4. f-string and t-string nodes themselves: instead, each formatted
+       part (a ``{...}`` placeholder like ``{name}``, not an empty dict)
+       counts as one, its contents are counted as usual, and all literal
+       string parts of the string, format specs included, count as one
+       in total, so adding text to a string does not add complexity
 
     Reasoning:
         Having a complex line indicates that you somehow managed to put too
@@ -668,6 +670,10 @@ class LineComplexityViolation(ASTViolation):
         :str:`wemake_python_styleguide.options.defaults.MAX_LINE_COMPLEXITY`
 
     .. versionadded:: 0.1.0
+    .. versionchanged:: 1.9.0
+       Count each formatted part (``{...}`` placeholder) in f-strings
+       and t-strings as one node and all their literal string parts
+       as one node in total.
 
     See also:
         https://github.com/Miserlou/JonesComplexity
@@ -825,7 +831,9 @@ class OverusedStringViolation(MaybeASTViolation):
     This includes attribute docstrings from PEP 258
     and type alias docstrings, the ones placed right after
     an attribute definition or a ``type`` statement.
-    Local variables are not attributes, so they are still counted.
+    Instance attributes are only defined in a constructor,
+    and local variables are not attributes at all,
+    so both of these are still counted.
 
     The violation points to the first occurrence of the overused string literal.
 
@@ -1206,10 +1214,10 @@ class TooComplexFormattedStringViolation(ASTViolation):
         # Correct:
         f'smth {user.get_full_name()}'
         f'smth {math_func(1, 2, 3)}'
-        f'smth {value=:.2f}
-        f'smth {value=:{formatspec}}
+        f'smth {value=:.2f}'
 
         # Wrong:
+        f'smth {value=:{formatspec}}'
         f'{reverse("url-name")}?{"&".join("user=" + uid for uid in user_ids)}'
         f'smth {math_func(1, 2, 3, 4)}'
         f'smth {value=:{filler}^{padding}.{precision}f}'
@@ -1219,6 +1227,8 @@ class TooComplexFormattedStringViolation(ASTViolation):
         Complex format specifiers are forbidden.
     .. versionchanged:: 1.8.0
         Added ``t``-strings support.
+    .. versionchanged:: 1.9.0
+        Nested replacement fields in format specifiers are forbidden.
 
     """
 

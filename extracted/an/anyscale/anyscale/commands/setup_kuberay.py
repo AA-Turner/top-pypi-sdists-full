@@ -30,6 +30,7 @@ from anyscale._private.anyscale_client.common import (
 )
 from anyscale.cli_logger import BlockLogger, CloudSetupLogger
 from anyscale.client.openapi_client.models import (
+    CloudAnalyticsEventName,
     CloudDeployment,
     CloudProviders,
     ComputeStack,
@@ -405,7 +406,9 @@ class KubeRayCloudSetupCommand:
                 )
             # KeyboardInterrupt included: Ctrl+C during the 10-minute helm wait
             # must still tell the user what already exists.
-            except (Exception, KeyboardInterrupt):
+            except (Exception, KeyboardInterrupt) as e:
+                if registered:
+                    self._report_connector_verified(succeeded=False, error=e)
                 self._log_cleanup_instructions(
                     name=name,
                     cloud_registered=registered,
@@ -418,23 +421,30 @@ class KubeRayCloudSetupCommand:
             assert infra is not None  # Set before registration.
 
             # Past this point nothing is half-created: a poll timeout's own
-            # message carries the conditional cleanup guidance instead.
-            self._annotate_workload_service_account(
-                namespace=namespace,
-                role_arn=infra.role_arn,
-                cluster_context=cluster_context,
-            )
-            if any(plan.expect_ingress_address for plan in plans):
-                self._wait_for_observability_ingress_address(
-                    namespace=namespace, cluster_context=cluster_context
+            # message carries the conditional cleanup guidance instead. Every
+            # step here runs after registration, so each one's failure still
+            # reports how setup ended.
+            try:
+                self._annotate_workload_service_account(
+                    namespace=namespace,
+                    role_arn=infra.role_arn,
+                    cluster_context=cluster_context,
                 )
-            self._wait_for_connector_healthy(
-                name=name,
-                cloud_id=cloud_id,
-                namespace=namespace,
-                cluster_context=cluster_context,
-                infra=infra,
-            )
+                if any(plan.expect_ingress_address for plan in plans):
+                    self._wait_for_observability_ingress_address(
+                        namespace=namespace, cluster_context=cluster_context
+                    )
+                self._wait_for_connector_healthy(
+                    name=name,
+                    cloud_id=cloud_id,
+                    namespace=namespace,
+                    cluster_context=cluster_context,
+                    infra=infra,
+                )
+            except (Exception, KeyboardInterrupt) as e:
+                self._report_connector_verified(succeeded=False, error=e)
+                raise
+            self._report_connector_verified(succeeded=True)
 
             self.log.info("")
             self.log.info("KubeRay cloud setup complete!")
@@ -456,6 +466,25 @@ class KubeRayCloudSetupCommand:
             )
         finally:
             self.log.close_block("Setup")
+
+    def _report_connector_verified(
+        self, succeeded: bool, error: Optional[BaseException] = None
+    ) -> None:
+        """Reports how setup ended, as the last step of the registration's analytics trace.
+
+        Registration already reported COMMAND_START, CLOUD_RECORD_INSERTED and
+        INFRA_SETUP_COMPLETE on the controller's producer; this adds the connector
+        verified healthy (or setup failing after registration) under the same trace
+        id, so setup completion can be measured. RESOURCES_VERIFIED is reused rather
+        than adding a name the backend enum and generated clients don't know.
+        Best effort: the producer never raises.
+        """
+        producer = self.cloud_controller.cloud_event_producer
+        producer.produce(
+            CloudAnalyticsEventName.RESOURCES_VERIFIED,
+            succeeded=succeeded,
+            internal_error=None if error is None else type(error).__name__,
+        )
 
     def _debug(self, msg: str) -> None:
         if self.debug:

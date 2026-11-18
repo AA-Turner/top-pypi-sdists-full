@@ -31,8 +31,10 @@ from agilicus_api.exceptions import ApiAttributeError
 
 
 def lazy_import():
+    from agilicus_api.model.label_group import LabelGroup
     from agilicus_api.model.label_name import LabelName
     from agilicus_api.model.time_of_day_condition import TimeOfDayCondition
+    globals()['LabelGroup'] = LabelGroup
     globals()['LabelName'] = LabelName
     globals()['TimeOfDayCondition'] = TimeOfDayCondition
 
@@ -108,6 +110,14 @@ class TimeperiodPolicyTemplate(ModelNormal):
        self.labels = new_value
 
     @property
+    def label_groups(self):
+       return self.get("label_groups")
+
+    @label_groups.setter
+    def label_groups(self, new_value):
+       self.label_groups = new_value
+
+    @property
     def template_type(self):
        return self.get("template_type")
 
@@ -144,6 +154,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
             'template_type': (str,),  # noqa: E501
             'start_time_of_day': (TimeOfDayCondition,),  # noqa: E501
             'end_time_of_day': (TimeOfDayCondition,),  # noqa: E501
+            'label_groups': ([LabelGroup],),  # noqa: E501
         }
 
     @cached_property
@@ -159,6 +170,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
         'template_type': 'template_type',  # noqa: E501
         'start_time_of_day': 'start_time_of_day',  # noqa: E501
         'end_time_of_day': 'end_time_of_day',  # noqa: E501
+        'label_groups': 'label_groups',  # noqa: E501
     }
 
     read_only_vars = {
@@ -174,7 +186,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
         Args:
             timezone (str): IANA timezone for this timeperiod 
             days ([str]): A list of this time condition is valid for. permitted values:    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday 
-            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. 
+            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. Must be supplied (may be empty `[]` when `label_groups` is used). When `label_groups` is non-empty, `label_groups` takes precedence and `labels` is ignored. If both `labels` and `label_groups` are empty, the timeperiod applies to all accesses. 
             template_type (str): The descriminator for the PolicyTemplate. Set this to `timeperiod`
 
         Keyword Args:
@@ -210,6 +222,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
                                 _visited_composed_classes = (Animal,)
             start_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
             end_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
+            label_groups ([LabelGroup]): Groupings of scoped labels. Each grouping combines its labels with `cnf` (AND) or `dnf` (OR), and multiple groupings are combined with `dnf` (OR). Takes precedence over `labels` when non-empty. . [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -270,7 +283,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
         Args:
             timezone (str): IANA timezone for this timeperiod 
             days ([str]): A list of this time condition is valid for. permitted values:    Sunday, Monday, Tuesday, Wednesday, Thursday, Friday, Saturday 
-            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. 
+            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. Must be supplied (may be empty `[]` when `label_groups` is used). When `label_groups` is non-empty, `label_groups` takes precedence and `labels` is ignored. If both `labels` and `label_groups` are empty, the timeperiod applies to all accesses. 
             template_type (str): The descriminator for the PolicyTemplate. Set this to `timeperiod`
 
         Keyword Args:
@@ -306,6 +319,7 @@ class TimeperiodPolicyTemplate(ModelNormal):
                                 _visited_composed_classes = (Animal,)
             start_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
             end_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
+            label_groups ([LabelGroup]): Groupings of scoped labels. Each grouping combines its labels with `cnf` (AND) or `dnf` (OR), and multiple groupings are combined with `dnf` (OR). Takes precedence over `labels` when non-empty. . [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)

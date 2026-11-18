@@ -17,7 +17,7 @@ from sqlbuild.adapter.contract.types import LoaderLogicalType
 from sqlbuild.adapter.relations.main.resolve_qualified_name_parts import (
     resolve_qualified_name_parts,
 )
-from sqlbuild.compiler.python_nodes.types import SkipMode
+from sqlbuild.compiler.python_nodes.types import PythonNodeKind, SkipMode
 from sqlbuild.errors.contracts.exceptions import ExecutorInputError
 from sqlbuild.executor.load.constants import LOADER_RELATION_QUALIFIER_SEPARATOR
 from sqlbuild.executor.load.types import LoadProgressCallback
@@ -218,6 +218,13 @@ class LoaderContext(DependencyResultReader):
 
         relation_ref: LoaderRelationRef | None = self.loader_refs.get(loader_fn)
         if relation_ref is None:
+            identity: tuple[str, str] | None = self.result_node_identity(loader_fn)
+            if identity is not None and identity[0] != PythonNodeKind.LOADER.value:
+                kind, name = identity
+                raise ExecutorInputError(
+                    f"ctx.loader() takes a loader, not the {kind} '{name}'; read its result "
+                    f"with ctx.result_of(node_function={name}) instead"
+                )
             raise ExecutorInputError("Unknown loader reference passed to ctx.loader(...)")
         self._record_resolved(relation_ref)
         return relation_ref
@@ -283,6 +290,8 @@ class LoadRuntimeParams:
     vars: dict[str, object]
     is_reload: bool
     target_config: TargetSettings | None = None
+    default_database: str | None = None
+    default_schema: str | None = None
     runtime_dir: Path = Path("target")
     start_cursor_ts: datetime | None = None
     end_cursor_ts: datetime | None = None
@@ -332,15 +341,6 @@ class LoadCallbacks:
     on_connection_start: Callable[[int], None] | None = None
     on_connection_complete: ConnectionElapsedCallback | None = None
     on_connection_error: ConnectionElapsedCallback | None = None
-
-
-@dataclass(frozen=True)
-class ExternalLoadPhaseResult:
-    """Outcome of running external-connection loaders before warehouse connect."""
-
-    preloaded_results: tuple[LoadExecutionResult, ...]
-    failed_or_hard_skipped: frozenset[str]
-    sqlbuild_sources: tuple[SourceEntry, ...]
 
 
 from sqlbuild.executor.load.classes.dag_state import LoadDagState  # noqa: E402,F401

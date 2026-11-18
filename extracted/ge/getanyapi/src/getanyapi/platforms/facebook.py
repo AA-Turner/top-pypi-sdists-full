@@ -2357,7 +2357,9 @@ class FacebookProfileData(BaseModel):
         alias="createdUtc",
         description="UTC epoch timestamp in seconds (Unix time) the page was created. Multiply by 1000 for a JS Date in milliseconds.",
     )
-    followers: int
+    followers: int | None = Field(
+        description="Follower count, or null when Facebook does not show it (age-restricted Pages)."
+    )
     id: str | None = Field(
         default=None, description="Numeric Facebook id of the page or profile."
     )
@@ -2964,7 +2966,7 @@ class FacebookNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.facebook.comment_replies(expansionToken="MjoxNzgzMjI4OTY4OgF_o5zrjDnpemv4bwPtpsShXutqvKIw2bKs2YuJksL1Ak8n8YG-_KPSQGkIks5oW6wdRfhb_cRv9q5OX0NHjFJwEupYNZi9pcMV-FYLWLp47u-eusMkZFOMwbkISsTln7gtSvQrOzlffyavOTIL85PECYzGfunU2IAEkd13CIikxu06Mw10UJ1ShcFAmz8175R1uJfYy_iOixWZukqfrWhUfVOXApXznxx7qXvUxPwct76qe6p7-nVWQrPC_SZc2xh9Z8ggL3WMjgTzSq4oWFSsyZuuVsyVVjSgdjRQiDqtJSeEUlSjTr6vOnKsvKV-GpnBRaeA0BCaNRhqpB4xDZoduBuO5ZYrFvWLJdJLryDhCPI2Ss-Z33cEM2Vz7pLf1wJzE7TuizXPwICSn1DA_Prca-BItTbOUjAjfiySap1LXYkGuuDC2ziUdiEsmE5XhevMP8XtF_2WQlMNcGbXMEQyAWDUawtPAxXgMeRrCO9YGSweFQ4OZumoIlSGa3Vfjy-euUOHT1IAsNbV2A8rAq4HJNU3jCXQTn0vfW9xvbVQhL-53Mhw2YPjhlvUj6QpnGA25N8", feedbackId="ZmVlZGJhY2s6MTM5MzQ2MTExNTQ4MTkyN18yMDgyNjUzMjQ1ODA5Mzg2")
+            res = client.facebook.comment_replies(expansionToken="MjoxNzk0OTY1NTI2OgF_48PgxDtZTfrjUQhIugX44eOMAdmECIWMKjB90eqNjepQ96yP8oclCv0Y3oD-2SwDK29iQXC1QBTY6d2VcsRTPW46EqgITJUFn5Ce5By9kj3HY4AFHPLUm-Fl70UnVSWN3x_ouAL-CEDDHkwftb0msi_dYu3r_oc0CKA6m_tp2yr-JWgmIBriQbBfJIBCP8GIY4OlY2RwFB3tC4WJnZiIvp3oluGCjsPbkZ8THb6MU5LqeQZ1C8QvIMXwhzrJWhSArtXaSFNxXeOgQdCIVRuTN0eUZP4cJzV-BzKkK2u8M1k7uKFjSW3dU9HzELDfAsqpkT9r5AnkYybhYzzgiISYWONjOAK7MWl8fMEgduZdZ_HZIRUrJeVm8P-amftCho2kJ5QnTDB-xIudAIX_v-LymiVy1WL4EazzQHa6oGd4y4haBcnmmRcCv8Sk8Zi98Z7fq4QKpcCybAtPCZXcdSwofUXmFEQCOj-CY2QkReyYIwjNPATpFZvzZEb9cXJmhOovn_toQBL7qzFVWN_7hOqaBDrHT4HnWUnfzU0_ZPrm5ytlY_eaRv1uSt75fuIJIM3BR7lqtoHGyVD93Au8d8DlrfXp1YrNVLYxrCwzhXEaX61qjeRox9rt2R-KXHApANRAoKS9TPlrQMC0T80B9DUEJo_22itbVSC7cis8VqmujfE9O7qDbnSYPZVW6muEp4y8gdd9fhJcix9cTcUQSA0FkGBm4imAIya6c93FrTSp728", feedbackId="ZmVlZGJhY2s6cGZiaWQwM2RCSlB4elQ4OXYydmRQNFVVM0VnQWVBQXJWUjJ4dlMzS1VrVHd3NjdDeFV3V1lXMjFTYXBzOXBYVTUyQzdOc0pjUEZ6VDlkajh1VzY5TGpaWG80cWpoM2tnQ0cxZlV5RmRjbA==")
         """
         raw = self._client._run_raw(  # pyright: ignore[reportPrivateUsage]
             "facebook.comment_replies", dict(input), options
@@ -3179,7 +3181,7 @@ class FacebookNamespace:
         Fetch recent posts from any public Facebook group by URL: text, author,
         reactions, and comment counts.
 
-        Price: $0.0012 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.facebook.group_posts(url="https://www.facebook.com/groups/instantpotcommunity/")
@@ -3819,7 +3821,7 @@ class AsyncFacebookNamespace:
         Price: $0.0012 per request.
 
         Example:
-            res = client.facebook.comment_replies(expansionToken="MjoxNzgzMjI4OTY4OgF_o5zrjDnpemv4bwPtpsShXutqvKIw2bKs2YuJksL1Ak8n8YG-_KPSQGkIks5oW6wdRfhb_cRv9q5OX0NHjFJwEupYNZi9pcMV-FYLWLp47u-eusMkZFOMwbkISsTln7gtSvQrOzlffyavOTIL85PECYzGfunU2IAEkd13CIikxu06Mw10UJ1ShcFAmz8175R1uJfYy_iOixWZukqfrWhUfVOXApXznxx7qXvUxPwct76qe6p7-nVWQrPC_SZc2xh9Z8ggL3WMjgTzSq4oWFSsyZuuVsyVVjSgdjRQiDqtJSeEUlSjTr6vOnKsvKV-GpnBRaeA0BCaNRhqpB4xDZoduBuO5ZYrFvWLJdJLryDhCPI2Ss-Z33cEM2Vz7pLf1wJzE7TuizXPwICSn1DA_Prca-BItTbOUjAjfiySap1LXYkGuuDC2ziUdiEsmE5XhevMP8XtF_2WQlMNcGbXMEQyAWDUawtPAxXgMeRrCO9YGSweFQ4OZumoIlSGa3Vfjy-euUOHT1IAsNbV2A8rAq4HJNU3jCXQTn0vfW9xvbVQhL-53Mhw2YPjhlvUj6QpnGA25N8", feedbackId="ZmVlZGJhY2s6MTM5MzQ2MTExNTQ4MTkyN18yMDgyNjUzMjQ1ODA5Mzg2")
+            res = client.facebook.comment_replies(expansionToken="MjoxNzk0OTY1NTI2OgF_48PgxDtZTfrjUQhIugX44eOMAdmECIWMKjB90eqNjepQ96yP8oclCv0Y3oD-2SwDK29iQXC1QBTY6d2VcsRTPW46EqgITJUFn5Ce5By9kj3HY4AFHPLUm-Fl70UnVSWN3x_ouAL-CEDDHkwftb0msi_dYu3r_oc0CKA6m_tp2yr-JWgmIBriQbBfJIBCP8GIY4OlY2RwFB3tC4WJnZiIvp3oluGCjsPbkZ8THb6MU5LqeQZ1C8QvIMXwhzrJWhSArtXaSFNxXeOgQdCIVRuTN0eUZP4cJzV-BzKkK2u8M1k7uKFjSW3dU9HzELDfAsqpkT9r5AnkYybhYzzgiISYWONjOAK7MWl8fMEgduZdZ_HZIRUrJeVm8P-amftCho2kJ5QnTDB-xIudAIX_v-LymiVy1WL4EazzQHa6oGd4y4haBcnmmRcCv8Sk8Zi98Z7fq4QKpcCybAtPCZXcdSwofUXmFEQCOj-CY2QkReyYIwjNPATpFZvzZEb9cXJmhOovn_toQBL7qzFVWN_7hOqaBDrHT4HnWUnfzU0_ZPrm5ytlY_eaRv1uSt75fuIJIM3BR7lqtoHGyVD93Au8d8DlrfXp1YrNVLYxrCwzhXEaX61qjeRox9rt2R-KXHApANRAoKS9TPlrQMC0T80B9DUEJo_22itbVSC7cis8VqmujfE9O7qDbnSYPZVW6muEp4y8gdd9fhJcix9cTcUQSA0FkGBm4imAIya6c93FrTSp728", feedbackId="ZmVlZGJhY2s6cGZiaWQwM2RCSlB4elQ4OXYydmRQNFVVM0VnQWVBQXJWUjJ4dlMzS1VrVHd3NjdDeFV3V1lXMjFTYXBzOXBYVTUyQzdOc0pjUEZ6VDlkajh1VzY5TGpaWG80cWpoM2tnQ0cxZlV5RmRjbA==")
         """
         raw = await self._client._arun_raw(  # pyright: ignore[reportPrivateUsage]
             "facebook.comment_replies", dict(input), options
@@ -4034,7 +4036,7 @@ class AsyncFacebookNamespace:
         Fetch recent posts from any public Facebook group by URL: text, author,
         reactions, and comment counts.
 
-        Price: $0.0012 per request.
+        Price: $0.00072 per request.
 
         Example:
             res = client.facebook.group_posts(url="https://www.facebook.com/groups/instantpotcommunity/")

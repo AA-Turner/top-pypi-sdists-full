@@ -1,0 +1,63 @@
+---
+# Demonstrates extensible attribute (EA) inheritance control.
+#
+# In NIOS an EA whose definition is marked "inheritable" propagates from a
+# parent object (e.g. a network container) to its children automatically.
+# A child can override the inherited value, or be reverted back to inheriting
+# it. These examples show how to drive both from Ansible.
+- name: Manage extensible attribute inheritance
+  hosts: localhost
+  connection: local
+  vars:
+    nios_provider:
+      host: 192.0.2.1
+      username: admin
+      password: infoblox
+  tasks:
+    # Parent container carries the inheritable EA value.
+    - name: Create parent network container with an inheritable EA
+      infoblox.nios_modules.nios_network:
+        network: 172.30.0.0/16
+        container: true
+        extattrs:
+          Site: HQ
+        comment: Parent container
+        state: present
+        provider: "{{ nios_provider }}"
+
+    # A plain string value explicitly sets/overrides the EA on the child,
+    # replacing any inherited value (backward-compatible behaviour).
+    - name: Override the inherited EA on a child network
+      infoblox.nios_modules.nios_network:
+        network: 172.30.1.0/24
+        extattrs:
+          Site: Branch
+        comment: Child with overridden EA
+        state: present
+        provider: "{{ nios_provider }}"
+
+    # Revert the child back to inheriting the parent's value by passing a
+    # structured value with inheritance_operation: INHERIT. The 'value' is
+    # required by WAPI but ignored for INHERIT.
+    - name: Revert the child network EA to inheritance
+      infoblox.nios_modules.nios_network:
+        network: 172.30.1.0/24
+        extattrs:
+          Site:
+            value: HQ
+            inheritance_operation: INHERIT
+        comment: Child inheriting parent EA
+        state: present
+        provider: "{{ nios_provider }}"
+
+    # Explicitly override an inherited value using the structured form.
+    - name: Explicitly override an inherited EA on a child network
+      infoblox.nios_modules.nios_network:
+        network: 172.30.2.0/24
+        extattrs:
+          Site:
+            value: Datacenter
+            inheritance_operation: OVERRIDE
+        comment: Child with explicit override
+        state: present
+        provider: "{{ nios_provider }}"

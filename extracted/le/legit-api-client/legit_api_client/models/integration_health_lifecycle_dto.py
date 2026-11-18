@@ -31,10 +31,11 @@ class IntegrationHealthLifecycleDto(BaseModel):
     paused: Optional[StrictBool] = None
     paused_at: Optional[datetime] = Field(default=None, alias="pausedAt")
     paused_due_to_scan_configuration: Optional[StrictBool] = Field(default=None, alias="pausedDueToScanConfiguration")
+    paused_due_to_long_disconnect: Optional[StrictBool] = Field(default=None, alias="pausedDueToLongDisconnect")
     deletion_in_progress: Optional[StrictBool] = Field(default=None, alias="deletionInProgress")
     workspace_change_pending: Optional[StrictBool] = Field(default=None, alias="workspaceChangePending")
     pending_workspace_id: Optional[StrictStr] = Field(default=None, alias="pendingWorkspaceId")
-    __properties: ClassVar[List[str]] = ["paused", "pausedAt", "pausedDueToScanConfiguration", "deletionInProgress", "workspaceChangePending", "pendingWorkspaceId"]
+    __properties: ClassVar[List[str]] = ["paused", "pausedAt", "pausedDueToScanConfiguration", "pausedDueToLongDisconnect", "deletionInProgress", "workspaceChangePending", "pendingWorkspaceId"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -100,6 +101,7 @@ class IntegrationHealthLifecycleDto(BaseModel):
             "paused": obj.get("paused"),
             "pausedAt": obj.get("pausedAt"),
             "pausedDueToScanConfiguration": obj.get("pausedDueToScanConfiguration"),
+            "pausedDueToLongDisconnect": obj.get("pausedDueToLongDisconnect"),
             "deletionInProgress": obj.get("deletionInProgress"),
             "workspaceChangePending": obj.get("workspaceChangePending"),
             "pendingWorkspaceId": obj.get("pendingWorkspaceId")

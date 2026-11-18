@@ -1,6 +1,9 @@
 use super::*;
 use rusty_fork::rusty_fork_test;
 
+const INIT_BLOB_METRIC: &str = "statsig.sdk.initialization.config_spec_not_ready_due_to_blob";
+const REPORT_BLOB_FAILURE: &str = "STATSIG_REPORT_BLOB_INIT_FAILURE";
+
 #[tokio::test]
 async fn inline_values_that_look_like_blob_links_do_not_fetch() {
     for codec in CODECS {
@@ -88,9 +91,17 @@ async fn malformed_specs_or_metadata_reject_the_snapshot() {
 rusty_fork_test! {
     #[test]
     fn failed_blobs_warn_once_per_sha_even_after_retry() {
+        std::env::set_var(REPORT_BLOB_FAILURE, "true");
         // The SDK logger is process-wide.
         tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap()
             .block_on(check_blob_warnings());
+    }
+
+    #[test]
+    fn blob_metric_uses_the_final_init_result() {
+        std::env::remove_var("STATSIG_ENABLE_PARTIAL_BLOB_PUBLICATION");
+        tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap()
+            .block_on(check_init_fallback_metric());
     }
 }
 
@@ -143,6 +154,7 @@ async fn check_blob_warnings() {
             })
             .collect();
         assert_eq!(warnings.len(), 3);
+        assert_init_blob_metric(&observer, 1).await;
         for (blob, reason) in [
             (&shared, "checksum_mismatch"),
             (&rule_only, "checksum_mismatch"),
@@ -167,6 +179,69 @@ async fn check_blob_warnings() {
         assert_eq!(counts.len(), 2);
         assert!(counts.contains(&("checksum_mismatch".to_string(), 2.0)));
         assert!(counts.contains(&("byte_length_mismatch".to_string(), 1.0)));
+        sdk.shutdown().await.unwrap();
+    }
+}
+
+async fn assert_init_blob_metric(observer: &MockObservabilityClient, expected_count: usize) {
+    // Initialization is queued after the counter, so zero is safe to assert once it arrives.
+    assert_eventually!(|| {
+        let calls = observer.dist_calls.lock().unwrap();
+        calls
+            .iter()
+            .any(|(name, ..)| name == "statsig.sdk.initialization")
+    });
+    let calls = observer.increment_calls.lock().unwrap();
+    let values: Vec<_> = calls
+        .iter()
+        .filter_map(|(name, value, _)| (name == INIT_BLOB_METRIC).then_some(*value))
+        .collect();
+    assert_eq!(values, vec![1.0; expected_count]);
+}
+
+async fn check_init_fallback_metric() {
+    let codec = Codec::Json;
+    let blob = RemoteValue::new("corrupt");
+    let slow_blob = blob.response(false).set_delay(Duration::from_secs(3));
+    let cached_specs = full_payload(json!({"config": remote_config(&blob)}), 1);
+    let blob_failure = codec.response(&cached_specs);
+    let ready = codec.response(&full_payload(json!({}), 2));
+    let unrelated_failure = ResponseTemplate::new(200).set_body_string("malformed specs");
+    for (setting, fallback, timeout, expected_ready, expected_count) in [
+        (None, blob_failure.clone(), None, false, 0),
+        (Some("false"), blob_failure.clone(), None, false, 0),
+        (Some("invalid"), blob_failure.clone(), None, false, 0),
+        (Some("1"), blob_failure.clone(), None, false, 1),
+        (Some("true"), ready, None, true, 0),
+        (Some("true"), unrelated_failure, None, false, 0),
+        (Some("true"), blob_failure, Some(750), false, 0),
+    ] {
+        match setting {
+            Some(value) => std::env::set_var(REPORT_BLOB_FAILURE, value),
+            None => std::env::remove_var(REPORT_BLOB_FAILURE),
+        }
+        let server = MockServer::start().await;
+        let origin = mount_blob(&server, &blob, true).await;
+        if timeout.is_some() {
+            // Cached specs get a corrupt response. The fallback download is still pending at the deadline.
+            origin.once(blob.response(true), slow_blob.clone());
+        }
+        mount_specs(&server, codec, &cached_specs)
+            .await
+            .replace(fallback);
+        let (sdk, store, observer) = new_sdk(&server.uri(), codec, "metric", false, None, timeout);
+        store.mock_json_bytes(&cached_specs.to_string());
+        let details = sdk.initialize_with_details().await.unwrap();
+        let blob_reads = get_count(&server, &blob.path()).await;
+        assert!(blob_reads > 0);
+        if timeout.is_some() {
+            assert!(blob_reads >= 2);
+            let failure = details.failure_details.unwrap();
+            assert_eq!(failure.reason, "Initialization timed out");
+        }
+        assert!(get_count(&server, DCS_PATH).await > 0);
+        assert_eq!(details.is_config_spec_ready, expected_ready);
+        assert_init_blob_metric(&observer, expected_count).await;
         sdk.shutdown().await.unwrap();
     }
 }

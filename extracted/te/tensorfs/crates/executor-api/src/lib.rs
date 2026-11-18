@@ -37,12 +37,15 @@ pub enum Command {
     /// A client watches a call's previews (`author.preview`); consumed out of band, without a
     /// reply. Sent only to an executor whose hello says `previews`.
     Preview(Preview),
+    /// Constructions no call of its needs go (tfs-303); consumed out of band, without a reply. Sent
+    /// only to an executor whose hello says `releases`.
+    Release(Release),
 }
 
 impl Command {
     /// Every `cmd` TensorD sends.
-    pub const NAMES: [&'static str; 9] =
-        ["hello", "start", "load", "prepare_request", "cancel", "invoke", "map", "fork", "preview"];
+    pub const NAMES: [&'static str; 10] =
+        ["hello", "start", "load", "prepare_request", "cancel", "invoke", "map", "fork", "preview", "release"];
 
     /// One command from its wire bytes. An unknown member is ignored and a missing one takes its
     /// default; the error names a needed member's path (`spool`, `bits`) or an unknown `cmd`.
@@ -62,6 +65,7 @@ impl Command {
             "map" => Command::Map(one(fields)?),
             "fork" => Command::Fork(one(fields)?),
             "preview" => Command::Preview(one(fields)?),
+            "release" => Command::Release(one(fields)?),
             other => return Err(format!("unknown command `{other}`")),
         })
     }
@@ -78,6 +82,7 @@ impl Command {
             Self::Map(_) => "map",
             Self::Fork(_) => "fork",
             Self::Preview(_) => "preview",
+            Self::Release(_) => "release",
         }
     }
 }
@@ -191,6 +196,14 @@ pub struct Preview {
     pub for_ms: u64,
 }
 
+/// Loaded constructions the machine's disk needs the room of and no call of this executor's runs on: they go, their
+/// models' store holds and open chunk files with them, and a later call on one loads it anew (tfs-303).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
+pub struct Release {
+    pub constructions: Vec<String>,
+}
+
 /// The queued preparation to discard, by its request id.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
@@ -230,6 +243,10 @@ pub struct Invoke {
     /// opens from the store itself.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub sources: BTreeMap<String, String>,
+    /// Each on-demand model parameter that bound no checkpoint, and what reading it fails with:
+    /// a code, and one line naming the slot, its model and why (xs-186).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub unbound: BTreeMap<String, (String, String)>,
     /// The weights outputs this attempt may write, and each one's granted new bytes.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub weights: BTreeMap<String, u64>,
@@ -246,6 +263,15 @@ pub struct Invoke {
     /// Start's `display_limit` as the display uses it now, read again for each request.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub display_limit: Vec<u64>,
+    /// This call's own folder inside its project (the machine's for a call of none), cl-984. While it runs, the
+    /// executor's temporary files, working directory, HOME and stdout/stderr are `tmp/`, `work/`, `home/`, `stdout.log`
+    /// and `stderr.log` there; `work/`, `tmp/` and `home/` go after it. None: the executor's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scratch: Option<PathBuf>,
+    /// The TensorFS store this call writes its weights outputs to; none: the executor's. Its sources are read from the
+    /// machine's model store.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub store: Option<PathBuf>,
 }
 
 /// Warm a loaded construction at `level`; with a `payload`, also prepare its entrypoint's program.
@@ -420,6 +446,7 @@ pub enum Kind {
 #[derive(Clone, Debug, Default, Deserialize)]
 #[serde(default)]
 pub struct Hello {
+    pub transport_challenge: String,
     pub pid: u32,
     pub ppid: u32,
     pub pgid: u32,
@@ -428,6 +455,8 @@ pub struct Hello {
     pub sealed: BTreeMap<String, String>,
     /// It takes `preview` (cr-282): 1; 0 for an executor that makes none.
     pub previews: u32,
+    /// It takes `release` (tfs-303): 1; 0 for one that keeps every construction it loaded.
+    pub releases: u32,
 }
 
 /// One preview of a call's latents (`author.preview`): the step it shows, and its picture.
@@ -684,6 +713,9 @@ pub enum Request {
     GpuRelease(GpuRelease),
     /// A hint about a future call: TensorD may prepare its weights.
     ModelPrefetch(ModelPrefetch),
+    /// A model this call reads now: TensorD fetches what of it isn't here before every other download, and answers once
+    /// it has, so the executor reads it from disk.
+    ModelNeed(ModelNeed),
     /// Show one asset to the run's owner now, as a product of a declared output.
     Publish(Publish),
     /// A weights output's TensorFS reference, which the Runtime committed or uploaded.
@@ -760,6 +792,16 @@ pub struct ModelPrefetch {
     /// The canonical `{slot: ModelChoice | None}` document.
     #[serde(default)]
     pub payload: String,
+}
+
+/// A checkpoint the call's own function reads now (an on-demand model it builds) and the components it reads (all,
+/// when none): what isn't here comes first, with the machine's whole downloader (cl-966).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "python", pyo3::pyclass(module = "tensorfs.executor", frozen, eq, get_all, skip_from_py_object))]
+pub struct ModelNeed {
+    pub manifest: String,
+    #[serde(default)]
+    pub components: Vec<String>,
 }
 
 /// One product to show now: the result file field it belongs to, its spool file or `parts`, its kind.
@@ -843,6 +885,7 @@ impl Request {
             "child_forget" => Request::ChildForget(one(fields)?),
             "gpu_release" => Request::GpuRelease(one(fields)?),
             "model_prefetch" => Request::ModelPrefetch(one(fields)?),
+            "model_need" => Request::ModelNeed(one(fields)?),
             "publish" => Request::Publish(one(fields)?),
             "checkpoint_item" => Request::CheckpointItem(one(fields)?),
             "stage_memo_lookup" => Request::StageMemoLookup(one(fields)?),
@@ -1215,7 +1258,7 @@ mod python {
         )*};
     }
     request_methods!(
-        ChildEvents, ChildCall, ChildPoll, ChildCancel, ChildForget, GpuRelease, ModelPrefetch, Publish,
+        ChildEvents, ChildCall, ChildPoll, ChildCancel, ChildForget, GpuRelease, ModelPrefetch, ModelNeed, Publish,
         CheckpointItem, StageMemoLookup, StageMemoStore
     );
 
@@ -1252,6 +1295,7 @@ mod python {
         PrepareRequest => Command::PrepareRequest,
         Cancel => Command::Cancel,
         Preview => Command::Preview,
+        Release => Command::Release,
         Invoke => |c| Command::Invoke(Box::new(c)),
         Map => Command::Map,
         Fork => Command::Fork

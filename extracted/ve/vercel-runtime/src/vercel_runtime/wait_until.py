@@ -1,14 +1,13 @@
 from __future__ import annotations
 
-import contextlib
 import contextvars
 import inspect
 import logging
 import threading
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
-from vercel_runtime import allio
+from vercel_runtime import _sdk, allio
 from vercel_runtime.invocation_hooks import attach_due_hooks
 
 if TYPE_CHECKING:
@@ -114,18 +113,19 @@ def clear_wait_until_context() -> None:
 def _set_public_wait_until(
     callback: Callable[[Awaitable[object]], None] | None,
 ) -> None:
-    with contextlib.suppress(ImportError):
-        from vercel.cache.context import (  # noqa: PLC0415  # pyright: ignore[reportMissingTypeStubs]
-            get_context,
-            set_context,
-        )
+    context = cast(
+        "_sdk.CacheContextModule | None",
+        _sdk.import_cached_module("vercel.cache.context"),
+    )
+    if context is None:
+        return
 
-        set_context(wait_until=callback)
-        if callback is None and get_context().wait_until is not None:
-            # vercel-cache versions before its UNSET sentinel treated None as
-            # "leave unchanged". Replace the completed collector with a
-            # stateless no-op so a warm worker cannot retain the invocation.
-            set_context(wait_until=_discard_wait_until)
+    context.set_context(wait_until=callback)
+    if callback is None and context.get_context().wait_until is not None:
+        # vercel-cache versions before its UNSET sentinel treated None as
+        # "leave unchanged". Replace the completed collector with a
+        # stateless no-op so a warm worker cannot retain the invocation.
+        context.set_context(wait_until=_discard_wait_until)
 
 
 async def _run_pending(

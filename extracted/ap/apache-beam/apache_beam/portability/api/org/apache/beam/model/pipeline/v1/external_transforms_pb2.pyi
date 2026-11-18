@@ -134,6 +134,7 @@ class ManagedTransforms(google.protobuf.message.Message):
         """Writes to a SQL Server database."""
         DELTA_LAKE_READ: ManagedTransforms._Urns.ValueType  # 13
         DELTA_LAKE_CDC_READ: ManagedTransforms._Urns.ValueType  # 14
+        ICEBERG_ADD_FILES: ManagedTransforms._Urns.ValueType  # 15
 
     class Urns(_Urns, metaclass=_UrnsEnumTypeWrapper): ...
     ICEBERG_READ: ManagedTransforms.Urns.ValueType  # 0
@@ -164,6 +165,7 @@ class ManagedTransforms(google.protobuf.message.Message):
     """Writes to a SQL Server database."""
     DELTA_LAKE_READ: ManagedTransforms.Urns.ValueType  # 13
     DELTA_LAKE_CDC_READ: ManagedTransforms.Urns.ValueType  # 14
+    ICEBERG_ADD_FILES: ManagedTransforms.Urns.ValueType  # 15
 
     def __init__(
         self,

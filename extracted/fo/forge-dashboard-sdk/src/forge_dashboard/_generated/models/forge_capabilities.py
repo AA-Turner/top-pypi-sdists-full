@@ -34,10 +34,14 @@ class ForgeCapabilities:
             approval_gated_runs (bool): True when a run can be held until a person approves it.
             dependabot_commands (bool): True when a `@dependabot` comment does anything on this forge.
             advisory_source (str): Where the repository advisories come from. Open-ended, so a new source is not a breaking
-                change; today `dependabot` and `osv`.
+                change; today `dependabot` and `osv`. A client keys its advisory wording (notice text, unreadable reasons) by
+                this value, not by the forge's name, and says something neutral for a source it has no words for.
             advisory_unknown_needs_reason (bool): True when an `unknown` advisory answer is worth showing only if the row
                 names a reason. Without one it usually means a repository with nothing to check. False when every `unknown`
                 answer is a failure to read.
+            reports_repo_permissions (bool): True when the forge sends the signed-in user's permissions with each repo it
+                lists, so a repo that arrives without them is the forge's omission and says nothing about the user's role. False
+                when the dashboard finds out by trying the endpoint instead.
             status_page_url (str): The forge's public status page, or an empty string when it has none.
             rate_limit_model (str): How the forge budgets requests. Open-ended; today `graphql_and_rest` (two separate
                 allowances) and `rest`.
@@ -54,6 +58,7 @@ class ForgeCapabilities:
     dependabot_commands: bool
     advisory_source: str
     advisory_unknown_needs_reason: bool
+    reports_repo_permissions: bool
     status_page_url: str
     rate_limit_model: str
     issue_ref_syntax: str
@@ -81,6 +86,8 @@ class ForgeCapabilities:
 
         advisory_unknown_needs_reason = self.advisory_unknown_needs_reason
 
+        reports_repo_permissions = self.reports_repo_permissions
+
         status_page_url = self.status_page_url
 
         rate_limit_model = self.rate_limit_model
@@ -101,6 +108,7 @@ class ForgeCapabilities:
             "dependabotCommands": dependabot_commands,
             "advisorySource": advisory_source,
             "advisoryUnknownNeedsReason": advisory_unknown_needs_reason,
+            "reportsRepoPermissions": reports_repo_permissions,
             "statusPageUrl": status_page_url,
             "rateLimitModel": rate_limit_model,
             "issueRefSyntax": issue_ref_syntax,
@@ -130,6 +138,8 @@ class ForgeCapabilities:
 
         advisory_unknown_needs_reason = d.pop("advisoryUnknownNeedsReason")
 
+        reports_repo_permissions = d.pop("reportsRepoPermissions")
+
         status_page_url = d.pop("statusPageUrl")
 
         rate_limit_model = d.pop("rateLimitModel")
@@ -147,6 +157,7 @@ class ForgeCapabilities:
             dependabot_commands=dependabot_commands,
             advisory_source=advisory_source,
             advisory_unknown_needs_reason=advisory_unknown_needs_reason,
+            reports_repo_permissions=reports_repo_permissions,
             status_page_url=status_page_url,
             rate_limit_model=rate_limit_model,
             issue_ref_syntax=issue_ref_syntax,

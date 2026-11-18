@@ -5,8 +5,6 @@ from sys import path
 from typing import Any, Dict, List, Optional
 import warnings
 
-import click
-
 from anyscale import version
 
 
@@ -166,14 +164,8 @@ class Anyscale:
             cli_token=auth_token,
             host=_host,
             raise_structured_exception=True,
+            headers=headers,
         )
-
-        _validate_headers(headers)
-
-        if headers:
-            for k, v in headers.items():
-                auth_block.api_client.api_client.set_default_header(k, v)
-                auth_block.anyscale_api_client.api_client.set_default_header(k, v)
 
         self._anyscale_client = AnyscaleClient(
             api_clients=(auth_block.anyscale_api_client, auth_block.api_client),
@@ -405,14 +397,3 @@ class Anyscale:
     @property
     def workspace(self) -> WorkspaceSDK:  # noqa: F811
         return self._workspace_sdk
-
-
-def _validate_headers(headers: Optional[Dict[str, str]]):
-    if not headers:
-        return
-
-    for k, v in headers.items():
-        if isinstance(k, str) is False:
-            raise click.ClickException(f"The header {k} must be a string.")
-        if isinstance(v, str) is False:
-            raise click.ClickException(f"The value {v} to header {k} must be a string.")

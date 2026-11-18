@@ -9,9 +9,16 @@ from typing import TYPE_CHECKING
 import click
 
 from apm_cli.core.command_logger import CommandLogger
+from apm_cli.install.local_edits import (
+    count_exportable_findings,
+    local_edit_hint,
+    rendering_change_hint,
+    unedited_modified_paths,
+)
 from apm_cli.utils.console import STATUS_SYMBOLS
 
 if TYPE_CHECKING:
+    from apm_cli.deps.lockfile import LockFile
     from apm_cli.install.drift import DriftFinding
 
 _INLINE_DIFF_BYTE_CAP = 100 * 1024  # 100 KB
@@ -73,8 +80,18 @@ def _inline_diff_for(scratch_path: Path, project_path: Path) -> str:
     return ""
 
 
-def render_drift_text(findings: list[DriftFinding], verbose: bool = False) -> str:
-    """Render drift findings as grouped terminal text."""
+def render_drift_text(
+    findings: list[DriftFinding],
+    verbose: bool = False,
+    *,
+    lockfile: LockFile | None = None,
+    project_root: Path | None = None,
+) -> str:
+    """Render drift findings as grouped terminal text.
+
+    *lockfile* lets the export-patch hint skip local-path packages; with
+    *project_root* it also tells local edits from rendering changes.
+    """
     if not findings:
         return f"{STATUS_SYMBOLS['check']} No drift detected"
 
@@ -102,11 +119,20 @@ def render_drift_text(findings: list[DriftFinding], verbose: bool = False) -> st
                 lines.append(f"      {item.inline_diff}")
         lines.append("")
 
+    unedited = unedited_modified_paths(findings, lockfile, project_root)
+    exportable = count_exportable_findings(findings, lockfile, unedited=unedited)
+    if exportable:
+        lines.append(f"  {STATUS_SYMBOLS['info']} {local_edit_hint(exportable)}")
+    if unedited:
+        lines.append(f"  {STATUS_SYMBOLS['info']} {rendering_change_hint(len(unedited))}")
+
     if by_kind.get("unmanaged-conflict"):
         lines.append(
-            f"  {STATUS_SYMBOLS['info']} Rename the conflicting local skill or choose a valid "
-            "skill/target selection before reinstalling. Ordinary 'apm install' refuses "
-            "unmanaged conflicts; it cannot repair these files."
+            f"  {STATUS_SYMBOLS['info']} Rename the conflicting local file or skill (APM "
+            "does not own it), or choose a valid skill/target selection, before "
+            "reinstalling. Ordinary 'apm install' skips or refuses unmanaged "
+            "conflicts; it cannot repair these files. 'apm install --force' "
+            "overwrites a skipped non-skill file."
         )
         if any(finding.kind != "unmanaged-conflict" for finding in findings):
             lines.append(

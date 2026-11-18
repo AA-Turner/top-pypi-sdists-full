@@ -174,11 +174,17 @@ class _RegularWebsocketWrapper:
             headers["Authorization"] = auth_header
         if start is not None:
             params = params.set("start", start)
-        self._websocket = connect(
+        websocket = connect(
             str(self._uri.copy_with(params=params)),
             additional_headers=headers,
             max_size=max_size,
         )
+        # The connection outlives this call, so it cannot be used in a `with`
+        # block; enter it by hand instead (close() releases it). Calling
+        # connect() without entering it is deprecated in websockets 17.1, and
+        # its replacement, connect(..., legacy=True), fails on releases
+        # before 17.1, which have no `legacy` parameter.
+        self._websocket = websocket.__enter__()
 
     def recv(self, timeout=None):
         """Receive data from websocket with consistent interface."""
@@ -477,7 +483,9 @@ class Subscription(abc.ABC):
             parameter to replay from some earlier update. Use 1 to start from
             the first item, 0 to start from as far back as available (which may
             be later than the first item), or any positive integer to start
-            from a specific point in the sequence.
+            from a specific point in the sequence. The server replays a
+            limited number of past updates (1000 unless it is configured
+            otherwise), so a replay may begin later than requested.
         max_size : int, optional
             Maximum size in bytes for incoming WebSocket messages. Default is 1 MB.
             Increase this if you expect to receive large messages.
@@ -513,7 +521,9 @@ class Subscription(abc.ABC):
             parameter to replay from some earlier update. Use 1 to start from
             the first item, 0 to start from as far back as available (which may
             be later than the first item), or any positive integer to start
-            from a specific point in the sequence.
+            from a specific point in the sequence. The server replays a
+            limited number of past updates (1000 unless it is configured
+            otherwise), so a replay may begin later than requested.
         max_size : int, optional
             Maximum size in bytes for incoming WebSocket messages. Default is 1 MB.
             Increase this if you expect to receive large messages.

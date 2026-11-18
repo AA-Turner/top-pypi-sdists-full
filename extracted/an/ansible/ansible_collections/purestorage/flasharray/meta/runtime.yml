@@ -1,78 +1,494 @@
 ---
 requires_ansible: ">=2.16.0"
+
 action_groups:
-  purestorage.flasharray:
-   - purefa_ad
-   - purefa_admin
-   - purefa_alert
-   - purefa_apiclient
-   - purefa_arrayname
-   - purefa_audits
-   - purefa_banner
-   - purefa_cbsexpand
-   - purefa_certs
-   - purefa_connect
-   - purefa_console
-   - purefa_default_protection
-   - purefa_directory
-   - purefa_dirsnap
-   - purefa_dns
-   - purefa_ds
-   - purefa_dsrole
-   - purefa_dsrole_old
-   - purefa_endpoint
-   - purefa_eradication
-   - purefa_eula
-   - purefa_export
-   - purefa_file
-   - purefa_fleet
-   - purefa_fs
-   - purefa_hardware
-   - purefa_hg
-   - purefa_host
-   - purefa_info
-   - purefa_inventory
-   - purefa_kmip
-   - purefa_logging
-   - purefa_maintenance
-   - purefa_messages
-   - purefa_network
-   - purefa_ntp
-   - purefa_offload
-   - purefa_pg
-   - purefa_pgsched
-   - purefa_pgsnap
-   - purefa_phonehome
-   - purefa_pod
-   - purefa_pod_replica
-   - purefa_policy
-   - purefa_proxy
-   - purefa_ra
-   - purefa_realm
-   - purefa_saml
-   - purefa_sessions
-   - purefa_smis
-   - purefa_smtp
-   - purefa_snap
-   - purefa_snmp
-   - purefa_snmp_agent
-   - purefa_sso
-   - purefa_subnet
-   - purefa_syslog
-   - purefa_syslog_settings
-   - purefa_tgroup
-   - purefa_timeout
-   - purefa_token
-   - purefa_user
-   - purefa_vg
-   - purefa_vlan
-   - purefa_vnc
-   - purefa_volume
-   - purefa_volume_tags
-   - purefa_workload
+  everpure.flasharray:
+    - metadata:
+        extend_group:
+          - everpure.flasharray.everpure.flasharray
+
 plugin_routing:
   modules:
-    purefa_sso:
+    purefa_ad:
+      redirect: everpure.flasharray.purefa_ad
       deprecation:
         removal_version: "2.0.0"
-        warning_text: purefa_sso will be removed in a future release of this collection. Use purestorage.flasharray.purefa_admin instead.
+        warning_text: >-
+          purestorage.flasharray.purefa_ad has moved to everpure.flasharray.purefa_ad. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_admin:
+      redirect: everpure.flasharray.purefa_admin
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_admin has moved to everpure.flasharray.purefa_admin. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_alert:
+      redirect: everpure.flasharray.purefa_alert
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_alert has moved to everpure.flasharray.purefa_alert. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_apiclient:
+      redirect: everpure.flasharray.purefa_apiclient
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_apiclient has moved to everpure.flasharray.purefa_apiclient. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_arrayname:
+      redirect: everpure.flasharray.purefa_arrayname
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_arrayname has moved to everpure.flasharray.purefa_arrayname. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_audits:
+      redirect: everpure.flasharray.purefa_audits
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_audits has moved to everpure.flasharray.purefa_audits. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_banner:
+      redirect: everpure.flasharray.purefa_banner
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_banner has moved to everpure.flasharray.purefa_banner. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_cbsexpand:
+      redirect: everpure.flasharray.purefa_cbsexpand
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_cbsexpand has moved to everpure.flasharray.purefa_cbsexpand. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_certs:
+      redirect: everpure.flasharray.purefa_certs
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_certs has moved to everpure.flasharray.purefa_certs. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_connect:
+      redirect: everpure.flasharray.purefa_connect
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_connect has moved to everpure.flasharray.purefa_connect. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_console:
+      redirect: everpure.flasharray.purefa_console
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_console has moved to everpure.flasharray.purefa_console. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_default_protection:
+      redirect: everpure.flasharray.purefa_default_protection
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_default_protection has moved to everpure.flasharray.purefa_default_protection. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_directory:
+      redirect: everpure.flasharray.purefa_directory
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_directory has moved to everpure.flasharray.purefa_directory. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_dirsnap:
+      redirect: everpure.flasharray.purefa_dirsnap
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_dirsnap has moved to everpure.flasharray.purefa_dirsnap. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_dns:
+      redirect: everpure.flasharray.purefa_dns
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_dns has moved to everpure.flasharray.purefa_dns. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_ds:
+      redirect: everpure.flasharray.purefa_ds
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_ds has moved to everpure.flasharray.purefa_ds. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_dsrole:
+      redirect: everpure.flasharray.purefa_dsrole
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_dsrole has moved to everpure.flasharray.purefa_dsrole. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_dsrole_old:
+      redirect: everpure.flasharray.purefa_dsrole_old
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_dsrole_old has moved to everpure.flasharray.purefa_dsrole_old. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_endpoint:
+      redirect: everpure.flasharray.purefa_endpoint
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_endpoint has moved to everpure.flasharray.purefa_endpoint. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_eradication:
+      redirect: everpure.flasharray.purefa_eradication
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_eradication has moved to everpure.flasharray.purefa_eradication. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_eula:
+      redirect: everpure.flasharray.purefa_eula
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_eula has moved to everpure.flasharray.purefa_eula. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_export:
+      redirect: everpure.flasharray.purefa_export
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_export has moved to everpure.flasharray.purefa_export. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_file:
+      redirect: everpure.flasharray.purefa_file
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_file has moved to everpure.flasharray.purefa_file. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_fleet:
+      redirect: everpure.flasharray.purefa_fleet
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_fleet has moved to everpure.flasharray.purefa_fleet. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_fs:
+      redirect: everpure.flasharray.purefa_fs
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_fs has moved to everpure.flasharray.purefa_fs. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_hardware:
+      redirect: everpure.flasharray.purefa_hardware
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_hardware has moved to everpure.flasharray.purefa_hardware. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_hg:
+      redirect: everpure.flasharray.purefa_hg
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_hg has moved to everpure.flasharray.purefa_hg. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_host:
+      redirect: everpure.flasharray.purefa_host
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_host has moved to everpure.flasharray.purefa_host. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_info:
+      redirect: everpure.flasharray.purefa_info
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_info has moved to everpure.flasharray.purefa_info. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_inventory:
+      redirect: everpure.flasharray.purefa_inventory
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_inventory has moved to everpure.flasharray.purefa_inventory. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_kmip:
+      redirect: everpure.flasharray.purefa_kmip
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_kmip has moved to everpure.flasharray.purefa_kmip. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_logging:
+      redirect: everpure.flasharray.purefa_logging
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_logging has moved to everpure.flasharray.purefa_logging. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_maintenance:
+      redirect: everpure.flasharray.purefa_maintenance
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_maintenance has moved to everpure.flasharray.purefa_maintenance. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_messages:
+      redirect: everpure.flasharray.purefa_messages
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_messages has moved to everpure.flasharray.purefa_messages. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_network:
+      redirect: everpure.flasharray.purefa_network
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_network has moved to everpure.flasharray.purefa_network. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_ntp:
+      redirect: everpure.flasharray.purefa_ntp
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_ntp has moved to everpure.flasharray.purefa_ntp. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_offload:
+      redirect: everpure.flasharray.purefa_offload
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_offload has moved to everpure.flasharray.purefa_offload. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_pg:
+      redirect: everpure.flasharray.purefa_pg
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_pg has moved to everpure.flasharray.purefa_pg. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_pgsched:
+      redirect: everpure.flasharray.purefa_pgsched
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_pgsched has moved to everpure.flasharray.purefa_pgsched. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_pgsnap:
+      redirect: everpure.flasharray.purefa_pgsnap
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_pgsnap has moved to everpure.flasharray.purefa_pgsnap. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_phonehome:
+      redirect: everpure.flasharray.purefa_phonehome
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_phonehome has moved to everpure.flasharray.purefa_phonehome. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_pod:
+      redirect: everpure.flasharray.purefa_pod
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_pod has moved to everpure.flasharray.purefa_pod. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_pod_replica:
+      redirect: everpure.flasharray.purefa_pod_replica
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_pod_replica has moved to everpure.flasharray.purefa_pod_replica. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_policy:
+      redirect: everpure.flasharray.purefa_policy
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_policy has moved to everpure.flasharray.purefa_policy. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_policy_management_access:
+      redirect: everpure.flasharray.purefa_policy_management_access
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_policy_management_access has moved to everpure.flasharray.purefa_policy_management_access. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_proxy:
+      redirect: everpure.flasharray.purefa_proxy
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_proxy has moved to everpure.flasharray.purefa_proxy. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_ra:
+      redirect: everpure.flasharray.purefa_ra
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_ra has moved to everpure.flasharray.purefa_ra. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_realm:
+      redirect: everpure.flasharray.purefa_realm
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_realm has moved to everpure.flasharray.purefa_realm. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_saml:
+      redirect: everpure.flasharray.purefa_saml
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_saml has moved to everpure.flasharray.purefa_saml. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_sessions:
+      redirect: everpure.flasharray.purefa_sessions
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_sessions has moved to everpure.flasharray.purefa_sessions. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_smis:
+      redirect: everpure.flasharray.purefa_smis
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_smis has moved to everpure.flasharray.purefa_smis. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_smtp:
+      redirect: everpure.flasharray.purefa_smtp
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_smtp has moved to everpure.flasharray.purefa_smtp. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_snap:
+      redirect: everpure.flasharray.purefa_snap
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_snap has moved to everpure.flasharray.purefa_snap. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_snmp:
+      redirect: everpure.flasharray.purefa_snmp
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_snmp has moved to everpure.flasharray.purefa_snmp. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_snmp_agent:
+      redirect: everpure.flasharray.purefa_snmp_agent
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_snmp_agent has moved to everpure.flasharray.purefa_snmp_agent. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_sso:
+      redirect: everpure.flasharray.purefa_sso
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_sso has moved to everpure.flasharray.purefa_sso. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_subnet:
+      redirect: everpure.flasharray.purefa_subnet
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_subnet has moved to everpure.flasharray.purefa_subnet. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_syslog:
+      redirect: everpure.flasharray.purefa_syslog
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_syslog has moved to everpure.flasharray.purefa_syslog. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_syslog_settings:
+      redirect: everpure.flasharray.purefa_syslog_settings
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_syslog_settings has moved to everpure.flasharray.purefa_syslog_settings. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_tgroup:
+      redirect: everpure.flasharray.purefa_tgroup
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_tgroup has moved to everpure.flasharray.purefa_tgroup. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_timeout:
+      redirect: everpure.flasharray.purefa_timeout
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_timeout has moved to everpure.flasharray.purefa_timeout. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_token:
+      redirect: everpure.flasharray.purefa_token
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_token has moved to everpure.flasharray.purefa_token. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_user:
+      redirect: everpure.flasharray.purefa_user
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_user has moved to everpure.flasharray.purefa_user. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_vg:
+      redirect: everpure.flasharray.purefa_vg
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_vg has moved to everpure.flasharray.purefa_vg. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_vlan:
+      redirect: everpure.flasharray.purefa_vlan
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_vlan has moved to everpure.flasharray.purefa_vlan. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_vnc:
+      redirect: everpure.flasharray.purefa_vnc
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_vnc has moved to everpure.flasharray.purefa_vnc. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_volume:
+      redirect: everpure.flasharray.purefa_volume
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_volume has moved to everpure.flasharray.purefa_volume. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_volume_tags:
+      redirect: everpure.flasharray.purefa_volume_tags
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_volume_tags has moved to everpure.flasharray.purefa_volume_tags. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.
+    purefa_workload:
+      redirect: everpure.flasharray.purefa_workload
+      deprecation:
+        removal_version: "2.0.0"
+        warning_text: >-
+          purestorage.flasharray.purefa_workload has moved to everpure.flasharray.purefa_workload. Update your playbooks to the
+          everpure.flasharray namespace; this redirect will be removed in 2.0.0.

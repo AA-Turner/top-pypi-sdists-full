@@ -180,8 +180,10 @@ class PointsCheck(StrEnum):
 
 
 class UpdateCapture(BaseModel):
-    """One update (or eval pass) of a step: declared vs received, and the shard check (rows' contributions + batch
+    """One update (or eval pass) of a step: declared vs received, and the loss check (rows' contributions + batch
     terms vs the micro-batch's reported loss)."""
+
+    # The loss check is the shard check.
 
     #: The optimizer update, or the eval pass when `split` is eval.
     update: int

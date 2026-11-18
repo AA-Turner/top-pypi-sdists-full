@@ -5829,6 +5829,7 @@ Predicted Moving Average Price|Value/Naive Forecast [{fieldName}]:
                 plt.plot(x,y,label=f"{fields[xaxis][0]} / {fields[yaxis][0]}")
                 plt.show()
                 plt.clf()
+                print(f"{fields[xaxis][0]} X/ {fields[yaxis][0]} Y")
             else:
                 print("No Results!")
 

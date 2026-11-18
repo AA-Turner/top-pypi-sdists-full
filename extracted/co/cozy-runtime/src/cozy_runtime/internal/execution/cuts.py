@@ -5,13 +5,15 @@ Changing GEMM row geometry may change rounding; bitwise equivalence is not promi
 The results stay on the device, at the level native selection takes from each call's operands
 (`catch`, `sizing`). Level L is 2^L pieces, down to the finest.
 
-Call cuts: Diffusers' FFNs by token, its channel RMS norms by rows, attention by head groups
-then query rows, a package's `split` by windows.
+Call cuts: Diffusers' FFNs by token, a Runtime-fused block's gated MLP by token (`gated`), its
+channel RMS norms by rows, attention by head groups then query rows, a Transformers vision tower
+by pictures, a package's `split` by windows.
 """
 
 from __future__ import annotations
 
 import functools
+import inspect
 import math
 import sys
 from collections.abc import Callable, Sequence
@@ -22,9 +24,12 @@ import torch
 from torch import Tensor, nn
 
 import cozy_runtime.internal.execution.catch as catch
+import cozy_runtime.internal.execution.pinned as pinned
 import cozy_runtime.internal.execution.sizing as sizing
+from cozy_runtime.author._errors import is_capacity, unwind
 from cozy_runtime.internal.encoding.leaves import NVFP4
 from cozy_runtime.internal.execution.sizing import levelled, levels, pieces
+from cozy_runtime.internal.residency import Request
 
 type Band = Callable[[int, int], Tensor]
 
@@ -49,9 +54,22 @@ def install(module: nn.Module) -> int:
     cuts at the projection, whose [tokens, inner] intermediate is the widest), row bands for its
     channel RMS norms, and image or output-channel bands for its 2-D and 3-D convs (at the
     conv itself, so a subclass's forward around it, a causal pad, is untouched). Each site is
-    the module's path. Returns how many it cut."""
+    the module's path. A Transformers gated MLP cuts by tokens as Diffusers' FFNs do, and a
+    Transformers vision tower that reads packed patches and each picture's
+    grid (`forward(hidden_states, grid_thw)`: Qwen2.5-VL, Qwen3-VL, Qwen3.5) runs its pictures in
+    groups. Returns how many it cut."""
     count = 0
     for path, sub in module.named_modules():
+        if _gated_mlp(sub) and "_cozy_cut" not in vars(sub):
+            sub.forward = catch.transparent(_ffn(f"{path}:tokens", sub, _forward(sub)))
+            vars(sub)["_cozy_cut"] = True
+            count += 1
+            continue
+        if _tower(sub) and "_cozy_cut" not in vars(sub):
+            sub.forward = catch.transparent(_pictures(f"{path}:pictures", sub, _forward(sub)))
+            vars(sub)["_cozy_cut"] = True
+            count += 1
+            continue
         if (
             isinstance(sub, nn.Conv2d | nn.Conv3d)
             and "_cozy_cut" not in vars(sub)
@@ -199,7 +217,7 @@ def _ffn(site: str, module: nn.Module, forward: Forward) -> Forward:
             or x.dim() < 2
             or module.training
             or torch.is_grad_enabled()
-            or not type(module).forward.__module__.startswith("diffusers.")
+            or not type(module).forward.__module__.startswith(("diffusers.", "transformers."))
             or not _token_local(module)
         ):
             return forward(x, *args, **kwargs)
@@ -278,8 +296,140 @@ def _token_local(module: nn.Module) -> bool:
     return not any(getattr(child, "provider", None) == NVFP4 for child in module.modules())
 
 
+def gated(x: Tensor, linears: Sequence[nn.Module], forward: Callable[[Tensor], Tensor]) -> Tensor:
+    """`forward(x)`: a Runtime-fused block's gated MLP over `x`'s token rows, `linears` its gate
+    [and up] projections, then its down one. In token pieces at the level native selection takes
+    under the current block, as Diffusers' FFNs (qwen-image-2's ten-reference edit, 65k tokens:
+    [tokens, 12288] gate and up refused at 8 GiB, runs 46964, 47037). Whole outside a named block,
+    under autograd, with an NVFP4 linear (`_token_local`) or one whose widths it can't read."""
+    site = catch.site("mlp")
+    widths = [_widths(m) for m in linears]
+    tokens = x.numel() // max(int(x.shape[-1]), 1)
+    if (
+        site is None
+        or tokens < 2
+        or torch.is_grad_enabled()
+        or any(w is None for w in widths)
+        or any(getattr(m, "provider", None) == NVFP4 for m in linears)
+    ):
+        return forward(x)
+    *ups, (inner, dout) = cast("list[tuple[int, int]]", widths)
+    shape = sizing.Ffn(
+        din=int(x.shape[-1]),
+        dout=dout,
+        inner=inner,
+        projected=sum(o for _, o in ups),
+        temps=1,
+        itemsize=x.element_size(),
+        quantized=any(getattr(m, "provider", None) is not None for m in linears),
+    )
+    run = functools.partial(_tokens, cast("Forward", forward), x, tokens)
+    return cast(Tensor, catch.cut(site, levels(tokens), levelled(tokens, shape.need(tokens)), run))
+
+
 class _Whole(Exception):
     """A cut's pieces do not join (a call returned no tensor): it runs whole."""
+
+
+#: a vision tower's working bytes per patch, in widths of its hidden state: 16.5 measured on
+#: Qwen3.5-9B's tower (4.6 GiB live for 129,600 patches of width 1152, bf16, run 46568), and
+#: the rotary table it was refused growing
+_TOWER_WIDTHS = 24
+
+
+def _gated_mlp(module: nn.Module) -> bool:
+    """A Transformers gated MLP (`down(act(gate(x)) * up(x))`, every Llama-, Qwen- and
+    Mistral-style text encoder and LM): token by token, its [tokens, inner] intermediates the
+    widest a long prompt's prefill holds."""
+    if "forward" in vars(module) or not type(module).forward.__module__.startswith("transformers."):
+        return False
+    return {"gate_proj", "up_proj", "down_proj"} <= {name for name, _ in module.named_children()}
+
+
+def _tower(module: nn.Module) -> bool:
+    """A Transformers vision tower whose pictures attend only to their own patches: its forward
+    reads packed patches, then each picture's (t, h, w) grid."""
+    forward = type(module).forward
+    if "forward" in vars(module) or not forward.__module__.startswith("transformers."):
+        return False
+    try:
+        names = list(inspect.signature(forward).parameters)[1:3]
+    except (TypeError, ValueError):
+        return False
+    return names == ["hidden_states", "grid_thw"]
+
+
+def _pictures(site: str, module: nn.Module, forward: Forward) -> Forward:
+    """A vision tower's pictures in groups: each attends only to its own patches (`cu_seqlens`),
+    so a group's output rows are the whole call's rows for those pictures. Patch rows, the
+    merged rows and any per-layer features join in picture order."""
+    whole: list[bool] = []
+
+    def cut(*given: object, **kwargs: object) -> object:
+        args = list(given)
+        patches = args.pop(0) if args else kwargs.pop("hidden_states", None)
+        grid = args.pop(0) if args else kwargs.pop("grid_thw", None)
+        if (
+            args
+            or whole
+            or not isinstance(patches, Tensor)
+            or not isinstance(grid, Tensor)
+            or grid.dim() != 2
+            or grid.shape[0] < 2
+            or module.training
+            or torch.is_grad_enabled()
+        ):
+            return forward(patches, grid, *args, **kwargs)
+        rows = [int(n) for n in grid.prod(-1).tolist()]
+        if sum(rows) != patches.shape[0]:
+            return forward(patches, grid, **kwargs)
+        config = getattr(module, "config", None)
+        width = int(getattr(config, "hidden_size", patches.shape[-1]))
+        each = _TOWER_WIDTHS * width * patches.element_size()
+        out = sum(rows) * width * patches.element_size()
+
+        def need(level: int) -> tuple[int, ...]:
+            size = pieces(len(rows), level)
+            return (out, max(sum(rows[at : at + size]) for at in range(0, len(rows), size)) * each)
+
+        def run(level: int) -> object:
+            if not level:
+                return forward(patches, grid, **kwargs)
+            size, parts, at = pieces(len(rows), level), [], 0
+            for first in range(0, len(rows), size):
+                catch.checkpoint()
+                count = sum(rows[first : first + size])
+                parts.append(
+                    forward(patches[at : at + count], grid[first : first + size], **kwargs)
+                )
+                at += count
+            return _join(parts)
+
+        try:
+            return catch.cut(site, levels(len(rows)), need, run)
+        except _Whole:
+            whole.append(True)
+            print(f"cozy-runtime: {site}'s pieces do not join: whole", file=sys.stderr)
+        return forward(patches, grid, **kwargs)
+
+    return cast("Forward", cut)  # it reads the tower's arguments by position or by name
+
+
+def _join(parts: list[object]) -> object:
+    """Pieces' outputs as the whole call's: tensors in order along their rows, a model output's
+    or a sequence's fields each so; None stays None. Anything else does not join (`_Whole`)."""
+    first = parts[0]
+    if isinstance(first, Tensor):
+        return torch.cat(cast("list[Tensor]", parts), 0)
+    if first is None:
+        return None
+    if isinstance(first, dict):  # Transformers' ModelOutput is an ordered dict of its fields
+        fields = {key: _join([cast("dict[str, object]", p)[key] for p in parts]) for key in first}
+        return type(first)(**fields)
+    if isinstance(first, list | tuple):
+        joined = [_join([cast("Sequence[object]", p)[i] for p in parts]) for i in range(len(first))]
+        return type(first)(joined) if isinstance(first, list) else tuple(joined)
+    raise _Whole
 
 
 def _tokens(forward: Forward, x: Tensor, tokens: int, level: int) -> object:
@@ -496,33 +646,119 @@ def split[T](
     out_bytes: int,
     item_bytes: float,
     holds: int,
-    run: Callable[[int], T],
+    run: Callable[[int, bool], T],
     pure: bool = False,
+    hostable: bool = False,
 ) -> T:
-    """A package's `split` (`cozy_runtime.author.split`): `run(most)` runs it in windows of at
-    most `most` of its `total` elements; `finest` is the least a window can hold. Its author
+    """A package's `split` (`cozy_runtime.author.split`): `run(most, host)` runs it in windows of
+    at most `most` of its `total` elements; `finest` is the least a window can hold. Its author
     must preserve global statistics/quantizers and declare any overlap approximation; merely
     having no side effects does not make differently sized windows numerically equivalent.
     Package code runs once; `pure` says `run` is a Runtime leaf's, which runs again finer only
     when varena answers a refusal in it so (`catch.retry`). `out_bytes` is the whole output held
     beside the windows, `item_bytes` a window's output per element, `holds` how many of that its
-    op's peak holds: its author's estimate, which a completed pass's measured sample replaces."""
+    op's peak holds: its author's estimate, which a completed pass's measured sample replaces.
+
+    Where `hostable` and no level fits with the whole on the device (refused before any window
+    ran, or its allocation refused in the run: `whole`), the whole goes to pinned host memory: the
+    levels then need only their windows (cr-305). The whole's bytes are measured at its first
+    allocation and replace `out_bytes` from then on; a refusal judged on the measure, or one in the
+    run, keeps the whole on host for the rest of the request, one judged on the estimate only for
+    this call."""
     deepest = levels(-(-total // max(finest, 1)))
+    site = f"split:{key}"
+    measured = _WHOLES.get(key)
+    whole_bytes = out_bytes if measured is None else measured
 
     def window(level: int) -> int:
         return max(pieces(total, level), finest)
 
     def need(level: int) -> tuple[int, ...]:
-        return (out_bytes, *[int(window(level) * item_bytes)] * holds)
+        return (whole_bytes, *[int(window(level) * item_bytes)] * holds)
 
-    return catch.cut(f"split:{key}", deepest, need, lambda level: run(window(level)), pure=pure)
+    def windows_only(level: int) -> tuple[int, ...]:
+        return (*[int(window(level) * item_bytes)] * holds,)
+
+    request = catch.CURRENT.get()
+    if request is None or not request.memory.cuda or _capturing():  # a capture allocates no host
+        hostable = False
+    if not (
+        hostable and request is not None and request.hosted.get(site, _ESTIMATED) != _ESTIMATED
+    ):
+        try:
+            return catch.cut(
+                site, deepest, need, lambda level: run(window(level), False), pure=pure
+            )
+        except catch.Unplaced as exc:  # refused before a window ran (or the op is pure)
+            if not hostable or request is None:
+                raise
+            unwind(exc)
+            _hosted(request, site, name, _ESTIMATED if measured is None else _MEASURED)
+    return catch.cut(
+        f"{site}:host", deepest, windows_only, lambda level: run(window(level), True), pure=pure
+    )
+
+
+def whole(part: Tensor, shape: Sequence[int], key: str, host: bool) -> Tensor:
+    """The whole output a package's `split` assembles its windows in, `part` its first: pinned
+    host memory with `host`; else the device's, or pinned host memory when the device refuses it
+    beside the windows (a Runtime retry: no window runs again)."""
+    _WHOLES[key] = math.prod(shape) * part.dtype.itemsize
+    if host:
+        return pinned.empty(shape, part.dtype, part.device)
+    try:
+        return part.new_empty(shape)
+    except BaseException as exc:
+        request = catch.CURRENT.get()
+        if request is None or not part.is_cuda or not is_capacity(exc) or _capturing():
+            raise
+        room = catch.room(part.device.index or 0)  # beside the refused bytes, for the record
+        try:
+            out = pinned.empty(shape, part.dtype, part.device)
+        except Exception as failed:
+            exc.add_note(f"its whole output in host memory failed too: {failed}")
+            raise exc from None
+        unwind(exc)
+        request.retries += 1
+        _hosted(request, f"split:{key}", key, room)
+        return out
+
+
+def write(dst: Tensor, src: Tensor) -> None:
+    """A split's window into its whole output (`pinned.write`)."""
+    pinned.write(dst, src)
+
+
+def read[X](window: X) -> X:
+    """A split's input window on the device, where it is a window of a host whole."""
+    return cast("X", pinned.read(window)) if isinstance(window, Tensor) else window
+
+
+#: each split key's whole output, in bytes, as its first allocation measured it
+_WHOLES: dict[str, int] = {}
+#: `Request.hosted`'s reason for a whole chosen to go to host at selection: judged on the
+#: package's estimate (for that call only) or on the measured whole (for the request)
+_ESTIMATED, _MEASURED = "estimated", "measured"
+
+
+def _hosted(request: Request, site: str, name: str, why: str) -> None:
+    request.hosted[site] = why
+    print(
+        f"cozy-runtime: {name}: no room for its whole output beside its windows; it is kept in "
+        f"host memory ({why if why in (_ESTIMATED, _MEASURED) else f'refused beside {why}'})",
+        file=sys.stderr,
+    )
+
+
+def _capturing() -> bool:
+    return torch.cuda.is_initialized() and torch.cuda.is_current_stream_capturing()
 
 
 def windows(
     name: str, key: str, needs: Sequence[int]
 ) -> tuple[int, Callable[[], AbstractContextManager[None]]]:
     """A package's `windows` (`cozy_runtime.author.windows`): which of its layouts, fewest
-    windows first, a loop keeps (`needs`: each one's peak bytes), chosen once before it, and the
-    context its every window's work runs in, so the choice is measured for the next call."""
+    windows first, a loop keeps (`needs`: each one's whole bytes), chosen once before it, and the
+    context its every window's work runs in (`catch.Fixed.piece`)."""
     chosen = catch.fixed(f"windows:{key}", len(needs) - 1, lambda n: (needs[n],))
     return chosen.level, chosen.piece

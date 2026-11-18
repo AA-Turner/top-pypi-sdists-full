@@ -1,6 +1,8 @@
 //! Plan a compiled project over an open warehouse connection, and open that connection.
 
 use sqlbuild_host::entries::models::UserCodeHost;
+use sqlbuild_python_base::native_host::models::Dialect;
+use sqlbuild_python_planner::planner_warehouse::models::PlannerReads;
 
 use sqlbuild_python_compile::compile_driver::main::stages::build_deferred_locations::build_deferred_locations;
 use sqlbuild_python_compile::compile_driver::main::stages::gather_deferred_relations::gather_deferred_relations;
@@ -21,7 +23,7 @@ use std::collections::HashSet;
 use pyo3::exceptions::PyException;
 use pyo3::prelude::{Bound, PyAny, PyAnyMethods, PyModule, PyModuleMethods, PyResult, Python};
 use pyo3::types::{PyDict, PyDictMethods, PyFrozenSet};
-use pyo3::{pyfunction, wrap_pyfunction};
+use pyo3::{IntoPyObjectExt, pyfunction, wrap_pyfunction};
 
 use sqlbuild_python_base::boundary::models::KeywordArguments;
 use sqlbuild_python_base::native_host::main::connection_failure::connection_failure;
@@ -40,7 +42,11 @@ type Deferral<'py> = (Bound<'py, PyAny>, Bound<'py, PyAny>);
 pub(crate) struct PlanningInputs<'a, 'py> {
     pub(crate) discovered_inputs: &'a Bound<'py, PyAny>,
     pub(crate) adapter: &'a Bound<'py, PyAny>,
+    /// The live planning connection, `None` when the plan reads a synced state.
     pub(crate) connection: &'a Bound<'py, PyAny>,
+    pub(crate) reads: &'a Bound<'py, PlannerReads>,
+    /// Python nodes' `(database, schema)` under the active target.
+    pub(crate) node_results_location: Option<(Option<String>, Option<String>)>,
 }
 
 /// The selected Python nodes and SQL keys when loading is off: loaders out, their sources in.
@@ -183,6 +189,7 @@ pub(crate) fn pipeline_result<'py>(
                 "selection_diagnostics",
                 "plan_sql_tests",
                 "record_migration_fingerprints",
+                "ignore_audit_failures",
             ],
         )?,
     )?;
@@ -192,8 +199,8 @@ pub(crate) fn pipeline_result<'py>(
             py,
             &[
                 ("project", project.clone()),
-                ("adapter", inputs.adapter.clone()),
-                ("connection", inputs.connection.clone()),
+                ("dialect", Dialect::of(inputs.adapter)?.into_any()),
+                ("reads", inputs.reads.clone().into_any()),
                 ("selection", selection),
                 ("overrides", overrides),
                 ("deferral", deferral),
@@ -204,6 +211,10 @@ pub(crate) fn pipeline_result<'py>(
                     native_field(discovered, "project_config")?,
                 ),
                 ("local_config", native_field(discovered, "local_config")?),
+                (
+                    "node_results_location",
+                    inputs.node_results_location.clone().into_bound_py_any(py)?,
+                ),
             ],
         )?),
     )?;

@@ -23,6 +23,9 @@ from typing import Any, Union
 
 from .literals import (
     ActorTokenContentTypeType,
+    AgentInsightStoreEnablementStatusType,
+    AgentInsightStoreEncryptionModeType,
+    AgentInsightStoreStatusType,
     AgentManagedRuntimeTypeType,
     AgentRuntimeEndpointStatusType,
     AgentRuntimeStatusType,
@@ -57,6 +60,7 @@ from .literals import (
     EvaluatorLevelType,
     EvaluatorStatusType,
     EvaluatorTypeType,
+    ExampleFieldType,
     ExtractionTypeType,
     FallbackErrorType,
     FilterOperatorType,
@@ -139,6 +143,8 @@ __all__ = (
     "AddDatasetExamplesRequestTypeDef",
     "AddDatasetExamplesResponseTypeDef",
     "AgentCardDefinitionTypeDef",
+    "AgentInsightStoreEncryptionConfigurationTypeDef",
+    "AgentInsightStoreSummaryTypeDef",
     "AgentRuntimeArtifactOutputTypeDef",
     "AgentRuntimeArtifactTypeDef",
     "AgentRuntimeArtifactUnionTypeDef",
@@ -423,6 +429,9 @@ __all__ = (
     "EvaluatorModelConfigTypeDef",
     "EvaluatorReferenceTypeDef",
     "EvaluatorSummaryTypeDef",
+    "ExampleCountByFieldConditionTypeDef",
+    "ExampleCountByFieldTypeDef",
+    "ExampleFieldConditionTypeDef",
     "ExtractionConfigOutputTypeDef",
     "ExtractionConfigTypeDef",
     "ExtractionConfigUnionTypeDef",
@@ -454,6 +463,8 @@ __all__ = (
     "GatewayRuleDetailTypeDef",
     "GatewaySummaryTypeDef",
     "GatewayTargetTypeDef",
+    "GetAgentInsightStoreRequestTypeDef",
+    "GetAgentInsightStoreResponseTypeDef",
     "GetAgentRuntimeEndpointRequestTypeDef",
     "GetAgentRuntimeEndpointResponseTypeDef",
     "GetAgentRuntimeRequestTypeDef",
@@ -668,6 +679,9 @@ __all__ = (
     "LimitEntryUnionTypeDef",
     "LinkedinOauth2ProviderConfigInputTypeDef",
     "LinkedinOauth2ProviderConfigOutputTypeDef",
+    "ListAgentInsightStoresRequestPaginateTypeDef",
+    "ListAgentInsightStoresRequestTypeDef",
+    "ListAgentInsightStoresResponseTypeDef",
     "ListAgentRuntimeEndpointsRequestPaginateTypeDef",
     "ListAgentRuntimeEndpointsRequestTypeDef",
     "ListAgentRuntimeEndpointsResponseTypeDef",
@@ -704,12 +718,15 @@ __all__ = (
     "ListConsentPortalsRequestPaginateTypeDef",
     "ListConsentPortalsRequestTypeDef",
     "ListConsentPortalsResponseTypeDef",
+    "ListDatasetExamplesFilterTypeDef",
     "ListDatasetExamplesRequestPaginateTypeDef",
     "ListDatasetExamplesRequestTypeDef",
     "ListDatasetExamplesResponseTypeDef",
+    "ListDatasetVersionsFilterTypeDef",
     "ListDatasetVersionsRequestPaginateTypeDef",
     "ListDatasetVersionsRequestTypeDef",
     "ListDatasetVersionsResponseTypeDef",
+    "ListDatasetsFilterTypeDef",
     "ListDatasetsRequestPaginateTypeDef",
     "ListDatasetsRequestTypeDef",
     "ListDatasetsResponseTypeDef",
@@ -1045,6 +1062,8 @@ __all__ = (
     "TriggerConditionInputTypeDef",
     "TriggerConditionTypeDef",
     "UntagResourceRequestTypeDef",
+    "UpdateAgentInsightStoreRequestTypeDef",
+    "UpdateAgentInsightStoreResponseTypeDef",
     "UpdateAgentRuntimeEndpointRequestTypeDef",
     "UpdateAgentRuntimeEndpointResponseTypeDef",
     "UpdateAgentRuntimeRequestTypeDef",
@@ -1160,6 +1179,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HTTPHeaders: dict[str, str]
     RetryAttempts: int
     HostId: NotRequired[str]
+
+
+class AgentInsightStoreEncryptionConfigurationTypeDef(TypedDict):
+    mode: AgentInsightStoreEncryptionModeType
+    kmsKeyArn: NotRequired[str]
 
 
 class ContainerConfigurationTypeDef(TypedDict):
@@ -1759,23 +1783,14 @@ class S3SourceTypeDef(TypedDict):
     s3Uri: str
 
 
-class DatasetSummaryTypeDef(TypedDict):
-    datasetArn: str
-    datasetId: str
-    datasetName: str
-    status: DatasetStatusType
-    schemaType: DatasetSchemaTypeType
-    exampleCount: int
-    createdAt: datetime
-    updatedAt: datetime
-    description: NotRequired[str]
-    draftStatus: NotRequired[DraftStatusType]
-
-
-class DatasetVersionSummaryTypeDef(TypedDict):
-    datasetVersion: str
-    exampleCount: int
-    createdAt: datetime
+ExampleCountByFieldTypeDef = TypedDict(
+    "ExampleCountByFieldTypeDef",
+    {
+        "turns": int,
+        "input": int,
+        "actorProfile": int,
+    },
+)
 
 
 class DeleteAgentRuntimeEndpointRequestTypeDef(TypedDict):
@@ -2010,6 +2025,20 @@ class EvaluatorSummaryTypeDef(TypedDict):
     kmsKeyArn: NotRequired[str]
 
 
+ExampleCountByFieldConditionTypeDef = TypedDict(
+    "ExampleCountByFieldConditionTypeDef",
+    {
+        "anyOf": NotRequired[Sequence[ExampleFieldType]],
+        "min": NotRequired[int],
+        "max": NotRequired[int],
+    },
+)
+
+
+class ExampleFieldConditionTypeDef(TypedDict):
+    anyOf: NotRequired[Sequence[ExampleFieldType]]
+
+
 class FallbackTriggersOutputTypeDef(TypedDict):
     statusCodes: NotRequired[list[str]]
     errors: NotRequired[list[FallbackErrorType]]
@@ -2053,6 +2082,10 @@ class GatewaySummaryTypeDef(TypedDict):
     authorizerType: AuthorizerTypeType
     description: NotRequired[str]
     protocolType: NotRequired[Literal["MCP"]]
+
+
+class GetAgentInsightStoreRequestTypeDef(TypedDict):
+    agentInsightStoreId: str
 
 
 class GetAgentRuntimeEndpointRequestTypeDef(TypedDict):
@@ -2486,6 +2519,11 @@ class PaginatorConfigTypeDef(TypedDict):
     StartingToken: NotRequired[str]
 
 
+class ListAgentInsightStoresRequestTypeDef(TypedDict):
+    nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+
+
 class ListAgentRuntimeEndpointsRequestTypeDef(TypedDict):
     agentRuntimeId: str
     maxResults: NotRequired[int]
@@ -2559,24 +2597,6 @@ class ListConfigurationBundlesRequestTypeDef(TypedDict):
 class ListConsentPortalsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-
-
-class ListDatasetExamplesRequestTypeDef(TypedDict):
-    datasetId: str
-    datasetVersion: NotRequired[str]
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-
-
-class ListDatasetVersionsRequestTypeDef(TypedDict):
-    datasetId: str
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
-
-
-class ListDatasetsRequestTypeDef(TypedDict):
-    nextToken: NotRequired[str]
-    maxResults: NotRequired[int]
 
 
 class ListEvaluatorsRequestTypeDef(TypedDict):
@@ -3466,26 +3486,6 @@ class GetBrowserProfileResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetDatasetResponseTypeDef(TypedDict):
-    datasetArn: str
-    datasetId: str
-    datasetVersion: str
-    datasetName: str
-    description: str
-    status: DatasetStatusType
-    draftStatus: DraftStatusType
-    failureReason: str
-    schemaType: DatasetSchemaTypeType
-    kmsKeyArn: str
-    exampleCount: int
-    downloadUrl: str
-    downloadUrlExpiresAt: datetime
-    createdAt: datetime
-    updatedAt: datetime
-    tags: dict[str, str]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class GetPolicyEngineResponseTypeDef(TypedDict):
     policyEngineId: str
     name: str
@@ -3569,6 +3569,16 @@ class SubmitRegistryRecordForApprovalResponseTypeDef(TypedDict):
     recordId: str
     status: RegistryRecordStatusType
     updatedAt: datetime
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAgentInsightStoreResponseTypeDef(TypedDict):
+    agentInsightStoreArn: str
+    agentInsightStoreId: str
+    status: AgentInsightStoreStatusType
+    enablementStatus: AgentInsightStoreEnablementStatusType
+    updatedAt: datetime
+    failureReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3665,6 +3675,35 @@ class UpdateWorkloadIdentityResponseTypeDef(TypedDict):
     createdTime: datetime
     lastUpdatedTime: datetime
     ResponseMetadata: ResponseMetadataTypeDef
+
+
+class AgentInsightStoreSummaryTypeDef(TypedDict):
+    agentInsightStoreArn: str
+    agentInsightStoreId: str
+    status: AgentInsightStoreStatusType
+    enablementStatus: AgentInsightStoreEnablementStatusType
+    encryptionConfiguration: AgentInsightStoreEncryptionConfigurationTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class GetAgentInsightStoreResponseTypeDef(TypedDict):
+    agentInsightStoreArn: str
+    agentInsightStoreId: str
+    status: AgentInsightStoreStatusType
+    enablementStatus: AgentInsightStoreEnablementStatusType
+    encryptionConfiguration: AgentInsightStoreEncryptionConfigurationTypeDef
+    createdAt: datetime
+    updatedAt: datetime
+    failureReason: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateAgentInsightStoreRequestTypeDef(TypedDict):
+    agentInsightStoreId: str
+    clientToken: NotRequired[str]
+    enablementStatus: NotRequired[AgentInsightStoreEnablementStatusType]
+    encryptionConfiguration: NotRequired[AgentInsightStoreEncryptionConfigurationTypeDef]
 
 
 class HarnessEnvironmentArtifactTypeDef(TypedDict):
@@ -4318,16 +4357,46 @@ class DataSourceTypeTypeDef(TypedDict):
     s3Source: NotRequired[S3SourceTypeDef]
 
 
-class ListDatasetsResponseTypeDef(TypedDict):
-    datasets: list[DatasetSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
+class DatasetSummaryTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    datasetName: str
+    status: DatasetStatusType
+    exampleCount: int
+    createdAt: datetime
+    updatedAt: datetime
+    description: NotRequired[str]
+    draftStatus: NotRequired[DraftStatusType]
+    schemaType: NotRequired[DatasetSchemaTypeType]
+    exampleCountByField: NotRequired[ExampleCountByFieldTypeDef]
 
 
-class ListDatasetVersionsResponseTypeDef(TypedDict):
-    versions: list[DatasetVersionSummaryTypeDef]
+class DatasetVersionSummaryTypeDef(TypedDict):
+    datasetVersion: str
+    exampleCount: int
+    createdAt: datetime
+    exampleCountByField: NotRequired[ExampleCountByFieldTypeDef]
+
+
+class GetDatasetResponseTypeDef(TypedDict):
+    datasetArn: str
+    datasetId: str
+    datasetVersion: str
+    datasetName: str
+    description: str
+    status: DatasetStatusType
+    draftStatus: DraftStatusType
+    failureReason: str
+    schemaType: DatasetSchemaTypeType
+    kmsKeyArn: str
+    exampleCount: int
+    exampleCountByField: ExampleCountByFieldTypeDef
+    downloadUrl: str
+    downloadUrlExpiresAt: datetime
+    createdAt: datetime
+    updatedAt: datetime
+    tags: dict[str, str]
     ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
 
 
 class DimensionRatingScaleOutputTypeDef(TypedDict):
@@ -4357,6 +4426,19 @@ class ListEvaluatorsResponseTypeDef(TypedDict):
     evaluators: list[EvaluatorSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+class ListDatasetVersionsFilterTypeDef(TypedDict):
+    exampleCountByField: NotRequired[Sequence[ExampleCountByFieldConditionTypeDef]]
+
+
+class ListDatasetsFilterTypeDef(TypedDict):
+    exampleCountByField: NotRequired[Sequence[ExampleCountByFieldConditionTypeDef]]
+
+
+class ListDatasetExamplesFilterTypeDef(TypedDict):
+    generationIds: NotRequired[Sequence[str]]
+    exampleFields: NotRequired[Sequence[ExampleFieldConditionTypeDef]]
 
 
 class FallbackTargetOutputTypeDef(TypedDict):
@@ -4666,6 +4748,10 @@ class LimitEntryTypeDef(TypedDict):
     connections: NotRequired[Sequence[RateConfigTypeDef]]
 
 
+class ListAgentInsightStoresRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListAgentRuntimeEndpointsRequestPaginateTypeDef(TypedDict):
     agentRuntimeId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
@@ -4721,21 +4807,6 @@ class ListConfigurationBundlesRequestPaginateTypeDef(TypedDict):
 
 
 class ListConsentPortalsRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListDatasetExamplesRequestPaginateTypeDef(TypedDict):
-    datasetId: str
-    datasetVersion: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListDatasetVersionsRequestPaginateTypeDef(TypedDict):
-    datasetId: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
-class ListDatasetsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -5120,6 +5191,12 @@ class UpdatedA2aDescriptorTypeDef(TypedDict):
     optionalValue: NotRequired[A2aDescriptorTypeDef]
 
 
+class ListAgentInsightStoresResponseTypeDef(TypedDict):
+    agentInsightStores: list[AgentInsightStoreSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
 class UpdatedHarnessEnvironmentArtifactTypeDef(TypedDict):
     optionalValue: NotRequired[HarnessEnvironmentArtifactTypeDef]
 
@@ -5484,12 +5561,24 @@ class AddDatasetExamplesRequestTypeDef(TypedDict):
 
 class CreateDatasetRequestTypeDef(TypedDict):
     datasetName: str
-    source: DataSourceTypeTypeDef
-    schemaType: DatasetSchemaTypeType
     clientToken: NotRequired[str]
     description: NotRequired[str]
+    source: NotRequired[DataSourceTypeTypeDef]
+    schemaType: NotRequired[DatasetSchemaTypeType]
     kmsKeyArn: NotRequired[str]
     tags: NotRequired[Mapping[str, str]]
+
+
+class ListDatasetsResponseTypeDef(TypedDict):
+    datasets: list[DatasetSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListDatasetVersionsResponseTypeDef(TypedDict):
+    versions: list[DatasetVersionSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 
 class EvaluationDimensionOutputTypeDef(TypedDict):
@@ -5526,6 +5615,59 @@ class LaunchParametersTypeDef(TypedDict):
     sshKeyName: NotRequired[str]
     instanceProfileArn: NotRequired[str]
     propagatedTags: NotRequired[Mapping[str, str]]
+
+
+ListDatasetVersionsRequestPaginateTypeDef = TypedDict(
+    "ListDatasetVersionsRequestPaginateTypeDef",
+    {
+        "datasetId": str,
+        "filter": NotRequired[ListDatasetVersionsFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListDatasetVersionsRequestTypeDef = TypedDict(
+    "ListDatasetVersionsRequestTypeDef",
+    {
+        "datasetId": str,
+        "filter": NotRequired[ListDatasetVersionsFilterTypeDef],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+ListDatasetsRequestPaginateTypeDef = TypedDict(
+    "ListDatasetsRequestPaginateTypeDef",
+    {
+        "filter": NotRequired[ListDatasetsFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListDatasetsRequestTypeDef = TypedDict(
+    "ListDatasetsRequestTypeDef",
+    {
+        "filter": NotRequired[ListDatasetsFilterTypeDef],
+        "nextToken": NotRequired[str],
+        "maxResults": NotRequired[int],
+    },
+)
+ListDatasetExamplesRequestPaginateTypeDef = TypedDict(
+    "ListDatasetExamplesRequestPaginateTypeDef",
+    {
+        "datasetId": str,
+        "datasetVersion": NotRequired[str],
+        "filter": NotRequired[ListDatasetExamplesFilterTypeDef],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
+ListDatasetExamplesRequestTypeDef = TypedDict(
+    "ListDatasetExamplesRequestTypeDef",
+    {
+        "datasetId": str,
+        "datasetVersion": NotRequired[str],
+        "filter": NotRequired[ListDatasetExamplesFilterTypeDef],
+        "maxResults": NotRequired[int],
+        "nextToken": NotRequired[str],
+    },
+)
 
 
 class FallbackOutputTypeDef(TypedDict):

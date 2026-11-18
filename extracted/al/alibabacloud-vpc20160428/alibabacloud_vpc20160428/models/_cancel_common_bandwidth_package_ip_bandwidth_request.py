@@ -9,6 +9,8 @@ class CancelCommonBandwidthPackageIpBandwidthRequest(DaraModel):
         self,
         bandwidth_package_id: str = None,
         eip_id: str = None,
+        ip_instance_id: str = None,
+        ip_type: str = None,
         owner_account: str = None,
         owner_id: int = None,
         region_id: str = None,
@@ -20,12 +22,18 @@ class CancelCommonBandwidthPackageIpBandwidthRequest(DaraModel):
         # This parameter is required.
         self.bandwidth_package_id = bandwidth_package_id
         # The ID of the EIP that is added to the Internet Shared Bandwidth instance. This parameter applies only to EIPs. For IPv6 addresses, use IpInstanceId.
-        # 
-        # This parameter is required.
         self.eip_id = eip_id
+        # The ID of the public IP address instance for which you want to cancel the maximum available bandwidth setting in the Internet Shared Bandwidth instance. This parameter and `EipId` are mutually exclusive. We recommend that you use this parameter for new workloads. If IpType is set to **VpcIpv6**, specify the IPv6 instance ID.
+        self.ip_instance_id = ip_instance_id
+        # The resource type of the public IP address for which you want to cancel the maximum available bandwidth setting in the Internet Shared Bandwidth instance. Valid values:
+        # - **EIP**: the public IP address of an EIP.
+        # - **VpcIpv6**: the IPv6 address of a VPC.
+        # 
+        # If you do not specify this parameter, **EIP** is used.
+        self.ip_type = ip_type
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the Internet Shared Bandwidth instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to obtain the region ID.
+        # The region ID of the Internet Shared Bandwidth instance. You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
         # This parameter is required.
         self.region_id = region_id
@@ -45,6 +53,12 @@ class CancelCommonBandwidthPackageIpBandwidthRequest(DaraModel):
 
         if self.eip_id is not None:
             result['EipId'] = self.eip_id
+
+        if self.ip_instance_id is not None:
+            result['IpInstanceId'] = self.ip_instance_id
+
+        if self.ip_type is not None:
+            result['IpType'] = self.ip_type
 
         if self.owner_account is not None:
             result['OwnerAccount'] = self.owner_account
@@ -70,6 +84,12 @@ class CancelCommonBandwidthPackageIpBandwidthRequest(DaraModel):
 
         if m.get('EipId') is not None:
             self.eip_id = m.get('EipId')
+
+        if m.get('IpInstanceId') is not None:
+            self.ip_instance_id = m.get('IpInstanceId')
+
+        if m.get('IpType') is not None:
+            self.ip_type = m.get('IpType')
 
         if m.get('OwnerAccount') is not None:
             self.owner_account = m.get('OwnerAccount')

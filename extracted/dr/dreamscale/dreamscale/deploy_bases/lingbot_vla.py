@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport import lingbot_vla_deploy as C
+from dreamscale_core import lingbot_vla_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cli, cmd
 from dreamscale.deploy_bases._preset import PresetUnits

@@ -58,7 +58,8 @@ options:
     capacity:
         description:
             - Capacity of VMSS.
-        default: 1
+            - When not set on create, Azure defaults to C(1).
+            - When not set on update, the existing capacity is preserved (safe for autoscaled VMSS).
         type: int
     tier:
         description:
@@ -140,11 +141,12 @@ options:
     os_disk_caching:
         description:
             - Type of OS disk caching.
+            - When not set on create, Azure defaults to C(ReadOnly).
+            - When not set on update, the existing value is preserved.
         type: str
         choices:
             - ReadOnly
             - ReadWrite
-        default: ReadOnly
         aliases:
             - disk_caching
     os_disk_size_gb:
@@ -247,6 +249,13 @@ options:
         description:
             - Load balancer name.
         type: str
+    load_balancer_backend_pool_name:
+        description:
+            - Name of the backend address pool of I(load_balancer) to attach the scale set to.
+            - When not set, a new scale set is attached to every backend address pool of I(load_balancer).
+            - Requires I(load_balancer).
+        type: str
+        version_added: "4.2.0"
     application_gateway:
         description:
             - Application gateway name.
@@ -279,8 +288,9 @@ options:
     single_placement_group:
         description:
             - When true this limits the scale set to a single placement group, of max size 100 virtual machines.
+            - When I(orchestration_mode=Flexible), this must be C(false).
+            - When not set on update, the existing value is preserved.
         type: bool
-        default: False
     plan:
         description:
             - Third-party billing plan for the VM.
@@ -334,8 +344,8 @@ options:
     platform_fault_domain_count:
         description:
             - Fault Domain count for each placement group.
+            - When omitted on create, Azure's service default is used. When omitted on update, the existing value is retained.
         type: int
-        default: 1
     orchestration_mode:
         description:
             - Specifies the orchestration mode for the virtual machine scale set.
@@ -344,11 +354,11 @@ options:
             - When I(orchestration_mode=Flexible), I(single_placement_group=False) must be set.
             - When I(orchestration_mode=Flexible), it cannot be configured I(overprovision).
             - When I(orchestration_mode=Flexible), it cannot be configured I(upgrade_policy) and configured when I(orchestration_mode=Uniform).
+            - When omitted on create, Azure's service default is used. When omitted on update, the existing value is retained.
         type: str
         choices:
             - Flexible
             - Uniform
-        default: Flexible
     specialized_image:
         description:
             - Set to C(true) when the source image referenced by I(image) has an C(osState) of C(Specialized). For example a Shared Image Gallery
@@ -563,6 +573,22 @@ EXAMPLES = '''
     managed_disk_type: Standard_LRS
     image: customimage001
 
+- name: Create a VMSS attached to a specific backend pool of a load balancer
+  azure_rm_virtualmachinescaleset:
+    resource_group: myResourceGroup
+    name: testvmss
+    vm_size: Standard_DS1_v2
+    capacity: 2
+    virtual_network_name: testvnet
+    upgrade_policy: Manual
+    subnet_name: testsubnet
+    admin_username: "{{ username }}"
+    admin_password: "{{ password }}"
+    managed_disk_type: Standard_LRS
+    image: customimage001
+    load_balancer: testLB
+    load_balancer_backend_pool_name: backend-pool-2
+
 - name: Create VMSS with security group
   azure_rm_virtualmachinescaleset:
     resource_group: "{{ resource_group }}"
@@ -754,7 +780,6 @@ import time
 try:
     from azure.core.exceptions import ResourceNotFoundError
     from azure.mgmt.core.tools import parse_resource_id
-    from azure.core.exceptions import ResourceNotFoundError
     from azure.mgmt.compute.models import (VirtualMachineScaleSetIdentity, UserAssignedIdentitiesValue)
 
 except ImportError:
@@ -783,7 +808,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             short_hostname=dict(type='str'),
             vm_size=dict(type='str'),
             tier=dict(type='str', choices=['Basic', 'Standard']),
-            capacity=dict(type='int', default=1),
+            capacity=dict(type='int'),
             upgrade_policy=dict(type='str', choices=['Automatic', 'Manual']),
             priority=dict(type='str', choices=['None', 'Spot', 'Regular']),
             eviction_policy=dict(type='str', choices=['Deallocate', 'Delete']),
@@ -793,8 +818,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             ssh_password_enabled=dict(type='bool', default=True),
             ssh_public_keys=dict(type='list', elements='dict'),
             image=dict(type='raw'),
-            os_disk_caching=dict(type='str', aliases=['disk_caching'], choices=['ReadOnly', 'ReadWrite'],
-                                 default='ReadOnly'),
+            os_disk_caching=dict(type='str', aliases=['disk_caching'], choices=['ReadOnly', 'ReadWrite']),
             os_type=dict(type='str', choices=['Linux', 'Windows', 'linux', 'windows'], default='Linux'),
             managed_disk_type=dict(type='str', choices=['Standard_LRS', 'Premium_LRS', 'StandardSSD_LRS', 'UltraSSD_LRS', 'Premium_ZRS', 'StandardSSD_ZRS']),
             os_disk_encryption_set=dict(type='str'),
@@ -815,6 +839,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             subnet_name=dict(type='str', aliases=['subnet']),
             public_ip_per_vm=dict(type='bool', default=False),
             load_balancer=dict(type='str'),
+            load_balancer_backend_pool_name=dict(type='str'),
             application_gateway=dict(type='str'),
             virtual_network_resource_group=dict(type='str'),
             virtual_network_name=dict(type='str', aliases=['virtual_network']),
@@ -822,7 +847,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             enable_accelerated_networking=dict(type='bool'),
             security_group=dict(type='raw', aliases=['security_group_name']),
             overprovision=dict(type='bool'),
-            single_placement_group=dict(type='bool', default=False),
+            single_placement_group=dict(type='bool'),
             zones=dict(type='list', elements='str'),
             custom_data=dict(type='str'),
             plan=dict(type='dict', options=dict(publisher=dict(type='str', required=True),
@@ -831,11 +856,9 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             scale_in_policy=dict(type='str', choices=['Default', 'OldestVM', 'NewestVM']),
             terminate_event_timeout_minutes=dict(type='int'),
             ephemeral_os_disk=dict(type='bool'),
-            orchestration_mode=dict(type='str',
-                                    choices=['Uniform', 'Flexible'],
-                                    default='Flexible',),
+            orchestration_mode=dict(type='str', choices=['Uniform', 'Flexible']),
             specialized_image=dict(type='bool', default=False),
-            platform_fault_domain_count=dict(type='int', default=1),
+            platform_fault_domain_count=dict(type='int'),
             os_disk_size_gb=dict(type='int'),
             security_profile=dict(
                 type='dict',
@@ -893,6 +916,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
         self.tags = None
         self.differences = None
         self.load_balancer = None
+        self.load_balancer_backend_pool_name = None
         self.application_gateway = None
         self.enable_accelerated_networking = None
         self.security_group = None
@@ -913,6 +937,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
         self.private_ip_address_version = None
 
         mutually_exclusive = [('load_balancer', 'application_gateway')]
+        required_by = dict(load_balancer_backend_pool_name=['load_balancer'])
         self.results = dict(
             changed=False,
             actions=[],
@@ -922,7 +947,8 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
         super(AzureRMVirtualMachineScaleSet, self).__init__(
             derived_arg_spec=self.module_arg_spec,
             supports_check_mode=True,
-            mutually_exclusive=mutually_exclusive)
+            mutually_exclusive=mutually_exclusive,
+            required_by=required_by)
 
     @property
     def managed_identity(self):
@@ -939,6 +965,10 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
 
         # make sure options are lower case
         self.remove_on_absent = set([resource.lower() for resource in self.remove_on_absent])
+
+        # normalize os_type to canonical lower-case form (argspec accepts both cases)
+        if self.os_type:
+            self.os_type = self.os_type.lower()
 
         # convert elements to ints
         self.zones = [int(i) for i in self.zones] if self.zones else None
@@ -980,9 +1010,6 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     self.vm_size
                 ))
 
-            # if self.virtual_network_name:
-            #     virtual_network = self.get_virtual_network(self.virtual_network_name)
-
             if self.ssh_public_keys:
                 msg = "Parameter error: expecting ssh_public_keys to be a list of type dict where " \
                     "each dict contains keys: path, key_data."
@@ -993,7 +1020,17 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                         self.fail(msg)
 
             if self.image and isinstance(self.image, dict):
-                if all(key in self.image for key in ('publisher', 'offer', 'sku', 'version')):
+                if self.image.get('id'):
+                    try:
+                        image_reference = self.compute_models.ImageReference(id=self.image['id'])
+                    except Exception as exc:
+                        self.fail("id Error: Cannot get image from the reference id - {0}".format(self.image['id']))
+                elif self.image.get('community_gallery_image_id'):
+                    try:
+                        image_reference = self.compute_models.ImageReference(community_gallery_image_id=self.image['community_gallery_image_id'])
+                    except Exception as exc:
+                        self.fail("id Error: Cannot get image from the community gallery image id - {0}".format(self.image['community_gallery_image_id']))
+                elif all(key in self.image for key in ('publisher', 'offer', 'sku', 'version')):
                     marketplace_image = self.get_marketplace_image_version()
                     if self.image['version'] == 'latest':
                         self.image['version'] = marketplace_image.name
@@ -1010,18 +1047,9 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     image_reference = self.get_custom_image_reference(
                         self.image.get('name'),
                         self.image.get('resource_group'))
-                elif self.image.get('id'):
-                    try:
-                        image_reference = self.compute_models.ImageReference(id=self.image['id'])
-                    except Exception as exc:
-                        self.fail("id Error: Cannot get image from the reference id - {0}".format(self.image['id']))
-                elif self.image.get('community_gallery_image_id'):
-                    try:
-                        image_reference = self.compute_models.ImageReference(community_gallery_image_id=self.image['community_gallery_image_id'])
-                    except Exception as exc:
-                        self.fail("id Error: Cannot get image from the cummunity gallery image id- {0}".format(self.image['community_gallery_image_id']))
                 else:
-                    self.fail("parameter error: expecting image to contain [publisher, offer, sku, version], [name, resource_group] or [id]")
+                    self.fail("parameter error: expecting image to contain [publisher, offer, sku, version], "
+                              "[name, resource_group], [id] or [community_gallery_image_id]")
             elif self.image and isinstance(self.image, str):
                 custom_image = True
                 image_reference = self.get_custom_image_reference(self.image)
@@ -1032,9 +1060,14 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
 
             if self.load_balancer:
                 load_balancer = self.get_load_balancer(self.load_balancer)
-                load_balancer_backend_address_pools = ([self.compute_models.SubResource(id=resource.id)
-                                                        for resource in load_balancer.backend_address_pools]
-                                                       if load_balancer.backend_address_pools else None)
+                backend_pools = load_balancer.backend_address_pools or []
+                if self.load_balancer_backend_pool_name:
+                    backend_pools = [pool for pool in backend_pools if (pool.name or '').lower() == self.load_balancer_backend_pool_name.lower()]
+                    if not backend_pools:
+                        self.fail("Backend address pool {0} was not found in load balancer {1}".format(
+                            self.load_balancer_backend_pool_name, self.load_balancer))
+                load_balancer_backend_address_pools = ([self.compute_models.SubResource(id=resource.id) for resource in backend_pools]
+                                                       if backend_pools else None)
                 load_balancer_inbound_nat_pools = ([self.compute_models.SubResource(id=resource.id)
                                                     for resource in load_balancer.inbound_nat_pools]
                                                    if load_balancer.inbound_nat_pools else None)
@@ -1066,7 +1099,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                 if self.eviction_policy and \
                    self.eviction_policy != current_properties.get('eviction_policy', None):
                     self.fail('VM Eviction Policy is not updatable: requested virtual machine eviction policy is {0}'.format(self.eviction_policy))
-                if self.max_price and \
+                if self.max_price is not None and self.max_price != -1 and \
                    vmss_dict['virtual_machine_profile'].get('billing_profile', None) and \
                    self.max_price != vmss_dict['virtual_machine_profile']['billing_profile'].get('max_price', None):
                     self.fail('VM Maximum Price is not updatable: requested virtual machine maximum price is {0}'.format(self.max_price))
@@ -1087,7 +1120,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     changed = True
                     vmss_dict['virtual_machine_profile']['storage_profile']['os_disk']['caching'] = self.os_disk_caching
 
-                if self.capacity and \
+                if self.capacity is not None and \
                    self.capacity != vmss_dict['sku']['capacity']:
                     self.log('CHANGED: virtual machine scale set {0} - Capacity'.format(self.name))
                     differences.append('Capacity')
@@ -1101,11 +1134,12 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     changed = True
                     vmss_dict['sku']['name'] = self.vm_size
 
-                if self.data_disks and \
-                   len(self.data_disks) != len(vmss_dict['virtual_machine_profile']['storage_profile'].get('data_disks', [])):
-                    self.log('CHANGED: virtual machine scale set {0} - Data Disks'.format(self.name))
-                    differences.append('Data Disks')
-                    changed = True
+                if self.data_disks is not None:
+                    existing_data_disks = vmss_dict['virtual_machine_profile']['storage_profile'].get('data_disks') or []
+                    if self.data_disks_differ(self.data_disks, existing_data_disks):
+                        self.log('CHANGED: virtual machine scale set {0} - Data Disks'.format(self.name))
+                        differences.append('Data Disks')
+                        changed = True
 
                 if self.upgrade_policy and \
                    self.upgrade_policy != vmss_dict['upgrade_policy']['mode']:
@@ -1136,16 +1170,14 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     differences.append('overprovision')
                     changed = True
 
-                if bool(self.single_placement_group) != bool(vmss_dict['single_placement_group']):
+                if self.single_placement_group is not None and \
+                   bool(self.single_placement_group) != bool(vmss_dict['single_placement_group']):
                     differences.append('single_placement_group')
                     changed = True
 
                 vmss_dict['zones'] = [int(i) for i in vmss_dict['zones']] if 'zones' in vmss_dict and vmss_dict['zones'] else None
-                if self.zones != vmss_dict['zones']:
-                    self.log("CHANGED: virtual machine scale sets {0} zones".format(self.name))
-                    differences.append('Zones')
-                    changed = True
-                    vmss_dict['zones'] = self.zones
+                if self.zones is not None and self.zones != vmss_dict['zones']:
+                    self.fail('VMSS zones are not updatable: requested virtual machine scale set zones are {0}'.format(self.zones))
 
                 if self.terminate_event_timeout_minutes:
                     timeout = self.terminate_event_timeout_minutes
@@ -1162,9 +1194,9 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                             "enable": 'true'
                         }
 
-                if self.scale_in_policy and self.scale_in_policy != vmss_dict.get('scale_in_policy', {}).get('rules', [""])[0]:
-                    self.log("CHANGED: virtual machine sale sets {0} scale in policy".format(self.name))
-                    differences.append('scaleInPolicy')
+                if self.scale_in_policy and self.scale_in_policy != (vmss_dict.get('scale_in_policy') or {}).get('rules', [None])[0]:
+                    self.log("CHANGED: virtual machine scale sets {0} scale in policy".format(self.name))
+                    differences.append('scale_in_policy')
                     changed = True
                     vmss_dict.setdefault('scale_in_policy', {})['rules'] = [self.scale_in_policy]
 
@@ -1173,7 +1205,14 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                 backend_address_pool = nicConfigs[0]['ip_configurations'][0].get('load_balancer_backend_address_pools', [])
                 backend_address_pool += nicConfigs[0]['ip_configurations'][0].get('application_gateway_backend_address_pools', [])
                 lb_or_ag_id = None
-                if (len(nicConfigs) != 1 or len(backend_address_pool) != 1):
+                if load_balancer and len(nicConfigs) == 1 and self.load_balancer_backend_pool_name:
+                    existing_backend_ids = {pool['id'].lower()
+                                            for pool in nicConfigs[0]['ip_configurations'][0].get('load_balancer_backend_address_pools') or []}
+                    desired_backend_ids = {pool.id.lower() for pool in load_balancer_backend_address_pools or []}
+                    if existing_backend_ids != desired_backend_ids:
+                        differences.append('load_balancer')
+                        changed = True
+                elif (len(nicConfigs) != 1 or len(backend_address_pool) != 1):
                     support_lb_change = False  # Currently not support for the vmss contains more than one loadbalancer
                     self.module.warn('Updating more than one load balancer on VMSS is currently not supported')
                 else:
@@ -1204,47 +1243,42 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
 
                 if self.orchestration_mode and self.orchestration_mode != vmss_dict.get('orchestration_mode'):
                     self.fail("The orchestration_mode parameter cannot be updated!")
-                else:
-                    self.orchestration_mode = vmss_dict.get('orchestration_mode')
 
                 if self.platform_fault_domain_count and self.platform_fault_domain_count != vmss_dict.get('platform_fault_domain_count'):
                     self.fail("The platform_fault_domain_count parameter cannot be updated!")
 
                 if self.security_profile is not None:
                     update_security_profile = False
-                    if 'securityProfile' not in vmss_dict['virtual_machine_profile'].keys():
+                    existing_security_profile = vmss_dict['virtual_machine_profile'].get('security_profile') or {}
+                    existing_uefi = existing_security_profile.get('uefi_settings') or {}
+                    if not existing_security_profile:
                         update_security_profile = True
-                        differences.append('security_profile')
                     else:
                         if self.security_profile.get('encryption_at_host') is not None:
                             if bool(self.security_profile.get('encryption_at_host')) != \
-                                    bool(vmss_dict['virtual_machine_profile']['security_profile']['encryption_at_host']):
-                                update_security_profle = True
+                                    bool(existing_security_profile.get('encryption_at_host')):
+                                update_security_profile = True
                             else:
-                                self.security_profile['encryption_at_host'] = \
-                                    vmss_dict['virtual_machine_profile']['security_profile']['encryption_at_host']
+                                self.security_profile['encryption_at_host'] = existing_security_profile.get('encryption_at_host')
                         if self.security_profile.get('security_type') is not None:
-                            if self.security_profile.get('security_type') != \
-                                    vmss_dict['virtual_machine_profile']['security_profile']['security_type']:
+                            if self.security_profile.get('security_type') != existing_security_profile.get('security_type'):
                                 update_security_profile = True
                         if self.security_profile.get('uefi_settings') is not None:
                             if self.security_profile['uefi_settings'].get('secure_boot_enabled') is not None:
                                 if bool(self.security_profile['uefi_settings']['secure_boot_enabled']) != \
-                                        bool(vmss_dict['virtual_machine_profile']['security_profile']['uefi_settings']['secure_boot_nabled']):
+                                        bool(existing_uefi.get('secure_boot_enabled')):
                                     update_security_profile = True
                             else:
-                                self.security_profile['uefi_settings']['secure_boot_enabled'] = \
-                                    vmss_dict['virtual_machine_profile']['security_profile']['uefi_settings']['secure_boot_enabled']
+                                self.security_profile['uefi_settings']['secure_boot_enabled'] = existing_uefi.get('secure_boot_enabled')
                             if self.security_profile['uefi_settings'].get('v_tpm_enabled') is not None:
                                 if bool(self.security_profile['uefi_settings']['v_tpm_enabled']) != \
-                                        bool(vmss_dict['virtual_machine_profile']['security_profile']['uefi_settings']['v_tpm_enabled']):
+                                        bool(existing_uefi.get('v_tpm_enabled')):
                                     update_security_profile = True
                             else:
-                                self.security_profile['uefi_settings']['v_tpm_enabled'] = \
-                                    vmss_dict['virtual_machine_profile']['security_profile']['uefi_settings']['v_tpm_enabled']
-                        if update_security_profile:
-                            changed = True
-                            differences.append('security_profile')
+                                self.security_profile['uefi_settings']['v_tpm_enabled'] = existing_uefi.get('v_tpm_enabled')
+                    if update_security_profile:
+                        changed = True
+                        differences.append('security_profile')
 
                 self.differences = differences
 
@@ -1277,15 +1311,17 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     self.log("Create virtual machine scale set {0}".format(self.name))
                     self.results['actions'].append('Created VMSS {0}'.format(self.name))
 
-                    if self.os_type == 'Linux' or self.os_type == 'linux':
+                    if self.os_type == 'linux':
                         if disable_ssh_password and not self.ssh_public_keys and not self.specialized_image:
                             self.fail("Parameter error: ssh_public_keys required when disabling SSH password.")
 
                     if not self.virtual_network_name:
                         self.fail("virtual network name is required")
 
-                    if self.subnet_name:
-                        subnet = self.get_subnet(self.virtual_network_name, self.subnet_name)
+                    if not self.subnet_name:
+                        self.fail("subnet name is required")
+
+                    subnet = self.get_subnet(self.virtual_network_name, self.subnet_name)
 
                     if not image_reference:
                         self.fail("Parameter error: an image is required when creating a virtual machine.")
@@ -1410,7 +1446,7 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     if self.admin_password and vmss_resource.virtual_machine_profile.os_profile is not None:
                         vmss_resource.virtual_machine_profile.os_profile.admin_password = self.admin_password
 
-                    if (self.os_type == 'Linux' or self.os_type == 'linux') and os_profile:
+                    if self.os_type == 'linux' and os_profile:
                         vmss_resource.virtual_machine_profile.os_profile.linux_configuration = self.compute_models.LinuxConfiguration(
                             disable_password_authentication=disable_ssh_password
                         )
@@ -1422,34 +1458,8 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                             [self.compute_models.SshPublicKey(path=key['path'], key_data=key['key_data']) for key in self.ssh_public_keys]
                         vmss_resource.virtual_machine_profile.os_profile.linux_configuration.ssh = ssh_config
 
-                    if self.data_disks:
-                        data_disks = []
-
-                        for data_disk in self.data_disks:
-                            if data_disk.get('disk_encryption_set'):
-                                data_disk_encryption_set = self.compute_models.DiskEncryptionSetParameters(id=data_disk['disk_encryption_set'])
-                                data_disk_managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
-                                    storage_account_type=data_disk.get('managed_disk_type', None),
-                                    disk_encryption_set=data_disk_encryption_set
-                                )
-                            else:
-                                data_disk_managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
-                                    storage_account_type=data_disk.get('managed_disk_type', None)
-                                )
-
-                            data_disk['caching'] = data_disk.get(
-                                'caching',
-                                self.compute_models.CachingTypes.read_only
-                            )
-
-                            data_disks.append(self.compute_models.VirtualMachineScaleSetDataDisk(
-                                lun=data_disk.get('lun', None),
-                                caching=data_disk.get('caching', None),
-                                create_option=self.compute_models.DiskCreateOptionTypes.empty,
-                                disk_size_gb=data_disk.get('disk_size_gb', None),
-                                managed_disk=data_disk_managed_disk,
-                            ))
-
+                    data_disks = self.build_data_disks()
+                    if data_disks is not None:
                         vmss_resource.virtual_machine_profile.storage_profile.data_disks = data_disks
 
                     if self.plan:
@@ -1467,18 +1477,8 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                                        "Only service admin/account admin users can purchase images " +
                                        "from the marketplace. - {2}").format(self.name, self.plan, str(exc)))
 
-                    if self.security_profile is not None:
-                        uefi_settings_spec = None
-                        if self.security_profile.get('uefi_settings') is not None:
-                            uefi_settings_spec = self.compute_models.UefiSettings(
-                                secure_boot_enabled=self.security_profile['uefi_settings'].get('secure_boot_enabled'),
-                                v_tpm_enabled=self.security_profile['uefi_settings'].get('v_tpm_enabled'),
-                            )
-                        security_profile = self.compute_models.SecurityProfile(
-                            uefi_settings=uefi_settings_spec,
-                            encryption_at_host=self.security_profile.get('encryption_at_host'),
-                            security_type=self.security_profile.get('security_type'),
-                        )
+                    security_profile = self.build_security_profile()
+                    if security_profile is not None:
                         vmss_resource.virtual_machine_profile.security_profile = security_profile
 
                     self.log("Create virtual machine with parameters:")
@@ -1489,19 +1489,28 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                     self.results['actions'].append('Updated VMSS {0}'.format(self.name))
 
                     vmss_resource = self.get_vmss()
-                    vmss_resource.virtual_machine_profile.storage_profile.os_disk.caching = self.os_disk_caching
-                    vmss_resource.sku.capacity = self.capacity
-                    vmss_resource.sku.name = self.vm_size
-                    vmss_resource.orchestration_mode = self.orchestration_mode
-                    vmss_resource.platform_fault_domain_count = self.platform_fault_domain_count
-                    vmss_resource.overprovision = self.overprovision
-                    vmss_resource.single_placement_group = self.single_placement_group
+                    if self.os_disk_caching is not None:
+                        vmss_resource.virtual_machine_profile.storage_profile.os_disk.caching = self.os_disk_caching
+                    if self.capacity is not None:
+                        vmss_resource.sku.capacity = self.capacity
+                    if self.vm_size is not None:
+                        vmss_resource.sku.name = self.vm_size
+                    if self.overprovision is not None:
+                        vmss_resource.overprovision = self.overprovision
+                    if self.single_placement_group is not None:
+                        vmss_resource.single_placement_group = self.single_placement_group
                     vmss_resource.tags = self.tags
+
+                    if self.upgrade_policy:
+                        if vmss_resource.upgrade_policy is not None:
+                            vmss_resource.upgrade_policy.mode = self.upgrade_policy
+                        else:
+                            vmss_resource.upgrade_policy = self.compute_models.UpgradePolicy(mode=self.upgrade_policy)
 
                     if self.custom_data and vmss_resource.virtual_machine_profile.os_profile is not None:
                         vmss_resource.virtual_machine_profile.os_profile.custom_data = self.custom_data
 
-                    if support_lb_change:
+                    if support_lb_change and 'load_balancer' in self.differences:
                         if self.load_balancer:
                             vmss_resource.virtual_machine_profile.network_profile.network_interface_configurations[0] \
                                 .ip_configurations[0].load_balancer_backend_address_pools = load_balancer_backend_address_pools
@@ -1521,40 +1530,12 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
                         vmss_resource.virtual_machine_profile.network_profile.network_interface_configurations[0].ip_configurations[0] \
                             .application_security_groups = [self.compute_models.SubResource(id=item) for item in self.application_security_groups]
 
-                    if self.data_disks is not None:
-                        data_disks = []
-                        for data_disk in self.data_disks:
-                            if data_disk.get('disk_encryption_set'):
-                                data_disk_encryption_set = self.compute_models.DiskEncryptionSetParameters(id=data_disk['disk_encryption_set'])
-                                data_disk_managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
-                                    storage_account_type=data_disk.get('managed_disk_type', None),
-                                    disk_encryption_set=data_disk_encryption_set
-                                )
-                            else:
-                                data_disk_managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
-                                    storage_account_type=data_disk.get('managed_disk_type', None)
-                                )
-                            data_disks.append(self.compute_models.VirtualMachineScaleSetDataDisk(
-                                lun=data_disk['lun'],
-                                caching=data_disk['caching'],
-                                create_option=self.compute_models.DiskCreateOptionTypes.empty,
-                                disk_size_gb=data_disk['disk_size_gb'],
-                                managed_disk=data_disk_managed_disk,
-                            ))
+                    data_disks = self.build_data_disks()
+                    if data_disks is not None:
                         vmss_resource.virtual_machine_profile.storage_profile.data_disks = data_disks
 
-                    if self.security_profile is not None:
-                        uefi_settings_spec = None
-                        if self.security_profile.get('uefi_settings') is not None:
-                            uefi_settings_spec = self.compute_models.UefiSettings(
-                                secure_boot_enabled=self.security_profile['uefi_settings'].get('secure_boot_enabled'),
-                                v_tpm_enabled=self.security_profile['uefi_settings'].get('v_tpm_enabled'),
-                            )
-                        security_profile = self.compute_models.SecurityProfile(
-                            uefi_settings=uefi_settings_spec,
-                            encryption_at_host=self.security_profile.get('encryption_at_host'),
-                            security_type=self.security_profile.get('security_type'),
-                        )
+                    security_profile = self.build_security_profile()
+                    if security_profile is not None:
                         vmss_resource.virtual_machine_profile.security_profile = security_profile
 
                     if self.scale_in_policy:
@@ -1607,13 +1588,6 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             return vmss
         except ResourceNotFoundError as exc:
             self.fail("Error getting virtual machine scale set {0} - {1}".format(self.name, str(exc)))
-
-    def get_virtual_network(self, name):
-        try:
-            vnet = self.network_client.virtual_networks.get(self.virtual_network_resource_group, name)
-            return vnet
-        except ResourceNotFoundError as exc:
-            self.fail("Error fetching virtual network {0} - {1}".format(name, str(exc)))
 
     def get_subnet(self, vnet_name, subnet_name):
         self.log("Fetching subnet {0} in virtual network {1}".format(subnet_name, vnet_name))
@@ -1760,6 +1734,100 @@ class AzureRMVirtualMachineScaleSet(AzureRMModuleBaseExt):
             return None
 
         return self.compute_models.ScaleInPolicy(rules=[self.scale_in_policy])
+
+    def data_disks_differ(self, new_disks, existing_disks):
+        '''
+        Return True if the requested data disks differ from what is live on Azure.
+
+        Compares only the fields we manage (lun, caching, disk_size_gb, managed_disk_type).
+        '''
+        new_normalized = sorted(
+            [self._normalize_new_disk(d) for d in (new_disks or [])],
+            key=lambda x: x['lun'],
+        )
+        existing_normalized = sorted(
+            [self._normalize_existing_disk(d) for d in (existing_disks or [])],
+            key=lambda x: x['lun'],
+        )
+        if len(new_normalized) == len(existing_normalized):
+            for user_disk, live_disk in zip(new_normalized, existing_normalized):
+                for field, value in user_disk.items():
+                    if value is None:
+                        user_disk[field] = live_disk[field]
+        return not self.default_compare({}, new_normalized, existing_normalized, '', dict(compare=[]))
+
+    @staticmethod
+    def _normalize_new_disk(disk):
+        '''
+        Normalize a user-provided data_disk dict for diff comparison.
+        '''
+        return {
+            'lun': int(disk.get('lun', 0)),
+            'caching': (disk.get('caching') or '').lower() or None,
+            'disk_size_gb': disk.get('disk_size_gb'),
+            'managed_disk_type': disk.get('managed_disk_type'),
+        }
+
+    @staticmethod
+    def _normalize_existing_disk(disk):
+        '''
+        Normalize a live-from-Azure data_disk dict for diff comparison.
+        '''
+        return {
+            'lun': int(disk.get('lun', 0)),
+            'caching': (disk.get('caching') or '').lower() or None,
+            'disk_size_gb': disk.get('disk_size_gb'),
+            'managed_disk_type': (disk.get('managed_disk') or {}).get('storage_account_type'),
+        }
+
+    def build_data_disks(self):
+        '''
+        Build a list of VirtualMachineScaleSetDataDisk from self.data_disks.
+
+        :return: list of VirtualMachineScaleSetDataDisk, or None if self.data_disks is None
+        '''
+        if self.data_disks is None:
+            return None
+        data_disks = []
+        for data_disk in self.data_disks:
+            if data_disk.get('disk_encryption_set'):
+                disk_encryption_set = self.compute_models.DiskEncryptionSetParameters(id=data_disk['disk_encryption_set'])
+                managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
+                    storage_account_type=data_disk.get('managed_disk_type'),
+                    disk_encryption_set=disk_encryption_set,
+                )
+            else:
+                managed_disk = self.compute_models.VirtualMachineScaleSetManagedDiskParameters(
+                    storage_account_type=data_disk.get('managed_disk_type'),
+                )
+            data_disks.append(self.compute_models.VirtualMachineScaleSetDataDisk(
+                lun=data_disk.get('lun', '0'),
+                caching=data_disk.get('caching', self.compute_models.CachingTypes.read_only),
+                create_option=self.compute_models.DiskCreateOptionTypes.empty,
+                disk_size_gb=data_disk.get('disk_size_gb'),
+                managed_disk=managed_disk,
+            ))
+        return data_disks
+
+    def build_security_profile(self):
+        '''
+        Build a SecurityProfile from self.security_profile.
+
+        :return: SecurityProfile, or None if self.security_profile is None
+        '''
+        if self.security_profile is None:
+            return None
+        uefi_settings_spec = None
+        if self.security_profile.get('uefi_settings') is not None:
+            uefi_settings_spec = self.compute_models.UefiSettings(
+                secure_boot_enabled=self.security_profile['uefi_settings'].get('secure_boot_enabled'),
+                v_tpm_enabled=self.security_profile['uefi_settings'].get('v_tpm_enabled'),
+            )
+        return self.compute_models.SecurityProfile(
+            uefi_settings=uefi_settings_spec,
+            encryption_at_host=self.security_profile.get('encryption_at_host'),
+            security_type=self.security_profile.get('security_type'),
+        )
 
 
 def main():

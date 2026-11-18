@@ -28,15 +28,20 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     GetAgreementEntitlementsPaginator,
+    GetAgreementRequestApprovalPlansPaginator,
+    GetAgreementRequestTermsPaginator,
     GetAgreementTermsPaginator,
+    ListAgreementApprovalsPaginator,
     ListAgreementCancellationRequestsPaginator,
     ListAgreementChargesPaginator,
     ListAgreementInvoiceLineItemsPaginator,
     ListAgreementPaymentRequestsPaginator,
+    ListAgreementRequestsPaginator,
     ListBillingAdjustmentRequestsPaginator,
     SearchAgreementsPaginator,
 )
 from .type_defs import (
+    AcceptAgreementApprovalInputTypeDef,
     AcceptAgreementCancellationRequestInputTypeDef,
     AcceptAgreementCancellationRequestOutputTypeDef,
     AcceptAgreementPaymentRequestInputTypeDef,
@@ -50,20 +55,33 @@ from .type_defs import (
     CancelAgreementInputTypeDef,
     CancelAgreementPaymentRequestInputTypeDef,
     CancelAgreementPaymentRequestOutputTypeDef,
+    CancelAgreementRequestInputTypeDef,
     CreateAgreementRequestInputTypeDef,
     CreateAgreementRequestOutputTypeDef,
     DescribeAgreementInputTypeDef,
     DescribeAgreementOutputTypeDef,
+    GetAgreementApprovalInputTypeDef,
+    GetAgreementApprovalOutputTypeDef,
     GetAgreementCancellationRequestInputTypeDef,
     GetAgreementCancellationRequestOutputTypeDef,
+    GetAgreementContactsInputTypeDef,
+    GetAgreementContactsOutputTypeDef,
     GetAgreementEntitlementsInputTypeDef,
     GetAgreementEntitlementsOutputTypeDef,
     GetAgreementPaymentRequestInputTypeDef,
     GetAgreementPaymentRequestOutputTypeDef,
+    GetAgreementRequestApprovalPlansInputTypeDef,
+    GetAgreementRequestApprovalPlansOutputTypeDef,
+    GetAgreementRequestInputTypeDef,
+    GetAgreementRequestOutputTypeDef,
+    GetAgreementRequestTermsInputTypeDef,
+    GetAgreementRequestTermsOutputTypeDef,
     GetAgreementTermsInputTypeDef,
     GetAgreementTermsOutputTypeDef,
     GetBillingAdjustmentRequestInputTypeDef,
     GetBillingAdjustmentRequestOutputTypeDef,
+    ListAgreementApprovalsInputTypeDef,
+    ListAgreementApprovalsOutputTypeDef,
     ListAgreementCancellationRequestsInputTypeDef,
     ListAgreementCancellationRequestsOutputTypeDef,
     ListAgreementChargesInputTypeDef,
@@ -72,8 +90,11 @@ from .type_defs import (
     ListAgreementInvoiceLineItemsOutputTypeDef,
     ListAgreementPaymentRequestsInputTypeDef,
     ListAgreementPaymentRequestsOutputTypeDef,
+    ListAgreementRequestsInputTypeDef,
+    ListAgreementRequestsOutputTypeDef,
     ListBillingAdjustmentRequestsInputTypeDef,
     ListBillingAdjustmentRequestsOutputTypeDef,
+    RejectAgreementApprovalInputTypeDef,
     RejectAgreementCancellationRequestInputTypeDef,
     RejectAgreementCancellationRequestOutputTypeDef,
     RejectAgreementPaymentRequestInputTypeDef,
@@ -84,6 +105,8 @@ from .type_defs import (
     SendAgreementCancellationRequestOutputTypeDef,
     SendAgreementPaymentRequestInputTypeDef,
     SendAgreementPaymentRequestOutputTypeDef,
+    StartAgreementApprovalsInputTypeDef,
+    StartAgreementApprovalsOutputTypeDef,
     UpdatePurchaseOrdersInputTypeDef,
 )
 
@@ -137,6 +160,19 @@ class AgreementServiceClient(BaseClient):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/generate_presigned_url.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#generate_presigned_url)
+        """
+
+    def accept_agreement_approval(
+        self, **kwargs: Unpack[AcceptAgreementApprovalInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Allows the management account or a delegated administrator of the buyer's AWS
+        organization to approve an agreement approval that is in
+        <code>PENDING_APPROVAL</code> status, as the organization administrator
+        approver or on behalf of another approver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/accept_agreement_approval.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#accept_agreement_approval)
         """
 
     def accept_agreement_cancellation_request(
@@ -212,6 +248,18 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#cancel_agreement_payment_request)
         """
 
+    def cancel_agreement_request(
+        self, **kwargs: Unpack[CancelAgreementRequestInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Allows buyers (acceptors) to cancel an agreement request that is in
+        <code>PENDING_APPROVAL</code> status, or in <code>APPROVED</code> status when
+        no agreement has been created from it.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/cancel_agreement_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#cancel_agreement_request)
+        """
+
     def create_agreement_request(
         self, **kwargs: Unpack[CreateAgreementRequestInputTypeDef]
     ) -> CreateAgreementRequestOutputTypeDef:
@@ -234,6 +282,18 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#describe_agreement)
         """
 
+    def get_agreement_approval(
+        self, **kwargs: Unpack[GetAgreementApprovalInputTypeDef]
+    ) -> GetAgreementApprovalOutputTypeDef:
+        """
+        Retrieves detailed information about a specific agreement approval, including
+        its approval levels, the approvers at each level, and the decision of each
+        approver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_approval.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_approval)
+        """
+
     def get_agreement_cancellation_request(
         self, **kwargs: Unpack[GetAgreementCancellationRequestInputTypeDef]
     ) -> GetAgreementCancellationRequestOutputTypeDef:
@@ -242,6 +302,17 @@ class AgreementServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_cancellation_request.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_cancellation_request)
+        """
+
+    def get_agreement_contacts(
+        self, **kwargs: Unpack[GetAgreementContactsInputTypeDef]
+    ) -> GetAgreementContactsOutputTypeDef:
+        """
+        Obtains details about the acceptor's contact information for an active
+        agreement that you participate in as the proposer, acceptor, or manufacturer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_contacts.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_contacts)
         """
 
     def get_agreement_entitlements(
@@ -264,6 +335,38 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_payment_request)
         """
 
+    def get_agreement_request(
+        self, **kwargs: Unpack[GetAgreementRequestInputTypeDef]
+    ) -> GetAgreementRequestOutputTypeDef:
+        """
+        Retrieves detailed information about a specific agreement request, including
+        its status, intent, approval requirement, and charges.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_request.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_request)
+        """
+
+    def get_agreement_request_approval_plans(
+        self, **kwargs: Unpack[GetAgreementRequestApprovalPlansInputTypeDef]
+    ) -> GetAgreementRequestApprovalPlansOutputTypeDef:
+        """
+        Retrieves the approval plans that apply to an agreement request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_request_approval_plans.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_request_approval_plans)
+        """
+
+    def get_agreement_request_terms(
+        self, **kwargs: Unpack[GetAgreementRequestTermsInputTypeDef]
+    ) -> GetAgreementRequestTermsOutputTypeDef:
+        """
+        Retrieves the terms proposed for an agreement request, such as pricing, legal,
+        and renewal terms.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_agreement_request_terms.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_agreement_request_terms)
+        """
+
     def get_agreement_terms(
         self, **kwargs: Unpack[GetAgreementTermsInputTypeDef]
     ) -> GetAgreementTermsOutputTypeDef:
@@ -283,6 +386,16 @@ class AgreementServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_billing_adjustment_request.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_billing_adjustment_request)
+        """
+
+    def list_agreement_approvals(
+        self, **kwargs: Unpack[ListAgreementApprovalsInputTypeDef]
+    ) -> ListAgreementApprovalsOutputTypeDef:
+        """
+        Lists agreement approvals available to you as a buyer.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_agreement_approvals.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_approvals)
         """
 
     def list_agreement_cancellation_requests(
@@ -327,6 +440,16 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_payment_requests)
         """
 
+    def list_agreement_requests(
+        self, **kwargs: Unpack[ListAgreementRequestsInputTypeDef]
+    ) -> ListAgreementRequestsOutputTypeDef:
+        """
+        Lists agreement requests available to you as a buyer (acceptor).
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_agreement_requests.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_agreement_requests)
+        """
+
     def list_billing_adjustment_requests(
         self, **kwargs: Unpack[ListBillingAdjustmentRequestsInputTypeDef]
     ) -> ListBillingAdjustmentRequestsOutputTypeDef:
@@ -335,6 +458,19 @@ class AgreementServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/list_billing_adjustment_requests.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#list_billing_adjustment_requests)
+        """
+
+    def reject_agreement_approval(
+        self, **kwargs: Unpack[RejectAgreementApprovalInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Allows the management account or a delegated administrator of the buyer's AWS
+        organization to reject an agreement approval that is in
+        <code>PENDING_APPROVAL</code> status, as the organization administrator
+        approver or on behalf of another approver.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/reject_agreement_approval.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#reject_agreement_approval)
         """
 
     def reject_agreement_cancellation_request(
@@ -393,6 +529,17 @@ class AgreementServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#send_agreement_payment_request)
         """
 
+    def start_agreement_approvals(
+        self, **kwargs: Unpack[StartAgreementApprovalsInputTypeDef]
+    ) -> StartAgreementApprovalsOutputTypeDef:
+        """
+        Allows buyers (acceptors) to start the approvals that their organization
+        requires for an agreement request.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/start_agreement_approvals.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#start_agreement_approvals)
+        """
+
     def update_purchase_orders(
         self, **kwargs: Unpack[UpdatePurchaseOrdersInputTypeDef]
     ) -> dict[str, Any]:
@@ -417,8 +564,41 @@ class AgreementServiceClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_agreement_request_approval_plans"]
+    ) -> GetAgreementRequestApprovalPlansPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["get_agreement_request_terms"]
+    ) -> GetAgreementRequestTermsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["get_agreement_terms"]
     ) -> GetAgreementTermsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agreement_approvals"]
+    ) -> ListAgreementApprovalsPaginator:
         """
         Create a paginator for an operation.
 
@@ -463,6 +643,17 @@ class AgreementServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_agreement_payment_requests"]
     ) -> ListAgreementPaymentRequestsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/marketplace-agreement/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_marketplace_agreement/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agreement_requests"]
+    ) -> ListAgreementRequestsPaginator:
         """
         Create a paginator for an operation.
 

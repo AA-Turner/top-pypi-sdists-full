@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-from ._pep514 import _run, discover_pythons
-from ._propose import Pep514PythonInfo, propose_interpreters
+from ._cancel_io import stop_query_reader
+from ._propose import propose_interpreters
 
 __all__ = [
-    "Pep514PythonInfo",
-    "_run",
-    "discover_pythons",
     "propose_interpreters",
+    "stop_query_reader",
 ]

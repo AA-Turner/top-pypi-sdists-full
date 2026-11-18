@@ -26,6 +26,7 @@ from ....foundation.safe_warn import safe_warn
 from ....foundation.tls.tls import ssl_context
 from ...agent_session import AGENT_SESSION_HEADER
 from .notices import NOTICE_WATCHER
+from .team_key import warn_if_team_default
 from ...settings.settings import Settings
 from ...values import unstorable
 from .protocols import observer
@@ -526,6 +527,8 @@ class Transport(_TransportParts):
             device_mark.note_all(resp.headers)
             # A notice set this process has not handled: read and shown off this thread.
             NOTICE_WATCHER.handle_answer(self, resp.headers)
+            # D10: a team key whose creator left reads less; say so once, never silently.
+            warn_if_team_default(resp.headers)
         if resp.status_code >= 400:
             if attempt > 1 and method.upper() == "DELETE" and _is_trash_notice(resp):
                 # A RETRIED delete finding the thing in the trash: the first attempt
@@ -537,7 +540,7 @@ class Transport(_TransportParts):
             # 2xx only: a 3xx means the write did not land where we asked.
             self._auto_mark_tracking(method, path, headers.get(AGENT_SESSION_HEADER))
             if override is None:  # our own identity only (the hosted MCP serves others)
-                self._set_auto_chat_on(method, path, headers.get(AGENT_SESSION_HEADER), resp)
+                self._send_run_note(method, path, headers.get(AGENT_SESSION_HEADER), resp)
         return resp
 
     # -- typed helpers ------------------------------------------------------

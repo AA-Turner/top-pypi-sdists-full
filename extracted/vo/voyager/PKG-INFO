@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: voyager
-Version: 2.2.3
+Version: 2.2.4
 Summary: Easy-to-use, fast, simple multi-platform approximate nearest-neighbor search library.
 Author-Email: Peter Sobot <psobot@spotify.com>
 Classifier: Development Status :: 5 - Production/Stable
@@ -58,7 +58,7 @@ Add the following artifact to your `pom.xml`:
 <dependency>
   <groupId>com.spotify</groupId>
   <artifactId>voyager</artifactId>
-  <version>2.2.3</version>
+  <version>2.2.4</version>
 </dependency>
 ```
 You can find the latest version on [Voyager's Releases page](https://github.com/spotify/voyager/releases).
@@ -67,7 +67,7 @@ You can find the latest version on [Voyager's Releases page](https://github.com/
 
 Add the following artifact to your `build.sbt`:
 ```sbt
-"com.spotify" % "voyager" % "2.2.3"
+"com.spotify" % "voyager" % "2.2.4"
 ```
 You can find the latest version on [Voyager's Releases page](https://github.com/spotify/voyager/releases).
 

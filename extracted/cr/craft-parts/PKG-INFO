@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: craft-parts
-Version: 2.37.3
+Version: 2.38.0
 Summary: Craft parts tooling
 Author-email: "Canonical Ltd." <snapcraft@lists.snapcraft.io>
 Project-URL: Homepage, https://github.com/canonical/craft-parts
@@ -13,12 +13,12 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: PyYAML
 Requires-Dist: lxml>=5.3.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: pyxdg
-Requires-Dist: PyYAML
-Requires-Dist: requests-unixsocket2~=1.0
 Requires-Dist: requests<3.0,>=2.32.4
+Requires-Dist: requests-unixsocket2~=1.0
 Requires-Dist: semver>=3.0.4
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Requires-Dist: zstandard>=0.25

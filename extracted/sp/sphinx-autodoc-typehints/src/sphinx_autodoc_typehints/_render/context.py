@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from sphinx.config import Config
     from sphinx.environment import BuildEnvironment
 
-    from .._types import RenderNode, TypeParam
+    from . import RenderNode, TypeParam
 
 
 _ATTRIBUTE: Final[str] = "_typehints_render_context"
@@ -50,7 +50,7 @@ def render_context(config: Config) -> RenderContext:
     return getattr(config, _ATTRIBUTE, None) or RenderContext()
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True, slots=True, kw_only=True)
 class RenderContext:
     """Kept on the config, as a `typehints_formatter` may format a nested type with it, which must render the same."""
 
@@ -75,13 +75,13 @@ class ScopeExtras(TypeParamScope, total=False):
     kind: AnnotationKind
 
 
-class RenderChanges(ScopeExtras, total=False):
+class RenderChanges(ScopeExtras, total=False):  # simplint: ignore[missing-from-all]  # module-local type
     env: BuildEnvironment | None
     module_prefix: str
     guard_bound: GuardBinder | None
 
 
-class GuardBinder(Protocol):
+class GuardBinder(Protocol):  # simplint: ignore[missing-from-all]  # module-local type
     def __call__(self, module: ModuleType | None, /) -> AbstractContextManager[None]: ...
 
 

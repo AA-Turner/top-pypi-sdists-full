@@ -5,7 +5,7 @@ import time
 from typing import Protocol
 from uuid import uuid4
 
-from dreamscale_transport.llm import (
+from dreamscale_core.llm import (
     MAX_CALLS,
     MAX_SECONDS,
     Observation,

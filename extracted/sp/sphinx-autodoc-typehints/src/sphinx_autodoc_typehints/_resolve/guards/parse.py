@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import sys
 from ast import (
     AST,
@@ -31,8 +32,7 @@ from ast import (
 )
 from functools import cache
 from inspect import getsource
-from re import MULTILINE, findall
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Final
 from warnings import catch_warnings, simplefilter
 
 if TYPE_CHECKING:
@@ -43,13 +43,6 @@ if TYPE_CHECKING:
 def guard_binds(module: ModuleType, names: set[str]) -> bool:
     statements, _ = guarded_statements(module_source(module))
     return any(name in names for statement in statements for name in defined_names(statement))
-
-
-def module_source(module: ModuleType) -> str:
-    try:
-        return getsource(module)
-    except (TypeError, OSError):
-        return ""
 
 
 # every importer of a module asks again while its guard binds none of the names imported, and parsing typing takes
@@ -71,9 +64,7 @@ def guarded_statements(module_code: str) -> tuple[tuple[stmt, ...], tuple[Syntax
             nodes, errors = [], []
             # a statement of the module body starting with `if`, with its indented lines and its `elif` and
             # `else` branches
-            for block in findall(
-                r"^if\b.*(?:\n|\Z)(?:(?:[ \t]+.*|(?:elif|else)\b.*)?(?:\n|\Z))*", module_code, MULTILINE
-            ):
+            for block in _if_blocks(module_code):
                 if "TYPE_CHECKING" in block:
                     try:
                         nodes.extend(parse(block).body)
@@ -95,6 +86,20 @@ def guarded_statements(module_code: str) -> tuple[tuple[stmt, ...], tuple[Syntax
 
 
 # `None` when `TYPE_CHECKING` plays no part in the test
+def _if_blocks(module_code: str) -> list[str]:
+    blocks: list[str] = []
+    open_block = False
+    for line in module_code.splitlines(keepends=True):
+        if _IF_BLOCKS_PATTERN.match(line):
+            blocks.append(line)
+            open_block = True
+        elif open_block and (not line.strip() or line[0] in " \t" or _IF_BLOCKS_PATTERN_2.match(line)):
+            blocks[-1] += line
+        else:
+            open_block = False
+    return blocks
+
+
 def _holds_when_type_checking(test: expr) -> bool | None:
     if isinstance(test, Constant):
         return bool(test.value)
@@ -108,12 +113,7 @@ def _holds_when_type_checking(test: expr) -> bool | None:
     if isinstance(test, Compare):
         return _platform_comparison(test)
     if isinstance(test, BoolOp):
-        values = [_holds_when_type_checking(value) for value in test.values]
-        if isinstance(test.op, And):
-            holds = False if False in values else True if all(value is True for value in values) else None
-        else:
-            holds = True if True in values else False if all(value is False for value in values) else None
-        return holds
+        return _holds_bool_op(test)
     return None
 
 
@@ -131,6 +131,20 @@ def _platform_comparison(test: Compare) -> bool | None:
     return sys.platform != test.comparators[0].value if isinstance(test.ops[0], NotEq) else None
 
 
+def _holds_bool_op(test: BoolOp) -> bool | None:
+    values = [_holds_when_type_checking(value) for value in test.values]
+    if isinstance(test.op, And):
+        return False if False in values else True if all(value is True for value in values) else None
+    return True if True in values else False if all(value is False for value in values) else None
+
+
+def module_source(module: ModuleType) -> str:
+    try:
+        return getsource(module)
+    except (TypeError, OSError):
+        return ""
+
+
 def defined_names(node: AST) -> Iterator[str]:
     """Yield the names the node binds, taking only its own targets so loop and comprehension variables stay out."""
     if isinstance(node, ClassDef | FunctionDef | AsyncFunctionDef):
@@ -145,6 +159,11 @@ def defined_names(node: AST) -> Iterator[str]:
     elif isinstance(node, stmt):
         for child in iter_child_nodes(node):
             yield from defined_names(child)
+
+
+_IF_BLOCKS_PATTERN: Final[re.Pattern[str]] = re.compile(r"if\b")
+
+_IF_BLOCKS_PATTERN_2: Final[re.Pattern[str]] = re.compile(r"(?:elif|else)\b")
 
 
 __all__ = [

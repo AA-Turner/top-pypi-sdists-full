@@ -11,7 +11,7 @@ import sys
 from pathlib import Path
 
 import typer
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.control import ControlPlaneClient
 from dreamscale.doctor import CheckResult, format_check, format_overall

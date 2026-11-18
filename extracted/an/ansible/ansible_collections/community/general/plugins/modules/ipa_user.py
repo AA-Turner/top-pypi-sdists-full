@@ -20,6 +20,13 @@ options:
   displayname:
     description: Display name.
     type: str
+  enable_on_present:
+    description:
+      - When O(state=present), enable the user if it is disabled.
+      - If V(false), O(state=present) does not change whether an existing user is enabled or disabled.
+    type: bool
+    default: true
+    version_added: 14.0.0
   update_password:
     description:
       - Set password for a user.
@@ -36,6 +43,8 @@ options:
       - Date at which the user password expires.
       - In the format YYYYMMddHHmmss.
       - For example V(20180121182022) expires on 21 January 2018 at 18:20:22.
+      - FreeIPA resets the expiration date whenever an administrator sets O(password), so when both are
+        sent the module sets the expiration date in a separate request after the password.
     type: str
   loginshell:
     description: Login shell.
@@ -67,7 +76,13 @@ options:
   state:
     description: State to ensure.
     default: "present"
-    choices: ["absent", "disabled", "enabled", "present"]
+    choices:
+      absent: The user does not exist.
+      disabled: The user exists and is disabled.
+      enabled: The user exists and is enabled.
+      present:
+        - The user exists.
+        - Whether an existing disabled user is enabled depends on O(enable_on_present).
     type: str
   telephonenumber:
     description:
@@ -215,7 +230,7 @@ def get_user_dict(
     krbpasswordexpiration=None,
     loginshell=None,
     mail=None,
-    nsaccountlock=False,
+    nsaccountlock=None,
     sn=None,
     sshpubkey=None,
     telephonenumber=None,
@@ -237,7 +252,8 @@ def get_user_dict(
         user["loginshell"] = loginshell
     if mail is not None:
         user["mail"] = mail
-    user["nsaccountlock"] = nsaccountlock
+    if nsaccountlock is not None:
+        user["nsaccountlock"] = nsaccountlock
     if sn is not None:
         user["sn"] = sn
     if sshpubkey is not None:
@@ -292,6 +308,7 @@ def get_user_diff(client, ipa_user, module_user):
     if sshpubkey is not None:
         del module_user["sshpubkeyfp"]
         module_user["ipasshpubkey"] = sshpubkey
+        result = ["ipasshpubkey" if key == "sshpubkeyfp" else key for key in result]
     return result
 
 
@@ -328,15 +345,28 @@ def get_ssh_key_fingerprint(ssh_key, hash_algo="sha256"):
         return f"{key_fp} {comment} ({key_type})"
 
 
+def split_password_expiration(item):
+    """
+    FreeIPA resets krbpasswordexpiration whenever an administrator sets userpassword, even when both are
+    sent in the same request. Split the expiration date off so it can be sent in a second request.
+    """
+    if "userpassword" in item and "krbpasswordexpiration" in item:
+        item = dict(item)
+        return item, {"krbpasswordexpiration": item.pop("krbpasswordexpiration")}
+    return item, None
+
+
 def ensure(module, client):
     state = module.params["state"]
     name = module.params["uid"]
-    nsaccountlock = state == "disabled"
+    nsaccountlock = None
+    if state in ["enabled", "disabled"] or module.params["enable_on_present"]:
+        nsaccountlock = state == "disabled"
 
     module_user = get_user_dict(
-        displayname=module.params.get("displayname"),
-        krbpasswordexpiration=module.params.get("krbpasswordexpiration"),
-        givenname=module.params.get("givenname"),
+        displayname=module.params["displayname"],
+        krbpasswordexpiration=module.params["krbpasswordexpiration"],
+        givenname=module.params["givenname"],
         loginshell=module.params["loginshell"],
         mail=module.params["mail"],
         sn=module.params["sn"],
@@ -345,13 +375,13 @@ def ensure(module, client):
         telephonenumber=module.params["telephonenumber"],
         title=module.params["title"],
         userpassword=module.params["password"],
-        gidnumber=module.params.get("gidnumber"),
-        uidnumber=module.params.get("uidnumber"),
-        homedirectory=module.params.get("homedirectory"),
-        userauthtype=module.params.get("userauthtype"),
+        gidnumber=module.params["gidnumber"],
+        uidnumber=module.params["uidnumber"],
+        homedirectory=module.params["homedirectory"],
+        userauthtype=module.params["userauthtype"],
     )
 
-    update_password = module.params.get("update_password")
+    update_password = module.params["update_password"]
     ipa_user = client.user_find(name=name)
 
     changed = False
@@ -359,15 +389,31 @@ def ensure(module, client):
         if not ipa_user:
             changed = True
             if not module.check_mode:
-                ipa_user = client.user_add(name=name, item=module_user)
+                item, expiration = split_password_expiration(module_user)
+                ipa_user = client.user_add(name=name, item=item)
+                if expiration is not None:
+                    ipa_user = client.user_mod(name=name, item=expiration)
         else:
             if update_password == "on_create":
                 module_user.pop("userpassword", None)
             diff = get_user_diff(client, ipa_user, module_user)
+            if (
+                "userpassword" in diff
+                and "krbpasswordexpiration" in module_user
+                and "krbpasswordexpiration" not in diff
+            ):
+                # The password change resets the expiration date, so it has to be set again.
+                diff.append("krbpasswordexpiration")
             if len(diff) > 0:
                 changed = True
                 if not module.check_mode:
-                    ipa_user = client.user_mod(name=name, item=module_user)
+                    data = {}
+                    for key in diff:
+                        data[key] = module_user[key]
+                    data, expiration = split_password_expiration(data)
+                    ipa_user = client.user_mod(name=name, item=data)
+                    if expiration is not None:
+                        ipa_user = client.user_mod(name=name, item=expiration)
     else:
         if ipa_user:
             changed = True
@@ -381,6 +427,7 @@ def main():
     argument_spec = ipa_argument_spec()
     argument_spec.update(
         displayname=dict(type="str"),
+        enable_on_present=dict(type="bool", default=True),
         givenname=dict(type="str"),
         update_password=dict(type="str", default="always", choices=["always", "on_create"], no_log=False),
         krbpasswordexpiration=dict(type="str", no_log=False),

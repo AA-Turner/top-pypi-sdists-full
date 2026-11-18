@@ -37,6 +37,8 @@ class SettingsSummary:
             forgejo_url (str):
             forgejo_username (str):
             forgejo_token_set (bool):
+            forgejo_o_auth_configured (bool):
+            forgejo_o_auth_connected (bool):
             webhook_configured (bool): Whether this user's webhook token and secret exist. They are
                 created the first time the Settings page reads
                 `GET /api/v1/settings`, never by this read, so this is false for a
@@ -64,6 +66,8 @@ class SettingsSummary:
     forgejo_url: str
     forgejo_username: str
     forgejo_token_set: bool
+    forgejo_o_auth_configured: bool
+    forgejo_o_auth_connected: bool
     webhook_configured: bool
     renovate_rebase_label: str
     renovate_authors: list[str]
@@ -93,6 +97,10 @@ class SettingsSummary:
         forgejo_username = self.forgejo_username
 
         forgejo_token_set = self.forgejo_token_set
+
+        forgejo_o_auth_configured = self.forgejo_o_auth_configured
+
+        forgejo_o_auth_connected = self.forgejo_o_auth_connected
 
         webhook_configured = self.webhook_configured
 
@@ -135,6 +143,8 @@ class SettingsSummary:
             "forgejoUrl": forgejo_url,
             "forgejoUsername": forgejo_username,
             "forgejoTokenSet": forgejo_token_set,
+            "forgejoOAuthConfigured": forgejo_o_auth_configured,
+            "forgejoOAuthConnected": forgejo_o_auth_connected,
             "webhookConfigured": webhook_configured,
             "renovateRebaseLabel": renovate_rebase_label,
             "renovateAuthors": renovate_authors,
@@ -166,6 +176,10 @@ class SettingsSummary:
         forgejo_username = d.pop("forgejoUsername")
 
         forgejo_token_set = d.pop("forgejoTokenSet")
+
+        forgejo_o_auth_configured = d.pop("forgejoOAuthConfigured")
+
+        forgejo_o_auth_connected = d.pop("forgejoOAuthConnected")
 
         webhook_configured = d.pop("webhookConfigured")
 
@@ -210,6 +224,8 @@ class SettingsSummary:
             forgejo_url=forgejo_url,
             forgejo_username=forgejo_username,
             forgejo_token_set=forgejo_token_set,
+            forgejo_o_auth_configured=forgejo_o_auth_configured,
+            forgejo_o_auth_connected=forgejo_o_auth_connected,
             webhook_configured=webhook_configured,
             renovate_rebase_label=renovate_rebase_label,
             renovate_authors=renovate_authors,

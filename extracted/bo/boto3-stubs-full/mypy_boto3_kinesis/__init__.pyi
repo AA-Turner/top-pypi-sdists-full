@@ -15,6 +15,7 @@ Usage::
         DescribeStreamPaginator,
         KinesisClient,
         ListChannelsPaginator,
+        ListQueuesPaginator,
         ListShardsPaginator,
         ListStreamConsumersPaginator,
         ListStreamsPaginator,
@@ -31,6 +32,7 @@ Usage::
 
     describe_stream_paginator: DescribeStreamPaginator = client.get_paginator("describe_stream")
     list_channels_paginator: ListChannelsPaginator = client.get_paginator("list_channels")
+    list_queues_paginator: ListQueuesPaginator = client.get_paginator("list_queues")
     list_shards_paginator: ListShardsPaginator = client.get_paginator("list_shards")
     list_stream_consumers_paginator: ListStreamConsumersPaginator = client.get_paginator("list_stream_consumers")
     list_streams_paginator: ListStreamsPaginator = client.get_paginator("list_streams")
@@ -41,6 +43,7 @@ from .client import KinesisClient
 from .paginator import (
     DescribeStreamPaginator,
     ListChannelsPaginator,
+    ListQueuesPaginator,
     ListShardsPaginator,
     ListStreamConsumersPaginator,
     ListStreamsPaginator,
@@ -55,6 +58,7 @@ __all__ = (
     "DescribeStreamPaginator",
     "KinesisClient",
     "ListChannelsPaginator",
+    "ListQueuesPaginator",
     "ListShardsPaginator",
     "ListStreamConsumersPaginator",
     "ListStreamsPaginator",

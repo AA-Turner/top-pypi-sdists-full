@@ -21,12 +21,14 @@ from ...generated.models import Authorship as Authorship  # re-export: probe.Aut
 from probe.sdk.client.core import CoreMixin
 from probe.sdk.client.disabled import DisabledClient, is_disabled_mode
 from probe.sdk.client.credentials import CredentialsMixin
+from probe.sdk.client.resources.artifact_reads import ArtifactReadsMixin
 from probe.sdk.client.resources.artifacts import ArtifactsMixin, ArtifactsResource
 from probe.sdk.client.resources.auth import AuthMixin, AuthResource
 from probe.sdk.client.resources.catalog import CatalogMixin, CatalogResource
 from probe.sdk.client.resources.charts import ChartsMixin, ChartsResource
 from probe.sdk.client.resources.decisions import DecisionsMixin
 from probe.sdk.client.resources.delivery import DeliveryMixin
+from probe.sdk.client.resources.history import DigestMixin, DigestResource
 from probe.sdk.client.resources.runs.commands import RunCommandsMixin
 from probe.sdk.client.resources.runs.edits import EditsMixin, EditsResource
 from probe.sdk.client.resources.example import ExampleMixin
@@ -42,6 +44,7 @@ from probe.sdk.client.resources.projects.headlines import HeadlinesMixin
 from probe.sdk.client.resources.projects.panes import PanesMixin
 from probe.sdk.client.resources.projects.papers import PapersMixin, PapersResource
 from probe.sdk.client.resources.projects.pins import PinsMixin
+from probe.sdk.client.resources.projects.details import ProjectDetailsMixin
 from probe.sdk.client.resources.projects.projects import ProjectsMixin, ProjectsResource
 from probe.sdk.client.resources.projects.summaries import SummariesMixin, SummariesResource
 from probe.sdk.client.resources.reads import ReadsMixin, ReadsResource
@@ -64,6 +67,7 @@ from probe.sdk.client.resources.runs.runs import RunsMixin, RunsResource
 from probe.sdk.client.resources.runs.views import RunViewsMixin
 from probe.sdk.client.resources.runs.writers import RunWritersMixin
 from probe.sdk.client.resources.sessions import SessionsMixin, SessionsResource
+from probe.sdk.client.resources.history import VersionsMixin, VersionsResource
 from probe.sdk.client.resources.workspaces import WorkspacesMixin, WorkspacesResource
 from probe.sdk.client.server_features import ServerFeaturesMixin
 from probe.sdk.delivery.notices import DeliveryNoticesMixin
@@ -84,6 +88,7 @@ class Client(
     WorkspacesMixin,
     ProjectsMixin,
     ProjectAdminMixin,
+    ProjectDetailsMixin,
     FilingMixin,
     SummariesMixin,
     HeadlinesMixin,
@@ -95,6 +100,7 @@ class Client(
     ExperimentAdminMixin,
     PapersMixin,
     ArtifactsMixin,
+    ArtifactReadsMixin,
     CatalogMixin,
     ChartsMixin,
     EditsMixin,
@@ -119,6 +125,8 @@ class Client(
     SessionsMixin,
     ExampleMixin,
     NotesMixin,
+    VersionsMixin,
+    DigestMixin,
     ReadsMixin,
     SampleReadsMixin,
     SamplePointsMixin,
@@ -245,6 +253,16 @@ class Client(
     def reads(self) -> ReadsResource:
         """Typed search and browse reads: `client.reads.search(query)` is a `SearchResponse`."""
         return ReadsResource(self)
+
+    @property
+    def versions(self) -> VersionsResource:
+        """Typed history reads: `client.versions.list_project_notes(project_id)` is a `NoteVersionsOut`."""
+        return VersionsResource(self)
+
+    @property
+    def digest(self) -> DigestResource:
+        """Typed digest reads: `client.digest.get_directions()` is a `DirectionTree`."""
+        return DigestResource(self)
 
     # -- lifecycle ----------------------------------------------------------
     def _register_run_heartbeat(self, stop: threading.Event) -> None:

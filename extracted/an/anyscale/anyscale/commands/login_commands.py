@@ -16,6 +16,7 @@ from anyscale.commands.output_format import OutputFormat
 from anyscale.commands.util import AnyscaleCommand
 from anyscale.controllers.auth_controller import AuthController
 from anyscale.shared_anyscale_utils.conf import ANYSCALE_HOST
+from anyscale.utils.extra_headers_util import apply_extra_headers, get_extra_headers
 from anyscale.utils.proxy_util import get_proxy_config
 from anyscale.utils.rate_limit_retry_util import build_rate_limit_retry
 from anyscale.utils.ssl_ca_cert_util import get_ssl_ca_cert_from_env
@@ -30,7 +31,9 @@ def get_unauthenticated_openapi_client():
     conf.ssl_ca_cert = get_ssl_ca_cert_from_env()
     conf.connection_pool_maxsize = 100
     conf.retries = build_rate_limit_retry()
-    return openapi_client.DefaultApi(ApiClientWrapperInternal(conf))
+    api_client = ApiClientWrapperInternal(conf)
+    apply_extra_headers(api_client, get_extra_headers())
+    return openapi_client.DefaultApi(api_client)
 
 
 @command_metadata(

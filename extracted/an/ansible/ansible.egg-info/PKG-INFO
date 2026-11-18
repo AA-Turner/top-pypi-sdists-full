@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible
-Version: 14.6.0
+Version: 15.0.0
 Summary: Radically simple IT automation
 Home-page: https://ansible.com/
 Author: Ansible, Inc.
@@ -19,14 +19,14 @@ Classifier: Intended Audience :: System Administrators
 Classifier: Natural Language :: English
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.12
+Requires-Python: >=3.13
 Description-Content-Type: text/x-rst
 License-File: COPYING
-Requires-Dist: ansible-core~=2.21.6
+Requires-Dist: ansible-core~=2.22.0
 Dynamic: license-file
 
 ..

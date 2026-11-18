@@ -6371,12 +6371,12 @@ class Environment(System.Object):
 
     @staticmethod
     @overload
-    def get_environment_variables(target: System.EnvironmentVariableTarget) -> System.Collections.IDictionary:
+    def get_environment_variables() -> System.Collections.IDictionary:
         ...
 
     @staticmethod
     @overload
-    def get_environment_variables() -> System.Collections.IDictionary:
+    def get_environment_variables(target: System.EnvironmentVariableTarget) -> System.Collections.IDictionary:
         ...
 
     @staticmethod

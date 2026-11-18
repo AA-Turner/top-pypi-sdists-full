@@ -12,9 +12,9 @@ use sqlbuild_analysis::graph::models::{JobSelection, ParsedSelector};
 use sqlbuild_cli::native_commands::main::effective_target::effective_target;
 use sqlbuild_discovery::orchestration_files::models::{OrchestrationInventory, RunFile};
 
-use crate::compiled_project::constants::{
-    JOB_SELECTOR_KINDS, SELECTOR_INTERSECTION, SENSOR_RUN_ARGUMENT,
-};
+use crate::compiled_project::constants::JOB_SELECTOR_KINDS;
+use crate::compiled_project::constants::SELECTOR_INTERSECTION;
+use crate::compiled_project::constants::SENSOR_RUN_ARGUMENT;
 use sqlbuild_python_front::discovery::main::sources::orchestration_declarations::orchestration_declarations;
 
 /// Each job and group's selection, and the names of those a schedule or sensor starts.
@@ -125,11 +125,25 @@ fn inventory_catalog(inventory: &OrchestrationInventory, target: Option<&str>) -
             },
         );
     }
+    let job_targets: BTreeMap<&str, &[String]> = inventory
+        .jobs
+        .iter()
+        .map(|(_, job)| (job.run.name.value.as_str(), job.run.targets.as_slice()))
+        .collect();
     for (_, group) in &inventory.groups {
         add(
             &group.run,
             JobSelection::Group {
-                members: group.jobs.iter().map(|job| job.value.clone()).collect(),
+                members: group
+                    .jobs
+                    .iter()
+                    .filter(|job| {
+                        job_targets
+                            .get(job.value.as_str())
+                            .is_none_or(|targets| declared_for(targets))
+                    })
+                    .map(|job| job.value.clone())
+                    .collect(),
             },
         );
     }

@@ -43,7 +43,7 @@ class So101Config(RigFile):
     def validate(self, *, complete: bool = False) -> So101Config:
         self.validate_rig()
         if self.gripper_range is not None:
-            from dreamscale_transport.praxis import validate_so101_grip_range
+            from dreamscale_core.praxis import validate_so101_grip_range
 
             self.gripper_range = validate_so101_grip_range(self.gripper_range)
         if self.port is not None and (not isinstance(self.port, str) or not self.port):

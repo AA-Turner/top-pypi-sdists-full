@@ -70,6 +70,7 @@ from autoware_carla_scenario import (
     TrafficSourceAction,
 )
 import autoware_carla_scenario.hydra_compat  # noqa: F401  (Python 3.14 argparse)
+from autoware_carla_scenario.actions.background_traffic import parse_constraints
 from autoware_carla_scenario.autoware_stack.launcher import AutowareLauncher
 from autoware_carla_scenario.batch_report import print_summary as _print_summary
 from autoware_carla_scenario.batch_report import write_batch_result_json
@@ -443,6 +444,8 @@ def build_ground_projection(cfg: DictConfig) -> GroundProjectionConfig:
     """The :class:`GroundProjectionConfig` of *cfg*'s
     ``entity.ground_projection_ray_distance_upper`` and ``_lower``.
 
+    Each absent or null is its default (``EntityConfig``'s; #2188).
+
     Raises:
         ValueError: naming the key, for a value that is not a number, is
             negative or not finite, or a ray of no length (both zero): a ray
@@ -454,7 +457,7 @@ def build_ground_projection(cfg: DictConfig) -> GroundProjectionConfig:
         (_RAY_UPPER_KEY, EntityConfig.ground_projection_ray_distance_upper),
         (_RAY_LOWER_KEY, EntityConfig.ground_projection_ray_distance_lower),
     ):
-        value = entity.get(key.split(".", 1)[1], default)
+        value = _given(entity, key.split(".", 1)[1], default)
         try:
             distances.append(float(value))
         except (TypeError, ValueError):
@@ -621,7 +624,14 @@ def build_planned_route(cfg: DictConfig, name: str = "") -> PlannedRoute:
     scenario_cfg = cfg.get("scenario") or {}
     expected = scenario_cfg.get("expected_route_lanelet_ids") or []
     if goal is None and expected:
-        goal = Lanelet2Pose(lanelet_id=int(expected[-1]), s=0.0)
+        # Checked as every other lanelet id is (#2089, #2188).
+        goal = Lanelet2Pose(
+            lanelet_id=_lanelet_id(
+                f"scenario.expected_route_lanelet_ids[{len(expected) - 1}]",
+                expected[-1],
+            ),
+            s=0.0,
+        )
     via = build_waypoint_poses(cfg)
     return PlannedRoute(start=start, goal=goal, via=tuple(via), name=name)
 
@@ -969,8 +979,10 @@ def _launcher_ros_domain_ids(settings: dict[str, Any]) -> tuple[int, ...]:
 
 
 def _native_autoware_interface(cfg: DictConfig) -> bool:
-    """``ego.native_autoware_interface``, refused unless ``true`` or ``false``,
-    and refused ``true`` unless ``ego.entity`` is ``autoware``.
+    """``ego.native_autoware_interface``, a true/false switch read as every
+    other is (:func:`~autoware_carla_scenario.config_flags.check_flag`:
+    ``"false"`` and ``0`` are off; absent or null is off, #2188), and refused
+    ``true`` unless ``ego.entity`` is ``autoware``.
 
     Only :class:`~autoware_carla_scenario.AutowareEgoEntity` spawns its ego
     for CARLA's native Autoware interface (``ros2_autoware_control=true``,
@@ -983,12 +995,7 @@ def _native_autoware_interface(cfg: DictConfig) -> bool:
     Raises:
         ValueError: naming ``ego.native_autoware_interface``.
     """
-    ego_cfg = cfg.get("ego") or {}
-    native = ego_cfg.get("native_autoware_interface", False)
-    if not isinstance(native, bool):
-        raise ValueError(
-            f"ego.native_autoware_interface must be true or false, got {native!r}"
-        )
+    native = _switch(cfg, "ego", "native_autoware_interface")
     entity = _ego_entity_setting(cfg)
     if native and entity != "autoware":
         raise ValueError(
@@ -1607,7 +1614,8 @@ def _map_source(cfg: DictConfig) -> str | None:
 
 
 def _switch(cfg: DictConfig, block: str, key: str) -> bool:
-    """The true/false switch ``<block>.<key>`` of *cfg*, off when absent.
+    """The true/false switch ``<block>.<key>`` of *cfg*, off when absent or
+    null (#2188).
 
     A boolean or its spelling (``"false"``, ``"yes"``, ``0``: what an
     ``${oc.env:VAR,false}`` or a quoted override gives), not its truthiness:
@@ -1618,7 +1626,7 @@ def _switch(cfg: DictConfig, block: str, key: str) -> bool:
             (:func:`~autoware_carla_scenario.config_flags.check_flag`).
     """
     settings = cfg.get(block) or {}
-    return check_flag(f"{block}.{key}", settings.get(key, False))
+    return check_flag(f"{block}.{key}", _given(settings, key, False))
 
 
 def _rerun_settings(cfg: DictConfig) -> tuple[bool, bool]:
@@ -1821,12 +1829,21 @@ def build_t4scene_exporter(*cfgs: DictConfig) -> T4SceneExporter | None:
 def canvas_config(*cfgs: DictConfig) -> str | None:
     """The carla_canvas configuration *cfgs* name (``canvas.config``), or ``None``.
 
+    An absent or null ``canvas.config`` names none; anything else must be a
+    non-empty path (``""`` or ``false`` is refused, not read as unset; #2188).
+
     Raises:
-        ValueError: They name more than one: a process loads one.
+        ValueError: naming ``canvas.config``, for a value that is no path;
+            and when they name more than one: a process loads one.
     """
-    names = {
-        str(value) for cfg in cfgs if (value := (cfg.get("canvas") or {}).get("config"))
-    }
+    names: set[str] = set()
+    for cfg in cfgs:
+        value = (cfg.get("canvas") or {}).get("config")
+        if value is None:
+            continue
+        if not isinstance(value, str) or value.strip() == "":
+            raise ValueError(f"canvas.config must be a file path, got {value!r}")
+        names.add(value)
     if len(names) > 1:
         raise ValueError(
             f"the cases name {len(names)} canvas.config files ({sorted(names)}); "
@@ -2650,8 +2667,9 @@ def check_batch_configs(
     :func:`_check_ego_numbers`), lanelet ids (``ego.spawn_lanelet_id``,
     ``ego.goal_lanelet_id``, ``ego.waypoint_lanelet_ids``:
     :func:`_check_ego_lanelet_ids`), ``ego.native_autoware_interface``
-    (:func:`_native_autoware_interface`), ``odd_case``
-    and ``metrics.heavy`` (:func:`metrics_heavy`); and the server, traffic and Autoware launcher settings its
+    (:func:`_native_autoware_interface`), ``odd_case``,
+    ``canvas.config`` (:func:`canvas_config`) and ``metrics.heavy``
+    (:func:`metrics_heavy`); and the server, traffic and Autoware launcher settings its
     queue is built from (:func:`_batch_queue`, :func:`run_scenario`), once for
     each distinct set of them.  A batch is refused for these before any
     scenario is built or the map is resolved (#1430): a local one would refuse
@@ -2701,6 +2719,8 @@ def check_batch_configs(
             _check_ego_numbers(cfg)
             _check_ego_lanelet_ids(cfg)
             _native_autoware_interface(cfg)
+            # Each case's alone: that the cases name one is run_batch's.
+            canvas_config(cfg)
             # Every case's, though apply_metrics reads only the first set.
             metrics_heavy(cfg)
             # Once a distinct setting: a sweep's cases mostly share them.  The
@@ -2899,23 +2919,17 @@ def run_batch(
                 "s" if len(swept) == 1 else "ve",
             )
 
-    # Validate all configs share the same map (shared CARLA server constraint):
-    # the queue is built on the first case's (#1241).
-    try:
-        check_batch_map(configs, labels)
-        # And that each case is on the map its document names, if it has one.
-        check_scenario_maps(configs, labels, documents=documents)
-    except RunConfigError as exc:
-        print(f"Error: {exc}", file=sys.stderr)  # noqa: T201
-        sys.exit(1)
-    # Before any scenario is built (build_ego_and_spawn reads it), naming the
-    # key and the case: a ray that cannot hit spawns nothing (#1416).
-    for label, cfg in zip(labels, configs):
-        try:
-            build_ground_projection(cfg)
-        except ValueError as exc:
-            print(f"Error: {label}: {exc}", file=sys.stderr)  # noqa: T201
-            sys.exit(1)
+    # Every value a case reads of its config before it starts -- that the
+    # cases share a map, the queue is built on the first case's (#1241); that
+    # each is on the map its document names; the ground-projection ray, a ray
+    # that cannot hit spawns nothing (#1416); the queue's server, traffic and
+    # Autoware launcher settings, the run timeout, the writers' settings, ...
+    # -- for every case, before anything is built or the map is resolved: a
+    # local batch would refuse it only once its queue was built, and a SLURM
+    # task only on its node, once the batch was submitted (#977, #1430).
+    # Raised, as RunConfigError: the CLI reports it as an ``Error:`` line,
+    # headed by the case's name, and HYDRA_FULL_ERROR=1 raises it (_dispatch).
+    check_batch_configs(configs, labels, documents=documents)
 
     # One launcher for the whole batch: the queue prepares it (and puts its
     # logs in the batch's output directory) and every ego starts its stacks
@@ -2950,15 +2964,6 @@ def run_batch(
     if wait is not None and launcher != "slurm":
         print("Error: --no-wait is for launcher=slurm only", file=sys.stderr)  # noqa: T201
         sys.exit(1)
-
-    # Every value a case reads of its config before it starts (the queue's
-    # server, traffic and Autoware launcher settings, the run timeout, the
-    # writers' settings, ...), for every case, before anything is built or the
-    # map is resolved: a local batch would refuse it only once its queue was
-    # built, and a SLURM task only on its node, once the batch was submitted
-    # (#977, #1430).  Raised, as RunConfigError: the CLI reports it as an
-    # ``Error:`` line (_dispatch).
-    check_batch_configs(configs, labels, documents=documents)
 
     # Before anything is built: a batch asking for Rerun recordings without
     # the extra installed is refused at once (RerunUnavailableError).  Under
@@ -3655,6 +3660,16 @@ class BackgroundTraffic(NamedTuple):
     vehicles_per_minute: float
     speed_kmh: float
     min_gap_m: float
+    #: ``source.stop_after_seconds``; ``None``: the source keeps adding.
+    source_stop_after_seconds: float | None = None
+    #: ``sink.stop_after_seconds``; ``None``: the sink keeps removing.
+    sink_stop_after_seconds: float | None = None
+    #: ``source.constraints``, as the config gives them (each parsed by
+    #: :func:`~autoware_carla_scenario.actions.background_traffic.parse_constraints`
+    #: to check it); empty: no source.
+    source_constraints: tuple[Any, ...] = ()
+    #: ``sink.constraints``, likewise; empty: no sink.
+    sink_constraints: tuple[Any, ...] = ()
 
 
 def _float_of_text(value: Any) -> float:
@@ -3688,8 +3703,19 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
     (:func:`~autoware_carla_scenario.traffic.base.check_background_speed`),
     and ``source.vehicles_per_minute`` and ``source.min_gap_m`` finite and
     not negative; each of these three absent or null is its default (30 km/h,
-    15 m, none a minute; #2161).  Read by :func:`add_background_traffic` and
-    checked up front by :func:`check_batch_configs`.
+    15 m, none a minute; #2161).  ``source.stop_after_seconds`` and
+    ``sink.stop_after_seconds`` are null (no stop, the default) or a positive,
+    finite number of seconds -- each checked whether or not the source or sink
+    it ends is built (``vehicles_per_minute`` 0, no sink constraints), as the
+    other numbers are (#2188).  ``source.constraints`` and
+    ``sink.constraints`` are lists of sweep constraints (or a single
+    constraint mapping), each parsed here, so one the sweeper does not know is
+    refused before anything starts; null or an empty list builds no source
+    or sink, and ``false``, ``''`` or anything else that is no list is
+    refused (#2191).  ``source`` and ``sink`` themselves are null (none) or a
+    mapping; ``false``, ``''`` or ``0`` is refused rather than read as an
+    empty block.  Read by :func:`add_background_traffic` and checked up
+    front by :func:`check_batch_configs`.
 
     Raises:
         ValueError: naming the key of the first value refused.
@@ -3698,7 +3724,22 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
     if background is None or not _switch(cfg, "background_traffic", "enabled"):
         return None
     settings = _to_dict(background)
-    source = settings.get("source") or {}
+
+    def block(key: str) -> Mapping[str, Any]:
+        # null or absent (the default): no source or sink.  false, '' or 0 is
+        # refused rather than read as an empty block, which turned the source
+        # or sink off without a word (#2143, #2191).
+        value = settings.get(key)
+        if value is None:
+            return {}
+        if not isinstance(value, Mapping):
+            raise ValueError(
+                f"background_traffic.{key} must be a mapping, not {value!r}"
+            )
+        return value
+
+    source = block("source")
+    sink = block("sink")
     seed = seed_setting("background_traffic.seed", settings.get("seed"))
     initial = whole_number_setting(
         "background_traffic.source.initial_vehicles",
@@ -3746,8 +3787,36 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
             )
         return amount
 
+    def stop_after(block: Any, key: str) -> float | None:
+        # null (the default): no stop.  Anything else a positive, finite
+        # number of seconds, as ElapsedTimeCondition takes it (#1660, #2188).
+        seconds = block.get("stop_after_seconds")
+        if seconds is None:
+            return None
+        try:
+            return ElapsedTimeCondition(
+                _float_of_text(seconds), label=f"background_{key}_ends"
+            ).duration_seconds
+        except ValueError as exc:
+            raise ValueError(
+                f"background_traffic.{key}.stop_after_seconds: {shown(seconds)} "
+                f"is not a duration ({exc})"
+            ) from exc
+
+    def constraints(block: Any, key: str) -> tuple[Any, ...]:
+        # null (the default): none.  false or '' is refused rather than
+        # read as none, which turned the source or sink off (#2143, #2191);
+        # a single mapping is a list of one, as constraints_from_text reads it.
+        value = block.get("constraints")
+        if value is None:
+            return ()
+        parse_constraints(value, f"background_traffic.{key}.constraints")
+        return (value,) if isinstance(value, Mapping) else tuple(value)
+
     min_gap_m = finite_amount("min_gap_m", 15.0)
     rate = finite_amount("vehicles_per_minute", 0.0)
+    source_constraints = constraints(source, "source")
+    sink_constraints = constraints(sink, "sink")
     return BackgroundTraffic(
         seed=seed,
         # null places none, as 0 does.
@@ -3756,6 +3825,10 @@ def background_traffic_settings(cfg: DictConfig) -> BackgroundTraffic | None:
         vehicles_per_minute=rate,
         speed_kmh=speed_kmh,
         min_gap_m=min_gap_m,
+        source_stop_after_seconds=stop_after(source, "source"),
+        sink_stop_after_seconds=stop_after(sink, "sink"),
+        source_constraints=source_constraints,
+        sink_constraints=sink_constraints,
     )
 
 
@@ -3779,32 +3852,26 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
 
     Raises:
         ValueError: naming the key, for a value
-            :func:`background_traffic_settings` refuses, and for a
-            ``stop_after_seconds`` read that is not a positive, finite number
-            of seconds.
+            :func:`background_traffic_settings` refuses (a
+            ``stop_after_seconds`` that is not a positive, finite number of
+            seconds among them).
     """
     checked = background_traffic_settings(cfg)
     if checked is None:
         return
     settings = _to_dict(cfg["background_traffic"])
+    # A mapping or null: anything else was refused above.
     source = settings.get("source") or {}
-    sink = settings.get("sink") or {}
     # null (the default) follows the run's seed, the scenario's.
     seed = scenario.random_seed if checked.seed is None else checked.seed
 
-    def until(seconds: object, key: str, label: str) -> ElapsedTimeCondition | None:
-        if seconds is None:
-            return None
-        try:
-            return ElapsedTimeCondition(_float_of_text(seconds), label=label)
-        except ValueError as exc:
-            # Not a number, or not a positive finite duration (#1660).
-            raise ValueError(
-                f"background_traffic.{key}: {shown(seconds)} is not a duration ({exc})"
-            ) from exc
+    def until(seconds: float | None, label: str) -> ElapsedTimeCondition | None:
+        # Checked by background_traffic_settings (#2188).
+        return None if seconds is None else ElapsedTimeCondition(seconds, label=label)
 
     max_vehicles = checked.max_vehicles
-    constraints = source.get("constraints") or []
+    constraints = checked.source_constraints
+    sink_constraints = checked.sink_constraints
     speed_kmh = checked.speed_kmh
     min_gap_m = checked.min_gap_m
     rate = checked.vehicles_per_minute
@@ -3823,11 +3890,7 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
             seed=seed,
             label=label,
             until=(
-                until(
-                    source.get("stop_after_seconds"),
-                    "source.stop_after_seconds",
-                    "background_source_ends",
-                )
+                until(checked.source_stop_after_seconds, "background_source_ends")
                 if rate > 0
                 else None
             ),
@@ -3851,23 +3914,19 @@ def add_background_traffic(cfg: DictConfig, scenario: BaseScenario) -> None:
                 label="background_source",
             )
         )
-    if sink.get("constraints"):
+    if sink_constraints:
         scenario.register_pre_tick(
             TrafficSinkAction(
-                sink["constraints"],
+                sink_constraints,
                 label="background_sink",
-                until=until(
-                    sink.get("stop_after_seconds"),
-                    "sink.stop_after_seconds",
-                    "background_sink_ends",
-                ),
+                until=until(checked.sink_stop_after_seconds, "background_sink_ends"),
             )
         )
     logger.info(
         "Background traffic: %d at start, %.1f/min after, sink %s",
         initial if constraints else 0,
         rate if constraints else 0.0,
-        "on" if sink.get("constraints") else "off",
+        "on" if sink_constraints else "off",
     )
 
 

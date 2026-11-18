@@ -14,7 +14,9 @@ Usage::
         Client,
         ListABTestsPaginator,
         ListActorsPaginator,
+        ListAgentInsightsPaginator,
         ListBatchEvaluationsPaginator,
+        ListDatasetGenerationsPaginator,
         ListEventsPaginator,
         ListMemoryExtractionJobsPaginator,
         ListMemoryRecordsPaginator,
@@ -30,7 +32,9 @@ Usage::
 
     list_ab_tests_paginator: ListABTestsPaginator = client.get_paginator("list_ab_tests")
     list_actors_paginator: ListActorsPaginator = client.get_paginator("list_actors")
+    list_agent_insights_paginator: ListAgentInsightsPaginator = client.get_paginator("list_agent_insights")
     list_batch_evaluations_paginator: ListBatchEvaluationsPaginator = client.get_paginator("list_batch_evaluations")
+    list_dataset_generations_paginator: ListDatasetGenerationsPaginator = client.get_paginator("list_dataset_generations")
     list_events_paginator: ListEventsPaginator = client.get_paginator("list_events")
     list_memory_extraction_jobs_paginator: ListMemoryExtractionJobsPaginator = client.get_paginator("list_memory_extraction_jobs")
     list_memory_records_paginator: ListMemoryRecordsPaginator = client.get_paginator("list_memory_records")
@@ -46,7 +50,9 @@ from .client import BedrockAgentCoreClient
 from .paginator import (
     ListABTestsPaginator,
     ListActorsPaginator,
+    ListAgentInsightsPaginator,
     ListBatchEvaluationsPaginator,
+    ListDatasetGenerationsPaginator,
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
@@ -64,7 +70,9 @@ __all__ = (
     "Client",
     "ListABTestsPaginator",
     "ListActorsPaginator",
+    "ListAgentInsightsPaginator",
     "ListBatchEvaluationsPaginator",
+    "ListDatasetGenerationsPaginator",
     "ListEventsPaginator",
     "ListMemoryExtractionJobsPaginator",
     "ListMemoryRecordsPaginator",

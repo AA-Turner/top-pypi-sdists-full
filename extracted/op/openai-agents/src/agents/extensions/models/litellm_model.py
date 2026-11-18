@@ -35,6 +35,7 @@ from openai.types.chat.chat_completion_message import (
 )
 from openai.types.chat.chat_completion_message_function_tool_call import Function
 from openai.types.responses import Response
+from openai.types.responses.response_prompt_param import ResponsePromptParam
 from pydantic import BaseModel
 
 from ... import _debug
@@ -45,10 +46,15 @@ from ...logger import log_model_action_debug, logger
 from ...model_settings import ModelSettings
 from ...models._openai_retry import get_openai_retry_advice
 from ...models._retry_runtime import should_disable_provider_managed_retries
-from ...models._trace import model_config_for_trace, populate_generation_span
+from ...models._trace import (
+    model_config_for_trace,
+    populate_generation_span,
+    record_generation_tools,
+)
 from ...models.chatcmpl_converter import Converter
 from ...models.chatcmpl_helpers import HEADERS, HEADERS_OVERRIDE, ChatCmplHelpers
 from ...models.chatcmpl_stream_handler import ChatCmplStreamHandler
+from ...models.default_models import _omit_model_defaults, get_default_model_settings
 from ...models.fake_id import FAKE_RESPONSES_ID
 from ...models.interface import Model, ModelTracing
 from ...models.openai_responses import Converter as OpenAIResponsesConverter
@@ -161,6 +167,28 @@ class LitellmModel(Model):
         self.base_url = base_url
         self.api_key = api_key
         self.should_replay_reasoning_content = should_replay_reasoning_content
+
+    def get_default_model_settings(self) -> ModelSettings:
+        """Recognize OpenAI model IDs carried by the supported routing namespaces."""
+        model_name = self.model.removeprefix("openai/").removeprefix("openrouter/openai/")
+        return get_default_model_settings(model_name)
+
+    def _get_request_settings(
+        self,
+        settings: ModelSettings,
+        *,
+        prompt: ResponsePromptParam | None,
+        has_tools: bool,
+        implicit_fields: set[str],
+    ) -> ModelSettings:
+        return _omit_model_defaults(
+            settings,
+            implicit_fields,
+            reasoning="reasoning_effort" in (settings.extra_args or {})
+            or (
+                isinstance(settings.extra_body, dict) and "reasoning_effort" in settings.extra_body
+            ),
+        )
 
     def get_retry_advice(self, request: ModelRetryAdviceRequest) -> ModelRetryAdvice | None:
         # LiteLLM exceptions mirror OpenAI-style status/header fields.
@@ -558,6 +586,7 @@ class LitellmModel(Model):
             converted_tools.append(Converter.convert_handoff_tool(handoff))
 
         converted_tools = _to_dump_compatible(converted_tools)
+        record_generation_tools(span, tracing, converted_tools)
         parallel_tool_calls = model_settings.parallel_tool_calls if converted_tools else None
 
         if _debug.DONT_LOG_MODEL_DATA:

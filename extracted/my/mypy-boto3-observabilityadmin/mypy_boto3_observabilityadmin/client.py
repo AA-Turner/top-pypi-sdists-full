@@ -28,6 +28,7 @@ from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
     ListCentralizationRulesForOrganizationPaginator,
+    ListConnectorsPaginator,
     ListDatasetIntegrationsPaginator,
     ListResourceTelemetryForOrganizationPaginator,
     ListResourceTelemetryPaginator,
@@ -35,10 +36,13 @@ from .paginator import (
     ListTelemetryPipelinesPaginator,
     ListTelemetryRulesForOrganizationPaginator,
     ListTelemetryRulesPaginator,
+    ListThirdPartyTelemetryEnrichmentsPaginator,
 )
 from .type_defs import (
     CreateCentralizationRuleForOrganizationInputTypeDef,
     CreateCentralizationRuleForOrganizationOutputTypeDef,
+    CreateConnectorInputTypeDef,
+    CreateConnectorOutputTypeDef,
     CreateDatasetIntegrationInputTypeDef,
     CreateDatasetIntegrationOutputTypeDef,
     CreateS3TableIntegrationInputTypeDef,
@@ -50,6 +54,7 @@ from .type_defs import (
     CreateTelemetryRuleInputTypeDef,
     CreateTelemetryRuleOutputTypeDef,
     DeleteCentralizationRuleForOrganizationInputTypeDef,
+    DeleteConnectorInputTypeDef,
     DeleteDatasetIntegrationInputTypeDef,
     DeleteS3TableIntegrationInputTypeDef,
     DeleteTelemetryPipelineInputTypeDef,
@@ -58,6 +63,12 @@ from .type_defs import (
     EmptyResponseMetadataTypeDef,
     GetCentralizationRuleForOrganizationInputTypeDef,
     GetCentralizationRuleForOrganizationOutputTypeDef,
+    GetConnectorInputTypeDef,
+    GetConnectorOutputTypeDef,
+    GetConnectorTelemetryManifestInputTypeDef,
+    GetConnectorTelemetryManifestOutputTypeDef,
+    GetConnectorTelemetrySetupInputTypeDef,
+    GetConnectorTelemetrySetupOutputTypeDef,
     GetDatasetIntegrationInputTypeDef,
     GetDatasetIntegrationOutputTypeDef,
     GetS3TableIntegrationInputTypeDef,
@@ -71,10 +82,16 @@ from .type_defs import (
     GetTelemetryRuleForOrganizationOutputTypeDef,
     GetTelemetryRuleInputTypeDef,
     GetTelemetryRuleOutputTypeDef,
+    GetThirdPartyTelemetryEnrichmentInputTypeDef,
+    GetThirdPartyTelemetryEnrichmentOutputTypeDef,
     ListCentralizationRulesForOrganizationInputTypeDef,
     ListCentralizationRulesForOrganizationOutputTypeDef,
+    ListConnectorsInputTypeDef,
+    ListConnectorsOutputTypeDef,
     ListDatasetIntegrationsInputTypeDef,
     ListDatasetIntegrationsOutputTypeDef,
+    ListResourcesByConnectorInputTypeDef,
+    ListResourcesByConnectorOutputTypeDef,
     ListResourceTelemetryForOrganizationInputTypeDef,
     ListResourceTelemetryForOrganizationOutputTypeDef,
     ListResourceTelemetryInputTypeDef,
@@ -89,10 +106,19 @@ from .type_defs import (
     ListTelemetryRulesForOrganizationOutputTypeDef,
     ListTelemetryRulesInputTypeDef,
     ListTelemetryRulesOutputTypeDef,
+    ListThirdPartyTelemetryEnrichmentsInputTypeDef,
+    ListThirdPartyTelemetryEnrichmentsOutputTypeDef,
+    PutConnectorTelemetryManifestInputTypeDef,
+    PutConnectorTelemetryManifestOutputTypeDef,
     StartTelemetryEnrichmentOutputTypeDef,
     StartTelemetryEvaluationForOrganizationInputTypeDef,
     StartTelemetryEvaluationInputTypeDef,
+    StartTelemetryPipelineRefreshInputTypeDef,
+    StartThirdPartyTelemetryEnrichmentInputTypeDef,
+    StartThirdPartyTelemetryEnrichmentOutputTypeDef,
     StopTelemetryEnrichmentOutputTypeDef,
+    StopThirdPartyTelemetryEnrichmentInputTypeDef,
+    StopThirdPartyTelemetryEnrichmentOutputTypeDef,
     TagResourceInputTypeDef,
     TestTelemetryPipelineInputTypeDef,
     TestTelemetryPipelineOutputTypeDef,
@@ -177,6 +203,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#create_centralization_rule_for_organization)
         """
 
+    def create_connector(
+        self, **kwargs: Unpack[CreateConnectorInputTypeDef]
+    ) -> CreateConnectorOutputTypeDef:
+        """
+        Creates a connector to a third-party cloud provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/create_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#create_connector)
+        """
+
     def create_dataset_integration(
         self, **kwargs: Unpack[CreateDatasetIntegrationInputTypeDef]
     ) -> CreateDatasetIntegrationOutputTypeDef:
@@ -240,6 +276,14 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#delete_centralization_rule_for_organization)
         """
 
+    def delete_connector(self, **kwargs: Unpack[DeleteConnectorInputTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a connector and its telemetry manifest.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/delete_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#delete_connector)
+        """
+
     def delete_dataset_integration(
         self, **kwargs: Unpack[DeleteDatasetIntegrationInputTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
@@ -298,6 +342,38 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_centralization_rule_for_organization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_centralization_rule_for_organization)
+        """
+
+    def get_connector(
+        self, **kwargs: Unpack[GetConnectorInputTypeDef]
+    ) -> GetConnectorOutputTypeDef:
+        """
+        Retrieves the details of a connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_connector)
+        """
+
+    def get_connector_telemetry_manifest(
+        self, **kwargs: Unpack[GetConnectorTelemetryManifestInputTypeDef]
+    ) -> GetConnectorTelemetryManifestOutputTypeDef:
+        """
+        Retrieves the telemetry manifest of a connector and its current version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_connector_telemetry_manifest.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_connector_telemetry_manifest)
+        """
+
+    def get_connector_telemetry_setup(
+        self, **kwargs: Unpack[GetConnectorTelemetrySetupInputTypeDef]
+    ) -> GetConnectorTelemetrySetupOutputTypeDef:
+        """
+        Generates the artifacts that you use to create the infrastructure in your cloud
+        provider that delivers the telemetry declared in the connector's telemetry
+        manifest.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_connector_telemetry_setup.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_connector_telemetry_setup)
         """
 
     def get_dataset_integration(
@@ -383,6 +459,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_telemetry_rule_for_organization)
         """
 
+    def get_third_party_telemetry_enrichment(
+        self, **kwargs: Unpack[GetThirdPartyTelemetryEnrichmentInputTypeDef]
+    ) -> GetThirdPartyTelemetryEnrichmentOutputTypeDef:
+        """
+        Returns the details of a third-party telemetry enrichment, including its status
+        and source configuration.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_third_party_telemetry_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_third_party_telemetry_enrichment)
+        """
+
     def list_centralization_rules_for_organization(
         self, **kwargs: Unpack[ListCentralizationRulesForOrganizationInputTypeDef]
     ) -> ListCentralizationRulesForOrganizationOutputTypeDef:
@@ -391,6 +478,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_centralization_rules_for_organization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_centralization_rules_for_organization)
+        """
+
+    def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsInputTypeDef]
+    ) -> ListConnectorsOutputTypeDef:
+        """
+        Lists the connectors in the account and Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_connectors.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_connectors)
         """
 
     def list_dataset_integrations(
@@ -423,6 +520,18 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_resource_telemetry_for_organization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_resource_telemetry_for_organization)
+        """
+
+    def list_resources_by_connector(
+        self, **kwargs: Unpack[ListResourcesByConnectorInputTypeDef]
+    ) -> ListResourcesByConnectorOutputTypeDef:
+        """
+        Lists resources in your cloud provider that the connector can access, such as
+        management groups, subscriptions, resource types, Regions, resources, and Event
+        Hubs.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_resources_by_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_resources_by_connector)
         """
 
     def list_s3_table_integrations(
@@ -475,6 +584,27 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_telemetry_rules_for_organization)
         """
 
+    def list_third_party_telemetry_enrichments(
+        self, **kwargs: Unpack[ListThirdPartyTelemetryEnrichmentsInputTypeDef]
+    ) -> ListThirdPartyTelemetryEnrichmentsOutputTypeDef:
+        """
+        Returns a summary of each third-party telemetry enrichment in your account and
+        Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/list_third_party_telemetry_enrichments.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#list_third_party_telemetry_enrichments)
+        """
+
+    def put_connector_telemetry_manifest(
+        self, **kwargs: Unpack[PutConnectorTelemetryManifestInputTypeDef]
+    ) -> PutConnectorTelemetryManifestOutputTypeDef:
+        """
+        Creates or replaces the telemetry manifest of a connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/put_connector_telemetry_manifest.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#put_connector_telemetry_manifest)
+        """
+
     def start_telemetry_enrichment(self) -> StartTelemetryEnrichmentOutputTypeDef:
         """
         Enables the resource tags for telemetry feature for your account, which
@@ -507,6 +637,26 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#start_telemetry_evaluation_for_organization)
         """
 
+    def start_telemetry_pipeline_refresh(
+        self, **kwargs: Unpack[StartTelemetryPipelineRefreshInputTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Starts a refresh of an external-cloud telemetry pipeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/start_telemetry_pipeline_refresh.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#start_telemetry_pipeline_refresh)
+        """
+
+    def start_third_party_telemetry_enrichment(
+        self, **kwargs: Unpack[StartThirdPartyTelemetryEnrichmentInputTypeDef]
+    ) -> StartThirdPartyTelemetryEnrichmentOutputTypeDef:
+        """
+        Starts a third-party telemetry enrichment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/start_third_party_telemetry_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#start_third_party_telemetry_enrichment)
+        """
+
     def stop_telemetry_enrichment(self) -> StopTelemetryEnrichmentOutputTypeDef:
         """
         Disables the resource tags for telemetry feature for your account, stopping the
@@ -532,6 +682,16 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/stop_telemetry_evaluation_for_organization.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#stop_telemetry_evaluation_for_organization)
+        """
+
+    def stop_third_party_telemetry_enrichment(
+        self, **kwargs: Unpack[StopThirdPartyTelemetryEnrichmentInputTypeDef]
+    ) -> StopThirdPartyTelemetryEnrichmentOutputTypeDef:
+        """
+        Stops a third-party telemetry enrichment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/stop_third_party_telemetry_enrichment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#stop_third_party_telemetry_enrichment)
         """
 
     def tag_resource(
@@ -640,6 +800,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connectors"]
+    ) -> ListConnectorsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_dataset_integrations"]
     ) -> ListDatasetIntegrationsPaginator:
         """
@@ -708,6 +879,17 @@ class CloudWatchObservabilityAdminServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_telemetry_rules"]
     ) -> ListTelemetryRulesPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/observabilityadmin/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_observabilityadmin/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_third_party_telemetry_enrichments"]
+    ) -> ListThirdPartyTelemetryEnrichmentsPaginator:
         """
         Create a paginator for an operation.
 

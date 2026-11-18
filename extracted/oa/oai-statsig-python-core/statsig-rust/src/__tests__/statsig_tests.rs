@@ -45,7 +45,7 @@ impl EventLoggingAdapter for CapturingEventLoggingAdapter {
     }
 }
 
-struct LazyConfigIdListProvider {
+pub(super) struct LazyConfigIdListProvider {
     delay: Duration,
     member_hash: String,
     downloads: AtomicUsize,
@@ -111,8 +111,27 @@ impl NetworkProvider for LazyConfigIdListProvider {
     }
 }
 
-async fn setup_lazy_config_test(delay: Duration) -> (Statsig, Arc<LazyConfigIdListProvider>) {
+pub(super) async fn setup_lazy_config_test(
+    delay: Duration,
+) -> (Statsig, Arc<LazyConfigIdListProvider>) {
     let (statsig, provider, _) = setup_lazy_config_test_with_logging(delay, false).await;
+    (statsig, provider)
+}
+
+pub(super) async fn setup_lazy_config_test_with_observer(
+    delay: Duration,
+    observer: Option<std::sync::Weak<dyn crate::ObservabilityClient>>,
+) -> (Statsig, Arc<LazyConfigIdListProvider>) {
+    let (statsig, provider, _) = setup_lazy_config_test_with_option(
+        delay,
+        false,
+        Some(true),
+        StatsigOptions {
+            observability_client: observer,
+            ..Default::default()
+        },
+    )
+    .await;
     (statsig, provider)
 }
 
@@ -124,13 +143,23 @@ async fn setup_lazy_config_test_with_logging(
     Arc<LazyConfigIdListProvider>,
     Option<Arc<CapturingEventLoggingAdapter>>,
 ) {
-    setup_lazy_config_test_with_option(delay, capture_events, Some(true)).await
+    setup_lazy_config_test_with_option(delay, capture_events, Some(true), StatsigOptions::default())
+        .await
+}
+
+pub(super) async fn setup_lazy_config_test_with_options(
+    options: StatsigOptions,
+) -> (Statsig, Arc<LazyConfigIdListProvider>) {
+    let (statsig, provider, _) =
+        setup_lazy_config_test_with_option(Duration::ZERO, false, Some(true), options).await;
+    (statsig, provider)
 }
 
 async fn setup_lazy_config_test_with_option(
     delay: Duration,
     capture_events: bool,
     lazy_load_id_lists: Option<bool>,
+    extra_options: StatsigOptions,
 ) -> (
     Statsig,
     Arc<LazyConfigIdListProvider>,
@@ -152,7 +181,7 @@ async fn setup_lazy_config_test_with_option(
         event_logging_adapter: event_logging_adapter
             .clone()
             .map(|adapter| adapter as Arc<dyn EventLoggingAdapter>),
-        ..StatsigOptions::default()
+        ..extra_options
     });
     let mut statsig = Statsig::new("secret-lazy-config-test", Some(Arc::clone(&options)));
     let mut adapter = StatsigHttpIdListsAdapter::new_with_store(
@@ -288,6 +317,13 @@ async fn setup_lazy_config_test_with_option(
         "entity": "dynamic_config",
         "version": 1
     });
+    specs["condition_map"]["second-id-list"] = json!({
+        "type": "unit_id", "targetValue": "replacement-members",
+        "operator": "in_segment_list", "idType": "userID"
+    });
+    let mut second_config = specs["dynamic_configs"]["lazy-config"].clone();
+    second_config["rules"][0]["conditions"] = json!(["second-id-list"]);
+    specs["dynamic_configs"]["second-config"] = second_config;
     specs["dynamic_configs"]["lazy-experiment"] = json!({
         "type": "dynamic_config",
         "salt": "lazy-experiment",
@@ -495,8 +531,13 @@ async fn unset_and_disabled_lazy_loading_remain_eager() {
     let user = StatsigUser::with_user_id("lazy-member");
 
     for lazy_load_id_lists in [None, Some(false)] {
-        let (statsig, provider, _) =
-            setup_lazy_config_test_with_option(Duration::ZERO, false, lazy_load_id_lists).await;
+        let (statsig, provider, _) = setup_lazy_config_test_with_option(
+            Duration::ZERO,
+            false,
+            lazy_load_id_lists,
+            StatsigOptions::default(),
+        )
+        .await;
         let eager_downloads = provider.downloads.load(Ordering::SeqCst);
         assert_eq!(eager_downloads, 2);
 

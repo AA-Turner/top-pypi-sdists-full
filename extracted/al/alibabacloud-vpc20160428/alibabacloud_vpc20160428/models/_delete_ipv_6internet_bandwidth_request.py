@@ -17,19 +17,19 @@ class DeleteIpv6InternetBandwidthRequest(DaraModel):
         resource_owner_account: str = None,
         resource_owner_id: int = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, and you must ensure that the value is unique among different requests. The client token can contain only ASCII characters.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among multiple requests. The client token can contain only ASCII characters.
         # > If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
         # > -
         self.client_token = client_token
-        # Specifies whether to only precheck the request. Valid values:
+        # Specifies whether to perform a dry run on this request. Valid values:
         # 
-        # - **true**: only prechecks the request and does not delete the IPsec server. The system checks whether required parameters are specified, the request format is valid, and service limits are met. If the request fails the precheck, the corresponding error message is returned. If the request passes the precheck, the `DryRunOperation` error code is returned.
+        # - **true**: performs a dry run on this request without deleting the IPsec server. The system checks whether all required parameters are specified, the request format is valid, and service limits are met. If the request fails the check, the corresponding error message is returned. If the request passes the check, `DryRunOperation` is returned.
         # 
-        # - **false** (default): sends the request and deletes the IPsec server after the request passes the precheck.
+        # - **false** (default): sends a regular request and deletes the IPsec server after the request passes the check.
         self.dry_run = dry_run
         # The ID of the IPv6 address.
         # 
-        # > You must specify either **Ipv6AddressId** or **Ipv6InternetBandwidthId**.
+        # > You must specify either the **Ipv6AddressId** parameter or the **Ipv6InternetBandwidthId** parameter.
         self.ipv_6address_id = ipv_6address_id
         # The instance ID of the Internet bandwidth for the IPv6 address.
         self.ipv_6internet_bandwidth_id = ipv_6internet_bandwidth_id
@@ -37,7 +37,7 @@ class DeleteIpv6InternetBandwidthRequest(DaraModel):
         self.owner_id = owner_id
         # The region ID of the IPv6 gateway.
         # 
-        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
+        # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query the most recent region list.
         # 
         # This parameter is required.
         self.region_id = region_id

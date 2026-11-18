@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: PyAVM
-Version: 0.9.9
+Version: 0.9.10
 Summary: Simple pure-python AVM meta-data handling
 Project-URL: documentation, http://astrofrog.github.io/pyavm/
 Project-URL: homepage, http://astrofrog.github.io/pyavm/

@@ -61,9 +61,7 @@ options:
   login_db:
     description:
     - Name of database to connect to.
-    - The V(db) alias is deprecated and will be removed in version 5.0.0.
     type: str
-    aliases: [ db ]
   session_role:
     description:
     - Switch to session_role after connecting.
@@ -91,6 +89,11 @@ attributes:
       - If i(check_mode=true) and the source has been passed as SQL, the module
         will execute it and roll the transaction back, but pay attention
         it can affect database performance (e.g., if SQL collects a lot of data).
+  idempotent:
+    support: none
+    details:
+      - The module always executes the C(COPY) command and reports changed=true on success,
+        without comparing source and destination state.
 
 seealso:
 - name: COPY command reference
@@ -340,13 +343,7 @@ def main():
         columns=dict(type='list', elements='str', aliases=['column']),
         options=dict(type='dict'),
         program=dict(type='bool', default=False),
-        login_db=dict(type='str', aliases=['db'], deprecated_aliases=[
-            {
-                'name': 'db',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            }],
-        ),
+        login_db=dict(type='str'),
         session_role=dict(type='str'),
         trust_input=dict(type='bool', default=True),
     )

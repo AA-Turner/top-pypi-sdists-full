@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: x-transformers
-Version: 2.31.20
+Version: 2.32.1
 Summary: X-Transformers
 Project-URL: Homepage, https://pypi.org/project/x-transformers/
 Project-URL: Repository, https://codeberg.org/lucidrains/x-transformers
@@ -34,6 +34,7 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.9
+Requires-Dist: assoc-scan>=0.0.6
 Requires-Dist: einops>=0.8.0
 Requires-Dist: einx>=0.3.0
 Requires-Dist: loguru
@@ -2971,6 +2972,18 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
     booktitle = {International Conference on Learning Representations (ICLR)},
     year      = {2024},
     url       = {https://openreview.net/forum?id=uJVHygNeSZ}
+}
+```
+
+```bibtex
+@misc{duggal2026latentlatticelanguagemodels,
+    title         = {Latent Lattice Language Models},
+    author        = {Shivam Duggal and Zongze Wu and William T. Freeman and Antonio Torralba and Richard Zhang and Eli Shechtman},
+    year          = {2026},
+    eprint        = {2611.21608},
+    archivePrefix = {arXiv},
+    primaryClass  = {cs.CL},
+    url           = {https://arxiv.org/abs/2611.21608}
 }
 ```
 

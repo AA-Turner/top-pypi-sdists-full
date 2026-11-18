@@ -6,7 +6,6 @@ import json
 import os
 import weakref
 from collections.abc import Mapping
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, ClassVar, Generic, Self, cast
 
 import pydantic
@@ -14,7 +13,7 @@ from typing_extensions import (
     TypeVar,
 )
 
-from .. import _modelsdev
+from .. import _modelsdev, util
 from ..errors import UnsupportedProviderError
 
 if TYPE_CHECKING:
@@ -33,7 +32,7 @@ if TYPE_CHECKING:
         transcriptions,
         videos,
     )
-    from ..ops.experimental import evaluation
+    from ..ops.experimental import decisions
     from ..types import events
     from ..types import messages as messages_
     from ..types import tools as tools_
@@ -179,24 +178,24 @@ class ProviderProtocol(pydantic.BaseModel, Generic[ClientT]):
             f"protocol {type(self).__name__!r} does not support generate()"
         )
 
-    async def evaluate(
+    async def decide(
         self,
         client: ClientT,
         model: model_.Model,
-        state: evaluation.EvaluationInput,
+        state: decisions.DecisionInput,
         questions: Mapping[
             str,
-            evaluation.ChoiceQuestion
-            | evaluation.ScoreQuestion
-            | evaluation.NoulQuestion,
+            decisions.ChoiceQuestion
+            | decisions.ScoreQuestion
+            | decisions.PredicateQuestion,
         ],
         *,
-        params: evaluation.EvaluationParams,
+        params: decisions.DecideParams,
         provider: str,
     ) -> items.Item[dict[str, Any]]:
-        """Evaluate typed questions against shared state using *client*."""
+        """Decide typed questions about shared state using *client*."""
         raise NotImplementedError(
-            f"protocol {type(self).__name__!r} does not support evaluate()"
+            f"protocol {type(self).__name__!r} does not support decide()"
         )
 
     async def generate_image(
@@ -382,7 +381,7 @@ class Provider(pydantic.BaseModel, Generic[ClientT]):
         cls,
         value: Mapping[str, str],
     ) -> Mapping[str, str]:
-        return MappingProxyType(dict(value))
+        return util.FrozenMapping(value)
 
     @pydantic.field_serializer("headers", "env")
     def _serialize_config_mapping(
@@ -530,22 +529,22 @@ class Provider(pydantic.BaseModel, Generic[ClientT]):
             provider=self.name,
         )
 
-    async def evaluate(
+    async def decide(
         self,
         model: model_.Model,
-        state: evaluation.EvaluationInput,
+        state: decisions.DecisionInput,
         questions: Mapping[
             str,
-            evaluation.ChoiceQuestion
-            | evaluation.ScoreQuestion
-            | evaluation.NoulQuestion,
+            decisions.ChoiceQuestion
+            | decisions.ScoreQuestion
+            | decisions.PredicateQuestion,
         ],
         *,
-        params: evaluation.EvaluationParams,
+        params: decisions.DecideParams,
     ) -> items.Item[dict[str, Any]]:
-        """Evaluate typed questions against shared state with this provider."""
+        """Decide typed questions about shared state with this provider."""
         selected_protocol = model.protocol or self.protocol
-        return await selected_protocol.evaluate(
+        return await selected_protocol.decide(
             self.client,
             model,
             state,

@@ -30,6 +30,7 @@ class Extension:
         self.built_extension_error = None
         self.ext_module_python = None
         self.aoti_module_path = None
+        self.ext_module_utilities = None
 
 
 class JITExtension(Extension):
@@ -52,17 +53,24 @@ class JITExtension(Extension):
 
     @staticmethod
     def wait_for_torch_build_lock(name, timeout=300):
-        from torch.utils.cpp_extension import _get_build_directory
+        from torch.utils import cpp_extension
 
-        lock_path = os.path.join(_get_build_directory(name, False), "lock")
-        start = time.time()
+        if hasattr(cpp_extension, "FileLock") or not hasattr(
+            cpp_extension, "FileBaton"
+        ):
+            return
+
+        lock_path = os.path.join(
+            cpp_extension._get_build_directory(name, False), "lock"
+        )
+        start = time.monotonic()
         while os.path.exists(lock_path):
-            if time.time() - start > timeout:
+            if time.monotonic() - start > timeout:
                 raise RuntimeError(
-                    f"Timed out after {timeout} seconds waiting for another process "
-                    f"to finish building the OpenEquivariance extension '{name}'. "
-                    f"If no other build is running, a previous build was likely "
-                    f"killed partway; delete {lock_path} and retry."
+                    f"Timed out after {timeout} seconds waiting for the "
+                    f"PyTorch FileBaton build lock for '{name}': {lock_path}. "
+                    "The lock may be stale. Remove it only after confirming "
+                    "no process is building this extension."
                 )
             time.sleep(1)
 
@@ -145,6 +153,7 @@ class JITExtension(Extension):
                     torch.ops.load_library(self.ext_module_python.__file__)
                     self.built_extension = True
                     self.aoti_module_path = self.ext_module_python.__file__
+                    self.ext_module_utilities = self.ext_module_python
 
                 except Exception as e:
                     # If compiling torch fails (e.g. low gcc version), we should fall back to the
@@ -160,31 +169,30 @@ class PrecompiledExtension(Extension):
     def __init__(self, backend):
         super().__init__()
         if backend == "cuda":
-            ext_module_py_name = f"oeq_stable_cuda{torch.version.cuda.split('.')[0]}"
-        else:
-            ext_module_py_name = f"oeq_stable_{backend}"
+            backend = f"cuda{torch.version.cuda.split('.')[0]}"
 
-        full_name = f"openequivariance._torch.extlib.{ext_module_py_name}"
-        spec = importlib.util.find_spec(full_name)
-        aoti_module_path = spec and os.path.join(
-            os.path.dirname(spec.origin), f"lib{ext_module_py_name}_aoti.so"
+        library_name = f"liboeq_stable_{backend}_aoti"
+        spec = importlib.util.find_spec(
+            f"openequivariance._torch.extlib.{library_name}"
         )
-        if spec is None or not os.path.exists(aoti_module_path):
+        if spec is None:
             self.built_extension_error = (
-                f"No precompiled OpenEquivariance extension {ext_module_py_name} "
+                f"No precompiled OpenEquivariance extension {library_name}.so "
                 f"for PyTorch {torch.__version__}. {SOURCE_BUILD_HINT}"
             )
             return
 
         try:
-            self.ext_module_python = importlib.import_module(full_name)
-            torch.ops.load_library(self.ext_module_python.__file__)
+            torch.ops.load_library(spec.origin)
+            self.ext_module_utilities = importlib.import_module(
+                f"openequivariance.core.oeq_utilities_{backend}"
+            )
             self.built_extension = True
-            self.aoti_module_path = aoti_module_path
+            self.aoti_module_path = spec.origin
         except Exception as e:
             self.built_extension_error = (
                 f"Error loading precompiled OpenEquivariance extension "
-                f"{ext_module_py_name}: {e}\n{SOURCE_BUILD_HINT}"
+                f"{library_name}.so: {e}\n{SOURCE_BUILD_HINT}"
             )
 
 
@@ -217,11 +225,8 @@ BUILT_EXTENSION_ERROR = extension.built_extension_error
 
 
 if BUILT_EXTENSION:
-    sys.modules["oeq_utilities"] = extension.ext_module_python
-    from oeq_utilities import (
-        DeviceProp,
-        GPUTimer,
-    )
+    DeviceProp = extension.ext_module_utilities.DeviceProp
+    GPUTimer = extension.ext_module_utilities.GPUTimer
 
     def torch_ext_so_path():
         return extension.aoti_module_path

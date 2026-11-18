@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport.pi05_deploy import (
+from dreamscale_core.pi05_deploy import (
     MAX_ACTION_DIM,
     MAX_CAMERAS,
     MAX_HORIZON,
@@ -27,7 +27,7 @@ from dreamscale_transport.pi05_deploy import (
     RTC_METHODS,
     rtc_contract_for,
 )
-from dreamscale_transport.pi05_rtc import (
+from dreamscale_core.pi05_rtc import (
     PI05_PRESET_MODELS,
     PI05_RTC_EMBODIMENTS,
     pi05_preset_robot,

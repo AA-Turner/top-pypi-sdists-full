@@ -64,6 +64,24 @@ class TestRequest(unittest.TestCase):
                 },
             },
             {
+                "name": "verification inputs kept",
+                "input": {
+                    "email": {
+                        "address": "test@maxmind.com",
+                        "verification_time": "2026-10-01T14:25:00Z",
+                        "was_verification_successful": False,
+                    },
+                },
+                "expected": {
+                    "email": {
+                        "address": "977577b140bfb7c516e4746204fbdb01",
+                        "domain": "maxmind.com",
+                        "verification_time": "2026-10-01T14:25:00Z",
+                        "was_verification_successful": False,
+                    },
+                },
+            },
+            {
                 "name": "uppercase and alias",
                 "input": {"email": {"address": "Test+ignored@MaxMind.com"}},
                 "expected": {
@@ -243,7 +261,9 @@ class TestRequest(unittest.TestCase):
             {"input": "foo@googlemail.com", "output": "foo@gmail.com"},
             {"input": "foo.bar@gmail.com", "output": "foobar@gmail.com"},
             {"input": "alias@user.fastmail.com", "output": "user@fastmail.com"},
+            {"input": "alias@user.fastmail.ca", "output": "user@fastmail.ca"},
             {"input": "foo-bar@ymail.com", "output": "foo@ymail.com"},
+            {"input": "test-alias@myyahoo.com", "output": "test@myyahoo.com"},
             {"input": "foo@example.com.com", "output": "foo@example.com"},
             {"input": "foo@example.comfoo", "output": "foo@example.comfoo"},
             {"input": "foo@example.cam", "output": "foo@example.cam"},

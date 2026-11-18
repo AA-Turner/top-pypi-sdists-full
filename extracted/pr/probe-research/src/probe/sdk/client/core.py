@@ -44,6 +44,7 @@ class CoreMixin:
         *,
         base_url: str | None = None,
         token: str | None = None,
+        service_token: str | None = None,
         ingest_token: str | None = None,
         hmac_secret: str | None = None,
         settings: Settings | None = None,
@@ -63,20 +64,23 @@ class CoreMixin:
         self.settings = settings or resolve(
             base_url=base_url,
             token=token,
+            service_token=service_token,
             ingest_token=ingest_token,
             hmac_secret=hmac_secret,
         )
         # Plan 2.7: an ambient credential (env or stored login, as `probe.init()` builds) is
         # re-read when the API refuses it; one passed in code never is (`refresh_credentials`).
         self._ambient_credentials = (
-            settings is None and token is None and ingest_token is None and transport is None
+            settings is None and token is None and service_token is None and ingest_token is None
+            and transport is None
         )
         #: Where a refresh may look again: "env" re-reads PROBE_TOKEN only (the stored login can be
         #: another account on a shared box), "config" this context's stored token, None never
         #: (passed in code). A PROBE_TOKEN copying the stored login IS the login
         #: (`_is_the_stored_login`), so a job that exported it survives a re-login.
         self._credential_source: str | None = None
-        if self._ambient_credentials and self.settings.token:
+        # A team key outranking the stored login (D13) is sent instead of it, and a key is never re-read.
+        if self._ambient_credentials and self.settings.token and not self.settings.should_use_service_token:
             self._credential_source = "config"
             if os.environ.get(config_module.TOKEN_ENV) and not self._is_the_login(
                 config_module.current_context_name() or None

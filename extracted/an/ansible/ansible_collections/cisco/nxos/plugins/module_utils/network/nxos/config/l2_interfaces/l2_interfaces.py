@@ -84,13 +84,37 @@ class L2_interfaces(ResourceModule):
         for each in wantd, haved:
             self.process_list_attrs(each)
 
+        # Rebuild dicts with normalized interface name keys
+        wantd = {val["name"]: val for val in wantd.values()}
+        haved = {val["name"]: val for val in haved.values()}
+
+        # Get port-channel members detected during facts gathering
+        pc_members = getattr(self._module, "_l2_pc_members", set())
+
+        user_provided_config = bool(wantd)
+
+        for intf_name in list(wantd.keys()):
+            if intf_name in pc_members:
+                self._module.fail_json(
+                    msg="Interface {0} is a port-channel member. "
+                    "L2 configuration cannot be applied directly on port-channel "
+                    "member interfaces. Apply the configuration on the "
+                    "port-channel interface instead.".format(intf_name),
+                )
+
         # if state is merged, merge want onto have and then compare
         if self.state == "merged":
+            # Strip synthesized allowed_vlans before merge so implicit
+            # 1-4094 is not treated as an explicit configured set.
+            for k, have in haved.items():
+                if have.get("trunk", {}).get("allowed_vlans_implicit"):
+                    if k in wantd and wantd[k].get("trunk", {}).get("allowed_vlans"):
+                        have.get("trunk", {}).pop("allowed_vlans", None)
             wantd = dict_merge(haved, wantd)
 
         # if state is deleted, empty out wantd and set haved to wantd
         if self.state == "deleted":
-            haved = {k: v for k, v in haved.items() if k in wantd or not wantd}
+            haved = {k: v for k, v in haved.items() if k in wantd or not user_provided_config}
             wantd = {}
 
         # remove superfluous config for overridden and deleted
@@ -136,42 +160,35 @@ class L2_interfaces(ResourceModule):
             return
 
         if self.state in ("merged", "rendered"):
-            # Merged/rendered: only ADD vlans, never remove
-            # Add vlans that are in want but not in have
-            vlans_to_add = want_set - have_set
-            if vlans_to_add:
+            if not have_set and want_set:
                 self.commands.extend(
                     generate_switchport_trunk(
                         "allowed",
-                        True,
-                        vlan_list_to_range(sorted(vlans_to_add, key=int)),
+                        False,
+                        vlan_list_to_range(sorted(want_set, key=int)),
                     ),
                 )
+            else:
+                vlans_to_add = want_set - have_set
+                if vlans_to_add:
+                    self.commands.extend(
+                        generate_switchport_trunk(
+                            "allowed",
+                            True,
+                            vlan_list_to_range(sorted(vlans_to_add, key=int)),
+                        ),
+                    )
             return
 
         if self.state in ("replaced", "overridden"):
-            # Replaced/overridden: make device match want_set exactly
-            # Remove vlans that are in have but not in want
-            vlans_to_remove = have_set - want_set
-            # Add vlans that are in want but not in have
-            vlans_to_add = want_set - have_set
-
             if not want_set and have_set:
-                # Want is empty but have has vlans - remove all
                 self.commands.append("no switchport trunk allowed vlan")
-            elif vlans_to_remove:
-                # Remove excess vlans first
-                self.commands.append(
-                    f"switchport trunk allowed vlan remove {vlan_list_to_range(sorted(vlans_to_remove, key=int))}",
-                )
-
-            if vlans_to_add:
-                # Add missing vlans
+            elif want_set and want_set != have_set:
                 self.commands.extend(
                     generate_switchport_trunk(
                         "allowed",
-                        True,
-                        vlan_list_to_range(sorted(vlans_to_add, key=int)),
+                        False,
+                        vlan_list_to_range(sorted(want_set, key=int)),
                     ),
                 )
 

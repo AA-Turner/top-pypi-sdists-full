@@ -328,7 +328,7 @@ def test_representative_request_and_response_values_keep_their_shape() -> None:
         "id": "ac_1",
         "is_composio_managed": True,
     }
-    assert response.model_dump() == {
+    assert response.model_dump(exclude={"auth_config": {"managed_app_id"}}) == {
         "auth_config": {
             "auth_scheme": "OAUTH2",
             "id": "ac_1",

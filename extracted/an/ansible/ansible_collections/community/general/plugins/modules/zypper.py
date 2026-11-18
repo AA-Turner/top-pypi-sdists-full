@@ -43,6 +43,7 @@ options:
         and zypper is allowed to update the package within the version range given.
       - You can also pass a URL or a local path to a rpm file.
       - When using O(state=latest), this can be V(*), which updates all installed packages.
+      - When using O(state=absent), names can contain the wildcards V(*) and V(?).
     required: true
     aliases: ['pkg']
     type: list
@@ -134,7 +135,8 @@ options:
     type: bool
     default: false
     description:
-      - Adds C(--allow_vendor_change) option to I(zypper) dist-upgrade command.
+      - Adds the C(--allow-vendor-change) option to the I(zypper) install, update, patch and dist-upgrade commands.
+      - Before community.general 14.0.0 the option was only passed to C(dist-upgrade).
     version_added: '0.2.0'
   replacefiles:
     type: bool
@@ -264,6 +266,18 @@ EXAMPLES = r"""
     skip_post_errors: true
 """
 
+RETURN = r"""
+reboot_required:
+  description:
+    - Whether zypper reported that a reboot is needed (return code V(102)), or the change was made with C(transactional-update)
+      and becomes active only after a reboot.
+  returned: success
+  type: bool
+  sample: false
+  version_added: 14.0.0
+"""
+
+import fnmatch
 import os.path
 import re
 import xml
@@ -333,13 +347,34 @@ def get_want_state(names, remove=False):
     return packages, urls
 
 
+def is_glob(name):
+    return "*" in name or "?" in name
+
+
 def get_installed_state(m, packages):
     "get installed state of packages"
 
-    cmd = get_cmd(m, "search")
-    cmd.extend(["--match-exact", "--details", "--installed-only"])
-    cmd.extend([p.name for p in packages])
-    return parse_zypper_xml(m, cmd, fail_not_found=False)[0]
+    installed = {}
+    exact = [p.name for p in packages if not is_glob(p.name)]
+    globs = [p.name for p in packages if is_glob(p.name)]
+    if exact:
+        cmd = get_cmd(m, "search")
+        cmd.extend(["--match-exact", "--details", "--installed-only"])
+        cmd.extend(exact)
+        installed.update(parse_zypper_xml(m, cmd, fail_not_found=False)[0])
+    if globs:
+        # --match-exact disables wildcards
+        cmd = get_cmd(m, "search")
+        cmd.extend(["--details", "--installed-only"])
+        cmd.extend(globs)
+        installed.update(parse_zypper_xml(m, cmd, fail_not_found=False)[0])
+    return installed
+
+
+def is_installed(package, installed):
+    if is_glob(package.name):
+        return any(fnmatch.fnmatchcase(name, package.name) for name in installed)
+    return package.name in installed
 
 
 def parse_zypper_xml(m, cmd, fail_not_found=True, packages=None):
@@ -481,7 +516,7 @@ def get_cmd(m, subcommand):
     if subcommand == "remove":
         if m.params["clean_deps"]:
             cmd.append("--clean-deps")
-    if subcommand == "dist-upgrade" and m.params["allow_vendor_change"]:
+    if is_install and m.params["allow_vendor_change"]:
         cmd.append("--allow-vendor-change")
     if m.params["extra_args"] and subcommand != "search":
         args_list = m.params["extra_args"].split(" ")
@@ -586,7 +621,7 @@ def package_absent(m, name):
     if m.params["type"] == "patch":
         m.fail_json(msg="Can not remove patches.")
     prerun_state = get_installed_state(m, packages)
-    packages = [p for p in packages if p.name in prerun_state]
+    packages = [p for p in packages if is_installed(p, prerun_state)]
 
     if not packages:
         return None, retvals
@@ -690,6 +725,8 @@ def main():
             packages_changed, retvals = package_present(module, name, state == "latest")
 
     retvals["changed"] = retvals["rc"] in [0, 102] and bool(packages_changed)
+    # transactional-update stages the change in a new snapshot that only a reboot activates
+    retvals["reboot_required"] = retvals["rc"] == 102 or (retvals["changed"] and transactional_updates())
 
     if module._diff:
         set_diff(module, retvals, packages_changed)
@@ -701,8 +738,7 @@ def main():
         del retvals["stdout"]
         del retvals["stderr"]
 
-    # rc 102 (ZYPPER_EXIT_INF_REBOOT_NEEDED) is a success. Set failed explicitly,
-    # otherwise ansible-core treats the non-zero rc as a failure.
+    # must force failed=False for 102 case
     module.exit_json(name=name, state=state, update_cache=update_cache, failed=False, **retvals)
 
 

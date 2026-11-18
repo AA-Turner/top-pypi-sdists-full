@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: edx-django-utils
-Version: 8.2.0
+Version: 8.2.1
 Summary: EdX utilities for Django Application development.
 Author-email: Open edX Project <oscm@openedx.org>
 License-Expression: Apache-2.0

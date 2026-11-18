@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ha-mcp-dev
-Version: 9.3.0.dev3610
+Version: 9.3.0.dev3621
 Summary: Configure and automate Home Assistant with Claude, ChatGPT, and other AI assistants.
 Keywords: mcp,home-assistant,ai,automation,smart-home
 Author: Julien
@@ -14,13 +14,13 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: anyio>=4.10
-Requires-Dist: authlib>=1.6.11
+Requires-Dist: authlib>=1.9.5
 Requires-Dist: certifi>=2026.10.19
 Requires-Dist: cyclopts>=4.0.0
 Requires-Dist: exceptiongroup>=1.2.2
 Requires-Dist: griffelib>=2.0.0
 Requires-Dist: httpx2>=2.10.0
-Requires-Dist: joserfc>=1.5.0
+Requires-Dist: joserfc>=1.7.6
 Requires-Dist: jsonref>=1.1.0
 Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: jsonschema-path>=0.3.4
@@ -28,7 +28,7 @@ Requires-Dist: openapi-pydantic>=0.6.0
 Requires-Dist: opentelemetry-api>=1.28.0
 Requires-Dist: platformdirs>=4.0.0
 Requires-Dist: psutil>=7.0.0
-Requires-Dist: py-key-value-aio[filetree,keyring,memory]>=0.4.4,<0.5.0
+Requires-Dist: py-key-value-aio[filetree,keyring,memory]>=0.4.6,<0.5.0
 Requires-Dist: pydantic-settings>=2.0.0
 Requires-Dist: pyjwt[crypto]>=2.10.1
 Requires-Dist: pyperclip>=1.9.0

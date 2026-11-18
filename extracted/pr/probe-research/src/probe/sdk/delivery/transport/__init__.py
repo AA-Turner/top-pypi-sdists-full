@@ -15,6 +15,7 @@ for _piece in (
     "probe.sdk.delivery.transport.notices",
     "probe.sdk.delivery.transport.pages",
     "probe.sdk.delivery.transport.streams",
+    "probe.sdk.delivery.transport.team_key",
     "probe.sdk.delivery.transport.tracking",
     "probe.sdk.delivery.transport.transport",
 ):
@@ -81,6 +82,10 @@ _HOMES = {
     # probe.sdk.delivery.transport.streams
     "STREAM_CONNECT_SECONDS": "probe.sdk.delivery.transport.streams",
     "cut_stream": "probe.sdk.delivery.transport.streams",
+    # probe.sdk.delivery.transport.team_key
+    "KeyReadsAsTeamWarning": "probe.sdk.delivery.transport.team_key",
+    "warn_if_team_default": "probe.sdk.delivery.transport.team_key",
+    "explain_key_refusal": "probe.sdk.delivery.transport.team_key",
     # probe.sdk.delivery.transport.tracking
     "_RESEARCH_PATH_PREFIXES": "probe.sdk.delivery.transport.tracking",
     "_READ_METHODS": "probe.sdk.delivery.transport.tracking",

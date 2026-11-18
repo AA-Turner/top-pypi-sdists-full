@@ -4,7 +4,6 @@ from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from attrs import define as _attrs_define
-from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
@@ -28,9 +27,9 @@ class PatchApiScenariosByIdBody:
             name, each with an optional description and default. A run supplies values for these names, readable from the
             scenario's own text as params.NAME. A parameter marked secret carries no default: its value is supplied per run,
             encrypted, delivered to the target as secrets.NAME, and never readable from the scenario's own text.
-        simulator_model (None | str | Unset): Model for the simulated user, e.g. openai/gpt-5-mini. Null uses the
+        simulator_model (None | str | Unset): Model for the simulated user, e.g. openai/gpt-6-luna. Null uses the
             project default.
-        judge_model (None | str | Unset): Model for the judge, e.g. openai/gpt-5-mini. Null uses the project default.
+        judge_model (None | str | Unset): Model for the judge, e.g. openai/gpt-6-luna. Null uses the project default.
         max_turns (int | None | Unset): Maximum conversation turns for a run of this scenario. Null uses the default.
         min_turns (int | None | Unset): Minimum conversation turns before the judge may end the run. Null uses the
             default.
@@ -53,7 +52,6 @@ class PatchApiScenariosByIdBody:
     min_turns: int | None | Unset = UNSET
     test_suite_id: None | str | Unset = UNSET
     fields: PatchApiScenariosByIdBodyFields | Unset = UNSET
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         name = self.name
@@ -110,7 +108,7 @@ class PatchApiScenariosByIdBody:
             fields = self.fields.to_dict()
 
         field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
+
         field_dict.update({})
         if name is not UNSET:
             field_dict["name"] = name
@@ -226,21 +224,4 @@ class PatchApiScenariosByIdBody:
             fields=fields,
         )
 
-        patch_api_scenarios_by_id_body.additional_properties = d
         return patch_api_scenarios_by_id_body
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties

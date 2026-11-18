@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: snaptrade-python-sdk
-Version: 13.3.0
+Version: 13.4.1
 Summary: Client for SnapTrade
 License: MIT
 Author: SnapTrade
@@ -87,7 +87,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
 
 
 
-[![PyPI](https://img.shields.io/badge/PyPI-v13.3.0-blue)](https://pypi.org/project/snaptrade-python-sdk/13.3.0)
+[![PyPI](https://img.shields.io/badge/PyPI-v13.4.1-blue)](https://pypi.org/project/snaptrade-python-sdk/13.4.1)
 [![README.md](https://img.shields.io/badge/README-Click%20Here-green)](https://github.com/passiv/snaptrade-sdks/tree/master/sdks/python#readme)
 [![More Info](https://img.shields.io/badge/More%20Info-Click%20Here-orange)](https://snaptrade.com/)
 
@@ -104,7 +104,7 @@ See https://docs.snaptrade.com/docs/ratelimiting.
   * [Personal API Key Auth authentication](#personal-api-key-auth-authentication)
   * [OAuth Auth authentication](#oauth-auth-authentication)
   * [Device login](#device-login)
-  * [Browser OAuth and explicit refresh](#browser-oauth-and-explicit-refresh)
+  * [Browser OAuth, explicit refresh and revocation](#browser-oauth-explicit-refresh-and-revocation)
 - [Getting Started](#getting-started)
 - [Request timeouts](#request-timeouts)
 - [Async](#async)
@@ -184,7 +184,7 @@ Python >=3.8
 ## Installation<a id="installation"></a>
 
 ```sh
-pip install snaptrade-python-sdk==13.3.0
+pip install snaptrade-python-sdk==13.4.1
 ```
 
 ## Authentication<a id="authentication"></a>
@@ -258,7 +258,7 @@ interrupt polling waits. An in-flight request is bounded by the HTTP timeout
 `SnapTradeOAuthDeviceError` and inspect `.error` for denial, expiry or cancellation.
 Applications own token storage and refresh, including refresh-token rotation.
 
-### Browser OAuth and explicit refresh<a id="browser-oauth-and-explicit-refresh"></a>
+### Browser OAuth, explicit refresh and revocation<a id="browser-oauth-explicit-refresh-and-revocation"></a>
 
 Configure confidential-client credentials on your backend. The synchronous helper generates fresh state and S256 PKCE and uses server discovery by default. Run blocking calls in a worker thread in asynchronous apps.
 
@@ -283,6 +283,8 @@ refreshed_client = SnapTrade(
 ```
 
 Token responses include `access_token`, `refresh_token`, `expires_in`, `token_type`, `scope`, and `raw`. Applications own token storage, callback validation, refresh scheduling and concurrency. A configured secret defaults to `client_secret_basic`; public clients omit the secret. Browser code must never receive a confidential-client secret.
+
+To revoke a token explicitly, call `oauth.revoke_token(token=token, token_type_hint="refresh_token")`. The hint is optional (`"access_token"` or `"refresh_token"`). Success returns `None`, including for unknown or already revoked tokens. Revoking a refresh token also invalidates its paired access token; independent token pairs remain valid. The helper discovers `revocation_endpoint` or uses the constructor's `revocation_endpoint` override and reuses the configured client authentication. OAuth errors raise `RuntimeError` with the HTTP status and response body.
 
 ## Getting Started<a id="getting-started"></a>
 
@@ -948,8 +950,6 @@ By default only returns executed orders, but that can be changed by setting *onl
 Every order carries a `legs` list with at least one leg; switch on `legs[].instrument.kind` and `order_type.kind` to know which fields are present. `data_freshness.as_of` is the time of this live request.
 
 **Beta:** this endpoint and its response schema may change.
-
-**Because of the cost of realtime requests, each call to this endpoint incurs an additional charge. You can find the exact cost for your API key on the [Customer Dashboard billing page](https://dashboard.snaptrade.com/settings/billing)**
 
 
 #### 🛠️ Usage<a id="🛠️-usage"></a>
@@ -2878,7 +2878,6 @@ A lightweight endpoint that returns a list of orders executed in the last 24 hou
 This endpoint is realtime and can be used to quickly check if account state has recently changed due to an execution, or check status of recently placed orders.
 Differs from /orders in that it is realtime, and only checks the last 24 hours as opposed to the last 30 days.
 By default only returns executed orders, but that can be changed by setting *only_executed* to false.
-**Because of the cost of realtime requests, each call to this endpoint incurs an additional charge. You can find the exact cost for your API key on the [Customer Dashboard billing page](https://dashboard.snaptrade.com/settings/billing)**
 
 
 #### 🛠️ Usage<a id="🛠️-usage"></a>

@@ -11,6 +11,7 @@ from ... import errors
 from ...models.advisory_list import AdvisoryList
 from ...models.error import Error
 from ...models.forge import Forge
+from ...types import UNSET, Unset
 from typing import cast
 
 
@@ -19,6 +20,7 @@ def _get_kwargs(
     *,
     forge: Forge,
     full_name: str,
+    refresh: bool | Unset = False,
 
 ) -> dict[str, Any]:
     
@@ -31,6 +33,8 @@ def _get_kwargs(
     params["forge"] = json_forge
 
     params["fullName"] = full_name
+
+    params["refresh"] = refresh
 
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
@@ -117,6 +121,7 @@ def sync_detailed(
     client: AuthenticatedClient,
     forge: Forge,
     full_name: str,
+    refresh: bool | Unset = False,
 
 ) -> Response[AdvisoryList | Error]:
     """ List a repository's open dependency advisories in full, on demand
@@ -124,9 +129,17 @@ def sync_detailed(
      What the advisories dialog on the Main branches page shows for one
     repository: each open Dependabot alert with the fields GitHub's own
     alert page shows. The list and the detail view are the same answer, so
-    opening one advisory costs no second call. Fetched live on every call,
-    never as part of GET /api/v1/main-branches' snapshot, so a repository
-    nobody opens costs no budget.
+    opening one advisory costs no second call. Never part of GET
+    /api/v1/main-branches' snapshot, so a repository nobody opens costs no
+    budget.
+
+    The dashboard keeps the list it reads for 15 minutes, the same as a
+    row's advisory count, and the read that fills a row's count keeps the
+    list too. So an open within that time answers from the kept list with
+    no call to the forge, and `readAt` says when it was read. Pass
+    `refresh=true` to read the forge again. If a read, on a refresh or because
+    the kept list had aged out, fails or is rate limited, the answer is the
+    last good list with `refreshFailed` set.
 
     Sorted by severity, highest first, then newest first. GitHub reads them
     through the Dependabot alerts of the repository. A Forgejo repository
@@ -156,6 +169,7 @@ def sync_detailed(
     Args:
         forge (Forge):
         full_name (str):
+        refresh (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -169,6 +183,7 @@ def sync_detailed(
     kwargs = _get_kwargs(
         forge=forge,
 full_name=full_name,
+refresh=refresh,
 
     )
 
@@ -183,6 +198,7 @@ def sync(
     client: AuthenticatedClient,
     forge: Forge,
     full_name: str,
+    refresh: bool | Unset = False,
 
 ) -> AdvisoryList | Error | None:
     """ List a repository's open dependency advisories in full, on demand
@@ -190,9 +206,17 @@ def sync(
      What the advisories dialog on the Main branches page shows for one
     repository: each open Dependabot alert with the fields GitHub's own
     alert page shows. The list and the detail view are the same answer, so
-    opening one advisory costs no second call. Fetched live on every call,
-    never as part of GET /api/v1/main-branches' snapshot, so a repository
-    nobody opens costs no budget.
+    opening one advisory costs no second call. Never part of GET
+    /api/v1/main-branches' snapshot, so a repository nobody opens costs no
+    budget.
+
+    The dashboard keeps the list it reads for 15 minutes, the same as a
+    row's advisory count, and the read that fills a row's count keeps the
+    list too. So an open within that time answers from the kept list with
+    no call to the forge, and `readAt` says when it was read. Pass
+    `refresh=true` to read the forge again. If a read, on a refresh or because
+    the kept list had aged out, fails or is rate limited, the answer is the
+    last good list with `refreshFailed` set.
 
     Sorted by severity, highest first, then newest first. GitHub reads them
     through the Dependabot alerts of the repository. A Forgejo repository
@@ -222,6 +246,7 @@ def sync(
     Args:
         forge (Forge):
         full_name (str):
+        refresh (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -236,6 +261,7 @@ def sync(
         client=client,
 forge=forge,
 full_name=full_name,
+refresh=refresh,
 
     ).parsed
 
@@ -244,6 +270,7 @@ async def asyncio_detailed(
     client: AuthenticatedClient,
     forge: Forge,
     full_name: str,
+    refresh: bool | Unset = False,
 
 ) -> Response[AdvisoryList | Error]:
     """ List a repository's open dependency advisories in full, on demand
@@ -251,9 +278,17 @@ async def asyncio_detailed(
      What the advisories dialog on the Main branches page shows for one
     repository: each open Dependabot alert with the fields GitHub's own
     alert page shows. The list and the detail view are the same answer, so
-    opening one advisory costs no second call. Fetched live on every call,
-    never as part of GET /api/v1/main-branches' snapshot, so a repository
-    nobody opens costs no budget.
+    opening one advisory costs no second call. Never part of GET
+    /api/v1/main-branches' snapshot, so a repository nobody opens costs no
+    budget.
+
+    The dashboard keeps the list it reads for 15 minutes, the same as a
+    row's advisory count, and the read that fills a row's count keeps the
+    list too. So an open within that time answers from the kept list with
+    no call to the forge, and `readAt` says when it was read. Pass
+    `refresh=true` to read the forge again. If a read, on a refresh or because
+    the kept list had aged out, fails or is rate limited, the answer is the
+    last good list with `refreshFailed` set.
 
     Sorted by severity, highest first, then newest first. GitHub reads them
     through the Dependabot alerts of the repository. A Forgejo repository
@@ -283,6 +318,7 @@ async def asyncio_detailed(
     Args:
         forge (Forge):
         full_name (str):
+        refresh (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -296,6 +332,7 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         forge=forge,
 full_name=full_name,
+refresh=refresh,
 
     )
 
@@ -310,6 +347,7 @@ async def asyncio(
     client: AuthenticatedClient,
     forge: Forge,
     full_name: str,
+    refresh: bool | Unset = False,
 
 ) -> AdvisoryList | Error | None:
     """ List a repository's open dependency advisories in full, on demand
@@ -317,9 +355,17 @@ async def asyncio(
      What the advisories dialog on the Main branches page shows for one
     repository: each open Dependabot alert with the fields GitHub's own
     alert page shows. The list and the detail view are the same answer, so
-    opening one advisory costs no second call. Fetched live on every call,
-    never as part of GET /api/v1/main-branches' snapshot, so a repository
-    nobody opens costs no budget.
+    opening one advisory costs no second call. Never part of GET
+    /api/v1/main-branches' snapshot, so a repository nobody opens costs no
+    budget.
+
+    The dashboard keeps the list it reads for 15 minutes, the same as a
+    row's advisory count, and the read that fills a row's count keeps the
+    list too. So an open within that time answers from the kept list with
+    no call to the forge, and `readAt` says when it was read. Pass
+    `refresh=true` to read the forge again. If a read, on a refresh or because
+    the kept list had aged out, fails or is rate limited, the answer is the
+    last good list with `refreshFailed` set.
 
     Sorted by severity, highest first, then newest first. GitHub reads them
     through the Dependabot alerts of the repository. A Forgejo repository
@@ -349,6 +395,7 @@ async def asyncio(
     Args:
         forge (Forge):
         full_name (str):
+        refresh (bool | Unset):  Default: False.
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -363,5 +410,6 @@ async def asyncio(
         client=client,
 forge=forge,
 full_name=full_name,
+refresh=refresh,
 
     )).parsed

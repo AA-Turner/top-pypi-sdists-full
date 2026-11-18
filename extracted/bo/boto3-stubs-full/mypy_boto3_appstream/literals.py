@@ -105,6 +105,7 @@ ActionType = Literal[
     "FILE_DOWNLOAD",
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
+    "SMART_CARD_REDIRECTION",
 ]
 AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION", "FORWARD_MCP_TOOLS"]
 AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]

@@ -14,6 +14,7 @@ Usage::
     from mypy_boto3_route53globalresolver.paginator import (
         ListAccessSourcesPaginator,
         ListAccessTokensPaginator,
+        ListCoreNetworkEndpointsPaginator,
         ListDNSViewsPaginator,
         ListFirewallDomainListsPaginator,
         ListFirewallDomainsPaginator,
@@ -29,6 +30,7 @@ Usage::
 
     list_access_sources_paginator: ListAccessSourcesPaginator = client.get_paginator("list_access_sources")
     list_access_tokens_paginator: ListAccessTokensPaginator = client.get_paginator("list_access_tokens")
+    list_core_network_endpoints_paginator: ListCoreNetworkEndpointsPaginator = client.get_paginator("list_core_network_endpoints")
     list_dns_views_paginator: ListDNSViewsPaginator = client.get_paginator("list_dns_views")
     list_firewall_domain_lists_paginator: ListFirewallDomainListsPaginator = client.get_paginator("list_firewall_domain_lists")
     list_firewall_domains_paginator: ListFirewallDomainsPaginator = client.get_paginator("list_firewall_domains")
@@ -52,6 +54,8 @@ from .type_defs import (
     ListAccessSourcesOutputTypeDef,
     ListAccessTokensInputPaginateTypeDef,
     ListAccessTokensOutputTypeDef,
+    ListCoreNetworkEndpointsInputPaginateTypeDef,
+    ListCoreNetworkEndpointsOutputTypeDef,
     ListDNSViewsInputPaginateTypeDef,
     ListDNSViewsOutputTypeDef,
     ListFirewallDomainListsInputPaginateTypeDef,
@@ -78,6 +82,7 @@ else:
 __all__ = (
     "ListAccessSourcesPaginator",
     "ListAccessTokensPaginator",
+    "ListCoreNetworkEndpointsPaginator",
     "ListDNSViewsPaginator",
     "ListFirewallDomainListsPaginator",
     "ListFirewallDomainsPaginator",
@@ -122,6 +127,24 @@ class ListAccessTokensPaginator(_ListAccessTokensPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListAccessTokens.html#Route53GlobalResolver.Paginator.ListAccessTokens.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/paginators/#listaccesstokenspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListCoreNetworkEndpointsPaginatorBase = Paginator[ListCoreNetworkEndpointsOutputTypeDef]
+else:
+    _ListCoreNetworkEndpointsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCoreNetworkEndpointsPaginator(_ListCoreNetworkEndpointsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListCoreNetworkEndpoints.html#Route53GlobalResolver.Paginator.ListCoreNetworkEndpoints)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/paginators/#listcorenetworkendpointspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCoreNetworkEndpointsInputPaginateTypeDef]
+    ) -> PageIterator[ListCoreNetworkEndpointsOutputTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/route53globalresolver/paginator/ListCoreNetworkEndpoints.html#Route53GlobalResolver.Paginator.ListCoreNetworkEndpoints.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_route53globalresolver/paginators/#listcorenetworkendpointspaginator)
         """
 
 if TYPE_CHECKING:

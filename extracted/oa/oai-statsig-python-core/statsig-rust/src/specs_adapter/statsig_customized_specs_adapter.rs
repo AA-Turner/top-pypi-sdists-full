@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use super::StatsigHttpSpecsAdapter;
+use super::remote_config_value_hydrator::init_failures;
 use super::statsig_data_store_specs_adapter::StatsigDataStoreSpecsAdapter;
 use super::{SpecAdapterConfig, SpecsAdapterType};
 use crate::data_store_interface::DataStoreTrait;
@@ -142,11 +143,13 @@ impl SpecsAdapter for StatsigCustomizedSpecsAdapter {
         statsig_runtime: &Arc<StatsigRuntime>,
     ) -> Result<(), StatsigErr> {
         for adapter in &self.adapters {
+            init_failures::begin_source();
             match adapter.to_owned().start(statsig_runtime).await {
                 Ok(()) => {
                     return Ok(());
                 }
                 Err(e) => {
+                    init_failures::record_error(&e);
                     log_w!(
                         TAG,
                         "Failed to initialize from {} adapter: {e}",

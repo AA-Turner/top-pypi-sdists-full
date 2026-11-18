@@ -24,8 +24,17 @@
   - name: Test params of boolean type
     include_tasks: test_bools.yml
 
-  - name: Copied from postgresql_set to ensure some compatibility
+  - name: Test options coverage
     include_tasks: options_coverage.yml
+
+  # options_coverage.yml preloads pg_stat_statements and restarts PostgreSQL.
+  - name: Test quoted and unquoted dotted configuration parameter names
+    include_tasks: test_parameter_names.yml
+    loop:
+    - pg_stat_statements.track
+    - '"pg_stat_statements.track"'
+    loop_control:
+      loop_var: guc_input
 
   when: postgres_version_resp.stdout is version('14', '>=')
 

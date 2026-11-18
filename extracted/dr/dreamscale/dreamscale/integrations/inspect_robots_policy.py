@@ -19,7 +19,7 @@ from collections.abc import Callable, Mapping
 from typing import Any
 
 import numpy as np
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from inspect_robots.policy import PolicyConfig, PolicyInfo
 from inspect_robots.scene import Scene
 from inspect_robots.spaces import (

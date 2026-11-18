@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openpmd-beamphysics
-Version: 0.16.4
+Version: 0.17.0
 Summary: Tools for analyzing and viewing particle data in the openPMD standard, extension beamphysics.
 Author: Christopher Mayes
 License:                                  Apache License

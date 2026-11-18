@@ -825,24 +825,31 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             return None
 
     def _build_https_ssh_command(self, workspace_id: str, config_file: str) -> Optional[str]:
-        """Build an SSH command string with WebSocket ProxyCommand for rsync -e.
+        """Build the ssh command rsync runs as its `-e` remote shell, over the HTTPS tunnel.
 
-        Returns None if HTTPS connection cannot be set up. The ProxyCommand is
-        single-quoted so rsync's `-e` word-splitter keeps it as one token.
+        Returns None if HTTPS connection cannot be set up. rsync splits `-e` into ssh's
+        argv itself, honouring quotes, so each word is quoted once here. proxy_cmd already
+        quotes its own paths, so wrapping it in another pair of quotes would end at the
+        first of those and split the ProxyCommand at any space in the install path.
         (run_command builds an argv list instead, avoiding a shell entirely.)
         """
         proxy_cmd = self._build_https_proxy_command(workspace_id, os.path.dirname(config_file))
         if not proxy_cmd:
             return None
 
-        # Build SSH command with ProxyCommand for HTTPS tunnel
-        ssh_options = subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)
-        return (
-            f"ssh -F {config_file} "
-            f"-p {HTTPS_PORT} "
-            f"-o ProxyCommand='{proxy_cmd}' "
-            f"-o {PREFERRED_AUTH_METHOD} "
-            f"{ssh_options}"
+        return shlex.join(
+            [
+                "ssh",
+                "-F",
+                config_file,
+                "-p",
+                HTTPS_PORT,
+                "-o",
+                f"ProxyCommand={proxy_cmd}",
+                "-o",
+                PREFERRED_AUTH_METHOD,
+            ]
+            + ANYSCALE_WORKSPACES_SSH_OPTIONS
         )
 
     def _execute_rsync_with_ssh_cmd(
@@ -934,27 +941,24 @@ class PrivateWorkspaceSDK(WorkloadSDK):
             if rsync_args:
                 base_rsync_args = rsync_args + base_rsync_args
 
+            # rsync splits -e into ssh's argv itself, so each word is quoted once.
+            direct_ssh_cmd = shlex.join(
+                ["ssh", "-F", config_file] + ANYSCALE_WORKSPACES_SSH_OPTIONS
+            )
+
             # Determine which SSH method to use (no fallback - use one or the other)
             if direct_ssh:
                 # User explicitly requested direct SSH (port 22)
-                ssh_cmd = (
-                    f"ssh -F {config_file} "
-                    f"{subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)}"
-                )
+                ssh_cmd = direct_ssh_cmd
                 click.echo("Syncing via direct SSH connection (port 22)...")
             else:
                 # Use HTTPS if it can be configured, otherwise use direct SSH
                 # Note: No automatic fallback on transfer failure - if HTTPS fails mid-transfer,
                 # the operation fails and user can retry with --direct-ssh flag
-                https_ssh_cmd = self._build_https_ssh_command(workspace_model.id, config_file)
-                if https_ssh_cmd:
-                    ssh_cmd = https_ssh_cmd
-                else:
-                    # HTTPS not configurable (e.g., missing cluster info), use direct SSH
-                    ssh_cmd = (
-                        f"ssh -F {config_file} "
-                        f"{subprocess.list2cmdline(ANYSCALE_WORKSPACES_SSH_OPTIONS)}"
-                    )
+                ssh_cmd = (
+                    self._build_https_ssh_command(workspace_model.id, config_file)
+                    or direct_ssh_cmd
+                )
 
             # Execute rsync (no automatic fallback on failure)
             self._execute_rsync_with_ssh_cmd(ssh_cmd, base_rsync_args, delete)
@@ -1022,11 +1026,11 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if not workspace:
             raise ValueError(f"Workspace with id '{id}' was not found.")
 
-        # Ahead of the rename and state checks: no endpoint can apply this to a KubeRay
-        # workspace, so failing on either of those first only sends the user round in circles.
+        # Ahead of the rename and state checks: only tags can be applied to a KubeRay
+        # workspace, in any state, so failing on either of those first only sends the user
+        # round in circles.
         if workspace.kuberay_cr_id:
-            self._refuse_kuberay_changes(workspace, config)
-            self._logger.info(f"Workspace '{id}' already has these settings; nothing to update.")
+            self._update_kuberay_workspace(workspace, config)
             return id  # type: ignore
 
         # Reject a disallowed rename at the write boundary, but only when the
@@ -1091,6 +1095,9 @@ class PrivateWorkspaceSDK(WorkloadSDK):
                 else config.requirements
             )
 
+        # First write: the backend may refuse a tag, which should leave the workspace as it was.
+        self._apply_tags(workspace.id, config.tags)
+
         self.client.update_workspace(
             workspace_id=id,
             name=config.name,
@@ -1115,10 +1122,31 @@ class PrivateWorkspaceSDK(WorkloadSDK):
 
         return id  # type: ignore
 
+    def _apply_tags(self, workspace_id: str, tags: Optional[Dict[str, str]]) -> None:
+        """Upsert `tags` as `add_tags` does; an empty value asks for nothing."""
+        if not tags:
+            return
+        self.client.upsert_resource_tags(ResourceTagResourceType.WORKSPACE, workspace_id, tags)
+        self._logger.info(f"Applied tags to workspace id: {workspace_id}")
+
+    def _update_kuberay_workspace(
+        self, workspace: ExperimentalWorkspace, config: UpdateWorkspaceConfig
+    ) -> None:
+        self._refuse_kuberay_changes(workspace, config)
+        if config.tags:
+            self._apply_tags(workspace.id, config.tags)
+        else:
+            self._logger.info(
+                f"Workspace '{workspace.id}' already has these settings; nothing to update."
+            )
+
     def _refuse_kuberay_changes(
         self, workspace: ExperimentalWorkspace, config: UpdateWorkspaceConfig
     ) -> None:
-        """Raise, naming them, if any fields in `config` would change a KubeRay workspace."""
+        """Raise, naming them, if any fields in `config` would change a KubeRay workspace.
+
+        Tags aren't among them: `_update_kuberay_workspace` applies those.
+        """
         # What `get` reports for a KubeRay workspace: re-supplying the current value, as a
         # `get -o yaml` fed back does, is no change.
         current = {
@@ -1149,7 +1177,7 @@ class PrivateWorkspaceSDK(WorkloadSDK):
         if changes:
             raise ValueError(
                 f"Can't change {', '.join(changes)} on workspace '{workspace.id}': it runs on "
-                "KubeRay, and a KubeRay workspace can't be updated yet. Nothing was changed."
+                "KubeRay, where only tags can be updated so far. Nothing was changed."
             )
 
     def _convert_cluster_state_to_workspace_state(self, state: SessionState) -> WorkspaceState:

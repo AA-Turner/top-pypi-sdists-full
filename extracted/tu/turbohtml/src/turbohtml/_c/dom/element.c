@@ -4418,7 +4418,7 @@ static int add_scope_declarations(th_tree *tree, th_node *scope, PyObject *decla
         if (!is_xmlns_name(name, name_len)) {
             continue;
         }
-        PyObject *key = PyUnicode_DecodeUTF8(name, name_len, "strict");
+        PyObject *key = PyUnicode_DecodeUTF8(name, name_len, "surrogatepass");
         int seen = key == NULL ? -1 : PyDict_Contains(declarations, key); /* GCOVR_EXCL_BR_LINE: OOM only */
         PyObject *value = seen == 0 ? attr_value_obj(&scope->attrs[index]) : NULL;
         /* allocation failure cannot be forced from a test */
@@ -4584,8 +4584,13 @@ static th_tree *parse_fragment_in_context(PyObject *self, th_node *context, PyOb
     memcpy(name + prefix_len, tag_utf8, (size_t)tag_len);
     name[name_len] = '\0';
     Py_DECREF(tag);
-    th_tree *fragment = th_tree_parse_fragment(PyUnicode_KIND(html), PyUnicode_DATA(html), PyUnicode_GET_LENGTH(html),
-                                               name, name_len, 0, 0, scripting, 0);
+    int html_integration;
+    Py_BEGIN_CRITICAL_SECTION(((NodeObject *)self)->handle); /* a concurrent setAttribute can rewrite the encoding */
+    html_integration = th_annotation_xml_is_html(context);
+    Py_END_CRITICAL_SECTION();
+    th_tree *fragment =
+        th_tree_parse_fragment_ex(PyUnicode_KIND(html), PyUnicode_DATA(html), PyUnicode_GET_LENGTH(html), name,
+                                  name_len, 0, 0, scripting, 0, html_integration);
     PyMem_Free(name);
     if (fragment == NULL) { /* GCOVR_EXCL_BR_LINE: allocation failure cannot be forced from a test */
         PyErr_NoMemory();   /* GCOVR_EXCL_LINE: allocation-failure path */

@@ -45,7 +45,7 @@ dependencies = [
     "langgraph-runtime-inmem>=0.38.0.dev0,<0.39.0.dev0",
     "truststore>=0.1",
     "protobuf>=6.32.1,<7.0.0",
-    "grpcio>=1.81.0,<1.82.0",
+    "grpcio>=1.85.0,<1.86.0",
     "grpcio-tools==1.81.1", # Pinned: must match GRPC_GENERATED_VERSION in generated _pb2_grpc.py stubs
     "grpcio-health-checking>=1.81.0,<1.82.0",
     "opentelemetry-api>=0.0.1",

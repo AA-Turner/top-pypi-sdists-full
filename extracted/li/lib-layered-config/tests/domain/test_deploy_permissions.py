@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import copy
 import sys
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -27,7 +28,7 @@ from lib_layered_config.domain.permissions import LAYER_PERMISSIONS
 from tests.support.os_markers import os_agnostic
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 
 def _config(section: object, *, sources: dict[str, tuple[str, str | None]] | None = None) -> Config:
@@ -52,6 +53,25 @@ def test_an_absent_section_gives_the_built_in_layer_modes() -> None:
         assert settings.for_layer(layer).file.value == modes.file
     assert settings.enabled is True
     assert settings == DeployPermissions.defaults()
+
+
+@os_agnostic
+@pytest.mark.parametrize(
+    "config",
+    [
+        {"lib_layered_config": {"default_permissions": {"user_file": "0o640"}}},
+        MappingProxyType({"lib_layered_config": {"default_permissions": {"user_file": "0o640"}}}),
+    ],
+    ids=["dict", "mappingproxy"],
+)
+def test_a_mapping_that_is_not_a_config_is_refused_naming_read_config(config: Mapping[str, object]) -> None:
+    # A plain mapping has no dotted-key get, so its section used to be ignored and the built-in
+    # 0o600 came back for a configured 0o640.
+    with pytest.raises(TypeError) as caught:
+        deploy_permissions_from_config(cast("Config", config))
+    assert str(caught.value) == (
+        f"deploy_permissions_from_config takes a Config (from read_config), not {type(config).__name__}"
+    )
 
 
 @os_agnostic
@@ -180,14 +200,14 @@ def test_layer_modes_refuses_swapped_kinds() -> None:
 def test_layer_modes_refuses_a_directory_field_that_is_not_a_deploy_mode() -> None:
     file_mode = DeployMode.from_text("0o644", ModeKind.FILE)
     with pytest.raises(DeployModeError, match="directory must be a DeployMode, got str"):
-        LayerModes(directory="0o755", file=file_mode)  # type: ignore[arg-type]
+        LayerModes(directory="0o755", file=file_mode)  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
 
 
 @os_agnostic
 def test_layer_modes_refuses_a_file_field_that_is_not_a_deploy_mode() -> None:
     dir_mode = DeployMode.from_text("0o755", ModeKind.DIRECTORY)
     with pytest.raises(DeployModeError, match="file must be a DeployMode, got NoneType"):
-        LayerModes(directory=dir_mode, file=None)  # type: ignore[arg-type]
+        LayerModes(directory=dir_mode, file=None)  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
 
 
 @os_agnostic
@@ -210,7 +230,7 @@ def test_layer_modes_accepts_a_deploy_mode_subclass() -> None:
 def test_deploy_permissions_refuses_a_layer_field_that_is_not_layer_modes() -> None:
     defaults = DeployPermissions.defaults()
     with pytest.raises(DeployModeError, match="app must be a LayerModes, got str"):
-        DeployPermissions(app="oops", host=defaults.host, user=defaults.user)  # type: ignore[arg-type]
+        DeployPermissions(app="oops", host=defaults.host, user=defaults.user)  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
 
 
 @os_agnostic
@@ -221,14 +241,16 @@ def test_deploy_permissions_refuses_a_non_bool_enabled() -> None:
             app=defaults.app,
             host=defaults.host,
             user=defaults.user,
-            enabled="false",  # type: ignore[arg-type]
+            enabled="false",  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
         )
 
 
 def _via_reduce(error: DeployPermissionsError) -> DeployPermissionsError:
     """Rebuild *error* the way pickle does, from its reduce tuple (pickle.loads itself trips ruff S301)."""
     reduced = error.__reduce_ex__(5)
+    assert isinstance(reduced, tuple)
     rebuilt = reduced[0](*reduced[1])
+    assert isinstance(rebuilt, DeployPermissionsError)
     if len(reduced) > 2 and reduced[2]:
         rebuilt.__dict__.update(reduced[2])
     return rebuilt
@@ -257,7 +279,7 @@ def _add_note(error: BaseException, note: str) -> None:
     if sys.version_info >= (3, 11):
         error.add_note(note)
     else:
-        error.__notes__ = [note]
+        vars(error)["__notes__"] = [note]
 
 
 @os_agnostic
@@ -272,14 +294,23 @@ def test_the_refusal_keeps_its_notes_through_pickle_and_copy(
     error = DeployPermissionsError([PermissionProblem("k", "bad")], hint="do this instead")
     _add_note(error, "while deploying /etc/xdg/demo")
     rebuilt = round_trip(error)
-    assert rebuilt.__notes__ == ["while deploying /etc/xdg/demo"]
+    # Read through vars(): add_note keeps the list in the instance dict, and 3.10's stubs have no __notes__.
+    assert vars(rebuilt).get("__notes__") == ["while deploying /etc/xdg/demo"]
     assert rebuilt.problems == error.problems
     assert str(rebuilt) == str(error)
 
 
+def _section_names(section: object) -> list[str] | None:
+    """The keys of *section* when it is a table, else ``None``."""
+    if not isinstance(section, dict):
+        return None
+    return [str(name) for name in cast("dict[object, object]", section)]
+
+
 def _file_config(section: object) -> Config:
     """A Config whose permission settings all came from /cfg/config.toml."""
-    keys = [f"{SECTION_KEY}.{name}" for name in section] if isinstance(section, dict) else [SECTION_KEY]
+    names = _section_names(section)
+    keys = [SECTION_KEY] if names is None else [f"{SECTION_KEY}.{name}" for name in names]
     return _config(section, sources=dict.fromkeys(keys, ("app", "/cfg/config.toml")))
 
 

@@ -186,7 +186,11 @@ impl Normalizer {
             .ok_or_else(|| malformed("Bedrock toolUse delta must be an object"))?;
         let fragment = match tool_delta.get("input") {
             Some(Value::String(fragment)) => fragment.clone(),
-            _ => return Err(malformed("Bedrock tool input delta must be text")),
+            _ => {
+                return Err(super::malformed_tool_call(
+                    "Bedrock tool input delta must be text",
+                ))
+            }
         };
         if fragment.is_empty() {
             return Ok(Vec::new());
@@ -283,9 +287,11 @@ impl Normalizer {
             "end_turn" | "stop_sequence" | "tool_use" => Event::Completed,
             "max_tokens" | "model_context_window_exceeded" => Event::Incomplete,
             // The Bedrock stop reason names the content verdict.
-            "content_filtered" | "guardrail_intervened" => Event::Failed(Failure::refusal(
-                crate::stream_errors::refusal_reason(Some(reason), None),
-            )),
+            "content_filtered" | "guardrail_intervened" => {
+                Event::Failed(crate::content_filter::mark(Failure::refusal(
+                    crate::stream_errors::refusal_reason(Some(reason), None),
+                )))
+            }
             _ => Event::Failed(Failure::new(
                 FailureClass::ProviderInternal,
                 "provider ended the stream unexpectedly",

@@ -11,7 +11,7 @@ import datetime
 import re
 
 from ..matter_bridge import devices as kinds
-from . import inputs, media
+from . import inputs, media, views
 
 # FHEMWEB rooms which are no rooms of the home
 HIDDEN_ROOMS = {
@@ -41,11 +41,16 @@ KIND_ORDER = (
     "inputs",
     "lock",
     "contact",
+    "smoke",
+    "water",
     "temperature",
     "humidity",
     "motion",
 )
 SWITCHABLE = ("light", "dimmer", "switch", "outlet")
+# tiles with "switch off in 15 min / 30 min / 1 h / 2 h"
+TIMER_KINDS = SWITCHABLE + ("fan", "irrigation")
+TIMER_PREFIX = "dashboard_timer_"
 LIGHTS = ("light", "dimmer")
 DOOR_WORDS = ("tür", "tuer", "door", "tor", "gate", "garage", "eingang", "entrance")
 TILTED_WORDS = ("tilt", "gekippt", "kipp")
@@ -148,7 +153,84 @@ DOORBELL_VALUES = (
 )
 READINGS = READINGS + tuple(r for names in ENERGY_READINGS.values() for r in names)
 READINGS = READINGS + tuple(r for r in media.READINGS if r not in READINGS)
+READINGS = READINGS + tuple(r for r in views.READINGS if r not in READINGS)
 READINGS = READINGS + ("fan", "fan_pct", "fan_mode")
+# CO2 of the air in ppm
+CO2_READINGS = ("co2", "CO2", "carbonDioxide", "carbon_dioxide")
+# reachability: HomeMatic Activity, zigbee2mqtt/MQTT availability
+REACH_READINGS = ("Activity", "availability")
+UNREACHABLE_WORDS = ("dead", "unreachable", "offline", "disconnected", "not connected")
+READINGS = READINGS + CO2_READINGS + REACH_READINGS
+
+
+# waste collection devices (e.g. ABFALL): text and days of the next pickup
+BIN_READINGS = ("next_text", "next_days")
+READINGS = READINGS + BIN_READINGS
+# colour lights: HUEDevice, zigbee2mqtt, Tasmota, Shelly, WLED, ...
+RGB_SETS = ("rgb", "hex", "RGB", "Color", "color")
+CT_SETS = ("ct", "color_temp", "colortemp", "colorTemperature", "CT", "ColorTemp")
+COLOR_READINGS = ("rgb", "hex", "RGB", "Color", "color")
+CT_READINGS = ("ct", "color_temp", "colortemp", "colorTemperature", "CT", "ColorTemp")
+READINGS = READINGS + COLOR_READINGS + CT_READINGS
+# how far the valve of a thermostat is open, in percent
+VALVE_READINGS = (
+    "actuator",
+    "ValvePosition",
+    "valveposition",
+    "valve_position",
+    "valve",
+    "pi_heating_demand",
+    "heating_demand",
+    "level_valve",
+)
+# what a thermostat does right now: heating, idle
+ACTION_READINGS = ("hvac_action", "hvacAction", "running_state", "heating_state")
+READINGS = READINGS + VALVE_READINGS + ACTION_READINGS
+
+
+# smoke and water detectors: readings which say there is smoke or water
+HAZARD_READINGS = {
+    "smoke": (
+        "smoke",
+        "smoke_detected",
+        "smokeDetected",
+        "smoke_detect",
+        "smokeAlarm",
+        "fire",
+    ),
+    "water": (
+        "water_leak",
+        "waterLeak",
+        "leak",
+        "flood",
+        "water_detected",
+        "waterDetected",
+        "moistureDetected",
+        "waterlevelDetected",
+    ),
+}
+READINGS = READINGS + tuple(r for names in HAZARD_READINGS.values() for r in names)
+# the next hours of openmeteo_weather: warnings before the night or leaving
+# (WARN_HOURS) and the weather details (FORECAST_HOURS)
+WARN_HOURS = 12
+FORECAST_HOURS = 24
+FORECAST_DAYS = 7
+HOUR_KEYS = ("time", "condition", "precipitation", "temperature", "windspeed")
+FORECAST_READINGS = tuple(
+    f"next_hours_{i:02d}_{key}" for i in range(FORECAST_HOURS) for key in HOUR_KEYS
+)
+# days: openmeteo_weather next_days_N_*, FHEM Weather fcN_*
+DAY_READINGS = {
+    "openmeteo": ("next_days_{}_", ("name", "weather", "max_temp", "min_temp", "precipitation")),
+    "weather": ("fc{}_", ("day_of_week", "condition", "high_c", "low_c", "chOfRainDay")),
+}
+FORECAST_READINGS += tuple(
+    prefix.format(i) + key
+    for prefix, keys in DAY_READINGS.values()
+    for i in range(FORECAST_DAYS + 1)
+    for key in keys
+)
+READINGS = READINGS + tuple(r for r in FORECAST_READINGS if r not in READINGS)
 READING_SET = frozenset(READINGS)
 WEATHER_TYPES = ("Weather",)
 WEATHER_FHEMPY_TYPES = ("openmeteo_weather",)
@@ -227,11 +309,21 @@ WINDOW_WORDS = ("fenster", "window", "tür", "tuer", "door", "kontakt", "contact
 CONTACT_STATES = ("open", "opened", "closed", "tilted", "offen", "geschlossen", "gekippt")
 
 
-def kind_of(info):
+def kind_of(info, view=None):
+    """view: chosen on a tablet (attr device_views), 'none': no own view"""
     if inputs.has_inputs(info):
         return "inputs"
     if media.is_media(info):
         return "media"
+    if view in views.VIEWS:
+        return view
+    if view != "none":
+        found = views.detect(info)
+        if found is not None:
+            return found
+    hazard = hazard_kind(info)
+    if hazard is not None:
+        return hazard
     kind = kinds.detect_type(info)
     if kind is not None:
         return kind
@@ -241,6 +333,70 @@ def kind_of(info):
     if state in CONTACT_STATES and any(word in text for word in WINDOW_WORDS):
         return "contact"
     return None
+
+
+CALM_VALUES = (
+    "0",
+    "false",
+    "off",
+    "no",
+    "none",
+    "ok",
+    "clear",
+    "dry",
+    "idle",
+    "idle_off",
+    "noalarm",
+    "no_alarm",
+    "normal",
+    "nosmoke",
+    "no_smoke",
+    "quiet",
+    "ruhe",
+)
+ALARM_VALUES = (
+    "1",
+    "true",
+    "on",
+    "yes",
+    "detected",
+    "alarm",
+    "wet",
+    "leak",
+    "smoke",
+    "fire",
+)
+
+
+def hazard_kind(info):
+    """smoke or water detector: one of its readings says smoke or water.
+    Devices with set commands (e.g. a valve with a leak reading) are no
+    detectors."""
+    readings = info.get("readings") or {}
+    for kind, names in HAZARD_READINGS.items():
+        if any(name in readings for name in names):
+            sets = kinds.set_names(info.get("sets")) - {"alarmTest", "test"}
+            if sets & {"on", "off", "pct", "open", "close"}:
+                return None
+            return kind
+    return None
+
+
+def hazard_alarm(kind, info):
+    """True: smoke or water, False: calm, None: the detector doesn't say"""
+    result = None
+    for name in HAZARD_READINGS[kind]:
+        value = _reading(info, name)
+        if value is None:
+            continue
+        word = str(value).strip().lower()
+        if word in CALM_VALUES or word.startswith(("no ", "no_", "kein")):
+            result = False if result is None else result
+        elif word in ALARM_VALUES or "alarm" in word or name == "smoke_detect":
+            # HomeMatic: smoke_detect is the name of the detector which
+            # raised the alarm, none when all are calm
+            return True
+    return result
 
 
 def is_door(info):
@@ -262,6 +418,15 @@ def tile_state(kind, info):
         if state.get("closed") is False and any(w in raw for w in TILTED_WORDS):
             state["tilted"] = True
         state["since"] = _reading_time(info, "contact", "state")
+    if kind == "thermostat":
+        state.update(heating_state(info))
+    if kind == "motion":
+        # last change: since when somebody is there or the room is quiet
+        state["since"] = _reading_time(info, "motion", "occupancy", "presence", "state")
+
+    if kind in HAZARD_READINGS:
+        state["alarm"] = bool(hazard_alarm(kind, info))
+        state["since"] = _reading_time(info, *HAZARD_READINGS[kind])
     if kind in ("temperature", "thermostat"):
         humidity = kinds.number(_reading(info, "humidity"))
         if humidity is not None:
@@ -270,13 +435,74 @@ def tile_state(kind, info):
         state["on"] = bool(state.get("percent"))
     elif kinds.has_fan_endpoint(kind, info):
         state["fan"] = kinds.state("fan", info)
+    if kind in LIGHTS and color_caps(info):
+        state.update(color_state(info))
+    if kind in views.VIEWS:
+        return views.state(kind, info)
     if kind in ("switch", "outlet"):
         power = kinds.number(_reading(info, "power"))
         if power is not None:
             state["power"] = power
     if battery_low(info):
         state["battery_low"] = True
+    co2 = kinds.number(_reading(info, *CO2_READINGS))
+    if co2 is not None:
+        state["co2"] = co2
+    if unreachable(info):
+        state["unreachable"] = True
+    if kind in CLIMATE_KINDS:
+        # sensors report every few minutes: the hour of the newest value
+        # shows one that went silent (battery, radio, gone)
+        seen = max((str(t) for t in (info.get("times") or {}).values()), default="")
+        if seen:
+            state["seen"] = seen[:13]
     return state
+
+
+def heating_state(info):
+    """valve: percent open, heating: the thermostat really heats. Without
+    valve and action the tablets guess from target and current temperature."""
+    result = {}
+    valve = kinds.number(_reading(info, *VALVE_READINGS))
+    if valve is not None and 0 <= valve <= 100:
+        result["valve"] = valve
+        result["heating"] = valve > 0
+    action = str(_reading(info, *ACTION_READINGS) or "").strip().lower()
+    if action:
+        if "heat" in action:
+            result["heating"] = True
+        elif "valve" not in result:
+            result["heating"] = False
+    return result
+
+
+def target_range(info):
+    """(min, max, step) of the target temperature from the set command,
+    e.g. desired-temp:slider,4.5,0.5,30.5"""
+    args = _set_args(info.get("sets"))
+    for name in kinds.TARGET_SETS:
+        if name not in args:
+            continue
+        parts = args[name].split(",")
+        if parts[0] == "slider" and len(parts) >= 4:
+            low, step, high = (kinds.number(p) for p in parts[1:4])
+            if None not in (low, step, high) and low < high and step > 0:
+                return low, high, step
+        numbers = [kinds.number(p) for p in parts]
+        numbers = [n for n in numbers if n is not None]
+        if len(numbers) >= 2:
+            return min(numbers), max(numbers), 0.5
+    return 4.5, 30.0, 0.5
+
+
+def unreachable(info):
+    """the device says it is not reachable: Activity dead, availability
+    offline or such a state"""
+    for name in REACH_READINGS + ("state",):
+        value = str(_reading(info, name) or "").strip().lower()
+        if value in UNREACHABLE_WORDS:
+            return True
+    return False
 
 
 def _low_battery_reading(info):
@@ -326,8 +552,8 @@ def low_batteries(infos):
     return result
 
 
-def tile(info, room=None):
-    kind = kind_of(info)
+def tile(info, room=None, view=None):
+    kind = kind_of(info, view)
     if kind is None:
         return None
     result = {
@@ -343,14 +569,125 @@ def tile(info, room=None):
         sets = kinds.set_names(info.get("sets"))
         result["stop"] = "stop" in sets
     if kind == "thermostat":
-        result["step"] = 0.5
+        low, high, step = target_range(info)
+        result["min"] = low
+        result["max"] = high
+        result["step"] = step
     if kind == "media":
         result["media"] = media.features(info)
     if kind == "inputs":
         result["inputs"] = inputs.parse(info)
+    if kind in views.VIEWS:
+        result["view"] = views.features(kind, info)
+        result["detected"] = view not in views.VIEWS
     if kind == "fan" or kinds.has_fan_endpoint(kind, info):
         result["fan"] = True
+    if kind in LIGHTS:
+        caps = color_caps(info)
+        if caps:
+            result["color"] = {k: v for k, v in caps.items() if k != "sets"}
     return result
+
+
+# --- colour and white of lights ---
+
+HEX6 = re.compile(r"^#?([0-9a-fA-F]{6})(?:[0-9a-fA-F]{2})?$")
+
+
+def _set_args(sets):
+    """'on rgb:colorpicker,RGB ct:colorpicker,CT,154,1,500' -> {name: args}"""
+    result = {}
+    for entry in (sets or "").split():
+        name, _, args = entry.partition(":")
+        result[name] = args
+    return result
+
+
+def _ct_range(args):
+    """(min, max) of a colour temperature set, mired or kelvin"""
+    numbers = [kinds.number(n) for n in re.split(r"[,]", args or "")]
+    numbers = [n for n in numbers if n is not None]
+    if len(numbers) >= 3 and ("colorpicker" in args or "slider" in args):
+        low, high = numbers[0], numbers[-1]
+    elif len(numbers) >= 2:
+        low, high = min(numbers), max(numbers)
+    else:
+        return None
+    if low >= high:
+        return None
+    return low, high
+
+
+def color_caps(info):
+    """what a light can do besides dimming: {'rgb': True, 'ct': [2000, 6500]}
+    (colour temperature always in kelvin for the tablets), with the FHEM set
+    names in 'sets'. Found by the set commands, never by names."""
+    args = _set_args(info.get("sets"))
+    caps, sets = {}, {}
+    for name in RGB_SETS:
+        if name in args and (
+            "colorpicker,RGB" in args[name] or name in ("rgb", "hex", "RGB")
+        ):
+            sets["rgb"] = name
+            caps["rgb"] = True
+            break
+    for name in CT_SETS:
+        if name not in args:
+            continue
+        rng = _ct_range(args[name])
+        if rng is None:
+            # e.g. HUEDevice without a range: mired 153..500
+            rng = (153, 500)
+        low, high = rng
+        kelvin = high > 1000
+        if kelvin:
+            caps["ct"] = [int(low), int(high)]
+        else:
+            caps["ct"] = [int(round(1e6 / high)), int(round(1e6 / low))]
+        sets["ct"] = {"name": name, "low": low, "high": high, "kelvin": kelvin}
+        break
+    if not caps:
+        return None
+    caps["sets"] = sets
+    return caps
+
+
+def color_state(info):
+    """current colour as #rrggbb and white as kelvin, if the device tells"""
+    readings = info.get("readings") or {}
+    state = {}
+    for name in COLOR_READINGS:
+        match = HEX6.match(str(readings.get(name, "")).strip())
+        if match:
+            state["rgb"] = "#" + match.group(1).lower()
+            break
+    for name in CT_READINGS:
+        value = kinds.number(readings.get(name))
+        if value:
+            state["ct"] = int(value if value > 1000 else round(1e6 / value))
+            break
+    return state
+
+
+def color_command(info, action, value):
+    caps = color_caps(info)
+    if caps is None:
+        return []
+    sets = caps["sets"]
+    if action == "rgb" and "rgb" in sets:
+        match = HEX6.match(str(value or "").strip())
+        if match is None:
+            raise ValueError(f"no colour: {value}")
+        return [f"{sets['rgb']} {match.group(1).upper()}"]
+    if action == "ct" and "ct" in sets:
+        kelvin = kinds.number(value)
+        if kelvin is None or kelvin <= 0:
+            raise ValueError(f"no colour temperature: {value}")
+        ct = sets["ct"]
+        target = kelvin if ct["kelvin"] else 1e6 / kelvin
+        target = max(ct["low"], min(ct["high"], target))
+        return [f"{ct['name']} {int(round(target))}"]
+    return []
 
 
 def device_readings(info):
@@ -433,10 +770,17 @@ def keeps_on(info):
     return any(w.lower() in KEEP_ON_WORDS for w in _split_words(text))
 
 
-def build(infos, order=None, keep_on=None):
+# plugs and switches which may only measure
+MEASURE_KINDS = ("switch", "outlet")
+
+
+def build(infos, order=None, keep_on=None, measure=None, device_views=None):
     """rooms and tiles of all devices.
     order: names of rooms in the wanted order (others follow sorted)
-    keep_on: devices 'All off' leaves on, None: found by their names"""
+    keep_on: devices 'All off' leaves on, None: found by their names
+    measure: plugs which only measure, the tablets never switch them
+    device_views: device -> own view or 'none', see views.parse_views"""
+    device_views = device_views or {}
     tiles = {}
     rooms = {}
     scenes = []
@@ -446,13 +790,20 @@ def build(infos, order=None, keep_on=None):
             scenes.extend(_scene_items(name, info))
             continue
         device_rooms = rooms_of(info)
-        item = tile(info, device_rooms[0]) if device_rooms else None
+        item = (
+            tile(info, device_rooms[0], device_views.get(name))
+            if device_rooms
+            else None
+        )
         if item is None:
             continue
         if item["kind"] in SWITCHABLE:
             item["keep_on"] = (
                 keeps_on(info) if keep_on is None else name in keep_on
             )
+            if measure and name in measure and item["kind"] in MEASURE_KINDS:
+                item["measure"] = True
+                item["keep_on"] = True
         tiles[name] = item
         for room in device_rooms:
             rooms.setdefault(room, []).append(item)
@@ -510,6 +861,9 @@ def weather(infos):
                 "condition": str(_reading(info, "cur_weather") or ""),
                 "high": kinds.number(_reading(info, "next_days_0_max_temp")),
                 "low": kinds.number(_reading(info, "next_days_0_min_temp")),
+                "warn": weather_warning(info),
+                "hours": forecast_hours(info),
+                "days": forecast_days(info, "openmeteo"),
             }
         if info.get("TYPE") in WEATHER_TYPES:
             return {
@@ -517,8 +871,84 @@ def weather(infos):
                 "condition": str(_reading(info, "condition") or ""),
                 "high": kinds.number(_reading(info, "fc0_high_c", "fc1_high_c")),
                 "low": kinds.number(_reading(info, "fc0_low_c", "fc1_low_c")),
+                "warn": None,
+                "hours": [],
+                "days": forecast_days(info, "weather"),
             }
     return None
+
+
+# rain from this probability on, storm from this wind speed in km/h
+RAIN_PERCENT = 60
+STORM_KMH = 60
+_THUNDER_RE = re.compile(r"gewitter|thunder", re.I)
+
+
+def weather_warning(info):
+    """the first rain, storm or frost of the next hours: {"kind": "rain",
+    "at": "15:00"} or None. Only from the hourly forecast of
+    openmeteo_weather, found by its readings."""
+    for i in range(WARN_HOURS):
+        prefix = f"next_hours_{i:02d}_"
+        when = str(_reading(info, prefix + "time") or "")
+        if not when:
+            break
+        at = when[-5:]
+        wind = kinds.number(_reading(info, prefix + "windspeed"))
+        if _THUNDER_RE.search(str(_reading(info, prefix + "condition") or "")) or (
+            wind is not None and wind >= STORM_KMH
+        ):
+            return {"kind": "storm", "at": at}
+        rain = kinds.number(_reading(info, prefix + "precipitation"))
+        if rain is not None and rain >= RAIN_PERCENT:
+            return {"kind": "rain", "at": at}
+        temperature = kinds.number(_reading(info, prefix + "temperature"))
+        if temperature is not None and temperature <= 0:
+            return {"kind": "frost", "at": at}
+    return None
+
+
+def forecast_hours(info):
+    """the next 24 hours of openmeteo_weather: [{"at": "17:00", "temp": 7,
+    "rain": 10, "condition": "Bewölkt"}]"""
+    result = []
+    for i in range(FORECAST_HOURS):
+        prefix = f"next_hours_{i:02d}_"
+        when = str(_reading(info, prefix + "time") or "")
+        if not when:
+            break
+        result.append(
+            {
+                "at": when[-5:],
+                "temp": kinds.number(_reading(info, prefix + "temperature")),
+                "rain": kinds.number(_reading(info, prefix + "precipitation")),
+                "condition": str(_reading(info, prefix + "condition") or ""),
+            }
+        )
+    return result
+
+
+def forecast_days(info, source):
+    """the next days: [{"name": "Di", "condition": "Regen", "high": 12,
+    "low": 4, "rain": 80}], today first. The FHEM Weather module counts
+    from fc0 or fc1 depending on its API."""
+    prefix, keys = DAY_READINGS[source]
+    first = 0 if _reading(info, prefix.format(0) + keys[2]) is not None else 1
+    result = []
+    for i in range(first, first + FORECAST_DAYS):
+        values = [_reading(info, prefix.format(i) + key) for key in keys]
+        if values[2] is None and values[3] is None:
+            break
+        result.append(
+            {
+                "name": str(values[0] or ""),
+                "condition": str(values[1] or ""),
+                "high": kinds.number(values[2]),
+                "low": kinds.number(values[3]),
+                "rain": kinds.number(values[4]),
+            }
+        )
+    return result
 
 
 def is_weather(info):
@@ -549,10 +979,59 @@ def open_contacts(tiles):
                 "door": item.get("door", False),
                 "tilted": item["state"].get("tilted", False),
                 "since": item["state"].get("since"),
+                "may_open": item.get("may_open"),
             }
         )
     result.sort(key=lambda c: (c["since"] or "9999", c["name"].lower()))
     return result
+
+
+# --- doors and gates which may be open at some times, e.g. a yard gate by day ---
+
+_WINDOW_RE = re.compile(r"^\s*(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})\s*$")
+
+
+def clean_window(value):
+    """'7:00-20:00' -> '07:00-20:00', None when it is no time window"""
+    match = _WINDOW_RE.match(str(value or ""))
+    if not match:
+        return None
+    h1, m1, h2, m2 = (int(x) for x in match.groups())
+    if h1 > 23 or h2 > 24 or m1 > 59 or m2 > 59 or (h2 == 24 and m2):
+        return None
+    if (h1, m1) == (h2, m2):
+        return None
+    return f"{h1:02d}:{m1:02d}-{h2:02d}:{m2:02d}"
+
+
+def parse_may_open(value):
+    """attribute may_open: 'Yard_gate=07:00-20:00,Garage=08:00-18:00'
+    -> {device: '07:00-20:00'}"""
+    result = {}
+    for entry in re.split(r"[,;\s]+(?=[^,;\s]+=)", str(value or "").strip()):
+        name, _, window = entry.partition("=")
+        window = clean_window(window)
+        if name.strip() and window:
+            result[name.strip().rstrip(",;")] = window
+    return result
+
+
+def format_may_open(windows):
+    return ",".join(f"{n}={w}" for n, w in sorted(windows.items()))
+
+
+def may_open_now(window, minutes):
+    """window '07:00-20:00', minutes since midnight. Over midnight works too:
+    '22:00-06:00'"""
+    window = clean_window(window)
+    if window is None:
+        return False
+    start, end = (
+        int(part[:2]) * 60 + int(part[3:]) for part in window.split("-")
+    )
+    if start < end:
+        return start <= minutes < end
+    return minutes >= start or minutes < end
 
 
 def running(tiles):
@@ -568,6 +1047,7 @@ def running(tiles):
                     "room": (item["rooms"] or [""])[0],
                     "power": item["state"].get("power"),
                     "keep_on": bool(item.get("keep_on")),
+                    "measure": bool(item.get("measure")),
                 }
             )
     result.sort(key=lambda r: (r["kind"] not in LIGHTS, r["room"], r["name"].lower()))
@@ -584,6 +1064,8 @@ def in_header(info):
     if info.get("FHEMPYTYPE") in PRESENCE_FHEMPY_TYPES:
         return True
     readings = info.get("readings") or {}
+    if all(r in readings for r in BIN_READINGS):
+        return True
     return any(r in readings for r in BATTERY_READINGS)
 
 
@@ -595,10 +1077,206 @@ def header(infos, tiles):
         "open": open_contacts(tiles),
         "running": running(tiles),
         "battery": low_batteries(infos),
+        "bins": bin_devices(infos),
     }
 
 
+# --- alarm system ---
+
+ALARM_MODES = {
+    "away": ("armAway", "arm_away", "armed", "arm", "away", "scharf", "on"),
+    "home": ("armHome", "arm_home", "armStay", "arm_stay", "armNight", "home", "night"),
+    "off": ("disarm", "disarmed", "unscharf", "off"),
+}
+_TRIGGERED_RE = re.compile(r"trigger|alarm|alert|intrusion|einbruch|ausgel", re.I)
+
+
+def alarm_mode(info):
+    """mode of an alarm system from its state: off, home, away, triggered"""
+    state = str(_reading(info, "state") or "").strip().lower()
+    if not state:
+        return None
+    if "disarm" in state or "unscharf" in state or state in ("off", "aus"):
+        return "off"
+    if _TRIGGERED_RE.search(state):
+        return "triggered"
+    if any(w in state for w in ("home", "stay", "night", "intern")):
+        return "home"
+    if "arm" in state or "scharf" in state or state in ("on", "away", "extern"):
+        return "away"
+    return None
+
+
+def alarm_commands(info):
+    """mode -> set command of an alarm system, by its set commands"""
+    sets = kinds.set_names(info.get("sets"))
+    result = {}
+    for mode, names in ALARM_MODES.items():
+        for name in names:
+            if name in sets:
+                result[mode] = name
+                break
+    return result
+
+
+def alarm_system(info, pin=False):
+    """the alarm system chosen with attribute alarm_system, None: none"""
+    if not info:
+        return None
+    return {
+        "id": info["NAME"],
+        "name": display_name(info),
+        "mode": alarm_mode(info),
+        "modes": [m for m in ALARM_MODES if m in alarm_commands(info)],
+        "since": _reading_time(info, "state"),
+        "pin": pin,
+    }
+
+
+def alarms(tiles, system=None):
+    """smoke, water and a triggered alarm system: shown on every tablet"""
+    result = []
+    for item in tiles.values():
+        if item["kind"] in HAZARD_READINGS and item["state"].get("alarm"):
+            result.append(
+                {
+                    "id": item["id"],
+                    "name": item["name"],
+                    "kind": item["kind"],
+                    "room": (item["rooms"] or [""])[0],
+                    "since": item["state"].get("since"),
+                }
+            )
+    if system and system["mode"] == "triggered":
+        result.append(
+            {
+                "id": system["id"],
+                "name": system["name"],
+                "kind": "intrusion",
+                "room": "",
+                "since": system["since"],
+            }
+        )
+    result.sort(key=lambda a: (a["since"] or "", a["name"].lower()))
+    return result
+
+
+def clean_pin(value):
+    """the PIN of the settings: 4 to 8 digits, None: no PIN"""
+    pin = str(value or "").strip()
+    if re.fullmatch(r"\d{4,8}", pin):
+        return pin
+    return None
+
+
+# --- calendars and waste collection ---
+
+CALENDAR_DAYS = 14
+# a pickup of waste, from the summary of a calendar entry
+_BIN_RE = re.compile(
+    r"(rest|bio|papier|wertstoff|plastik|verpackungs?)?(m(ü|ue)ll|tonne|abfall)"
+    r"|gelbe[rns]?\s*(sack|säcke|tonne)|altpapier|sperrm(ü|ue)ll|altglas"
+    r"|\b(garbage|trash|recycling|waste|compost|bin|bins)\b",
+    re.I,
+)
+
+
+def is_bin(summary):
+    return bool(_BIN_RE.search(str(summary or "")))
+
+
+def parse_calendar(text):
+    """lines 'calendar|start|end|summary' (seconds since the epoch) of
+    'get <calendar> events' -> [{"cal", "start", "end", "summary"}]"""
+    result = []
+    for line in str(text or "").splitlines():
+        parts = line.split("|", 3)
+        if len(parts) != 4:
+            continue
+        try:
+            start, end = int(float(parts[1])), int(float(parts[2]))
+        except ValueError:
+            continue
+        summary = parts[3].strip().replace("\\,", ",")
+        if summary:
+            result.append({"cal": parts[0], "start": start, "end": end, "summary": summary})
+    result.sort(key=lambda e: (e["start"], e["summary"].lower()))
+    return result
+
+
+def bin_calendars(events):
+    """calendars mostly holding pickups of waste: there every entry is a
+    pickup, also "Gelb" or "Papier" alone. Found by the entries, not by the
+    name of the calendar."""
+    counts = {}
+    for event in events:
+        total, bins = counts.get(event["cal"], (0, 0))
+        counts[event["cal"]] = (total + 1, bins + is_bin(event["summary"]))
+    return {cal for cal, (total, bins) in counts.items() if bins * 2 > total}
+
+
+def _day(epoch, now):
+    """0: today, 1: tomorrow, ... of a time, local time"""
+    then = datetime.datetime.fromtimestamp(epoch).date()
+    return (then - datetime.datetime.fromtimestamp(now).date()).days
+
+
+def calendar(events, now):
+    """what the tablets show of the calendars: the entries of today and
+    tomorrow and the pickups of waste of today and tomorrow"""
+    bin_cals = bin_calendars(events)
+    entries, bins = [], []
+    for event in events:
+        if event["end"] <= now:
+            continue
+        day = max(0, _day(event["start"], now))
+        if day > 1:
+            continue
+        allday = event["end"] - event["start"] >= 86400 and (
+            datetime.datetime.fromtimestamp(event["start"]).strftime("%H:%M")
+            == "00:00"
+        )
+        if event["cal"] in bin_cals or is_bin(event["summary"]):
+            if allday or day == 1 or event["start"] > now - 3600:
+                bins.append({"what": event["summary"], "day": day})
+            continue
+        entries.append(
+            {
+                "summary": event["summary"],
+                "day": day,
+                "allday": allday,
+                "at": ""
+                if allday
+                else datetime.datetime.fromtimestamp(event["start"]).strftime("%H:%M"),
+                "now": event["start"] <= now,
+            }
+        )
+    return {"entries": entries[:12], "bins": bins}
+
+
+def bin_devices(infos):
+    """pickups of waste of today and tomorrow from devices with the readings
+    next_text and next_days (e.g. ABFALL)"""
+    result = []
+    for info in infos.values():
+        readings = info.get("readings") or {}
+        if not all(r in readings for r in BIN_READINGS):
+            continue
+        days = kinds.number(readings.get("next_days"))
+        text = str(readings.get("next_text") or "").strip()
+        if days is not None and 0 <= days <= 1 and text:
+            result.append({"what": text, "day": int(days)})
+    return result
+
+
 # --- commands of the tablets ---
+
+
+def short_error(text):
+    """the answer of FHEM to a failed set, short enough for a tablet"""
+    text = " ".join(str(text or "").split())
+    text = re.split(r",? choose one of", text, maxsplit=1)[0]
+    return text if len(text) <= 120 else text[:119] + "…"
 
 
 def _toggle(kind, state):
@@ -654,8 +1332,13 @@ def _fan_toggle(item, info, action):
 def command(item, info, action, value=None):
     """FHEM set arguments for an action of a tablet, e.g. ['pct 50'].
     Only what the kind of the tile allows, never free commands."""
+    if item.get("measure") and action in ("on", "off", "toggle", "timer"):
+        # e.g. the plug of a fridge: shows its power, never switched
+        return []
     if item["kind"] == "media":
         return media.command(info, action, value)
+    if item["kind"] in views.VIEWS:
+        return views.command(item["kind"], info, action, value)
     if item["kind"] == "inputs":
         if action != "input" or not isinstance(value, dict):
             return []
@@ -664,6 +1347,8 @@ def command(item, info, action, value=None):
         return kinds.fhem_commands("fan", info, FAN_ACTIONS[action](value))
     if item["kind"] == "fan":
         return _fan_toggle(item, info, action)
+    if item["kind"] in LIGHTS and action in ("rgb", "ct"):
+        return color_command(info, action, value)
     if action == "toggle":
         wanted = _toggle(item["kind"], item["state"])
     elif action in ACTIONS:
@@ -685,6 +1370,35 @@ def _clamp(value, low, high, digits=0):
     return round(number * 2) / 2
 
 
+def timer_name(device):
+    """name of the temporary at device which switches a device off"""
+    return TIMER_PREFIX + re.sub(r"[^A-Za-z0-9._]", "_", device)
+
+
+def timer_minutes(value):
+    """minutes of a timer from a tablet, 0: cancel, at most a day"""
+    number = kinds.number(value)
+    if number is None:
+        return 0
+    return max(0, min(24 * 60, int(number)))
+
+
+def timer_definition(device, minutes, off_args):
+    """definition of the at device: at +01:30:00 set lamp off"""
+    hours, mins = divmod(int(minutes), 60)
+    sets = "; ".join(f"set {device} {arg}" for arg in off_args)
+    return f"{timer_name(device)} at +{hours:02d}:{mins:02d}:00 {sets}"
+
+
+def running_timers(timers, now):
+    """timers which haven't run yet, {device: end as epoch seconds}"""
+    result = {}
+    for device, end in (timers or {}).items():
+        if isinstance(end, (int, float)) and end > now:
+            result[str(device)] = end
+    return result
+
+
 def all_off(tiles, room=None):
     """lights and switches to switch off, optionally only in one room"""
     return [
@@ -695,6 +1409,41 @@ def all_off(tiles, room=None):
         and not t.get("keep_on")
         and (room is None or room in t["rooms"])
     ]
+
+
+# --- good night and leaving home ---
+
+ROUTINES = ("night", "away")
+UNDO_SECONDS = 10 * 60
+
+
+def routine_steps(tiles, mode, off_ids, close_ids):
+    """what good night / leaving home does, and how to undo it:
+    (steps, undo) with (device, action, value). Switches off the lights and
+    switches the tablet sends (not those left on with 'All off'); at night
+    also closes the blinds it sends. Undo restores what was before."""
+    steps, undo = [], []
+    for device in off_ids:
+        item = tiles.get(str(device))
+        if (
+            item is not None
+            and item["kind"] in SWITCHABLE
+            and item["state"].get("on")
+            and not item.get("keep_on")
+        ):
+            steps.append((item["id"], "off", None))
+            undo.append((item["id"], "on", None))
+    if mode == "night":
+        for device in close_ids:
+            item = tiles.get(str(device))
+            if item is None or item["kind"] != "blind":
+                continue
+            position = item["state"].get("position")
+            if position is None or position > 0:
+                steps.append((item["id"], "position", 0))
+                if position is not None:
+                    undo.append((item["id"], "position", position))
+    return steps, undo
 
 
 # --- energy ---
@@ -740,6 +1489,209 @@ def energy(infos):
     if "load" not in result and "solar" in result and "grid" in result:
         result["load"] = result["solar"] + result["grid"]
     return result
+
+
+
+# --- energy over days: from the hourly values of the timeline ---
+
+ENERGY_RANGES = {"day": 1, "week": 7, "month": 30}
+ENERGY_FLOWS = ("solar", "grid", "load", "price")
+TOP_CONSUMERS = 8
+
+
+def energy_sources(infos):
+    """flow -> (device, reading, factor to W or None) like energy(); price
+    in €/kWh has factor 1"""
+    result = {}
+    for info in sorted(infos.values(), key=lambda i: i["NAME"].lower()):
+        if not is_energy(info):
+            continue
+        readings = info.get("readings") or {}
+        for key in ENERGY_FLOWS:
+            if key in result:
+                continue
+            for name in ENERGY_READINGS[key]:
+                if name in readings and _energy_value(key, readings[name]) is not None:
+                    result[key] = (info["NAME"], name, _factor(key, readings[name]))
+                    break
+    return result
+
+
+def _factor(key, value):
+    """the timeline keeps the number of '1.2 kW', the dashboard wants W.
+    None: like watts(), decided by the values of the days"""
+    if key == "price":
+        return 1
+    return 1000 if "kw" in str(value).lower() else None
+
+
+def _series_factor(series):
+    """1000 if all values are small numbers with decimals: kW, see watts()"""
+    values = [v for row in series.get("rows", []) for v in (row[3], row[4])]
+    if series.get("carry") is not None:
+        values.append(series["carry"])
+    values = [v for v in values if v is not None]
+    if values and all(abs(v) < 50 for v in values):
+        if any(v != int(v) for v in values):
+            return 1000
+    return 1
+
+
+def parse_energy_price(text):
+    """attr energy_price '0.32' or '0.32,0.08' (price, feed-in) in €/kWh.
+    Returns (price, feed_in) or None"""
+    parts = [p.strip().replace(" ", "") for p in str(text or "").split(",")]
+    values = []
+    for part in parts[:2]:
+        try:
+            value = float(part.replace("€", ""))
+        except ValueError:
+            return None
+        if not 0 <= value < 10:
+            return None
+        values.append(value)
+    if not values or len(parts) > 2:
+        return None
+    return values[0], values[1] if len(values) > 1 else None
+
+
+def format_energy_price(price, feed_in=None):
+    text = f"{price:g}"
+    if feed_in:
+        text += f",{feed_in:g}"
+    return text
+
+
+def hourly_watts(series, start, end, now, factor=1):
+    """hour -> (mean value, share of the hour which is over) from the hourly
+    rows of the timeline. FHEM sends only changes: an hour without a row
+    keeps the last value, the value at the start of an hour counts as one
+    more sample."""
+    rows = {row[0]: row for row in series.get("rows", [])}
+    value = series.get("carry")
+    result = {}
+    hour = int(start)
+    while hour < end and hour < now:
+        row = rows.get(hour)
+        if row is not None and row[2]:
+            total, count = row[1], row[2]
+            if value is not None:
+                total, count = total + value, count + 1
+            mean = total / count
+            value = row[3]
+        else:
+            mean = value
+        if mean is not None:
+            result[hour] = (mean * factor, min(1, (now - hour) / 3600))
+        hour += 3600
+    return result
+
+
+def _kwh(watts_by_hour, sign=0):
+    """kWh per hour; sign 1 only positive values, -1 only negative ones"""
+    result = {}
+    for hour, (watt, share) in watts_by_hour.items():
+        if sign > 0:
+            watt = max(watt, 0)
+        elif sign < 0:
+            watt = max(-watt, 0)
+        result[hour] = watt / 1000 * share
+    return result
+
+
+def energy_report(series, sources, consumers, buckets, now, price=None):
+    """energy of the energy page.
+    series: (device, reading) -> hourly rows, see timeline hourly_values
+    sources: energy_sources(); consumers: [(id, name, device, reading)]
+    buckets: [(start, end)] of the bars (hours of a day or days)
+    price: (price, feed_in) of the attribute, the price reading wins"""
+    start, end = buckets[0][0], buckets[-1][1]
+
+    def flow(key, sign=0):
+        source = sources.get(key)
+        if source is None:
+            return None
+        found = series.get(source[:2], {})
+        factor = source[2] or _series_factor(found)
+        watt = hourly_watts(found, start, end, now, factor)
+        return _kwh(watt, sign) if watt else None
+
+    flows = {
+        "solar": flow("solar", 1),
+        "import": flow("grid", 1),
+        "export": flow("grid", -1),
+        "load": flow("load"),
+    }
+    if flows["load"] is None and flows["solar"] is not None and flows["import"]:
+        flows["load"] = {
+            hour: flows["solar"].get(hour, 0)
+            + flows["import"].get(hour, 0)
+            - flows["export"].get(hour, 0)
+            for hour in set(flows["solar"]) | set(flows["import"])
+        }
+    hourly_price = None
+    if "price" in sources:
+        found = hourly_watts(series.get(sources["price"][:2], {}), start, end, now)
+        hourly_price = {hour: value for hour, (value, _) in found.items()}
+    fixed, feed_in = price if price else (None, None)
+
+    def price_at(hour):
+        if hourly_price and hour in hourly_price:
+            return hourly_price[hour]
+        return fixed
+
+    def total(values, first, last):
+        return sum(v for h, v in values.items() if first <= h < last)
+
+    bars = []
+    for first, last in buckets:
+        bar = {"at": first}
+        for key, values in flows.items():
+            if values is not None:
+                bar[key] = round(total(values, first, last), 3)
+        bars.append(bar)
+    totals = {}
+    for key, values in flows.items():
+        if values is not None:
+            totals[key] = round(total(values, start, end), 3)
+    cost = None
+    if flows["import"] is not None:
+        prices = [(v, price_at(h)) for h, v in flows["import"].items()]
+        if prices and all(p is not None for _, p in prices):
+            cost = sum(v * p for v, p in prices)
+    elif flows["load"] is not None and flows["solar"] is None:
+        # no meter at the grid and no solar: all the house used is bought
+        prices = [(v, price_at(h)) for h, v in flows["load"].items()]
+        if all(p is not None for _, p in prices):
+            cost = sum(v * p for v, p in prices)
+    if cost is not None:
+        totals["cost"] = round(cost, 2)
+    if feed_in and flows["export"]:
+        totals["revenue"] = round(totals["export"] * feed_in, 2)
+    if totals.get("load") and "import" in totals:
+        share = 1 - totals["import"] / totals["load"]
+        totals["autarky"] = round(min(max(share, 0), 1) * 100)
+
+    used = []
+    for item_id, name, device, reading in consumers:
+        watt = hourly_watts(series.get((device, reading), {}), start, end, now)
+        kwh = sum(_kwh(watt, 1).values())
+        if kwh >= 0.01:
+            entry = {"id": item_id, "name": name, "kwh": round(kwh, 2)}
+            if fixed is not None or hourly_price:
+                cost = sum(
+                    v * (price_at(h) or 0) for h, v in _kwh(watt, 1).items()
+                )
+                entry["cost"] = round(cost, 2)
+            used.append(entry)
+    used.sort(key=lambda e: (-e["kwh"], e["name"].lower()))
+    return {
+        "bars": bars,
+        "totals": totals,
+        "consumers": used[:TOP_CONSUMERS],
+        "price": "reading" if hourly_price else ("attr" if fixed is not None else None),
+        "feed_in": feed_in,
+    }
 
 
 # --- doorbell ---
@@ -976,3 +1928,246 @@ def renamed_layout(layout, source, target):
         order[target] = order.pop(source)
         result["tile_order"] = order
     return result
+
+
+# --- floors: rooms grouped by floor, FHEM itself knows no floors ---
+
+
+def parse_floors(value):
+    """attribute floors: 'Ground floor=Kitchen,Living room;Upstairs=Bath'
+    -> [{name, rooms}]. A room belongs to the first floor naming it."""
+    result, seen = [], set()
+    for entry in re.split(r"[;\n]", str(value or "")):
+        name, _, rooms = entry.partition("=")
+        name = name.strip()[:40]
+        if not name or any(f["name"] == name for f in result):
+            continue
+        members = []
+        for room in rooms.split(","):
+            room = room.strip()
+            if room and room not in seen:
+                seen.add(room)
+                members.append(room)
+        result.append({"name": name, "rooms": members})
+    return result
+
+
+def format_floors(floors):
+    parts = []
+    for floor in floors:
+        name = re.sub(r"[;=,\n]", " ", str(floor.get("name") or "")).strip()[:40]
+        rooms = [
+            re.sub(r"[;,\n]", " ", str(r)).strip()
+            for r in floor.get("rooms") or []
+            if str(r).strip()
+        ]
+        if name:
+            parts.append(name + "=" + ",".join(rooms))
+    return ";".join(parts)
+
+
+# --- own notices: "Mail is here" while a device has a value ---
+
+# a notice without =value shows while the reading is one of these
+ACTIVE_VALUES = (
+    "on",
+    "open",
+    "opened",
+    "1",
+    "true",
+    "yes",
+    "motion",
+    "detected",
+    "present",
+    "alarm",
+    "an",
+    "ein",
+    "offen",
+    "ja",
+)
+_NOTICE_RE = re.compile(r"^([^\s:=;]+)(?::([^\s=;]+))?(?:=(\S+))?(?:\s+(.*))?$")
+
+
+def parse_notices(value):
+    """attribute notices, one per line or separated by ';':
+    'Mailbox Mail is here; Basement:water=wet Water in the basement'
+    -> [{device, reading, value, text}]"""
+    result = []
+    seen = set()
+    for entry in re.split(r"[;\n]", str(value or "")):
+        match = _NOTICE_RE.match(entry.strip())
+        if not match:
+            continue
+        device, reading, wanted, text = match.groups()
+        if device in seen:
+            continue
+        seen.add(device)
+        result.append(
+            {
+                "device": device,
+                "reading": reading or "state",
+                "value": wanted,
+                "text": (text or "").strip()[:80],
+            }
+        )
+    return result
+
+
+def format_notices(notices):
+    parts = []
+    for n in notices:
+        spec = n["device"]
+        if n.get("reading") and n["reading"] != "state":
+            spec += ":" + n["reading"]
+        if n.get("value"):
+            spec += "=" + n["value"]
+        text = re.sub(r"[;\n]", " ", n.get("text") or "").strip()
+        parts.append(f"{spec} {text}".strip())
+    return "; ".join(parts)
+
+
+def notice_active(notice, info):
+    value = (info.get("readings") or {}).get(notice["reading"])
+    if value is None:
+        return False
+    word = str(value).strip().lower()
+    if notice.get("value"):
+        return word == notice["value"].lower()
+    return word in ACTIVE_VALUES
+
+
+def active_notices(notices, infos, dismissed=None):
+    """notices whose device has the value now. dismissed: device -> time of
+    the reading when it was ticked off without a command to reset it"""
+    dismissed = dismissed or {}
+    result = []
+    for n in notices:
+        info = infos.get(n["device"])
+        if info is None or not notice_active(n, info):
+            continue
+        since = (info.get("times") or {}).get(n["reading"])
+        if n["device"] in dismissed and dismissed[n["device"]] == since:
+            continue
+        rooms = rooms_of(info)
+        result.append(
+            {
+                "id": n["device"],
+                "text": n["text"] or display_name(info),
+                "room": rooms[0] if rooms else "",
+                "since": since,
+                "reset": notice_reset(n, info) is not None,
+            }
+        )
+    result.sort(key=lambda x: x["since"] or "", reverse=True)
+    return result
+
+
+def notice_reset(notice, info):
+    """set command which takes the notice back, e.g. off of a dummy"""
+    sets = kinds.set_names(info.get("sets"))
+    if notice["reading"] != "state" or notice.get("value") not in (None, "on"):
+        return None
+    return "off" if "off" in sets else None
+
+
+# --- washing machine, dryer and dishwasher, found by their power ---
+
+APPLIANCES = ("washer", "dryer", "dishwasher")
+# above this the appliance runs
+APPLIANCE_RUN_W = 15
+# a program heats or spins: more than a TV, a lamp or a router ever draws
+APPLIANCE_PEAK_W = 300
+APPLIANCE_MIN_MINUTES = 20
+# below APPLIANCE_RUN_W this long: the program is done
+APPLIANCE_DONE_MINUTES = 10
+# durations of the last programs used for "about 20 min left"
+APPLIANCE_KEEP = 5
+# only a hint for the suggestion, the user confirms
+APPLIANCE_HINTS = {
+    "washer": ("wasch", "washer", "washing", "laundry"),
+    "dryer": ("trockn", "dryer", "tumble"),
+    "dishwasher": ("spülm", "spuelm", "geschirr", "dishwasher", "dish"),
+}
+
+
+def appliance_guess(name):
+    """washer/dryer/dishwasher from the name, None: no idea"""
+    text = str(name or "").lower()
+    for what, words in APPLIANCE_HINTS.items():
+        if any(w in text for w in words):
+            return what
+    return None
+
+
+def parse_appliances(value):
+    """attribute appliances 'Plug_A:washer,Plug_B:none' -> {device: what}"""
+    result = {}
+    for entry in re.split(r"[,\s]+", str(value or "")):
+        name, _, what = entry.partition(":")
+        if name and what in APPLIANCES + ("none",):
+            result[name] = what
+    return result
+
+
+def format_appliances(appliances):
+    return ",".join(f"{n}:{w}" for n, w in sorted(appliances.items()))
+
+
+def typical_seconds(durations):
+    """median of the last programs, None: none yet"""
+    values = sorted(d for d in durations or [] if isinstance(d, (int, float)) and d > 0)
+    if not values:
+        return None
+    return int(values[len(values) // 2])
+
+
+class ApplianceWatch:
+    """follows the power of a plug: a program starts above APPLIANCE_RUN_W
+    and is done after APPLIANCE_DONE_MINUTES below it. Only programs of at
+    least APPLIANCE_MIN_MINUTES with a peak of APPLIANCE_PEAK_W count, so a
+    coffee machine, a kettle or a TV are no washing machine."""
+
+    def __init__(self):
+        self.start = None
+        self.last_active = None
+        self.peak = 0
+        # last power and length of the last program
+        self.power = 0
+        self.seconds = 0
+
+    @property
+    def running(self):
+        return self.start is not None
+
+    def feed(self, power, now):
+        """'start', 'done', 'short' (no program) or None"""
+        if power is None:
+            return None
+        before, self.power = self.power, power
+        if power >= APPLIANCE_RUN_W:
+            started = self.start is None
+            if started:
+                self.start = now
+                self.peak = 0
+            self.last_active = now
+            self.peak = max(self.peak, power)
+            return "start" if started else None
+        if self.start is not None and before >= APPLIANCE_RUN_W:
+            # plugs report changes only: it ran until now
+            self.last_active = now
+        return self.tick(now)
+
+    def tick(self, now):
+        if self.start is None or self.power >= APPLIANCE_RUN_W:
+            return None
+        if now - self.last_active < APPLIANCE_DONE_MINUTES * 60:
+            return None
+        seconds = self.last_active - self.start
+        peak = self.peak
+        self.start = None
+        self.last_active = None
+        self.peak = 0
+        self.seconds = seconds
+        if seconds >= APPLIANCE_MIN_MINUTES * 60 and peak >= APPLIANCE_PEAK_W:
+            return "done"
+        return "short"

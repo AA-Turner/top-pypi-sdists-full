@@ -9,6 +9,7 @@ from mashumaro.exceptions import InvalidFieldValue
 from music_assistant_models.auth import Scope
 from music_assistant_models.enums import (
     MediaType,
+    ProviderFeature,
     ProviderIconVariant,
     ProviderTier,
     ProviderType,
@@ -17,7 +18,9 @@ from music_assistant_models.provider import (
     MAX_MENU_ACTION_LABEL_LENGTH,
     MAX_TRANSLATED_MENU_ACTION_LABEL_LENGTH,
     ProviderManifest,
+    ProviderMCPTool,
     ProviderMenuAction,
+    ProviderPage,
     is_menu_action_label,
 )
 from music_assistant_models.translations import TRANSLATION_RESOLVER
@@ -28,6 +31,20 @@ _MENU_ACTIONS_JSON = (
     '"media_types":["album","playlist"],"scope":"library.read","icon":"mdi-image-frame"},'
     '{"id":"play_on_frame","label":"Play on the picture frame","media_types":["track"],'
     '"scope":"queues.control","requires_player":true}]}'
+)
+
+_PAGE_JSON = (
+    '{"type":"plugin","domain":"frame","name":"N","description":"x","codeowners":[],'
+    '"page":{"label":"Picture frame","scope":"library.read","icon":"mdi-image-frame"}}'
+)
+
+_MCP_TOOLS_JSON = (
+    '{"type":"music","domain":"radio","name":"N","description":"x","codeowners":[],'
+    '"mcp_tools":[{"id":"play_station","description":"Play a saved station on a player.",'
+    '"scope":"queues.control","requires_player":true,"input_schema":{"type":"object",'
+    '"properties":{"station":{"type":"string","description":"The name of the station."}},'
+    '"required":["station"]}},'
+    '{"id":"list_stations","description":"List the saved stations.","scope":"library.read"}]}'
 )
 
 
@@ -238,8 +255,144 @@ def test_menu_actions_wrong_type_fails(menu_actions: str) -> None:
 
 
 def test_menu_actions_last_field() -> None:
-    """Test that menu_actions comes last, so positional construction keeps its order."""
-    assert list(ProviderManifest.__dataclass_fields__)[-2:] == ["credits", "menu_actions"]
+    """Test that the newer fields come last, so positional construction keeps order."""
+    assert list(ProviderManifest.__dataclass_fields__)[-5:] == [
+        "credits",
+        "menu_actions",
+        "mcp_tools",
+        "features",
+        "page",
+    ]
+
+
+def test_page_missing_key_defaults_none() -> None:
+    """Test that a manifest without a page declares none."""
+    restored = ProviderManifest.from_json(
+        '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[]}'
+    )
+    assert restored.page is None
+    assert restored.to_dict()["page"] is None
+
+
+def test_page_parsed() -> None:
+    """Test that a declared page parses, without an icon by default, and round-trips."""
+    manifest = ProviderManifest.from_json(_PAGE_JSON)
+    assert manifest.page == ProviderPage(
+        label="Picture frame", scope=Scope.LIBRARY_READ, icon="mdi-image-frame"
+    )
+    assert ProviderPage.from_dict({"label": "L", "scope": "library.read"}).icon is None
+    assert ProviderManifest.from_json(manifest.to_json()) == manifest
+
+
+def test_page_label_translated() -> None:
+    """Test that the label of a page is translated from page.label of its provider."""
+    manifest = ProviderManifest.from_json(_PAGE_JSON)
+    with _resolver({"provider.frame.page.label": "Fotolijstje"}):
+        assert manifest.to_dict()["page"]["label"] == "Fotolijstje"
+    assert manifest.to_dict()["page"]["label"] == "Picture frame"
+
+
+def test_page_label_translation_refused() -> None:
+    """Test that a translated page label that is not one readable line keeps the English."""
+    manifest = ProviderManifest.from_json(_PAGE_JSON)
+    too_long = "x" * (MAX_TRANSLATED_MENU_ACTION_LABEL_LENGTH + 1)
+    for value in ("Picture\nframe", too_long):
+        with _resolver({"provider.frame.page.label": value}):
+            assert manifest.to_dict()["page"]["label"] == "Picture frame"
+
+
+@pytest.mark.parametrize(
+    "page",
+    ['{"label":"L"}', '[{"label":"L","scope":"library.read"}]', '"a"'],
+)
+def test_page_wrong_type_fails(page: str) -> None:
+    """Test that a page of the wrong shape fails to parse the manifest."""
+    with pytest.raises(InvalidFieldValue):
+        ProviderManifest.from_json(
+            '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[],'
+            f'"page":{page}}}'
+        )
+
+
+def test_features_missing_key_defaults_empty() -> None:
+    """Test that a manifest without features declares none."""
+    restored = ProviderManifest.from_json(
+        '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[]}'
+    )
+    assert restored.features == set()
+
+
+def test_features_parsed() -> None:
+    """Test that declared features parse and survive a roundtrip, an unknown one as UNKNOWN."""
+    restored = ProviderManifest.from_json(
+        '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[],'
+        '"features":["audio_source","not_a_feature"]}'
+    )
+    assert restored.features == {ProviderFeature.AUDIO_SOURCE, ProviderFeature.UNKNOWN}
+    manifest = _manifest(features={ProviderFeature.AUDIO_SOURCE})
+    assert ProviderManifest.from_json(manifest.to_json()).features == {ProviderFeature.AUDIO_SOURCE}
+
+
+def test_mcp_tools_missing_key_defaults_empty() -> None:
+    """Test that a manifest without mcp_tools has none."""
+    restored = ProviderManifest.from_json(
+        '{"type":"music","domain":"d","name":"N","description":"x","codeowners":[]}'
+    )
+    assert restored.mcp_tools == []
+
+
+def test_mcp_tools_parsed() -> None:
+    """Test that declared tools parse with their defaults and survive a round trip."""
+    manifest = ProviderManifest.from_json(_MCP_TOOLS_JSON)
+    assert manifest.mcp_tools == [
+        ProviderMCPTool(
+            id="play_station",
+            description="Play a saved station on a player.",
+            scope=Scope.QUEUES_CONTROL,
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "station": {"type": "string", "description": "The name of the station."}
+                },
+                "required": ["station"],
+            },
+            requires_player=True,
+        ),
+        ProviderMCPTool(
+            id="list_stations",
+            description="List the saved stations.",
+            scope=Scope.LIBRARY_READ,
+        ),
+    ]
+    assert manifest.mcp_tools[1].input_schema == {}
+    assert manifest.mcp_tools[1].requires_player is False
+    assert ProviderManifest.from_json(manifest.to_json()) == manifest
+    assert ProviderManifest.from_dict(manifest.to_dict()) == manifest
+
+
+def test_mcp_tool_unknown_scope_and_keys() -> None:
+    """Test that an unknown scope parses as UNKNOWN and unknown keys are ignored."""
+    tool = ProviderMCPTool.from_dict(
+        {"id": "a", "description": "D", "scope": "future.scope", "extra": True}
+    )
+    assert tool == ProviderMCPTool(id="a", description="D", scope=Scope.UNKNOWN)
+
+
+@pytest.mark.parametrize(
+    "mcp_tools",
+    [
+        '{"id":"a","description":"D","scope":"library.read"}',
+        '[{"id":"a","description":"D"}]',
+        '"a"',
+    ],
+)
+def test_mcp_tools_wrong_type_fails(mcp_tools: str) -> None:
+    """Test that tools of the wrong shape fail to parse the manifest."""
+    with pytest.raises(InvalidFieldValue):
+        ProviderManifest.from_json(
+            '{"type":"plugin","domain":"d","name":"N","description":"x","codeowners":[],'
+            f'"mcp_tools":{mcp_tools}}}'
+        )
 
 
 @pytest.mark.parametrize(

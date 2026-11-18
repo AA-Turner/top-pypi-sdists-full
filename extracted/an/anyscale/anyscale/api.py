@@ -58,10 +58,43 @@ def configure_tcp_keepalive(client: Any) -> None:
     client.rest_client.pool_manager.connection_pool_kw["socket_options"] = _SOCKET_OPTIONS
 
 
+# Set by the coding agents the Anyscale agent skill supports, in the shell they
+# run commands in. Best effort: an agent missing from this list is labeled as an
+# ordinary CLI run.
+_AGENT_ENV_VARS = (
+    "CLAUDECODE",  # Claude Code
+    "CURSOR_AGENT",  # Cursor
+    "CODEX_SANDBOX",  # Codex
+    "GEMINI_CLI",  # Gemini CLI
+)
+
+AGENT_SOURCE = "agent"
+
+
+def get_client_source() -> Optional[str]:
+    """The X-Anyscale-Source to label this process's requests with, if any.
+
+    ANYSCALE_CLIENT_SOURCE wins when set, so an integration can name itself;
+    otherwise a run under a known coding agent is labeled "agent", which lets
+    analytics tell the agent skill's setups and workloads from manual ones.
+    """
+    explicit = os.environ.get("ANYSCALE_CLIENT_SOURCE")
+    if explicit:
+        return explicit
+    if any(os.environ.get(name) for name in _AGENT_ENV_VARS):
+        return AGENT_SOURCE
+    return None
+
+
 # client is of type APIClient, which is auto-generated
 def configure_open_api_client_headers(client: Any, client_name: str) -> None:
     client.set_default_header(RequestHeaders.CLIENT, client_name)
     client.set_default_header(RequestHeaders.CLIENT_VERSION, version)
+    # The SDK's `headers=` argument is applied after this, so a source passed
+    # there still wins.
+    source = get_client_source()
+    if source:
+        client.set_default_header(RequestHeaders.SOURCE, source)
 
 
 class _ApiClient:

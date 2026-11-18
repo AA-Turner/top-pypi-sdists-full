@@ -132,6 +132,7 @@ from types_boto3_connectcampaignsv2.client import ConnectCampaignServiceV2Client
 from types_boto3_connectcases.client import ConnectCasesClient
 from types_boto3_connecthealth.client import ConnectHealthClient
 from types_boto3_connectparticipant.client import ConnectParticipantClient
+from types_boto3_connectscheduling.client import ConnectSchedulingClient
 from types_boto3_continuum.client import ContinuumClient
 from types_boto3_controlcatalog.client import ControlCatalogClient
 from types_boto3_controltower.client import ControlTowerClient
@@ -326,6 +327,7 @@ from types_boto3_observabilityadmin.client import CloudWatchObservabilityAdminSe
 from types_boto3_odb.client import OdbClient
 from types_boto3_omics.client import OmicsClient
 from types_boto3_opensearch.client import OpenSearchServiceClient
+from types_boto3_opensearchmemory.client import OpenSearchMemoryClient
 from types_boto3_opensearchserverless.client import OpenSearchServiceServerlessClient
 from types_boto3_organizations.client import OrganizationsClient
 from types_boto3_osis.client import OpenSearchIngestionClient
@@ -396,6 +398,9 @@ from types_boto3_sagemaker_a2i_runtime.client import AugmentedAIRuntimeClient
 from types_boto3_sagemaker_edge.client import SagemakerEdgeManagerClient
 from types_boto3_sagemaker_featurestore_runtime.client import SageMakerFeatureStoreRuntimeClient
 from types_boto3_sagemaker_geospatial.client import SageMakergeospatialcapabilitiesClient
+from types_boto3_sagemaker_inference_router_runtime.client import (
+    SageMakerInferenceRouterRuntimeClient,
+)
 from types_boto3_sagemaker_metrics.client import SageMakerMetricsClient
 from types_boto3_sagemaker_runtime.client import SageMakerRuntimeClient
 from types_boto3_sagemakerjobruntime.client import SagemakerJobRuntimeServiceClient
@@ -2566,6 +2571,25 @@ class Session:
     ) -> ConnectParticipantClient:
         """
         Create client for ConnectParticipant service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["connectscheduling"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ConnectSchedulingClient:
+        """
+        Create client for ConnectScheduling service.
         """
 
     @overload
@@ -6067,6 +6091,25 @@ class Session:
     @overload
     def client(
         self,
+        service_name: Literal["opensearchmemory"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> OpenSearchMemoryClient:
+        """
+        Create client for OpenSearchMemory service.
+        """
+
+    @overload
+    def client(
+        self,
         service_name: Literal["opensearchserverless"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -7335,6 +7378,25 @@ class Session:
     ) -> SageMakergeospatialcapabilitiesClient:
         """
         Create client for SageMakergeospatialcapabilities service.
+        """
+
+    @overload
+    def client(
+        self,
+        service_name: Literal["sagemaker-inference-router-runtime"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: Config | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> SageMakerInferenceRouterRuntimeClient:
+        """
+        Create client for SageMakerInferenceRouterRuntime service.
         """
 
     @overload

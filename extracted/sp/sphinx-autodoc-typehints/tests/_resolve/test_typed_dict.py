@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Never, NotRequired, Protocol
 
 from pytest import MonkeyPatch, fixture, mark, param
 
-from sphinx_autodoc_typehints._resolve import OPEN, extra_items_type, typed_dict_keys
+from sphinx_autodoc_typehints._resolve.typed_dict import OPEN, extra_items_type, typed_dict_keys
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -15,7 +15,9 @@ if TYPE_CHECKING:
 
     from conftest import BuildText
 
-    from sphinx_autodoc_typehints._types import Annotation
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # Shared test types
+        Annotation,
+    )
 
 
 @mark.parametrize(
@@ -124,8 +126,8 @@ def test_typed_dict_keys(
 
 
 @fixture(name="typed_dicts")
-def typed_dicts_fixture(make_module: Callable[[str], ModuleType]) -> ModuleType:
-    return make_module(
+def typed_dicts_fixture(resolve_module: Callable[[str], ModuleType]) -> ModuleType:
+    return resolve_module(
         dedent("""\
             from __future__ import annotations
             from typing import NotRequired, TypedDict

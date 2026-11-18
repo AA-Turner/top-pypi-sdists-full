@@ -83,8 +83,8 @@ author:
 """
 
 EXAMPLES = r"""
-- name: Create a match rule destination
-  cisco.aci.aci_match_rule_destination:
+- name: Create a match route destination
+  cisco.aci.aci_match_route_destination:
     host: apic
     username: admin
     password: SomeSecretPassword
@@ -97,18 +97,8 @@ EXAMPLES = r"""
     state: present
   delegate_to: localhost
 
-- name: Delete a match rule destination
-  cisco.aci.aci_match_rule_destination:
-    host: apic
-    username: admin
-    password: SomeSecretPassword
-    match_rule: prod_match_rule
-    tenant: production
-    state: absent
-  delegate_to: localhost
-
-- name: Query all match rules destination
-  cisco.aci.aci_match_rule_destination:
+- name: Query all match routes destination
+  cisco.aci.aci_match_route_destination:
     host: apic
     username: admin
     password: SomeSecretPassword
@@ -116,8 +106,8 @@ EXAMPLES = r"""
   delegate_to: localhost
   register: query_result
 
-- name: Query a specific match rule destination
-  cisco.aci.aci_match_rule_destination:
+- name: Query a specific match route destination
+  cisco.aci.aci_match_route_destination:
     host: apic
     username: admin
     password: SomeSecretPassword
@@ -127,6 +117,17 @@ EXAMPLES = r"""
     state: query
   delegate_to: localhost
   register: query_result
+
+- name: Delete a match route destination
+  cisco.aci.aci_match_route_destination:
+    host: apic
+    username: admin
+    password: SomeSecretPassword
+    match_rule: prod_match_rule
+    tenant: production
+    ip: 11.11.11.11/24
+    state: absent
+  delegate_to: localhost
 """
 
 RETURN = r"""

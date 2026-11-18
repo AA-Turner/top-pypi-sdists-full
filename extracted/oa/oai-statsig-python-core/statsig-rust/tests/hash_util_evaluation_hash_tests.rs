@@ -18,3 +18,20 @@ fn test_evaluation_hash_matches_sha256_prefix() {
         0xD460740C12959D83_u64
     );
 }
+
+#[test]
+fn test_string_hash_uses_padded_base64_and_encoded_prefix() {
+    let hasher = HashUtil::new();
+    let input = "unicode 🗻";
+    let expected = "1GB0DBKVnYM8Xt/rahVuF8DyatT9CpoErSZrWkK1ZrQ=";
+
+    assert_eq!(hasher.sha256(input), expected);
+    assert_eq!(
+        hasher.hash(input, &statsig_rust::hashing::HashAlgorithm::Sha256),
+        expected
+    );
+    assert_eq!(
+        hasher.sha256_to_u64(input),
+        u64::from_be_bytes(*b"1GB0DBKV")
+    );
+}

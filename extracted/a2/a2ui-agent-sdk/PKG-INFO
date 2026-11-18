@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: a2ui-agent-sdk
-Version: 0.11.0
+Version: 0.12.0
 Summary: A2UI Agent SDK
 Project-URL: Homepage, https://a2ui.org/
 Project-URL: Repository, https://github.com/a2ui-project/a2ui/tree/main/python/a2ui_agent
 Project-URL: Changelog, https://github.com/a2ui-project/a2ui/blob/main/python/a2ui_agent/CHANGELOG.md
 Project-URL: Issues, https://github.com/a2ui-project/a2ui/issues
 Requires-Python: >=3.10
-Requires-Dist: a2ui-core<0.7.0,>=0.6.0
+Requires-Dist: a2ui-core<0.8.0,>=0.7.0
 Requires-Dist: antlr4-python3-runtime<4.14.0,>=4.13.0
 Requires-Dist: jsonschema>=4.0.0
 Requires-Dist: pydantic>=2.11.0
@@ -64,6 +64,10 @@ The following directories contain the base protocol logic, parsing, and schema o
 
 - **`catalog_resolver.py`**: `resolve_catalogs` returns the catalogs that are
   active for the capabilities that a renderer sent.
+- **`renderer_capabilities.py`**: `read_renderer_capabilities` reads and
+  validates the version-keyed capabilities dictionary from transport metadata
+  (`a2uiRendererCapabilities` in v1.0 and `a2uiClientCapabilities` in v0.8 and
+  v0.9).
 - **`examples.py`**: `load_examples` reads few-shot examples from a directory
   or glob pattern and can validate them against the active catalogs.
 - **`schemas.py`**: `load_agent_to_renderer_schema` and

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: vector-quantize-pytorch
-Version: 1.34.0
+Version: 1.34.1
 Summary: Vector Quantization - Pytorch
 Project-URL: Homepage, https://pypi.org/project/vector-quantize-pytorch/
 Project-URL: Repository, https://github.com/lucidrains/vector-quantizer-pytorch
@@ -425,6 +425,8 @@ xhat, indices = quantizer(x)
 
 assert torch.all(xhat == quantizer.indices_to_codes(indices))
 ```
+
+For large grids, pass `materialize_codebook = False` to `FSQ` or `ResidualFSQ`. Encoding and decoding indices then work directly with the levels, without storing every code. Residual quantizers can still enumerate the full grid through `.codebooks` if requested. Codebooks with more than 2³¹ entries use 64-bit indices.
 
 An improvised Residual FSQ, for an attempt to improve audio encoding.
 

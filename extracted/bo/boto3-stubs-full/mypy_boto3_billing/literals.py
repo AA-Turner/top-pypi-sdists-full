@@ -64,6 +64,7 @@ AssociationStatusType = Literal["ASSOCIATED", "NOT_ASSOCIATED"]
 BillingDomainType = Literal["BILLABLE", "PRO_FORMA"]
 BillingFeatureFilterNameType = Literal["PREFERENCE_KEY"]
 BillingFeatureType = Literal[
+    "BENEFIT_LEVEL_SHARING",
     "BILLING_ALERTS",
     "CREDIT_LEVEL_SHARING",
     "CREDIT_PREFERENCE_OPTIONS",

@@ -4,8 +4,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 
 import numpy as np
+from dreamscale_core.rho import RHO_LIBERO_MODEL_ID, RHO_MODELS
 from dreamscale_transport import Observation, wm_libero
-from dreamscale_transport.rho_checkpoints import RHO_CHECKPOINTS, RHO_LIBERO_MODEL_ID
 
 from dreamscale import wire
 from dreamscale.errors import observation_error
@@ -67,8 +67,8 @@ class LiberoObservation:
             libero_state=list(self.state),
             instruction=instruction,
             actions_remaining=self.actions_remaining,
-            **({"image_size": RHO_CHECKPOINTS[self.model].wire_image_size,
-                "chunk_size": RHO_CHECKPOINTS[self.model].action_horizon}
+            **({"image_size": RHO_MODELS[self.model].wire_image_size,
+                "chunk_size": RHO_MODELS[self.model].action_horizon}
                if self.model == RHO_LIBERO_MODEL_ID else
                {"image_size": 256, "chunk_size": 16}
                if self.model == "gr00t-n17-3b-libero" else

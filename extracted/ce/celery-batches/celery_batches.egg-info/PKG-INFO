@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: celery-batches
-Version: 0.11
+Version: 0.12
 Summary: Experimental task class that buffers messages and processes them as a list.
 Author-email: Patrick Cloke <clokep@patrick.cloke.us>
 License-Expression: BSD-3-Clause
@@ -16,19 +16,18 @@ Classifier: Topic :: Software Development :: Object Brokering
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: celery<5.7,>=5.0
+Requires-Dist: celery<5.8,>=5.0
 Dynamic: license-file
 
 Celery Batches
@@ -60,7 +59,7 @@ What do I need?
 
 celery-batches version runs on,
 
-- Python (3.9, 3.10, 3.11, 3.12, 3.13, 3.14)
+- Python (3.11, 3.12, 3.13, 3.14, 3.15)
 - PyPy (3.10, 3.11)
 
 And is tested with Celery ~= 5.0.
@@ -75,6 +74,8 @@ Python version is listed below:
 - Python 3.6: celery-batches 0.5.
 - Python 3.7: celery-batches 0.7.
 - Python 3.8: celery-batches 0.9.
+- Python 3.9: celery-batches 0.11.
+- Python 3.10: celery-batches 0.12.
 
 If you're running an older version of Celery, you need to be running
 an older version of celery-batches:

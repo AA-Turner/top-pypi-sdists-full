@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: modelsdotdev
-Version: 0.20260818.0
+Version: 0.20261117.0
 Summary: An offline models.dev database bundle exposed as a typed Python module.
 License-Expression: MIT
 License-File: LICENSE

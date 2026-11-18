@@ -764,7 +764,7 @@ class ELF(ELFFile):
             (see :attr:`.ELF.libs`).
         """
         for lib in self.libs:
-            if '/libc.' in lib or '/libc-' in lib:
+            if ('/libc.' in lib or '/libc-' in lib) and lib != self.path:
                 return ELF(lib, self._print_checksec)
 
     def _populate_libraries(self):
@@ -2123,7 +2123,7 @@ class ELF(ELFFile):
             "NX:".ljust(12) + {
                 True:  green("NX enabled"),
                 False: red("NX disabled"),
-                None: yellow("NX unknown - GNU_STACK missing"),
+                None:  yellow("NX enabled on new kernels"),
             }[self.nx],
             "PIE:".ljust(12) + {
                 True: green("PIE enabled"),

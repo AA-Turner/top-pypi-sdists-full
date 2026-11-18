@@ -262,6 +262,7 @@ const BUILD_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("cli_vars", FieldDefault::None),
         FieldSpec::new("run_tests", FieldDefault::True),
         FieldSpec::new("run_audits", FieldDefault::True),
+        FieldSpec::new("ignore_audit_failures", FieldDefault::None),
         FieldSpec::new("manifest", FieldDefault::False),
         FieldSpec::new("json_output", FieldDefault::False),
         FieldSpec::new("json_output_path", FieldDefault::None),
@@ -272,6 +273,7 @@ const BUILD_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("selector_files", FieldDefault::EmptyTuple),
         FieldSpec::new("test_timeout", FieldDefault::None),
         FieldSpec::new("discovered_inputs", FieldDefault::None),
+        FieldSpec::new("compiled_project", FieldDefault::None),
     ],
 };
 const BUILD_INVOCATION: RecordSpec = RecordSpec {
@@ -576,6 +578,8 @@ const PLAN_COMMAND_REQUEST: RecordSpec = RecordSpec {
         FieldSpec::new("no_cache", FieldDefault::False),
         FieldSpec::new("max_microbatches", FieldDefault::None),
         FieldSpec::new("selection_diagnostics", FieldDefault::False),
+        FieldSpec::new("timings", FieldDefault::False),
+        FieldSpec::new("ignore_audit_failures", FieldDefault::None),
     ],
 };
 const PLAYGROUND_COMMAND_REQUEST: RecordSpec = RecordSpec {

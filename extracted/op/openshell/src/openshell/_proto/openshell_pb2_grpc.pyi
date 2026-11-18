@@ -1279,6 +1279,47 @@ class OpenShellServicer:
 
 def add_OpenShellServicer_to_server(servicer: OpenShellServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
 
+class ServiceDiscoveryStub:
+    """Application ingress consumers discover routes independently of sandbox management."""
+
+    @_typing.overload
+    def __new__(cls, channel: _grpc.Channel) -> _Self: ...
+    @_typing.overload
+    def __new__(cls, channel: _aio.Channel) -> ServiceDiscoveryAsyncStub: ...
+    GetServiceRouteSnapshot: _grpc.UnaryUnaryMultiCallable[_openshell_pb2.GetServiceRouteSnapshotRequest, _openshell_pb2.GetServiceRouteSnapshotResponse]
+    """Read installed, unexpired application routes in one explicit workspace."""
+    WatchServiceRoutes: _grpc.UnaryStreamMultiCallable[_openshell_pb2.WatchServiceRoutesRequest, _openshell_pb2.WatchServiceRoutesResponse]
+    """Full replacement views; reauthorize during the bounded watch lifetime."""
+
+@_typing.type_check_only
+class ServiceDiscoveryAsyncStub(ServiceDiscoveryStub):
+    """Application ingress consumers discover routes independently of sandbox management."""
+
+    def __init__(self, channel: _aio.Channel) -> None: ...
+    GetServiceRouteSnapshot: _aio.UnaryUnaryMultiCallable[_openshell_pb2.GetServiceRouteSnapshotRequest, _openshell_pb2.GetServiceRouteSnapshotResponse]  # type: ignore[assignment]
+    """Read installed, unexpired application routes in one explicit workspace."""
+    WatchServiceRoutes: _aio.UnaryStreamMultiCallable[_openshell_pb2.WatchServiceRoutesRequest, _openshell_pb2.WatchServiceRoutesResponse]  # type: ignore[assignment]
+    """Full replacement views; reauthorize during the bounded watch lifetime."""
+
+class ServiceDiscoveryServicer:
+    """Application ingress consumers discover routes independently of sandbox management."""
+
+    def GetServiceRouteSnapshot(
+        self,
+        request: _openshell_pb2.GetServiceRouteSnapshotRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_openshell_pb2.GetServiceRouteSnapshotResponse, _abc.Awaitable[_openshell_pb2.GetServiceRouteSnapshotResponse]]:
+        """Read installed, unexpired application routes in one explicit workspace."""
+
+    def WatchServiceRoutes(
+        self,
+        request: _openshell_pb2.WatchServiceRoutesRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_abc.Iterator[_openshell_pb2.WatchServiceRoutesResponse], _abc.AsyncIterator[_openshell_pb2.WatchServiceRoutesResponse]]:
+        """Full replacement views; reauthorize during the bounded watch lifetime."""
+
+def add_ServiceDiscoveryServicer_to_server(servicer: ServiceDiscoveryServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...
+
 class SandboxUpdatesStub:
     """Optional sandbox mutations are separate from OpenShell so existing generated
     OpenShell server implementations remain source-compatible.

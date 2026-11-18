@@ -1,5 +1,5 @@
 """Server-described Flex-π deployment wire: its robot (the Bimanual YAM preset, checked against
-dreamscale_transport.flexpi_deploy by the shared preset session; or a custom robot its run
+dreamscale_core.flexpi_deploy by the shared preset session; or a custom robot its run
 describes, its cameras, widths, units and rate the block's own within the family's bounds:
 docs/plans/2026-11-14-flexpi-any-robot.md), its actions and its RTC (off). The session paces at
 the block's rate, the deployment record's.
@@ -16,7 +16,7 @@ import dataclasses
 import math
 from typing import Any
 
-from dreamscale_transport import flexpi_deploy as C
+from dreamscale_core import flexpi_deploy as C
 
 from dreamscale.deploy_bases.flexpi import UNITS
 from dreamscale.policy.preset_deployment import (

@@ -83,7 +83,7 @@ jobs:
 
   run-tests:
     needs:
-      - retrieve-pr-info
+      - retrieve-pr-info 
       - splitter
     permissions:
       pull-requests: read
@@ -92,8 +92,8 @@ jobs:
       community_dir: "./community_aws"
       all_targets: "${{ needs.splitter.outputs.targets }}"
       tarball_dir: "./tarballs"
-      ansible_version: stable-2.20
-      python_version: 3.12
+      ansible_version: milestone
+      python_version: 3.15
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

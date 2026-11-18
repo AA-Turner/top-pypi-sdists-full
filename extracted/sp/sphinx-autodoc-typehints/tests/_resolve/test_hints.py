@@ -3,6 +3,7 @@ from __future__ import annotations
 from array import array
 from collections.abc import Callable, Sequence
 from decimal import Decimal
+from fractions import Fraction
 from operator import attrgetter
 from sys import version_info
 from textwrap import dedent
@@ -11,17 +12,21 @@ from typing import TYPE_CHECKING, Final, TypeAliasType, TypeVar, Union, get_args
 from pytest import FixtureRequest, fixture, mark, param
 
 from sphinx_autodoc_typehints._refs import MyTypeAliasForwardRef
-from sphinx_autodoc_typehints._resolve import get_all_type_hints, get_descriptor_type_hint, resolve_annotations
+from sphinx_autodoc_typehints._resolve.hints import get_all_type_hints, get_descriptor_type_hint, resolve_annotations
 
 if TYPE_CHECKING:
     from pathlib import Path
     from types import FunctionType, GetSetDescriptorType, MemberDescriptorType, ModuleType
 
-    from _pytest.mark import ParameterSet
+    from _pytest.mark import ParameterSet  # simplint: ignore[private-import-path]  # Pytest private type
     from conftest import BuildText
 
-    from _resolve.conftest import AsWritten, MakeStubbedModule
-    from sphinx_autodoc_typehints._types import Annotation, Hint
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # Shared test types
+        Annotation,
+        Hint,
+    )
+
+    from .conftest import AsWritten, MakeStubbedModule, MakeSubclassOfAGuardedBase
 
     type Descriptor = GetSetDescriptorType | MemberDescriptorType
 
@@ -73,9 +78,9 @@ def test_get_all_type_hints_keeps_an_unresolvable_annotation_as_written(
 
 
 @fixture(name="annotated_module")
-def annotated_module_fixture(make_module: Callable[[str], ModuleType]) -> Callable[[str], ModuleType]:
+def annotated_module_fixture(resolve_module: Callable[[str], ModuleType]) -> Callable[[str], ModuleType]:
     def make(annotation: str) -> ModuleType:
-        return make_module(
+        return resolve_module(
             dedent(f"""\
                 import csv
 
@@ -109,9 +114,9 @@ def test_get_all_type_hints_warns_on_an_unresolvable_annotation(
 
 
 def test_get_all_type_hints_reads_a_pipe_union_of_a_mocked_type(
-    make_module: Callable[[str], ModuleType], annotations_header: str
+    resolve_module: Callable[[str], ModuleType], annotations_header: str
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         annotations_header
         + dedent("""\
             from sphinx.ext.autodoc.mock import mock
@@ -130,9 +135,9 @@ def test_get_all_type_hints_reads_a_pipe_union_of_a_mocked_type(
 
 
 def test_get_all_type_hints_keeps_an_annotation_whose_class_raises_on_subscription(
-    make_module: Callable[[str], ModuleType], logged_warnings: Callable[[], list[tuple[str, ...]]]
+    resolve_module: Callable[[str], ModuleType], logged_warnings: Callable[[], list[tuple[str, ...]]]
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -148,9 +153,9 @@ def test_get_all_type_hints_keeps_an_annotation_whose_class_raises_on_subscripti
 
 
 def test_resolve_annotations_gives_up_on_an_annotation_that_recurses_without_end(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -188,9 +193,9 @@ def test_resolve_annotations_gives_up_on_an_annotation_that_recurses_without_end
     ],
 )
 def test_get_all_type_hints_keeps_the_hints_beside_one_that_fails(
-    make_module: Callable[[str], ModuleType], source: str
+    resolve_module: Callable[[str], ModuleType], source: str
 ) -> None:
-    assert get_all_type_hints([], make_module(source).func, "mod.func", {}) == {
+    assert get_all_type_hints([], resolve_module(source).func, "mod.func", {}) == {
         "first": "NotGeneric[int]",
         "second": int,
         "return": str,
@@ -199,9 +204,9 @@ def test_get_all_type_hints_keeps_the_hints_beside_one_that_fails(
 
 @mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
 def test_resolve_annotations_keeps_a_lazy_annotation_that_fails_as_a_forward_reference(  # pragma: >=3.14 cover
-    make_module: Callable[[str], ModuleType], as_written: AsWritten
+    resolve_module: Callable[[str], ModuleType], as_written: AsWritten
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             class NotGeneric: ...
 
@@ -229,7 +234,7 @@ def test_get_all_type_hints_of_a_class_owning_the_type_params_slot() -> None:
 )
 def test_get_all_type_hints_runs_the_guard_of_a_module_an_alias_names(
     module_dir: Path,
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     logged_warnings: Callable[[], list[tuple[str, ...]]],
     as_written: AsWritten,
     imported: str,
@@ -243,7 +248,7 @@ def test_get_all_type_hints_runs_the_guard_of_a_module_an_alias_names(
                 from decimal import {imported} as Number
         """)
     )
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
             from typing import TYPE_CHECKING
@@ -265,9 +270,9 @@ def test_get_all_type_hints_runs_the_guard_of_a_module_an_alias_names(
     ],
 )
 def test_get_all_type_hints_resolves_a_nested_class(
-    make_module: Callable[[str], ModuleType], method: str, expected: dict[str, str]
+    resolve_module: Callable[[str], ModuleType], method: str, expected: dict[str, str]
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -282,8 +287,8 @@ def test_get_all_type_hints_resolves_a_nested_class(
     assert hints == {name: attrgetter(path)(module) for name, path in expected.items()}
 
 
-def test_get_all_type_hints_of_a_function_local_to_another(make_module: Callable[[str], ModuleType]) -> None:
-    module = make_module(
+def test_get_all_type_hints_of_a_function_local_to_another(resolve_module: Callable[[str], ModuleType]) -> None:
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -303,9 +308,9 @@ def test_get_all_type_hints_of_a_function_local_to_another(make_module: Callable
     ],
 )
 def test_get_all_type_hints_reads_a_global_a_class_member_names_alike(
-    make_module: Callable[[str], ModuleType], method: str, expected: dict[str, type]
+    resolve_module: Callable[[str], ModuleType], method: str, expected: dict[str, type]
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
             from decimal import Decimal
@@ -336,9 +341,9 @@ def test_get_all_type_hints_reads_a_global_a_class_member_names_alike(
     ],
 )
 def test_get_all_type_hints_resolves_a_type_from_the_class_body(
-    make_module: Callable[[str], ModuleType], definition: str
+    resolve_module: Callable[[str], ModuleType], definition: str
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent(f"""\
             from __future__ import annotations
             import typing
@@ -357,8 +362,10 @@ def test_get_all_type_hints_resolves_a_type_from_the_class_body(
 
 
 @mark.parametrize("owner", [param("func", id="function"), param("Holder.method", id="method")])
-def test_get_all_type_hints_reads_the_names_it_is_given(make_module: Callable[[str], ModuleType], owner: str) -> None:
-    module = make_module(
+def test_get_all_type_hints_reads_the_names_it_is_given(
+    resolve_module: Callable[[str], ModuleType], owner: str
+) -> None:
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -391,11 +398,11 @@ def test_get_all_type_hints_reads_the_names_it_is_given(make_module: Callable[[s
     ],
 )
 def test_get_all_type_hints_resolves_a_type_parameter(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     owner: str,
     expected: Callable[[ModuleType], dict[str, TypeVar | type[None]]],
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
 
@@ -432,7 +439,10 @@ def test_get_all_type_hints_resolves_a_type_parameter(
 def test_get_all_type_hints_reads_a_stub(
     request: FixtureRequest,
     fixture_name: str,
-    owner: Callable[[ModuleType], Callable[..., object]],
+    owner: Callable[
+        [ModuleType],
+        Callable[..., object],  # simplint: ignore[callable-ellipsis]  # any callable is passed
+    ],
     expected: dict[str, Annotation],
 ) -> None:
     assert get_all_type_hints([], owner(request.getfixturevalue(fixture_name)), "mod.documented", {}) == expected
@@ -537,12 +547,16 @@ def test_get_all_type_hints_resolves_a_backfilled_object_again_without_warning(
 def test_get_all_type_hints_cross_references_a_name_of_the_stub(
     request: FixtureRequest,
     fixture_name: str,
-    owner: Callable[[ModuleType], Callable[..., object]],
+    owner: Callable[
+        [ModuleType],
+        Callable[..., object],  # simplint: ignore[callable-ellipsis]  # any callable is passed
+    ],
     key: str,
     alias: str,
 ) -> None:
     hint = get_all_type_hints([], owner(request.getfixturevalue(fixture_name)), "mod.documented", {})[key]
-    assert (type(hint), vars(hint)) == (MyTypeAliasForwardRef, {"name": alias, "configured": False, "crossref": True})
+    assert type(hint) is MyTypeAliasForwardRef
+    assert hint.__dict__ == {"name": alias, "configured": False, "crossref": True}
 
 
 def test_get_all_type_hints_reads_the_stub_of_a_c_extension_allocator(c_ext_mod: ModuleType) -> None:
@@ -677,20 +691,36 @@ def slotted(make_stubbed_module: MakeStubbedModule) -> ModuleType:
             marks=mark.sphinx("text", testroot="resolve-stubs"),
             id="native-submodule-class",
         ),
+    ],
+)
+@mark.sphinx(exception_on_warning=True)
+def test_build_documents_the_types_of_a_stub(
+    request: FixtureRequest,
+    build_text: BuildText,
+    fixture_name: str,
+    rst: str,
+    expected: str,
+) -> None:
+    request.getfixturevalue(fixture_name)
+    assert build_text(rst) == expected
+
+
+@mark.parametrize(
+    ("rst", "expected"),
+    [
         param(
-            None,
             ".. autofunction:: dummy_module_future_annotations.function_with_py310_annotations",
             dedent("""\
-                dummy_module_future_annotations.function_with_py310_annotations(self, x, y, z=None)
+                dummy_module_future_annotations.function_with_py310_annotations(self, value, other, extra=None)
 
                    Method docstring.
 
                    Parameters:
-                      * **x** ("bool" | "None") -- foo
+                      * **value** ("bool" | "None") -- foo
 
-                      * **y** ("int" | "str" | "float") -- bar
+                      * **other** ("int" | "str" | "float") -- bar
 
-                      * **z** ("str" | "None") -- baz
+                      * **extra** ("str" | "None") -- baz
 
                    Return type:
                       "str"
@@ -699,7 +729,6 @@ def slotted(make_stubbed_module: MakeStubbedModule) -> ModuleType:
             id="union-syntax-as-strings",
         ),
         param(
-            None,
             dedent("""\
                 .. autoclass:: mod_forward_ref.Tree
                    :members:
@@ -723,24 +752,15 @@ def slotted(make_stubbed_module: MakeStubbedModule) -> ModuleType:
     ],
 )
 @mark.sphinx(exception_on_warning=True)
-def test_build_documents_the_types_of_a_stub_or_a_string(
-    request: FixtureRequest,
-    build_text: BuildText,
-    fixture_name: str | None,
-    rst: str,
-    expected: str,
-) -> None:
-    # pytest.param cannot carry usefixtures, so each case names the fixture importing its module
-    if fixture_name is not None:
-        request.getfixturevalue(fixture_name)
+def test_build_documents_the_types_of_a_string(build_text: BuildText, rst: str, expected: str) -> None:
     assert build_text(rst) == expected
 
 
 @mark.skipif(version_info < (3, 14), reason="eager annotations fail at import instead")
 def test_get_all_type_hints_keeps_an_attrs_field_naming_nothing(  # pragma: >=3.14 cover
-    make_module: Callable[[str], ModuleType], as_written: AsWritten
+    resolve_module: Callable[[str], ModuleType], as_written: AsWritten
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             import attrs
 
@@ -758,9 +778,9 @@ def test_get_all_type_hints_keeps_an_attrs_field_naming_nothing(  # pragma: >=3.
     "text", testroot="integration", confoverrides={"always_document_param_types": True}, exception_on_warning=True
 )
 def test_build_shows_the_source_of_an_annotation_whose_evaluation_raises(  # pragma: >=3.14 cover
-    build_text: BuildText, make_module: Callable[[str], ModuleType]
+    build_text: BuildText, resolve_module: Callable[[str], ModuleType]
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             class DiGraph:
                 pass
@@ -783,3 +803,206 @@ def test_build_shows_the_source_of_an_annotation_whose_evaluation_raises(  # pra
                   "None"
         """)
     )
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+@mark.parametrize(
+    ("declaration", "owner"),
+    [
+        param("def func(value: Decimal) -> None: ...", "func", id="function"),
+        param(
+            dedent("""\
+                class Holder:
+                    def method(self, value: Decimal) -> None: ...
+            """),
+            "Holder.method",
+            id="method",
+        ),
+        param(
+            dedent("""\
+                class Holder:
+                    value: Decimal
+            """),
+            "Holder",
+            id="class",
+        ),
+        param(
+            "def func(value: Decimal, other: Undefined) -> None: ...", "func", id="function-beside-an-undefined-name"
+        ),
+        param(
+            dedent("""\
+                class Holder:
+                    value: Decimal
+                    other: Undefined
+            """),
+            "Holder",
+            id="class-beside-an-undefined-name",
+        ),
+    ],
+)
+def test_lazy_annotation_reads_the_guarded_type_over_its_runtime_fallback(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType], declaration: str, owner: str, decimal_fallback: str
+) -> None:
+    module = resolve_module(f"{decimal_fallback}{declaration}")
+    assert get_all_type_hints([], attrgetter(owner)(module), f"mod.{owner}", {})["value"] is Decimal
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+def test_lazy_annotation_of_a_base_reads_the_guard_of_its_own_module(  # pragma: >=3.14 cover
+    make_subclass_of_a_guarded_base: MakeSubclassOfAGuardedBase,
+) -> None:
+    child = make_subclass_of_a_guarded_base(
+        "",
+        dedent("""\
+            from typing import TYPE_CHECKING
+            from guarded_base import Base
+
+            if TYPE_CHECKING:
+                from fractions import Fraction
+            else:
+                Fraction = int
+
+            class Child(Base):
+                ratio: Fraction
+        """),
+    )
+    assert get_all_type_hints([], child, "mod.Child", {}) == {"amount": Decimal, "ratio": Fraction}
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+def test_lazy_annotation_keeps_the_values_of_a_base_without_source(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType], decimal_fallback: str
+) -> None:
+    module = resolve_module(
+        decimal_fallback
+        + dedent("""\
+            Plain = type("Plain", (), {"__annotations__": {"count": int}})
+
+            class Child(Plain):
+                amount: Decimal
+        """)
+    )
+    assert get_all_type_hints([], module.Child, "mod.Child", {}) == {"count": int, "amount": Decimal}
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+def test_lazy_annotation_naming_no_shadowed_name_keeps_its_closure(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType],
+    logged_warnings: Callable[[], list[tuple[str, ...]]],
+    decimal_fallback: str,
+) -> None:
+    module = resolve_module(
+        decimal_fallback
+        + dedent("""\
+            def make():
+                Local = int
+                def func(value: Local) -> None: ...
+                return func
+        """)
+    )
+    hints = get_all_type_hints([], module.make(), "mod.func", {})
+    assert (hints, logged_warnings()) == ({"value": int, "return": type(None)}, [])
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+@mark.parametrize(
+    ("declaration", "owner"),
+    [
+        param("def func(*args: *Ts, value: Decimal) -> None: ...", "func", id="starred"),
+        param("def func(check: Annotated[int, lambda v: v], value: Decimal) -> None: ...", "func", id="lambda-first"),
+        param("def func(value: Decimal, check: Annotated[int, lambda v: v]) -> None: ...", "func", id="lambda-last"),
+        param(
+            dedent("""\
+                class Holder:
+                    check: Annotated[int, lambda v: v]
+                    value: Decimal
+            """),
+            "Holder",
+            id="class",
+        ),
+    ],
+)
+def test_lazy_annotation_beside_one_without_source_reads_the_guarded_type(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType],
+    logged_warnings: Callable[[], list[tuple[str, ...]]],
+    declaration: str,
+    owner: str,
+    decimal_fallback: str,
+) -> None:
+    # a lambda prints by its repr, which does not parse, and *Ts parses only inside a tuple
+    module = resolve_module(
+        decimal_fallback
+        + dedent("""\
+            from typing import Annotated, TypeVarTuple
+
+            Ts = TypeVarTuple("Ts")
+        """)
+        + declaration
+    )
+    hints = get_all_type_hints([], getattr(module, owner), f"mod.{owner}", {})
+    assert (hints["value"], logged_warnings()) == (Decimal, [])
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+def test_lazy_annotation_stringified_union_of_a_mocked_type_evaluates_as_union(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType],
+) -> None:
+    module = resolve_module(
+        dedent("""\
+            from __future__ import annotations
+            from typing import TYPE_CHECKING
+
+            if TYPE_CHECKING:
+                from absent_buffers import Buffer
+            else:
+                Buffer = object
+
+            def func(value: Buffer | str) -> None: ...
+        """)
+    )
+    hint = get_all_type_hints(["absent_buffers"], module.func, "mod.func", {})["value"]
+    assert (get_origin(hint), [str(arg) for arg in get_args(hint)]) == (Union, ["absent_buffers.Buffer", str(str)])
+
+
+@mark.skipif(version_info < (3, 14), reason="annotations evaluate lazily from Python 3.14")
+def test_lazy_annotation_neither_source_nor_runtime_evaluates_warns(  # pragma: >=3.14 cover
+    resolve_module: Callable[[str], ModuleType],
+    logged_warnings: Callable[[], list[tuple[str, ...]]],
+    decimal_fallback: str,
+) -> None:
+    module = resolve_module(
+        decimal_fallback
+        + dedent("""\
+            class Holder:
+                value: Decimal
+                other: Missing
+
+            Holder.__annotations__ = {"value": float}
+        """)
+    )
+    get_all_type_hints([], module.Holder, "mod.Holder", {})
+    assert [warning[-1] for warning in logged_warnings()] == ["name 'Missing' is not defined"]
+
+
+def test_get_all_type_hints_types_the_generated_init_of_an_attrs_class(
+    resolve_module: Callable[[str], ModuleType],
+    logged_warnings: Callable[[], list[tuple[str, ...]]],
+    annotations_header: str,
+) -> None:
+    module = resolve_module(
+        annotations_header
+        + dedent("""\
+            from typing import TYPE_CHECKING
+
+            import attrs
+
+            if TYPE_CHECKING:
+                from decimal import Decimal
+
+            @attrs.define
+            class Price:
+                amount: Decimal
+        """)
+    )
+    hints = get_all_type_hints([], module.Price.__init__, "mod.Price", {})
+    assert (hints, logged_warnings()) == ({"amount": Decimal, "return": type(None)}, [])

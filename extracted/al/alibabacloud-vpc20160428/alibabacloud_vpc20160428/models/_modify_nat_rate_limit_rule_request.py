@@ -21,29 +21,29 @@ class ModifyNatRateLimitRuleRequest(DaraModel):
     ):
         # The new bandwidth limit. Unit: Mbit/s.
         self.bandwidth_limit = bandwidth_limit
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must make sure that it is unique among different requests. The token can contain only ASCII characters and cannot exceed 64 characters in length.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. The client token can contain only ASCII characters and cannot exceed 64 characters in length.
         # 
-        # > If you do not specify this parameter, the system automatically uses the RequestId of the API request as the ClientToken. The RequestId of each API request may be different.
+        # > If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
         self.client_token = client_token
         # Specifies whether to perform a dry run. Valid values:
         # 
-        # - **true**: performs a dry run and does not query the resource status. The system checks whether your AccessKey pair is valid, the authorization of Resource Access Management (RAM) users, and whether required parameters are specified. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
+        # - **true**: performs a dry run without querying the resource status. The system checks whether your AccessKey pair is valid, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the request fails the dry run, an error message is returned. If the request passes the dry run, the `DryRunOperation` error code is returned.
         # 
-        # - **false** (default): sends a normal request. If the request passes the dry run, a 2xx HTTP status code is returned and the operation is performed.
+        # - **false** (default): sends a normal request. If the request passes the dry run, a 2xx HTTP status code is returned and the resource status is queried.
         self.dry_run = dry_run
-        # The ID of the NAT gateway to which the rate limit rule belongs.
+        # The ID of the NAT gateway to which the rate limiting rule belongs.
         self.nat_gateway_id = nat_gateway_id
         # The region ID of the NAT gateway.
         # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         self.region_id = region_id
-        # The new description of the rate limit rule.
+        # The new description of the rate limiting rule.
         self.rule_description = rule_description
-        # The ID of the rate limit rule.
+        # The ID of the rate limiting rule.
         self.rule_id = rule_id
-        # The new name of the rate limit rule.
+        # The new name of the rate limiting rule.
         self.rule_name = rule_name
-        # The new list of source CIDR blocks for the rate limit rule.
+        # The new list of source CIDR blocks for the rate limiting rule.
         self.source_cidrs = source_cidrs
 
     def validate(self):

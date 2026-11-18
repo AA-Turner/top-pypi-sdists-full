@@ -16,7 +16,7 @@ from uuid import UUID
 
 import httpx
 import numpy as np
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 from PIL import Image
 
 from dreamscale.errors import from_payload

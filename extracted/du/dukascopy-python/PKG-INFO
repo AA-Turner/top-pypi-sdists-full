@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dukascopy-python
-Version: 6.0.0
+Version: 7.0.0
 Summary: Download and stream historical price data for variety of financial instruments (Forex, Commodities and Indices) from Dukascopy Bank SA.
 Author-email: Eghosa Osayande <osayandeeghosam@gmail.com>
 License: MIT License

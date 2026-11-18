@@ -8,7 +8,7 @@ Contents:
     * :class:`ReadQuery` - frozen bundle capturing the parameters for configuration reads.
     * :class:`OutputFormat` - enum for CLI output format selection (re-exported from application.ports).
     * Metadata helpers (:func:`version_string`, :func:`describe_distribution`).
-    * Query shaping (:func:`build_read_query`, :func:`normalise_prefer`, :func:`stringify`).
+    * Query shaping (:func:`build_read_query`, :func:`stringify`).
     * Output shaping (:func:`json_payload`, :func:`human_payload`, :func:`render_human`).
     * Human-friendly utilities (:func:`render_human`, :func:`json_paths`).
 
@@ -30,7 +30,7 @@ from .. import __init__conf__
 from .._platform import normalise_examples_platform as _normalise_examples_platform
 from .._platform import normalise_resolver_platform as _normalise_resolver_platform
 from ..adapters.display.toml_text import is_table, toml_key, toml_path, toml_value
-from ..application.ports import OutputFormat, SourceInfoPayload
+from ..application.ports import OutputFormat
 from ..core import read_config, read_config_json, read_config_raw
 from ..domain import json_codec
 from ..domain.redaction import redact_mapping
@@ -39,6 +39,8 @@ from .constants import DEFAULT_JSON_INDENT
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
     from pathlib import Path
+
+    from ..domain.config import SourceInfo
 
 __all__ = [
     "OutputFormat",
@@ -50,7 +52,6 @@ __all__ = [
     "json_payload",
     "normalise_examples_platform_option",
     "normalise_platform_option",
-    "normalise_prefer",
     "normalise_targets",
     "package_metadata",
     "parse_output_format",
@@ -73,14 +74,6 @@ class _PackageMetadata(Protocol):
     author_email: str
     shell_command: str
 
-    def info_lines(self) -> tuple[str, ...]:
-        """Return human-readable info lines for CLI display."""
-        ...
-
-    def metadata_fields(self) -> tuple[tuple[str, str], ...]:
-        """Return key-value pairs of package metadata."""
-        ...
-
 
 package_metadata: _PackageMetadata = cast("_PackageMetadata", __init__conf__)
 
@@ -97,7 +90,6 @@ class ReadQuery:
         app: Application identifier within the vendor namespace.
         slug: Configuration slug (environment/project).
         profile: Optional profile name for environment-specific configuration paths.
-        prefer: Ordered tuple of preferred file extensions, lowercased; ``None`` when the CLI falls back to defaults.
         start_dir: Starting directory as a string or ``None`` to use the current working directory.
         default_file: Optional baseline configuration file to load before layered overrides.
     """
@@ -106,7 +98,6 @@ class ReadQuery:
     app: str
     slug: str
     profile: str | None
-    prefer: tuple[str, ...] | None
     start_dir: str | None
     default_file: str | None
     dotenv_path: str | None
@@ -132,11 +123,20 @@ def describe_distribution() -> Iterable[str]:
     Returns:
         Sequence of descriptive lines suitable for printing with ``click.echo``.
     """
-    lines_provider = getattr(package_metadata, "info_lines", None)
-    if callable(lines_provider):
-        yield from cast("Iterable[str]", lines_provider())
-        return
-    yield from _fallback_info_lines()
+    fields: tuple[tuple[str, str], ...] = (
+        ("name", package_metadata.name),
+        ("title", package_metadata.title),
+        ("version", package_metadata.version),
+        ("homepage", package_metadata.homepage),
+        ("author", package_metadata.author),
+        ("author_email", package_metadata.author_email),
+        ("shell_command", package_metadata.shell_command),
+    )
+    pad = max(len(label) for label, _ in fields)
+    yield f"Info for {package_metadata.name}:"
+    yield ""
+    for label, value in fields:
+        yield f"    {label.ljust(pad)} = {value}"
 
 
 def build_read_query(
@@ -145,7 +145,6 @@ def build_read_query(
     app: str,
     slug: str,
     profile: str | None,
-    prefer: Sequence[str],
     start_dir: Path | None,
     default_file: Path | None,
     dotenv_path: Path | None = None,
@@ -159,7 +158,6 @@ def build_read_query(
         app: Raw CLI string describing the application name.
         slug: Raw CLI string describing the configuration slice to read.
         profile: Optional profile name for environment-specific configuration.
-        prefer: List of extensions supplied via ``--prefer`` (possibly empty).
         start_dir: Optional explicit starting directory.
         default_file: Optional explicit baseline file.
         dotenv_path: Optional explicit ``.env`` file path.
@@ -172,22 +170,10 @@ def build_read_query(
         app=app,
         slug=slug,
         profile=profile,
-        prefer=normalise_prefer(prefer),
         start_dir=stringify(start_dir),
         default_file=stringify(default_file),
         dotenv_path=stringify(dotenv_path),
     )
-
-
-def normalise_prefer(values: Sequence[str]) -> tuple[str, ...] | None:
-    """Normalise preferred extensions by lowercasing and trimming dots.
-
-    Returns:
-        Tuple of cleaned extensions, or ``None`` when no values were supplied.
-    """
-    if not values:
-        return None
-    return tuple(value.lower().lstrip(".") for value in values)
 
 
 def normalise_targets(values: Sequence[str]) -> tuple[str, ...]:
@@ -276,7 +262,8 @@ def json_payload(query: ReadQuery, indent: int | None, *, include_provenance: bo
         query: Normalised read parameters.
         indent: Indentation width or ``None`` for compact output.
         include_provenance: When ``True`` use :func:`read_config_json` to include source metadata.
-        redact: When ``True`` mask sensitive values (passwords, tokens, keys) before output.
+        redact: When ``True`` mask the values of sensitive keys (passwords, tokens, keys) and
+            the password of every URL in a string value before output.
 
     Returns:
         JSON document ready for ``click.echo``.
@@ -287,7 +274,6 @@ def json_payload(query: ReadQuery, indent: int | None, *, include_provenance: bo
             app=query.app,
             slug=query.slug,
             profile=query.profile,
-            prefer=query.prefer,
             start_dir=query.start_dir,
             default_file=query.default_file,
             indent=indent,
@@ -299,7 +285,6 @@ def json_payload(query: ReadQuery, indent: int | None, *, include_provenance: bo
         app=query.app,
         slug=query.slug,
         profile=query.profile,
-        prefer=query.prefer,
         start_dir=query.start_dir,
         default_file=query.default_file,
         dotenv_path=query.dotenv_path,
@@ -307,7 +292,7 @@ def json_payload(query: ReadQuery, indent: int | None, *, include_provenance: bo
     return config.to_json(indent=indent, redact=redact)
 
 
-def render_human(data: Mapping[str, object], provenance: Mapping[str, SourceInfoPayload]) -> str:
+def render_human(data: Mapping[str, object], provenance: Mapping[str, SourceInfo]) -> str:
     """Render configuration as TOML-style sections with provenance comments.
 
     Produces ``[section.subsection]`` headers for nested mappings and emits
@@ -336,7 +321,7 @@ def render_human(data: Mapping[str, object], provenance: Mapping[str, SourceInfo
 
 def _render_section(
     data: Mapping[str, object],
-    provenance: Mapping[str, SourceInfoPayload],
+    provenance: Mapping[str, SourceInfo],
     lines: list[str],
     section_path: tuple[str, ...],
 ) -> None:
@@ -378,44 +363,23 @@ def json_paths(paths: Iterable[Path]) -> str:
 
 
 def human_payload(query: ReadQuery, *, redact: bool = False) -> str:
-    """Return prose describing config values and provenance.
+    """Return the config as TOML with a ``# source:`` comment above each value.
 
     Offer a human-first view that mirrors the JSON content yet remains readable.
 
     Args:
         query: Normalised read parameters.
-        redact: When ``True`` mask sensitive values before rendering.
+        redact: When ``True`` mask the values of sensitive keys and the password of every URL
+            in a string value before rendering.
     """
     result = read_config_raw(
         vendor=query.vendor,
         app=query.app,
         slug=query.slug,
         profile=query.profile,
-        prefer=query.prefer,
         start_dir=query.start_dir,
         default_file=query.default_file,
         dotenv_path=query.dotenv_path,
     )
     data = redact_mapping(result.data) if redact else result.data
     return render_human(data, result.provenance)
-
-
-def _fallback_info_lines() -> tuple[str, ...]:
-    """Construct info lines from metadata constants when helpers are absent."""
-    fields_provider = getattr(package_metadata, "metadata_fields", None)
-    if callable(fields_provider):
-        fields = cast("tuple[tuple[str, str], ...]", fields_provider())
-    else:
-        fields: tuple[tuple[str, str], ...] = (
-            ("name", package_metadata.name),
-            ("title", package_metadata.title),
-            ("version", package_metadata.version),
-            ("homepage", package_metadata.homepage),
-            ("author", package_metadata.author),
-            ("author_email", package_metadata.author_email),
-            ("shell_command", package_metadata.shell_command),
-        )
-    pad = max(len(label) for label, _ in fields)
-    lines = [f"Info for {package_metadata.name}:", ""]
-    lines.extend(f"    {label.ljust(pad)} = {value}" for label, value in fields)
-    return tuple(lines)

@@ -2,13 +2,14 @@ use crate::project::errors::ConfigFailure;
 use crate::project::main::load_changes_config::load_changes_config;
 use crate::project::main::load_control_config::load_control_config;
 use crate::project::main::load_git_base_ref::load_git_base_ref;
+use crate::project::main::load_pool_limits::load_pool_limits;
 use crate::project::main::load_review_config::load_review_config;
 use crate::project::models::ConfigFile;
 use crate::project::models::{ChangesConfig, ControlConfig, ReviewConfig};
 use crate::project::tests::helpers::{failure_at, first_failure, project_directory};
 use crate::project::tests::test_types::{
-    ChangesConfigTestCase, ControlConfigTestCase, GitBaseRefTestCase, ProjectFailureTestCase,
-    ReviewConfigErrorTestCase, ReviewConfigTestCase,
+    ChangesConfigTestCase, ControlConfigTestCase, GitBaseRefTestCase, PoolsErrorTestCase,
+    PoolsTestCase, ProjectFailureTestCase, ReviewConfigErrorTestCase, ReviewConfigTestCase,
 };
 
 const PROJECT: &str = "name = 'orders'\nadapter = 'duckdb'\n";
@@ -139,6 +140,21 @@ fn given_project_files_when_loading_then_rejections_match_python_loader() {
                     "remove require_sql_analysis from sqlbuild_local.toml\n  = help: to change the \
                      policy for everyone, set this in sqlbuild_project.toml:\n            [settings]\n\
                      \x20           require_sql_analysis = false",
+                ),
+            ),
+        },
+        ProjectFailureTestCase {
+            description: "a local file cannot allow warehouse round trips",
+            project: PROJECT,
+            local: "[settings]\nallow_warehouse_round_trips = true\n",
+            expected_failure: failure_at(
+                ConfigFile::Local,
+                "cannot set [settings] allow_warehouse_round_trips; it is a shared project policy \
+                 that only sqlbuild_project.toml can set",
+                Some(
+                    "remove allow_warehouse_round_trips from sqlbuild_local.toml\n  = help: to \
+                     change the policy for everyone, set this in sqlbuild_project.toml:\n            \
+                     [settings]\n\x20           allow_warehouse_round_trips = false",
                 ),
             ),
         },
@@ -463,5 +479,99 @@ fn given_invalid_changes_section_when_loading_then_project_loading_rejects_it() 
                 test_case.description
             );
         }
+    }
+}
+
+#[test]
+fn given_pools_when_reading_for_a_target_then_its_overrides_replace_the_project_limits() {
+    let project = "name = 'orders'\nadapter = 'duckdb'\n[pools]\nsupplier_api = 1\n\
+                   warehouse = 4\n[targets.prod.pools]\nwarehouse = 2\n[targets.dev]\n\
+                   schema = 'dev'\n";
+    let test_cases = [
+        PoolsTestCase {
+            description: "the declared pools, for no target",
+            project,
+            target: None,
+            expected_pools: &[("supplier_api", 1), ("warehouse", 4)],
+        },
+        PoolsTestCase {
+            description: "a target's override",
+            project,
+            target: Some("prod"),
+            expected_pools: &[("supplier_api", 1), ("warehouse", 2)],
+        },
+        PoolsTestCase {
+            description: "a target without overrides",
+            project,
+            target: Some("dev"),
+            expected_pools: &[("supplier_api", 1), ("warehouse", 4)],
+        },
+        PoolsTestCase {
+            description: "a project without pools",
+            project: PROJECT,
+            target: Some("dev"),
+            expected_pools: &[],
+        },
+    ];
+    for test_case in test_cases {
+        let (_directory, paths) = project_directory(test_case.project, "");
+
+        let limits = load_pool_limits(&paths).expect(test_case.description);
+        let pools = test_case
+            .target
+            .map_or(&limits.declared, |target| limits.on(target));
+
+        assert_eq!(
+            pools
+                .iter()
+                .map(|(name, limit)| (name.as_str(), *limit))
+                .collect::<Vec<_>>(),
+            test_case.expected_pools,
+            "{}",
+            test_case.description
+        );
+    }
+}
+
+#[test]
+fn given_invalid_pools_when_loading_then_project_loading_rejects_them() {
+    let test_cases = [
+        PoolsErrorTestCase {
+            description: "a limit of zero",
+            project: "name = 'orders'\nadapter = 'duckdb'\n[pools]\nnightly = 0\n",
+            local: "",
+            expected_fragment: "pools.nightly must be the pool's limit, a whole number of slots from 1 to 10000",
+        },
+        PoolsErrorTestCase {
+            description: "a limit that is not a whole number",
+            project: "name = 'orders'\nadapter = 'duckdb'\n[pools]\nnightly = 'one'\n",
+            local: "",
+            expected_fragment: "pools.nightly must be the pool's limit",
+        },
+        PoolsErrorTestCase {
+            description: "a target overriding a group the project does not declare",
+            project: "name = 'orders'\nadapter = 'duckdb'\n[pools]\nnightly = 1\n\
+                      [targets.prod.pools]\nnightly_windw = 1\n",
+            local: "",
+            expected_fragment: "targets.prod.pools.nightly_windw changes a pool [pools] does not declare",
+        },
+        PoolsErrorTestCase {
+            description: "a local file setting a project rule",
+            project: "name = 'orders'\nadapter = 'duckdb'\n[pools]\nnightly = 1\n",
+            local: "[targets.prod.pools]\nnightly = 2\n",
+            expected_fragment: "targets.prod.pools is project policy; set it in \
+                                sqlbuild_project.toml",
+        },
+    ];
+    for test_case in test_cases {
+        let (_directory, paths) = project_directory(test_case.project, test_case.local);
+
+        let failure = format!("{:?}", first_failure(&paths).expect(test_case.description));
+
+        assert!(
+            failure.contains(test_case.expected_fragment),
+            "{}: {failure}",
+            test_case.description
+        );
     }
 }

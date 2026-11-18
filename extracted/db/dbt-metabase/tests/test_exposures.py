@@ -5,8 +5,14 @@ from typing import cast
 import pytest
 import yaml
 
-from dbtmetabase._exposures import _build_model_refs, _Context, _Exposure
-from dbtmetabase.manifest import Group, Model
+from dbtmetabase._exposures import (
+    _build_model_refs,
+    _Context,
+    _Exposure,
+    _format_native_query,
+)
+from dbtmetabase.format import safe_identifier
+from dbtmetabase.manifest import Group, Manifest, Model
 from tests._mocks import FIXTURES_PATH, TMP_PATH, MockDbtMetabase, MockMetabase
 
 
@@ -50,6 +56,8 @@ def test_exposures_collection_grouping(core: MockDbtMetabase, prefix: str):
 
     for file in fixtures_path.iterdir():
         _assert_exposures(file, output_path / file.name)
+
+    assert (output_path / f"{safe_identifier('коллекция')}.yml").exists()
 
 
 @pytest.mark.parametrize("prefix", ["mbql4", "mbql5"])
@@ -222,6 +230,40 @@ def test_model_refs_schema_alias_fallback_is_only_used_when_unique(
     assert "analytics.orders" not in ambiguous_refs
 
 
+@pytest.mark.parametrize(
+    ("table", "expected_ref"),
+    [
+        ("countries", "ref('countries')"),
+        ("customers_snapshot", "ref('customers_snapshot')"),
+    ],
+)
+def test_extract_exposures_resolves_seed_and_snapshot_dependencies(
+    core: MockDbtMetabase, table: str, expected_ref: str
+):
+    models = Manifest(FIXTURES_PATH / "manifest-resources.json").read_models()
+    ctx = _Context(
+        model_refs=_build_model_refs(models),
+        database_names={1: "warehouse"},
+        table_names={},
+    )
+    exposure = _Exposure(model="card", uid="", label="")
+
+    core._extract_exposure_card(
+        ctx=ctx,
+        exposure=exposure,
+        card={
+            "dataset_query": {
+                "type": "native",
+                "database": 1,
+                "native": {"query": f"SELECT * FROM analytics.{table}"},
+            }
+        },
+    )
+
+    assert exposure.depends == {f"warehouse.analytics.{table}"}
+    assert ctx.model_refs[f"warehouse.analytics.{table}"] == expected_ref
+
+
 class _NullDatabaseMetabase:
     def __init__(self):
         self._database = {
@@ -305,3 +347,162 @@ def test_extract_exposures_handles_null_database_details(tmp_path: Path):
     exposures = list(core.extract_exposures(output_path=str(tmp_path)))
 
     assert exposures[0]["body"]["depends_on"] == ["ref('orders')"]
+
+
+class _UnsafeCollectionMetabase(_NullDatabaseMetabase):
+    def get_collections(self, exclude_personal: bool):
+        return [
+            {
+                "id": 7,
+                "name": "Cash £ Reconciliation",
+                "slug": "cash_%25C2%25A3_reconciliation",
+            },
+            {
+                "id": 8,
+                "name": "Cash £ Reconciliation",
+                "slug": "cash_%C2%A3_reconciliation",
+            },
+            {"id": 9, "name": "分析", "slug": "%E5%88%86%E6%9E%90"},
+        ]
+
+    def get_collection_items(self, uid: str, models: tuple[str, ...]):
+        return [{"id": uid, "model": "card", "name": f"Orders {uid}"}]
+
+    def find_card(self, uid: int):
+        return {
+            "id": uid,
+            "name": "Finance €",
+            "description": "Question over orders",
+            "display": "table",
+            "created_at": "2026-01-01T00:00:00Z",
+            "dataset_query": {
+                "type": "query",
+                "query": {"source-table": 42},
+            },
+        }
+
+
+class _UnsafeCollectionCore(_NullDatabaseCore):
+    def __init__(self):
+        super().__init__()
+        self._metabase = _UnsafeCollectionMetabase()
+
+
+def test_extract_exposures_collection_grouping_uses_safe_identifiers(tmp_path: Path):
+    core = _UnsafeCollectionCore()
+
+    exposures = list(
+        core.extract_exposures(
+            output_path=str(tmp_path),
+            output_grouping="collection",
+        )
+    )
+
+    assert [exposure["body"]["name"] for exposure in exposures] == [
+        "finance_euro_sign",
+        "finance_euro_sign_1",
+        "finance_euro_sign_2",
+    ]
+
+    assert (tmp_path / "cash_pound_sign_reconciliation.yml").exists()
+    assert (tmp_path / "cash_pound_sign_reconciliation_8.yml").exists()
+    assert (tmp_path / f"{safe_identifier('分析')}.yml").exists()
+
+
+class _JinjaNativeQueryMetabase:
+    def get_databases(self):
+        return [
+            {
+                "id": 1,
+                "name": "Warehouse",
+                "details": {"dbname": "warehouse"},
+            }
+        ]
+
+    def get_tables(self):
+        return []
+
+    def get_collections(self, exclude_personal: bool):
+        return [{"id": 7, "name": "Analytics", "slug": "analytics"}]
+
+    def get_collection_items(self, uid: str, models: tuple[str, ...]):
+        return [{"id": 99, "model": "card", "name": "Native question"}]
+
+    def find_card(self, uid: int):
+        return {
+            "id": uid,
+            "name": "Native question",
+            "description": "Contains {% condition %} and {{ variable }}",
+            "display": "table",
+            "created_at": "2026-01-01T00:00:00Z",
+            "dataset_query": {
+                "type": "native",
+                "database": 1,
+                "native": {
+                    "query": (
+                        "select *\n"
+                        "from analytics.orders\n"
+                        "where source = '{{#161}}'\n"
+                        "and pattern like '{%foo%}'"
+                    )
+                },
+            },
+            "creator": {
+                "email": "dbtmetabase@example.com",
+                "common_name": "dbtmetabase",
+            },
+        }
+
+    def find_dashboard(self, uid: int):
+        return None
+
+    def find_user(self, uid: int):
+        return None
+
+    def format_card_url(self, uid: str):
+        return f"https://metabase.example.com/card/{uid}"
+
+    def format_dashboard_url(self, uid: str):
+        return f"https://metabase.example.com/dashboard/{uid}"
+
+
+class _JinjaNativeQueryCore(MockDbtMetabase):
+    def __init__(self):
+        self._manifest = type(
+            "ManifestStub",
+            (),
+            {
+                "read_models": lambda self: [
+                    Model(
+                        database="warehouse",
+                        schema="analytics",
+                        group=Group.nodes,
+                        name="orders",
+                        alias="orders",
+                    )
+                ]
+            },
+        )()
+        self._metabase = _JinjaNativeQueryMetabase()
+
+
+def test_extract_exposures_wraps_jinja_like_native_sql_in_raw_blocks(tmp_path: Path):
+    core = _JinjaNativeQueryCore()
+
+    exposures = list(core.extract_exposures(output_path=str(tmp_path)))
+    description = exposures[0]["body"]["description"]
+
+    assert exposures[0]["body"]["depends_on"] == ["ref('orders')"]
+    assert "Contains ( condition ) and ( variable )" in description
+    assert "{% raw %}" in description
+    assert "{% endraw %}" in description
+    assert "where source = '{{#161}}'" in description
+    assert "and pattern like '{%foo%}'" in description
+
+
+def test_format_native_query_wraps_literal_jinja_opening_delimiter_in_raw_blocks():
+    description = _format_native_query("select * from orders where foo like '{%}'")
+
+    assert "{% raw %}" in description
+    assert "{% endraw %}" in description
+    assert "where foo like '{%}'" in description

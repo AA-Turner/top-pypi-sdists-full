@@ -446,7 +446,7 @@ class ReadsMixin:
     def events(self):
         """Read the backend append-only lifecycle+structure events log (read-only)."""
         if self._events is None:
-            from ...reads.events import EventsReadClient
+            from .history import EventsReadClient
 
             self._events = EventsReadClient(self)
         return self._events

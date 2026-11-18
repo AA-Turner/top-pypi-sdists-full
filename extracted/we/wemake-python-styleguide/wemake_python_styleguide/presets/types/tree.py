@@ -24,7 +24,6 @@ from wemake_python_styleguide.visitors.tokenize import (
     functions as tokenize_functions,
 )
 
-#: Used to store all general visitors to be later passed to checker:
 PRESET: Final = (
     # General:
     statements.StatementsWithBodiesVisitor,
@@ -32,6 +31,7 @@ PRESET: Final = (
     statements.WrongNamedKeywordVisitor,
     statements.AssignmentPatternsVisitor,
     statements.WrongMethodArgumentsVisitor,
+    statements.DocStringPlacementVisitor,
     keywords.WrongRaiseVisitor,
     keywords.WrongKeywordVisitor,
     keywords.WrongContextManagerVisitor,
@@ -90,3 +90,4 @@ PRESET: Final = (
     *naming.PRESET,
     *classes.PRESET,
 )
+"""Used to store all general visitors to be later passed to checker."""

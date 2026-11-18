@@ -1,17 +1,31 @@
 //! Publish facts atomically; launch observations never project state or release physical ownership.
 
-use serde_json::json;
+use serde_json::{Value, json};
 
 use crate::platform::models::PlatformEvent;
 use crate::runs::_helpers::lifecycle::events::append_run_event;
 use crate::runs::_helpers::lifecycle::projection::project_change;
-use crate::runs::_helpers::lifecycle::retries::queue_retry;
+use crate::runs::_helpers::lifecycle::retries::{QueuedRetry, queue_retry, record_member_recovery};
 use crate::runs::_helpers::lifecycle::run_failure::publish_run_failure;
 use crate::runs::models::{ChangingRun, RunChange, RunChangeRequest, RunOutcome};
 use crate::store::errors::ControlError;
 use crate::store::main::append_control_event::append_control_event;
 use crate::store::main::query::query;
 use crate::store::models::{ControlEvent, ControlTransaction, Parameter};
+
+/// A change's event payload; node and check events also name their node for Recall's resource columns.
+fn change_payload(request: &RunChangeRequest) -> Value {
+    let mut payload = json!({"change": request});
+    if let Some((kind, name)) = request
+        .change
+        .node_key()
+        .and_then(|key| key.split_once(':'))
+    {
+        payload["resource_kind"] = json!(kind);
+        payload["resource_name"] = json!(name);
+    }
+    payload
+}
 
 pub(crate) async fn publish_change(
     transaction: ControlTransaction,
@@ -22,7 +36,7 @@ pub(crate) async fn publish_change(
         transaction,
         (request.run_id, request.event_id),
         request.change.event_type(),
-        json!({"change": request}),
+        change_payload(request),
     )
     .await?;
     if let (RunChange::LaunchFailed { code }, Some(claim_id)) = (&request.change, request.claim_id)
@@ -55,13 +69,24 @@ pub(crate) async fn publish_change(
         return Ok(transaction);
     }
     let mut transaction = project_change(transaction, request, state).await?;
-    if let RunChange::Finished {
-        outcome: outcome @ (RunOutcome::Failed | RunOutcome::Partial),
-        ..
-    } = request.change
-    {
-        transaction = publish_run_failure(transaction, request, outcome).await?;
-        transaction = queue_retry(transaction, request.run_id).await?;
+    match request.change {
+        RunChange::Finished {
+            outcome: outcome @ (RunOutcome::Failed | RunOutcome::Partial),
+            ..
+        } => {
+            let retried;
+            (transaction, retried) = queue_retry(transaction, request.run_id).await?;
+            if retried != QueuedRetry::Member {
+                transaction = publish_run_failure(transaction, request, outcome).await?;
+            }
+        }
+        RunChange::Finished {
+            outcome: RunOutcome::Success | RunOutcome::Warn,
+            ..
+        } => {
+            transaction = record_member_recovery(transaction, request.run_id).await?;
+        }
+        _ => {}
     }
     if let Some((node_key, _)) = request.change.finished_node() {
         (transaction, _) = query(

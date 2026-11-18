@@ -5,12 +5,12 @@ from __future__ import annotations
 from inspect import get_annotations
 from typing import TYPE_CHECKING, get_type_hints
 
-from ..guards import annotation_globals
+from ..guards.overlay import annotation_globals
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator, Mapping
 
-    from sphinx_autodoc_typehints._types import Annotation, Documented
+    from . import Annotation, Documented
 
 
 def hints_of_bases(

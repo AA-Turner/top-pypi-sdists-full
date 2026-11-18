@@ -26,6 +26,7 @@
 #endif
 
 #include <algorithm>
+#include <array>
 #include <cfloat>
 #include <cctype>
 #include <charconv>
@@ -130,6 +131,11 @@ std::string py_format_f(double x, int width, int digits) {
 namespace {
 
 std::string e(double x, int width, int digits) { return py_format_e(x, width, digits); }
+// `_printout._e_nan`: a NaN as x13 prints one, right-aligned
+std::string e_nan(double x, int width, int digits) {
+    if (std::isnan(x)) return std::string(static_cast<std::size_t>(width > 3 ? width - 3 : 0), ' ') + "NaN";
+    return e(x, width, digits);
+}
 std::string f(double x, int width, int digits) { return py_format_f(x, width, digits); }
 
 // `_e_fortran`: a three-digit exponent drops its `E` to keep the width. A
@@ -632,6 +638,11 @@ struct PatternBlockC {  // `PatternBlock`
     double lower_range_mag = 0, lower_range_phase_deg = 0;
     // XNDA's D digit 1 (momwire#1503): the rows are DIRECTIVE gains.
     bool directive = false;
+    // XNDA's N digit 1 to 5: the NORMALIZED GAIN table, (theta, phi, dB)
+    // a direction in the rows' order (`PatternBlock.normalized`).
+    int normalized_kind = 0;
+    double normalization_db = 0;
+    std::vector<std::array<double, 3>> normalized;
 };
 
 struct NetworkRowC {  // `NetworkRow` / `LineRow`
@@ -961,6 +972,40 @@ NetSolve reduced_state(const std::vector<SeamCard> &cards, int64_t n, const std:
     return out;
 }
 
+// `_reduced_state`'s `held`: `driven`, then every network endpoint nothing
+// reaches (`_unreached_sites`, ascending). An NT end reaches its site through
+// Y11 / Y22 or Y12 (a TL end always does), else the antenna reaches it through
+// its y_eff row or column. EZNEC's one-port NT parks port 2 on a virtual site
+// with neither, so that site's KCL row is identically zero; holding it at 0 V
+// is exact (nothing else reads its voltage) and keeps the MNA system regular.
+// Truthiness is Python's: NaN counts as nonzero.
+std::vector<int64_t> seam_held(const std::vector<SeamCard> &cards, int64_t n, const std::vector<int64_t> &driven,
+                               const std::function<cd(int64_t, int64_t)> &y_eff_at) {
+    std::set<int64_t> reached, endpoints;
+    for (const SeamCard &c : cards) {
+        endpoints.insert(c.site_a);
+        endpoints.insert(c.site_b);
+        if (c.kind != SeamCard::nt) {
+            reached.insert(c.site_a);
+            reached.insert(c.site_b);
+            continue;
+        }
+        const bool y11 = py_ctruth(cd(c.payload[0], c.payload[1]));
+        const bool y12 = py_ctruth(cd(c.payload[2], c.payload[3]));
+        const bool y22 = py_ctruth(cd(c.payload[4], c.payload[5]));
+        if (y11 || y12) reached.insert(c.site_a);
+        if (y22 || y12) reached.insert(c.site_b);
+    }
+    std::vector<int64_t> held = driven;
+    for (int64_t k : endpoints) {
+        if (reached.count(k) || std::find(driven.begin(), driven.end(), k) != driven.end()) continue;
+        bool any = false;
+        for (int64_t j = 0; j < n && !any; j++) any = py_ctruth(y_eff_at(k, j)) || py_ctruth(y_eff_at(j, k));
+        if (!any) held.push_back(k);
+    }
+    return held;
+}
+
 PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const NumpyLinalg &np) {
     const int64_t nc = p.mesh.n_columns(), n = static_cast<int64_t>(p.mesh.sites.size());
     const std::vector<cd> tc = transform_c(p);
@@ -1042,8 +1087,8 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
                 for (int64_t column = 0; column < nd; column++) {
                     std::vector<cd> probe(static_cast<std::size_t>(n), cd(0.0, 0.0));
                     probe[static_cast<std::size_t>(driven[column])] = cd(1.0, 0.0);
-                    const NetSolve r = reduced_state(p.cards, n, probe, driven, driven, yeff_op, y_eff_at,
-                                                     p.wavelength, np);
+                    const NetSolve r = reduced_state(p.cards, n, probe, seam_held(p.cards, n, driven, y_eff_at),
+                                                     driven, yeff_op, y_eff_at, p.wavelength, np);
                     for (int64_t i = 0; i < nd; i++)
                         m.at(i, column) = r.i_source[static_cast<std::size_t>(driven[i])];
                 }
@@ -1072,7 +1117,8 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
             st.i_port = mv(np, yeff_op, st.v_applied);
             st.i_source = st.i_port;
         } else {
-            const NetSolve r = reduced_state(p.cards, n, volts, driven, driven, yeff_op, y_eff_at, p.wavelength, np);
+            const NetSolve r = reduced_state(p.cards, n, volts, seam_held(p.cards, n, driven, y_eff_at), driven,
+                                             yeff_op, y_eff_at, p.wavelength, np);
             st.v_applied = r.v_applied;
             st.i_port = r.i_port;
             st.i_source = r.i_source;
@@ -1125,7 +1171,8 @@ PortState port_state(const Deck &deck, const Prepared &p, const Solved &s, const
         const std::function<cd(int64_t, int64_t)> y_eff_at = [&](int64_t i, int64_t j) {
             return any_series ? xt.at(j, i) : y.at(i, j);
         };
-        const NetSolve r = reduced_state(p.cards, n, probe, {driven}, {driven}, yeff_op, y_eff_at, p.wavelength, np);
+        const NetSolve r = reduced_state(p.cards, n, probe, seam_held(p.cards, n, {driven}, y_eff_at), {driven},
+                                         yeff_op, y_eff_at, p.wavelength, np);
         v_applied = r.v_applied;
         i_port = r.i_port;
         i_source = r.i_source;
@@ -1539,7 +1586,7 @@ PatternBlockC pattern_block(const Request &rq, const std::vector<double> &mid,
                             const std::vector<cd> &moment, FarGround ground, double eps_r,
                             double sigma, double frequency_mhz, double wavelength, double p_in,
                             bool lower, cd eps_c_medium, double p_radiated,
-                            const replay::FarCliff *cliff = nullptr) {
+                            const replay::FarCliff *cliff = nullptr, bool nec4_average = false) {
     if (!rq.n_theta.fits_i64() || !rq.n_phi.fits_i64() || !rq.xnda.fits_i64())
         throw Decline{"a pattern count past 64 bits"};
     const int64_t nt = rq.n_theta.i64(), nph = rq.n_phi.i64();
@@ -1690,13 +1737,58 @@ PatternBlockC pattern_block(const Request &rq, const std::vector<double> &mid,
             }
             block.rows.push_back(row);
         }
+    // `_serve._normalized_gains`: XNDA's N digit, the NORMALIZED GAIN table,
+    // formed from the rows before A = 2 drops them. N = 1 / 2 split the total
+    // power gain between the ellipse's axes as 1 : AR^2 (numpy's elementwise
+    // order: `total / (1 + ar*ar)`, `(total * ar*ar) / (1 + ar*ar)`).
+    const int64_t kind = rq.xnda.i64() / 100 % 10;
+    if (kind >= 1 && kind <= 5) {
+        std::vector<double> db;
+        db.reserve(block.rows.size());
+        for (const PatternRowC &r : block.rows) {
+            double v = r.total;
+            if (kind == 3) v = r.vert;
+            if (kind == 4) v = r.hor;
+            db.push_back(v);
+        }
+        if (kind == 1 || kind == 2) {
+            // the rows' walk, phi-major (`total.T.ravel()`)
+            std::size_t k = 0;
+            for (int64_t ip = 0; ip < nph; ip++)
+                for (int64_t it = 0; it < nt; it++, k++) {
+                    const std::size_t q = static_cast<std::size_t>(it * nph + ip);
+                    const double ar = block.rows[k].axial;
+                    const double ar2 = ar * ar;
+                    const double share = 1.0 + ar2;
+                    const double tot = g_v_rows[q] + g_h_rows[q];
+                    db[k] = gain_db(kind == 1 ? tot / share : (tot * ar2) / share);
+                }
+        }
+        double factor = rq.gnor_db;
+        if (factor == 0.0) {
+            // Python's `max` over a list: the first of equals, NaN never wins
+            // past the first element (`a > b` is false for NaN either side)
+            factor = db.empty() ? 0.0 : db[0];
+            for (std::size_t k = 1; k < db.size(); k++)
+                if (db[k] > factor) factor = db[k];
+        }
+        block.normalized_kind = static_cast<int>(kind);
+        block.normalization_db = factor;
+        block.normalized.reserve(db.size());
+        for (std::size_t k = 0; k < db.size(); k++)
+            block.normalized.push_back({block.rows[k].theta, block.rows[k].phi, db[k] - factor});
+    }
     // XNDA's A digit asks for the average gain (Python's non-negative `% 10`)
     int64_t digit = rq.xnda.i64() % 10;
     if (digit < 0) digit += 10;
+    // a single cut on either axis averages nothing, on the NEC-5 engine and
+    // on NEC-4.2 alike (momwire#1962, `_pattern`'s docstring)
+    if (nt == 1 || nph == 1) digit = 0;
     if (digit != 0) {
         // A = 2 prints the trailer with no rows (momwire#1503).
         if (digit == 2) block.rows.clear();
-        // `average_gain(g_v + g_h, thetas, d_theta, d_phi, n_phi)`
+        // `average_gain(g_v + g_h, thetas, d_theta, d_phi, n_phi,
+        // trapezoid_phi=not nec4_average)`
         const double d_theta = rq.d_theta_deg, d_phi = rq.d_phi_deg;
         const auto np_max = [](double x, double y) {
             return std::isnan(x) ? x : std::isnan(y) ? y : (x >= y ? x : y);
@@ -1705,6 +1797,35 @@ PatternBlockC pattern_block(const Request &rq, const std::vector<double> &mid,
             return std::isnan(x) ? x : std::isnan(y) ? y : (x <= y ? x : y);
         };
         std::vector<double> band(static_cast<std::size_t>(nt));
+        if (!nec4_average) {
+            // the NEC-5 engine's: phi by the trapezoid rule, the theta bands
+            // clipped to the span the samples cover, NaN over a zero step
+            const double first = thetas[0], last = thetas[nt - 1];
+            const double floor_deg = np_min(first, last), ceil_deg = np_max(first, last);
+            for (int64_t it = 0; it < nt; it++) {
+                const double lo = np_max(thetas[it] - 0.5 * std::fabs(d_theta), floor_deg) * DEG_TO_RAD;
+                const double hi = np_min(thetas[it] + 0.5 * std::fabs(d_theta), ceil_deg) * DEG_TO_RAD;
+                band[it] = std::cos(lo) - std::cos(hi);
+            }
+            const double step = d_phi * DEG_TO_RAD;
+            std::vector<double> weighted;
+            weighted.reserve(static_cast<std::size_t>(nt * nph));
+            for (int64_t it = 0; it < nt; it++)
+                for (int64_t ip = 0; ip < nph; ip++) {
+                    const std::size_t q = static_cast<std::size_t>(it * nph + ip);
+                    const double w = (ip == 0 || ip == nph - 1) ? 0.5 : 1.0;
+                    weighted.push_back(((g_v[q] + g_h[q]) * band[static_cast<std::size_t>(it)]) * w);
+                }
+            const double total =
+                (0.0 + np_pairwise(weighted.data(), static_cast<int64_t>(weighted.size()))) * step;
+            const double solid = ((0.0 + np_pairwise(band.data(), nt)) * static_cast<double>(nph - 1)) * step;
+            const double average = solid != 0.0 ? total / solid : std::numeric_limits<double>::quiet_NaN();
+            block.has_average = true;
+            block.average_power_gain = average;
+            block.solid_angle_pi = std::fabs(solid) / 3.141592653589793;
+            block.power_radiated_4pi = average * p_in;
+            return block;
+        }
         for (int64_t it = 0; it < nt; it++) {
             const double lo = np_max(thetas[it] - 0.5 * d_theta, thetas[0]) * DEG_TO_RAD;
             const double hi = np_min(thetas[it] + 0.5 * d_theta, thetas[nt - 1]) * DEG_TO_RAD;
@@ -3006,15 +3127,53 @@ Lines pattern_lines(const PatternBlockC &block) {
                         e(r.ep_mag, 15, 5) + f(r.ep_deg, 9, 2));
     if (block.has_average) {
         add(lines, {"", "",
-                    "   AVERAGE POWER GAIN=" + e(block.average_power_gain, 12, 5) +
+                    "   AVERAGE POWER GAIN=" + e_nan(block.average_power_gain, 12, 5) +
                         "       SOLID ANGLE USED IN AVERAGING=(" + f(block.solid_angle_pi, 7, 4) +
                         ")*PI STERADIANS.",
                     "",
                     "   POWER RADIATED ASSUMING RADIATION INTO 4*PI STERADIANS =" +
-                        e(block.power_radiated_4pi, 12, 5) + " WATTS"});
+                        e_nan(block.power_radiated_4pi, 12, 5) + " WATTS"});
+    }
+    if (block.normalized_kind != 0) {
+        // `_printout._normalized`: four blanks, the heading, the gain's name
+        // right-aligned to column 53, the factor, three column groups; the
+        // cells fill the groups column by column, the first n % 3 one longer.
+        static const char *const kinds[] = {"", "MAJOR AXIS GAIN", "MINOR AXIS GAIN",
+                                            "VERTICAL GAIN", "HORIZONTAL GAIN", "TOTAL GAIN"};
+        blanks(lines, 4);
+        add(lines, {sp(37) + "- - - - NORMALIZED GAIN - - - -", "",
+                    rjust(kinds[block.normalized_kind], 53),
+                    sp(38) + "NORMALIZATION FACTOR =" + f(block.normalization_db, 9, 2) + " DB", "",
+                    "    - - ANGLES - -      GAIN           - - ANGLES - -      GAIN"
+                    "           - - ANGLES - -      GAIN",
+                    "    THETA     PHI        DB            THETA     PHI        DB"
+                    "            THETA     PHI        DB",
+                    "   DEGREES  DEGREES                   DEGREES  DEGREES"
+                    "                   DEGREES  DEGREES"});
+        const std::size_t n = block.normalized.size(), base = n / 3, extra = n % 3;
+        std::size_t starts[3], lengths[3], start = 0;
+        for (std::size_t g = 0; g < 3; g++) {
+            lengths[g] = base + (g < extra ? 1 : 0);
+            starts[g] = start;
+            start += lengths[g];
+        }
+        for (std::size_t line = 0; line < lengths[0]; line++) {
+            std::string text;
+            for (std::size_t g = 0; g < 3; g++) {
+                if (line >= lengths[g]) continue;
+                const std::array<double, 3> &c = block.normalized[starts[g] + line];
+                if (g) text += sp(6);
+                text += f(c[0], 10, 2) + f(c[1], 9, 2) + f(c[2], 10, 2);
+            }
+            lines.push_back(text);
+        }
     }
     return lines;
 }
+
+// `_printout._pattern_gap`: five blanks after a pattern, three after its
+// NORMALIZED GAIN table.
+int pattern_gap(const PatternBlockC &block) { return block.normalized_kind != 0 ? 3 : 5; }
 
 // `_printout._near_field`: heading, three header lines, a row a point.
 Lines near_lines(const NearBlockC &block) {
@@ -3089,7 +3248,7 @@ Lines run_sections(const RunDataC &data, bool requests_only = false) {
         }
         for (const PatternBlockC &block : data.patterns) {
             add(body, pattern_lines(block));
-            blanks(body, 5);
+            blanks(body, pattern_gap(block));
         }
         return body;
     }
@@ -3142,7 +3301,7 @@ Lines run_sections(const RunDataC &data, bool requests_only = false) {
     }
     for (const PatternBlockC &block : data.patterns) {
         add(body, pattern_lines(block));
-        blanks(body, 5);
+        blanks(body, pattern_gap(block));
     }
     return body;
 }
@@ -3601,7 +3760,21 @@ PrintoutResult printout(const std::string &text, const std::string &basis,
                     throw PyRaise{o.error_kind, o.message};
                 } else {
                     Prepared &p = r.prepared[static_cast<std::size_t>(o.prepared_index)];
-                    const Solved &sol = solution(o.prepared_index);
+                    const Solved *solved_at = nullptr;
+                    try {
+                        solved_at = &solution(o.prepared_index);
+                    } catch (const PyRaise &raise) {
+                        // `_prepare` refuses what the solve raises as the
+                        // crossing serve's scope (NotImplementedError) or as
+                        // a buried plan's grazing floor (`_refuse_if_grazing`)
+                        if (raise.kind != "NotImplementedError" &&
+                            !(raise.kind == "ValueError" && names_a_grazing_floor(raise.message)))
+                            throw;
+                        printed += render_refusal(&echo, raise.message, basis, stamp);
+                        stopped = true;
+                        break;
+                    }
+                    const Solved &sol = *solved_at;
                     if (a.kind == Answer::sequence) {
                         // `replace(deck_g, frequency_mhz=f)`, finished in
                         // turn; its front released as the stepped route's
@@ -3702,7 +3875,8 @@ PatternBlock far_pattern(const Request &rq, const std::vector<double> &mid,
     const FarGround fg = ground == 1 ? FarGround::pec : ground == 2 ? FarGround::refl : FarGround::free;
     const PatternBlockC c = nec5::pattern_block(rq, mid, moment, fg, eps_r, sigma,
                                                 frequency_mhz, wavelength, p_in, false,
-                                                cd(0.0, 0.0), p_radiated, cliff);
+                                                cd(0.0, 0.0), p_radiated, cliff,
+                                                /*nec4_average=*/true);
     PatternBlock out;
     for (const PatternRowC &r : c.rows) {
         PatternRow row;
@@ -3725,6 +3899,9 @@ PatternBlock far_pattern(const Request &rq, const std::vector<double> &mid,
     out.solid_angle_pi = c.solid_angle_pi;
     out.power_radiated_4pi = c.power_radiated_4pi;
     out.directive = c.directive;
+    out.normalized_kind = c.normalized_kind;
+    out.normalization_db = c.normalization_db;
+    out.normalized = c.normalized;
     return out;
 }
 NetState composed(const std::vector<SeamCard> &cards, const CMat &y, const std::vector<cd> &z_load,

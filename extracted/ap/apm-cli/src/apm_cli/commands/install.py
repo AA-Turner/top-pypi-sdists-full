@@ -35,6 +35,7 @@ from apm_cli.install.errors import (
 )
 from apm_cli.install.gitlab_resolver import _try_resolve_gitlab_direct_shorthand
 from apm_cli.install.helpers.ref_reuse import is_git_semver_resolution_eligible
+from apm_cli.install.lsp.integration import LspPreflight
 from apm_cli.install.manifest_helpers import (
     _merge_packages_into_yml,
     _prepare_dry_run_manifest_path,
@@ -74,11 +75,14 @@ from apm_cli.install.mcp.writer import _add_mcp_to_apm_yml  # noqa: F401
 from apm_cli.install.package_resolution import (
     GIT_PARENT_USER_SCOPE_ERROR,
     apply_cli_skill_pin,
+    borrow_cross_section_declarations,
     cli_skill_subset,
     dependency_reference_to_yaml_entry,
+    dependency_sections,
     persist_dependency_list_if_changed,
     propagate_existing_registry_source,
     resolve_parsed_dependency_reference,
+    settle_cross_section_declarations,
     try_update_existing_dependency_entry,
     user_scope_rejection_reason,
 )
@@ -153,6 +157,7 @@ from ..install.mcp.conflicts import (
 from ..install.mcp.registry import resolve_registry_url as _resolve_registry_url
 from ..install.mcp.registry import validate_mcp_dry_run_entry as _validate_mcp_dry_run_entry
 from ..install.mcp.registry import validate_registry_url as _validate_registry_url
+from ..marketplace.reconcile import reconcile_user_marketplaces_or_exit
 from ..utils.console import (  # noqa: F401 -- _rich_success re-exported; tests patch commands.install._rich_success
     _rich_echo,
     _rich_error,
@@ -161,7 +166,8 @@ from ..utils.console import (  # noqa: F401 -- _rich_success re-exported; tests 
 )
 from ._helpers import (
     _create_minimal_apm_yml,
-    _get_default_config,
+    _get_bootstrap_config,
+    trust_transitive_mcp_option,
 )
 
 # CRITICAL: Shadow Python builtins that share names with Click commands
@@ -605,9 +611,9 @@ def _validate_and_add_packages_to_apm_yml(
 
     # Read current apm.yml
     try:
-        from ..utils.yaml_io import load_yaml_roundtrip
+        from ..models.manifest_io import load_manifest_roundtrip
 
-        data = load_yaml_roundtrip(apm_yml_path) or {}
+        data = load_manifest_roundtrip(apm_yml_path) or {}
     except Exception as e:
         (logger or InstallLogger()).error(f"Failed to read {APM_YML_FILENAME}: {e}")
         sys.exit(1)
@@ -616,16 +622,8 @@ def _validate_and_add_packages_to_apm_yml(
 
     _default_registry_for_cli = get_effective_default_registry(data, create_config=create_config)
 
-    # Ensure dependencies structure exists
-    dep_section = "devDependencies" if dev else "dependencies"
-    if dep_section not in data:
-        data[dep_section] = {}
-    if "apm" not in data[dep_section]:
-        data[dep_section]["apm"] = []
-
-    current_deps = data[dep_section]["apm"] or []
-
-    # Detect duplicates against existing deps
+    dep_section, current_deps, other_deps = dependency_sections(data, dev=dev)
+    cross_section = borrow_cross_section_declarations(packages, current_deps, other_deps, dev=dev)
     existing_identities = _check_package_conflicts(current_deps)
 
     # Validate and canonicalize all package references
@@ -652,6 +650,9 @@ def _validate_and_add_packages_to_apm_yml(
         updated_packages_out=updated_packages,
         protocol_pref=protocol_pref,
         allow_protocol_fallback=allow_protocol_fallback,
+    )
+    dependencies_changed |= settle_cross_section_declarations(
+        cross_section, current_deps, other_deps, dry_run=dry_run, logger=logger
     )
 
     prospective_package = None
@@ -850,9 +851,19 @@ def _handle_mcp_install(  # noqa: PLR0913
     initial_manifest_config = None
     if is_user_scope(scope) and not mcp_manifest_path.exists():
         project_name = _resolve_bootstrap_project_name(Path.home().name)
-        initial_manifest_config = _get_default_config(project_name)
+        initial_manifest_config = _get_bootstrap_config(project_name)
         if target is not None or runtime is not None:
             initial_manifest_config["targets"] = supported_runtimes
+    retry_args = []
+    if mcp_version:
+        retry_args.extend(("--mcp-version", mcp_version))
+    retry_target = target or runtime
+    if retry_target is not None:
+        retry_args.extend(
+            ("--target", retry_target if isinstance(retry_target, str) else ",".join(retry_target))
+        )
+    if is_user_scope(scope):
+        retry_args.append("--global")
     _run_mcp_install(
         mcp_name=mcp_name,
         transport=transport,
@@ -874,11 +885,13 @@ def _handle_mcp_install(  # noqa: PLR0913
         registry_allow_http=registry_source == "flag",
         registry_source=registry_source,
         initial_manifest_config=initial_manifest_config,
+        retry_args=builtins.tuple(retry_args),
     )
 
 
 @click.command(
-    help="Install APM, MCP, and LSP dependencies (supports APM packages, Claude skills (SKILL.md), and plugin collections (plugin.json); auto-creates apm.yml; use --allow-insecure for http:// packages)"
+    help="Install APM, MCP, and LSP dependencies (supports APM packages, Claude skills (SKILL.md), and plugin collections (plugin.json); auto-creates apm.yml; use --allow-insecure for http:// packages)",
+    short_help="Install APM, MCP, and LSP dependencies",
 )
 @click.argument("packages", nargs=-1)
 @click.option(
@@ -917,11 +930,7 @@ def _handle_mcp_install(  # noqa: PLR0913
     ),
 )
 @click.option("--verbose", "-v", is_flag=True, help="Show detailed installation information")
-@click.option(
-    "--trust-transitive-mcp",
-    is_flag=True,
-    help="Trust self-defined MCP servers from transitive packages (skip re-declaration requirement)",
-)
+@trust_transitive_mcp_option
 @click.option(
     "--parallel-downloads",
     type=int,
@@ -972,7 +981,7 @@ def _handle_mcp_install(  # noqa: PLR0913
     "global_",
     is_flag=True,
     default=False,
-    help="Install to user scope (~/.apm/) instead of the current project. Direct MCP installs create or update ~/.apm/apm.yml. Mixed selections warn and skip workspace-only runtimes; selections with no global-capable runtime exit 2 before changing the user manifest, lockfile, or runtime configuration. Supported runtimes include Copilot CLI, Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity CLI, Hermes, Kiro, Windsurf, and JetBrains Copilot.",
+    help="Install to the APM user home ($APM_HOME, default ~/.apm) instead of the current project. Direct MCP installs create or update the user manifest. APM_HOME controls metadata but not target deployment. Mixed selections warn and skip workspace-only runtimes; selections with no global-capable runtime exit 2 before changing the user manifest, lockfile, or runtime configuration. Supported runtimes include Copilot CLI, Claude Code, Cursor, OpenCode, Codex CLI, Gemini CLI, Antigravity CLI, Hermes, Kiro, Windsurf, and JetBrains Copilot.",
 )
 @click.option(
     "--ssh",
@@ -994,6 +1003,13 @@ def _handle_mcp_install(  # noqa: PLR0913
     is_flag=True,
     default=False,
     help="Restore the legacy permissive cross-protocol fallback chain (escape hatch for migrating users; also: APM_ALLOW_PROTOCOL_FALLBACK=1). Caveat: fallback reuses the same port across schemes; on servers that use different SSH and HTTPS ports, omit this flag and pin the dependency with an explicit ssh:// or https:// URL.",
+)
+@click.option(
+    "--auth-first",
+    "auth_first",
+    is_flag=True,
+    default=False,
+    help="Skip the anonymous-first HTTPS attempt for github.com and use your resolved credentials immediately (also: APM_GITHUB_AUTH_FIRST=1, apm config set github-auth-first true). Escape hatch for TLS-inspecting proxies the isolated anonymous attempt cannot pass. Trade-off: forwards credentials on the first attempt.",
 )
 @click.option(
     "--mcp",
@@ -1161,6 +1177,7 @@ def install(  # noqa: PLR0913
     use_ssh,
     use_https,
     allow_protocol_fallback,
+    auth_first,
     mcp_name,
     transport,
     url,
@@ -1309,6 +1326,7 @@ def install(  # noqa: PLR0913
                         "--ssh": use_ssh,
                         "--https": use_https,
                         "--allow-protocol-fallback": allow_protocol_fallback,
+                        "--auth-first": auth_first,
                         "--mcp": mcp_name,
                         "--registry": registry_url,
                         "--skill": bool(skill_names),
@@ -1423,9 +1441,7 @@ def install(  # noqa: PLR0913
             return
 
         # Resolve transport selection inputs.
-        from ..deps.transport_selection import (
-            ProtocolPreference,
-        )
+        from ..deps.transport_selection import ProtocolPreference
 
         if use_ssh and use_https:
             _rich_error("Options --ssh and --https are mutually exclusive.", symbol="error")
@@ -1482,7 +1498,9 @@ def install(  # noqa: PLR0913
 
         # Create shared auth resolver for all downloads in this CLI invocation
         # to ensure credentials are cached and reused (prevents duplicate auth popups)
-        auth_resolver = AuthResolver()
+        # issue #2545: --auth-first is CLI-scoped here; AuthResolver falls back to
+        # APM_GITHUB_AUTH_FIRST / apm config github-auth-first when not passed.
+        auth_resolver = AuthResolver(github_auth_first=auth_first)
         # F2/F3 #856: thread the InstallLogger into AuthResolver so the verbose
         # auth-source line and the deferred stale-PAT [!] warning route through
         # CommandLogger / DiagnosticCollector instead of stderr/inline writes.
@@ -1508,7 +1526,7 @@ def install(  # noqa: PLR0913
                     f'Using default project name "{project_name}" because '
                     f"derived name {derived_project_name!a} is invalid"
                 )
-            config = _get_default_config(project_name)
+            config = _get_bootstrap_config(project_name)
             if manifest_targets := manifest_targets_from_target_option(target):
                 config["targets"] = manifest_targets
             _create_minimal_apm_yml(config, target_path=manifest_path)
@@ -1529,6 +1547,7 @@ def install(  # noqa: PLR0913
                 logger.progress("  apm install <org/repo> to auto-create + install")
             sys.exit(1)
 
+        reconcile_user_marketplaces_or_exit(manifest_path, scope, logger=logger, dry_run=dry_run)
         outcome = None
         if packages:
             _validated_packages, outcome = _validate_and_add_packages_to_apm_yml(
@@ -1627,9 +1646,9 @@ def install(  # noqa: PLR0913
             summary_rendered = True
 
             if frozen and apm_count > 0:
-                # --frozen verifies lockfile structure, not content integrity.
+                # --frozen verified lockfile structure and deployed hashes (req-lk-017).
                 logger.info(
-                    "Lockfile presence verified. Run 'apm audit' for on-disk content integrity.",
+                    "Deployed files verified against apm.lock.yaml.",
                     symbol="info",
                 )
 
@@ -1848,6 +1867,9 @@ def _install_apm_packages(ctx, outcome):
 
     apm_count = 0
 
+    from apm_cli.install.phases.targets import reject_undeployable_manifest_targets
+
+    reject_undeployable_manifest_targets(apm_package, logger)  # before the lockfile rename
     migrate_lockfile_if_needed(ctx.apm_dir)
 
     # Preserve MCP fields across APM lockfile regeneration, even with --only=apm.
@@ -1924,6 +1946,7 @@ def _install_apm_packages(ctx, outcome):
                 refresh=ctx.refresh,
                 trust_bin=ctx.trust_bin,
                 transaction=ctx.transaction,
+                lsp_preflight=LspPreflight.for_install(ctx),
             )
             if not isinstance(install_result, InstallResult):
                 install_result = InstallResult(
@@ -1957,9 +1980,9 @@ def _install_apm_packages(ctx, outcome):
             raise
         except click.UsageError:
             raise
-        except CopilotSettingsCollisionError as e:
-            # Dependencies installed cleanly; only the Copilot settings merge
-            # collided. Surface the already-actionable message verbatim (no
+        except (CopilotSettingsCollisionError, RequiredIntegrationError) as e:
+            # A Copilot settings merge collision or the LSP capability gate.
+            # Surface the already-actionable message verbatim (no
             # "Failed to install..." prefix) and keep the raw decoder detail,
             # when present, behind --verbose.
             logger.error(str(e))

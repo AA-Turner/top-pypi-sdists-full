@@ -50,6 +50,10 @@ class Agent(TypedDict):
     """
     Date of agent creation
     """
+    deleted_at: NotRequired[str | None]
+    """
+    Date of agent deletion, or null if the agent is still active
+    """
     name: str
     """
     Name of the agent. Within a project, agent names are unique
@@ -159,6 +163,10 @@ class ApiKey(TypedDict):
     org_id: NotRequired[str | None]
     """
     Unique identifier for the organization
+    """
+    last_used_at: NotRequired[str | None]
+    """
+    Approximate time this credential was last used to authenticate. Updates are limited to once every 10 minutes and may be delayed by authorization caches. If null, no usage has been recorded.
     """
     expires_at: NotRequired[str | None]
     """
@@ -1004,12 +1012,12 @@ class FunctionDataFunctionData5Config1(TypedDict):
 
 
 class FunctionDataFunctionData5(TypedDict):
-    type: Literal['simulation']
+    type: Literal['conversation']
     config: FunctionDataFunctionData5Config | FunctionDataFunctionData5Config1
 
 
 FunctionFormat: TypeAlias = Literal[
-    'llm', 'code', 'global', 'graph', 'topic_map', 'simulation'
+    'llm', 'code', 'global', 'graph', 'topic_map', 'conversation'
 ]
 
 
@@ -2186,6 +2194,22 @@ class ProjectSettingsRemoteEvalSource(TypedDict):
 ProjectSettingsUserIdField: TypeAlias = str
 
 
+class ProjectSettingsPatternAlertMention(TypedDict):
+    workspace_id: str
+    mention_user_id: str
+    """
+    Slack member ID of the user or agent to mention in a Pattern alert's thread to investigate the pattern.
+    """
+    mention_handle: NotRequired[str | None]
+    """
+    Username shown for the selected user or agent. Mentions use mention_user_id.
+    """
+    mention_prompt: NotRequired[str | None]
+    """
+    Message posted after the mention in a Pattern alert's thread. {{pattern}} is replaced with a link to the pattern. Defaults to "Please investigate this pattern: {{pattern}}. Review the evidence, identify the root cause, and suggest a fix."
+    """
+
+
 class ProjectSettingsPatternAlertDestinations(TypedDict):
     type: Literal['webhook']
     """
@@ -2240,6 +2264,9 @@ class ProjectSettingsPatternAlertDestinations2(TypedDict):
     """
 
 
+ProjectSettingsSessionIdField: TypeAlias = str
+
+
 class ProjectSettings(TypedDict):
     comparison_key: NotRequired[str | None]
     """
@@ -2278,6 +2305,10 @@ class ProjectSettings(TypedDict):
     If true, automatically complete a review after every assigned reviewer fills all human review scores visible to them.
     """
     user_id_fields: NotRequired[Sequence[Sequence[ProjectSettingsUserIdField]] | None]
+    pattern_alert_mention: NotRequired[ProjectSettingsPatternAlertMention | None]
+    """
+    Project-wide Slack user or agent and prompt for Pattern alert threads. Applies only to destinations in the selected workspace. Unset or null disables mentions.
+    """
     pattern_alert_destinations: NotRequired[
         Sequence[
             ProjectSettingsPatternAlertDestinations
@@ -2288,6 +2319,7 @@ class ProjectSettings(TypedDict):
     """
     Project-wide Slack, webhook, and PagerDuty destinations for new and reactivated Pattern alerts. An empty array disables alerts.
     """
+    session_id_fields: NotRequired[Sequence[Sequence[ProjectSettingsSessionIdField]] | None]
     default_preprocessor: NotRequired[NullableSavedFunctionId | None]
 
 
@@ -2913,6 +2945,10 @@ class ServiceToken(TypedDict):
     org_id: NotRequired[str | None]
     """
     Unique identifier for the organization
+    """
+    last_used_at: NotRequired[str | None]
+    """
+    Approximate time this credential was last used to authenticate. Updates are limited to once every 10 minutes and may be delayed by authorization caches. If null, no usage has been recorded.
     """
     expires_at: NotRequired[str | None]
     """

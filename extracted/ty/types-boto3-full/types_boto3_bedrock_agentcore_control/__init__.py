@@ -12,6 +12,7 @@ Usage::
     from types_boto3_bedrock_agentcore_control import (
         BedrockAgentCoreControlClient,
         Client,
+        ListAgentInsightStoresPaginator,
         ListAgentRuntimeEndpointsPaginator,
         ListAgentRuntimeVersionsByCapacityProviderPaginator,
         ListAgentRuntimeVersionsPaginator,
@@ -69,6 +70,7 @@ Usage::
     policy_engine_deleted_waiter: PolicyEngineDeletedWaiter = client.get_waiter("policy_engine_deleted")
     policy_generation_completed_waiter: PolicyGenerationCompletedWaiter = client.get_waiter("policy_generation_completed")
 
+    list_agent_insight_stores_paginator: ListAgentInsightStoresPaginator = client.get_paginator("list_agent_insight_stores")
     list_agent_runtime_endpoints_paginator: ListAgentRuntimeEndpointsPaginator = client.get_paginator("list_agent_runtime_endpoints")
     list_agent_runtime_versions_by_capacity_provider_paginator: ListAgentRuntimeVersionsByCapacityProviderPaginator = client.get_paginator("list_agent_runtime_versions_by_capacity_provider")
     list_agent_runtime_versions_paginator: ListAgentRuntimeVersionsPaginator = client.get_paginator("list_agent_runtime_versions")
@@ -113,6 +115,7 @@ Usage::
 
 from .client import BedrockAgentCoreControlClient
 from .paginator import (
+    ListAgentInsightStoresPaginator,
     ListAgentRuntimeEndpointsPaginator,
     ListAgentRuntimesPaginator,
     ListAgentRuntimeVersionsByCapacityProviderPaginator,
@@ -168,6 +171,7 @@ Client = BedrockAgentCoreControlClient
 __all__ = (
     "BedrockAgentCoreControlClient",
     "Client",
+    "ListAgentInsightStoresPaginator",
     "ListAgentRuntimeEndpointsPaginator",
     "ListAgentRuntimeVersionsByCapacityProviderPaginator",
     "ListAgentRuntimeVersionsPaginator",

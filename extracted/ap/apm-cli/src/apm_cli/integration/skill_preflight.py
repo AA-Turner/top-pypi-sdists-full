@@ -4,11 +4,17 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
 from apm_cli.install.deployed_paths import deployed_path_entry
-from apm_cli.integration.base_integrator import BaseIntegrator
+from apm_cli.integration.base_integrator import BaseIntegrator, untrusted_baseline_message
+from apm_cli.integration.skill_adoption import (
+    is_skill_dir_identical_to_source,
+    skill_tree_baselines,
+)
+from apm_cli.integration.skill_support import skill_dir_has_content
 from apm_cli.models.dependency.subsets import skill_subset_filter_tokens
 from apm_cli.utils.diagnostics import DiagnosticCollector, printable_ascii_text
 
@@ -80,13 +86,30 @@ def preflight_skill_selection(
         else skill_subset_filter_tokens(skill_subset)
     )
     available = frozenset(selection.children)
+    dependency = package_info.dependency_ref
+    package_key = (
+        dependency.get_unique_key() if dependency is not None else package_info.install_path.name
+    )
+    # #3204 holds per declaring edge: a merged union must not hide one
+    # parent's selection that matches nothing (#3735).
+    for edge in getattr(dependency, "selection_contributors", ()) or ():
+        edge_filter = skill_subset_filter_tokens(edge.skill_subset)
+        if SkillIntegrator._skill_filter_misses_available(edge_filter, available):
+            SkillIntegrator._error_no_skill_filter_match(
+                available,
+                tuple(edge.skill_subset or ()),
+                package_key,
+                diagnostics=diagnostics,
+                logger=logger,
+                declared_by=edge.declared_by() if edge.parent_chain else None,
+            )
+            return False
     if not SkillIntegrator._skill_filter_misses_available(name_filter, available):
         return True
-    dependency = package_info.dependency_ref
     SkillIntegrator._error_no_skill_filter_match(
         available,
         tuple(skill_subset or ()),
-        dependency.get_unique_key() if dependency is not None else package_info.install_path.name,
+        package_key,
         diagnostics=diagnostics,
         logger=logger,
     )
@@ -95,16 +118,23 @@ def preflight_skill_selection(
 
 @dataclass(frozen=True)
 class SkillConflict:
-    """A differing unowned file at a selected physical skill destination."""
+    """A differing file at a selected physical skill destination.
+
+    ``untrusted`` marks a managed file that materialization would refuse to
+    replace because it has no trustworthy local deployment baseline (#3625).
+    """
 
     skill: str
     package: str
     source: Path
     path: str
     targets: tuple[str, ...]
+    untrusted: bool = False
 
     def message(self) -> str:
         """Name the source, local file and affected targets in ordinary output."""
+        if self.untrusted:
+            return printable_ascii_text(untrusted_baseline_message(self.path))
         return printable_ascii_text(
             f"Installation refused: skill '{self.skill}' from '{self.package}' "
             f"(source: {self.source}) conflicts with unmanaged file '{self.path}'. "
@@ -150,7 +180,11 @@ def find_unmanaged_conflicts(
     force: bool = False,
     skip_bin: bool = False,
 ) -> tuple[SkillConflict, ...]:
-    """Inspect admitted files without copying, claiming, or choosing a managed winner."""
+    """Inspect admitted files without copying, claiming, or choosing a managed winner.
+
+    Managed files that materialization would refuse for lack of a trustworthy
+    baseline are reported as ``untrusted`` so no package writes before them.
+    """
     if force:
         return ()
     from apm_cli.integration.skill_integrator import (
@@ -179,6 +213,43 @@ def find_unmanaged_conflicts(
             if parent in files_by_root:
                 files_by_root[parent].append(source)
                 break
+    dependency = package_info.dependency_ref
+    owner = dependency.get_unique_key() if dependency else "."
+    session = integrator._materialization_session
+    replay_owners = integrator._replay_owners
+    adopted: dict[tuple[Path, Path], dict[Path, str]] = {}
+    unchanged: dict[tuple[Path, Path], bool] = {}
+    left_alone: dict[tuple[Path, Path], bool] = {}
+
+    def user_skill_dir(source_root: Path, destination: Path, target: TargetProfile) -> bool:
+        """Mirror materialization, which never writes into an unclaimed populated skill dir.
+
+        Members of such a directory (for example ``apm install <bundle>``
+        output) are skipped there, so they are not replacement refusals here.
+        """
+        key = (source_root, destination)
+        if key not in left_alone:
+            left_alone[key] = (
+                skill_dir_has_content(destination)
+                and BaseIntegrator.check_collision(
+                    destination,
+                    deployed_path_entry(destination, project_root, [target]),
+                    managed,
+                    False,
+                    diagnostics=DiagnosticCollector(),
+                )
+                and integrator._ownership_maps(project_root)[0].get(name) != owner
+                and not is_skill_dir_identical_to_source(source_root, destination)
+            )
+        return left_alone[key]
+
+    def claimed(path: Path, destination: Path) -> bool:
+        entry = deployed_path_entry(path, project_root, targets)
+        return entry in managed or (
+            path == destination / "SKILL.md"
+            and deployed_path_entry(destination, project_root, targets) in managed
+        )
+
     for source_root, files in files_by_root.items():
         name = normalize_skill_name(source_root.name)
         ignore = _build_deployable_copy_ignore(
@@ -214,16 +285,48 @@ def find_unmanaged_conflicts(
                         raise PathTraversalError(
                             f"Unsafe skill destination '{relative_target}'; refusing deployment."
                         )
-                    if not BaseIntegrator.check_collision(
+                    unmanaged = BaseIntegrator.check_collision(
                         path, relative_target, managed, False, diagnostics=collision_diagnostics
+                    )
+                    if not unmanaged and (
+                        session is None
+                        or not path.is_file()
+                        or (
+                            replay_owners is not None
+                            and replay_owners.get(relative_target, owner) != owner
+                        )
+                        or session.baseline(path, targets) is not None
                     ):
                         continue
                     if not resolver_ready:
                         integrator.init_link_resolver(package_info, project_root)
                         resolver_ready = True
-                    if _matches_deployed_file(integrator, source, path, source_root):
+                    identical = _matches_deployed_file(integrator, source, path, source_root)
+                    if unmanaged and identical:
                         continue
-                    dependency = package_info.dependency_ref
+                    if not unmanaged:
+                        if user_skill_dir(source_root, destination, target):
+                            continue
+                        key = (source_root, destination)
+                        if key not in adopted:
+                            # Copies keep identical members only for a raw-identical sub-skill.
+                            unchanged[key] = (
+                                source_root != selection.native_root
+                                and is_skill_dir_identical_to_source(source_root, destination)
+                            )
+                            adopted[key] = skill_tree_baselines(
+                                integrator,
+                                source_root,
+                                destination,
+                                ignore=ignore,
+                                owned=partial(claimed, destination=destination),
+                                force=False,
+                                plan=source_plan,
+                                owner=owner,
+                                targets=targets,
+                            )
+                        if path in adopted[key] or (identical and unchanged[key]):
+                            continue
                     conflicts.append(
                         SkillConflict(
                             name,
@@ -231,6 +334,7 @@ def find_unmanaged_conflicts(
                             source,
                             relative_target,
                             affected,
+                            untrusted=not unmanaged,
                         )
                     )
     return tuple(conflicts)

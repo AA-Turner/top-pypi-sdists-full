@@ -9,7 +9,7 @@ runs from Python (``dreamscale.connect("verne-v05-base", deployment=...)``).
 
 from __future__ import annotations
 
-from dreamscale_transport import verne_v05_deploy as C
+from dreamscale_core import verne_v05_deploy as C
 
 from dreamscale.deploy_bases import Base, DeployBase, ExportedBase, cmd
 from dreamscale.deploy_bases._preset import PresetUnits

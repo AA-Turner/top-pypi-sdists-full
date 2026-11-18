@@ -4,6 +4,9 @@ coding-agent sessions, their transcripts and ATIF export (twin: app/capture/sess
 from __future__ import annotations
 from ....generated.models import (
     SessionCreatedOut,
+    SessionListOut,
+    SessionMediaOut,
+    SessionRunAlertsOut,
     SessionTrajectoryOut,
     SessionTranscriptOut,
     SessionWorkOut,
@@ -23,6 +26,32 @@ class SessionsMixin:
     """Part of Client: its methods run with `self` the Client; compose() folds them into Client."""
 
     # -- captured coding-agent sessions ---------------------------------------
+
+    def list_team_sessions(
+        self, *, project_id: str | None = None, limit: int | None = None, cursor: str | None = None,
+        query: str | None = None, order: str | None = None, owner: str | None = None, since: str | None = None,
+        until: str | None = None,
+    ) -> dict:
+        """``GET /v1/sessions``: the team's captured agent sessions (one project's with ``project_id``), a page
+        at a time; ``owner``/``since``/``until``/``query`` narrow it as in ``list_runs``."""
+        filters = {
+            key: value
+            for key, value in {
+                "project_id": project_id, "limit": limit, "cursor": cursor, "query": query, "order": order,
+                "owner": owner, "since": since, "until": until,
+            }.items()
+            if value is not None
+        }
+        return self.transport.get("/v1/sessions", params=filters or None)
+
+    def get_session_media(self, session_id: str, sha256: str, *, source: str | None = None) -> dict:
+        """``GET /v1/sessions/{id}/media/{sha256}``: an image pasted into a session (a short-lived URL to it)."""
+        filters = {"source": source} if source is not None else None
+        return self.transport.get(f"/v1/sessions/{session_id}/media/{sha256}", params=filters)
+
+    def get_session_run_alerts(self, session_id: str) -> dict:
+        """``GET /v1/sessions/{id}/run-alerts``: the run alerts (crashed, stalled, finished) owed to a session."""
+        return self.transport.get(f"/v1/sessions/{session_id}/run-alerts")
 
     def session_work(self, session_id: str, *, limit: int | None = None) -> dict:
         """``GET /v1/sessions/{id}/work`` — everything one captured session
@@ -156,6 +185,24 @@ class SessionsResource(Resource):
     """`client.sessions`: typed reads of one captured coding-agent session."""
 
     __slots__ = ()
+
+    def list(
+        self, *, project_id: str | None = None, limit: int | None = None, cursor: str | None = None,
+        query: str | None = None, order: str | None = None, owner: str | None = None, since: str | None = None,
+        until: str | None = None,
+    ) -> SessionListOut:
+        """`Client.list_team_sessions` as a `SessionListOut`."""
+        return self._to_model(SessionListOut, self._client.list_team_sessions(
+            project_id=project_id, limit=limit, cursor=cursor, query=query, order=order, owner=owner, since=since,
+            until=until))
+
+    def get_media(self, session_id: str, sha256: str, *, source: str | None = None) -> SessionMediaOut:
+        """`Client.get_session_media` as a `SessionMediaOut`."""
+        return self._to_model(SessionMediaOut, self._client.get_session_media(session_id, sha256, source=source))
+
+    def get_run_alerts(self, session_id: str) -> SessionRunAlertsOut:
+        """`Client.get_session_run_alerts` as a `SessionRunAlertsOut`."""
+        return self._to_model(SessionRunAlertsOut, self._client.get_session_run_alerts(session_id))
 
     def get_work(self, session_id: str, *, limit: int | None = None) -> SessionWorkOut:
         """`Client.session_work` as a `SessionWorkOut`."""

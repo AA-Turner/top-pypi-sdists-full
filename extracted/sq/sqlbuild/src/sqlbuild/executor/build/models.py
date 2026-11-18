@@ -16,6 +16,7 @@ from sqlbuild._native import (
     ModelPlanEntry,
     SeedPlanEntry,
     SnapshotsConfig,
+    SourceEntry,
     SourceLoadPlanEntry,
     SqlTestPlanEntry,
     TargetSettings,
@@ -80,6 +81,8 @@ class BuildRuntimeParams:
     end_cursor_int: int | None = None
     target: str = ""
     target_config: TargetSettings | None = None
+    default_database: str | None = None
+    default_schema: str | None = None
     effective_vars: dict[str, object] | None = None
     use_color: bool = False
     providers: ProviderContainer | None = None
@@ -125,6 +128,8 @@ class BuildCustomizations:
 
     custom_materializations: Mapping[str, Callable[..., MaterializationResult]] | None = None
     loader_functions: tuple[DiscoveredLoaderFunction, ...] = ()
+    source_load_gate: Callable[[SourceEntry], tuple[str, str] | None] | None = None
+    """Why and how (`hard` or `soft`) a source load is skipped before it starts."""
 
 
 @dataclass(frozen=True)
@@ -213,15 +218,6 @@ class NodeCompletion:
 
 
 @dataclass(frozen=True)
-class ExternalSourceLoadResults:
-    """Results and scheduler state from pre-connection external source loads."""
-
-    results: tuple[LoadExecutionResult, ...]
-    completed_keys: frozenset[CompiledObjectKey]
-    failed_keys: frozenset[CompiledObjectKey]
-
-
-@dataclass(frozen=True)
 class BuildExecutionResult:
     """Aggregate outcome of a full build execution."""
 
@@ -239,6 +235,7 @@ class BuildExecutionResult:
     skipped_count: int = 0
     warning_count: int = 0
     insufficient_count: int = 0
+    ignored_audit_failure_count: int = 0
     audit_result_projection_attempted_count: int = 0
     audit_result_projection_written_count: int = 0
     audit_result_projection_failed_count: int = 0

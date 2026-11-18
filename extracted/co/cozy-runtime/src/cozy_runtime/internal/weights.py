@@ -69,6 +69,7 @@ from cozy_runtime.internal.residency import (
     Level,
     Memory,
     Model,
+    Placeholder,
     Region,
     Request,
     TensorLayout,
@@ -131,6 +132,8 @@ class Backend:
         #: id(module) -> the loaded model (of any construction) and path holding it, and the module
         self.owned: dict[int, tuple[Model, str, object]] = {}
         self.indexed: tuple[int, ...] = ()
+        #: its construction's key: a bake reads only that construction's models (`_owner`)
+        self.key = construction.partition("#")[0]
         self.derived: dict[str, dict[tuple[Module, str], Tensor]] = {}
         #: Persistent buffers the checkpoint does not store (full keys): they keep their values.
         self.unstored: set[str] = set()
@@ -418,9 +421,12 @@ class Backend:
     # -- construction internals
 
     def _owner(self, module: object) -> tuple[Model, str] | None:
-        """The loaded model and module path that hold `module`, when a component this process
-        loaded does, of any construction (H3's turbo overlay is its own). Indexed once per set
-        of loaded models: a fill asks for every hooked linear of every block it fills."""
+        """The loaded model and module path that hold `module`: one of this construction's, its
+        own or another slot's (H3's turbo overlay beside its base); None for tensors the package
+        holds itself. Weights of a model another construction loaded, or of one no longer loaded,
+        refuse: a call reads only what its construction loaded, so a release takes nothing one
+        reads. Indexed once per set of loaded models: a fill asks for every hooked linear of every
+        block it fills."""
         models = list(self.memory.models.values())
         loaded = tuple(map(id, models))
         if loaded != self.indexed:  # a model loaded, closed or reloaded since
@@ -431,7 +437,23 @@ class Backend:
                 for path, sub in model.module.named_modules()
             }
         held = self.owned.get(id(module))
-        return None if held is None or held[2] is not module else (held[0], held[1])
+        if held is not None and held[2] is module:
+            if held[0].construction != self.key:
+                raise CapabilityError(
+                    f"LoRA factors at {held[1]} are weights of {held[0].name}, which another "
+                    "construction loaded: a call reads only the models its own construction loaded",
+                    code="model_not_in_construction",
+                )
+            return held[0], held[1]
+        if isinstance(module, self.torch.nn.Module) and any(
+            isinstance(t, Placeholder) for t in module.parameters()
+        ):
+            raise CapabilityError(
+                "LoRA factors are weights of a model no longer loaded (its construction was "
+                "released): a call reads only the models its own construction loaded",
+                code="model_not_loaded",
+            )
+        return None
 
     @contextmanager
     def _reading(self, module: object) -> Iterator[None]:
@@ -490,6 +512,7 @@ class Backend:
         # At RAM: pages reach the device through placement (passes, the plan, an explicit warm),
         # never at construction (v6 13633 filled the card with H3's transformer before its TE).
         model = self.memory.load(root, Level.RAM)
+        model.construction = self.key
         if self.device.type == "cpu":
             self.widened[name] = tuple(sorted({r.dtype for r in rows.values()} & {"f16", "bf16"}))
             _float32(self.torch, root)
@@ -820,6 +843,17 @@ class LoRASource(Protocol):
     def lora_factors(self) -> tuple[str, Tensor, Tensor, float] | None: ...
 
 
+class KronLayer(Protocol):
+    """A LoKr'd linear (`lora_composition._Kron`): each adapter's scale and rows of the product."""
+
+    terms: Mapping[str, tuple[float, tuple[tuple[int, int], ...]]]
+    _cozy_baked: bool
+
+
+#: A LoKr factor's stored names: the whole matrix, or its `_a`, `_b` pair.
+Factor = tuple[str] | tuple[str, str]
+
+
 class LoRALayer(Protocol):
     active_adapters: Sequence[str]
     scaling: Mapping[str, float]
@@ -841,6 +875,11 @@ class _Bake:
     #: each DoRA pair's magnitude and (s, t), by its place in `factors` (`lora_bake.dora`)
     dora: dict[int, tuple[str, float, float]] = field(default_factory=dict)
     hooks: list[LoRASource] = field(default_factory=list)
+    #: A LoKr'd linear and each adapter's (W1, W2, scale, rows): a dense delta (`lora_bake.Kron`)
+    kron: KronLayer | None = None
+    krons: list[tuple[Factor, Factor, float, tuple[tuple[int, int], ...]]] = field(
+        default_factory=list
+    )
     #: An svdq.nvfp4 leaf: its LoRAs join its low-rank branch as more ranks when it runs
     #: (`SvdqLinear.adopt`), never its bytes, so no page refills for them.
     leaf: _Adopting | None = None
@@ -888,7 +927,12 @@ class _Bakes:
             if any(site.startswith(block + ".") for block in blocks):
                 bake.hooks = [hook for hook in hooks if isinstance(hook, LoRASource)]
             target = site.removesuffix(".base_layer")
-            if target != site:
+            kron = cast("KronLayer | None", root.get_submodule(target) if target != site else None)
+            if kron is not None and getattr(type(kron), "_cozy_kron", False):
+                # An svdq leaf adds its LoRAs as more ranks: a LoKr's dense delta stays per step.
+                if leaf is None and (krons := _krons(names, target, kron)) is not None:
+                    bake.kron, bake.krons = kron, krons
+            elif target != site:
                 layer = cast(LoRALayer, root.get_submodule(target))
                 dora = getattr(layer, "_cozy_dora", {})
                 for adapter in getattr(layer, "active_adapters", ()):
@@ -909,7 +953,7 @@ class _Bakes:
                         "its own low-rank branch",
                         code="adapter_dora_target",
                     )
-            if bake.layer is not None or bake.hooks:
+            if bake.layer is not None or bake.hooks or bake.kron is not None:
                 self.bakes[stored] = bake
         held = {b.weight for b in self.bakes.values() if b.dora}
         for path, module in root.named_modules():
@@ -963,6 +1007,8 @@ class _Bakes:
         for bake in self.bakes.values():  # each LoRA'd linear told whether its bytes carry it
             if bake.layer is not None:
                 bake.layer._cozy_baked = baked
+            if bake.kron is not None:
+                bake.kron._cozy_baked = baked
             for hook in bake.hooks:
                 hook._cozy_baked = baked
             if bake.leaf is not None:
@@ -1016,6 +1062,7 @@ class _Bakes:
                 (a, b, repr(scale), *map(repr, bake.dora.get(i, ())))
                 for i, (a, b, scale) in enumerate(bake.factors)
             ]
+            deltas += [(w1, w2, repr(scale), rows) for w1, w2, scale, rows in bake.krons]
             for hook in bake.hooks if armed else ():
                 delta = self._delta(hook)
                 if delta is None:
@@ -1058,7 +1105,8 @@ class _Bakes:
     def _held(bake: _Bake) -> list[str]:
         """The stored factor tensors (and magnitudes) a bake of `bake` reads."""
         factors = [n for a, b, _ in bake.factors for n in (a, b)]
-        return factors + [m for m, _, _ in bake.dora.values()]
+        krons = [n for w1, w2, _, _ in bake.krons for n in (*w1, *w2)]
+        return factors + krons + [m for m, _, _ in bake.dora.values()]
 
     def __call__(self, block: object, parts: Mapping[str, Mapping[str, Tensor]]) -> bool:
         """Bake `block`'s LoRA'd weights in place; whether any was baked."""
@@ -1093,12 +1141,19 @@ class _Bakes:
                     assert got is not None
                     downs.append(got[1])
                     ups.append(got[2] * got[3])
-                delta = bool(downs)
-                if delta:
+                terms = [_kron(torch, parts, *k) for k in bake.krons]
+                more = lora_bake.dense(terms)
+                delta = bool(downs or terms)
+                if downs:
                     kind = downs[0].dtype
                     down = torch.cat([d.to(kind) for d in downs])
                     up = torch.cat([u.to(kind) for u in ups], dim=1)
-                del named, got, downs, ups  # no view of a source outlives its piece's bind
+                elif terms:  # a LoKr alone: rank-0 factors beside its dense rows
+                    first = terms[0]
+                    inner = first.w1.shape[1] * first.w2.shape[1]
+                    down = torch.zeros(0, inner, device=first.w1.device)
+                    up = torch.zeros(first.index.numel(), 0, device=first.w1.device)
+                del named, got, downs, ups, terms  # no view of a source outlives its piece's bind
             if not delta:
                 continue
             lora_bake.bake(
@@ -1109,9 +1164,51 @@ class _Bakes:
                 seed=zlib.crc32(f"{identity}\0{stored}".encode()),
                 how=self.how,
                 gain=gain,
+                more=more,
             )
             self.baked += 1
         return self.baked > baked
+
+
+def _krons(
+    names: Mapping[str, str], target: str, layer: KronLayer
+) -> list[tuple[Factor, Factor, float, tuple[tuple[int, int], ...]]] | None:
+    """A LoKr'd linear's stored factors by adapter, as `_Bake.krons`; None where one is missing."""
+    out: list[tuple[Factor, Factor, float, tuple[tuple[int, int], ...]]] = []
+    for adapter, (scale, rows) in layer.terms.items():
+        factors: list[Factor] = []
+        for w in ("w1", "w2"):
+            whole = names.get(f"{target}.lokr_{w}.{adapter}.weight")
+            a = names.get(f"{target}.lokr_{w}_a.{adapter}.weight")
+            b = names.get(f"{target}.lokr_{w}_b.{adapter}.weight")
+            if whole is not None:
+                factors.append((whole,))
+            elif a is not None and b is not None:
+                factors.append((a, b))
+            else:
+                return None
+        out.append((factors[0], factors[1], scale, rows))
+    return out
+
+
+def _kron(
+    torch: ModuleType,
+    parts: Mapping[str, Mapping[str, Tensor]],
+    w1: Factor,
+    w2: Factor,
+    scale: float,
+    rows: tuple[tuple[int, int], ...],
+) -> lora_bake.Kron:
+    """One LoKr adapter's dense delta from its stored factors (a pair multiplied in f32)."""
+
+    def factor(names: Factor) -> Tensor:
+        held = [parts[n]["value"] for n in names]
+        return held[0] if len(held) == 1 else held[0].float() @ held[1].float()
+
+    first, second = factor(w1), factor(w2)
+    every = ((0, first.shape[0] * second.shape[0]),)
+    index = torch.cat([torch.arange(a, b, device=first.device) for a, b in rows or every])
+    return lora_bake.Kron(first, second, scale, index)
 
 
 def _deltas(bake: _Bake) -> list[tuple[object, Tensor, Tensor, float]]:
@@ -1258,6 +1355,9 @@ class Placement:
         """The region's address ownership, independent of its physical replay lease."""
         return self.models[component].retain(paths)
 
+    def keep(self, component: str, since_ns: int, reserve: int) -> tuple[Binding, int, int] | None:
+        return self.models[component].keep(since_ns, reserve)
+
     def represent(
         self, component: str, dtype: torch.dtype, *, resident_only: bool = False
     ) -> Callable[[], None]:
@@ -1306,6 +1406,12 @@ class Placement:
     def graph_resident(self, binding: Binding) -> bool:
         """Every page `binding` covers is on the device now (an idle capture never fills one)."""
         return binding.resident()
+
+    def graph_weights(self) -> dict[str, tuple[Module, int]]:
+        return {
+            name: (model.module, sum(block.allocation_bytes for block in model.groups()))
+            for name, model in self.models.items()
+        }
 
     def note(self, key: str, value: str) -> None:
         self.notes[key] = value

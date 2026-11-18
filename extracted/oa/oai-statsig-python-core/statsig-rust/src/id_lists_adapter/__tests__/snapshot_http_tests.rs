@@ -5,6 +5,7 @@ use crate::portable_id_list_ef::{MEDIA_TYPE, encode_prefix_v1};
 use crate::sdk_event_emitter::SdkEventEmitter;
 use mockito::{Matcher, Mock, Server};
 use serde_json::json;
+use std::io::Write;
 
 const KEY: &str = "test-id-list-snapshot-key";
 const GEN: &str = "g1";
@@ -96,31 +97,77 @@ fn image_headers(request: Mock, bytes: &[u8], end: usize) -> Mock {
 
 #[tokio::test]
 async fn id_list_snapshot_publishes_800_then_requests_raw_tail_on_next_poll() {
-    for lazy in [false, true] {
+    for (lazy, gzipped, timings) in [
+        (false, false, false),
+        (false, false, true),
+        (true, false, false),
+        (true, false, true),
+        (false, true, false),
+        (false, true, true),
+        (true, true, false),
+        (true, true, true),
+    ] {
         let mut server = Server::new_async().await;
-        let (adapter, store) = store_client(StatsigOptions {
+        let observer = crate::__tests__::mock_observability_client::observer();
+        let (mut adapter, store) = store_client(StatsigOptions {
             id_lists_url: Some(format!("{}/manifest", server.url())),
             download_id_list_file_api: Some(server.url()),
             enable_id_list_elias_fano: Some(true),
             lazy_load_id_lists: Some(lazy),
             id_list_init_build_concurrency: Some(2),
             experimental_flags: Some(["parallel_lazy_id_list_builds".into()].into()),
+            observability_client: timings.then(|| Arc::downgrade(&observer)),
             ..Default::default()
         });
+        adapter.ops_stats = Arc::new(OpsStatsForInstance::new());
+        let mut events = adapter.ops_stats.subscribe_for_test();
         let adapter = Arc::new(adapter);
         let prefix = RECORD.repeat(79) + "+CCCCCCCC\n";
         let (end, bytes) = encode_prefix_v1(prefix.as_bytes(), 0).unwrap().unwrap();
         assert_eq!(end, 800);
         let row = manifest(&mut server, GEN, 1000);
-        let image = image_headers(offer(&mut server, RAW), &bytes, end)
-            .with_body(bytes)
-            .expect(1)
-            .create();
+        let image = image_headers(offer(&mut server, RAW), &bytes, end);
+        let image = with_list_body(image, bytes, gzipped).expect(1).create();
         let unexpected = raw_request(&mut server, RAW, 800).expect(0).create();
         adapter.sync_id_lists().await.unwrap();
         if lazy {
             assert!(store.load_data().id_lists.is_empty());
             adapter.process_id_list("users").await.unwrap();
+        }
+        let mut phases = HashMap::new();
+        while let Ok(event) = events.try_recv() {
+            for event in id_list_load_timing::metrics_for_test(event) {
+                if event.metric_name != "lazy_id_list_load.list_phase_ms" {
+                    continue;
+                }
+                let tags = event.tags.unwrap();
+                assert_eq!(tags["list_name"], "users");
+                assert_eq!(tags["mode"], "lazy");
+                assert_eq!(tags["outcome"], "success");
+                assert!(phases.insert(tags["phase"].clone(), event.value).is_none());
+            }
+        }
+        if lazy && timings {
+            // Snapshot validation runs in a blocking worker before publication;
+            // it must retain the load's context instead of disappearing into "other".
+            for phase in [
+                "http_body",
+                "build_permit_wait",
+                "build_worker_wait",
+                "decode",
+            ] {
+                assert!(phases[phase] > 0.0, "missing snapshot timing: {phase}");
+            }
+            let measured: f64 = phases
+                .iter()
+                .filter(|(phase, _)| phase.as_str() != "total")
+                .map(|(_, ms)| ms)
+                .sum();
+            assert!((measured - phases["total"]).abs() < 0.001);
+        } else {
+            assert!(phases.is_empty());
+        }
+        if lazy {
             adapter.process_id_list("users").await.unwrap();
         }
         let first = store.load_data();
@@ -133,8 +180,9 @@ async fn id_list_snapshot_publishes_800_then_requests_raw_tail_on_next_poll() {
         unexpected.remove();
         let tail = raw_request(&mut server, RAW, 800)
             .with_status(206)
-            .with_header("content-range", "bytes 800-999/1000")
-            .with_body("-AAAAAAAA\n".to_string() + &"+BBBBBBBB\n".repeat(19))
+            .with_header("content-range", "bytes 800-999/1000");
+        let records = "-AAAAAAAA\n".to_string() + &"+BBBBBBBB\n".repeat(19);
+        let tail = with_list_body(tail, records.into_bytes(), gzipped)
             .expect(1)
             .create();
         adapter.sync_id_lists().await.unwrap();
@@ -190,13 +238,158 @@ async fn id_list_snapshot_accepts_legacy_raw_200_and_206_on_the_first_request() 
     }
 }
 
-#[test]
-fn transport_recognizes_supported_snapshot_in_accept_list() {
-    let unsupported = "application/vnd.statsig.id-list-ef;version=2";
-    assert!(snapshot_http::accepts_snapshot(&format!(
-        "{unsupported}, {MEDIA_TYPE}"
-    )));
-    assert!(!snapshot_http::accepts_snapshot(unsupported));
+fn gzip(bytes: &[u8]) -> Vec<u8> {
+    let mut writer = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
+    writer.write_all(bytes).unwrap();
+    writer.finish().unwrap()
+}
+
+fn gzip_in_two_members(bytes: &[u8]) -> Vec<u8> {
+    let (first, second) = bytes.split_at(bytes.len() / 2);
+    [gzip(first), gzip(second)].concat()
+}
+
+fn with_list_body(response: Mock, bytes: Vec<u8>, gzipped: bool) -> Mock {
+    if gzipped {
+        response
+            .with_header("content-encoding", "gzip")
+            .with_body(gzip_in_two_members(&bytes))
+    } else {
+        response.with_body(bytes)
+    }
+}
+
+#[tokio::test]
+async fn id_list_snapshot_cached_client_preserves_only_gzip_on_identity_ranges() {
+    let mut server = Server::new_async().await;
+    let (_, image) = encode_prefix_v1(RECORD.as_bytes(), 0).unwrap().unwrap();
+    let gzipped = gzip(&image);
+    let _gzip = server
+        .mock("GET", "/gzip")
+        .with_header("content-encoding", "gzip")
+        .with_body(gzipped.clone())
+        .create();
+    let _zstd = server
+        .mock("GET", "/zstd")
+        .with_header("content-encoding", "zstd")
+        .with_body(zstd::stream::encode_all(image.as_slice(), 1).unwrap())
+        .create();
+    let provider = crate::networking::providers::get_network_provider()
+        .upgrade()
+        .unwrap();
+    for (encoding, ranged, expected_header) in [
+        ("gzip", false, None),
+        ("gzip", true, Some("gzip")),
+        ("zstd", true, None),
+        ("gzip", false, None),
+    ] {
+        let args = RequestArgs {
+            url: format!("{}/{encoding}", server.url()),
+            headers: ranged.then(|| {
+                HashMap::from([
+                    ("Accept-Encoding".into(), "identity".into()),
+                    ("Range".into(), "bytes=0-".into()),
+                ])
+            }),
+            ..RequestArgs::new()
+        };
+        let response = provider
+            .send_without_redirects(&HttpMethod::GET, &args)
+            .await;
+        let mut body = response.data.unwrap();
+        assert_eq!(
+            body.header_values("content-encoding").next(),
+            expected_header
+        );
+        let expected = if expected_header.is_some() {
+            &gzipped
+        } else {
+            &image
+        };
+        assert_eq!(&body.read_to_bytes().unwrap(), expected);
+    }
+}
+
+#[tokio::test]
+async fn id_list_snapshot_validates_the_same_image_when_provider_leaves_encoding_intact() {
+    let (adapter, _store) = store_client(StatsigOptions::default());
+    let job = IdListDownloadJob {
+        name: "users".into(),
+        primary_url: RAW.into(),
+        metadata: IdListMetadata {
+            name: "users".into(),
+            url: RAW.into(),
+            file_id: Some(GEN.into()),
+            size: 20,
+            creation_time: 1,
+        },
+        range_start: 0,
+        can_download_snapshots: true,
+    };
+    let (end, image) = encode_prefix_v1(RECORD.as_bytes(), 0).unwrap().unwrap();
+    let mut br = Vec::new();
+    brotli::CompressorWriter::new(&mut br, 4096, 3, 22)
+        .write_all(&image)
+        .unwrap();
+    let mut deflate = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::default());
+    deflate.write_all(&image).unwrap();
+    for (encoding, payload) in [
+        (None, image.clone()),
+        (Some("identity"), image.clone()),
+        (Some("GZip"), gzip_in_two_members(&image)),
+        (
+            Some("zstd"),
+            zstd::stream::encode_all(image.as_slice(), 1).unwrap(),
+        ),
+        (Some("br"), br),
+        (Some("deflate"), deflate.finish().unwrap()),
+    ] {
+        for valid_digest in [true, false] {
+            let mut body = ResponseData::from_bytes(payload.clone());
+            body.append_header("content-type".into(), MEDIA_TYPE.into());
+            body.append_header("x-statsig-id-list-file-id".into(), GEN.into());
+            body.append_header("x-statsig-id-list-raw-end".into(), end.to_string());
+            body.append_header(
+                "x-statsig-id-list-sha256".into(),
+                if valid_digest {
+                    hex(&digest(&image))
+                } else {
+                    "0".repeat(64)
+                },
+            );
+            if let Some(encoding) = encoding {
+                body.append_header("content-encoding".into(), encoding.into());
+            }
+            let response = Response {
+                status_code: Some(200),
+                error: None,
+                data: Some(body),
+            };
+            let permit = adapter
+                .download_permits
+                .clone()
+                .acquire_owned()
+                .await
+                .unwrap();
+            let result = adapter
+                .validate_snapshot(&job, response, permit, None)
+                .await;
+            if valid_digest {
+                let list = result.unwrap();
+                assert_eq!(list.metadata.size, 10, "{encoding:?}");
+                assert!(list.ids.contains("AAAAAAAA"), "{encoding:?}");
+            } else {
+                assert!(
+                    result
+                        .err()
+                        .unwrap()
+                        .to_string()
+                        .contains("snapshot digest mismatch"),
+                    "{encoding:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]
@@ -222,8 +415,10 @@ async fn id_list_snapshot_invalid_representation_retries_only_authorized_raw() {
         "uppercase",
         "codec",
         "range",
-        "encoding",
-        "gzip",
+        "unknown-encoding",
+        "stacked-encodings",
+        "duplicate-encoding",
+        "invalid-gzip",
         "partial",
         "missing",
         "duplicate-digest",
@@ -239,15 +434,6 @@ async fn id_list_snapshot_invalid_representation_retries_only_authorized_raw() {
             valid.clone()
         };
         let hash = hex(&digest(&bytes));
-        let bytes = if defect == "gzip" {
-            use std::io::Write;
-            let mut encoder =
-                flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-            encoder.write_all(&bytes).unwrap();
-            encoder.finish().unwrap()
-        } else {
-            bytes
-        };
         let response = offer(&mut server, RAW)
             .with_status(if defect == "partial" { 206 } else { 200 })
             .with_header(
@@ -278,15 +464,20 @@ async fn id_list_snapshot_invalid_representation_retries_only_authorized_raw() {
             "uppercase" => response.with_header("x-statsig-id-list-sha256", &hash.to_uppercase()),
             _ => response.with_header("x-statsig-id-list-sha256", &hash),
         };
+        let response = response.with_body(bytes);
         let response = match defect {
             "range" => response.with_header("content-range", "bytes 0-9/20"),
             "duplicate-digest" => response.with_header("x-statsig-id-list-sha256", &hash),
             "duplicate-content-type" => response.with_header("content-type", MEDIA_TYPE),
-            "encoding" => response.with_header("content-encoding", "identity"),
-            "gzip" => response.with_header("content-encoding", "gzip"),
+            "unknown-encoding" => response.with_header("content-encoding", "unknown"),
+            "stacked-encodings" => response.with_header("content-encoding", "gzip, br"),
+            "duplicate-encoding" => response
+                .with_header("content-encoding", "gzip")
+                .with_header("content-encoding", "unsupported")
+                .with_body(gzip(&valid)),
+            "invalid-gzip" => response.with_header("content-encoding", "gzip"),
             _ => response,
         }
-        .with_body(bytes)
         .expect(1)
         .create();
         let retry = raw_request(&mut server, RAW, 0)

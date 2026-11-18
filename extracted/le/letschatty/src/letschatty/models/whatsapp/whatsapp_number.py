@@ -6,7 +6,9 @@ so late webhooks (statuses, a message to the old number) still reach its account
 
 `digits` is the visible number: Meta gives a number a NEW `phone_number_id` when it moves to
 another WABA, so «is this number already in Chatty» is answered by the digits. A number taken
-down in Meta (`taken_down_at`, deregistered) is free: any company can connect it again.
+down in Meta (`taken_down_at`, deregistered) is free: any company can connect it again. So is a number
+released in Chatty when its account was disconnected: `taken_down_at` too, plus `released_in_chatty`
+(when and why) so it is not shown as a Meta take-down; Meta still has it registered.
 """
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -42,6 +44,8 @@ class WhatsAppNumber(BaseModel):
     until: Optional[datetime] = None
     digits: Optional[str] = None
     taken_down_at: Optional[datetime] = None
+    #: `{"at": datetime, "reason": str}` when Chatty released it (disconnect) without touching Meta.
+    released_in_chatty: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
@@ -58,8 +62,13 @@ class WhatsAppNumber(BaseModel):
         """Still Chatty's (current or previous): nobody else may connect it."""
         return self.taken_down_at is None
 
+    @property
+    def released_at(self) -> Optional[datetime]:
+        """When Chatty released it without touching Meta; None for a live number or a Meta take-down."""
+        return (self.released_in_chatty or {}).get("at") if self.taken_down_at else None
+
     def to_document(self) -> Dict[str, Any]:
-        return self.model_dump(by_alias=True)
+        return self.model_dump(by_alias=True, exclude={"released_in_chatty"} if self.released_in_chatty is None else None)
 
     @classmethod
     def from_document(cls, document: Dict[str, Any]) -> "WhatsAppNumber":

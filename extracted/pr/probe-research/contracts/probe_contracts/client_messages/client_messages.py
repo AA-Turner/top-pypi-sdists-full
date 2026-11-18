@@ -56,9 +56,11 @@ class MessageCode(StrEnum):
 class ClientMessage(Record):
     """One message from the server: a stable id, the code clients key on, and the sentence to show.
 
-    `message_id` names the message (several share a `code`: every floor answers `client_too_old`);
-    `text` is the server's current sentence, a staff override or the default.
+    `message_id` names the message (several share a `code`: every minimum-version check answers
+    `client_too_old`); `text` is the server's current sentence: one Probe set for now, or the default.
     """
+
+    # A floor is a minimum version; the sentence Probe set is a staff override.
 
     message_id: str
     # A MessageCode value, typed `str` so a client parses a code it does not know yet.

@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from dreamscale_transport.pi05_deploy import (
+from dreamscale_core.pi05_deploy import (
     MAX_CAMERAS,
     MAX_HORIZON,
     MAX_HZ,

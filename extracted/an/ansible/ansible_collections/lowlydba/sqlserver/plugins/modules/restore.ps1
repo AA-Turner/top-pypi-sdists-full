@@ -79,7 +79,7 @@ $noRecovery = $module.Params.no_recovery
 $maxTransferSize = $module.Params.max_transfer_size
 $blockSize = $module.Params.block_size
 $bufferCount = $module.Params.buffer_count
-$azureCredential = $modules.Param.azure_credential
+$azureCredential = $module.Params.azure_credential
 $checkMode = $module.CheckMode
 $module.Result.changed = $false
 $PSDefaultParameterValues = @{ "*:EnableException" = $true; "*:Confirm" = $false; "*:WhatIf" = $checkMode }
@@ -161,6 +161,10 @@ try {
     if ($null -ne $output) {
         $resultData = ConvertTo-SerializableObject -InputObject $output
         $module.Result.data = $resultData
+    }
+    # Restore-DbaDatabase returns nothing under -WhatIf, but a restore is never a no-op, so report
+    # changed based on check_mode too, not just on whether an output object came back.
+    if ($checkMode -or $null -ne $output) {
         $module.Result.changed = $true
     }
     $module.ExitJson()

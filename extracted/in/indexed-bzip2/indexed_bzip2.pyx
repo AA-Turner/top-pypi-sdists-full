@@ -1,23 +1,36 @@
+# cython: annotation_typing=False
+# Cython must not interpret the Python annotations below as C type declarations; they are
+# documentation for the public API and must stay Python annotations.
 """
 Cython wrapper for the BZ2Reader and ParallelBZ2Reader C++ classes.
 """
 
 from libc.stdlib cimport malloc, free
+from libc.stdint cimport uint64_t
 from libc.stdio cimport SEEK_SET
 from libcpp.string cimport string
 from libcpp.map cimport map
 from libcpp.optional cimport optional
 from libcpp.vector cimport vector
 from libcpp cimport bool
-from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_ANY_CONTIGUOUS, PyBUF_SIMPLE
+from cpython.buffer cimport PyObject_GetBuffer, PyBuffer_Release, PyBUF_ANY_CONTIGUOUS, PyBUF_SIMPLE, PyBUF_WRITABLE, PyBUF_C_CONTIGUOUS
 from cpython.ref cimport PyObject
 
+import builtins
 import io
 import os
 import sys
+from typing import Any, Dict, IO, Optional, Union
 
 ctypedef (unsigned long long int) size_t
 ctypedef (long long int) lli
+
+# File arguments accept file names, file descriptors, and binary file objects.
+FileOrPath = Union[int, str, bytes, os.PathLike, IO[bytes]]
+# readinto requires a writable, C-contiguous buffer.
+WritableBuffer = Union[bytearray, memoryview]
+# Index files are file names or binary file objects.
+IndexFile = Union[str, os.PathLike, IO[bytes]]
 
 
 cdef extern from "tools/ibzip2.cpp":
@@ -30,7 +43,6 @@ cdef extern from "indexed_bzip2/BZ2Reader.hpp":
         BZ2Reader(PyObject*) except +
 
         bool eof() except +
-        int fileno() except +
         bool seekable() except +
         void close() except +
         bool closed() except +
@@ -41,9 +53,11 @@ cdef extern from "indexed_bzip2/BZ2Reader.hpp":
         size_t tellCompressed() except +
         size_t read(int, char*, size_t) except +
         bool blockOffsetsComplete() except +
-        map[size_t, size_t] blockOffsets() except +
-        map[size_t, size_t] availableBlockOffsets() except +
-        void setBlockOffsets(map[size_t, size_t]) except +
+        map[uint64_t, uint64_t] blockOffsets() except +
+        map[uint64_t, uint64_t] availableBlockOffsets() except +
+        void setBlockOffsets(map[uint64_t, uint64_t]) except +
+        void importIndex(PyObject*) except +
+        void exportIndex(PyObject*) except +
 
 cdef extern from "indexed_bzip2/ParallelBZ2Reader.hpp":
     cppclass ParallelBZ2Reader:
@@ -52,7 +66,6 @@ cdef extern from "indexed_bzip2/ParallelBZ2Reader.hpp":
         ParallelBZ2Reader(PyObject*, size_t) except +
 
         bool eof() except +
-        int fileno() except +
         bool seekable() except +
         void close() except +
         bool closed() except +
@@ -63,12 +76,14 @@ cdef extern from "indexed_bzip2/ParallelBZ2Reader.hpp":
         size_t tellCompressed() except +
         size_t read(int, char*, size_t) except +
         bool blockOffsetsComplete() except +
-        map[size_t, size_t] blockOffsets() except +
-        map[size_t, size_t] availableBlockOffsets() except +
-        void setBlockOffsets(map[size_t, size_t]) except +
+        map[uint64_t, uint64_t] blockOffsets() except +
+        map[uint64_t, uint64_t] availableBlockOffsets() except +
+        void setBlockOffsets(map[uint64_t, uint64_t]) except +
+        void importIndex(PyObject*) except +
+        void exportIndex(PyObject*) except +
         void joinThreads() except +
 
-def _isFileObject(file):
+def _isFileObject(file: Any) -> bool:
     return (
         hasattr(file, 'read') and callable(getattr(file, 'read'))
         and hasattr(file, 'seek') and callable(getattr(file, 'seek'))
@@ -76,7 +91,7 @@ def _isFileObject(file):
         and hasattr(file, 'seekable') and callable(getattr(file, 'seekable'))
     )
 
-def _hasValidFileno(file):
+def _hasValidFileno(file: Any) -> bool:
     if not hasattr(file, 'fileno'):
         return False
 
@@ -89,7 +104,7 @@ def _hasValidFileno(file):
 cdef class _IndexedBzip2File():
     cdef BZ2Reader* bz2reader
 
-    def __cinit__(self, file):
+    def __cinit__(self, file: FileOrPath):
         """
         file : can be a file path, a file descriptor, or a file object
                with suitable read, seekable, seek, tell methods.
@@ -104,9 +119,13 @@ cdef class _IndexedBzip2File():
             self.bz2reader = new BZ2Reader(<int>file.fileno())
         elif _isFileObject(file):
             self.bz2reader = new BZ2Reader(<PyObject*>file)
+        elif isinstance(file, bytes):
+            self.bz2reader = new BZ2Reader(<string>file)
         elif isinstance(file, basestring) and hasattr(file, 'encode'):
             # Note that BytesIO also is an instance of basestring but fortunately has no encode method!
             self.bz2reader = new BZ2Reader(<string>file.encode())
+        elif isinstance(file, os.PathLike):
+            self.bz2reader = new BZ2Reader(<string>bytes(file))
         else:
             raise Exception("Expected file name string, file descriptor integer, or file-like object for BZ2Reader!")
 
@@ -117,82 +136,97 @@ cdef class _IndexedBzip2File():
     def __dealloc__(self):
         del self.bz2reader
 
-    def close(self):
+    def close(self) -> None:
         if self.bz2reader != NULL and not self.bz2reader.closed():
             self.bz2reader.close()
 
-    def closed(self):
+    def closed(self) -> bool:
         return self.bz2reader == NULL or self.bz2reader.closed()
 
-    def fileno(self):
-        if not self.bz2reader:
-            raise Exception("Invalid file object!")
-        return self.bz2reader.fileno()
-
-    def seekable(self):
+    def seekable(self) -> bool:
         return self.bz2reader != NULL and self.bz2reader.seekable()
 
-    def readinto(self, bytes_like):
+    def readinto(self, bytes_like: WritableBuffer) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
 
         bytes_count = 0
 
         cdef Py_buffer buffer
-        PyObject_GetBuffer(bytes_like, &buffer, PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
+        if PyObject_GetBuffer(bytes_like, &buffer, PyBUF_WRITABLE | PyBUF_C_CONTIGUOUS) < 0:
+            return -1
         try:
-            bytes_count = self.bz2reader.read(-1, <char*>buffer.buf, len(bytes_like))
+            bytes_count = self.bz2reader.read(-1, <char*>buffer.buf, <size_t>buffer.len)
         finally:
             PyBuffer_Release(&buffer)
 
         return bytes_count
 
-    def seek(self, offset, whence = io.SEEK_SET):
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.seek(offset, whence)
 
-    def tell(self):
+    def tell(self) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.tell()
 
-    def size(self):
+    def size(self) -> Optional[int]:
+        """Return the uncompressed size in bytes, or None if it is not known yet."""
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         result = self.bz2reader.size()
-        return result.value_or( 0 )
+        return result.value() if result.has_value() else None
 
-    def tell_compressed(self):
+    def tell_compressed(self) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.tellCompressed()
 
-    def block_offsets_complete(self):
+    def block_offsets_complete(self) -> bool:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.blockOffsetsComplete()
 
-    def block_offsets(self):
+    def block_offsets(self) -> Dict[int, int]:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return <dict>self.bz2reader.blockOffsets()
 
-    def available_block_offsets(self):
+    def available_block_offsets(self) -> Dict[int, int]:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return <dict>self.bz2reader.availableBlockOffsets()
 
-    def set_block_offsets(self, offsets):
+    def set_block_offsets(self, offsets: Dict[int, int]) -> None:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.setBlockOffsets(offsets)
+
+    def import_index(self, file: IndexFile) -> None:
+        if not self.bz2reader:
+            raise Exception("Invalid file object!")
+
+        if isinstance(file, (str, os.PathLike)):
+            with builtins.open(file, "rb") as fileObject:
+                return self.bz2reader.importIndex(<PyObject*>fileObject)
+        return self.bz2reader.importIndex(<PyObject*>file)
+
+    def export_index(self, file: IndexFile) -> None:
+        if not self.bz2reader:
+            raise Exception("Invalid file object!")
+
+        if isinstance(file, (str, os.PathLike)):
+            with builtins.open(file, "wb") as fileObject:
+                return self.bz2reader.exportIndex(<PyObject*>fileObject)
+        return self.bz2reader.exportIndex(<PyObject*>file)
 
 
 cdef class _IndexedBzip2FileParallel():
     cdef ParallelBZ2Reader* bz2reader
 
-    def __cinit__(self, file, parallelization):
+    def __cinit__(self, file: FileOrPath, parallelization: int):
         """
         file : can be a file path, a file descriptor, or a file object
                with suitable read, seekable, seek, tell methods.
@@ -200,6 +234,8 @@ cdef class _IndexedBzip2FileParallel():
 
         if not isinstance(parallelization, int):
             raise TypeError(f"Parallelization argument must be an integer not '{parallelization}'!")
+        if isinstance(parallelization, int) and parallelization < 0:
+            raise ValueError(f"Parallelization argument must not be negative, got {parallelization}!")
 
         if isinstance(file, int):
             self.bz2reader = new ParallelBZ2Reader(<int>file, <int>parallelization)
@@ -207,9 +243,13 @@ cdef class _IndexedBzip2FileParallel():
             self.bz2reader = new ParallelBZ2Reader(<int>file.fileno(), <int>parallelization)
         elif _isFileObject(file):
             self.bz2reader = new ParallelBZ2Reader(<PyObject*>file, <int>parallelization)
+        elif isinstance(file, bytes):
+            self.bz2reader = new ParallelBZ2Reader(<string>file, <int>parallelization)
         elif isinstance(file, basestring) and hasattr(file, 'encode'):
             # Note that BytesIO also is an instance of basestring but fortunately has no encode method!
             self.bz2reader = new ParallelBZ2Reader(<string>file.encode(), <int>parallelization)
+        elif isinstance(file, os.PathLike):
+            self.bz2reader = new ParallelBZ2Reader(<string>bytes(file), <int>parallelization)
         else:
             raise Exception("Expected file name string, file descriptor integer, "
                             "or file-like object for ParallelBZ2Reader!")
@@ -222,80 +262,95 @@ cdef class _IndexedBzip2FileParallel():
         self.close()
         del self.bz2reader
 
-    def close(self):
+    def close(self) -> None:
         if self.bz2reader != NULL and not self.bz2reader.closed():
             self.bz2reader.close()
 
-    def closed(self):
+    def closed(self) -> bool:
         return self.bz2reader == NULL or self.bz2reader.closed()
 
-    def fileno(self):
-        if not self.bz2reader:
-            raise Exception("Invalid file object!")
-        return self.bz2reader.fileno()
-
-    def seekable(self):
+    def seekable(self) -> bool:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader != NULL and self.bz2reader.seekable()
 
-    def readinto(self, bytes_like):
+    def readinto(self, bytes_like: WritableBuffer) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
 
         bytes_count = 0
 
         cdef Py_buffer buffer
-        PyObject_GetBuffer(bytes_like, &buffer, PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
+        if PyObject_GetBuffer(bytes_like, &buffer, PyBUF_WRITABLE | PyBUF_C_CONTIGUOUS) < 0:
+            return -1
         try:
-            bytes_count = self.bz2reader.read(-1, <char*>buffer.buf, len(bytes_like))
+            bytes_count = self.bz2reader.read(-1, <char*>buffer.buf, <size_t>buffer.len)
         finally:
             PyBuffer_Release(&buffer)
 
         return bytes_count
 
-    def seek(self, offset, whence = io.SEEK_SET):
+    def seek(self, offset: int, whence: int = io.SEEK_SET) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.seek(offset, whence)
 
-    def tell(self):
+    def tell(self) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.tell()
 
-    def size(self):
+    def size(self) -> Optional[int]:
+        """Return the uncompressed size in bytes, or None if it is not known yet."""
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         result = self.bz2reader.size()
-        return result.value_or( 0 )
+        return result.value() if result.has_value() else None
 
-    def tell_compressed(self):
+    def tell_compressed(self) -> int:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.tellCompressed()
 
-    def block_offsets_complete(self):
+    def block_offsets_complete(self) -> bool:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.blockOffsetsComplete()
 
-    def block_offsets(self):
+    def block_offsets(self) -> Dict[int, int]:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return <dict>self.bz2reader.blockOffsets()
 
-    def available_block_offsets(self):
+    def available_block_offsets(self) -> Dict[int, int]:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return <dict>self.bz2reader.availableBlockOffsets()
 
-    def set_block_offsets(self, offsets):
+    def set_block_offsets(self, offsets: Dict[int, int]) -> None:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.setBlockOffsets(offsets)
 
-    def join_threads(self):
+    def import_index(self, file: IndexFile) -> None:
+        if not self.bz2reader:
+            raise Exception("Invalid file object!")
+
+        if isinstance(file, (str, os.PathLike)):
+            with builtins.open(file, "rb") as fileObject:
+                return self.bz2reader.importIndex(<PyObject*>fileObject)
+        return self.bz2reader.importIndex(<PyObject*>file)
+
+    def export_index(self, file: IndexFile) -> None:
+        if not self.bz2reader:
+            raise Exception("Invalid file object!")
+
+        if isinstance(file, (str, os.PathLike)):
+            with builtins.open(file, "wb") as fileObject:
+                return self.bz2reader.exportIndex(<PyObject*>fileObject)
+        return self.bz2reader.exportIndex(<PyObject*>file)
+
+    def join_threads(self) -> None:
         if not self.bz2reader:
             raise Exception("Invalid file object!")
         return self.bz2reader.joinThreads()
@@ -303,7 +358,9 @@ cdef class _IndexedBzip2FileParallel():
 # Extra class because cdefs are not visible from outside but cdef class can't inherit from io.BufferedIOBase
 
 class IndexedBzip2FileRaw(io.RawIOBase):
-    def __init__(self, filename, parallelization = 1):
+    def __init__(self, filename: FileOrPath, parallelization: int = 1) -> None:
+        if isinstance(parallelization, int) and parallelization < 0:
+            raise ValueError(f"Parallelization argument must not be negative, got {parallelization}!")
         self.bz2reader = _IndexedBzip2File(filename) if parallelization == 1 \
                          else _IndexedBzip2FileParallel(filename, parallelization)
         self.name = filename
@@ -319,24 +376,33 @@ class IndexedBzip2FileRaw(io.RawIOBase):
 
         # IOBase provides sane default implementations for read, readline, readlines, readall, ...
 
-    def fileno(self):
-        try:
-            return self.bz2reader.fileno()
-        except Exception as exception:
-            raise io.UnsupportedOperation() from exception
+    def readall(self) -> bytes:
+        # io.RawIOBase.readall uses io.DEFAULT_BUFFER_SIZE (8 KiB) chunks, which is far too small for the
+        # bzip2 block decoder. See https://github.com/python/cpython/issues/85624. Use a large buffer instead.
+        chunks = []
+        buffer = bytearray(4 * 1024 * 1024)
+        while True:
+            nBytesRead = self.readinto(buffer)
+            if not nBytesRead:
+                break
+            chunks.append(bytes(buffer[:nBytesRead]))
+        return b''.join(chunks)
 
-    def close(self):
+    def close(self) -> None:
         if self.closed:
             return
         super().close()
-        self.bz2reader.close()
+        if getattr(self, 'bz2reader', None) is not None:
+            self.bz2reader.close()
 
-    def readable(self):
+    def readable(self) -> bool:
         return True
 
 
 class IndexedBzip2File(io.BufferedReader):
-    def __init__(self, filename, parallelization = 1):
+    def __init__(self, filename: FileOrPath, parallelization: int = 1) -> None:
+        if isinstance(parallelization, int) and parallelization < 0:
+            raise ValueError(f"Parallelization argument must not be negative, got {parallelization}!")
         fobj = IndexedBzip2FileRaw(filename, parallelization)
         self.bz2reader = fobj.bz2reader
 
@@ -345,6 +411,8 @@ class IndexedBzip2File(io.BufferedReader):
         self.set_block_offsets       = self.bz2reader.set_block_offsets
         self.block_offsets_complete  = self.bz2reader.block_offsets_complete
         self.available_block_offsets = self.bz2reader.available_block_offsets
+        self.import_index            = self.bz2reader.import_index
+        self.export_index            = self.bz2reader.export_index
         self.size                    = self.bz2reader.size
 
         if hasattr(self.bz2reader, 'join_threads'):
@@ -355,7 +423,7 @@ class IndexedBzip2File(io.BufferedReader):
         super().__init__(fobj, buffer_size=1024**2)
 
 
-def open(filename, parallelization = 1):
+def open(filename: FileOrPath, parallelization: int = 1) -> IndexedBzip2File:
     """
     filename: can be a file path, a file descriptor, or a file object
               with suitable read, seekable, seek, and tell methods.
@@ -363,7 +431,7 @@ def open(filename, parallelization = 1):
     return IndexedBzip2File(filename, parallelization)
 
 
-def cli():
+def cli() -> None:
     args = sys.argv
     cdef char** cargs = <char**> malloc(len(args) * sizeof(char*))
     cdef vector[Py_buffer] buffers
@@ -371,7 +439,8 @@ def cli():
 
     try:
         for i, arg in enumerate(args):
-            PyObject_GetBuffer(arg.encode(), &buffers[i], PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS)
+            if PyObject_GetBuffer(arg.encode(), &buffers[i], PyBUF_SIMPLE | PyBUF_ANY_CONTIGUOUS) < 0:
+                raise
             cargs[i] = <char*>buffers[i].buf
 
         return ibzip2CLI(len(args), cargs)
@@ -381,4 +450,4 @@ def cli():
             PyBuffer_Release(&buffer)
 
 
-__version__ = '1.7.0'
+__version__ = '2.0.0'

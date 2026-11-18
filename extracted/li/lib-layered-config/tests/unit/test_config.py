@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import cast
 
 import pytest
@@ -157,7 +158,7 @@ def test_config_with_overrides_names_the_override_where_a_table_replaces_a_scala
 def _config_with_loader_shaped_keys() -> Config:
     """Provenance the loader writes for more than plain leaves: list elements that are tables,
     and an empty table."""
-    data = {"servers": [{"name": "a"}], "empty": {}, "feature": True}
+    data: dict[str, object] = {"servers": [{"name": "a"}], "empty": {}, "feature": True}
     meta = {
         "servers.0.name": SourceInfo(layer="app", path="/etc/app.toml", key="servers.0.name"),
         "empty": SourceInfo(layer="user", path="/home/u/app.toml", key="empty"),
@@ -206,41 +207,48 @@ def test_override_layer_is_exported_from_the_package() -> None:
 
 @os_agnostic
 def test_follow_path_returns_default_when_start_is_scalar() -> None:
-    assert config_module._follow_path(5, "foo", default="bar") == "bar"
+    assert (
+        config_module._follow_path(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+            5,  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
+            "foo",
+            default="bar",
+        )
+        == "bar"
+    )
 
 
 @os_agnostic
 def test_clone_map_keeps_tuple_shape_intact() -> None:
     sample = {"letters": ("a", "b")}
-    clone = config_module._clone_map(sample)
+    clone = config_module._clone_map(sample)  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
     assert clone["letters"] == ("a", "b")
 
 
 @os_agnostic
 def test_clone_map_keeps_set_shape_intact() -> None:
     sample = {"flags": {"alpha", "beta"}}
-    clone = config_module._clone_map(sample)
+    clone = config_module._clone_map(sample)  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
     assert clone["flags"] == {"alpha", "beta"}
 
 
 @os_agnostic
 def test_clone_map_keeps_nested_list_shape_intact() -> None:
     sample = {"nested": [{"value": 1}]}
-    clone = config_module._clone_map(sample)
+    clone = config_module._clone_map(sample)  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
     assert clone["nested"][0]["value"] == 1
 
 
 @os_agnostic
 def test_clone_map_returns_new_dictionary_instance() -> None:
     sample = {"letters": ("a", "b")}
-    clone = config_module._clone_map(sample)
+    clone = config_module._clone_map(sample)  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
     assert clone is not sample
 
 
 @os_agnostic
-def test_looks_like_mapping_rejects_non_string_keys() -> None:
-    weird_mapping = {1: "value"}
-    assert config_module._looks_like_mapping(weird_mapping) is False
+def test_a_non_string_key_never_matches_a_dotted_fragment() -> None:
+    cfg = Config({"a": {1: "one", "2": "two"}}, {})
+    assert (cfg.get("a.1"), cfg.get("a.2")) == (None, "two")
 
 
 # ---------------------------------------------------------------------------
@@ -385,7 +393,9 @@ def test_with_overrides_empty_overrides_returns_equivalent_config() -> None:
 
 @os_agnostic
 def test_deep_merge_disjoint_keys() -> None:
-    result = config_module._deep_merge({"a": 1}, {"b": 2})
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        {"a": 1}, {"b": 2}
+    )
     assert result == {"a": 1, "b": 2}
 
 
@@ -393,31 +403,41 @@ def test_deep_merge_disjoint_keys() -> None:
 def test_deep_merge_overlapping_nested_dicts() -> None:
     base = {"x": {"y": 1, "z": 2}}
     overrides = {"x": {"y": 10, "w": 3}}
-    result = config_module._deep_merge(base, overrides)
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        base, overrides
+    )
     assert result == {"x": {"y": 10, "z": 2, "w": 3}}
 
 
 @os_agnostic
 def test_deep_merge_override_scalar_over_nested() -> None:
-    result = config_module._deep_merge({"k": {"a": 1}}, {"k": "flat"})
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        {"k": {"a": 1}}, {"k": "flat"}
+    )
     assert result == {"k": "flat"}
 
 
 @os_agnostic
 def test_deep_merge_override_nested_over_scalar() -> None:
-    result = config_module._deep_merge({"k": "flat"}, {"k": {"a": 1}})
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        {"k": "flat"}, {"k": {"a": 1}}
+    )
     assert result == {"k": {"a": 1}}
 
 
 @os_agnostic
 def test_deep_merge_empty_base() -> None:
-    result = config_module._deep_merge({}, {"a": {"b": 1}})
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        {}, {"a": {"b": 1}}
+    )
     assert result == {"a": {"b": 1}}
 
 
 @os_agnostic
 def test_deep_merge_empty_overrides() -> None:
-    result = config_module._deep_merge({"a": {"b": 1}}, {})
+    result = config_module._deep_merge(  # pyright: ignore[reportPrivateUsage] - the helper's own contract, isolated from the Config methods that wrap it
+        {"a": {"b": 1}}, {}
+    )
     assert result == {"a": {"b": 1}}
 
 
@@ -445,3 +465,29 @@ def test_repr_does_not_mention_the_not_sensitive_declaration() -> None:
 def test_a_third_argument_that_is_not_a_declaration_is_refused_at_construction() -> None:
     with pytest.raises(TypeError, match=r"NotSensitiveKeys\.of"):
         Config({"a": 1}, {}, cast("NotSensitiveKeys", ["a"]))
+
+
+def _best_override_seconds(dots: int) -> float:
+    """The fastest of three with_overrides calls beside one key whose NAME holds *dots* dots."""
+    name = ".".join(["a"] * (dots + 1))
+    meta = {
+        name: SourceInfo(layer="app", path=None, key=name),
+        "db.h": SourceInfo(layer="app", path=None, key="db.h"),
+    }
+    config = Config({name: 1, "db": {"h": 1}}, meta)
+    timings: list[float] = []
+    for _ in range(3):
+        started = time.perf_counter()
+        config.with_overrides({"db": {"h": 2}})
+        timings.append(time.perf_counter() - started)
+    return min(timings)
+
+
+@os_agnostic
+def test_with_overrides_time_is_linear_in_the_dots_of_a_key_name() -> None:
+    """User decision 2026-11-16 (R3-F1): checking whether a key lies below a replaced path joined
+    the key's text again at every dot, so four times the dots took sixteen times as long."""
+    small = _best_override_seconds(4_000)
+    large = _best_override_seconds(16_000)
+
+    assert large / small < 8.0, f"4x the dots took {large / small:.1f}x the time ({small:.4f}s -> {large:.4f}s)"

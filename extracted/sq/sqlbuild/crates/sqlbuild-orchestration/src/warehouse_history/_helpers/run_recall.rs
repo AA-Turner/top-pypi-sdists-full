@@ -9,15 +9,30 @@ use crate::authorization::main::authorize_listing::authorize_listing;
 use crate::authorization::main::authorize_person::authorize_person;
 use crate::credentials::main::audit::append_audit::append_audit;
 use crate::credentials::models::{Action, AuditContext, DefaultRole, PermissionScope};
+use crate::runs::constants::{MEMBER_RECOVERED_EVENT, MEMBER_RETRYING_EVENT, SUPERSEDED_CHILD};
+use crate::runs::main::listings::run_invocations::run_invocations;
 use crate::runs::models::{
-    RunErrorText, RunEventRecord, RunOutput, RunOutputLine, RunStatementRecord, RunStatementSql,
+    RunErrorText, RunEventRecord, RunIgnoredAuditFailure, RunOutput, RunOutputLine,
+    RunStatementRecord, RunStatementSql,
 };
 use crate::store::errors::ControlError;
 use crate::store::main::decode_row::decode_row;
 use crate::store::main::query::query;
-use crate::store::main::query_records::query_records;
 use crate::store::main::{begin::begin, commit::commit};
 use crate::store::models::{ControlStore, ControlTransaction, Parameter, TransactionMode};
+use crate::store::types::Row;
+
+/// Events whose node may be named only in their payload: older node and check events, and audit results.
+const NODE_EVENTS: &str = "'run_node_started','run_node_finished','run_check_started','run_check_finished','audit_completed'";
+
+/// The payload fields that name the node of an event in `NODE_EVENTS`, as `(column, JSON path)`.
+const NODE_FIELDS: [(&str, &str); 5] = [
+    ("node_key", "payload->'change'->'change'->>'node_key'"),
+    ("attached_target_kind", "payload->>'attached_target_kind'"),
+    ("attached_target_name", "payload->>'attached_target_name'"),
+    ("attachment_kind", "payload->>'attachment_kind'"),
+    ("target_name", "payload->>'target_name'"),
+];
 
 /// The Recall invocations of one run and the nodes it selected.
 pub(crate) struct RunRecallScope {
@@ -68,6 +83,26 @@ pub(crate) async fn begin_run_recall(
     )
     .await?;
     Ok(Some((transaction, scope, Some((context, permission)))))
+}
+
+/// A run read under listing view, in the transaction that found the run.
+pub(crate) async fn run_read<T>(
+    store: &ControlStore,
+    credentials: (&AuditContext, Uuid),
+    (run, default_role): ((Uuid, &str, Uuid), DefaultRole),
+    read: impl AsyncFnOnce(
+        ControlTransaction,
+        &RunRecallScope,
+    ) -> Result<(ControlTransaction, T), ControlError>,
+) -> Result<Option<T>, ControlError> {
+    let Some((transaction, scope, _)) =
+        begin_run_recall(store, credentials, run, (default_role, None)).await?
+    else {
+        return Ok(None);
+    };
+    let (transaction, result) = read(transaction, &scope).await?;
+    commit(transaction).await?;
+    Ok(Some(result))
 }
 
 /// A sensitive run read, authorized for `action` and audited as `audit_action` in the same transaction.
@@ -128,20 +163,7 @@ async fn run_recall_scope(
         other => serde_json::from_value(other.clone()),
     }
     .map_err(|error| ControlError::Invalid(error.to_string()))?;
-    let scheduler = format!("scheduler/{run_id}");
-    let (transaction, claims) = query(
-        transaction,
-        "SELECT payload FROM recall_events WHERE invocation_id=$1 AND event_type='run_claimed' ORDER BY invocation_sequence DESC LIMIT 1",
-        vec![Parameter::Text(scheduler.clone())],
-    )
-    .await?;
-    let mut namespaces = vec![scheduler];
-    if let Some(claim_id) = claims
-        .first()
-        .and_then(|row| row["payload"]["claim"]["claim_id"].as_str())
-    {
-        namespaces.push(format!("worker/{claim_id}"));
-    }
+    let (transaction, namespaces) = run_invocations(transaction, run_id).await?;
     Ok((
         transaction,
         Some(RunRecallScope {
@@ -151,22 +173,186 @@ async fn run_recall_scope(
     ))
 }
 
+/// The audit failures the run and its current group members let through, run by run in occurrence order.
+pub(crate) async fn ignored_audits_in(
+    transaction: ControlTransaction,
+    run_id: Uuid,
+) -> Result<(ControlTransaction, Vec<RunIgnoredAuditFailure>), ControlError> {
+    let (mut transaction, runs) = query(
+        transaction,
+        &format!(
+            "SELECT r.run_id, r.job_key FROM sqb_runs r \
+         WHERE r.run_id=$1 OR (r.parent_run_id=$1 AND NOT {SUPERSEDED_CHILD}) ORDER BY r.run_id"
+        ),
+        vec![Parameter::Id(run_id)],
+    )
+    .await?;
+    let mut failures: Vec<RunIgnoredAuditFailure> = Vec::new();
+    for run in runs {
+        let member = Uuid::parse_str(run["run_id"].as_str().unwrap_or_default())
+            .map_err(|error| ControlError::Schema(format!("stored run ID: {error}")))?;
+        let namespaces;
+        (transaction, namespaces) = run_invocations(transaction, member).await?;
+        let scope = RunRecallScope {
+            namespaces,
+            selection: BTreeSet::new(),
+        };
+        let (filter, parameters) = invocation_filter(&scope, 1);
+        let rows;
+        (transaction, rows) = query(
+            transaction,
+            &format!(
+                "SELECT a.occurred_at, e.payload ->> 'binding_key' AS binding_key, a.audit_name, \
+                 a.attached_target_kind, a.attached_target_name, a.\"column\" AS attached_column_name, \
+                 a.severity, a.violation_count \
+                 FROM (SELECT * FROM audit_results WHERE {filter} AND ignored=1) a \
+                 JOIN recall_events e ON e.invocation_id=a.invocation_id AND e.event_id=a.event_id \
+                 ORDER BY a.occurred_at, a.event_id"
+            ),
+            parameters,
+        )
+        .await?;
+        for mut row in rows {
+            row.insert("run_id".into(), run["run_id"].clone());
+            row.insert("job_key".into(), run["job_key"].clone());
+            failures.push(decode_row(row)?);
+        }
+    }
+    Ok((transaction, failures))
+}
+
 pub(crate) async fn run_events_in(
     transaction: ControlTransaction,
     scope: &RunRecallScope,
     (after, limit): (i64, u32),
 ) -> Result<(ControlTransaction, Vec<RunEventRecord>), ControlError> {
+    recall_records(
+        transaction,
+        scope,
+        (
+            |filter: &str, next: usize| {
+                format!("SELECT storage_id, event_id, invocation_id, occurred_at, event_type, severity, producer, resource_id, \
+                 resource_kind, resource_name, resource_attempt_id, statement_id, error_type, error_code, duration_ms, outcome, \
+                 row_count, affected_rows, CASE WHEN event_type IN ('{MEMBER_RETRYING_EVENT}','{MEMBER_RECOVERED_EVENT}') \
+                 THEN payload END AS member_payload, {} FROM events WHERE {filter} AND storage_id>${next} ORDER BY storage_id LIMIT ${}", node_columns(), next + 1)
+            },
+            vec![
+                Parameter::Integer(after),
+                Parameter::Integer(i64::from(limit.min(5000))),
+            ],
+        ),
+        |row: &mut Row| {
+            let payload = row.remove("member_payload").unwrap_or(Value::Null);
+            if let Some(message) = member_message(&payload)? {
+                row.insert("message".into(), Value::String(message));
+            }
+            let node = node_of(row);
+            for (column, _) in NODE_FIELDS {
+                row.remove(column);
+            }
+            if let Some((kind, name)) = node {
+                row.insert("resource_kind".into(), Value::String(kind));
+                row.insert("resource_name".into(), Value::String(name));
+            }
+            Ok(())
+        },
+    )
+    .await
+}
+
+/// One recall read: `sql(filter, first extra parameter)` over the run's invocations, each row adjusted then decoded.
+async fn recall_records<T: serde::de::DeserializeOwned>(
+    transaction: ControlTransaction,
+    scope: &RunRecallScope,
+    (sql, extra): (impl FnOnce(&str, usize) -> String, Vec<Parameter>),
+    mut adjust: impl FnMut(&mut Row) -> Result<(), ControlError>,
+) -> Result<(ControlTransaction, Vec<T>), ControlError> {
     let (filter, mut parameters) = invocation_filter(scope, 1);
     let next = parameters.len() + 1;
-    parameters.extend([
-        Parameter::Integer(after),
-        Parameter::Integer(i64::from(limit.min(5000))),
-    ]);
-    query_records(transaction,
-        &format!("SELECT storage_id, event_id, invocation_id, occurred_at, event_type, severity, producer, resource_id, \
-         resource_kind, resource_name, resource_attempt_id, statement_id, error_type, error_code, duration_ms, outcome, \
-         row_count, affected_rows FROM events WHERE {filter} AND storage_id>${next} ORDER BY storage_id LIMIT ${}", next + 1),
-        parameters).await
+    parameters.extend(extra);
+    let (transaction, rows) = query(transaction, &sql(&filter, next), parameters).await?;
+    let records = rows
+        .into_iter()
+        .map(|mut row| {
+            adjust(&mut row)?;
+            decode_row(row)
+        })
+        .collect::<Result<_, _>>()?;
+    Ok((transaction, records))
+}
+
+/// Selects only the node's identity from the payload of an event without resource columns.
+fn node_columns() -> String {
+    NODE_FIELDS
+        .iter()
+        .map(|(column, path)| {
+            format!("CASE WHEN resource_name IS NULL AND event_type IN ({NODE_EVENTS}) THEN {path} END AS {column}")
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+/// The `(kind, name)` an event is about, from its `NODE_FIELDS`: a change's node key, else an audit's target.
+pub(crate) fn node_of(row: &Row) -> Option<(String, String)> {
+    let text = |column: &str| {
+        row.get(column)
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+    };
+    if let Some(key) = text("node_key") {
+        let (kind, name) = key.split_once(':')?;
+        return Some((kind.into(), name.into()));
+    }
+    let (kind, name) = match (text("attached_target_kind"), text("attached_target_name")) {
+        (Some(kind), Some(name)) => (kind, name),
+        _ => (text("attachment_kind")?, text("target_name")?),
+    };
+    Some((kind.into(), name.into()))
+}
+
+/// The scheduler's summary of a member retry or recovery on its group run, from its own payload.
+fn member_message(payload: &Value) -> Result<Option<String>, ControlError> {
+    let payload: Value = match payload {
+        Value::String(text) => serde_json::from_str(text)
+            .map_err(|error| ControlError::Invalid(format!("member event payload: {error}")))?,
+        Value::Null => return Ok(None),
+        other => other.clone(),
+    };
+    Ok(member_summary(&payload))
+}
+
+/// The summary a member retry or recovery payload names, when it names a member.
+fn member_summary(payload: &Value) -> Option<String> {
+    let member = payload.get("member")?;
+    let job_key = member.get("job_key")?.as_str()?;
+    let attempt = member.get("attempt")?.as_u64()?;
+    let Some(attempts) = member.get("attempts").and_then(Value::as_u64) else {
+        return Some(format!("{job_key} succeeded on attempt {attempt}"));
+    };
+    let delay = member
+        .get("delay_seconds")
+        .and_then(Value::as_u64)
+        .unwrap_or_default();
+    let when = if delay == 0 {
+        "now".to_owned()
+    } else {
+        format!("in {}", delay_text(delay))
+    };
+    Some(format!(
+        "{job_key} failed, retrying {when} (attempt {attempt} of {attempts})"
+    ))
+}
+
+/// A retry delay as people read it, such as `45 s`, `15 min` or `1 h 30 min`.
+fn delay_text(seconds: u64) -> String {
+    let (hours, minutes, rest) = (seconds / 3600, seconds % 3600 / 60, seconds % 60);
+    match (hours, minutes, rest) {
+        (0, 0, rest) => format!("{rest} s"),
+        (0, minutes, 0) => format!("{minutes} min"),
+        (0, minutes, rest) => format!("{minutes} min {rest} s"),
+        (hours, 0, _) => format!("{hours} h"),
+        (hours, minutes, _) => format!("{hours} h {minutes} min"),
+    }
 }
 
 pub(crate) async fn run_statements_in(
@@ -174,25 +360,26 @@ pub(crate) async fn run_statements_in(
     scope: &RunRecallScope,
     limit: u32,
 ) -> Result<(ControlTransaction, Vec<RunStatementRecord>), ControlError> {
-    let (filter, mut parameters) = invocation_filter(scope, 1);
-    let next = parameters.len() + 1;
-    parameters.push(Parameter::Integer(i64::from(limit.min(5000))));
-    let (transaction, rows) = query(transaction,
-        &format!("SELECT invocation_id, statement_id, resource_id, resource_name, resource_kind, intent, statement_kind, \
-         purpose, query_id, started_at, ended_at, outcome, error_type, error_code, duration_ms, row_count, affected_rows, \
-         sql_available, sql_unavailable_reason FROM statements WHERE {filter} ORDER BY started_at, statement_id LIMIT ${next}"),
-        parameters).await?;
-    let records = rows
-        .into_iter()
-        .map(|mut row| {
+    recall_records(
+        transaction,
+        scope,
+        (
+            |filter: &str, next: usize| {
+                format!("SELECT invocation_id, statement_id, resource_id, resource_name, resource_kind, intent, statement_kind, \
+                 purpose, query_id, started_at, ended_at, outcome, error_type, error_code, duration_ms, row_count, affected_rows, \
+                 sql_available, sql_unavailable_reason FROM statements WHERE {filter} ORDER BY started_at, statement_id LIMIT ${next}")
+            },
+            vec![Parameter::Integer(i64::from(limit.min(5000)))],
+        ),
+        |row: &mut Row| {
             let available = row
                 .get("sql_available")
                 .is_some_and(|value| value.as_bool().unwrap_or_else(|| value.as_i64() == Some(1)));
             row.insert("sql_available".into(), Value::Bool(available));
-            decode_row(row)
-        })
-        .collect::<Result<_, _>>()?;
-    Ok((transaction, records))
+            Ok(())
+        },
+    )
+    .await
 }
 
 /// One artifact reference names each digest per invocation, so a statement finds its SQL by digest.

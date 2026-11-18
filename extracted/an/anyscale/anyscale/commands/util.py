@@ -27,6 +27,32 @@ _STATUS_HELP_MARKERS = {
     ReleaseStatus.DEPRECATED: "[Deprecated]",
 }
 
+# The CLI reference page. It renders an option's option_docs schema under the
+# option, in the command's section, so --help links there instead of the help
+# text carrying a hand-written URL that goes stale.
+_DOCS_CLI_REFERENCE_URL = "https://docs.anyscale.com/reference/cli"
+
+
+def _docs_command_id(ctx: click.Context) -> str:
+    """The command's section id on the CLI reference page, such as anyscale-cloud-update.
+
+    Built from command names rather than ctx.command_path, which starts with
+    whatever program name the CLI was invoked as.
+    """
+    names: List[str] = []
+    while ctx.parent is not None:
+        names.append(ctx.command.name or "")
+        ctx = ctx.parent
+    return "-".join(["anyscale", *reversed(names)])
+
+
+def _schema_help_note(ctx: click.Context, schema: Any) -> Optional[str]:
+    """Name an option's declared file schema and the docs section that renders it."""
+    if schema is None:
+        return None
+    url = f"{_DOCS_CLI_REFERENCE_URL}?command={_docs_command_id(ctx)}"
+    return f"Schema: {schema.__name__} ({url})."
+
 
 class AnyscaleCommand(click.Command):
     """
@@ -72,20 +98,28 @@ class AnyscaleCommand(click.Command):
         super().format_help_text(ctx, formatter)
 
     def format_options(self, ctx, formatter) -> None:
-        """Render options, prefixing help with status markers from option_docs."""
+        """Render options with the status markers and file schemas from option_docs."""
         option_docs = (getattr(self, "doc_metadata", None) or {}).get("option_docs") or {}
         records: List[Tuple[str, str]] = []
         for param in self.get_params(ctx):
+            # From click 8.5.1, Argument.get_help_record returns a record even without
+            # help text, which would list positional arguments under Options.
+            if not isinstance(param, click.Option):
+                continue
             record = param.get_help_record(ctx)
             if record is None:
                 continue
             marker = None
+            note = None
             if isinstance(param, click.Option):
                 flags = list(param.opts) + list(param.secondary_opts)
                 doc = next((option_docs[f] for f in flags if f in option_docs), None)
                 marker = _STATUS_HELP_MARKERS.get((doc or {}).get("status"))
+                note = _schema_help_note(ctx, (doc or {}).get("schema"))
             if marker:
                 record = (record[0], f"{marker} {record[1]}".strip())
+            if note:
+                record = (record[0], f"{record[1]} {note}".strip())
             records.append(record)
         if records:
             with formatter.section("Options"):

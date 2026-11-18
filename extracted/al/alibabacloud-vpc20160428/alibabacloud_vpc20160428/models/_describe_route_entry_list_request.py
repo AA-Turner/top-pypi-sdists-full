@@ -27,9 +27,9 @@ class DescribeRouteEntryListRequest(DaraModel):
         route_table_id: str = None,
         service_type: str = None,
     ):
-        # The list of destination CIDR blocks of the route.
+        # The list of destination CIDR blocks of the route entry.
         self.dest_cidr_block_list = dest_cidr_block_list
-        # The destination CIDR block of the route. Both IPv4 and IPv6 CIDR blocks are supported.
+        # The destination CIDR block of the route entry. Both IPv4 and IPv6 CIDR blocks are supported.
         self.destination_cidr_block = destination_cidr_block
         # The IP version. Valid values:
         # 
@@ -51,24 +51,24 @@ class DescribeRouteEntryListRequest(DaraModel):
         # 
         # - **NatGateway**: NAT gateway.
         # 
-        # - **NetworkInterface**: secondary elastic network interface controller (NIC).
+        # - **NetworkInterface**: secondary ENI.
         # 
-        # - **RouterInterface**: vRouter interface.
+        # - **RouterInterface**: router interface.
         # 
         # - **IPv6Gateway**: IPv6 gateway.
         # 
-        # - **Attachment**: forwarding router.
+        # - **Attachment**: transit router.
         # - **Ipv4Gateway**: IPv4 gateway.
         # - **GatewayEndpoint**: gateway endpoint.
         # - **Ecr**: Express Connect Router (ECR).
         self.next_hop_type = next_hop_type
-        # The pagination token that is used to retrieve the next page of results. Valid values:
-        # - Leave this parameter empty for the first query or when no subsequent query is required.
-        # - If a subsequent query is required, set this parameter to the value of NextToken returned from the previous API call.
+        # The pagination token for the next query. Valid values:
+        # - If this is the first query or no subsequent query is required, leave this parameter empty.
+        # - If a subsequent query is required, set this parameter to the NextToken value returned from the previous API call.
         self.next_token = next_token
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The region ID of the route table to which the route belongs.
+        # The region ID of the route table to which the route entry belongs.
         # 
         # You can call the [DescribeRegions](https://help.aliyun.com/document_detail/36063.html) operation to query region IDs.
         # 
@@ -76,9 +76,9 @@ class DescribeRouteEntryListRequest(DaraModel):
         self.region_id = region_id
         self.resource_owner_account = resource_owner_account
         self.resource_owner_id = resource_owner_id
-        # The ID of the route to query.
+        # The ID of the route entry to query.
         self.route_entry_id = route_entry_id
-        # The name of the route.
+        # The name of the route entry.
         # 
         # The name must be 1 to 128 characters in length and cannot start with `http://` or `https://`.
         self.route_entry_name = route_entry_name

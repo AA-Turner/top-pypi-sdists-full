@@ -53,6 +53,7 @@ from .vault import (
     CreateOnlyConflict,
     DefiniteNoEffect,
     InvalidSlugError,
+    PathGuard,
     PathGuardError,
     PlannedWrite,
     PreparedBinaryContent,
@@ -143,6 +144,8 @@ class AddResult:
     same_url: dict[str, object] | None = None
     # True when the duplicate index could not answer, so the capture was stored without a duplicate check.
     duplicate_check_unavailable: bool = False
+    # An erasable Source's path names its content, so no call or write log keeps it. Never sent to callers.
+    path_withheld: bool = False
 
     def as_dict(self) -> dict:
         out = {"path": self.path, "ref": self.ref, "warnings": self.warnings}
@@ -311,6 +314,46 @@ def artifact_binary_write(
         ),
         stream,
     )
+
+
+def pools_original(vault_root: Path, artifact_path: Path) -> bool:
+    """Whether a new filing's bytes go to the shared original pool rather than its logical path.
+
+    Notes stay ordinary pages. Every other original of an activated archive is pooled; its
+    companion alone binds the logical path.
+    """
+    from . import original_pool
+    from .originals import is_note_path
+
+    relative = artifact_path.relative_to(vault_root).as_posix()
+    return not is_note_path(relative) and original_pool.enabled(vault_root)
+
+
+def staged_pool_publication(stack: contextlib.ExitStack, vault_root: Path, stream: IO[bytes],
+                            digest: str, size: int) -> Callable[[], None]:
+    """Stage and verify every byte now; return the publication the batch runs before its first install.
+
+    The stack keeps the stage and its physical pin until the filing commits. A concurrent
+    identical upload that publishes first makes this filing retry instead of hashing the
+    winner under the canonical boundary.
+    """
+    from . import held_fs, original_pool
+
+    def chunks():
+        stream.seek(0)
+        while chunk := stream.read(1024 * 1024):
+            yield chunk
+
+    prepared = stack.enter_context(original_pool.prepare(vault_root, digest, size, held_fs.Chunks(chunks)))
+
+    def publish() -> None:
+        try:
+            prepared.publish()
+        except original_pool.PublicationRace:
+            raise AddError(code="MUTATION_BUSY", missing=[],
+                           reason="an identical upload was stored at the same moment; retry") from None
+
+    return publish
 
 
 @dataclass(frozen=True)
@@ -823,13 +866,16 @@ def add(
     # can publish in the same rollback set.
     artifact_stream = None
     originals: list[PlannedWrite] = []
+    pooled_artifact = False
     if artifact is not None and artifact_path is not None:
         assert artifact_digest is not None and artifact_size is not None
         binary_write, artifact_stream = artifact_binary_write(
             artifact.staged_path, artifact_path, artifact_digest, artifact_size
         )
-        writes.append(binary_write)
-        originals.append(binary_write)
+        pooled_artifact = pools_original(vault_root, artifact_path)
+        if not pooled_artifact:
+            writes.append(binary_write)
+            originals.append(binary_write)
 
     # The registry the domain resolved against must still be the one on disk.
     # A registration rewrites it in this batch under its own content guard.
@@ -840,12 +886,22 @@ def add(
     )
     if correction_plan is not None:
         required_guards = (*required_guards, correction_plan.guards[0])
+    if pooled_artifact:
+        assert artifact_path is not None
+        # A pooled filing leaves no ordinary file at its logical path; one appearing there would shadow it.
+        required_guards = (*required_guards, PathGuard.capture(
+            vault_root, artifact_path.relative_to(vault_root).as_posix(), leaf_policy="absent"))
     from . import document_containers
 
     container_stack = contextlib.ExitStack()
     container_metadata = None
     core_paths = {source_path, artifact_path} - {None}
+    publish_original = None
     try:
+        if pooled_artifact:
+            assert artifact_stream is not None and artifact_digest is not None and artifact_size is not None
+            publish_original = staged_pool_publication(
+                container_stack, vault_root, artifact_stream, artifact_digest, artifact_size)
         if artifact_stream is not None and document_containers.is_container(artifact_path):
             container_plan = container_stack.enter_context(document_containers.plan(
                 vault_root, parent=artifact_path.relative_to(vault_root).as_posix(),
@@ -864,6 +920,11 @@ def add(
             vault_root, reference=source_reference, path=source_path.relative_to(vault_root).as_posix(),
             source_hash=content_hash(writes[0].content), identity=source_identity,
         )
+        if custody_started:
+            from . import call_ledger
+
+            # An erasable Source's paths name its content, so no call ledger row keeps them.
+            call_ledger.withhold_targets(path.relative_to(vault_root).as_posix() for path in core_paths)
         # An enrolled Source stays off the shared index and log pages; the captured-Source inventory lists it.
         if not raw_protection and not custody_started:
             activity_summary = _activity_summary(
@@ -955,6 +1016,7 @@ def add(
                 publication_intents_out=publication_intents,
                 _validate_prepared_bindings=validate_bindings,
                 _prepare=prepare_final if _prepare is not None else None,
+                _publish_originals=publish_original,
                 **({"_payload_custody": payload_custody} if payload_custody is not None else {}),
             )
         else:
@@ -962,6 +1024,7 @@ def add(
                                _vocabulary_auxiliaries=bound_outputs,
                                _validate_prepared_bindings=validate_bindings,
                                _prepare=prepare_final if _prepare is not None else None,
+                               _publish_originals=publish_original,
                                **({"_payload_custody": payload_custody} if payload_custody is not None else {}))
     except _NativePrepared:
         raise
@@ -1056,6 +1119,7 @@ def add(
         capture_outcome="created" if source_identity is not None else None,
         same_url=same_url,
         duplicate_check_unavailable=duplicate_unavailable,
+        path_withheld=custody_started,
     )
 
 

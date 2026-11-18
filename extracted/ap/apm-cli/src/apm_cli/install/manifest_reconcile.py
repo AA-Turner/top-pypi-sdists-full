@@ -39,6 +39,7 @@ from .helpers.reconciliation_scope import (
     _scoped_known_targets_for_reconciliation,
 )
 from .presentation import surface_target_cleanup
+from .selected_cleanup import SelectedCleanupOutcome
 
 if TYPE_CHECKING:
     from apm_cli.core.command_logger import InstallLogger
@@ -395,20 +396,16 @@ def declared_target_profiles(
     diagnostics: DiagnosticCollector | None = None,
 ) -> list[TargetProfile] | None:
     """Resolve the target universe declared by a project manifest."""
-    from apm_cli.core.apm_yml import parse_targets_field
     from apm_cli.core.errors import TargetResolutionError
     from apm_cli.core.target_catalog import normalize_target_name
-    from apm_cli.integration.targets import KNOWN_TARGETS
-    from apm_cli.utils.yaml_io import load_yaml
+    from apm_cli.integration.targets import KNOWN_TARGETS, scoped_profile_or_none
+    from apm_cli.models.manifest_targets import read_manifest_target_declaration
 
-    try:
-        data = load_yaml(project_root / "apm.yml")
-    except (AttributeError, KeyError, OSError, TypeError, ValueError):
-        return None
-    if not isinstance(data, dict):
+    declaration = read_manifest_target_declaration(project_root / "apm.yml", lenient=True)
+    if declaration is None:
         return None
     try:
-        names = parse_targets_field(data)
+        names = declaration.restriction() or []
     except TargetResolutionError:
         return None
     active_by_name = _profiles_by_name(active_targets)
@@ -435,7 +432,7 @@ def declared_target_profiles(
             else:
                 profiles.append(active_profile)
             continue
-        scoped = profile.for_scope(user_scope=user_scope)
+        scoped = scoped_profile_or_none(profile, user_scope=user_scope)
         profiles.append(scoped if scoped is not None else profile)
     return profiles or None
 
@@ -553,6 +550,7 @@ def surviving_deployed_paths(
         )
         survivors.update(files)
     survivors.update(lockfile.local_deployed_files)
+    survivors.update(lockfile.local_staged_files)
     survivors.update(DeploymentLedgerCodec.local_bundle_values(ledger))
     # A directory claim cannot authorize removal of a surviving member.
     parents = {
@@ -708,6 +706,7 @@ def reconcile_deployed_block(  # noqa: PLR0913 -- deployed-state chokepoint wrap
         diagnostics=diagnostics,
         recorded_hashes=prior_hashes,
         user_scope=user_scope,
+        live_paths=files,
     )
     if on_cleanup is not None:
         on_cleanup(cleanup)
@@ -753,7 +752,7 @@ def reconcile_target_deployed_files(
     diagnostics: DiagnosticCollector,
     dependency_keys: set[str] | None = None,
     remove_selected_ownership: bool = False,
-    retained_selected_paths: set[str] | None = None,
+    selected_outcome: SelectedCleanupOutcome | None = None,
     user_scope: bool = False,
     logger: InstallLogger | None = None,
     preserved_selected_values: frozenset[str] = frozenset(),
@@ -770,7 +769,8 @@ def reconcile_target_deployed_files(
 
     With *remove_selected_ownership*, *preserved_selected_values* lists rows
     of the selected dependencies that must stay on disk, such as rows a
-    selected-profile uninstall keeps for another profile.
+    selected-profile uninstall keeps for another profile, and
+    *selected_outcome* collects what each selected dependency still owns.
     """
     from apm_cli.core.deployment_ledger import DeploymentLedgerCodec
     from apm_cli.core.deployment_state import DeploymentLedger
@@ -865,9 +865,14 @@ def reconcile_target_deployed_files(
             user_scope=user_scope,
         )
         if selected_owner_removal:
-            if retained_selected_paths is not None:
-                retained_selected_paths.update(
-                    path for path in files if path not in survivor_files and "://" not in path
+            if selected_outcome is not None:
+                selected_outcome.record(
+                    dep_key,
+                    dependency,
+                    files,
+                    hashes,
+                    survivors=survivor_files,
+                    preserved=preserved_selected_values,
                 )
             continue
         if files != prior_files or hashes != prior_hashes:

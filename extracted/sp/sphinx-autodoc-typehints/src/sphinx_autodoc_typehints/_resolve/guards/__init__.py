@@ -6,14 +6,16 @@ It parses the block, runs it, and lets annotations read what it binds.
 
 from __future__ import annotations
 
-from .overlay import SHADOWED_BY_GUARD, annotation_globals, guarded_names, guarded_names_bound
-from .parse import guard_binds
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .. import Documented as Documented
+
+from .overlay import annotation_globals, guarded_names, guarded_names_bound
 from .run import guard_bound, resolve_type_guarded_imports
 
 __all__ = [
-    "SHADOWED_BY_GUARD",
     "annotation_globals",
-    "guard_binds",
     "guard_bound",
     "guarded_names",
     "guarded_names_bound",

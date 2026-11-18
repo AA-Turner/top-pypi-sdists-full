@@ -16,7 +16,8 @@ System Role:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 import rich_click as click
@@ -26,6 +27,7 @@ from rich.text import Text
 from ...application.ports import OutputFormat
 from ...domain import json_codec
 from ...domain.redaction import REDACTED_PLACEHOLDER
+from .._stream_text import fit_json, fitted_console_file
 from .toml_text import is_array, is_table, toml_key, toml_path, toml_value
 
 if TYPE_CHECKING:
@@ -45,11 +47,21 @@ _ABSENT = object()
 
 @dataclass(frozen=True)
 class _View:
-    """What every rendered line needs: the config for provenance, the console, the profile."""
+    """What every rendered line needs: the config for provenance, the profile, and where lines go.
+
+    Lines are collected and printed in one ``Console.print`` (:func:`_display_human`): Rich's per-call
+    pipeline made one print per line cost about 150 us a line. Every collected line is a ``Text``,
+    which ``Console.print`` neither highlights nor parses as markup, and none carries a print-level
+    style, so joining them with newlines writes the same bytes the separate prints wrote.
+    """
 
     config: Config
-    console: Console
     profile: str | None
+    lines: list[Text] = field(default_factory=list[Text])
+
+    def emit(self, line: Text | None = None) -> None:
+        """Add *line*, or an empty line, to the output."""
+        self.lines.append(Text() if line is None else line)
 
 
 def _build_console() -> Console:
@@ -63,10 +75,14 @@ def _build_console() -> Console:
     output must do) has no effect on it. Building a fresh console per call
     makes the environment at CALL time the one that decides.
 
+    It writes through a fitting stream (``adapters/_stream_text.py``), so a character stdout
+    cannot encode (CJK or an emoji on a cp1252 pipe) is written as a backslash escape instead of
+    raising.
+
     Returns:
         A new ``Console`` with syntax highlighting disabled.
     """
-    return Console(highlight=False)
+    return Console(file=fitted_console_file(), highlight=False)
 
 
 def _format_source_line(info: SourceInfo, indent: str = "", *, profile: str | None = None) -> Text:
@@ -119,13 +135,13 @@ def _render_table(table: Mapping[str, object], path: tuple[str, ...], view: _Vie
 
 def _render_header(path: tuple[str, ...], view: _View, *, empty: bool) -> None:
     """Print a table's ``[header]`` (bold cyan); an empty table carries its own source."""
-    view.console.print()
+    view.emit()
     info = view.config.origin(".".join(path)) if empty else None
     if info is not None:
-        view.console.print(_format_source_line(info, profile=view.profile))
+        view.emit(_format_source_line(info, profile=view.profile))
     header = Text("[" + toml_path(path) + "]")
     header.stylize("bold cyan")
-    view.console.print(header)
+    view.emit(header)
 
 
 def _element_paths(value: object, path: tuple[str, ...]) -> Iterator[tuple[str, ...]]:
@@ -154,7 +170,7 @@ def _print_overriding_sources(view: _View, *, key_path: tuple[str, ...], value: 
         if info is not None and not _same_source(info, own):
             line = _format_source_line(info, prefix, profile=view.profile)
             line.append(f" for {toml_path(element)}")
-            view.console.print(line)
+            view.emit(line)
 
 
 def _same_source(info: SourceInfo, other: SourceInfo | None) -> bool:
@@ -172,7 +188,7 @@ def _print_entry(view: _View, *, label: str, key_path: tuple[str, ...], value: o
     prefix = "    " if indent else ""
     info = view.config.origin(".".join(key_path))
     if info is not None:
-        view.console.print(_format_source_line(info, prefix, profile=view.profile))
+        view.emit(_format_source_line(info, prefix, profile=view.profile))
     if is_array(value):
         _print_overriding_sources(view, key_path=key_path, value=value, prefix=prefix)
 
@@ -181,8 +197,8 @@ def _print_entry(view: _View, *, label: str, key_path: tuple[str, ...], value: o
     text.append(label, style="orange3")
     text.append(" = ", style="white")
     text.append(value_str, style="dim red" if _REDACTED in value_str else "green")
-    view.console.print(text)
-    view.console.print()
+    view.emit(text)
+    view.emit()
 
 
 def display_config(
@@ -206,15 +222,21 @@ def display_config(
             OutputFormat.JSON for JSON. Defaults to OutputFormat.HUMAN.
         section: Optional section name to display only that section. When None,
             displays all configuration.
-        console: Optional Rich Console for output. When None, uses the module-level
-            default. Primarily useful for testing.
+        console: Optional Rich Console for the human format. When None, a console on stdout
+            that writes a character stdout cannot encode as a backslash escape. A console you
+            pass writes to its own file as it is, so it raises where that file cannot encode.
         profile: Optional profile name to include in provenance comments.
 
     Side Effects:
-        Writes formatted configuration to stdout via click.echo().
+        Writes formatted configuration to stdout. A character stdout cannot encode (CJK or an
+        emoji on a Windows cp1252 pipe) is written as an escape instead of raising: ``\\uXXXX``
+        in JSON, which parses back to the same value, and a Python backslash escape in the human
+        format, as the CLI's ``read`` does. The human format prints its note line, then the whole
+        body in one ``Console.print``, so the output appears when the call finishes.
 
     Raises:
-        ValueError: If a section was requested that doesn't exist.
+        ValueError: If a section was requested that doesn't exist, or *output_format* is not one
+            of the :class:`OutputFormat` values.
 
     Note:
         The human-readable format mimics TOML syntax for consistency with the
@@ -222,22 +244,48 @@ def display_config(
         suitable for parsing by other tools. Sensitive values (passwords,
         secrets, tokens, credentials, API keys) are automatically redacted
         using ``lib_layered_config``'s redaction API.
+
+    Examples:
+        >>> from lib_layered_config import Config
+        >>> config = Config({"db": {"host": "localhost", "password": "hunter2"}}, {})
+        >>> display_config(config, output_format=OutputFormat.JSON)
+        {
+          "db": {
+            "host": "localhost",
+            "password": "***REDACTED***"
+          }
+        }
     """
-    if output_format == OutputFormat.JSON:
+    if _known_format(output_format) is OutputFormat.JSON:
         _display_json(config, section)
     else:
         _display_human(config, section, console=console, profile=profile)
 
 
+def _known_format(output_format: OutputFormat) -> OutputFormat:
+    """Return *output_format* as an :class:`OutputFormat`, refusing any other value.
+
+    An untyped caller can pass the format's text; a value that names no format used to fall
+    through to the human view, so a typo printed the wrong format instead of failing.
+    """
+    try:
+        return OutputFormat(output_format)
+    except ValueError:
+        choices = ", ".join(repr(member.value) for member in OutputFormat)
+        raise ValueError(f"output_format must be one of {choices}, not {output_format!r}") from None
+
+
 def _display_json(config: Config, section: str | None) -> None:
     """Render configuration as JSON to stdout."""
     if section:
-        if config.get(section, default=_ABSENT) is _ABSENT:
+        # One read answers both "is it there" and "what does it show": a separate presence check copied the section too.
+        section_value = config.get_redacted(section, _ABSENT)
+        if section_value is _ABSENT:
             raise ValueError(f"Section '{section}' not found")
-        redacted = {section: config.get_redacted(section)}
-        click.echo(json_codec.dumps(redacted, indent=True))
+        redacted = {section: section_value}
+        click.echo(fit_json(json_codec.dumps(redacted, indent=True), sys.stdout))
     else:
-        click.echo(config.to_json(indent=2, redact=True))
+        click.echo(fit_json(config.to_json(indent=2, redact=True), sys.stdout))
 
 
 def _display_human(
@@ -248,22 +296,27 @@ def _display_human(
     Walks the redacted mapping itself rather than re-parsing serialised TOML, so every key is shown
     whatever its name and keeps its provenance.
     """
+    # The section is looked up before anything is printed, so a missing one leaves the output empty, as the
+    # JSON format does, instead of a header followed by an error.
+    redacted_value = config.get_redacted(section, _ABSENT) if section else _ABSENT
+    if section and redacted_value is _ABSENT:
+        raise ValueError(f"Section '{section}' not found")
     con = console or _build_console()
+    # The note is a str printed with a print-level style, which also styles its line ending and is
+    # highlighted when the console highlights: printed on its own, as before, so its bytes stay the same.
     con.print(_OUTPUT_HEADER, style="bright_red")
     con.print()
-    view = _View(config, con, profile)
+    view = _View(config, profile)
 
     if not section:
         _render_table(config.as_dict(redact=True), (), view)
-        return
-    if config.get(section, default=_ABSENT) is _ABSENT:
-        raise ValueError(f"Section '{section}' not found")
-    redacted_value = config.get_redacted(section)
-    if is_table(redacted_value):
+    elif is_table(redacted_value):
         _render_table(redacted_value, tuple(section.split(".")), view)
     else:
         key_path = tuple(section.split("."))
         _print_entry(view, label=toml_path(key_path), key_path=key_path, value=redacted_value, indent=False)
+    if view.lines:
+        con.print(Text("\n").join(view.lines))
 
 
 __all__ = [

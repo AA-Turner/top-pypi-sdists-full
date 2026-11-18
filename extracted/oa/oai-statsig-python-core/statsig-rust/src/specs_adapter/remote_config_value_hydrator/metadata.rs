@@ -28,7 +28,7 @@ pub(super) struct RemoteConfigValueMetadataWire {
     pub(super) compression: String,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub(super) struct RemoteConfigValueMetadata {
     pub(super) sha256: Sha256Digest,
     pub(super) byte_length: u64,

@@ -13,8 +13,10 @@ import sys
 import unittest
 
 import agilicus_api
+from agilicus_api.model.label_group import LabelGroup
 from agilicus_api.model.label_name import LabelName
 from agilicus_api.model.time_of_day_condition import TimeOfDayCondition
+globals()['LabelGroup'] = LabelGroup
 globals()['LabelName'] = LabelName
 globals()['TimeOfDayCondition'] = TimeOfDayCondition
 from agilicus_api.model.timeperiod_policy_template import TimeperiodPolicyTemplate

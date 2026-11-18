@@ -78,7 +78,11 @@ __all__ = (
     "EncryptionTypeType",
     "EndpointTypeType",
     "EntityTypeType",
+    "EvaluationEnablementStatusType",
     "EvaluationFormAIVersionStatusType",
+    "EvaluationFormAiMetricsFieldType",
+    "EvaluationFormContactFieldType",
+    "EvaluationFormEvaluationMetadataFieldType",
     "EvaluationFormItemEnablementActionType",
     "EvaluationFormItemEnablementOperatorType",
     "EvaluationFormItemEnablementSourceTypeType",
@@ -95,6 +99,7 @@ __all__ = (
     "EvaluationFormValidationFindingSeverityType",
     "EvaluationFormValidationStatusType",
     "EvaluationFormVersionStatusType",
+    "EvaluationItemResolutionStatusType",
     "EvaluationQuestionAnswerAnalysisTypeType",
     "EvaluationReviewNotificationRecipientTypeType",
     "EvaluationStatusType",
@@ -478,12 +483,64 @@ EndpointTypeType = Literal[
     "CONNECT_PHONENUMBER_ARN", "CONTACT_FLOW", "EMAIL_ADDRESS", "TELEPHONE_NUMBER", "VOIP"
 ]
 EntityTypeType = Literal["AI_AGENT", "USER"]
+EvaluationEnablementStatusType = Literal["DISABLED", "ENABLED"]
 EvaluationFormAIVersionStatusType = Literal["ACTIVE", "DEPRECATED", "LATEST", "PREVIEW"]
+EvaluationFormAiMetricsFieldType = Literal[
+    "AI_AGENT_MAX_PROMPT_LATENCY",
+    "AI_SESSION_COMPLETENESS_SCORE",
+    "AI_SESSION_FAITHFULNESS_SCORE",
+    "AI_SESSION_GOAL_SUCCESS_RATE",
+    "AI_SESSION_IS_HANDED_OFF",
+    "AI_SESSION_SELF_SERVICE_DURATION",
+    "AI_TOOL_MAX_LATENCY",
+    "AI_TOOL_PARAMETER_ACCURACY",
+    "AI_TOOL_SELECTION_ACCURACY",
+    "AI_TOOL_UTILIZATION_ACCURACY",
+]
+EvaluationFormContactFieldType = Literal[
+    "AGENT_ARN",
+    "AGENT_INTERACTION_AND_HOLD_DURATION",
+    "AGENT_INTERACTION_DURATION",
+    "CATEGORIES",
+    "CHANNEL",
+    "CONTACT_DURATION",
+    "CUSTOMER_HOLD_TIME",
+    "CUSTOMER_SENTIMENT_SCORE_WITHOUT_AGENT",
+    "CUSTOMER_SENTIMENT_SCORE_WITH_AGENT",
+    "INITIATION_METHOD",
+    "IS_QUEUED",
+    "LONGEST_HOLD_DURATION",
+    "NON_TALK_TIME",
+    "NON_TALK_TIME_PERCENTAGE",
+    "NUMBER_OF_HOLDS",
+    "NUMBER_OF_INTERRUPTIONS",
+    "OVERALL_AGENT_SENTIMENT_SCORE",
+    "OVERALL_CUSTOMER_SENTIMENT_SCORE",
+    "QUEUE_ARN",
+    "RECORDING_MEDIA_STREAM_TYPES",
+    "ROUTING_PROFILE_ARN",
+]
+EvaluationFormEvaluationMetadataFieldType = Literal["EVALUATION_TYPE"]
 EvaluationFormItemEnablementActionType = Literal["DISABLE", "ENABLE"]
 EvaluationFormItemEnablementOperatorType = Literal["AND", "OR"]
-EvaluationFormItemEnablementSourceTypeType = Literal["QUESTION_REF_ID"]
-EvaluationFormItemEnablementSourceValueTypeType = Literal["OPTION_REF_ID"]
-EvaluationFormItemSourceValuesComparatorType = Literal["ALL_IN", "EXACT", "IN", "NOT_IN"]
+EvaluationFormItemEnablementSourceTypeType = Literal[
+    "AI_METRICS", "CONTACT", "EVALUATION_METADATA", "FORM_METADATA", "QUESTION_REF_ID"
+]
+EvaluationFormItemEnablementSourceValueTypeType = Literal[
+    "BOOLEAN_VALUE", "DATETIME_VALUE", "NUMERIC_VALUE", "OPTION_REF_ID", "STRING_VALUE"
+]
+EvaluationFormItemSourceValuesComparatorType = Literal[
+    "ALL_IN",
+    "EQUAL_TO",
+    "EXACT",
+    "GREATER_THAN",
+    "GREATER_THAN_OR_EQUAL_TO",
+    "IN",
+    "LESS_THAN",
+    "LESS_THAN_OR_EQUAL_TO",
+    "NOT_EQUAL_TO",
+    "NOT_IN",
+]
 EvaluationFormLanguageCodeType = Literal[
     "af-ZA",
     "am-ET",
@@ -594,7 +651,9 @@ EvaluationFormLanguageCodeType = Literal[
 ]
 EvaluationFormMetricTypeType = Literal["BUSINESS_OUTCOME"]
 EvaluationFormMultiSelectQuestionDisplayModeType = Literal["CHECKBOX", "DROPDOWN"]
-EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
+EvaluationFormQuestionAutomationAnswerSourceTypeType = Literal[
+    "CONDITION", "CONTACT_LENS_DATA", "GEN_AI"
+]
 EvaluationFormQuestionTypeType = Literal[
     "DATETIME", "MULTISELECT", "NUMERIC", "SINGLESELECT", "TEXT"
 ]
@@ -604,7 +663,8 @@ EvaluationFormSingleSelectQuestionDisplayModeType = Literal["DROPDOWN", "RADIO"]
 EvaluationFormValidationFindingSeverityType = Literal["ERROR", "WARNING"]
 EvaluationFormValidationStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 EvaluationFormVersionStatusType = Literal["ACTIVE", "DRAFT"]
-EvaluationQuestionAnswerAnalysisTypeType = Literal["CONTACT_LENS_DATA", "GEN_AI"]
+EvaluationItemResolutionStatusType = Literal["FAILED", "PENDING", "RESOLVED"]
+EvaluationQuestionAnswerAnalysisTypeType = Literal["CONDITION", "CONTACT_LENS_DATA", "GEN_AI"]
 EvaluationReviewNotificationRecipientTypeType = Literal["USER_ID"]
 EvaluationStatusType = Literal["DRAFT", "REVIEW_REQUESTED", "SUBMITTED", "UNDER_REVIEW"]
 EvaluationSuggestedAnswerStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
@@ -887,6 +947,15 @@ NumberComparisonTypeType = Literal[
 NumericQuestionPropertyAutomationLabelType = Literal[
     "AGENT_INTERACTION_AND_HOLD_DURATION",
     "AGENT_INTERACTION_DURATION",
+    "AI_AGENT_MAX_PROMPT_LATENCY",
+    "AI_SESSION_COMPLETENESS_SCORE",
+    "AI_SESSION_FAITHFULNESS_SCORE",
+    "AI_SESSION_GOAL_SUCCESS_RATE",
+    "AI_SESSION_SELF_SERVICE_DURATION",
+    "AI_TOOL_MAX_LATENCY",
+    "AI_TOOL_PARAMETER_ACCURACY",
+    "AI_TOOL_SELECTION_ACCURACY",
+    "AI_TOOL_UTILIZATION_ACCURACY",
     "CONTACT_DURATION",
     "CUSTOMER_HOLD_TIME",
     "CUSTOMER_SENTIMENT_SCORE_WITHOUT_AGENT",

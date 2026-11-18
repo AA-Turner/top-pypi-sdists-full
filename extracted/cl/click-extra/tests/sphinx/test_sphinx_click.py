@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
@@ -29,9 +30,10 @@ from textwrap import dedent
 import click
 import pytest
 from docutils import nodes
+from extra_platforms.pytest import skip_windows
 from pygments.styles import get_style_by_name
 
-from click_extra import strip_ansi, verbosity_option
+from click_extra import prep_path, strip_ansi, verbosity_option
 from click_extra.capture.presets import CAPTURE_PALETTES
 from click_extra.capture.snippet import DEFAULT_SYNTAX_STYLES
 from click_extra.capture.svg import CELL_WIDTH
@@ -49,6 +51,12 @@ from click_extra.sphinx.click import (
 from click_extra.sphinx.click_runner import ClickRunner, program_from_command_line
 from click_extra.spinner_presets import SPINNERS
 
+from ..test_screenshots import (
+    ORCHARD_SCHEME,
+    played_frames,
+    poster_frame,
+    svg_to_lines,
+)
 from .conftest import (
     HTML,
     DirectiveTestCase,
@@ -1035,10 +1043,9 @@ def test_generated_block_is_attributed_to_the_directive_body(
     *file*, and ``myst-parser`` measures its offsets from the directive rather
     than the document.
 
-    The last two cases pin the ``content_offset`` inflation
-    ``click_extra.sphinx._base.MYST_CONTENT_OFFSET_INFLATED_MAX`` documents,
-    which only fires on a directive carrying both an option block and a body
-    ending in blank lines.
+    The last two cases carry both an option block and a body ending in blank
+    lines, whose ``content_offset`` ``myst-parser`` ``5.1.0`` and older
+    over-counted by one.
     """
     document = test_case.document
     sphinx_app_for_format.build_document(document)
@@ -1266,13 +1273,15 @@ def test_clickrunner_sets_the_level_of_the_build_aside(document_level, expected)
     ),
 )
 def test_clickrunner_capture_mode_controls_fileno(capture, renders):
-    """``ClickRunner(capture=...)`` decides whether a fileno-writing CLI renders.
+    """``ClickRunner(capture=...)`` decides whether a CLI calling ``fileno()`` renders.
 
     Click's ``"sys"`` mode backs the captured stream with an in-memory buffer whose
     ``fileno()`` raises :exc:`io.UnsupportedOperation`, so a documented command that
     re-opens its descriptor (a common UTF-8-on-Windows guard) aborts. ``"fd"`` (the
     default on Unix, also exposed as the ``click_extra_run_capture`` conf.py value)
-    backs it with a real descriptor, so the command renders. On Windows, where fd-backed
+    returns a copy of the original stdout descriptor, so the command runs and its
+    ``click.echo`` output renders. What it writes through that copy does not, see
+    ``test_clickrunner_captures_prep_path_stdout``. On Windows, where fd-backed
     streams are not supported, the default falls back to ``"sys"``.
     """
 
@@ -1290,6 +1299,39 @@ def test_clickrunner_capture_mode_controls_fileno(capture, renders):
     else:
         assert result.exit_code != 0
         assert "papaya" not in result.output
+
+
+@pytest.mark.parametrize(
+    "capture",
+    (
+        # No argument: "fd" on Unix, "sys" on Windows.
+        None,
+        pytest.param(
+            "fd", marks=skip_windows(reason='capture="fd" is not supported on Windows.')
+        ),
+        "sys",
+    ),
+)
+def test_clickrunner_captures_prep_path_stdout(capture):
+    """A command writing to ``-`` through ``prep_path`` renders in every capture mode.
+
+    Under ``"fd"``, ``sys.stdout.fileno()`` returns a copy of the original stdout
+    descriptor, so a stream opened on it writes past the capture.
+    """
+
+    @click.command()
+    def harvest():
+        stream = prep_path(Path("-"))
+        try:
+            click.echo("papaya", file=stream)
+        finally:
+            if stream is not sys.stdout:
+                stream.close()
+
+    result = ClickRunner(capture=capture).invoke(harvest, [])
+
+    assert result.exit_code == 0
+    assert result.output == "papaya\n"
 
 
 @pytest.mark.parametrize(
@@ -1925,6 +1967,117 @@ def test_click_run_screenshot_hold_overrides_the_pause(sphinx_app_myst):
     assert "period=1s" in asset.read_text(encoding="UTF-8")
 
 
+STEEPING_SOURCE = """
+    ```{click:source}
+    :hide-source:
+    from click_extra.capture.recording import Frame
+
+    steeping = [Frame("filling", 0.2), Frame("heating", 0.2), Frame("boiled", 0.2)]
+    ```
+"""
+"""A stand-in recording of three screens, for a block to start into."""
+
+
+@pytest.mark.parametrize(
+    ("options", "kept", "dropped", "period"),
+    (
+        # A tenth of a second left of the cut screen, the whole last one, then
+        # the two second hold and the closing blank beat.
+        pytest.param(
+            ":screenshot-start: 0.3", ("heating", "boiled"), ("filling",), "2.9s"
+        ),
+        # The whole first screen and a tenth of the second, then the same.
+        pytest.param(
+            ":screenshot-end: 0.3", ("filling", "heating"), ("boiled",), "2.9s"
+        ),
+        # A tenth, the whole middle screen and a tenth, then the same.
+        pytest.param(
+            ":screenshot-start: 0.1\n:screenshot-end: 0.5",
+            ("filling", "heating", "boiled"),
+            (),
+            "3s",
+        ),
+    ),
+    ids=("start", "end", "both"),
+)
+def test_click_run_screenshot_keeps_a_slice_of_a_recording(
+    sphinx_app_myst, options, kept, dropped, period
+):
+    """`:screenshot-start:` and `:screenshot-end:` keep the screens between them."""
+    asset = Path(sphinx_app_myst.app.srcdir) / "assets" / "steeping-screen.svg"
+    sphinx_app_myst.build_document(
+        dedent(STEEPING_SOURCE)
+        + "\n```{click:run}\n:screenshot: steeping-screen\n"
+        + ":screenshot-record: steeping\n"
+        + options
+        + "\n:hide-results:\nassert steeping\n```\n"
+    )
+
+    svg = asset.read_text(encoding="UTF-8")
+    for text in kept:
+        assert text in svg
+    for text in dropped:
+        assert text not in svg
+    assert f"period={period}" in svg
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    (
+        pytest.param(
+            ":screenshot-record: steeping\n:screenshot-start: 5",
+            "drops the whole recording",
+            id="past-the-end",
+        ),
+        pytest.param(
+            ":screenshot-animate: names\n:screenshot-interval: 0.2\n"
+            ":screenshot-start: 0.1",
+            "no recorded Frame",
+            id="declared-frames",
+        ),
+        pytest.param(
+            ":screenshot-record: steeping\n:screenshot-start: 0.4\n"
+            ":screenshot-end: 0.3",
+            "is not after",
+            id="end-before-start",
+        ),
+        pytest.param(
+            ":screenshot-animate: names\n:screenshot-interval: 0.2\n"
+            ":screenshot-end: 0.3",
+            "no recorded Frame",
+            id="declared-frames-end",
+        ),
+    ),
+)
+def test_click_run_screenshot_start_refuses_what_it_cannot_cut(
+    sphinx_app_myst, options, message
+):
+    """A start past the recording, or into frames nobody recorded, fails the build."""
+    content = (
+        dedent(STEEPING_SOURCE)
+        + "\n```{click:source}\n:hide-source:\nnames = ['kettle', 'teapot']\n```\n"
+        + "\n```{click:run}\n:screenshot: refused-screen\n"
+        + options
+        + "\n:hide-results:\nassert steeping\n```\n"
+    )
+    with pytest.raises(ValueError, match=message):
+        sphinx_app_myst.build_document(content)
+
+
+@pytest.mark.parametrize(
+    ("argument", "expected"),
+    (("0", 0.0), ("2.5", 2.5), ("-1", None), ("soon", None)),
+)
+def test_click_run_screenshot_start_takes_zero_or_more(argument, expected):
+    """A start time is zero or more seconds, and anything else fails the build."""
+    parse = ClickDirective.option_spec["screenshot-start"]
+    if expected is None:
+        with pytest.raises(ValueError):
+            parse(argument)
+    else:
+        assert parse(argument) == expected
+
+
 def test_click_run_screenshot_blank_closes_the_cycle(sphinx_app_myst):
     """A recording ends on an empty beat, so the loop's turnover is visible.
 
@@ -1945,12 +2098,10 @@ def test_click_run_screenshot_blank_closes_the_cycle(sphinx_app_myst):
     )
 
     svg = asset.read_text(encoding="UTF-8")
-    frames = re.findall(r'<g class="blanked-screen-f(\d+)"([^>]*)>(.*?)</g>', svg)
-    empty = [index for index, _, body in frames if not body.strip()]
-    assert empty, "the cycle closes on nothing"
+    stills = [svg_to_lines(still) for still in played_frames(svg, "blanked-screen")]
+    assert stills[-1] == [], "the cycle closes on nothing"
     # A frame drawing nothing is never what a still falls back to.
-    posters = [index for index, attrs, _ in frames if "hidden" not in attrs]
-    assert posters and posters[0] not in empty
+    assert svg_to_lines(poster_frame(svg)) == stills[-2]
 
 
 def test_click_run_screenshot_speed_scales_the_recorded_frames(sphinx_app_myst):
@@ -2342,6 +2493,7 @@ def test_click_run_screenshot_opacity_rejects_what_is_not_one(argument):
 @pytest.mark.parametrize(
     "option",
     (
+        "screenshot-end",
         "screenshot-interval",
         "screenshot-quantum",
         "screenshot-speed",
@@ -2375,6 +2527,96 @@ def test_click_run_screenshot_background_rejects_an_unknown_chrome():
     """A typo names the chromes it could have been, instead of drawing a default."""
     with pytest.raises(ValueError, match=r'"dark".+"light"'):
         _screenshot_background("beige")
+
+
+HARVEST_SOURCE = dedent("""
+    ```{click:source}
+    :hide-source:
+    from click_extra import command, echo
+
+    crates = ("apples", "pears")
+
+    @command
+    def harvest():
+        echo("apples")
+    ```
+
+""")
+"""A page defining a CLI, for a `click:run` block below it to picture."""
+
+
+@pytest.mark.parametrize(
+    "animation",
+    ((), (":screenshot-animate: crates", ":screenshot-interval: 0.5")),
+    ids=("still", "animated"),
+)
+def test_click_run_screenshot_takes_a_palette_and_a_font(sphinx_app_myst, animation):
+    """`:screenshot-palette:` and `:screenshot-font:` reach the picture.
+
+    The scheme is read relative to the page and noted as one of its
+    dependencies, so editing the scheme rebuilds the page.
+    """
+    srcdir = Path(sphinx_app_myst.app.srcdir)
+    (srcdir / "orchard.json").write_text(json.dumps(ORCHARD_SCHEME), encoding="UTF-8")
+    options = (
+        ":screenshot: orchard-screen",
+        ":screenshot-palette: orchard.json",
+        ":screenshot-font: JetBrains Mono",
+        *animation,
+    )
+    sphinx_app_myst.build_document(
+        HARVEST_SOURCE
+        + "```{click:run}\n"
+        + "\n".join(options)
+        + "\nresult = invoke(harvest)\nassert result.exit_code == 0\n```\n"
+    )
+
+    svg = (srcdir / "assets" / "orchard-screen.svg").read_text(encoding="UTF-8")
+    assert 'fill="#1e1e2e"' in svg
+    assert "font-family: 'JetBrains Mono', monospace;" in svg
+    dependencies = sphinx_app_myst.app.env.dependencies["index"]
+    assert "orchard.json" in {Path(dependency).name for dependency in dependencies}
+
+
+def test_click_run_screenshot_palette_reports_a_missing_scheme(sphinx_app_myst):
+    """A scheme file that is not there fails the build, naming the option."""
+    with pytest.raises(ValueError, match=r":screenshot-palette: .*orchard\.json"):
+        sphinx_app_myst.build_document(
+            HARVEST_SOURCE
+            + dedent("""
+                ```{click:run}
+                :screenshot: orchard-screen
+                :screenshot-palette: orchard.json
+                result = invoke(harvest)
+                ```
+            """)
+        )
+
+
+def test_click_source_screenshot_refuses_a_palette(sphinx_app_myst):
+    """A capture of code takes its colors from its syntax style, as `snippet` does."""
+    with pytest.raises(ValueError, match="screenshot-syntax-style"):
+        sphinx_app_myst.build_document(
+            dedent("""
+                ```{click:source}
+                :screenshot: orchard-source
+                :screenshot-palette: orchard.json
+                from click_extra import command
+
+                @command
+                def harvest():
+                    pass
+                ```
+            """)
+        )
+
+
+def test_click_run_screenshot_font_reads_as_the_commands_do():
+    """`:screenshot-font:` shares the parser of `--font`, refusals included."""
+    parse = ClickDirective.option_spec["screenshot-font"]
+    assert parse("JetBrains Mono, Menlo") == "'JetBrains Mono', Menlo, monospace"
+    with pytest.raises(ValueError):
+        parse("Menlo; }")
 
 
 def test_click_run_mirror_region_round_trips():

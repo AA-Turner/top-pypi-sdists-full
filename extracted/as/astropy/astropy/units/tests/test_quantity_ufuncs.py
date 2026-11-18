@@ -17,6 +17,7 @@ from astropy import units as u
 from astropy.units import quantity_helper as qh
 from astropy.units.quantity_helper.converters import UfuncHelpers
 from astropy.units.quantity_helper.helpers import helper_sqrt
+from astropy.units.quantity_helper.scipy_special import _has_scipy_array_api
 from astropy.utils.compat.numpycompat import NUMPY_LT_2_3, NUMPY_LT_2_6
 from astropy.utils.compat.optional_deps import HAS_SCIPY
 
@@ -108,11 +109,21 @@ class TestUfuncHelpers:
             if isinstance(ufunc, np.ufunc)
         }
         if HAS_SCIPY:
-            import scipy.special as sps
+            from astropy.units.quantity_helper.scipy_special import (
+                get_scipy_special_helpers,
+            )
+
+            if _has_scipy_array_api():
+                import scipy.special._ufuncs as sps
+            else:
+                import scipy.special as sps
 
             all_sps_ufuncs = {
                 ufunc for ufunc in sps.__dict__.values() if isinstance(ufunc, np.ufunc)
             }
+            # Include the scipy helpers even if they have not been loaded yet,
+            # so that the result does not depend on which tests ran before.
+            all_q_ufuncs |= set(get_scipy_special_helpers())
         else:
             all_sps_ufuncs = set()
 
@@ -784,6 +795,13 @@ class TestInvariantUfuncs:
             np.hypot,
             np.maximum,
             np.minimum,
+            pytest.param(
+                "umath_minimummaximum",
+                marks=pytest.mark.skipif(
+                    NUMPY_LT_2_6,
+                    reason="minimummaximum is new in NumPy 2.6",
+                ),
+            ),
             np.nextafter,
             np.remainder,
             np.mod,
@@ -793,10 +811,22 @@ class TestInvariantUfuncs:
     def test_invariant_twoarg_array(self, ufunc):
         q_i1 = np.array([-3.3, 2.1, 10.2]) * u.kg / u.s
         q_i2 = np.array([10.0, -5.0, 1.0e6]) * u.g / u.us
-        q_o = ufunc(q_i1, q_i2)
-        assert isinstance(q_o, u.Quantity)
-        assert q_o.unit == q_i1.unit
-        assert_allclose(q_o.value, ufunc(q_i1.value, q_i2.to_value(q_i1.unit)))
+        if isinstance(ufunc, str):
+            if ufunc.startswith("umath_"):
+                ufunc = getattr(np_umath, ufunc.removeprefix("umath_"))
+            else:
+                raise NotImplementedError
+
+        result = ufunc(q_i1, q_i2)
+        ref = ufunc(q_i1.value, q_i2.to_value(q_i1.unit))
+        if not isinstance(result, tuple):
+            result = (result,)
+            ref = (ref,)
+
+        for q_o, r_o in zip(result, ref, strict=True):
+            assert isinstance(q_o, u.Quantity)
+            assert q_o.unit == q_i1.unit
+            assert_allclose(q_o.value, r_o)
 
     @pytest.mark.parametrize(
         ("ufunc", "arbitrary"),
@@ -1598,11 +1628,16 @@ if HAS_SCIPY:
 
     def test_scipy_registration():
         """Check that scipy gets loaded upon first use."""
-        if sps.erf in qh.UFUNC_HELPERS:
+        if _has_scipy_array_api():
+            erf_ufunc = sps._ufuncs.erf
+        else:
+            erf_ufunc = sps.erf
+
+        if erf_ufunc in qh.UFUNC_HELPERS:
             # Generally, scipy will not be loaded here, but in a double run it might.
             pytest.skip()
         sps.erf(1.0 * u.percent)
-        assert sps.erf in qh.UFUNC_HELPERS
+        assert erf_ufunc in qh.UFUNC_HELPERS
 
     class TestScipySpecialUfuncs:
         @pytest.mark.parametrize("function", erf_like_ufuncs)

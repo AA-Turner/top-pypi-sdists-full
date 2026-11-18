@@ -1599,6 +1599,8 @@ from .type_defs import (
     ModifyTransitGatewayMeteringPolicyResultTypeDef,
     ModifyTransitGatewayNetworkFunctionAttachmentRequestTypeDef,
     ModifyTransitGatewayNetworkFunctionAttachmentResultTypeDef,
+    ModifyTransitGatewayPeeringAttachmentRequestTypeDef,
+    ModifyTransitGatewayPeeringAttachmentResultTypeDef,
     ModifyTransitGatewayPolicyTableEntryRequestTypeDef,
     ModifyTransitGatewayPolicyTableEntryResultTypeDef,
     ModifyTransitGatewayPrefixListReferenceRequestTypeDef,
@@ -9299,6 +9301,16 @@ class EC2Client(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_network_function_attachment.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway_network_function_attachment)
+        """
+
+    def modify_transit_gateway_peering_attachment(
+        self, **kwargs: Unpack[ModifyTransitGatewayPeeringAttachmentRequestTypeDef]
+    ) -> ModifyTransitGatewayPeeringAttachmentResultTypeDef:
+        """
+        Modifies the options for a transit gateway peering attachment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/modify_transit_gateway_peering_attachment.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#modify_transit_gateway_peering_attachment)
         """
 
     def modify_transit_gateway_policy_table_entry(

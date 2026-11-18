@@ -65,6 +65,9 @@ class _SeerBillingFeatureEnumTypeWrapper(google.protobuf.internal.enum_type_wrap
     SEER_BILLING_FEATURE_SEVERITY: _SeerBillingFeature.ValueType  # 33
     SEER_BILLING_FEATURE_GROUPING: _SeerBillingFeature.ValueType  # 34
     SEER_BILLING_FEATURE_MODEL_TRAINING: _SeerBillingFeature.ValueType  # 35
+    SEER_BILLING_FEATURE_INTERNAL_TOOLING: _SeerBillingFeature.ValueType  # 36
+    SEER_BILLING_FEATURE_ISSUE_AUTO_RESOLUTION: _SeerBillingFeature.ValueType  # 37
+    SEER_BILLING_FEATURE_TELEMETRY_CLASSIFIERS: _SeerBillingFeature.ValueType  # 38
 
 class SeerBillingFeature(_SeerBillingFeature, metaclass=_SeerBillingFeatureEnumTypeWrapper):
     """Identifies the feature responsible for Seer usage, independently of the
@@ -118,4 +121,7 @@ SEER_BILLING_FEATURE_INBOUND_FILTERS: SeerBillingFeature.ValueType  # 32
 SEER_BILLING_FEATURE_SEVERITY: SeerBillingFeature.ValueType  # 33
 SEER_BILLING_FEATURE_GROUPING: SeerBillingFeature.ValueType  # 34
 SEER_BILLING_FEATURE_MODEL_TRAINING: SeerBillingFeature.ValueType  # 35
+SEER_BILLING_FEATURE_INTERNAL_TOOLING: SeerBillingFeature.ValueType  # 36
+SEER_BILLING_FEATURE_ISSUE_AUTO_RESOLUTION: SeerBillingFeature.ValueType  # 37
+SEER_BILLING_FEATURE_TELEMETRY_CLASSIFIERS: SeerBillingFeature.ValueType  # 38
 global___SeerBillingFeature = SeerBillingFeature

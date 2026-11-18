@@ -63,8 +63,12 @@ RUNTIME_REQUIREMENTS = (
     "tqdm-loggable",
 )
 
-# api workers additionally serve over fastapi/uvicorn
-API_RUNTIME_REQUIREMENTS = ("fastapi[standard]", "uvicorn>=0.30")
+# api workers additionally serve over fastapi/uvicorn. no [standard] extra:
+# the runtime imports only fastapi and uvicorn, and the extra's closure
+# (fastapi-cloud-cli, sentry, opentelemetry, rich, ...) is ~4,000 files and
+# ~18 MB compressed that every cold worker downloads and unpacks. uvicorn
+# still picks up uvloop/httptools from the api images, which ship them.
+API_RUNTIME_REQUIREMENTS = ("fastapi", "uvicorn>=0.30")
 
 # runpod's serverless limit for build artifacts
 MAX_ARTIFACT_MB = 1500
@@ -104,20 +108,51 @@ def _requirements_txt(project_root: Path) -> List[str]:
 
 
 def collect_requirements(project_root: Path, app) -> List[str]:
-    """project requirements.txt plus per-resource dependencies, deduped."""
-    requirements = _requirements_txt(project_root)
+    """collect constraints and reject incompatible unconditional version pins."""
+    requirements = [
+        (req, "requirements.txt") for req in _requirements_txt(project_root)
+    ]
 
-    for handle in app.resources.values():
+    for name, handle in app.resources.items():
         for dep in handle.spec.dependencies or []:
-            requirements.append(dep)
+            requirements.append((dep, f"resource {name!r}"))
 
     seen = set()
     unique = []
-    for req in requirements:
-        key = requirement_name(req)
-        if key not in seen:
-            seen.add(key)
+    unconditional: Dict[str, List[Tuple[Requirement, str, str]]] = {}
+    for req, source in requirements:
+        parsed = _parse_requirement(req)
+        if parsed is not None and parsed.marker is None:
+            entries = unconditional.setdefault(canonicalize_name(parsed.name), [])
+            if entries and req.strip() == parsed.name:
+                continue
+            entries.append((parsed, req, source))
+        if req not in seen:
+            seen.add(req)
             unique.append(req)
+
+    for name, entries in unconditional.items():
+        constraints = [entry for entry in entries if entry[0].specifier]
+        pins = {
+            spec.version
+            for parsed, _, _ in constraints
+            for spec in parsed.specifier
+            if spec.operator == "==" and not spec.version.endswith(".*")
+        }
+        if pins and not any(
+            all(
+                parsed.specifier.contains(pin, prereleases=True)
+                for parsed, _, _ in constraints
+            )
+            for pin in pins
+        ):
+            details = ", ".join(
+                f"{req!r} from {source}" for _, req, source in constraints
+            )
+            raise BuildError(
+                f"conflicting dependency requirements for {name}: {details}. "
+                "use compatible versions across requirements.txt and all resources"
+            )
     return unique
 
 

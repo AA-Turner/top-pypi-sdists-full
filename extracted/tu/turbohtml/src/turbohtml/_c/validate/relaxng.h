@@ -233,8 +233,9 @@ enum { MEMO_NULLABLE, MEMO_TEXT, MEMO_OPEN, MEMO_ATT, MEMO_CLOSE };
 #define MEMO_FREE_STEPS 1024
 #endif
 
-/* Leaves a choice built during validation may hold for each element of the schema, and at least the floor. A residual
-   with two levels of nested ambiguity stays under it; one that doubles with each define passes it within a few. */
+/* Leaves a choice built during validation may hold for each element of the schema; both checks against the limit pass
+   the floor first, so a small schema still allows the floor. A residual with two levels of nested ambiguity stays under
+   it; one that doubles with each define passes it within a few. */
 #define RNG_CHOICE_PER_NODE 24
 #define RNG_CHOICE_FLOOR 256
 
@@ -242,9 +243,7 @@ enum { MEMO_NULLABLE, MEMO_TEXT, MEMO_OPEN, MEMO_ATT, MEMO_CLOSE };
    merge wide enough to need the limit computes it, so a validation that never builds a wide choice pays nothing. */
 static RNG_NOINLINE Py_ssize_t rng_choice_limit(th_schema *schema) {
     if (schema->choice_limit == 0) {
-        Py_ssize_t nodes = schema_count_elements(th_tree_document(schema->tree));
-        schema->choice_limit =
-            nodes * RNG_CHOICE_PER_NODE > RNG_CHOICE_FLOOR ? nodes * RNG_CHOICE_PER_NODE : RNG_CHOICE_FLOOR;
+        schema->choice_limit = schema_count_elements(th_tree_document(schema->tree)) * RNG_CHOICE_PER_NODE;
     }
     return schema->choice_limit;
 }
@@ -602,7 +601,7 @@ static RNG_NOINLINE pattern *pat_choice_merge(th_schema *schema, pattern *p1, pa
     if (rng_event_spend(schema, work)) {
         return schema->p_notallowed;
     }
-    /* the limit is never below RNG_CHOICE_FLOOR, so a smaller choice needs no check */
+    /* a choice within RNG_CHOICE_FLOOR is allowed whatever the schema size, so it needs no check */
     if (trie_size(merged) > RNG_CHOICE_FLOOR && trie_size(merged) > rng_choice_limit(schema)) {
         schema->choice_limit = -1;
         return schema->p_notallowed;
@@ -1662,6 +1661,22 @@ static RNG_NOINLINE int rng_repeat_absorbs(th_schema *schema, pattern *head, con
     return covered;
 }
 
+#define RNG_GROUP_COVER_STEPS 32
+
+/* The choice a derivative of group(p1, p2) makes when p1 is nullable: `left` continues p1's round and `right` starts
+   p2 without it. Both end in the same element content, so when `left`'s tail covers `right`'s, `left` matches
+   everything `right` does, since the group's nullable sibling lets `left` run on. Each place of a doubled group would
+   otherwise keep its own branch. */
+static pattern *rng_group_choice(th_schema *schema, pattern *left, pattern *right) {
+    if (schema->routing == NULL || left->type != P_AFTER || right->type != P_AFTER || left->p1 != right->p1) {
+        return pat_choice(schema, left, right);
+    }
+    int budget = RNG_GROUP_COVER_STEPS;
+    int covered = rng_covers(schema, right->p2, left->p2, &budget);
+    (void)rng_event_spend(schema, RNG_GROUP_COVER_STEPS - budget);
+    return covered ? left : pat_choice(schema, left, right);
+}
+
 static int rng_datatype_ok(th_schema *schema, int datatype_id, facetset *facets, const Py_UCS4 *value, Py_ssize_t len) {
     Py_ssize_t norm_len = 0;
     const Py_UCS4 *norm = dt_normalize_ws(schema, facets->ws, value, len, &norm_len);
@@ -1669,43 +1684,45 @@ static int rng_datatype_ok(th_schema *schema, int datatype_id, facetset *facets,
         return 0;
     }
     const Py_ssize_t units = dt_is_list(datatype_id) ? dt_list_count(norm, norm_len) : norm_len;
-    if (facets->has_min_length && units < facets->min_length) {
+    if (facets->has_min_length && units < facets->limits->min_length) {
         return 0;
     }
-    if (facets->has_max_length && units > facets->max_length) {
+    if (facets->has_max_length && units > facets->limits->max_length) {
         return 0;
     }
     if ((facets->has_min_inclusive || facets->has_max_inclusive || facets->has_min_exclusive ||
          facets->has_max_exclusive) &&
-        dt_is_numeric(datatype_id)) {
+        dt_is_float(datatype_id)) {
         double number = dt_value_double(schema, norm, norm_len);
-        if (facets->has_min_inclusive && !(number >= facets->min_inclusive)) {
+        if (facets->has_min_inclusive && !dt_double_bound_ok(number, facets->min_inclusive, 1, 1)) {
             return 0;
         }
-        if (facets->has_max_inclusive && !(number <= facets->max_inclusive)) {
+        if (facets->has_max_inclusive && !dt_double_bound_ok(number, facets->max_inclusive, -1, 1)) {
             return 0;
         }
-        if (facets->has_min_exclusive && !(number > facets->min_exclusive)) {
+        if (facets->has_min_exclusive && !dt_double_bound_ok(number, facets->min_exclusive, 1, 0)) {
             return 0;
         }
-        if (facets->has_max_exclusive && !(number < facets->max_exclusive)) {
+        if (facets->has_max_exclusive && !dt_double_bound_ok(number, facets->max_exclusive, -1, 0)) {
             return 0;
         }
-    } else if (dt_is_ordered(datatype_id)) {
+    } else if (dt_is_ordered(datatype_id) && (facets->has_min_inclusive || facets->has_max_inclusive ||
+                                              facets->has_min_exclusive || facets->has_max_exclusive)) {
+        const dt_decimal number = dt_is_decimal_family(datatype_id) ? dt_decimal_of(norm, norm_len) : (dt_decimal){0};
         if (facets->has_min_inclusive &&
-            !facet_bound_ok(datatype_id, norm, norm_len, facets->range_text[RANGE_MIN_INCLUSIVE], 1, 1)) {
+            !facet_bound_ok(datatype_id, facets, RANGE_MIN_INCLUSIVE, norm, norm_len, &number, 1, 1)) {
             return 0;
         }
         if (facets->has_max_inclusive &&
-            !facet_bound_ok(datatype_id, norm, norm_len, facets->range_text[RANGE_MAX_INCLUSIVE], -1, 1)) {
+            !facet_bound_ok(datatype_id, facets, RANGE_MAX_INCLUSIVE, norm, norm_len, &number, -1, 1)) {
             return 0;
         }
         if (facets->has_min_exclusive &&
-            !facet_bound_ok(datatype_id, norm, norm_len, facets->range_text[RANGE_MIN_EXCLUSIVE], 1, 0)) {
+            !facet_bound_ok(datatype_id, facets, RANGE_MIN_EXCLUSIVE, norm, norm_len, &number, 1, 0)) {
             return 0;
         }
         if (facets->has_max_exclusive &&
-            !facet_bound_ok(datatype_id, norm, norm_len, facets->range_text[RANGE_MAX_EXCLUSIVE], -1, 0)) {
+            !facet_bound_ok(datatype_id, facets, RANGE_MAX_EXCLUSIVE, norm, norm_len, &number, -1, 0)) {
             return 0;
         }
     }
@@ -1862,7 +1879,7 @@ static RNG_FORCEINLINE pattern *rng_text_deriv_step(th_schema *schema, pattern *
         }
         pattern *left = pat_group(schema, rng_text_deriv(schema, p->p1, value, len), p->p2);
         if (rng_nullable(schema, p->p1)) {
-            return pat_choice(schema, left, rng_text_deriv(schema, p->p2, value, len));
+            return rng_group_choice(schema, left, rng_text_deriv(schema, p->p2, value, len));
         }
         return left;
     }
@@ -1949,7 +1966,7 @@ static RNG_FORCEINLINE pattern *rng_start_tag_open_step(th_schema *schema, patte
         }
         pattern *left = rng_apply_after(schema, rng_start_tag_open(schema, p->p1, name), p->p2, 0);
         if (rng_nullable(schema, p->p1)) {
-            return pat_choice(schema, left, rng_start_tag_open(schema, p->p2, name));
+            return rng_group_choice(schema, left, rng_start_tag_open(schema, p->p2, name));
         }
         return left;
     }
@@ -2737,7 +2754,8 @@ static RNG_NOINLINE pattern *route_text(th_schema *schema, pattern *p, const Py_
     if (p->type == P_INTERLEAVE) {
         return pat_choice(schema, first, route_join(schema, p, p->p1, rng_text_deriv(schema, p->p2, value, len)));
     }
-    return rng_nullable(schema, p->p1) ? pat_choice(schema, first, rng_text_deriv(schema, p->p2, value, len)) : first;
+    return rng_nullable(schema, p->p1) ? rng_group_choice(schema, first, rng_text_deriv(schema, p->p2, value, len))
+                                       : first;
 }
 
 static RNG_NOINLINE pattern *route_open(th_schema *schema, pattern *p, const qname *name) {
@@ -2759,7 +2777,7 @@ static RNG_NOINLINE pattern *route_open(th_schema *schema, pattern *p, const qna
     default: { /* P_GROUP */
         pattern *first = left ? route_apply_after(schema, rng_start_tag_open(schema, p->p1, name), p, p->p2, 1) : none;
         if (right && rng_nullable(schema, p->p1)) {
-            return pat_choice(schema, first, rng_start_tag_open(schema, p->p2, name));
+            return rng_group_choice(schema, first, rng_start_tag_open(schema, p->p2, name));
         }
         return first;
     }

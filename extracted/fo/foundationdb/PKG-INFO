@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: foundationdb
-Version: 8.0.0
+Version: 8.0.1
 Summary: Python bindings for the FoundationDB Database
 Author-email: FoundationDB Team <fdb-dist@apple.com>
 License-Expression: Apache-2.0

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal
 
-from ... import ops
+from ... import ops, types
+from ...models import core
 from ...types import usage as usage_
 from .. import base
 from . import _sdk, errors
@@ -21,33 +23,71 @@ else:
 
 
 class TypeSafeSystemOneProtocol(base.ProviderProtocol[TypeSafeClient]):
-    """TypeSafe ``/v1/systemone`` evaluation protocol."""
+    """TypeSafe ``/v1/systemone`` decision protocol."""
 
     protocol_class_id: Literal["typesafe-system-one"] = "typesafe-system-one"
 
-    async def evaluate(
+    async def decide(
         self,
         client: TypeSafeClient,
         model: model_.Model,
-        state: ops.experimental.EvaluationInput,
+        state: ops.experimental.DecisionInput,
         questions: Mapping[
             str,
             ops.experimental.ChoiceQuestion
             | ops.experimental.ScoreQuestion
-            | ops.experimental.NoulQuestion,
+            | ops.experimental.PredicateQuestion,
         ],
         *,
-        params: ops.experimental.EvaluationParams,
+        params: ops.experimental.DecideParams,
         provider: str,
     ) -> ops.items.Item[dict[str, Any]]:
-        """Hit ``/v1/systemone`` and return raw evaluation answers."""
+        """Hit ``/v1/systemone`` and return raw decision answers."""
         typesafe = _sdk.import_sdk(provider=provider)
 
-        # The native wire format matches the question models, except that an
-        # absent Noul criteria is omitted rather than sent as null.
+        # Files become SDK images wherever they are. The SDK moves them to
+        # the request's assets and sends a reference in their place. One file
+        # part gives one image, so a repeated file is sent once.
+        images: dict[int, typesafe_sdk.Image] = {}
+
+        async def to_wire(value: Any) -> Any:
+            match value:
+                case types.messages.FilePart(media_type=media_type, data=data):
+                    if not media_type.startswith("image/"):
+                        raise ValueError(
+                            f"Unsupported media type for TypeSafe: {media_type}"
+                        )
+                    if id(value) not in images:
+                        match data:
+                            case str() if types.media.is_downloadable_url(data):
+                                data, _ = await core.helpers.files.download(
+                                    data
+                                )
+                            case str():
+                                data = base64.b64decode(
+                                    types.media.data_to_base64(data)
+                                )
+                        images[id(value)] = typesafe.Image(data)
+                    return images[id(value)]
+                case dict():
+                    return {
+                        key: await to_wire(item) for key, item in value.items()
+                    }
+                case list():
+                    return [await to_wire(item) for item in value]
+                case _:
+                    return value
+
+        wire_state = await to_wire(state)
+
+        # The native wire format matches the question models, except that
+        # TypeSafe calls the predicate primitive "noul" and an absent
+        # predicate criteria is omitted rather than sent as null.
         wire_questions: dict[str, Any] = {}
         for question_id, question in questions.items():
-            wire_question = question.model_dump(mode="json")
+            wire_question = await to_wire(dict(question))
+            if wire_question["type"] == "predicate":
+                wire_question["type"] = "noul"
             if wire_question.get("criteria", ...) is None:
                 del wire_question["criteria"]
             wire_questions[question_id] = wire_question
@@ -59,9 +99,13 @@ class TypeSafeSystemOneProtocol(base.ProviderProtocol[TypeSafeClient]):
 
         try:
             response = await client.system_one(
-                state,
+                wire_state,
                 wire_questions,
                 model=model.id,
+                # TypeSafe accepts images only with this opt-in header.
+                extra_headers=(
+                    {"TypeSafe-Danger-Zone-Images": "true"} if images else None
+                ),
                 extra_body=options,
             )
         except typesafe.TypeSafeError as exc:
@@ -78,6 +122,10 @@ class TypeSafeSystemOneProtocol(base.ProviderProtocol[TypeSafeClient]):
             data = answer.model_dump(mode="json")
             if "legend" in data:
                 legends[question_id] = data.pop("legend")
+            if data.get("type") == "noul":
+                data["type"] = "predicate"
+                if "noul" in data:
+                    data["probability"] = data.pop("noul")
             answers[question_id] = data
 
         typesafe_metadata: dict[str, Any] = {"model": response.model}

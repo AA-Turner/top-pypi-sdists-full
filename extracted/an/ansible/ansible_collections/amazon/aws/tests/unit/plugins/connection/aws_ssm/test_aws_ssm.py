@@ -208,8 +208,8 @@ class TestS3ClientManager:
                 m_generate_encryption_settings.assert_called_once_with(bucket_sse_mode, bucket_sse_kms_key_id)
                 if is_windows:
                     assert test_command_generation.startswith(
-                        "$ProgressPreference = 'SilentlyContinue' ; "
                         "$ErrorActionPreference = 'Stop' ; "
+                        "$ProgressPreference = 'SilentlyContinue' ; "
                         "$fileContent = [System.IO.File]::ReadAllBytes('test/in/path') ; "
                         "Invoke-WebRequest -Method PUT -Headers @"
                     )
@@ -227,8 +227,8 @@ class TestS3ClientManager:
                 m_generate_encryption_settings.assert_called_once_with(bucket_sse_mode, bucket_sse_kms_key_id)
                 if is_windows:
                     assert (
-                        "$ProgressPreference = 'SilentlyContinue' ; "
                         "$ErrorActionPreference = 'Stop' ; "
+                        "$ProgressPreference = 'SilentlyContinue' ; "
                         "$response = Invoke-WebRequest -Uri 'https://test-url' -UseBasicParsing ; "
                         "[System.IO.File]::WriteAllBytes('test/out/path', $response.Content)"
                     ) == test_command_generation

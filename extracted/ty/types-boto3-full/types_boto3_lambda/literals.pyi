@@ -126,6 +126,8 @@ EventTypeType = Literal[
     "ContextStarted",
     "ContextSucceeded",
     "ExecutionFailed",
+    "ExecutionPaused",
+    "ExecutionResumed",
     "ExecutionStarted",
     "ExecutionStopped",
     "ExecutionSucceeded",
@@ -138,7 +140,9 @@ EventTypeType = Literal[
     "WaitStarted",
     "WaitSucceeded",
 ]
-ExecutionStatusType = Literal["FAILED", "RUNNING", "STOPPED", "SUCCEEDED", "TIMED_OUT"]
+ExecutionStatusType = Literal[
+    "DELETING", "FAILED", "PAUSED", "PAUSING", "RUNNING", "STOPPED", "SUCCEEDED", "TIMED_OUT"
+]
 FullDocumentType = Literal["Default", "UpdateLookup"]
 FunctionActiveV2WaiterName = Literal["function_active_v2"]
 FunctionActiveWaiterName = Literal["function_active"]

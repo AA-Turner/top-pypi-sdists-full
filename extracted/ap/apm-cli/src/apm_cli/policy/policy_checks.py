@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import os
+from collections.abc import Iterable, Mapping, Sequence
 from pathlib import Path
 
 from .models import CheckResult, CIAuditResult
@@ -89,7 +90,7 @@ def _check_dependency_allowlist(
     policy: DependencyPolicy,
 ) -> CheckResult:
     """Check 1: every dependency matches policy allow list."""
-    from .matcher import check_dependency_allowed
+    from .matcher import check_dependency_allowed, dependency_policy_subject
 
     if policy.allow is None:
         return CheckResult(
@@ -100,7 +101,7 @@ def _check_dependency_allowlist(
 
     violations: list[str] = []
     for dep in deps:
-        ref = dep.get_canonical_dependency_string()
+        ref = dependency_policy_subject(dep)
         allowed, reason = check_dependency_allowed(dep, policy)
         if not allowed and "not in allowed" in reason:
             violations.append(f"{ref}: {reason}")
@@ -124,7 +125,7 @@ def _check_dependency_denylist(
     policy: DependencyPolicy,
 ) -> CheckResult:
     """Check 2: no dependency matches policy deny list."""
-    from .matcher import check_dependency_allowed
+    from .matcher import check_dependency_allowed, dependency_policy_subject
 
     if not policy.effective_deny:
         return CheckResult(
@@ -135,7 +136,7 @@ def _check_dependency_denylist(
 
     violations: list[str] = []
     for dep in deps:
-        ref = dep.get_canonical_dependency_string()
+        ref = dependency_policy_subject(dep)
         allowed, reason = check_dependency_allowed(dep, policy)
         if not allowed and "denied by pattern" in reason:
             violations.append(f"{ref}: {reason}")
@@ -536,12 +537,25 @@ def _check_mcp_self_defined(
 
 
 def _check_compilation_target(
-    raw_yml: dict | None,
+    targets: tuple[str, ...] | None,
     policy: CompilationPolicy,
+    *,
+    source: str = "apm.yml",
 ) -> CheckResult:
-    """Check 11: compilation target matches policy."""
-    enforce = policy.target.enforce
-    allow = policy.target.allow
+    """Check 11: the selected target profiles match compilation-target policy.
+
+    *targets* must be an :attr:`EffectiveTargetDecision.canonical_targets`
+    projection: aliases resolved, ``all`` expanded, MCP-only targets mapped to
+    their primitive profile. ``None`` or empty means nothing is selected.
+    """
+    from ..core.target_detection import (
+        EffectiveTargetDecision,
+        canonical_policy_target_name,
+        canonical_policy_target_names,
+    )
+
+    enforce = canonical_policy_target_name(policy.target.enforce)
+    allow = canonical_policy_target_names(policy.target.allow)
 
     if not enforce and allow is None:
         return CheckResult(
@@ -550,34 +564,36 @@ def _check_compilation_target(
             message="No compilation target restrictions configured",
         )
 
-    target = (raw_yml or {}).get("target")
-    if not target:
+    if not targets:
         return CheckResult(
             name="compilation-target",
             passed=True,
             message="No compilation target set in manifest",
         )
 
-    # Normalize target to a list for uniform checking
-    target_list = target if isinstance(target, list) else [target]
-
+    target_list = list(targets)
     if enforce:
-        if enforce not in target_list:
+        required = (
+            EffectiveTargetDecision("all", "policy").canonical_targets or ()
+            if enforce == "all"
+            else (enforce,)
+        )
+        missing = [name for name in required if name not in target_list]
+        if missing:
             return CheckResult(
                 name="compilation-target",
                 passed=False,
                 message=f"Enforced target '{enforce}' not present in {target_list}",
-                details=[f"target: {target}, enforced: {enforce}"],
+                details=[f"targets: {target_list} (source: {source}), enforced: {enforce}"],
             )
     elif allow is not None:
-        allow_set = set(allow) if isinstance(allow, (list, tuple)) else {allow}
-        disallowed = [t for t in target_list if t not in allow_set]
+        disallowed = [name for name in target_list if name not in allow]
         if disallowed:
             return CheckResult(
                 name="compilation-target",
                 passed=False,
-                message=f"Target(s) {disallowed} not in allowed list {sorted(allow_set)}",
-                details=[f"target: {target}, allowed: {sorted(allow_set)}"],
+                message=f"Target(s) {disallowed} not in allowed list {sorted(allow)}",
+                details=[f"targets: {target_list} (source: {source}), allowed: {sorted(allow)}"],
             )
 
     return CheckResult(
@@ -1062,15 +1078,23 @@ def _check_pinned_constraints(
     deps: list[DependencyReference],
     policy: DependencyPolicy,
     direct_dep_keys: set[str] | None = None,
+    declared_refs: Mapping[str, Sequence[DependencyReference]] | None = None,
 ) -> CheckResult:
     """Check: every direct dep declares a bounded constraint.
 
     Skipped (passes vacuously) when
     ``policy.require_pinned_constraint`` is ``False`` -- the default.
 
-    Operates on the **declared** constraint (``dep.reference``), not
-    the resolved one, so authors learn before the install completes
-    that a moving ref slipped past review.
+    Operates on the **declared** constraint, not the resolved one, so
+    authors learn before the install completes that a moving ref
+    slipped past review. After the resolve phase ``dep.reference``
+    already holds the selected tag, so the install-pipeline callers
+    pass ``declared_refs`` (unique key -> a snapshot of every declaration
+    of it, see ``collect_declared_refs``) and the check classifies each
+    of those instead (#3224); one bounded declaration never covers for an
+    unbounded one sharing the key. ``apm audit`` passes the same
+    snapshot (``collect_manifest_declarations``); install preflight already
+    receives source-selected manifest deps and leaves it ``None``.
 
     When ``direct_dep_keys`` is provided, the check is restricted to
     direct dependencies only -- transitives are excluded, since the
@@ -1096,14 +1120,17 @@ def _check_pinned_constraints(
 
     violations: list[str] = []
     for dep in deps:
-        if direct_dep_keys is not None and dep.get_unique_key() not in direct_dep_keys:
+        unique_key = dep.get_unique_key()
+        if direct_dep_keys is not None and unique_key not in direct_dep_keys:
             continue
-        reason = classify_unbounded_reason(dep)
-        if reason is None:
-            continue
-        key = dep.get_canonical_dependency_string()
-        hint = humanize_reason(reason, dep)
-        violations.append(f"{key}: {hint}")
+        declared = declared_refs.get(unique_key) if declared_refs else None
+        for judged in declared or (dep,):
+            reason = classify_unbounded_reason(judged)
+            if reason is None:
+                continue
+            key = judged.get_canonical_dependency_string()
+            violations.append(f"{key}: {humanize_reason(reason, judged)}")
+    violations = list(dict.fromkeys(violations))
 
     if not violations:
         return CheckResult(
@@ -1185,12 +1212,15 @@ def run_dependency_policy_checks(
     lockfile=None,
     policy: ApmPolicy,
     mcp_deps=None,
-    effective_target: str | list[str] | None = None,
+    effective_target: tuple[str, ...] | None = None,
+    effective_target_source: str = "effective target",
     fetch_outcome: str | None = None,
     fail_fast: bool = True,
     manifest_includes=_INCLUDES_NOT_PROVIDED,
     registries: dict[str, str] | None = None,
     direct_dep_keys: set[str] | None = None,
+    source_deps: Iterable[DependencyReference] | None = None,
+    declared_refs: Mapping[str, Sequence[DependencyReference]] | None = None,
 ) -> CIAuditResult:
     """Evaluate :class:`ApmPolicy` against an already-resolved dependency set.
 
@@ -1214,9 +1244,13 @@ def run_dependency_policy_checks(
         resolved set includes MCP entries they are checked against
         ``policy.mcp``.
     effective_target:
-        The post-targets-phase compilation target string, or ``None``.
-        When ``None`` target/compilation checks are **skipped** (they
-        belong to the separate W2-target-aware call).
+        The ``EffectiveTargetDecision.canonical_targets`` projection of the
+        resolved target selection, or ``None``. When ``None``
+        target/compilation checks are **skipped** (they belong to the
+        separate W2-target-aware call).
+    effective_target_source:
+        Where the target selection came from (``apm.yml``, ``--target flag``,
+        ...), named in compilation-target violation details.
     fetch_outcome:
         Human-readable label for diagnostic context (e.g.
         ``"cached"``, ``"fetched"``).  Currently informational only.
@@ -1237,6 +1271,18 @@ def run_dependency_policy_checks(
         package's own manifest. When ``None`` (legacy dep-only seam
         and the audit wrapper that already iterates direct-only
         manifest deps) every dep in ``deps_to_install`` is evaluated.
+    source_deps:
+        Optional dependency set for the allow/deny source checks. Defaults
+        to ``deps_to_install``. The audit wrapper passes effective direct deps
+        (production, dev, and ``replace``-selected sources) plus locked
+        transitive deps so every installed source is gated.
+    declared_refs:
+        Optional map of ``get_unique_key()`` -> a snapshot of every
+        declaration of that direct dep (``collect_declared_refs``). The
+        resolve phase rewrites ``dep.reference`` to the selected tag, so
+        the install-pipeline callers pass the declarations they captured
+        beforehand and ``require_pinned_constraint`` judges the authored
+        constraint rather than the selected tag (#3224).
 
     Returns
     -------
@@ -1258,6 +1304,7 @@ def run_dependency_policy_checks(
     """
     result = CIAuditResult()
     deps_list = list(deps_to_install)
+    source_list = deps_list if source_deps is None else list(source_deps)
     mcp_list = list(mcp_deps) if mcp_deps is not None else []
 
     def _run(check: CheckResult) -> bool:
@@ -1266,9 +1313,9 @@ def run_dependency_policy_checks(
         return fail_fast and not check.passed
 
     # -- Dependency checks (1-6) -----------------------------------
-    if _run(_check_dependency_allowlist(deps_list, policy.dependencies)):
+    if _run(_check_dependency_allowlist(source_list, policy.dependencies)):
         return result
-    if _run(_check_dependency_denylist(deps_list, policy.dependencies)):
+    if _run(_check_dependency_denylist(source_list, policy.dependencies)):
         return result
     dep_names = None
     if policy.dependencies.effective_require or (
@@ -1308,7 +1355,9 @@ def run_dependency_policy_checks(
         # When direct_dep_keys is supplied, restrict to direct deps -- a
         # transitive package with an unbounded ref in its own manifest is
         # not actionable by the consumer (see Copilot review on #1494).
-        _check_pinned_constraints(deps_list, policy.dependencies, direct_dep_keys),
+        _check_pinned_constraints(
+            deps_list, policy.dependencies, direct_dep_keys, declared_refs=declared_refs
+        ),
     ]
     # MCP checks -- when mcp_deps is None (not provided), skip entirely.
     # When mcp_deps is an empty list (provided but no MCP deps), still
@@ -1322,8 +1371,13 @@ def run_dependency_policy_checks(
         ]
     # Target / compilation + manifest tail checks.
     if effective_target is not None:
-        synthetic_yml = {"target": effective_target}
-        remaining_checks.append(_check_compilation_target(synthetic_yml, policy.compilation))
+        remaining_checks.append(
+            _check_compilation_target(
+                effective_target,
+                policy.compilation,
+                source=effective_target_source,
+            )
+        )
     if manifest_includes is not _INCLUDES_NOT_PROVIDED:
         remaining_checks.append(_check_includes_explicit(manifest_includes, policy.manifest))
     for check in remaining_checks:
@@ -1338,6 +1392,30 @@ def run_dependency_policy_checks(
     # wrapper that ``apm audit --ci`` calls.
 
     return result
+
+
+def _audit_source_dependencies(
+    manifest: APMPackage, lock: LockFile | None
+) -> list[DependencyReference]:
+    """Return effective direct deps plus locked transitive deps for source checks.
+
+    Direct production and dev declarations are projected through the
+    manifest's ``replace`` rules, so the selected source (not the original)
+    is gated, as install does.  Raises ``ValueError`` when the replacement
+    table cannot be bound.
+    """
+    from ..models.dependency.replacement import project_manifest_dependencies
+
+    deps = list(project_manifest_dependencies(manifest))
+    if lock is None:
+        return deps
+    seen = {dep.get_unique_key() for dep in deps}
+    for locked in lock.get_package_dependencies():
+        if locked.depth <= 1 or locked.get_unique_key() in seen:
+            continue
+        seen.add(locked.get_unique_key())
+        deps.append(locked.to_dependency_ref())
+    return deps
 
 
 def run_policy_checks(
@@ -1384,22 +1462,33 @@ def run_policy_checks(
     apm_deps = manifest.get_apm_dependencies()
     mcp_deps = manifest.get_mcp_dependencies()
 
-    # Read effective target from raw manifest for the full-project path
-    # NOTE: the wrapper does NOT pass effective_target to the dep seam.
-    # Target checks run as disk-level checks below (reading raw_yml),
-    # because the wrapper has the on-disk manifest.  The install pipeline
-    # will pass effective_target directly (W2-target-aware).
+    try:
+        source_deps = _audit_source_dependencies(manifest, lock)
+    except ValueError as exc:
+        result.checks.append(
+            CheckResult(
+                name="dependency-sources",
+                passed=False,
+                message=f"Cannot resolve dependency sources from apm.yml: {exc}",
+            )
+        )
+        return result
 
     # -- Delegate dependency + MCP checks to shared seam ---------------
+    from ._constraint_pinning import collect_manifest_declarations
+
     dep_result = run_dependency_policy_checks(
         apm_deps,
         lockfile=lock,
         policy=policy,
         mcp_deps=mcp_deps,
-        # effective_target=None: target checks handled below from raw_yml
+        # effective_target=None: the manifest target check runs below.
         fail_fast=fail_fast,
         manifest_includes=manifest.includes,
         registries=getattr(manifest, "registries", None),
+        source_deps=source_deps,
+        # Judge the same source-selected declarations as the install gate.
+        declared_refs=collect_manifest_declarations(manifest),
     )
     result.checks.extend(dep_result.checks)
 
@@ -1422,8 +1511,19 @@ def run_policy_checks(
 
     # -- Disk-level checks that only apply to full-project audits --
 
-    # Compilation checks (11-13) -- all run from raw_yml in wrapper
-    if _run(_check_compilation_target(raw_yml, policy.compilation)):
+    # Compilation checks (11-13). Audit judges the targets the manifest
+    # declares, through the same projection the install gate uses.
+    from ..core.target_detection import EffectiveTargetDecision
+    from ..models.apm_package import package_target_selection
+
+    manifest_decision = EffectiveTargetDecision(package_target_selection(manifest), "apm.yml")
+    if _run(
+        _check_compilation_target(
+            manifest_decision.canonical_targets,
+            policy.compilation,
+            source=manifest_decision.source,
+        )
+    ):
         return result
     if _run(_check_compilation_strategy(raw_yml, policy.compilation)):
         return result

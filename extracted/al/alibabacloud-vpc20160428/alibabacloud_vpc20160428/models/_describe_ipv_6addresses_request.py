@@ -34,29 +34,29 @@ class DescribeIpv6AddressesRequest(DaraModel):
     ):
         # The type of the IPv6 address. Valid values:
         # 
-        # * IPv6Address: queries an IPv6 instance of a single IPv6 address. This is the default value.
-        # * IPv6Prefix: queries an IPv6 instance of an IPv6 prefix.
+        # * IPv6Address (default): queries an IPv6 instance that has a single IPv6 address.
+        # * IPv6Prefix: queries an IPv6 instance that has an IPv6 prefix.
         self.address_type = address_type
         # The instance ID associated with the IPv6 address to query.
         self.associated_instance_id = associated_instance_id
         # The type of the instance associated with the IPv6 address to query. Valid values:
         # 
-        #  - **EcsInstance**: an ECS instance in a VPC.
+        # - **EcsInstance**: an ECS instance in a VPC.
         # - **NetworkInterface**: elastic network interface controller (NIC).
         # 
         # This parameter must be used together with AssociatedInstanceId.
         self.associated_instance_type = associated_instance_type
         # Specifies whether to include inactive order data. Valid values:
         # 
-        # - **false**: does not include inactive order data. This is the default value.
+        # - **false** (default): does not include inactive order data.
         # 
         # - **true**: includes inactive order data.
         self.include_reservation_data = include_reservation_data
-        # The IPv6 addresses to query.
+        # The IPv6 address to query.
         self.ipv_6address = ipv_6address
-        # The IDs of the IPv6 addresses to query. You can specify up to 20 IPv6 address IDs in each call. Separate multiple IDs with commas (,).
+        # The ID of the IPv6 address to query. You can enter up to 20 IPv6 address IDs in each call. Separate multiple IDs with commas (,).
         self.ipv_6address_id = ipv_6address_id
-        # The instance ID of the Internet bandwidth associated with the IPv6 address to query after Internet bandwidth is enabled.
+        # The Internet bandwidth instance ID corresponding to the IPv6 address to query after Internet bandwidth is enabled.
         self.ipv_6internet_bandwidth_id = ipv_6internet_bandwidth_id
         # The name of the IPv6 address to query.
         # 
@@ -64,13 +64,13 @@ class DescribeIpv6AddressesRequest(DaraModel):
         self.name = name
         # The network type of the IPv6 address to query. Valid values:
         # 
-        # - **Private**: private network.
+        # - **Private**: internal network.
         # 
-        # - **Public**: public network.
+        # - **Public**: Internet.
         self.network_type = network_type
         self.owner_account = owner_account
         self.owner_id = owner_id
-        # The page number of the list. Default value: **1**.
+        # The page number. Default value: **1**.
         self.page_number = page_number
         # The number of entries per page in a paging query. Maximum value: **50**. Default value: **10**.
         self.page_size = page_size
@@ -249,14 +249,13 @@ class DescribeIpv6AddressesRequestTag(DaraModel):
         key: str = None,
         value: str = None,
     ):
-        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot specify an empty string.
+        # The tag key of the resource. You can specify up to 20 tag keys. If you specify this parameter, you cannot enter an empty string.
         # 
-        # A tag key can be up to 128 characters in length and cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
+        # A tag key can be up to 128 characters in length. It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.key = key
-        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can specify an empty string.
+        # The tag value of the resource. You can specify up to 20 tag values. If you specify this parameter, you can enter an empty string.
         # 
-        # 
-        # A tag value can be up to 128 characters in length and must start with a letter or a Chinese character. It can contain digits, periods (.), underscores (_), and hyphens (-). It cannot start with `aliyun` or `acs:`. It cannot contain `http://` or `https://`.
+        # A tag value can be up to 128 characters in length. It must start with a letter or a Chinese character, and can contain digits, periods (.), underscores (_), and hyphens (-). It cannot start with `aliyun` or `acs:`, and cannot contain `http://` or `https://`.
         self.value = value
 
     def validate(self):

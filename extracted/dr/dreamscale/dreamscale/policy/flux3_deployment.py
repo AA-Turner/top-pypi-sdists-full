@@ -7,12 +7,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
-from dreamscale_transport.flux3_deploy import (
+from dreamscale_core.flux3_deploy import (
     FLUX3_BASE_MODEL,
     TRAINED_RTC_CONTRACT,
     Flux3Camera,
 )
-from dreamscale_transport.flux3_so101 import POLICY_CAMERA_KEYS as SO101_FEATURES
+from dreamscale_core.flux3_so101 import POLICY_CAMERA_KEYS as SO101_FEATURES
 
 
 @dataclass(frozen=True)

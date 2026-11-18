@@ -12,8 +12,12 @@ from typing import TYPE_CHECKING, Final, Protocol, get_overloads
 from pytest import MonkeyPatch, fixture, mark, param, raises
 
 from sphinx_autodoc_typehints._refs import MyTypeAliasForwardRef
-from sphinx_autodoc_typehints._resolve import get_all_type_hints
-from sphinx_autodoc_typehints._resolve.guards import SHADOWED_BY_GUARD, guarded_names, resolve_type_guarded_imports
+from sphinx_autodoc_typehints._resolve.guards.overlay import (
+    SHADOWED_BY_GUARD,
+    guarded_names,
+)
+from sphinx_autodoc_typehints._resolve.guards.run import resolve_type_guarded_imports
+from sphinx_autodoc_typehints._resolve.hints import get_all_type_hints
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,7 +27,9 @@ if TYPE_CHECKING:
     from conftest import BuildText
     from sphinx.testing.util import SphinxTestApp
 
-    from sphinx_autodoc_typehints._types import Documented
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # Shared test types
+        Documented,
+    )
 
 _GUARD: Final[str] = dedent("""\
     from __future__ import annotations
@@ -35,9 +41,9 @@ _FUNC: Final[str] = "def func(): ..."
 
 
 def test_resolve_type_guarded_imports_records_nothing_for_a_module_without_source(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
 ) -> None:
-    module = make_module(_FUNC)
+    module = resolve_module(_FUNC)
     resolve_type_guarded_imports([], Error)
     resolve_type_guarded_imports([], module.func)
     assert (Error.__module__ in SHADOWED_BY_GUARD, module.__name__ in SHADOWED_BY_GUARD) == (False, True)
@@ -52,11 +58,14 @@ def test_resolve_type_guarded_imports_records_nothing_for_a_module_without_sourc
     ],
 )
 def test_resolve_type_guarded_imports_records_the_guard_of_the_module(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     guarded: Callable[[str, str], str],
-    target: Callable[[ModuleType], ModuleType | Callable[..., object]],
+    target: Callable[
+        [ModuleType],
+        ModuleType | Callable[..., object],  # simplint: ignore[callable-ellipsis]  # any callable is passed
+    ],
 ) -> None:
-    module = make_module(
+    module = resolve_module(
         guarded(
             "from decimal import Decimal",
             dedent("""\
@@ -70,8 +79,8 @@ def test_resolve_type_guarded_imports_records_the_guard_of_the_module(
     assert guarded_names(module) == {"Decimal": Decimal}
 
 
-def test_resolve_type_guarded_imports_skips_a_false_compound_guard(make_module: Callable[[str], ModuleType]) -> None:
-    module = make_module(
+def test_resolve_type_guarded_imports_skips_a_false_compound_guard(resolve_module: Callable[[str], ModuleType]) -> None:
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
             from typing import TYPE_CHECKING
@@ -86,8 +95,21 @@ def test_resolve_type_guarded_imports_skips_a_false_compound_guard(make_module: 
     assert "Ghost" not in guarded_names(module.consume)
 
 
-def test_resolve_type_guarded_imports_uses_the_build_platform(make_module: Callable[[str], ModuleType]) -> None:
-    module = make_module(
+@mark.parametrize(
+    "expected",
+    [
+        param(date, id="windows", marks=mark.skipif(platform != "win32", reason="the guard binds date on Windows")),
+        param(
+            Decimal,
+            id="other-platforms",
+            marks=mark.skipif(platform == "win32", reason="the guard binds Decimal off Windows"),
+        ),
+    ],
+)
+def test_resolve_type_guarded_imports_uses_the_build_platform(
+    resolve_module: Callable[[str], ModuleType], expected: type
+) -> None:
+    module = resolve_module(
         dedent("""\
             from __future__ import annotations
             import sys
@@ -101,14 +123,13 @@ def test_resolve_type_guarded_imports_uses_the_build_platform(make_module: Calla
             def consume(value: PlatformType) -> None: ...
         """)
     )
-    expected = date if platform == "win32" else Decimal
     assert get_all_type_hints([], module.consume, "mod.consume", {})["value"] is expected
 
 
 def test_resolve_type_guarded_imports_skips_an_instance_but_not_its_class(
-    make_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
+    resolve_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
 ) -> None:
-    module = make_module(guarded("from decimal import Decimal", "class Holder: ..."))
+    module = resolve_module(guarded("from decimal import Decimal", "class Holder: ..."))
     resolve_type_guarded_imports([], module.Holder())
     skipped = module.__name__ not in SHADOWED_BY_GUARD
     resolve_type_guarded_imports([], module.Holder)
@@ -116,10 +137,10 @@ def test_resolve_type_guarded_imports_skips_an_instance_but_not_its_class(
 
 
 def test_resolve_type_guarded_imports_records_the_guard_of_the_module_defining_a_reexported_function(
-    module_dir: Path, make_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
+    module_dir: Path, resolve_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
 ) -> None:
     (module_dir / "reexported_impl.py").write_text(guarded("from decimal import Decimal", "def convert(): ..."))
-    module = make_module(
+    module = resolve_module(
         dedent("""\
             from reexported_impl import convert
 
@@ -131,10 +152,10 @@ def test_resolve_type_guarded_imports_records_the_guard_of_the_module_defining_a
 
 
 def test_resolve_type_guarded_imports_binds_the_names_below_an_absent_dependency(
-    make_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
+    resolve_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
 ) -> None:
     # the absent dependency must not strand the imports under it (#741)
-    module = make_module(
+    module = resolve_module(
         guarded(
             dedent("""\
                 from no_such_dependency import Absent
@@ -174,7 +195,7 @@ def test_resolve_type_guarded_imports_binds_the_names_below_an_absent_dependency
     ],
 )
 def test_resolve_type_guarded_imports_mocks_an_absent_dependency(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     guarded: Callable[[str, str], str],
     logged_warnings: Callable[[], list[tuple[str, ...]]],
     guard: str,
@@ -182,7 +203,7 @@ def test_resolve_type_guarded_imports_mocks_an_absent_dependency(
     display_name: str,
 ) -> None:
     # a guarded dependency the docs environment lacks reads as autodoc_mock_imports would mock it (#768)
-    module = make_module(guarded(guard, f"def func(value: {annotation}) -> None: ..."))
+    module = resolve_module(guarded(guard, f"def func(value: {annotation}) -> None: ..."))
     assert (repr(get_all_type_hints([], module.func, "mod.func", {})["value"]), logged_warnings()) == (display_name, [])
 
 
@@ -221,7 +242,7 @@ def test_resolve_type_guarded_imports_mocks_an_absent_sibling_imported_relativel
 )
 def test_resolve_type_guarded_imports_warns_about_a_dependency_that_fails(
     module_dir: Path,
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     guarded: Callable[[str, str], str],
     logged_warnings: Callable[[], list[tuple[str, ...]]],
     guard: str,
@@ -230,7 +251,7 @@ def test_resolve_type_guarded_imports_warns_about_a_dependency_that_fails(
 ) -> None:
     # mocking cannot stand in for an installed module, nor give a plain module a submodule (#768)
     (module_dir / "broken_dependency.py").write_text(dependency)
-    module = make_module(guarded(guard, _FUNC))
+    module = resolve_module(guarded(guard, _FUNC))
     resolve_type_guarded_imports([], module.func)
     assert logged_warnings() == [
         ("guarded_import", f"{module.__file__}:{module.func.__code__.co_firstlineno}", module.__name__, error)
@@ -255,7 +276,7 @@ def test_resolve_type_guarded_imports_warns_about_a_dependency_that_fails(
 )
 def test_resolve_type_guarded_imports_skips_what_fails_silently(
     module_dir: Path,
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     guarded: Callable[[str, str], str],
     logged_warnings: Callable[[], list[tuple[str, ...]]],
     dependency: str,
@@ -264,14 +285,14 @@ def test_resolve_type_guarded_imports_skips_what_fails_silently(
     expected: dict[str, Documented],
 ) -> None:
     (module_dir / f"{dependency}.py").write_text(content)
-    module = make_module(guarded(guard, _FUNC))
+    module = resolve_module(guarded(guard, _FUNC))
     resolve_type_guarded_imports([], module.func)
     assert (guarded_names(module.func), logged_warnings()) == (expected, [])
 
 
 def test_resolve_type_guarded_imports_warns_about_a_guard_that_does_not_parse(
     module_dir: Path,
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     logged_warnings: Callable[[], list[tuple[str, ...]]],
 ) -> None:
     source = dedent("""\
@@ -282,7 +303,7 @@ def test_resolve_type_guarded_imports_warns_about_a_guard_that_does_not_parse(
 
         def func(): ...
     """)
-    module = make_module(source)
+    module = resolve_module(source)
     (module_dir / f"{module.__name__}.py").write_text(
         source
         + dedent("""\
@@ -298,7 +319,7 @@ def test_resolve_type_guarded_imports_warns_about_a_guard_that_does_not_parse(
 
 
 def test_resolve_type_guarded_imports_reads_a_guard_of_a_module_whose_source_does_not_parse(
-    module_dir: Path, make_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
+    module_dir: Path, resolve_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str]
 ) -> None:
     source = dedent("""\
         from typing import TYPE_CHECKING
@@ -312,7 +333,7 @@ def test_resolve_type_guarded_imports_reads_a_guard_of_a_module_whose_source_doe
     import_module("unparsed_source")
     # what a stale linecache entry or a transpiling loader hands inspect.getsource
     (module_dir / "unparsed_source.py").write_text(f"{source}this is not python (")
-    module = make_module(guarded("from unparsed_source import Thing", _FUNC))
+    module = resolve_module(guarded("from unparsed_source import Thing", _FUNC))
     resolve_type_guarded_imports([], module.func)
     assert guarded_names(module.func) == {"Thing": int}
 
@@ -342,13 +363,13 @@ def test_resolve_type_guarded_imports_reads_a_guard_of_a_module_whose_source_doe
     ],
 )
 def test_resolve_type_guarded_imports_binds_a_name_the_interpreter_rejects(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
     guarded: Callable[[str, str], str],
     guard: str,
     expected: dict[str, Documented],
 ) -> None:
     # a type checker accepts what the interpreter cannot run, so the names stand in for themselves (#751)
-    module = make_module(guarded(guard, _FUNC))
+    module = resolve_module(guarded(guard, _FUNC))
     resolve_type_guarded_imports([], module.func)
     # Python 3.14 records the annotations an if statement may set in __conditional_annotations__
     names = {name: value for name, value in guarded_names(module.func).items() if not name.startswith("__")}
@@ -431,18 +452,18 @@ _OVERLOADED_PICK: Final[str] = dedent("""\
     ],
 )
 def test_resolve_type_guarded_imports_leaves_the_module_as_it_runs(
-    make_module: Callable[[str], ModuleType], source: str
+    resolve_module: Callable[[str], ModuleType], source: str
 ) -> None:
-    module = make_module(f"{source}def func(value: Decimal) -> None: ...")
-    runtime = dict(vars(module))
+    module = resolve_module(f"{source}def func(value: Decimal) -> None: ...")
+    runtime = dict(module.__dict__)
     resolve_type_guarded_imports([], module.func)
-    assert (vars(module), guarded_names(module.func)["Decimal"]) == (runtime, Decimal)
+    assert (module.__dict__, guarded_names(module.func)["Decimal"]) == (runtime, Decimal)
 
 
 def test_resolve_type_guarded_imports_registers_no_overload_for_a_runtime_function(
-    make_module: Callable[[str], ModuleType],
+    resolve_module: Callable[[str], ModuleType],
 ) -> None:
-    module = make_module(f"{_OVERLOADED_PICK}{_FUNC}")
+    module = resolve_module(f"{_OVERLOADED_PICK}{_FUNC}")
     resolve_type_guarded_imports([], module.func)
     assert (get_overloads(module.pick), guarded_names(module.func)["Decimal"]) == ([], Decimal)
 
@@ -455,7 +476,7 @@ def test_resolve_type_guarded_imports_registers_no_overload_for_a_runtime_functi
     ],
 )
 def test_resolve_type_guarded_imports_reads_a_name_as_the_guard_of_its_module_binds_it(
-    module_dir: Path, make_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str], imported: str
+    module_dir: Path, resolve_module: Callable[[str], ModuleType], guarded: Callable[[str, str], str], imported: str
 ) -> None:
     (module_dir / "guarded_source.py").write_text(
         dedent("""\
@@ -470,7 +491,7 @@ def test_resolve_type_guarded_imports_reads_a_name_as_the_guard_of_its_module_bi
                 Fn = Callable[[int], str]
         """)
     )
-    module = make_module(guarded(f"from guarded_source import {imported}", _FUNC))
+    module = resolve_module(guarded(f"from guarded_source import {imported}", _FUNC))
     resolve_type_guarded_imports([], module.func)
     assert isinstance(fn := guarded_names(module.func)["Fn"], type)
     assert fn.__bases__ == (Protocol,)
@@ -693,14 +714,14 @@ def test_build_lists_no_member_the_guard_of_an_imported_member_adds(
 
                    Inappropriate argument value (of correct type).
 
-                demo_typing_guard.a[AnyStr: (bytes, str)](f, s)
+                demo_typing_guard.a[AnyStr: (bytes, str)](first, second)
 
                    Do.
 
                    Parameters:
-                      * **f** ("Decimal") -- first
+                      * **first** ("Decimal") -- first
 
-                      * **s** ("AnyStr") -- second
+                      * **second** ("AnyStr") -- second
 
                    Return type:
                       "Sequence"[{

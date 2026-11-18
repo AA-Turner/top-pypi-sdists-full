@@ -34,10 +34,15 @@ Usage::
         ListNetworkMigrationDeployedStacksPaginator,
         ListNetworkMigrationDeploymentsPaginator,
         ListNetworkMigrationExecutionsPaginator,
+        ListNetworkMigrationInsightsPaginator,
         ListNetworkMigrationMapperSegmentConstructsPaginator,
         ListNetworkMigrationMapperSegmentsPaginator,
         ListNetworkMigrationMappingUpdatesPaginator,
         ListNetworkMigrationMappingsPaginator,
+        ListRemoteSourceActionInvocationResultsPaginator,
+        ListRemoteSourceActionInvocationsPaginator,
+        ListRemoteSourceActionJobsPaginator,
+        ListRemoteSourceActionsPaginator,
         ListSourceServerActionsPaginator,
         ListTemplateActionsPaginator,
         ListWavesPaginator,
@@ -68,10 +73,15 @@ Usage::
     list_network_migration_deployed_stacks_paginator: ListNetworkMigrationDeployedStacksPaginator = client.get_paginator("list_network_migration_deployed_stacks")
     list_network_migration_deployments_paginator: ListNetworkMigrationDeploymentsPaginator = client.get_paginator("list_network_migration_deployments")
     list_network_migration_executions_paginator: ListNetworkMigrationExecutionsPaginator = client.get_paginator("list_network_migration_executions")
+    list_network_migration_insights_paginator: ListNetworkMigrationInsightsPaginator = client.get_paginator("list_network_migration_insights")
     list_network_migration_mapper_segment_constructs_paginator: ListNetworkMigrationMapperSegmentConstructsPaginator = client.get_paginator("list_network_migration_mapper_segment_constructs")
     list_network_migration_mapper_segments_paginator: ListNetworkMigrationMapperSegmentsPaginator = client.get_paginator("list_network_migration_mapper_segments")
     list_network_migration_mapping_updates_paginator: ListNetworkMigrationMappingUpdatesPaginator = client.get_paginator("list_network_migration_mapping_updates")
     list_network_migration_mappings_paginator: ListNetworkMigrationMappingsPaginator = client.get_paginator("list_network_migration_mappings")
+    list_remote_source_action_invocation_results_paginator: ListRemoteSourceActionInvocationResultsPaginator = client.get_paginator("list_remote_source_action_invocation_results")
+    list_remote_source_action_invocations_paginator: ListRemoteSourceActionInvocationsPaginator = client.get_paginator("list_remote_source_action_invocations")
+    list_remote_source_action_jobs_paginator: ListRemoteSourceActionJobsPaginator = client.get_paginator("list_remote_source_action_jobs")
+    list_remote_source_actions_paginator: ListRemoteSourceActionsPaginator = client.get_paginator("list_remote_source_actions")
     list_source_server_actions_paginator: ListSourceServerActionsPaginator = client.get_paginator("list_source_server_actions")
     list_template_actions_paginator: ListTemplateActionsPaginator = client.get_paginator("list_template_actions")
     list_waves_paginator: ListWavesPaginator = client.get_paginator("list_waves")
@@ -130,6 +140,8 @@ from .type_defs import (
     ListNetworkMigrationDeploymentsRequestPaginateTypeDef,
     ListNetworkMigrationExecutionsRequestPaginateTypeDef,
     ListNetworkMigrationExecutionsResponseTypeDef,
+    ListNetworkMigrationInsightsRequestPaginateTypeDef,
+    ListNetworkMigrationInsightsResponseTypeDef,
     ListNetworkMigrationMapperSegmentConstructsRequestPaginateTypeDef,
     ListNetworkMigrationMapperSegmentConstructsResponseTypeDef,
     ListNetworkMigrationMapperSegmentsRequestPaginateTypeDef,
@@ -138,6 +150,14 @@ from .type_defs import (
     ListNetworkMigrationMappingsResponseTypeDef,
     ListNetworkMigrationMappingUpdatesRequestPaginateTypeDef,
     ListNetworkMigrationMappingUpdatesResponseTypeDef,
+    ListRemoteSourceActionInvocationResultsRequestPaginateTypeDef,
+    ListRemoteSourceActionInvocationResultsResponseTypeDef,
+    ListRemoteSourceActionInvocationsRequestPaginateTypeDef,
+    ListRemoteSourceActionInvocationsResponseTypeDef,
+    ListRemoteSourceActionJobsRequestPaginateTypeDef,
+    ListRemoteSourceActionJobsResponseTypeDef,
+    ListRemoteSourceActionsRequestPaginateTypeDef,
+    ListRemoteSourceActionsResponseTypeDef,
     ListSourceServerActionsRequestPaginateTypeDef,
     ListSourceServerActionsResponseTypeDef,
     ListTemplateActionsRequestPaginateTypeDef,
@@ -174,10 +194,15 @@ __all__ = (
     "ListNetworkMigrationDeployedStacksPaginator",
     "ListNetworkMigrationDeploymentsPaginator",
     "ListNetworkMigrationExecutionsPaginator",
+    "ListNetworkMigrationInsightsPaginator",
     "ListNetworkMigrationMapperSegmentConstructsPaginator",
     "ListNetworkMigrationMapperSegmentsPaginator",
     "ListNetworkMigrationMappingUpdatesPaginator",
     "ListNetworkMigrationMappingsPaginator",
+    "ListRemoteSourceActionInvocationResultsPaginator",
+    "ListRemoteSourceActionInvocationsPaginator",
+    "ListRemoteSourceActionJobsPaginator",
+    "ListRemoteSourceActionsPaginator",
     "ListSourceServerActionsPaginator",
     "ListTemplateActionsPaginator",
     "ListWavesPaginator",
@@ -610,6 +635,26 @@ class ListNetworkMigrationExecutionsPaginator(_ListNetworkMigrationExecutionsPag
         """
 
 if TYPE_CHECKING:
+    _ListNetworkMigrationInsightsPaginatorBase = Paginator[
+        ListNetworkMigrationInsightsResponseTypeDef
+    ]
+else:
+    _ListNetworkMigrationInsightsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListNetworkMigrationInsightsPaginator(_ListNetworkMigrationInsightsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationInsights.html#Mgn.Paginator.ListNetworkMigrationInsights)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listnetworkmigrationinsightspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListNetworkMigrationInsightsRequestPaginateTypeDef]
+    ) -> PageIterator[ListNetworkMigrationInsightsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationInsights.html#Mgn.Paginator.ListNetworkMigrationInsights.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listnetworkmigrationinsightspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListNetworkMigrationMapperSegmentConstructsPaginatorBase = Paginator[
         ListNetworkMigrationMapperSegmentConstructsResponseTypeDef
     ]
@@ -689,6 +734,84 @@ class ListNetworkMigrationMappingsPaginator(_ListNetworkMigrationMappingsPaginat
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListNetworkMigrationMappings.html#Mgn.Paginator.ListNetworkMigrationMappings.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listnetworkmigrationmappingspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRemoteSourceActionInvocationResultsPaginatorBase = Paginator[
+        ListRemoteSourceActionInvocationResultsResponseTypeDef
+    ]
+else:
+    _ListRemoteSourceActionInvocationResultsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRemoteSourceActionInvocationResultsPaginator(
+    _ListRemoteSourceActionInvocationResultsPaginatorBase
+):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionInvocationResults.html#Mgn.Paginator.ListRemoteSourceActionInvocationResults)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactioninvocationresultspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRemoteSourceActionInvocationResultsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRemoteSourceActionInvocationResultsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionInvocationResults.html#Mgn.Paginator.ListRemoteSourceActionInvocationResults.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactioninvocationresultspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRemoteSourceActionInvocationsPaginatorBase = Paginator[
+        ListRemoteSourceActionInvocationsResponseTypeDef
+    ]
+else:
+    _ListRemoteSourceActionInvocationsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRemoteSourceActionInvocationsPaginator(_ListRemoteSourceActionInvocationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionInvocations.html#Mgn.Paginator.ListRemoteSourceActionInvocations)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactioninvocationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRemoteSourceActionInvocationsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRemoteSourceActionInvocationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionInvocations.html#Mgn.Paginator.ListRemoteSourceActionInvocations.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactioninvocationspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRemoteSourceActionJobsPaginatorBase = Paginator[ListRemoteSourceActionJobsResponseTypeDef]
+else:
+    _ListRemoteSourceActionJobsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRemoteSourceActionJobsPaginator(_ListRemoteSourceActionJobsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionJobs.html#Mgn.Paginator.ListRemoteSourceActionJobs)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactionjobspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRemoteSourceActionJobsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRemoteSourceActionJobsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActionJobs.html#Mgn.Paginator.ListRemoteSourceActionJobs.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactionjobspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListRemoteSourceActionsPaginatorBase = Paginator[ListRemoteSourceActionsResponseTypeDef]
+else:
+    _ListRemoteSourceActionsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListRemoteSourceActionsPaginator(_ListRemoteSourceActionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActions.html#Mgn.Paginator.ListRemoteSourceActions)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListRemoteSourceActionsRequestPaginateTypeDef]
+    ) -> PageIterator[ListRemoteSourceActionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/mgn/paginator/ListRemoteSourceActions.html#Mgn.Paginator.ListRemoteSourceActions.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_mgn/paginators/#listremotesourceactionspaginator)
         """
 
 if TYPE_CHECKING:

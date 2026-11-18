@@ -65,6 +65,7 @@ from anyscale.client.openapi_client.models.apply_scheduler_config_request import
 from anyscale.client.openapi_client.models.apply_scheduler_config_response import (
     ApplySchedulerConfigResponse,
 )
+from anyscale.client.openapi_client.models.consumer_response import ConsumerResponse
 from anyscale.client.openapi_client.models.create_schedule import CreateSchedule
 from anyscale.client.openapi_client.models.databricks_connection_config_item import (
     DatabricksConnectionConfigItem,
@@ -87,7 +88,11 @@ from anyscale.client.openapi_client.models.decoratedschedule_list_response impor
 from anyscale.client.openapi_client.models.job_run_summary import (
     JobRunSummary as APIJobRun,
 )
+from anyscale.client.openapi_client.models.overview_response import OverviewResponse
 from anyscale.client.openapi_client.models.production_job import ProductionJob
+from anyscale.client.openapi_client.models.queuerowresponse_list_response import (
+    QueuerowresponseListResponse,
+)
 from anyscale.client.openapi_client.models.resource_tag_record import ResourceTagRecord
 from anyscale.client.openapi_client.models.rollback_scheduler_config_request import (
     RollbackSchedulerConfigRequest,
@@ -99,6 +104,9 @@ from anyscale.client.openapi_client.models.schedulerconfigversionsummary_list_re
     SchedulerconfigversionsummaryListResponse,
 )
 from anyscale.client.openapi_client.models.session_ssh_key import SessionSshKey
+from anyscale.client.openapi_client.models.workloadresponse_list_response import (
+    WorkloadresponseListResponse,
+)
 from anyscale.client.openapi_client.models.workspace_ssh_details import (
     WorkspaceSshDetails,
 )
@@ -1407,6 +1415,51 @@ class AnyscaleClientInterface(ABC):
         paging_token: Optional[str] = None,
     ) -> SchedulerconfigversionsummaryListResponse:
         """Per-page wrapper. Returns a page response with .results and .metadata.next_paging_token."""
+        raise NotImplementedError
+
+    # ---- Scheduler queues (live state) ----
+
+    @abstractmethod
+    def list_scheduler_queues(
+        self,
+        *,
+        limit: Optional[int] = None,
+        paging_token: Optional[str] = None,
+    ) -> QueuerowresponseListResponse:
+        """One page of the org's active scheduler queues.
+
+        Returns the page response, with .results and .metadata.next_paging_token.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_scheduler_queue_workloads(
+        self,
+        queue_id: str,
+        *,
+        state: str,
+        limit: Optional[int] = None,
+    ) -> WorkloadresponseListResponse:
+        """The pending or running workloads of one scheduler queue.
+
+        `state` is "pending" or "running". Returns the list response, with .results and
+        .metadata.total (every workload in that state, not only the ones returned).
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_scheduler_overview(self) -> OverviewResponse:
+        """The org-wide scheduler rollup: totals, utilization, clouds and topology."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_scheduler_top_consumers(
+        self,
+        *,
+        limit: Optional[int] = None,
+        queue_id: Optional[str] = None,
+    ) -> List[ConsumerResponse]:
+        """The clusters holding the most nodes, org-wide or in one queue."""
         raise NotImplementedError
 
     @abstractmethod

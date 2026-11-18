@@ -4,7 +4,7 @@ Base classes, sentinels, and infrastructure for the dotted element system.
 import collections
 import pyparsing as pp
 
-from .utypes import marker, ANY, CUT_SENTINEL, BRANCH_CUT, BRANCH_SOFTCUT, resolve_types  # noqa: F401
+from .utypes import marker, ANY, BRANCH_CUT, BRANCH_SOFTCUT, resolve_types  # noqa: F401
 
 
 # Generator safety (data): keep lazy things lazy as long as possible. Avoid needlessly consuming
@@ -180,6 +180,14 @@ class Op:
         matching a path (recursive ops, groups).
         """
         return False
+    def translated(self, translation, *args):
+        """
+        What `translation` makes of this op: each kind of op calls its
+        own hook of `translation` with `args`, `translation.key` for a
+        Key, `translation.value_guard` for a ValueGuard. This is the
+        hook for an op of a kind with none.
+        """
+        return translation.other(self, *args)
 
 
 class MetaNOP(type):

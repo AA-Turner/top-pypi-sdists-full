@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from platformdirs import PlatformDirs, __version__
 
+TYPE_CHECKING = False
 if TYPE_CHECKING:
+    from typing import Final
+
     from platformdirs.api import PlatformDirsABC
 
-PROPS = (
+PROPS: Final[tuple[str, ...]] = (
     "user_data_dir",
     "user_config_dir",
     "user_cache_dir",
@@ -41,28 +42,27 @@ PROPS = (
 
 
 def main() -> None:
-    """Run the main entry point."""
     app_name = "MyApp"
     app_author = "MyCompany"
 
-    print(f"-- platformdirs {__version__} --")  # ruff:ignore[print]
+    print(f"-- platformdirs {__version__} --")  # ruff:ignore[print]  # CLI output
 
-    print("-- app dirs (with optional 'version')")  # ruff:ignore[print]
+    print("-- app dirs (with optional 'version')")  # ruff:ignore[print]  # CLI output
     _print_dirs(PlatformDirs(app_name, app_author, version="1.0"))
 
-    print("\n-- app dirs (without optional 'version')")  # ruff:ignore[print]
+    print("\n-- app dirs (without optional 'version')")  # ruff:ignore[print]  # CLI output
     _print_dirs(PlatformDirs(app_name, app_author))
 
-    print("\n-- app dirs (without optional 'appauthor')")  # ruff:ignore[print]
+    print("\n-- app dirs (without optional 'appauthor')")  # ruff:ignore[print]  # CLI output
     _print_dirs(PlatformDirs(app_name))
 
-    print("\n-- app dirs (with disabled 'appauthor')")  # ruff:ignore[print]
+    print("\n-- app dirs (with disabled 'appauthor')")  # ruff:ignore[print]  # CLI output
     _print_dirs(PlatformDirs(app_name, appauthor=False))
 
 
 def _print_dirs(dirs: PlatformDirsABC) -> None:
     for prop in PROPS:
-        print(f"{prop}: {_dir_or_error(dirs, prop)}")  # ruff:ignore[print]
+        print(f"{prop}: {_dir_or_error(dirs, prop)}")  # ruff:ignore[print]  # CLI output
 
 
 def _dir_or_error(dirs: PlatformDirsABC, prop: str) -> str:

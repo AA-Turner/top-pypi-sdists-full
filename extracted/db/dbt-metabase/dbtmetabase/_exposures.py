@@ -10,12 +10,11 @@ from pathlib import Path
 from typing import (
     Any,
 )
-from urllib.parse import unquote
 
 from dbtmetabase.metabase import Metabase
 
 from .errors import ArgumentError
-from .format import Filter, dump_yaml, safe_description, safe_name
+from .format import Filter, dump_yaml, safe_description, safe_identifier
 from .manifest import DEFAULT_SCHEMA, Manifest, Model
 
 _RESOURCE_VERSION = 2
@@ -32,6 +31,8 @@ _CTE_PARSER = re.compile(
     r"(?:\bwith|\)\s*,)\s*(?P<cte>\w+)\s+as",
     re.IGNORECASE,
 )
+
+_JINJA_PARSER = re.compile(r"({{|{%|{#)")
 
 _logger = logging.getLogger(__name__)
 
@@ -91,6 +92,7 @@ class ExposuresMixin(metaclass=ABCMeta):
 
         exposures = []
         counts: MutableMapping[str, int] = {}
+        collection_groups: set[str] = set()
 
         for collection in self.metabase.get_collections(
             exclude_personal=not allow_personal_collections
@@ -98,9 +100,21 @@ class ExposuresMixin(metaclass=ABCMeta):
             collection_name = collection["name"]
 
             if "slug" in collection:
-                collection_slug = unquote(collection["slug"])
+                collection_group = safe_identifier(
+                    collection["slug"],
+                    fallback=f"collection_{collection['id']}",
+                    decode_url=True,
+                )
             else:
-                collection_slug = safe_name(collection["name"])
+                collection_group = safe_identifier(
+                    collection["name"],
+                    fallback=f"collection_{collection['id']}",
+                )
+            collection_group = _unique_group_name(
+                collection_group,
+                collection["id"],
+                collection_groups,
+            )
 
             if not collection_filter.match(collection_name):
                 _logger.debug("Skipping collection '%s'", collection["name"])
@@ -181,7 +195,10 @@ class ExposuresMixin(metaclass=ABCMeta):
                         exposure.creator_name = creator.get("common_name", "")
                         exposure.creator_email = creator.get("email", "")
 
-                exposure.name = safe_name(exposure.label)
+                exposure.name = safe_identifier(
+                    exposure.label,
+                    fallback=f"{exposure.model}_{exposure.uid}",
+                )
                 count = counts.get(exposure.name, 0)
                 counts[exposure.name] = count + 1
                 exposure.name = exposure.name + (f"_{count}" if count > 0 else "")
@@ -201,7 +218,7 @@ class ExposuresMixin(metaclass=ABCMeta):
                     {
                         "id": item["id"],
                         "type": item["model"],
-                        "collection": collection_slug,
+                        "collection": collection_group,
                         "body": self._format_exposure(
                             model=exposure.model,
                             uid=exposure.uid,
@@ -430,14 +447,12 @@ class ExposuresMixin(metaclass=ABCMeta):
             header = f"### {header}\n\n"
 
         if description:
-            description = description.strip()
+            description = safe_description(description.strip())
         else:
             description = "No description provided in Metabase"
 
         if native_query:
-            # Format query into markdown code block
-            native_query = "\n".join(x for x in native_query.split("\n") if x.strip())
-            native_query = f"#### Query\n\n```\n{native_query}\n```\n\n"
+            native_query = _format_native_query(native_query)
         else:
             native_query = ""
 
@@ -450,9 +465,7 @@ class ExposuresMixin(metaclass=ABCMeta):
         exposure: dict[str, Any] = {
             "name": name,
             "label": label,
-            "description": safe_description(
-                f"{header}{description}\n\n{native_query}{metadata}"
-            ),
+            "description": f"{header}{description}\n\n{native_query}{metadata}",
             "type": dbt_type,
             "url": url,
             "maturity": "medium",
@@ -499,6 +512,22 @@ class _Exposure:
     last_used_at: str | None = None
     native_query: str | None = None
     depends: set[str] = dc.field(default_factory=set)
+
+
+def _format_native_query(native_query: str) -> str:
+    """Formats native SQL for the exposure description.
+
+    Wrap SQL containing Jinja-like delimiters in raw blocks so dbt does not
+    attempt to parse Metabase variables or literal template-looking text.
+    """
+
+    native_query = "\n".join(line for line in native_query.split("\n") if line.strip())
+    query_block = f"#### Query\n\n```\n{native_query}\n```\n\n"
+    if _JINJA_PARSER.search(native_query):
+        return (
+            f"#### Query\n\n{{% raw %}}\n```\n{native_query}\n```\n{{% endraw %}}\n\n"
+        )
+    return query_block
 
 
 def _database_name(db: Mapping) -> str:
@@ -581,3 +610,22 @@ def _write_exposures(
                 },
                 stream=f,
             )
+
+
+def _unique_group_name(base: str, suffix: object, used: set[str]) -> str:
+    if base not in used:
+        used.add(base)
+        return base
+
+    candidate = f"{base}_{suffix}"
+    if candidate not in used:
+        used.add(candidate)
+        return candidate
+
+    counter = 1
+    while True:
+        candidate = f"{base}_{suffix}_{counter}"
+        if candidate not in used:
+            used.add(candidate)
+            return candidate
+        counter += 1

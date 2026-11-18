@@ -1,7 +1,6 @@
 use super::*;
 use crate::id_lists_adapter::IdListMetadata;
 
-#[cfg(feature = "custom_network_provider")]
 impl SpecStore {
     pub(crate) fn with_id_list_mutation_locked_for_test<T>(&self, run: impl FnOnce() -> T) -> T {
         let _guard = self.id_list_mutation.lock();
@@ -312,13 +311,42 @@ async fn id_list_lock_timeout_preserves_default_readiness_and_compact_retry() {
                     Some("+AAAAAAAA\n"),
                 )]));
                 let lock = store.update_lock.lock();
-                let result =
-                    store.try_receive_id_list_updates_with_propagation(append(), HashMap::new());
+                let observer = crate::__tests__::mock_observability_client::observer();
+                let ops_stats = OpsStatsForInstance::new();
+                let mut events = ops_stats.subscribe_for_test();
+                let result = futures::executor::block_on(id_list_load_timing::time_list_load(
+                    &ops_stats,
+                    "members",
+                    id_list_load_timing::collection_enabled(Some(&StatsigOptions {
+                        observability_client: Some(Arc::downgrade(&observer)),
+                        ..Default::default()
+                    })),
+                    async {
+                        store
+                            .try_receive_id_list_updates_with_propagation(append(), HashMap::new())
+                            .map(|_| true)
+                    },
+                ));
                 if flag == Some(true) {
                     assert!(matches!(result, Err(StatsigErr::LockFailure(_))));
                 } else {
                     result.unwrap();
                 }
+                let mut phases = HashMap::new();
+                while let Ok(event) = events.try_recv() {
+                    for event in
+                        crate::id_lists_adapter::id_list_load_timing::metrics_for_test(event)
+                    {
+                        if event.metric_name == "lazy_id_list_load.store_phase_ms" {
+                            phases.insert(event.tags.unwrap()["phase"].clone(), event.value);
+                        }
+                    }
+                }
+                assert!(phases["store_lock_wait"] >= LOCK_TIMEOUT.as_secs_f64() * 1000.0);
+                // Both formats stage membership before the config writer lock;
+                // neither publishes when that lock times out.
+                assert!(phases.contains_key("processing"));
+                assert!(!phases.contains_key("publication"));
                 assert_eq!(store.get_current_id_list_metadata()["members"].size, 10);
                 drop(lock);
                 store

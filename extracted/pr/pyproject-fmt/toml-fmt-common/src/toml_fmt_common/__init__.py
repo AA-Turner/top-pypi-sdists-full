@@ -19,25 +19,59 @@ from dataclasses import dataclass, field
 from functools import partial
 from importlib.metadata import version
 from pathlib import Path
-from typing import TYPE_CHECKING, Final, Generic, Protocol, TypeAlias, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Final,
+    Generic,
+    NamedTuple,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    cast,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
 
 
-class ArgumentGroup(Protocol):
-    """Expose the argument-group operation formatter plugins use."""
+class ArgumentGroup(Protocol):  # ruff: ignore[non-empty-init-module]  # preserve the public definition path
+    """The argument-group operations formatter plugins use to add their flags."""
 
     def add_argument(self, *name_or_flags: str, **kwargs: object) -> Action:
-        """Register one argument and return its parser action."""
+        """
+        Register one argument and return its parser action.
+
+        :param name_or_flags: the option strings, or the positional name, of the argument.
+        :param kwargs: the keyword arguments of :meth:`argparse.ArgumentParser.add_argument`.
+        :returns: the parser action that the argument creates.
+        """
         ...
 
 
-TomlValue: TypeAlias = "bool | int | float | str | Sequence[TomlValue] | Mapping[str, TomlValue]"
+#: A value read from TOML: a scalar, an array of values, or a table of them.
+TomlValue: TypeAlias = (  # ruff: ignore[non-empty-init-module]  # original public path
+    "bool | int | float | str | Sequence[TomlValue] | Mapping[str, TomlValue]"
+)
 
 
-class FmtNamespace(Namespace):
-    """Give argparse fields the types shared by both formatters."""
+class FmtNamespace(Namespace):  # ruff: ignore[non-empty-init-module]  # original public path
+    """
+    The options both formatters parse, typed for the attributes the shared CLI reads.
+
+    :ivar inputs: files to format, where ``None`` is standard input.
+    :ivar stdout: write to standard output.
+    :ivar check: fail instead of writing.
+    :ivar no_print_diff: hide diffs in check mode.
+    :ivar config: shared configuration file, if given.
+    :ivar column_width: maximum line width.
+    :ivar indent: spaces per indentation level.
+    :ivar table_format: ``short`` or ``long`` tables.
+    :ivar sub_table_spacing: newlines between sub-tables.
+    :ivar separate_root_table: newlines between root table groups.
+    :ivar expand_tables: tables always expanded.
+    :ivar collapse_tables: tables always collapsed.
+    :ivar skip_wrap_for_keys: key patterns never wrapped.
+    """
 
     inputs: list[Path | None]
     stdout: bool
@@ -55,122 +89,159 @@ class FmtNamespace(Namespace):
     skip_wrap_for_keys: Sequence[str]
 
 
-_NAMESPACE_T = TypeVar("_NAMESPACE_T", bound=FmtNamespace)
+_NAMESPACE_T = TypeVar("_NAMESPACE_T", bound=FmtNamespace)  # ruff: ignore[non-empty-init-module]  # root implementation
 
 
-class TOMLFormatter(ABC, Generic[_NAMESPACE_T]):
-    """Supply tool-specific hooks to the shared CLI."""
+class TOMLFormatter(ABC, Generic[_NAMESPACE_T]):  # ruff: ignore[non-empty-init-module]  # original public path
+    """
+    Supply the tool-specific parts of the shared CLI: the names, the extra flags and the TOML reader.
+
+    :param opt: the options namespace the shared CLI parses into.
+    """
 
     def __init__(self, opt: _NAMESPACE_T) -> None:
-        """Start with the namespace argparse fills for each input."""
         self.opt: _NAMESPACE_T = opt
 
     @property
     @abstractmethod
     def prog(self) -> str:
-        """Match the distribution name used for version lookup."""
+        """The distribution name, used to look up the version and to name the program."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def filename(self) -> str:
-        """Constrain positional paths and configuration discovery."""
-        raise NotImplementedError
-
-    @staticmethod
-    @abstractmethod
-    def add_format_flags(parser: ArgumentGroup) -> None:
-        """Add options that the shared settings do not cover."""
+        """The file name a directory argument resolves to, such as ``pyproject.toml``."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def override_cli_from_section(self) -> tuple[str, ...]:
-        """Keep per-file overrides beside the tool configuration they control."""
+        """The table of a TOML file whose settings apply to that file and override the command line."""
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def add_format_flags(parser: ArgumentGroup) -> None:
+        """
+        Add the options that the shared settings do not cover.
+
+        :param parser: the argument group the shared settings were added to.
+        """
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def settings_in(text: str, path: Sequence[str]) -> dict[str, TomlValue] | None:
         """
-        Read the settings the text writes under a table, with the parser that reads the file itself.
+        Return the settings the text writes under path, read with the parser that reads the file itself.
 
-        A second reader of an older TOML would drop a file's own configuration on a value it cannot
-        read, and format the file as though none had been written.
-
-        :return: the settings, or ``None`` where the text writes no such table
-        :raises SyntaxError: if the text is not a TOML document
-        :raises ValueError: if a setting is written in a form no setting takes
+        :param text: the TOML document to read.
+        :param path: the table names that lead to the settings.
+        :returns: the settings, or ``None`` when the document writes none under that table.
         """
+        # A second reader of an older TOML would drop a file's own configuration on a value it cannot
+        # read, and format the file as though none had been written.
         raise NotImplementedError
 
     @staticmethod
     @abstractmethod
     def format(text: str, opt: _NAMESPACE_T) -> str:
-        """Keep CLI state outside the TOML rewriting layer."""
+        """
+        Return the text rewritten with the settings in opt.
+
+        :param text: the TOML document to rewrite.
+        :param opt: the options to rewrite the document with.
+        :returns: the rewritten document.
+        """
         raise NotImplementedError
 
 
-def run(formatter: TOMLFormatter[_NAMESPACE_T], args: Sequence[str] | None = None) -> int:
+def run(  # ruff: ignore[non-empty-init-module]  # original public path
+    formatter: TOMLFormatter[_NAMESPACE_T], args: Sequence[str] | None = None
+) -> int:
     """
-    Parse one option set per input and return 1 after a change or rejection.
+    Format each input with its own options and return 1 after a change or rejection.
 
-    A supplied argument list supports embedding; the console script falls back to ``sys.argv``.
+    :param formatter: the formatter that supplies the tool-specific parts of the CLI.
+    :param args: the command line arguments, or ``None`` to read ``sys.argv``.
+    :returns: 1 when an input changed or was rejected, otherwise 0.
     """
+    # A supplied argument list supports embedding; the console script falls back to ``sys.argv``.
     configs = _cli_args(formatter, sys.argv[1:] if args is None else args)
     # collect first: any() over a generator stops at the first changed input and leaves the rest unformatted
     results = [_handle_one(formatter, config) for config in configs]
     return int(any(results))
 
 
-@dataclass(frozen=True)
-class _Config(Generic[_NAMESPACE_T]):
-    toml_filename: Path | None
-    toml: str
-    stdout: bool
-    check: bool
-    no_print_diff: bool
-    opt: _NAMESPACE_T
-    eol: str
-
-
-def _check_write_permission(parser: ArgumentParser, opt: FmtNamespace) -> None:
-    if opt.stdout or opt.check:
-        return
-    for toml_path in opt.inputs:
-        if toml_path is not None and not os.access(toml_path, os.W_OK):
-            parser.error(f"argument inputs: cannot write path {toml_path}")
-
-
-def _cli_args(formatter: TOMLFormatter[_NAMESPACE_T], args: Sequence[str]) -> list[_Config[_NAMESPACE_T]]:
+def _cli_args(  # ruff: ignore[non-empty-init-module]  # root implementation
+    formatter: TOMLFormatter[_NAMESPACE_T], args: Sequence[str]
+) -> list[_Config[_NAMESPACE_T]]:
     parser, type_conversion, actions = _make_cli(formatter)
     parser.parse_args(namespace=formatter.opt, args=args)
     if (explicit_config := formatter.opt.config) is not None and not explicit_config.is_file():
         parser.error(f"config file does not exist: {explicit_config}")
-    _check_write_permission(parser, formatter.opt)
+    if not (formatter.opt.stdout or formatter.opt.check):
+        for toml_path in formatter.opt.inputs:
+            if toml_path is not None and not os.access(toml_path, os.W_OK):
+                parser.error(f"argument inputs: cannot write path {toml_path}")
+    # Infer plugin settings from defaults because formatters can add flags outside ``SHARED_SETTINGS``.
+    named = {setting.name(): setting.takes for setting in SHARED_SETTINGS}
     constraints = _Constraints(
         conversion=type_conversion,
         # a value read from a file has to be one the command line would have accepted
         allowed={action.dest: action.choices for action in actions if action.choices},
-        accepts=_accepted_types(parser, formatter.opt),
+        accepts={
+            key: named.get(key) or _written_as(parser.get_default(key)) for key in {action.dest for action in actions}
+        },
     )
-    configs = []
-    for toml_path in formatter.opt.inputs:
-        raw, eol = _read_input(parser, toml_path)
-        source = _display_name(toml_path)
-        try:
-            config = formatter.settings_in(raw, formatter.override_cli_from_section)
-        except SyntaxError:
-            # the formatter reads the same source next and reports on it in its own words, against
-            # the file rather than against one setting
-            config = None
-        except (TypeError, ValueError) as exc:
-            parser.error(f"{source}: {exc}")
-        override_opt = deepcopy(formatter.opt)
-        if explicit_config is not None:
-            shared = _load_shared_config(parser, formatter, explicit_config)
-            _apply_config(parser, override_opt, shared, str(explicit_config), constraints)
-        elif found := _find_config_file(formatter.prog, toml_path.parent if toml_path is not None else Path.cwd()):
+    return [_config_of(parser, formatter, constraints, toml_path) for toml_path in formatter.opt.inputs]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)  # ruff: ignore[non-empty-init-module]  # root implementation
+class _Constraints:
+    conversion: Mapping[str, Callable[[TomlValue], TomlValue]]
+    allowed: Mapping[str, Iterable[TomlValue]]
+    accepts: Mapping[str, type]
+
+
+def _written_as(default: TomlValue) -> type:  # ruff: ignore[non-empty-init-module]  # root implementation
+    if isinstance(default, bool):
+        return bool
+    return list if isinstance(default, list) else str
+
+
+def _config_of(  # ruff: ignore[non-empty-init-module]  # root implementation
+    parser: ArgumentParser,
+    formatter: TOMLFormatter[_NAMESPACE_T],
+    constraints: _Constraints,
+    toml_path: Path | None,
+) -> _Config[_NAMESPACE_T]:
+    explicit_config = formatter.opt.config
+    raw, eol = _read_input(parser, toml_path)
+    source = _display_name(toml_path)
+    try:
+        config = formatter.settings_in(raw, formatter.override_cli_from_section)
+    except SyntaxError:
+        # the formatter reads the same source next and reports on it in its own words, against
+        # the file rather than against one setting
+        config = None
+    except (TypeError, ValueError) as exc:
+        parser.error(f"{source}: {exc}")
+    override_opt = deepcopy(formatter.opt)
+    if explicit_config is not None:
+        shared = _load_shared_config(parser, formatter, explicit_config)
+        _apply_config(parser, override_opt, shared, str(explicit_config), constraints)
+    else:
+        start = (toml_path.parent if toml_path is not None else Path.cwd()).resolve()
+        if found := next(
+            (
+                path
+                for path in (directory / f"{formatter.prog}.toml" for directory in (start, *start.parents))
+                if path.is_file()
+            ),
+            None,
+        ):
             _apply_config(
                 parser,
                 override_opt,
@@ -178,25 +249,22 @@ def _cli_args(formatter: TOMLFormatter[_NAMESPACE_T], args: Sequence[str]) -> li
                 str(found),
                 constraints,
             )
-        if config is not None:
-            _apply_config(parser, override_opt, config, source, constraints)
-
-        configs.append(
-            _Config(
-                toml_filename=toml_path,
-                toml=raw,
-                stdout=formatter.opt.stdout,
-                check=formatter.opt.check,
-                no_print_diff=formatter.opt.no_print_diff,
-                opt=override_opt,
-                eol=eol,
-            )
-        )
-
-    return configs
+    if config is not None:
+        _apply_config(parser, override_opt, config, source, constraints)
+    return _Config(
+        toml_filename=toml_path,
+        toml=raw,
+        stdout=formatter.opt.stdout,
+        check=formatter.opt.check,
+        no_print_diff=formatter.opt.no_print_diff,
+        opt=override_opt,
+        eol=eol,
+    )
 
 
-def _read_input(parser: ArgumentParser, path: Path | None) -> tuple[str, str]:
+def _read_input(  # ruff: ignore[non-empty-init-module]  # root implementation
+    parser: ArgumentParser, path: Path | None
+) -> tuple[str, str]:
     if path is None:
         return sys.stdin.read(), "\n"
     try:
@@ -210,38 +278,33 @@ def _read_input(parser: ArgumentParser, path: Path | None) -> tuple[str, str]:
     return raw.replace("\r\n", "\n"), "\r\n" if crlf > raw.count("\n") - crlf else "\n"
 
 
-_NON_FORMAT_KEYS: Final[frozenset[str]] = frozenset({"inputs", "stdout", "check", "no_print_diff", "config"})
+def _display_name(path: Path | None) -> str:  # ruff: ignore[non-empty-init-module]  # root implementation
+    if path is None:
+        return "<stdin>"
+    try:
+        return str(path.relative_to(Path.cwd()))
+    except ValueError:
+        return str(path)
 
 
-@dataclass(frozen=True)
-class _Constraints:
-    conversion: Mapping[str, Callable[[TomlValue], TomlValue]]
-    allowed: Mapping[str, Iterable[TomlValue]]
-    accepts: Mapping[str, type]
+def _load_shared_config(  # ruff: ignore[non-empty-init-module]  # root implementation
+    parser: ArgumentParser, formatter: TOMLFormatter[_NAMESPACE_T], path: Path
+) -> dict[str, TomlValue]:
+    try:
+        return formatter.settings_in(path.read_text(encoding="utf-8"), ()) or {}
+    except (SyntaxError, TypeError, ValueError) as exc:
+        parser.error(f"{path}: {exc}")
 
 
-def _accepted_types(parser: ArgumentParser, opt: _NAMESPACE_T) -> Mapping[str, type]:
-    """Infer plugin settings from defaults because formatters can add flags outside ``SHARED_SETTINGS``."""
-    named = {setting.name(): setting.takes for setting in SHARED_SETTINGS}
-    return {key: named.get(key) or _written_as(parser.get_default(key)) for key in vars(opt).keys() - _NON_FORMAT_KEYS}
-
-
-def _written_as(default: TomlValue) -> type:
-    if isinstance(default, bool):
-        return bool
-    return list if isinstance(default, list) else str
-
-
-def _apply_config(
+def _apply_config(  # ruff: ignore[non-empty-init-module]  # root implementation
     parser: ArgumentParser,
     opt: _NAMESPACE_T,
     config: dict[str, TomlValue],
     source: str,
     constraints: _Constraints,
 ) -> None:
-    known = set(vars(opt).keys()) - _NON_FORMAT_KEYS
     for key, raw in config.items():
-        if key not in known:
+        if key not in constraints.accepts:
             parser.error(f"{source}: {key}: unknown setting")
         wants = constraints.accepts[key]
         # Python treats `True` as an integer; flags reject other integers.
@@ -257,40 +320,90 @@ def _apply_config(
         setattr(opt, key, value)
 
 
-def _find_config_file(prog: str, start: Path) -> Path | None:
-    current = start.resolve()
-    while True:
-        if (candidate := current / f"{prog}.toml").is_file():
-            return candidate
-        if (parent := current.parent) == current:
-            return None
-        current = parent
+@dataclass(frozen=True, slots=True, kw_only=True)  # ruff: ignore[non-empty-init-module]  # root implementation
+class _Config(Generic[_NAMESPACE_T]):
+    toml_filename: Path | None
+    toml: str
+    stdout: bool
+    check: bool
+    no_print_diff: bool
+    opt: _NAMESPACE_T
+    eol: str
 
 
-def _load_shared_config(
-    parser: ArgumentParser, formatter: TOMLFormatter[_NAMESPACE_T], path: Path
-) -> dict[str, TomlValue]:
+def _handle_one(  # ruff: ignore[non-empty-init-module]  # root implementation
+    formatter: TOMLFormatter[_NAMESPACE_T], config: _Config[_NAMESPACE_T]
+) -> bool:
     try:
-        return formatter.settings_in(path.read_text(encoding="utf-8"), ()) or {}
-    except (SyntaxError, TypeError, ValueError, UnicodeDecodeError) as exc:
-        parser.error(f"{path}: {exc}")
+        formatted = formatter.format(config.toml, config.opt)
+    except ValueError as exc:  # the formatter rejected the content, e.g. an invalid project.version
+        print(  # ruff: ignore[print]  # the CLI reports rejected input on stderr
+            f"{_display_name(config.toml_filename)}: {exc}", file=sys.stderr
+        )
+        return True
+    before = config.toml
+    changed = before != formatted
+    if config.toml_filename is None or config.stdout:
+        print(formatted, end="")  # ruff: ignore[print]  # the CLI writes formatted output to stdout
+        return changed
+
+    if changed and not config.check:
+        config.toml_filename.write_text(formatted, encoding="utf-8", newline=config.eol)
+    if config.no_print_diff:
+        return changed
+    name = _display_name(config.toml_filename)
+    if changed:
+        print(  # ruff: ignore[print]  # the CLI shows changes as a diff
+            "\n".join(
+                _color_diff(
+                    difflib.unified_diff(before.splitlines(), formatted.splitlines(), fromfile=name, tofile=name)
+                )
+            )
+        )
+    else:
+        print(f"no change for {name}")  # ruff: ignore[print]  # the CLI reports unchanged input
+    return changed
 
 
-def build_cli(
+def _color_diff(diff: Iterable[str]) -> Iterable[str]:  # ruff: ignore[non-empty-init-module]  # root implementation
+    if os.environ.get("NO_COLOR"):  # https://no-color.org
+        yield from diff
+        return
+    green: str = "\u001b[32m"
+    red: str = "\u001b[31m"
+    reset: str = "\u001b[0m"
+    for line in diff:
+        if line.startswith("+"):
+            yield f"{green}{line}{reset}"
+        elif line.startswith("-"):
+            yield f"{red}{line}{reset}"
+        else:
+            yield line
+
+
+def build_cli(  # ruff: ignore[non-empty-init-module]  # original public path
     formatter: TOMLFormatter[_NAMESPACE_T],
 ) -> tuple[ArgumentParser, Mapping[str, Callable[[TomlValue], TomlValue]]]:
     """
-    Build the parser without reading arguments, for documentation and embedding.
+    Return the shared CLI parser, built without reading arguments, and the readers of its settings.
 
-    The conversion mapping applies the same readers to settings loaded from TOML.
+    :param formatter: the formatter that supplies the tool-specific parts of the CLI.
+    :returns: the parser, and the reader that converts each setting's TOML value to its command line type.
     """
+    # The conversion mapping applies the same readers to settings loaded from TOML.
     parser, type_conversion, _ = _make_cli(formatter)
     return parser, type_conversion
 
 
-def _make_cli(
+class _Cli(NamedTuple):  # ruff: ignore[non-empty-init-module]  # root implementation
+    parser: ArgumentParser
+    type_conversion: Mapping[str, Callable[[TomlValue], TomlValue]]
+    actions: Sequence[Action]
+
+
+def _make_cli(  # ruff: ignore[non-empty-init-module]  # root implementation
     formatter: TOMLFormatter[_NAMESPACE_T],
-) -> tuple[ArgumentParser, Mapping[str, Callable[[TomlValue], TomlValue]], Sequence[Action]]:
+) -> _Cli:
     parser = ArgumentParser(
         formatter_class=ArgumentDefaultsHelpFormatter,
         prog=formatter.prog,
@@ -329,7 +442,7 @@ def _make_cli(
     # ArgumentError, so a fresh resolve of toml-fmt-common doesn't break them
     # (tox-dev/toml-fmt#355).
     format_group = _ArgumentRecorder(
-        cast("ArgumentGroup", parser.add_argument_group("formatting behavior", conflict_handler="resolve"))
+        group=cast("ArgumentGroup", parser.add_argument_group("formatting behavior", conflict_handler="resolve"))
     )
     for setting in SHARED_SETTINGS:
         setting.add_to(format_group)
@@ -346,10 +459,10 @@ def _make_cli(
         type=partial(_toml_path_creator, formatter.filename),
         help=msg,
     )
-    return parser, type_conversion, format_group.actions
+    return _Cli(parser, type_conversion, format_group.actions)
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True, slots=True)  # ruff: ignore[non-empty-init-module]  # root implementation
 class _ArgumentRecorder:
     group: ArgumentGroup
     actions: list[Action] = field(default_factory=list)
@@ -360,12 +473,28 @@ class _ArgumentRecorder:
         return action
 
 
-_COUNT_LIMIT: Final[int] = 10_000
+def _toml_path_creator(  # ruff: ignore[non-empty-init-module]  # root implementation
+    filename: str, argument: str
+) -> Path | None:
+    if argument == "-":
+        return None
+    path = Path(argument).absolute()
+    if path.is_dir():
+        path /= filename
+    if not path.exists():
+        msg = "path does not exist"
+        raise ArgumentTypeError(msg)
+    if not path.is_file():
+        msg = "path is not a file"
+        raise ArgumentTypeError(msg)
+    if not os.access(path, os.R_OK):
+        msg = "cannot read path"
+        raise ArgumentTypeError(msg)
+    return path
+
+
 # A larger count asks the formatter to allocate a string no line can hold.
-
-
-def count_argument(value: TomlValue) -> int:
-    """Reject booleans and counts outside 0 through 10,000."""
+def _count_argument(value: TomlValue) -> int:  # ruff: ignore[non-empty-init-module]  # root implementation
     # `True` is an integer to Python, and a file that writes one there names no count
     if isinstance(value, bool) or not isinstance(value, (str, int)):
         msg = f"invalid count: {value!r}"
@@ -378,22 +507,28 @@ def count_argument(value: TomlValue) -> int:
     if count < 0:
         msg = f"invalid count: {count}, must not be negative"
         raise ArgumentTypeError(msg)
-    if count > _COUNT_LIMIT:
-        msg = f"invalid count: {count}, must be at most {_COUNT_LIMIT}"
+    count_limit: int = 10_000
+    if count > count_limit:
+        msg = f"invalid count: {count}, must be at most {count_limit}"
         raise ArgumentTypeError(msg)
     return count
 
 
-def spacing_argument(value: TomlValue) -> str:
-    r"""Accept strings because TOML settings may spell newlines as ``\n``."""
+def _spacing_argument(value: TomlValue) -> str:  # ruff: ignore[non-empty-init-module]  # root implementation
     if not isinstance(value, str):
         msg = f"invalid spacing: {value!r}"
         raise ArgumentTypeError(msg)
     return value.replace("\\n", "\n")
 
 
-def list_argument(value: TomlValue) -> list[str]:
-    """Accept CLI comma lists and TOML string arrays through one reader."""
+def list_argument(value: TomlValue) -> list[str]:  # ruff: ignore[non-empty-init-module]  # original public path
+    """
+    Return the names in a comma list or a TOML array, rejecting any entry that is not a string.
+
+    :param value: the names as written on the command line or in a file.
+    :returns: the names.
+    :raises ArgumentTypeError: when the value is neither a string nor an array of strings.
+    """
     if isinstance(value, str):
         return [name for part in _split_outside_quotes(value) if (name := part.strip())]
     read = [item for item in value if isinstance(item, str)] if isinstance(value, Sequence) else []
@@ -403,8 +538,10 @@ def list_argument(value: TomlValue) -> list[str]:
     return read
 
 
-def _split_outside_quotes(value: str) -> Iterator[str]:
-    """Split on the commas between names, since a name TOML quotes may hold one of its own."""
+def _split_outside_quotes(  # ruff: ignore[non-empty-init-module]  # root implementation
+    value: str,
+) -> Iterator[str]:
+    # Split on the commas between names, since a name TOML quotes may hold one of its own.
     quote: str | None = None
     escaped = False
     start = 0
@@ -425,26 +562,21 @@ def _split_outside_quotes(value: str) -> Iterator[str]:
     yield value[start:]
 
 
-_ESCAPES: Final[Mapping[str, str]] = {
-    "b": "\b",
-    "e": "\x1b",
-    "t": "\t",
-    "n": "\n",
-    "f": "\f",
-    "r": "\r",
-    '"': '"',
-    "\\": "\\",
-}
+def name_list_argument(  # ruff: ignore[non-empty-init-module]  # original public path
+    value: TomlValue,
+) -> list[str]:
+    """
+    Return the names in a comma list, keeping commas and spaces inside TOML-quoted names.
 
-
-def name_list_argument(value: TomlValue) -> list[str]:
-    """Preserve commas and spaces inside TOML-quoted names."""
+    :param value: the names as written on the command line or in a file.
+    :returns: the names.
+    """
     if not isinstance(value, str):
         return list_argument(value)
     return [name for part in _split_outside_quotes(value) if (name := _read_name(part.strip()))]
 
 
-def _read_name(name: str) -> str:
+def _read_name(name: str) -> str:  # ruff: ignore[non-empty-init-module]  # root implementation
     if name[:1] not in {'"', "'"} or name == name[:1] or name[-1:] != name[:1]:
         return name
     body = name[1:-1]
@@ -452,6 +584,16 @@ def _read_name(name: str) -> str:
         return body
     read: list[str] = []
     rest = iter(range(len(body)))
+    escapes: Mapping[str, str] = {
+        "b": "\b",
+        "e": "\x1b",
+        "t": "\t",
+        "n": "\n",
+        "f": "\f",
+        "r": "\r",
+        '"': '"',
+        "\\": "\\",
+    }
     for at in rest:
         if body[at] != "\\":
             read.append(body[at])
@@ -468,14 +610,24 @@ def _read_name(name: str) -> str:
             for _ in range(3):
                 next(rest, None)
             continue
-        read.append(_ESCAPES[escape])
+        read.append(escapes[escape])
         next(rest, None)
     return "".join(read)
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, slots=True, kw_only=True)  # ruff: ignore[non-empty-init-module]  # root implementation
 class Setting:
-    """One formatting setting, named once for the command line and for the file that may hold it."""
+    """
+    One formatting setting, named once for the command line and for the file that may hold it.
+
+    :param flag: the command line flag, such as ``--column-width``.
+    :param help: the help text shown for the flag.
+    :param takes: the Python type the setting holds.
+    :param default: the value used when no source sets the setting.
+    :param convert: the reader that turns a TOML value into the setting's type, if any.
+    :param choices: the values the setting accepts, if it is restricted.
+    :param metavar: the placeholder shown for the value in the help text, if any.
+    """
 
     flag: str
     help: str
@@ -486,11 +638,19 @@ class Setting:
     metavar: str | None = None
 
     def name(self) -> str:
-        """Use argparse's destination spelling for TOML settings."""
+        """
+        Return the argparse destination of the flag, which is also the TOML key.
+
+        :returns: the flag without its leading dashes, with dashes replaced by underscores.
+        """
         return self.flag.removeprefix("--").replace("-", "_")
 
     def add_to(self, parser: ArgumentGroup) -> None:
-        """Keep parser defaults and TOML conversion metadata on one declaration."""
+        """
+        Register the flag on the parser with its default, its help and its conversion for TOML values.
+
+        :param parser: the argument group to add the flag to.
+        """
         action = parser.add_argument(self.flag, default=self.default, help=self.help)
         if self.convert is not None:
             action.type = self.convert
@@ -500,121 +660,74 @@ class Setting:
             action.metavar = self.metavar
 
 
-# One declaration keeps CLI and file settings under the same constraints.
-SHARED_SETTINGS: Final[tuple[Setting, ...]] = (
-    Setting("--column-width", "max column width in the TOML file", int, 120, count_argument, metavar="count"),
-    Setting("--indent", "number of spaces to use for indentation", int, 2, count_argument, metavar="count"),
+#: One declaration keeps CLI and file settings under the same constraints.
+SHARED_SETTINGS: Final[tuple[Setting, ...]] = (  # ruff: ignore[non-empty-init-module]  # original public path
     Setting(
-        "--table-format",
-        "table format: 'short' collapses sub-tables, 'long' expands to [table.subtable]",
-        str,
-        "short",
+        flag="--column-width",
+        help="max column width in the TOML file",
+        takes=int,
+        default=120,
+        convert=_count_argument,
+        metavar="count",
+    ),
+    Setting(
+        flag="--indent",
+        help="number of spaces to use for indentation",
+        takes=int,
+        default=2,
+        convert=_count_argument,
+        metavar="count",
+    ),
+    Setting(
+        flag="--table-format",
+        help="table format: 'short' collapses sub-tables, 'long' expands to [table.subtable]",
+        takes=str,
+        default="short",
         choices=("short", "long"),
     ),
     Setting(
-        "--sub-table-spacing",
-        r"extra newlines between sub-tables in the same group (e.g. '\n' for one blank line, empty for compact)",
-        str,
-        "",
-        spacing_argument,
+        flag="--sub-table-spacing",
+        help=r"extra newlines between sub-tables in the same group (e.g. '\n' for one blank line, empty for compact)",
+        takes=str,
+        default="",
+        convert=_spacing_argument,
     ),
     Setting(
-        "--separate-root-table",
-        r"extra newlines between root table groups (e.g. '\n' for one blank line, '\n\n' for two)",
-        str,
-        "\n",
-        spacing_argument,
+        flag="--separate-root-table",
+        help=r"extra newlines between root table groups (e.g. '\n' for one blank line, '\n\n' for two)",
+        takes=str,
+        default="\n",
+        convert=_spacing_argument,
     ),
-    Setting("--expand-tables", "comma-separated list of tables to force expand", list, [], list_argument),
-    Setting("--collapse-tables", "comma-separated list of tables to force collapse", list, [], list_argument),
     Setting(
-        "--skip-wrap-for-keys",
-        "comma-separated list of key patterns to skip string wrapping (supports wildcards like '*.parse')",
-        list,
-        [],
-        list_argument,
+        flag="--expand-tables",
+        help="comma-separated list of tables to force expand",
+        takes=list,
+        default=[],
+        convert=list_argument,
+    ),
+    Setting(
+        flag="--collapse-tables",
+        help="comma-separated list of tables to force collapse",
+        takes=list,
+        default=[],
+        convert=list_argument,
+    ),
+    Setting(
+        flag="--skip-wrap-for-keys",
+        help="comma-separated list of key patterns to skip string wrapping (supports wildcards like '*.parse')",
+        takes=list,
+        default=[],
+        convert=list_argument,
     ),
 )
 
 
-def _toml_path_creator(filename: str, argument: str) -> Path | None:
-    if argument == "-":
-        return None
-    path = Path(argument).absolute()
-    if path.is_dir():
-        path /= filename
-    if not path.exists():
-        msg = "path does not exist"
-        raise ArgumentTypeError(msg)
-    if not path.is_file():
-        msg = "path is not a file"
-        raise ArgumentTypeError(msg)
-    if not os.access(path, os.R_OK):
-        msg = "cannot read path"
-        raise ArgumentTypeError(msg)
-    return path
-
-
-def _display_name(path: Path | None) -> str:
-    if path is None:
-        return "<stdin>"
-    try:
-        return str(path.relative_to(Path.cwd()))
-    except ValueError:
-        return str(path)
-
-
-def _handle_one(formatter: TOMLFormatter[_NAMESPACE_T], config: _Config[_NAMESPACE_T]) -> bool:
-    try:
-        formatted = formatter.format(config.toml, config.opt)
-    except ValueError as exc:  # the formatter rejected the content, e.g. an invalid project.version
-        print(f"{_display_name(config.toml_filename)}: {exc}", file=sys.stderr)
-        return True
-    before = config.toml
-    changed = before != formatted
-    if config.toml_filename is None or config.stdout:
-        print(formatted, end="")
-        return changed
-
-    if changed and not config.check:
-        config.toml_filename.write_text(formatted, encoding="utf-8", newline=config.eol)
-    if config.no_print_diff:
-        return changed
-    name = _display_name(config.toml_filename)
-    if changed:
-        print(
-            "\n".join(
-                _color_diff(
-                    difflib.unified_diff(before.splitlines(), formatted.splitlines(), fromfile=name, tofile=name)
-                )
-            )
-        )
-    else:
-        print(f"no change for {name}")
-    return changed
-
-
-_GREEN: Final[str] = "\u001b[32m"
-_RED: Final[str] = "\u001b[31m"
-_RESET: Final[str] = "\u001b[0m"
-
-
-def _color_diff(diff: Iterable[str]) -> Iterable[str]:
-    if os.environ.get("NO_COLOR"):  # https://no-color.org
-        yield from diff
-        return
-    for line in diff:
-        if line.startswith("+"):
-            yield f"{_GREEN}{line}{_RESET}"
-        elif line.startswith("-"):
-            yield f"{_RED}{line}{_RESET}"
-        else:
-            yield line
-
-
-# Releases through 1.3.2 import the old name; removing it breaks their next dependency resolve
-# (tox-dev/toml-fmt#355).
-_build_cli: Final = build_cli
+#: Alias for releases through 1.3.2, which import the old name; removing it breaks their next
+#: dependency resolve (tox-dev/toml-fmt#355).
+_build_cli: Final[  # ruff: ignore[non-empty-init-module]  # original public path
+    Callable[[TOMLFormatter[FmtNamespace]], tuple[ArgumentParser, Mapping[str, Callable[[TomlValue], TomlValue]]]]
+] = build_cli
 
 __all__ = [
     "SHARED_SETTINGS",

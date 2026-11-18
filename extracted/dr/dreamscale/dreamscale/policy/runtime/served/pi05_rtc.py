@@ -4,7 +4,7 @@ without it plain sampling only, each on the JAX backend at its SDK contract's ge
 
 from __future__ import annotations
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.policy.runtime.contract import (
     _optional_attr,

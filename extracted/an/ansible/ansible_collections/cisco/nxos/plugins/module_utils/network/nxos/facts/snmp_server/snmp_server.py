@@ -14,7 +14,7 @@ It is in this file the configuration is collected from the device
 for a given resource, parsed, and the facts tree is populated
 based on the configuration.
 """
-from ansible.module_utils._text import to_text
+from ansible.module_utils.common.text.converters import to_text
 from ansible_collections.ansible.netcommon.plugins.module_utils.network.common import utils
 
 from ansible_collections.cisco.nxos.plugins.module_utils.network.nxos.argspec.snmp_server.snmp_server import (
@@ -59,6 +59,7 @@ class Snmp_serverFacts(object):
         objs = snmp_server_parser.parse()
 
         if "communities" in objs:
+            objs["communities"] = self._merge_communities(objs["communities"])
             objs["communities"] = sorted(objs["communities"], key=lambda k: to_text(k["name"]))
 
         if "users" in objs:
@@ -83,3 +84,23 @@ class Snmp_serverFacts(object):
         ansible_facts["ansible_network_resources"].update(facts)
 
         return ansible_facts
+
+    @staticmethod
+    def _merge_communities(communities):
+        """Collapse multi-line community config into one dict per name.
+
+        NX-OS stores group, ro/rw, and ACL attributes as separate
+        ``snmp-server community`` lines. The parser emits one list entry per
+        line; merge them so facts and compare logic see a single object.
+        """
+        merged = {}
+        for entry in communities:
+            name = entry.get("name")
+            if not name:
+                continue
+            current = merged.setdefault(name, {"name": name})
+            for key, value in entry.items():
+                if key == "name" or value in (None, ""):
+                    continue
+                current[key] = value
+        return list(merged.values())

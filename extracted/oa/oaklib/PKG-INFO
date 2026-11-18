@@ -1,58 +1,63 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: oaklib
-Version: 0.7.4
+Version: 0.7.5
 Summary: Ontology Access Kit: Python library for common ontology operations over a variety of backends
 Author-email: Chris Mungall <cjm@berkeleybop.org>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,<4,>=3.10
 Requires-Dist: airium>=0.2.5
-Requires-Dist: appdirs>=1.4.4
 Requires-Dist: class-resolver>=0.4.2
 Requires-Dist: click
 Requires-Dist: curies>=0.6.6
 Requires-Dist: defusedxml>=0.7.1
-Requires-Dist: eutils>=0.6.0
-Requires-Dist: greenlet
-Requires-Dist: jsonlines
-Requires-Dist: kgcl-rdflib==0.5.0
+Requires-Dist: kgcl-rdflib<1,>=0.5.0
 Requires-Dist: kgcl-schema<1,>=0.6.9
 Requires-Dist: linkml-renderer>=0.3.0
 Requires-Dist: linkml-runtime>=1.5.3
 Requires-Dist: llm<1,>=0.14
-Requires-Dist: lxml>5.4.0
 Requires-Dist: ndex2>=3.5.0
 Requires-Dist: networkx>=2.7.1
+Requires-Dist: numpy>=1.23
 Requires-Dist: ols-client>=0.1.1
 Requires-Dist: ontoportal-client>=0.0.3
+Requires-Dist: pandas>=1.5.1
+Requires-Dist: platformdirs>=3.0.0
 Requires-Dist: prefixmaps>=0.1.2
 Requires-Dist: pronto>=2.5
 Requires-Dist: py-horned-owl>=1.4.1
 Requires-Dist: pydantic
 Requires-Dist: pysolr<4,>=3.9.0
 Requires-Dist: pystow>=0.7.28
-Requires-Dist: ratelimit>=2.2.1
-Requires-Dist: regex
+Requires-Dist: pyyaml>=6.0
+Requires-Dist: rdflib>=6.1.1
 Requires-Dist: requests-cache<2,>1.0.1
+Requires-Dist: requests>=2.28
 Requires-Dist: ruamel-yaml
 Requires-Dist: semsql>=0.3.1
-Requires-Dist: setuptools<82
 Requires-Dist: sparqlwrapper
 Requires-Dist: sqlalchemy>=1.4.32
 Requires-Dist: sssom
+Requires-Dist: sssom-schema>=1.0.0
 Requires-Dist: tenacity>=8.2.3
-Provides-Extra: bioservices
-Requires-Dist: bioservices; extra == 'bioservices'
+Requires-Dist: typing-extensions>=4.5
 Provides-Extra: docs
 Requires-Dist: sphinx-copybutton==0.5.1; extra == 'docs'
 Requires-Dist: sphinx-rtd-theme<2,>=1.0.0; extra == 'docs'
 Requires-Dist: sphinx>=6.1.3; extra == 'docs'
 Requires-Dist: sphinxcontrib-mermaid<1,>=0.8.1; extra == 'docs'
+Provides-Extra: gilda
+Requires-Dist: gilda<1.5.0,>=1.0.0; extra == 'gilda'
+Requires-Dist: nltk; extra == 'gilda'
+Requires-Dist: scikit-learn>1.4.2; extra == 'gilda'
+Requires-Dist: scipy; extra == 'gilda'
 Provides-Extra: llm
-Requires-Dist: aiohttp; extra == 'llm'
 Requires-Dist: html2text; extra == 'llm'
 Provides-Extra: seaborn
+Requires-Dist: matplotlib>=3.4; extra == 'seaborn'
 Requires-Dist: seaborn; extra == 'seaborn'
+Provides-Extra: semsimian
+Requires-Dist: semsimian>=0.2.18; extra == 'semsimian'
 Description-Content-Type: text/markdown
 
 # Ontology Access Kit (OAK)

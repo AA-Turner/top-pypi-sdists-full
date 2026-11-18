@@ -12,6 +12,8 @@ from ..models.advisory_reason import AdvisoryReason
 from ..models.advisory_severity import AdvisorySeverity
 from ..models.advisory_state import AdvisoryState
 from ..types import UNSET, Unset
+from typing import cast
+import datetime
 
 
 
@@ -59,6 +61,12 @@ class Advisories:
                 "at least this many", and a count of zero as "none found among
                 what was checked", not "none". Absent when the answer covers every
                 package the lock files list.
+            list_read_at (datetime.datetime | Unset): Set when the read that produced this count also kept the full list
+                behind it, so opening the advisories dialog needs no call to the
+                forge: GET /api/v1/main-branches/advisories answers from that list.
+                It is when the forge was read. Absent when no list is kept, and
+                the dashboard then reads one when the dialog opens. The advisory
+                text itself is never part of the stream.
      """
 
     state: AdvisoryState
@@ -67,6 +75,7 @@ class Advisories:
     url: str | Unset = UNSET
     reason: AdvisoryReason | Unset = UNSET
     partial: bool | Unset = UNSET
+    list_read_at: datetime.datetime | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -92,6 +101,10 @@ class Advisories:
 
         partial = self.partial
 
+        list_read_at: str | Unset = UNSET
+        if not isinstance(self.list_read_at, Unset):
+            list_read_at = self.list_read_at.isoformat()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -107,6 +120,8 @@ class Advisories:
             field_dict["reason"] = reason
         if partial is not UNSET:
             field_dict["partial"] = partial
+        if list_read_at is not UNSET:
+            field_dict["listReadAt"] = list_read_at
 
         return field_dict
 
@@ -146,6 +161,16 @@ class Advisories:
 
         partial = d.pop("partial", UNSET)
 
+        _list_read_at = d.pop("listReadAt", UNSET)
+        list_read_at: datetime.datetime | Unset
+        if isinstance(_list_read_at,  Unset):
+            list_read_at = UNSET
+        else:
+            list_read_at = datetime.datetime.fromisoformat(_list_read_at)
+
+
+
+
         advisories = cls(
             state=state,
             count=count,
@@ -153,6 +178,7 @@ class Advisories:
             url=url,
             reason=reason,
             partial=partial,
+            list_read_at=list_read_at,
         )
 
 

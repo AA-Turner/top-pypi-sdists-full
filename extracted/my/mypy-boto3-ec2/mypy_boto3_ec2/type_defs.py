@@ -31,6 +31,7 @@ from .literals import (
     AccountVpcEncryptionControlModeType,
     AccountVpcEncryptionControlStateType,
     ActivityStatusType,
+    AdditionalKeyExchangeRequirementType,
     AddressFamilyType,
     AddressTransferStatusType,
     AffinityType,
@@ -297,6 +298,7 @@ from .literals import (
     MonitoringStateType,
     MoveStatusType,
     MulticastSupportValueType,
+    MultipathResilienceStatusType,
     NatGatewayAddressStatusType,
     NatGatewayApplianceModifyStateType,
     NatGatewayApplianceStateType,
@@ -429,6 +431,7 @@ from .literals import (
     TransitGatewayMulitcastDomainAssociationStateType,
     TransitGatewayMulticastDomainStateType,
     TransitGatewayNatRuleStateType,
+    TransitGatewayPeeringAttachmentMultipathResilienceStatusType,
     TransitGatewayPolicyTableEntryStateType,
     TransitGatewayPolicyTableStateType,
     TransitGatewayPrefixListReferenceStateType,
@@ -517,12 +520,15 @@ __all__ = (
     "AccountVpcEncryptionControlExclusionsTypeDef",
     "AccountVpcEncryptionControlTypeDef",
     "ActiveInstanceTypeDef",
+    "ActiveVpnTunnelAdditionalKeyExchangeTypeDef",
     "ActiveVpnTunnelStatusTypeDef",
     "AddIpamOperatingRegionTypeDef",
     "AddIpamOrganizationalUnitExclusionTypeDef",
     "AddPrefixListEntryTypeDef",
     "AddedPrincipalTypeDef",
     "AdditionalDetailTypeDef",
+    "AdditionalKeyExchangeMethodsListValueTypeDef",
+    "AdditionalKeyExchangeMethodsRequestListValueTypeDef",
     "AddressAttributeTypeDef",
     "AddressTransferTypeDef",
     "AddressTypeDef",
@@ -705,6 +711,8 @@ __all__ = (
     "CapacityAllocationTypeDef",
     "CapacityBlockExtensionOfferingTypeDef",
     "CapacityBlockExtensionTypeDef",
+    "CapacityBlockInstanceTypePreferenceTypeDef",
+    "CapacityBlockOfferingSegmentTypeDef",
     "CapacityBlockOfferingTypeDef",
     "CapacityBlockStatusTypeDef",
     "CapacityBlockTypeDef",
@@ -922,6 +930,7 @@ __all__ = (
     "CreateNetworkInterfaceResultTypeDef",
     "CreateNetworkingFlexCostAllocationPolicyRequestTypeDef",
     "CreateNetworkingFlexCostAllocationPolicyResultTypeDef",
+    "CreatePeeringConnectionOptionsRequestTypeDef",
     "CreatePlacementGroupRequestServiceResourceCreatePlacementGroupTypeDef",
     "CreatePlacementGroupRequestTypeDef",
     "CreatePlacementGroupResultTypeDef",
@@ -2792,6 +2801,9 @@ __all__ = (
     "ModifyTransitGatewayNetworkFunctionAttachmentRequestTypeDef",
     "ModifyTransitGatewayNetworkFunctionAttachmentResultTypeDef",
     "ModifyTransitGatewayOptionsTypeDef",
+    "ModifyTransitGatewayPeeringAttachmentRequestOptionsTypeDef",
+    "ModifyTransitGatewayPeeringAttachmentRequestTypeDef",
+    "ModifyTransitGatewayPeeringAttachmentResultTypeDef",
     "ModifyTransitGatewayPolicyTableEntryRequestTypeDef",
     "ModifyTransitGatewayPolicyTableEntryResultTypeDef",
     "ModifyTransitGatewayPrefixListReferenceRequestTypeDef",
@@ -3467,6 +3479,8 @@ __all__ = (
     "VpcPeeringConnectionTypeDef",
     "VpcPeeringConnectionVpcInfoTypeDef",
     "VpcTypeDef",
+    "VpnAdditionalKeyExchangeRequestTypeDef",
+    "VpnAdditionalKeyExchangeTypeDef",
     "VpnConcentratorTypeDef",
     "VpnConnectionDeviceTypeTypeDef",
     "VpnConnectionOptionsSpecificationTypeDef",
@@ -3601,16 +3615,9 @@ class ActiveInstanceTypeDef(TypedDict):
     InstanceHealth: NotRequired[InstanceHealthStatusType]
 
 
-class ActiveVpnTunnelStatusTypeDef(TypedDict):
-    Phase1EncryptionAlgorithm: NotRequired[str]
-    Phase2EncryptionAlgorithm: NotRequired[str]
-    Phase1IntegrityAlgorithm: NotRequired[str]
-    Phase2IntegrityAlgorithm: NotRequired[str]
-    Phase1DHGroup: NotRequired[int]
-    Phase2DHGroup: NotRequired[int]
-    IkeVersion: NotRequired[str]
-    ProvisioningStatus: NotRequired[VpnTunnelProvisioningStatusType]
-    ProvisioningStatusReason: NotRequired[str]
+class ActiveVpnTunnelAdditionalKeyExchangeTypeDef(TypedDict):
+    AdditionalKeyExchangeRound: NotRequired[int]
+    KeyExchangeMethod: NotRequired[int]
 
 
 AddIpamOperatingRegionTypeDef = TypedDict(
@@ -3652,6 +3659,14 @@ class RuleGroupTypePairTypeDef(TypedDict):
 class RuleOptionTypeDef(TypedDict):
     Keyword: NotRequired[str]
     Settings: NotRequired[list[str]]
+
+
+class AdditionalKeyExchangeMethodsListValueTypeDef(TypedDict):
+    Value: NotRequired[int]
+
+
+class AdditionalKeyExchangeMethodsRequestListValueTypeDef(TypedDict):
+    Value: NotRequired[int]
 
 
 class PtrUpdateStatusTypeDef(TypedDict):
@@ -4408,20 +4423,21 @@ class CapacityBlockExtensionTypeDef(TypedDict):
     ZoneType: NotRequired[str]
 
 
-class CapacityBlockOfferingTypeDef(TypedDict):
-    CapacityBlockOfferingId: NotRequired[str]
+class CapacityBlockInstanceTypePreferenceTypeDef(TypedDict):
+    InstanceType: NotRequired[str]
+
+
+class CapacityBlockOfferingSegmentTypeDef(TypedDict):
     InstanceType: NotRequired[str]
     AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
     InstanceCount: NotRequired[int]
     StartDate: NotRequired[datetime]
     EndDate: NotRequired[datetime]
     CapacityBlockDurationHours: NotRequired[int]
+    CapacityBlockDurationMinutes: NotRequired[int]
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
-    Tenancy: NotRequired[CapacityReservationTenancyType]
-    UltraserverType: NotRequired[str]
-    UltraserverCount: NotRequired[int]
-    CapacityBlockDurationMinutes: NotRequired[int]
     ZoneType: NotRequired[str]
 
 
@@ -4979,6 +4995,11 @@ class PrivateIpAddressSpecificationTypeDef(TypedDict):
     PrivateIpAddress: NotRequired[str]
 
 
+class CreatePeeringConnectionOptionsRequestTypeDef(TypedDict):
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
+
+
 class PriceScheduleSpecificationTypeDef(TypedDict):
     Term: NotRequired[int]
     Price: NotRequired[float]
@@ -5091,6 +5112,8 @@ class CreateTransitGatewayMulticastDomainRequestOptionsTypeDef(TypedDict):
 
 class CreateTransitGatewayPeeringAttachmentRequestOptionsTypeDef(TypedDict):
     DynamicRouting: NotRequired[DynamicRoutingValueType]
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
 
 
 class CreateTransitGatewayPrefixListReferenceRequestTypeDef(TypedDict):
@@ -8883,6 +8906,11 @@ class ModifyTransitGatewayOptionsTypeDef(TypedDict):
     EncryptionSupport: NotRequired[EncryptionSupportOptionValueType]
 
 
+class ModifyTransitGatewayPeeringAttachmentRequestOptionsTypeDef(TypedDict):
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
+
+
 class ModifyTransitGatewayPrefixListReferenceRequestTypeDef(TypedDict):
     TransitGatewayRouteTableId: str
     PrefixListId: str
@@ -9050,12 +9078,16 @@ class PeeringConnectionOptionsRequestTypeDef(TypedDict):
     AllowDnsResolutionFromRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalClassicLinkToRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalVpcToRemoteClassicLink: NotRequired[bool]
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
 
 
 class PeeringConnectionOptionsTypeDef(TypedDict):
     AllowDnsResolutionFromRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalClassicLinkToRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalVpcToRemoteClassicLink: NotRequired[bool]
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
 
 
 class ModifyVpcTenancyRequestTypeDef(TypedDict):
@@ -10065,6 +10097,13 @@ class TransitGatewayMulticastDomainOptionsTypeDef(TypedDict):
 
 class TransitGatewayPeeringAttachmentOptionsTypeDef(TypedDict):
     DynamicRouting: NotRequired[DynamicRoutingValueType]
+    RequesterAllowMultipathResilience: NotRequired[bool]
+    RequesterMultipathResilienceMode: NotRequired[Literal["always-on"]]
+    AccepterAllowMultipathResilience: NotRequired[bool]
+    AccepterMultipathResilienceMode: NotRequired[Literal["always-on"]]
+    MultipathResilienceStatus: NotRequired[
+        TransitGatewayPeeringAttachmentMultipathResilienceStatusType
+    ]
 
 
 class TransitGatewayPolicyRuleMetaDataTypeDef(TypedDict):
@@ -10300,6 +10339,8 @@ class VpcPeeringConnectionOptionsDescriptionTypeDef(TypedDict):
     AllowDnsResolutionFromRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalClassicLinkToRemoteVpc: NotRequired[bool]
     AllowEgressFromLocalVpcToRemoteClassicLink: NotRequired[bool]
+    AllowMultipathResilience: NotRequired[bool]
+    MultipathResilienceMode: NotRequired[Literal["always-on"]]
 
 
 class VpcPeeringConnectionStateReasonTypeDef(TypedDict):
@@ -11320,9 +11361,18 @@ class DescribeSpotFleetInstancesResponseTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class GetActiveVpnTunnelStatusResultTypeDef(TypedDict):
-    ActiveVpnTunnelStatus: ActiveVpnTunnelStatusTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
+class ActiveVpnTunnelStatusTypeDef(TypedDict):
+    Phase1EncryptionAlgorithm: NotRequired[str]
+    Phase2EncryptionAlgorithm: NotRequired[str]
+    Phase1IntegrityAlgorithm: NotRequired[str]
+    Phase2IntegrityAlgorithm: NotRequired[str]
+    Phase1DHGroup: NotRequired[int]
+    Phase2DHGroup: NotRequired[int]
+    IkeVersion: NotRequired[str]
+    ProvisioningStatus: NotRequired[VpnTunnelProvisioningStatusType]
+    ProvisioningStatusReason: NotRequired[str]
+    Phase1AdditionalKeyExchanges: NotRequired[list[ActiveVpnTunnelAdditionalKeyExchangeTypeDef]]
+    Phase2AdditionalKeyExchanges: NotRequired[list[ActiveVpnTunnelAdditionalKeyExchangeTypeDef]]
 
 
 class ModifyVpcEndpointServicePermissionsResultTypeDef(TypedDict):
@@ -11342,6 +11392,18 @@ class AnalysisLoadBalancerTargetTypeDef(TypedDict):
 class RuleGroupRuleOptionsPairTypeDef(TypedDict):
     RuleGroupArn: NotRequired[str]
     RuleOptions: NotRequired[list[RuleOptionTypeDef]]
+
+
+class VpnAdditionalKeyExchangeTypeDef(TypedDict):
+    AdditionalKeyExchangeRound: NotRequired[int]
+    KeyExchangeMethods: NotRequired[list[AdditionalKeyExchangeMethodsListValueTypeDef]]
+    Requirement: NotRequired[AdditionalKeyExchangeRequirementType]
+
+
+class VpnAdditionalKeyExchangeRequestTypeDef(TypedDict):
+    AdditionalKeyExchangeRound: int
+    KeyExchangeMethods: NotRequired[Sequence[AdditionalKeyExchangeMethodsRequestListValueTypeDef]]
+    Requirement: NotRequired[AdditionalKeyExchangeRequirementType]
 
 
 class AddressAttributeTypeDef(TypedDict):
@@ -12451,20 +12513,6 @@ class ClientDataTypeDef(TypedDict):
     UploadStart: NotRequired[TimestampTypeDef]
 
 
-class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
-    CapacityDurationHours: int
-    DryRun: NotRequired[bool]
-    InstanceType: NotRequired[str]
-    InstanceCount: NotRequired[int]
-    StartDateRange: NotRequired[TimestampTypeDef]
-    EndDateRange: NotRequired[TimestampTypeDef]
-    NextToken: NotRequired[str]
-    MaxResults: NotRequired[int]
-    UltraserverType: NotRequired[str]
-    UltraserverCount: NotRequired[int]
-    AllAvailabilityZones: NotRequired[bool]
-
-
 class DescribeFleetHistoryRequestTypeDef(TypedDict):
     FleetId: str
     StartTime: TimestampTypeDef
@@ -12828,10 +12876,37 @@ class PurchaseCapacityBlockExtensionResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class DescribeCapacityBlockOfferingsResultTypeDef(TypedDict):
-    CapacityBlockOfferings: list[CapacityBlockOfferingTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
+class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
+    CapacityDurationHours: int
+    DryRun: NotRequired[bool]
+    InstanceType: NotRequired[str]
+    InstanceCount: NotRequired[int]
+    StartDateRange: NotRequired[TimestampTypeDef]
+    EndDateRange: NotRequired[TimestampTypeDef]
     NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
+    AllAvailabilityZones: NotRequired[bool]
+    InstanceTypePreferences: NotRequired[Sequence[CapacityBlockInstanceTypePreferenceTypeDef]]
+
+
+class CapacityBlockOfferingTypeDef(TypedDict):
+    CapacityBlockOfferingId: NotRequired[str]
+    InstanceType: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    InstanceCount: NotRequired[int]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    CapacityBlockDurationHours: NotRequired[int]
+    UpfrontFee: NotRequired[str]
+    CurrencyCode: NotRequired[str]
+    Tenancy: NotRequired[CapacityReservationTenancyType]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
+    CapacityBlockDurationMinutes: NotRequired[int]
+    ZoneType: NotRequired[str]
+    CapacityBlockOfferingSegments: NotRequired[list[CapacityBlockOfferingSegmentTypeDef]]
 
 
 class CapacityBlockStatusTypeDef(TypedDict):
@@ -13503,6 +13578,7 @@ class DescribeCapacityBlockOfferingsRequestPaginateTypeDef(TypedDict):
     UltraserverType: NotRequired[str]
     UltraserverCount: NotRequired[int]
     AllAvailabilityZones: NotRequired[bool]
+    InstanceTypePreferences: NotRequired[Sequence[CapacityBlockInstanceTypePreferenceTypeDef]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -18058,6 +18134,12 @@ class ModifyTransitGatewayRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 
+class ModifyTransitGatewayPeeringAttachmentRequestTypeDef(TypedDict):
+    TransitGatewayAttachmentId: str
+    Options: NotRequired[ModifyTransitGatewayPeeringAttachmentRequestOptionsTypeDef]
+    DryRun: NotRequired[bool]
+
+
 class ModifyTransitGatewayVpcAttachmentRequestTypeDef(TypedDict):
     TransitGatewayAttachmentId: str
     AddSubnetIds: NotRequired[Sequence[str]]
@@ -19069,6 +19151,11 @@ class DescribeAccountVpcEncryptionControlResultTypeDef(TypedDict):
 
 class ModifyAccountVpcEncryptionControlResultTypeDef(TypedDict):
     AccountVpcEncryptionControl: AccountVpcEncryptionControlTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class GetActiveVpnTunnelStatusResultTypeDef(TypedDict):
+    ActiveVpnTunnelStatus: ActiveVpnTunnelStatusTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -20085,6 +20172,12 @@ class CapacityReservationTypeDef(TypedDict):
     LaunchStatus: NotRequired[CapacityReservationLaunchStatusType]
 
 
+class DescribeCapacityBlockOfferingsResultTypeDef(TypedDict):
+    CapacityBlockOfferings: list[CapacityBlockOfferingTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+
 class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
     CapacityBlockStatuses: list[CapacityBlockStatusTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -20279,6 +20372,8 @@ class ModifyVpnTunnelOptionsSpecificationTypeDef(TypedDict):
     StartupAction: NotRequired[str]
     LogOptions: NotRequired[VpnTunnelLogOptionsSpecificationTypeDef]
     EnableTunnelLifecycleControl: NotRequired[bool]
+    Phase1AdditionalKeyExchanges: NotRequired[Sequence[VpnAdditionalKeyExchangeRequestTypeDef]]
+    Phase2AdditionalKeyExchanges: NotRequired[Sequence[VpnAdditionalKeyExchangeRequestTypeDef]]
 
 
 class VpnTunnelOptionsSpecificationTypeDef(TypedDict):
@@ -20310,6 +20405,8 @@ class VpnTunnelOptionsSpecificationTypeDef(TypedDict):
     StartupAction: NotRequired[str]
     LogOptions: NotRequired[VpnTunnelLogOptionsSpecificationTypeDef]
     EnableTunnelLifecycleControl: NotRequired[bool]
+    Phase1AdditionalKeyExchanges: NotRequired[Sequence[VpnAdditionalKeyExchangeRequestTypeDef]]
+    Phase2AdditionalKeyExchanges: NotRequired[Sequence[VpnAdditionalKeyExchangeRequestTypeDef]]
 
 
 class TunnelOptionTypeDef(TypedDict):
@@ -20334,6 +20431,8 @@ class TunnelOptionTypeDef(TypedDict):
     StartupAction: NotRequired[str]
     LogOptions: NotRequired[VpnTunnelLogOptionsTypeDef]
     EnableTunnelLifecycleControl: NotRequired[bool]
+    Phase1AdditionalKeyExchanges: NotRequired[list[VpnAdditionalKeyExchangeTypeDef]]
+    Phase2AdditionalKeyExchanges: NotRequired[list[VpnAdditionalKeyExchangeTypeDef]]
 
 
 class BaselinePerformanceFactorsOutputTypeDef(TypedDict):
@@ -22024,6 +22123,11 @@ class DescribeTransitGatewayPeeringAttachmentsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class ModifyTransitGatewayPeeringAttachmentResultTypeDef(TypedDict):
+    TransitGatewayPeeringAttachment: TransitGatewayPeeringAttachmentTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class RejectTransitGatewayPeeringAttachmentResultTypeDef(TypedDict):
     TransitGatewayPeeringAttachment: TransitGatewayPeeringAttachmentTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -22330,6 +22434,7 @@ class VpcPeeringConnectionTypeDef(TypedDict):
     Status: NotRequired[VpcPeeringConnectionStateReasonTypeDef]
     Tags: NotRequired[list[TagTypeDef]]
     VpcPeeringConnectionId: NotRequired[str]
+    MultipathResilienceStatus: NotRequired[MultipathResilienceStatusType]
 
 
 class AssociateInstanceEventWindowResultTypeDef(TypedDict):
@@ -23543,6 +23648,7 @@ class CreateVpcPeeringConnectionRequestServiceResourceCreateVpcPeeringConnection
     VpcId: str
     PeerRegion: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    RequesterPeeringConnectionOptions: NotRequired[CreatePeeringConnectionOptionsRequestTypeDef]
     DryRun: NotRequired[bool]
     PeerVpcId: NotRequired[str]
     PeerOwnerId: NotRequired[str]
@@ -23552,6 +23658,7 @@ class CreateVpcPeeringConnectionRequestTypeDef(TypedDict):
     VpcId: str
     PeerRegion: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    RequesterPeeringConnectionOptions: NotRequired[CreatePeeringConnectionOptionsRequestTypeDef]
     DryRun: NotRequired[bool]
     PeerVpcId: NotRequired[str]
     PeerOwnerId: NotRequired[str]
@@ -23560,6 +23667,7 @@ class CreateVpcPeeringConnectionRequestTypeDef(TypedDict):
 class CreateVpcPeeringConnectionRequestVpcRequestVpcPeeringConnectionTypeDef(TypedDict):
     PeerRegion: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    RequesterPeeringConnectionOptions: NotRequired[CreatePeeringConnectionOptionsRequestTypeDef]
     DryRun: NotRequired[bool]
     PeerVpcId: NotRequired[str]
     PeerOwnerId: NotRequired[str]
@@ -23918,6 +24026,7 @@ class MoveCapacityReservationInstancesResultTypeDef(TypedDict):
 class PurchaseCapacityBlockResultTypeDef(TypedDict):
     CapacityReservation: CapacityReservationTypeDef
     CapacityBlocks: list[CapacityBlockTypeDef]
+    CapacityReservations: list[CapacityReservationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-redis
-Version: 0.3.0
+Version: 0.3.1
 Summary: An integration package connecting Redis and LangChain for AI working memory
 Home-page: https://github.com/langchain-ai/langchain-redis
 License: MIT

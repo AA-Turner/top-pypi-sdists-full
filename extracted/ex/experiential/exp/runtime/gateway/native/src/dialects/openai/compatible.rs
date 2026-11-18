@@ -327,6 +327,7 @@ impl Normalizer {
         }
         if let Some(Value::String(refusal)) = delta.get("refusal") {
             self.refusal_seen = true;
+            self.model_refusal_seen = true;
             events.push(Event::RefusalDelta(refusal.clone()));
         }
         let reasoning = delta
@@ -444,7 +445,7 @@ impl Normalizer {
                             let raw_fragment = match fragment {
                                 Value::String(text) => text.clone(),
                                 _ => {
-                                    return Err(malformed(
+                                    return Err(super::super::malformed_tool_call(
                                         "OpenAI-compatible argument delta must be text",
                                     ))
                                 }
@@ -663,7 +664,16 @@ impl Normalizer {
                 }
                 _ => crate::errors::RefusalReason::Unspecified,
             };
-            events.push(Event::Failed(Failure::refusal(reason)));
+            let failure = Failure::refusal(reason);
+            // A filter finish with no refusal of the model's own is the
+            // provider's content filter (`content_filter`); a visible
+            // refusal delta is the model declining and stays as it was.
+            let failure = if self.model_refusal_seen {
+                failure
+            } else {
+                crate::content_filter::mark(failure)
+            };
+            events.push(Event::Failed(failure));
         } else if finish == Some("length") || cut_mid_fragment {
             events.push(Event::Incomplete);
         } else if finish == Some("stop") && unreported && self.output_token_cap.is_some() {

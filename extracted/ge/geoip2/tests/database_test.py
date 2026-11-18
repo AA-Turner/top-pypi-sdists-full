@@ -1,7 +1,8 @@
-import datetime
+import datetime as dt
 import ipaddress
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 sys.path.append("..")
@@ -101,7 +102,7 @@ class TestReader(unittest.TestCase):
             self.assertEqual(record.is_tor_exit_node, False)
             self.assertEqual(record.ip_address, ipaddress.ip_address(ip_address))
             self.assertEqual(record.network, ipaddress.ip_network("1.2.0.1/32"))
-            self.assertEqual(record.network_last_seen, datetime.date(2025, 4, 14))
+            self.assertEqual(record.network_last_seen, dt.date(2025, 4, 14))
             self.assertEqual(record.provider_name, "foo")
 
     def test_anonymous_ip_all_set(self) -> None:
@@ -304,6 +305,14 @@ class TestReader(unittest.TestCase):
                 record.traits.ip_address,
                 ipaddress.ip_address("81.2.69.160"),
             )
+
+    def test_file_object_in_auto_mode(self) -> None:
+        with (
+            Path("tests/data/test-data/GeoIP2-City-Test.mmdb").open("rb") as f,
+            geoip2.database.Reader(f) as reader,
+        ):
+            record = reader.city("81.2.69.160")
+            self.assertEqual(record.country.iso_code, "GB")
 
     @patch("maxminddb.open_database")
     def test_modes(self, mock_open: MagicMock) -> None:

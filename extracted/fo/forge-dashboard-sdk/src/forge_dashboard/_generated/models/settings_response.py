@@ -50,6 +50,12 @@ class SettingsResponse:
                 even if the stored value predates those being refused.
             forgejo_username (str): Used as a token-free public-repos fallback when no Forgejo token is set.
             forgejo_token_set (bool): Whether a Forgejo token is currently saved.
+            forgejo_o_auth_configured (bool): Whether this server has a Forgejo OAuth client (`FORGEJO_OAUTH_CLIENT_ID`
+                and `FORGEJO_OAUTH_CLIENT_SECRET`), so `POST /api/v1/connections/forgejo`
+                can work at all.
+            forgejo_o_auth_connected (bool): Whether a Forgejo account is linked with OAuth. Like `forgejoTokenSet`
+                it says only that one is on file; the access and refresh tokens are
+                never returned. A linked account wins over a pasted token.
             webhook_token (str): Identifies this user in a webhook URL
                 (`/api/webhooks/{provider}/{webhookToken}`). Generated on
                 first visit to Settings and stable after that.
@@ -116,6 +122,8 @@ class SettingsResponse:
     forgejo_url: str
     forgejo_username: str
     forgejo_token_set: bool
+    forgejo_o_auth_configured: bool
+    forgejo_o_auth_connected: bool
     webhook_token: str
     webhook_secret: str
     renovate_rebase_label: str
@@ -146,6 +154,10 @@ class SettingsResponse:
         forgejo_username = self.forgejo_username
 
         forgejo_token_set = self.forgejo_token_set
+
+        forgejo_o_auth_configured = self.forgejo_o_auth_configured
+
+        forgejo_o_auth_connected = self.forgejo_o_auth_connected
 
         webhook_token = self.webhook_token
 
@@ -192,6 +204,8 @@ class SettingsResponse:
             "forgejoUrl": forgejo_url,
             "forgejoUsername": forgejo_username,
             "forgejoTokenSet": forgejo_token_set,
+            "forgejoOAuthConfigured": forgejo_o_auth_configured,
+            "forgejoOAuthConnected": forgejo_o_auth_connected,
             "webhookToken": webhook_token,
             "webhookSecret": webhook_secret,
             "renovateRebaseLabel": renovate_rebase_label,
@@ -227,6 +241,10 @@ class SettingsResponse:
         forgejo_username = d.pop("forgejoUsername")
 
         forgejo_token_set = d.pop("forgejoTokenSet")
+
+        forgejo_o_auth_configured = d.pop("forgejoOAuthConfigured")
+
+        forgejo_o_auth_connected = d.pop("forgejoOAuthConnected")
 
         webhook_token = d.pop("webhookToken")
 
@@ -273,6 +291,8 @@ class SettingsResponse:
             forgejo_url=forgejo_url,
             forgejo_username=forgejo_username,
             forgejo_token_set=forgejo_token_set,
+            forgejo_o_auth_configured=forgejo_o_auth_configured,
+            forgejo_o_auth_connected=forgejo_o_auth_connected,
             webhook_token=webhook_token,
             webhook_secret=webhook_secret,
             renovate_rebase_label=renovate_rebase_label,

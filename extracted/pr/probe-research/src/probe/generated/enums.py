@@ -102,7 +102,7 @@ class AnswerStyle(StrEnum):
 
 class ArtifactKind(StrEnum):
     """
-    The ten values `artifacts.kind` may hold (0336 CHECK).
+    The ten kinds an artifact can be.
     """
 
     checkpoint = 'checkpoint'
@@ -131,6 +131,12 @@ class ArtifactScope(StrEnum):
     own = 'own'
     inherited = 'inherited'
     all = 'all'
+
+
+class AssignmentTarget(StrEnum):
+    group = 'group'
+    none = 'none'
+    automatic = 'automatic'
 
 
 class AttemptKind(StrEnum):
@@ -534,9 +540,9 @@ class CodeUnavailableReason(StrEnum):
     """
     Why a timeline read could not be served, in UI-renderable vocabulary.
 
-    NOT_FOUND_OR_NO_ACCESS stays one reason, not three — GitHub's 404 is
-    deliberately an existence non-oracle for private repositories (same
-    contract as the README panel).
+    NOT_FOUND_OR_NO_ACCESS stays one reason, not three: GitHub answers a
+    missing repository and a private one the caller cannot see with the same
+    404, so they cannot be told apart (as in the README panel).
     """
 
     not_found_or_no_access = 'not_found_or_no_access'
@@ -550,7 +556,7 @@ class CommandKind(StrEnum):
     """
     What was asked. A producer declares the kinds it can do (a sample producer in `Plan.capabilities`, a run's
     script on its writer beat, `RunCapabilities`); any other is refused at once. Sample kinds name an attempt
-    (`attempt_key`); run kinds (agentic W&B C.1) name none.
+    (`attempt_key`); run kinds name none.
     """
 
     cancel = 'cancel'
@@ -816,6 +822,26 @@ class DisconnectReason(StrEnum):
     unspecified = 'unspecified'
 
 
+class DocRefusal(StrEnum):
+    not_a_google_doc = 'not_a_google_doc'
+    trashed = 'trashed'
+    unreadable = 'unreadable'
+    already_added = 'already_added'
+
+
+class DocState(StrEnum):
+    """
+    A doc's sync state. `auth_failed` is never stored: it is read off the connection.
+    """
+
+    pending = 'pending'
+    synced = 'synced'
+    missing = 'missing'
+    too_large = 'too_large'
+    auth_failed = 'auth_failed'
+    removed = 'removed'
+
+
 class DocsState(StrEnum):
     """
     How fresh the answer is. `ok`: the copy is current. `stale`: the last
@@ -847,7 +873,7 @@ class EditActorKind(StrEnum):
 
 class EditOp(StrEnum):
     """
-    What an edit does. One list for the server, SDK, CLI, MCP and dashboard (review A4).
+    What an edit does. One list for the server, SDK, CLI, MCP and dashboard.
     """
 
     hide = 'hide'
@@ -886,7 +912,7 @@ class EditState(StrEnum):
 
 class EffortWindow(StrEnum):
     """
-    The canvas's date windows. `live` is the last 60 minutes (review 3, #9).
+    The canvas's date windows. `live` is the last 60 minutes.
     """
 
     live = 'live'
@@ -957,6 +983,11 @@ class ExperimentOutcome(StrEnum):
     dead_end = 'dead_end'
 
 
+class ExportFormat(StrEnum):
+    probe = 'probe'
+    atif = 'atif'
+
+
 class Nonfinite(StrEnum):
     nan = 'nan'
     inf = 'inf'
@@ -995,10 +1026,9 @@ class FeedbackKind(StrEnum):
 
 class FieldSource(StrEnum):
     """
-    Who composed the text now in the row. The STORED vocabulary.
+    Who composed the text now in the row, as stored: `lane` (Probe composed it), `agent` or `human`.
 
-    The wire cannot say `lane`, because a client is never the generation lane; a library default
-    it sends as `composed` is stored as `lane`. Mirrors `entity_overviews.source`, deliberately.
+    A client never sends `lane`; what it sends as `composed` is stored as `lane`.
     """
 
     lane = 'lane'
@@ -1080,6 +1110,7 @@ class Grant(StrEnum):
     mcp = 'mcp'
     capture = 'capture'
     companion = 'companion'
+    team_key = 'team_key'
 
 
 class GrantLevel(StrEnum):
@@ -1172,8 +1203,7 @@ class Outcome(StrEnum):
 
 class IndexCorpus(StrEnum):
     """
-    The /v1/search corpus filter vocabulary (github.* and claude_code
-    transcript docs are engine-native, not custom-ingest projections).
+    The /v1/search corpus filter vocabulary.
     """
 
     experiments = 'experiments'
@@ -1250,6 +1280,16 @@ class KeyDropStatus(StrEnum):
     canceled = 'canceled'
     expired = 'expired'
     other_account = 'other_account'
+
+
+class KeyReadsAs(StrEnum):
+    """
+    Whose view a team key reads: its creator's, or (creator gone from the team) only what every member
+    sees. Sent as `Probe-Key-Reads-As` on every answer to a key and listed on `GET /v1/service-tokens`.
+    """
+
+    creator = 'creator'
+    team_default = 'team-default'
 
 
 class SourceReadContractEnum(StrEnum):
@@ -1547,6 +1587,7 @@ class MetricReduce(StrEnum):
 class MirrorSource(StrEnum):
     wandb = 'wandb'
     benchling = 'benchling'
+    google_docs = 'google_docs'
 
 
 class NextStep(StrEnum):
@@ -1561,18 +1602,10 @@ class NodeKind(StrEnum):
 
 class NoteKind(StrEnum):
     """
-    Every document carrier the Notes explorer can open.
-
-    SUB_NOTE (0146) is a catalog row and a history target, NEVER a carrier:
-    it has no /v1/{plural} entity path, no `note_budget` (its cap is its
-    PARENT carrier's — a sub-note kind has no single cap), and no
-    entry in app/notes/service.py::CARRIERS. Code keyed exhaustively on the
-    carrier kinds must not learn it by accident, which is why the sub-note
-    paths derive from the parent instead.
-
-    Sweep groups and files carry no notes (2026-10-16); their kinds left this
-    enum when 0374 dropped their storage (PLAN P3). A `parent_kind` of either
-    is now an enum-validation 422.
+    Every kind of note the Notes explorer can open: the team note, a project's,
+    an experiment's or a run's note, or a titled sub-note. A sub-note lives
+    under one of the others and shares its size limit. Sweep groups and files
+    carry no notes, so a `parent_kind` of either is a 422.
     """
 
     team_note = 'team_note'
@@ -1663,10 +1696,15 @@ class PaneAnchorKind(StrEnum):
 
 
 class PaneCheckErrorKind(StrEnum):
+    """
+    What kind of error a check state saw.
+    """
+
     script = 'script'
     promise = 'promise'
     resource = 'resource'
     navigation = 'navigation'
+    text_small = 'text_small'
 
 
 class PaneCheckOnData(StrEnum):
@@ -1704,6 +1742,7 @@ class PaneCheckState(StrEnum):
     empty = 'empty'
     live = 'live'
     controls = 'controls'
+    preview = 'preview'
 
 
 class PaneCheckStatus(StrEnum):
@@ -1767,6 +1806,8 @@ class PaneRule(StrEnum):
     preview_chosen = 'preview_chosen'
     pane_taken = 'pane_taken'
     preview_slug = 'preview_slug'
+    preview_shape = 'preview_shape'
+    text_small = 'text_small'
 
 
 class PaneSourceState(StrEnum):
@@ -1855,6 +1896,7 @@ class PartRole(StrEnum):
     scorer = 'scorer'
     harbor = 'harbor'
     attempt = 'attempt'
+    reread = 'reread'
 
 
 class PickEvent(StrEnum):
@@ -1917,8 +1959,9 @@ class PointsCheck(StrEnum):
 
 class PointsStore(StrEnum):
     """
-    Where one project's points live (I24): `clickhouse` alone (a listed project), `dual` (Postgres plus a
-    ClickHouse copy) or `postgres`. Wire values: `GET /v1/projects/{ref}/points-store` serves them.
+    Where one project's metric points are stored: `clickhouse` (the metrics store alone), `dual` (the
+    main database, with a copy in the metrics store) or `postgres` (the main database alone).
+    `GET /v1/projects/{ref}/points-store` serves these values.
     """
 
     clickhouse = 'clickhouse'
@@ -1968,7 +2011,7 @@ class ProjectSetting(StrEnum):
 
 class Content2(StrEnum):
     """
-    absent: no page the caller may read; fresh: there is one. `stale` stays legal for older clients; nothing sends it since the overview lane was deleted.
+    absent: no page the caller may read; fresh: there is one. `stale` stays legal for older clients; nothing sends it since Probe stopped generating these pages.
     """
 
     absent = 'absent'
@@ -1978,7 +2021,7 @@ class Content2(StrEnum):
 
 class Job3(StrEnum):
     """
-    idle, or failed: the overview lane's last job for the page failed (`failed_reason`). `queued` and `generating` stay legal for older clients; no page job is queued since the lane was deleted.
+    idle, or failed: Probe's last job writing the page failed (`failed_reason`). `queued` and `generating` stay legal for older clients; no page job is queued since Probe stopped generating these pages.
     """
 
     idle = 'idle'
@@ -1989,7 +2032,7 @@ class Job3(StrEnum):
 
 class Source5(StrEnum):
     """
-    Who wrote the page: lane, agent or human.
+    Who wrote the page: lane (Probe), agent or human.
     """
 
     lane = 'lane'
@@ -2101,12 +2144,10 @@ class RefType(StrEnum):
 
 class ReferenceDirection(StrEnum):
     """
-    Which side of a stored edge the caller is standing on (0153).
+    Which end of a stored link the caller is reading it from.
 
-    The row exists once; this is the only field that differs between its two
-    readings. A closed vocabulary rather than a bare `str` so the OpenAPI, the
-    generated SDK model and the dashboard all advertise the two legal values
-    instead of an open string.
+    The link exists once; this is the only field that differs between its two
+    readings.
     """
 
     outgoing = 'outgoing'
@@ -2243,8 +2284,8 @@ class RunStatus(StrEnum):
 
 class RunType(StrEnum):
     """
-    What a run is, as its creator declares it (0495). Training and evaluation are phases inside a run, not types.
-    RL presentation (RL workspace, Rollouts, Compute timeline, Trials) follows `RL`; DESIGN.md (run.py).
+    What a run is, as its creator declares it. Training and evaluation are phases inside a run, not types.
+    The RL views (RL workspace, Rollouts, Compute timeline, Trials) follow `rl`.
     """
 
     general = 'general'
@@ -2258,8 +2299,8 @@ class ObservedBy(StrEnum):
 
 class SQLSource(StrEnum):
     """
-    Where `POST /v1/sql` reads: the research tables (Postgres), or ClickHouse's RL sample views
-    (app/agents/sql/clickhouse).
+    Where `POST /v1/sql` reads: `postgres`, the research tables, queried in PostgreSQL's SQL; or
+    `samples`, the RL sample views, queried in ClickHouse's SQL.
     """
 
     postgres = 'postgres'
@@ -2394,11 +2435,11 @@ class SearchRetrieval(StrEnum):
     """
     How the semantic leg retrieves, when it runs at all.
 
-    AGENTIC is the engine's full search: grounding, vector + BM25 + graph and a
-    model choosing the passages, metered as a recall action. KEYWORD is BM25
-    over document text and titles through the engine's `/retrieve/direct`, with
-    no model call anywhere on the path -- the agent-facing `search(semantic=
-    false)`. `include_semantic=false` is the third case: no index leg at all.
+    AGENTIC is the full search: grounding, vector + BM25 + graph and a model
+    choosing the passages, metered as a recall action. KEYWORD is BM25 over
+    document text and titles, with no model call anywhere on the path -- the
+    agent-facing `search(semantic= false)`. `include_semantic=false` is the
+    third case: no index leg at all.
     """
 
     agentic = 'agentic'
@@ -2407,8 +2448,8 @@ class SearchRetrieval(StrEnum):
 
 class SearchSort(StrEnum):
     """
-    `sort`: RELEVANCE (default, today's order) or RECENT, newest first by when the content was written, applied
-    before the top-k cut in both channels (D16). Engine wire value: `recency`.
+    `sort`: `relevance` (the default) or `recent`, newest first by when the content was written, applied
+    before the results are cut to the top matches.
     """
 
     relevance = 'relevance'
@@ -2514,8 +2555,7 @@ class SourceKind(StrEnum):
 
 class SourceProvider(StrEnum):
     """
-    Where an external source lives (`external_sources.provider`), derived by
-    the server from the uri's form (`app.catalog.sources.canonicalize`).
+    Where an external source lives, derived by the server from the uri's form.
     """
 
     huggingface = 'huggingface'
@@ -2542,29 +2582,17 @@ class StoredState(StrEnum):
 
 class SummaryDetail(StrEnum):
     """
-    WHY a summary is in the state it is in — for an operator, not a reader.
+    WHY a summary is in the state it is in. `state` says whether a summary is current;
+    this says why one is not arriving:
 
-    `state` is the badge and it is deliberately coarse: a researcher wants to
-    know whether what they are reading is current, and four values say that. An
-    operator asked a different question — "why is this anchor not generating?" —
-    and `failed` answered it with one word for five situations that need five
-    different responses:
-
-      NO_EVIDENCE      nothing to summarise yet. Not a fault, and the one case
-                       where the honest action is to wait.
-      STANDS_DOWN      a run or trial on a tenant with overview pages (0203):
-                       no summary will ever arrive here, the experiment's page
-                       is the write-up. Do not wait.
-      PENDING          queued, not yet claimed. Backlog, not breakage.
-      DEAD_LETTER      exhausted its attempts. Someone has to look.
-      GATEWAY_DOWN     no LLM gateway configured for this deployment. Every
-                       anchor is affected, and no per-anchor retry helps.
-      VALIDATION       the model answered and the grounding gate refused it.
-                       A prompt or context problem, never an outage.
-
-    The USER-FACING placeholder stays quiet whatever this says. A reader should
-    not have to learn the difference between a dead-letter and a gateway
-    outage — that is our job, and telling them is noise dressed as transparency.
+      no_evidence        nothing to summarise yet. Not a fault: wait.
+      stands_down        a run or trial whose experiment page is the write-up:
+                         no summary will ever arrive here. Do not wait.
+      pending            queued, not yet started.
+      dead_letter        it ran out of attempts. Someone has to look.
+      gateway_down       no model is configured for this deployment, so no
+                         summary anywhere can be written; a retry does not help.
+      validation_failed  the model answered and a grounding check refused it.
     """
 
     no_evidence = 'no_evidence'
@@ -2937,11 +2965,8 @@ class AppPapersCitationStoreDirection(StrEnum):
 
 class AppProjectsTwinScopeKind(StrEnum):
     """
-    What a scope id names: a project, an experiment, or a run.
-
-    The values are `AnchorLevel`'s (`app.artifacts.schemas`), so a file anchor
-    converts with `ScopeKind(level)`, and the T16 workspace read model's
-    `scope=project:P|experiment:E|run:R` prefixes.
+    What a scope id names: a project, an experiment, or a run. The values are the
+    workspace read's `scope=project:P|experiment:E|run:R` prefixes.
     """
 
     project = 'project'

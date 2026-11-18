@@ -125,7 +125,7 @@ class MongoWhatsAppNumberRepository:
             # Its own company re-binds it; anyone may take a number that was taken down.
             document = await self.collection.find_one_and_update(
                 {"_id": number.phone_number_id, "$or": [{"company_id": number.company_id}, {"taken_down_at": {"$ne": None}}]},
-                {"$set": bound},
+                {"$set": bound, "$unset": {"released_in_chatty": ""}},
                 return_document=ReturnDocument.AFTER,
             )
             if document is not None:
@@ -154,6 +154,13 @@ class MongoWhatsAppNumberRepository:
     async def take_down(self, phone_number_id: str) -> None:
         now = utc_now()
         await self.collection.update_one({"_id": phone_number_id}, {"$set": {"taken_down_at": now, "active": False, "until": now}})
+
+    async def release(self, phone_number_id: str, account_id: StrObjectId, reason: str) -> None:
+        now = utc_now()
+        await self.collection.update_one(
+            {"_id": phone_number_id, "account_id": account_id, "taken_down_at": None},
+            {"$set": {"taken_down_at": now, "active": False, "until": now, "released_in_chatty": {"at": now, "reason": reason}}},
+        )
 
     async def list_by_account(self, account_id: StrObjectId) -> List[WhatsAppNumber]:
         documents = await self.collection.find({"account_id": account_id}).sort("since", 1).to_list(None)

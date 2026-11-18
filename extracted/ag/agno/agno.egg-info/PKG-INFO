@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 3.2.0
+Version: 3.2.1
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -303,7 +303,7 @@ Requires-Dist: langfuse; extra == "langfuse"
 Provides-Extra: claude
 Requires-Dist: claude-agent-sdk>=0.2.148; extra == "claude"
 Provides-Extra: codex
-Requires-Dist: openai-codex; extra == "codex"
+Requires-Dist: openai-codex>=0.163.0; extra == "codex"
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.77.0; extra == "anthropic"
 Provides-Extra: aws-bedrock
@@ -333,6 +333,7 @@ Provides-Extra: meta
 Requires-Dist: llama-api-client; extra == "meta"
 Provides-Extra: mistral
 Requires-Dist: mistralai>=2.0.0; extra == "mistral"
+Requires-Dist: httpx2!=2.16.1; extra == "mistral"
 Provides-Extra: ollama
 Requires-Dist: ollama; extra == "ollama"
 Provides-Extra: openai
@@ -367,7 +368,7 @@ Requires-Dist: atlassian-python-api<5; extra == "confluence"
 Provides-Extra: crawl4ai
 Requires-Dist: crawl4ai>=0.6.3; extra == "crawl4ai"
 Provides-Extra: daytona
-Requires-Dist: daytona; extra == "daytona"
+Requires-Dist: daytona<1; extra == "daytona"
 Provides-Extra: ddg
 Requires-Dist: ddgs; extra == "ddg"
 Provides-Extra: docling
@@ -716,7 +717,7 @@ Provides-Extra: embedders
 Requires-Dist: agno[huggingface]; extra == "embedders"
 Provides-Extra: tests
 Requires-Dist: claude-agent-sdk>=0.2.148; extra == "tests"
-Requires-Dist: openai-codex==0.163.0; python_version >= "3.10" and extra == "tests"
+Requires-Dist: openai-codex>=0.163.0; python_version >= "3.10" and extra == "tests"
 Requires-Dist: agno[pages]; extra == "tests"
 Requires-Dist: agno[a2a]; extra == "tests"
 Requires-Dist: agno[slack]; extra == "tests"

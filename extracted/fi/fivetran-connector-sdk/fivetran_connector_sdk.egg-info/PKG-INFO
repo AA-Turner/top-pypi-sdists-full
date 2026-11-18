@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fivetran_connector_sdk
-Version: 3.1.1
+Version: 3.1.2
 Summary: Build custom connectors on Fivetran platform
 Author-email: Fivetran <developers@fivetran.com>
 Project-URL: Homepage, https://fivetran.com/docs/connectors/connector-sdk
@@ -9,10 +9,10 @@ Project-URL: Changelog, https://fivetran.com/docs/connectors/connector-sdk/chang
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 Requires-Dist: requests==2.34.2
-Requires-Dist: pipreqs-fivetran==1.1.2
+Requires-Dist: pipreqs-fivetran==1.1.3
 Requires-Dist: prompt-toolkit==3.0.53
 Requires-Dist: pathspec==1.1.1
 Requires-Dist: cryptography==49.0.0
@@ -39,7 +39,7 @@ To learn more, see our [Connector SDK documentation](https://fivetran.com/docs/c
     pip install fivetran-connector-sdk
 
 ## **Requirements**
-- Python version ≥3.10 and ≤3.14
+- Python version ≥3.11 and ≤3.15
 - Operating system:
   - Windows: 10 or later (64-bit only)
   - macOS: 13 (Ventura) or later (Apple Silicon [arm64] or Intel [x86_64])

@@ -9,7 +9,13 @@ from typing import Any, ClassVar, Unpack, cast
 
 from midealan.const import MAX_BYTE_VALUE, DeviceType
 from midealan.device import MideaDevice, MideaDeviceInitKwargs
-from midealan.message import ListTypes
+from midealan.message import (
+    ListTypes,
+    MessageRequest,
+    MessageType,
+    ToshibaFrame,
+    ToshibaMessageRequest,
+)
 
 from .message import (
     _B1_MAX_CAPABILITY_BATCHES,
@@ -38,6 +44,7 @@ from .message import (
     SubProtocolQuery30,
     ToggleDisplay,
     _PropertiesCapsQueryBase,
+    decode_toshiba_ac_status,
     format_property_tags,
 )
 
@@ -62,6 +69,27 @@ ACQuery = (
 
 # AC mode constants
 DRY_MODE = 3
+# Both electric aux-heat modes run the unit in heat (vendor lua forces
+# modeValue=BYTE_MODE_HEAT for "single_elecheat" and "heat_elecheat").
+HEAT_MODE = 4
+
+# Electric auxiliary heat (PTC) is a tri-state, following the vendor lua which
+# distinguishes two independent flags:
+#   - PTCValue (aux_heating): ordinary electric aux-heat assisting the heat pump
+#     (vendor lua "heat_elecheat": modeValue=HEAT + PTCValue=0x08).
+#   - independent_ptc: "single" electric aux-heat, electric heating only
+#     (vendor lua "single_elecheat": modeValue=HEAT + independent_ptc=0x08).
+# These never make sense together, so they are exposed as one option attribute
+# rather than two overlapping booleans. The legacy aux_heating boolean stays for
+# backward compatibility; aux_heat_mode is the richer control.
+AUX_HEAT_MODE_OFF = "off"
+AUX_HEAT_MODE_AUX_HEAT = "aux_heat"  # heat_elecheat: heat pump + PTC
+AUX_HEAT_MODE_AUX_ONLY = "aux_only"  # single_elecheat: electric heat only
+AUX_HEAT_MODES = (
+    AUX_HEAT_MODE_OFF,
+    AUX_HEAT_MODE_AUX_HEAT,
+    AUX_HEAT_MODE_AUX_ONLY,
+)
 
 # Maps the reported mode value to the capabilities["temperature"] range key.
 # auto=1, cool=2, dry=3, heat=4, fan=5; dry and fan reuse the cool range.
@@ -88,6 +116,7 @@ class DeviceAttributes(StrEnum):
     dry = "dry"
     eco_mode = "eco_mode"
     aux_heating = "aux_heating"
+    aux_heat_mode = "aux_heat_mode"
     sleep_mode = "sleep_mode"
     natural_wind = "natural_wind"
     temp_fahrenheit = "temp_fahrenheit"
@@ -99,7 +128,11 @@ class DeviceAttributes(StrEnum):
     indoor_temperature = "indoor_temperature"
     outdoor_temperature = "outdoor_temperature"
     indirect_wind = "indirect_wind"
+    wind_straight = "wind_straight"
+    wind_avoid = "wind_avoid"
     indoor_humidity = "indoor_humidity"
+    humidify = "humidify"
+    target_humidity = "target_humidity"
     breezeless = "breezeless"
     fresh_air_power = "fresh_air_power"
     fresh_air_fan_speed = "fresh_air_fan_speed"
@@ -207,6 +240,16 @@ STALE_C0_TEMPERATURE_ATTRIBUTES = (
     DeviceAttributes.indoor_temperature,
     DeviceAttributes.outdoor_temperature,
 )
+# These models report an unreliable display state in A0 notifications while
+# their C0 replies track the physical display. Ignore only the A0 display field
+# and keep processing the notification's other state attributes.
+# https://github.com/wuwentao/midea_ac_lan/issues/1147
+STALE_A0_SCREEN_DISPLAY_MODELS = frozenset(
+    {
+        ("00000Q1B", 44204),
+        ("00000Q1F", 44204),
+    },
+)
 TIMER_ATTRIBUTES = (
     DeviceAttributes.power_on_timer,
     DeviceAttributes.power_off_timer,
@@ -216,6 +259,17 @@ NEW_PROTOCOL_BODY_TYPES = (ListTypes.B0, ListTypes.B1, ListTypes.B5)
 
 class MideaACDevice(MideaDevice):
     """Midea AC device."""
+
+    TOSHIBA_SUPPORTED = True
+
+    TOSHIBA_RESPONSE_FRAME_TYPES = frozenset(
+        (
+            MessageType.set,
+            MessageType.query,
+            MessageType.notify1,
+            MessageType.notify2,
+        ),
+    )
 
     _fresh_air_fan_speeds: ClassVar[dict[int, str]] = {
         0: "off",
@@ -297,6 +351,7 @@ class MideaACDevice(MideaDevice):
                 DeviceAttributes.smart_eye: False,
                 DeviceAttributes.dry: False,
                 DeviceAttributes.aux_heating: False,
+                DeviceAttributes.aux_heat_mode: AUX_HEAT_MODE_OFF,
                 DeviceAttributes.boost_mode: False,
                 DeviceAttributes.power_saving: False,
                 DeviceAttributes.sleep_mode: False,
@@ -311,7 +366,11 @@ class MideaACDevice(MideaDevice):
                 DeviceAttributes.indoor_temperature: None,
                 DeviceAttributes.outdoor_temperature: None,
                 DeviceAttributes.indirect_wind: False,
+                DeviceAttributes.wind_straight: None,
+                DeviceAttributes.wind_avoid: None,
                 DeviceAttributes.indoor_humidity: None,
+                DeviceAttributes.humidify: False,
+                DeviceAttributes.target_humidity: None,
                 DeviceAttributes.breezeless: False,
                 DeviceAttributes.total_energy_consumption: None,
                 DeviceAttributes.total_operating_consumption: None,
@@ -454,8 +513,40 @@ class MideaACDevice(MideaDevice):
         """Midea AC device rate_select options."""
         return list(self._rate_select_map().values())
 
-    def build_query(self) -> list[ACQuery]:
+    @property
+    def supported_aux_heat_modes(self) -> list[str]:
+        """Electric aux-heat (PTC) modes the device advertises.
+
+        The B5 capabilities carry the ptc flag (0x0219) when the unit has an
+        electric auxiliary heater. Without that flag the device cannot do any
+        electric aux-heat, so only "off" is offered and the consumer can hide
+        the control (len == 1). When present, both the heat-pump-assist
+        (aux_heat) and electric-only (aux_only) modes are available: the two
+        share the same PTC hardware and the vendor lua drives them from the
+        same keyP["independent_ptc"]/PTCValue pair, so there is no separate
+        capability bit distinguishing them.
+        """
+        modes = [AUX_HEAT_MODE_OFF]
+        if self.capabilities.get("ptc"):
+            modes.append(AUX_HEAT_MODE_AUX_HEAT)
+            modes.append(AUX_HEAT_MODE_AUX_ONLY)
+        return modes
+
+    def build_toshiba_query(self) -> list[MessageRequest]:
+        """Wrap the standard AC state-query body in the Toshiba envelope."""
+        state_query = StateQuery(self._message_protocol_version)
+        return [
+            ToshibaMessageRequest(
+                DeviceType.AC,
+                self._message_protocol_version,
+                state_query.body,
+            ),
+        ]
+
+    def build_query(self) -> list[MessageRequest]:
         """Midea AC device build query."""
+        if self.toshiba_protocol:
+            return self.build_toshiba_query()
         if self._used_subprotocol:
             # BB responses are independent status groups. Query each group with
             # its own identity so an unsupported response for one group does not
@@ -464,7 +555,7 @@ class MideaACDevice(MideaDevice):
 
         # Split new-protocol queries into independent batches.
         default_query = PropertiesDefaultQuery(self._message_protocol_version)
-        queries: list[ACQuery] = [
+        queries: list[MessageRequest] = [
             StateQuery(self._message_protocol_version),
             default_query,
         ]
@@ -546,7 +637,7 @@ class MideaACDevice(MideaDevice):
 
         return queries
 
-    def _subprotocol_queries(self) -> list[ACQuery]:
+    def _subprotocol_queries(self) -> list[MessageRequest]:
         """Build the independent BB subprotocol status queries."""
         return [
             SubProtocolQuery10(self._message_protocol_version),
@@ -554,17 +645,24 @@ class MideaACDevice(MideaDevice):
             SubProtocolQuery30(self._message_protocol_version),
         ]
 
-    def build_query_fallback(self) -> list[ACQuery]:
-        """Probe the BB family when the primary B5 family is silent."""
-        if self._used_subprotocol:
+    def build_query_fallback(self) -> list[MessageRequest]:
+        """Probe Toshiba and BB families when the primary family is silent."""
+        if self.toshiba_protocol or self._used_subprotocol:
             return []
-        return self._subprotocol_queries()
+        return super().build_query_fallback() + self._subprotocol_queries()
+
+    def build_query_fallback_stages(self) -> list[list[MessageRequest]]:
+        """Probe Toshiba before BB so a match stops the fallback sequence."""
+        if self.toshiba_protocol or self._used_subprotocol:
+            return []
+        toshiba = super().build_query_fallback()
+        return ([toshiba] if toshiba else []) + [self._subprotocol_queries()]
 
     def _is_query_response_valid(self, cmd: object) -> bool:
         """Accept a BB response only after it identifies the BB family."""
         if isinstance(cmd, SubProtocolQuery):
             return self._used_subprotocol
-        return True
+        return super()._is_query_response_valid(cast("MessageRequest", cmd))
 
     def _should_defer_query(self, cmd: object) -> bool:
         """Retry B5 capability probes instead of blacklisting them."""
@@ -587,7 +685,7 @@ class MideaACDevice(MideaDevice):
         deadline when queued, so a silent device is not probed every refresh.
         The subprotocol (BB) devices do not use B5.
         """
-        if self._used_subprotocol:
+        if self.toshiba_protocol or self._used_subprotocol:
             return []
         queries: list[ACQuery] = []
         now = time.monotonic()
@@ -656,7 +754,28 @@ class MideaACDevice(MideaDevice):
         if body[C0_OUTDOOR_TEMPERATURE_INDEX] in C0_OUTDOOR_TEMPERATURE_PLACEHOLDERS:
             setattr(message, DeviceAttributes.outdoor_temperature, None)
 
-    def process_message(self, msg: bytes) -> dict[str, Any]:  # noqa: C901
+    def process_message(self, msg: bytes) -> dict[str, Any]:
+        """Route validated Toshiba frames before the regular AC decoder."""
+        status = self.process_toshiba_message(msg)
+        return self._process_midea_message(msg) if status is None else status
+
+    def process_toshiba_frame(self, frame: ToshibaFrame) -> dict[str, Any] | None:
+        """Decode Toshiba-specific status bodies verified against Lua."""
+        status = decode_toshiba_ac_status(frame)
+        if status is None:
+            return None
+        power = status.get(DeviceAttributes.power)
+        if power is False or status.get(DeviceAttributes.swing_vertical) is True:
+            status[DeviceAttributes.indirect_wind.value] = False
+        if power is False:
+            status[DeviceAttributes.screen_display.value] = False
+        self._attributes.update(status)
+        return dict(status)
+
+    def _process_midea_message(  # noqa: C901, PLR0915
+        self,
+        msg: bytes,
+    ) -> dict[str, Any]:
         """Midea AC device process message."""
         message = MessageACResponse(
             bytearray(msg),
@@ -674,6 +793,10 @@ class MideaACDevice(MideaDevice):
 
         is_stale_c0_temperature = (
             self._prefer_new_protocol_temperature and body_type == ListTypes.C0
+        )
+        is_stale_a0_screen_display = (
+            self._model_key in STALE_A0_SCREEN_DISPLAY_MODELS
+            and body_type == ListTypes.A0
         )
         if body_type in NEW_PROTOCOL_BODY_TYPES and hasattr(
             message,
@@ -732,6 +855,11 @@ class MideaACDevice(MideaDevice):
             if hasattr(message, str(attr)):
                 if is_stale_c0_temperature and attr in STALE_C0_TEMPERATURE_ATTRIBUTES:
                     continue
+                if (
+                    is_stale_a0_screen_display
+                    and attr == DeviceAttributes.screen_display
+                ):
+                    continue
                 if is_stale_c0_timer and attr in TIMER_ATTRIBUTES:
                     continue
                 value = getattr(message, str(attr))
@@ -773,6 +901,21 @@ class MideaACDevice(MideaDevice):
             self._fresh_air_version = DeviceAttributes.fresh_air_1
         elif self._attributes[DeviceAttributes.fresh_air_2] is not None:
             self._fresh_air_version = DeviceAttributes.fresh_air_2
+        # Derive the tri-state aux_heat_mode from the two independent electric
+        # aux-heat flags the status body carries (aux_heating / PTCValue and
+        # independent_ptc). independent_ptc ("single" electric heat) takes
+        # precedence when both are set, matching the vendor lua decode order.
+        if hasattr(message, "independent_ptc") or hasattr(message, "aux_heating"):
+            independent_ptc = bool(getattr(message, "independent_ptc", False))
+            aux_heating = bool(getattr(message, "aux_heating", False))
+            if independent_ptc:
+                aux_heat_mode = AUX_HEAT_MODE_AUX_ONLY
+            elif aux_heating:
+                aux_heat_mode = AUX_HEAT_MODE_AUX_HEAT
+            else:
+                aux_heat_mode = AUX_HEAT_MODE_OFF
+            self._attributes[DeviceAttributes.aux_heat_mode] = aux_heat_mode
+            new_status[DeviceAttributes.aux_heat_mode.value] = aux_heat_mode
         if hasattr(message, "ieco_number"):
             self._ieco_number = message.ieco_number
         if hasattr(message, "self_clean_active"):
@@ -1161,6 +1304,11 @@ class MideaACDevice(MideaDevice):
         message.dry = self._attributes[DeviceAttributes.dry]
         message.eco_mode = self._attributes[DeviceAttributes.eco_mode]
         message.aux_heating = self._attributes[DeviceAttributes.aux_heating]
+        # Carry the single electric aux-heat flag (independent_ptc) so a
+        # StateSet built for an unrelated change does not clear it.
+        message.independent_ptc = (
+            self._attributes[DeviceAttributes.aux_heat_mode] == AUX_HEAT_MODE_AUX_ONLY
+        )
         message.sleep_mode = self._attributes[DeviceAttributes.sleep_mode]
         message.natural_wind = self._attributes[DeviceAttributes.natural_wind]
         message.temp_fahrenheit = self._attributes[DeviceAttributes.temp_fahrenheit]
@@ -1391,6 +1539,7 @@ class MideaACDevice(MideaDevice):
         before any status frame is seen is cleared by the next routine
         StateSet, which still sends ``00 00 00`` while no known timer is armed.
         """
+        self.reject_toshiba_write()
         if isinstance(value, bool):
             _LOGGER.debug(
                 "[%s] Ignoring boolean value for %s, expected minutes",
@@ -1407,6 +1556,88 @@ class MideaACDevice(MideaDevice):
         # would otherwise carry the old value and undo this set.
         self._attributes[DeviceAttributes(attr)] = minutes
         self.update_all({str(attr): minutes})
+
+    def _make_aux_heat_mode_set(
+        self,
+        value: str,
+    ) -> MessageSubProtocolSet | StateSet | None:
+        """Build a StateSet for the tri-state electric aux-heat control.
+
+        Maps the option to the two vendor lua flags:
+          - "aux_heat"  -> PTCValue on, independent_ptc off  (heat_elecheat)
+          - "aux_only"  -> independent_ptc on, PTCValue off   (single_elecheat)
+          - "off"       -> both off
+        Both active modes force heat + power on, as the vendor app does; the
+        subprotocol (BB) family cannot express independent_ptc, so only the
+        legacy aux_heating flag is honored there.
+        """
+        if value not in AUX_HEAT_MODES:
+            _LOGGER.debug(
+                "[%s] Ignoring unknown aux_heat_mode %r",
+                self.device_id,
+                value,
+            )
+            return None
+        message = self.make_message_uniq_set()
+        aux_heat = value == AUX_HEAT_MODE_AUX_HEAT
+        aux_only = value == AUX_HEAT_MODE_AUX_ONLY
+        message.aux_heating = aux_heat
+        if isinstance(message, StateSet):
+            message.independent_ptc = aux_only
+        elif aux_only:
+            # BB subprotocol has no independent_ptc field; fall back to the
+            # ordinary PTC flag so "aux_only" still enables electric heat.
+            message.aux_heating = True
+        if aux_heat or aux_only:
+            message.power = True
+            message.mode = HEAT_MODE
+            # Forcing heat mirrors the mode path in set_attribute: clear the
+            # dry flag (byte 9, bit 0x04) so a cached DRY state cannot block
+            # the mode change, and force fan_speed to AUTO when leaving DRY.
+            message.dry = False
+            if self._attributes[DeviceAttributes.mode] == DRY_MODE:
+                message.fan_speed = 102
+        # The cache is synchronized by _sync_aux_heat_cache after a successful
+        # send, so a failed build_send does not leave power/mode committed.
+        return message
+
+    def _sync_aux_heat_cache(
+        self,
+        message: MessageSubProtocolSet | StateSet,
+        *,
+        force_heat: bool,
+    ) -> None:
+        """Mirror the commanded electric aux-heat state into the cache.
+
+        make_message_set rebuilds aux_heating/independent_ptc from the cache, so
+        a follow-up write (set_target_temperature, set_swing, ...) sent before
+        the next status reply must see the heater state just commanded, not the
+        stale last-confirmed value. Call this only after build_send succeeds.
+        """
+        aux_heating = bool(getattr(message, "aux_heating", False))
+        independent_ptc = bool(getattr(message, "independent_ptc", False))
+        if independent_ptc:
+            aux_heat_mode = AUX_HEAT_MODE_AUX_ONLY
+        elif aux_heating:
+            aux_heat_mode = AUX_HEAT_MODE_AUX_HEAT
+        else:
+            aux_heat_mode = AUX_HEAT_MODE_OFF
+        updates: dict[str, Any] = {
+            DeviceAttributes.aux_heating.value: aux_heating,
+            DeviceAttributes.aux_heat_mode.value: aux_heat_mode,
+            # Mirror the dry/fan_speed the frame actually carried so a follow-up
+            # write rebuilt from the cache does not resend a stale DRY state.
+            DeviceAttributes.dry.value: bool(message.dry),
+            DeviceAttributes.fan_speed.value: message.fan_speed,
+        }
+        # Only the aux_heat_mode control forces heat + power on; the legacy
+        # aux_heating switch leaves power/mode untouched (force_heat=False).
+        if force_heat and aux_heat_mode != AUX_HEAT_MODE_OFF:
+            updates[DeviceAttributes.power.value] = True
+            updates[DeviceAttributes.mode.value] = HEAT_MODE
+        for key, cached in updates.items():
+            self._attributes[DeviceAttributes(key)] = cached
+        self.update_all(updates)
 
     def make_message_uniq_set(self) -> MessageSubProtocolSet | StateSet:
         """Midea AC device make message unique set."""
@@ -1443,8 +1674,56 @@ class MideaACDevice(MideaDevice):
         self._attributes.update(cleared)
         self.update_all({str(key): value for key, value in cleared.items()})
 
+    @staticmethod
+    def _reset_exclusive_modes(
+        message: MessageSubProtocolSet | StateSet,
+        attr: str,
+    ) -> None:
+        """Clear modes that are mutually exclusive with the one being set.
+
+        boost/power-saving/sleep/frost-protect/comfort/eco cannot be active at
+        the same time, so setting one clears the others on the outgoing frame.
+        """
+        if attr not in [
+            DeviceAttributes.boost_mode,
+            DeviceAttributes.power_saving,
+            DeviceAttributes.sleep_mode,
+            DeviceAttributes.frost_protect,
+            DeviceAttributes.comfort_mode,
+            DeviceAttributes.eco_mode,
+        ]:
+            return
+        message.boost_mode = False
+        if isinstance(message, StateSet):
+            message.power_saving = False
+        message.sleep_mode = False
+        message.eco_mode = False
+        if not isinstance(message, MessageSubProtocolSet):
+            message.comfort_mode = False
+            message.frost_protect = False
+
+    @staticmethod
+    def _apply_legacy_aux_heating(
+        message: MessageSubProtocolSet | StateSet,
+        attr: str,
+    ) -> bool:
+        """Reconcile an explicit legacy aux_heating command with aux-only mode.
+
+        Electric-only heat (independent_ptc) and the ordinary PTC flag are the
+        two mutually exclusive heater sources, so an explicit aux_heating
+        command clears independent_ptc on the outgoing frame and overrides a
+        cached "aux_only" status. Returns whether the aux-heat cache must be
+        resynced from this frame after a successful send.
+        """
+        if attr != DeviceAttributes.aux_heating:
+            return False
+        if isinstance(message, StateSet):
+            message.independent_ptc = False
+        return True
+
     def set_attribute(self, attr: str, value: bool | float | str) -> None:
         """Midea AC device set attribute."""
+        self.reject_toshiba_write()
         # if nat a sensor
         message: (
             ToggleDisplay
@@ -1455,10 +1734,17 @@ class MideaACDevice(MideaDevice):
             | None
         ) = None
         optimistic_self_clean: bool | None = None
+        # Resync the electric aux-heat cache from the outgoing frame after a
+        # successful send; force_heat mirrors the power/mode forced by the
+        # aux_heat_mode control but not by the plain aux_heating switch.
+        aux_heat_cache_sync = False
+        force_heat = False
         if attr not in [
             DeviceAttributes.indoor_temperature,
             DeviceAttributes.outdoor_temperature,
             DeviceAttributes.indoor_humidity,
+            DeviceAttributes.humidify,
+            DeviceAttributes.target_humidity,
             DeviceAttributes.full_dust,
             DeviceAttributes.total_energy_consumption,
             DeviceAttributes.current_energy_consumption,
@@ -1504,6 +1790,8 @@ class MideaACDevice(MideaDevice):
                 message = self.make_subprotocol_fresh_air_set(attr, value)
             elif attr in [
                 DeviceAttributes.indirect_wind,
+                DeviceAttributes.wind_straight,
+                DeviceAttributes.wind_avoid,
                 DeviceAttributes.breezeless,
                 DeviceAttributes.screen_display_alternate,
                 DeviceAttributes.fresh_air_power,
@@ -1529,25 +1817,14 @@ class MideaACDevice(MideaDevice):
                     "[%s] Power saving is unsupported by the AC subprotocol",
                     self.device_id,
                 )
+            elif attr == DeviceAttributes.aux_heat_mode:
+                message = self._make_aux_heat_mode_set(str(value))
+                aux_heat_cache_sync = force_heat = message is not None
             elif attr in self._attributes:
                 message = self.make_message_uniq_set()
-                if attr in [
-                    DeviceAttributes.boost_mode,
-                    DeviceAttributes.power_saving,
-                    DeviceAttributes.sleep_mode,
-                    DeviceAttributes.frost_protect,
-                    DeviceAttributes.comfort_mode,
-                    DeviceAttributes.eco_mode,
-                ]:
-                    message.boost_mode = False
-                    if isinstance(message, StateSet):
-                        message.power_saving = False
-                    message.sleep_mode = False
-                    message.eco_mode = False
-                    if not isinstance(message, MessageSubProtocolSet):
-                        message.comfort_mode = False
-                        message.frost_protect = False
+                self._reset_exclusive_modes(message, attr)
                 setattr(message, str(attr), value)
+                aux_heat_cache_sync = self._apply_legacy_aux_heating(message, attr)
                 self._clear_timers_on_power_change(message, attr, value)
                 if attr == DeviceAttributes.mode:
                     setattr(message, str(DeviceAttributes.power.value), True)
@@ -1569,6 +1846,11 @@ class MideaACDevice(MideaDevice):
                     self._attributes[DeviceAttributes.mode] = value
         if message is not None:
             self.build_send(message)
+            if aux_heat_cache_sync and isinstance(
+                message,
+                MessageSubProtocolSet | StateSet,
+            ):
+                self._sync_aux_heat_cache(message, force_heat=force_heat)
             if optimistic_self_clean is not None:
                 self._pending_self_clean = (optimistic_self_clean, time.monotonic())
                 self._attributes[DeviceAttributes.self_clean] = optimistic_self_clean
@@ -1583,6 +1865,7 @@ class MideaACDevice(MideaDevice):
         zone: int | None = None,  # noqa: ARG002
     ) -> None:
         """Midea AC device set target temperature."""
+        self.reject_toshiba_write()
         message: MessageSubProtocolSet | StateSet = self.make_message_uniq_set()
         message.target_temperature = target_temperature
         if mode is not None:
@@ -1592,6 +1875,7 @@ class MideaACDevice(MideaDevice):
 
     def set_swing(self, swing_vertical: bool, swing_horizontal: bool) -> None:
         """Midea AC device set swing."""
+        self.reject_toshiba_write()
         message: MessageSubProtocolSet | StateSet = self.make_message_uniq_set()
         if isinstance(message, StateSet):
             message.swing_vertical = swing_vertical

@@ -15,11 +15,11 @@ class ModifyNatGatewayCapacityReservationRequest(DaraModel):
         region_id: str = None,
         reset_capacity_reservation: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. The token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must make sure that it is unique among different requests. The client token can contain only ASCII characters. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the client token. The RequestId of each API request may be different.
         self.client_token = client_token
-        # Specifies whether to perform a dry run. Valid values:
-        # - true: performs a dry run without upgrading the Internet NAT gateway. The system checks whether your AccessKey pair is valid, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the request fails the dry run, an error message is returned. If the request passes the dry run, the DryRunOperation error code is returned.
-        # - false (default): sends a Normal request. If the request passes the dry run, a 2xx HTTP status code is returned and the Internet NAT gateway is upgraded.
+        # Specifies whether to perform a dry run on the request. Valid values:
+        # - true: Performs a dry run without upgrading the Internet NAT gateway. The system checks whether your AccessKey pair is valid, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the request fails the dry run, an error message is returned. If the request passes the dry run, the DryRunOperation error code is returned.
+        # - false (default): Sends a Normal request. If the request passes the dry run, a 2xx HTTP status code is returned and the Internet NAT gateway is upgraded.
         self.dry_run = dry_run
         # The number of capacity units (CUs) for the NAT resource reservation.
         self.nat_gateway_capacity = nat_gateway_capacity
@@ -28,8 +28,8 @@ class ModifyNatGatewayCapacityReservationRequest(DaraModel):
         # The region ID of the NAT gateway.
         self.region_id = region_id
         # Specifies whether to cancel the resource reservation. Valid values:
-        # * **true**: cancels the resource reservation.
-        # * **false** (default): does not cancel the resource reservation. This parameter is optional when you create or modify a resource reservation.
+        # - **true**: Cancels the resource reservation.
+        # - **false** (default): Does not cancel the resource reservation. You do not need to specify this parameter when you create or modify a resource reservation.
         self.reset_capacity_reservation = reset_capacity_reservation
 
     def validate(self):

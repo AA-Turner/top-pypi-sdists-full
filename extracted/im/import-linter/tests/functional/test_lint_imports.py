@@ -18,6 +18,7 @@ multipleroots_directory = assets_directory / "multipleroots"
 unmatched_ignore_imports_directory = testpackage_directory / "unmatched_ignore_imports_alerting"
 namespace_packages_directory = assets_directory / "namespacepackages"
 cyclicpackage_directory = assets_directory / "cycles"
+privatemodules_directory = assets_directory / "privatemodules"
 
 # Add namespace packages to Python path
 sys.path.extend(
@@ -77,6 +78,9 @@ sys.path.extend(
         # Type checking imports
         (testpackage_directory, ".typecheckkeptcontract.ini", cli.EXIT_STATUS_SUCCESS),
         (testpackage_directory, ".typecheckbrokencontract.ini", cli.EXIT_STATUS_ERROR),
+        # Private modules
+        (privatemodules_directory, ".keptcontract.ini", cli.EXIT_STATUS_SUCCESS),
+        (privatemodules_directory, ".brokencontract.ini", cli.EXIT_STATUS_ERROR),
         # Acyclic siblings
         (cyclicpackage_directory, ".keptcontract.ini", cli.EXIT_STATUS_SUCCESS),
         (cyclicpackage_directory, ".brokencontract.ini", cli.EXIT_STATUS_ERROR),
@@ -102,6 +106,18 @@ def test_lint_imports_renders_broken_contract_guidance_for_broken_contract(capsy
     captured = capsys.readouterr()
     assert "Use the testpackage.high top-level interface." in captured.out
     assert "More information here: http://docs.example.com/high" in captured.out
+
+
+def test_lint_imports_renders_private_modules_contract_violations(capsys):
+    os.chdir(privatemodules_directory)
+
+    result = cli.lint_imports(config_filename=".brokencontract.ini")
+
+    assert cli.EXIT_STATUS_ERROR == result
+    captured = capsys.readouterr()
+    assert "Private modules may only be imported from within their parent package:" in captured.out
+    assert "- privatepackage.bar.uses_secret -> privatepackage.foo._secret (l.1)" in captured.out
+    assert "privatepackage.foo.public" not in captured.out
 
 
 def test_lint_imports_raises_clear_error_when_root_package_is_single_file(capsys):
@@ -134,6 +150,119 @@ def test_lint_imports_rejects_duplicate_layers(tmp_path, monkeypatch):
     assert "Modules cannot be in more than one layer:" in result.output
     assert "'testpackage.high'." in result.output
     assert "Traceback" not in result.output
+
+
+def test_lint_imports_rejects_nested_layers(tmp_path, monkeypatch):
+    config = tmp_path / ".importlinter"
+    config.write_text(
+        "[importlinter]\n"
+        "root_package = testpackage\n"
+        "[importlinter:contract:layers]\n"
+        "name = Nested layers\n"
+        "type = layers\n"
+        "layers =\n"
+        "    testpackage\n"
+        "    testpackage.high\n"
+    )
+    monkeypatch.chdir(testpackage_directory)
+
+    result = CliRunner().invoke(cli.lint_imports_command, ["--config", str(config)])
+
+    assert result.exit_code == cli.EXIT_STATUS_ERROR
+    assert "Layers cannot contain other layers:" in result.output
+    assert "'testpackage' contains" in result.output
+    assert "'testpackage.high'" in result.output
+    assert "Traceback" not in result.output
+
+
+class TestMultipleConfigFiles:
+    @pytest.mark.parametrize("command", (cli.lint_imports_command, cli.lint_command))
+    def test_checks_contracts_from_all_files(self, command, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        result = CliRunner().invoke(
+            command, [".brokencontract.ini", ".customkeptcontract.ini", "--no-logo"]
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_ERROR
+        assert "Expected broken contract BROKEN" in result.output
+        assert "Custom kept contract KEPT" in result.output
+        assert "Contracts: 1 kept, 1 broken." in result.output
+        # Both files have the same top level configuration, so they share a single graph,
+        # and no breakdown table is shown.
+        assert "Config files" not in result.output
+
+    def test_builds_a_graph_for_each_distinct_top_level_configuration(self, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        result = CliRunner().invoke(
+            cli.lint_imports_command,
+            [
+                ".customkeptcontract.ini",
+                ".typecheckkeptcontract.ini",
+                ".customkeptcontract.toml",
+                "--no-logo",
+                "--show-timings",
+            ],
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_SUCCESS, result.output
+        assert "Total 3 config files, 2 import graphs." in result.output
+        assert "Contracts: 3 kept, 0 broken." in result.output
+
+    def test_config_option_can_be_combined_with_positional_files(self, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        result = CliRunner().invoke(
+            cli.lint_imports_command,
+            ["--config", ".customkeptcontract.ini", ".typecheckkeptcontract.ini", "--no-logo"],
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_SUCCESS, result.output
+        assert "Contracts: 2 kept, 0 broken." in result.output
+        assert "DeprecationWarning: The option 'config' is deprecated" in result.output
+
+    def test_ambiguous_contract_id_suggests_filenames(self, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        # Both files have a contract with the id "one".
+        result = CliRunner().invoke(
+            cli.lint_imports_command,
+            [".brokencontract.ini", ".customkeptcontract.ini", "--contract=one", "--no-logo"],
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_ERROR
+        assert "Multiple contracts found with the id 'one'." in result.output
+        assert "--contract=.brokencontract.ini:one" in result.output
+        assert "--contract=.customkeptcontract.ini:one" in result.output
+
+    def test_contract_id_qualified_with_filename(self, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        result = CliRunner().invoke(
+            cli.lint_imports_command,
+            [
+                ".brokencontract.ini",
+                ".customkeptcontract.ini",
+                "--contract=.customkeptcontract.ini:one",
+                "--no-logo",
+            ],
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_SUCCESS, result.output
+        assert "Custom kept contract KEPT" in result.output
+        assert "Expected broken contract" not in result.output
+
+    def test_missing_file_errors(self, monkeypatch):
+        monkeypatch.chdir(testpackage_directory)
+
+        result = CliRunner().invoke(
+            cli.lint_imports_command,
+            [".customkeptcontract.ini", ".doesnotexist.ini", "--no-logo"],
+        )
+
+        assert result.exit_code == cli.EXIT_STATUS_ERROR
+        assert "Could not find .doesnotexist.ini." in result.output
 
 
 @pytest.mark.parametrize("is_debug_mode", (True, False))

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_elementalinference.literals import DataSourceSportType
+    from mypy_boto3_elementalinference.literals import BedrockApiType
 
-    data: DataSourceSportType = "american-football"
+    data: BedrockApiType = "INVOKE_MODEL"
     ```
 """
 
@@ -23,16 +23,24 @@ else:
 
 
 __all__ = (
+    "BedrockApiType",
+    "ContextTypeType",
     "DataSourceSportType",
     "DictionaryLanguageType",
     "DictionaryStatusType",
     "ElementalInferenceServiceName",
+    "EventBridgeDeliveryModeType",
     "ExtendedAnalysisModeType",
     "FeedDeletedWaiterName",
     "FeedStatusType",
     "FilterNameType",
+    "FrameSamplingModeType",
+    "FunctionStatusType",
     "ListDictionariesPaginatorName",
     "ListFeedsPaginatorName",
+    "ListFunctionsPaginatorName",
+    "ListQuestionSetVersionsPaginatorName",
+    "ListQuestionSetsPaginatorName",
     "ListScheduleActionsPaginatorName",
     "OutputStatusType",
     "PaginatorName",
@@ -48,17 +56,25 @@ __all__ = (
 )
 
 
+BedrockApiType = Literal["INVOKE_MODEL"]
+ContextTypeType = Literal["CLIP_METADATA", "CONTEXTUAL_METADATA", "FRAMES", "SUBTITLES"]
 DataSourceSportType = Literal["american-football", "basketball"]
 DictionaryLanguageType = Literal["deu", "eng", "fra", "ita", "por", "spa"]
 DictionaryStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
+EventBridgeDeliveryModeType = Literal["DISABLED", "ENABLED"]
 ExtendedAnalysisModeType = Literal["DISABLED", "ENABLED"]
 FeedDeletedWaiterName = Literal["feed_deleted"]
 FeedStatusType = Literal[
     "ACTIVE", "ARCHIVED", "AVAILABLE", "CREATING", "DELETED", "DELETING", "UPDATING"
 ]
 FilterNameType = Literal["COMPETITOR"]
+FrameSamplingModeType = Literal["FIRST", "LAST", "UNIFORM"]
+FunctionStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "REFERENCED"]
 ListDictionariesPaginatorName = Literal["list_dictionaries"]
 ListFeedsPaginatorName = Literal["list_feeds"]
+ListFunctionsPaginatorName = Literal["list_functions"]
+ListQuestionSetVersionsPaginatorName = Literal["list_question_set_versions"]
+ListQuestionSetsPaginatorName = Literal["list_question_sets"]
 ListScheduleActionsPaginatorName = Literal["list_schedule_actions"]
 OutputStatusType = Literal["DISABLED", "ENABLED"]
 ProfanityFilterModeType = Literal["CENSOR", "DISABLED", "DROP"]
@@ -514,6 +530,12 @@ ResourceServiceName = Literal[
     "cloudformation", "cloudwatch", "dynamodb", "ec2", "glacier", "iam", "s3", "sns", "sqs"
 ]
 PaginatorName = Literal[
-    "list_dictionaries", "list_feeds", "list_schedule_actions", "search_fixtures"
+    "list_dictionaries",
+    "list_feeds",
+    "list_functions",
+    "list_question_set_versions",
+    "list_question_sets",
+    "list_schedule_actions",
+    "search_fixtures",
 ]
 WaiterName = Literal["feed_deleted"]

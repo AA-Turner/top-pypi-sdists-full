@@ -706,3 +706,361 @@ class TestDatasetFiltering(TestCase):
         datasets: List[DatasetEntry], limits: MetadataFiltersContainer
     ) -> List[DatasetEntry]:
         return [d for d in datasets if limits.is_dataset_allowed(d.project, d.dataset)]
+
+
+class TestTableScopedBlockRules(TestCase):
+    """
+    SUP-845: a BLOCK rule that targets tables (table_name / table_type) must only block the
+    matching tables. Checks at schema or database level must not treat it as blocking the whole
+    schema or database.
+    """
+
+    @staticmethod
+    def _container(
+        *filters: MetadataFilter, default_effect: FilterEffectType = FilterEffectType.ALLOW
+    ) -> MetadataFiltersContainer:
+        return MetadataFiltersContainer(
+            metadata_filters=MetadataAllowBlockList(
+                filters=list(filters), default_effect=default_effect
+            )
+        )
+
+    def test_table_regexp_block_rule_does_not_block_schema(self):
+        # Reproduction from the ticket, as stored by modifyCollectionBlockList (lowercase rule,
+        # uppercase Snowflake identifiers).
+        container = MetadataFiltersContainer.from_dict(
+            {
+                "metadata_filters": {
+                    "filters": [
+                        {
+                            "project": "cleansed",
+                            "dataset": "accountsdb",
+                            "table_name": "(int_.*|_intermediate.*)",
+                            "type": "regexp",
+                            "effect": "block",
+                        }
+                    ]
+                }
+            }
+        )
+        self.assertTrue(container.is_dataset_allowed(project="CLEANSED", dataset="ACCOUNTSDB"))
+        self.assertFalse(container.is_whole_project_blocked("CLEANSED"))
+        self.assertTrue(
+            container.is_metadata_element_allowed(
+                project="CLEANSED", dataset="ACCOUNTSDB", table_name="ORDERS", table_type="TABLE"
+            )
+        )
+        self.assertFalse(
+            container.is_metadata_element_allowed(
+                project="CLEANSED", dataset="ACCOUNTSDB", table_name="INT_X", table_type="TABLE"
+            )
+        )
+        self.assertFalse(
+            container.is_metadata_element_allowed(
+                project="CLEANSED", dataset="ACCOUNTSDB", table_name="_INTERMEDIATE_Y"
+            )
+        )
+
+    def test_table_type_block_rule_does_not_block_schema(self):
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_type="VIEW", effect=FilterEffectType.BLOCK
+            )
+        )
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s"))
+        self.assertFalse(
+            container.is_metadata_element_allowed(
+                project="db", dataset="s", table_name="v", table_type="VIEW"
+            )
+        )
+        self.assertTrue(
+            container.is_metadata_element_allowed(
+                project="db", dataset="s", table_name="t", table_type="TABLE"
+            )
+        )
+
+    def test_table_block_rule_without_dataset_does_not_block_database(self):
+        container = self._container(
+            MetadataFilter(project="db", table_name="t1", effect=FilterEffectType.BLOCK)
+        )
+        self.assertFalse(container.is_whole_project_blocked("db"))
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s"))
+        self.assertFalse(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="t1")
+        )
+        self.assertTrue(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="t2")
+        )
+
+    def test_table_block_rule_without_project_does_not_block_every_database(self):
+        container = self._container(
+            MetadataFilter(table_name="tmp_", type=FilterType.PREFIX, effect=FilterEffectType.BLOCK)
+        )
+        self.assertFalse(container.is_whole_project_blocked("db"))
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s"))
+        self.assertFalse(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="tmp_1")
+        )
+
+    def test_table_block_rule_with_schema_only_lookup(self):
+        # Databricks single-catalog path checks schemas without a catalog.
+        container = self._container(
+            MetadataFilter(dataset="s", table_name="t1", effect=FilterEffectType.BLOCK)
+        )
+        self.assertTrue(container.is_metadata_element_allowed(dataset="s"))
+
+    def test_schema_block_rule_with_schema_only_lookup_still_blocks(self):
+        # Unchanged: a schema rule still applies when the catalog isn't supplied.
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", effect=FilterEffectType.BLOCK)
+        )
+        self.assertFalse(container.is_metadata_element_allowed(dataset="s"))
+
+    def test_schema_block_rule_still_blocks_schema_next_to_table_rule(self):
+        container = self._container(
+            MetadataFilter(project="db", dataset="s1", effect=FilterEffectType.BLOCK),
+            MetadataFilter(
+                project="db", dataset="s2", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+        )
+        self.assertFalse(container.is_dataset_allowed(project="db", dataset="s1"))
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s2"))
+
+    def test_default_block_explicit_table_block_does_not_override_schema_allow(self):
+        # Block-by-default list: an explicit table block rule must not hide the schema that an
+        # allow rule lets through; it should only block its own table.
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", effect=FilterEffectType.ALLOW),
+            MetadataFilter(
+                project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+            default_effect=FilterEffectType.BLOCK,
+        )
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s"))
+        self.assertFalse(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="t")
+        )
+        self.assertTrue(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="other")
+        )
+
+    def test_default_block_table_allow_rule_still_lets_schema_through(self):
+        # Unchanged: allow rules stay permissive at coarser levels.
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_name="t", effect=FilterEffectType.ALLOW
+            ),
+            default_effect=FilterEffectType.BLOCK,
+        )
+        self.assertFalse(container.is_whole_project_blocked("db"))
+        self.assertTrue(container.is_dataset_allowed(project="db", dataset="s"))
+        self.assertTrue(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="t")
+        )
+        self.assertFalse(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="other")
+        )
+        self.assertFalse(container.is_dataset_allowed(project="db", dataset="other"))
+
+    def test_expensive_collection_table_block_rule_does_not_block_schema(self):
+        container = MetadataFiltersContainer(
+            expensive_collection_filters=MetadataAllowBlockList(
+                filters=[
+                    MetadataFilter(
+                        project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK
+                    )
+                ]
+            )
+        )
+        self.assertTrue(container.is_expensive_collection_allowed(project="db", dataset="s"))
+        self.assertFalse(
+            container.is_expensive_collection_allowed(project="db", dataset="s", table_name="t")
+        )
+
+    def test_table_type_block_rule_ignored_when_lookup_has_no_table_type(self):
+        # Databricks' expensive-collection check passes table_name but not table_type; a
+        # table_type rule can't be evaluated there and must not block every table.
+        container = MetadataFiltersContainer(
+            expensive_collection_filters=MetadataAllowBlockList(
+                filters=[MetadataFilter(table_type="EXTERNAL", effect=FilterEffectType.BLOCK)]
+            )
+        )
+        self.assertTrue(
+            container.is_expensive_collection_allowed(project="db", dataset="s", table_name="t")
+        )
+        self.assertFalse(
+            container.is_expensive_collection_allowed(
+                project="db", dataset="s", table_name="t", table_type="EXTERNAL"
+            )
+        )
+
+    def test_table_type_metadata_rule_ignored_when_lookup_has_no_table_type(self):
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_type="VIEW", effect=FilterEffectType.BLOCK
+            )
+        )
+        self.assertTrue(
+            container.is_metadata_element_allowed(project="db", dataset="s", table_name="v")
+        )
+        self.assertFalse(
+            container.is_metadata_element_allowed(
+                project="db", dataset="s", table_name="v", table_type="VIEW"
+            )
+        )
+
+    def test_table_name_block_rule_still_applies_when_table_type_also_passed(self):
+        # Unchanged: a table_name rule is evaluable whenever table_name is supplied.
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK)
+        )
+        self.assertFalse(
+            container.is_metadata_element_allowed(
+                project="db", dataset="s", table_name="t", table_type="TABLE"
+            )
+        )
+
+
+class TestTableScopedBlockRulesSql(TestCase):
+    """
+    SUP-845: get_sql_conditions must not turn a BLOCK rule into a whole-schema exclusion when the
+    column mapping can't express its table part (no table_name / table_type column).
+    """
+
+    REDSHIFT_MAPPING = {"project": '"database"', "dataset": '"schema"'}
+    SNOWFLAKE_SCHEMA_MAPPING = {"dataset": "TABLE_SCHEMA", "table_name": "TABLE_NAME"}
+    HIVE_MAPPING = {"dataset": "DBS.NAME"}
+
+    @staticmethod
+    def _container(
+        *filters: MetadataFilter, default_effect: FilterEffectType = FilterEffectType.ALLOW
+    ) -> MetadataFiltersContainer:
+        return MetadataFiltersContainer(
+            metadata_filters=MetadataAllowBlockList(
+                filters=list(filters), default_effect=default_effect
+            )
+        )
+
+    def test_redshift_table_block_rule_does_not_exclude_schema(self):
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK)
+        )
+        self.assertEqual(
+            "(1=1)", container.get_sql_conditions(self.REDSHIFT_MAPPING, _redshift_encoder)
+        )
+
+    def test_redshift_schema_rule_kept_next_to_table_rule(self):
+        container = self._container(
+            MetadataFilter(project="db", dataset="s1", effect=FilterEffectType.BLOCK),
+            MetadataFilter(
+                project="db", dataset="s2", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+        )
+        self.assertEqual(
+            "(NOT(LOWER(\"database\")='db' AND LOWER(\"schema\")='s1'))",
+            container.get_sql_conditions(self.REDSHIFT_MAPPING, _redshift_encoder),
+        )
+
+    def test_hive_table_block_rule_does_not_exclude_schema(self):
+        container = self._container(
+            MetadataFilter(
+                project="cat", dataset="s", table_name="t", effect=FilterEffectType.BLOCK
+            )
+        )
+        self.assertEqual(
+            "(1=1)",
+            container.get_sql_conditions(self.HIVE_MAPPING, _redshift_encoder, project="cat"),
+        )
+
+    def test_snowflake_table_type_block_rule_does_not_exclude_schema(self):
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_type="VIEW", effect=FilterEffectType.BLOCK
+            )
+        )
+        self.assertEqual(
+            "(1=1)",
+            container.get_sql_conditions(
+                self.SNOWFLAKE_SCHEMA_MAPPING, _redshift_encoder, project="db"
+            ),
+        )
+
+    def test_snowflake_table_name_block_rule_unchanged(self):
+        # Already correct: the table_name column is mapped, so the rule is expressed per table.
+        container = self._container(
+            MetadataFilter(
+                project="db",
+                dataset="s",
+                table_name="int_",
+                type=FilterType.PREFIX,
+                effect=FilterEffectType.BLOCK,
+            )
+        )
+        self.assertEqual(
+            "(NOT(LOWER(TABLE_SCHEMA)='s' AND LOWER(TABLE_NAME) LIKE 'int_%'))",
+            container.get_sql_conditions(
+                self.SNOWFLAKE_SCHEMA_MAPPING, _redshift_encoder, project="db"
+            ),
+        )
+
+    def test_table_allow_rule_unchanged(self):
+        # ALLOW rules stay permissive: the table part is dropped and the schema is allowed.
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_name="t", effect=FilterEffectType.ALLOW
+            ),
+            default_effect=FilterEffectType.BLOCK,
+        )
+        self.assertEqual(
+            "((LOWER(\"database\")='db' AND LOWER(\"schema\")='s'))",
+            container.get_sql_conditions(self.REDSHIFT_MAPPING, _redshift_encoder),
+        )
+
+    def test_default_block_table_block_rule_does_not_hide_allowed_schema(self):
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", effect=FilterEffectType.ALLOW),
+            MetadataFilter(
+                project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+            default_effect=FilterEffectType.BLOCK,
+        )
+        self.assertEqual(
+            "((LOWER(\"database\")='db' AND LOWER(\"schema\")='s'))",
+            container.get_sql_conditions(self.REDSHIFT_MAPPING, _redshift_encoder),
+        )
+
+    def test_no_rules_for_project_still_returns_none(self):
+        # Unchanged: callers check is_project_with_datasets_filtered before using the result.
+        container = self._container(
+            MetadataFilter(project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK)
+        )
+        self.assertIsNone(
+            container.get_sql_conditions(self.HIVE_MAPPING, _redshift_encoder, project="other")
+        )
+
+    def test_default_block_inexpressible_rules_return_always_false(self):
+        # Block-by-default list whose only rules can't be expressed: nothing is allowed, and the
+        # result is still valid SQL for callers that concatenate it.
+        container = self._container(
+            MetadataFilter(
+                project="db", dataset="s", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+            default_effect=FilterEffectType.BLOCK,
+        )
+        self.assertEqual(
+            "(1=0)", container.get_sql_conditions(self.REDSHIFT_MAPPING, _redshift_encoder)
+        )
+
+    def test_inexpressible_rule_for_another_project_does_not_add_fallback(self):
+        # Only rules relevant to the requested project count: the db1 schema rule is kept as-is
+        # and the db2 table rule doesn't turn the result into (1=1).
+        container = self._container(
+            MetadataFilter(project="db1", dataset="s1", effect=FilterEffectType.BLOCK),
+            MetadataFilter(
+                project="db2", dataset="s2", table_name="t", effect=FilterEffectType.BLOCK
+            ),
+        )
+        self.assertEqual(
+            "(NOT(LOWER(DBS.NAME)='s1'))",
+            container.get_sql_conditions(self.HIVE_MAPPING, _redshift_encoder, project="db1"),
+        )

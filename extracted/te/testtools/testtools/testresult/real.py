@@ -2301,14 +2301,30 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
         status: str,
         reason: str | None = None,
     ) -> None:
+        # Imported here to avoid a circular import at module load.
+        from testtools.testcase import _SubTest
+
         if not self._started:
             self.startTestRun()
-        test_id = test.id()
         now = self._now()
         if err is not None:
             if details is None:
                 details = {}
             details["traceback"] = TracebackContent(err, test)
+        if isinstance(test, _SubTest):
+            # A subtest outcome belongs to the test that contains it: attach
+            # its details to the parent so that the run counts one test, as
+            # unittest does. A skip or expected failure still needs a status
+            # of its own, since the parent reports nothing in that case.
+            test_id = test.test_case.id()
+            label = test._subDescription()
+            details = {
+                f"{name} {label}": detail for name, detail in (details or {}).items()
+            }
+            if status not in ("skip", "xfail"):
+                status = None  # type: ignore[assignment]
+        else:
+            test_id = test.id()
         if details is not None:
             for name, content in details.items():
                 mime_type = repr(content.content_type)
@@ -2342,12 +2358,13 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
                 test_id=test_id,
                 timestamp=now,
             )
-        self.status(
-            test_id=test_id,
-            test_status=status,
-            test_tags=self.current_tags,
-            timestamp=now,
-        )
+        if status is not None:
+            self.status(
+                test_id=test_id,
+                test_status=status,
+                test_tags=self.current_tags,
+                timestamp=now,
+            )
 
     def addExpectedFailure(
         self,

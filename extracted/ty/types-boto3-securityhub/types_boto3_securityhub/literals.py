@@ -69,6 +69,7 @@ __all__ = (
     "FindingsTrendsStringFieldType",
     "FreeTrialStatusValueType",
     "FreeTrialTypeType",
+    "GcpScopeTypeType",
     "GetEnabledStandardsPaginatorName",
     "GetFindingHistoryPaginatorName",
     "GetFindingsPaginatorName",
@@ -183,12 +184,12 @@ BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
     "ResourceNotFoundException",
     "ValidationException",
 ]
-CloudProviderNameType = Literal["AWS", "Azure"]
+CloudProviderNameType = Literal["AWS", "Azure", "GCP"]
 ComplianceStatusType = Literal["FAILED", "NOT_AVAILABLE", "PASSED", "WARNING"]
 ConfigurationPolicyAssociationStatusType = Literal["DISABLED", "FAILED", "PENDING", "SUCCESS"]
 ConnectionDirectionType = Literal["INBOUND", "OUTBOUND"]
 ConnectorAuthStatusType = Literal["ACTIVE", "FAILED"]
-ConnectorProviderNameType = Literal["AZURE", "JIRA_CLOUD", "SERVICENOW"]
+ConnectorProviderNameType = Literal["AZURE", "GCP", "JIRA_CLOUD", "SERVICENOW"]
 ConnectorStatusType = Literal[
     "CONNECTED",
     "DEGRADED",
@@ -199,8 +200,14 @@ ConnectorStatusType = Literal[
 ]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
-CriticalitySourceTypeType = Literal["AutomationRule", "ResourceName", "TagInference"]
-CspmConnectorProviderNameType = Literal["AZURE"]
+CriticalitySourceTypeType = Literal[
+    "AutomationRule",
+    "CloudWatchTelemetryInference",
+    "InstalledSoftwareAndPackageInference",
+    "ResourceName",
+    "TagInference",
+]
+CspmConnectorProviderNameType = Literal["AZURE", "GCP"]
 CspmConnectorStatusType = Literal["CONNECTED", "DEGRADED", "FAILED_TO_CONNECT", "UNKNOWN"]
 CspmEnablementStatusType = Literal[
     "ENABLED", "PENDING_DELETION", "PENDING_ENABLEMENT", "PENDING_UPDATE"
@@ -360,6 +367,7 @@ FindingsTrendsStringFieldType = Literal[
 ]
 FreeTrialStatusValueType = Literal["ACTIVE", "INACTIVE"]
 FreeTrialTypeType = Literal["SECURITY_HUB_V2", "SECURITY_HUB_V2_MULTI_CLOUD_AZURE"]
+GcpScopeTypeType = Literal["ORGANIZATION", "PROJECT"]
 GetEnabledStandardsPaginatorName = Literal["get_enabled_standards"]
 GetFindingHistoryPaginatorName = Literal["get_finding_history"]
 GetFindingsPaginatorName = Literal["get_findings"]
@@ -692,7 +700,7 @@ RuleStatusType = Literal["DISABLED", "ENABLED"]
 RuleStatusV2Type = Literal["DISABLED", "ENABLED"]
 ScopeTypeType = Literal["SUBSCRIPTION", "TENANT"]
 SecurityControlPropertyType = Literal["Parameters"]
-SecurityControlsProviderType = Literal["AWS", "Azure"]
+SecurityControlsProviderType = Literal["AWS", "Azure", "GCP"]
 SecurityHubFeatureType = Literal["SecurityHub", "SecurityHubV2"]
 SeverityLabelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
 SeverityRatingType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
@@ -726,7 +734,7 @@ SoftwareStringFieldType = Literal[
 ]
 SortOrderType = Literal["asc", "desc"]
 StandardsControlsUpdatableType = Literal["NOT_READY_FOR_UPDATES", "READY_FOR_UPDATES"]
-StandardsProviderType = Literal["AWS", "Azure"]
+StandardsProviderType = Literal["AWS", "Azure", "GCP"]
 StandardsStatusType = Literal["DELETING", "FAILED", "INCOMPLETE", "PENDING", "READY"]
 StatusReasonCodeType = Literal[
     "INTERNAL_ERROR",
@@ -880,6 +888,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -1064,6 +1073,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -1131,6 +1141,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

@@ -4,7 +4,7 @@ refusal names them by the catalog's placement name)."""
 
 from __future__ import annotations
 
-from dreamscale_transport import catalog
+from dreamscale_transport import _catalog_client as catalog
 
 from dreamscale.model_names import public_model
 from dreamscale.policy.runtime.contract import _optional_attr

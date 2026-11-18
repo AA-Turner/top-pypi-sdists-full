@@ -7,8 +7,11 @@ pub use statsig_http_id_lists_adapter::*;
 
 mod id_list;
 mod id_list_ids;
+pub(crate) mod id_list_load_timing;
 mod id_list_propagation;
 mod id_lists_adapter_trait;
+#[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
+pub(crate) mod membership_client;
 mod statsig_http_id_lists_adapter;
 
 #[cfg(test)]

@@ -189,6 +189,15 @@ pub trait NetworkProvider: Sync + Send {
         false
     }
 
+    /// Return true if the provider disables redirects and preserves headers, including
+    /// repeated values. After decoding, drop the stale Content-Length and report only
+    /// encodings still applied to the body.
+    fn supports_response_headers_without_redirects(&self) -> bool {
+        self.supports_wire_responses_without_redirects()
+    }
+
+    /// For ID-list membership, return a byte-backed response (`ResponseData::from_bytes`
+    /// or `from_shared_bytes_with_headers`) before the request deadline.
     async fn send_with_response_limit(
         &self,
         _method: &HttpMethod,
@@ -214,6 +223,7 @@ impl<T: std::io::Read + std::io::Seek + std::fmt::Debug + Send + Sync> ResponseD
 
 pub struct ResponseData {
     stream: Box<dyn ResponseDataStream>,
+    is_buffered: bool,
     headers: Option<HashMap<String, String>>,
     repeated_headers: Vec<(String, String)>,
     shared_bytes: Option<Arc<[u8]>>,
@@ -236,6 +246,7 @@ impl ResponseData {
     ) -> Self {
         Self {
             stream: Box::new(Cursor::new(bytes)),
+            is_buffered: true,
             headers,
             repeated_headers: Vec::new(),
             shared_bytes: None,
@@ -250,6 +261,7 @@ impl ResponseData {
     ) -> Self {
         Self {
             stream: Box::new(Cursor::new(Arc::clone(&bytes))),
+            is_buffered: true,
             headers,
             repeated_headers: Vec::new(),
             shared_bytes: Some(bytes),
@@ -268,6 +280,7 @@ impl ResponseData {
     ) -> Self {
         Self {
             stream,
+            is_buffered: false,
             headers,
             repeated_headers: Vec::new(),
             shared_bytes: None,
@@ -282,6 +295,12 @@ impl ResponseData {
 
     pub fn get_stream_mut(&mut self) -> &mut dyn ResponseDataStream {
         &mut self.stream
+    }
+
+    /// Only byte-backed responses can be read synchronously without doing I/O.
+    #[cfg(all(test, feature = "reqwest", not(feature = "custom_network_provider")))]
+    pub(crate) fn buffered_stream(&mut self) -> Option<&mut dyn ResponseDataStream> {
+        self.is_buffered.then(|| self.get_stream_mut())
     }
 
     pub(crate) fn shared_bytes(&self) -> Option<&[u8]> {
@@ -355,6 +374,7 @@ impl ResponseData {
 
     pub(crate) fn replace_bytes(&mut self, bytes: Vec<u8>) {
         self.stream = Box::new(Cursor::new(bytes));
+        self.is_buffered = true;
         self.shared_bytes = None;
         self.prepared_protobuf_stream = None;
         self.data_store_protobuf_bytes = None;

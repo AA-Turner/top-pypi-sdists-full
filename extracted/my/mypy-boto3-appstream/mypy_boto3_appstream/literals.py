@@ -105,6 +105,7 @@ ActionType = Literal[
     "FILE_DOWNLOAD",
     "FILE_UPLOAD",
     "PRINTING_TO_LOCAL_DEVICE",
+    "SMART_CARD_REDIRECTION",
 ]
 AgentActionType = Literal["COMPUTER_INPUT", "COMPUTER_VISION", "FORWARD_MCP_TOOLS"]
 AgentSoftwareVersionType = Literal["ALWAYS_LATEST", "CURRENT_LATEST"]
@@ -385,6 +386,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -569,6 +571,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -636,6 +639,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",

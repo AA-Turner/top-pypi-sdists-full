@@ -4,7 +4,7 @@ from functools import lru_cache, wraps
 from types import ModuleType
 
 from django.conf import settings
-from django.core.exceptions import ImproperlyConfigured, SuspiciousFileOperation, ValidationError
+from django.core.exceptions import ImproperlyConfigured, PermissionDenied, SuspiciousFileOperation, ValidationError
 from django.db import DEFAULT_DB_ALIAS, connection, connections, transaction
 from django.utils.module_loading import import_string
 
@@ -104,6 +104,28 @@ def get_reject_existing_schema():
     return getattr(settings, 'TENANT_REJECT_EXISTING_SCHEMA', False)
 
 
+def get_current_schema_name():
+    """The schema the tenant database connection is on, or None if the
+    connection isn't tenant-aware."""
+    return getattr(connections[get_tenant_database_alias()], 'schema_name', None)
+
+
+def check_tenant_data_change_allowed(schema_name, what):
+    """
+    Tenant and domain rows live in the public schema, but can be reached from
+    a tenant's own site (for example through an admin). Only allow changing
+    a tenant's rows from the public schema or from that tenant's own schema,
+    so one tenant can't delete another or take over its domains.
+    """
+    current = get_current_schema_name()
+    if current is None or current == get_public_schema_name() or current == schema_name:
+        return
+    raise PermissionDenied(
+        "Can't %s tenant '%s' from the schema '%s'. Tenants and their domains "
+        "can only be changed from the public schema or the tenant's own schema."
+        % (what, schema_name, current))
+
+
 def get_reserved_schema_names():
     """
     Lower-cased names of schemas that are never a tenant's: PostgreSQL's
@@ -158,6 +180,24 @@ def get_tenant_migration_order():
     return getattr(settings, 'TENANT_MIGRATION_ORDER', None)
 
 
+def _previous_tenants(connection):
+    """
+    The tenants to restore when leaving schema_context(), tenant_context() or
+    ``with tenant:``. Kept on the connection, which is per thread, rather than
+    on the context manager or tenant instance: an instance can be shared by
+    nested calls (e.g. when used as a decorator) and by threads.
+    """
+    return connection.__dict__.setdefault('_django_tenants_previous_tenants', [])
+
+
+def _restore_previous_tenant(connection):
+    previous_tenant = _previous_tenants(connection).pop()
+    if previous_tenant is None:
+        connection.set_schema_to_public()
+    else:
+        connection.set_tenant(previous_tenant)
+
+
 class schema_context(ContextDecorator):
     # Please do not try and merge this with tenant_context as they are not the same. As pointed out in #501
     def __init__(self, *args, **kwargs):
@@ -166,15 +206,16 @@ class schema_context(ContextDecorator):
         super().__init__()
 
     def __enter__(self):
-        self.connection = connections[self.database]
-        self.previous_tenant = connection.tenant
-        self.connection.set_schema(self.schema_name)
+        # The tenant to restore is the one on the connection being switched,
+        # not on the default connection.
+        self.connection = connection = connections[self.database]
+        # previous_tenant is kept for subclasses; restoring uses the stack.
+        self.previous_tenant = previous_tenant = connection.tenant
+        connection.set_schema(self.schema_name)
+        _previous_tenants(connection).append(previous_tenant)
 
     def __exit__(self, *exc):
-        if self.previous_tenant is None:
-            self.connection.set_schema_to_public()
-        else:
-            self.connection.set_tenant(self.previous_tenant)
+        _restore_previous_tenant(connections[self.database])
 
 
 class tenant_context(ContextDecorator):
@@ -185,15 +226,16 @@ class tenant_context(ContextDecorator):
         super().__init__()
 
     def __enter__(self):
-        self.connection = connections[self.database]
-        self.previous_tenant = connection.tenant
-        self.connection.set_tenant(self.tenant)
+        # The tenant to restore is the one on the connection being switched,
+        # not on the default connection.
+        self.connection = connection = connections[self.database]
+        # previous_tenant is kept for subclasses; restoring uses the stack.
+        self.previous_tenant = previous_tenant = connection.tenant
+        connection.set_tenant(self.tenant)
+        _previous_tenants(connection).append(previous_tenant)
 
     def __exit__(self, *exc):
-        if self.previous_tenant is None:
-            self.connection.set_schema_to_public()
-        else:
-            self.connection.set_tenant(self.previous_tenant)
+        _restore_previous_tenant(connections[self.database])
 
 
 def clean_tenant_url(url_string):

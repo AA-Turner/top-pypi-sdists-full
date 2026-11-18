@@ -33,7 +33,7 @@ from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Any
 
 import httpx
-from dreamscale_transport import catalog as _catalog
+from dreamscale_transport import _catalog_client as _catalog
 from dreamscale_transport.errors import (
     AUTH_FAILED,
     SESSION_CLOSED,
@@ -1229,16 +1229,6 @@ class AsyncPolicy:
         async with self._call(), self._frames_as_errors():
             return await inner.run(**kwargs)
 
-    async def begin_episode(self, **kwargs: Any) -> None:
-        inner = await self._pin()
-        async with self._call(), self._frames_as_errors():
-            await inner.begin_episode(**kwargs)
-
-    async def step(self, observation: Any, **kwargs: Any) -> Any:
-        inner = await self._pin()
-        async with self._call(), self._frames_as_errors():
-            return await inner.step(observation, **kwargs)
-
     @contextlib.asynccontextmanager
     async def _frames_as_errors(self):
         """A raw error frame escaping a forwarded call becomes the policy's error."""
@@ -1250,12 +1240,6 @@ class AsyncPolicy:
             raise (self._pinned_failure or server_frame_error(
                 exc, model=self._model, deployment=deployment,
             )) from exc
-
-    async def end_episode(self) -> None:
-        if self._inner is None:
-            return
-        async with self._call():
-            await self._inner.end_episode()
 
     async def push_history(self, observation: Any, *, next_request_in: int | None = None) -> None:
         inner = await self._pin()
@@ -2085,15 +2069,6 @@ class Policy:
         """See ``AsyncPolicy.prepare`` (the pinned run API; ``prefetch`` for next_action)."""
         self._guard()
         self._runner.run(self._facade.prepare(instruction=instruction, timeout_s=timeout_s))
-
-    def begin_episode(self, **kwargs: Any) -> None:
-        self._runner.run(self._facade.begin_episode(**kwargs))
-
-    def step(self, observation: Any, **kwargs: Any) -> Any:
-        return self._runner.run(self._facade.step(observation, **kwargs))
-
-    def end_episode(self) -> None:
-        self._runner.run_cleanup(self._facade.end_episode())
 
     def run(self, **kwargs: Any) -> Any:
         from dreamscale.policy.remote import _sync_run

@@ -6,7 +6,7 @@ import warnings
 from . import openshell_pb2 as openshell__pb2
 from . import sandbox_pb2 as sandbox__pb2
 
-GRPC_GENERATED_VERSION = '1.78.0'
+GRPC_GENERATED_VERSION = '1.78.2'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -3921,6 +3921,126 @@ class OpenShell(object):
             '/openshell.v1.OpenShell/ListWorkspaceMembers',
             openshell__pb2.ListWorkspaceMembersRequest.SerializeToString,
             openshell__pb2.ListWorkspaceMembersResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+
+class ServiceDiscoveryStub(object):
+    """Application ingress consumers discover routes independently of sandbox management.
+    """
+
+    def __init__(self, channel):
+        """Constructor.
+
+        Args:
+            channel: A grpc.Channel.
+        """
+        self.GetServiceRouteSnapshot = channel.unary_unary(
+                '/openshell.v1.ServiceDiscovery/GetServiceRouteSnapshot',
+                request_serializer=openshell__pb2.GetServiceRouteSnapshotRequest.SerializeToString,
+                response_deserializer=openshell__pb2.GetServiceRouteSnapshotResponse.FromString,
+                _registered_method=True)
+        self.WatchServiceRoutes = channel.unary_stream(
+                '/openshell.v1.ServiceDiscovery/WatchServiceRoutes',
+                request_serializer=openshell__pb2.WatchServiceRoutesRequest.SerializeToString,
+                response_deserializer=openshell__pb2.WatchServiceRoutesResponse.FromString,
+                _registered_method=True)
+
+
+class ServiceDiscoveryServicer(object):
+    """Application ingress consumers discover routes independently of sandbox management.
+    """
+
+    def GetServiceRouteSnapshot(self, request, context):
+        """Read installed, unexpired application routes in one explicit workspace.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WatchServiceRoutes(self, request, context):
+        """Full replacement views; reauthorize during the bounded watch lifetime.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+
+def add_ServiceDiscoveryServicer_to_server(servicer, server):
+    rpc_method_handlers = {
+            'GetServiceRouteSnapshot': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetServiceRouteSnapshot,
+                    request_deserializer=openshell__pb2.GetServiceRouteSnapshotRequest.FromString,
+                    response_serializer=openshell__pb2.GetServiceRouteSnapshotResponse.SerializeToString,
+            ),
+            'WatchServiceRoutes': grpc.unary_stream_rpc_method_handler(
+                    servicer.WatchServiceRoutes,
+                    request_deserializer=openshell__pb2.WatchServiceRoutesRequest.FromString,
+                    response_serializer=openshell__pb2.WatchServiceRoutesResponse.SerializeToString,
+            ),
+    }
+    generic_handler = grpc.method_handlers_generic_handler(
+            'openshell.v1.ServiceDiscovery', rpc_method_handlers)
+    server.add_generic_rpc_handlers((generic_handler,))
+    server.add_registered_method_handlers('openshell.v1.ServiceDiscovery', rpc_method_handlers)
+
+
+ # This class is part of an EXPERIMENTAL API.
+class ServiceDiscovery(object):
+    """Application ingress consumers discover routes independently of sandbox management.
+    """
+
+    @staticmethod
+    def GetServiceRouteSnapshot(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/openshell.v1.ServiceDiscovery/GetServiceRouteSnapshot',
+            openshell__pb2.GetServiceRouteSnapshotRequest.SerializeToString,
+            openshell__pb2.GetServiceRouteSnapshotResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def WatchServiceRoutes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_stream(
+            request,
+            target,
+            '/openshell.v1.ServiceDiscovery/WatchServiceRoutes',
+            openshell__pb2.WatchServiceRoutesRequest.SerializeToString,
+            openshell__pb2.WatchServiceRoutesResponse.FromString,
             options,
             channel_credentials,
             insecure,

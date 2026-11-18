@@ -32,7 +32,14 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10 lacks stdlib TOML
 
 from agent_scan.agents import DiscoveryScope
 from agent_scan.agents.claude_desktop import ClaudeDesktopDiscoverer
-from agent_scan.hook_events import HOOK_CLIENTS, send_hook_event
+from agent_scan.hook_events import (
+    HOOK_CLIENTS,
+    INSTALL_RETRY_POLICY,
+    RetryPolicy,
+    classify_failure_detail,
+    next_retry_delay,
+    send_hook_event,
+)
 from agent_scan.pushkeys import (
     GuardEnabledAccessDeniedError,
     _is_localhost,
@@ -65,6 +72,9 @@ _DETECTION_RE = re.compile(
 _PERMISSION_DENIED = "__permission_denied__"
 _STDIN_READ_TIMEOUT_SECONDS = 5.0
 _DISCOVERY_TIMEOUT_SECONDS = 60.0
+_HOOK_SCRIPT_TIMEOUT_SECONDS = 15.0
+# Extra time the forwarder subprocess gets beyond the install budget (interpreter startup, teardown).
+_HOOK_SCRIPT_OVERHEAD_SECONDS = 2.0
 
 CLAUDE_SETTINGS_PATH = Path.home() / ".claude" / "settings.json"
 CURSOR_HOOKS_PATH = Path.home() / ".cursor" / "hooks.json"
@@ -233,6 +243,7 @@ def _run_install(args) -> None:
     if not tenant_id:
         tenant_id = (os.environ.get("TENANT_ID", "") or "").strip()
     managed: bool = getattr(args, "managed", False)
+    machine_serial = os.environ.get("MACHINE_SERIAL", "").strip()
     machine_id = (getattr(args, "machine_id", None) or os.environ.get("MACHINE_ID", "") or "").strip()
     if not machine_id:
         # Temporary compatibility fallback until ADS Installer supplies MACHINE_ID.
@@ -320,21 +331,33 @@ def _run_install(args) -> None:
     minted = not headless  # True if we minted the key in this run
 
     first_installed_client: str | None = None
+    failed_clients: list[str] = []
     try:
         for c in clients:
-            _install_hooks(
-                c,
-                _hook_client_name(c),
-                push_key,
-                url,
-                _config_path(c, getattr(args, "file", None), managed=managed),
-                scope,
-                _client_label(c),
-                minted,
-                tenant_id,
-                snyk_token,
-                machine_id,
-            )
+            try:
+                _install_hooks(
+                    c,
+                    _hook_client_name(c),
+                    push_key,
+                    url,
+                    _config_path(c, getattr(args, "file", None), managed=managed),
+                    scope,
+                    _client_label(c),
+                    minted,
+                    tenant_id,
+                    snyk_token,
+                    machine_id,
+                    machine_serial,
+                )
+            except (SystemExit, Exception) as e:
+                # With client=all one client's failure must not block the others.
+                if client != "all":
+                    raise
+                failed_clients.append(c)
+                if not isinstance(e, SystemExit):
+                    rich.print(f"[bold red]Error:[/bold red] {_client_label(c)}: {e}")
+                rich.print(f"[yellow]Warning:[/yellow] Installation failed for {_client_label(c)}; continuing.")
+                continue
             if first_installed_client is None:
                 first_installed_client = _hook_client_name(c)
     except BaseException:
@@ -349,6 +372,9 @@ def _run_install(args) -> None:
                 _revoke_after_failure(url, tenant_id, snyk_token, push_key)
         raise
 
+    if failed_clients and first_installed_client is None and minted:
+        _revoke_after_failure(url, tenant_id, snyk_token, push_key)
+
     if first_installed_client is not None:
         _send_servers_discovered_event(
             push_key,
@@ -356,8 +382,14 @@ def _run_install(args) -> None:
             first_installed_client,
             machine_id,
             discovery_scope=DiscoveryScope.SERVERS,
-            max_retries=2,
+            retry_policy=INSTALL_RETRY_POLICY,
+            machine_serial=machine_serial,
         )
+
+    if failed_clients:
+        names = ", ".join(_client_label(c) for c in failed_clients)
+        rich.print(f"[bold red]Error:[/bold red] Installation failed for: {names}.")
+        sys.exit(1)
 
 
 def _run_with_timeout(
@@ -411,6 +443,7 @@ def _run_discover(args) -> int:
     if not hook_client:
         rich.print("[bold red]Error:[/bold red] --client is required to run guard discovery.")
         return 1
+    machine_serial = os.environ.get("MACHINE_SERIAL", "").strip()
     machine_id = (os.environ.get("MACHINE_ID", "") or "").strip()
     if not machine_id:
         rich.print("[bold red]Error:[/bold red] MACHINE_ID is required to run guard discovery.")
@@ -437,6 +470,7 @@ def _run_discover(args) -> int:
         url,
         hook_client,
         machine_id,
+        machine_serial=machine_serial,
         event_name="sessionStartServerDiscovery",
         session_marker=session_id or "session-start-server-discovery",
         target_folders=target_folders,
@@ -582,6 +616,7 @@ def _install_hooks(
     tenant_id: str,
     snyk_token: str,
     machine_id: str,
+    machine_serial: str,
 ) -> None:
     """Post-mint install steps.  Extracted so _run_install can revoke on failure."""
     existing_info = _detect_existing_install(client, config_path)
@@ -616,6 +651,7 @@ def _install_hooks(
         hook_client,
         tenant_id=tenant_id,
         machine_id=machine_id,
+        machine_serial=machine_serial,
     )
     discover_command = None
     if install_discovery:
@@ -627,6 +663,7 @@ def _install_hooks(
             agent_scan_command=agent_scan_command,
             tenant_id=tenant_id,
             machine_id=machine_id,
+            machine_serial=machine_serial,
             hook_client=hook_client,
         )
     prepared_config, prepared_content, hooks_diff, preserved = _prepare_client_config(
@@ -639,7 +676,7 @@ def _install_hooks(
     first_install = not main_script.existed
     config_changed = bool(hooks_diff["added"] or hooks_diff["modified"] or hooks_diff["removed"])
 
-    if not _send_test_event(
+    test_event = _send_test_event(
         push_key,
         url,
         hook_client,
@@ -653,13 +690,20 @@ def _install_hooks(
         discover_current_checksum=discover_script.current_checksum if discover_script else None,
         discover_new_checksum=discover_script.new_checksum if discover_script else None,
         machine_id=machine_id,
-    ):
+        machine_serial=machine_serial,
+    )
+    if test_event.status == "rejected":
         if not main_script.existed:
             dest_path.unlink(missing_ok=True)
         if not discover_script_existed:
             discover_script_path.unlink(missing_ok=True)
         rich.print("[bold red]Aborting install \u2014 test event failed.[/bold red]")
         raise SystemExit(1)
+    if test_event.status == "unconfirmed":
+        _warn_test_event_unconfirmed(test_event)
+        _report_test_event_unconfirmed(
+            push_key, url, hook_client, machine_id, test_event, machine_serial=machine_serial
+        )
 
     config_written = _write_client_config(client, config_path, prepared_config, prepared_content, preserved)
     if not install_discovery and discover_script_path.exists():
@@ -675,6 +719,39 @@ def _install_hooks(
     rich.print(f"   Remote URL: [dim]{url}[/dim]")
     rich.print(f"   Push Key:   [yellow]{_mask_key(push_key)}[/yellow]")
     rich.print()
+
+
+def _warn_test_event_unconfirmed(result: _TestEventResult) -> None:
+    rich.print(
+        f"[yellow]Warning:[/yellow] Test event was not confirmed after {result.attempts} "
+        f"attempt{'s' if result.attempts != 1 else ''} over {result.elapsed:.0f}s. "
+        f"Last error: [bold]{result.error}[/bold] \u2014 {_describe_error(result.error)}. "
+        "Continuing the installation; hooks will report once the service is reachable."
+    )
+
+
+def _report_test_event_unconfirmed(
+    push_key: str,
+    url: str,
+    hook_client: str,
+    machine_id: str,
+    result: _TestEventResult,
+    *,
+    machine_serial: str,
+) -> None:
+    """Best-effort telemetry: the install continued although the test event never got through."""
+    payload_dict = {
+        "hook_event_name": "hooksConfiguredTestEventUnconfirmed",
+        HOOK_CLIENTS[hook_client].session_field: "hooks-setup",
+        "test_event_attempts": result.attempts,
+        "test_event_elapsed_ms": round(result.elapsed * 1000),
+        "test_event_last_error": result.error,
+    }
+    ok, detail = send_hook_event(
+        url, hook_client, push_key, json.dumps(payload_dict), machine_id, machine_serial=machine_serial
+    )
+    if not ok:
+        rich.print(f"[dim]Could not report the unconfirmed test event: {detail}[/dim]")
 
 
 def _prepare_claude_config(
@@ -1355,6 +1432,8 @@ def _invoke_hook_script(
     *,
     machine_id: str,
     require_success_payload: bool = False,
+    timeout: float = _HOOK_SCRIPT_TIMEOUT_SECONDS,
+    machine_serial: str,
 ) -> tuple[bool, str]:
     """Run the hook script with ``payload`` on stdin. Returns ``(ok, detail)``.
 
@@ -1374,6 +1453,7 @@ def _invoke_hook_script(
             push_key=push_key,
             url=url,
             machine_id=machine_id,
+            machine_serial=machine_serial,
         )
     )
 
@@ -1383,7 +1463,7 @@ def _invoke_hook_script(
             input=payload,
             capture_output=True,
             text=True,
-            timeout=15,
+            timeout=timeout,
             env=env,
         )
         if result.returncode != 0:
@@ -1402,6 +1482,29 @@ def _invoke_hook_script(
         return False, str(e)
 
 
+# What a failed-to-confirm test event means, keyed by error label, shown in the install warning.
+_ERROR_MEANINGS = {
+    "timeout": "the Agent Guard service did not answer in time",
+    "dns_failure": "the Agent Guard host name could not be resolved (network or DNS problem)",
+    "connection_refused": "the connection to the Agent Guard service was refused",
+    "connection_reset": "the connection to the Agent Guard service was dropped",
+}
+
+
+class _TestEventResult(NamedTuple):
+    status: str  # "sent", "rejected" (persistent, abort) or "unconfirmed" (outage outlasted retries)
+    attempts: int
+    elapsed: float
+    error: str  # short label such as dns_failure, timeout, http_error_503
+    detail: str
+
+
+def _describe_error(error: str) -> str:
+    if error.startswith("http_error_"):
+        return f"the Agent Guard service answered with HTTP {error.removeprefix('http_error_')}, a server-side failure"
+    return _ERROR_MEANINGS.get(error, "the test event could not be delivered")
+
+
 def _send_test_event(
     push_key: str,
     url: str,
@@ -1417,8 +1520,14 @@ def _send_test_event(
     discover_current_checksum: str | None = None,
     discover_new_checksum: str | None = None,
     machine_id: str,
-) -> bool:
-    """Send a test hooksConfigured event by invoking the hook script. Returns True on success."""
+    machine_serial: str,
+) -> _TestEventResult:
+    """Send a test hooksConfigured event by invoking the hook script, retrying outages.
+
+    Timeouts, DNS failures, connection resets and HTTP 5xx are retried with backoff inside
+    ``INSTALL_RETRY_POLICY``'s time limit (the same rule as the install-time discovery event).
+    Anything else (API rejection, HTTP 4xx, a script error) is persistent and returned at once.
+    """
     if not machine_id.strip():
         raise ValueError("machine ID is required")
     payload_dict: dict = {"hook_event_name": "hooksConfigured"}
@@ -1445,20 +1554,39 @@ def _send_test_event(
     redact_push_keys_in_data(payload_dict)
     payload = json.dumps(payload_dict)
 
-    ok, detail = _invoke_hook_script(
-        script_path,
-        hook_client,
-        push_key,
-        url,
-        payload,
-        machine_id=machine_id,
-        require_success_payload=True,
-    )
-    if ok:
-        rich.print("[green]\u2713[/green]  Test event sent  [green]\u2192 OK[/green]")
-        return True
-    rich.print(f"[red]\u2717[/red]  Test event failed: {detail}")
-    return False
+    policy = INSTALL_RETRY_POLICY
+    started = time.monotonic()
+    attempts = 0
+    while True:
+        attempts += 1
+        ok, detail = _invoke_hook_script(
+            script_path,
+            hook_client,
+            push_key,
+            url,
+            payload,
+            machine_id=machine_id,
+            require_success_payload=True,
+            # A healthy but slow answer (up to the forwarder's own 60 s cap) must be able to finish,
+            # so each attempt gets what is left of the install budget, not the 15 s default.
+            timeout=max(policy.time_limit - (time.monotonic() - started), 0.0) + _HOOK_SCRIPT_OVERHEAD_SECONDS,
+            machine_serial=machine_serial,
+        )
+        elapsed = time.monotonic() - started
+        if ok:
+            rich.print("[green]\u2713[/green]  Test event sent  [green]\u2192 OK[/green]")
+            return _TestEventResult("sent", attempts, elapsed, "", "")
+        failure = classify_failure_detail(detail)
+        if not failure.retryable:
+            rich.print(f"[red]\u2717[/red]  Test event failed: {detail}")
+            return _TestEventResult("rejected", attempts, elapsed, failure.label, detail)
+        delay = next_retry_delay(policy, attempts, started)
+        if delay is None:
+            return _TestEventResult("unconfirmed", attempts, elapsed, failure.label, detail)
+        rich.print(
+            f"[yellow]![/yellow]  Test event attempt {attempts} failed ({failure.label}); retrying in {delay:g}s..."
+        )
+        time.sleep(delay)
 
 
 def _send_servers_discovered_event(
@@ -1471,7 +1599,8 @@ def _send_servers_discovered_event(
     session_marker: str = "hooks-setup",
     target_folders: list[str] | None = None,
     discovery_scope: DiscoveryScope = DiscoveryScope.ALL,
-    max_retries: int = 1,
+    retry_policy: RetryPolicy | None = None,
+    machine_serial: str,
 ) -> bool:
     """Discover MCP servers and send an install- or session-scoped discovery event.
 
@@ -1503,7 +1632,9 @@ def _send_servers_discovered_event(
     redact_push_keys_in_data(payload_dict)
     payload = json.dumps(payload_dict)
 
-    ok, detail = send_hook_event(url, hook_client, push_key, payload, machine_id, max_retries=max_retries)
+    ok, detail = send_hook_event(
+        url, hook_client, push_key, payload, machine_id, retry_policy=retry_policy, machine_serial=machine_serial
+    )
     if ok:
         server_count = sum(len(entry.get("servers", [])) for entry in servers)
         noun = "server" if server_count == 1 else "servers"
@@ -1798,6 +1929,7 @@ class _HookInvocation(NamedTuple):
     agent_scan_command: str = ""
     scope: str = ""
     quote_client: bool = False
+    machine_serial: str = ""
 
 
 def _render_posix_command(invocation: _HookInvocation) -> str:
@@ -1809,6 +1941,8 @@ def _render_posix_command(invocation: _HookInvocation) -> str:
         parts.append(f"TENANT_ID={_shell_quote(invocation.tenant_id)}")
     if invocation.machine_id:
         parts.append(f"MACHINE_ID={_shell_quote(invocation.machine_id)}")
+    # Preserve an empty captured serial too; later hook environments must not supply a different value.
+    parts.append(f"MACHINE_SERIAL={_shell_quote(invocation.machine_serial)}")
     if invocation.agent_scan_command:
         parts.append(f"AGENT_SCAN_COMMAND={_shell_quote(invocation.agent_scan_command)}")
     parts.append(f"bash {_shell_quote(invocation.script_path.as_posix())}")
@@ -1835,6 +1969,8 @@ def _render_powershell_command(invocation: _HookInvocation) -> str:
         parts.extend(["-TenantId", _ps_quote(invocation.tenant_id)])
     if invocation.machine_id:
         parts.extend(["-MachineId", _ps_quote(invocation.machine_id)])
+    if invocation.machine_serial:
+        parts.extend(["-MachineSerial", _ps_quote(invocation.machine_serial)])
     if invocation.agent_scan_command:
         parts.extend(["-AgentScanCommand", _ps_quote(invocation.agent_scan_command)])
     if invocation.scope:
@@ -1857,6 +1993,8 @@ def _render_argv(invocation: _HookInvocation) -> tuple[list[str], dict[str, str]
         ]
         if invocation.machine_id:
             argv.extend(["-MachineId", invocation.machine_id])
+        if invocation.machine_serial:
+            argv.extend(["-MachineSerial", invocation.machine_serial])
         if invocation.agent_scan_command:
             argv.extend(["-AgentScanCommand", invocation.agent_scan_command])
         if invocation.scope:
@@ -1867,6 +2005,7 @@ def _render_argv(invocation: _HookInvocation) -> tuple[list[str], dict[str, str]
         **os.environ,
         "PUSH_KEY": invocation.push_key,
         "REMOTE_HOOKS_BASE_URL": invocation.url,
+        "MACHINE_SERIAL": invocation.machine_serial,
     }
     if invocation.tenant_id:
         env["TENANT_ID"] = invocation.tenant_id
@@ -1888,6 +2027,7 @@ def _build_hook_command(
     *,
     tenant_id: str = "",
     machine_id: str = "",
+    machine_serial: str,
 ) -> str:
     invocation = _HookInvocation(
         script_path=script_path,
@@ -1895,6 +2035,7 @@ def _build_hook_command(
         push_key=push_key,
         url=url,
         machine_id=machine_id,
+        machine_serial=machine_serial,
         tenant_id=tenant_id,
     )
     if IS_WINDOWS:
@@ -1928,6 +2069,7 @@ def _build_discover_hook_command(
     agent_scan_command: str,
     tenant_id: str = "",
     machine_id: str = "",
+    machine_serial: str,
 ) -> str:
     invocation = _HookInvocation(
         script_path=script_path,
@@ -1935,6 +2077,7 @@ def _build_discover_hook_command(
         push_key=push_key,
         url=url,
         machine_id=machine_id,
+        machine_serial=machine_serial,
         agent_scan_command=agent_scan_command,
         scope="servers",
         quote_client=True,
@@ -1952,6 +2095,7 @@ def _build_hook_command_powershell(
     *,
     tenant_id: str = "",
     machine_id: str = "",
+    machine_serial: str,
 ) -> str:
     return _render_powershell_command(
         _HookInvocation(
@@ -1960,6 +2104,7 @@ def _build_hook_command_powershell(
             push_key=push_key,
             url=url,
             machine_id=machine_id,
+            machine_serial=machine_serial,
             tenant_id=tenant_id,
         )
     )

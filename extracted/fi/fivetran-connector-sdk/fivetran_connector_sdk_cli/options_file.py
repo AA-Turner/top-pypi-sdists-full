@@ -23,13 +23,6 @@ def default_options_file_path() -> str:
     return os.path.join(config_root_dir(), constants.OPTIONS_FILENAME)
 
 
-def is_toml_file_supported() -> bool:
-    """Whether the local options file is supported on this interpreter (requires the stdlib
-    `tomllib` module, Python 3.11+). Does not log; the deploy command logs the skip message once.
-    """
-    return sys.version_info >= (3, 11)
-
-
 def _require_existing_path(path: str, source: str) -> None:
     """Exits if `path` (provided via `source`) isn't an existing file."""
     if os.path.isdir(path):
@@ -42,9 +35,6 @@ def find_options_file(args) -> Optional[str]:
     """Locates the options file: --options-file, FIVETRAN_OPTIONS_FILE env var, ./options.toml,
     ~/.fivetran/connector_sdk/options.toml, in that order. None if none apply.
     """
-    if not is_toml_file_supported():
-        return None
-
     explicit_path = getattr(args, "options_file", None)
     if explicit_path:
         explicit_path = os.path.expanduser(explicit_path)
@@ -87,12 +77,11 @@ def _read_toml(path: str, description: str) -> dict:
 
 def load_package_default(project_path: Optional[str], field: str) -> Optional[str]:
     """`field` as set under `[tool.package-metadata]` in the project's `pyproject.toml`. None
-    when there is no project path, no file, no such table or no such field, or on Python < 3.11
-    (no `tomllib`). Meant to be called only once every higher-precedence source has come up
+    when there is no project path, no file, no such table or no such field. Meant to be called only once every higher-precedence source has come up
     empty for `field`: a file that is present but unreadable, or a table or value of the wrong
     shape, then fails the deploy rather than silently deploying without the default the user set.
     """
-    if not project_path or not is_toml_file_supported():
+    if not project_path:
         return None
     pyproject_path = os.path.join(project_path, constants.PYPROJECT_TOML)
     if not os.path.isfile(pyproject_path):

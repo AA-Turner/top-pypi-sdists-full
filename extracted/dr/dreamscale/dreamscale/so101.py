@@ -91,7 +91,7 @@ def observation(
     if wrist_frame is None and views == 2:
         wrist_frame = frame if frame is not None else side_frame
     if gripper_range is not None:
-        from dreamscale_transport.praxis import validate_so101_grip_range
+        from dreamscale_core.praxis import validate_so101_grip_range
 
         gripper_range = validate_so101_grip_range(gripper_range)
     return So101Observation(

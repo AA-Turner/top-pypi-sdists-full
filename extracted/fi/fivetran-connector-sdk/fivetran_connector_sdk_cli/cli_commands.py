@@ -47,6 +47,7 @@ from fivetran_connector_sdk_cli.connector_helper import (
     package_create,
     package_update,
     package_list,
+    package_delete,
     get_connection_package_id,
     is_package_shared,
     get_package,
@@ -56,7 +57,8 @@ from fivetran_connector_sdk_cli.connector_helper import (
     attempted_command_for_telemetry
 )
 from fivetran_connector_sdk_common.configuration import check_dict
-from fivetran_connector_sdk_cli.options_file import find_options_file, default_options_file_path, is_toml_file_supported
+from fivetran_connector_sdk_cli.options_file import find_options_file, default_options_file_path
+from fivetran_connector_sdk_cli.feature_tips import FEATURE_TIPS_COMMANDS, show_feature_tips
 from fivetran_connector_sdk_cli.migration import run_migration, write_resolved_profile
 from fivetran_connector_sdk_cli.resolution import resolve_deploy_options, warn_on_server_drift
 
@@ -236,9 +238,6 @@ def _run_deploy_command(args, prompt_mode: PromptMode) -> None:
         print_library_log(str(e), level=Logging.Level.SEVERE, log_icon=Logging.LogIcon.FAILURE)
         sys.exit(1)
 
-    if not is_toml_file_supported():
-        print_library_log(constants.OPTIONS_FILE_SKIP_MIN_PYTHON_MESSAGE)
-
     migrated_options_path = None
     if not find_options_file(args):
         migrated_options_path = run_migration(ft_deploy_key, default_options_file_path())
@@ -291,7 +290,7 @@ def _run_deploy_command(args, prompt_mode: PromptMode) -> None:
 def _run_package_command(args, prompt_mode: PromptMode) -> None:
     """Handles all `fivetran package ...` subcommands. Resolves project_path and looks up
     connector.py only for subcommands that need local code (local package, create, update);
-    `list` is an account-level operation and needs neither.
+    `list` and `delete` only call the API and use no local project files.
     """
     subcommand = args.subcommand
 
@@ -299,6 +298,12 @@ def _run_package_command(args, prompt_mode: PromptMode) -> None:
         api_key = get_api_key(args)
         validate_required_package_params(api_key)
         package_list(api_key, args.limit)
+        return
+
+    if subcommand == "delete":
+        api_key = get_api_key(args)
+        validate_required_package_params(api_key)
+        package_delete(args.package_id, api_key)
         return
 
     try:
@@ -347,6 +352,7 @@ def _run_command(args, parser, prompt_mode: PromptMode) -> None:
         parser.print_help()
         sys.exit(0)
     elif args.command.lower() == "package":
+        check_newer_version(__version__)
         _run_package_command(args, prompt_mode)
         sys.exit(0)
     elif args.command.lower() == "deploy":
@@ -459,4 +465,8 @@ def main():
             parser.print_help()
             sys.exit(1)
 
-        _run_command(args, parser, prompt_mode)
+        try:
+            _run_command(args, parser, prompt_mode)
+        finally:
+            if args.command.lower() in FEATURE_TIPS_COMMANDS:
+                show_feature_tips()

@@ -33,8 +33,10 @@ class TurnsSource(StrEnum):
 
 
 class MessageToolCall(BaseModel):
-    """One tool call an assistant message asked for, as the framework handed it to the tool (not `ToolCall`: that
-    name collided in OpenAPI, #4640). Its run's stats are the `TurnToolCall` with the same `id`."""
+    """One tool call an assistant message asked for, as the framework handed it to the tool. Its run's stats are
+    the `TurnToolCall` with the same `id`."""
+
+    # Not `ToolCall`: that name collided in OpenAPI (#4640).
 
     #: As the framework named it; `probe-<turn>-<i>` when Probe numbered it (the plan declares `tool_call_ids`).
     id: str | None = Field(default=None, max_length=256)

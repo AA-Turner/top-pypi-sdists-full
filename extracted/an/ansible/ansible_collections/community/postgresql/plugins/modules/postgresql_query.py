@@ -25,14 +25,14 @@ options:
     description:
     - List of values to be passed as positional arguments to the query.
       When the value is a list, it will be converted to PostgreSQL array.
-    - Mutually exclusive with I(named_args).
+    - Mutually exclusive with O(named_args).
     type: list
     elements: raw
   named_args:
     description:
     - Dictionary of key-value arguments to pass to the query.
       When the value is a list, it will be converted to PostgreSQL array.
-    - Mutually exclusive with I(positional_args).
+    - Mutually exclusive with O(positional_args).
     type: dict
   session_role:
     description:
@@ -44,27 +44,24 @@ options:
   login_db:
     description:
     - Name of database to connect to and run queries against.
-    - The V(db) alias is deprecated and will be removed in version 5.0.0.
     type: str
-    aliases:
-    - db
   autocommit:
     description:
     - Execute in autocommit mode when the query can't be run inside a transaction block
       (e.g., VACUUM).
-    - Mutually exclusive with I(check_mode).
+    - Mutually exclusive with C(check_mode).
     type: bool
     default: false
   encoding:
     description:
-    - Set the client encoding for the current session (e.g. C(UTF-8)).
+    - Set the client encoding for the current session (e.g. V(UTF-8)).
     - The default is the encoding defined by the database.
     type: str
     version_added: '0.2.0'
   trust_input:
     description:
-    - If C(false), check whether a value of I(session_role) is potentially dangerous.
-    - It makes sense to use C(false) only when SQL injections via I(session_role) are possible.
+    - If V(false), check whether a value of O(session_role) is potentially dangerous.
+    - It makes sense to use V(false) only when SQL injections via O(session_role) are possible.
     type: bool
     default: true
     version_added: '0.2.0'
@@ -84,6 +81,13 @@ seealso:
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: none
+    details:
+      - The module executes arbitrary user-supplied SQL commands and cannot determine whether a given query
+        would modify state. For non-read-only queries, state change is set based on the PostgreSQL
+        RV(statusmessage) heuristic (e.g., C(INSERT)/C(UPDATE)/C(DELETE) with non-zero affected rows
+        report C(changed=true), regardless of the state which existed before the query execution).
 
 author:
 - Felix Archambault (@archf)
@@ -203,6 +207,16 @@ EXAMPLES = r'''
     query: INSERT INTO test_table (col1) VALUES (%s)
     positional_args:
     - '{{ my_var }}'
+
+# SSL/TLS certificate configuration example
+- name: Query database with SSL certificate
+  community.postgresql.postgresql_query:
+    login_db: acme
+    query: SELECT version()
+    ssl_mode: verify-full
+    ssl_root_cert: /etc/ssl/certs/root.crt
+    ssl_cert: /etc/ssl/certs/client.crt
+    ssl_key: /etc/ssl/certs/client.key
 '''
 
 RETURN = r'''
@@ -319,13 +333,7 @@ def main():
     argument_spec = postgres_common_argument_spec()
     argument_spec.update(
         query=dict(type='raw'),
-        login_db=dict(type='str', aliases=['db'], deprecated_aliases=[
-            {
-                'name': 'db',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            }],
-        ),
+        login_db=dict(type='str'),
         positional_args=dict(type='list', elements='raw'),
         named_args=dict(type='dict'),
         session_role=dict(type='str'),

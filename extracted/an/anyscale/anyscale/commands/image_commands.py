@@ -31,6 +31,7 @@ from anyscale.commands.output_format import (
     warn_deprecated_flag,
 )
 from anyscale.commands.util import AnyscaleCommand
+from anyscale.errors import ApiResponseError, from_api_response_error, from_command_exception
 from anyscale.image.models import ImageBuild
 from anyscale.util import AnyscaleJSONEncoder, get_endpoint, validate_non_negative_arg
 
@@ -200,10 +201,16 @@ def build(
             cloud_id=cloud_id,
         )
         print(f"Image built successfully with URI: {image_uri}")
+    # Before ValueError, which it subclasses.
+    except ApiResponseError as e:
+        raise from_api_response_error(e) from None
     except ValueError as e:
         raise click.ClickException(str(e)) from None
+    except click.ClickException:
+        # A CLI error, e.g. missing credentials; from_command_exception would call it unexpected.
+        raise
     except Exception as e:  # noqa: BLE001
-        raise click.ClickException(f"Failed to build image: {e}") from None
+        raise from_command_exception(e, "Failed to build image") from None
 
 
 @command_metadata(

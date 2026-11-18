@@ -5,7 +5,7 @@ from __future__ import annotations
 import ast
 import inspect
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
@@ -106,10 +106,23 @@ def test_unsafe_modes_are_refused_naming_every_bit(value: int, kind: ModeKind, f
 
 
 @os_agnostic
+@pytest.mark.parametrize(
+    ("value", "kind", "type_name"),
+    [(0o755, "file", "str"), (0o644, "directory", "str"), (0o666, "file", "str"), (0o600, None, "NoneType")],
+    ids=["str-file-with-execute", "str-directory-without-owner-x", "str-file-group-write", "none"],
+)
+def test_a_kind_must_be_a_mode_kind(value: int, kind: object, type_name: str) -> None:
+    # A str kind skipped every kind-specific rule, so 0o755 passed as a file mode.
+    with pytest.raises(DeployModeError) as caught:
+        DeployMode(value, cast("ModeKind", kind))
+    assert str(caught.value) == f"a mode kind must be a ModeKind, got {type_name}"
+
+
+@os_agnostic
 @pytest.mark.parametrize(("value", "type_name"), [(True, "bool"), (False, "bool"), (1.0, "float"), ("0o640", "str")])
 def test_a_mode_must_be_an_int(value: object, type_name: str) -> None:
     with pytest.raises(DeployModeError, match=f"a mode must be an int, got {type_name}$"):
-        DeployMode(value, F)  # pyright excludes tests/; the wrong type is the point
+        DeployMode(value, F)  # pyright: ignore[reportArgumentType] - the wrong type is what this test checks
 
 
 @os_agnostic

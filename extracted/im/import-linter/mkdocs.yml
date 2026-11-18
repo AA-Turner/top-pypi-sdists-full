@@ -1,8 +1,9 @@
 site_name: Import Linter
 site_description: Lint your Python architecture.
 site_url: https://import-linter.readthedocs.io/
-repo_name: seddonym/import-linter
-repo_url: https://github.com/seddonym/import-linter
+site_dir: dist/docs
+repo_name: import-linter/import-linter
+repo_url: https://github.com/import-linter/import-linter
 
 extra_css:
   - stylesheets/extra.css
@@ -12,6 +13,7 @@ plugins:
 
 theme:
   name: material
+  variant: classic
   logo: img/import-linter-logo-square.svg
   favicon: img/favicon.svg
   palette:
@@ -51,6 +53,7 @@ nav:
        - contract_types/protected.md
        - contract_types/layers.md
        - contract_types/independence.md
+       - contract_types/private_modules.md
        - contract_types/acyclic_siblings.md
    - ui.md
    - Advanced:

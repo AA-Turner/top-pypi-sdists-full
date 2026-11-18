@@ -7,6 +7,20 @@ sits below `_docstring` and `_signature` and above `_render` and `_resolve`.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .._objects import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+        QualifiedCallable as QualifiedCallable,
+    )
+    from .._refs import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+        WrittenTypeAlias as WrittenTypeAlias,
+    )
+    from .._types import Annotation as Annotation  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import Documented as Documented  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import Hint as Hint  # simplint: ignore[private-import-path]  # root API stays unchanged
+    from .._types import TypeParam as TypeParam  # simplint: ignore[private-import-path]  # root API stays unchanged
+
 from .entry import Entry
 from .factory_defaults import show_factory_defaults
 from .hints import ResolvedHints, as_written, documenting_class, resolved_type_hints

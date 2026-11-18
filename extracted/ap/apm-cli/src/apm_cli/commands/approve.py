@@ -7,7 +7,7 @@ the commands two clearly-scoped destinations:
   block -- committed to source control so the whole team inherits the trust
   decision. This is where a maintainer pins the dependencies their project
   trusts.
-* ``--user`` (personal UX): ``~/.apm/config.json`` ``executables: {allow,
+* ``--user`` (personal UX): ``$APM_HOME/config.json`` ``executables: {allow,
   deny}`` -- never committed, lowest authority, a personal override on the
   current machine only.
 
@@ -83,7 +83,11 @@ def _save_store(
 
 
 def _store_label(user_scope: bool) -> str:
-    return "~/.apm/config.json" if user_scope else "apm.yml executables block"
+    if user_scope:
+        from .. import config
+
+        return config.CONFIG_FILE
+    return "apm.yml executables block"
 
 
 def _load_org_policy(project_root: Path, logger: CommandLogger | None = None) -> ApmPolicy:
@@ -111,7 +115,7 @@ def load_org_policy(project_root: Path, logger: CommandLogger | None = None) -> 
     return _load_org_policy(project_root, logger=logger)
 
 
-@click.command("approve")
+@click.command("approve", short_help="Approve executable primitives for packages")
 @click.argument("packages", nargs=-1)
 @click.option("--pending", is_flag=True, help="List packages with unapproved executables.")
 @click.option("--all", "approve_all", is_flag=True, help="Approve every package with executables.")
@@ -130,7 +134,7 @@ def load_org_policy(project_root: Path, logger: CommandLogger | None = None) -> 
     "--user",
     "user_scope",
     is_flag=True,
-    help="Persist to your personal ~/.apm/config.json (lowest authority) "
+    help="Persist to your personal APM user config (lowest authority) "
     "instead of the shared project apm.yml.",
 )
 @serialized_lifecycle
@@ -145,8 +149,8 @@ def approve_cmd(
     """Approve executable primitives (hooks, MCP, LSP, bin, canvas) for packages.
 
     By default writes to the project ``apm.yml`` ``executables.allow`` block
-    (committed). Use ``--user`` to record a personal grant in
-    ``~/.apm/config.json`` instead.
+    (committed). Use ``--user`` to record a personal grant in your APM user
+    config instead.
 
     Examples:
 
@@ -166,11 +170,11 @@ def approve_cmd(
             _list_decisions(manifest, logger=logger)
             return
 
-        allow, deny = _load_store(manifest, user_scope)
-
         if pending:
-            _show_pending(manifest, allow)
+            _show_pending(manifest, logger=logger)
             return
+
+        allow, deny = _load_store(manifest, user_scope)
 
         if recommended:
             _approve_recommended(manifest, user_scope, allow, deny, logger=logger)
@@ -189,20 +193,20 @@ def approve_cmd(
         logger.render_summary()
 
 
-@click.command("deny")
+@click.command("deny", short_help="Deny executable primitives for packages")
 @click.argument("packages", nargs=-1, required=True)
 @click.option(
     "--user",
     "user_scope",
     is_flag=True,
-    help="Record the deny in your personal ~/.apm/config.json instead of apm.yml.",
+    help="Record the deny in your personal APM user config instead of apm.yml.",
 )
 @serialized_lifecycle
 def deny_cmd(packages: tuple[str, ...], user_scope: bool) -> None:
     """Deny executable primitives for packages (a narrowing override).
 
     Writes a deny entry to the project ``executables.deny`` (default) or your
-    personal ``~/.apm/config.json`` (``--user``). Deny always wins.
+    personal APM user config (``--user``). Deny always wins.
 
     Example:
 
@@ -242,6 +246,17 @@ def deny_cmd(packages: tuple[str, ...], user_scope: bool) -> None:
         _rich_info(f"Updated {_store_label(user_scope)} ({changed} denied).", symbol="info")
 
 
+def _effective_trust_context(manifest: Path, *, logger: CommandLogger):
+    """Build the org / project / user trust context the install gate resolves."""
+    from ..models.manifest_io import load_manifest
+    from ..security.executables import build_exec_trust_context
+
+    data = load_manifest(manifest)
+    project_data = data if isinstance(data, dict) else {}
+    policy = _load_org_policy(manifest.parent, logger=logger)
+    return build_exec_trust_context(policy=policy, project_data=project_data)
+
+
 def explain_decision(package: str, *, logger: CommandLogger) -> None:
     """Explain the effective executable-trust decision for a package.
 
@@ -256,13 +271,9 @@ def explain_decision(package: str, *, logger: CommandLogger) -> None:
         apm policy explain owner/repo
     """
     manifest = _find_manifest()
-    from ..security.executables import build_exec_trust_context, resolve_exec_decision
-    from ..utils.yaml_io import load_yaml
+    from ..security.executables import resolve_exec_decision
 
-    data = load_yaml(manifest)
-    project_data = data if isinstance(data, dict) else {}
-    policy = _load_org_policy(manifest.parent, logger=logger)
-    ctx = build_exec_trust_context(policy=policy, project_data=project_data)
+    ctx = _effective_trust_context(manifest, logger=logger)
 
     declarations = _scan_installed_packages(manifest)
     decl = None
@@ -306,13 +317,9 @@ def explain_decision(package: str, *, logger: CommandLogger) -> None:
 
 def _list_decisions(manifest: Path, *, logger: CommandLogger) -> None:
     """Print the effective trust decision + deciding layer per installed package."""
-    from ..security.executables import build_exec_trust_context, resolve_exec_decision
-    from ..utils.yaml_io import load_yaml
+    from ..security.executables import resolve_exec_decision
 
-    data = load_yaml(manifest)
-    project_data = data if isinstance(data, dict) else {}
-    policy = _load_org_policy(manifest.parent, logger=logger)
-    ctx = build_exec_trust_context(policy=policy, project_data=project_data)
+    ctx = _effective_trust_context(manifest, logger=logger)
 
     declarations = [d for d in _scan_installed_packages(manifest) if d.has_executables]
     if not declarations:
@@ -367,10 +374,22 @@ def _find_matching_key(grant_map: dict[str, dict[str, bool]], pkg: str) -> str |
     return None
 
 
-def _show_pending(manifest: Path, allow_exec: dict[str, dict[str, bool]]) -> None:
-    """List all installed packages with unapproved executables."""
-    declarations = _scan_installed_packages(manifest)
-    pending = [d for d in declarations if d.has_executables and not _is_approved(allow_exec, d)]
+def _show_pending(manifest: Path, *, logger: CommandLogger) -> None:
+    """List installed packages whose executables no trust layer allows.
+
+    Resolves through the same deny-wins ladder as the install gate, evaluated
+    as if the gate were on so a project can review before opting in.
+    """
+    from dataclasses import replace
+
+    from ..security.executables import resolve_exec_decision
+
+    ctx = replace(_effective_trust_context(manifest, logger=logger), gate_enabled=True)
+    pending = [
+        d
+        for d in _scan_installed_packages(manifest)
+        if any(not resolve_exec_decision(ctx, d.package_key, t).allowed for t in d.exec_types)
+    ]
 
     if not pending:
         _rich_success("All packages with executables are approved.")

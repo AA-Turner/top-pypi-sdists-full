@@ -762,6 +762,16 @@ _RESOURCE_CREATING_REQUEST_NAMES_FOR_RESOLUTION_LOG = {
     request_names.RequestName.JOBS_LAUNCH.value,
 }
 
+# Reads that prepare a write (`sky launch`, `sky volumes apply`, ...). A user
+# who has not chosen among several workspaces is told so here, not after
+# confirming a plan made for a workspace they did not choose. Other reads use
+# the first workspace by name.
+_LAUNCH_PREP_REQUEST_NAMES = {
+    request_names.AdminPolicyRequestName.VALIDATE.value,
+    server_constants.REQUEST_NAME_PREFIX +
+    request_names.RequestName.OPTIMIZE.value,
+}
+
 # Sources we DON'T announce, even on a resource-creating request:
 #   EXPLICIT          — the user already named the workspace; repeating
 #                       it in the log is noise.
@@ -1022,7 +1032,10 @@ def override_request_env_and_config(
                         # The resolver reads the preferred workspace.
                         user = global_user_state.get_user(user.id) or user
                     resolution = workspaces_core.resolve_workspace_for_user(
-                        user, action=ws_action)
+                        user,
+                        action=ws_action,
+                        pick_for_read=(request_name
+                                       not in _LAUNCH_PREP_REQUEST_NAMES))
                     workspace_ctx = (skypilot_config.local_active_workspace_ctx(
                         resolution.workspace))
                     ws_label = skypilot_config.workspace_label(
@@ -1568,7 +1581,7 @@ async def _execute_request_coroutine(
         try:
             result = await fut
             stored = await api_requests.set_request_succeeded_async(
-                request_id, None if ignore_return_value else result)
+                request, None if ignore_return_value else result)
             caller_usage.record_stored_bytes(caller, request.name, stored)
         except asyncio.CancelledError:
             # The task is cancelled by ctx.cancel(), where the status
@@ -1657,6 +1670,10 @@ def stamp_request_body(request_body: payloads.RequestBody,
     impersonator = caller_usage.impersonator()
     request_body.impersonator_id = impersonator.id if impersonator else None
     request_body.impersonator_name = impersonator.name if impersonator else None
+    # Persist only the env the worker will apply: the row is kept in the DB
+    # and may hold the server's own env (bodies built on the server).
+    request_body.env_vars = _sanitize_request_env_vars(
+        request_body.env_vars, request_body.from_loopback)
     return user_id
 
 

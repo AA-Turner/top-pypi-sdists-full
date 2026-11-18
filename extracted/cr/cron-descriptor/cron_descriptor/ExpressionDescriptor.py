@@ -384,20 +384,22 @@ class ExpressionDescriptor:
                 exp = exp.replace("L", "")
             return self.get_text.day_name(int(exp))
 
+        def get_ordinal(value: int) -> str:
+            keys = {1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth"}
+            key = keys.get(value)
+            return self.translate(key) if key else ""
+
+        def format_nth_days(items: str) -> str:
+            # The month text can precede the placeholder in some locales.
+            return self.translate(", on the ") + self.translate(" {0} of the month").removeprefix(" ").format(items)
+
         def get_format(s: str) -> str:
             if "#" in s:
                 day_of_week_of_month = s[s.find("#") + 1:]
 
                 try:
                     day_of_week_of_month_number = int(day_of_week_of_month)
-                    choices = {
-                        1: self.translate("first"),
-                        2: self.translate("second"),
-                        3: self.translate("third"),
-                        4: self.translate("fourth"),
-                        5: self.translate("fifth"),
-                    }
-                    day_of_week_of_month_description = choices.get(day_of_week_of_month_number, "")
+                    day_of_week_of_month_description = get_ordinal(day_of_week_of_month_number)
                 except ValueError:
                     day_of_week_of_month_description = ""
 
@@ -422,22 +424,38 @@ class ExpressionDescriptor:
 
         # A list of nth weekdays (e.g. 1#2,3#4) carries an ordinal on each item
         if "," in dow_expression and "#" in dow_expression:
-            ordinals = {
-                "1": self.translate("first"),
-                "2": self.translate("second"),
-                "3": self.translate("third"),
-                "4": self.translate("fourth"),
-                "5": self.translate("fifth"),
-            }
-            matches = [re.fullmatch(r"([^,#]+)#(\d+)", s) for s in dow_expression.split(",")]
-            parts = [(m.group(1), ordinals[m.group(2)]) for m in matches if m and m.group(2) in ordinals]
+            matches = [re.fullmatch(r"(\d+)#(0*[1-5])", s) for s in dow_expression.split(",")]
+            parts = [(m[1], get_ordinal(int(m[2]))) for m in matches if m]
             if len(parts) == len(matches):
                 if len({day for day, _ in parts}) == 1:
                     items = self.get_list_description([ordinal for _, ordinal in parts]) + " " + get_day_name(parts[0][0])
                 else:
                     items = self.get_list_description([f"{ordinal} {get_day_name(day)}" for day, ordinal in parts])
-                # The month text can precede the placeholder in some locales.
-                return self.translate(", on the ") + self.translate(" {0} of the month").removeprefix(" ").format(items)
+                return format_nth_days(items)
+
+        if "," in dow_expression and ("#" in dow_expression or "L" in dow_expression):
+            segments = dow_expression.split(",")
+            special = [s for s in segments if re.fullmatch(r"\d+(#0*[1-5]|L)", s)]
+            plain = [s for s in segments if "#" not in s and "L" not in s]
+            if special and (plain or "#" in dow_expression) and len(special) + len(plain) == len(segments):
+                description = self.get_segment_description(
+                    ",".join(plain),
+                    self.translate(", every day"),
+                    get_day_name,
+                    lambda s: self.translate(", every {0} days of the week").format(s),
+                    lambda _: self.translate(", {0} through {1}"),
+                    get_format,
+                    lambda _: self.translate(", {0} through {1}"),
+                )
+                for s in special:
+                    _, separator, ordinal = s.partition("#")
+                    day = get_day_name(s)
+                    item = format_nth_days(f"{get_ordinal(int(ordinal))} {day}") if separator else get_format(s).format(day)
+                    if description:
+                        description += self.translate(" and ") + item.lstrip(" ,、،")
+                    else:
+                        description = item
+                return description
 
         return self.get_segment_description(
             self._expression_parts[5],

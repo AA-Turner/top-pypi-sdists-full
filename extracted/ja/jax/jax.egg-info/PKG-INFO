@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jax
-Version: 0.12.0.1
+Version: 0.12.1
 Summary: Differentiate, compile, and transform Numpy code.
 Home-page: https://github.com/jax-ml/jax
 Author: JAX team
@@ -16,41 +16,200 @@ Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: jaxlib<=0.12.0.1,>=0.11.2
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1
 Requires-Dist: ml_dtypes>=0.5.0
 Requires-Dist: numpy>=2.2
 Requires-Dist: opt_einsum
 Requires-Dist: scipy>=1.15
 Provides-Extra: minimum-jaxlib
-Requires-Dist: jaxlib==0.11.2; extra == "minimum-jaxlib"
+Requires-Dist: jaxlib==0.12.1; extra == "minimum-jaxlib"
 Provides-Extra: cpu
 Provides-Extra: ci
-Requires-Dist: jaxlib==0.11.2; extra == "ci"
+Requires-Dist: jaxlib==0.12.0.1; extra == "ci"
 Provides-Extra: tpu
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "tpu"
-Requires-Dist: libtpu==0.0.50.*; extra == "tpu"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "tpu"
+Requires-Dist: libtpu==0.0.53.*; extra == "tpu"
 Requires-Dist: requests; extra == "tpu"
 Provides-Extra: cuda
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "cuda"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.12.0.1,>=0.12.0.1; extra == "cuda"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "cuda"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.12.1,>=0.12.1; extra == "cuda"
 Provides-Extra: cuda12
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "cuda12"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.12.0.1,>=0.12.0.1; extra == "cuda12"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "cuda12"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.12.1,>=0.12.1; extra == "cuda12"
 Provides-Extra: cuda13
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "cuda13"
-Requires-Dist: jax-cuda13-plugin[with-cuda]<=0.12.0.1,>=0.12.0.1; extra == "cuda13"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "cuda13"
+Requires-Dist: jax-cuda13-plugin[with-cuda]<=0.12.1,>=0.12.1; extra == "cuda13"
 Provides-Extra: cuda12-local
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "cuda12-local"
-Requires-Dist: jax-cuda12-plugin<=0.12.0.1,>=0.12.0.1; extra == "cuda12-local"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "cuda12-local"
+Requires-Dist: jax-cuda12-plugin<=0.12.1,>=0.12.1; extra == "cuda12-local"
 Provides-Extra: cuda13-local
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "cuda13-local"
-Requires-Dist: jax-cuda13-plugin<=0.12.0.1,>=0.12.0.1; extra == "cuda13-local"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "cuda13-local"
+Requires-Dist: jax-cuda13-plugin<=0.12.1,>=0.12.1; extra == "cuda13-local"
+Provides-Extra: rocm
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm"
+Requires-Dist: jax-rocm7-plugin[device-all,with-rocm]==0.12.1.*; extra == "rocm"
+Provides-Extra: rocm7
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7"
+Requires-Dist: jax-rocm7-plugin[device-all,with-rocm]==0.12.1.*; extra == "rocm7"
+Provides-Extra: rocm10
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10"
+Requires-Dist: jax-rocm10-plugin[device-all,with-rocm]==0.12.1.*; extra == "rocm10"
+Provides-Extra: rocm7-device-gfx908
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx908"
+Requires-Dist: jax-rocm7-plugin[device-gfx908,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx908"
+Provides-Extra: rocm7-device-gfx90a
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx90a"
+Requires-Dist: jax-rocm7-plugin[device-gfx90a,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx90a"
+Provides-Extra: rocm7-device-gfx942
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx942"
+Requires-Dist: jax-rocm7-plugin[device-gfx942,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx942"
+Provides-Extra: rocm7-device-gfx950
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx950"
+Requires-Dist: jax-rocm7-plugin[device-gfx950,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx950"
+Provides-Extra: rocm7-device-gfx1010
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1010"
+Requires-Dist: jax-rocm7-plugin[device-gfx1010,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1010"
+Provides-Extra: rocm7-device-gfx1011
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1011"
+Requires-Dist: jax-rocm7-plugin[device-gfx1011,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1011"
+Provides-Extra: rocm7-device-gfx1012
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1012"
+Requires-Dist: jax-rocm7-plugin[device-gfx1012,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1012"
+Provides-Extra: rocm7-device-gfx1030
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1030"
+Requires-Dist: jax-rocm7-plugin[device-gfx1030,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1030"
+Provides-Extra: rocm7-device-gfx1031
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1031"
+Requires-Dist: jax-rocm7-plugin[device-gfx1031,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1031"
+Provides-Extra: rocm7-device-gfx1032
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1032"
+Requires-Dist: jax-rocm7-plugin[device-gfx1032,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1032"
+Provides-Extra: rocm7-device-gfx1033
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1033"
+Requires-Dist: jax-rocm7-plugin[device-gfx1033,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1033"
+Provides-Extra: rocm7-device-gfx1034
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1034"
+Requires-Dist: jax-rocm7-plugin[device-gfx1034,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1034"
+Provides-Extra: rocm7-device-gfx1035
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1035"
+Requires-Dist: jax-rocm7-plugin[device-gfx1035,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1035"
+Provides-Extra: rocm7-device-gfx1036
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1036"
+Requires-Dist: jax-rocm7-plugin[device-gfx1036,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1036"
+Provides-Extra: rocm7-device-gfx1100
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1100"
+Requires-Dist: jax-rocm7-plugin[device-gfx1100,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1100"
+Provides-Extra: rocm7-device-gfx1101
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1101"
+Requires-Dist: jax-rocm7-plugin[device-gfx1101,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1101"
+Provides-Extra: rocm7-device-gfx1102
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1102"
+Requires-Dist: jax-rocm7-plugin[device-gfx1102,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1102"
+Provides-Extra: rocm7-device-gfx1103
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1103"
+Requires-Dist: jax-rocm7-plugin[device-gfx1103,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1103"
+Provides-Extra: rocm7-device-gfx1150
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1150"
+Requires-Dist: jax-rocm7-plugin[device-gfx1150,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1150"
+Provides-Extra: rocm7-device-gfx1151
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1151"
+Requires-Dist: jax-rocm7-plugin[device-gfx1151,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1151"
+Provides-Extra: rocm7-device-gfx1152
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1152"
+Requires-Dist: jax-rocm7-plugin[device-gfx1152,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1152"
+Provides-Extra: rocm7-device-gfx1153
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1153"
+Requires-Dist: jax-rocm7-plugin[device-gfx1153,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1153"
+Provides-Extra: rocm7-device-gfx1200
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1200"
+Requires-Dist: jax-rocm7-plugin[device-gfx1200,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1200"
+Provides-Extra: rocm7-device-gfx1201
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1201"
+Requires-Dist: jax-rocm7-plugin[device-gfx1201,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1201"
+Provides-Extra: rocm7-device-gfx1250
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-device-gfx1250"
+Requires-Dist: jax-rocm7-plugin[device-gfx1250,with-rocm]==0.12.1.*; extra == "rocm7-device-gfx1250"
+Provides-Extra: rocm10-device-gfx908
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx908"
+Requires-Dist: jax-rocm10-plugin[device-gfx908,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx908"
+Provides-Extra: rocm10-device-gfx90a
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx90a"
+Requires-Dist: jax-rocm10-plugin[device-gfx90a,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx90a"
+Provides-Extra: rocm10-device-gfx942
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx942"
+Requires-Dist: jax-rocm10-plugin[device-gfx942,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx942"
+Provides-Extra: rocm10-device-gfx950
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx950"
+Requires-Dist: jax-rocm10-plugin[device-gfx950,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx950"
+Provides-Extra: rocm10-device-gfx1010
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1010"
+Requires-Dist: jax-rocm10-plugin[device-gfx1010,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1010"
+Provides-Extra: rocm10-device-gfx1011
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1011"
+Requires-Dist: jax-rocm10-plugin[device-gfx1011,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1011"
+Provides-Extra: rocm10-device-gfx1012
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1012"
+Requires-Dist: jax-rocm10-plugin[device-gfx1012,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1012"
+Provides-Extra: rocm10-device-gfx1030
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1030"
+Requires-Dist: jax-rocm10-plugin[device-gfx1030,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1030"
+Provides-Extra: rocm10-device-gfx1031
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1031"
+Requires-Dist: jax-rocm10-plugin[device-gfx1031,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1031"
+Provides-Extra: rocm10-device-gfx1032
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1032"
+Requires-Dist: jax-rocm10-plugin[device-gfx1032,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1032"
+Provides-Extra: rocm10-device-gfx1033
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1033"
+Requires-Dist: jax-rocm10-plugin[device-gfx1033,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1033"
+Provides-Extra: rocm10-device-gfx1034
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1034"
+Requires-Dist: jax-rocm10-plugin[device-gfx1034,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1034"
+Provides-Extra: rocm10-device-gfx1035
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1035"
+Requires-Dist: jax-rocm10-plugin[device-gfx1035,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1035"
+Provides-Extra: rocm10-device-gfx1036
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1036"
+Requires-Dist: jax-rocm10-plugin[device-gfx1036,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1036"
+Provides-Extra: rocm10-device-gfx1100
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1100"
+Requires-Dist: jax-rocm10-plugin[device-gfx1100,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1100"
+Provides-Extra: rocm10-device-gfx1101
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1101"
+Requires-Dist: jax-rocm10-plugin[device-gfx1101,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1101"
+Provides-Extra: rocm10-device-gfx1102
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1102"
+Requires-Dist: jax-rocm10-plugin[device-gfx1102,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1102"
+Provides-Extra: rocm10-device-gfx1103
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1103"
+Requires-Dist: jax-rocm10-plugin[device-gfx1103,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1103"
+Provides-Extra: rocm10-device-gfx1150
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1150"
+Requires-Dist: jax-rocm10-plugin[device-gfx1150,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1150"
+Provides-Extra: rocm10-device-gfx1151
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1151"
+Requires-Dist: jax-rocm10-plugin[device-gfx1151,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1151"
+Provides-Extra: rocm10-device-gfx1152
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1152"
+Requires-Dist: jax-rocm10-plugin[device-gfx1152,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1152"
+Provides-Extra: rocm10-device-gfx1153
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1153"
+Requires-Dist: jax-rocm10-plugin[device-gfx1153,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1153"
+Provides-Extra: rocm10-device-gfx1200
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1200"
+Requires-Dist: jax-rocm10-plugin[device-gfx1200,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1200"
+Provides-Extra: rocm10-device-gfx1201
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1201"
+Requires-Dist: jax-rocm10-plugin[device-gfx1201,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1201"
+Provides-Extra: rocm10-device-gfx1250
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm10-device-gfx1250"
+Requires-Dist: jax-rocm10-plugin[device-gfx1250,with-rocm]==0.12.1.*; extra == "rocm10-device-gfx1250"
 Provides-Extra: rocm7-local
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "rocm7-local"
-Requires-Dist: jax-rocm7-plugin==0.12.0.1.*; extra == "rocm7-local"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "rocm7-local"
+Requires-Dist: jax-rocm7-plugin==0.12.1.*; extra == "rocm7-local"
 Provides-Extra: oneapi
-Requires-Dist: jaxlib<=0.12.0.1,>=0.12.0.1; extra == "oneapi"
-Requires-Dist: jax-oneapi-plugin[with-oneapi]<=0.12.0.1,>=0.12.0.1; extra == "oneapi"
+Requires-Dist: jaxlib<=0.12.1,>=0.12.1; extra == "oneapi"
+Requires-Dist: jax-oneapi-plugin[with-oneapi]<=0.12.1,>=0.12.1; extra == "oneapi"
 Provides-Extra: k8s
 Requires-Dist: kubernetes; extra == "k8s"
 Provides-Extra: xprof
@@ -311,7 +470,8 @@ Notebook](https://docs.jax.dev/en/latest/notebooks/Common_Gotchas_in_JAX.html).
 | CPU             | `pip install -U jax`                                                                                            |
 | NVIDIA GPU      | `pip install -U "jax[cuda13]"`                                                                                  |
 | Google TPU      | `pip install -U "jax[tpu]"`                                                                                     |
-| AMD GPU (Linux) | `pip install -U "jax[rocm7-local]"`|
+| AMD GPU (Linux, ROCm from pip) | `pip install -U "jax[rocm7-device-gfx942]" --extra-index-url https://repo.amd.com/rocm/whl-multi-arch/` |
+| AMD GPU (Linux, system ROCm) | `pip install -U "jax[rocm7-local]"` |
 | Intel GPU       | `pip install -U "jax[oneapi]"`|
 
 See [the documentation](https://docs.jax.dev/en/latest/installation.html)

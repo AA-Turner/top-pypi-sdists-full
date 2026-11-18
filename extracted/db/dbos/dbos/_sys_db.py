@@ -46,6 +46,7 @@ from dbos._utils import (
 
 from ._context import (
     DBOSContext,
+    EnterDBOSStepCtx,
     WorkflowIDReusePolicy,
     current_owner_xid,
     get_local_dbos_context,
@@ -931,7 +932,7 @@ class SystemDatabase(ABC):
         pass
 
     @abstractmethod
-    def run_migrations(self) -> None:
+    def run_migrations(self, fail_on_lock_timeout: bool = False) -> None:
         """Run database migrations specific to the database type."""
         pass
 
@@ -1485,7 +1486,7 @@ class SystemDatabase(ABC):
     def dead_letter_workflows(
         self, workflow_ids: List[str], *, min_recovery_attempts: int
     ) -> None:
-        """Move claimed workflows that exhausted their attempts off the queue.
+        """Dead-letter claimed workflows that exhausted their attempts, keeping their queue.
 
         Guarded on PENDING like every other claim-owning write, and on the attempt
         count the decision was read from: a row someone else has already moved on,
@@ -1511,7 +1512,6 @@ class SystemDatabase(ABC):
                     owner_xid=None,
                     deduplication_id=None,
                     started_at_epoch_ms=None,
-                    queue_name=None,
                     updated_at=now_ms,
                     completed_at=now_ms,
                 )
@@ -1707,8 +1707,8 @@ class SystemDatabase(ABC):
         def _cancel_workflows(ids: list[str]) -> None:
             with self.engine.begin() as c:
                 now_ms = self._now_ms_sql()
-                # Set the workflows' status to CANCELLED and remove them from any
-                # queue, but only if the workflow is not already complete.
+                # Set the workflows' status to CANCELLED, keeping their queue for a
+                # later resume, but only if the workflow is not already complete.
                 c.execute(
                     sa.update(self.tables.workflow_status)
                     .where(*self._wf_in(self.tables.workflow_status, ids))
@@ -1723,7 +1723,6 @@ class SystemDatabase(ABC):
                     .values(
                         status=WorkflowStatusString.CANCELLED.value,
                         owner_xid=None,
-                        queue_name=None,
                         deduplication_id=None,
                         suspend_key=None,
                         started_at_epoch_ms=None,
@@ -1751,6 +1750,7 @@ class SystemDatabase(ABC):
         workflow_ids: list[str],
         *,
         queue_name: Optional[str] = None,
+        queue_partition_key: Optional[str] = None,
     ) -> None:
         with self.engine.begin() as c:
             # Check existence separately: a zero-row update also means "already complete", a legal no-op.
@@ -1780,9 +1780,7 @@ class SystemDatabase(ABC):
                 .values(
                     status=WorkflowStatusString.ENQUEUED.value,
                     owner_xid=None,
-                    queue_name=(
-                        queue_name if queue_name is not None else INTERNAL_QUEUE_NAME
-                    ),
+                    **self._requeue_values(queue_name, queue_partition_key),
                     recovery_attempts=0,
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
@@ -1792,6 +1790,24 @@ class SystemDatabase(ABC):
                     completed_at=None,
                 )
             )
+
+    def _requeue_values(
+        self, queue_name: Optional[str], queue_partition_key: Optional[str]
+    ) -> Dict[str, Any]:
+        """Queue columns for a re-enqueue: only what is passed changes; otherwise the row
+        keeps its queue (the internal one if it has none), partition key, and priority.
+        """
+        ws = self.tables.workflow_status
+        values: Dict[str, Any] = dict(
+            queue_name=(
+                queue_name
+                if queue_name is not None
+                else sa.func.coalesce(ws.c.queue_name, INTERNAL_QUEUE_NAME)
+            )
+        )
+        if queue_partition_key is not None:
+            values["queue_partition_key"] = queue_partition_key
+        return values
 
     @db_retry()
     def set_workflow_delay(
@@ -2206,10 +2222,7 @@ class SystemDatabase(ABC):
                     status=WorkflowStatusString.ENQUEUED.value,
                     owner_xid=None,
                     **version_update,
-                    queue_name=(
-                        queue_name if queue_name is not None else INTERNAL_QUEUE_NAME
-                    ),
-                    queue_partition_key=queue_partition_key,
+                    **self._requeue_values(queue_name, queue_partition_key),
                     recovery_attempts=0,
                     workflow_deadline_epoch_ms=None,
                     deduplication_id=None,
@@ -2226,6 +2239,21 @@ class SystemDatabase(ABC):
                     f"Workflow {workflow_id} changed status while being rewound; "
                     "retry the rewind"
                 )
+
+    @staticmethod
+    def _fork_queue_values(
+        status: Any, queue_name: Optional[str], queue_partition_key: Optional[str]
+    ) -> Dict[str, Any]:
+        """A fork's queue columns: inherited from its original, except what is passed."""
+        if queue_name is None:
+            queue_name = status[12] if status[12] is not None else INTERNAL_QUEUE_NAME
+        return dict(
+            queue_name=queue_name,
+            queue_partition_key=(
+                queue_partition_key if queue_partition_key is not None else status[13]
+            ),
+            priority=status[14],
+        )
 
     def fork_workflow(
         self,
@@ -2267,6 +2295,9 @@ class SystemDatabase(ABC):
                     self.tables.workflow_status.c.serialization,
                     self.tables.workflow_status.c.attributes,
                     self.tables.workflow_status.c.application_name,
+                    self.tables.workflow_status.c.queue_name,
+                    self.tables.workflow_status.c.queue_partition_key,
+                    self.tables.workflow_status.c.priority,
                 )
                 .select_from(
                     self.tables.workflow_status.outerjoin(
@@ -2306,12 +2337,9 @@ class SystemDatabase(ABC):
                         authenticated_user=status[5],
                         authenticated_roles=status[6],
                         serialization=status[9],
-                        queue_name=(
-                            queue_name
-                            if queue_name is not None
-                            else INTERNAL_QUEUE_NAME
+                        **self._fork_queue_values(
+                            status, queue_name, queue_partition_key
                         ),
-                        queue_partition_key=queue_partition_key,
                         assumed_role=status[7],
                         forked_from=original_workflow_id,
                         attributes=status[10],
@@ -3241,9 +3269,14 @@ class SystemDatabase(ABC):
 
     @db_retry()
     def get_pending_workflows(
-        self, executor_id: str, app_version: str
+        self, executor_id: str, app_version: Optional[str] = None
     ) -> list[GetPendingWorkflowsOutput]:
         key_column = self._key_column(self.tables.workflow_status)
+        version_filter = (
+            [self.tables.workflow_status.c.application_version == app_version]
+            if app_version is not None
+            else []
+        )
         with self.engine.begin() as c:
             rows = c.execute(
                 sa.select(
@@ -3257,7 +3290,7 @@ class SystemDatabase(ABC):
                     self.tables.workflow_status.c.status
                     == WorkflowStatusString.PENDING.value,
                     self.tables.workflow_status.c.executor_id == executor_id,
-                    self.tables.workflow_status.c.application_version == app_version,
+                    *version_filter,
                     # executor_id defaults to "local", so it collides across applications.
                     self._name_filter(
                         self.tables.workflow_status.c.application_name, self.app_name
@@ -4076,6 +4109,10 @@ class SystemDatabase(ABC):
                 )
             ).fetchall()
             if len(recorded) > 0:
+                # A stale execution must not adopt the owner's recorded message.
+                owner_xid = current_owner_xid(workflow_uuid)
+                if owner_xid is not None:
+                    self._check_owner_txn(c, workflow_uuid, owner_xid)
                 return deserialize_value(
                     recorded[0][0], recorded[0][1], self.serializer
                 )
@@ -5001,7 +5038,6 @@ class SystemDatabase(ABC):
                 .values(
                     status=WorkflowStatusString.CANCELLED.value,
                     owner_xid=None,
-                    queue_name=None,
                     deduplication_id=None,
                     suspend_key=None,
                     started_at_epoch_ms=None,
@@ -5667,9 +5703,12 @@ class SystemDatabase(ABC):
         if res is not None:
             return cast(SystemDatabase.T, self._replay_recorded(res, function_name))
         try:
-            result = fn()
+            # In the step's context, so DBOS calls the operation makes belong to the step.
+            with EnterDBOSStepCtx({"name": function_name}, ctx, traced=False):
+                result = fn()
         except Exception as e:
-            # The operation retries its own transient database errors, so what escapes is its answer.
+            # Recorded so a replay re-raises it rather than re-running the operation; an operation
+            # that should survive transient database errors must retry them itself.
             self._record_operation_error(
                 ctx.workflow_id, ctx.function_id, function_name, start_time, e
             )
@@ -5707,9 +5746,12 @@ class SystemDatabase(ABC):
         if res is not None:
             return cast(SystemDatabase.T, self._replay_recorded(res, function_name))
         try:
-            result = await fn()
+            # In the step's context, so DBOS calls the operation makes belong to the step.
+            with EnterDBOSStepCtx({"name": function_name}, ctx, traced=False):
+                result = await fn()
         except Exception as e:
-            # The operation retries its own transient database errors, so what escapes is its answer.
+            # Recorded so a replay re-raises it rather than re-running the operation; an operation
+            # that should survive transient database errors must retry them itself.
             await asyncio.to_thread(
                 self._record_operation_error,
                 ctx.workflow_id,
@@ -6809,13 +6851,17 @@ class SystemDatabase(ABC):
         version_name: str,
         new_timestamp: int,
         application_name: Optional[str] = None,
+        conn: Optional[sa.Connection] = None,
     ) -> None:
         """Promote a version to latest. Promoting a peer's is a collision, not a retiming;
         promotion claims an unclaimed row, which would otherwise be every peer's latest.
+
+        Runs on ``conn`` if given, joining its transaction.
         """
         owner = application_name if application_name is not None else self.app_name
         av = self.tables.application_versions
-        with self.engine.begin() as c:
+
+        def _do(c: sa.Connection) -> None:
             resolved = self._resolve_row_owner(
                 c,
                 av,
@@ -6836,6 +6882,13 @@ class SystemDatabase(ABC):
                 .values(version_timestamp=new_timestamp, application_name=resolved)
             )
 
+        if conn is not None:
+            _do(conn)
+        else:
+            with self.engine.begin() as c:
+                _do(c)
+
+    @db_retry()
     def list_application_versions(self) -> List[VersionInfo]:
         with self._observability_query() as c:
             rows = c.execute(
@@ -6874,8 +6927,9 @@ class SystemDatabase(ABC):
         name: str,
         *,
         client_system_database: Optional["SystemDatabase"] = None,
+        conn: Optional[sa.Connection] = None,
     ) -> Optional["Queue"]:
-        with self.engine.begin() as c:
+        def _do(c: sa.Connection) -> Optional["Queue"]:
             row = c.execute(
                 sa.select(self.tables.queues).where(
                     *self._global(self.tables.queues), self.tables.queues.c.name == name
@@ -6885,6 +6939,17 @@ class SystemDatabase(ABC):
                 return None
             return queue_from_db_row(row, client_system_database=client_system_database)
 
+        if conn is not None:
+            return _do(conn)
+
+        @db_retry(sys_db=self)
+        def read() -> Optional["Queue"]:
+            with self.engine.begin() as c:
+                return _do(c)
+
+        return read()
+
+    @db_retry()
     def list_queues(
         self,
         *,
@@ -6907,6 +6972,7 @@ class SystemDatabase(ABC):
                 for row in rows
             ]
 
+    @db_retry()
     def delete_queue(self, name: str) -> None:
         """Delete a queue's row, if it exists."""
         with self.engine.begin() as c:
@@ -6916,6 +6982,7 @@ class SystemDatabase(ABC):
                 )
             )
 
+    @db_retry()
     def update_queue(self, name: str, fields: Dict[str, Any]) -> None:
         """Apply a partial update to a queue's row."""
         if not fields:
@@ -6930,6 +6997,7 @@ class SystemDatabase(ABC):
                 .values(**values)
             )
 
+    @db_retry()
     def upsert_queue(
         self,
         *,
@@ -7113,6 +7181,7 @@ class SystemDatabase(ABC):
                 return total
             watermark = upper
 
+    @db_retry()
     def rename_application(
         self,
         old_name: Optional[str],

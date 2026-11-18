@@ -23,6 +23,8 @@ from typing import Any, Union
 
 from .literals import (
     ActionType,
+    AzureEventHubTierType,
+    AzureTelemetryTypeType,
     CentralizationFailureReasonType,
     ContextGraphStatusType,
     EncryptedLogGroupStrategyType,
@@ -49,6 +51,7 @@ from .literals import (
     TelemetrySourceTypeType,
     TelemetryStateType,
     TelemetryTypeType,
+    ThirdPartyTelemetryEnrichmentStatusType,
 )
 
 if sys.version_info >= (3, 12):
@@ -62,6 +65,40 @@ __all__ = (
     "AdvancedEventSelectorTypeDef",
     "AdvancedFieldSelectorOutputTypeDef",
     "AdvancedFieldSelectorTypeDef",
+    "AzureAwsManagedFlowLogsTypeDef",
+    "AzureConnectorConfigurationTypeDef",
+    "AzureConnectorQueryResultsTypeDef",
+    "AzureConnectorQueryTypeDef",
+    "AzureCustomerManagedFlowLogsOutputTypeDef",
+    "AzureCustomerManagedFlowLogsTypeDef",
+    "AzureEventHubConfigurationTypeDef",
+    "AzureEventHubSummaryTypeDef",
+    "AzureEventHubsQueryTypeDef",
+    "AzureFlowLogStorageAccountScopeOutputTypeDef",
+    "AzureFlowLogStorageAccountScopeTypeDef",
+    "AzureFlowLogsInfrastructureOutputTypeDef",
+    "AzureFlowLogsInfrastructureTypeDef",
+    "AzureInfrastructureOutputTypeDef",
+    "AzureInfrastructureTypeDef",
+    "AzureManagementGroupSummaryTypeDef",
+    "AzureManagementGroupsQueryTypeDef",
+    "AzureQueryScopeTypeDef",
+    "AzureRegionsQueryTypeDef",
+    "AzureResourceIdScopeOutputTypeDef",
+    "AzureResourceIdScopeTypeDef",
+    "AzureResourceIdentifierSummaryTypeDef",
+    "AzureResourceIdsQueryTypeDef",
+    "AzureResourceTypesQueryTypeDef",
+    "AzureScopeItemOutputTypeDef",
+    "AzureScopeItemTypeDef",
+    "AzureScopeOutputTypeDef",
+    "AzureScopeTypeDef",
+    "AzureSubscriptionScopeOutputTypeDef",
+    "AzureSubscriptionScopeTypeDef",
+    "AzureSubscriptionSummaryTypeDef",
+    "AzureSubscriptionsQueryTypeDef",
+    "AzureTelemetrySourceConfigurationInputTypeDef",
+    "AzureTelemetrySourceConfigurationOutputTypeDef",
     "CentralizationRuleDestinationTypeDef",
     "CentralizationRuleOutputTypeDef",
     "CentralizationRuleSourceOutputTypeDef",
@@ -73,8 +110,15 @@ __all__ = (
     "CloudtrailParametersTypeDef",
     "ConditionTypeDef",
     "ConfigurationSummaryTypeDef",
+    "ConnectorConfigurationTypeDef",
+    "ConnectorQueryResultsTypeDef",
+    "ConnectorQueryTypeDef",
+    "ConnectorSummaryTypeDef",
+    "ConnectorTypeDef",
     "CreateCentralizationRuleForOrganizationInputTypeDef",
     "CreateCentralizationRuleForOrganizationOutputTypeDef",
+    "CreateConnectorInputTypeDef",
+    "CreateConnectorOutputTypeDef",
     "CreateDatasetIntegrationInputTypeDef",
     "CreateDatasetIntegrationOutputTypeDef",
     "CreateS3TableIntegrationInputTypeDef",
@@ -88,6 +132,7 @@ __all__ = (
     "DataSourceTypeDef",
     "DatasetIntegrationSummaryTypeDef",
     "DeleteCentralizationRuleForOrganizationInputTypeDef",
+    "DeleteConnectorInputTypeDef",
     "DeleteDatasetIntegrationInputTypeDef",
     "DeleteS3TableIntegrationInputTypeDef",
     "DeleteTelemetryPipelineInputTypeDef",
@@ -95,6 +140,7 @@ __all__ = (
     "DeleteTelemetryRuleInputTypeDef",
     "DestinationLogsConfigurationTypeDef",
     "DestinationMetricsConfigurationTypeDef",
+    "DestinationProfilesConfigurationTypeDef",
     "ELBLoadBalancerLoggingParametersTypeDef",
     "EmptyResponseMetadataTypeDef",
     "EncryptionTypeDef",
@@ -103,6 +149,12 @@ __all__ = (
     "FilterTypeDef",
     "GetCentralizationRuleForOrganizationInputTypeDef",
     "GetCentralizationRuleForOrganizationOutputTypeDef",
+    "GetConnectorInputTypeDef",
+    "GetConnectorOutputTypeDef",
+    "GetConnectorTelemetryManifestInputTypeDef",
+    "GetConnectorTelemetryManifestOutputTypeDef",
+    "GetConnectorTelemetrySetupInputTypeDef",
+    "GetConnectorTelemetrySetupOutputTypeDef",
     "GetDatasetIntegrationInputTypeDef",
     "GetDatasetIntegrationOutputTypeDef",
     "GetS3TableIntegrationInputTypeDef",
@@ -116,11 +168,16 @@ __all__ = (
     "GetTelemetryRuleForOrganizationOutputTypeDef",
     "GetTelemetryRuleInputTypeDef",
     "GetTelemetryRuleOutputTypeDef",
+    "GetThirdPartyTelemetryEnrichmentInputTypeDef",
+    "GetThirdPartyTelemetryEnrichmentOutputTypeDef",
     "IntegrationSummaryTypeDef",
     "LabelNameConditionTypeDef",
     "ListCentralizationRulesForOrganizationInputPaginateTypeDef",
     "ListCentralizationRulesForOrganizationInputTypeDef",
     "ListCentralizationRulesForOrganizationOutputTypeDef",
+    "ListConnectorsInputPaginateTypeDef",
+    "ListConnectorsInputTypeDef",
+    "ListConnectorsOutputTypeDef",
     "ListDatasetIntegrationsInputPaginateTypeDef",
     "ListDatasetIntegrationsInputTypeDef",
     "ListDatasetIntegrationsOutputTypeDef",
@@ -130,6 +187,8 @@ __all__ = (
     "ListResourceTelemetryInputPaginateTypeDef",
     "ListResourceTelemetryInputTypeDef",
     "ListResourceTelemetryOutputTypeDef",
+    "ListResourcesByConnectorInputTypeDef",
+    "ListResourcesByConnectorOutputTypeDef",
     "ListS3TableIntegrationsInputPaginateTypeDef",
     "ListS3TableIntegrationsInputTypeDef",
     "ListS3TableIntegrationsOutputTypeDef",
@@ -144,6 +203,9 @@ __all__ = (
     "ListTelemetryRulesInputPaginateTypeDef",
     "ListTelemetryRulesInputTypeDef",
     "ListTelemetryRulesOutputTypeDef",
+    "ListThirdPartyTelemetryEnrichmentsInputPaginateTypeDef",
+    "ListThirdPartyTelemetryEnrichmentsInputTypeDef",
+    "ListThirdPartyTelemetryEnrichmentsOutputTypeDef",
     "LogDeliveryParametersOutputTypeDef",
     "LogDeliveryParametersTypeDef",
     "LogGroupNameConfigurationTypeDef",
@@ -156,22 +218,43 @@ __all__ = (
     "PaginatorConfigTypeDef",
     "PipelineOutputErrorTypeDef",
     "PipelineOutputTypeDef",
+    "ProfilesBackupConfigurationTypeDef",
+    "PutConnectorTelemetryManifestInputTypeDef",
+    "PutConnectorTelemetryManifestOutputTypeDef",
     "RecordTypeDef",
     "RegionStatusTypeDef",
     "ResponseMetadataTypeDef",
+    "SetupArtifactTypeDef",
     "SingleHeaderTypeDef",
     "SourceLogsConfigurationTypeDef",
     "SourceMetricsConfigurationTypeDef",
+    "SourceProfilesConfigurationTypeDef",
+    "SourceProgressTypeDef",
     "SourceTypeDef",
     "StartTelemetryEnrichmentOutputTypeDef",
     "StartTelemetryEvaluationForOrganizationInputTypeDef",
     "StartTelemetryEvaluationInputTypeDef",
+    "StartTelemetryPipelineRefreshInputTypeDef",
+    "StartThirdPartyTelemetryEnrichmentInputTypeDef",
+    "StartThirdPartyTelemetryEnrichmentOutputTypeDef",
     "StopTelemetryEnrichmentOutputTypeDef",
+    "StopThirdPartyTelemetryEnrichmentInputTypeDef",
+    "StopThirdPartyTelemetryEnrichmentOutputTypeDef",
+    "TagFilterOutputTypeDef",
+    "TagFilterTypeDef",
+    "TagFilterUnionTypeDef",
     "TagPropagationConfigurationTypeDef",
     "TagResourceInputTypeDef",
     "TelemetryConfigurationTypeDef",
     "TelemetryDestinationConfigurationOutputTypeDef",
     "TelemetryDestinationConfigurationTypeDef",
+    "TelemetryManifestInfrastructureOutputTypeDef",
+    "TelemetryManifestInfrastructureTypeDef",
+    "TelemetryManifestOutputTypeDef",
+    "TelemetryManifestSourceOutputTypeDef",
+    "TelemetryManifestSourceTypeDef",
+    "TelemetryManifestTypeDef",
+    "TelemetryManifestUnionTypeDef",
     "TelemetryPipelineConfigurationTypeDef",
     "TelemetryPipelineStatusReasonTypeDef",
     "TelemetryPipelineSummaryTypeDef",
@@ -180,8 +263,11 @@ __all__ = (
     "TelemetryRuleSummaryTypeDef",
     "TelemetryRuleTypeDef",
     "TelemetryRuleUnionTypeDef",
+    "TelemetrySourceConfigurationInputTypeDef",
+    "TelemetrySourceConfigurationOutputTypeDef",
     "TestTelemetryPipelineInputTypeDef",
     "TestTelemetryPipelineOutputTypeDef",
+    "ThirdPartyTelemetryEnrichmentSummaryTypeDef",
     "UntagResourceInputTypeDef",
     "UpdateCentralizationRuleForOrganizationInputTypeDef",
     "UpdateCentralizationRuleForOrganizationOutputTypeDef",
@@ -221,6 +307,92 @@ class AdvancedFieldSelectorTypeDef(TypedDict):
     NotStartsWith: NotRequired[Sequence[str]]
     NotEndsWith: NotRequired[Sequence[str]]
 
+class AzureAwsManagedFlowLogsTypeDef(TypedDict):
+    RetentionDays: int
+
+class AzureConnectorConfigurationTypeDef(TypedDict):
+    TenantIdentifier: str
+    ClientIdentifier: str
+
+class AzureEventHubSummaryTypeDef(TypedDict):
+    ResourceId: str
+    EventHubName: str
+    NamespaceName: str
+    FullyQualifiedNamespace: str
+    Region: NotRequired[str]
+    SubscriptionId: NotRequired[str]
+
+class AzureManagementGroupSummaryTypeDef(TypedDict):
+    Id: str
+    Name: NotRequired[str]
+    DisplayName: NotRequired[str]
+
+class AzureResourceIdentifierSummaryTypeDef(TypedDict):
+    ResourceId: str
+    ResourceType: NotRequired[str]
+    Region: NotRequired[str]
+    SubscriptionId: NotRequired[str]
+    Tags: NotRequired[dict[str, str]]
+
+class AzureSubscriptionSummaryTypeDef(TypedDict):
+    SubscriptionId: str
+    DisplayName: NotRequired[str]
+    State: NotRequired[str]
+    ManagementGroupId: NotRequired[str]
+
+class AzureManagementGroupsQueryTypeDef(TypedDict):
+    ParentManagementGroupId: NotRequired[str]
+
+class AzureSubscriptionsQueryTypeDef(TypedDict):
+    ManagementGroupId: NotRequired[str]
+
+class AzureFlowLogStorageAccountScopeOutputTypeDef(TypedDict):
+    Region: str
+    StorageAccountIds: list[str]
+
+class AzureFlowLogStorageAccountScopeTypeDef(TypedDict):
+    Region: str
+    StorageAccountIds: Sequence[str]
+
+class AzureEventHubConfigurationTypeDef(TypedDict):
+    Tier: AzureEventHubTierType
+    PartitionCount: int
+
+class AzureQueryScopeTypeDef(TypedDict):
+    ManagementGroupId: NotRequired[str]
+    SubscriptionIds: NotRequired[Sequence[str]]
+
+class AzureResourceIdScopeOutputTypeDef(TypedDict):
+    Region: str
+    ResourceIds: list[str]
+
+class AzureResourceIdScopeTypeDef(TypedDict):
+    Region: str
+    ResourceIds: Sequence[str]
+
+class AzureSubscriptionScopeOutputTypeDef(TypedDict):
+    All: NotRequired[dict[str, Any]]
+    Ids: NotRequired[list[str]]
+
+class TagFilterOutputTypeDef(TypedDict):
+    Key: str
+    Values: list[str]
+
+class AzureSubscriptionScopeTypeDef(TypedDict):
+    All: NotRequired[Mapping[str, Any]]
+    Ids: NotRequired[Sequence[str]]
+
+class TagFilterTypeDef(TypedDict):
+    Key: str
+    Values: Sequence[str]
+
+class AzureTelemetrySourceConfigurationInputTypeDef(TypedDict):
+    AwsConfigConnectorArn: str
+
+class AzureTelemetrySourceConfigurationOutputTypeDef(TypedDict):
+    AwsConfigConnectorArn: NotRequired[str]
+    ServiceLinkedRecorderArn: NotRequired[str]
+
 class SourceLogsConfigurationTypeDef(TypedDict):
     EncryptedLogGroupStrategy: EncryptedLogGroupStrategyType
     LogGroupSelectionCriteria: NotRequired[str]
@@ -228,6 +400,9 @@ class SourceLogsConfigurationTypeDef(TypedDict):
 
 class SourceMetricsConfigurationTypeDef(TypedDict):
     MetricsSelectionCriteria: NotRequired[str]
+
+class SourceProfilesConfigurationTypeDef(TypedDict):
+    ProfilesSelectionCriteria: NotRequired[str]
 
 class CentralizationRuleSummaryTypeDef(TypedDict):
     RuleName: NotRequired[str]
@@ -261,6 +436,12 @@ SourceTypeDef = TypedDict(
     },
 )
 
+class ConnectorSummaryTypeDef(TypedDict):
+    Arn: str
+    Provider: Literal["AZURE"]
+    Name: NotRequired[str]
+    CreatedTimeStamp: NotRequired[int]
+
 class ResponseMetadataTypeDef(TypedDict):
     RequestId: str
     HTTPStatusCode: int
@@ -287,6 +468,9 @@ class DatasetIntegrationSummaryTypeDef(TypedDict):
 
 class DeleteCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+class DeleteConnectorInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
 
 class DeleteDatasetIntegrationInputTypeDef(TypedDict):
     Arn: str
@@ -323,6 +507,9 @@ class TagPropagationConfigurationTypeDef(TypedDict):
 class MetricsBackupConfigurationTypeDef(TypedDict):
     Region: str
 
+class ProfilesBackupConfigurationTypeDef(TypedDict):
+    Region: str
+
 class ELBLoadBalancerLoggingParametersTypeDef(TypedDict):
     OutputFormat: NotRequired[OutputFormatType]
     FieldDelimiter: NotRequired[str]
@@ -332,6 +519,22 @@ class SingleHeaderTypeDef(TypedDict):
 
 class GetCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
+
+class GetConnectorInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
+
+class GetConnectorTelemetryManifestInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
+
+class GetConnectorTelemetrySetupInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
+    Format: NotRequired[Literal["BICEP"]]
+
+class SetupArtifactTypeDef(TypedDict):
+    FileName: str
+    Content: str
+    Format: Literal["BICEP"]
+    ContentType: NotRequired[str]
 
 class GetDatasetIntegrationInputTypeDef(TypedDict):
     Arn: str
@@ -354,6 +557,9 @@ class GetTelemetryRuleForOrganizationInputTypeDef(TypedDict):
 class GetTelemetryRuleInputTypeDef(TypedDict):
     RuleIdentifier: str
 
+class GetThirdPartyTelemetryEnrichmentInputTypeDef(TypedDict):
+    TelemetryEnrichmentIdentifier: str
+
 class IntegrationSummaryTypeDef(TypedDict):
     Arn: NotRequired[str]
     Status: NotRequired[IntegrationStatusType]
@@ -366,6 +572,10 @@ class PaginatorConfigTypeDef(TypedDict):
 class ListCentralizationRulesForOrganizationInputTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     AllRegions: NotRequired[bool]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ListConnectorsInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
@@ -431,6 +641,17 @@ class ListTelemetryRulesInputTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListThirdPartyTelemetryEnrichmentsInputTypeDef(TypedDict):
+    Status: NotRequired[ThirdPartyTelemetryEnrichmentStatusType]
+    TelemetrySource: NotRequired[Literal["Azure"]]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
+class ThirdPartyTelemetryEnrichmentSummaryTypeDef(TypedDict):
+    Name: NotRequired[str]
+    TelemetrySource: NotRequired[Literal["Azure"]]
+    Status: NotRequired[ThirdPartyTelemetryEnrichmentStatusType]
+
 class LogDeliveryParametersOutputTypeDef(TypedDict):
     LogTypes: NotRequired[list[LogTypeType]]
 
@@ -451,6 +672,10 @@ RecordTypeDef = TypedDict(
     },
 )
 
+class SourceProgressTypeDef(TypedDict):
+    Active: NotRequired[int]
+    Total: NotRequired[int]
+
 class StartTelemetryEvaluationForOrganizationInputTypeDef(TypedDict):
     Regions: NotRequired[Sequence[str]]
     AllRegions: NotRequired[bool]
@@ -458,6 +683,12 @@ class StartTelemetryEvaluationForOrganizationInputTypeDef(TypedDict):
 class StartTelemetryEvaluationInputTypeDef(TypedDict):
     Regions: NotRequired[Sequence[str]]
     AllRegions: NotRequired[bool]
+
+class StartTelemetryPipelineRefreshInputTypeDef(TypedDict):
+    PipelineIdentifier: str
+
+class StopThirdPartyTelemetryEnrichmentInputTypeDef(TypedDict):
+    TelemetryEnrichmentIdentifier: str
 
 class TagResourceInputTypeDef(TypedDict):
     ResourceARN: str
@@ -492,11 +723,62 @@ class AdvancedEventSelectorTypeDef(TypedDict):
     FieldSelectors: Sequence[AdvancedFieldSelectorTypeDef]
     Name: NotRequired[str]
 
+class ConnectorConfigurationTypeDef(TypedDict):
+    Azure: NotRequired[AzureConnectorConfigurationTypeDef]
+
+class AzureConnectorQueryResultsTypeDef(TypedDict):
+    ManagementGroups: NotRequired[list[AzureManagementGroupSummaryTypeDef]]
+    Subscriptions: NotRequired[list[AzureSubscriptionSummaryTypeDef]]
+    ResourceTypes: NotRequired[list[str]]
+    Regions: NotRequired[list[str]]
+    ResourceIds: NotRequired[list[AzureResourceIdentifierSummaryTypeDef]]
+    EventHubs: NotRequired[list[AzureEventHubSummaryTypeDef]]
+
+class AzureCustomerManagedFlowLogsOutputTypeDef(TypedDict):
+    StorageAccounts: list[AzureFlowLogStorageAccountScopeOutputTypeDef]
+
+class AzureCustomerManagedFlowLogsTypeDef(TypedDict):
+    StorageAccounts: Sequence[AzureFlowLogStorageAccountScopeTypeDef]
+
+class AzureEventHubsQueryTypeDef(TypedDict):
+    Scope: NotRequired[AzureQueryScopeTypeDef]
+    NamespaceName: NotRequired[str]
+    Region: NotRequired[str]
+
+class AzureRegionsQueryTypeDef(TypedDict):
+    Scope: NotRequired[AzureQueryScopeTypeDef]
+
+class AzureResourceTypesQueryTypeDef(TypedDict):
+    Scope: NotRequired[AzureQueryScopeTypeDef]
+
+class AzureScopeOutputTypeDef(TypedDict):
+    Subscriptions: NotRequired[AzureSubscriptionScopeOutputTypeDef]
+    Regions: NotRequired[list[str]]
+    ResourceTypes: NotRequired[list[str]]
+    TagFilters: NotRequired[list[TagFilterOutputTypeDef]]
+    Resources: NotRequired[list[AzureResourceIdScopeOutputTypeDef]]
+
+class AzureScopeTypeDef(TypedDict):
+    Subscriptions: NotRequired[AzureSubscriptionScopeTypeDef]
+    Regions: NotRequired[Sequence[str]]
+    ResourceTypes: NotRequired[Sequence[str]]
+    TagFilters: NotRequired[Sequence[TagFilterTypeDef]]
+    Resources: NotRequired[Sequence[AzureResourceIdScopeTypeDef]]
+
+TagFilterUnionTypeDef = Union[TagFilterTypeDef, TagFilterOutputTypeDef]
+
+class TelemetrySourceConfigurationInputTypeDef(TypedDict):
+    Azure: NotRequired[AzureTelemetrySourceConfigurationInputTypeDef]
+
+class TelemetrySourceConfigurationOutputTypeDef(TypedDict):
+    Azure: NotRequired[AzureTelemetrySourceConfigurationOutputTypeDef]
+
 class CentralizationRuleSourceOutputTypeDef(TypedDict):
     Regions: list[str]
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
     SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
+    SourceProfilesConfiguration: NotRequired[SourceProfilesConfigurationTypeDef]
     SourceContextGraphConfiguration: NotRequired[dict[str, Any]]
 
 class CentralizationRuleSourceTypeDef(TypedDict):
@@ -504,6 +786,7 @@ class CentralizationRuleSourceTypeDef(TypedDict):
     Scope: NotRequired[str]
     SourceLogsConfiguration: NotRequired[SourceLogsConfigurationTypeDef]
     SourceMetricsConfiguration: NotRequired[SourceMetricsConfigurationTypeDef]
+    SourceProfilesConfiguration: NotRequired[SourceProfilesConfigurationTypeDef]
     SourceContextGraphConfiguration: NotRequired[Mapping[str, Any]]
 
 class ConditionTypeDef(TypedDict):
@@ -564,8 +847,17 @@ class ListCentralizationRulesForOrganizationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListConnectorsOutputTypeDef(TypedDict):
+    ConnectorSummaries: list[ConnectorSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class ListTagsForResourceOutputTypeDef(TypedDict):
     Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class PutConnectorTelemetryManifestOutputTypeDef(TypedDict):
+    Version: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class StartTelemetryEnrichmentOutputTypeDef(TypedDict):
@@ -575,6 +867,13 @@ class StartTelemetryEnrichmentOutputTypeDef(TypedDict):
 
 class StopTelemetryEnrichmentOutputTypeDef(TypedDict):
     Status: TelemetryEnrichmentStatusType
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StopThirdPartyTelemetryEnrichmentOutputTypeDef(TypedDict):
+    Name: str
+    TelemetrySource: Literal["Azure"]
+    Status: ThirdPartyTelemetryEnrichmentStatusType
+    StatusReason: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
@@ -637,11 +936,22 @@ class DestinationLogsConfigurationTypeDef(TypedDict):
 class DestinationMetricsConfigurationTypeDef(TypedDict):
     BackupConfiguration: NotRequired[MetricsBackupConfigurationTypeDef]
 
+class DestinationProfilesConfigurationTypeDef(TypedDict):
+    BackupConfiguration: NotRequired[ProfilesBackupConfigurationTypeDef]
+
 class FieldToMatchTypeDef(TypedDict):
     SingleHeader: NotRequired[SingleHeaderTypeDef]
     UriPath: NotRequired[str]
     QueryString: NotRequired[str]
     Method: NotRequired[str]
+
+class GetConnectorTelemetrySetupOutputTypeDef(TypedDict):
+    Artifacts: list[SetupArtifactTypeDef]
+    RequiredPermissionsToApply: list[str]
+    Format: Literal["BICEP"]
+    Provider: Literal["AZURE"]
+    ManifestVersion: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class GetTelemetryEvaluationStatusForOrganizationOutputTypeDef(TypedDict):
     Status: StatusType
@@ -665,6 +975,9 @@ class ListS3TableIntegrationsOutputTypeDef(TypedDict):
 class ListCentralizationRulesForOrganizationInputPaginateTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     AllRegions: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListConnectorsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDatasetIntegrationsInputPaginateTypeDef(TypedDict):
@@ -701,6 +1014,11 @@ class ListTelemetryRulesInputPaginateTypeDef(TypedDict):
     RuleNamePrefix: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
+class ListThirdPartyTelemetryEnrichmentsInputPaginateTypeDef(TypedDict):
+    Status: NotRequired[ThirdPartyTelemetryEnrichmentStatusType]
+    TelemetrySource: NotRequired[Literal["Azure"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListResourceTelemetryForOrganizationOutputTypeDef(TypedDict):
     TelemetryConfigurations: list[TelemetryConfigurationTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -721,6 +1039,11 @@ class ListTelemetryRulesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class ListThirdPartyTelemetryEnrichmentsOutputTypeDef(TypedDict):
+    TelemetryEnrichments: list[ThirdPartyTelemetryEnrichmentSummaryTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class PipelineOutputTypeDef(TypedDict):
     Record: NotRequired[RecordTypeDef]
     Error: NotRequired[PipelineOutputErrorTypeDef]
@@ -729,16 +1052,6 @@ class TestTelemetryPipelineInputTypeDef(TypedDict):
     Records: Sequence[RecordTypeDef]
     Configuration: TelemetryPipelineConfigurationTypeDef
     SignalType: NotRequired[SignalTypeType]
-
-class TelemetryPipelineTypeDef(TypedDict):
-    CreatedTimeStamp: NotRequired[int]
-    LastUpdateTimeStamp: NotRequired[int]
-    Arn: NotRequired[str]
-    Name: NotRequired[str]
-    Configuration: NotRequired[TelemetryPipelineConfigurationTypeDef]
-    Status: NotRequired[TelemetryPipelineStatusType]
-    StatusReason: NotRequired[TelemetryPipelineStatusReasonTypeDef]
-    Tags: NotRequired[dict[str, str]]
 
 class ValidateTelemetryPipelineConfigurationOutputTypeDef(TypedDict):
     Errors: list[ValidationErrorTypeDef]
@@ -749,6 +1062,69 @@ class CloudtrailParametersOutputTypeDef(TypedDict):
 
 class CloudtrailParametersTypeDef(TypedDict):
     AdvancedEventSelectors: Sequence[AdvancedEventSelectorTypeDef]
+
+class ConnectorTypeDef(TypedDict):
+    Arn: str
+    Provider: Literal["AZURE"]
+    ConnectorConfiguration: ConnectorConfigurationTypeDef
+    RoleArn: str
+    Name: NotRequired[str]
+    CreatedTimeStamp: NotRequired[int]
+
+class CreateConnectorInputTypeDef(TypedDict):
+    ConnectorConfiguration: ConnectorConfigurationTypeDef
+    RoleArn: str
+    Name: str
+    Tags: NotRequired[Mapping[str, str]]
+    ClientToken: NotRequired[str]
+
+class ConnectorQueryResultsTypeDef(TypedDict):
+    Azure: NotRequired[AzureConnectorQueryResultsTypeDef]
+
+class AzureFlowLogsInfrastructureOutputTypeDef(TypedDict):
+    CustomerManaged: NotRequired[AzureCustomerManagedFlowLogsOutputTypeDef]
+    AwsManaged: NotRequired[AzureAwsManagedFlowLogsTypeDef]
+
+class AzureFlowLogsInfrastructureTypeDef(TypedDict):
+    CustomerManaged: NotRequired[AzureCustomerManagedFlowLogsTypeDef]
+    AwsManaged: NotRequired[AzureAwsManagedFlowLogsTypeDef]
+
+class AzureScopeItemOutputTypeDef(TypedDict):
+    TelemetryTypes: list[AzureTelemetryTypeType]
+    Scope: AzureScopeOutputTypeDef
+
+class AzureScopeItemTypeDef(TypedDict):
+    TelemetryTypes: Sequence[AzureTelemetryTypeType]
+    Scope: AzureScopeTypeDef
+
+class AzureResourceIdsQueryTypeDef(TypedDict):
+    Scope: NotRequired[AzureQueryScopeTypeDef]
+    ResourceType: NotRequired[str]
+    Region: NotRequired[str]
+    TagFilters: NotRequired[Sequence[TagFilterUnionTypeDef]]
+
+class StartThirdPartyTelemetryEnrichmentInputTypeDef(TypedDict):
+    Name: str
+    TelemetrySourceConfiguration: TelemetrySourceConfigurationInputTypeDef
+    Tags: NotRequired[Mapping[str, str]]
+
+class GetThirdPartyTelemetryEnrichmentOutputTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    Status: ThirdPartyTelemetryEnrichmentStatusType
+    StatusReason: str
+    TelemetrySourceConfiguration: TelemetrySourceConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class StartThirdPartyTelemetryEnrichmentOutputTypeDef(TypedDict):
+    Arn: str
+    Name: str
+    Status: ThirdPartyTelemetryEnrichmentStatusType
+    StatusReason: str
+    TelemetrySourceConfiguration: TelemetrySourceConfigurationOutputTypeDef
+    Tags: dict[str, str]
+    ResponseMetadata: ResponseMetadataTypeDef
 
 class FilterOutputTypeDef(TypedDict):
     Behavior: NotRequired[FilterBehaviorType]
@@ -769,19 +1145,66 @@ class TelemetryPipelineSummaryTypeDef(TypedDict):
     Tags: NotRequired[dict[str, str]]
     ConfigurationSummary: NotRequired[ConfigurationSummaryTypeDef]
 
+class TelemetryPipelineTypeDef(TypedDict):
+    CreatedTimeStamp: NotRequired[int]
+    LastUpdateTimeStamp: NotRequired[int]
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+    Configuration: NotRequired[TelemetryPipelineConfigurationTypeDef]
+    Status: NotRequired[TelemetryPipelineStatusType]
+    StatusReason: NotRequired[TelemetryPipelineStatusReasonTypeDef]
+    Tags: NotRequired[dict[str, str]]
+    LastRefreshTimeStamp: NotRequired[int]
+    SourceProgress: NotRequired[SourceProgressTypeDef]
+    ConfigurationSummary: NotRequired[ConfigurationSummaryTypeDef]
+
 class CentralizationRuleDestinationTypeDef(TypedDict):
     Region: str
     Account: NotRequired[str]
     DestinationLogsConfiguration: NotRequired[DestinationLogsConfigurationTypeDef]
     DestinationMetricsConfiguration: NotRequired[DestinationMetricsConfigurationTypeDef]
+    DestinationProfilesConfiguration: NotRequired[DestinationProfilesConfigurationTypeDef]
 
 class TestTelemetryPipelineOutputTypeDef(TypedDict):
     Results: list[PipelineOutputTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
-class GetTelemetryPipelineOutputTypeDef(TypedDict):
-    Pipeline: TelemetryPipelineTypeDef
+class CreateConnectorOutputTypeDef(TypedDict):
+    Connector: ConnectorTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
+
+class GetConnectorOutputTypeDef(TypedDict):
+    Connector: ConnectorTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class ListResourcesByConnectorOutputTypeDef(TypedDict):
+    Results: ConnectorQueryResultsTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class AzureInfrastructureOutputTypeDef(TypedDict):
+    SubscriptionId: NotRequired[str]
+    EventHubs: NotRequired[list[AzureEventHubConfigurationTypeDef]]
+    FlowLogs: NotRequired[AzureFlowLogsInfrastructureOutputTypeDef]
+
+class AzureInfrastructureTypeDef(TypedDict):
+    SubscriptionId: NotRequired[str]
+    EventHubs: NotRequired[Sequence[AzureEventHubConfigurationTypeDef]]
+    FlowLogs: NotRequired[AzureFlowLogsInfrastructureTypeDef]
+
+class TelemetryManifestSourceOutputTypeDef(TypedDict):
+    Azure: NotRequired[list[AzureScopeItemOutputTypeDef]]
+
+class TelemetryManifestSourceTypeDef(TypedDict):
+    Azure: NotRequired[Sequence[AzureScopeItemTypeDef]]
+
+class AzureConnectorQueryTypeDef(TypedDict):
+    ManagementGroups: NotRequired[AzureManagementGroupsQueryTypeDef]
+    Subscriptions: NotRequired[AzureSubscriptionsQueryTypeDef]
+    ResourceTypes: NotRequired[AzureResourceTypesQueryTypeDef]
+    Regions: NotRequired[AzureRegionsQueryTypeDef]
+    ResourceIds: NotRequired[AzureResourceIdsQueryTypeDef]
+    EventHubs: NotRequired[AzureEventHubsQueryTypeDef]
 
 class LoggingFilterOutputTypeDef(TypedDict):
     Filters: NotRequired[list[FilterOutputTypeDef]]
@@ -796,6 +1219,10 @@ class ListTelemetryPipelinesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class GetTelemetryPipelineOutputTypeDef(TypedDict):
+    Pipeline: TelemetryPipelineTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CentralizationRuleOutputTypeDef(TypedDict):
     Source: CentralizationRuleSourceOutputTypeDef
     Destination: CentralizationRuleDestinationTypeDef
@@ -803,6 +1230,15 @@ class CentralizationRuleOutputTypeDef(TypedDict):
 class CentralizationRuleTypeDef(TypedDict):
     Source: CentralizationRuleSourceTypeDef
     Destination: CentralizationRuleDestinationTypeDef
+
+class TelemetryManifestInfrastructureOutputTypeDef(TypedDict):
+    Azure: NotRequired[AzureInfrastructureOutputTypeDef]
+
+class TelemetryManifestInfrastructureTypeDef(TypedDict):
+    Azure: NotRequired[AzureInfrastructureTypeDef]
+
+class ConnectorQueryTypeDef(TypedDict):
+    Azure: NotRequired[AzureConnectorQueryTypeDef]
 
 class WAFLoggingParametersOutputTypeDef(TypedDict):
     RedactedFields: NotRequired[list[FieldToMatchTypeDef]]
@@ -830,6 +1266,20 @@ class GetCentralizationRuleForOrganizationOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 CentralizationRuleUnionTypeDef = Union[CentralizationRuleTypeDef, CentralizationRuleOutputTypeDef]
+
+class TelemetryManifestOutputTypeDef(TypedDict):
+    Source: TelemetryManifestSourceOutputTypeDef
+    Infrastructure: NotRequired[TelemetryManifestInfrastructureOutputTypeDef]
+
+class TelemetryManifestTypeDef(TypedDict):
+    Source: TelemetryManifestSourceTypeDef
+    Infrastructure: NotRequired[TelemetryManifestInfrastructureTypeDef]
+
+class ListResourcesByConnectorInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
+    Selector: ConnectorQueryTypeDef
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
 
 class TelemetryDestinationConfigurationOutputTypeDef(TypedDict):
     DestinationType: NotRequired[Literal["cloud-watch-logs"]]
@@ -864,6 +1314,14 @@ class UpdateCentralizationRuleForOrganizationInputTypeDef(TypedDict):
     RuleIdentifier: str
     Rule: CentralizationRuleUnionTypeDef
 
+class GetConnectorTelemetryManifestOutputTypeDef(TypedDict):
+    Manifest: TelemetryManifestOutputTypeDef
+    Version: int
+    LastUpdateTimeStamp: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+TelemetryManifestUnionTypeDef = Union[TelemetryManifestTypeDef, TelemetryManifestOutputTypeDef]
+
 class TelemetryRuleOutputTypeDef(TypedDict):
     TelemetryType: TelemetryTypeType
     ResourceType: NotRequired[ResourceTypeType]
@@ -885,6 +1343,12 @@ class TelemetryRuleTypeDef(TypedDict):
     AllowFieldUpdates: NotRequired[bool]
     Regions: NotRequired[Sequence[str]]
     AllRegions: NotRequired[bool]
+
+class PutConnectorTelemetryManifestInputTypeDef(TypedDict):
+    ConnectorIdentifier: str
+    Manifest: TelemetryManifestUnionTypeDef
+    ExpectedVersion: NotRequired[int]
+    ClientToken: NotRequired[str]
 
 class GetTelemetryRuleForOrganizationOutputTypeDef(TypedDict):
     RuleName: str

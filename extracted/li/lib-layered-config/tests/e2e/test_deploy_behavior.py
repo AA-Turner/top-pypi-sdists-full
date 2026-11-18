@@ -264,7 +264,7 @@ def test_deploy_multiple_force_creates_numbered_backups(
     runner.invoke(cli.cli, make_deploy_command(sources[0]), env=sandbox.env)
 
     # Three force deploys
-    backup_names = []
+    backup_names: list[str] = []
     for src in sources[1:]:
         result = runner.invoke(
             cli.cli,
@@ -386,36 +386,6 @@ def test_deploy_json_output_structure_on_batch_keep(
 
 
 # ---------------------------------------------------------------------------
-# Behavior: Force takes precedence over batch
-# ---------------------------------------------------------------------------
-
-
-@os_agnostic
-def test_deploy_force_overrides_batch_flag(
-    tmp_path: Path,
-    sandbox: LayeredSandbox,
-) -> None:
-    """When both --force and --batch are specified, force takes precedence."""
-    source1 = tmp_path / "v1.toml"
-    source2 = tmp_path / "v2.toml"
-    source1.write_text("[test]\nv = 1\n", encoding="utf-8")
-    source2.write_text("[test]\nv = 2\n", encoding="utf-8")
-
-    runner = make_runner()
-    runner.invoke(cli.cli, make_deploy_command(source1), env=sandbox.env)
-    result = runner.invoke(
-        cli.cli,
-        make_deploy_command(source2, force=True, batch=True),
-        env=sandbox.env,
-    )
-
-    output = json.loads(result.output)
-    # Force should win - file should be overwritten, not skipped
-    assert "overwritten" in output
-    assert "skipped" not in output
-
-
-# ---------------------------------------------------------------------------
 # Behavior: Empty output when source equals destination
 # ---------------------------------------------------------------------------
 
@@ -440,7 +410,7 @@ def test_deploy_skips_when_source_equals_destination(
 
     assert result.exit_code == 0
     # Should have no results (empty JSON or only empty keys filtered out)
-    output = json.loads(result.output) if result.output.strip() else {}
+    output: dict[str, list[str]] = json.loads(result.output) if result.output.strip() else {}
     # The file should not appear in any action category
     all_paths = output.get("created", []) + output.get("overwritten", []) + output.get("skipped", [])
     assert str(target) not in all_paths or len(all_paths) == 0

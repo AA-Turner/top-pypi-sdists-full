@@ -28,6 +28,11 @@ from . import (
 )
 @click.option("--subdir", default=None, help="Subdirectory inside source repo")
 @click.option("--tag-pattern", default=None, help="Tag pattern (e.g. 'v{version}')")
+@click.option(
+    "--category",
+    default=None,
+    help="Package category (e.g. 'developer-tools'); required for Codex output",
+)
 @click.option("--tags", default=None, help="Comma-separated tags")
 @click.option(
     "--include-prerelease",
@@ -43,6 +48,7 @@ def set_cmd(
     ref,
     subdir,
     tag_pattern,
+    category,
     tags,
     include_prerelease,
     verbose,
@@ -62,6 +68,7 @@ def set_cmd(
 
     # Resolve mutable refs to concrete SHAs.
     if ref is not None and not _SHA_RE.match(ref):
+        from ....marketplace.ref_resolver import package_entry_coordinates
         from ....marketplace.yml_schema import (
             load_marketplace_from_apm_yml,
             load_marketplace_yml,
@@ -71,15 +78,12 @@ def set_cmd(
             yml_data = load_marketplace_from_apm_yml(yml)
         else:
             yml_data = load_marketplace_yml(yml)
-        source = None
-        for pkg in yml_data.packages:
-            if pkg.name.lower() == name.lower():
-                source = pkg.source
-                break
-        if source is None:
+        entry = next((pkg for pkg in yml_data.packages if pkg.name.lower() == name.lower()), None)
+        if entry is None:
             logger.error(f"Package '{name}' not found", symbol="error")
             sys.exit(2)
-        ref = _resolve_ref(logger, source, ref, version, no_verify=False)
+        host, owner_repo, _org, _url = package_entry_coordinates(entry, yml_data.source_base)
+        ref = _resolve_ref(logger, owner_repo, ref, version, no_verify=False, host=host)
 
     parsed_tags = _parse_tags(tags)
 
@@ -92,6 +96,8 @@ def set_cmd(
         fields["subdir"] = subdir
     if tag_pattern is not None:
         fields["tag_pattern"] = tag_pattern
+    if category is not None:
+        fields["category"] = category
     if parsed_tags is not None:
         fields["tags"] = parsed_tags
     if include_prerelease is not None:

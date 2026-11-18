@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 #
@@ -27,7 +26,6 @@ options:
         type: str
         description: JOB ID in the format "JID_123456789012".
 requirements:
-    - "omsdk >= 1.2.488"
     - "python >= 3.9.6"
 author:
     - "Rajeev Arakkal (@rajeevarakkal)"
@@ -98,8 +96,10 @@ error_info:
 
 
 import json
+from ansible_collections.dellemc.openmanage.plugins.module_utils.utils import (
+    warn_if_cert_validation_disabled, check_cert_fingerprint)
 from ansible_collections.dellemc.openmanage.plugins.module_utils.dellemc_idrac \
-    import iDRACConnection, idrac_auth_params
+    import idrac_auth_params
 from ansible_collections.dellemc.openmanage.plugins.module_utils.idrac_redfish \
     import iDRACRedfishAPI
 from ansible.module_utils.six.moves.urllib.error import URLError, HTTPError
@@ -108,8 +108,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.dellemc.openmanage.plugins.module_utils.\
     idrac_utils.info.lifecycle_controller_job_status \
     import IDRACLifecycleControllerJobStatusInfo
-from ansible_collections.dellemc.openmanage.plugins.module_utils.\
-    idrac_utils.info.firmware import IDRACFirmwareInfo
 
 ERR_STATUS = 404
 FETCH_MESSAGE = "Successfully fetched the job info."
@@ -123,29 +121,21 @@ def main():
     module = AnsibleModule(
         argument_spec=specs,
         supports_check_mode=True)
+    warn_if_cert_validation_disabled(module)
+    check_cert_fingerprint(module, module.params.get("idrac_ip", ""), module.params.get("idrac_port", 443))
 
     try:
         with iDRACRedfishAPI(module.params) as idrac:
-            firmware_obj = IDRACFirmwareInfo(idrac)
-            if not firmware_obj.is_omsdk_required():
-                response = \
+            response = \
+                IDRACLifecycleControllerJobStatusInfo(idrac). \
+                get_lifecycle_controller_job_status_info(job_id=module.params["job_id"])
+            if response != "Job ID is invalid":
+                lifecycle_controller_job_status_info = \
                     IDRACLifecycleControllerJobStatusInfo(idrac). \
-                    get_lifecycle_controller_job_status_info(job_id=module.params["job_id"])
-                if response != "Job ID is invalid":
-                    lifecycle_controller_job_status_info = \
-                        IDRACLifecycleControllerJobStatusInfo(idrac). \
-                        transform_job_status_data(info_data=response.json_data)
-                else:
-                    module.exit_json(msg=FETCH_MESSAGE,
-                                     job_info={})
+                    transform_job_status_data(info_data=response.json_data)
             else:
-                with iDRACConnection(module.params) as idrac:
-                    job_id = module.params.get('job_id')
-                    lifecycle_controller_job_status_info = \
-                        idrac.job_mgr.get_job_status(job_id)
-                    if lifecycle_controller_job_status_info.get('Status') == "Found Fault":
-                        module.exit_json(msg=FETCH_MESSAGE,
-                                         job_info={})
+                module.exit_json(msg=FETCH_MESSAGE,
+                                 job_info={})
     except HTTPError as err:
         module.exit_json(msg=str(err), error_info=json.load(err),
                          failed=True)

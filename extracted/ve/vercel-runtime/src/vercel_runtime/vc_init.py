@@ -1160,7 +1160,7 @@ with contextlib.nullcontext():
             from vercel_runtime._vendor import uvicorn
 
             asgi_user_app = detection_result[1]
-            asgi_app = ASGIMiddleware(asgi_user_app)
+            asgi_app: _ASGIApp = ASGIMiddleware(asgi_user_app)
 
             # Pre-bind a socket to obtain an ephemeral port for IPC announcement
             sock = socket.socket(
@@ -1172,6 +1172,11 @@ with contextlib.nullcontext():
             # `server-started` needs an `int`, and `http_port` is `int | None`.
             listen_port: int = sock.getsockname()[1]
             http_port = listen_port
+
+            if os.environ.get("__VC_ASYNC_LIBRARY") == "trio":
+                from vercel_runtime import trio_guest
+
+                asgi_app = trio_guest.TrioGuestASGI(asgi_app)
 
             config = uvicorn.Config(
                 app=asgi_app,

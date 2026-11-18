@@ -14,19 +14,19 @@ class CalculateNatGatewayCapacityUnitsShrinkRequest(DaraModel):
         nat_gateway_performance_values_shrink: str = None,
         region_id: str = None,
     ):
-        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the token, but you must make sure that the token is unique among different requests. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the ClientToken. The RequestId of each API request may be different.
+        # The client token that is used to ensure the idempotence of the request. You can use the client to generate the value, but you must ensure that it is unique among different requests. Note: If you do not specify this parameter, the system automatically uses the RequestId of the API request as the ClientToken. The RequestId of each API request may be different.
         self.client_token = client_token
         # Specifies whether to perform a dry run. Valid values:
-        # - true: performs a dry run. The system checks whether your AccessKey pair is valid, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the request fails the dry run, an error message is returned. If the request passes the dry run, the DryRunOperation error code is returned. The Internet NAT gateway is not upgraded.
-        # - false (default): sends a normal request. If the request passes the check, a 2xx HTTP status code is returned and the Internet NAT gateway is upgraded.
+        # - true: sends the request without upgrading the Internet NAT gateway. The system checks whether your AccessKey pair is valid, the authorization of the Resource Access Management (RAM) user, and whether the required parameters are specified. If the request fails the check, an error message is returned. If the request passes the check, the DryRunOperation error code is returned.
+        # - false (default value): sends a normal request. If the request passes the check, a 2xx HTTP status code is returned and the Internet NAT gateway is directly upgraded.
         self.dry_run = dry_run
-        # The details of the resource reservation CUs to be calculated.
+        # The details of the reserved capacity units (CUs) to be calculated.
         self.nat_gateway_capacity_shrink = nat_gateway_capacity_shrink
         # The instance ID of the NAT gateway.
         self.nat_gateway_id = nat_gateway_id
         # The details of the resource reservation metrics to be calculated.
         self.nat_gateway_performance_values_shrink = nat_gateway_performance_values_shrink
-        # The region ID.
+        # The region ID of the NAT gateway.
         self.region_id = region_id
 
     def validate(self):

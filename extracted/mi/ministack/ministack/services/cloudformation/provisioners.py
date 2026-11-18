@@ -757,6 +757,11 @@ _CUSTOM_NAME_REPLACEMENT = {
         "exists": "A policy called {name} already exists. Duplicate names are not allowed.",
     },
     "AWS::ECR::Repository": {"name": "RepositoryName"},
+    "AWS::ECR::RepositoryCreationTemplate": {"name": "Prefix"},
+    "AWS::ECR::PullThroughCacheRule": {
+        "name": "EcrRepositoryPrefix",
+        "requires_replacement": lambda old, new: old != new,
+    },
     "AWS::IoT::ProvisioningTemplate": {
         "name": "TemplateName",
         "requires_replacement": lambda old, new: (
@@ -1175,6 +1180,7 @@ _STACK_TAG_PROPERTY: dict[str, tuple[str, str]] = {
     "AWS::DocDB::DBInstance": ("Tags", "list"),
     "AWS::DocDB::DBSubnetGroup": ("Tags", "list"),
     "AWS::DocDB::DBClusterParameterGroup": ("Tags", "list"),
+    "AWS::S3::Bucket": ("Tags", "list"),
     "AWS::SES::ConfigurationSet": ("Tags", "list"),
     "AWS::SNS::Topic": ("Tags", "list"),
     "AWS::SQS::Queue": ("Tags", "list"),
@@ -1691,6 +1697,9 @@ def _s3_create(logical_id, props, stack_name):
     if "NotificationConfiguration" in props:
         _s3_apply_notification(name, props["NotificationConfiguration"])
     _s3_apply_configurations(name, props)
+    tags = _tag_map(props.get("Tags"))
+    if tags:
+        _s3._bucket_tags[name] = tags
     return name, _s3_attrs(name)
 
 
@@ -1714,6 +1723,12 @@ def _s3_update(physical_id, old_props, new_props, stack_name):
             # Property removed on update — clear the configuration, as AWS does.
             _s3._bucket_notifications.pop(name, None)
         _s3_apply_configurations(name, new_props, old_props)
+        tags = dict(_s3._bucket_tags.get(name) or {})
+        _reconcile_tag_map(tags, old_props, new_props)
+        if tags:
+            _s3._bucket_tags[name] = tags
+        else:
+            _s3._bucket_tags.pop(name, None)
     else:
         return _s3_create(name, new_props, stack_name)
     return name, _s3_attrs(name)
@@ -2142,7 +2157,9 @@ def _ddb_create(logical_id, props, stack_name):
     if stream_spec.get("StreamViewType") and "StreamEnabled" not in stream_spec:
         stream_spec = {**stream_spec, "StreamEnabled": True}
     stream_enabled = stream_spec.get("StreamEnabled", False)
-    stream_arn = f"{arn}/stream/{now_iso()}" if stream_enabled else None
+    from ministack.services.dynamodb import _stream_label
+    stream_label = _stream_label() if stream_enabled else None
+    stream_arn = f"{arn}/stream/{stream_label}" if stream_enabled else None
 
     billing = props.get("BillingMode", "PROVISIONED")
 
@@ -2168,7 +2185,7 @@ def _ddb_create(logical_id, props, stack_name):
         "LocalSecondaryIndexes": lsis,
         "StreamSpecification": stream_spec if stream_enabled else None,
         "LatestStreamArn": stream_arn,
-        "LatestStreamLabel": now_iso() if stream_enabled else None,
+        "LatestStreamLabel": stream_label,
         "DeletionProtectionEnabled": props.get("DeletionProtectionEnabled", False),
         "SSEDescription": None,
         "Tags": [],
@@ -5107,7 +5124,7 @@ def _cfn_nested_stack_deploy(logical_id, props, parent_stack_name, *,
                               if v is not _NO_VALUE_SENTINEL()}
 
         _add_event(child_stack_id, child_name, child_logical_id, resource_type,
-                   f"{status_prefix}_IN_PROGRESS")
+                   f"{status_prefix}_IN_PROGRESS", properties=resolved_props)
         name_seed = ""
         try:
             prev = prev_resources.get(child_logical_id)
@@ -5150,7 +5167,7 @@ def _cfn_nested_stack_deploy(logical_id, props, parent_stack_name, *,
                 f"Resource {child_logical_id} failed: {exc}"
             )
             _add_event(child_stack_id, child_name, child_logical_id, resource_type,
-                       f"{status_prefix}_FAILED", str(exc))
+                       f"{status_prefix}_FAILED", str(exc), properties=resolved_props)
             raise
 
         provisioned[child_logical_id] = {
@@ -5165,7 +5182,8 @@ def _cfn_nested_stack_deploy(logical_id, props, parent_stack_name, *,
         if name_seed:
             provisioned[child_logical_id]["_name_seed"] = name_seed
         _add_event(child_stack_id, child_name, child_logical_id, resource_type,
-                   f"{status_prefix}_COMPLETE", physical_id=physical_id)
+                   f"{status_prefix}_COMPLETE", physical_id=physical_id,
+                   properties=resolved_props)
 
     if is_update:
         snapshot = previous_stack_snapshot or {}
@@ -7969,6 +7987,106 @@ def _ecr_repo_delete(physical_id, props):
     })
     if status >= 400:
         raise ValueError(json.loads(body).get("message", body))
+
+
+def _ecr_call(handler, data):
+    status, _, body = handler(data)
+    if status >= 400:
+        raise ValueError(json.loads(body).get("message", body))
+    return json.loads(body)
+
+
+_ECR_PTC_PROPS = {
+    "EcrRepositoryPrefix": "ecrRepositoryPrefix", "UpstreamRegistryUrl": "upstreamRegistryUrl",
+    "CredentialArn": "credentialArn", "CustomRoleArn": "customRoleArn",
+    "UpstreamRegistry": "upstreamRegistry", "UpstreamRepositoryPrefix": "upstreamRepositoryPrefix",
+}
+
+
+def _ecr_ptc_rule_create(logical_id, props, stack_name):
+    data = {api: props[cfn] for cfn, api in _ECR_PTC_PROPS.items() if props.get(cfn) is not None}
+    rule = _ecr_call(_ecr._create_pull_through_cache_rule, data)
+    return rule["ecrRepositoryPrefix"], {}
+
+
+def _ecr_ptc_rule_delete(physical_id, props):
+    if physical_id in _ecr._ptc_rules:
+        _ecr_call(_ecr._delete_pull_through_cache_rule, {"ecrRepositoryPrefix": physical_id})
+
+
+def _ecr_rct_to_api(props):
+    data = {"prefix": props.get("Prefix"), "appliedFor": props.get("AppliedFor")}
+    for cfn, api in (("Description", "description"), ("ImageTagMutability", "imageTagMutability"),
+                     ("LifecyclePolicy", "lifecyclePolicy"), ("RepositoryPolicy", "repositoryPolicy"),
+                     ("CustomRoleArn", "customRoleArn")):
+        if props.get(cfn) is not None:
+            value = props[cfn]
+            data[api] = value if isinstance(value, str) or cfn not in ("LifecyclePolicy", "RepositoryPolicy") \
+                else json.dumps(value)
+    encryption = props.get("EncryptionConfiguration")
+    if encryption:
+        data["encryptionConfiguration"] = {"encryptionType": encryption.get("EncryptionType"),
+                                           **({"kmsKey": encryption["KmsKey"]} if encryption.get("KmsKey") else {})}
+    filters = props.get("ImageTagMutabilityExclusionFilters")
+    if filters:
+        data["imageTagMutabilityExclusionFilters"] = [
+            {"filterType": f.get("ImageTagMutabilityExclusionFilterType"),
+             "filter": f.get("ImageTagMutabilityExclusionFilterValue")} for f in filters]
+    if props.get("ResourceTags") is not None:
+        data["resourceTags"] = [{"Key": t.get("Key"), "Value": t.get("Value", "")} for t in props["ResourceTags"]]
+    return data
+
+
+def _ecr_rct_attrs(template):
+    def iso(epoch):
+        return time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime(epoch))
+    return template["prefix"], {"CreatedAt": iso(template["createdAt"]), "UpdatedAt": iso(template["updatedAt"])}
+
+
+def _ecr_rct_create(logical_id, props, stack_name):
+    return _ecr_rct_attrs(_ecr_call(_ecr._create_creation_template, _ecr_rct_to_api(props))
+                          ["repositoryCreationTemplate"])
+
+
+def _ecr_rct_update(physical_id, old_props, new_props, stack_name):
+    template = _ecr._creation_templates.get(physical_id)
+    if template is None:
+        return _ecr_rct_create(None, new_props, stack_name)
+    kept = dict(template)
+    for key in _ecr._RCT_SETTINGS:
+        if key != "appliedFor":
+            template.pop(key, None)
+    try:
+        answer = _ecr_call(_ecr._update_creation_template, _ecr_rct_to_api(new_props))
+    except ValueError:
+        template.clear()
+        template.update(kept)
+        raise
+    return _ecr_rct_attrs(answer["repositoryCreationTemplate"])
+
+
+def _ecr_rct_delete(physical_id, props):
+    if physical_id in _ecr._creation_templates:
+        _ecr_call(_ecr._delete_creation_template, {"prefix": physical_id})
+
+
+def _ecr_registry_policy_text(props):
+    policy = props.get("PolicyText")
+    return policy if isinstance(policy, str) else json.dumps(policy)
+
+
+def _ecr_registry_policy_create(logical_id, props, stack_name):
+    registry = _ecr_call(_ecr._put_registry_policy, {"policyText": _ecr_registry_policy_text(props)})
+    return registry["registryId"], {"RegistryId": registry["registryId"]}
+
+
+def _ecr_registry_policy_update(physical_id, old_props, new_props, stack_name):
+    return _ecr_registry_policy_create(None, new_props, stack_name)
+
+
+def _ecr_registry_policy_delete(physical_id, props):
+    if _ecr._registry_policies.get(_ecr._REGISTRY_POLICY_KEY) is not None:
+        _ecr_call(_ecr._delete_registry_policy, {})
 
 
 # --- CodeBuild Project provisioner ---
@@ -12081,20 +12199,20 @@ def _cf_distribution_delete(physical_id, props):
 
 def _cf_kvs_create(logical_id, props, stack_name):
     name = props.get("Name") or _physical_name(stack_name, logical_id, max_len=64)
-    arn = _cf._kvs_arn(name)
     if name not in _cf._kvstores:
+        kvs_id = new_uuid()
         _cf._kvstores[name] = {
-            "Id": new_uuid(),
+            "Id": kvs_id,
             "Name": name,
             "Comment": props.get("Comment", ""),
-            "ARN": arn,
+            "ARN": _cf._kvs_arn(kvs_id),
             "Status": "READY",
             "LastModifiedTime": now_iso(),
             "ETag": new_uuid(),
         }
     record = _cf._kvstores[name]
     # Return refs the spec exposes via Fn::GetAtt: Arn, Id, Status.
-    return name, {"Arn": arn, "Id": record["Id"], "Status": record["Status"]}
+    return name, {"Arn": record["ARN"], "Id": record["Id"], "Status": record["Status"]}
 
 
 def _cf_kvs_update(physical_id, old_props, new_props, stack_name):
@@ -15424,6 +15542,11 @@ _REPLACING_PROPERTIES: dict[str, tuple[str, ...]] = {
     "AWS::IAM::User": ("UserName",),
     "AWS::IAM::ManagedPolicy": ("ManagedPolicyName", "Description", "Path"),
     "AWS::ECR::Repository": ("RepositoryName", "EncryptionConfiguration"),
+    "AWS::ECR::RepositoryCreationTemplate": ("Prefix",),
+    "AWS::ECR::PullThroughCacheRule": (
+        "CredentialArn", "CustomRoleArn", "EcrRepositoryPrefix", "UpstreamRegistry",
+        "UpstreamRegistryUrl", "UpstreamRepositoryPrefix",
+    ),
     "AWS::IoT::ProvisioningTemplate": ("TemplateName", "TemplateType"),
     "AWS::IoT::JobTemplate": (
         "JobTemplateId", "JobArn", "Description", "Document", "DocumentSource",
@@ -16037,6 +16160,20 @@ _RESOURCE_HANDLERS = {
         "update": _ecr_repo_update,
         "update_with_logical_id": True,
         "delete": _ecr_repo_delete,
+    },
+    "AWS::ECR::PullThroughCacheRule": {
+        "create": _ecr_ptc_rule_create,
+        "delete": _ecr_ptc_rule_delete,
+    },
+    "AWS::ECR::RepositoryCreationTemplate": {
+        "create": _ecr_rct_create,
+        "update": _ecr_rct_update,
+        "delete": _ecr_rct_delete,
+    },
+    "AWS::ECR::RegistryPolicy": {
+        "create": _ecr_registry_policy_create,
+        "update": _ecr_registry_policy_update,
+        "delete": _ecr_registry_policy_delete,
     },
     "AWS::CertificateManager::Certificate": {
         "create": _acm_certificate_create,

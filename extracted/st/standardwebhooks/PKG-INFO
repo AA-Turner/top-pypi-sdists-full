@@ -1,9 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: standardwebhooks
-Version: 1.1.0
-Summary: Standard Webhooks
+Version: 1.3.0
+Summary: Standard Webhooks library for verifying and signing webhooks from Python
+Project-URL: Homepage, https://www.standardwebhooks.com/
+Project-URL: Repository, https://github.com/standard-webhooks/standard-webhooks
+Project-URL: Issues, https://github.com/standard-webhooks/standard-webhooks/issues
 Author: Standard Webhooks Team
 License-Expression: MIT
+License-File: LICENSE
 Keywords: webhooks
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
@@ -12,18 +16,18 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 
 Python library for Standard Webhooks
@@ -37,6 +41,26 @@ from standardwebhooks.webhooks import Webhook
 
 wh = Webhook(base64_secret)
 wh.verify(webhook_payload, webhook_headers)
+```
+
+`webhook_payload` must be the raw request body exactly as received, before any JSON parsing.
+Pass it as `bytes` to verify the bytes as sent, including bodies that aren't valid UTF-8. A
+`str` is verified as its UTF-8 encoding.
+
+Responding to [endpoint verification](../../spec/extensions/endpoint-verification.md):
+
+```python
+challenge = webhook_headers.get("webhook-challenge")
+if challenge:
+    response_headers["webhook-challenge-response"] = wh.endpoint_verification_response(challenge)
+    # Not a webhook delivery: respond (e.g. with 204 No Content) without processing the body
+    return
+```
+
+Verifying the response as a producer (raises `WebhookVerificationError` if it doesn't match):
+
+```python
+wh.verify_endpoint_verification_response(challenge, response_headers["webhook-challenge-response"])
 ```
 
 # Development

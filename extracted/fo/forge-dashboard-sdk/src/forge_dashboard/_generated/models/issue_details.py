@@ -8,12 +8,15 @@ from attrs import field as _attrs_field
 
 from ..types import UNSET, Unset
 
+from ..models.issue_details_kind import IssueDetailsKind
 from ..models.issue_details_state import IssueDetailsState
+from ..types import UNSET, Unset
 from typing import cast
 
 if TYPE_CHECKING:
   from ..models.details_body import DetailsBody
   from ..models.details_comment import DetailsComment
+  from ..models.issue_pull_request import IssuePullRequest
 
 
 
@@ -28,6 +31,11 @@ class IssueDetails:
     """ What the issue dialog shows.
 
         Attributes:
+            kind (IssueDetailsKind): What the number turned out to be. A forge shares one number space
+                between issues and pull requests, so a bare number in a description
+                can name either, and this endpoint answers for both. The
+                client decides which dialog to open; a pull request's `state` is
+                `closed` once it is merged as well as when it is closed unmerged.
             state (IssueDetailsState): Whether the forge has the issue open or closed right now. The
                 dialog draws its status from this, so an issue closed or reopened
                 while the dialog is open shows the change.
@@ -35,13 +43,18 @@ class IssueDetails:
             comments (list[DetailsComment]): The conversation, oldest first, at most the first 50.
             comment_count (int): How many comments the forge has on the issue.
             comments_truncated (bool): True when `commentCount` is more than the comments returned.
+            pull_request (IssuePullRequest | Unset): Present only when `kind` is `pullRequest`: what the header of a pull
+                request needs when the board has no row for it, because it is closed,
+                merged or in a repository the board doesn't track. The dialog words it.
      """
 
+    kind: IssueDetailsKind
     state: IssueDetailsState
     description: DetailsBody
     comments: list[DetailsComment]
     comment_count: int
     comments_truncated: bool
+    pull_request: IssuePullRequest | Unset = UNSET
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
 
@@ -51,6 +64,9 @@ class IssueDetails:
     def to_dict(self) -> dict[str, Any]:
         from ..models.details_body import DetailsBody # noqa: PLC0415
         from ..models.details_comment import DetailsComment # noqa: PLC0415
+        from ..models.issue_pull_request import IssuePullRequest # noqa: PLC0415
+        kind = self.kind.value
+
         state = self.state.value
 
         description = self.description.to_dict()
@@ -66,16 +82,23 @@ class IssueDetails:
 
         comments_truncated = self.comments_truncated
 
+        pull_request: dict[str, Any] | Unset = UNSET
+        if not isinstance(self.pull_request, Unset):
+            pull_request = self.pull_request.to_dict()
+
 
         field_dict: dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update({
+            "kind": kind,
             "state": state,
             "description": description,
             "comments": comments,
             "commentCount": comment_count,
             "commentsTruncated": comments_truncated,
         })
+        if pull_request is not UNSET:
+            field_dict["pullRequest"] = pull_request
 
         return field_dict
 
@@ -85,7 +108,13 @@ class IssueDetails:
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         from ..models.details_body import DetailsBody # noqa: PLC0415
         from ..models.details_comment import DetailsComment # noqa: PLC0415
+        from ..models.issue_pull_request import IssuePullRequest # noqa: PLC0415
         d = dict(src_dict)
+        kind = IssueDetailsKind(d.pop("kind"))
+
+
+
+
         state = IssueDetailsState(d.pop("state"))
 
 
@@ -110,12 +139,24 @@ class IssueDetails:
 
         comments_truncated = d.pop("commentsTruncated")
 
+        _pull_request = d.pop("pullRequest", UNSET)
+        pull_request: IssuePullRequest | Unset
+        if isinstance(_pull_request,  Unset):
+            pull_request = UNSET
+        else:
+            pull_request = IssuePullRequest.from_dict(_pull_request)
+
+
+
+
         issue_details = cls(
+            kind=kind,
             state=state,
             description=description,
             comments=comments,
             comment_count=comment_count,
             comments_truncated=comments_truncated,
+            pull_request=pull_request,
         )
 
 

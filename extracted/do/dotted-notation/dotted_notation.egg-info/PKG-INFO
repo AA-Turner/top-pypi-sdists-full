@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dotted_notation
-Version: 0.55.5
+Version: 0.56.0
 Summary: Dotted notation for safe nested data traversal with optional chaining, pattern matching, and transforms
 Author-email: Frey Waid <logophage1@gmail.com>
 License-Expression: MIT
@@ -159,11 +159,11 @@ For faster `mutable=False` updates and removes, install the
   - [Recursive traversal with type restrictions](#recursive-traversal-with-type-restrictions)
 - [Recursive Traversal](#recursive-traversal)
   - [The recursive operator `*`](#the-recursive-operator-)
-  - [Recursive patterns](#recursive-accessors)
+  - [Recursive patterns](#recursive-patterns)
   - [Depth slicing](#depth-slicing)
-  - [Recursive patterns with value guard](#recursive-with-value-guard)
+  - [Recursive patterns with value guard](#recursive-patterns-with-value-guard)
   - [Recursive update and remove](#recursive-update-and-remove)
-  - [Recursive pattern matching](#recursive-match)
+  - [Recursive pattern matching](#recursive-pattern-matching)
 - [Grouping](#grouping)
   - [Path grouping](#path-grouping)
   - [Precedence](#precedence)
@@ -197,22 +197,22 @@ For faster `mutable=False` updates and removes, install the
   - [Built-in Transforms](#built-in-transforms)
   - [Container transform arguments](#container-transform-arguments)
   - [Custom Transforms](#custom-transforms)
-- [SQL Translation (`sqlize`)](#sqlize) — *under development*
-- [Spark Translation (`sparkize`)](#sparkize) — *under development*
+- [SQL Translation (`sqlize`)](#sql-translation-sqlize) — *under development*
+- [Spark Translation (`sparkize`)](#spark-translation-sparkize) — *under development*
 - [Constants and Exceptions](#constants-and-exceptions)
 - [CLI (`dq`)](#cli-dq)
   - [File input](#file-input)
   - [Format conversion](#format-conversion)
   - [Path files](#path-files)
   - [Projection](#projection)
-  - [Unpack](#unpack)
-  - [Pack](#pack)
+  - [Unpacking output](#unpacking-output)
+  - [Packing input](#packing-input)
 - [Recipes](#recipes)
 - [FAQ](#faq)
   - [Why do I get a tuple for my get?](#why-do-i-get-a-tuple-for-my-get)
   - [How do I craft an efficient path?](#how-do-i-craft-an-efficient-path)
   - [Why do I get a RuntimeError when updating with a slice filter?](#why-do-i-get-a-runtimeerror-when-updating-with-a-slice-filter)
-  - [Why can't I use patterns to discover keys/attrs on my Stripe object?](#why-cant-i-use-patterns-on-stripe-objects)
+  - [Why can't I use patterns on Stripe objects?](#why-cant-i-use-patterns-on-stripe-objects)
 
 <a id="safe-traversal-optional-chaining"></a>
 ## Safe Traversal (Optional Chaining)
@@ -278,6 +278,15 @@ Several Python libraries handle nested data access. Here's how dotted compares:
 
 <a id="breaking-changes"></a>
 ## Breaking Changes
+
+### v0.56.0
+- **`sparkize`'s `build` takes the DataFrame's schema.** A path reads
+  each node by its type, so `r.build(fragment, schema=df.schema)`;
+  without it, `build` raises. See [Spark Translation](#spark-translation-sparkize).
+- **`sqlize` and `sparkize` read as dotted does.** A regex fullmatches,
+  `!=` holds for a null, a string never equals a number, and a slice
+  filter is one list: queries built on the old reads may match other
+  rows.
 
 ### v0.55.0
 - **`walk` dedups.** It is now `ipluck`, and `walk_multi` is `pluck_multi`,
@@ -2143,7 +2152,7 @@ The inner pattern can be any key pattern — a literal key, a wildcard, or a reg
     >>> dotted.get(d, '*/x.*/')
     ({'x2': 1}, 1)
 
-<a id="recursive-accessors"></a>
+<a id="recursive-patterns"></a>
 ### Recursive patterns
 
 Recursive pattern matching works across different accessor types:
@@ -2226,7 +2235,7 @@ Depth slicing also works with accessor groups:
     >>> dotted.get(d, '*(*#, [*]:!(str, bytes)):-2')
     ([1, 2, 3],)
 
-<a id="recursive-with-value-guard"></a>
+<a id="recursive-patterns-with-value-guard"></a>
 ### Recursive patterns with value guard
 
 Combine recursive patterns with value guards to find specific values at any depth.
@@ -2253,7 +2262,7 @@ Recursive patterns work with `update` and `remove`:
     >>> dotted.remove(d, '**=7')
     {'a': {'c': 3}}
 
-<a id="recursive-match"></a>
+<a id="recursive-pattern-matching"></a>
 ### Recursive pattern matching
 
 Recursive patterns work with `match`. `**` matches any key path, `*key` matches
@@ -2733,6 +2742,25 @@ If it doesn't match, evaluation falls through to the next branch.
     (1,)
     >>> dotted.get({'b': 2}, '(a#, b)')
     (2,)
+
+A cut holds at each node the group is at: behind a pattern, each match
+takes its own branch.
+
+    >>> dotted.get({'x': [{'a': 1}, {'a': 2, 'b': 9}, {'b': 3}]}, 'x[*].(a#, b)')
+    (1, 2, 3)
+
+A cut works in a conjunction too: in `(a#&b)`, once `a` matches, `b`
+isn't tried.
+
+    >>> dotted.get({'a': 1, 'b': 2}, '(a#&b)')
+    (1,)
+
+Parentheses alone don't make a group, so `(a#)` is the branch `a` with
+its cut, and the cut is on the group it's in: `((a#)&b)` is `(a#&b)`,
+and `((a#), b)` is `(a#, b)`. A trailing comma, `(a#,)`, keeps the
+group and its cut. A soft cut works in a conjunction as it does in a
+disjunction: in `(a##&*)`, `*` skips what overlaps `a`'s matches, and a
+branch a soft cut covers whole adds nothing but still matched.
 
 This is especially useful for "update if exists, else create" patterns:
 
@@ -3572,14 +3600,14 @@ Register custom transforms using `register` or the `@transform` decorator:
 
 View all registered transforms with `dotted.registry()`.
 
-<a id="sqlize"></a>
+<a id="sql-translation-sqlize"></a>
 ## SQL Translation (`sqlize`)
 
-> **Under development.** The API shape and supported subset of dotted
-> features may still change. Postgres-only. Pattern paths (`*`, `[*]`,
-> `**`, filter brackets) are supported only as WHERE-side existence
-> checks via `jsonb_path_exists`; pattern paths that yield sets as
-> SELECT (needing `LATERAL jsonb_path_query`) are not supported yet.
+> **Under development.** The API shape may still change. Postgres-only.
+> A translation does what dotted does, reading and writing. Where
+> Postgres can't give what dotted would, it raises: `TranslationError`
+> while translating, or a `dotted: …` error when the query meets a value
+> it can't read as dotted does.
 
 `dotted.sqlize(path, driver='<name>')` translates a dotted path into a
 driver-specific `Resolver` instance carrying SQL fragments.
@@ -3589,19 +3617,18 @@ driver.
 
 Registered drivers:
 
-| driver                  | placeholders      | output shape | notes                                                                                  |
-|-------------------------|-------------------|--------------|----------------------------------------------------------------------------------------|
-| `asyncpg`               | `$1, $2, ...`     | list         | Native Postgres; always server-side PREPARE — emits `::cast` for polymorphic contexts. |
-| `psycopg2`              | `%(name)s` / `%s` | dict         | Client-side parameter substitution. No casts.                                          |
-| `psycopg` / `psycopg3`  | `%(name)s` / `%s` | dict         | psycopg v3 (same class under either name) — server-side binding in binary mode, emits `::cast` for polymorphic contexts. |
+| driver                  | placeholders      | output shape | notes                                                   |
+|-------------------------|-------------------|--------------|---------------------------------------------------------|
+| `asyncpg`               | `$1, $2, ...`     | list         | Native Postgres; server-side PREPARE.                   |
+| `psycopg2`              | `%(name)s` / `%s` | dict         | Client-side parameter substitution.                     |
+| `psycopg` / `psycopg3`  | `%(name)s` / `%s` | dict         | psycopg v3 (same class under either name).              |
 
 Pick the driver you'll actually hand the SQL to; it determines the
-placeholder syntax and whether explicit SQL casts are emitted.
+placeholder syntax.
 
 The first segment of the dotted path is the SQL column; further
-segments are JSON navigation inside it (JSONB). (`root='table'` makes
-it a [table search](#sqlize-table-search) instead.) Scalar columns and
-JSONB columns share one surface:
+segments read the JSONB inside it. (`root='table'` makes it a [table
+search](#sqlize-table-search) instead.)
 
     >>> import dotted
     >>> r = dotted.sqlize("status = 'active'", driver='asyncpg')
@@ -3610,15 +3637,13 @@ JSONB columns share one surface:
     >>> r.build(r.where)
     ('status = $1', ['active'])
 
-    >>> r = dotted.sqlize("data.user.age >= 30", driver='asyncpg')
-    >>> r.build(r.where)
-    ("(data #>> '{user,age}')::numeric >= $1", [30])
-
     >>> r = dotted.sqlize("data.user.name", driver='asyncpg')   # pure traversal, no predicate
     >>> r.build(r.select)
     ("data #>> '{user,name}'", [])
 
-Guards encode the predicate:
+A guard on a column of a SQL type compares by SQL's own rules for that
+type, but `!=` holds for a NULL, as Python's `None != x` does, and a
+regex fullmatches, as dotted's does:
 
     >>> r = dotted.sqlize("age >= 30", driver='asyncpg')
     >>> r.build(r.where)
@@ -3628,21 +3653,63 @@ Guards encode the predicate:
     >>> r.build(r.where)
     ('deleted_at IS NULL', [])
 
-    >>> r = dotted.sqlize("name = /^alice/", driver='asyncpg')
+    >>> r = dotted.sqlize("status != 'banned'", driver='asyncpg')
     >>> r.build(r.where)
-    ('name ~ $1', ['^alice'])
+    ('status IS DISTINCT FROM $1', ['banned'])
 
-Boolean grouping maps directly onto `AND` / `OR` / `NOT`:
+    >>> r = dotted.sqlize("name = /alice/", driver='asyncpg')
+    >>> r.build(r.where)
+    ('name ~ $1', ['^(?:alice)$'])
+
+Boolean grouping maps onto `AND` / `OR`:
 
     >>> r = dotted.sqlize('(age >= 18 & status = "active")', driver='asyncpg')
     >>> r.build(r.where)
     ('(age >= $1) AND (status = $2)', [18, 'active'])
 
-Guard transforms become SQL casts (`int`, `float`, `str`, `bool`):
+### Comparing as dotted compares
+
+Inside a JSONB column a value is read by its own type (`jsonb_typeof`)
+and compared as dotted compares, which is as Python does:
+
+- a number and a boolean compare as numbers (`True == 1`);
+- a string compares with a string, in code-point order;
+- any other pairing is unequal and unordered: the string `'30'` is not
+  `>= 30`, and no cast fails;
+- `!=` is `=`'s negation;
+- a guard tests a value that's there, so a missing key matches neither
+  `= None` nor `!=`.
+
+Numbers and booleans are written inline; strings are hoisted:
+
+    >>> r = dotted.sqlize("data.user.age >= 30", driver='asyncpg')
+    >>> print(r.build(r.where)[0])
+    (SELECT (_pat1.n IS NOT NULL AND (CASE jsonb_typeof(_pat1.n) WHEN 'number' THEN (_pat1.n)::numeric >= (30) ELSE FALSE END)) FROM (SELECT data #> '{user,age}' AS n) AS _pat1)
+
+A substitution's type is known only when it's bound, so it goes to the
+driver as its JSON text, cast to `jsonb`, and compares by its type
+there. dotted raises on a list or dict bound where it compares; so does
+`build`:
+
+    >>> r = dotted.sqlize("data.user.age >= $(min)", driver='asyncpg')
+    >>> r.build(r.where, min=30)[1]
+    ['30']
+
+A regex fullmatches `str()` of the value, as dotted's does: a string, a
+number as Python writes it, `True` / `False`, `None`. A guard's
+transforms run in SQL as dotted's own: `int`, `float` and `str`,
+without arguments; any other raises:
 
     >>> r = dotted.sqlize("data.user.age|int >= 30", driver='asyncpg')
-    >>> r.build(r.where)
-    ("(data #>> '{user,age}')::int >= $1", [30])
+    >>> 'to_jsonb(trunc(' in r.build(r.where)[0]
+    True
+
+Where dotted's answer is a Python repr — `str()` of an array or object,
+or a regex that could match one — Postgres can't write it, as jsonb
+keeps no object's key order, and the query fails with a `dotted: …`
+message where it meets such a value. A regex that can't start with `[`
+or `{` matches no array or object, as in dotted. jsonb stores a JSON
+`1e3` as `1000`, so a float written with an exponent reads as an int.
 
 ### SQLFragment and composition
 
@@ -3661,7 +3728,7 @@ Fragments concatenate naturally via `+` / `__radd__`; metadata merges:
 
 ### Hoisted params
 
-Every RHS value is hoisted into a params entry keyed by a generated
+Every string value is hoisted into a params entry keyed by a generated
 name (`_p1`, `_p2`, …). This keeps values out of the SQL string:
 
     >>> user_input = "'; DROP TABLE users;--"
@@ -3718,80 +3785,51 @@ in `unbound`:
 Absolute-root references (`$$(path)`) map to dynamic JSON key lookups
 — Postgres's `->` / `#>` accept runtime-computed keys:
 
-    >>> r = dotted.sqlize('data.$$(data.config.field) = "Alice"',
-    ...                   driver='asyncpg')
-    >>> r.build(r.where)
-    ("(data ->> (data #>> '{config,field}')) = $1", ['Alice'])
+    >>> r = dotted.sqlize('data.$$(data.config.field)', driver='asyncpg')
+    >>> r.build(r.select)
+    ("data ->> (data #>> '{config,field}')", [])
 
 Relative references (`^`) and parent references (`^^+`) are not
 supported yet.
 
 ### Pattern paths
 
-Paths that contain wildcards (`*`, `[*]`), recursive descent (`**`),
-or bracket filters (`[pred]`, `[*&pred]`) translate to a Postgres
-`jsonb_path_exists(…)` WHERE predicate. The dotted path becomes a
-JSONPath expression; guard values embed inline when safely literal
-(numbers, booleans, null) or flow through a `jsonb_build_object` vars
-argument (strings, substitutions).
+A path with a wildcard (`*`, `[*]`), `**`, a filter (`[pred]`,
+`[*&pred]`), a group or a transform reads a step at a time, as dotted's
+walk reads it, each node by its own type:
 
-    >>> r = dotted.sqlize("data.users[*].age >= 30", driver='asyncpg')
-    >>> r.build(r.where)
-    ("jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')", [])
+- a key reads an object's member;
+- an int reads an array's element or a string's character, never an
+  object's member, whose names are strings;
+- `.*` reads an object's members, and `[*]` an array's elements, an
+  object's values or a string's characters;
+- `*?` reads its first match alone;
+- a filter keeps a node that is an object and whose key's value
+  compares, so `[*&x!=1]` keeps one that has no `x`;
+- a slice filter, `users[age >= 30]`, reads the filtered list as one
+  value.
 
-    >>> r = dotted.sqlize("data.**.active = True", driver='asyncpg')
-    >>> r.build(r.where)
-    ("jsonb_path_exists(data, '$.**.active ? (@ == true)')", [])
-
-    >>> r = dotted.sqlize("data.users[age>=30]", driver='asyncpg')
-    >>> r.build(r.where)
-    ("jsonb_path_exists(data, '$.users[*] ? (@.age >= 30)')", [])
-
-    >>> r = dotted.sqlize('data.users[*&age>=30].name = "alice"',
-    ...                   driver='asyncpg')
-    >>> sql, params = r.build(r.where)
-    >>> sql
-    "jsonb_path_exists(data, '$.users[*] ? (@.age >= 30).name ? (@ == $_p1)', jsonb_build_object('_p1', $1::text))"
-    >>> params
-    ['alice']
-
-The `::text` on the placeholder above is driver-dependent. `asyncpg`
-and `psycopg` (v3) emit explicit SQL casts inside `jsonb_build_object`
-because their placeholders get typed server-side at PREPARE time;
-`psycopg2` substitutes client-side and has no such cast.
-
-Pattern predicates compose with scalar ones via dotted's `&` / `,` /
-`!`:
-
-    >>> r = dotted.sqlize('(data.users[*].age >= 30 & status = "active")',
-    ...                   driver='asyncpg')
-    >>> sql, params = r.build(r.where)
-    >>> sql
-    "(jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')) AND (status = $1)"
-
-Pattern paths produce three fragments: the filter-style `r.where`
-(via `jsonb_path_exists`), the extract-style `r.lateral` (via
-`LATERAL jsonb_path_query`), and `r.select` pointing at the lateral's
-output alias. Use whichever matches your row semantics — filter-style
-keeps one row per source row, extract-style produces one row per
-match.
+A pattern path gives three fragments: the filter-style `r.where`,
+whether it reaches anything (an `EXISTS`); the extract-style
+`r.lateral`, its matches, a `value` each; and `r.select`, the lateral's
+value.
 
     >>> r = dotted.sqlize('data.users[*].age >= 30', driver='asyncpg')
-    >>> str(r.where)
-    "jsonb_path_exists(data, '$.users[*].age ? (@ >= 30)')"
-    >>> str(r.lateral)
-    "LATERAL jsonb_path_query(data, '$.users[*].age ? (@ >= 30)') AS _pat1(value)"
     >>> str(r.select)
     '_pat1.value'
+    >>> str(r.where).startswith('EXISTS (')
+    True
+    >>> str(r.lateral).startswith('LATERAL (SELECT _pat2.value FROM (')
+    True
 
 Filter-style — "which items have any matching user?":
 
-    SELECT id FROM items WHERE jsonb_path_exists(...)
+    SELECT id FROM items WHERE EXISTS (...)
     # composed:  "SELECT id FROM items WHERE " + r.where
 
 Extract-style — "each matching age, one row per match":
 
-    SELECT id, _pat1.value FROM items, LATERAL jsonb_path_query(...) AS _pat1(value)
+    SELECT id, _pat1.value FROM items, LATERAL (...) AS _pat1(value)
     # composed:  "SELECT id, " + r.select + " FROM items, " + r.lateral
 
 The lateral fragment has no leading comma or `JOIN` keyword — attach
@@ -3802,22 +3840,93 @@ Lateral aliases (`_pat1`, `_pat2`, …) are allocated from the
 `ParamPool`, so two pattern paths sharing a pool pick distinct
 aliases and compose into one query without collision.
 
-Not yet supported:
-- Regex-in-access like `data./prefix_\d+/.field`
-- Pattern refs
+A group in a path matches as `get` does: each branch's matches, with
+the path after the group run on from each branch. An `&` group matches
+only where every branch does, at each node it is at:
+`data.users[*].(age >= 30 & active = True)` needs one user who is both.
+A group of guards, `data.(a = 1, b = 2)`, keeps plain predicates for
+`r.where`; its `r.select` is its matches.
+
+A first-match group, `(a, b)?`, is the first match of the first branch
+to have one, in dotted's order, the branch alone; the path after the
+group runs on from that match, and a guard after it tests that match.
+
+A cut, `(a#, b)`, holds at each node: `b`'s way yields only where `a`'s
+reaches nothing there. In a conjunction, `(a#&b)`, the cut leaves `b`
+unread, and in a first-match group it changes nothing. A soft cut,
+`(a##, *)`, compares the paths of matches: `*` skips what overlaps
+`a`'s, the ways read with their paths and folded in order with a
+recursive query, as dotted does. A cut or a soft cut changes which
+matches a group yields, not whether it yields any, so `r.where` reads
+the group without them.
+
+A negation, `!`, is the complement of what its path matches, not
+`NOT`: `data.(!(status = "banned"))` matches `x` in `{"status":
+"banned", "x": 1}`. `r.lateral` yields the largest subtrees that hold
+no match, as dotted does: a recursive query walks down through the
+children the matches run through and keeps the children none reaches,
+and `r.where` is whether there is one.
+
+An aligned op, `[*+]`, yields for each match what the path after it
+reaches, or one null where it reaches nothing.
+
+A group at the top of a path, `(title, author)`, reads the row's
+columns as one value: a `jsonb_build_object` of the columns its
+branches name, which every kind of group, cut and soft cut reads as it
+would any node. `r.select` and `r.lateral` are its matches; a group of
+guards keeps plain predicates for `r.where`, as `(age >= 18 & status =
+"active")` does above. A negation at the top of a path is the
+complement among all the row's columns, so it reads the whole row of a
+[table search](#sqlize-table-search)'s table; in a column path, which
+has no table, it raises `TranslationError`.
+
+### Writes (`as_update`)
+
+`r.as_update(value)` is the write of `value` at the path's matches, as
+dotted's `update` does it: `value` at each match; along a path of
+literal keys and slots, the nodes it lacks built, a null one replaced,
+as dotted builds them; a slot past the end appending; a pattern, filter
+or guard writing only what is there and passes; `~` holding a segment
+back; `[+]` appending, and `[+?]` where the array doesn't hold it, as
+Python's `in` tells. For a column path it is the assignments, for an
+`UPDATE ... SET`:
+
+    >>> r = dotted.sqlize('status', driver='asyncpg')
+    >>> r.build('UPDATE items SET ' + r.as_update('banned'))
+    ('UPDATE items SET status = $1', ['banned'])
+
+    >>> r = dotted.sqlize('data.user.role', driver='asyncpg')
+    >>> sql, args = r.build('UPDATE items SET ' + r.as_update('admin'))
+    >>> sql.startswith('UPDATE items SET data = CASE WHEN data IS NULL')
+    True
+    >>> args[-1]
+    '"admin"'
+
+A value is a literal, sent as a parameter, or a `Raw` / `Col` SQL
+expression. A transform at the end of the path, `data.user.age|int`,
+applies to a literal value, as dotted's does; on a SQL expression it
+raises. Where dotted's update raises — a key on a string or an array,
+an index before an array's start — the query fails with a
+`dotted update: …` message.
+
+Not yet supported (`TranslationError`):
+- Regex keys, `data./prefix_\d+/.field`; references inside pattern
+  paths; a `**` with depths or accessors; first filters, `[*&a=1?]`
+- Transforms other than `int`, `float` and `str`, or with arguments
+- In a write: groups, `!`, `**` and slices; a table search
 
 <a id="sqlize-table-search"></a>
-### Table search
+### `sqlize` table search
 
 By default a path's first segment is a column of the row. With
 `root='table'` the path searches a table instead: its leading keys name
 the table, a row step walks its rows, and the rest is a column path
-under each row, read as above:
+under each row, read as above. `r.from_` is what to select from:
 
     >>> r = dotted.sqlize('books[*&author="kafka"].title', driver='asyncpg', root='table')
     >>> r.table
     'books'
-    >>> r.build('SELECT ' + r.select + f' FROM {r.table} WHERE ' + r.where)
+    >>> r.build('SELECT ' + r.select + ' FROM ' + r.from_ + ' WHERE ' + r.where)
     ('SELECT title FROM books WHERE author = $1', ['kafka'])
 
 | row step | gives |
@@ -3835,11 +3944,25 @@ A slice filter and a slice keep the rows one list, as in dotted, so
     >>> r.offset, r.limit
     (10, 10)
 
+A group after the row step reads the row's columns, as one at the top
+of a column path does ([pattern paths](#pattern-paths)); attach its
+lateral after the table:
+
+    >>> r = dotted.sqlize('books[*](.title, .author)', driver='asyncpg', root='table')
+    >>> "jsonb_build_object('title', title, 'author', author) AS value" in str(r.lateral)
+    True
+    >>> sql = 'SELECT ' + r.select + ' FROM ' + r.from_ + ', ' + r.lateral
+
+A negation after the row step, `books[*](!.title)`, is the complement
+among all the row's columns, read from the table's whole row,
+`to_jsonb(books)` (the name without its schema). An unnamed table has
+no row to read, so there it raises `TranslationError`.
+
 With nothing after the row step, `select` is `*`. Everything before
 it is the table's name, taken whole:
 
     >>> dotted.sqlize('public.books[0]', driver='asyncpg', root='table')
-    AsyncPGResolver(driver='asyncpg', select='*', table='public.books', offset=0, limit=1)
+    AsyncPGResolver(driver='asyncpg', select='*', from_='public.books', table='public.books', offset=0, limit=1)
 
 A path that starts with a row step searches an unnamed table, so it
 needs no `root=`; the caller supplies the `FROM`:
@@ -3851,10 +3974,39 @@ needs no `root=`; the caller supplies the `FROM`:
 `r.table`, `r.offset` and `r.limit` are plain values, not fragments,
 and stay out of the Mapping. The table's name comes back as the path
 spells it; quoting it is the caller's (`Col(r.table)` validates it).
+`r.from_` is a fragment: the table, quoted where it needs it, or the
+rows a group of row steps yields.
+
+A group as the row step, `books[(*&a=1, *&b=2)]` (the same as
+`books([*&a=1], [*&b=2])`), yields each branch's rows in turn, a row
+both reach twice, as dotted does. No `WHERE` can give a row twice, so
+`r.from_` is a derived table of them under the table's name, and
+`r.where` and `r.select` are the path after the group's, from each row:
+
+    >>> r = dotted.sqlize('books[(*&author="kafka", *&year<1920)].title', driver='asyncpg', root='table')
+    >>> r.build('SELECT ' + r.select + ' FROM ' + r.from_)
+    ('SELECT title FROM ((SELECT * FROM books WHERE author = $1) UNION ALL (SELECT * FROM books WHERE year < $2)) AS books', ['kafka', 1920])
+
+The group reads the table as one node, as dotted reads the list of
+rows: after a cut, `(a#, b)`, `b`'s rows come only where `a` yielded
+no row at all (`NOT EXISTS`); after a soft cut, `(a##, b)`, `b` skips
+the rows `a` yielded; a first match, `(a, b)?`, is the first row of
+the first branch with one (`LIMIT 1`); an `&` group yields only where
+every branch reaches a row; and a negation, `books(![*&a=1])`, is the
+rows its step doesn't reach, a row its filter is null for among them.
+A branch may be `[*]`, `[*&…]` or `[n]`; a slice filter before the
+group filters every branch's rows.
 
 Not yet supported (`TranslationError`):
-- Selecting several columns, `books[*](.title,.author)` or the packed
-  `books[*](.title,.author;)`
+- A packed group, `books[*](.title,.author;)`
+- A group of row steps of an unnamed table, which has none to select
+  from; a branch that goes on past its row step,
+  `books([*&a=1].title, [*&b=2].author)`; and one that is a slice
+  filter or slice, which reads the list of rows
+- A soft cut or a negation over rows an index picks, `[(0##, *&a=1)]`:
+  no predicate tells those rows apart; and a soft cut whose path after
+  the group may match a row more than once (`.tags[*]`)
+- A group of row steps after a slice
 - A key straight after a slice filter or slice (`books[a=1].title` —
   dotted reads a key of the list there; use `books[a=1][*].title`)
 - A row step after `[*]`, `[*&…]` or `[n]` — dotted indexes into each
@@ -3970,11 +4122,11 @@ registered drivers (built-ins + anything third-party code has added).
 |-----------------|------------------------------|---------------------------------------------------------------------|
 | `.driver`       | `str`                        | Name the resolver was registered under                              |
 | `.paramstyle`   | `str`                        | PEP 249 paramstyle emitted by `.build()`                            |
-| `.cast`         | `bool`                       | Whether `.build()` emits explicit SQL casts in polymorphic contexts |
+| `.cast`         | `bool`                       | Whether `.build()` casts a marker that asks for one; none sqlize makes does |
 | `.select`       | `SQLFragment` \| `None`      | Extraction expression (for pattern paths: ref into `.lateral`)      |
 | `.where`        | `SQLFragment` \| `None`      | Predicate (None for pure traversals)                                |
-| `.from_`        | `SQLFragment` \| `None`      | FROM extension (reserved)                                           |
-| `.lateral`      | `SQLFragment` \| `None`      | `LATERAL jsonb_path_query(...) AS _patN(value)` for pattern paths   |
+| `.from_`        | `SQLFragment` \| `None`      | a table search's FROM: the table, or a group of row steps' rows     |
+| `.lateral`      | `SQLFragment` \| `None`      | `LATERAL (...) AS _patN(value)`: a pattern path's matches          |
 | `.unbound`      | `dict`                       | Union of fragments' unbound mappings: `{bind_name: original_name}`  |
 | `.table`        | `str` \| `None`              | Table search: the table's name, as the path spells it               |
 | `.offset`       | `int` \| `None`              | Table search: rows to skip                                          |
@@ -4024,10 +4176,20 @@ A `SQLFragment` carries:
 - `**bindings` — values for substitutions, keyed by original
   substitution name.
 
+`r.as_update(value)`
+
+- `value` — a literal, sent as a parameter, or a `Raw` / `Col` SQL
+  expression.
+- Returns a `SQLFragment`: for a column path, the assignments for an
+  `UPDATE ... SET`, each column's new value as dotted's `update` writes
+  `value` at the path's matches (see *Writes* above). Build it with
+  `r.build`. A table search, and groups, `!`, `**` and slices in the
+  path, raise `TranslationError`.
+
 The `Resolver.build(sql, paramstyle='...', **bindings)` classmethod is
 retained as a low-level escape hatch that takes an explicit paramstyle
-and bypasses the driver's cast setting. Normal application code uses
-the instance form above.
+in place of the driver's. Normal application code uses the instance
+form above.
 
 A `ParamStyle` enum is available for the low-level classmethod and
 for introspection. Members are accepted alongside their `.value`
@@ -4036,65 +4198,142 @@ strings at `Resolver.build` — enum members normalize internally:
     >>> dotted.ParamStyle.named, dotted.ParamStyle.dollar_numeric
     (<ParamStyle.named: 'named'>, <ParamStyle.dollar_numeric: 'dollar-numeric'>)
 
-Unsupported features and pattern paths raise `dotted.TranslationError`.
+Unsupported features raise `dotted.TranslationError`.
 
-<a id="sparkize"></a>
+<a id="spark-translation-sparkize"></a>
 ## Spark Translation (`sparkize`)
 
-> **Under development.** The API shape and supported subset of dotted
-> features may still change. PySpark only (classic and Spark Connect).
-> Needs `pip install dotted-notation[spark]` (`pyspark>=3.4`).
+> **Under development.** The API shape may still change. PySpark only
+> (classic and Spark Connect). Needs `pip install dotted-notation[spark]`
+> (`pyspark>=3.4`). A translation reads as dotted does; where Spark
+> can't give what dotted would, it raises: `TranslationError` while
+> translating or building, or a `dotted: …` error when the job meets a
+> value it can't read as dotted does.
 
 `dotted.sparkize(path, flavor='pyspark')` translates a dotted path into
 PySpark `Column` expressions for `df.where(...)` / `df.select(...)`. It
 is the Spark counterpart of `sqlize`, on the same translation walk:
 `r.select` and `r.where` are fragments, and `r.build(fragment,
-**bindings)` makes the `Column`.
+schema=df.schema, **bindings)` makes the `Column`.
 
 Columns are native Spark types. The first path segment is the column;
-further segments reach into structs, maps and arrays. A JSON string
-column isn't parsed for you: give the DataFrame real struct columns
-(read them that way, or `from_json` with your own schema) first.
+further segments read into structs, maps and arrays, each node read by
+its type as dotted reads a Python value by its own: a struct and a map
+as a dict, an array as a list, as `row.asDict(recursive=True)` hands
+them to Python. The DataFrame's schema says what each node is, so
+`build` takes it. A JSON string column isn't parsed for you: give the
+DataFrame real struct columns (read them that way, or `from_json` with
+your own schema) first.
 
     import dotted
 
     r = dotted.sparkize('data.user.age >= 30', flavor='pyspark')
-    df.where(r.build(r.where))
+    df.where(r.build(r.where, schema=df.schema))
 
     r = dotted.sparkize('data.user.name', flavor='pyspark')
-    df.select(r.build(r.select))
+    df.select(r.build(r.select, schema=df.schema))
 
 `flavor=` is required, as `driver=` is for `sqlize`; the examples
-below leave it out for brevity.
+below leave it out, and `schema=df.schema`, for brevity.
 
-| dotted | Spark |
-|--------|-------|
-| `col.a.b` | struct field / map key extraction |
-| `col[0]`, `col[-1]` | array index (0-based, negative from the end; out of range is null) |
-| `= != < <= > >=` | the Column comparison against `lit(value)` |
-| `= None`, `!= None` | `isNull()`, `isNotNull()` |
-| `= /re/`, `!= /re/` | `rlike(re)`, `~rlike(re)` |
-| `\|int \|float \|str \|bool` | `cast('int' \| 'double' \| 'string' \| 'boolean')` |
-| `(a & b)`, `(a, b)`, `!(a)` | `&`, `\|`, `~` |
-| `tags.$$(pick)` | map lookup by another column's value |
-| `arr[*].x = v`, `arr[x = v]` | `exists(arr, ...)` in `where`; `transform` / `filter` in `select` |
-| `map.*` | every value of a map (`map_values`) |
+| dotted | at a node that is |
+|--------|-------------------|
+| `.k`, `['k']` | a struct: its field `k`; a map: its value at a key equal to `'k'` |
+| `.0`, `[0]`, `[-1]` | an array: its element; a string: its character; a map with int keys: its value at `0` |
+| `.*` | a struct's fields' values, a map's values |
+| `[*]` | those, and an array's elements, a string's characters |
+| `**` | every value under it by keys, through structs and maps, each before what is under it |
+| `[1:3]`, `[::-1]` | an array's or string's slice, one value |
+| `[a = 1]` | an array's elements the filter keeps, one value |
+| `= != < <= > >=` | Python's comparison |
+| `= /re/` | the regex fullmatches `str()` of the value |
+| `\|int \|float \|str` | dotted's transform |
+
+### Reading as dotted reads
+
+A key reads a struct's field or a map's value; an int, an array's
+element or a string's character, never a struct's field, whose names
+are strings, though a map with int keys has one at it. A node that is
+there may be None: a struct's null field is there, as `asDict` gives it
+with its None, and a map's missing key isn't.
+
+A comparison goes as Python's does, by the values' types: a number and
+a bool as numbers (`True == 1`), exactly (`1 == 1.0`, but an int is
+never equal to `0.1`, and a `DECIMAL` `0.1` isn't the float `0.1`), a
+string with a string in code-point order, any other pairing unequal and
+unordered: `'30' = 30` is false where Spark would cast. `!=` is `=`'s
+negation, so it holds for a null; `<` and its kind are false for one; a
+NaN orders nowhere. A guard tests a value that is there: a missing key
+matches neither `= None` nor `!= 1`.
+
+A regex fullmatches `str()` of the value, as dotted's does, written in
+Java's syntax as Python reads it: a number as Python writes it,
+`True` / `False`, `None` for a null. `int`, `float` and `str` run as
+dotted's: `int` truncates a number and reads a string `int()` reads,
+and keeps what `int()` raises on; `float` raises on a None and a
+container, which fails the job.
+
+Where dotted raises, as `float` on a None or a slice filter on a
+scalar, the job fails with a `dotted: …` message, and so where dotted's
+answer is a Python repr, `str()` of a struct, map or array, which Spark
+can't write. A float's `str()` is built from Java's digits: before
+Java 19, Java writes a few floats with digits that aren't Python's
+shortest.
 
 ### Pattern paths
 
-`[*]`, a map's `*` and bracket filters work on both sides. `where` is
-whether any element matches; `select` is the array of the matches, in
-order:
+`where` is whether the path reaches anything; `select` is the array of
+its matches, in dotted's order:
 
     r = dotted.sparkize('data.users[*].age >= 30')
     df.where(r.build(r.where))      # rows with some user aged 30+
     df.select(r.build(r.select))    # per row, the ages that are 30+
 
-    r = dotted.sparkize('data.users[active = True].age')
+    r = dotted.sparkize('data.users[*&active = True].age')
     df.select(r.build(r.select))    # per row, the active users' ages
 
-`**`, and `*` over a struct's fields, need the schema — Spark can't
-iterate struct fields at run time — and raise `TranslationError`.
+A Spark array holds values of one type, so a `select` whose matches
+can be of more than one type raises at `build`, ints as a long and
+floats as a double aside: `data.*` over a struct of an int and a
+string. Its `where` reads as any.
+
+A path with no pattern in it selects its one value, as `get` gives it:
+`data.users[active = False]` is the filtered list.
+
+A group in a path matches as `get` does: `select` is each branch's
+matches in turn, the path after the group run on from each, and an `&`
+group matches only where every branch does, at each node it is at:
+
+    r = dotted.sparkize('data.(user, users[*]).age')
+    df.select(r.build(r.select))    # per row, user.age then each users[*].age
+
+    r = dotted.sparkize('data.users[*].(age >= 30 & active = True)')
+    df.where(r.build(r.where))      # rows with one user both 30+ and active
+
+A first-match group, `(a, b)?`, is the first match of the first branch
+to have one, the path after it run on from that match:
+
+    r = dotted.sparkize('data.(users[*], user)?.age')
+    df.select(r.build(r.select))    # per row, the first user's age, else user.age
+
+After a cut, `(a#, b)`, `b` runs only where `a` found nothing, at each
+node. After a soft cut, `(a##, b)`, `b` skips what overlaps `a`'s
+matches: the group's branches are read with their paths and folded in
+order (`aggregate`). A negation, `!`, is the complement of what its
+path matches, not `~`: `tags(!.color)` is every value of `tags` but
+`color`'s, split level by level to the depth its path reads, over a
+struct's fields, a map's entries and an array's elements.
+
+A group at the top of a path, or after a [table
+search](#sparkize-table-search)'s row step, reads the row's columns as
+one struct of the columns its branches name, so every kind of group,
+cut and soft cut works there as at any node:
+
+    r = dotted.sparkize('(age >= 30#, data.user.age)')
+    df.select(r.build(r.select))    # per row, age where it's 30+, else user.age
+
+A negation there, in a search of a named table, is the complement among
+all the row's columns.
 
 ### Substitutions (late binding)
 
@@ -4103,14 +4342,15 @@ up front with `bindings=`:
 
     r = dotted.sparkize('age >= $(min_age)')
     r.unbound                        # {'min_age': 'min_age'}
-    df.where(r.build(r.where, min_age=30))
+    df.where(r.build(r.where, schema=df.schema, min_age=30))
 
     r = dotted.sparkize('age >= $(min_age)', bindings={'min_age': 30})
-    df.where(r.build(r.where))
+    df.where(r.build(r.where, schema=df.schema))
 
-A binding may be any value `lit` accepts, a `Column` included, which is
-used as is: `r.build(r.where, min_age=F.col('floor'))`. A binding of
-`None` is a null test, as a literal `None` is.
+A binding is compared as Python compares it: `min_age=30.5` is no int.
+A `Column` binding is compared by its type, which `build` reads in the
+active session: `r.build(r.where, schema=df.schema,
+min_age=F.col('floor'))`.
 
 ### Composing fragments
 
@@ -4120,10 +4360,10 @@ A `Column` can't hold a placeholder, so `r.where` is a
 
     a = dotted.sparkize('age >= $(min_age)')
     b = dotted.sparkize('status = "active"')
-    df.where(a.build(a.where & b.where, min_age=30))
+    df.where(a.build(a.where & b.where, schema=df.schema, min_age=30))
 
 <a id="sparkize-table-search"></a>
-### Table search
+### `sparkize` table search
 
 `root='table'` reads a path as a [table search](#sqlize-table-search), the
 same as for `sqlize`: the leading keys name a DataFrame or table, and
@@ -4132,14 +4372,41 @@ same as for `sqlize`: the leading keys name a DataFrame or table, and
 3.4+):
 
     r = dotted.sparkize('books[author="kafka"][10:20][*].title', root='table')
-    (spark.table(r.table)
-          .where(r.build(r.where))
+    books = spark.table(r.table)
+    (books.where(r.build(r.where, schema=books.schema))
           .offset(r.offset).limit(r.limit)
-          .select(r.build(r.select)))
+          .select(r.build(r.select, schema=books.schema)))
 
 With nothing after the row step, `select` is every column
 (`col('*')`). A path that starts with a row step, `[*&author="kafka"]`,
 needs no name and no `root=`: apply its `where` to any DataFrame.
+
+A [group as the row step](#sqlize-table-search), `books[(*&a=1,
+*&b=2)]`, yields a row once per branch that reaches it, which no
+`where` can give: read the rows with `r.rows`, from the table's
+DataFrame, then chain as above. For any other search `r.rows(df)` is
+`df` itself, so it's always safe to call:
+
+    r = dotted.sparkize('books[(*&author="kafka", *&year<1920)].title', root='table')
+    rows = r.rows(spark.table(r.table))     # each branch's rows, unionByName
+    rows.select(r.build(r.select, schema=rows.schema))
+
+`rows` takes `bindings` as `build` does. A cut, a first match or an
+`&` over the table is a cross join with a one-row count of the rows it
+tests. An unnamed table's group works too, from whichever DataFrame is
+handed in; otherwise the same groups raise as in `sqlize`.
+
+Not yet supported (`TranslationError`):
+- A `**` with depths or accessors, `**:2`; a negation reaching any
+  depth, `!**.x`
+- Regex keys, `data./prefix_\d+/.field`; references inside pattern
+  paths; first filters, `[*&a=1?]`; packed filter keys
+- A transform on the column itself, `age|int`; transforms other than
+  `int`, `float` and `str`, or with arguments
+- Comparing a `DECIMAL` with a float `Column`; `str()` or a regex of a
+  timestamp, whose Python value depends on the session's time zone;
+  reading into a binary value
+- Writes
 
 ### API reference
 
@@ -4155,10 +4422,12 @@ needs no name and no `root=`: apply its `where` to any DataFrame.
 - `root` — `'column'` (default): the first segment is a column.
   `'table'`: a [table search](#sparkize-table-search).
 
-`r.build(fragment, **bindings)`
+`r.build(fragment, schema=None, **bindings)`
 
 - `fragment` — a `ColumnFragment` (`r.where`, `r.select`, or a
   composition of fragments).
+- `schema` — **required**. The schema of the DataFrame the Column
+  reads, `df.schema`: a path reads each node by its type.
 - `**bindings` — values for substitutions, keyed by original
   substitution name. An unknown or missing binding raises
   `TranslationError`.
@@ -4280,8 +4549,8 @@ Multiple paths produce a projection preserving nested structure:
     echo '{"a": {"x": 1, "y": 2}, "b": 3}' | dq -p a.x -p b
     # {"a": {"x": 1}, "b": 3}
 
-<a id="unpack"></a>
-### Unpack
+<a id="unpacking-output"></a>
+### Unpacking output
 
 Use `--unpack` to flatten the result to dotted normal form. Lists of dicts
 are fully expanded with indexed paths:
@@ -4297,8 +4566,8 @@ are fully expanded with indexed paths:
 Add `--unpack-attrs standard` to include object attributes (excluding dunders),
 or `--unpack-attrs standard special` for all attributes.
 
-<a id="pack"></a>
-### Pack
+<a id="packing-input"></a>
+### Packing input
 
 Use `--pack` to rebuild nested structure from dotted normal form, including
 indexed lists:
@@ -4431,7 +4700,7 @@ A slice filter like `[id=1]` returns the **filtered sublist** as a single value 
 But you probably don't want to update a slice filter anyway — instead, use a pattern like `[*&id=1]` which walks the items individually and updates each match in place.
 
 <a id="why-cant-i-use-patterns-on-stripe-objects"></a>
-### Why can't I use patterns to discover keys/attrs on my Stripe object?
+### Why can't I use patterns on Stripe objects?
 
 Pattern access (`@*`, `.*`) works by enumerating an object's known keys or attributes. Dotted checks `__dict__`, `__slots__`, `_fields` (namedtuples), and `keys()` (for key fields). Stripe objects don't use any of these — they store data in an internal `_data` dict and expose it through a custom `__getattr__`. Since Python has no standard protocol for asking "what keys does your `__getattr__` accept?", there's nothing for dotted to enumerate.
 

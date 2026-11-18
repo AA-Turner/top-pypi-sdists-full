@@ -15,6 +15,7 @@ d_admin/org_id:
     - w+d:connect_provider/org_id
     - r+w+d:connect_resource/org_id
     - w:organization/org_id
+    - r+w:user_groups/org_id
 d_editor/org_id:
     # DEPRECATED
     # For compatibility

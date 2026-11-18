@@ -5,7 +5,8 @@ from functools import cache
 from math import isfinite
 from typing import Any
 
-from dreamscale_transport import catalog, families
+from dreamscale_transport import _catalog_client as catalog
+from dreamscale_transport import families
 from dreamscale_transport.images import WireImage
 
 from dreamscale.model_names import internal_model, public_model
@@ -30,7 +31,7 @@ class RuntimeContract:
     # chunk's wall-clock horizon scales with the commanded rate.
     native_action_hz: float | None = None
     # These coordinates have a model-level [0, 1] contract, independent of any
-    # robot's site-specific joint limits. Raw DreamZero YAM grippers are excluded.
+    # robot's site-specific joint limits.
     normalized_gripper_indices: tuple[int, ...] = ()
     fixed_rate: bool = False
     # Robot coordinates, independent of checkpoint identity or gripper scaling.
@@ -342,12 +343,6 @@ def runtime_contract_for_model(model: str | None) -> RuntimeContract:
 
 def resolve_control_hz(model: str | None, requested: int | float | None) -> float | None:
     """Resolve one model's command rate, defaulting to its native rate.
-
-    This is the only place a DreamZero control rate is decided. Every other
-    layer reads it rather than restating it: the rate had drifted independently
-    across the transport constants, the SDK contract, the control-plane
-    capabilities, the Inspect adapter, and the published wheel, and each
-    disagreement was silent.
     """
 
     exported = exported_base(model)

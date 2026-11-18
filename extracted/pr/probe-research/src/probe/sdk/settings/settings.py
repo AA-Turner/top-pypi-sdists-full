@@ -8,7 +8,8 @@ Env vars:
   PROBE_MCP_TOKEN     a read-only token for the MCP surface (see mcp_token below)
   PROBE_MCP_URL       the Probe MCP to read from (default: the stock MCP, only beside
                       the stock API; see mcp_url)
-  PROBE_SERVICE_TOKEN a read-only egress token (probe_svc_...) for the read-only Reader
+  PROBE_SERVICE_TOKEN a team API key (probe_svc_...): read-only, reads as the admin who made
+                      it; outranks a login in the config file, and refuses to sit beside PROBE_TOKEN
   PROBE_INGEST_TOKEN  an ingest token (ros_ing_...) for /ingest
   PROBE_HMAC_SECRET   optional shared secret for the X-Signature body HMAC on /ingest
   PROBE_WORKSPACE     this computer's workspace (an id or a slug), overriding the context file
@@ -81,6 +82,7 @@ from probe.foundation.compat.compat import StrEnum
 from pathlib import Path
 
 from ...foundation.durable import homedir
+from .credential_choice import choose_api_credential, rank_of
 from .workspace_limit import LIMIT_ENV
 
 if TYPE_CHECKING:
@@ -617,6 +619,18 @@ class Settings:
     workspace_source: WorkspaceSource | None = None
     #: Where `project` came from; only `resolve()` fills it (None: hand-built, read as explicit).
     project_source: ProjectSource | None = None
+    #: Set when a personal token and a team API key were given at the same explicit rank (both arguments, or
+    #: PROBE_TOKEN and PROBE_SERVICE_TOKEN): a `/v1` request raises it as an AuthError (`credential_choice.py`).
+    credential_conflict: str | None = None
+    #: `/v1` sends `service_token`, not `token`: a key given more explicitly than the stored login (D13). The
+    #: login stays on `token` for sign-in and identity checks (`credential_choice.py`).
+    should_use_service_token: bool = False
+
+    def get_api_bearer(self) -> str | None:
+        """The credential a `/v1` request carries."""
+        if self.should_use_service_token:
+            return self.service_token
+        return self.token or self.service_token
 
 
 def resolve(
@@ -660,6 +674,15 @@ def resolve(
         (anchor.get(PROJECT_KEY), ProjectSource.CONTEXT),
     )
     project, project_source = next(((value, source) for value, source in projects if value), (None, None))
+    # D13: a team key given more explicitly than a personal token outranks it (a server's PROBE_SERVICE_TOKEN
+    # beats a login stored on the box); a tie as arguments or env vars is refused on use.
+    service_token_env, token_env = env.get(SERVICE_TOKEN_ENV), env.get(TOKEN_ENV)
+    credential = choose_api_credential(
+        token or token_env or file.get(TOKEN_KEY),
+        rank_of(token, token_env, file.get(TOKEN_KEY)),
+        service_token or service_token_env or file.get(SERVICE_TOKEN_KEY),
+        rank_of(service_token, service_token_env, file.get(SERVICE_TOKEN_KEY)),
+    )
     return Settings(
         # PROBE_BASE_URL must outrank the context file: hosted MCP pods set it
         # (deploy/mcp/k8s.yaml) to the in-cluster service, and a context outranking it would
@@ -667,11 +690,11 @@ def resolve(
         base_url=(
             base_url or env.get(BASE_URL_ENV) or file.get(BASE_URL_KEY) or DEFAULT_BASE_URL
         ).rstrip("/"),
-        token=token or env.get(TOKEN_ENV) or file.get(TOKEN_KEY),
-        # Read-only egress credential (probe_svc_) for an external product: team-scoped, userless.
-        service_token=(
-            service_token or env.get(SERVICE_TOKEN_ENV) or file.get(SERVICE_TOKEN_KEY)
-        ),
+        token=token or token_env or file.get(TOKEN_KEY),
+        # A team API key (probe_svc_): team-scoped and read-only, it reads as the admin who made it.
+        service_token=service_token or service_token_env or file.get(SERVICE_TOKEN_KEY),
+        credential_conflict=credential.conflict,
+        should_use_service_token=credential.should_use_service_token,
         # Env first keeps shells exporting PROBE_MCP_TOKEN working. Never falls back to `token` (writable).
         mcp_token=mcp_token or env.get(MCP_TOKEN_ENV) or file.get(MCP_TOKEN_KEY),
         ingest_token=(

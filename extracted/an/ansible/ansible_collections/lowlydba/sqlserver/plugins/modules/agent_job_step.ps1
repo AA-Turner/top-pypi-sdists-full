@@ -65,20 +65,22 @@ $PSDefaultParameterValues = @{ "*:EnableException" = $true; "*:Confirm" = $false
 # Configure Agent job step
 try {
     $existingJobSteps = Get-DbaAgentJobStep -SqlInstance $SqlInstance -SqlCredential $sqlCredential -Job $job
-    $existingJobStep = $existingJobSteps | Where-Object Name -eq $stepName
 
     if ($state -eq "absent") {
-        if ($null -eq $existingJobStep) {
-            # try fetching name by id if we only care about removing
+        # Either step_id or step_name may be supplied; look up by whichever is available.
+        $existingJobStep = $null
+        if ($stepId) {
             $existingJobStep = $existingJobSteps | Where-Object Id -eq $stepId
-            $stepName = $existingJobStep.Name
+        }
+        if ($null -eq $existingJobStep -and $stepName) {
+            $existingJobStep = $existingJobSteps | Where-Object Name -eq $stepName
         }
         if ($existingJobStep) {
             $removeStepSplat = @{
                 SqlInstance = $sqlInstance
                 SqlCredential = $sqlCredential
                 Job = $job
-                StepName = $stepName
+                StepName = $existingJobStep.Name
             }
             $output = Remove-DbaAgentJobStep @removeStepSplat
             $module.Result.changed = $true
@@ -88,6 +90,18 @@ try {
         if (!($stepName) -or !($stepId)) {
             $module.FailJson("Step name and step_id must be specified when state=present.")
         }
+        # step_id and step_name are both required here, and step_name may be a new name for an
+        # existing step (rename), so look up strictly by the immutable id rather than by name.
+        $existingJobStep = $existingJobSteps | Where-Object Id -eq $stepId
+
+        # Validate step name isn't taken already by another step - must be unique within a job.
+        # This covers both renaming onto an already-taken name and creating a new step whose
+        # name collides with an existing one under a different step_id.
+        $conflictingStep = $existingJobSteps | Where-Object { $_.Name -eq $stepName -and $_.ID -ne $stepId }
+        if ($conflictingStep) {
+            $module.FailJson("There is already a step named '$stepName' for this job with an ID of $($conflictingStep.ID).")
+        }
+
         $jobStepParams = @{
             SqlInstance = $sqlInstance
             SqlCredential = $sqlCredential
@@ -121,28 +135,11 @@ try {
                     Step = $stepName
                     OutputFile = $outputFile
                 }
-                $outputFileResult = Set-DbaAgentJobOutputFile @setOutputFileSplat
-                if ($null -ne $outputFileResult) {
-                    $module.Result.changed = $true
-                    # Add the OutputFileName property from the Set-DbaAgentJobOutputFile result
-                    if ($null -ne $outputFileResult.OutputFileName) {
-                        Add-Member -InputObject $output -MemberType NoteProperty -Name "OutputFileName" -Value $outputFileResult.OutputFileName -Force
-                    }
-                }
-            }
-
-            # Ensure OutputFileName property is always available for consistency
-            if ($null -ne $output -and -not ($output.PSObject.Properties.Name -contains "OutputFileName")) {
-                Add-Member -InputObject $output -MemberType NoteProperty -Name "OutputFileName" -Value $output.OutputFileName -Force
+                $null = Set-DbaAgentJobOutputFile @setOutputFileSplat
             }
         }
         # Update existing
         else {
-            # Validate step name isn't taken already - must be unique within a job
-            if ($existingJobStep.Name -eq $StepName -and $existingJobStep.ID -ne $stepId) {
-                $module.FailJson("There is already a step named '$StepName' for this job with an ID of $($existingJobStep.ID).")
-            }
-
             # Reference by old name in case new name differs for step id
             $jobStepParams.StepName = $existingJobStep.Name
             $jobStepParams.Add("NewName", $StepName)
@@ -176,29 +173,33 @@ try {
                     Step = $stepName  # Use the new step name since Set-DbaAgentJobStep already renamed it
                     OutputFile = $outputFile
                 }
-                $outputFileResult = Set-DbaAgentJobOutputFile @setOutputFileSplat
-                if ($null -ne $outputFileResult) {
-                    $module.Result.changed = $true
-                    # Add the OutputFileName property from the Set-DbaAgentJobOutputFile result
-                    if ($null -ne $outputFileResult.OutputFileName) {
-                        Add-Member -InputObject $output -MemberType NoteProperty -Name "OutputFileName" -Value $outputFileResult.OutputFileName -Force
-                    }
-                }
-            }
-
-            # Ensure OutputFileName property is always available
-            if ($null -ne $output -and -not ($output.PSObject.Properties.Name -contains "OutputFileName")) {
-                Add-Member -InputObject $output -MemberType NoteProperty -Name "OutputFileName" -Value $output.OutputFileName -Force
+                $null = Set-DbaAgentJobOutputFile @setOutputFileSplat
+                $module.Result.changed = $true
             }
 
             if ($diff -or $checkMode) {
                 $module.Result.changed = $true
             }
         }
+
+        # Re-read the step so data reflects server state; SMO can lag briefly after a rename, so retry a few times
+        if (-not $checkMode -and $null -ne $output) {
+            for ($attempt = 0; $attempt -lt 5; $attempt++) {
+                $refreshed = Get-DbaAgentJobStep -SqlInstance $SqlInstance -SqlCredential $sqlCredential -Job $job | Where-Object Name -eq $stepName
+                if ($null -ne $refreshed) {
+                    break
+                }
+                Start-Sleep -Milliseconds 500
+            }
+            if ($null -ne $refreshed) {
+                $output = $refreshed
+            }
+        }
     }
 
     if ($null -ne $output) {
-        $resultData = ConvertTo-SerializableObject -InputObject $output
+        # Get-DbaAgentJobStep trims the default view (no ID, DatabaseName, OutputFileName), so serialize the full object
+        $resultData = ConvertTo-SerializableObject -InputObject $output -UseDefaultProperty $false
         $module.Result.data = $resultData
     }
     $module.ExitJson()

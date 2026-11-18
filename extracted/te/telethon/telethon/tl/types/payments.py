@@ -5,7 +5,7 @@ import os
 import struct
 from datetime import datetime
 if TYPE_CHECKING:
-    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftActiveAuctionState, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftAuctionAcquiredGift, TypeStarGiftAuctionState, TypeStarGiftAuctionUserState, TypeStarGiftCollection, TypeStarGiftUpgradePrice, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
+    from ...tl.types import TypeBankCardOpenUrl, TypeChat, TypeConnectedBotStarRef, TypeCurrencyRate, TypeDataJSON, TypeInvoice, TypePaymentFormMethod, TypePaymentRequestedInfo, TypePaymentSavedCredentials, TypePeer, TypeSavedStarGift, TypeShippingOption, TypeStarGift, TypeStarGiftActiveAuctionState, TypeStarGiftAttribute, TypeStarGiftAttributeCounter, TypeStarGiftAuctionAcquiredGift, TypeStarGiftAuctionState, TypeStarGiftAuctionUserState, TypeStarGiftCollection, TypeStarGiftUpgradePrice, TypeStarRefProgram, TypeStarsAmount, TypeStarsRevenueStatus, TypeStarsSubscription, TypeStarsTransaction, TypeStatsGraph, TypeTextWithEntities, TypeUpdates, TypeUser, TypeWebDocument
 
 
 
@@ -221,6 +221,39 @@ class ConnectedStarRefBots(TLObject):
             _users.append(_x)
 
         return cls(count=_count, connected_bots=_connected_bots, users=_users)
+
+
+class CurrencyRates(TLObject):
+    CONSTRUCTOR_ID = 0xbbcce4c2
+    SUBCLASS_OF_ID = 0x11d1c3c1
+
+    def __init__(self, rates: List['TypeCurrencyRate']):
+        """
+        Constructor for payments.CurrencyRates: Instance of CurrencyRates.
+        """
+        self.rates = rates
+
+    def to_dict(self):
+        return {
+            '_': 'CurrencyRates',
+            'rates': [] if self.rates is None else [x.to_dict() if isinstance(x, TLObject) else x for x in self.rates]
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xc2\xe4\xcc\xbb',
+            b'\x15\xc4\xb5\x1c',struct.pack('<i', len(self.rates)),b''.join(x._bytes() for x in self.rates),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        reader.read_int()
+        _rates = []
+        for _ in range(reader.read_int()):
+            _x = reader.tgread_object()
+            _rates.append(_x)
+
+        return cls(rates=_rates)
 
 
 class ExportedInvoice(TLObject):
@@ -1259,6 +1292,42 @@ class StarGiftCollectionsNotModified(TLObject):
     @classmethod
     def from_reader(cls, reader):
         return cls()
+
+
+class StarGiftDepositPayload(TLObject):
+    CONSTRUCTOR_ID = 0x725bb4eb
+    SUBCLASS_OF_ID = 0x88f0efb9
+
+    def __init__(self, nft_address: str, payload: bytes, amount: int):
+        """
+        Constructor for payments.StarGiftDepositPayload: Instance of StarGiftDepositPayload.
+        """
+        self.nft_address = nft_address
+        self.payload = payload
+        self.amount = amount
+
+    def to_dict(self):
+        return {
+            '_': 'StarGiftDepositPayload',
+            'nft_address': self.nft_address,
+            'payload': self.payload,
+            'amount': self.amount
+        }
+
+    def _bytes(self):
+        return b''.join((
+            b'\xeb\xb4[r',
+            self.serialize_bytes(self.nft_address),
+            self.serialize_bytes(self.payload),
+            struct.pack('<q', self.amount),
+        ))
+
+    @classmethod
+    def from_reader(cls, reader):
+        _nft_address = reader.tgread_string()
+        _payload = reader.tgread_bytes()
+        _amount = reader.read_long()
+        return cls(nft_address=_nft_address, payload=_payload, amount=_amount)
 
 
 class StarGiftUpgradeAttributes(TLObject):

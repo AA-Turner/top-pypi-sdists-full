@@ -35,26 +35,11 @@ Compared to the latter, it:
 ```
 
 ```{todo}
-Retire the MyST `content_offset` workaround of `click_extra.sphinx._base` once
-the pinned `myst-parser` floor rises past the release carrying the fix for the
-inflated `content_offset`, which the open rework
-[`#1175`](https://github.com/executablebooks/MyST-Parser/pull/1175) does not
-include:
-
-- delete `_myst_content_offset_inflation` and
-  `MYST_CONTENT_OFFSET_INFLATED_MAX`, and collapse
-  `ContentOffsetMixin.abs_content_offset` onto its rST branch
-  (`content_offset` verbatim);
-- drop the `directive.content` fallback in `directive_source`, which stays off
-  `block_text` only because that attribute is body-only in
-  `myst-parser <= 5.1.0`
-  ([`#1164`](https://github.com/executablebooks/MyST-Parser/pull/1164) is
-  merged but unreleased). A released `block_text` anchors a robust
-  line-number computation and retires the workaround from both sides.
-
-The single-trailing-blank-line case documented on
-`_myst_content_offset_inflation` stays off by one until then, and no local fix
-can reach it: the round-trip consumes that line without a trace.
+Collapse `ContentOffsetMixin.abs_content_offset` of `click_extra.sphinx._base`
+onto its rST branch (`content_offset` verbatim) once a `myst-parser` release
+carries the open rework
+[`#1175`](https://github.com/executablebooks/MyST-Parser/pull/1175), which
+makes `content_offset` document-relative.
 ```
 """
 
@@ -77,6 +62,8 @@ from ..capture.presets import (
     Cursor,
     CursorShape,
     TerminalPreset,
+    parse_font_stack,
+    read_palette,
 )
 from ..capture.recording import (
     DEFAULT_QUANTUM,
@@ -84,7 +71,9 @@ from ..capture.recording import (
     DEFAULT_RECORDING_HOLD,
     DEFAULT_SUBMIT,
     Frame,
+    end_at,
     quantize,
+    start_at,
     type_line,
 )
 from ..capture.screenshot import (
@@ -138,10 +127,10 @@ RUN_CAPTURE_CONFIG = "click_extra_run_capture"
 `click:run` and `click:tree` execute.
 
 Maps to the `capture` parameter of Click's {class}`~click.testing.CliRunner`,
-`"sys"` or `"fd"`. Defaults to `"fd"` so a command writing through
-`sys.stdout.fileno()` is captured at the file-descriptor level and renders,
-instead of aborting the build with {exc}`io.UnsupportedOperation`. Windows has no
-file-descriptor capture, so `"fd"` degrades to `"sys"` there.
+`"sys"` or `"fd"`. Defaults to `"fd"`, which also captures what a subprocess or a
+C extension writes to the standard file descriptors: see
+{class}`~click_extra.sphinx.click_runner.ClickRunner` for what it leaves out.
+Windows has no file-descriptor capture, so `"fd"` degrades to `"sys"` there.
 """
 
 SCREENSHOT_DIR_CONFIG = "click_extra_screenshot_dir"
@@ -280,6 +269,14 @@ def _positive_number(argument: str) -> float:
     return number
 
 
+def _non_negative_number(argument: str) -> float:
+    """Read an option that takes zero or a number above it, like a start time."""
+    number = float(argument)
+    if number < 0:
+        raise ValueError(f"{argument} is not zero or a positive number.")
+    return number
+
+
 def _screenshot_preset(argument: str) -> TerminalPreset:
     """Read the `:screenshot-preset:` option into the terminal it names."""
     return PRESETS[directives.choice(argument, tuple(sorted(PRESETS)))]
@@ -357,12 +354,15 @@ class ClickDirective(ContentOffsetMixin):
         "screenshot-columns": parse_columns,
         "screenshot-cursor": _screenshot_cursor,
         "screenshot-emphasize-lines": directives.unchanged_required,
+        "screenshot-end": _positive_number,
+        "screenshot-font": parse_font_stack,
         "screenshot-hold": parse_hold,
         "screenshot-interval": _positive_number,
         "screenshot-line-numbers": directives.flag,
         "screenshot-margin": directives.nonnegative_int,
         "screenshot-opacity": _screenshot_opacity,
         "screenshot-padding": directives.nonnegative_int,
+        "screenshot-palette": directives.path,
         "screenshot-preset": _screenshot_preset,
         "screenshot-prompt": directives.unchanged,
         "screenshot-quantum": _positive_number,
@@ -370,6 +370,7 @@ class ClickDirective(ContentOffsetMixin):
         "screenshot-record": directives.unchanged_required,
         "screenshot-shadow": directives.unchanged_required,
         "screenshot-speed": _positive_number,
+        "screenshot-start": _non_negative_number,
         "screenshot-submit": _positive_number,
         "screenshot-syntax-style": directives.unchanged_required,
         "screenshot-title": directives.unchanged_required,
@@ -679,7 +680,10 @@ class ClickDirective(ContentOffsetMixin):
         - a sequence of {class}`~click_extra.capture.recording.Frame`, as a recording
           hands back, each carrying the screen it held and for how long. Those
           durations are wall-clock, so they are rounded onto a grid before they
-          reach the picture, see `:screenshot-quantum:`;
+          reach the picture, see `:screenshot-quantum:`. `:screenshot-start:`
+          and `:screenshot-end:` first keep the slice between two times of the
+          recording, see {func}`~click_extra.capture.recording.start_at` and
+          {func}`~click_extra.capture.recording.end_at`;
         - any other sequence of strings, one captured text per frame, whose
           `:screenshot-interval:` says how long each is shown.
 
@@ -703,12 +707,15 @@ class ClickDirective(ContentOffsetMixin):
             draws a still.
         :raises RuntimeError: when the expression cannot be evaluated.
         :raises TypeError: when it yields neither a spinner nor strings.
-        :raises ValueError: when a bare sequence of frames states no interval.
+        :raises ValueError: when a bare sequence of frames states no interval,
+            or when `:screenshot-start:` or `:screenshot-end:` cut anything but
+            a recording, or cut all of it.
         """
         interval = self.options.get("screenshot-interval")
         subject = self.evaluate(expression, f"click:run: {option}")
 
         if isinstance(subject, Spinner):
+            self.refuse_cuts(expression)
             return (subject.frame_lines(), interval or subject.interval)
         if isinstance(subject, str) or not isinstance(subject, Sequence):
             raise TypeError(
@@ -722,6 +729,19 @@ class ClickDirective(ContentOffsetMixin):
                 f"click:run: {option}: {expression!r} yielded no frame to draw.",
             )
         if all(isinstance(frame, Frame) for frame in recorded):
+            start = self.options.get("screenshot-start", 0.0)
+            end = self.options.get("screenshot-end")
+            if end is not None:
+                if end <= start:
+                    raise ValueError(
+                        f"click:run: :screenshot-end: {end:g} is not after "
+                        f":screenshot-start: {start:g}."
+                    )
+                recorded = end_at(recorded, end)
+            try:
+                recorded = start_at(recorded, start)
+            except ValueError as exc:
+                raise ValueError(f"click:run: :screenshot-start: {exc}") from exc
             # Rounded here rather than left to the page, so forgetting to do it
             # cannot be what dirties the working tree on the next build.
             timed = quantize(
@@ -742,7 +762,26 @@ class ClickDirective(ContentOffsetMixin):
                 f"click:run: {option}: needs a :screenshot-interval: "
                 "when it does not name a spinner or a recording carrying one.",
             )
+        self.refuse_cuts(expression)
         return (recorded, interval)
+
+    def refuse_cuts(self, expression: str) -> None:
+        """Fail a block cutting a slice out of frames nobody recorded.
+
+        Only a recording has seconds to drop: a spinner and a declared sequence
+        cycle in place, so no moment of theirs is worth starting or ending on.
+        Saying so beats drawing the animation as if the option were not there.
+
+        :param expression: the expression the frames came from.
+        :raises ValueError: when the block states `:screenshot-start:` or
+            `:screenshot-end:`.
+        """
+        for name in ("screenshot-start", "screenshot-end"):
+            if name in self.options:
+                raise ValueError(
+                    f"click:run: :{name}: cuts a slice out of a recording, and "
+                    f"{expression!r} yielded no recorded Frame."
+                )
 
     @cached_property
     def screenshot_animation(
@@ -852,16 +891,49 @@ class ClickDirective(ContentOffsetMixin):
         )
 
     @cached_property
-    def screenshot_palette(self) -> TerminalPalette | None:
-        """Colors the capture resolves against, beyond what the chrome names.
+    def screenshot_scheme(self) -> TerminalPalette | None:
+        """Terminal colors the capture is drawn in, set by `:screenshot-palette:`.
 
-        `None` for a capture of a terminal, which is every run: its colors are
-        the terminal's own, and the chrome already answers for them. A capture
-        of *code* takes them from its syntax style instead, background included,
-        so the picture looks like that style does in an editor.
+        The option names a color scheme file, see
+        {func}`~click_extra.capture.presets.read_palette`, relative to the page
+        or, opening on `/`, to the source root, as `literalinclude` reads its
+        path. The page is then rebuilt whenever the scheme changes.
+
+        :return: the scheme's palette, or `None` when the block names none.
+        :raises ValueError: when the file cannot be read, or holds no scheme.
+        """
+        scheme = self.options.get("screenshot-palette")
+        if scheme is None:
+            return None
+        relative, absolute = self.env.relfn2path(scheme, self.env.docname)
+        self.env.note_dependency(relative)
+        try:
+            return read_palette(Path(absolute))
+        except (OSError, ValueError) as exc:
+            raise ValueError(f"click:run: :screenshot-palette: {exc}") from exc
+
+    @cached_property
+    def screenshot_palette(self) -> TerminalPalette | None:
+        """Colors a still capture resolves against, beyond what the chrome names.
+
+        A capture of a terminal, which is every run, takes the
+        {attr}`screenshot_scheme`, and `None` when the block names none: its
+        colors are then the terminal's own, and the chrome already answers for
+        them. A capture of *code* takes them from its syntax style instead,
+        background included, so the picture looks like that style does in an
+        editor.
+
+        :raises ValueError: when a block picturing its code names a scheme, as
+            its colors come from `:screenshot-syntax-style:`, like the `snippet`
+            command's do.
         """
         if not self.screenshots_source:
-            return None
+            return self.screenshot_scheme
+        if "screenshot-palette" in self.options:
+            raise ValueError(
+                "click:source: :screenshot-palette: draws a terminal, and this "
+                "capture pictures code: name its :screenshot-syntax-style: instead."
+            )
         return style_palette(
             self.screenshot_syntax_style,
             self.screenshot_background,
@@ -919,7 +991,9 @@ class ClickDirective(ContentOffsetMixin):
         `:screenshot-opacity:` how solid the window's body is,
         `:screenshot-title:` the caption drawn in the window's own chrome, and
         `:screenshot-watermark:` a credit line for the image's corner, which no
-        capture carries here unless asked for.
+        capture carries here unless asked for. `:screenshot-font:` names the font
+        families the text is set in, see
+        {func}`~click_extra.capture.presets.parse_font_stack`.
         `:screenshot-line-numbers:` is a flag, numbering every line the block
         rendered, its prompt first. `:screenshot-cursor:` draws a terminal
         cursor, in the shape it names or in the preset's own, and
@@ -959,6 +1033,8 @@ class ClickDirective(ContentOffsetMixin):
             if f"screenshot-{name}" in self.options
         }
         frame["chrome"] = Chrome(**decoration)
+        if "screenshot-font" in self.options:
+            frame["font_stack"] = self.options["screenshot-font"]
         if "screenshot-cursor" in self.options:
             frame["cursor"] = Cursor(
                 shape=self.options["screenshot-cursor"],
@@ -1101,6 +1177,7 @@ class ClickDirective(ContentOffsetMixin):
             hold=self.screenshot_hold(hold),
             blank=self.options.get("screenshot-blank", blank),
             speed=self.options.get("screenshot-speed", 1.0),
+            palette=self.screenshot_scheme,
             **self.screenshot_frame,
         )
 

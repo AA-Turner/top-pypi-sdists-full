@@ -79,7 +79,6 @@ import weakref
 # cloudpickle. See: tests/test_backward_compat.py
 from types import CellType  # noqa: F401
 
-
 # cloudpickle is meant for inter process communication: we expect all
 # communicating processes to run the same Python version hence we favor
 # communication speed over compatibility:
@@ -193,9 +192,12 @@ def _is_registered_pickle_by_value(module):
 
 
 if sys.version_info >= (3, 14):
+
     def _getattribute(obj, name):
-        return _pickle_getattribute(obj, name.split('.'))
+        return _pickle_getattribute(obj, name.split("."))
+
 else:
+
     def _getattribute(obj, name):
         return _pickle_getattribute(obj, name)[0]
 
@@ -386,9 +388,14 @@ def _find_imported_submodules(code, top_level_dependencies):
 
 # relevant opcodes
 STORE_GLOBAL = opcode.opmap["STORE_GLOBAL"]
-DELETE_GLOBAL = opcode.opmap["DELETE_GLOBAL"]
+_glbl_ops = [STORE_GLOBAL]
+if sys.version_info < (3, 16):
+    DELETE_GLOBAL = opcode.opmap["DELETE_GLOBAL"]
+    _glbl_ops.append(DELETE_GLOBAL)
 LOAD_GLOBAL = opcode.opmap["LOAD_GLOBAL"]
-GLOBAL_OPS = (STORE_GLOBAL, DELETE_GLOBAL, LOAD_GLOBAL)
+_glbl_ops.append(LOAD_GLOBAL)
+GLOBAL_OPS = tuple(_glbl_ops)
+del _glbl_ops
 HAVE_ARGUMENT = dis.HAVE_ARGUMENT
 EXTENDED_ARG = dis.EXTENDED_ARG
 
@@ -835,6 +842,13 @@ def _code_reduce(obj):
     # See the inline comment in _class_setstate for details.
     co_name = "".join(obj.co_name)
 
+    # co_filename is not used in the constructor of code objects, so we can
+    # safely set it to indicate that this is dynamic code. This also makes
+    # the payload deterministic, independent of where the function is defined
+    # which is especially useful when defining classes in jupyter/ipython
+    # cells which do not have a deterministic filename.
+    co_filename = "".join("<dynamic-code>")
+
     # Create shallow copies of these tuple to make cloudpickle payload deterministic.
     # When creating a code object during load, copies of these four tuples are
     # created, while in the main process, these tuples can be shared.
@@ -857,7 +871,7 @@ def _code_reduce(obj):
             obj.co_consts,
             co_names,
             co_varnames,
-            obj.co_filename,
+            co_filename,
             co_name,
             obj.co_qualname,
             obj.co_firstlineno,
@@ -880,7 +894,7 @@ def _code_reduce(obj):
             obj.co_consts,
             co_names,
             co_varnames,
-            obj.co_filename,
+            co_filename,
             co_name,
             obj.co_firstlineno,
             obj.co_linetable,
@@ -901,7 +915,7 @@ def _code_reduce(obj):
             obj.co_code,
             obj.co_consts,
             co_varnames,
-            obj.co_filename,
+            co_filename,
             co_name,
             obj.co_firstlineno,
             obj.co_lnotab,
@@ -925,7 +939,7 @@ def _code_reduce(obj):
             obj.co_consts,
             co_names,
             co_varnames,
-            obj.co_filename,
+            co_filename,
             co_name,
             obj.co_firstlineno,
             obj.co_lnotab,

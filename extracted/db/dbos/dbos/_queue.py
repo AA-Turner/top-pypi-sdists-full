@@ -28,32 +28,13 @@ from dbos._context import (
 from dbos._error import DBOSException, DBOSRecoveryError
 from dbos._logger import dbos_logger
 from dbos._shard_keys import shard_key_scope
-from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams, generate_uuid
+from dbos._utils import INTERNAL_QUEUE_NAME, GlobalParams, check_async, generate_uuid
 
 from ._core import P, R, execute_dequeued_workflow, start_workflow, start_workflow_async
 
 if TYPE_CHECKING:
     from ._dbos import DBOS, WorkflowHandle, WorkflowHandleAsync
     from ._sys_db import SystemDatabase
-
-
-def _warn_sync_db_call_in_async_context(
-    method_name: str, async_alternative: str
-) -> None:
-    """Log a warning when a synchronous method that reads or writes the system
-    database is called from a thread with a running asyncio event loop. Such
-    calls block the loop on a database round-trip; callers in async code
-    should use ``async_alternative`` instead.
-    """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return
-    dbos_logger.warning(
-        f"Synchronous '{method_name}' was called from a running asyncio "
-        f"event loop. This blocks the loop on a database round-trip. Use "
-        f"'{async_alternative}' instead."
-    )
 
 
 DEFAULT_QUEUE_POLLING_INTERVAL_SEC = 1.0
@@ -273,6 +254,46 @@ class Queue:
     def _write_to_db(self, fields: dict[str, Any]) -> None:
         self._sys_db().update_queue(self.name, fields)
 
+    def _to_checkpoint(self) -> dict[str, Any]:
+        """This queue's configuration as plain data, so a workflow step can checkpoint
+        it under any serializer and rebuild it on replay with _from_checkpoint."""
+        return {
+            "name": self.name,
+            "application_name": self.application_name,
+            "concurrency": self._concurrency,
+            "worker_concurrency": self._worker_concurrency,
+            "limiter": dict(self._limiter) if self._limiter else None,
+            "partition_concurrency": self._partition_concurrency,
+            "partition_worker_concurrency": self._partition_worker_concurrency,
+            "partition_limiter": (
+                dict(self._partition_limiter) if self._partition_limiter else None
+            ),
+            "polling_interval_sec": self._polling_interval_sec,
+        }
+
+    @staticmethod
+    def _from_checkpoint(
+        data: dict[str, Any],
+        *,
+        client_system_database: Optional["SystemDatabase"] = None,
+    ) -> "Queue":
+        """Rebuild a database-backed queue from _to_checkpoint's output, bound to
+        client_system_database when a client rebuilds it."""
+        return Queue(
+            data["name"],
+            data["concurrency"],
+            data["limiter"],
+            worker_concurrency=data["worker_concurrency"],
+            partition_concurrency=data["partition_concurrency"],
+            partition_worker_concurrency=data["partition_worker_concurrency"],
+            partition_limiter=data["partition_limiter"],
+            polling_interval_sec=data["polling_interval_sec"],
+            application_name=data["application_name"],
+            database_backed_queue=True,
+            client_system_database=client_system_database,
+            token=_INTERNAL_QUEUE_CONSTRUCTION,
+        )
+
     def _refresh_fields(self, latest: "Queue") -> None:
         """Copy every cached configuration field from ``latest`` into ``self``."""
         self._concurrency = latest._concurrency
@@ -296,8 +317,10 @@ class Queue:
     def concurrency(self) -> Optional[int]:
         """Deprecated. Use global_concurrency."""
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.concurrency", "Queue.get_concurrency_async"
+            check_async(
+                "Queue.concurrency",
+                alternative="Queue.get_concurrency_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._concurrency
@@ -313,7 +336,7 @@ class Queue:
         self, value: Optional[int], method_name: str, async_alternative: str
     ) -> None:
         self._require_database_backed()
-        _warn_sync_db_call_in_async_context(method_name, async_alternative)
+        check_async(method_name, alternative=async_alternative, warn=True)
         # Refresh the local cache so the cross-field check below validates
         # against the latest worker_concurrency stored in the database.
         self._refresh_fields(self._read_from_db())
@@ -335,8 +358,10 @@ class Queue:
     @property
     def global_concurrency(self) -> Optional[int]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.global_concurrency", "Queue.get_global_concurrency_async"
+            check_async(
+                "Queue.global_concurrency",
+                alternative="Queue.get_global_concurrency_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._concurrency
@@ -359,8 +384,10 @@ class Queue:
     @property
     def partition_concurrency(self) -> Optional[int]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.partition_concurrency", "Queue.get_partition_concurrency_async"
+            check_async(
+                "Queue.partition_concurrency",
+                alternative="Queue.get_partition_concurrency_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._partition_concurrency
@@ -373,9 +400,7 @@ class Queue:
 
     def set_partition_concurrency(self, value: Optional[int]) -> None:
         self._require_database_backed()
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_partition_concurrency", "Queue.set_partition_concurrency_async"
-        )
+        check_async("Queue.set_partition_concurrency", warn=True)
         if value is not None and value < 1:
             raise ValueError("partition_concurrency must be at least 1")
         self._refresh_fields(self._read_from_db())
@@ -409,9 +434,10 @@ class Queue:
     @property
     def partition_worker_concurrency(self) -> Optional[int]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
+            check_async(
                 "Queue.partition_worker_concurrency",
-                "Queue.get_partition_worker_concurrency_async",
+                alternative="Queue.get_partition_worker_concurrency_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._partition_worker_concurrency
@@ -424,10 +450,7 @@ class Queue:
 
     def set_partition_worker_concurrency(self, value: Optional[int]) -> None:
         self._require_database_backed()
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_partition_worker_concurrency",
-            "Queue.set_partition_worker_concurrency_async",
-        )
+        check_async("Queue.set_partition_worker_concurrency", warn=True)
         if value is not None and value < 1:
             raise ValueError("partition_worker_concurrency must be at least 1")
         self._refresh_fields(self._read_from_db())
@@ -469,8 +492,10 @@ class Queue:
     @property
     def partition_limiter(self) -> Optional[QueueRateLimit]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.partition_limiter", "Queue.get_partition_limiter_async"
+            check_async(
+                "Queue.partition_limiter",
+                alternative="Queue.get_partition_limiter_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._partition_limiter
@@ -487,9 +512,7 @@ class Queue:
             value.get("limit") is None or value.get("period") is None
         ):
             raise ValueError("partition_limiter must specify both 'limit' and 'period'")
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_partition_limiter", "Queue.set_partition_limiter_async"
-        )
+        check_async("Queue.set_partition_limiter", warn=True)
         # Refresh so the derived column below sees the latest partition limits.
         self._refresh_fields(self._read_from_db())
         self._write_to_db(
@@ -510,8 +533,10 @@ class Queue:
     @property
     def worker_concurrency(self) -> Optional[int]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.worker_concurrency", "Queue.get_worker_concurrency_async"
+            check_async(
+                "Queue.worker_concurrency",
+                alternative="Queue.get_worker_concurrency_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._worker_concurrency
@@ -524,9 +549,7 @@ class Queue:
 
     def set_worker_concurrency(self, value: Optional[int]) -> None:
         self._require_database_backed()
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_worker_concurrency", "Queue.set_worker_concurrency_async"
-        )
+        check_async("Queue.set_worker_concurrency", warn=True)
         # Refresh the local cache so the cross-field check below validates
         # against the latest concurrency stored in the database.
         self._refresh_fields(self._read_from_db())
@@ -552,8 +575,8 @@ class Queue:
     @property
     def limiter(self) -> Optional[QueueRateLimit]:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
-                "Queue.limiter", "Queue.get_limiter_async"
+            check_async(
+                "Queue.limiter", alternative="Queue.get_limiter_async", warn=True
             )
             self._refresh_fields(self._read_from_db())
         return self._limiter
@@ -570,9 +593,7 @@ class Queue:
             value.get("limit") is None or value.get("period") is None
         ):
             raise ValueError("limiter must specify both 'limit' and 'period'")
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_limiter", "Queue.set_limiter_async"
-        )
+        check_async("Queue.set_limiter", warn=True)
         self._write_to_db(
             {
                 "rate_limit_max": value["limit"] if value else None,
@@ -588,9 +609,10 @@ class Queue:
     @property
     def polling_interval_sec(self) -> float:
         if self.database_backed_queue:
-            _warn_sync_db_call_in_async_context(
+            check_async(
                 "Queue.polling_interval_sec",
-                "Queue.get_polling_interval_sec_async",
+                alternative="Queue.get_polling_interval_sec_async",
+                warn=True,
             )
             self._refresh_fields(self._read_from_db())
         return self._polling_interval_sec
@@ -605,10 +627,7 @@ class Queue:
         self._require_database_backed()
         if value <= 0.0:
             raise ValueError("polling_interval_sec must be positive")
-        _warn_sync_db_call_in_async_context(
-            "Queue.set_polling_interval_sec",
-            "Queue.set_polling_interval_sec_async",
-        )
+        check_async("Queue.set_polling_interval_sec", warn=True)
         self._write_to_db({"polling_interval_sec": value})
         self._polling_interval_sec = value
 

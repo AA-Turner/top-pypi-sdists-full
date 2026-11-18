@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from dreamscale_transport.internw0_deploy import (
+from dreamscale_core.internw0_deploy import (
     ACTION_HORIZON,
     INTERNW0_BASE_MODEL,
     MAX_WIRE_ACTION_DIM,

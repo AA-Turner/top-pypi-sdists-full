@@ -32,6 +32,7 @@ from agilicus_api.exceptions import ApiAttributeError
 
 def lazy_import():
     from agilicus_api.model.invalid_policy_template import InvalidPolicyTemplate
+    from agilicus_api.model.label_group import LabelGroup
     from agilicus_api.model.label_name import LabelName
     from agilicus_api.model.mfa_policy_template import MFAPolicyTemplate
     from agilicus_api.model.rule_action import RuleAction
@@ -43,6 +44,7 @@ def lazy_import():
     from agilicus_api.model.timeframe_policy_template import TimeframePolicyTemplate
     from agilicus_api.model.timeperiod_policy_template import TimeperiodPolicyTemplate
     globals()['InvalidPolicyTemplate'] = InvalidPolicyTemplate
+    globals()['LabelGroup'] = LabelGroup
     globals()['LabelName'] = LabelName
     globals()['MFAPolicyTemplate'] = MFAPolicyTemplate
     globals()['RuleAction'] = RuleAction
@@ -239,6 +241,14 @@ class PolicyTemplate(ModelComposed):
     def end_time_of_day(self, new_value):
        self.end_time_of_day = new_value
 
+    @property
+    def label_groups(self):
+       return self.get("label_groups")
+
+    @label_groups.setter
+    def label_groups(self, new_value):
+       self.label_groups = new_value
+
     @cached_property
     def additional_properties_type():
         """
@@ -267,6 +277,7 @@ class PolicyTemplate(ModelComposed):
             'default_actions': ([RuleAction],),  # noqa: E501
             'start_time_of_day': (TimeOfDayCondition,),  # noqa: E501
             'end_time_of_day': (TimeOfDayCondition,),  # noqa: E501
+            'label_groups': ([LabelGroup],),  # noqa: E501
             'seconds_since_last_challenge': (int,),  # noqa: E501
             'labels': ([LabelName],),  # noqa: E501
             'source_subnets': ([str],),  # noqa: E501
@@ -310,6 +321,7 @@ class PolicyTemplate(ModelComposed):
         'default_actions': 'default_actions',  # noqa: E501
         'start_time_of_day': 'start_time_of_day',  # noqa: E501
         'end_time_of_day': 'end_time_of_day',  # noqa: E501
+        'label_groups': 'label_groups',  # noqa: E501
         'seconds_since_last_challenge': 'seconds_since_last_challenge',  # noqa: E501
         'labels': 'labels',  # noqa: E501
         'source_subnets': 'source_subnets',  # noqa: E501
@@ -369,8 +381,9 @@ class PolicyTemplate(ModelComposed):
             default_actions ([RuleAction]): The actions to take by default if there is no match for in the main policy. These will only execute in the context of the an HTTP request. If empty, then there is no default. . [optional]  # noqa: E501
             start_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
             end_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
+            label_groups ([LabelGroup]): Groupings of scoped labels. Each grouping combines its labels with `cnf` (AND) or `dnf` (OR), and multiple groupings are combined with `dnf` (OR). Takes precedence over `labels` when non-empty. . [optional]  # noqa: E501
             seconds_since_last_challenge (int): Challenge the user if they have not presented a second factor for the current session in the last N seconds. . [optional]  # noqa: E501
-            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. . [optional]  # noqa: E501
+            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. Must be supplied (may be empty `[]` when `label_groups` is used). When `label_groups` is non-empty, `label_groups` takes precedence and `labels` is ignored. If both `labels` and `label_groups` are empty, the timeperiod applies to all accesses. . [optional]  # noqa: E501
             source_subnets ([str]): A list of IP subnets. If the request comes from one of them, it will be allowed or denied based on the provided configuration. . [optional]  # noqa: E501
             iso_country_codes ([str]): A list of ISO 3166-1 alpha-2 country codes. If the request comes from one of them, it will be allowed or denied based on the provided configuration. . [optional]  # noqa: E501
             invert (bool): If set to true, will match the request if the source ip is not in the source_subnets list, and the country code is not in the iso_country_codes list. . [optional]  # noqa: E501
@@ -490,8 +503,9 @@ class PolicyTemplate(ModelComposed):
             default_actions ([RuleAction]): The actions to take by default if there is no match for in the main policy. These will only execute in the context of the an HTTP request. If empty, then there is no default. . [optional]  # noqa: E501
             start_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
             end_time_of_day (TimeOfDayCondition): [optional]  # noqa: E501
+            label_groups ([LabelGroup]): Groupings of scoped labels. Each grouping combines its labels with `cnf` (AND) or `dnf` (OR), and multiple groupings are combined with `dnf` (OR). Takes precedence over `labels` when non-empty. . [optional]  # noqa: E501
             seconds_since_last_challenge (int): Challenge the user if they have not presented a second factor for the current session in the last N seconds. . [optional]  # noqa: E501
-            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. . [optional]  # noqa: E501
+            labels ([LabelName]): Restrict the timestamp to accesses for resources or users with one of these labels. Must be supplied (may be empty `[]` when `label_groups` is used). When `label_groups` is non-empty, `label_groups` takes precedence and `labels` is ignored. If both `labels` and `label_groups` are empty, the timeperiod applies to all accesses. . [optional]  # noqa: E501
             source_subnets ([str]): A list of IP subnets. If the request comes from one of them, it will be allowed or denied based on the provided configuration. . [optional]  # noqa: E501
             iso_country_codes ([str]): A list of ISO 3166-1 alpha-2 country codes. If the request comes from one of them, it will be allowed or denied based on the provided configuration. . [optional]  # noqa: E501
             invert (bool): If set to true, will match the request if the source ip is not in the source_subnets list, and the country code is not in the iso_country_codes list. . [optional]  # noqa: E501

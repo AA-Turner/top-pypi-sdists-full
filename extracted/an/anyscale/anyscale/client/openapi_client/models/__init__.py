@@ -1120,6 +1120,8 @@ from openapi_client.models.snippet_language import SnippetLanguage
 from openapi_client.models.sort_by_clause import SortByClause
 from openapi_client.models.sort_by_clause_job_run_sort_field import SortByClauseJobRunSortField
 from openapi_client.models.sort_order import SortOrder
+from openapi_client.models.ssh_settings import SshSettings
+from openapi_client.models.sshsettings_response import SshsettingsResponse
 from openapi_client.models.ssoconfig_response import SsoconfigResponse
 from openapi_client.models.ssologininfo_response import SsologininfoResponse
 from openapi_client.models.staged_group_suggestions_request import StagedGroupSuggestionsRequest

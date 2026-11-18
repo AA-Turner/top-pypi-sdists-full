@@ -34,6 +34,7 @@ __all__ = [
     "SecretInput",
     "SecretResolution",
     "SecretResolver",
+    "SecretResolverProtocol",
     "DefaultSecretResolver",
     "resolve_secret",
     "register_resolver",
@@ -41,6 +42,7 @@ __all__ = [
     "redact_secrets",
     "redact_outbound",
     "OutboundRedactor",
+    "OutboundRedactorProtocol",
     "is_secret_ref",
     "sentinelize",
     "desentinelize",
@@ -268,7 +270,9 @@ def _coerce_ref(value: object) -> Optional[SecretRef]:
 # ────────────────────────────────────────────────────────────────────────────
 
 _redaction_values: set = set()
+redaction_values = _redaction_values  # public name for other PraisonAI packages (G-22); the private name stays
 _redaction_lock = threading.Lock()
+redaction_lock = _redaction_lock  # public name for other PraisonAI packages (G-22); the private name stays
 _REDACTED = "[REDACTED]"
 
 # Never register trivially short values — they would over-redact ordinary text.
@@ -496,3 +500,9 @@ class EgressGuardProtocol(Protocol):
     def sentinel_for(self, ref: "SecretRef") -> str: ...
 
     def allow_egress(self, host: str, ref: "SecretRef") -> bool: ...
+
+
+# ``Protocol``-suffixed names (G-26, the project naming rule). The original
+# names stay and are the same class, so existing imports keep working.
+SecretResolverProtocol = SecretResolver
+OutboundRedactorProtocol = OutboundRedactor

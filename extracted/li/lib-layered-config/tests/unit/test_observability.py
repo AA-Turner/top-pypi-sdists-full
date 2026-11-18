@@ -7,7 +7,12 @@ from typing import TYPE_CHECKING
 
 from lib_layered_config import bind_trace_id, get_logger
 from lib_layered_config.domain.identifiers import Layer
-from lib_layered_config.observability import TRACE_ID, _merge_payload, log_info, make_event
+from lib_layered_config.observability import (
+    TRACE_ID,
+    _merge_payload,  # pyright: ignore[reportPrivateUsage] - pins the payload merge's copy and identity semantics directly
+    log_info,
+    make_event,
+)
 from tests.support.os_markers import os_agnostic
 
 if TYPE_CHECKING:
@@ -26,7 +31,9 @@ def test_log_info_carries_trace_context(caplog: pytest.LogCaptureFixture) -> Non
     bind_trace_id("trace-123")
     log_info("merge-complete", layer="env", path=None)
     record = caplog.records[-1]
-    assert record.context == {"trace_id": "trace-123", "layer": "env", "path": None}
+    # log_info attaches the context through logging's extra=, so LogRecord declares no such field.
+    context: object = record.__dict__.get("context")
+    assert context == {"trace_id": "trace-123", "layer": "env", "path": None}
 
 
 @os_agnostic
@@ -53,14 +60,14 @@ def test_make_event_records_the_layer_as_its_plain_name() -> None:
 
 @os_agnostic
 def test_merge_payload_returns_original_when_payload_missing() -> None:
-    event = {"layer": "env"}
+    event: dict[str, object] = {"layer": "env"}
     result = _merge_payload(event, None)
     assert result == {"layer": "env"}
 
 
 @os_agnostic
 def test_merge_payload_merges_copy_of_payload() -> None:
-    event = {"layer": "env"}
+    event: dict[str, object] = {"layer": "env"}
     payload = {"keys": 2}
     result = _merge_payload(event, payload)
     assert result == {"layer": "env", "keys": 2}

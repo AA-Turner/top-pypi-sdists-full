@@ -140,11 +140,11 @@ def test_config_override_appends_to_dict(tox_ini_conf: ToxIniCreator) -> None:
 
 
 def test_config_override_sequence(tox_ini_conf: ToxIniCreator) -> None:
+    overrides = [Override("testenv.passenv=bar"), Override("testenv.passenv+=baz")]
     example = """
     [testenv]
     passenv = foo
     """
-    overrides = [Override("testenv.passenv=bar"), Override("testenv.passenv+=baz")]
     conf = tox_ini_conf(example, override=overrides).get_env("testenv")
     conf.add_config("passenv", of_type=list[str], default=[], desc="desc")
     assert conf["passenv"] == ["bar", "baz"]
@@ -187,12 +187,12 @@ def test_config_override_appends_to_setenv(tox_ini_conf: ToxIniCreator) -> None:
 
 
 def test_config_override_appends_to_setenv_multiple(tox_ini_conf: ToxIniCreator) -> None:
+    overrides = [Override("testenv.setenv+=baz=quux"), Override("testenv.setenv+=less=more")]
     example = """
     [testenv]
     setenv =
       foo = bar
     """
-    overrides = [Override("testenv.setenv+=baz=quux"), Override("testenv.setenv+=less=more")]
     conf = tox_ini_conf(example, override=overrides).get_env("testenv")
     assert conf["setenv"].load("foo") == "bar"
     assert conf["setenv"].load("baz") == "quux"
@@ -200,12 +200,12 @@ def test_config_override_appends_to_setenv_multiple(tox_ini_conf: ToxIniCreator)
 
 
 def test_config_override_sequential_processing(tox_ini_conf: ToxIniCreator) -> None:
+    overrides = [Override("testenv.setenv+=a=b"), Override("testenv.setenv=c=d"), Override("testenv.setenv+=e=f")]
     example = """
     [testenv]
     setenv =
       foo = bar
     """
-    overrides = [Override("testenv.setenv+=a=b"), Override("testenv.setenv=c=d"), Override("testenv.setenv+=e=f")]
     conf = tox_ini_conf(example, override=overrides).get_env("testenv")
     with pytest.raises(KeyError):
         assert conf["setenv"].load("foo") == "bar"
@@ -237,11 +237,11 @@ def test_config_override_appends_to_pythondeps(tox_ini_conf: ToxIniCreator, tmp_
 
 
 def test_config_multiple_overrides(tox_ini_conf: ToxIniCreator, tmp_path: Path) -> None:
+    overrides = [Override("testenv.deps+=bar"), Override("testenv.deps+=baz")]
     example = """
     [testenv]
     deps = foo
     """
-    overrides = [Override("testenv.deps+=bar"), Override("testenv.deps+=baz")]
     conf = tox_ini_conf(example, override=overrides).get_env("testenv")
     conf.add_config(
         "deps",
@@ -275,8 +275,80 @@ def test_config_override_cannot_append(tox_ini_conf: ToxIniCreator) -> None:
     """
     conf = tox_ini_conf(example, override=[Override("testenv.foo+=2")]).get_env("testenv")
     conf.add_config("foo", of_type=int, default=0, desc="desc")
-    with pytest.raises(HandledError, match=r"failed to load testenv\.foo: Only able to append to lists and dicts"):
+    with pytest.raises(
+        HandledError, match=r"failed to load testenv\.foo: Only able to append to lists, sets and dicts"
+    ):
         conf["foo"]
+
+
+@pytest.mark.parametrize(
+    ("example", "overrides"),
+    [
+        pytest.param("[testenv]\nfoo = 1\n[testenv:a]\n", ["testenv:a.foo+=2"], id="inherited-value"),
+        pytest.param("[testenv:a]\n", ["testenv.foo+=2", "testenv.foo+=3"], id="override-values"),
+    ],
+)
+def test_config_env_override_cannot_append(tox_ini_conf: ToxIniCreator, example: str, overrides: list[str]) -> None:
+    conf = tox_ini_conf(example, override=[Override(entry) for entry in overrides]).get_env("a")
+    conf.add_config("foo", of_type=int, default=0, desc="desc")
+    with pytest.raises(HandledError, match=r"^failed to load a\.foo: Only able to append to lists, sets and dicts$"):
+        conf["foo"]
+
+
+@pytest.mark.parametrize(
+    ("example", "override", "env"),
+    [
+        pytest.param("[testenv]\nfoo = a\n", "testenv.foo+=b", "testenv", id="same-section"),
+        pytest.param("[testenv]\nfoo = a\n[testenv:a]\n", "testenv:a.foo+=b", "a", id="inherited"),
+    ],
+)
+def test_config_override_appends_to_set(tox_ini_conf: ToxIniCreator, example: str, override: str, env: str) -> None:
+    conf = tox_ini_conf(example, override=[Override(override)]).get_env(env)
+    conf.add_config("foo", of_type=set[str], default=set(), desc="desc")
+    assert conf["foo"] == {"a", "b"}
+
+
+@pytest.mark.parametrize(
+    ("filename", "config", "overrides"),
+    [
+        pytest.param(
+            "tox.ini",
+            "[testenv]\npackage = skip\ndeps = base\nset_env = BASE=1\n[testenv:a]\ndescription = a\n",
+            ["testenv:a.deps+=extra", "testenv:a.set_env+=EXTRA=1"],
+            id="ini",
+        ),
+        pytest.param(
+            "tox.ini",
+            "[tox]\nenv_list = a\n[testenv]\npackage = skip\ndeps = base\nset_env = BASE=1\n",
+            ["testenv:a.deps+=extra", "testenv:a.set_env+=EXTRA=1"],
+            id="ini-no-env-section",
+        ),
+        pytest.param(
+            "tox.toml",
+            '[env_run_base]\npackage = "skip"\ndeps = ["base"]\nset_env = { BASE = "1" }\n[env.a]\ndescription = "a"\n',
+            ["env.a.deps+=extra", "env.a.set_env+=EXTRA=1"],
+            id="toml",
+        ),
+    ],
+)
+def test_config_override_appends_to_inherited_value(
+    tox_project: ToxProjectCreator, filename: str, config: str, overrides: list[str]
+) -> None:
+    flags = [flag for override in overrides for flag in ("-x", override)]
+    result = tox_project({filename: config}).run("c", "-e", "a", "-k", "deps", "set_env", *flags)
+
+    result.assert_success()
+    assert "deps =\n  base\n  extra\n" in result.out, result.out
+    assert "  BASE=1\n  EXTRA=1\n" in result.out, result.out
+
+
+def test_config_override_appends_to_inherited_override(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({"tox.ini": "[testenv]\npackage = skip\n[testenv:a]\ndescription = a\n"})
+
+    result = project.run("c", "-e", "a", "-k", "deps", "-x", "testenv:a.deps+=env", "-x", "testenv.deps+=base")
+
+    result.assert_success()
+    assert result.out == "[testenv:a]\ndeps =\n  base\n  env\n"
 
 
 def test_args_are_paths_when_disabled(tox_project: ToxProjectCreator) -> None:
@@ -318,45 +390,58 @@ _EXECUTABLE_NAME: Final[str] = "python.exe" if os.name == "nt" else "python"
 
 
 @pytest.mark.parametrize(
-    ("name", "config"),
+    ("name", "config", "flag"),
     [
-        pytest.param("tox.ini", "[testenv]\ncommands={posargs}", id="ini"),
-        pytest.param("tox.ini", "[testenv]\ncommands=[]", id="ini-brackets"),
-        pytest.param("tox.ini", "[testenv]\ncommands=- {posargs}", id="ini-ignore-exit-code"),
-        pytest.param("tox.ini", "[testenv]\ncommands=-{posargs}", id="ini-ignore-exit-code-glued"),
-        pytest.param("tox.ini", "[testenv]\ncommands=! {posargs}", id="ini-invert-exit-code"),
-        pytest.param("tox.ini", "[testenv]\ncommands={env:NO_WRAPPER:} {posargs}", id="ini-after-empty"),
-        pytest.param("tox.ini", "[testenv]\ncommands={env:NO_WRAPPER:{posargs}}", id="ini-default"),
-        pytest.param("tox.ini", "[testenv]\ncommands={[a]b}\n[a]\nb={posargs}", id="ini-reference"),
-        pytest.param("tox.toml", f"env_run_base.commands = [{_POSARGS}]", id="toml"),
-        pytest.param("tox.toml", f"env_run_base.commands = [[{_POSARGS_EXTEND}]]", id="toml-extend"),
-        pytest.param("tox.toml", f'env_run_base.commands = [["-", {_POSARGS_EXTEND}]]', id="toml-ignore-exit-code"),
-        pytest.param("tox.toml", f'env_run_base.commands = [["!", {_POSARGS_EXTEND}]]', id="toml-invert-exit-code"),
+        pytest.param("tox.ini", "[testenv]\ncommands={posargs}", "", id="ini"),
+        pytest.param("tox.ini", "[testenv]\ncommands=[]", "", id="ini-brackets"),
+        pytest.param("tox.ini", "[testenv]\ncommands=- {posargs}", "- ", id="ini-ignore-exit-code"),
+        pytest.param("tox.ini", "[testenv]\ncommands=-{posargs}", "- ", id="ini-ignore-exit-code-glued"),
+        pytest.param("tox.ini", "[testenv]\ncommands=! {posargs}", "! ", id="ini-invert-exit-code"),
+        pytest.param("tox.ini", "[testenv]\ncommands={env:NO_WRAPPER:} {posargs}", "", id="ini-after-empty"),
+        pytest.param("tox.ini", "[testenv]\ncommands={env:NO_WRAPPER:{posargs}}", "", id="ini-default"),
+        pytest.param("tox.ini", "[testenv]\ncommands={[a]b}\n[a]\nb={posargs}", "", id="ini-reference"),
+        pytest.param("tox.toml", f"env_run_base.commands = [{_POSARGS}]", "", id="toml"),
+        pytest.param("tox.toml", f"env_run_base.commands = [[{_POSARGS_EXTEND}]]", "", id="toml-extend"),
+        pytest.param(
+            "tox.toml",
+            f'env_run_base.commands = [["-", {_POSARGS_EXTEND}]]',
+            "- ",
+            id="toml-ignore-exit-code",
+        ),
+        pytest.param(
+            "tox.toml",
+            f'env_run_base.commands = [["!", {_POSARGS_EXTEND}]]',
+            "! ",
+            id="toml-invert-exit-code",
+        ),
         pytest.param(
             "tox.toml",
             f'env_run_base.commands = [{{ replace = "ref", of = ["a", "b"] }}]\na.b = {_POSARGS}',
+            "",
             id="toml-reference",
         ),
         pytest.param(
             "tox.toml",
             f'env_run_base.commands = [{{ replace = "ref", of = ["a", "b"], extend = true }}]\na.b = [{_POSARGS}]',
+            "",
             id="toml-reference-extend",
         ),
         pytest.param(
             "tox.toml",
             f'env_run_base.commands = [{{ replace = "if", condition = "env.NO", then = ["a"], else = {_POSARGS} }}]',
+            "",
             id="toml-if",
         ),
     ],
 )
-def test_args_are_paths_keeps_program_name(tox_project: ToxProjectCreator, name: str, config: str) -> None:
+def test_args_are_paths_keeps_program_name(tox_project: ToxProjectCreator, name: str, config: str, flag: str) -> None:
     project: Final[ToxProject] = tox_project({name: config, "w": {"python": "", "a.txt": ""}})
     (project.path / "w" / "python").chmod(0o755)
     result: Final[ToxRunOutcome] = project.run(
         "c", "-e", "py", "-k", "commands", "--", "python", "python", "a.txt", from_cwd=project.path / "w"
     )
     result.assert_success()
-    assert result.out == f"[testenv:py]\ncommands = python w{os.sep}python w{os.sep}a.txt\n"
+    assert result.out == f"[testenv:py]\ncommands = {flag}python w{os.sep}python w{os.sep}a.txt\n"
 
 
 def test_args_are_paths_keeps_install_program_name(tox_project: ToxProjectCreator) -> None:
@@ -402,7 +487,9 @@ def test_args_are_paths_keeps_executable_first_value(
         pytest.param("tox.ini", '[testenv]\ncommands="{posargs}"', "python", id="ini-quoted"),
         pytest.param("tox.ini", "[testenv]\ncommands=.{/}{posargs}", f".{os.sep}python", id="ini-suffix"),
         pytest.param("tox.toml", 'env_run_base.commands = [["{posargs}"]]', "python", id="toml"),
-        pytest.param("tox.toml", 'env_run_base.commands = [["-", "{posargs}"]]', "python", id="toml-ignore-exit-code"),
+        pytest.param(
+            "tox.toml", 'env_run_base.commands = [["-", "{posargs}"]]', "- python", id="toml-ignore-exit-code"
+        ),
         pytest.param("tox.toml", 'env_run_base.commands = [[".{/}{posargs}"]]', f".{os.sep}python", id="toml-suffix"),
         pytest.param(
             "tox.toml",
@@ -451,7 +538,7 @@ def test_args_are_paths_rewrites_program_path(tox_project: ToxProjectCreator, na
     ("name", "config", "key", "prefix"),
     [
         pytest.param("tox.ini", "[testenv]\ncommands=a {posargs}", "commands", "a ", id="ini"),
-        pytest.param("tox.ini", "[testenv]\ncommands=- a {posargs}", "commands", "a ", id="ini-ignore-exit-code"),
+        pytest.param("tox.ini", "[testenv]\ncommands=- a {posargs}", "commands", "- a ", id="ini-ignore-exit-code"),
         pytest.param("tox.ini", "[testenv]\ncommands=a {[a]b}\n[a]\nb={posargs}", "commands", "a ", id="ini-reference"),
         pytest.param("tox.ini", "[testenv]\ndeps={posargs}", "deps", "", id="ini-deps"),
         pytest.param("tox.toml", f'env_run_base.commands = [["a", {_POSARGS_EXTEND}]]', "commands", "a ", id="toml"),
@@ -459,7 +546,7 @@ def test_args_are_paths_rewrites_program_path(tox_project: ToxProjectCreator, na
             "tox.toml",
             f'env_run_base.commands = [["-", "a", {_POSARGS_EXTEND}]]',
             "commands",
-            "a ",
+            "- a ",
             id="toml-ignore-exit-code",
         ),
         pytest.param("tox.toml", 'env_run_base.commands = [["a", "{posargs}"]]', "commands", "a ", id="toml-str"),
@@ -559,7 +646,7 @@ commands = [["python", "-c", "print('{env_tmp_dir}')"]]
 package_glob = "{env_tmp_dir}/dist/*.whl"
 """,
     })
-    execute_calls = project.patch_execute(lambda r: 0)  # ruff:ignore[unused-lambda-argument]
+    execute_calls = project.patch_execute(lambda request: 0)  # ruff:ignore[unused-lambda-argument]  # callback signature
     project.run("r", "-e", "a")
     calls = [(i[0][0].conf.name, i[0][3].cmd) for i in execute_calls.call_args_list]
     pkg_cmds = [cmd for name, cmd in calls if name == ".build-a"]

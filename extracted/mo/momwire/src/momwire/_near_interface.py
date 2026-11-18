@@ -333,6 +333,35 @@ def height_sheet_recal_scope(on):
         _HEIGHT_SHEET_RECAL.reset(token)
 
 
+# momwire#1956, the opt-in feature `crossing_sheet_retune` (`_features`,
+# reach 1, python): the census's build weights retuned
+# (`_SHEET_RETUNE_BUILD_WEIGHT`, `_SHEET_RETUNE_HEIGHT_WEIGHT`). A solver asked
+# for it sets this around its fill; off, the default, the shipped weights.
+_CROSSING_SHEET_RETUNE: contextvars.ContextVar[bool] = contextvars.ContextVar(
+    "momwire_crossing_sheet_retune", default=False
+)
+
+
+@contextlib.contextmanager
+def crossing_sheet_retune_scope(on):
+    """Run the body with the retuned sheet build weights (`on` truthy) or
+    the shipped ones."""
+    token = _CROSSING_SHEET_RETUNE.set(bool(on))
+    try:
+        yield
+    finally:
+        _CROSSING_SHEET_RETUNE.reset(token)
+
+
+def _sheet_weights():
+    """The census's (plane, height) build weights: the retuned pair inside a
+    `crossing_sheet_retune_scope`, else the shipped `_SHEET_BUILD_WEIGHT`,
+    `_SHEET_HEIGHT_WEIGHT` (read at call time, the tests' handle)."""
+    if _CROSSING_SHEET_RETUNE.get():
+        return _SHEET_RETUNE_BUILD_WEIGHT, _SHEET_RETUNE_HEIGHT_WEIGHT
+    return _SHEET_BUILD_WEIGHT, _SHEET_HEIGHT_WEIGHT
+
+
 # momwire#1860 L5, the opt-in feature `crossing_table` (`_features`, reach 1,
 # native): the crossing rows a fill would send to the column twin are read
 # instead from ONE table per frequency, the approach of the NEC-4 theory
@@ -3054,6 +3083,23 @@ _SHEET_BUILD_WEIGHT = 0.15
 # so the tests' handle on the planes does not turn every mast node into a
 # sheet.
 _SHEET_HEIGHT_WEIGHT = 0.15
+# momwire#1956, the opt-in feature `crossing_sheet_retune` (`_features`, reach
+# 1, python): the two build weights retuned for the crossing decks, where a
+# sheet's nodes cost far less than 0.15 of a column setup once its strips
+# are cached. The shipped sheets and twin, a different split between them.
+# Inside a fill that asked for it (`crossing_sheet_retune_scope`) the census
+# reads these in place of the two above; outside, the shipped weights, bit
+# for bit. Both are constants: the plan is still never decided on what is
+# cached.
+# 0.01 for both is where it measured (momwire#1956: Skylake, the two
+# executables' C++ twin, the scoping decks, T1 and T4, median of 3, the
+# Sommerfeld store off ("cold") and primed ("warm")): 0.03 still declines
+# fat_hub's radial plane (warm 64 -> 40 ms at 0.01, nec5-razor-2p T4) and
+# nec5-bspline's d3_hub plane; 0.005 takes the EFHW rod's depths as planes
+# and its cold solve goes 211 -> 338 ms; a height weight lowered alone takes
+# heights the radials' plane would have served (hub32 cold 223 -> 269 ms).
+_SHEET_RETUNE_BUILD_WEIGHT = 0.01
+_SHEET_RETUNE_HEIGHT_WEIGHT = 0.01
 # momwire#1860 L2 (the opt-in `height_sheet_recal`): a height row's worth when
 # its fixed-side (x, y) group holds no other height -- a horizontal wire's
 # node, as the EFHW's 1 cm counterpoise is -- in place of `_SHEET_ROW_WORTH`.
@@ -3332,7 +3378,8 @@ def _plane_pays(k_p, k_m, d, parts, depth=None, lone_worth=None):
     rho_max = max(float(r.max()) for r, _zg, _sg, _c in parts)
     s_max = max(float(sg.max()) for _r, _zg, sg, _c in parts)
     nodes = _sheet_nodes_to(k_p, k_m, d, rho_max, s_max, depth)
-    need = nodes * (_SHEET_BUILD_WEIGHT if depth is None else _SHEET_HEIGHT_WEIGHT)
+    w_plane, w_height = _sheet_weights()
+    need = nodes * (w_plane if depth is None else w_height)
     w = _SHEET_ROW_WORTH
     if lone_worth is not None:
         # The upper bound first, as below: every row distinct.
@@ -3375,9 +3422,19 @@ def _plane_pays(k_p, k_m, d, parts, depth=None, lone_worth=None):
 
 
 # `_distinct_pairs` expands every group into its (z, rho) pairs and counts the
-# distinct ones in one sort; past this many pairs it walks the groups instead
+# distinct ones by sorting; past this many pairs it walks the groups instead
 # (`_distinct_pairs_loop`), whose memory is the rows rather than their product.
 _DISTINCT_PAIRS_FLAT_MAX = 20_000_000
+
+# ... and it expands them a z WINDOW at a time, about this many pairs per
+# window (momwire#1940 U1). Two pairs whose z differ are distinct, so the
+# count is the sum of the windows' counts, and no window needs another's
+# pairs. The whole expansion held at once was the buried razor-2p fill's
+# high-water mark at hub x16 (one census +143 MB) and +518 MB at the
+# 48-radial screen x11. A window ends only where z changes, so one z held by
+# more pairs than this is a window of its own: the bound is the larger of
+# this and the most pairs any one z holds.
+_DISTINCT_PAIRS_WINDOW = 1 << 19
 
 
 def _distinct_pairs(parts):
@@ -3388,7 +3445,11 @@ def _distinct_pairs(parts):
     buried screen at 500 segs/wl, 106 censuses of 5 920 groups each took 1.9 s
     of a 5.3 s solve. Same count, since a pair is distinct exactly when
     `_distinct_pairs_loop` counts it: equality is float `!=` on both
-    columns (so -0.0 is 0.0, as there)."""
+    columns (so -0.0 is 0.0, as there).
+
+    momwire#1940 U1: the pairs are expanded and sorted one z window at a time
+    (`_DISTINCT_PAIRS_WINDOW`), never all at once. An integer count, so the
+    same count whatever the windows."""
     total = 0
     for r, zg, _s, _c in parts:
         total += sum(len(z) for z in zg) * (r.shape[1] if r.ndim == 2 else 1)
@@ -3396,25 +3457,64 @@ def _distinct_pairs(parts):
         return _distinct_pairs_loop(parts)
     if total == 0:
         return 0
-    zcol, rcol = [], []
-    for r, zg, _s, _c in parts:
+    # One entry per (part, group, z): the pairs it holds are that z against
+    # its group's row of rho. Entries are few (the census's distinct
+    # (group, z)); it is their product with the rows that is large.
+    rows_of, ez, ep, eg = [], [], [], []
+    for p, (r, zg, _s, _c) in enumerate(parts):
         _cancel.poll()
         lens = np.fromiter((len(z) for z in zg), dtype=np.int64, count=len(zg))
         if not lens.any():
+            rows_of.append(None)
             continue
-        z = np.concatenate([np.asarray(v, dtype=float) for v in zg]) + 0.0
-        rows = np.asarray(r, dtype=float).reshape(len(zg), -1)
-        g = np.repeat(np.arange(len(zg)), lens)
-        k = rows.shape[1]
-        zcol.append(np.repeat(z, k))
-        rcol.append(rows[g].reshape(-1) + 0.0)
-    if not zcol:
+        rows_of.append(np.asarray(r, dtype=float).reshape(len(zg), -1))
+        ez.append(np.concatenate([np.asarray(v, dtype=float) for v in zg]) + 0.0)
+        eg.append(np.repeat(np.arange(len(zg)), lens))
+        ep.append(np.full(ez[-1].size, p))
+    if not ez:
         return 0
+    z = np.concatenate(ez)
+    order = np.argsort(z, kind="stable")
+    z = z[order]
+    ep = np.concatenate(ep)[order]
+    eg = np.concatenate(eg)[order]
+    k_of = np.array(
+        [0 if rows is None else rows.shape[1] for rows in rows_of], dtype=np.int64
+    )
+    cum = np.cumsum(k_of[ep])
+    n, lo = 0, 0
+    while lo < z.size:
+        _cancel.poll()
+        # Entries [lo, hi): about a window's pairs, then on to the end of
+        # the last z's run, so no z is split between two windows.
+        done = int(cum[lo - 1]) if lo else 0
+        hi = max(
+            lo + 1, int(np.searchsorted(cum, done + _DISTINCT_PAIRS_WINDOW, "right"))
+        )
+        hi = int(np.searchsorted(z, z[hi - 1], "right"))
+        n += _distinct_pairs_window(z[lo:hi], ep[lo:hi], eg[lo:hi], rows_of)
+        lo = hi
+    return n
+
+
+def _distinct_pairs_window(z, ep, eg, rows_of):
+    """The distinct (z, rho) pairs of the entries (z, part ep, group eg): every
+    entry's z against its group's row, expanded and counted in one sort."""
+    zcol, rcol = [], []
+    for p in np.unique(ep).tolist():
+        on = ep == p
+        rows = rows_of[p]
+        zcol.append(np.repeat(z[on], rows.shape[1]))
+        rcol.append(rows[eg[on]].reshape(-1) + 0.0)
     zc = np.concatenate(zcol)
     rc = np.concatenate(rcol)
+    del zcol, rcol
+    if not zc.size:
+        return 0  # every entry's row is empty (no columns)
     order = np.lexsort((rc, zc))
-    zs, rs = zc[order], rc[order]
-    return int(1 + np.count_nonzero((zs[1:] != zs[:-1]) | (rs[1:] != rs[:-1])))
+    zc, rc = zc[order], rc[order]
+    del order
+    return int(1 + np.count_nonzero((zc[1:] != zc[:-1]) | (rc[1:] != rc[:-1])))
 
 
 def _distinct_pairs_loop(parts):
@@ -3644,7 +3744,8 @@ def _census(sides, height, k_p, k_m, a, skip=(), recal=False):
             got[3] = max(got[3], sep)
         per.append((gxy, zg, glo, ghi, fx, vals, inv, big, lone))
     w = _SHEET_ROW_WORTH
-    weight = _SHEET_HEIGHT_WEIGHT if height else _SHEET_BUILD_WEIGHT
+    w_plane, w_height = _sheet_weights()
+    weight = w_height if height else w_plane
     per_cell = _SHEET_P * _SHEET_P
     taken = []
     for v in sorted(cand):
@@ -3706,7 +3807,7 @@ def _prefix_pays(k_p, k_m, d, fixed, rho_far, s_max, a):
     bound both of the rule's counts below, as in `_plane_pays`. True only when
     that already pays; otherwise the full census decides."""
     nodes = _sheet_nodes_to(k_p, k_m, d, float(np.hypot(rho_far, a)), s_max)
-    need = nodes * _SHEET_BUILD_WEIGHT
+    need = nodes * _sheet_weights()[0]
     cap = int(max(4096, 4 * need))
     pre, got = [np.empty(0)], 0
     for gxy, _zg, _glo, _ghi, hxy, credit in fixed:

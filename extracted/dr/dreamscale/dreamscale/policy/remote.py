@@ -74,7 +74,6 @@ from dreamscale.policy.run_loop import (
     require_run_hold,
     run_policy_loop,
 )
-from dreamscale.policy.runtime.action_smoothing import resolve_action_smoothing
 from dreamscale.policy.runtime.calibration import (
     NETWORK_CALIBRATION_TIME_BUDGET_S,
     NetworkCalibrationConfig,
@@ -110,7 +109,6 @@ from dreamscale.policy.types import (
     ActResult,
     DispatchEvent,
     ObservationLike,
-    PolicyStepResult,
     ProviderPreference,
     RegionPreference,
     RunContext,
@@ -338,11 +336,6 @@ class AsyncRemotePolicy:
         self.runtime_stats = RuntimeStats()
         self._calibration_profile: NetworkCalibrationProfile | None = None
         self._action_controller = AsyncActionController(policy=self)
-        self._dreamzero_episode: Any | None = None
-        self._dreamzero_run_task: asyncio.Task[Any] | None = None
-        self._dreamzero_lifecycle_lock = asyncio.Lock()
-        self._manual_instruction: str | None = None
-        self._manual_action_index = 0
         self._closed = False
         self._cleanup_complete = False
         self._on_progress = getattr(connection, "on_progress", None)
@@ -419,8 +412,6 @@ class AsyncRemotePolicy:
                 raise RuntimeError("Task preparation unavailable; upgrade the worker and transport")
             await self._action_controller.close()
             self._action_controller = AsyncActionController(policy=self)
-            self._manual_instruction = None
-            self._manual_action_index = 0
             if self._pending_chunk is not None:
                 self._pending_chunk.cancel()
                 await asyncio.gather(self._pending_chunk, return_exceptions=True)
@@ -571,115 +562,11 @@ class AsyncRemotePolicy:
         timeout_s: float = 60.0,
     ) -> tuple[float, ...]:
         """Stateful manual-loop step returning one executable action."""
-        if self.model in {"dreamzero-droid", "dreamzero-yam"}:
-            self._require_no_dreamzero_run("next_action()")
-            if self._manual_instruction != instruction or self._dreamzero_episode is None:
-                await self.begin_episode(instruction=instruction)
-                self._manual_instruction = instruction
-                self._manual_action_index = 0
-            result = await self.step(
-                observation,
-                action_index=self._manual_action_index,
-                timeout_s=timeout_s,
-            )
-            self._manual_action_index += 1
-            return result.action
         return await self._action_controller.next_action(
             observation,
             instruction=instruction,
             timeout_s=timeout_s,
         )
-
-    async def begin_episode(
-        self,
-        *,
-        instruction: str,
-        strategy: RunStrategy | None = None,
-    ) -> None:
-        self._require_open()
-        self._require_no_dreamzero_run("begin_episode()")
-        async with self._dreamzero_lifecycle_lock:
-            self._require_open()
-            self._require_no_dreamzero_run("begin_episode()")
-            _, first_error = await self._end_dreamzero_episode_locked()
-            if first_error is not None:
-                raise first_error
-            await self._begin_dreamzero_episode_locked(
-                instruction=instruction,
-                strategy=strategy,
-            )
-
-    async def _begin_dreamzero_episode_locked(
-        self,
-        *,
-        instruction: str,
-        strategy: RunStrategy | None,
-    ) -> None:
-        from dreamscale.dreamzero import dreamzero_loop_profile
-        from dreamscale.policy.dreamzero_runtime import DreamZeroEpisodeController
-
-        profile = dreamzero_loop_profile(self.model)
-        resolved = _validate_dreamzero_strategy(
-            self.model, strategy or RunStrategy(), _session_contract(self)
-        )
-        assert resolved.dreamzero_sampling is not None
-        controller = DreamZeroEpisodeController(
-            policy=self,
-            instruction=instruction,
-            sampling=resolved.dreamzero_sampling,
-            commit_prefix_steps=resolved.dreamzero_commit_prefix_steps,
-            profile=profile,
-            strategy=resolved,
-        )
-        await controller.begin()
-        self._dreamzero_episode = controller
-
-    async def step(
-        self,
-        observation: ObservationLike,
-        *,
-        action_index: int,
-        timeout_s: float = 60.0,
-    ) -> PolicyStepResult:
-        self._require_no_dreamzero_run("step()")
-        if self._dreamzero_episode is None:
-            raise RuntimeError("step() requires begin_episode()")
-        return await self._dreamzero_episode.step(
-            observation,
-            action_index=action_index,
-            timeout_s=timeout_s,
-        )
-
-    async def end_episode(self) -> None:
-        async with self._dreamzero_lifecycle_lock:
-            run_task, first_error = await self._end_dreamzero_episode_locked()
-        await self._cancel_dreamzero_run(run_task)
-        if first_error is not None:
-            raise first_error
-
-    async def _end_dreamzero_episode_locked(
-        self,
-    ) -> tuple[asyncio.Task[Any] | None, BaseException | None]:
-        episode, self._dreamzero_episode = self._dreamzero_episode, None
-        run_task, self._dreamzero_run_task = self._dreamzero_run_task, None
-        self._manual_instruction = None
-        self._manual_action_index = 0
-        first_error: BaseException | None = None
-        if episode is not None:
-            try:
-                await episode.end()
-            except BaseException as exc:
-                first_error = exc
-        return run_task, first_error
-
-    async def _cancel_dreamzero_run(
-        self,
-        run_task: asyncio.Task[Any] | None,
-    ) -> None:
-        current_task = asyncio.current_task()
-        if run_task is not None and run_task is not current_task and not run_task.done():
-            run_task.cancel()
-            await asyncio.gather(run_task, return_exceptions=True)
 
     async def _calibrate(
         self,
@@ -1013,7 +900,6 @@ class AsyncRemotePolicy:
                 wire_observation,
                 resolved_config=self.resolved_optimization_config,
                 runtime_contract=self._runtime_contract,
-                preserve_existing_queue=self.model in {"dreamzero-droid", "dreamzero-yam"},
                 actions_remaining=actions_remaining,
                 next_action_step=next_action_step,
                 threshold_steps=threshold_steps,
@@ -1275,76 +1161,6 @@ class AsyncRemotePolicy:
         strategy: RunStrategy | None = None,
         hooks: RunHooks | None = None,
     ) -> RunResult:
-        if self.model in {"dreamzero-droid", "dreamzero-yam"}:
-            from dreamscale.dreamzero import run_dreamzero_loop
-
-            self._require_open()
-            self._require_no_dreamzero_run("run()")
-            dreamzero_strategy = _validate_dreamzero_strategy(
-                self.model,
-                strategy or RunStrategy(),
-                _session_contract(self),
-            )
-            assert dreamzero_strategy.dreamzero_sampling is not None
-            contract = _session_contract(self) or runtime_contract_for_model(self.model)
-            managed_joints = (
-                bool(contract.joint_groups)
-                and dreamzero_strategy.dreamzero_sampling != "upstream_eval"
-            )
-            if read_hold_action is not None and not managed_joints:
-                raise ValueError(
-                    f"{public_model(self.model)} does not support read_hold_action for this "
-                    "sampling mode"
-                )
-            if (
-                not managed_joints
-                and hooks is not None
-                and any(getattr(hooks, name) is not None for name in hooks.__dataclass_fields__)
-            ):
-                raise ValueError(
-                    f"{public_model(self.model)} RunHooks are not yet supported for this "
-                    "sampling mode"
-                )
-            run_task = asyncio.current_task()
-            assert run_task is not None
-            async with self._dreamzero_lifecycle_lock:
-                self._require_open()
-                self._require_no_dreamzero_run("run()")
-                _, first_error = await self._end_dreamzero_episode_locked()
-                if first_error is not None:
-                    raise first_error
-                await self._begin_dreamzero_episode_locked(
-                    instruction=instruction,
-                    strategy=dreamzero_strategy,
-                )
-                controller = self._dreamzero_episode
-                assert controller is not None
-                self._dreamzero_run_task = run_task
-                controller.hooks = hooks or RunHooks()
-            try:
-                result = await run_dreamzero_loop(
-                    instruction=instruction,
-                    policy=self,
-                    observe=observe,
-                    act=act,
-                    max_actions=max_actions,
-                    sampling=dreamzero_strategy.dreamzero_sampling,
-                    commit_prefix_steps=dreamzero_strategy.dreamzero_commit_prefix_steps,
-                    timeout_s=dreamzero_strategy.timeout_s,
-                    profile=controller.profile,
-                    controller=controller,
-                    strategy=dreamzero_strategy,
-                    hooks=hooks,
-                    read_hold_action=read_hold_action,
-                )
-            finally:
-                async with self._dreamzero_lifecycle_lock:
-                    if self._dreamzero_run_task is run_task:
-                        self._dreamzero_run_task = None
-                    if self._dreamzero_episode is controller:
-                        self._dreamzero_episode = None
-                        await controller.end()
-            return result
         prepare_task = getattr(
             self, "requires_task_preparation", self.model in ISAAC05_MODELS,
         )
@@ -1408,7 +1224,6 @@ class AsyncRemotePolicy:
                 if first_error is None:
                     first_error = exc
 
-        await attempt(self.end_episode())
         await attempt(self._action_controller.close())
         if self._pending_chunk is not None:
             self._pending_chunk.cancel()
@@ -1442,11 +1257,6 @@ class AsyncRemotePolicy:
     def _require_open(self) -> None:
         if self._closed:
             raise RuntimeError("policy is closed")
-
-    def _require_no_dreamzero_run(self, operation: str) -> None:
-        run_task = self._dreamzero_run_task
-        if run_task is not None and not run_task.done():
-            raise RuntimeError(f"{operation} is unavailable while run() is active")
 
     def _emit_progress(self, line: str) -> None:
         if callable(self._on_progress):
@@ -1559,37 +1369,6 @@ class RemotePolicy:
             )
         )
 
-    def begin_episode(
-        self,
-        *,
-        instruction: str,
-        strategy: RunStrategy | None = None,
-    ) -> None:
-        self._runner.run(
-            self._async_policy.begin_episode(
-                instruction=instruction,
-                strategy=strategy,
-            )
-        )
-
-    def step(
-        self,
-        observation: ObservationLike,
-        *,
-        action_index: int,
-        timeout_s: float = 60.0,
-    ) -> PolicyStepResult:
-        return self._runner.run(
-            self._async_policy.step(
-                observation,
-                action_index=action_index,
-                timeout_s=timeout_s,
-            )
-        )
-
-    def end_episode(self) -> None:
-        self._runner.run_cleanup(self._async_policy.end_episode())
-
     def run(
         self,
         *,
@@ -1642,21 +1421,6 @@ def _sync_run(
     """The synchronous managed loop, shared by ``RemotePolicy`` and the public ``Policy``:
     ``policy`` exposes ``_runner`` and ``_async_policy`` (the open session)."""
     async_policy = policy._async_policy
-    if policy.model in {"dreamzero-droid", "dreamzero-yam"}:
-        try:
-            return policy._runner.run(
-                async_policy.run(
-                    instruction=instruction,
-                    observe=observe,
-                    act=act,
-                    read_hold_action=read_hold_action,
-                    max_actions=max_actions,
-                    strategy=strategy,
-                    hooks=hooks,
-                )
-            )
-        finally:
-            policy.last_run_result = getattr(async_policy, "last_run_result", None)
     prepare_task = getattr(
         async_policy, "requires_task_preparation", policy.model in ISAAC05_MODELS,
     )
@@ -1690,52 +1454,6 @@ def _session_contract(policy: Any) -> RuntimeContract | None:
     if contract is None:
         contract = getattr(getattr(policy, "_async_policy", None), "_runtime_contract", None)
     return contract if isinstance(contract, RuntimeContract) else None
-
-
-def _validate_dreamzero_strategy(
-    model: str, strategy: RunStrategy, session_contract: RuntimeContract | None = None
-) -> RunStrategy:
-    from dreamscale.dreamzero import resolve_dreamzero_sampling
-
-    # The session's contract, when the caller chose a control_hz at connect,
-    # carries the decimated rate and chunk. Falling back to the model contract
-    # keeps the gate meaningful for callers that never opened a session.
-    contract = session_contract or runtime_contract_for_model(model)
-    if strategy.action_hz not in (None, contract.action_hz):
-        raise ValueError(f"{public_model(model)} action_hz is fixed at {contract.action_hz:g}")
-    if strategy.chunk_size not in (None, contract.chunk_size):
-        raise ValueError(f"{public_model(model)} chunk_size is fixed at {contract.chunk_size}")
-    if strategy.replan_at_remaining is not None:
-        raise ValueError(
-            f"{public_model(model)} server owns temporal admission; "
-            "replan_at_remaining is unsupported"
-        )
-    if strategy.underrun != "hold_position":
-        raise ValueError(f"{public_model(model)} underruns must hold the observed position")
-    if not strategy.real_time:
-        raise ValueError(
-            f"{public_model(model)} control is fixed to real-time {contract.action_hz:g} Hz"
-        )
-    sampling = resolve_dreamzero_sampling(model, strategy.dreamzero_sampling)
-    if contract.joint_groups and sampling != "upstream_eval":
-        smoothing = resolve_action_smoothing(strategy, contract)
-        if smoothing.mode in ("output", "crossfade"):
-            raise ValueError("stateful joint control requires motion smoothing")
-    elif (
-        strategy.action_smoothing != "auto"
-        or strategy.smoothing_new_weight is not None
-        or strategy.smoothing_correction_steps is not None
-        or strategy.smoothing_reference_speed is not None
-        or strategy.smoothing_time_scale is not None
-    ):
-        raise ValueError(f"{public_model(model)} action smoothing is not supported for {sampling}")
-    return replace(
-        strategy,
-        dreamzero_sampling=resolve_dreamzero_sampling(
-            model,
-            strategy.dreamzero_sampling,
-        ),
-    )
 
 
 def _run_sync_policy_loop(
@@ -2026,7 +1744,7 @@ def _prepared_for_session(observation: Any, *, model: str) -> Any:
 def _robot_helper(model: str) -> str | None:
     """The SDK robot helper a catalog model reads its observation from (``dreamscale.<it>``),
     None for a model without one (deployments, LeRobot checkpoints: ``dreamscale.robot``)."""
-    from dreamscale_transport import catalog
+    from dreamscale_transport import _catalog_client as catalog
 
     entry = catalog.entry(internal_model(model))
     return None if entry is None else entry.client.robot_helper
@@ -2112,7 +1830,6 @@ def _with_runtime_context(
     *,
     resolved_config: ResolvedOptimizationConfig,
     runtime_contract: RuntimeContract,
-    preserve_existing_queue: bool = False,
     actions_remaining: int | None = None,
     next_action_step: int | None = None,
     threshold_steps: int | None = None,
@@ -2146,7 +1863,7 @@ def _with_runtime_context(
             rtc=rtc_context,
         )
     else:
-        merged_queue = existing.queue if preserve_existing_queue else {**existing.queue, **queue}
+        merged_queue = {**existing.queue, **queue}
         runtime_context = existing.model_copy(
             update={
                 "version": PROTOCOL_VERSION,

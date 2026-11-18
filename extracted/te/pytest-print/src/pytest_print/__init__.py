@@ -4,15 +4,25 @@ from __future__ import annotations
 
 from dataclasses import dataclass, replace
 from timeit import default_timer
-from typing import TYPE_CHECKING, Protocol, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Protocol,
+    TypeVar,
+    cast,
+)
 
 import pytest
 
 if TYPE_CHECKING:
-    from _pytest.capture import CaptureManager
+    from _pytest.capture import CaptureManager  # simplint: ignore[private-import-path]  # pytest has no public type
 
 
-def pytest_addoption(parser: pytest.Parser) -> None:
+def pytest_addoption(parser: pytest.Parser) -> None:  # ruff: ignore[non-empty-init-module]  # pytest entry point
+    """
+    Add the ``--print`` and ``--print-relative-time`` command-line options.
+
+    :param parser: the parser to add the options to
+    """
     group = parser.getgroup("general")
     group.addoption(
         "--print",
@@ -30,7 +40,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
-class Printer(Protocol):
+class Printer(Protocol):  # ruff: ignore[non-empty-init-module]  # preserve public class path
     """Printer within a pytest session."""
 
     def __call__(self, msg: str) -> None:
@@ -41,19 +51,79 @@ class Printer(Protocol):
         """
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session")  # ruff: ignore[non-empty-init-module]  # pytest entry point
 def printer_session(request: pytest.FixtureRequest) -> Printer:
-    """Pytest plugin to print test progress steps in verbose mode (session scoped)."""
+    """
+    Pytest plugin to print test progress steps in verbose mode (session scoped).
+
+    :param request: the pytest request
+    :returns: the printer shared by the whole session
+    """
     return _create(request, _Printer, Formatter())
 
 
-@pytest.fixture(name="printer")
+def _create(  # ruff: ignore[non-empty-init-module]  # pytest entry point
+    request: pytest.FixtureRequest, of_type: type[_OfType], formatter: Formatter
+) -> _OfType:
+    return of_type(
+        reporter=cast("pytest.TerminalReporter | None", request.config.pluginmanager.getplugin("terminalreporter"))
+        if request.config.getoption("pytest_print_on") or cast("int", request.config.getoption("verbose")) > 0
+        else None,
+        capture_manager=cast("CaptureManager | None", request.config.pluginmanager.getplugin("capturemanager")),
+        formatter=formatter,
+        start=default_timer() if request.config.getoption("pytest_print_relative_time") else None,
+        level=0,
+    )
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)  # ruff: ignore[non-empty-init-module]  # preserve public class path
+class Formatter:
+    """
+    Configures how to format messages to be printed.
+
+    :param head: start every line with this prefix
+    :param icon: an icon text printed immediately after the head
+    :param space: character to print right after the prefix
+    :param indentation: use this character to indent the message, only useful for indented printers
+    :param timer_fmt: how to print out elapsed time since the creation of the printer - float (seconds)
+    """
+
+    head: str = ""  #: start every line with this prefix
+    icon: str = ""  #: an icon text printed immediately after the head
+    space: str = ""  #: character to print right after the prefix
+    indentation: str = "\t"  #: use this character to indent the message, only useful for indented printers
+    timer_fmt: str = "{elapsed}\t"  #: how to print out elapsed time since the creation of the printer - float (seconds)
+
+    def __call__(self, msg: str, level: int, elapsed: float | None) -> str:
+        """
+        Format the given message.
+
+        :param msg: the message to format
+        :param level: indentation level
+        :param elapsed: time elapsed
+        :returns: the formatted message
+        """
+        indentation = " " * (len(self.indentation)) if level else self.indentation
+        spacer = " " * len(self._pre) * level
+        return f"{indentation}{self.timer_fmt.format(elapsed=elapsed) if elapsed else ''}{spacer}{self._pre}{msg}"
+
+    @property
+    def _pre(self) -> str:
+        return f"{self.head}{self.icon}{self.space}"
+
+
+@pytest.fixture(name="printer")  # ruff: ignore[non-empty-init-module]  # pytest entry point
 def printer(printer_session: Printer) -> Printer:
-    """Pytest plugin to print test progress steps in verbose mode."""
+    """
+    Pytest plugin to print test progress steps in verbose mode.
+
+    :param printer_session: the printer shared by the whole session
+    :returns: the printer for one test
+    """
     return printer_session
 
 
-class PrettyPrinter(Protocol):
+class PrettyPrinter(Protocol):  # ruff: ignore[non-empty-init-module]  # preserve public class path
     """Printer within a pytest session."""
 
     def __call__(self, msg: str, *, icon: str | None = None) -> None:
@@ -69,17 +139,23 @@ class PrettyPrinter(Protocol):
         Create an indented pretty printer.
 
         :param icon: change the icon from the parents printer
+        :returns: a pretty printer one indentation level deeper, with the given icon
         """
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session")  # ruff: ignore[non-empty-init-module]  # pytest entry point
 def pretty_printer(request: pytest.FixtureRequest) -> PrettyPrinter:
-    """Pytest plugin to print test progress steps in verbose mode."""
+    """
+    Pytest plugin to print test progress steps in verbose mode, with icons and indentation.
+
+    :param request: the pytest request
+    :returns: the pretty printer shared by the whole session
+    """
     formatter = Formatter(head=" ", icon="⏩", space=" ", indentation="  ", timer_fmt="[{elapsed:.20f}]")
     return _create(request, _PrettyPrinter, formatter)
 
 
-class PrettyPrinterFactory(Protocol):
+class PrettyPrinterFactory(Protocol):  # ruff: ignore[non-empty-init-module]  # preserve public class path
     """Create a new pretty printer."""
 
     def __call__(self, *, formatter: Formatter) -> PrettyPrinter:
@@ -90,9 +166,14 @@ class PrettyPrinterFactory(Protocol):
         """
 
 
-@pytest.fixture(scope="session")
+@pytest.fixture(scope="session")  # ruff: ignore[non-empty-init-module]  # pytest entry point
 def create_pretty_printer(request: pytest.FixtureRequest) -> PrettyPrinterFactory:
-    """Pytest plugin to print test progress steps in verbose mode."""
+    """
+    Create pretty printers, each with the formatter it is given.
+
+    :param request: the pytest request
+    :returns: a factory that creates a pretty printer from a formatter
+    """
 
     def meth(*, formatter: Formatter) -> PrettyPrinter:
         return _create(request, _PrettyPrinter, formatter)
@@ -100,36 +181,7 @@ def create_pretty_printer(request: pytest.FixtureRequest) -> PrettyPrinterFactor
     return meth
 
 
-@dataclass(frozen=True, slots=True, kw_only=True)
-class Formatter:
-    """Configures how to format messages to be printed."""
-
-    head: str = ""  #: start every line with this prefix
-    icon: str = ""  #: an icon text printed immediately after the head
-    space: str = ""  #: character to print right after the prefix
-    indentation: str = "\t"  #: use this character to indent the message, only useful for indented printers
-    timer_fmt: str = "{elapsed}\t"  #: how to print out elapsed time since the creation of the printer - float (seconds)
-
-    @property
-    def _pre(self) -> str:
-        return f"{self.head}{self.icon}{self.space}"
-
-    def __call__(self, msg: str, level: int, elapsed: float | None) -> str:
-        """
-        Format the given message.
-
-        :param msg: the message to format
-        :param level: indentation level
-        :param elapsed: time elapsed
-        :return: the formatted message
-        """
-        indentation = " " * (len(self.indentation)) if level else self.indentation
-        spacer = " " * len(self._pre) * level
-        timer = self.timer_fmt.format(elapsed=elapsed) if elapsed else ""
-        return f"{indentation}{timer}{spacer}{self._pre}{msg}"
-
-
-class _Printer:
+class _Printer:  # ruff: ignore[non-empty-init-module]  # pytest entry point
     def __init__(
         self,
         *,
@@ -156,7 +208,7 @@ class _Printer:
             self._reporter.write_line(msg)
 
 
-class _PrettyPrinter(_Printer):
+class _PrettyPrinter(_Printer):  # ruff: ignore[non-empty-init-module]  # pytest entry point
     def __call__(self, msg: str, *, icon: str | None = None) -> None:
         self._print(msg, self._formatter if icon is None else replace(self._formatter, icon=icon))
 
@@ -170,19 +222,7 @@ class _PrettyPrinter(_Printer):
         )
 
 
-_OfType = TypeVar("_OfType", bound=_Printer)
-
-
-def _create(request: pytest.FixtureRequest, of_type: type[_OfType], formatter: Formatter) -> _OfType:
-    return of_type(
-        reporter=cast("pytest.TerminalReporter | None", request.config.pluginmanager.getplugin("terminalreporter"))
-        if request.config.getoption("pytest_print_on") or cast("int", request.config.getoption("verbose")) > 0
-        else None,
-        capture_manager=cast("CaptureManager | None", request.config.pluginmanager.getplugin("capturemanager")),
-        formatter=formatter,
-        start=default_timer() if request.config.getoption("pytest_print_relative_time") else None,
-        level=0,
-    )
+_OfType = TypeVar("_OfType", bound=_Printer)  # ruff: ignore[non-empty-init-module]  # pytest entry point
 
 
 __all__ = [

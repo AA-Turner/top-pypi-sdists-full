@@ -4,6 +4,7 @@ requires = [
   "hatch-fancy-pypi-readme>=25.1",
   "hatch-vcs>=0.5",
   "hatchling>=1.29",
+  "python-sbom[hatch]>=0.1.2",
 ]
 
 [project]
@@ -70,7 +71,7 @@ test = [
   "pytest-mock>=3.15.1",
 ]
 type = [
-  "ty>=0.0.19",
+  "ty>=0.0.99",
   { include-group = "docs-core" },
   { include-group = "release" },
   { include-group = "test" },
@@ -94,6 +95,7 @@ build = [
   "hatch-fancy-pypi-readme>=25.1",
   "hatch-vcs>=0.5",
   "hatchling>=1.29",
+  "python-sbom[hatch]>=0.1.2",
   "setuptools>=80",
 ]
 coverage = [
@@ -132,6 +134,7 @@ version.source = "vcs"
 metadata.hooks.fancy-pypi-readme.content-type = "text/markdown"
 metadata.hooks.fancy-pypi-readme.fragments = [ { path = "README.md" } ]
 build.hooks.vcs.version-file = "src/platformdirs/version.py"
+build.hooks.python-sbom = {}
 build.targets.sdist.include = [
   "/src",
   "/tests",
@@ -157,27 +160,36 @@ lint.select = [
 lint.ignore = [
   "CPY",                               # no copyright notices
   "DOC",                               # no support for restructuredtext
-  "escape-sequence-in-docstring",      # Use `r"""` if any backslashes in a docstring
-  "hardcoded-bind-all-interfaces",     # Possible binding to all interfaces
-  "incorrect-blank-line-before-class", # `one-blank-line-before-class` (D203) and `no-blank-line-before-class` (D211) are incompatible
+  "incorrect-blank-line-before-class", # Conflicts with `blank-line-before-class`
   "line-too-long",                     # line length handled by ruff format (code) and docstrfmt (docstrings)
   "missing-blank-line-after-summary",  # 1 blank line required between summary line and description
   "missing-trailing-comma",            # conflict
-  "multi-line-summary-second-line",    # `multi-line-summary-second-line` (D213) conflicts with docstrfmt which uses D212 style
+  "multi-line-summary-second-line",    # docstrfmt uses `multi-line-summary-first-line` style
   "non-empty-init-module",             # `__init__` module should only contain docstrings and re-exports
   "non-imperative-mood",               # The first line of docstring should be in imperative mood
+  "undocumented-magic-method",         # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-class",         # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-function",      # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-init",          # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-method",        # undocumented-public-api (simplint) covers the public API instead
+  "undocumented-public-nested-class",  # undocumented-public-api (simplint) covers the public API instead
+]
+lint.per-file-ignores."docs/conf.py" = [
+  "banned-api", # import time does not matter for the docs build
 ]
 lint.per-file-ignores."tests/**/*.py" = [
   "assert",                               # asserts allowed in tests
+  "banned-api",                           # import time does not matter in tests
   "D",                                    # don't care about documentation in tests
   "FBT",                                  # don't care about booleans as positional arguments in tests
   "implicit-namespace-package",           # no implicit namespace
-  "import-private-name",                  # Private name import
   "magic-value-comparison",               # Magic value used in comparison, consider replacing with a constant variable
   "pytest-fixture-autouse",               # shared setup fixtures are meant to apply to every test
   "subprocess-without-shell-equals-true", # `subprocess` call: check for execution of untrusted input
   "too-many-positional-arguments",        # Too many positional arguments
 ]
+lint.flake8-tidy-imports.banned-api."typing.TYPE_CHECKING".msg = "use TYPE_CHECKING = False instead"
+lint.flake8-type-checking.exempt-modules = []  # move typing-only imports from `typing` under `if TYPE_CHECKING:` too
 lint.isort = { known-first-party = [
   "platformdirs",
   "tests",
@@ -206,6 +218,11 @@ paths.other = [
   ".",
   "*/platformdirs",
   "*\\platformdirs",
+]
+paths.tests = [
+  "tests",
+  "*/tests",
+  "*\\tests",
 ]
 paths.source = [
   "src",
@@ -239,6 +256,9 @@ type = [
   { directory = "packaging", name = "Packaging", showcontent = true },
 ]
 
+[tool.python-sbom]
+supplier = { name = "tox-dev", url = [ "https://github.com/tox-dev" ] }
+
 [tool.nab]
 mode = "universal"
 base-group = "project-runtime"
@@ -246,5 +266,6 @@ uploaded-prior-to = "P7D"
 decision-order = "stable"
 matrix.python = ">=3.15,<3.16"
 matrix.platforms = [ "linux_x86_64" ]
-# release-creator 4.4.0 needs a seven-day cutoff exception through 2026-11-09.
-packages.release-creator.uploaded-prior-to = 2026-11-02T21:45:00Z
+
+[tool.simplint]
+docstring-style = "rst"

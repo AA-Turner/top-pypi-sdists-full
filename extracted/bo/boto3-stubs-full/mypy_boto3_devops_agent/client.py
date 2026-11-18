@@ -84,6 +84,8 @@ from .type_defs import (
     GetAssociationOutputTypeDef,
     GetBacklogTaskRequestTypeDef,
     GetBacklogTaskResponseTypeDef,
+    GetChatRequestTypeDef,
+    GetChatResponseTypeDef,
     GetOperatorAppInputTypeDef,
     GetOperatorAppOutputTypeDef,
     GetRecommendationRequestTypeDef,
@@ -145,6 +147,8 @@ from .type_defs import (
     UpdateAssociationOutputTypeDef,
     UpdateBacklogTaskRequestTypeDef,
     UpdateBacklogTaskResponseTypeDef,
+    UpdateChatRequestTypeDef,
+    UpdateChatResponseTypeDef,
     UpdateGoalRequestTypeDef,
     UpdateGoalResponseTypeDef,
     UpdateOperatorAppIdpConfigInputTypeDef,
@@ -448,6 +452,15 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_backlog_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/client/#get_backlog_task)
+        """
+
+    def get_chat(self, **kwargs: Unpack[GetChatRequestTypeDef]) -> GetChatResponseTypeDef:
+        """
+        Retrieves the details of a chat execution, including its execution ID, summary,
+        timestamps, and archive status.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/get_chat.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/client/#get_chat)
         """
 
     def get_operator_app(
@@ -755,6 +768,14 @@ class DevOpsAgentServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_backlog_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/client/#update_backlog_task)
+        """
+
+    def update_chat(self, **kwargs: Unpack[UpdateChatRequestTypeDef]) -> UpdateChatResponseTypeDef:
+        """
+        Updates a chat execution.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/devops-agent/client/update_chat.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_devops_agent/client/#update_chat)
         """
 
     def update_goal(self, **kwargs: Unpack[UpdateGoalRequestTypeDef]) -> UpdateGoalResponseTypeDef:

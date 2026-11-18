@@ -476,6 +476,15 @@ class ServerRefusedError(RosError):
     and `action`: a caller shows it as given instead of a bare status."""
 
 
+class RateLimitedError(ServerRefusedError):
+    """429 `rate_limited`: a team API key read past its budget (600 a minute per API process). Reads already
+    waited out `Retry-After` and tried again; ``retry_after`` says how long to wait before the next."""
+
+
+#: The server's code on a team API key's 429 (app/accounts/auth/tokens/key_budget.py).
+RATE_LIMITED = "rate_limited"
+
+
 def error_for(status: int, detail: Any, server_message: ServerMessage | None = None) -> RosError:
     """Build the right exception for an HTTP status + parsed ``detail``, carrying what the server
     said (`server_message`; read from ``detail`` when the caller has no whole body)."""
@@ -503,6 +512,8 @@ def _choose_error(status: int, detail: Any, message: ServerMessage) -> RosError:
         return WorkspaceLimitUnknown(_limit_message(detail), status=status, detail=detail)
     if isinstance(detail, dict) and detail.get("code") == INVALID_WORKSPACE_LIMIT:
         return InvalidWorkspaceLimit(_limit_message(detail), status=status, detail=detail)
+    if status == 429 and isinstance(detail, dict) and detail.get("code") == RATE_LIMITED:
+        return RateLimitedError(message.text or _detail_message(detail), status=status, detail=detail)
     if status in _OBJECT_DETAIL_STATUSES:
         cls = _BY_STATUS[status]
         return cls(_detail_message(detail), detail=detail)  # type: ignore[call-arg]

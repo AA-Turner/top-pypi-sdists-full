@@ -32,7 +32,7 @@ dependencies = [
     "datalayer_reactor>=1.3.7",
     # An agent's MCP server at its address (`agent_runtimes.addresses.mcp`): one tool
     # per operation of its openapi, contributed to Reactor's MCP server.
-    "reactor_mcp_server>=1.3.7",
+    "reactor_mcp_server>=1.3.9",
     # PAP is a runtime protocol capability, not an example-only dependency.
     # 0.3.1 is the first release with matching Python/TypeScript Direct Sign-In
     # orchestration and a root-published TypeScript package.
@@ -62,7 +62,7 @@ dependencies = [
     # the domain beside a company's name.
     # 0.37.0: 1.0 as published (frozen 2026-11-14): each agent.protocols entry needs a
     # description (CompanyConfig.agent_description), prompt=consent, PAR, ports.
-    "personal-agent-protocol[ui]>=0.37.0,<0.38",
+    "personal-agent-protocol[ui]>=0.37.3,<0.38",
     # The first releases of both on mcp 2; an older one pins mcp<2.
     "agent-codemode>=1.1.0",
     # 1.4.0: agent-skills is the framework alone (and its `jokes` example).
@@ -74,7 +74,7 @@ dependencies = [
     # skills' scripts run (docker/Dockerfile.agent-runtime installs `[skills]`).
     # 1.6.65 with datalayer-skills 0.6.0: the email skill (datalayer-email), through IAM's /social/mail.
     # 1.6.70 with datalayer-skills 0.6.1: the email skill's unconfirmed delivery said as such.
-    "datalayer-skills>=0.6.1",  # the Voyager's travel skills (travel-planning, fare-and-stay-comparison, dining)
+    "datalayer-skills>=0.6.1",  # the Traveller's travel skills (travel-planning, fare-and-stay-comparison, dining)
     # The Appspec and its checks (`loop apps validate`): one validation, the spec's own.
     # The scene spec: agentspecs.scenes; components in answers.
     # An Appspec's `samples`: an older one refuses the field.
@@ -120,7 +120,7 @@ dependencies = [
     # 1.6.58 with agentspecs 0.0.194: X through the linked account, held to the x-api-budget guardrail.
     # 1.6.65 with agentspecs 0.0.199: datalayer-email, the Marketer's alerts.at.
     # agentspecs 0.0.203: the Appspec's openapi, the one source of an app's MCP tools, REST endpoints and PAP operations.
-    "agentspecs>=0.0.210",  # the Demo Shop: its bundled catalogue, read by agent_runtimes.tools.demo_shop (0.0.204); the Buy from a shop Stage (0.0.206); x-datalayer-gallery, OpenApiOperation.gallery (0.0.207); scope descriptions as the protocol's guide asks (0.0.208 to 0.0.210)
+    "agentspecs>=0.0.215",  # the Jupyter Data Analyst, the seventh seed agent, its demo-jupyter-data-analyst, and demo-shopper 0.0.7 on read, propose, confirm (0.0.215); the Appspec's presentation and the six demos that say theirs (0.0.214); the Traveller (worker-traveller, demo-traveller; 0.0.213); the Demo Shop: its bundled catalogue, read by agent_runtimes.tools.demo_shop (0.0.204); the Buy from a shop Stage (0.0.206); x-datalayer-gallery, OpenApiOperation.gallery (0.0.207); scope descriptions as the protocol's guide asks (0.0.208 to 0.0.210)
     # The Datalayer orchestration extension`s wire-level constants
     # (`EXECUTION_FIELD`, `ENVELOPE_KEY`, ...), imported by
     # `context/delegation.py` and `guardrails/model_budget.py` rather than

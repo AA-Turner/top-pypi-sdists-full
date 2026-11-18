@@ -3,18 +3,21 @@ from __future__ import annotations
 import importlib.util
 import json
 import logging
-from types import SimpleNamespace
-from typing import TYPE_CHECKING
+import sys
+import tracemalloc
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, TypeGuard
 
 import pytest
 
 from lib_layered_config.adapters.file_loaders import structured as structured_module
 from lib_layered_config.adapters.file_loaders.structured import JSONFileLoader, TOMLFileLoader, YAMLFileLoader
 from lib_layered_config.domain.errors import InvalidFormatError, NotFoundError
-from tests.adapters.test_loader_errors import _chain
+from tests.support.exception_chain import chain
 from tests.support.os_markers import os_agnostic
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 # Check installation with find_spec, not `structured_module.yaml`. That module global is
@@ -24,10 +27,46 @@ if TYPE_CHECKING:
 _YAML_INSTALLED = importlib.util.find_spec("yaml") is not None
 
 
+def _is_mapping(value: object) -> TypeGuard[Mapping[str, object]]:
+    return isinstance(value, Mapping)
+
+
+def _section(payload: Mapping[str, object], key: str) -> Mapping[str, object]:
+    value = payload[key]
+    assert _is_mapping(value)
+    return value
+
+
+class _FakeYAML:
+    """A ``YAMLModule`` double: ``_parse_yaml_text`` reads only ``SafeLoader`` and ``YAMLError``.
+
+    Its loader's ``get_single_node`` returns what *compose* returns for the document (``None``: an
+    empty document) or raises what *compose* raises; nothing here builds a node to construct.
+    """
+
+    def __init__(self, *, compose: Callable[[str], None], yaml_error: type[Exception]) -> None:
+        self.YAMLError = yaml_error
+
+        class _Loader:
+            def __init__(self, document: str) -> None:
+                self._document = document
+
+            def get_single_node(self) -> None:
+                return compose(self._document)
+
+            def construct_document(self, _node: object) -> object:
+                raise AssertionError("the fake composes no node to construct")
+
+            def dispose(self) -> None:
+                return None
+
+        self.SafeLoader: type[object] = _Loader
+
+
 @os_agnostic
 def test_toml_loader_recites_the_port_number(tmp_path: Path) -> None:
     path = _write(tmp_path / "config.toml", "[db]\nport = 5432\n")
-    port = TOMLFileLoader().load(str(path))["db"]["port"]
+    port = _section(TOMLFileLoader().load(str(path)), "db")["port"]
     assert port == 5432
 
 
@@ -54,10 +93,12 @@ def test_json_loader_affirms_boolean_truth(tmp_path: Path) -> None:
 
 
 @os_agnostic
-def test_loader_rejects_file_over_size_cap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(structured_module, "MAX_CONFIG_FILE_BYTES", 10)
-    path = _write(tmp_path / "big.toml", "key = 'aaaaaaaaaaaaaaaaaaaaaaaa'\n")
-    with pytest.raises(InvalidFormatError):
+def test_loader_rejects_file_over_size_cap(tmp_path: Path) -> None:
+    cap = structured_module.MAX_CONFIG_FILE_BYTES
+    prefix = b"key = 1\n"
+    path = tmp_path / "big.toml"
+    path.write_bytes(prefix + b"#" * (cap + 1 - len(prefix)))
+    with pytest.raises(InvalidFormatError, match="-byte limit"):
         TOMLFileLoader().load(str(path))
 
 
@@ -77,17 +118,39 @@ def test_yaml_loader_whispers_only_silence_for_empty_files(tmp_path: Path) -> No
 
 
 @os_agnostic
-def test_yaml_guard_explains_when_dependency_is_missing(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(structured_module, "_load_yaml_module", lambda: None)
+def test_yaml_loader_explains_when_dependency_is_missing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # A None entry in sys.modules makes `import yaml` raise ModuleNotFoundError, as on a host
+    # without PyYAML. The module-level cache is cleared too, or an earlier test's import would answer.
+    monkeypatch.setitem(sys.modules, "yaml", None)
     monkeypatch.setattr(structured_module, "yaml", None)
+    path = _write(tmp_path / "config.yaml", "key: 1\n", encoding="utf-8")
+
+    # A refusal, not NotFoundError: a layer read skips NotFoundError, which silently dropped the
+    # file's settings (R5-F1).
+    with pytest.raises(InvalidFormatError) as caught:
+        YAMLFileLoader().load(str(path))
+
+    assert (
+        str(caught.value)
+        == f"{path} is YAML, which needs PyYAML: install it with pip install 'lib_layered_config[yaml]'"
+    )
+
+
+@os_agnostic
+def test_yaml_loader_without_pyyaml_still_reports_a_missing_file_as_not_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setitem(sys.modules, "yaml", None)
+    monkeypatch.setattr(structured_module, "yaml", None)
+
     with pytest.raises(NotFoundError):
-        structured_module._ensure_yaml_available()
+        YAMLFileLoader().load(str(tmp_path / "gone.yaml"))
 
 
 @os_agnostic
 def test_loader_mapping_guard_rejects_naked_scalars() -> None:
     with pytest.raises(InvalidFormatError):
-        structured_module.BaseFileLoader._ensure_mapping(7, path="demo.toml")
+        structured_module.BaseFileLoader._ensure_mapping(7, path="demo.toml")  # pyright: ignore[reportPrivateUsage] - unit test of the mapping guard on a bare scalar
 
 
 @pytest.mark.skipif(not _YAML_INSTALLED, reason="PyYAML not available")
@@ -100,8 +163,11 @@ def test_yaml_loader_cries_out_on_illegal_syntax(tmp_path: Path) -> None:
 
 @os_agnostic
 def test_yaml_parser_returns_empty_dict_when_document_is_none(monkeypatch: pytest.MonkeyPatch) -> None:
-    fake_yaml = SimpleNamespace(safe_load=lambda _: None, YAMLError=Exception)
-    empty_mapping = structured_module._parse_yaml_text("", fake_yaml, "memory.yaml")
+    def load_nothing(_: str) -> None:
+        return None
+
+    fake_yaml = _FakeYAML(compose=load_nothing, yaml_error=Exception)
+    empty_mapping = structured_module._parse_yaml_text("", fake_yaml, "memory.yaml").data  # pyright: ignore[reportPrivateUsage] - drives the parser with a fake module
     assert empty_mapping == {}
 
 
@@ -110,12 +176,12 @@ def test_yaml_parser_wraps_yaml_errors_with_context(monkeypatch: pytest.MonkeyPa
     class BoomError(Exception):
         pass
 
-    def explode(_: bytes) -> None:
+    def explode(_: str) -> None:
         raise BoomError("boom")
 
-    fake_yaml = SimpleNamespace(safe_load=explode, YAMLError=BoomError)
+    fake_yaml = _FakeYAML(compose=explode, yaml_error=BoomError)
     with pytest.raises(InvalidFormatError) as exc:
-        structured_module._parse_yaml_text("", fake_yaml, "memory.yaml")
+        structured_module._parse_yaml_text("", fake_yaml, "memory.yaml")  # pyright: ignore[reportPrivateUsage] - drives the parser with a fake module
     assert "memory.yaml" in str(exc.value)
 
 
@@ -128,12 +194,12 @@ def test_yaml_parser_wraps_a_bare_value_error_as_invalid_format() -> None:
     class YAMLError(Exception):
         pass
 
-    def explode(_: bytes) -> None:
+    def explode(_: str) -> None:
         raise ValueError("month must be in 1..12, not 13")
 
-    fake_yaml = SimpleNamespace(safe_load=explode, YAMLError=YAMLError)
+    fake_yaml = _FakeYAML(compose=explode, yaml_error=YAMLError)
     with pytest.raises(InvalidFormatError) as exc:
-        structured_module._parse_yaml_text("a: 2020-13-01", fake_yaml, "memory.yaml")
+        structured_module._parse_yaml_text("a: 2020-13-01", fake_yaml, "memory.yaml")  # pyright: ignore[reportPrivateUsage] - drives the parser with a fake module
     message = str(exc.value)
     assert message == "memory.yaml is not valid YAML"
     assert "13" not in message
@@ -147,12 +213,12 @@ def test_yaml_parser_reports_a_recursion_error_as_too_deep() -> None:
     class YAMLError(Exception):
         pass
 
-    def explode(_: bytes) -> None:
+    def explode(_: str) -> None:
         raise RecursionError("maximum recursion depth exceeded")
 
-    fake_yaml = SimpleNamespace(safe_load=explode, YAMLError=YAMLError)
+    fake_yaml = _FakeYAML(compose=explode, yaml_error=YAMLError)
     with pytest.raises(InvalidFormatError) as exc:
-        structured_module._parse_yaml_text("[[[[[[", fake_yaml, "memory.yaml")
+        structured_module._parse_yaml_text("[[[[[[", fake_yaml, "memory.yaml")  # pyright: ignore[reportPrivateUsage] - drives the parser with a fake module
     assert str(exc.value) == "memory.yaml nests deeper than the YAML parser allows"
 
 
@@ -173,7 +239,7 @@ def test_yaml_loader_refuses_an_out_of_range_calendar_date_without_leaking_the_c
     without_path = message.replace(str(path), "")
     assert "month" not in without_path
     assert "13" not in without_path
-    for link in _chain(exc.value):
+    for link in chain(exc.value):
         link_text = str(link).replace(str(path), "")
         assert "month" not in link_text
         assert "13" not in link_text
@@ -218,3 +284,32 @@ def _write(path: Path, text: str, *, encoding: str = "utf-8") -> Path:
 
     path.write_text(text, encoding=encoding)
     return path
+
+
+@os_agnostic
+@pytest.mark.parametrize("size", [4, 256 * 1024], ids=["tiny", "256k"])
+def test_a_capped_read_allocates_about_what_the_file_holds(tmp_path: Path, size: int) -> None:
+    # Asking the stream for cap + 1 bytes made CPython allocate the whole 10 MiB cap for every
+    # file, a 4-byte .env included; the read must grow with the file, not with the cap.
+    target = tmp_path / "config.toml"
+    target.write_bytes(b"#" * size)
+    structured_module.read_capped_bytes(target)  # warm imports and caches outside the measurement
+
+    tracemalloc.start()
+    try:
+        content = structured_module.read_capped_bytes(target)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+
+    assert len(content) == size
+    assert peak < 3 * size + 256 * 1024, peak
+
+
+@os_agnostic
+def test_a_capped_read_still_refuses_a_file_one_byte_over_the_cap(tmp_path: Path) -> None:
+    target = tmp_path / "config.toml"
+    target.write_bytes(b"#" * (structured_module.MAX_CONFIG_FILE_BYTES + 1))
+
+    with pytest.raises(InvalidFormatError, match="-byte limit"):
+        structured_module.read_capped_bytes(target)

@@ -6,12 +6,15 @@ from typing import TYPE_CHECKING
 from pytest import mark, param
 from sphinx.ext.autodoc import Options
 
-from sphinx_autodoc_typehints._documented import Entry, class_doc_choice, class_member_type, overload_skip
+from sphinx_autodoc_typehints._documented.entry import Entry
+from sphinx_autodoc_typehints._documented.members import class_doc_choice, class_member_type, overload_skip
 
 if TYPE_CHECKING:
     from sphinx.testing.util import SphinxTestApp
 
-    from sphinx_autodoc_typehints._types import Documented
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # keep types private
+        Documented,
+    )
 
 
 def _helper(value: int) -> str: ...
@@ -58,7 +61,7 @@ def test_class_member_type(name: str, expected: type | None) -> None:
 )
 @mark.sphinx("text", testroot="dummy")
 def test_overload_skip(app: SphinxTestApp, what: str, member: str, obj: Documented, expected: int) -> None:
-    assert overload_skip(Entry(app, what, f"{__name__}._Members.{member}", obj)) == expected
+    assert overload_skip(Entry(app=app, what=what, name=f"{__name__}._Members.{member}", obj=obj)) == expected
 
 
 @mark.parametrize(

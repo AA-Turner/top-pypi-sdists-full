@@ -5,15 +5,19 @@ from typing import TYPE_CHECKING, Literal
 
 from pytest import mark, param
 
-from sphinx_autodoc_typehints._render import as_field_type, as_signature_type
+from sphinx_autodoc_typehints._render.annotation.rendered import as_field_type, as_signature_type
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from sphinx.config import Config
 
-    from _render.conftest import MakeConfig
-    from sphinx_autodoc_typehints._types import Annotation
+    from _render.conftest import (  # simplint: ignore[private-import-path]  # shared config fixture
+        MakeConfig,
+    )
+    from sphinx_autodoc_typehints._types import (  # simplint: ignore[private-import-path]  # internal annotation tests
+        Annotation,
+    )
 
 
 @mark.parametrize(

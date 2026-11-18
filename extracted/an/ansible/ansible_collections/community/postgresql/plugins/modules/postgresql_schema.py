@@ -25,12 +25,8 @@ options:
   login_db:
     description:
     - Name of the database to connect to and add or remove the schema.
-    - The V(db) alias is deprecated and will be removed in version 5.0.0.
     type: str
     default: postgres
-    aliases:
-    - db
-    - database
   owner:
     description:
     - Name of the role to set as owner of the schema.
@@ -84,6 +80,8 @@ seealso:
 attributes:
   check_mode:
     support: full
+  idempotent:
+    support: full
 
 author:
 - Flavien Chantelot (@Dorn-) <contact@flavien.io>
@@ -133,6 +131,7 @@ from ansible_collections.community.postgresql.plugins.module_utils.database impo
     SQLParseError,
     check_input,
     pg_quote_identifier,
+    pg_quote_name,
 )
 from ansible_collections.community.postgresql.plugins.module_utils.postgres import (
     connect_to_db,
@@ -155,8 +154,8 @@ class NotSupportedError(Exception):
 #
 
 def set_owner(cursor, schema, owner):
-    query = 'ALTER SCHEMA %s OWNER TO "%s"' % (
-            pg_quote_identifier(schema, 'schema'), owner)
+    query = 'ALTER SCHEMA %s OWNER TO %s' % (
+            pg_quote_identifier(schema, 'schema'), pg_quote_name(owner))
     cursor.execute(query)
     executed_queries.append(query)
     return True
@@ -195,7 +194,7 @@ def schema_create(cursor, schema, owner, comment):
     if not schema_exists(cursor, schema):
         query_fragments = ['CREATE SCHEMA %s' % pg_quote_identifier(schema, 'schema')]
         if owner:
-            query_fragments.append('AUTHORIZATION "%s"' % owner)
+            query_fragments.append('AUTHORIZATION %s' % pg_quote_name(owner))
         query = ' '.join(query_fragments)
         cursor.execute(query)
         executed_queries.append(query)
@@ -241,18 +240,7 @@ def main():
     argument_spec.update(
         schema=dict(type="str", required=True, aliases=['name']),
         owner=dict(type="str", default=""),
-        login_db=dict(type='str', default='postgres', aliases=['db', 'database'], deprecated_aliases=[
-            {
-                'name': 'db',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            },
-            {
-                'name': 'database',
-                'version': '5.0.0',
-                'collection_name': 'community.postgresql',
-            }],
-        ),
+        login_db=dict(type='str', default='postgres'),
         cascade_drop=dict(type="bool", default=False),
         state=dict(type="str", default="present", choices=["absent", "present"]),
         session_role=dict(type="str"),

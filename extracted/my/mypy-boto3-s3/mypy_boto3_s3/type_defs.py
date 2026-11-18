@@ -1709,6 +1709,7 @@ class PutBucketAbacRequestTypeDef(TypedDict):
 
 class AbortMultipartUploadOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1758,6 +1759,7 @@ class CreateMultipartUploadOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     ChecksumAlgorithm: ChecksumAlgorithmType
     ChecksumType: ChecksumTypeType
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2059,6 +2061,7 @@ class UploadPartOutputTypeDef(TypedDict):
     SSEKMSKeyId: str
     BucketKeyEnabled: bool
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -2979,6 +2982,7 @@ class UploadPartCopyOutputTypeDef(TypedDict):
     SSEKMSKeyId: str
     BucketKeyEnabled: bool
     RequestCharged: Literal["requester"]
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -3156,6 +3160,7 @@ class MultipartUploadTypeDef(TypedDict):
     Initiator: NotRequired[InitiatorTypeDef]
     ChecksumAlgorithm: NotRequired[ChecksumAlgorithmType]
     ChecksumType: NotRequired[ChecksumTypeType]
+    VersionId: NotRequired[str]
 
 
 class InputSerializationTypeDef(TypedDict):
@@ -3301,6 +3306,7 @@ class ListPartsOutputTypeDef(TypedDict):
     RequestCharged: Literal["requester"]
     ChecksumAlgorithm: ChecksumAlgorithmType
     ChecksumType: ChecksumTypeType
+    VersionId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

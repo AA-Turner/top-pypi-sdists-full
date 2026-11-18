@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_marketplace_agreement.literals import AgreementCancellationRequestReasonCodeType
+    from mypy_boto3_marketplace_agreement.literals import AgreementApprovalPartyTypeType
 
-    data: AgreementCancellationRequestReasonCodeType = "ALTERNATIVE_PROCUREMENT_CHANNEL"
+    data: AgreementApprovalPartyTypeType = "AWS_ORGANIZATION_ADMIN"
     ```
 """
 
@@ -23,27 +23,39 @@ else:
 
 
 __all__ = (
+    "AgreementApprovalPartyTypeType",
+    "AgreementApprovalStatusType",
+    "AgreementApprovalTypeType",
     "AgreementCancellationRequestReasonCodeType",
     "AgreementCancellationRequestStatusType",
     "AgreementEntitlementStatusReasonCodeType",
     "AgreementEntitlementStatusType",
+    "AgreementRequestStatusType",
     "AgreementServiceServiceName",
     "AgreementStatusType",
+    "ApprovalRequirementType",
+    "ApproverOutcomeStatusType",
     "BillingAdjustmentErrorCodeType",
     "BillingAdjustmentReasonCodeType",
     "BillingAdjustmentStatusType",
+    "ContactTypeType",
     "EndTimeBehaviorReasonCodeType",
     "EndTimeBehaviorTypeType",
     "GetAgreementEntitlementsPaginatorName",
+    "GetAgreementRequestApprovalPlansPaginatorName",
+    "GetAgreementRequestTermsPaginatorName",
     "GetAgreementTermsPaginatorName",
     "IntentType",
     "InvoiceTypeType",
     "LineItemGroupByType",
+    "ListAgreementApprovalsPaginatorName",
     "ListAgreementCancellationRequestsPaginatorName",
     "ListAgreementChargesPaginatorName",
     "ListAgreementInvoiceLineItemsPaginatorName",
     "ListAgreementPaymentRequestsPaginatorName",
+    "ListAgreementRequestsPaginatorName",
     "ListBillingAdjustmentRequestsPaginatorName",
+    "OfferVisibilityScopeType",
     "PaginatorName",
     "PaymentRequestApprovalStrategyType",
     "PaymentRequestStatusType",
@@ -57,6 +69,11 @@ __all__ = (
 )
 
 
+AgreementApprovalPartyTypeType = Literal["AWS_ORGANIZATION_ADMIN", "REQUESTER"]
+AgreementApprovalStatusType = Literal[
+    "APPROVED", "CANCELLED", "EXPIRED", "PENDING_APPROVAL", "REJECTED"
+]
+AgreementApprovalTypeType = Literal["BUYER_AGREEMENT_APPROVAL"]
 AgreementCancellationRequestReasonCodeType = Literal[
     "ALTERNATIVE_PROCUREMENT_CHANNEL",
     "BUYER_DISSATISFACTION",
@@ -84,6 +101,9 @@ AgreementEntitlementStatusReasonCodeType = Literal[
 AgreementEntitlementStatusType = Literal[
     "DEPROVISIONED", "FAILED", "PENDING", "PROVISIONED", "SCHEDULED"
 ]
+AgreementRequestStatusType = Literal[
+    "ACCEPTED", "APPROVED", "CANCELLED", "DRAFT", "PENDING_APPROVAL", "REJECTED"
+]
 AgreementStatusType = Literal[
     "ACTIVE",
     "ARCHIVED",
@@ -94,6 +114,10 @@ AgreementStatusType = Literal[
     "ROLLED_BACK",
     "SUPERSEDED",
     "TERMINATED",
+]
+ApprovalRequirementType = Literal["NOT_REQUIRED", "REQUIRED"]
+ApproverOutcomeStatusType = Literal[
+    "APPROVED", "EXPIRED", "PENDING_APPROVAL", "QUEUED", "REJECTED", "SKIPPED"
 ]
 BillingAdjustmentErrorCodeType = Literal[
     "CONFLICT_EXCEPTION", "INTERNAL_FAILURE", "RESOURCE_NOT_FOUND_EXCEPTION", "VALIDATION_EXCEPTION"
@@ -108,6 +132,7 @@ BillingAdjustmentReasonCodeType = Literal[
     "UNINTENDED_RENEWAL",
 ]
 BillingAdjustmentStatusType = Literal["COMPLETED", "PENDING", "VALIDATION_FAILED"]
+ContactTypeType = Literal["ACCEPTOR"]
 EndTimeBehaviorReasonCodeType = Literal[
     "ACCEPTOR_RENEW_OPTED_OUT",
     "NO_RENEWAL_TERM",
@@ -116,15 +141,20 @@ EndTimeBehaviorReasonCodeType = Literal[
 ]
 EndTimeBehaviorTypeType = Literal["EXPIRE", "RENEW", "REPLACE"]
 GetAgreementEntitlementsPaginatorName = Literal["get_agreement_entitlements"]
+GetAgreementRequestApprovalPlansPaginatorName = Literal["get_agreement_request_approval_plans"]
+GetAgreementRequestTermsPaginatorName = Literal["get_agreement_request_terms"]
 GetAgreementTermsPaginatorName = Literal["get_agreement_terms"]
 IntentType = Literal["AMEND", "NEW", "REPLACE"]
 InvoiceTypeType = Literal["CREDIT_MEMO", "INVOICE"]
 LineItemGroupByType = Literal["INVOICE_ID"]
+ListAgreementApprovalsPaginatorName = Literal["list_agreement_approvals"]
 ListAgreementCancellationRequestsPaginatorName = Literal["list_agreement_cancellation_requests"]
 ListAgreementChargesPaginatorName = Literal["list_agreement_charges"]
 ListAgreementInvoiceLineItemsPaginatorName = Literal["list_agreement_invoice_line_items"]
 ListAgreementPaymentRequestsPaginatorName = Literal["list_agreement_payment_requests"]
+ListAgreementRequestsPaginatorName = Literal["list_agreement_requests"]
 ListBillingAdjustmentRequestsPaginatorName = Literal["list_billing_adjustment_requests"]
+OfferVisibilityScopeType = Literal["PRIVATE", "PUBLIC"]
 PaymentRequestApprovalStrategyType = Literal["AUTO_APPROVE_ON_EXPIRATION", "WAIT_FOR_APPROVAL"]
 PaymentRequestStatusType = Literal[
     "APPROVED", "CANCELLED", "PENDING_APPROVAL", "REJECTED", "VALIDATING", "VALIDATION_FAILED"
@@ -132,7 +162,7 @@ PaymentRequestStatusType = Literal[
 SearchAgreementsPaginatorName = Literal["search_agreements"]
 SortOrderType = Literal["ASCENDING", "DESCENDING"]
 TaxEstimationType = Literal["DISABLED", "ENABLED"]
-TimingType = Literal["BILLING_PERIOD", "ON_ACCEPTANCE", "SCHEDULED"]
+TimingType = Literal["BILLING_PERIOD", "NOT_APPLICABLE", "ON_ACCEPTANCE", "SCHEDULED"]
 AgreementServiceServiceName = Literal["marketplace-agreement"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -243,6 +273,7 @@ ServiceName = Literal[
     "connectcases",
     "connecthealth",
     "connectparticipant",
+    "connectscheduling",
     "continuum",
     "controlcatalog",
     "controltower",
@@ -427,6 +458,7 @@ ServiceName = Literal[
     "odb",
     "omics",
     "opensearch",
+    "opensearchmemory",
     "opensearchserverless",
     "organizations",
     "osis",
@@ -494,6 +526,7 @@ ServiceName = Literal[
     "sagemaker-edge",
     "sagemaker-featurestore-runtime",
     "sagemaker-geospatial",
+    "sagemaker-inference-router-runtime",
     "sagemaker-metrics",
     "sagemaker-runtime",
     "sagemakerjobruntime",
@@ -576,11 +609,15 @@ ResourceServiceName = Literal[
 ]
 PaginatorName = Literal[
     "get_agreement_entitlements",
+    "get_agreement_request_approval_plans",
+    "get_agreement_request_terms",
     "get_agreement_terms",
+    "list_agreement_approvals",
     "list_agreement_cancellation_requests",
     "list_agreement_charges",
     "list_agreement_invoice_line_items",
     "list_agreement_payment_requests",
+    "list_agreement_requests",
     "list_billing_adjustment_requests",
     "search_agreements",
 ]

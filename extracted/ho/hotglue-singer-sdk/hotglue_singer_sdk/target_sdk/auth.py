@@ -130,6 +130,12 @@ class ApiAuthenticator(Authenticator):
 class OAuthAuthenticator(Authenticator):
     """API Authenticator for OAuth 2.0 flows."""
 
+    # Class-level defaults: some targets override __init__ without calling super().
+    _default_expiration: Optional[int] = None
+    access_token: Optional[str] = None
+    last_refreshed = None
+    expires_in: Optional[int] = None
+
     def __init__(
         self,
         target,
@@ -142,9 +148,6 @@ class OAuthAuthenticator(Authenticator):
         super().__init__(target, state)
         self._auth_endpoint = auth_endpoint
         self._default_expiration = default_expiration
-        self.access_token: Optional[str] = None
-        self.last_refreshed = None
-        self.expires_in: Optional[int] = None
 
     @property
     def auth_headers(self) -> dict:
@@ -211,7 +214,10 @@ class OAuthAuthenticator(Authenticator):
         """Update token from the Hotglue access token API endpoint."""
         connector_id = os.environ.get("TARGET")
         request_time = utc_now()
-        token_json = fetch_access_token_from_hotglue_api(connector_id)
+        token_json = fetch_access_token_from_hotglue_api(
+            connector_id,
+            connector_version=getattr(getattr(self, "_target", None), "plugin_version", None),
+        )
         self.access_token = token_json["access_token"]
         self.expires_in = int(token_json["expires_in"]) if token_json["expires_in"] is not None else None
         self.last_refreshed = request_time

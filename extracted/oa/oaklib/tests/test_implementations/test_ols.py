@@ -2,6 +2,8 @@ import itertools
 import unittest
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from oaklib.datamodels.search import SearchConfiguration, SearchProperty
 from oaklib.datamodels.vocabulary import IS_A, PART_OF
 from oaklib.implementations.ols.ols_implementation import OlsImplementation
@@ -33,6 +35,7 @@ class TestOlsImplementation(unittest.TestCase):
     def setUp(self) -> None:
         # Setup mock client
         mock_client = MagicMock()
+        mock_client.get_ontology.return_value = {"config": {"hierarchicalProperties": []}}
 
         # Create implementation
         with patch.object(OlsImplementation, "ols_client_class", return_value=mock_client):
@@ -196,6 +199,75 @@ class TestOlsImplementation(unittest.TestCase):
         oi = self.oi
         oi.focus_ontology = "go"
         self.assertIsNone(oi.label("GO:9999999"))
+        self.assertIsNone(oi.label("GO:9999999"))
+        self.mock_client.get_term.assert_called_once()
+
+    def test_label_missing_iri_http_error(self):
+        """label() should cache a 404 for a non-term IRI as a missing label."""
+        response = requests.Response()
+        response.status_code = 404
+        self.mock_client.get_term.side_effect = requests.HTTPError(response=response)
+        oi = self.oi
+        oi.focus_ontology = "go"
+        self.assertIsNone(oi.label(IS_A))
+        self.assertIsNone(oi.label(IS_A))
+        self.assertIn(IS_A, oi.label_cache)
+        self.assertIsNone(oi.label_cache[IS_A])
+        self.mock_client.get_term.assert_called_once()
+
+    def test_definition_missing_iri_http_error(self):
+        """definition() should cache a 404 for a non-term IRI as missing."""
+        response = requests.Response()
+        response.status_code = 404
+        self.mock_client.get_term.side_effect = requests.HTTPError(response=response)
+        oi = self.oi
+        oi.focus_ontology = "go"
+        self.assertIsNone(oi.definition(IS_A))
+        self.assertIsNone(oi.definition(IS_A))
+        self.assertIn(IS_A, oi.definition_cache)
+        self.assertIsNone(oi.definition_cache[IS_A])
+        self.mock_client.get_term.assert_called_once()
+
+    def test_term_lookup_http_error_without_status_is_raised(self):
+        """A response-less HTTPError is not a confirmed missing term."""
+        oi = self.oi
+        oi.focus_ontology = "go"
+        for method_name, cache_name in [
+            ("label", "label_cache"),
+            ("definition", "definition_cache"),
+        ]:
+            with self.subTest(method=method_name):
+                cache = getattr(oi, cache_name)
+                cache.clear()
+                self.mock_client.get_term.reset_mock()
+                error = requests.HTTPError()
+                self.mock_client.get_term.side_effect = error
+                with self.assertRaises(requests.HTTPError) as raised:
+                    getattr(oi, method_name)(IS_A)
+                self.assertIs(error, raised.exception)
+                self.mock_client.get_term.assert_called_once()
+                self.assertNotIn(IS_A, cache)
+
+    def test_term_lookup_non_404_http_errors_are_raised(self):
+        """Authentication, throttling, and server failures must not look missing."""
+        oi = self.oi
+        oi.focus_ontology = "go"
+        for method_name, cache_name in [
+            ("label", "label_cache"),
+            ("definition", "definition_cache"),
+        ]:
+            for status_code in [401, 403, 429, 500]:
+                with self.subTest(method=method_name, status_code=status_code):
+                    cache = getattr(oi, cache_name)
+                    cache.clear()
+                    response = requests.Response()
+                    response.status_code = status_code
+                    error = requests.HTTPError(response=response)
+                    self.mock_client.get_term.side_effect = error
+                    with self.assertRaises(requests.HTTPError) as raised:
+                        getattr(oi, method_name)(IS_A)
+                    self.assertIs(error, raised.exception)
+                    self.assertNotIn(IS_A, cache)
 
     @staticmethod
     def _hal_page(obo_ids, number, total_pages, key="terms"):
@@ -244,6 +316,137 @@ class TestOlsImplementation(unittest.TestCase):
         )
         ancs = list(oi.ancestors([VACUOLE], predicates=[IS_A], reflexive=False))
         assert CELLULAR_COMPONENT in ancs
+
+    def test_entailed_relationships(self):
+        oi = self.oi
+
+        def mock_get_json(path, **kwargs):
+            if path.endswith("/ancestors"):
+                return self._hal_page([CELLULAR_COMPONENT], number=0, total_pages=1)
+            if path.endswith("/hierarchicalAncestors"):
+                return self._hal_page([CELLULAR_COMPONENT, CYTOPLASM], number=0, total_pages=1)
+            raise AssertionError(f"Unexpected path: {path}")
+
+        self.mock_client.get_json.side_effect = mock_get_json
+
+        rels = list(
+            oi.relationships(subjects=[VACUOLE], predicates=[IS_A, PART_OF], include_entailed=True)
+        )
+
+        self.assertIn((VACUOLE, IS_A, VACUOLE), rels)
+        self.assertIn((VACUOLE, IS_A, CELLULAR_COMPONENT), rels)
+        self.assertIn((VACUOLE, PART_OF, CYTOPLASM), rels)
+
+    def test_graph_relationships_preserve_unmapped_uris(self):
+        """Direct graph edges should retain URIs that cannot be contracted."""
+        known_source_iri = "http://purl.obolibrary.org/obo/GO_0005773"
+        known_target_iri = "http://purl.obolibrary.org/obo/GO_0005737"
+        unknown_source_iri = "http://example.org/unknown_source"
+        unknown_target_iri = "http://example.org/unknown_target"
+        unknown_predicate_iri = "http://example.org/unknown_predicate"
+        unconvertible_iri = "http://example.org/unconvertible"
+        self.mock_client.get_json.return_value = {
+            "edges": [
+                {
+                    "source": unknown_source_iri,
+                    "uri": unknown_predicate_iri,
+                    "target": known_target_iri,
+                },
+                {
+                    "source": known_source_iri,
+                    "uri": unknown_predicate_iri,
+                    "target": unknown_target_iri,
+                },
+                {
+                    "source": 42,
+                    "uri": unknown_predicate_iri,
+                    "target": known_target_iri,
+                },
+                {
+                    "source": unconvertible_iri,
+                    "uri": unknown_predicate_iri,
+                    "target": known_target_iri,
+                },
+            ]
+        }
+
+        def mock_uri_to_curie(uri, *args, **kwargs):
+            known_curies = {
+                known_source_iri: VACUOLE,
+                known_target_iri: CYTOPLASM,
+            }
+            if uri in known_curies:
+                return known_curies[uri]
+            if uri == unconvertible_iri:
+                return None
+            if kwargs.get("use_uri_fallback"):
+                return uri
+            return None
+
+        self.oi.uri_to_curie.side_effect = mock_uri_to_curie
+
+        incoming = list(self.oi.relationships(objects=[CYTOPLASM]))
+        outgoing = list(self.oi.relationships(subjects=[VACUOLE]))
+
+        self.assertEqual({(unknown_source_iri, unknown_predicate_iri, CYTOPLASM)}, set(incoming))
+        self.assertEqual({(VACUOLE, unknown_predicate_iri, unknown_target_iri)}, set(outgoing))
+
+    def test_entailed_part_of_rejects_additional_hierarchical_predicates(self):
+        """Hierarchy closure differences are ambiguous when OLS configures other predicates."""
+        part_of_iri = "http://purl.obolibrary.org/obo/BFO_0000050"
+        custom_hierarchy_iri = "http://example.org/custom_hierarchy"
+        self.mock_client.get_ontology.return_value = {
+            "config": {
+                "hierarchicalProperties": [
+                    part_of_iri,
+                    custom_hierarchy_iri,
+                ]
+            }
+        }
+
+        def mock_uri_to_curie(uri, *args, **kwargs):
+            if uri == part_of_iri:
+                return PART_OF
+            if kwargs.get("use_uri_fallback"):
+                return uri
+            return None
+
+        self.oi.uri_to_curie.side_effect = mock_uri_to_curie
+
+        with self.assertRaisesRegex(NotImplementedError, "additional hierarchical predicates"):
+            list(
+                self.oi.relationships(
+                    subjects=[VACUOLE],
+                    predicates=[IS_A, PART_OF],
+                    include_entailed=True,
+                )
+            )
+
+        self.mock_client.get_json.assert_not_called()
+        self.assertTrue(
+            all(call.kwargs.get("use_uri_fallback") for call in self.oi.uri_to_curie.call_args_list)
+        )
+
+    def test_entailed_isa_ignores_additional_hierarchical_predicates(self):
+        """An is-a-only closure remains unambiguous for every OLS hierarchy config."""
+        self.mock_client.get_ontology.return_value = {
+            "config": {
+                "hierarchicalProperties": [
+                    "http://purl.obolibrary.org/obo/BFO_0000050",
+                    "http://purl.obolibrary.org/obo/RO_0002202",
+                ]
+            }
+        }
+        self.mock_client.get_json.return_value = self._hal_page(
+            [CELLULAR_COMPONENT], number=0, total_pages=1
+        )
+
+        rels = list(
+            self.oi.relationships(subjects=[VACUOLE], predicates=[IS_A], include_entailed=True)
+        )
+
+        self.assertIn((VACUOLE, IS_A, CELLULAR_COMPONENT), rels)
+        self.mock_client.get_ontology.assert_not_called()
 
     def test_descendants(self):
         oi = self.oi
@@ -335,13 +538,9 @@ class TestOlsImplementation(unittest.TestCase):
         set (is_a + part_of for GO), so ``[IS_A, PART_OF]`` is served by it.
         """
         self.assertEqual(self._descendants_endpoint([IS_A]), "descendants")
-        self.assertEqual(
-            self._descendants_endpoint([IS_A, PART_OF]), "hierarchicalDescendants"
-        )
+        self.assertEqual(self._descendants_endpoint([IS_A, PART_OF]), "hierarchicalDescendants")
         # order-independent
-        self.assertEqual(
-            self._descendants_endpoint([PART_OF, IS_A]), "hierarchicalDescendants"
-        )
+        self.assertEqual(self._descendants_endpoint([PART_OF, IS_A]), "hierarchicalDescendants")
         # default (no predicates) also traverses is_a + part_of
         self.assertEqual(self._descendants_endpoint(None), "hierarchicalDescendants")
 
@@ -416,3 +615,140 @@ class TestOlsImplementation(unittest.TestCase):
         results = list(itertools.islice(self.oi.basic_search("swimming", config), 20))
         self.assertIn("OMIT:0014415", results)  # OMIT:0014415 == Swimming
         self.assertNotIn("OMIT:0014416", results)  # OMIT:0014416 == Swimming Pools
+
+
+def _response(status_code=200, payload=None):
+    response = MagicMock()
+    response.status_code = status_code
+    response.json.return_value = payload
+    if status_code >= 400:
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+    return response
+
+
+HP_SYNDACTYLY = "HP:0001159"
+HP_FINGER_SYNDACTYLY = "HP:0006101"
+HP_UNKNOWN = "HP:9999999"
+EMBEDDINGS = {
+    HP_SYNDACTYLY: [1.0, 0.0, 0.0],
+    HP_FINGER_SYNDACTYLY: [1.0, 1.0, 0.0],
+}
+MODELS = [
+    {"model": "model-a", "can_embed": False},
+    {"model": "model-b", "can_embed": True},
+]
+
+
+class TestOlsEmbeddings(unittest.TestCase):
+    """Tests for the EmbeddingProviderInterface over OLS, with the API mocked."""
+
+    def setUp(self) -> None:
+        from oaklib.utilities.embeddings.embedding_cache import EmbeddingCache
+
+        mock_client = MagicMock()
+        mock_client.base_url = "https://example.org/ols4/api"
+        with patch.object(OlsImplementation, "ols_client_class", return_value=mock_client):
+            oi = OlsImplementation(OntologyResource("hp"))
+        oi._embedding_cache = EmbeddingCache(":memory:")
+        self.calls = []
+
+        def fake_request(method, path, params=None, **kwargs):
+            self.calls.append((method, path, params))
+            if path == "llm_models":
+                return _response(payload=MODELS)
+            if path.endswith("/llm_embedding") and path != "classes/llm_embedding":
+                curie = next((c for c in EMBEDDINGS if c.replace(":", "_") in path), None)
+                if curie is None:
+                    return _response(404, {"status": 404})
+                return _response(payload=EMBEDDINGS[curie])
+            if path.endswith("/llm_similar") or path.startswith("classes/llm_"):
+                return _response(
+                    payload={
+                        "elements": [
+                            {
+                                "iri": "http://purl.obolibrary.org/obo/HP_0001159",
+                                "label": ["Syndactyly"],
+                                "score": 1.0,
+                            },
+                            {
+                                "iri": "http://purl.obolibrary.org/obo/HP_0010692",
+                                "label": ["obsolete 2-5 finger syndactyly"],
+                                "isObsolete": True,
+                                "score": 0.9,
+                            },
+                            {
+                                "iri": "http://purl.obolibrary.org/obo/HP_0006101",
+                                "label": ["Finger syndactyly"],
+                                "score": 0.75,
+                            },
+                        ]
+                    }
+                )
+            raise AssertionError(f"Unexpected request: {method} {path}")
+
+        oi._embedding_request = MagicMock(side_effect=fake_request)
+        self.oi = oi
+
+    def test_models(self):
+        self.assertEqual(self.oi.embedding_models(), ["model-a", "model-b"])
+
+    def test_embeddings_and_cache(self):
+        ids, m = self.oi.entity_embeddings([HP_SYNDACTYLY, HP_UNKNOWN, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(ids, [HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(m.shape, (2, 3))
+        fetches = [c for c in self.calls if c[1].endswith("/llm_embedding")]
+        self.assertEqual(len(fetches), 3)
+        self.assertTrue(all(c[2] == {"model": "model-a"} for c in fetches))
+        # second call is served entirely from the cache, including the miss
+        self.oi.entity_embeddings([HP_SYNDACTYLY, HP_UNKNOWN, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(len([c for c in self.calls if c[1].endswith("/llm_embedding")]), 3)
+        # a different model is cached separately
+        self.oi.entity_embeddings([HP_SYNDACTYLY], model="model-b")
+        self.assertEqual(len([c for c in self.calls if c[1].endswith("/llm_embedding")]), 4)
+
+    def test_similarity(self):
+        sim = self.oi.embedding_similarity(HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY)
+        self.assertAlmostEqual(sim, 2**-0.5, places=5)
+        self.assertIsNone(self.oi.embedding_similarity(HP_SYNDACTYLY, HP_UNKNOWN))
+
+    def test_nearest_entities(self):
+        results = list(self.oi.nearest_entities(HP_SYNDACTYLY, limit=5))
+        # query term is excluded; OLS scores of (1 + cos) / 2 are converted to cosine
+        self.assertEqual(results, [(HP_FINGER_SYNDACTYLY, 0.5)])
+        self.assertEqual(self.oi.label(HP_FINGER_SYNDACTYLY), "Finger syndactyly")
+
+    def test_nearest_entities_to_text(self):
+        results = list(self.oi.nearest_entities_to_text("webbed fingers", limit=1))
+        self.assertEqual(results, [(HP_SYNDACTYLY, 1.0)])
+        _, path, params = self.calls[-1]
+        self.assertEqual(path, "classes/llm_search")
+        # defaults to a model that can embed text, and to the focus ontology
+        self.assertEqual(params["model"], "model-b")
+        self.assertEqual(params["ontologyId"], "hp")
+        with self.assertRaises(ValueError):
+            list(self.oi.nearest_entities_to_text("webbed fingers", model="model-a"))
+
+    def test_nearest_entities_to_vector(self):
+        results = list(self.oi.nearest_entities_to_vector([1.0, 0.0, 0.0], limit=2))
+        self.assertEqual([c for c, _ in results], [HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(self.calls[-1][0], "POST")
+
+    def test_fetch_failures_not_cached(self):
+        original = self.oi._embedding_request.side_effect
+        flaky = {"n": 0}
+
+        def failing(method, path, params=None, **kwargs):
+            if "HP_0006101" in path and path.endswith("/llm_embedding"):
+                flaky["n"] += 1
+                return _response(503, {"status": 503})
+            return original(method, path, params, **kwargs)
+
+        self.oi._embedding_request.side_effect = failing
+        with patch("oaklib.implementations.ols.ols_implementation.time.sleep"):
+            ids, _ = self.oi.entity_embeddings([HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(ids, [HP_SYNDACTYLY])
+        self.assertEqual(flaky["n"], 3)  # one attempt plus two retries
+        # the failure is not cached, so it is retried (and now succeeds)
+        self.oi._embedding_request.side_effect = original
+        ids, _ = self.oi.entity_embeddings([HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY])
+        self.assertEqual(ids, [HP_SYNDACTYLY, HP_FINGER_SYNDACTYLY])

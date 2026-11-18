@@ -29,7 +29,9 @@ from botocore.exceptions import ClientError as BotocoreClientError
 from .paginator import (
     ListABTestsPaginator,
     ListActorsPaginator,
+    ListAgentInsightsPaginator,
     ListBatchEvaluationsPaginator,
+    ListDatasetGenerationsPaginator,
     ListEventsPaginator,
     ListMemoryExtractionJobsPaginator,
     ListMemoryRecordsPaginator,
@@ -61,6 +63,8 @@ from .type_defs import (
     DeleteBatchEvaluationResponseTypeDef,
     DeleteCapacityProviderSessionRequestTypeDef,
     DeleteCapacityProviderSessionResponseTypeDef,
+    DeleteDatasetGenerationRequestTypeDef,
+    DeleteDatasetGenerationResponseTypeDef,
     DeleteEventInputTypeDef,
     DeleteEventOutputTypeDef,
     DeleteMemoryRecordInputTypeDef,
@@ -77,12 +81,16 @@ from .type_defs import (
     GetABTestResponseTypeDef,
     GetAgentCardRequestTypeDef,
     GetAgentCardResponseTypeDef,
+    GetAgentInsightRequestTypeDef,
+    GetAgentInsightResponseTypeDef,
     GetBatchEvaluationRequestTypeDef,
     GetBatchEvaluationResponseTypeDef,
     GetBrowserSessionRequestTypeDef,
     GetBrowserSessionResponseTypeDef,
     GetCodeInterpreterSessionRequestTypeDef,
     GetCodeInterpreterSessionResponseTypeDef,
+    GetDatasetGenerationRequestTypeDef,
+    GetDatasetGenerationResponseTypeDef,
     GetEventInputTypeDef,
     GetEventOutputTypeDef,
     GetMemoryRecordInputTypeDef,
@@ -125,12 +133,16 @@ from .type_defs import (
     ListABTestsResponseTypeDef,
     ListActorsInputTypeDef,
     ListActorsOutputTypeDef,
+    ListAgentInsightsRequestTypeDef,
+    ListAgentInsightsResponseTypeDef,
     ListBatchEvaluationsRequestTypeDef,
     ListBatchEvaluationsResponseTypeDef,
     ListBrowserSessionsRequestTypeDef,
     ListBrowserSessionsResponseTypeDef,
     ListCodeInterpreterSessionsRequestTypeDef,
     ListCodeInterpreterSessionsResponseTypeDef,
+    ListDatasetGenerationsRequestTypeDef,
+    ListDatasetGenerationsResponseTypeDef,
     ListEventsInputTypeDef,
     ListEventsOutputTypeDef,
     ListMemoryExtractionJobsInputTypeDef,
@@ -159,6 +171,8 @@ from .type_defs import (
     StartBrowserSessionResponseTypeDef,
     StartCodeInterpreterSessionRequestTypeDef,
     StartCodeInterpreterSessionResponseTypeDef,
+    StartDatasetGenerationRequestTypeDef,
+    StartDatasetGenerationResponseTypeDef,
     StartMemoryExtractionJobInputTypeDef,
     StartMemoryExtractionJobOutputTypeDef,
     StartRecommendationRequestTypeDef,
@@ -173,6 +187,8 @@ from .type_defs import (
     StopRuntimeSessionResponseTypeDef,
     UpdateABTestRequestTypeDef,
     UpdateABTestResponseTypeDef,
+    UpdateAgentInsightRequestTypeDef,
+    UpdateAgentInsightResponseTypeDef,
     UpdateBrowserStreamRequestTypeDef,
     UpdateBrowserStreamResponseTypeDef,
 )
@@ -351,6 +367,16 @@ class BedrockAgentCoreClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_capacity_provider_session)
         """
 
+    def delete_dataset_generation(
+        self, **kwargs: Unpack[DeleteDatasetGenerationRequestTypeDef]
+    ) -> DeleteDatasetGenerationResponseTypeDef:
+        """
+        Deletes the record of a dataset generation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/delete_dataset_generation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#delete_dataset_generation)
+        """
+
     def delete_event(self, **kwargs: Unpack[DeleteEventInputTypeDef]) -> DeleteEventOutputTypeDef:
         """
         Deletes an event from an AgentCore Memory resource.
@@ -426,6 +452,17 @@ class BedrockAgentCoreClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_agent_card)
         """
 
+    def get_agent_insight(
+        self, **kwargs: Unpack[GetAgentInsightRequestTypeDef]
+    ) -> GetAgentInsightResponseTypeDef:
+        """
+        Amazon Bedrock AgentCore Agent Insights identifies patterns detected across
+        your agent sessions.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_agent_insight.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_agent_insight)
+        """
+
     def get_batch_evaluation(
         self, **kwargs: Unpack[GetBatchEvaluationRequestTypeDef]
     ) -> GetBatchEvaluationResponseTypeDef:
@@ -457,6 +494,17 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_code_interpreter_session.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_code_interpreter_session)
+        """
+
+    def get_dataset_generation(
+        self, **kwargs: Unpack[GetDatasetGenerationRequestTypeDef]
+    ) -> GetDatasetGenerationResponseTypeDef:
+        """
+        Gets a dataset generation, including its status, the request it was started
+        with, its progress counts, its redaction summary and its errors.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_dataset_generation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_dataset_generation)
         """
 
     def get_event(self, **kwargs: Unpack[GetEventInputTypeDef]) -> GetEventOutputTypeDef:
@@ -673,6 +721,17 @@ class BedrockAgentCoreClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#list_actors)
         """
 
+    def list_agent_insights(
+        self, **kwargs: Unpack[ListAgentInsightsRequestTypeDef]
+    ) -> ListAgentInsightsResponseTypeDef:
+        """
+        Lists Amazon Bedrock AgentCore Agent Insight summaries in your account and
+        Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_agent_insights.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#list_agent_insights)
+        """
+
     def list_batch_evaluations(
         self, **kwargs: Unpack[ListBatchEvaluationsRequestTypeDef]
     ) -> ListBatchEvaluationsResponseTypeDef:
@@ -704,6 +763,16 @@ class BedrockAgentCoreClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_code_interpreter_sessions.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#list_code_interpreter_sessions)
+        """
+
+    def list_dataset_generations(
+        self, **kwargs: Unpack[ListDatasetGenerationsRequestTypeDef]
+    ) -> ListDatasetGenerationsResponseTypeDef:
+        """
+        Lists the generations for a dataset.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/list_dataset_generations.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#list_dataset_generations)
         """
 
     def list_events(self, **kwargs: Unpack[ListEventsInputTypeDef]) -> ListEventsOutputTypeDef:
@@ -849,6 +918,17 @@ class BedrockAgentCoreClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#start_code_interpreter_session)
         """
 
+    def start_dataset_generation(
+        self, **kwargs: Unpack[StartDatasetGenerationRequestTypeDef]
+    ) -> StartDatasetGenerationResponseTypeDef:
+        """
+        Starts a dataset generation, which creates examples for an existing dataset
+        from your agent's traces.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/start_dataset_generation.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#start_dataset_generation)
+        """
+
     def start_memory_extraction_job(
         self, **kwargs: Unpack[StartMemoryExtractionJobInputTypeDef]
     ) -> StartMemoryExtractionJobOutputTypeDef:
@@ -924,6 +1004,16 @@ class BedrockAgentCoreClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#update_ab_test)
         """
 
+    def update_agent_insight(
+        self, **kwargs: Unpack[UpdateAgentInsightRequestTypeDef]
+    ) -> UpdateAgentInsightResponseTypeDef:
+        """
+        Updates the archive status of an Amazon Bedrock AgentCore Agent Insight.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/update_agent_insight.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#update_agent_insight)
+        """
+
     def update_browser_stream(
         self, **kwargs: Unpack[UpdateBrowserStreamRequestTypeDef]
     ) -> UpdateBrowserStreamResponseTypeDef:
@@ -958,8 +1048,30 @@ class BedrockAgentCoreClient(BaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_agent_insights"]
+    ) -> ListAgentInsightsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_batch_evaluations"]
     ) -> ListBatchEvaluationsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock-agentcore/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_bedrock_agentcore/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_dataset_generations"]
+    ) -> ListDatasetGenerationsPaginator:
         """
         Create a paginator for an operation.
 

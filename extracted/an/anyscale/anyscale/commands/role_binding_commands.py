@@ -408,7 +408,7 @@ def apply_role_binding_policy(
     A role appears once, with every principal that holds it under it, split
     into a 'user_id' block and a 'group_id' block. Either block may be left
     out. This is exactly what a generate emits, so a generated document
-    applies straight back. Find a role's id with 'anyscale role list'. Writing
+    applies straight back. Find a role's id with `anyscale role list`. Writing
     'roles: []' revokes every role binding on the resource, so it has to be
     deliberate.
     """

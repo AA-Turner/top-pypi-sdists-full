@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.109.1
+Version: 1.110.0
 Requires-Dist: fastuuid>=0.14.0,<1.0 ; python_full_version < '3.15'
 Requires-Dist: filelock>=3.16.1,<5
 Requires-Dist: httpx[http2]>=0.28.0,<1.0
@@ -13,7 +13,7 @@ Requires-Dist: tiktoken>=0.8.0,<1.0 ; python_full_version < '3.14'
 Requires-Dist: tiktoken>=0.12.0,<1.0 ; python_full_version == '3.14.*'
 Requires-Dist: tiktoken>=0.14.0,<1.0 ; python_full_version >= '3.15'
 Requires-Dist: tokenizers>=0.21.0,<1.0
-Requires-Dist: huggingface-hub>=0.34.0,<2.0
+Requires-Dist: huggingface-hub>=0.34.0,<3.0
 Requires-Dist: click>=8.0.0,<9.0
 Requires-Dist: jinja2>=3.1.6,<4.0
 Requires-Dist: aiohttp>=3.14.2,<4.0
@@ -50,6 +50,7 @@ Requires-Dist: mcp>=2.3.0,<3 ; extra == 'mcp'
 Requires-Dist: httpx2>=2.10.0,<3 ; extra == 'mcp'
 Requires-Dist: pydantic>=2.12.0,<3 ; extra == 'mcp'
 Requires-Dist: mlflow>=3.17.2,<4.0 ; extra == 'mlflow'
+Requires-Dist: litellm-proxy==1.110.0 ; extra == 'proxy'
 Requires-Dist: gunicorn>=23.0.0,<24.0 ; extra == 'proxy'
 Requires-Dist: uvicorn>=0.33.0,<1.0 ; extra == 'proxy'
 Requires-Dist: granian>=2.7.4,<3.0 ; python_full_version < '3.15' and extra == 'proxy'
@@ -77,8 +78,8 @@ Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=2.3.0,<3 ; extra == 'proxy'
 Requires-Dist: httpx2>=2.10.0,<3 ; extra == 'proxy'
 Requires-Dist: pydantic>=2.12.0,<3 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.113 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.82 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.114.post1 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.83.post1 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.5,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
@@ -88,6 +89,7 @@ Requires-Dist: soundfile>=0.12.1,<1.0 ; extra == 'proxy'
 Requires-Dist: pyroscope-io>=0.8.16,<1.0 ; sys_platform != 'win32' and extra == 'proxy'
 Requires-Dist: expression>=5.6.0,<6.0 ; extra == 'proxy'
 Requires-Dist: backports-zstd>=1.0.0,<2.0 ; python_full_version < '3.14' and extra == 'proxy'
+Requires-Dist: semver>=3.0.4,<4 ; extra == 'proxy'
 Requires-Dist: google-cloud-aiplatform>=1.133.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: google-cloud-speech>=2.40.0,<3.0 ; extra == 'proxy-runtime'
 Requires-Dist: google-genai>=1.37.0,<2.0 ; extra == 'proxy-runtime'
@@ -95,10 +97,10 @@ Requires-Dist: anthropic[vertex]>=0.84.0,<1.0 ; extra == 'proxy-runtime'
 Requires-Dist: grpcio==1.84.1 ; extra == 'proxy-runtime'
 Requires-Dist: prometheus-client>=0.20.0,<1.0 ; extra == 'proxy-runtime'
 Requires-Dist: langfuse>=4.7,<5.0 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-api==1.45.1 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-sdk==1.45.1 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-exporter-otlp==1.45.1 ; extra == 'proxy-runtime'
-Requires-Dist: opentelemetry-instrumentation-fastapi==0.66b1 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-api==1.45.2 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-sdk==1.45.2 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-exporter-otlp==1.45.2 ; extra == 'proxy-runtime'
+Requires-Dist: opentelemetry-instrumentation-fastapi==0.66b2 ; extra == 'proxy-runtime'
 Requires-Dist: ddtrace>=4.8.2,<5.0 ; extra == 'proxy-runtime'
 Requires-Dist: sentry-sdk>=2.21.0,<3.0 ; extra == 'proxy-runtime'
 Requires-Dist: mangum>=0.17.0,<1.0 ; extra == 'proxy-runtime'
@@ -110,11 +112,13 @@ Requires-Dist: detect-secrets>=1.5.0,<2.0 ; extra == 'proxy-runtime'
 Requires-Dist: python3-saml>=1.16.0,<2.0 ; extra == 'saml'
 Requires-Dist: semantic-router>=0.1.15,<1.0 ; python_full_version < '3.14' and extra == 'semantic-router'
 Requires-Dist: aurelio-sdk>=0.0.19,<1.0 ; python_full_version < '3.14' and extra == 'semantic-router'
-Requires-Dist: nvidia-riva-client>=2.15.0 ; extra == 'stt-nvidia-riva'
+Requires-Dist: grpcio>=1.67.1,<2.0 ; extra == 'stt-nvidia-riva'
+Requires-Dist: protobuf>=5.26.1,<7.0 ; extra == 'stt-nvidia-riva'
 Requires-Dist: soundfile>=0.12.1 ; extra == 'stt-nvidia-riva'
 Requires-Dist: audioread>=3.0.1 ; extra == 'stt-nvidia-riva'
 Requires-Dist: numpy>=1.26.0 ; extra == 'stt-nvidia-riva'
 Requires-Dist: google-cloud-speech>=2.40.0,<3.0 ; extra == 'stt-vertex-chirp'
+Requires-Dist: nemo-switchyard==0.4.0a1 ; extra == 'switchyard'
 Requires-Dist: numpydoc>=1.8.0,<2.0 ; extra == 'utils'
 Provides-Extra: bedrock-realtime
 Provides-Extra: cli
@@ -129,6 +133,7 @@ Provides-Extra: saml
 Provides-Extra: semantic-router
 Provides-Extra: stt-nvidia-riva
 Provides-Extra: stt-vertex-chirp
+Provides-Extra: switchyard
 Provides-Extra: utils
 License-File: LICENSE
 Summary: Library to easily interface with LLM API providers
@@ -540,6 +545,7 @@ Set `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` and every model call th
 | [Deepseek (`deepseek`)](https://docs.litellm.ai/docs/providers/deepseek) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Eden AI (`edenai`)](https://docs.litellm.ai/docs/providers/edenai) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |  |  |  |
 | [ElevenLabs (`elevenlabs`)](https://docs.litellm.ai/docs/providers/elevenlabs) | ✅ | ✅ | ✅ |  |  | ✅ | ✅ |  |  |  |
+| [EmpirioLabs AI (`empiriolabs`)](https://docs.litellm.ai/docs/providers/empiriolabs) | ✅ |  | ✅ |  |  |  |  |  |  |  |
 | [Empower (`empower`)](https://docs.litellm.ai/docs/providers/empower) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [eu/jev Decisions API (`eu_jev`)](https://docs.litellm.ai/docs/pass_through/eu_jev) |  |  |  |  |  |  |  |  |  |  |
 | [Fal AI (`fal_ai`)](https://docs.litellm.ai/docs/providers/fal_ai) | ✅ | ✅ | ✅ |  | ✅ |  |  |  |  |  |
@@ -586,6 +592,7 @@ Set `LITELLM_PROXY_API_BASE` and `LITELLM_PROXY_API_KEY` and every model call th
 | [OpenAI-like (`openai_like`)](https://docs.litellm.ai/docs/providers/openai_compatible) |  |  |  | ✅ |  |  |  |  |  |  |
 | [OpenRouter (`openrouter`)](https://docs.litellm.ai/docs/providers/openrouter) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [OVHCloud AI Endpoints (`ovhcloud`)](https://docs.litellm.ai/docs/providers/ovhcloud) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
+| [Parallel AI (`parallel_ai`)](https://docs.litellm.ai/docs/search/parallel_ai) |  |  |  |  |  |  |  |  |  |  |
 | [Perplexity AI (`perplexity`)](https://docs.litellm.ai/docs/providers/perplexity) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Petals (`petals`)](https://docs.litellm.ai/docs/providers/petals) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |
 | [Pinstripes (`pinstripes`)](https://docs.litellm.ai/docs/providers/pinstripes) | ✅ | ✅ | ✅ |  |  |  |  |  |  |  |

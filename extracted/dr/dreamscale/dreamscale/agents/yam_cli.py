@@ -3,7 +3,7 @@
 from decimal import Decimal
 from uuid import uuid4
 
-from dreamscale_transport.llm import SessionRequest
+from dreamscale_core.llm import SessionRequest
 
 from dreamscale.config import API_KEY_ENV, LEGACY_API_KEY_ENV, dreamscale_home, env_with_legacy
 from dreamscale.config import load_config as account_config

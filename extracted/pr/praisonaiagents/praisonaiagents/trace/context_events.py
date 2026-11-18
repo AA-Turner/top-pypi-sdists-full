@@ -176,6 +176,7 @@ def _run_scope(run_id: Optional[str] = None) -> Generator[str, None, None]:
         except ValueError:
             # Exited from a different context than it was entered in.
             _run_id_var.set(None)
+run_scope = _run_scope  # public name for other PraisonAI packages (G-22); the private name stays
 
 
 @contextmanager
@@ -752,11 +753,18 @@ class ContextTraceEmitter:
             return False
         return mark[1] == _innermost(_span_var.get(), self._uid)
     
+    def _redact_text(self, text: str) -> str:
+        """Redact free text; skipped for ContextNoOpSink (nothing is stored)."""
+        if not self._redact or type(self._sink) is ContextNoOpSink:
+            return text
+        from .redact import redact_string
+        return redact_string(text)
+
     def _redact_dict(self, data: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         """Redact sensitive data from dictionary if enabled."""
-        if data is None or not self._redact:
+        if data is None or not self._redact or type(self._sink) is ContextNoOpSink:
             return data
-        
+
         from .redact import redact_dict
         return redact_dict(data)
     
@@ -828,6 +836,8 @@ class ContextTraceEmitter:
         """Emit message added event."""
         if not self._enabled:
             return
+        if isinstance(content, str):
+            content = self._redact_text(content)
         # Truncate long content for storage
         truncated_content = content[:1000] + "..." if len(content) > 1000 else content
         
@@ -888,6 +898,10 @@ class ContextTraceEmitter:
         if not self._enabled:
             return
         # Smart truncate long results unless full_content is enabled
+        if isinstance(result, str):
+            result = self._redact_text(result)
+        if isinstance(error, str):
+            error = self._redact_text(error)
         truncated_result = None
         if result:
             if self._full_content:

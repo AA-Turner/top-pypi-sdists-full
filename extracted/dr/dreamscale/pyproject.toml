@@ -1,6 +1,6 @@
 [project]
 name = "dreamscale"
-version = "0.1.0a340"
+version = "0.1.0a354"
 description = "Cloud robot policy inference — one function call."
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
@@ -21,7 +21,8 @@ classifiers = [
 ]
 keywords = ["robotics", "physical-ai", "inference", "vla"]
 dependencies = [
-  "dreamscale-transport==0.1.1a152",
+  "dreamscale-core==0.1.0a7",
+  "dreamscale-transport==0.1.1a162",
   "httpx>=0.27,<1",
   "typer>=0.12,<0.26",
   # Click 8.5 resets argument help set by Typer <=0.25.1. Keep the CLI's
@@ -62,30 +63,6 @@ xarm7 = ["xarm-python-sdk==1.18.4", "scipy>=1.11,<2"]
 train = ["pyarrow>=15,<26"]
 # Dreamscale's PyPI build of the qualified I2RT YAM arm driver (upstream v1.3.6).
 yam = ["dreamscale-i2rt==1.3.6.post1"]
-dreamzero = [
-  # One pin for every supported Python. 15.0.0 was the version DreamZero-YAM's
-  # H.264 serving was qualified against, but it publishes no cp314 wheel, so on
-  # 3.14 it is a source build of PyAV that fails without FFmpeg headers.
-  #
-  # Measured before moving: the worker still decodes with 15.0.0, and reading a
-  # stream this encoder produces scores 32.42 dB against the source versus 32.43
-  # dB for a 15.0.0-encoded stream -- a 0.01 dB difference, against roughly 32 dB
-  # of H.264 loss the model already tolerates. The encoder pins every
-  # rate-control and GOP option explicitly, so the build is not choosing them.
-  # One specification for every supported Python. An exact pin is not available
-  # here: this workspace also builds the worker, which pins av==15.0.0, and two
-  # exact pins on one dependency cannot both hold.
-  #
-  # A range resolves both. Users get the newest wheel, 18.1.0 today, which is
-  # what 3.14 needs since 15.0.0 publishes no cp314 wheel. In-repo the worker's
-  # exact pin wins, so our own tests keep exercising the encoder/decoder pairing
-  # that is actually deployed.
-  #
-  # Measured before widening: H.264 decode is bit-exact across both builds, and
-  # the worker reads an 18.1.0-encoded stream at 32.42 dB against the source
-  # versus 32.43 dB for its own, so the model's input is unchanged.
-  "av>=15,<19",
-]
 so101 = [
   "lerobot[feetech]==0.6.1",
 ]

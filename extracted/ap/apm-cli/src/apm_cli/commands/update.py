@@ -32,7 +32,7 @@ Flags
 * ``--verbose``/``-v`` -- show unchanged deps in the plan and pipeline
   diagnostics.
 * ``--global``/``-g`` -- refresh user-scope dependencies under
-  ``~/.apm/`` instead of the current project (mirrors
+  ``$APM_HOME`` (default ``~/.apm``) instead of the current project (mirrors
   ``apm install -g``).
 * ``[PACKAGES]...`` -- positional names to refresh only those
   dependencies; omit to refresh everything.
@@ -82,9 +82,15 @@ from ..install.errors import (
     RequiredIntegrationError,
 )
 from ..install.locking import serialized_lifecycle
+from ..install.lsp.integration import LspPreflight
 from ..install.plan import UpdatePlan, render_plan_text
 from ..utils.console import _rich_echo, _rich_error, _rich_info, _rich_success, _rich_warning
-from ._helpers import UnknownPackageError, _find_apm_yml, resolve_requested_packages
+from ._helpers import (
+    UnknownPackageError,
+    _find_apm_yml,
+    resolve_requested_packages,
+    trust_transitive_mcp_option,
+)
 
 if TYPE_CHECKING:
     from ..core.command_logger import CommandLogger
@@ -235,6 +241,7 @@ def _run_mcp_lsp_integration(
     effective_allow_executables: dict[str, dict[str, bool]] | None = None,
     effective_allow_resolved: bool = False,
     force: bool = False,
+    trust_transitive_mcp: bool = False,
 ) -> None:
     """Reconcile MCP and LSP servers against the current apm.yml.
 
@@ -247,6 +254,7 @@ def _run_mcp_lsp_integration(
     """
     from apm_cli.core.scope import InstallScope, get_modules_dir
     from apm_cli.install.lsp import run_lsp_integration
+    from apm_cli.install.lsp.integration import lsp_target_config, prepare_lsp_integration
     from apm_cli.install.mcp import run_mcp_integration
     from apm_cli.models.apm_package import APMPackage, clear_apm_yml_cache
     from apm_cli.policy.install_preflight import PolicyBlockError
@@ -264,17 +272,29 @@ def _run_mcp_lsp_integration(
         old_mcp_configs = dict(existing_lock.mcp_configs)
         old_mcp_provenance = dict(existing_lock.mcp_config_provenance)
         old_mcp_target_servers = dict(existing_lock.mcp_target_servers)
-    trusted_transitive_configs = {
-        name: (old_mcp_provenance[name], config)
-        for name, config in old_mcp_configs.items()
-        if name in old_mcp_provenance and config.get("registry") is False
-    }
 
     apm_modules_path = get_modules_dir(scope)
     user_scope = scope is InstallScope.USER
+    # Declared LSP without a capable target fails before any MCP write (#3727).
+    apm_config = lsp_target_config(apm_package)
+    prepared_lsp = prepare_lsp_integration(
+        apm_package=apm_package,
+        apm_modules_path=apm_modules_path,
+        lock_path=lock_path,
+        project_root=project_root,
+        should_install=True,
+        logger=logger,
+        existing_lock=existing_lock,
+        user_scope=user_scope,
+        target_context=(apm_config, effective_target, scope),
+        target_decision=target_decision,
+        diagnostics=diagnostics,
+        executable_context=(effective_allow_executables, effective_allow_resolved),
+    )
+    prepared_lsp.require_capable_target()
 
     try:
-        _mcp_count, mcp_apm_config = run_mcp_integration(
+        _mcp_count, _mcp_apm_config = run_mcp_integration(
             apm_package=apm_package,
             mcp_deps=apm_package.get_all_mcp_dependencies(),
             apm_modules_path=apm_modules_path,
@@ -283,7 +303,7 @@ def _run_mcp_lsp_integration(
             old_mcp_configs=old_mcp_configs,
             old_mcp_provenance=old_mcp_provenance,
             old_mcp_target_servers=old_mcp_target_servers,
-            trusted_transitive_configs=trusted_transitive_configs,
+            trust_transitive_mcp=trust_transitive_mcp,
             project_root=project_root,
             user_scope=user_scope,
             should_install=True,
@@ -293,6 +313,7 @@ def _run_mcp_lsp_integration(
             explicit_target=effective_target,
             target_decision=target_decision,
             scope=scope,
+            executable_context=(effective_allow_executables, effective_allow_resolved),
         )
     except PolicyBlockError:
         logger.error(
@@ -312,12 +333,13 @@ def _run_mcp_lsp_integration(
         should_install=True,
         logger=logger,
         diagnostics=diagnostics,
-        target_context=(mcp_apm_config, effective_target, scope),
+        target_context=(apm_config, effective_target, scope),
         target_decision=target_decision,
         fail_on_write_error=True,
         effective_allow_executables=effective_allow_executables,
         effective_allow_resolved=effective_allow_resolved,
         force=force,
+        prepared=prepared_lsp,
     )
 
 
@@ -330,6 +352,7 @@ def _handle_service_only_update(
     logger: InstallLogger,
     verbose: bool,
     force: bool,
+    trust_transitive_mcp: bool = False,
 ) -> bool:
     """Reconcile service-only manifests and return whether update is complete."""
     if apm_package.has_any_apm_dependencies():
@@ -372,6 +395,7 @@ def _handle_service_only_update(
             logger=logger,
             verbose=verbose,
             force=force,
+            trust_transitive_mcp=trust_transitive_mcp,
         )
     except RequiredIntegrationError as exc:
         logger.error(str(exc))
@@ -413,7 +437,7 @@ def _handle_service_only_update(
     "global_",
     is_flag=True,
     default=False,
-    help="Refresh user-scope dependencies (~/.apm/) instead of the current project",
+    help="Refresh dependencies in the APM user home instead of the current project",
 )
 @click.option(
     "--force",
@@ -451,6 +475,7 @@ def _handle_service_only_update(
         "(--target > apm.yml targets: > apm config set target ... > auto-detect)."
     ),
 )
+@trust_transitive_mcp_option
 @click.pass_context
 @serialized_lifecycle
 def update(
@@ -464,6 +489,7 @@ def update(
     parallel_downloads: int,
     check_only: bool,
     target: str | list[str] | None,
+    trust_transitive_mcp: bool,
 ) -> None:
     """Refresh APM dependencies to the latest matching refs.
 
@@ -477,13 +503,14 @@ def update(
     from apm_cli.core.scope import InstallScope, get_apm_dir
 
     if global_:
-        # User scope: operate on ~/.apm/apm.yml. The cwd manifest walk and
+        # User scope: operate on $APM_HOME/apm.yml. The cwd manifest walk and
         # the self-update back-compat shim apply only to project scope.
         scope = InstallScope.USER
         manifest_path = get_apm_dir(scope) / "apm.yml"
         if not manifest_path.is_file():
             _rich_error(
-                "No apm.yml found in ~/.apm/. Run 'apm install -g <org/repo>' to create one."
+                f"No apm.yml found in {manifest_path.parent}. "
+                "Run 'apm install -g <org/repo>' to create one."
             )
             sys.exit(1)
         if check_only:
@@ -552,6 +579,7 @@ def update(
         packages=packages,
         force=force,
         parallel_downloads=parallel_downloads,
+        trust_transitive_mcp=trust_transitive_mcp,
     )
 
 
@@ -566,6 +594,7 @@ def _run_dep_update(
     packages: tuple[str, ...] = (),
     force: bool = False,
     parallel_downloads: int = 4,
+    trust_transitive_mcp: bool = False,
 ) -> None:
     """Serialize update with every other mutation of the same workspace."""
     from apm_cli.core.scope import InstallScope
@@ -581,6 +610,7 @@ def _run_dep_update(
         packages=packages,
         force=force,
         parallel_downloads=parallel_downloads,
+        trust_transitive_mcp=trust_transitive_mcp,
     )
 
 
@@ -595,6 +625,7 @@ def _run_dep_update_locked(
     packages: tuple[str, ...] = (),
     force: bool = False,
     parallel_downloads: int = 4,
+    trust_transitive_mcp: bool = False,
 ) -> None:
     """Core ``apm update`` flow: resolve, plan, prompt, install.
 
@@ -650,6 +681,7 @@ def _run_dep_update_locked(
         logger=logger,
         verbose=verbose,
         force=force,
+        trust_transitive_mcp=trust_transitive_mcp,
     ):
         return
 
@@ -811,6 +843,7 @@ def _run_dep_update_locked(
             logger=logger,
             plan_callback=_plan_callback,
             target=target,
+            lsp_preflight=LspPreflight(),
         )
     except FrozenInstallError as e:
         _rich_error(str(e))
@@ -827,7 +860,7 @@ def _run_dep_update_locked(
             _rich_echo(e.diagnostic_context)
         _rich_info("Tip: run 'apm doctor' to diagnose auth and connectivity.", symbol="info")
         sys.exit(1)
-    except (DirectDependencyError, PolicyViolationError) as e:
+    except (DirectDependencyError, PolicyViolationError, RequiredIntegrationError) as e:
         _rich_error(str(e))
         sys.exit(1)
     except click.UsageError:
@@ -886,6 +919,7 @@ def _run_dep_update_locked(
                 effective_allow_executables=getattr(result, "exec_allow_map", None),
                 effective_allow_resolved=getattr(result, "exec_allow_resolved", False),
                 force=force,
+                trust_transitive_mcp=trust_transitive_mcp,
             )
         except RequiredIntegrationError as e:
             logger.error(str(e))
@@ -957,9 +991,8 @@ def _fire_update_scripts(
 
     with contextlib.suppress(Exception):
         from apm_cli.core.lifecycle_scripts import (
-            LifecycleEvent,
-            PackageInfo,
             build_runner_from_context,
+            event_for_dependencies,
         )
 
         project_root = None
@@ -973,15 +1006,10 @@ def _fire_update_scripts(
             project_root=project_root,
         )
 
-        pkg_infos = []
-        for dep in apm_package.get_apm_dependencies():
-            pkg_infos.append(PackageInfo(name=dep.repo_url or str(dep), reference=dep.reference))
-
-        scope_name = scope.value if hasattr(scope, "value") else str(scope)
-        event = LifecycleEvent.create(
-            event=event_name,
-            packages=pkg_infos,
-            scope=scope_name,
+        event = event_for_dependencies(
+            event_name,
+            apm_package.get_apm_dependencies(),
+            scope=scope.value if hasattr(scope, "value") else str(scope),
             working_directory=project_root,
         )
 

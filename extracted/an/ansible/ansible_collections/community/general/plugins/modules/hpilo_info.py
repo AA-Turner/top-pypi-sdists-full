@@ -171,7 +171,7 @@ def main():
     host = module.params["host"]
     login = module.params["login"]
     password = module.params["password"]
-    ssl_version = getattr(hpilo.ssl, f"PROTOCOL_{module.params.get('ssl_version').upper().replace('V', 'v')}")
+    ssl_version = getattr(hpilo.ssl, f"PROTOCOL_{module.params['ssl_version'].upper().replace('V', 'v')}")
 
     ilo = hpilo.Ilo(host, login=login, password=password, ssl_version=ssl_version)
 
@@ -232,10 +232,11 @@ def main():
     if memory_details_summary:
         info["hw_memory_details_summary"] = memory_details_summary
         info["hw_memory_total"] = 0
+        memory_size_re = re.compile(r"(\d+)\s+(\w+)")
         for details in memory_details_summary.values():
             cpu_total_memory_size = details.get("total_memory_size")
             if cpu_total_memory_size:
-                ram = re.search(r"(\d+)\s+(\w+)", cpu_total_memory_size)
+                ram = memory_size_re.search(cpu_total_memory_size)
                 if ram:
                     if ram.group(2) == "GB":
                         info["hw_memory_total"] = info["hw_memory_total"] + int(ram.group(1))

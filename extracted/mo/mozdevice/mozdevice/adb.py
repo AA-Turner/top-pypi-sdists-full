@@ -14,12 +14,18 @@ import sys
 import tempfile
 import time
 import traceback
+from shutil import copy2 as shutil_copy2
 from shutil import copytree
 from threading import Thread
 
 from . import version_codes
 
 _TEST_ROOT = None
+
+# Caches the user's response to the clear-app-data confirmation prompt so they
+# are asked at most once per process. None until the user has been prompted,
+# then True (confirmed) or False (declined).
+_CLEAR_APP_DATA_CONFIRMED = None
 
 
 class ADBProcess:
@@ -85,11 +91,7 @@ class ADBProcess:
         # to be independent of the individual failing device.
         arg_string = " ".join(self.args)
         arg_string = re.sub(r" -s [\w-]+", "", arg_string)
-        return "args: {}, exitcode: {}, stdout: {}".format(
-            arg_string,
-            self.exitcode,
-            self.stdout,
-        )
+        return f"args: {arg_string}, exitcode: {self.exitcode}, stdout: {self.stdout}"
 
     def __iter__(self):
         assert self.stdout_file == subprocess.PIPE
@@ -561,8 +563,16 @@ class ADBHost(ADBCommand):
 
         ::
 
-            [{'device_serial': 'b313b945', 'state': 'device', 'product': 'd2vzw',
-              'usb': '1-7', 'device': 'd2vzw', 'model': 'SCH_I535' }]
+            [
+                {
+                    "device_serial": "b313b945",
+                    "state": "device",
+                    "product": "d2vzw",
+                    "usb": "1-7",
+                    "device": "d2vzw",
+                    "model": "SCH_I535",
+                }
+            ]
         """
         # b313b945               device usb:1-7 product:d2vzw model:SCH_I535 device:d2vzw
         # from Android system/core/adb/transport.c statename()
@@ -586,7 +596,7 @@ class ADBHost(ADBCommand):
                         )
                     except ValueError:
                         self._logger.warning(
-                            "devices: Unable to parse " "remainder for device %s" % line
+                            "devices: Unable to parse remainder for device %s" % line
                         )
                 devices.append(device)
         for device in devices:
@@ -642,9 +652,9 @@ def ADBDeviceFactory(
         # already created an ADBDevice which means we must only have
         # one device connected and we can re-use the existing ADBDevice.
         devices = list(ADBDEVICES.keys())
-        assert (
-            len(devices) == 1
-        ), "Only one device may be connected if the device serial number is not specified."
+        assert len(devices) == 1, (
+            "Only one device may be connected if the device serial number is not specified."
+        )
         adbdevice = ADBDEVICES[devices[0]]
     elif (
         device is not None
@@ -753,67 +763,65 @@ class ADBDevice(ADBCommand):
     # BUILTINS is used to determine which commands can not be executed
     # via su or run-as. This set of possible builtin commands was
     # obtained from `man builtin` on Linux.
-    BUILTINS = set(
-        [
-            "alias",
-            "bg",
-            "bind",
-            "break",
-            "builtin",
-            "caller",
-            "cd",
-            "command",
-            "compgen",
-            "complete",
-            "compopt",
-            "continue",
-            "declare",
-            "dirs",
-            "disown",
-            "echo",
-            "enable",
-            "eval",
-            "exec",
-            "exit",
-            "export",
-            "false",
-            "fc",
-            "fg",
-            "getopts",
-            "hash",
-            "help",
-            "history",
-            "jobs",
-            "kill",
-            "let",
-            "local",
-            "logout",
-            "mapfile",
-            "popd",
-            "printf",
-            "pushd",
-            "pwd",
-            "read",
-            "readonly",
-            "return",
-            "set",
-            "shift",
-            "shopt",
-            "source",
-            "suspend",
-            "test",
-            "times",
-            "trap",
-            "true",
-            "type",
-            "typeset",
-            "ulimit",
-            "umask",
-            "unalias",
-            "unset",
-            "wait",
-        ]
-    )
+    BUILTINS = set([
+        "alias",
+        "bg",
+        "bind",
+        "break",
+        "builtin",
+        "caller",
+        "cd",
+        "command",
+        "compgen",
+        "complete",
+        "compopt",
+        "continue",
+        "declare",
+        "dirs",
+        "disown",
+        "echo",
+        "enable",
+        "eval",
+        "exec",
+        "exit",
+        "export",
+        "false",
+        "fc",
+        "fg",
+        "getopts",
+        "hash",
+        "help",
+        "history",
+        "jobs",
+        "kill",
+        "let",
+        "local",
+        "logout",
+        "mapfile",
+        "popd",
+        "printf",
+        "pushd",
+        "pwd",
+        "read",
+        "readonly",
+        "return",
+        "set",
+        "shift",
+        "shopt",
+        "source",
+        "suspend",
+        "test",
+        "times",
+        "trap",
+        "true",
+        "type",
+        "typeset",
+        "ulimit",
+        "umask",
+        "unalias",
+        "unset",
+        "wait",
+    ])
 
     def __init__(
         self,
@@ -1128,6 +1136,8 @@ class ADBDevice(ADBCommand):
         self.run_as_package = run_as_package
 
         self._logger.debug("ADBDevice: %s" % self.__dict__)
+        self.shell("settings put system accelerometer_rotation 0")
+        self.shell("settings put system user_rotation 0")
 
     @property
     def is_rooted(self):
@@ -1162,14 +1172,15 @@ class ADBDevice(ADBCommand):
             devices = ADBHost(
                 adb=self._adb_path, adb_host=self._adb_host, adb_port=self._adb_port
             ).devices()
-            if len(devices) > 1:
+            ready_devices = [d for d in devices if d["state"] == "device"]
+            if len(ready_devices) > 1:
                 raise ValueError(
                     "ADBDevice called with multiple devices "
-                    "attached and no device specified"
+                    "available and no device specified"
                 )
-            if len(devices) == 0:
-                raise ADBError("No connected devices found.")
-            device = devices[0]
+            if len(ready_devices) == 0:
+                raise ADBError("No ready devices found.")
+            device = ready_devices[0]
 
         # Allow : in device serial if it matches a tcpip device serial.
         re_device_serial_tcpip = re.compile(r"[^:]+:[0-9]+$")
@@ -1331,7 +1342,7 @@ class ADBDevice(ADBCommand):
             char = file_obj.read(1).decode()
             if not char:
                 break
-            if char != "\r" and char != "\n":
+            if char not in {"\r", "\n"}:
                 line = char + line
             elif line:
                 # we have collected everything up to the beginning of the line
@@ -1531,6 +1542,43 @@ class ADBDevice(ADBCommand):
         return self._run_as_package is not None and path.startswith(self.package_dir)
 
     @property
+    def _host_gcov_prefix(self):
+        return os.getenv("GCOV_PREFIX")
+
+    @property
+    def _target_gcov_prefix_strip(self):
+        return os.getenv("GCOV_PREFIX_STRIP")
+
+    @property
+    def _host_jscov_prefix(self):
+        return os.getenv("JS_CODE_COVERAGE_OUTPUT_DIR")
+
+    @property
+    def _target_gcov_prefix(self):
+        if self._host_gcov_prefix is None or self._test_root is None:
+            return None
+        return posixpath.join(self._test_root, os.path.basename(self._host_gcov_prefix))
+
+    @property
+    def _target_jscov_prefix(self):
+        if self._host_jscov_prefix is None or self._test_root is None:
+            return None
+        return posixpath.join(
+            self._test_root, os.path.basename(self._host_jscov_prefix)
+        )
+
+    @property
+    def target_ccov_env(self):
+        env = {}
+        if self._target_gcov_prefix is not None:
+            env["GCOV_PREFIX"] = self._target_gcov_prefix
+        if self._target_gcov_prefix_strip is not None:
+            env["GCOV_PREFIX_STRIP"] = self._target_gcov_prefix_strip
+        if self._target_jscov_prefix is not None:
+            env["JS_CODE_COVERAGE_OUTPUT_DIR"] = self._target_jscov_prefix
+        return env
+
+    @property
     def test_root(self):
         """
         The test_root property returns the directory on the device where
@@ -1600,13 +1648,11 @@ class ADBDevice(ADBCommand):
             if not self.is_rooted:
                 # Note that /sdcard may be accessible while
                 # /mnt/sdcard is not.
-                paths.extend(
-                    [
-                        "/sdcard/test_root",
-                        "/storage/sdcard/test_root",
-                        "/mnt/sdcard/test_root",
-                    ]
-                )
+                paths.extend([
+                    "/sdcard/test_root",
+                    "/storage/sdcard/test_root",
+                    "/mnt/sdcard/test_root",
+                ])
 
         return self._try_test_root_candidates(paths)
 
@@ -2032,6 +2078,10 @@ class ADBDevice(ADBCommand):
             cmd = f"run-as {self._run_as_package} {cmd}"
         else:
             pass
+
+        if env is None:
+            env = {}
+        env.update(self.target_ccov_env)
 
         # prepend cwd and env to command if necessary
         if cwd:
@@ -2559,7 +2609,7 @@ class ADBDevice(ADBCommand):
             tmpf = tempfile.NamedTemporaryFile(mode="w", delete=False)
             tmpf.write("\n".join(commands))
             tmpf.close()
-            script = f"/sdcard/{os.path.basename(tmpf.name)}"
+            script = posixpath.join("/data/local/tmp", os.path.basename(tmpf.name))
             self.push(tmpf.name, script)
             self.shell_output(
                 f"sh {script}", enable_run_as=enable_run_as, timeout=timeout
@@ -3009,7 +3059,28 @@ class ADBDevice(ADBCommand):
             temp_parent = tempfile.mkdtemp()
             remote_name = os.path.basename(remote)
             new_local = os.path.join(temp_parent, remote_name)
-            copytree(local, new_local)
+
+            # The build system puts the tests in objdir, as symlinks pointing
+            # to the actual file in the source tree. When the symlink target is
+            # removed (e.g. by updating the checkout), the symlink itself is
+            # not removed by `./mach build`. By default, shutil.copytree tries
+            # to read symlinks and raises an error in this case (bug 1950855).
+            # Ignore dangling symlinks to avoid this issue.
+            #
+            # shutil.copytree's ignore_dangling_symlinks=True should be used,
+            # but https://bugzilla.mozilla.org/show_bug.cgi?id=1950855#c1 shows
+            # that it is buggy. As an alternative, customize copy_function:
+            def copy_ignore_broken_link(src, dst):
+                try:
+                    return shutil_copy2(src, dst)
+                except OSError as e:
+                    if e.errno == 2 and os.path.islink(src):
+                        self._logger.debug("Ignoring broken symlink: %s" % src)
+                    else:
+                        raise e
+
+            copytree(local, new_local, copy_function=copy_ignore_broken_link)
+
             local = new_local
             # See do_sync_push in
             # https://android.googlesource.com/platform/system/core/+/master/adb/file_sync_client.cpp
@@ -3052,9 +3123,7 @@ class ADBDevice(ADBCommand):
             if "remote secure_mkdirs failed" not in str(e):
                 raise
             self._logger.warning(
-                "remote secure_mkdirs failed push('{}', '{}') {}".format(
-                    local, remote, str(e)
-                )
+                f"remote secure_mkdirs failed push('{local}', '{remote}') {str(e)}"
             )
             # Work around change in Android where push creates
             # directories which can not be written by "other" by first
@@ -3164,6 +3233,32 @@ class ADBDevice(ADBCommand):
             if copy_required:
                 copytree(local, original_local, dirs_exist_ok=True)
                 shutil.rmtree(temp_parent)
+
+    def pull_ccov(self):
+        self._logger.info("Trying to pull code coverage data.")
+
+        if self._target_gcov_prefix is not None and self._host_gcov_prefix is not None:
+            self._logger.info(
+                f"Pulling gcov data from {self._target_gcov_prefix} to {self._host_gcov_prefix}."
+            )
+            try:
+                self.pull(self._target_gcov_prefix, self._host_gcov_prefix)
+            except ADBError as e:
+                self._logger.warning(f"Unable to pull gcov artifacts due to {e}.")
+
+        if (
+            self._target_jscov_prefix is not None
+            and self._host_jscov_prefix is not None
+        ):
+            self._logger.info(
+                f"Pulling js coverage data from {self._target_jscov_prefix} to {self._host_jscov_prefix}."
+            )
+            try:
+                self.pull(self._target_jscov_prefix, self._host_jscov_prefix)
+            except ADBError as e:
+                self._logger.warning(
+                    f"Unable to pull js coverage artifacts due to {e}."
+                )
 
     def get_file(self, remote, offset=None, length=None, timeout=None):
         """Pull file from device and return the file's content
@@ -3366,9 +3461,9 @@ class ADBDevice(ADBCommand):
                 if "No such process" not in str(e):
                     raise
             pid_set = set(pid_list)
-            current_pid_set = set(
-                [str(proc[0]) for proc in self.get_process_list(timeout=timeout)]
-            )
+            current_pid_set = set([
+                str(proc[0]) for proc in self.get_process_list(timeout=timeout)
+            ])
             pid_list = list(pid_set.intersection(current_pid_set))
             if not pid_list:
                 break
@@ -3664,9 +3759,9 @@ class ADBDevice(ADBCommand):
             if uptime:
                 m = re.match(r"up time: ((\d+) days, )*(\d{2}):(\d{2}):(\d{2})", uptime)
                 if m:
-                    uptime = "%d days %d hours %d minutes %d seconds" % tuple(
-                        [int(g or 0) for g in m.groups()[1:]]
-                    )
+                    uptime = "%d days %d hours %d minutes %d seconds" % tuple([
+                        int(g or 0) for g in m.groups()[1:]
+                    ])
                 info["uptime"] = uptime
         return info
 
@@ -3929,16 +4024,17 @@ class ADBDevice(ADBCommand):
         """
         if self.version >= version_codes.M:
             permissions = [
-                "android.permission.READ_EXTERNAL_STORAGE",
                 "android.permission.ACCESS_COARSE_LOCATION",
                 "android.permission.ACCESS_FINE_LOCATION",
                 "android.permission.CAMERA",
                 "android.permission.RECORD_AUDIO",
             ]
             if self.version < version_codes.R:
-                # WRITE_EXTERNAL_STORAGE is no longer available
-                # in Android 11+
+                # WRITE_EXTERNAL_STORAGE is no longer available in Android 11+
                 permissions.append("android.permission.WRITE_EXTERNAL_STORAGE")
+            if self.version < version_codes.TIRAMISU:
+                # READ_EXTERNAL_STORAGE is no longer available in Android 13+
+                permissions.append("android.permission.READ_EXTERNAL_STORAGE")
             self._logger.info("Granting important runtime permissions to %s" % app_name)
             for permission in permissions:
                 try:
@@ -4076,6 +4172,64 @@ class ADBDevice(ADBCommand):
                 break
         return package_name
 
+    def install_app_baseline_profile(self, apk_path, replace=False, timeout=None):
+        """Installs an app on the device. Utilize profgen to first extract out the
+        .dm profile and use `adb install-multiple` to properly install the apk along
+        with the generated baseline profile.
+
+        :param str apk_path: The apk file name to be installed.
+        :param bool replace: If True, replace existing application.
+        :param int timeout: The maximum time in
+            seconds for any spawned adb process to complete before
+            throwing an ADBTimeoutError.
+            This timeout is per adb call. The total time spent
+            may exceed this value. If it is not specified, the value
+            set in the ADB constructor is used.
+        :return: string - name of installed package.
+        :raises: :exc:`ADBTimeoutError`
+                 :exc:`ADBError`
+        """
+        # dm files will always share the same stem as the apk file.
+        dm_path = apk_path[:-3] + "dm"
+        command = [
+            "profgen",
+            "extractProfile",
+            "--apk",
+            apk_path,
+            "--output-dex-metadata",
+            dm_path,
+            "--profile-format",
+            "V0_1_5_S",
+        ]
+        subprocess.run(command, check=True)
+        dump_packages = "dumpsys package packages"
+        packages_before = set(self.shell_output(dump_packages, attempts=3).split("\n"))
+        cmd = ["install-multiple"]
+        if replace:
+            cmd.append("-r")
+        cmd.append(apk_path)
+        cmd.append(dm_path)
+        data = self.command_output(cmd, timeout=timeout)
+        if data.find("Success") == -1:
+            raise ADBError(f"install failed for {apk_path}. Got: {data}")
+        packages_after = set(self.shell_output(dump_packages, attempts=3).split("\n"))
+        packages_diff = packages_after - packages_before
+        package_name = None
+        re_pkg = re.compile(r"\s+pkg=Package{[^ ]+ (.*)}")
+        for diff in packages_diff:
+            match = re_pkg.match(diff)
+            if match:
+                package_name = match.group(1)
+                break
+        output = self.shell_output(f"dumpsys package dexopt | grep -A 1 {package_name}")
+        print(output)
+        if "status=speed-profile" not in output:
+            raise Exception(
+                f"{package_name} did not install the baseline profile correctly"
+            )
+
+        return package_name
+
     def is_app_installed(self, app_name, timeout=None):
         """Returns True if an app is installed on the device.
 
@@ -4141,9 +4295,7 @@ class ADBDevice(ADBCommand):
         # starting a new instance may not be what we want depending on what
         # we want to do
         if fail_if_running and self.process_exist(app_name, timeout=timeout):
-            raise ADBError(
-                "Only one instance of an application may be running " "at once"
-            )
+            raise ADBError("Only one instance of an application may be running at once")
 
         if grant_runtime_permissions:
             self.grant_runtime_permissions(app_name)
@@ -4151,12 +4303,10 @@ class ADBDevice(ADBCommand):
         acmd = ["am"] + ["startservice" if is_service else "start"]
         if wait:
             acmd.extend(["-W"])
-        acmd.extend(
-            [
-                "-n",
-                f"{app_name}/{activity_name}",
-            ]
-        )
+        acmd.extend([
+            "-n",
+            f"{app_name}/{activity_name}",
+        ])
         if intent:
             acmd.extend(["-a", intent])
 
@@ -4220,6 +4370,10 @@ class ADBDevice(ADBCommand):
                  :exc:`ADBError`
         """
         extras = {}
+
+        if moz_env is None:
+            moz_env = {}
+        moz_env.update(self.target_ccov_env)
 
         if moz_env:
             # moz_env is expected to be a dictionary of environment variables:
@@ -4285,6 +4439,10 @@ class ADBDevice(ADBCommand):
                  :exc:`ADBError`
         """
         extras = {}
+
+        if moz_env is None:
+            moz_env = {}
+        moz_env.update(self.target_ccov_env)
 
         if moz_env:
             # moz_env is expected to be a dictionary of environment variables:
@@ -4353,6 +4511,10 @@ class ADBDevice(ADBCommand):
         """
         extras = {}
 
+        if moz_env is None:
+            moz_env = {}
+        moz_env.update(self.target_ccov_env)
+
         if moz_env:
             # moz_env is expected to be a dictionary of environment variables:
             # geckoview_example itself will set them when launched
@@ -4419,6 +4581,45 @@ class ADBDevice(ADBCommand):
                 # racey, but it's the best we can do)
                 time.sleep(1)
 
+    def confirm_clear_app_data(self, app_name):
+        """Confirm with the user that the app's data may be cleared.
+
+        On non-rooted devices the app's data (i.e. profile) must be wiped with
+        `pm clear` since the shell can't remove app-owned files. This prompts
+        the user to confirm that destruction once and caches the response in a
+        module-level global so subsequent callers in the same process reuse it
+        instead of prompting again. The prompt is skipped (returning True) when
+        the device is rooted or when running in CI (MOZ_AUTOMATION is set). The
+        MOZ_ADB_PM_CLEAR_CHECK environment variable, when defined, overrides the
+        prompt: "1" allows clearing the app data and "0" forbids it.
+
+        :param str app_name: The name of the app whose data will be cleared.
+        :return: True if clearing the app data is confirmed, False otherwise.
+        """
+        global _CLEAR_APP_DATA_CONFIRMED  # noqa
+
+        if self.is_rooted or "MOZ_AUTOMATION" in os.environ:
+            return True
+
+        env_check = os.environ.get("MOZ_ADB_PM_CLEAR_CHECK")
+        if env_check is not None:
+            return env_check.strip() == "1"
+
+        if _CLEAR_APP_DATA_CONFIRMED is not None:
+            return _CLEAR_APP_DATA_CONFIRMED
+
+        self._logger.info(
+            f"WARNING: Device is not rooted, and the app data (i.e. profile) for "
+            f"{app_name} will be cleared."
+        )
+        self._logger.info(
+            "Confirm that you understand the full app data for the app will be "
+            "removed. The entire profile of the app will be deleted (Yes/No): "
+        )
+        answer = input().strip().lower()
+        _CLEAR_APP_DATA_CONFIRMED = answer in ("yes", "y")
+        return _CLEAR_APP_DATA_CONFIRMED
+
     def uninstall_app(self, app_name, reboot=False, timeout=None):
         """Uninstalls an app on the device.
 
@@ -4466,3 +4667,21 @@ class ADBDevice(ADBCommand):
         output = self.command_output(cmd, timeout=timeout)
         self.reboot(timeout=timeout)
         return output
+
+    def enable_notifications(self, package_id):
+        """Using pm grant we enable notifications for an app
+
+        :param str package_id: The package_id for the app we are enabling notifications for
+        :raises: :exc:`ADBTimeoutError`
+                 :exc:`ADBError`
+        """
+        self.shell(f"pm grant {package_id} android.permission.POST_NOTIFICATIONS")
+
+    def disable_notifications(self, package_id):
+        """Using pm revoke we disable notifications for an app
+
+        :param str package_id: The package_id for the app we are disabling notifications for
+        :raises: :exc:`ADBTimeoutError`
+                 :exc:`ADBError`
+        """
+        self.shell(f"pm revoke {package_id} android.permission.POST_NOTIFICATIONS")

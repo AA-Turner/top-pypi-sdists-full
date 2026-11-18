@@ -22,3 +22,10 @@ pub(crate) use statsig_url::{
 
 #[cfg(test)]
 mod __tests__;
+
+#[cfg(feature = "reqwest")]
+mod reqwest_client;
+#[cfg(all(feature = "reqwest", not(feature = "custom_network_provider")))]
+pub(crate) use reqwest_client::configured_reqwest_client_builder;
+#[cfg(feature = "reqwest")]
+pub(crate) use reqwest_client::new_reqwest_client_builder;

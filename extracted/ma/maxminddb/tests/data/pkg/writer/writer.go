@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/maxmind/mmdbwriter"
+	"github.com/maxmind/mmdbwriter/v2"
 )
 
 var ipSample = []string{
@@ -47,12 +47,16 @@ func New(source, target string) (*Writer, error) {
 	}, nil
 }
 
-func (w *Writer) write(dbWriter *mmdbwriter.Tree, fileName string) error {
+func (w *Writer) write(dbWriter *mmdbwriter.Tree, fileName string) (retErr error) {
 	outputFile, err := os.Create(filepath.Clean(filepath.Join(w.target, fileName)))
 	if err != nil {
 		return fmt.Errorf("creating mmdb file: %w", err)
 	}
-	defer outputFile.Close()
+	defer func() {
+		if err := outputFile.Close(); err != nil && retErr == nil {
+			retErr = fmt.Errorf("closing mmdb file: %w", err)
+		}
+	}()
 
 	if _, err := dbWriter.WriteTo(outputFile); err != nil {
 		return fmt.Errorf("writing mmdb file: %w", err)

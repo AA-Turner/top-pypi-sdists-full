@@ -7,16 +7,23 @@ from typing import TYPE_CHECKING
 
 from sphinx.util.inspect import signature as sphinx_signature
 
-from .._documented import Entry, render_scope, resolved_type_hints, show_factory_defaults
-from .._objects import (
+from .._documented import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    Entry,
+    render_scope,
+    resolved_type_hints,
+    show_factory_defaults,
+)
+from .._objects import (  # simplint: ignore[private-import-path]  # init cycle
     callable_target,
     constructor_name,
     declared_signature,
     prefix_of,
     property_getter,
 )
-from .._render import as_field_type
-from .._resolve import (
+from .._render import (  # simplint: ignore[private-import-path]  # root API stays unchanged
+    as_field_type,
+)
+from .._resolve import (  # simplint: ignore[private-import-path]  # root API stays unchanged
     OPEN,
     extra_items_type,
     get_body_annotations,
@@ -32,7 +39,8 @@ from .attributes import (
 )
 from .class_parts import docstring_part, has_constructor_docstring
 from .deprecation import inject_deprecation
-from .formats import WRITTEN_BEFORE_NAPOLEON, detect_format
+from .formats.detect import detect_format
+from .formats.napoleon.attributes import WRITTEN_BEFORE_NAPOLEON
 from .object_fields import inject_overloads, inject_override, inject_setter_type, summary_end
 from .parameters import inject_parameters
 from .returns import inject_rtype
@@ -43,7 +51,7 @@ if TYPE_CHECKING:
     from sphinx.application import Sphinx
     from sphinx.ext.autodoc import Options
 
-    from .._types import Documented
+    from . import Documented
 
 
 def process_docstring(
@@ -85,13 +93,13 @@ def process_docstring(
             with render_scope(app, prefix_of(name)):
                 lines.extend(["", f":type: {as_field_type(hint, app.config, kind='attribute')}"])
     else:
-        _type_callable(Entry(app, what, name, obj), documented, options, lines, written)
+        _type_callable(Entry(app=app, what=what, name=name, obj=obj), documented, options, lines, written)
 
 
 # `declared` is the callable before unwrapping, as decorators mark that one
 def _type_callable(
     entry: Entry,
-    declared: Callable[..., object],
+    declared: Callable[..., object],  # simplint: ignore[callable-ellipsis]  # any callable a decorator may have wrapped
     options: Options | None,
     lines: list[str],
     written: frozenset[str] | None,

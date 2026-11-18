@@ -5,8 +5,8 @@ requires = [ "poetry-core>=2.2" ]
 
 [tool.poetry]
 name = "wemake-python-styleguide"
-version = "1.8.1"
-description = "The strictest and most opinionated python linter ever"
+version = "1.9.0"
+description = "The strictest and most opinionated python linter ever!"
 license = "MIT"
 authors = [
   "Nikita Sobolev <mail@sobolevn.me>",
@@ -39,7 +39,8 @@ python = "^3.10"
 attrs = "*"
 flake8 = "^7.3"
 mcp = { version = "^2.0", extras = [ "cli" ], optional = true }
-pygments = "^2.19"
+pygments = ">=2.19"
+typing-extensions = ">=4"
 
 [tool.poetry.group.dev.dependencies]
 astpath = "^0.9"
@@ -48,15 +49,15 @@ hypothesis = "^6.164"
 hypothesmith = "^0.3"
 import-linter = "^2.10"
 lxml = "^6.0"
-mypy = "^2.3"
+mypy = "^2.4"
 nbqa = "^1.2"
-pytest = "^9.1"
+pytest = "^9.2"
 pytest-cov = "^7.0"
 pytest-randomly = ">=4.1,<6.0"
 pytest-xdist = "^3.8"
-ruff = "^0.16"
+ruff = ">=0.17.4,<0.18"
 syrupy = ">=5,<7"
-types-flake8 = "^7.3"
+types-flake8 = "^7.5"
 
 [tool.poetry.group.docs]
 optional = true
@@ -231,9 +232,6 @@ extend-exclude = [
 # The mypy configurations: http://bit.ly/2zEl9WI
 ignore_missing_imports = true
 warn_unreachable = true
-disable_error_code = [
-  "no-untyped-def", # TODO: fix
-]
 enable_error_code = [
   "deprecated",
   "exhaustive-match",

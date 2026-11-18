@@ -647,8 +647,8 @@ impl LocalCdnProvider {
 
 #[async_trait]
 impl crate::networking::NetworkProvider for LocalCdnProvider {
-    fn supports_wire_responses_without_redirects(&self) -> bool {
-        self.delegate.supports_wire_responses_without_redirects()
+    fn supports_response_headers_without_redirects(&self) -> bool {
+        self.delegate.supports_response_headers_without_redirects()
     }
 
     async fn send(&self, method: &crate::networking::HttpMethod, args: &RequestArgs) -> Response {

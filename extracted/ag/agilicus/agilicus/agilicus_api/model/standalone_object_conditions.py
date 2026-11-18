@@ -31,7 +31,9 @@ from agilicus_api.exceptions import ApiAttributeError
 
 
 def lazy_import():
+    from agilicus_api.model.compound_object_condition import CompoundObjectCondition
     from agilicus_api.model.standalone_rule_scope import StandaloneRuleScope
+    globals()['CompoundObjectCondition'] = CompoundObjectCondition
     globals()['StandaloneRuleScope'] = StandaloneRuleScope
 
 
@@ -60,10 +62,22 @@ class StandaloneObjectConditions(ModelNormal):
     """
 
     allowed_values = {
+        ('list_type',): {
+            'CNF': "cnf",
+            'DNF': "dnf",
+        },
     }
 
     validations = {
     }
+
+    @property
+    def list_type(self):
+       return self.get("list_type")
+
+    @list_type.setter
+    def list_type(self, new_value):
+       self.list_type = new_value
 
     @property
     def scopes(self):
@@ -72,6 +86,14 @@ class StandaloneObjectConditions(ModelNormal):
     @scopes.setter
     def scopes(self, new_value):
        self.scopes = new_value
+
+    @property
+    def compound_condition(self):
+       return self.get("compound_condition")
+
+    @compound_condition.setter
+    def compound_condition(self, new_value):
+       self.compound_condition = new_value
 
     @cached_property
     def additional_properties_type():
@@ -96,7 +118,9 @@ class StandaloneObjectConditions(ModelNormal):
         """
         lazy_import()
         return {
+            'list_type': (str,),  # noqa: E501
             'scopes': ([StandaloneRuleScope],),  # noqa: E501
+            'compound_condition': (CompoundObjectCondition,),  # noqa: E501
         }
 
     @cached_property
@@ -106,7 +130,9 @@ class StandaloneObjectConditions(ModelNormal):
 
 
     attribute_map = {
+        'list_type': 'list_type',  # noqa: E501
         'scopes': 'scopes',  # noqa: E501
+        'compound_condition': 'compound_condition',  # noqa: E501
     }
 
     read_only_vars = {
@@ -150,7 +176,9 @@ class StandaloneObjectConditions(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            scopes ([StandaloneRuleScope]): A list of scopes associated with this ruleset . [optional]  # noqa: E501
+            list_type (str): How to combine `scopes` (and `compound_condition` if present): - `cnf`: Conjunctive Normal Form (logical AND: all scopes must match). - `dnf`: Disjunctive Normal Form (logical OR: at least one scope must match). Defaults to `dnf`. . [optional] if omitted the server will use the default value of "dnf"  # noqa: E501
+            scopes ([StandaloneRuleScope]): A list of scopes associated with this ruleset or rule tree. . [optional]  # noqa: E501
+            compound_condition (CompoundObjectCondition): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
@@ -235,7 +263,9 @@ class StandaloneObjectConditions(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            scopes ([StandaloneRuleScope]): A list of scopes associated with this ruleset . [optional]  # noqa: E501
+            list_type (str): How to combine `scopes` (and `compound_condition` if present): - `cnf`: Conjunctive Normal Form (logical AND: all scopes must match). - `dnf`: Disjunctive Normal Form (logical OR: at least one scope must match). Defaults to `dnf`. . [optional] if omitted the server will use the default value of "dnf"  # noqa: E501
+            scopes ([StandaloneRuleScope]): A list of scopes associated with this ruleset or rule tree. . [optional]  # noqa: E501
+            compound_condition (CompoundObjectCondition): [optional]  # noqa: E501
         """
 
         _check_type = kwargs.pop('_check_type', True)
